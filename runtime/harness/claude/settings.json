@@ -1,0 +1,233 @@
+{
+  "_generated": "by yoke_core.domain.agents_render — do not hand-edit. Source: yoke_contracts.hook_runner.hook_ordering + yoke_core.domain.agents_render_hooks.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PreToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PreToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PreToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PreToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Read"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PreToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "ScheduleWakeup"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PreToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "TaskOutput"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PreToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Monitor"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Agent"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Read"
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Read"
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate PermissionRequest'",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate SessionStart'",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate SessionEnd'",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate UserPromptSubmit'",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/zsh -lc 'yoke hook evaluate Stop'",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Write(**)",
+      "Edit(**)",
+      "Read(*)",
+      "Grep(*)",
+      "Glob(*)",
+      "Monitor"
+    ]
+  },
+  "autoMemoryEnabled": false
+}

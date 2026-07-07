@@ -1,0 +1,5 @@
+Skipped adding Yoke to your PATH.
+To add it later, run:
+  ~/.local/bin/yoke path fix
+
+Run yoke onboard to finish setting up your machine & projects.

@@ -1,0 +1,517 @@
+#!/bin/sh
+# Yoke public installer shim. Keep this file POSIX-sh and small: it ensures uv
+# is present, downloads the thin install.py helper, and hands off. uv owns the
+# Python, the isolated tool environment, dependency resolution, and the PATH
+# shim, so this shell layer carries no Python/Node/git/browser prerequisite
+# logic. The consent prompt this file shows is the uv/uvx install prompt, led by
+# a branded welcome banner (figlet + tagline, color when the terminal supports
+# it; a single plain line otherwise). It prefers /dev/tty for `curl ... | bash`;
+# for script-file invocation, piped stdin is safe to use because stdin is not
+# the script body.
+
+set -u
+
+channel="${YOKE_CHANNEL:-}"
+version="${YOKE_VERSION:-}"
+yes="${YOKE_INSTALL_YES:-}"
+dry_run=""
+no_onboard="${YOKE_NO_ONBOARD:-}"
+base_url="${YOKE_INSTALL_BASE_URL:-https://api.upyoke.com}"
+prompt_in_default=0
+prompt_out_default=0
+[ "${YOKE_INSTALL_PROMPT_IN+x}" = x ] || prompt_in_default=1
+[ "${YOKE_INSTALL_PROMPT_OUT+x}" = x ] || prompt_out_default=1
+prompt_in="${YOKE_INSTALL_PROMPT_IN:-/dev/tty}"
+prompt_out="${YOKE_INSTALL_PROMPT_OUT:-/dev/tty}"
+command_stdin="${YOKE_INSTALL_COMMAND_STDIN:-/dev/null}"
+command_shell="${YOKE_INSTALL_COMMAND_SHELL:-/bin/sh}"
+uv_installer_url="${YOKE_UV_INSTALLER_URL:-https://astral.sh/uv/install.sh}"
+onboard_launched=0
+
+# Welcome surface is colorized only when stdout is a real terminal that can show
+# color and the caller has not opted out via NO_COLOR or a dumb TERM. A test
+# harness pins this deterministically with YOKE_INSTALL_FORCE_COLOR=1/0.
+welcome_color=0
+case "${YOKE_INSTALL_FORCE_COLOR:-}" in
+  1) welcome_color=1 ;;
+  0) welcome_color=0 ;;
+  *)
+    if [ -z "${NO_COLOR+x}" ] && [ -t 1 ] && [ "${TERM:-}" != "dumb" ] \
+      && [ -n "${TERM:-}" ]; then
+      welcome_color=1
+    fi
+    ;;
+esac
+
+# Homebrew is preferred for the uv/uvx install on macOS when `brew` is on PATH;
+# otherwise the offer names the official Astral installer. A test harness pins
+# the branch with YOKE_INSTALL_FORCE_BREW=1/0.
+uv_offer_brew=0
+case "${YOKE_INSTALL_FORCE_BREW:-}" in
+  1) uv_offer_brew=1 ;;
+  0) uv_offer_brew=0 ;;
+  *)
+    if [ "$(uname -s 2>/dev/null || printf unknown)" = "Darwin" ] \
+      && command -v brew >/dev/null 2>&1; then
+      uv_offer_brew=1
+    fi
+    ;;
+esac
+
+# uv links its tool shims into ~/.local/bin (or $XDG_BIN_HOME) and installs its
+# own binary into the same place via the Astral installer. Put that ahead of
+# PATH for this process so a freshly installed uv and a freshly linked yoke
+# are both visible without a new shell.
+uv_bin_dir="${XDG_BIN_HOME:-}"
+if [ -z "$uv_bin_dir" ] && [ -n "${HOME:-}" ]; then
+  uv_bin_dir="$HOME/.local/bin"
+fi
+if [ -n "$uv_bin_dir" ]; then
+  PATH="$uv_bin_dir:$PATH"
+  export PATH
+fi
+
+usage() {
+  printf '%s\n' "usage: install [--channel CHANNEL] [--version VERSION] [--yes] [--dry-run] [--no-onboard]"
+}
+
+fail() {
+  printf '%s%s%s\n' "$(gutter)" "$*" "$(sgr_reset)" >&2
+  exit 1
+}
+
+# Semantic ANSI colors mirror the onboard wizard palette (truecolor SGR of each
+# hex token). When color is off, every helper returns the empty string so the
+# same call sites render plain. Kept as functions, not globals, so the welcome
+# code reads as styled text rather than escape soup.
+sgr_reset() { [ "$welcome_color" -eq 1 ] && printf '\033[0m'; }
+c_brand() { [ "$welcome_color" -eq 1 ] && printf '\033[38;2;63;185;80m'; }      # accent #3fb950
+c_bright() { [ "$welcome_color" -eq 1 ] && printf '\033[38;2;86;211;100m'; }    # accent-bright #56d364
+c_dim() { [ "$welcome_color" -eq 1 ] && printf '\033[38;2;125;133;144m'; }      # dim #7d8590
+c_danger() { [ "$welcome_color" -eq 1 ] && printf '\033[38;2;248;81;73m'; }     # danger #f85149
+c_amber() { [ "$welcome_color" -eq 1 ] && printf '\033[38;2;210;153;34m'; }     # amber #d29922
+c_text() { [ "$welcome_color" -eq 1 ] && printf '\033[38;2;230;237;243m'; }     # text #e6edf3
+c_bold() { [ "$welcome_color" -eq 1 ] && printf '\033[1m'; }
+
+plain_glyphs() {
+  case "${YOKE_INSTALL_FORCE_PLAIN:-}" in
+    1) return 0 ;;
+    0) return 1 ;;
+  esac
+  case "${TERM:-}" in
+    screen*) return 0 ;;
+    dumb) return 0 ;;
+  esac
+  [ -n "${STY:-}" ] && return 0
+  return 1
+}
+
+# Amber-sun gutter prefixing every Yoke-emitted status/prompt/error line, so
+# all installer output is unmistakably Yoke's (matches install.py's ☀).
+# Trailing space included; emit it before the line's own (possibly colored) text.
+gutter() {
+  if plain_glyphs; then
+    printf '* '
+  else
+    printf '%s☀%s ' "$(c_amber)" "$(sgr_reset)"
+  fi
+}
+
+tagline="Your operating system for software delivery"
+
+# Branded welcome. Colorized figlet + amber sun + dim tagline when the terminal
+# supports it; a single plain line otherwise (no figlet, no color). The figlet
+# art is hand-authored — printed line by line so backslashes and the lone
+# apostrophe survive POSIX quoting intact.
+print_welcome_banner() {
+  if [ "$welcome_color" -ne 1 ]; then
+    printf '%s\n' "Welcome to Yoke — ${tagline}"
+    return 0
+  fi
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" '   .----.       .----.  ' "$(sgr_reset)"
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" '  / .--. \     / .--. \  ' "$(sgr_reset)"
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" ' | |    | |   | |    | |  ______    __  ___  _______' "$(sgr_reset)"
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" "  \\ '--' / \\_/ \\ '--' / /  __  \\  |  |/  / |   ____|" "$(sgr_reset)"
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" "   '----'  |  '----'   |  |  |  | |  '  /  |  |__" "$(sgr_reset)"
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" '           |           |  |  |  | |    <   |   __|' "$(sgr_reset)"
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" "          / \\          |  \`--'  | |  .  \\  |  |____" "$(sgr_reset)"
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" '         /   \          \______/  |__|\__\ |_______|' "$(sgr_reset)"
+  printf '%s%s%s%s\n' "$(c_bold)" "$(c_brand)" '        /_____\' "$(sgr_reset)"
+  printf '%s☀%s  %s%s%s\n' "$(c_amber)" "$(sgr_reset)" "$(c_dim)" "$tagline" "$(sgr_reset)"
+}
+
+# The uv/uvx consent block: dim status line, the install offer (Homebrew on
+# macOS when brew is present, else the Astral installer), the default-Yes
+# [Y/n] prompt (Y bright bold), and — for the brew branch — the Astral fallback
+# note. The plain (no-color) variant collapses to a single-line offer. The
+# trailing newline is omitted so the answer is typed on the prompt line.
+# Reproduces the approved welcome screens verbatim.
+print_uv_consent() {
+  printf '%s%sYoke'\''s only prerequisite — uv/uvx — isn'\''t installed yet.%s\n' \
+    "$(gutter)" "$(c_dim)" "$(sgr_reset)"
+  if [ "$welcome_color" -ne 1 ]; then
+    printf '%sInstall it with: curl -LsSf %s | sh  [Y/n]\n' "$(gutter)" "$uv_installer_url"
+    return 0
+  fi
+  if [ "$uv_offer_brew" -eq 1 ]; then
+    printf '%s%sInstall it with Homebrew?%s  %sbrew install uv%s  ' \
+      "$(gutter)" "$(c_dim)" "$(sgr_reset)" "$(c_bright)" "$(sgr_reset)"
+    print_yn_prompt
+    printf '\n%s  %s(no Homebrew? falls back to the official uv installer)%s\n' \
+      "$(gutter)" "$(c_dim)" "$(sgr_reset)"
+  else
+    printf '%s%sInstall it with the official uv installer?%s\n' \
+      "$(gutter)" "$(c_dim)" "$(sgr_reset)"
+    printf '%s  %scurl -LsSf %s | sh%s  ' \
+      "$(gutter)" "$(c_bright)" "$uv_installer_url" "$(sgr_reset)"
+    print_yn_prompt
+    printf '\n'
+  fi
+}
+
+# Default-Yes prompt: Y bright bold, brackets and n dim. No trailing newline.
+print_yn_prompt() {
+  printf '%s[%s%sY%s%s/%sn%s]%s ' \
+    "$(c_dim)" "$(sgr_reset)" "$(c_bright)$(c_bold)" "$(sgr_reset)" \
+    "$(c_dim)" "$(c_dim)" "$(sgr_reset)" "$(c_dim)"
+  sgr_reset
+}
+
+need_command() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+is_yes() {
+  case "$yes" in
+    1|true|TRUE|yes|YES) return 0 ;;
+  esac
+  return 1
+}
+
+truthy() {
+  case "$1" in
+    1|true|TRUE|yes|YES|y|Y) return 0 ;;
+  esac
+  return 1
+}
+
+can_read_path() {
+  ( : 2>/dev/null < "$1" )
+}
+
+script_file_prompt_safe() {
+  case "$0" in
+    sh|*/sh|bash|*/bash|dash|*/dash|zsh|*/zsh|ksh|*/ksh) return 1 ;;
+  esac
+  [ -f "$0" ]
+}
+
+use_stdin_prompt_fallback() {
+  [ "$prompt_in_default" -eq 1 ] || return 1
+  [ "$prompt_out_default" -eq 1 ] || return 1
+  [ "$prompt_in" = "/dev/tty" ] || return 1
+  if script_file_prompt_safe; then
+    [ -t 0 ] && can_read_path "$prompt_in" && return 1
+    return 0
+  fi
+  [ -n "${BASH_EXECUTION_STRING:-}" ] || return 1
+  can_read_path "$prompt_in" && return 1
+  return 0
+}
+
+if use_stdin_prompt_fallback; then
+  prompt_in="-"
+  prompt_out="-"
+fi
+
+read_prompt_answer() {
+  if [ "$prompt_in" = "-" ]; then
+    IFS= read answer
+    return $?
+  fi
+  IFS= read answer 2>/dev/null < "$prompt_in"
+}
+
+run_prompt_command() {
+  if [ "$prompt_in" = "-" ]; then
+    "$command_shell" -c "$1"
+    return $?
+  fi
+  "$command_shell" -c "$1" < "$prompt_in"
+}
+
+onboard_disabled() {
+  truthy "$no_onboard"
+}
+
+startup_file_for_current_shell() {
+  shell_name="${SHELL##*/}"
+  home_dir="${HOME:-~}"
+  case "$shell_name" in
+    zsh) printf '%s\n' "$home_dir/.zprofile" ;;
+    bash) printf '%s\n' "$home_dir/.bash_profile" ;;
+    *) printf '%s\n' "$home_dir/.profile" ;;
+  esac
+}
+
+source_command_for_current_shell() {
+  startup_file=$(startup_file_for_current_shell)
+  shell_name="${SHELL##*/}"
+  case "$shell_name" in
+    zsh|bash) printf 'source "%s"\n' "$startup_file" ;;
+    *) printf '. "%s"\n' "$startup_file" ;;
+  esac
+}
+
+# Final hand-off CTA. The single thing the user must do — source their startup
+# file to use Yoke in THIS terminal — is set off in a brand-green bar block in
+# rich terminals and an ASCII bar block in GNU Screen/dumb terminals.
+print_path_guidance_after_onboard() {
+  [ "$onboard_launched" -eq 1 ] || return 0
+  source_cmd=$(source_command_for_current_shell)
+  if [ -t 1 ]; then
+    printf '\033[0m\033[?25h\033[2J\033[H'
+  fi
+  if plain_glyphs; then
+    printf '\nYoke installation complete.\n\n'
+    printf '  | Run now to use Yoke in this terminal:\n'
+    printf '  |\n'
+    printf '  |     %s\n' "$source_cmd"
+    printf '  |\n'
+    printf '  | New terminal windows already have it.\n'
+    return 0
+  fi
+  printf '\n%s☀%s Yoke installation complete.\n\n' "$(c_amber)" "$(sgr_reset)"
+  printf '  %s▌%s %sRun now to use Yoke in this terminal:%s\n' \
+    "$(c_brand)" "$(sgr_reset)" "$(c_text)" "$(sgr_reset)"
+  printf '  %s▌%s\n' "$(c_brand)" "$(sgr_reset)"
+  printf '  %s▌%s     %s%s%s%s\n' \
+    "$(c_brand)" "$(sgr_reset)" "$(c_bright)$(c_bold)" "$source_cmd" \
+    "$(sgr_reset)" "$(sgr_reset)"
+  printf '  %s▌%s\n' "$(c_brand)" "$(sgr_reset)"
+  printf '  %s▌%s %sNew terminal windows already have it.%s\n' \
+    "$(c_brand)" "$(sgr_reset)" "$(c_dim)" "$(sgr_reset)"
+}
+
+# On a successful interactive install, hand straight off into the onboarding
+# wizard by absolute path so the launch does not depend on a not-yet-reloaded
+# shell — no extra consent prompt; the wizard leads with the PATH step, so
+# quitting it is always safe. A --yes / noninteractive run prints the exact next
+# command instead (the wizard is interactive-only); --no-onboard suppresses the
+# launch entirely.
+offer_onboard() {
+  [ -n "$dry_run" ] && return 0
+  onboard_disabled && return 0
+  if ! need_command yoke; then
+    printf '%sRun yoke onboard to finish setting up your machine & projects.\n' "$(gutter)"
+    return 0
+  fi
+  if is_yes; then
+    printf '%sRun yoke onboard to finish setting up your machine & projects.\n' "$(gutter)"
+    return 0
+  fi
+  yoke_bin=$(command -v yoke)
+  if plain_glyphs; then
+    printf '%sStarting Yoke onboard...\n' "$(gutter)"
+  else
+    printf '%sStarting Yoke onboard…\n' "$(gutter)"
+  fi
+  run_prompt_command "\"$yoke_bin\" onboard --post-install" || fail "Yoke onboard did not finish; see the summary above."
+  onboard_launched=1
+}
+
+# Read the consent answer for the welcome screen with default-Yes semantics:
+# empty (just Enter) and y/yes proceed; only an explicit no declines. The banner
+# and offer are already on stdout; this only reads.
+read_uv_consent_answer() {
+  if is_yes; then
+    return 0
+  fi
+  read_prompt_answer || return 1
+  case "$answer" in
+    n|N|no|NO) return 1 ;;
+  esac
+  return 0
+}
+
+# The install command we name to the user: Homebrew on macOS-with-brew, else the
+# official Astral installer. The chosen command is what the decline screen tells
+# them to run by hand.
+uv_manual_install_command() {
+  if [ "$uv_offer_brew" -eq 1 ]; then
+    printf 'brew install uv'
+  else
+    printf 'curl -LsSf %s | sh' "$uv_installer_url"
+  fi
+}
+
+rerun_install_command() {
+  if [ -n "$yes" ]; then
+    printf 'curl -fsSL %s/install | bash -s -- --yes' "${base_url%/}"
+  else
+    printf 'curl -fsSL %s/install | bash' "${base_url%/}"
+  fi
+}
+
+# Friendly, no-dead-end decline screen: a red headline, the manual install
+# command, and the exact rerun command. Printed to stdout, then exit 1. Mirrors
+# the approved "uv declined" screen.
+decline_uv_and_exit() {
+  rerun_cmd=$(rerun_install_command)
+  printf '\n%s%s%suv/uvx is required to install Yoke.%s\n\n' \
+    "$(gutter)" "$(c_danger)" "$(c_bold)" "$(sgr_reset)"
+  printf '%s%sInstall it yourself with:%s\n' "$(gutter)" "$(c_text)" "$(sgr_reset)"
+  printf '%s  %s%s%s\n\n' "$(gutter)" "$(c_bright)" "$(uv_manual_install_command)" "$(sgr_reset)"
+  printf '%s%sThen rerun:%s\n' "$(gutter)" "$(c_text)" "$(sgr_reset)"
+  printf '%s  %s%s%s\n' "$(gutter)" "$(c_bright)" "$rerun_cmd" "$(sgr_reset)"
+  exit 1
+}
+
+# uv/uvx is the one install-time prerequisite (besides a shell and curl). The
+# branded welcome leads, then a default-Yes consent installs uv via Homebrew or
+# the Astral installer; a declined consent prints the friendly decline screen
+# (manual install + exact rerun command). curl-missing keeps its own actionable
+# message.
+ensure_uv() {
+  need_command uv && return 0
+  install_cmd=$(uv_manual_install_command)
+  astral_cmd="curl -LsSf ${uv_installer_url} | sh"
+  rerun_cmd=$(rerun_install_command)
+  if [ -n "$dry_run" ]; then
+    return 0
+  fi
+  # Noninteractive (--yes) installs stay quiet and deterministic — no welcome
+  # banner, no consent screen. Interactive installs lead with the branded
+  # welcome and the default-Yes consent.
+  if is_yes; then
+    install_uv_or_fail
+    need_command uv || fail "uv was installed but is not on PATH. Add ${uv_bin_dir:-~/.local/bin} to PATH, then rerun: ${rerun_cmd}"
+    return 0
+  fi
+  print_welcome_banner
+  printf '\n'
+  print_uv_consent
+  if read_uv_consent_answer; then
+    install_uv_or_fail
+    need_command uv || fail "uv was installed but is not on PATH. Add ${uv_bin_dir:-~/.local/bin} to PATH, then rerun: ${rerun_cmd}"
+  else
+    decline_uv_and_exit
+  fi
+}
+
+# Run the chosen install command. On the Homebrew branch, fall back to the
+# Astral installer when brew fails (the consent note promises this). The Astral
+# branch needs curl; a curl-missing host can never run it, so name the manual
+# path instead of attempting a broken install.
+install_uv_or_fail() {
+  if [ "$uv_offer_brew" -eq 1 ]; then
+    "$command_shell" -c "brew install uv" < "$command_stdin" && return 0
+    printf '%sHomebrew install did not complete; using the official uv installer instead.\n' "$(gutter)"
+  fi
+  need_command curl || fail "uv/uvx is required and curl is missing. Install curl first, then install uv with '${astral_cmd}' and rerun: ${rerun_cmd}"
+  "$command_shell" -c "$astral_cmd" < "$command_stdin" || fail "uv installation failed. Install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --channel)
+      [ "$#" -ge 2 ] || fail "--channel requires a value"
+      channel="$2"
+      shift 2
+      ;;
+    --channel=*)
+      channel=${1#--channel=}
+      shift
+      ;;
+    --version)
+      [ "$#" -ge 2 ] || fail "--version requires a value"
+      version="$2"
+      shift 2
+      ;;
+    --version=*)
+      version=${1#--version=}
+      shift
+      ;;
+    --yes|-y)
+      yes=1
+      shift
+      ;;
+    --dry-run)
+      dry_run=1
+      shift
+      ;;
+    --no-onboard)
+      no_onboard=1
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown option: $1"
+      ;;
+  esac
+done
+
+os_name=$(uname -s 2>/dev/null || printf unknown)
+case "$os_name" in
+  Darwin|Linux) : ;;
+  *) fail "native $os_name is not supported by this installer. WSL follows the Linux path." ;;
+esac
+
+ensure_uv
+
+# uv provides Python, so the helper runs under uv even on a host with no system
+# python3. `uv run --no-project python` uses uv's managed interpreter. The runner
+# is a string of external-command tokens (intentionally word-split when
+# expanded), never a shell function, so env-var prefixes scope to the child
+# process rather than leaking into this shell. A --dry-run on a host without uv
+# falls back to any system python3 just to render the plan.
+if [ -n "$dry_run" ] && ! need_command uv; then
+  need_command python3 || fail "uv (or, for --dry-run only, python3) is required to render the install plan"
+  python_runner="python3"
+else
+  python_runner="uv run --no-project python"
+fi
+
+tmp_dir=$($python_runner -c 'import tempfile; print(tempfile.mkdtemp(prefix="yoke-install-"))') || fail "could not create temp directory"
+installer_py="$tmp_dir/install.py"
+
+INSTALLER_URL="${base_url%/}/dist/install.py" INSTALLER_OUT="$installer_py" $python_runner - <<'PY'
+import os
+import urllib.request
+
+url = os.environ["INSTALLER_URL"]
+out = os.environ["INSTALLER_OUT"]
+with urllib.request.urlopen(url, timeout=30) as response:
+    data = response.read()
+with open(out, "wb") as handle:
+    handle.write(data)
+PY
+download_rc=$?
+[ "$download_rc" -eq 0 ] || fail "could not download ${base_url%/}/dist/install.py"
+
+set -- "$installer_py"
+[ -n "$channel" ] && set -- "$@" --channel "$channel"
+[ -n "$version" ] && set -- "$@" --version "$version"
+[ -n "$yes" ] && set -- "$@" --yes
+[ -n "$dry_run" ] && set -- "$@" --dry-run
+
+helper_plain_glyphs=0
+if plain_glyphs; then
+  helper_plain_glyphs=1
+fi
+
+# Scope YOKE_NO_ONBOARD to the helper child via env so it never disables this
+# shim's own onboarding offer below. Hand the shim's own presentation decisions
+# to install.py so its setup log matches the welcome banner exactly (it can't
+# re-derive the tty once it runs under `uv run`).
+env YOKE_NO_ONBOARD=1 YOKE_INSTALL_FORCE_COLOR="$welcome_color" \
+  YOKE_INSTALL_FORCE_PLAIN="$helper_plain_glyphs" \
+  $python_runner "$@" < "$command_stdin"
+install_rc=$?
+[ "$install_rc" -eq 0 ] || exit "$install_rc"
+offer_onboard
+print_path_guidance_after_onboard
+exit 0

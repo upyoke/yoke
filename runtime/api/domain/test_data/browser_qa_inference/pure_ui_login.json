@@ -1,0 +1,11 @@
+{
+  "label": "pure-UI",
+  "title": "Add confetti animation to the login page",
+  "body": "# Add confetti animation to the login page\n\nAdd a confetti burst that plays the first time a user lands on `/login`.\n\n## Acceptance Criteria\n\n- [ ] AC-1: Confetti canvas renders within 500 ms of the login page load.\n- [ ] AC-2: Animation settles within 7 seconds and does not block form input.\n- [ ] AC-3: Screenshot captured 2 s after load shows the confetti in flight.\n",
+  "expected_metadata": {
+    "browser_testable": true,
+    "visual_outcome": true,
+    "browser_routes": ["/login"],
+    "browser_timing_hints_ms": [500, 2000, 7000]
+  }
+}

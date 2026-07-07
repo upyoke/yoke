@@ -1,0 +1,5 @@
+{
+  "name": "yoke-architect",
+  "description": "Translates item specs into technical plans with session-fit tasks, interface contracts, and worktree assignments. Use when planning an epic with /yoke plan.",
+  "sandbox_mode": "read-only"
+}

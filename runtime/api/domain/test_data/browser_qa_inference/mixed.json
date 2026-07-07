@@ -1,0 +1,11 @@
+{
+  "label": "mixed",
+  "title": "Swap password reset API call and refresh the forgot-password page state",
+  "body": "# Swap password reset API call\n\nPoint the forgot-password flow at `/api/v2/password-reset`, and refresh the `/forgot-password` page banner on success.\n\n## Acceptance Criteria\n\n- [ ] AC-1: Backend: `/api/v2/password-reset` responds with the v2 envelope under load.\n- [ ] AC-2: Frontend: visiting `/forgot-password` and submitting the form shows the new success banner within 1500 ms.\n- [ ] AC-3: Screenshot evidence captured 2 s after submission.\n",
+  "expected_metadata": {
+    "browser_testable": true,
+    "visual_outcome": true,
+    "browser_routes": ["/forgot-password"],
+    "browser_timing_hints_ms": [1500, 2000]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "yoke-engineer",
+  "description": "Implements tasks with code, tests, and documentation. Commits incrementally. Invoked by /yoke conduct YOK-N (single-item execution).",
+  "tools": "Read, Write, Edit, Bash, Grep, Glob, Monitor",
+  "model": "opus",
+  "maxTurns": 300,
+  "permissionMode": "bypassPermissions"
+}

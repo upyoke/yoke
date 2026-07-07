@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Delayed Content Test Page</title>
+</head>
+<body>
+  <main>
+    <h1>Delayed Content Page</h1>
+    <p id="immediate">This content is immediately visible.</p>
+    <div id="delayed-container"></div>
+  </main>
+  <script>
+    // Insert content after a 5-second delay (simulates confetti, lazy load, etc.)
+    setTimeout(function() {
+      var el = document.createElement('p');
+      el.id = 'delayed-content';
+      el.textContent = 'This content appeared after 5 seconds';
+      document.getElementById('delayed-container').appendChild(el);
+    }, 5000);
+  </script>
+</body>
+</html>

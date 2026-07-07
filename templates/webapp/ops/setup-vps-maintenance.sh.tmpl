@@ -1,0 +1,139 @@
+#!/usr/bin/env sh
+# setup-vps-maintenance.sh — Install Docker + ephemeral maintenance cron jobs on a project VPS
+#
+# Manages the full maintenance setup with reconciliation.
+# Installs three cron entries for the deploy user:
+#   1. Daily build cache prune (layers older than 48h) at 4:00 UTC
+#   2. Weekly aggressive cleanup — all build cache + all unused images (Yokes 4:30 UTC)
+#   3. Ephemeral environment cleanup every 6 hours
+#
+# All log to files under the deploy user's home directory.
+#
+# Template variables:
+#   {{ssh_user}}      — deploy user on the VPS (e.g., openclaw)
+#   {{ssh_host}}      — VPS IP or hostname
+#   {{project_name}}  — project name (used in log messages and paths)
+#
+# Usage (from local machine):
+#   ssh {{ssh_user}}@{{ssh_host}} 'sh -s' < setup-vps-maintenance.sh
+#
+# Or copy to VPS and run:
+#   scp setup-vps-maintenance.sh {{ssh_user}}@{{ssh_host}}:~/setup-vps-maintenance.sh
+#   ssh {{ssh_user}}@{{ssh_host}} sh ~/setup-vps-maintenance.sh
+#
+# Idempotent: reconciles existing entries — replaces stale commands instead of skipping.
+# Designed to run ON the project VPS as the deploy user.
+
+set -u
+
+PRUNE_LOG="$HOME/docker-prune.log"
+CLEANUP_LOG="$HOME/ephemeral-cleanup.log"
+
+log() {
+  echo "[setup-vps-maintenance] $1"
+}
+
+# ─────────────────────────────────────────
+# Check prerequisites
+# ─────────────────────────────────────────
+
+if ! command -v docker >/dev/null 2>&1; then
+  log "ERROR: docker not found in PATH"
+  exit 1
+fi
+
+if ! command -v crontab >/dev/null 2>&1; then
+  log "ERROR: crontab not found in PATH"
+  exit 1
+fi
+
+# ─────────────────────────────────────────
+# Define canonical cron entries
+# ─────────────────────────────────────────
+
+DAILY_ENTRY="0 4 * * * docker builder prune -f --filter \"until=48h\" >> $PRUNE_LOG 2>&1"
+WEEKLY_ENTRY="30 4 * * 0 (docker builder prune -af && docker image prune -af) >> $PRUNE_LOG 2>&1"
+CLEANUP_ENTRY="0 */6 * * * $HOME/ephemeral-cleanup.sh >> $CLEANUP_LOG 2>&1"
+
+# ─────────────────────────────────────────
+# Reconcile cron entries
+# ─────────────────────────────────────────
+
+CURRENT_CRONTAB=$(crontab -l 2>/dev/null || true)
+CHANGES=0
+
+# reconcile_entry: remove any stale matching line, then add the canonical one
+# $1 = label, $2 = grep pattern to match stale entries, $3 = canonical entry
+reconcile_entry() {
+  _label="$1"
+  _match_pattern="$2"
+  _canonical="$3"
+
+  # Check if the exact canonical entry already exists
+  if echo "$CURRENT_CRONTAB" | grep -qF "$_canonical"; then
+    log "$_label — already canonical, no change"
+    return
+  fi
+
+  # Remove any stale entry matching the pattern
+  if echo "$CURRENT_CRONTAB" | grep -q "$_match_pattern"; then
+    log "$_label — replacing stale entry with canonical version"
+    _filtered=$(echo "$CURRENT_CRONTAB" | grep -v "$_match_pattern")
+    CURRENT_CRONTAB="$_filtered"
+  else
+    log "$_label — installing (not previously present)"
+  fi
+
+  # Append the canonical entry
+  if [ -z "$CURRENT_CRONTAB" ]; then
+    CURRENT_CRONTAB="$_canonical"
+  else
+    CURRENT_CRONTAB=$(printf '%s\n%s' "$CURRENT_CRONTAB" "$_canonical")
+  fi
+  CHANGES=1
+}
+
+reconcile_entry \
+  "Daily build cache prune (4:00 UTC)" \
+  "docker builder prune" \
+  "$DAILY_ENTRY"
+
+reconcile_entry \
+  "Weekly aggressive cleanup (Yoke 4:30 UTC)" \
+  "docker image prune" \
+  "$WEEKLY_ENTRY"
+
+reconcile_entry \
+  "Ephemeral environment cleanup (every 6h)" \
+  "ephemeral-cleanup" \
+  "$CLEANUP_ENTRY"
+
+# ─────────────────────────────────────────
+# Apply changes
+# ─────────────────────────────────────────
+
+if [ "$CHANGES" -eq 1 ]; then
+  echo "$CURRENT_CRONTAB" | crontab -
+  log "Crontab updated successfully"
+else
+  log "No changes needed — all entries already canonical"
+fi
+
+# ─────────────────────────────────────────
+# Verify ephemeral-cleanup.sh exists
+# ─────────────────────────────────────────
+
+if [ ! -x "$HOME/ephemeral-cleanup.sh" ]; then
+  log "WARNING: $HOME/ephemeral-cleanup.sh not found or not executable"
+  log "  Copy it to the VPS before the next cron run:"
+  log "  scp ephemeral-cleanup.sh {{ssh_user}}@{{ssh_host}}:~/ && ssh {{ssh_user}}@{{ssh_host}} chmod +x ~/ephemeral-cleanup.sh"
+fi
+
+# ─────────────────────────────────────────
+# Verify
+# ─────────────────────────────────────────
+
+log "Current crontab:"
+crontab -l 2>/dev/null || log "(empty)"
+
+log "Done. Prune logs: $PRUNE_LOG | Cleanup logs: $CLEANUP_LOG"

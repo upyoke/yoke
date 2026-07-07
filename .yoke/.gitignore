@@ -1,0 +1,14 @@
+# Yoke-managed ignore policy for the .yoke/ tree (seeded by
+# `yoke project install`). Generated views and machine-local
+# state never track; every other contract file rides the repo.
+# Projects need no root-gitignore `.yoke/*` rules.
+BOARD.md
+BOARD.md.ts
+BOARD.md.lock/
+BOARD.md.board.*
+BOARD.md.reg_*
+backups/
+strategy/
+.github-retry.log
+.merge-lock
+install-manifest.json

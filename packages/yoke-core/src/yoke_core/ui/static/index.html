@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yoke</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <div id="universe-root"></div>
+  <script type="module">
+    // Bootstrap: hand the mount root to the app module and get out of the
+    // way. The session cookie set by this page's response authenticates the
+    // module fetch and every API call, so nothing token-shaped lives here.
+    import { mountUniverseApp } from "/assets/app.js";
+    mountUniverseApp(document.getElementById("universe-root"));
+  </script>
+</body>
+</html>

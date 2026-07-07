@@ -1,0 +1,42 @@
+{
+  "task_id": "001",
+  "github_issue": "#697",
+  "title": "Task 001: Schema extensions: new tables + ALTER TABLE epic_tasks",
+  "status": "completed",
+  "worktree": "feature/epic-db-migration",
+  "worktree_path": "/Users/dev/yoke/.worktrees/feature-epic-db-migration",
+  "branch": "feature/epic-db-migration",
+  "context_estimate": "M",
+  "depends_on": [],
+  "blocked_by": [],
+  "dispatch_attempts": 1,
+  "max_attempts": 5,
+  "agent_id": "",
+  "last_heartbeat": "2026-03-02T02:45:52Z",
+  "history": [
+    {
+      "timestamp": "2026-03-02T02:33:11Z",
+      "from": "none",
+      "to": "pending",
+      "note": "Created via sync"
+    },
+    {
+      "timestamp": "2026-03-02T02:35:46Z",
+      "from": "pending",
+      "to": "in_progress",
+      "note": "Dispatched"
+    },
+    {
+      "timestamp": "2026-03-02T02:41:52Z",
+      "from": "in_progress",
+      "to": "qa",
+      "note": "Engineer complete, starting validation"
+    },
+    {
+      "timestamp": "2026-03-02T02:45:52Z",
+      "from": "qa",
+      "to": "completed",
+      "note": "Tester passed"
+    }
+  ]
+}

@@ -1,0 +1,297 @@
+# AUTO-GENERATED template source: templates/webapp/infra/__main__.py. Do not hand-edit rendered copies; refresh through Yoke template/onboarding surfaces.
+"""Pulumi entrypoint dispatched by stack name.
+
+Each call to `pulumi up` against a project stack selects exactly one of the
+ComponentResources defined alongside this file. Suffix-dispatched stacks pick
+by stack-name suffix (`-infra`, `-vps`, `-domain`, `-registry`, or
+`-runner-fleet`); environment stacks dispatch with `stack_kind=environment` in
+the rendered stack config. A project instantiates only the stacks declared in
+DB-backed project renderer settings.
+"""
+
+import json
+import os
+import sys
+
+# pulumi-language-python on Python 3.14 does not implicitly add the
+# Pulumi project directory to ``sys.path`` when launching ``__main__.py``,
+# so branch-local sibling-module imports below would fail with ``ModuleNotFoundError``.
+# Insert the script's own directory before the stdlib import statements.
+_PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _PROJECT_DIR not in sys.path:
+    sys.path.insert(0, _PROJECT_DIR)
+
+import pulumi
+
+
+def _infra_args_from_config(project_name: str):
+    from webapp_infra_stack import WebappInfraArgs
+    config = pulumi.Config()
+    return WebappInfraArgs(
+        domain_name=config.require("domain_name"),
+        origin_host=config.require("origin_host"),
+        project_name=project_name,
+        hosted_zone_id=config.require("hosted_zone_id"),
+        certificate_arn=config.get("certificate_arn") or "",
+        origin_id=config.require("origin_id"),
+        distribution_bucket_name=config.get("distribution_bucket_name") or "",
+        distribution_origin_id=(
+            config.get("distribution_origin_id")
+            or "yoke-distribution-static"
+        ),
+        domain_txt_records=_domain_txt_records_from_config(config),
+        domain_mx_records=_domain_mx_records_from_config(config),
+    )
+
+
+def _vps_args_from_config(project_name: str):
+    from webapp_vps_stack import WebappVpsArgs
+    config = pulumi.Config()
+    return WebappVpsArgs(
+        project_name=project_name,
+        instance_type=config.require("vps_instance_type"),
+        root_volume_gb=config.require_int("vps_root_volume_gb"),
+        ssh_key_name=config.require("vps_ssh_key_name"),
+        stack_name=pulumi.get_stack(),
+    )
+
+
+def _domain_args_from_config(project_name: str):
+    from webapp_domain_stack import WebappDomainArgs
+    config = pulumi.Config()
+    return WebappDomainArgs(
+        domain_name=config.require("domain_name"),
+        project_name=project_name,
+        # Optional: adopt an existing zone (e.g. one Route 53 auto-created on
+        # domain registration) instead of creating a duplicate. Empty = create.
+        import_zone_id=config.get("import_zone_id") or "",
+        # Optional: defaults to False so the zone is set up before the
+        # operator completes the console domain-registration purchase.
+        manage_registration=config.get_bool("manage_registration") or False,
+        domain_txt_records=_domain_txt_records_from_config(config),
+        domain_mx_records=_domain_mx_records_from_config(config),
+    )
+
+
+def _domain_txt_records_from_config(config):
+    from webapp_dns_records import DomainTxtRecordArgs
+
+    raw = config.get("domain_txt_records") or "[]"
+    try:
+        loaded = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise pulumi.RunError(
+            f"domain_txt_records must be a JSON array: {exc}"
+        ) from exc
+    if not isinstance(loaded, list):
+        raise pulumi.RunError("domain_txt_records must be a JSON array")
+
+    parsed = []
+    for index, item in enumerate(loaded):
+        if not isinstance(item, dict):
+            raise pulumi.RunError(
+                f"domain_txt_records[{index}] must be an object"
+            )
+        raw_values = item.get("values", item.get("records"))
+        if raw_values is None and item.get("value") is not None:
+            raw_values = [item.get("value")]
+        if not isinstance(raw_values, list):
+            raise pulumi.RunError(
+                f"domain_txt_records[{index}] must declare value or values"
+            )
+        values = tuple(str(value) for value in raw_values if str(value))
+        if not values:
+            raise pulumi.RunError(
+                f"domain_txt_records[{index}] must declare at least one value"
+            )
+        try:
+            ttl = int(item.get("ttl") or 300)
+        except (TypeError, ValueError) as exc:
+            raise pulumi.RunError(
+                f"domain_txt_records[{index}].ttl must be an integer"
+            ) from exc
+        parsed.append(
+            DomainTxtRecordArgs(
+                name=str(item.get("name") or "@"),
+                values=values,
+                ttl=ttl,
+                resource_name=str(
+                    item.get("resource_name") or item.get("id") or ""
+                ),
+            )
+        )
+    return tuple(parsed)
+
+
+def _domain_mx_records_from_config(config):
+    from webapp_dns_records import DomainMxRecordArgs
+
+    raw = config.get("domain_mx_records") or "[]"
+    try:
+        loaded = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise pulumi.RunError(
+            f"domain_mx_records must be a JSON array: {exc}"
+        ) from exc
+    if not isinstance(loaded, list):
+        raise pulumi.RunError("domain_mx_records must be a JSON array")
+
+    parsed = []
+    for index, item in enumerate(loaded):
+        if not isinstance(item, dict):
+            raise pulumi.RunError(
+                f"domain_mx_records[{index}] must be an object"
+            )
+        raw_values = item.get("values", item.get("records"))
+        if raw_values is None and item.get("value") is not None:
+            try:
+                priority = int(item.get("priority"))
+            except (TypeError, ValueError) as exc:
+                raise pulumi.RunError(
+                    f"domain_mx_records[{index}].priority must be an integer"
+                ) from exc
+            raw_values = [f"{priority} {str(item.get('value')).strip()}"]
+        if not isinstance(raw_values, list):
+            raise pulumi.RunError(
+                f"domain_mx_records[{index}] must declare value or values"
+            )
+        values = tuple(
+            str(value).strip()
+            for value in raw_values
+            if str(value).strip()
+        )
+        if not values:
+            raise pulumi.RunError(
+                f"domain_mx_records[{index}] must declare at least one value"
+            )
+        try:
+            ttl = int(item.get("ttl") or 300)
+        except (TypeError, ValueError) as exc:
+            raise pulumi.RunError(
+                f"domain_mx_records[{index}].ttl must be an integer"
+            ) from exc
+        parsed.append(
+            DomainMxRecordArgs(
+                name=str(item.get("name") or "@"),
+                values=values,
+                ttl=ttl,
+                resource_name=str(
+                    item.get("resource_name") or item.get("id") or ""
+                ),
+            )
+        )
+    return tuple(parsed)
+
+
+def _registry_args_from_config(project_name: str):
+    from webapp_registry_stack import WebappRegistryArgs
+    config = pulumi.Config()
+    manage_provider = config.get_bool("manage_github_oidc_provider")
+    return WebappRegistryArgs(
+        project_name=project_name,
+        # Optional: defaults to the project's core repository name so a bare
+        # registry stack config needs no extra key.
+        repository_name=config.get("repository_name") or f"{project_name}-core",
+        # Optional: empty renders the registry without GitHub CI federation.
+        github_repo=config.get("github_repo") or "",
+        # Optional: exactly one project per AWS account creates the
+        # account-singleton GitHub OIDC provider; the rest reference it.
+        manage_github_oidc_provider=(
+            True if manage_provider is None else manage_provider
+        ),
+        aws_account_id=config.get("aws_account_id") or "",
+    )
+
+
+def _runner_fleet_args_from_config(project_name: str):
+    from webapp_runner_fleet_stack import WebappRunnerFleetArgs
+    config = pulumi.Config()
+    labels = json.loads(config.require("runner_labels"))
+    return WebappRunnerFleetArgs(
+        project_name=project_name,
+        github_repo=config.require("github_repo"),
+        runner_labels=[str(label) for label in labels],
+        runner_count=config.require_int("runner_count"),
+        max_runner_count=config.require_int("max_runner_count"),
+        instance_type=config.require("instance_type"),
+        architecture=config.require("architecture"),
+        root_volume_gb=config.require_int("root_volume_gb"),
+        idle_shutdown_minutes=config.require_int("idle_shutdown_minutes"),
+        shutdown_mode=config.require("shutdown_mode"),
+    )
+
+
+def _environment_args_from_config(project_name: str, stack_name: str):
+    from webapp_database_stack import DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
+    from webapp_environment_stack import WebappEnvironmentArgs
+    config = pulumi.Config()
+    seconds_until_auto_pause = config.get_int("database_seconds_until_auto_pause")
+    return WebappEnvironmentArgs(
+        project_name=project_name,
+        environment=config.require("environment"),
+        stack_name=stack_name,
+        domain_name=config.require("domain_name"),
+        api_host=config.require("api_host"),
+        origin_host=config.require("origin_host"),
+        hosted_zone_id=config.require("hosted_zone_id"),
+        api_origin_port=config.require_int("api_origin_port"),
+        distribution_bucket_name=config.get("distribution_bucket_name") or "",
+        distribution_origin_id=config.get("distribution_origin_id") or "",
+        vps_instance_type=config.require("vps_instance_type"),
+        vps_root_volume_gb=config.require_int("vps_root_volume_gb"),
+        vps_ssh_key_name=config.require("vps_ssh_key_name"),
+        database_name=config.require("database_name"),
+        database_master_username=config.require("database_master_username"),
+        database_engine_version=config.require("database_engine_version"),
+        database_min_capacity_acu=float(config.require("database_min_capacity_acu")),
+        database_max_capacity_acu=float(config.require("database_max_capacity_acu")),
+        database_backup_retention_days=config.require_int(
+            "database_backup_retention_days",
+        ),
+        database_seconds_until_auto_pause=(
+            DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
+            if seconds_until_auto_pause is None
+            else seconds_until_auto_pause
+        ),
+        container_repository_name=config.get("container_repository_name") or "",
+        ephemeral_preview_domain=config.get("ephemeral_preview_domain") or "",
+    )
+
+
+def main() -> None:
+    stack = pulumi.get_stack()
+    config = pulumi.Config()
+    project_name = config.require("project_name")
+    stack_kind = config.get("stack_kind") or ""
+
+    if stack_kind == "environment":
+        from webapp_environment_stack import WebappEnvironmentStack
+        WebappEnvironmentStack(stack, _environment_args_from_config(project_name, stack))
+    elif stack.endswith("-infra"):
+        from webapp_infra_stack import WebappInfraStack
+        WebappInfraStack(stack, _infra_args_from_config(project_name))
+    elif stack.endswith("-vps"):
+        from webapp_vps_stack import WebappVpsStack
+        WebappVpsStack(stack, _vps_args_from_config(project_name))
+    elif stack.endswith("-domain"):
+        from webapp_domain_stack import WebappDomainStack
+        WebappDomainStack(stack, _domain_args_from_config(project_name))
+    elif stack.endswith("-registry"):
+        from webapp_registry_stack import WebappRegistryStack
+        WebappRegistryStack(stack, _registry_args_from_config(project_name))
+    elif stack.endswith("-runner-fleet"):
+        from webapp_runner_fleet_stack import WebappRunnerFleetStack
+        WebappRunnerFleetStack(
+            stack, _runner_fleet_args_from_config(project_name),
+        )
+    else:
+        raise pulumi.RunError(
+            f"Unknown Pulumi stack '{stack}'. Expected a name ending in "
+            "'-infra', '-vps', '-domain', '-registry', or '-runner-fleet', or "
+            "stack_kind=environment (e.g. '<project>-infra', "
+            "'<project>-vps', '<project>-domain', '<project>-registry', "
+            "'<project>-runner-fleet', or '<project>-prod')."
+        )
+
+
+main()

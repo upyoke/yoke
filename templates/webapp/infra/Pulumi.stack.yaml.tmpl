@@ -1,0 +1,16 @@
+config:
+  aws:region: {{aws_region}}
+  webapp-infra:aws_account_id: "{{aws_account_id}}"
+  webapp-infra:kms_key_alias: {{kms_key_alias}}
+  webapp-infra:domain_name: {{domain_name}}
+  webapp-infra:origin_host: {{origin_host}}
+  webapp-infra:project_name: {{project_name}}
+  webapp-infra:hosted_zone_id: {{hosted_zone_id}}
+  webapp-infra:certificate_arn: {{certificate_arn}}
+  webapp-infra:origin_id: {{origin_id}}
+  webapp-infra:distribution_bucket_name: {{distribution_bucket_name}}
+  webapp-infra:domain_txt_records: '{{domain_txt_records_json}}'
+  webapp-infra:domain_mx_records: '{{domain_mx_records_json}}'
+  webapp-infra:vps_instance_type: {{vps_instance_type}}
+  webapp-infra:vps_root_volume_gb: "{{vps_root_volume_gb}}"
+  webapp-infra:vps_ssh_key_name: {{vps_ssh_key_name}}

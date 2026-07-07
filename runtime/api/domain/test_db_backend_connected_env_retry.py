@@ -1,0 +1,182 @@
+"""db_backend connect-retry path through the connected-env readiness layer.
+
+Verifies that a failed connect is self-healed and retried exactly once (no
+infinite loop), that a heal failure surfaces loudly, and that non-tunnel
+failures propagate unchanged. All probe/heal seams are mocked.
+"""
+
+from __future__ import annotations
+
+import psycopg
+import pytest
+
+from yoke_core.domain import connected_env_readiness as cer
+from yoke_core.domain import db_backend
+
+
+@pytest.fixture(autouse=True)
+def _reset_readiness_cache():
+    cer.reset_cache()
+    yield
+    cer.reset_cache()
+
+
+def _refused() -> psycopg.OperationalError:
+    return psycopg.OperationalError(
+        'connection to server at "127.0.0.1", port 6547 failed: Connection refused'
+    )
+
+
+# --- connect_with_readiness orchestration ----------------------------------
+def test_retries_once_after_successful_heal(monkeypatch):
+    calls = {"open": 0, "ensure": []}
+
+    def opener():
+        calls["open"] += 1
+        if calls["open"] == 1:
+            raise _refused()
+        return "CONN"
+
+    monkeypatch.setattr(cer, "is_local_tunnel_connection_error", lambda exc: True)
+    monkeypatch.setattr(
+        cer, "ensure_ready",
+        lambda *, force=False: calls["ensure"].append(force) or cer.ReadinessResult(
+            ok=True, environment="t", connector_kind=cer.CONNECTOR_LOCAL_SSH_TUNNEL_PG,
+            action="x", message="x"),
+    )
+
+    conn = cer.connect_with_readiness(opener)
+
+    assert conn == "CONN"
+    assert calls["open"] == 2  # initial + single retry
+    assert calls["ensure"] == [False, True]  # proactive then forced heal
+
+
+def test_retry_still_failing_raises_loud_no_infinite_loop(monkeypatch):
+    calls = {"open": 0}
+
+    def opener():
+        calls["open"] += 1
+        raise _refused()
+
+    monkeypatch.setattr(cer, "is_local_tunnel_connection_error", lambda exc: True)
+    monkeypatch.setattr(cer, "ensure_ready",
+                        lambda *, force=False: cer.ReadinessResult(
+                            ok=True, environment="t",
+                            connector_kind=cer.CONNECTOR_LOCAL_SSH_TUNNEL_PG,
+                            action="x", message="x"))
+
+    with pytest.raises(cer.ConnectedEnvUnavailable):
+        cer.connect_with_readiness(opener)
+    assert calls["open"] == 2  # exactly one retry, then give up
+
+
+def test_heal_failure_propagates_before_retry(monkeypatch):
+    calls = {"open": 0}
+
+    def opener():
+        calls["open"] += 1
+        raise _refused()
+
+    def ensure(*, force=False):
+        if force:
+            raise cer.ConnectedEnvUnavailable("tunnel restart failed")
+        return cer.ReadinessResult(ok=True, environment="t",
+                                   connector_kind=cer.CONNECTOR_LOCAL_SSH_TUNNEL_PG,
+                                   action="x", message="x")
+
+    monkeypatch.setattr(cer, "is_local_tunnel_connection_error", lambda exc: True)
+    monkeypatch.setattr(cer, "ensure_ready", ensure)
+
+    with pytest.raises(cer.ConnectedEnvUnavailable):
+        cer.connect_with_readiness(opener)
+    assert calls["open"] == 1  # heal failed -> no retry attempted
+
+
+def test_non_tunnel_error_propagates_unchanged(monkeypatch):
+    class Other(Exception):
+        pass
+
+    monkeypatch.setattr(cer, "ensure_ready",
+                        lambda *, force=False: cer.ReadinessResult(
+                            ok=True, environment=None,
+                            connector_kind=cer.CONNECTOR_UNMANAGED,
+                            action="noop", message="x"))
+    monkeypatch.setattr(cer, "is_local_tunnel_connection_error", lambda exc: False)
+
+    def opener():
+        raise Other("boom")
+
+    with pytest.raises(Other):
+        cer.connect_with_readiness(opener)
+
+
+def test_proactive_unavailable_fails_loud_without_opening(monkeypatch):
+    opened = {"n": 0}
+
+    def opener():
+        opened["n"] += 1
+        return "CONN"
+
+    def ensure(*, force=False):
+        raise cer.ConnectedEnvUnavailable("tunnel down at acquisition")
+
+    monkeypatch.setattr(cer, "ensure_ready", ensure)
+
+    with pytest.raises(cer.ConnectedEnvUnavailable):
+        cer.connect_with_readiness(opener)
+    assert opened["n"] == 0  # never opened when acquisition-time readiness fails
+
+
+# --- db_backend.connect / connect_psycopg wiring ---------------------------
+def test_db_backend_connect_self_heals_and_retries(monkeypatch):
+    calls = {"open": 0}
+
+    def fake_native_connect(dsn, *, autocommit=False):
+        calls["open"] += 1
+        if calls["open"] == 1:
+            raise _refused()
+        return "NATIVE"
+
+    monkeypatch.setattr(db_backend, "_open_native_postgres", fake_native_connect)
+    monkeypatch.setattr(db_backend, "resolve_pg_dsn",
+                        lambda *a, **k: "host=127.0.0.1 port=6547 dbname=x")
+    monkeypatch.setattr(cer, "ensure_ready",
+                        lambda *, force=False: cer.ReadinessResult(
+                            ok=True, environment="t",
+                            connector_kind=cer.CONNECTOR_LOCAL_SSH_TUNNEL_PG,
+                            action="x", message="x"))
+    monkeypatch.setattr(cer, "is_local_tunnel_connection_error", lambda exc: True)
+
+    conn = db_backend.connect()
+
+    assert conn == "NATIVE"
+    assert calls["open"] == 2
+
+
+def test_db_backend_connect_routes_opener_through_readiness(monkeypatch):
+    captured = {}
+
+    def fake_cwr(opener):
+        captured["opener"] = opener
+        return "WRAPPED"
+
+    monkeypatch.setattr(cer, "connect_with_readiness", fake_cwr)
+    monkeypatch.setattr(db_backend, "resolve_pg_dsn", lambda *a, **k: "host=127.0.0.1 dbname=x")
+
+    assert db_backend.connect() == "WRAPPED"
+    assert callable(captured["opener"])
+
+
+def test_db_backend_connect_psycopg_routes_through_readiness(monkeypatch):
+    captured = {}
+
+    def fake_cwr(opener):
+        captured["opener"] = opener
+        return "RAW"
+
+    monkeypatch.setattr(cer, "connect_with_readiness", fake_cwr)
+    monkeypatch.setattr(db_backend, "resolve_pg_dsn", lambda *a, **k: "host=127.0.0.1 dbname=x")
+
+    assert db_backend.connect_psycopg() == "RAW"
+    assert callable(captured["opener"])

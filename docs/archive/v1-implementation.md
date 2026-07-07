@@ -1,0 +1,1036 @@
+# Yoke — Implementation Plan
+
+## Status: IN PROGRESS
+
+## Overview
+Yoke is an attachable software-development operating system. The README.md contains a comprehensive spec. This plan tracks implementation of all files needed to make the project real.
+
+---
+
+## Tickets
+
+### TICKET-001: Directory Structure + Foundational Scripts [DONE]
+**Status:** DONE
+**Scope:** Create directory structure, `check-prerequisites.sh`, `update-status.sh`
+
+**Tasks:**
+- [x] Create directory structure (prds/, designs/, epics/, docs/, .claude/agents/, .claude/skills/yoke/commands/, .claude/skills/yoke/scripts/)
+- [x] Create `check-prerequisites.sh` — checks gh, git, dirs, agents, settings
+- [x] Create `update-status.sh` — atomic JSON status updates + dashboard rebuild
+- [x] Test both scripts — check-prerequisites correctly reports missing items; update-status correctly transitions pending→in_progress→completed, appends history, rebuilds dashboard
+- [x] Commit
+
+### TICKET-002: Remaining Shell Scripts [DONE]
+**Status:** DONE
+**Scope:** Create and test the remaining 5 shell scripts
+
+**Scripts created:**
+- [x] `verify-overlap.sh` — tested with pass/fail cases, fixed worktree name display bug (cksum-based filename sanitizer)
+- [x] `create-worktrees.sh` — tested creation + idempotency (skips existing)
+- [x] `sync-to-github.sh` — creates epic + task issues, handles sub-issue fallback, renames task files, creates status JSONs
+- [x] `sync-progress.sh` — posts unsynced progress notes to GitHub issues, tracks via .synced marker
+- [x] `merge-worktree.sh` — rebase, auto-resolve generated files, run tests, PR, CI wait, merge, worktree cleanup
+
+### TICKET-003: Agent Definitions [DONE]
+**Status:** DONE
+**Scope:** Create the 5 subagent definition files in `.claude/agents/`
+
+**Agents:**
+- [x] `yoke-product-manager.md` — sonnet, Read/Grep/Glob, brainstorming PM, PRD template
+- [x] `yoke-product-designer.md` — sonnet, Read/Grep/Glob, UX spec from PRD + patterns
+- [x] `yoke-architect.md` — opus, Read/Grep/Glob/Bash, task decomposition + interface contracts + worktree plans
+- [x] `yoke-engineer.md` — opus, all tools, bypassPermissions, incremental commits + progress notes, PostToolUse/SubagentStop/Stop hooks
+- [x] `yoke-tester.md` — sonnet, no Write/Edit (3 layers of protection), validation reports, PreToolUse/SubagentStop/Stop hooks
+
+### TICKET-004: SKILL.md + Core Workflow Commands [DONE]
+**Status:** DONE
+**Scope:** Create the skill root file and the core workflow slash commands
+
+**Files:**
+- [x] `SKILL.md` — root skill with command listing
+- [x] `commands/init.md` — prerequisite checks, settings.json generation, .gitignore, CLAUDE.md setup
+- [x] `commands/prd-new.md` — Explore scan → PM brainstorming → PRD with frontmatter
+- [x] `commands/plan.md` — Explore scan → Architect → epic + tasks + worktree plan + user review gate
+- [x] `commands/sync.md` — overlap verification → GitHub Issues → worktrees
+- [x] `commands/dispatch.md` — full Engineer→Tester loop with retry, auto-chaining, dispatch chain state
+- [x] `commands/merge.md` — sequential branch merge with auto-resolve, CI wait, integration-fix tasks
+
+### TICKET-005: Monitoring + Maintenance Commands [DONE]
+**Status:** DONE
+**Scope:** Create the remaining slash commands
+
+**Files:**
+- [x] `commands/prd-list.md` — list PRDs with frontmatter status
+- [x] `commands/prd-status.md` — PRD lifecycle + linked epic progress
+- [x] `commands/design.md` — optional UX spec phase via Designer subagent
+- [x] `commands/next.md` — ready-to-dispatch tasks with dependency checks
+- [x] `commands/status.md` — full dashboard + active dispatch chains
+- [x] `commands/standup.md` — recent completions, in-progress, blocked
+- [x] `commands/blocked.md` — blocked tasks with blocker identification
+- [x] `commands/validate.md` — integrity check across status/worktrees/GitHub/dashboard
+- [x] `commands/recover.md` — stuck task detection, re-dispatch or resume
+- [x] `commands/amend.md` — add/split/reassign/remove tasks + re-verify overlap
+- [x] `commands/import.md` — import GitHub issues into Yoke structure
+- [x] `commands/help.md` — full command reference
+
+### TICKET-006: Install Script [DONE]
+**Status:** DONE
+**Scope:** Create `install.sh` per spec
+**Results:** Tested fresh install, upgrade mode, and non-yoke agent preservation. All working.
+
+### TICKET-007A: Remove .gitkeep files [DONE]
+**Status:** DONE
+**Scope:** Remove redundant .gitkeep files — install.sh creates directories in target projects
+**Results:** Removed 5 .gitkeep files (prds/, designs/, epics/, docs/, .claude/rules/). Empty dirs auto-removed. install.sh handles directory creation in target projects via `mkdir -p`.
+
+### TICKET-007B: BOARD.md as First-Class Artifact [DONE]
+**Status:** DONE
+**Scope:** Make BOARD.md a hybrid auto-synced + human-maintained sprint board
+
+**Design:** BOARD.md has marker-delimited sections:
+- `<!-- YOKE:BOARD:START -->` / `<!-- YOKE:BOARD:END -->` — auto-generated by update-status.sh
+- Everything outside markers (Notes, Session Log) — human-maintained, preserved across rebuilds
+- Board shows: Epics table, Active tasks, Blocked tasks, Recently Completed
+- Rebuilt on every status change (same hook-triggered flow as per-epic dashboards)
+
+**Tasks:**
+- [x] Add `rebuild_current_plan()` function to `update-status.sh` — scans all epics, marker-based replacement
+- [x] Update `commands/status.md` — no-arg case shows BOARD.md, with-arg shows per-epic dashboard
+- [x] Update `commands/init.md` — scaffold BOARD.md template with markers
+- [x] Update `README.md` — Directory Structure, Architecture note, Command Reference, Shell Script spec
+- [x] Update BOARD.md with new tickets
+- [x] Test update-status.sh with mock status data — PASS: created from scratch, human sections preserved across rebuilds, board regenerated correctly
+- [x] Commit
+
+### TICKET-008A: Cross-Reference + Frontmatter Validation [DONE]
+**Status:** DONE
+**Scope:** Validate all agent YAML frontmatter, verify cross-references between commands↔scripts↔agents
+
+**Validation Results (all PASS):**
+- [x] Scripts in commands ↔ script files — all match (6 referenced, 7 exist, sync-progress.sh hook-only)
+- [x] Agent names in commands ↔ agent files — perfect 1:1 match (5 each)
+- [x] SKILL.md commands ↔ command files — perfect 1:1 match (18 each)
+- [x] Hook script paths in agents ↔ actual files — all exist
+- [x] All 7 scripts are executable
+
+**Bugs Found & Fixed:**
+1. **BUG: Hook YAML format was wrong in all 5 agents** — used flat `command:` / `tool:` format instead of nested `matcher:` + `hooks:` array with `type: command` objects. Fixed all 5 agents.
+2. **BUG: `once: true` is skills-only** — not supported in agent frontmatter. Removed from all agents.
+3. **DESIGN CHANGE: SubagentStop now sets "stopped" (safe default)** — previously Engineer's SubagentStop set "completed" and had a separate Stop hook for crashes. Since `Stop` in frontmatter auto-converts to `SubagentStop`, can't distinguish normal vs crash. Now: hooks set "stopped" as safety net, dispatch command overrides to correct status on normal completion.
+4. **Updated dispatch.md** — dispatch command now explicitly overrides hook "stopped" status to "validating" after Engineer and "completed" after Tester passes.
+5. **Updated README** — all hook examples, Engineer/Tester descriptions, Configuration example fixed.
+
+### TICKET-008B: Script Testing in Isolation [DONE]
+**Status:** DONE
+**Scope:** Run each shell script with mock data in a temp repo
+
+**Test Results (all in /tmp/yoke-test temp git repo):**
+
+**Scripts tested end-to-end:**
+- [x] `check-prerequisites.sh` — PASS: all-green case + missing-dir failure case both work
+- [x] `verify-overlap.sh` — PASS: non-overlapping (pass), overlapping (fail), generated-files-excluded (pass)
+- [x] `create-worktrees.sh` — PASS: creates worktrees on correct branches, idempotent skip
+- [x] `update-status.sh` — PASS: full lifecycle pending→in_progress→validating→completed, dashboard rebuild, BOARD.md board rebuild, dispatch chain timestamp update
+
+**Scripts structurally reviewed (require GitHub API for full test):**
+- [x] `sync-to-github.sh` — Reviewed. Found & fixed metadata extraction bug (see below)
+- [x] `sync-progress.sh` — Reviewed. Found relative path issue (see below)
+- [x] `merge-worktree.sh` — Reviewed. Found `git rebase --continue` concern (see below)
+
+**Bugs Found & Fixed:**
+1. **BUG: Epic status "pending" when partially complete** — `update-status.sh` `rebuild_current_plan()` didn't check for `_edone > 0` (some tasks completed, none active). Epic showed "pending" instead of "in-progress". **Fixed**: added `elif [ "$_edone" -gt 0 ]` check.
+2. **BUG: Metadata extraction failed with bold markdown** — `sync-to-github.sh` patterns like `^[*-]*[[:space:]]*[Ww]orktree` couldn't parse `- **Worktree:** value` format from Architect template. Worktree, context estimate, and dependencies all affected. **Fixed**: new approach — find line containing keyword, strip all `*`, strip bullet prefix, strip keyword prefix, clean up.
+
+**Issues Noted (not fixed, integration-level):**
+3. **sync-progress.sh relative path** — uses `epics/${EPIC_NAME}/updates/` relative to CWD. When called from Engineer hook in a worktree, CWD may be worktree dir, not repo root. Ties into Bug #4 (env var question). Needs resolution in TICKET-008C or integration testing.
+4. **merge-worktree.sh multi-commit rebase** — `git rebase --continue` after auto-resolving generated files only continues one step. Multi-commit rebases with repeated generated-file conflicts may stall. Edge case, needs real-repo testing.
+
+### TICKET-008C: Install + Init Flow Test [DONE]
+**Status:** DONE
+**Scope:** Fresh install.sh → check-prerequisites.sh → verify file layout + integration test
+
+**Test Results (all in /tmp/yoke-008c-test temp git repo):**
+
+**Fresh install:**
+- [x] `install.sh` — PASS: detects local source, installs 5 agents, SKILL.md, 18 commands, 7 scripts (all executable), 4 project dirs
+- [x] File layout matches spec exactly (verified via `find` + `diff` against source)
+- [x] `check-prerequisites.sh` pre-init — PASS: correctly reports 7 pass, 3 fail (settings.json, .gitignore, CLAUDE.md)
+
+**Init flow (manual simulation of what init.md instructs):**
+- [x] Create settings.json with permission rules — PASS
+- [x] Create .gitignore with Yoke patterns — PASS
+- [x] Create CLAUDE.md with Yoke rules — PASS
+- [x] Create BOARD.md with board markers — PASS
+- [x] `check-prerequisites.sh` post-init — PASS: all 10 checks green
+
+**Upgrade mode:**
+- [x] `install.sh --upgrade` — PASS: all 5 yoke agents updated, skill dir replaced
+- [x] Custom non-yoke agent preserved — PASS
+- [x] settings.json, CLAUDE.md, BOARD.md preserved — PASS
+- [x] Re-run without --upgrade — PASS: correctly shows "Exists" + skip count for all
+
+**Integration: update-status.sh in fully-initialized repo:**
+- [x] Full lifecycle pending→in_progress→validating→completed→merged — PASS
+- [x] Dashboard rebuild — PASS
+- [x] BOARD.md board rebuild — PASS
+- [x] Human-maintained content preserved across board rebuilds — PASS
+- [x] Valid JSON after all transitions — PASS
+
+**Bug Found & Fixed:**
+1. **BUG: History array got leading comma on first entry** — `update-status.sh` sed command for appending to history array produced `[, { ... }]` (invalid JSON) when history started empty `[]`. The multiline sed `s/\(.*\)\]/\1, ENTRY]/` always prepended a comma. **Root cause:** Single sed pattern can't handle both empty and non-empty array cases cleanly across BSD/GNU sed. **Fix:** Split into two paths — `grep` to detect empty `[]` then use simple `sed` substitution; else use `awk` for reliable multiline append with comma. Tested all 3 transitions produce valid JSON.
+
+### TICKET-009: Self-Discovering Hook Wrappers (Bug #4 Fix) [DONE]
+**Status:** DONE
+**Scope:** Fix Bug #4 — hook commands referenced undefined env vars ($TASK_STATUS_FILE, $EPIC_NAME, $ISSUE_NUMBER). Claude Code does NOT inject custom env vars into hook commands.
+
+**Root Cause:** Claude Code hooks are static shell commands defined in agent YAML frontmatter. They only have access to `$CLAUDE_PROJECT_DIR` and standard env vars. Custom vars like `$TASK_STATUS_FILE` were never set, so all hook status updates silently failed.
+
+**Solution:** Self-discovering wrapper scripts that find the active task from dispatch chain files on disk:
+- `on-agent-stop.sh` — SubagentStop hook. Uses `$CLAUDE_PROJECT_DIR` → scans `epics/*/status/dispatch-*.json` → finds task in `in_progress` or `validating` → sets "stopped".
+- `on-bash-complete.sh` — PostToolUse hook for Engineer Bash. Same discovery → calls `sync-progress.sh` with discovered epic/issue. Also fixes Bug #7 by cd-ing to project root before calling sync-progress.sh.
+
+**Tasks:**
+- [x] Research ccpm approach (reference: https://github.com/automazeio/ccpm) — ccpm doesn't use hooks for context, passes everything via Task tool prompt. Confirmed Claude Code has no env var injection for hooks.
+- [x] Create `on-agent-stop.sh` — self-discovering SubagentStop wrapper
+- [x] Create `on-bash-complete.sh` — self-discovering PostToolUse wrapper
+- [x] Update all 5 agent YAML hooks to use new wrappers (removed $TASK_STATUS_FILE etc.)
+- [x] Update dispatch.md — removed env var specification from steps 7 and 9
+- [x] Update README — hook examples, subagent descriptions, hooks table, directory structure, script specs
+- [x] Test: in_progress → stopped (PASS), validating → stopped (PASS), completed not changed (PASS), no-op without dispatch chain (PASS), on-bash-complete discovery + sync (PASS)
+
+**Known limitation (v1):** With parallel dispatches in multiple worktrees, the hooks scan ALL dispatch chains and update the first active task found. If two dispatches are simultaneously active, a hook might set the wrong task to "stopped". Acceptable because: (a) dispatch command always overrides hook statuses on normal completion, (b) /yoke:recover handles stale states. The README already warns about parallel dispatch management.
+
+### TICKET-010: Real GitHub Integration Test [DONE]
+**Status:** DONE
+**Scope:** End-to-end test with a real GitHub repo — sync-to-github.sh, sync-progress.sh, gh issue creation/labeling
+
+**Test Environment:** upyoke/yoke repo, GitHub CLI available, gh-sub-issue v0.5.1 installed
+
+**Test Results:**
+
+**sync-to-github.sh:**
+- [x] Epic issue creation (title, body, `type:epic` label) — PASS
+- [x] Task issue creation (title, body, 3 labels each) — PASS (after Bug #10 fix)
+- [x] Label auto-creation for worktree labels — PASS (Bug #10 fix)
+- [x] Sub-issue linking via gh-sub-issue — PASS (after Bug #11 fix)
+- [x] Task file renaming (001.md→4.md) — PASS
+- [x] Status JSON creation (valid JSON, correct fields) — PASS
+- [x] Updates directory creation per task — PASS
+
+**sync-progress.sh:**
+- [x] Progress note posting to GitHub issue comments — PASS
+- [x] .synced marker tracking — PASS
+- [x] Idempotent re-run (no duplicate posts) — PASS
+- [x] Incremental sync (only new notes posted) — PASS
+
+**update-status.sh GitHub integration:**
+- [x] Label swap pending→in-progress — PASS (after Bug #12 fix)
+- [x] Label swap in-progress→completed — PASS (after Bug #12 fix)
+- [x] Status change comment with note — PASS
+- [x] Dashboard + BOARD.md board rebuild — PASS
+
+**Bugs Found & Fixed:**
+- Bug #10: `sync-to-github.sh` failed when worktree labels didn't pre-exist. **Fix**: added `ensure_label()` function.
+- Bug #11: `gh sub-issue add` syntax was wrong (`--child` flag vs positional arg). **Fix**: `gh sub-issue add <parent> <child>`.
+- Bug #12: `update-status.sh` didn't remove old status label (underscore vs hyphen mismatch). **Fix**: apply `sed 's/_/-/g'` to OLD_LABEL too.
+
+### TICKET-011: Label Creation in init.md + ensure_label in update-status.sh
+**Status:** DONE
+**Scope:** Ensure all standard labels are created during `/yoke:init`, and add `ensure_label` to `update-status.sh` for status labels that might not exist yet (e.g., `status:stopped`, `status:validating`, `status:blocked`). Currently only sync-to-github.sh creates labels, but update-status.sh can reference labels that don't exist yet if status transitions to a new state before sync runs.
+
+**Tasks:**
+- [x] Add label creation to `commands/init.md` instructions — new step 8 with all 11 standard labels (8 status + 3 type), `2>/dev/null || true` for idempotency
+- [x] Add `ensure_label` to `update-status.sh` — `gh label create "$NEW_LABEL"` before `gh issue edit` so any status label is auto-created on first use
+- [x] Test end-to-end — created 3 missing labels (status:validating, status:blocked, status:stopped) via init commands, verified idempotency on existing labels, tested full status transition cycle (pending→in_progress→stopped→validating→blocked) on real GitHub issue #7 with correct label swaps on every transition. Cleaned up test artifacts.
+
+### TICKET-012: Condense README.md
+**Status:** DONE
+**Scope:** Remove spec-level implementation details from README that now live in the code. README was used as the spec document during development; now that implementation is complete, strip it down to user-facing documentation.
+
+**Removed:**
+- Shell Script Specifications section (9 detailed input/output/behavior specs for each script)
+- Install Script Specification (detailed behavior spec)
+- Full JSON schema examples for status files and dispatch chain state
+- Full YAML hook definition examples (in actual agent files)
+- Full interface contract markdown examples (in Architect agent prompt)
+- Full worktree plan example (in Architect agent prompt)
+- Frontmatter fields table (duplicates Claude Code docs + lives in agent files)
+- Verbose progress note example
+- Detailed per-agent bullet lists (tools, model, maxTurns, hooks, permission mode)
+
+**Condensed:**
+- Subagent roster → table format (role, model, key constraint)
+- State Management → bullet list of file types + status flow
+- Hooks → table format + short explanation
+- Context Management, Documentation as a Deliverable, Crash Recovery → single paragraphs each
+- Installation → combined install + manual into shorter section
+- Configuration → removed frontmatter table, kept customization tips
+- FAQ → trimmed verbose answers
+- Directory Structure → simplified tree
+
+**Result:** 1060 → 468 lines (56% reduction). All user-facing information preserved. Implementation details accessible in the code.
+
+---
+
+## File Manifest (from README spec)
+
+### Shell Scripts (.claude/skills/yoke/scripts/)
+| Script | Spec in README | Status |
+|---|---|---|
+| check-prerequisites.sh | Yes — detailed | DONE ✓ |
+| verify-overlap.sh | Yes — detailed | DONE ✓ |
+| create-worktrees.sh | Yes — detailed | DONE ✓ |
+| sync-to-github.sh | Yes — detailed | DONE ✓ |
+| update-status.sh | Yes — detailed | DONE ✓ |
+| sync-progress.sh | Yes — detailed | DONE ✓ |
+| merge-worktree.sh | Yes — detailed | DONE ✓ |
+| on-agent-stop.sh | Yes — detailed | DONE ✓ |
+| on-bash-complete.sh | Yes — detailed | DONE ✓ |
+| validate.sh | Added in TICKET-R6 | DONE ✓ |
+
+### Agent Definitions (.claude/agents/)
+| Agent | Key Properties | Status |
+|---|---|---|
+| yoke-product-manager.md | sonnet, Read/Grep/Glob only, maxTurns 15 | DONE ✓ |
+| yoke-product-designer.md | sonnet, Read/Grep/Glob only, maxTurns 30 | DONE ✓ |
+| yoke-architect.md | opus, Read/Grep/Glob/Bash, maxTurns 40 | DONE ✓ |
+| yoke-engineer.md | opus, all tools, bypassPermissions, maxTurns 80 | DONE ✓ |
+| yoke-tester.md | sonnet, no Write/Edit, maxTurns 20 | DONE ✓ |
+| yoke-simulator.md | opus, no Write/Edit, maxTurns 40 | DONE ✓ (TICKET-R12) |
+
+### Skill + Commands (.claude/skills/yoke/)
+| File | Status |
+|---|---|
+| SKILL.md | DONE ✓ |
+| commands/init.md | DONE ✓ |
+| commands/prd-new.md | DONE ✓ |
+| commands/prd-list.md | DONE ✓ |
+| commands/prd-status.md | DONE ✓ |
+| commands/design.md | DONE ✓ |
+| commands/plan.md | DONE ✓ |
+| commands/sync.md | DONE ✓ |
+| commands/dispatch.md | DONE ✓ |
+| commands/next.md | DONE ✓ |
+| commands/status.md | DONE ✓ |
+| commands/standup.md | DONE ✓ |
+| commands/blocked.md | DONE ✓ |
+| commands/merge.md | DONE ✓ |
+| commands/validate.md | DONE ✓ |
+| commands/recover.md | DONE ✓ |
+| commands/stop.md | DONE ✓ |
+| commands/simulate.md | DONE ✓ (TICKET-R13) |
+| commands/amend.md | DONE ✓ |
+| commands/import.md | DONE ✓ |
+| commands/help.md | DONE ✓ |
+
+### Other
+| File | Status |
+|---|---|
+| install.sh | DONE ✓ |
+
+---
+
+## Architecture Notes
+
+- All shell scripts must be POSIX-compatible (`#!/usr/bin/env sh`), no bashisms
+- Agent frontmatter: name, description, tools, disallowedTools, model, permissionMode, maxTurns, hooks
+- Status values: pending → in_progress → validating → completed → merged (+ failed, blocked)
+- Task files rename from {NNN}.md to {github-issue-number}.md after sync
+- Worktrees created as siblings of repo root, not inside it
+- Generated files (lock files, compiled output) flagged as auto-resolve on merge
+
+## Bugs Found
+1. **Hook YAML format** (TICKET-008A) — all 5 agents used wrong flat format. Fixed to nested matcher+hooks format per Claude Code docs.
+2. **`once: true` not supported in agent frontmatter** (TICKET-008A) — skills-only. Removed.
+3. **SubagentStop/Stop distinction impossible in frontmatter** (TICKET-008A) — `Stop` auto-converts to `SubagentStop`, so can't distinguish normal completion from crash. Resolved by making hooks pessimistic ("stopped") and dispatch command optimistic (overrides on success).
+4. **RESOLVED: `$TASK_STATUS_FILE` env var** (TICKET-009) — Claude Code does NOT inject custom env vars into hook commands. Only `$CLAUDE_PROJECT_DIR` is available. **Fixed**: replaced env var hooks with self-discovering wrapper scripts (`on-agent-stop.sh`, `on-bash-complete.sh`) that scan dispatch chain files to find the active task.
+5. **Epic status "pending" when partially complete** (TICKET-008B) — `rebuild_current_plan()` in update-status.sh didn't detect partially-completed epics. Fixed: added `_edone > 0` check.
+6. **Metadata extraction failed with bold markdown** (TICKET-008B) — sync-to-github.sh patterns couldn't parse `- **Worktree:** value` format from Architect template. Fixed: robust strip-then-extract approach.
+7. **RESOLVED: sync-progress.sh relative path** (TICKET-009) — `on-bash-complete.sh` wrapper cd's to `$CLAUDE_PROJECT_DIR` before calling `sync-progress.sh`, so relative `epics/` paths resolve correctly regardless of CWD.
+8. **RESOLVED: merge-worktree.sh multi-commit rebase** (TICKET-008B → fixed in TICKET-R5, GAP #22) — `git rebase --continue` only handled one step. **Fixed**: merge-worktree.sh now loops (max 50 passes safety valve) with `GIT_EDITOR=true git rebase --continue`. Pure generated-file conflicts auto-resolve. Mixed generated + non-generated conflicts abort immediately with manual workaround documented in README and merge.md.
+9. **History array leading comma on first entry** (TICKET-008C) — `update-status.sh` sed append produced `[, {...}]` (invalid JSON) when history was empty `[]`. Fixed: split into empty/non-empty paths using grep + sed/awk.
+10. **RESOLVED: sync-to-github.sh missing worktree labels** (TICKET-010) — `gh issue create --label` requires labels to pre-exist. Script failed silently when worktree labels (e.g., `worktree:feature-test-api`) didn't exist. **Fixed**: added `ensure_label()` function that auto-creates labels before issue creation.
+11. **RESOLVED: gh sub-issue add wrong syntax** (TICKET-010) — Script used `gh sub-issue add <parent> --child <child>` but correct syntax is `gh sub-issue add <parent> <child>` (positional args). **Fixed**: removed `--child` flag.
+12. **RESOLVED: update-status.sh old label not removed** (TICKET-010) — `OLD_LABEL` used raw status value with underscores (`status:in_progress`) but GitHub labels use hyphens (`status:in-progress`). Only `NEW_LABEL` had the underscore→hyphen sed conversion. **Fixed**: apply same `sed 's/_/-/g'` to `OLD_LABEL`.
+13. **RESOLVED: Idempotent re-sync dependency resolution failed** (TICKET-R3) — When adding new tasks to an already-synced epic, the glob sorted new task files (e.g., `004.md`) before renamed task files (e.g., `102.md`). Dependencies referencing original task numbers (e.g., `003`) couldn't resolve because the mapping file was populated by the in-loop skip path after the new task was already processed. Also, skipped tasks only recorded `filename:issue` (e.g., `104:104`), not `original_task_id:issue` (e.g., `003:104`). **Fixed**: pre-populate mapping from existing status JSONs before the main loop, and record both filename and original task_id mappings.
+14. **RESOLVED: Dashboard missing `stopped` status counter** (TICKET-R4) — `update-status.sh` dashboard rebuild `case` statement only counted: pending, in_progress, validating, completed, merged, failed, blocked. Tasks with `stopped` status were counted in total but silently fell through, making subcounts not add up. Also missing from: BOARD.md board Active section, epic status derivation. **Fixed**: added `stopped` to all three case statements.
+
+---
+
+## Remediation Plan (from SIMULATION.md gaps)
+
+### Overview
+The simulation identified 39 gaps. Organized below into 7 stages by theme, starting from the most critical/foundational. Each stage is a ticket. Dependencies flow downward — later stages build on earlier fixes.
+
+**Severity counts:** 1 BLOCKER, 8 MAJOR, 16 MEDIUM, 2 MINOR, 12 LOW (includes GAP #40 false alarm)
+
+### TICKET-R1: Critical Foundation — Core Flow Broken [DONE]
+**Status:** DONE
+**Scope:** Fix showstoppers that make the core happy-path non-functional
+**Gaps addressed:** #1 (BLOCKER), #9+#12 (MAJOR), #17 (MAJOR), #24 (MAJOR)
+
+| Gap | Severity | Fix |
+|-----|----------|-----|
+| #1 | BLOCKER | Replace `youruser/yoke` with `upyoke/yoke` in install.sh + README.md |
+| #9+#12 | MAJOR | Fix `sync-to-github.sh` to populate `depends_on` in status JSON — build task-ID→issue-number mapping during sync, backfill dependencies. This also fixes #12 (next.md). |
+| #17 | MAJOR | Add `dispatch_attempts` increment to `update-status.sh` — increment when transitioning to `in_progress` |
+| #24 | MAJOR | Add bulk status update after merge — `merge-worktree.sh` calls `update-status.sh` for each task in the worktree → `merged` |
+
+**Tasks:**
+- [x] Fix GAP #1: Replace placeholder URL in install.sh and README.md
+- [x] Fix GAP #9: Populate depends_on in sync-to-github.sh — added `resolve_deps()` function + task_num→issue_num mapping file; tested 8 cases (empty, None, single, multiple, prefix, three deps, missing dep, lowercase none)
+- [x] Fix GAP #17: Add dispatch_attempts increment to update-status.sh — awk-based increment on `in_progress` transition; tested 3 transitions (pending→in_progress=1, validating stays 1, retry in_progress=2)
+- [x] Fix GAP #24: Add post-merge status update to merge-worktree.sh — iterates status JSONs, updates only completed tasks in the merged worktree; tested with 3 tasks (2 same worktree→merged, 1 different worktree→unchanged)
+- [x] Commit
+
+### TICKET-R2: Dispatch Safety — Prevent Concurrent Damage
+**Status:** DONE
+**Scope:** Lock same-worktree parallel dispatch, handle blocked chains, UX guards
+**Gaps addressed:** #31 (MAJOR), #6+#18 (MAJOR), #30 (LOW), #36 (MEDIUM)
+
+| Gap | Severity | Fix |
+|-----|----------|-----|
+| #31 | MAJOR | Add lockfile check to dispatch.md — before dispatching, check dispatch chain for existing `in_progress` task; refuse if found |
+| #6+#18 | MAJOR | Add explicit blocked-chain handling to dispatch.md — when next task's deps unmet, set to `blocked`, stop chain, notify operator |
+| #30 | LOW | Add "no status file found → run /yoke:sync first" error to dispatch.md |
+| #36 | MEDIUM | Add explicit epic name, issue number, and paths to Engineer prompt in dispatch.md |
+
+**Tasks:**
+- [x] Fix GAP #31: Add same-worktree dispatch protection — new step 3 checks dispatch chain for `current_task` with `in_progress`/`validating` status; refuses with clear message pointing to `/yoke:recover`
+- [x] Fix GAP #6+#18: Add blocked-chain logic — step 4 now explicitly stops dispatch when deps unmet; step 11 auto-chain checks next task's deps before dispatching, sets to `blocked` and stops chain with operator notification if unmet
+- [x] Fix GAP #30: Add pre-sync error — step 1 now checks for missing status file and tells user to run `/yoke:sync` first; also handles pre-sync task numbers (e.g., `001`)
+- [x] Fix GAP #36: Add explicit context block to Engineer prompt — step 8 includes epic name, issue number, status file path, progress notes dir, worktree path
+- [x] Logic review — traced all paths: (a) step numbering renumbered 1-11 (was 1-10), (b) step references updated in Notes section, (c) retry loop points to step 8 (Engineer), (d) auto-chain end-of-queue case handled
+
+### TICKET-R3: Sync & Metadata Robustness
+**Status:** DONE
+**Scope:** Make sync idempotent, metadata extraction robust, dispatch chain deterministic
+**Gaps addressed:** #10 (MEDIUM), #34 (MEDIUM), #13 (MEDIUM)
+
+| Gap | Severity | Fix |
+|-----|----------|-----|
+| #10 | MEDIUM | Add YAML frontmatter to Architect's task template; parse frontmatter in sync-to-github.sh instead of fragile sed chains |
+| #34 | MEDIUM | Make sync-to-github.sh idempotent — skip tasks that already have status JSON |
+| #13 | MEDIUM | Generate dispatch chain templates during sync (or create a `build-queue.sh` script) |
+
+**Detailed Plan:**
+
+**GAP #10 — Task Frontmatter:**
+1. Add YAML frontmatter block to Architect's task template in `yoke-architect.md`:
+   ```yaml
+   ---
+   worktree: feature/branch-name
+   context_estimate: M
+   dependencies: none | 001, 002
+   ---
+   ```
+2. Update `sync-to-github.sh` parser: check if file starts with `---`, extract frontmatter with `awk`, parse fields with `grep`+`sed`. Fall back to old sed-chain parsing if no frontmatter (backward compat).
+3. Strip frontmatter from body before creating GitHub issue (so the YAML block doesn't clutter the issue).
+
+**GAP #34 — Sync Idempotency:**
+1. In the task loop, check if `${STATUS_DIR}/${TASK_NUM}.json` already exists.
+2. If it does, skip the task (already synced). Print skip message.
+3. Still add to worktree grouping for dispatch chain generation.
+
+**GAP #13 — Dispatch Chain Generation:**
+1. During the task loop, build a mapping of worktree → ordered list of issue numbers.
+2. After the loop, for each worktree, generate `dispatch-{worktree-slug}.json` with the queue, current_index=0, etc.
+3. Update `dispatch.md` step 2 to note that dispatch chains are pre-generated by sync.
+
+**Tasks:**
+- [x] Fix GAP #10: Add task frontmatter to Architect template + update sync parsing
+- [x] Fix GAP #34: Add idempotency check to sync-to-github.sh
+- [x] Fix GAP #13: Generate dispatch chain files during sync
+- [x] Test all three fixes
+
+**Implementation Details:**
+
+**GAP #10 — Task Frontmatter:**
+- Updated Architect task template in `yoke-architect.md` — added required YAML frontmatter block with `worktree`, `context_estimate`, `dependencies` fields. Removed the old "Metadata" section from the markdown body. Changed from triple-backtick to quadruple-backtick code fence (since template now contains YAML delimiters).
+- Updated `sync-to-github.sh` — added `extract_metadata()` function: parses YAML frontmatter first (awk extracts between `---` markers, grep/sed for fields), falls back to old sed-chain parsing for legacy files without frontmatter.
+- Added `strip_frontmatter()` helper — strips YAML block before creating GitHub issue so frontmatter doesn't clutter issue body.
+- Title extraction updated for frontmatter files (awk skips frontmatter, finds first `#` heading).
+- BSD awk compatibility fix: `!var{print}` syntax fails on macOS awk. Changed to `skip==0{print}`.
+
+**GAP #34 — Sync Idempotency:**
+- Added `_epic_issue` sentinel file in status dir — stores epic issue number on first sync, reused on re-runs.
+- Added per-task idempotency check — if `${STATUS_DIR}/${TASK_NUM}.json` exists, skip issue creation.
+- Added pre-populated mapping from existing status JSONs before the main loop — ensures dependency resolution works for new tasks regardless of file sort order (new task 004.md sorts before renamed 102.md).
+- Bug found and fixed during testing: skipped tasks recorded `filename:issue` mapping but not `original_task_id:issue` mapping. New tasks referencing original task numbers (e.g., "003") couldn't resolve. Fix: read `task_id` from status JSON and record both mappings.
+- Dispatch chain files also skip if already existing (idempotent).
+
+**GAP #13 — Dispatch Chain Generation:**
+- During task loop, records `worktree_branch|issue_number` per task in a temp file (preserves processing order).
+- After main loop, iterates unique worktree branches and generates `dispatch-{worktree-slug}.json` for each.
+- Chain files include: `queue` (ordered issue numbers), `current_index: 0`, `current_task` (first in queue), `current_attempt: 0`, `max_attempts: 5`.
+- Updated `dispatch.md` step 2 to note chains are pre-generated by sync (with fallback for pre-existing epics).
+- Known limitation: partial re-sync doesn't update existing dispatch chain files (new tasks not added to existing chains). The `/yoke:amend` command should handle this.
+
+**Test Results (all in /tmp/yoke-r3-test temp repo with mock gh):**
+- [x] Frontmatter parsing — task 001 (frontmatter): worktree/context/deps extracted correctly
+- [x] Legacy fallback — task 003 (no frontmatter): metadata parsed from markdown body
+- [x] Dependency resolution — task 002 `dependencies: 001` → `depends_on: ["#102"]`
+- [x] Frontmatter stripping — GitHub issue body doesn't include YAML block
+- [x] Title extraction — correct from frontmatter files (skips `---` block)
+- [x] Epic idempotency — re-run reuses `_epic_issue` file, no duplicate epic created
+- [x] Task idempotency — re-run skips all 3 tasks ("already synced"), 0 created, 3 skipped
+- [x] Dispatch chain idempotency — re-run skips existing chains
+- [x] Dispatch chain generation — `dispatch-feature-test-api.json` (queue: ["102","103"]), `dispatch-feature-test-ui.json` (queue: ["104"])
+- [x] Partial re-sync — new task 004 created, existing tasks skipped, dependency `003` → `#104` resolved correctly via pre-populated mapping
+- [x] BSD awk compatibility — all awk patterns tested on macOS
+
+### TICKET-R4: Recovery & Lifecycle [DONE]
+**Status:** DONE
+**Scope:** Fix crash recovery, add stop command
+**Gaps addressed:** #20 (MEDIUM), #21 (MEDIUM), #35 (MEDIUM)
+
+| Gap | Severity | Fix |
+|-----|----------|-----|
+| #20 | MEDIUM | Update recover.md to also scan for `stopped` status (primary crash indicator) |
+| #21 | MEDIUM | Add agentId recording step to dispatch.md after Engineer/Tester invocation |
+| #35 | MEDIUM | Create `/yoke:stop` command — sets task to stopped, clears dispatch chain position |
+
+**Tasks:**
+- [x] Fix GAP #20: Update recover.md detection criteria — `stopped` is now the primary indicator (no heartbeat heuristic needed); `in_progress`/`validating` are fallback with 30-min threshold
+- [x] Fix GAP #21: Add agentId recording to dispatch.md + status JSON schema — added `agent_id` field to status JSON template in sync-to-github.sh; added sed-based agent_id recording step after Engineer invocation in dispatch.md
+- [x] Fix GAP #35: Create commands/stop.md + update SKILL.md + help.md + README.md — new `/yoke:stop {id}` command that sets task to stopped, clears dispatch chain position, preserves progress. Now 19 commands total.
+- [x] Fix bonus: Added `stopped` counter to dashboard rebuild in update-status.sh — was silently falling through case statement. Also added `stopped` to BOARD.md board Active section and epic status derivation.
+- [x] Test all — verified: stopped counter appears in dashboard (1 pending + 1 stopped = 2 total), stopped tasks show in Active section of board, epic shows "in-progress" when tasks are stopped, agent_id sed pattern works, valid JSON after all transitions
+
+### TICKET-R5: Worktree Hardening [DONE]
+**Status:** DONE
+**Scope:** Make worktree operations robust
+**Gaps addressed:** #33 (MEDIUM), #22 (MEDIUM), #27 (MEDIUM)
+
+| Gap | Severity | Fix |
+|-----|----------|-----|
+| #33 | MEDIUM | Add git worktree + branch validation to create-worktrees.sh |
+| #22 | MEDIUM | Add rebase conflict loop to merge-worktree.sh for multi-commit generated files |
+| #27 | MEDIUM | Add worktree creation step to amend.md when new worktrees referenced |
+
+**Tasks:**
+- [x] Fix GAP #33: Add worktree validation to create-worktrees.sh — when existing dir found, verifies it's a real git worktree (`git -C rev-parse --is-inside-work-tree`) AND on the correct branch (`git -C branch --show-current`). Reports clear ERROR messages for non-worktree dirs and wrong-branch worktrees. Added ERRORS counter; exits 1 if any errors found.
+- [x] Fix GAP #22: Add rebase conflict loop to merge-worktree.sh — replaced single-pass auto-resolve with a loop (max 50 passes safety valve). Each pass: check conflicts, verify all are generated files, resolve with `checkout --theirs`, `git add`, then `GIT_EDITOR=true git rebase --continue`. If continue succeeds → break. If fails → loop again for next conflicting commit. Non-generated conflicts still abort immediately.
+- [x] Fix GAP #27: Add worktree creation to amend.md — new step 8 runs `create-worktrees.sh` after overlap re-verification. Script is idempotent (skips valid existing worktrees, creates only missing ones).
+- [x] Test all three fixes
+
+**Test Results (all in /tmp temp repos):**
+- [x] create-worktrees.sh: normal creation (2 worktrees) — PASS
+- [x] create-worktrees.sh: idempotent skip (valid worktrees on correct branches) — PASS, message "valid worktree on correct branch"
+- [x] create-worktrees.sh: non-git directory at worktree path — PASS, ERROR reported, exit 1
+- [x] create-worktrees.sh: wrong branch worktree — PASS, ERROR reported with expected vs actual branch, exit 1
+- [x] create-worktrees.sh: amend-style path (epics/test/worktree-plan.md) with mixed existing/new — PASS (1 created, 1 skipped)
+- [x] merge-worktree.sh: multi-commit rebase loop with 3 commits conflicting on package-lock.json — PASS, resolved in 1 pass (first commit resolved, 2+3 applied cleanly), new commit hashes confirm rebase completed
+- [x] amend.md: step 8 added with correct path pattern and idempotency note
+
+### TICKET-R6: Validation & Subagent Design [DONE]
+**Status:** DONE
+**Scope:** Deterministic validation, PM interactivity, config canonicalization
+**Gaps addressed:** #26 (MEDIUM), #5 (MAJOR), #3 (MINOR), #15 (MEDIUM)
+
+| Gap | Severity | Fix |
+|-----|----------|-----|
+| #26 | MEDIUM | Create `validate.sh` script for deterministic integrity checks |
+| #5 | MAJOR | Restructure prd-new flow: parent session handles Q&A, PM is single-pass generator |
+| #3 | MINOR | Canonicalize CLAUDE.md to repo root; check-prerequisites accepts both for backward compat |
+| #15 | MEDIUM | Add `find_project_root()` fallback using `git worktree list --porcelain` |
+
+**Tasks:**
+- [x] Fix GAP #3: Canonicalize CLAUDE.md to repo root — updated init.md (removed "or .claude/" ambiguity), check-prerequisites.sh (comment clarified, still accepts both for backward compat), install.sh (removed .claude/CLAUDE.md from preserved list), README.md (moved CLAUDE.md to repo root in directory tree, fixed 19 commands count, 10 scripts count)
+- [x] Fix GAP #5: PM interaction model — PM agent is now single-pass generator (removed "brainstorm with user" language, added "you are a subagent" notice, maxTurns 30→15, "ask before assuming"→"infer then flag"). prd-new.md now has explicit step 2 where parent session asks clarifying questions before invoking PM. Notes updated to explain the architecture.
+- [x] Fix GAP #15: Worktree env var fallback — added `find_project_root()` to both `on-agent-stop.sh` and `on-bash-complete.sh`. Validates `$CLAUDE_PROJECT_DIR` has `epics/` dir; falls back to `git worktree list --porcelain` (first entry = main repo). Tested: from worktree with env var unset → correctly discovers main repo via git; with env var set → uses fast path.
+- [x] Fix GAP #26: Created `validate.sh` (10th shell script) — 5 deterministic checks: (1) status↔task file cross-reference, (2) worktree existence via `git worktree list`, (3) GitHub issue label consistency via `gh issue view`, (4) dashboard status counts comparison, (5) dispatch chain validity + stale detection (>30 min threshold). Updated `validate.md` to call script for checks 1-5, LLM only handles "offer to fix" step. Tested: consistent state pass, orphan status JSON detected, stale dashboard detected, missing worktree detected, bad dispatch chain reference detected.
+
+### TICKET-R7A: Deterministic Worktree Path Resolution (GAP #14)
+**Status:** DONE
+**Scope:** Store worktree_path in dispatch chain JSON and status JSON so dispatch reads it directly instead of LLM computing it
+
+**Changes:**
+- `sync-to-github.sh`: Added `REPO_ROOT`/`REPO_PARENT` computation via `git rev-parse --show-toplevel`. Added `worktree_path` field to both status JSON template and dispatch chain JSON. Uses same pattern as `create-worktrees.sh`: `{repo-parent}/worktree-{slug}`.
+- `dispatch.md`: Step 6 now reads `worktree_path` from dispatch chain (or status JSON) with fallback to manual computation for pre-existing epics. Updated dispatch chain schema documentation with the new field.
+
+**Test Results (mock gh, /tmp/yoke-r7a-test):**
+- [x] Status JSONs contain correct `worktree_path` for all 3 tasks
+- [x] Dispatch chain JSONs contain correct `worktree_path` for both worktrees
+- [x] All 5 JSONs pass Python JSON validation
+- [x] Idempotent re-sync: all 3 tasks skipped, dispatch chains skipped, no errors
+- [x] Path pattern matches `create-worktrees.sh` exactly
+
+### TICKET-R8: Cross-Platform Fix + Repo Hygiene [DONE]
+**Status:** DONE
+**Scope:** Fix Linux-breaking sed, add CLAUDE.md to repo root, fix README Quick Start example
+
+**Tasks:**
+- [x] Fix `sed -i ''` in dispatch.md line 86 — BSD-only syntax breaks on GNU sed (Linux/VPS). Replaced with portable `sed > tmp && mv tmp` pattern (same as all shell scripts use).
+- [x] Create `CLAUDE.md` at repo root — Yoke's own repo lacked the project context file it requires in target projects. Added minimal conventions (POSIX sh, portable sed, file layout, testing approach).
+- [x] Fix README Quick Start — replaced pre-sync task IDs (`001`, `003`) with `{issue-number}` placeholders and added note to use `/yoke:next` to discover actual issue numbers.
+
+### TICKET-R9: Restore README Concrete Examples
+**Status:** DONE
+**Scope:** The README condensation (TICKET-012) cut too deep — restore the specific concrete examples that help users understand *why* and help with *troubleshooting*, not just *what*. The 56% line reduction was good, but some cuts removed understanding.
+
+**Context (from review feedback):**
+> "The interface contracts section lost its concrete examples (the provides/expects markdown blocks). These are the single most differentiated feature Yoke has over CCPM. A new user reading 'each task specifies what it provides and expects with exact types, fields, and methods' doesn't grasp how powerful that is without seeing the actual format."
+> "The dispatch loop no longer mentions permissionMode: bypassPermissions anywhere. The original ASCII diagram had '(Requires permissionMode: bypassPermissions on Engineer.)' — a critical note that explains why the unattended loop works."
+> "The state management section lost the JSON examples for status files and dispatch chain state. These are what a user reads when debugging — 'my dispatch chain seems stuck, what does the file look like?'"
+
+**Tasks:**
+- [x] **R9-0: Review pre-condensation README** — reviewed `git show ef5e24e^:README.md` to identify removed blocks
+- [x] **R9-A: Restore one interface contract example** — added provides/expects markdown examples to Interface Contracts section (auth module example from original README)
+- [x] **R9-B: Add `permissionMode: bypassPermissions` note to dispatch loop** — added `(Requires permissionMode: bypassPermissions on Engineer.)` to dispatch loop ASCII diagram, matching original phrasing
+- [x] **R9-C: Restore JSON state examples** — added task status file JSON (with all current fields: agent_id, worktree_path, dispatch_attempts, history) and dispatch chain JSON (with queue, current_index, worktree_path) to State Management section. Added dispatch chain usage explanation paragraph.
+- [x] **R9-D: Review for other valuable cuts** — reviewed remaining cuts (worktree planning example, shell script specs, hook YAML, frontmatter table, per-agent details). All either live in agent/script files or were genuinely spec-level. No additional restorations needed.
+- [x] Test: All three additions read naturally in the condensed format. README ~545 lines (was 491 condensed, 1059 pre-condensation). No spec dump feel.
+
+**Sizing:** S — text additions to README.md only, no code changes
+
+---
+
+### TICKET-R10: Bug #8 Resolution + Documented Workaround
+**Status:** DONE
+**Scope:** Bug #8 (multi-commit rebase with repeated generated-file conflicts) was actually **fixed in TICKET-R5** (GAP #22) — merge-worktree.sh now has a loop with max 50 passes and `GIT_EDITOR=true git rebase --continue`. But the Bugs Found list entry was never updated to RESOLVED. Additionally, even with the loop, edge cases exist where the loop can't help (mixed generated + non-generated conflicts across commits). Need a documented workaround.
+
+**Context (from review feedback):**
+> "Bug #8 (multi-commit rebase with repeated generated-file conflicts in merge-worktree.sh) is still noted as unfixed. It's an edge case, but it's the kind of edge case that hits on any non-trivial epic with multiple worktrees and lockfile changes. Worth at least a documented workaround."
+
+**Tasks:**
+- [x] **R10-A: Update Bug #8 in Bugs Found list** — Marked as RESOLVED with reference to TICKET-R5 (GAP #22). Loop handles pure generated-file case; mixed conflicts abort with documented workaround.
+- [x] **R10-B: Document workaround in README** — Added "When rebase has real conflicts" paragraph to Merge Flow section: script aborts, lists files, `git rebase --abort`. Manual steps: cd into worktree, rebase manually, resolve, re-run merge. Prevention tip: shared files in single worktree.
+- [x] **R10-C: Document workaround in merge.md command** — Added "When merge fails with real conflicts" section to merge.md with 5-step manual recovery procedure and prevention tip.
+
+**Sizing:** XS — Bug list update + small text additions to README.md and merge.md
+
+---
+
+### TICKET-R11: Parallel-Dispatch Hook Race Condition Documentation
+**Status:** DONE
+**Scope:** The hook race condition (hooks scan ALL dispatch chains, could set wrong task to "stopped" during parallel dispatches) is already documented in TICKET-009's "Known limitation" and the README's hooks section. But it deserves a clearer user-facing note so operators running parallel dispatches understand the behavior.
+
+**Context (from review feedback):**
+> "The parallel-dispatch hook limitation (hooks scan ALL dispatch chains, could set wrong task to "stopped") is honestly-stated and the mitigation is sound — dispatch overrides on normal completion, recover handles stale states. But it's the one place where the architecture has a known race condition."
+
+**Tasks:**
+- [x] **R11-A: Add a "Parallel Dispatch" note to the dispatch loop section** — Added after monitoring tip: explains SubagentStop hook race condition during parallel dispatches, self-healing via dispatch override and /yoke:recover.
+- [x] **R11-B: Add the race condition to the FAQ** — Added Q: "What if hooks mark the wrong task as stopped during parallel dispatch?" with self-healing behavior explanation.
+
+**Sizing:** XS — small text additions to README.md only
+
+---
+
+### TICKET-R12: Simulator Agent — Design & Definition (v2 — Epic-Level)
+**Status:** DONE
+**Scope:** Create a 6th subagent (`yoke-simulator`) that traces execution paths at the **epic level** and identifies gaps. Runs at two points in the pipeline — after planning (Phase 3.5) and before merge (Phase 5.5) — NOT in the per-task dispatch loop.
+
+**Design rationale (from review of v1 tickets):**
+The v1 design placed the Simulator between Engineer and Tester in the per-task dispatch loop. This was wrong for three reasons:
+1. **Per-task context is too narrow.** The 39 bugs from SIMULATION.md were almost all *cross-component*: hook scripts referencing env vars that don't exist, sync-to-github.sh assuming labels that init hadn't created, relative paths breaking when CWD is a worktree. When task 001 finishes in isolation, the Simulator can't trace paths through task 003's code because it doesn't exist yet. The most valuable simulations are system-level.
+2. **It's expensive in the wrong place.** Adding a Simulator to every Engineer→Tester cycle means every retry also runs the Simulator. A task that takes 3 attempts runs the Simulator 3 times on essentially the same code — significant token cost for diminishing returns.
+3. **Architect escalation breaks the dispatch loop.** The dispatch loop is a tight Engineer→Tester cycle the operator doesn't intervene in. If the Simulator can escalate to the Architect for re-planning, that's an escape hatch that stops everything — a fundamentally different flow, not a loop step.
+
+**The correct placement — two epic-level simulation points (optional quality gates within existing phases):**
+
+```
+Phase 3:   PLAN       Architect → epic + tasks + worktree plan
+                      (optional: /yoke:simulate → trace plan for gaps)
+Phase 4:   SYNC       /yoke:sync → GitHub Issues + worktrees
+Phase 5:   EXECUTE    /yoke:dispatch → Engineer → Tester (with path-tracing) loop
+Phase 6:   MERGE      /yoke:merge → sequential PR + merge
+                      (optional: /yoke:simulate → trace code for integration gaps)
+```
+
+Simulation lives *within* Phase 3 and Phase 6, not as separate numbered phases. This keeps the "Seven Phases" mental model clean.
+
+**What Simulator does that Tester doesn't:**
+
+| Simulator (epic-level path tracing) | Tester (per-task spec verification) |
+|---|---|
+| "Task 001 creates `findByEmail`. Task 003 expects it. Do the contracts *actually* match in detail?" | "Does this function return the expected value?" |
+| "Tasks 002 and 004 are in different worktrees. 004 sees old middleware, not 002's changes. Is this in the contracts?" | "Does the module export the correct types?" |
+| "The merge script runs `npm install` to regenerate. What if the project uses yarn or pnpm?" | "Do all tests pass?" |
+| "Auth middleware checks `req.session.userId`. Session setup stores `req.session.user_id`. Mismatch." | "Was documentation created?" |
+| Finds **cross-task unknowns** (things no single task can see) | Verifies **per-task knowns** (things in the spec) |
+
+**Agent Design:**
+- **File:** `.claude/agents/yoke-simulator.md`
+- **Model:** opus (path tracing needs the best reasoning)
+- **Tools:** Read, Grep, Glob, Bash (read-only — same restrictions as Architect)
+- **disallowedTools:** Write, Edit
+- **maxTurns:** 40 (needs room to trace many paths across the entire epic)
+- **permissionMode:** default (no bypasses needed)
+- **Hooks:** SubagentStop → `on-agent-stop.sh` (same as all other agents)
+- **PreToolUse hooks for Write/Edit:** Same defense-in-depth blocks as Tester
+
+**Simulation Methodology (from PROMPTS.md, systematized for epic scope):**
+
+The Simulator's system prompt encodes the approach that found 39 gaps:
+
+1. **Read all task files, interface contracts, worktree plan, and (if post-execution) all code changes across worktrees**
+2. **Trace every cross-task execution path** — not just happy paths:
+   - "Task A exports X. Task B imports X. Do the actual types/names/signatures match?"
+   - "Task C modifies middleware. Task D reads middleware patterns. If they're in different worktrees, D sees the old version. Is this in the contracts?"
+   - "The dispatch chain assumes order 1→2→3. But task 2 is blocked on cross-worktree dependency from task 5. Will this deadlock?"
+3. **Check integration seams across tasks:**
+   - "Do interface contracts match in *detail* — not just 'provides UserModel' but exact export style (default vs named), exact method signatures, exact return types?"
+   - "Are there implicit cross-task assumptions not captured in contracts?"
+   - "When tasks in different worktrees are merged sequentially, does the second branch see the first's changes?"
+4. **Check environment and runtime assumptions:**
+   - "The hook script calls sync-progress.sh. But dispatch chain files only exist after sync. What if someone dispatches before sync?"
+   - "Will this work on both macOS (BSD) and Linux (GNU)?"
+   - "Lock file regeneration assumes npm. What if the project uses yarn/pnpm?"
+5. **Simulate the merge sequence:**
+   - "After branch A merges, branch B rebases. What conflicts arise? Are they all in generated files?"
+   - "If tests run after rebase, do they have access to all the code from both branches?"
+6. **Identify gaps in the PROMPTS.md categories:**
+   - "Nothing actually ever triggers that"
+   - "When we try to do X, we won't have access to Y"
+   - "We totally forgot to consider Z"
+   - "That's going to error out"
+   - "Missing dependency / wrong variable name / wrong API"
+7. **Produce a gap report** with each gap categorized by severity
+
+**Gap Report Template:**
+
+```markdown
+# Simulation Report: {epic-name} — {phase}
+
+## Result: CLEAN | GAPS FOUND
+
+## Paths Traced
+1. [path description]: CLEAN / GAP #{n}
+2. ...
+
+## Gaps Found
+
+### GAP #1: {title}
+- **Severity:** [CRITICAL] | [WARNING] | [NOTE]
+- **Category:** integration | environment | state | edge-case | assumption
+- **Tasks involved:** #{a}, #{b}
+- **What happens:** [describe the failure scenario]
+- **Root cause:** [why it will fail]
+- **Fix guidance:** [specific enough to act on]
+
+## Summary
+- Paths traced: N
+- Gaps found: N (X critical, Y warning, Z note)
+- Recommendation: PROCEED | FIX AND RE-SIMULATE | NEEDS RE-PLAN
+```
+
+**Gap severity levels (must use exact bracket prefixes for machine-parseability):**
+- `[CRITICAL]` — blocks proceeding. Must be fixed before sync (plan phase) or merge (integration phase).
+- `[WARNING]` — should fix but not blocking. Can proceed with known risk if operator accepts.
+- `[NOTE]` — worth knowing. Informational, may affect future work.
+
+**Important:** Each gap's severity line MUST use the bracketed prefix format (`[CRITICAL]`, `[WARNING]`, `[NOTE]`) so that the `/yoke:simulate` command (R13-A) can grep for these and produce a structured summary (e.g., `Simulation complete: 2 critical, 3 warnings, 5 notes`) without the operator having to read the entire report. The gap report is structured output, not freeform prose.
+
+**Tasks:**
+- [x] **R12-A: Create `yoke-simulator.md` agent definition** — Created with opus, Read/Grep/Glob/Bash, disallowed Write/Edit, maxTurns 40, PreToolUse blocks for Write/Edit (defense-in-depth), SubagentStop hook. Prompt split into "Always Do" (steps 1-7: contract matching, worktree visibility, dependency ordering, environment assumptions, gap categories) and "If Given Actual Code" (steps 8-11: export verification against real code, naming consistency, merge sequence simulation, validation report review).
+- [x] **R12-B: Define gap report format** — Embedded in agent prompt. Template with `[CRITICAL]`/`[WARNING]`/`[NOTE]` bracket prefixes. Output paths: `epics/{name}/simulation-plan.md` (plan phase) and `epics/{name}/simulation-integration.md` (integration phase). Agent presents report to invoking command which saves it.
+- [x] **R12-C: Update install.sh** — install.sh uses `yoke-*.md` glob, so the 6th agent is automatically included. No code changes needed.
+- [x] **R12-D: Update README** — Added Simulator to subagent table (opus, read-only, optional quality gate). Updated "five" → "six" throughout (intro, philosophy, FAQ). Added simulation as optional sub-steps in phase diagram within Phase 3 and Phase 6. Kept "Seven Phases" clean.
+- [x] **R12-E: Update SKILL.md** — Updated description from "five" to "six" subagents.
+- [x] **R12-F: Update check-prerequisites.sh** — Added `yoke-simulator` to the agent file validation loop.
+- [x] **Also updated:** CLAUDE.md (five→six, 5→6 agents). Agent manifest in BOARD.md.
+- [x] Test: Agent file created with correct frontmatter pattern (matches Architect + Tester defense-in-depth). Hook wiring uses same `on-agent-stop.sh` as all other agents.
+
+**Sizing:** M — new agent definition, template design, updates to install/readme/skill. No dispatch loop changes, no new status values.
+
+---
+
+### TICKET-R13: `/yoke:simulate` Command + Plan/Merge Integration
+**Status:** DONE
+**Scope:** Create the `/yoke:simulate {name}` command and integrate it into the plan and merge workflows.
+
+**Depends on:** TICKET-R12 (Simulator agent must exist)
+
+**Command Design:**
+
+`/yoke:simulate {name}`
+
+The command **auto-detects the appropriate phase** based on the epic's current state:
+- **If tasks exist but no status JSONs** (pre-sync) → **Plan simulation**
+- **If all tasks have status `completed`** (pre-merge) → **Integration simulation**
+- **Otherwise** → Report current state, suggest when to simulate
+
+**Override flag:** `--force-integration` — runs integration simulation even if some tasks are still in progress, failed, or stuck. Use case: you want to check if the *rest* of the code integrates before deciding whether to fix or rewrite a stuck task. The Simulator will note which tasks are incomplete and trace paths through the completed work only.
+
+**Phase 1: Plan Simulation (after `/yoke:plan`, before `/yoke:sync`)**
+
+The Architect has produced the epic + tasks + worktree plan. Before syncing to GitHub and writing code, the Simulator reads the entire plan and traces paths:
+
+What it reads:
+- `epics/{name}/epic.md` — the implementation plan
+- `epics/{name}/worktree-plan.md` — branch assignments + file manifests
+- All task files in `epics/{name}/tasks/` — acceptance criteria, interface contracts, dependencies
+- Existing codebase (via Grep/Glob/Bash) for current state
+
+What it traces:
+- "Task 001 provides `UserModel.findByEmail`. Task 003 expects `UserModel.findByEmail`. Do the interface contracts match in *detail* — export style, argument types, return types, error handling?"
+- "Tasks 002 and 004 are in different worktrees but both read `src/api/middleware.ts`. The overlap check catches *writes* to the same file. But 004 sees the *old* middleware, not 002's changes. Is this accounted for in the interface contracts?"
+- "The worktree plan puts lock files in 'auto-resolve'. But the merge script runs `npm install` to regenerate. What if the project uses yarn or pnpm?"
+- "Task 003 depends on task 001 and 002. But 001 is in worktree A and 002 is in worktree B. Task 003 is in worktree A. When 003 starts, 002's code exists in worktree B but not in worktree A. Is the dependency on 002 a compile-time or runtime dependency?"
+
+What it outputs:
+- `epics/{name}/simulation-plan.md` — gap report
+- Operator reviews gaps. **Critical gaps** → feed back to Architect for re-plan (same `/yoke:plan` phase). **Warnings** → operator decides to fix or accept. **Notes** → proceed.
+
+**Phase 2: Integration Simulation (after all tasks complete, before `/yoke:merge`)**
+
+All tasks done. Before merging, the Simulator reads actual code across all worktrees and traces end-to-end:
+
+What it reads:
+- All the above plan artifacts
+- Actual code changes across all worktrees (git diff per branch)
+- All status files + validation reports
+
+What it traces:
+- "Task 001 exports `User` as a type and `UserModel` as a class. Task 003 imports `{ User, UserModel }`. Checking the actual code... `export default class UserModel` — but task 003 expects a named export. This will break after merge."
+- "Auth middleware checks `req.session.userId`. Session setup in task 002 stores `req.session.user_id` (snake_case). Mismatch."
+- "Task 005 adds route at `/api/auth/refresh`. Task 006's test hits `/api/auth/token/refresh`. Different path."
+- "After branch A merges, branch B rebases. Branch B's package-lock.json conflicts with A's. This is in the generated files list. OK."
+- "After branch A merges, branch B rebases. Branch B modified `src/routes/index.ts` which branch A also modified (router import order). This is NOT in the generated files list — real conflict."
+
+What it outputs:
+- `epics/{name}/simulation-integration.md` — gap report
+- Operator reviews. **Critical gaps** → create fix tasks via `/yoke:amend` before merge. **Warnings** → fix or accept. **Notes** → proceed.
+
+**Workflow Integration:**
+
+1. **plan.md — Add simulation recommendation (step 9.5):**
+   After presenting the plan to the user (current step 9), add:
+   > **Recommended:** Run `/yoke:simulate {name}` to trace the plan for structural gaps before syncing. This is the cheapest point to catch bugs — no code has been written yet.
+
+2. **merge.md — Add simulation recommendation (step 0.5):**
+   Before verifying all tasks are complete (current step 1), add:
+   > **Recommended:** Run `/yoke:simulate {name}` to check for integration gaps across worktrees before starting the merge sequence. This catches cross-branch mismatches that per-task testing misses.
+
+**"Recommended" is the right word — not "Required."** Some features are small enough that simulation is overhead. Letting the operator skip it is important. If it were a hard gate, operators would resent it on trivial epics.
+
+3. **README — Keep "Seven Phases":**
+   Simulation is an optional quality gate *within* Phase 3 (PLAN) and Phase 6 (MERGE), not separate numbered phases. See R13-H for details.
+
+**Tasks:**
+- [x] **R13-A: Create `commands/simulate.md`** — 6-step command with auto-phase detection (no status JSONs → plan, all completed → integration, mixed → suggest when to simulate), `--force-integration` flag, Simulator invocation with phase-specific prompts, report save, severity count summary display.
+- [x] **R13-B: Design plan simulation prompt** — embedded in simulate.md step 4 (plan variant). Passes epic.md, worktree-plan.md, all task files. Instructs Simulator to follow "Always Do" steps 1-7, focus on interface contracts, worktree visibility, dependency ordering, environment assumptions.
+- [x] **R13-C: Design integration simulation prompt** — embedded in simulate.md step 4 (integration variant). Adds git diffs per branch, status files, validation reports. Instructs Simulator to follow full steps 1-11, focus on actual export mismatches, naming consistency, merge conflict prediction, combined state validity.
+- [x] **R13-D: Update plan.md** — added step 10 with simulation recommendation after user review. Uses "Recommended" (not "Required").
+- [x] **R13-E: Update merge.md** — added step 1 with simulation recommendation; checks for existing simulation-integration.md, suggests if missing. Steps renumbered 1-6.
+- [x] **R13-F: Update SKILL.md** — added `/yoke:simulate` to Core Workflow section (now 20 commands).
+- [x] **R13-G: Update help.md** — added to Core Workflow section + updated TYPICAL FLOW (now 10 steps with simulate at steps 5 and 9).
+- [x] **R13-H: Update README** — added to Core Workflow command table (Phase: Plan / Merge), added "Simulation" section to Architecture (between Interface Contracts and State Management), updated hooks table "All 5" → "All 6", updated directory tree "19" → "20" commands.
+- [x] **Also updated:** CLAUDE.md (19→20 commands).
+- [x] Test: Paper trace — 3-task, 2-worktree plan with (a) export style mismatch: Simulator step 3 traces dependency edge, catches named vs default export; (b) worktree visibility: Simulator step 4 catches cross-worktree read of unmodified file; (c) merge conflict: Simulator step 10 checks merge sequence, identifies generated vs non-generated conflicts. All 3 gap types covered.
+
+**Sizing:** M — new command file, two prompt designs, updates to plan.md, merge.md, SKILL.md, help.md, README.md. No shell scripts, no new status values, no dispatch loop changes.
+
+---
+
+### TICKET-R14: Enhance Tester with Path-Tracing Section [HIGHEST PRIORITY]
+**Status:** DONE
+**Scope:** Add simulation-style path-tracing to the Tester's prompt so every per-task validation also checks for integration risks — getting per-task simulation "for free" inside the existing Tester invocation, without adding another agent to the dispatch loop.
+
+**Rationale:** The Simulator runs at epic level (R12/R13), but some integration risks are visible at task scope. Rather than adding a separate Simulator agent invocation to every dispatch cycle (expensive, wrong scope), enhance the Tester to also do lightweight path-tracing alongside its spec verification. This catches the task-visible subset of integration bugs without adding latency.
+
+**Changes to `yoke-tester.md`:**
+
+Add a new step 3.5 to the Tester's process (between "Verify interface contracts" and "Run tests"):
+
+```markdown
+## Path Tracing (beyond this task)
+
+After verifying interface contracts against the spec, trace the key paths this code will participate in:
+
+1. **Export verification:** Do the *actual* exports match the interface contract exactly? Not just "does the function exist" but: is the export named or default? Are the argument types exact? Does the return type match? Are optional fields actually optional?
+
+2. **Runtime assumptions:** Are there assumptions about the runtime environment that aren't guaranteed?
+   - File/directory existence assumptions
+   - Environment variable dependencies
+   - External service availability
+   - Path assumptions (absolute vs relative, CWD expectations)
+
+3. **Downstream compatibility:** When downstream tasks consume this code, will the *actual* implementation match what they expect?
+   - Read the "Expects" contracts of tasks that depend on this one
+   - Verify the implementation matches their expectations, not just this task's "Provides" spec
+
+Flag path-tracing concerns in a separate section of the validation report. A task can **PASS** tests but still have integration **warnings** that should be noted for the operator.
+```
+
+**Changes to the Validation Report Template:**
+
+Add a new section between "Code Quality" and "Issues Found":
+
+```markdown
+## Path Tracing
+- **Export accuracy:** VERIFIED / CONCERNS — details
+- **Runtime assumptions:** NONE / list
+- **Downstream compatibility:** VERIFIED / CONCERNS — details
+```
+
+**Important:** Path-tracing concerns do NOT change the PASS/FAIL verdict. A task can PASS with path-tracing warnings. The warnings appear in the validation report and are visible to the operator and to the epic-level Simulator (which can read validation reports).
+
+**Critical design detail — downstream task context:** The "Downstream compatibility" check requires the Tester to read the "Expects" contracts of tasks that *depend on* this one. That means the Tester needs to know which tasks depend on this task, which means scanning `epics/{name}/tasks/*.md` for tasks whose `depends_on` includes this task ID. **The dispatch command (dispatch.md) must pass this context** — either the dependent task file paths themselves, or at minimum the file paths so the Tester doesn't waste turns grepping for them. Explicitly providing dependent task info saves turns and makes the check more reliable.
+
+**Tasks:**
+- [x] **R14-A: Update `yoke-tester.md` system prompt** — added path-tracing as step 4 (renumbered steps 5-7): export verification, runtime assumptions, downstream compatibility. Added clarification to binary result rule that path-tracing warnings don't affect PASS/FAIL verdict.
+- [x] **R14-B: Update validation report template** — added "Path Tracing" section with export accuracy, runtime assumptions, downstream compatibility fields between Code Quality and Issues Found.
+- [x] **R14-C: Update README** — updated Tester row in subagent table: "traces integration paths" added to role description.
+- [x] **R14-D: Update `dispatch.md` Tester invocation** — step 10 now includes dependent task file paths: scans `epics/{name}/tasks/*.md` status JSONs for tasks whose `depends_on` includes this task's issue number, passes those file paths to the Tester prompt.
+- [x] Test: Reviewed — path-tracing step explicitly scoped as non-blocking warnings; binary PASS/FAIL rule updated with explicit carve-out; downstream compatibility check references "file paths provided in the dispatch prompt" matching R14-D's context passing.
+
+**Sizing:** XS — text additions to one agent file, one command file, and README. No code changes, no new agents, no dispatch loop modifications.
+
+---
+
+### Execution Order: R14 → R12 → R13
+
+**R14 first** — XS sizing, highest value per effort. Improves every future dispatch immediately by adding path-tracing to the Tester. No dependencies.
+
+**R12 second** — M sizing, creates the Simulator agent that R13 depends on. Standalone agent definition + install/readme updates.
+
+**R13 last** — M sizing, depends on R12 (Simulator agent must exist). Creates the command, prompt designs, and workflow integration.
+
+R9, R10, R11 are independent documentation tickets and can be done in parallel with R14/R12/R13 or interleaved as needed.
+
+---
+
+### TICKET-E2E-1: Post-Remediation Regression Test [DONE]
+**Status:** DONE
+**Scope:** Full regression test of install → init → sync → status lifecycle pipeline. Many scripts were modified during R1-R6 remediation. Last integration test was TICKET-008C (session 5, before remediation). Verified everything still works together with all the fixes applied.
+
+**Test Results (all in /tmp/yoke-e2e-test temp repo with mock gh):**
+- [x] Fresh install.sh — PASS: 10 scripts, 6 agents, 20 commands, SKILL.md installed, all executable
+- [x] check-prerequisites.sh pre-init — PASS: 7 pass, 3 fail (settings.json, .gitignore, CLAUDE.md)
+- [x] Simulate init steps + check-prerequisites.sh post-init — PASS: all 10 checks green
+- [x] sync-to-github.sh with YAML frontmatter tasks — PASS: frontmatter parsing (worktree/context/deps), dependency resolution (001→#102, "001, 002"→["#102","#103"]), status JSON creation (5 files, all valid), dispatch chain generation (2 chains with correct queues), _epic_issue sentinel, worktree_path computation, task file renaming (001→102)
+- [x] sync idempotency — PASS: re-run skips all 3 tasks, skips dispatch chains, reuses epic issue
+- [x] update-status.sh full lifecycle — PASS: pending→in_progress (dispatch_attempts=1)→validating→completed→merged. Also tested: stopped status (R4), retry (stopped→in_progress, dispatch_attempts=2), merged transition. Valid JSON at every step.
+- [x] Dashboard rebuild — PASS: stopped counter present (R4 fix), tasks grouped by worktree, dispatch_attempts shows retry count
+- [x] BOARD.md board rebuild — PASS: epic shows merged status, 3/3 progress, recently completed section, human sections preserved
+- [x] validate.sh consistent state — PASS: status↔task files consistent, dashboard counts current, dispatch chains consistent (worktree/label warnings expected with mock)
+- [x] validate.sh inconsistent state — PASS: orphan status JSON detected, stale dashboard detected
+- [x] on-agent-stop.sh self-discovery — PASS: finds in_progress task via dispatch chain, sets to stopped. Both CLAUDE_PROJECT_DIR fast path and git worktree list fallback work.
+- [x] on-bash-complete.sh self-discovery — PASS: finds active task, syncs progress note to GitHub issue
+
+**No bugs found.** All remediation fixes (R1-R6, R7A, R8-R14) working correctly in integrated context.
+
+---
+
+### TICKET-R7-19: Auto-Unblock Blocked Tasks (Gap #19) [DONE]
+**Status:** DONE
+**Scope:** When a task completes or is merged, auto-unblock any blocked tasks in the same epic whose dependencies are now all met.
+
+**Root Cause:** When a dispatch chain encounters a task with unmet cross-worktree dependencies, it sets the task to `blocked` and stops the chain. Previously, the operator had to manually discover that the dependency was met and re-dispatch. The dashboard showed the task as blocked even after all its dependencies completed.
+
+**Solution:** Added `auto_unblock()` function to `update-status.sh`. After any transition to `completed` or `merged`:
+1. Scans all status JSONs in the same epic for blocked tasks
+2. For each blocked task, parses its `depends_on` array
+3. Checks if every dependency's status is `completed` or `merged`
+4. If all deps met, recursively calls `update-status.sh` to transition blocked → pending
+5. Recursive call handles everything: status update, history entry, dashboard rebuild, board rebuild, GitHub label swap
+6. Cascading unblocks work correctly (completing B unblocks C if C was waiting on both A and B)
+
+**Changes:**
+- [x] `update-status.sh` — added `auto_unblock()` function (after `rebuild_current_plan`, before GitHub posting)
+- [x] `dispatch.md` — updated Notes section: blocked chains note now mentions auto-unblock
+- [x] `README.md` — updated auto-chaining paragraph: mentions auto-unblock behavior
+
+**Test Results (all in /tmp/yoke-unblock-test temp repo with mock gh):**
+- [x] Complete A → B auto-unblocks (depends on A only) — PASS
+- [x] C stays blocked (depends on A and B, B not yet complete) — PASS
+- [x] Complete B → C auto-unblocks via cascading (both A+B now complete) — PASS
+- [x] Non-completion status (in_progress) doesn't trigger auto-unblock — PASS
+- [x] Missing dependency status file keeps task blocked — PASS
+- [x] No-op when no blocked tasks exist — PASS
+- [x] JSON validity after all transitions — PASS
+
+**Sizing:** S — one function added to update-status.sh, small doc updates
+
+---
+
+### TICKET-R7-38: Dashboard Sort Order by Plan Order (Gap #38) [DONE]
+**Status:** DONE
+**Scope:** Sort tasks in dashboard and BOARD.md board by `task_id` (plan order) instead of filename (GitHub issue number)
+
+**Root Cause:** Dashboard `rebuild_dashboard()` and board `rebuild_current_plan()` iterate `*.json` files via shell glob, which sorts by filename. After sync, filenames are GitHub issue numbers (e.g., 42.json, 43.json, 45.json). If issue numbers aren't assigned in plan order (e.g., task 001 gets issue #45, task 002 gets #42), tasks display out of plan sequence.
+
+**Solution:** Collect rows into a temp file with `task_id` as sort key, sort, then output. Applied to 4 locations:
+1. `rebuild_dashboard()` — tasks within worktree groups (lines ~202-216)
+2. `rebuild_current_plan()` Active section — active tasks across epics
+3. `rebuild_current_plan()` Blocked section — blocked tasks across epics
+4. `rebuild_current_plan()` Recently Completed section — completed/merged tasks
+
+Sort key is `epic_name|task_id` for board sections (preserves epic grouping), plain `task_id` for dashboard (single epic). Temp files use `$$` PID suffix and are cleaned up immediately after use.
+
+**Changes:**
+- [x] `update-status.sh` — `rebuild_dashboard()`: replaced direct echo with collect→sort→output pattern
+- [x] `update-status.sh` — `rebuild_current_plan()` Active: same pattern
+- [x] `update-status.sh` — `rebuild_current_plan()` Blocked: same pattern
+- [x] `update-status.sh` — `rebuild_current_plan()` Recently Completed: same pattern
+
+**Test Results (all in /tmp temp repos with mock gh):**
+- [x] Dashboard sort — 3 tasks with out-of-order issue numbers (45, 42, 43 for tasks 001, 002, 003): displayed in plan order (001, 002, 003) — PASS
+- [x] Board Active section sort — cross-epic active tasks sorted by epic then task_id — PASS
+- [x] Board Blocked section sort — blocked tasks sorted correctly — PASS
+- [x] Board Recently Completed sort — completed tasks sorted correctly — PASS
+- [x] Empty section handling — placeholder rows (— | — | —) displayed when no matching tasks — PASS
+- [x] Cross-epic test — two epics with different worktrees, all sections correct — PASS
+- [x] JSON validity — all status files valid after transitions — PASS
+- [x] Temp file cleanup — no leftover temp files — PASS
+
+**Sizing:** XS — sort pattern addition to one script, no new files, no API changes
+
+---
+
+### TICKET-R7: Polish & Nice-to-Have (v2 backlog)
+**Status:** DEFERRED
+**Scope:** Low-impact improvements, cosmetic fixes, configurability
+**Gaps addressed:** #2, #4, #7, #8, #11, #14, #16, #19, #23, #25, #28, #29, #32, #37, #38, #39
+
+These are documented for future work. None block the core workflow.
+
+| Gap | Severity | Category | One-liner |
+|-----|----------|----------|-----------|
+| #2 | MINOR | Config | settings.json merge logic is LLM-driven |
+| #4 | LOW | Robustness | Init label creation suppresses auth errors |
+| #7 | LOW | Robustness | PRD frontmatter update relies on LLM |
+| #8 | MEDIUM | Design | Overlap check misses logical conflicts (by design) |
+| #11 | MEDIUM | Config | Worktree parent dir not configurable |
+| #14 | LOW | Robustness | ~~Worktree path resolution in dispatch is LLM-computed~~ → DONE (TICKET-R7A) |
+| #16 | LOW | Cosmetic | Race between hook "stopped" and dispatch override |
+| #19 | MEDIUM | Design | ~~No auto-resume for blocked dispatch chains~~ → DONE (TICKET-R7-19) |
+| #23 | LOW | Robustness | CI check polling multi-check parsing |
+| #25 | MEDIUM | Design | Second branch rebase may fail (by design) |
+| #28 | LOW | Config | No dedicated Yoke configuration file |
+| #29 | LOW | Design | /yoke:import can't create worktrees without re-syncing |
+| #32 | LOW | Robustness | No rate limit handling in gh operations |
+| #37 | LOW | UX | Tester gets cumulative diff, not per-attempt |
+| #38 | LOW | Cosmetic | ~~Dashboard doesn't sort tasks by plan order~~ → DONE (TICKET-R7-38) |
+| #39 | LOW | Design | Status JSON tracked in git — potential merge noise |
+
+---
+
+## Session Log
+- **Session 1** (2026-02-22): Started. Created BOARD.md. Completed TICKET-001 through TICKET-006: all shell scripts, agent definitions, commands, SKILL.md, and install.sh.
+- **Session 2** (2026-02-22): Removed .gitkeep files (TICKET-007A). Added BOARD.md as first-class artifact with auto-sync from update-status.sh (TICKET-007B): rebuild_current_plan() function, status.md no-arg support, init.md scaffolding, README updates.
+- **Session 3** (2026-02-22): Cross-reference validation (TICKET-008A) — all refs clean. Found and fixed critical bug: hook YAML format was wrong in all 5 agents. Fixed to nested matcher+hooks format. Design change: SubagentStop now pessimistic ("stopped"), dispatch command overrides on success. Updated README, dispatch.md.
+- **Session 4** (2026-02-22): Script testing in isolation (TICKET-008B) — 4 scripts fully tested (check-prerequisites, verify-overlap, create-worktrees, update-status), 3 structurally reviewed (sync-to-github, sync-progress, merge-worktree). Found and fixed 2 bugs: epic status logic + metadata extraction. Noted 2 integration-level issues.
+- **Session 5** (2026-02-22): Install + init flow test (TICKET-008C) — fresh install, upgrade, re-run without upgrade all pass. Init flow (settings.json, .gitignore, CLAUDE.md, BOARD.md) simulated and verified. Full lifecycle integration test with update-status.sh in initialized repo — all status transitions produce valid JSON, dashboard + board rebuilt correctly, human content preserved. Found and fixed bug #9: history array leading comma on empty history.
+- **Session 6** (2026-02-22): Fixed critical Bug #4 (TICKET-009) — hooks referenced undefined env vars. Claude Code does NOT inject custom env vars into hook commands. Researched ccpm approach (they don't use hooks for context at all). Created self-discovering wrapper scripts: `on-agent-stop.sh` (SubagentStop) and `on-bash-complete.sh` (PostToolUse for Bash). Updated all 5 agent YAML files, dispatch.md, README (hook examples, descriptions, table, directory listing, script specs). Also fixed Bug #7 (sync-progress.sh relative path) via on-bash-complete.sh cd'ing to project root. All tests pass.
+- **Session 7** (2026-02-22): Real GitHub integration test (TICKET-010) — tested sync-to-github.sh, sync-progress.sh, and update-status.sh against live upyoke/yoke repo. Created test epic with 3 tasks, verified issue creation, label assignment, sub-issue linking, file renaming, status JSONs, progress note posting, .synced marker idempotency, label swaps, and status comments. Found and fixed 3 bugs: #10 (missing worktree labels — added ensure_label()), #11 (gh sub-issue wrong syntax — positional args), #12 (old status label not removed — underscore/hyphen mismatch). All GitHub labels created for Yoke workflow. Test issues cleaned up after validation.
+- **Session 8** (2026-02-22): Label creation hardening (TICKET-011) — added step 8 to init.md that creates all 11 standard GitHub labels (8 status + 3 type) idempotently. Added `gh label create` to update-status.sh before `gh issue edit` so any status label is auto-created on first use. Tested: created 3 previously missing labels (status:validating, status:blocked, status:stopped), verified idempotency, tested full transition cycle (pending→in_progress→stopped→validating→blocked) on real GitHub issue with correct label swaps. No bugs found.
+- **Session 9** (2026-02-22): Condensed README.md (TICKET-012) — removed spec-level implementation details that now live in the code. Removed: 9 shell script specs, install script spec, JSON schema examples, YAML hook examples, interface contract examples, worktree plan examples, frontmatter fields table. Condensed subagent roster to table, simplified state management/hooks/config sections. 1060 → 468 lines (56% reduction). All user-facing information preserved.
+- **Session 10** (2026-02-22): Ran full operator lifecycle simulation (SIMULATION.md) — traced every path from fresh VPS install through complete feature lifecycle. Identified 39 gaps (1 BLOCKER, 8 MAJOR, 16 MEDIUM, 2 MINOR, 12 LOW). Organized into 7-stage Remediation Plan in BOARD.md (TICKET-R1 through R7). Completed TICKET-R1 (Critical Foundation): GAP #1 — replaced placeholder `youruser/yoke` URL in install.sh + README.md. GAP #9 — fixed broken dependency system: added `resolve_deps()` function + task_num→issue_num mapping to sync-to-github.sh so `depends_on` is correctly populated (also fixes GAP #12). GAP #17 — added `dispatch_attempts` auto-increment to update-status.sh on `in_progress` transition. GAP #24 — added post-merge status update to merge-worktree.sh that sets all completed tasks in the merged worktree to `merged`. All fixes tested in isolation.
+- **Session 11** (2026-02-22): Completed TICKET-R2 (Dispatch Safety). All 4 fixes in dispatch.md: GAP #31 — new step 3 checks dispatch chain for active task in same worktree, refuses with clear message. GAP #6+#18 — step 4 explicitly stops on blocked deps; step 11 auto-chain checks next task's deps before dispatching, sets `blocked` and stops chain with operator notification. GAP #30 — step 1 checks for missing status file, tells user to run `/yoke:sync` first. GAP #36 — step 8 includes explicit context block (epic name, issue number, paths) in Engineer prompt. Steps renumbered 1-11, all cross-references updated.
+- **Session 12** (2026-02-22): Completed TICKET-R3 (Sync & Metadata Robustness). Three fixes: GAP #10 — added required YAML frontmatter to Architect's task template (`worktree`, `context_estimate`, `dependencies`); added `extract_metadata()` function to sync-to-github.sh that parses frontmatter first and falls back to old sed chains for legacy files; added `strip_frontmatter()` to exclude YAML from GitHub issue body; fixed BSD awk compatibility (`!var` → `skip==0`). GAP #34 — full idempotency: `_epic_issue` sentinel for epic reuse, per-task skip via existing status JSON, dispatch chain skip, pre-populated mapping from existing status JSONs (fixes ordering bug where new files sort before renamed files). GAP #13 — dispatch chain files auto-generated during sync: tracks worktree→task mapping during loop, generates `dispatch-{slug}.json` per worktree with ordered queue; updated dispatch.md step 2 to note pre-generation. Found and fixed Bug #13 (idempotent re-sync dependency resolution: pre-populate + dual-mapping).
+- **Session 13** (2026-02-22): Completed TICKET-R4 (Recovery & Lifecycle). Three gaps + bonus fix: GAP #20 — recover.md now scans for `stopped` as primary crash indicator (no heartbeat heuristic needed), with `in_progress`/`validating` + 30-min threshold as fallback. GAP #21 — added `agent_id` field to status JSON schema in sync-to-github.sh; dispatch.md records agent ID after Engineer invocation via sed update. GAP #35 — created `/yoke:stop {id}` command (commands/stop.md): sets task to stopped, clears dispatch chain position, preserves progress; updated SKILL.md, help.md, README.md (now 19 commands). Bonus: found and fixed Bug #14 — `stopped` status was missing from dashboard rebuild case statement (counts didn't add up), BOARD.md board Active section, and epic status derivation. Tested: dashboard stopped counter, Active section includes stopped tasks, epic shows in-progress when stopped, agent_id sed update works, valid JSON throughout.
+- **Session 14** (2026-02-22): Completed TICKET-R5 (Worktree Hardening). Three fixes: GAP #33 — create-worktrees.sh now validates existing directories: checks `git rev-parse --is-inside-work-tree` and `git branch --show-current`, reports clear ERROR for non-git dirs or wrong-branch worktrees, exits 1 on errors. GAP #22 — merge-worktree.sh rebase auto-resolve now loops (max 50 passes safety valve) so multi-commit rebases with repeated generated-file conflicts are handled; uses `GIT_EDITOR=true git rebase --continue` to avoid editor prompts. GAP #27 — amend.md adds step 8 to run create-worktrees.sh after overlap re-verification, so new worktrees are created for tasks assigned to branches that don't exist yet. All tested in /tmp repos: normal creation, idempotent skip, non-git dir error, wrong-branch error, multi-commit rebase loop, amend-style path. No bugs found.
+- **Session 15** (2026-02-22): Completed TICKET-R6 (Validation & Subagent Design). Four fixes: GAP #3 — canonicalized CLAUDE.md to repo root (init.md, check-prerequisites.sh accepts both for backward compat, install.sh, README directory tree). GAP #5 — restructured PM interaction: parent session (prd-new.md) handles Q&A with user in step 2, PM subagent is single-pass generator (removed brainstorming language, maxTurns 30→15, "infer then flag" rule). GAP #15 — added `find_project_root()` to on-agent-stop.sh and on-bash-complete.sh: validates $CLAUDE_PROJECT_DIR has `epics/`, falls back to `git worktree list --porcelain` (main repo always first entry). Tested from worktree with env var unset — correctly discovers main repo. GAP #26 — created validate.sh (10th shell script): 5 deterministic checks (status↔task files, worktrees, GitHub labels, dashboard counts, dispatch chains). Updated validate.md to call script, LLM only handles "offer to fix" step. All fixes tested in /tmp repos. **Remediation complete: TICKET-R1 through R6 all DONE. Only TICKET-R7 (deferred polish/nice-to-have) remains.**
+- **Session 16** (2026-02-22): Completed TICKET-R7A (Deterministic Worktree Path Resolution, GAP #14). Added `worktree_path` field to both status JSON and dispatch chain JSON in sync-to-github.sh — pre-computed during sync using same pattern as create-worktrees.sh. Updated dispatch.md step 6 to read path from chain/status JSON instead of LLM computing it (with fallback for pre-existing epics). Tested: all JSONs contain correct paths, idempotent re-sync works, all JSONs valid.
+- **Session 17** (2026-02-22): Completed TICKET-R8 (Cross-Platform Fix + Repo Hygiene). Three fixes: (1) replaced BSD-only `sed -i ''` in dispatch.md with portable `sed > tmp && mv tmp` pattern — was silently breaking agent_id recording on Linux/VPS; (2) created CLAUDE.md at repo root with project conventions (POSIX sh, portable sed, file layout, testing approach) — Yoke's own repo now practices what it preaches; (3) fixed README Quick Start examples from pre-sync task IDs (`001`/`003`) to `{issue-number}` placeholders with note to use `/yoke:next`.
+- **Session 18** (2026-02-22): Incorporated review feedback into 6 new tickets (R9-R14). TICKET-R9: Restore README concrete examples (review pre-condensation README via git history, restore interface contracts, permissionMode note, JSON state examples). TICKET-R10: Bug #8 resolution + merge workaround docs. TICKET-R11: Parallel-dispatch hook race condition docs. TICKET-R12/R13/R14: Simulator feature — initially designed as per-task agent in dispatch loop (v1), then **reworked to epic-level two-point simulation (v2)** based on review feedback. Key insight: the 39 SIMULATION.md bugs were cross-component (wrong env vars, missing labels, worktree visibility), not per-task. Per-task scope is too narrow and too expensive (runs on every retry). v2 design: (R12) Simulator agent definition (opus, read-only, maxTurns 40, gap report with critical/warning/note severity), (R13) `/yoke:simulate` command with auto-phase detection — Plan Simulation within Phase 3 (after Architect, before sync) + Integration Simulation within Phase 6 (after all tasks complete, before merge) — integrated into plan.md and merge.md as recommended steps, (R14) Enhance Tester with path-tracing section for per-task integration risk detection "for free" without adding another agent to the dispatch loop. No new status values, no dispatch loop changes, no new shell scripts.
+- **Session 19** (2026-02-22): Incorporated second round of review feedback into R12/R13/R14 tickets. Key changes: (1) R12-B — gap report severity prefixes must be `[CRITICAL]`/`[WARNING]`/`[NOTE]` bracket format for machine-parseability; the simulate command greps for these to produce structured summary. (2) R12-D + R13-H — keep "Seven Phases", simulation is optional quality gate *within* Phase 3 and Phase 6, not separate phases ("seven phases" better marketing than "nine phases"). (3) R13 — added `--force-integration` flag for edge case where most tasks complete but some stuck (lets operator check if rest integrates). (4) R13-A — command must parse gap report and display severity counts summary, not just "simulation done, go read the file." (5) R13-D/R13-E — confirmed "Recommended" wording (not "Required" — some epics are small enough that simulation is overhead). (6) R14 — highest priority ticket, execute first (XS, improves every dispatch). Added R14-D: dispatch.md must pass dependent task file paths to Tester prompt so downstream compatibility check doesn't waste turns grepping. Added execution order: R14 → R12 → R13.
+- **Session 20** (2026-02-22): Completed TICKET-R14 (Enhance Tester with Path-Tracing) and TICKET-R12 (Simulator Agent). R14: added step 4 "Path tracing" to yoke-tester.md (export verification, runtime assumptions, downstream compatibility), "Path Tracing" section to validation report template, updated README Tester role, dispatch.md step 10 now passes dependent task file paths. R12: created `yoke-simulator.md` (opus, Read/Grep/Glob/Bash, no Write/Edit with 3 layers of enforcement, maxTurns 40, SubagentStop hook). Prompt split into "Always Do" (steps 1-7: contract matching, worktree visibility, dependency ordering, environment assumptions) and "If Given Actual Code" (steps 8-11: actual export verification, naming consistency, merge simulation, validation report review). Gap report uses `[CRITICAL]`/`[WARNING]`/`[NOTE]` bracket prefixes for machine parsing. Updated: README (five→six subagents, Simulator row in table, phase diagram sub-steps), SKILL.md, CLAUDE.md, check-prerequisites.sh (agent list), BOARD.md manifest. install.sh uses glob — no changes needed.
+- **Session 21** (2026-02-22): Completed TICKET-R13 (`/yoke:simulate` Command + Plan/Merge Integration). Created `commands/simulate.md` — 6-step command with auto-phase detection (no status JSONs → plan simulation, all completed → integration simulation, mixed → suggest when to simulate), `--force-integration` flag for partial-completion edge case, phase-specific prompts for Simulator invocation (plan: "Always Do" steps 1-7; integration: full steps 1-11 with git diffs), report saving, and severity count summary display (greps `[CRITICAL]`/`[WARNING]`/`[NOTE]` prefixes). Updated plan.md (step 10: simulation recommendation), merge.md (step 1: simulation recommendation, steps renumbered 1-6), SKILL.md (20th command), help.md (Core Workflow + TYPICAL FLOW now 10 steps), README (command table, "Simulation" Architecture section, hooks "All 6", 20 commands in directory tree), CLAUDE.md (19→20 commands). Paper trace verified: 3-task 2-worktree plan catches interface contract mismatch (step 3), worktree visibility gap (step 4), and merge conflict prediction (step 10). **Simulator feature complete: R12 (agent) + R13 (command) + R14 (Tester path-tracing) all DONE. Only TICKET-R9 (restore README examples) and R7 (deferred polish) remain.**
+- **Session 22** (2026-02-22): Completed TICKET-R9 (Restore README Concrete Examples). Reviewed pre-condensation README (`git show ef5e24e^:README.md`, 1059 lines) to identify the three most impactful cuts. R9-A: restored interface contract provides/expects examples to Architecture section — the single most differentiated feature. R9-B: restored `(Requires permissionMode: bypassPermissions on Engineer.)` to dispatch loop ASCII diagram — explains why the unattended loop works. R9-C: restored task status file JSON example (with all current fields: agent_id, worktree_path, dispatch_attempts) and dispatch chain JSON example (with queue, current_index, worktree_path) to State Management section — essential for debugging. R9-D: reviewed remaining cuts (worktree planning example, shell script specs, hook YAML, frontmatter table, per-agent bullet lists); all either live in agent/script files or were spec-level implementation details. No additional restorations needed. README: 491 → ~545 lines (was 1059 pre-condensation). **All implementation tickets DONE. Only TICKET-R7 (deferred polish/v2 backlog) remains.**
+- **Session 23** (2026-02-23): Post-remediation regression test (TICKET-E2E-1). Full pipeline test in /tmp/yoke-e2e-test with mock gh: fresh install (10 scripts, 6 agents, 20 commands), check-prerequisites (pre-init 7/3, post-init 10/0), sync-to-github.sh (YAML frontmatter parsing, dependency resolution 001→#102, dispatch chain generation), update-status.sh full lifecycle (pending→in_progress→validating→completed→merged + stopped + retry with dispatch_attempts=2), dashboard rebuild (stopped counter present), BOARD.md board rebuild (epic merged, 3/3 progress, human sections preserved), validate.sh (consistent + orphan detection), on-agent-stop.sh self-discovery (both CLAUDE_PROJECT_DIR and git fallback), on-bash-complete.sh progress sync. **All tests pass. No bugs found.** All remediation fixes confirmed working in integrated context.
+- **Session 24** (2026-02-23): Completed TICKET-R7-19 (Auto-Unblock Blocked Tasks, Gap #19). Added `auto_unblock()` function to `update-status.sh` — when a task transitions to `completed` or `merged`, scans all blocked tasks in the same epic, checks if their dependencies are all met, and recursively calls `update-status.sh` to transition them from `blocked` → `pending`. Cascading unblocks work correctly (completing B auto-unblocks C if C was waiting on both A and B). Updated `dispatch.md` Notes and `README.md` auto-chaining paragraph. Tested: basic unblock, cascading, non-completion no-op, missing dep stays blocked, no blocked tasks no-op, JSON validity — all pass. No bugs found.
+- **Session 25** (2026-02-22): Completed TICKET-R7-38 (Dashboard Sort Order by Plan Order, Gap #38). Dashboard and BOARD.md board now sort tasks by `task_id` (plan order) instead of filename (GitHub issue number). Applied to 4 locations in `update-status.sh`: `rebuild_dashboard()` worktree groups, and `rebuild_current_plan()` Active/Blocked/Recently Completed sections. Pattern: collect rows to temp file with `task_id` sort key, sort, output, cleanup. Board sections sort by `epic_name|task_id` to preserve epic grouping. Tested: out-of-order issue numbers (45/42/43 for tasks 001/002/003) display in plan order, cross-epic sorting correct, empty sections show placeholders, JSON valid, temp files cleaned up. No bugs found.

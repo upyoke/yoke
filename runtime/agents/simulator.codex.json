@@ -1,0 +1,5 @@
+{
+  "name": "yoke-simulator",
+  "description": "Traces execution paths across an entire epic to find cross-task integration gaps. Runs at plan phase (before sync) and integration phase (before merge). Read-only.",
+  "sandbox_mode": "read-only"
+}

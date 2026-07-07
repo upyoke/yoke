@@ -1,0 +1,35 @@
+[build-system]
+# setuptools>=77.0.3: first release with stable SPDX `license` expression +
+# `license-files` metadata support.
+requires = ["setuptools>=77.0.3", "setuptools-scm[toml]>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yoke-contracts"
+dynamic = ["version"]
+description = "Yoke shared wire/file contracts — zero-authority types and pure helpers"
+license = "FSL-1.1-ALv2"
+license-files = ["LICENSE.md"]
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic==2.13.4",
+    # board-art ASCII variant generation (FIGlet banners) — pure, client-safe.
+    "pyfiglet>=1.0.4,<2",
+]
+
+[project.optional-dependencies]
+# Board-art image onboarding decodes PNG/JPEG to emoji grids. Pillow-optional —
+# falls back to macOS `sips` — so it is an extra, never a hard dependency.
+images = ["Pillow>=10.0,<12"]
+
+[tool.setuptools_scm]
+root = "../.."
+fallback_version = "0.1.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Board-art emoji-grid data ships as package data so the loader stays under the
+# authored cap.
+"yoke_contracts.project_contract.board_art.data" = ["*.txt"]

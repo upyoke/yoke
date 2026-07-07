@@ -1,0 +1,6 @@
+☀ Setting up Yoke…
+☀ Install failed
+✗ Couldn't install Yoke.
+  {{REASON}}
+Try again:
+  curl -fsSL https://api.upyoke.com/install | bash

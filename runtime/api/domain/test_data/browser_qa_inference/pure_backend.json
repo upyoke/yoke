@@ -1,0 +1,11 @@
+{
+  "label": "pure-backend",
+  "title": "Fix rate-limit edge case in auth middleware",
+  "body": "# Fix rate-limit edge case in auth middleware\n\nCorrect a race in `middleware/rate_limit.py` where concurrent requests can bypass the bucket check.\n\n## Acceptance Criteria\n\n- [ ] AC-1: Regression test exercises two concurrent requests hitting the limit boundary and asserts both share the same bucket decision.\n- [ ] AC-2: No UI surface changes.\n",
+  "expected_metadata": {
+    "browser_testable": false,
+    "visual_outcome": false,
+    "browser_routes": [],
+    "browser_timing_hints_ms": []
+  }
+}

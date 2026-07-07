@@ -1,0 +1,75 @@
+name: yoke-server-image
+
+# Classification: FACTORY. Publishes the Yoke server container image to
+# GitHub Container Registry — the image the self-host compose bundle's
+# .env references by default (see yoke_contracts.server_image). Stays
+# with the product repo when it becomes public.
+#
+# Dormant until armed: the job is gated on the repository variable
+# YOKE_PUBLISH_SERVER_IMAGE == 'true', so nothing publishes from this
+# repository until the operator flips the variable on the public repo.
+#
+# Fork safety: never runs for a stranger's pull request (push-to-main and
+# manual dispatch only); no step reads a repository secret beyond the
+# workflow's own GITHUB_TOKEN, which the permissions block scopes to
+# package publishing; runs-on is hard-pinned to GitHub-hosted so this
+# lane can never reach operator infrastructure. No cloud credentials, no
+# operator registry — the private registry prewarm lane is a separate
+# OPERATION workflow (yoke-core-image.yml).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - ".yoke/strategy/**"
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    name: build-push-ghcr
+    if: ${{ vars.YOKE_PUBLISH_SERVER_IMAGE == 'true' }}
+    # Deliberately NOT the runner-routing repository variable: publishing
+    # to GHCR carries no operator state, so there is nothing a hosted
+    # runner cannot do, and hard-pinning keeps this lane off operator
+    # runner fleets even on repos where routing is configured.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image reference (sha12 tag, lowercase owner)
+        run: |
+          owner="${{ github.repository_owner }}"
+          echo "IMAGE_REPOSITORY=ghcr.io/${owner,,}/yoke-server" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=${GITHUB_SHA:0:12}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build the server image
+        # YOKE_BUILD_SHA bakes the source sha into the image; /v1/health
+        # serves it as `build` so self-hosters can confirm WHICH code is
+        # answering after an upgrade.
+        run: |
+          docker build --build-arg "YOKE_BUILD_SHA=$IMAGE_TAG" \
+            -t "$IMAGE_REPOSITORY:$IMAGE_TAG" .
+
+      - name: Push the sha tag
+        run: docker push "$IMAGE_REPOSITORY:$IMAGE_TAG"
+
+      - name: Push latest (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag "$IMAGE_REPOSITORY:$IMAGE_TAG" "$IMAGE_REPOSITORY:latest"
+          docker push "$IMAGE_REPOSITORY:latest"

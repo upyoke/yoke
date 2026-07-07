@@ -1,0 +1,100 @@
+name: yoke-build-artifacts
+
+# Classification: FACTORY. Builds the complete release artifact contract —
+# the split-package wheels, the installer files, the simple index, and the
+# release records — and uploads it as a workflow artifact. Stays with the
+# product repo when it becomes public.
+#
+# This is the secretless half of what yoke-distribution-publish.yml does:
+# the same yoke_core.tools.build_release + validate-release pipeline, but
+# with no cloud credentials, no bucket, and no channel-pointer mutation.
+# Publication to the operator's S3/CloudFront distribution remains an
+# operation surface owned by the operator's private ops repo posture (see
+# the yoke-distribution-publish.yml header).
+#
+# Fork-PR safety: no step reads a repository secret; the token is pinned
+# read-only; runs-on is hard-pinned to GitHub-hosted so a stranger pull
+# request can never reach operator infrastructure through this lane.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/yoke-build-artifacts.yml"
+      - "packages/**"
+      - "packaging/**"
+      - "pyproject.toml"
+      - "uv.lock"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/yoke-build-artifacts.yml"
+      - "packages/**"
+      - "packaging/**"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build
+    # Deliberately NOT vars.YOKE_LINUX_RUNS_ON: factory builds carry no
+    # operator state, so there is nothing a hosted runner cannot do, and
+    # hard-pinning keeps fork pull requests off self-hosted fleets even
+    # on repos where the routing variable is set.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history: every package derives its version from git via
+          # setuptools_scm, and a shallow clone collapses the build to the
+          # fallback version.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: uv.lock
+
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+
+      - name: Install build tooling
+        run: uv sync --all-packages --all-groups
+
+      - name: Build and validate the release artifact contract
+        run: |
+          release_root="$RUNNER_TEMP/yoke-release"
+          release_json="$RUNNER_TEMP/yoke-release.json"
+          release_generated_at="$(git show -s --format=%cI HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          uv run python -m yoke_core.tools.build_release \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --output-root "$release_root" \
+            --generated-at "$release_generated_at" \
+            --json > "$release_json"
+          cat "$release_json"
+          release_dir="$(uv run python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["release_dir"])' "$release_json")"
+          uv run python -m yoke_core.tools.distribution_publish \
+            validate-release "$release_dir"
+          echo "RELEASE_DIR=$release_dir" >> "$GITHUB_ENV"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: yoke-release-${{ github.sha }}
+          path: ${{ env.RELEASE_DIR }}
+          retention-days: 14
+          if-no-files-found: error

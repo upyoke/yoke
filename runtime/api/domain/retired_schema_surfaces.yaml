@@ -1,0 +1,50 @@
+# Retired schema surface registry.
+#
+# Declarative source of truth for schema surfaces (columns, tables) that
+# have been retired across a project's governed migration lifecycle and
+# must never be re-added by ambient init / idempotent bootstrap logic.
+#
+# Consumed by:
+#   * runtime.api.domain.retired_schema_registry (loader + query helpers)
+#   * runtime.api.domain.projects_restart (ADD COLUMN guard)
+#   * runtime.api.domain.db_mutation_gate (post-state verification for
+#     check_implementing_to_reviewing_implementation_gate when a ticket's
+#     db_mutation_profile.affected_surfaces names a registered surface)
+#   * runtime.api.engines.doctor_hc_retired_schema (health check)
+#
+# Contract:
+#   * Every entry names the project, the authoritative model, the
+#     migration module that retired it, the surface (table + column, or
+#     table-only for full drops), and the decision record path.
+#   * Retiring a new surface means: the governed cutover has landed,
+#     decision record authored, authoritative DB no longer exposes the
+#     surface. Listing a surface that is still present on the
+#     authoritative DB is honest — the doctor health check will surface
+#     the drift as a WARN, which is how operators discover incomplete
+#     cutovers.
+#   * The grep residue check for obsoleted terms deliberately excludes
+#     this file (it is the one live source that must name retired
+#     surfaces; the alternative would be re-populating from git history
+#     on every gate evaluation).
+#
+# Schema:
+#   surfaces:
+#     - module: <migration_module_name>      # slug, matches migration_audit.migration_name
+#       project: <project_id>                # e.g. yoke
+#       model: <migration_model_name>        # e.g. primary
+#       table: <table_name>
+#       column: <column_name>                # omit for table-level retirement
+#       decision_record: docs/archive/decisions/<slug>.md
+#
+surfaces:
+  - module: deploy_defaults_cutover
+    project: yoke
+    model: primary
+    table: projects
+    column: default_deployment_flow
+    decision_record: docs/archive/decisions/deploy_defaults_cutover.md
+  - module: events_envelope_backup_drop
+    project: yoke
+    model: primary
+    table: events_envelope_backup
+    decision_record: docs/archive/decisions/events_envelope_backup_drop.md

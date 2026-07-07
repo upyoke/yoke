@@ -1,0 +1,46 @@
+services:
+  api:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "{{api_port}}:{{api_port}}"
+    volumes:
+      - {{project_name}}-data:/app/data
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:{{api_port}}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  web:
+    build:
+      context: ./app/web
+    ports:
+      - "{{web_port}}:{{web_port}}"
+    depends_on:
+      - api
+    environment:
+      - API_URL=http://api:{{api_port}}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:{{web_port}}/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  {{project_name}}-data:
+
+networks:
+  app-network:
+    driver: bridge

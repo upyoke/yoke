@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hydration Delayed Test Page</title>
+</head>
+<body>
+  <!-- Simulated RSC flight data in script tags -->
+  <script>
+    (self.__next_f=self.__next_f||[]).push([0])
+  </script>
+  <script>
+    self.__next_f.push([1,"1:\"$Sreact.fragment\"\n"])
+  </script>
+
+  <!-- Simulated visible shell before hydration completes -->
+  <div id="app">Loading...</div>
+
+  <script>
+    // Simulate React hydration delay — the initial shell is replaced after 500ms
+    setTimeout(function() {
+      var app = document.getElementById('app');
+      app.textContent = '';
+      var h1 = document.createElement('h1');
+      h1.textContent = 'Hydrated Content';
+      var p = document.createElement('p');
+      p.textContent = 'This text appeared after hydration completed';
+      app.appendChild(h1);
+      app.appendChild(p);
+    }, 500);
+  </script>
+</body>
+</html>

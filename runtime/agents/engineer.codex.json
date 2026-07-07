@@ -1,0 +1,5 @@
+{
+  "name": "yoke-engineer",
+  "description": "Implements tasks with code, tests, and documentation. Commits incrementally. Invoked by /yoke conduct YOK-N (single-item execution).",
+  "sandbox_mode": "workspace-write"
+}
