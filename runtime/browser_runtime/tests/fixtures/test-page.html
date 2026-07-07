@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snapshot Test Page</title>
+</head>
+<body>
+  <nav aria-label="Main navigation">
+    <a href="/home">Home</a>
+    <a href="/about">About</a>
+  </nav>
+
+  <main>
+    <h1>Test Page</h1>
+
+    <!-- Static text -- should NOT get a ref ID -->
+    <p>This is a paragraph of static text that should not receive a ref ID.</p>
+
+    <!-- Decorative image -- should NOT get a ref ID (no alt text) -->
+    <img src="decorative.png" alt="">
+
+    <!-- data-testid element -- should get testid-based locator (priority 1) -->
+    <input data-testid="email" type="email" placeholder="Email address">
+
+    <!-- Button with name -- should get role+name locator (priority 2) -->
+    <button>Submit</button>
+
+    <!-- Link with name -- should get role+name locator -->
+    <a href="/contact">Contact Us</a>
+
+    <!-- Element with ID -- should get CSS selector (priority 3) -->
+    <input id="search-input" type="text" placeholder="Search">
+
+    <!-- Checkbox -->
+    <label>
+      <input type="checkbox" data-testid="agree-terms"> I agree to terms
+    </label>
+
+    <!-- Select -->
+    <select aria-label="Choose a color">
+      <option>Red</option>
+      <option>Blue</option>
+      <option>Green</option>
+    </select>
+
+    <!-- Heading with name -- semantic element, should get a ref -->
+    <h2>Form Section</h2>
+
+    <!-- Another static text node -- should NOT get a ref -->
+    <span>Decorative text</span>
+  </main>
+</body>
+</html>

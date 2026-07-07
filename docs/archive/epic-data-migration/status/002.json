@@ -1,0 +1,44 @@
+{
+  "task_id": "002",
+  "github_issue": "#698",
+  "title": "Task 002: epic domain subcommands for all tables",
+  "status": "completed",
+  "worktree": "feature/epic-db-migration",
+  "worktree_path": "/Users/dev/yoke/.worktrees/feature-epic-db-migration",
+  "branch": "feature/epic-db-migration",
+  "context_estimate": "M",
+  "depends_on": [
+    "001"
+  ],
+  "blocked_by": [],
+  "dispatch_attempts": 1,
+  "max_attempts": 5,
+  "agent_id": "",
+  "last_heartbeat": "2026-03-02T02:58:57Z",
+  "history": [
+    {
+      "timestamp": "2026-03-02T02:33:13Z",
+      "from": "none",
+      "to": "pending",
+      "note": "Created via sync"
+    },
+    {
+      "timestamp": "2026-03-02T02:46:29Z",
+      "from": "pending",
+      "to": "in_progress",
+      "note": "Dispatched (auto-chain from 001)"
+    },
+    {
+      "timestamp": "2026-03-02T02:52:18Z",
+      "from": "in_progress",
+      "to": "qa",
+      "note": "Engineer complete, starting validation"
+    },
+    {
+      "timestamp": "2026-03-02T02:58:57Z",
+      "from": "qa",
+      "to": "completed",
+      "note": "Tester passed"
+    }
+  ]
+}

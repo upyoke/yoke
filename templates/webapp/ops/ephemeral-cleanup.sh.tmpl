@@ -1,0 +1,266 @@
+#!/usr/bin/env sh
+# ephemeral-cleanup.sh — Remove stale ephemeral environments past TTL
+#
+# Discovery uses a union of filesystem directories AND Docker
+# resources (compose projects, images, volumes) so that orphaned artifacts
+# are cleaned even after the Compose project metadata is gone.
+#
+# Template variables:
+#   {{project_name}}         — project name used as compose project prefix
+#   {{ephemeral_ttl_hours}}  — max age in hours before cleanup (default 24)
+#
+# Usage:
+#   sh ephemeral-cleanup.sh
+#
+# Deployment (VPS cron — installed by setup-vps-maintenance.sh):
+#   Runs every 6 hours. Logs to ~/ephemeral-cleanup.log.
+#
+# Designed to run ON the project VPS via cron.
+# Exits 0 even on partial failures (logs errors, does not abort).
+
+set -u
+
+PROJECT_NAME="{{project_name}}"
+# Protected set: the persistent app/core compose projects must never be
+# cleaned — only per-branch ephemeral projects are eligible.
+PROTECTED_PROJECT_APP="${PROJECT_NAME}-app"
+PROTECTED_PROJECT_CORE="${PROJECT_NAME}-core"
+EPHEMERAL_DIR="$HOME/${PROJECT_NAME}-ephemeral"
+TTL_HOURS="{{ephemeral_ttl_hours}}"
+
+log() {
+  echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') [ephemeral-cleanup] $1"
+}
+
+compose_project_to_slug() {
+  _project="$1"
+  case "$_project" in
+    "${PROJECT_NAME}-"*)
+      printf '%s\n' "${_project#${PROJECT_NAME}-}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+image_repo_to_slug() {
+  _repo="$1"
+  case "$_repo" in
+    "${PROJECT_NAME}-"*)
+      _repo_rest=${_repo#${PROJECT_NAME}-}
+      case "$_repo_rest" in
+        *-*)
+          printf '%s\n' "${_repo_rest%-*}"
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+volume_name_to_slug() {
+  _volume="$1"
+  case "$_volume" in
+    "${PROJECT_NAME}-"*)
+      _volume_rest=${_volume#${PROJECT_NAME}-}
+      printf '%s\n' "${_volume_rest%%_*}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+log "Starting ephemeral cleanup (project=$PROJECT_NAME, ttl=${TTL_HOURS}h, dir=$EPHEMERAL_DIR)"
+
+# ─────────────────────────────────────────
+# Check prerequisites
+# ─────────────────────────────────────────
+
+if ! command -v docker >/dev/null 2>&1; then
+  log "ERROR: docker not found in PATH"
+  exit 0
+fi
+
+# ─────────────────────────────────────────
+# Build union of candidate slugs from all sources
+# ─────────────────────────────────────────
+
+NOW_EPOCH=$(date +%s)
+CUTOFF_EPOCH=$((NOW_EPOCH - TTL_HOURS * 3600))
+
+# Collect unique slugs from filesystem, compose projects, images, and volumes
+SLUGS_FILE=$(mktemp)
+trap 'rm -f "$SLUGS_FILE"' EXIT
+
+# Source 1: Filesystem directories under ~/{{project_name}}-ephemeral/
+if [ -d "$EPHEMERAL_DIR" ]; then
+  for _dir in "$EPHEMERAL_DIR"/*/; do
+    [ -d "$_dir" ] || continue
+    _slug=$(basename "$_dir")
+    [ -n "$_slug" ] && echo "$_slug" >> "$SLUGS_FILE"
+  done
+fi
+
+# Source 2: Docker compose projects matching {{project_name}}-* (excluding the
+# protected persistent app/core compose projects)
+COMPOSE_LIST=$(docker compose ls --format json 2>/dev/null) || COMPOSE_LIST=""
+if [ -n "$COMPOSE_LIST" ] && [ "$COMPOSE_LIST" != "[]" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    _compose_names=$(echo "$COMPOSE_LIST" | jq -r ".[] | select(.Name | startswith(\"${PROJECT_NAME}-\")) | select(.Name != \"$PROTECTED_PROJECT_APP\") | select(.Name != \"$PROTECTED_PROJECT_CORE\") | .Name")
+  elif command -v python3 >/dev/null 2>&1; then
+    _compose_names=$(echo "$COMPOSE_LIST" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+prefix = '${PROJECT_NAME}-'
+exclude = ('${PROTECTED_PROJECT_APP}', '${PROTECTED_PROJECT_CORE}')
+for p in data:
+    name = p.get('Name', '')
+    if name.startswith(prefix) and name not in exclude:
+        print(name)
+")
+  else
+    _compose_names=""
+  fi
+  if [ -n "$_compose_names" ]; then
+    echo "$_compose_names" | while read -r _proj; do
+      [ -z "$_proj" ] && continue
+      _slug=$(compose_project_to_slug "$_proj") || continue
+      [ -n "$_slug" ] && echo "$_slug"
+    done >> "$SLUGS_FILE"
+  fi
+fi
+
+# Source 3: Docker images matching {{project_name}}-<slug>-<service>
+docker images --format '{{`{{.Repository}}`}}' 2>/dev/null | \
+  while read -r _repo; do
+    [ -z "$_repo" ] && continue
+    _slug=$(image_repo_to_slug "$_repo") || continue
+    [ "$_slug" = "app" ] && continue
+    [ "$_slug" = "core" ] && continue
+    [ -n "$_slug" ] && echo "$_slug"
+  done >> "$SLUGS_FILE" 2>/dev/null || true
+
+# Source 4: Docker volumes matching {{project_name}}-<slug>_<volume>
+docker volume ls --format '{{`{{.Name}}`}}' 2>/dev/null | \
+  while read -r _volume; do
+    [ -z "$_volume" ] && continue
+    _slug=$(volume_name_to_slug "$_volume") || continue
+    [ "$_slug" = "app" ] && continue
+    [ "$_slug" = "core" ] && continue
+    [ -n "$_slug" ] && echo "$_slug"
+  done >> "$SLUGS_FILE" 2>/dev/null || true
+
+# Deduplicate and exclude the protected persistent app/core slugs
+UNIQUE_SLUGS=$(sort -u "$SLUGS_FILE" | grep -v '^app$' | grep -v '^core$' | grep -v '^$')
+
+if [ -z "$UNIQUE_SLUGS" ]; then
+  log "No ephemeral slugs found. Nothing to clean."
+  exit 0
+fi
+
+SLUG_COUNT=$(echo "$UNIQUE_SLUGS" | wc -l | tr -d ' ')
+log "Found $SLUG_COUNT candidate slug(s)"
+
+# ─────────────────────────────────────────
+# Determine age and clean stale slugs
+# ─────────────────────────────────────────
+
+CLEANED=0
+SKIPPED=0
+ERRORS=0
+
+while read -r slug; do
+  [ -z "$slug" ] && continue
+
+  # Determine age from the filesystem directory mtime (most reliable)
+  _is_stale=""
+  _age_hours="unknown"
+  _slug_dir="$EPHEMERAL_DIR/$slug"
+
+  if [ -d "$_slug_dir" ]; then
+    # Use stat to get directory mtime as epoch
+    # BSD stat (macOS): stat -f %m
+    # GNU stat (Linux): stat -c %Y
+    _dir_epoch=$(stat -c %Y "$_slug_dir" 2>/dev/null) || \
+      _dir_epoch=$(stat -f %m "$_slug_dir" 2>/dev/null) || _dir_epoch=""
+
+    if [ -n "$_dir_epoch" ]; then
+      _age_hours=$(( (NOW_EPOCH - _dir_epoch) / 3600 ))
+      if [ "$_dir_epoch" -lt "$CUTOFF_EPOCH" ]; then
+        _is_stale="1"
+      fi
+    else
+      # Cannot determine age — treat as stale (conservative: clean it up)
+      _is_stale="1"
+      _age_hours="unknown"
+    fi
+  else
+    # No directory — orphaned Docker resources only. Always clean these.
+    _is_stale="1"
+    _age_hours="no-dir"
+  fi
+
+  if [ -z "$_is_stale" ]; then
+    log "Keeping slug: $slug (age: ${_age_hours}h, ttl: ${TTL_HOURS}h)"
+    SKIPPED=$((SKIPPED + 1))
+    continue
+  fi
+
+  log "Cleaning stale slug: $slug (age: ${_age_hours}h, ttl: ${TTL_HOURS}h)"
+
+  # 1. Compose teardown (best-effort — project may already be gone)
+  if [ -d "$_slug_dir" ]; then
+    cd "$_slug_dir" 2>/dev/null && \
+      docker compose -p "${PROJECT_NAME}-${slug}" down --volumes --remove-orphans 2>/dev/null || true
+    cd "$HOME" 2>/dev/null || true
+  else
+    docker compose -p "${PROJECT_NAME}-${slug}" down --volumes --remove-orphans 2>/dev/null || true
+  fi
+
+  # 2. Remove per-slug tagged images
+  docker images --format '{{`{{.Repository}} {{.Tag}}`}}' 2>/dev/null | \
+    while read -r _repo _tag; do
+      [ -z "$_repo" ] && continue
+      _image_slug=$(image_repo_to_slug "$_repo") || continue
+      [ "$_image_slug" = "$slug" ] || continue
+      _image_ref=$_repo
+      if [ -n "$_tag" ] && [ "$_tag" != "<none>" ]; then
+        _image_ref="${_repo}:${_tag}"
+      fi
+      docker rmi "$_image_ref" 2>/dev/null || \
+        log "WARN: failed to remove image $_image_ref for slug $slug"
+    done || true
+
+  # 3. Remove project-scoped volumes
+  docker volume ls --format '{{`{{.Name}}`}}' 2>/dev/null | \
+    while read -r _volume; do
+      [ -z "$_volume" ] && continue
+      _volume_slug=$(volume_name_to_slug "$_volume") || continue
+      [ "$_volume_slug" = "$slug" ] || continue
+      docker volume rm "$_volume" 2>/dev/null || \
+        log "WARN: failed to remove volume $_volume for slug $slug"
+    done || true
+
+  # 4. Remove ephemeral directory (contains .env with secrets)
+  if [ -d "$_slug_dir" ]; then
+    rm -rf "$_slug_dir" 2>/dev/null || {
+      log "ERROR: failed to remove directory $_slug_dir"
+      ERRORS=$((ERRORS + 1))
+      continue
+    }
+  fi
+
+  CLEANED=$((CLEANED + 1))
+done <<EOF
+$UNIQUE_SLUGS
+EOF
+
+log "Cleanup complete. cleaned=$CLEANED skipped=$SKIPPED errors=$ERRORS"
+exit 0

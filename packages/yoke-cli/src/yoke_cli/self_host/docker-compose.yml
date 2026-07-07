@@ -1,0 +1,58 @@
+# Yoke self-host bundle: the API server plus its Postgres database.
+# Materialized by `yoke self-host init`. Runtime knobs live in .env;
+# generated credentials ride owner-only files under secrets/ — never
+# .env values, because compose interpolates $ inside them.
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: yoke
+      POSTGRES_USER: yoke
+      POSTGRES_PASSWORD_FILE: /run/secrets/yoke-db-password
+    secrets:
+      - yoke-db-password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yoke -d yoke"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+  core:
+    image: ${YOKE_SERVER_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      YOKE_PG_DSN_FILE: /run/secrets/yoke-db-dsn
+      # Browser sign-in door (optional). Set the values in .env to
+      # enable; blank keeps the door disabled. The client secret rides
+      # a mounted secret file — see the commented blocks below.
+      YOKE_OIDC_ISSUER: ${YOKE_OIDC_ISSUER:-}
+      YOKE_OIDC_CLIENT_ID: ${YOKE_OIDC_CLIENT_ID:-}
+      YOKE_OIDC_REDIRECT_URL: ${YOKE_OIDC_REDIRECT_URL:-}
+      YOKE_OIDC_CLIENT_SECRET_FILE: ${YOKE_OIDC_CLIENT_SECRET_FILE:-}
+    secrets:
+      - yoke-db-dsn
+      # Uncomment after writing ./secrets/oidc-client-secret (0600) and
+      # setting YOKE_OIDC_CLIENT_SECRET_FILE in .env:
+      #- yoke-oidc-client-secret
+    ports:
+      - "${YOKE_API_PUBLISH:-127.0.0.1:8765}:8765"
+
+secrets:
+  yoke-db-password:
+    file: ./secrets/db-password
+  yoke-db-dsn:
+    file: ./secrets/dsn
+  # Browser sign-in client secret (optional): the operator creates the
+  # file only when enabling OIDC — compose requires it to exist once
+  # this block is uncommented.
+  #yoke-oidc-client-secret:
+  #  file: ./secrets/oidc-client-secret
+
+volumes:
+  pgdata:

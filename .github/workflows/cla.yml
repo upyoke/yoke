@@ -1,0 +1,63 @@
+name: cla
+
+# Classification: FACTORY. Contributor governance for the public repo —
+# no operator cloud access, runs on GitHub-hosted runners, and stays with
+# the product repo when it becomes public. The document link and the
+# signature branch are addressed relative to the repository the workflow
+# runs in, so publication needs no edit here beyond the operator setup
+# notes below.
+#
+# Contributor License Agreement gate.
+#
+# On a contributor's first pull request, the CLA assistant comments with a
+# link to CLA.md and asks the author to sign by replying with the exact sign
+# phrase. Signatures are recorded on the `cla-signatures` branch of this
+# repository (signatures/version1/cla.json) and cover all of that account's
+# future pull requests — returning signers pass silently. Commenting `recheck`
+# on a pull request re-evaluates its signature state.
+#
+# Operator setup that cannot live in code:
+#   - Create the `cla-signatures` branch (branching from the default branch is
+#     fine) and leave it unprotected — the action commits signature records to
+#     it using the workflow's GITHUB_TOKEN, so no personal access token is
+#     needed.
+#   - When the repository starts accepting external pull requests, mark this
+#     workflow's `signature-check` job as a required status check in branch
+#     protection on the default branch, so an unsigned contribution cannot
+#     merge. While the repository is private there are no external pull
+#     requests, and this workflow stays dormant.
+#
+# pull_request_target runs the base branch's workflow definition with write
+# permissions. This job never checks out or executes pull-request code, so
+# that elevation is safe here.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, synchronize, closed]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  signature-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: CLA assistant
+        # Run on every pull_request_target event; for comments, run only on
+        # the sign phrase or a recheck request (the action's default phrases).
+        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        # Pinned to the full commit SHA: mutable tags are an injection vector
+        # in a pull_request_target workflow running with write tokens.
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-signatures: signatures/version1/cla.json
+          path-to-document: https://github.com/${{ github.repository }}/blob/main/CLA.md
+          branch: cla-signatures
+          allowlist: beebauman,dependabot[bot],github-actions[bot]

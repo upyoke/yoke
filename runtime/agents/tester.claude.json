@@ -1,0 +1,8 @@
+{
+  "name": "yoke-tester",
+  "description": "Reviews Engineer's work against acceptance criteria, runs tests, verifies docs. Cannot modify code. Use after Engineer completes a task.",
+  "tools": "Read, Grep, Glob, Bash, Monitor",
+  "disallowedTools": "Write, Edit",
+  "model": "opus",
+  "maxTurns": 300
+}

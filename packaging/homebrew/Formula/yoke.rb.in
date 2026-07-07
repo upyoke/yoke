@@ -1,0 +1,28 @@
+class Yoke < Formula
+  include Language::Python::Virtualenv
+
+  desc "Your operating system for software delivery"
+  homepage "https://github.com/upyoke/yoke"
+  url "{{PACKAGE_INDEX_MANIFEST_URL}}"
+  version "{{YOKE_CLI_VERSION}}"
+  sha256 "{{PACKAGE_INDEX_MANIFEST_SHA256}}"
+
+  depends_on "python@3.12"
+
+{{HOMEBREW_RESOURCES}}
+
+  def install
+    venv = virtualenv_create(libexec, "python3.12")
+    wheel_dir = buildpath/"wheels"
+    resources.each do |resource|
+      wheel_dir.install resource.cached_download => resource.downloader.basename
+    end
+    venv.pip_install wheel_dir.glob("*.whl")
+    bin.install_symlink libexec/"bin/yoke"
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/yoke --version")
+    assert_match "yoke status", shell_output("#{bin}/yoke --help")
+  end
+end

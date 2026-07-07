@@ -1,0 +1,86 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate SessionStart'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate UserPromptSubmit'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
+          }
+        ]
+      },
+      {
+        "matcher": "apply_patch|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "apply_patch|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PostToolUse'"
+          }
+        ]
+      },
+      {
+        "matcher": "apply_patch|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PostToolUse'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate Stop'"
+          }
+        ]
+      }
+    ]
+  }
+}

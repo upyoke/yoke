@@ -1,0 +1,8 @@
+{
+  "name": "yoke-simulator",
+  "description": "Traces execution paths across an entire epic to find cross-task integration gaps. Runs at plan phase (before sync) and integration phase (before merge). Read-only.",
+  "tools": "Read, Grep, Glob, Bash",
+  "disallowedTools": "Write, Edit",
+  "model": "opus",
+  "maxTurns": 300
+}

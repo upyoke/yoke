@@ -1,0 +1,11 @@
+{
+  "label": "compound-page-name-in-prose",
+  "title": "Render a helpful error on the forgot password page when the email is unknown",
+  "body": "# Render a helpful error on the forgot password page\n\nThe forgot password page currently shows a generic \"something went wrong\" banner when the email address is not in the system. Replace it with a specific, reassuring message that does not leak account existence.\n\n## Acceptance Criteria\n\n- [ ] AC-1: Visiting the forgot password page and submitting an unknown email renders the new banner text.\n- [ ] AC-2: Account existence is not disclosed in the banner copy.\n- [ ] AC-3: Screenshot evidence of the new banner captured 2 s after submit.\n",
+  "expected_metadata": {
+    "browser_testable": true,
+    "visual_outcome": true,
+    "browser_routes": ["/forgot-password"],
+    "browser_timing_hints_ms": [2000]
+  }
+}

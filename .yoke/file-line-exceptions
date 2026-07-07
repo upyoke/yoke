@@ -1,0 +1,16 @@
+# Yoke file-line exceptions.
+#
+# The local pre-commit hook and `yoke check file-line` enforce the
+# authored-file line limit from `.yoke/project.config` (`file_line_limit`,
+# default 350). Add one repo-relative glob per line for files that are
+# intentionally unsplittable or non-authored data.
+#
+# Blank lines and lines starting with # are ignored. Use forward slashes.
+# Do not use this to avoid splitting normal source code.
+#
+# Example:
+# docs/generated-reference/**
+
+packages/yoke-contracts/src/yoke_contracts/project_contract/board_art/data/mixed_emoji_columns.txt
+packaging/public-installer/install
+packaging/public-installer/install.py

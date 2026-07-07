@@ -1,0 +1,164 @@
+# Self-Host Yoke
+
+Run the Yoke API server on your own host: one `docker compose` bundle
+carrying the published server image plus a Postgres 17 database. Your
+data stays on hardware you control; engineers point their CLIs at your
+server instead of the hosted platform.
+
+## Quickstart
+
+On the server host (needs Docker with the compose plugin):
+
+```bash
+# 1. Install the CLI (also how engineer machines install it later).
+curl -fsSL https://api.upyoke.com/install | bash
+
+# 2. Materialize the compose bundle. Writes docker-compose.yml, .env,
+#    and generated database credentials as owner-only secret files —
+#    the generated password is never printed.
+yoke self-host init
+
+# 3. Start the server.
+cd yoke-server && docker compose up -d
+
+# 4. First boot prints a one-time initial admin token. Read it from the
+#    core service log and store it somewhere safe — it is not shown again.
+docker compose logs core
+
+# 5. Attach your CLI (verifies the server and token before persisting
+#    anything; paste the admin token on stdin).
+yoke connect http://127.0.0.1:8765 --token-stdin
+
+# 6. Confirm the machine is wired up.
+yoke status
+```
+
+`yoke self-host init` takes `--dir`, `--port`, and `--image` overrides;
+the defaults come from one place (`yoke_contracts.server_image`, today
+`ghcr.io/upyoke/yoke-server:latest`) so the bundle always tracks the
+published image. Knobs live in the bundle's `.env`; generated
+credentials ride mounted secret files under `secrets/` — never `.env`,
+whose values compose `$`-interpolates.
+
+By default the API publishes on loopback only (`127.0.0.1:8765`). To
+serve your network, edit `YOKE_API_PUBLISH` in `.env` (for example
+`0.0.0.0:8765`) and put TLS in front — see the operator notes below.
+
+## Engineer machines
+
+Each engineer runs the same installer, then attaches to your server
+with a token you mint for them:
+
+```bash
+curl -fsSL https://api.upyoke.com/install | bash
+yoke connect https://yoke.internal --token-stdin
+yoke status
+```
+
+`yoke connect` accepts plain `http://` deliberately: self-host TLS
+commonly terminates at a reverse proxy in front of the server, and
+loopback attaches must work out of the box. It refuses to persist
+anything until the server answers `/v1/health` and the token passes
+`/v1/auth/identity`.
+
+Minting additional tokens is an admin operation on the server host
+(operator-shaped surface today):
+
+```bash
+docker compose exec core python3 -m yoke_core.domain.api_tokens_cli \
+  mint --actor <actor-id> --name <engineer-label>
+```
+
+## Browser sign-in (OIDC)
+
+Optionally, the server can offer a browser sign-in door backed by your
+identity provider — anything that speaks OpenID Connect with discovery
+(Okta, Keycloak, Microsoft Entra ID, Google Workspace, ...). Browser
+sessions are deliberately **read-only**: a signed-in browser sees the
+landing page; every write still requires an API token over
+`Authorization: Bearer`. Leaving the door unconfigured changes nothing
+for tokened clients — the OIDC routes simply answer 409.
+
+**1. Register a client at your provider.** Create a confidential "web
+application" client with the authorization-code flow, scopes
+`openid email profile`, and this redirect URI (your server's external
+base URL plus the fixed callback path):
+
+```text
+https://yoke.internal/v1/auth/oidc/callback
+```
+
+**2. Wire the bundle.** In the bundle directory, write the client
+secret as an owner-only file and enable the commented blocks:
+
+```bash
+printf '%s\n' '<client-secret>' > secrets/oidc-client-secret
+chmod 600 secrets/oidc-client-secret
+```
+
+Then uncomment the OIDC lines in `.env` (`YOKE_OIDC_ISSUER`,
+`YOKE_OIDC_CLIENT_ID`, `YOKE_OIDC_REDIRECT_URL`,
+`YOKE_OIDC_CLIENT_SECRET_FILE`) and the two `yoke-oidc-client-secret`
+blocks in `docker-compose.yml`, and `docker compose up -d`. Setting
+some vars but not all fails loudly: the door answers 409 naming what is
+missing.
+
+**3. Decide who gets in.** Visiting `https://yoke.internal/` offers
+"Sign in"; after the provider round-trip the server admits the verified
+identity by the first matching rule:
+
+1. **Already linked** — the identity (issuer + subject) was linked to an
+   actor by a previous sign-in or an admin pre-link.
+2. **Pending invite** — a pending invite matches the verified email
+   (case-insensitive); accepting it links the identity and grants the
+   invite's org role, if one was set.
+3. **Auto-join domain** — the verified email's domain equals the org's
+   auto-join domain; a new member actor is created with no role grant.
+4. Otherwise the sign-in is **refused** with an operator-facing reason.
+
+Admission administration is org-admin surface on the `yoke` CLI:
+
+```bash
+yoke identity invite create pat@corp.example --role admin
+yoke identity invite list --status pending
+yoke identity invite revoke <invite-id>
+yoke identity autojoin set corp.example      # or: --clear
+yoke identity link set --actor <actor-id> --issuer <iss> --subject <sub>
+yoke identity link set --actor <actor-id> --email pat@corp.example
+```
+
+Email trust is strict by default: invites and auto-join match only when
+the provider marks the email verified. For providers that omit the
+`email_verified` claim entirely, opt in with
+`YOKE_OIDC_ALLOW_UNVERIFIED_EMAIL=true` (an explicit `false` from the
+provider is never trusted).
+
+## Upgrades
+
+The server image is versioned by tag; the database schema converges on
+server boot (the entrypoint ensures the core schema before serving), so
+an upgrade is a pull plus a restart:
+
+```bash
+cd yoke-server
+docker compose pull core
+docker compose up -d
+```
+
+To pin instead of tracking `latest`, set `YOKE_SERVER_IMAGE` in `.env`
+to a sha-tagged reference and re-run `docker compose up -d`. Confirm
+which code is answering via the `build` field on `GET /v1/health`.
+
+## You own the operations
+
+Self-hosting trades the hosted platform's operations for control:
+
+- **Uptime is yours.** The bundle restarts containers on failure
+  (`restart: unless-stopped`), but host maintenance, monitoring, and
+  capacity are on you.
+- **Backups are yours.** All state lives in the `pgdata` volume; back it
+  up with your regular Postgres tooling (`pg_dump` against the `db`
+  service, or volume snapshots) before upgrades and on a schedule.
+- **TLS is yours.** The server speaks plain HTTP; anything beyond
+  loopback belongs behind a TLS-terminating reverse proxy you operate,
+  with the API published only where you intend engineers to reach it.

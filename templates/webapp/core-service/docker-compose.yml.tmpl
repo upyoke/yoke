@@ -1,0 +1,17 @@
+# Rendered by the core-container-deploy executor (runtime.api.domain.deploy_core_container).
+# Do not hand-edit on the server: every deploy rewrites this file from the template
+# plus DB-backed environment settings. Project: {{project}} / environment: {{env_name}}.
+services:
+  core:
+    container_name: {{container_name}}
+    image: {{image_ref}}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:{{api_port}}:{{container_port}}"
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: "{{log_group}}"
+        awslogs-region: "{{aws_region}}"
+        awslogs-stream: "core"

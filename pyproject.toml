@@ -1,0 +1,117 @@
+[build-system]
+# setuptools>=77.0.3: first release with stable SPDX `license` expression +
+# `license-files` metadata support.
+requires = ["setuptools>=77.0.3", "setuptools-scm[toml]>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yoke"
+dynamic = ["version"]
+description = "Yoke control plane — domain layer and API service"
+license = "FSL-1.1-ALv2"
+license-files = ["LICENSE.md"]
+requires-python = ">=3.9"
+dependencies = [
+    "yoke-contracts",
+    "yoke-cli",
+    "yoke-core",
+    "yoke-harness",
+    # fastapi 0.129+ and uvicorn 0.40+ dropped Python 3.9 support upstream.
+    # Pinning to the last 3.9-compatible versions of each keeps Yoke installable
+    # on macOS's stock Apple Python 3.9 (Xcode CLT), which is the path the older
+    # generation of operator Macs are running. Both pins still install cleanly on
+    # Python 3.10–3.14 via prebuilt wheels.
+    "fastapi==0.128.8",
+    "uvicorn[standard]==0.39.0",
+    "pydantic==2.13.4",
+    # libsodium binding — required for encrypting GitHub Actions secrets
+    # (POST /repos/{owner}/{repo}/actions/secrets/{name}) which GitHub's
+    # API only accepts as sealed-box ciphertexts. The canonical Python
+    # binding to libsodium; well-audited, widely deployed.
+    "pynacl>=1.5.0,<2.0",
+    # Runtime dependency, not test-only: local-postgres machine config and
+    # every DB-backed `yoke` command need psycopg in a fresh checkout.
+    "psycopg[binary]>=3.1,<4",
+    # OpenTelemetry is the transport/correlation layer for cloud runtime
+    # observability. Yoke event names and envelopes remain semantic authority.
+    "opentelemetry-api>=1.30,<2",
+    "opentelemetry-sdk>=1.30,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.30,<2",
+    "opentelemetry-instrumentation-fastapi>=0.51b0,<1",
+    # Runtime dependency: project install seeds .yoke/board-art ASCII
+    # variants with deterministic FIGlet-style banners.
+    "pyfiglet>=1.0.4,<2",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest==8.4.2",
+    "pytest-cov==6.0.0",
+    "pytest-xdist==3.8.0",
+    "filelock>=3.13,<4",
+    "httpx==0.28.1",
+    # Release/distribution tests build product wheelhouses through uv.
+    "uv==0.11.21",
+]
+# Optional: board-art image onboarding (`yoke board art variant create
+# --image`) decodes PNG/JPEG to emoji grids. The converter is Pillow-optional —
+# it falls back to macOS `sips` — so Pillow is an extra, not a hard dependency.
+images = [
+    "Pillow>=10.0,<12",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.4.2",
+    "pytest-cov==6.0.0",
+    "pytest-xdist==3.8.0",
+    "filelock>=3.13,<4",
+    "httpx==0.28.1",
+    # Release/distribution tests build product wheelhouses through uv.
+    "uv==0.11.21",
+]
+
+[project.scripts]
+# Launcher (yoke_core.tools.yoke_launcher) is the preferred path; this console_script remains valid for venv-developer installs.
+yoke = "yoke_cli.main:main"
+
+[tool.uv.workspace]
+members = ["packages/yoke-*"]
+
+[tool.uv.sources]
+yoke-contracts = { workspace = true }
+yoke-cli = { workspace = true }
+yoke-core = { workspace = true }
+yoke-harness = { workspace = true }
+
+[tool.setuptools_scm]
+fallback_version = "0.1.0"
+
+[tool.setuptools.packages.find]
+include = ["runtime*"]
+
+[tool.setuptools.package-data]
+"yoke_core.domain" = ["retired_schema_surfaces.yaml"]
+# Packaged Browser QA runtime sources — materialized to ~/.yoke/browser-runtime
+# by yoke_core.domain.browser_runtime_home at first daemon use.
+"runtime.browser_runtime" = [
+    "package.json",
+    "package-lock.json",
+    "README.md",
+    "src/*.js",
+    "src/**/*.js",
+    "tests/*.js",
+    "tests/**/*.js",
+    "tests/fixtures/*.html",
+    "tests/fixtures/*.png",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["runtime/api", "tests"]
+# Package split: the four packages/yoke-*/src packages must be on
+# sys.path for BOTH in-process tests and subprocess `python3 -m ...` invocations
+# (service_client / db_router / dispatch CLI tests spawn fresh interpreters). A
+# pytest `pythonpath` covers only in-process, so the dev bootstrap is an editable
+# install of all four packages — see docs/archive/decisions/yoke-package-split/
+# README.md "Dev bootstrap". The end-state product/CI install (wheel) makes this
+# automatic.

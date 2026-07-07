@@ -1,0 +1,34 @@
+[build-system]
+# setuptools>=77.0.3: first release with stable SPDX `license` expression +
+# `license-files` metadata support.
+requires = ["setuptools>=77.0.3", "setuptools-scm[toml]>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yoke-harness"
+dynamic = ["version"]
+description = "Yoke harness — client-side agent-runtime adapters + fast local guardrails"
+license = "FSL-1.1-ALv2"
+license-files = ["LICENSE.md"]
+requires-python = ">=3.10"
+dependencies = [
+    "yoke-contracts",
+    # Shared client substrate (transport/config) lives in yoke-cli per Decision 1.
+    "yoke-cli",
+]
+
+[tool.setuptools_scm]
+root = "../.."
+fallback_version = "0.1.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"yoke_harness.browser_runtime" = [
+    "package.json",
+    "package-lock.json",
+    "README.md",
+    "src/*.js",
+    "src/**/*.js",
+]

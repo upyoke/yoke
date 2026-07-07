@@ -1,0 +1,64 @@
+# Yoke hook-guard enforcement modes - project-local policy.
+# One line per guard: <guard>=deny|warn.
+# Protected guards refuse warn unless the line ends with # allow-warn.
+
+# Refuse raw sqlite3 CLI against the control-plane DB.
+# Legacy stable config aliases still accepted: lint_sqlite_cmd
+lint_db_cmd=deny
+
+# Refuse Claude CLI invocations embedded in remote SSH commands.
+lint_db_cmd_remote_claude_cli=warn
+
+# Refuse Bash that emits unregistered/retired event names.
+lint_event_registry=deny
+
+# Refuse implementation commits on the main branch. [protected]
+lint_main_commit=deny
+
+# Enforce the tool-call label convention on Bash.
+lint_tc_label=deny
+
+# Refuse same-capture polling loops on a running long command.
+lint_long_command_polling=deny
+
+# Refuse piping a live long command into tail/head.
+lint_pipe_to_truncator=deny
+
+# Refuse background/Monitor backgrounding tools in subagent context.
+lint_subagent_background=deny
+
+# Confine writes to the session's claimed worktree / allowlist.
+lint_session_cwd=deny
+
+# Refuse cross-checkout pytest/render/test-runner Bash invocations.
+lint_workspace_cwd_match=deny
+
+# Enforce path-claim coverage for claim-mutating Bash.
+path_claim_bash_guard=deny
+
+# Refuse read-transform-in-shell-then-pipe-back structured-field edits.
+lint_structured_field_transform_shell=deny
+
+# Refuse hand-quoted JSON payloads and adapter shell-choreography.
+lint_shell_quoted_function_payload=deny
+
+# Refuse grep/rg search text with backticks inside double quotes.
+lint_shell_backtick_search=deny
+
+# Refuse `python3 -c "from runtime..."` agent reach-in. [protected]
+lint_no_agent_runtime_api_import_from_c=deny
+
+# Refuse curl against the local Yoke API surface. [protected]
+lint_no_agent_curl_against_yoke_api=deny
+
+# Refuse agent-context service_client session-end. [protected]
+lint_no_agent_session_end=deny
+
+# Refuse claim/ownership mutations that bypass the sanctioned surface. [protected]
+lint_claim_ownership_mutations=deny
+
+# Refuse `git stash push` with a message flag after `--`.
+lint_git_stash_arg_order=deny
+
+# Refuse git verbs that would wipe uncommitted/untracked local state. [protected]
+lint_destructive_git=deny

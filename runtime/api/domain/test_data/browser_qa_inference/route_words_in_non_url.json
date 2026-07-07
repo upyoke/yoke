@@ -1,0 +1,11 @@
+{
+  "label": "route-words-in-non-URL-context",
+  "title": "Document the new backend service settings in the ops runbook",
+  "body": "# Document the new backend service settings\n\nThe ops runbook at `docs/ops/runbook.md` needs a new section describing the recent backend service settings changes (timeouts, retries, account management envelopes). This is a documentation-only change; no code surfaces move.\n\n## Acceptance Criteria\n\n- [ ] AC-1: `docs/ops/runbook.md` has a new \"Backend service settings\" section with the timeouts and retry budget documented.\n- [ ] AC-2: No UI or browser-facing change.\n- [ ] AC-3: The words \"settings\", \"account\", and \"dashboard\" appear only in prose describing backend internals, not as routes.\n",
+  "expected_metadata": {
+    "browser_testable": false,
+    "visual_outcome": false,
+    "browser_routes": [],
+    "browser_timing_hints_ms": []
+  }
+}

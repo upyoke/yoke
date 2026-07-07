@@ -1,0 +1,4 @@
+# AUTO-GENERATED template source: templates/webapp/infra/requirements.txt. Do not hand-edit rendered copies; refresh through Yoke template/onboarding surfaces.
+pulumi>=3.0.0,<4.0.0
+pulumi-aws==6.83.3
+boto3>=1.34.0,<2.0.0

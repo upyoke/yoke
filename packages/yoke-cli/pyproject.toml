@@ -1,0 +1,41 @@
+[build-system]
+# setuptools>=77.0.3: first release with stable SPDX `license` expression +
+# `license-files` metadata support.
+requires = ["setuptools>=77.0.3", "setuptools-scm[toml]>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yoke-cli"
+dynamic = ["version"]
+description = "Yoke CLI — the installable `yoke` command (local client + project-file writer)"
+license = "FSL-1.1-ALv2"
+license-files = ["LICENSE.md"]
+requires-python = ">=3.10"
+dependencies = [
+    "yoke-contracts",
+    # Full-screen `yoke onboard` wizard. Imported lazily so non-interactive
+    # and import-graph paths never require it; resolved from PyPI by uv.
+    "textual>=0.60",
+]
+
+[project.scripts]
+yoke = "yoke_cli.main:main"
+
+[project.optional-dependencies]
+# Board-art image onboarding (preview/apply `--image PATH`).
+images = ["Pillow>=10.0,<12"]
+
+[tool.setuptools_scm]
+root = "../.."
+fallback_version = "0.1.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# The onboarding wizard's stylesheet ships beside its app module; Textual
+# resolves CSS_PATH relative to the module file.
+"yoke_cli.config" = ["onboard_wizard.tcss"]
+# The self-host compose bundle ships inside the wheel; `yoke self-host
+# init` materializes it via importlib.resources.
+"yoke_cli.self_host" = ["docker-compose.yml"]

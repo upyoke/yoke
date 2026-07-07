@@ -1,0 +1,44 @@
+{
+  "task_id": "006",
+  "github_issue": "#702",
+  "title": "Task 006: Hook scripts: on-agent-stop.sh and on-bash-complete.sh DB migration",
+  "status": "completed",
+  "worktree": "feature/epic-db-migration",
+  "worktree_path": "/Users/dev/yoke/.worktrees/feature-epic-db-migration",
+  "branch": "feature/epic-db-migration",
+  "context_estimate": "M",
+  "depends_on": [
+    "002"
+  ],
+  "blocked_by": [],
+  "dispatch_attempts": 1,
+  "max_attempts": 5,
+  "agent_id": "",
+  "last_heartbeat": "2026-03-02T04:00:59Z",
+  "history": [
+    {
+      "timestamp": "2026-03-02T02:33:23Z",
+      "from": "none",
+      "to": "pending",
+      "note": "Created via sync"
+    },
+    {
+      "timestamp": "2026-03-02T03:50:04Z",
+      "from": "pending",
+      "to": "in_progress",
+      "note": "Dispatched (auto-chain from 005)"
+    },
+    {
+      "timestamp": "2026-03-02T03:53:46Z",
+      "from": "in_progress",
+      "to": "qa",
+      "note": "Engineer complete, starting validation"
+    },
+    {
+      "timestamp": "2026-03-02T04:00:59Z",
+      "from": "qa",
+      "to": "completed",
+      "note": "Tester passed"
+    }
+  ]
+}

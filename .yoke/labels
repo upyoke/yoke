@@ -1,0 +1,39 @@
+# Yoke GitHub label color policy.
+# Format: label_color_*=HEX
+
+# Type labels
+label_color_type_epic=5319E7
+label_color_type_issue=1D76DB
+label_color_type_task=0E8A16
+label_color_type_integration_fix=D93F0B
+
+# Priority labels
+label_color_priority_high=D93F0B
+label_color_priority_medium=C5DEF5
+label_color_priority_low=0E8A16
+
+# Generic dynamic label families
+label_color_status=C5DEF5
+label_color_source=0E8A16
+label_color_owner=BFD4F2
+label_color_worktree=D4C5F9
+
+# Lifecycle and flag labels
+label_color_status_idea=D4C5F9
+label_color_status_refining_idea=C5DEF5
+label_color_status_refined_idea=BFD4F2
+label_color_status_planning=A2EEEF
+label_color_status_refining_plan=7FDBCA
+label_color_status_planned=7FDBCA
+label_color_status_implementing=0E8A16
+label_color_status_reviewing_implementation=FBCA04
+label_color_status_reviewed_implementation=FEF2C0
+label_color_status_polishing_implementation=5319E7
+label_color_status_implemented=0E8A16
+label_color_status_release=6F42C1
+label_color_status_done=0E8A16
+label_color_status_cancelled=BFD4F2
+label_color_status_failed=D93F0B
+label_color_status_stopped=E4E669
+label_color_blocked=B60205
+label_color_frozen=C0E0FF

@@ -1,0 +1,69 @@
+{
+  "name": "yoke-product-manager",
+  "description": "Turns rough ideas into structured specs written to the backlog item body. Invoked during shepherd's `refined_idea_to_planning` transition as a prerequisite gate when the spec lacks required PRD sections.",
+  "tools": "Read, Grep, Glob",
+  "disallowedTools": "Write, Edit, Bash",
+  "model": "opus",
+  "maxTurns": 300,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m yoke_core.domain.observe_pre"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m yoke_core.domain.observe_pre"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m yoke_core.domain.observe_pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m yoke_core.domain.observe --project-dir \"${CLAUDE_PROJECT_DIR:-$PWD}\" --agent-type product-manager --hook-event PostToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m yoke_core.domain.observe --project-dir \"${CLAUDE_PROJECT_DIR:-$PWD}\" --agent-type product-manager --hook-event PostToolUseFailure"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m yoke_core.domain.agent_stop"
+          }
+        ]
+      }
+    ]
+  }
+}

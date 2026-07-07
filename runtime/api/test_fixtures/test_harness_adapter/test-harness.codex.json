@@ -1,0 +1,5 @@
+{
+  "_purpose": "Empty per-harness adapter metadata sidecar — fixture for substrate proof in runtime/api/test_harness_substrate.py. Mirrors the shape of runtime/agents/*.codex.json without binding to a real harness.",
+  "name": "test-harness-fixture",
+  "description": "Fixture sidecar — never instantiated as a real harness adapter."
+}

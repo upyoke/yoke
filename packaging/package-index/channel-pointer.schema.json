@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yoke.local/schemas/distribution-channel.json",
+  "title": "Yoke distribution channel pointer",
+  "description": "Mutable channel -> version pointer published at /dist/channels/<channel>.json. The installer reads it to pin the immutable version uv installs from the private PEP 503 index at index_url.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "channel",
+    "version",
+    "generated_at",
+    "index_url",
+    "release_base_url",
+    "installer"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "channel": { "enum": ["stable", "latest"] },
+    "version": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string" },
+    "index_url": {
+      "type": "string",
+      "description": "Served PEP 503 simple index URL passed to uv/pip as --index-url.",
+      "pattern": "/simple/$"
+    },
+    "release_base_url": {
+      "type": "string",
+      "description": "Immutable versioned release base: <base>/dist/releases/<version>."
+    },
+    "installer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python_url", "shell_url"],
+      "properties": {
+        "python_url": { "type": "string", "minLength": 1 },
+        "shell_url": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "required_files": [
+    "AGENTS.md",
+    "docs/OVERVIEW.md",
+    "docs/commands.md",
+    "docs/lifecycle.md",
+    "docs/harness-bootstrap.md",
+    "docs/prompt-philosophy.md"
+  ],
+  "required_commands": [
+    {
+      "label": "Recent commits",
+      "command": "git log --oneline -10"
+    },
+    {
+      "label": "Current branch",
+      "command": "git branch --show-current"
+    }
+  ],
+  "recommended_files": [
+    ".yoke/BOARD.md",
+    "ouroboros/patterns.md"
+  ],
+  "canonical_agents": {
+    "root": "runtime/agents",
+    "agents": [
+      "product-manager",
+      "product-designer",
+      "architect",
+      "engineer",
+      "tester",
+      "simulator",
+      "boss"
+    ],
+    "references": [
+      "tester-browser"
+    ],
+    "body_suffix": ".md",
+    "note": "Canonical harness-neutral agent bodies. Claude adapters are owned at runtime/harness/claude/agents/yoke-*.md (surfaced to Claude via the .claude/agents symlink) and generated from these via python3 -m yoke_core.domain.agents_render. This key is discoverability metadata only; current Codex sessions do not lazy-load these bodies from bootstrap, and the bodies are not inlined into bootstrap output."
+  }
+}

@@ -1,0 +1,38 @@
+# Yoke — git worktrees
+.worktrees/
+.claude/worktrees/
+# Yoke — .yoke tree ignore policy lives IN the tree (.yoke/.gitignore,
+# a seeded contract file); root gitignores carry no .yoke/* rules.
+# Yoke — generated design views (DB is source of truth)
+designs/
+# Yoke — session/scratch roots use ~/.yoke/config.json:temp_root, not repo data/
+# Yoke — session timing logs (local instrumentation data, not committed)
+ouroboros/session-logs/
+# Yoke — generated ouroboros outputs (DB-backed or local-only, not committed)
+ouroboros/health/
+ouroboros/wrapups/
+# Yoke — local settings overlay (user-specific, not for distribution)
+.claude/settings.local.json
+# Yoke — retired SQLite authority.
+# Intentionally not ignored: if data/yoke.db* resurfaces, git status must show it.
+# Yoke — stale DB at repo root.
+# Intentionally not ignored: if yoke.db* resurfaces, git status must show it.
+# Yoke — retired sibling-state defense-in-depth. Stray legacy state dirs
+# should stay visible unless explicitly listed here.
+# The old yoke/ state dir (pre-migration):
+/yoke/
+# Stray DB files under runtime/ are also intentionally not ignored.
+# Yoke — scheduled tasks lock (runtime lock, not committed)
+.claude/scheduled_tasks.lock
+# Python bytecode
+__pycache__/
+*.pyc
+# Python editable-install and wheel build artifacts
+*.egg-info/
+build/
+dist/
+# Python coverage artifacts
+.coverage
+.coverage.*
+# macOS metadata
+.DS_Store

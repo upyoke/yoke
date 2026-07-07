@@ -1,0 +1,254 @@
+name: yoke-ci
+
+# Classification: FACTORY. Tests and container-builds public artifacts;
+# stays with the product repo when it becomes public. Fork-PR safety
+# posture for the public repo:
+#   - No step reads a repository secret; the implicit GITHUB_TOKEN is
+#     pinned read-only by the workflow-level permissions block below.
+#   - runs-on resolves through vars.YOKE_LINUX_RUNS_ON with a
+#     GitHub-hosted fallback: an unset repository variable evaluates to
+#     the empty string, which is falsy in Actions expressions, so the
+#     fromJSON argument falls back to '["ubuntu-latest"]' and the job
+#     lands on GitHub-hosted runners. The public repo must NEVER set
+#     YOKE_LINUX_RUNS_ON — that variable is how the operator's private
+#     repo routes to its own runner fleet, and setting it on a public
+#     repo would hand stranger pull requests operator infrastructure.
+#
+# Required-status-check workflow for the Yoke backend test suite.
+# Runs on every pull request targeting main and on every push to main.
+# Branch protection on main requires the Postgres matrix check names
+# (test (3.10), test (3.13)) to pass before merge — configured in the
+# operator's private ops repo.
+#
+# Each matrix lane runs against a disposable postgres:16 container, in parallel
+# via pytest-xdist (-n auto). The container is launched by hand (not via a
+# `services:` block) so durability can be turned off with `-c` server flags —
+# the data is throwaway, so fsync/WAL durability is pure overhead. There is no
+# SQLite lane: db_backend is Postgres-only. xdist gives each worker its own
+# disposable database, and isolated tests create fresh databases too, so the
+# Postgres user must hold CREATEDB.
+#
+# Uses the default GITHUB_TOKEN provided by Actions (no PAT plumbing). The
+# product-wide no-gh-on-laptop invariant is scoped to Yoke-app code on
+# the laptop / cloud-Yoke surface; workflow definitions inside
+# .github/workflows/** run server-side on GitHub-hosted runners where
+# GITHUB_TOKEN is auto-injected.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    # Strategy/docs-only commits don't change test behavior — skip the suite
+    # (matches yoke-core-image / yoke-env-deploy). NOTE: paths-ignore is on push
+    # only, NOT pull_request: test (3.10)/(3.13) are required PR checks, and a
+    # path-skipped required check stays "pending" and blocks merge.
+    paths-ignore:
+      - ".yoke/strategy/**"
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only token everywhere: no job in this workflow mutates repository
+# state, and fork pull requests must never see an elevated token.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    env:
+      # The disposable CI Postgres is launched manually (a "Start Postgres" step
+      # below) instead of via `services:` so we can pass cluster-level server
+      # flags (fsync=off et al.) — the GitHub `services:` block cannot. The name
+      # is run-id + python-version unique so two matrix lanes, or two parallel
+      # workflow runs, that land on the same self-hosted instance never collide
+      # on the container name.
+      PG_CONTAINER: yoke-ci-pg-${{ github.run_id }}-${{ matrix.python-version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.13']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history (NOT shallow). No test reads this repo's own commit
+          # history — Yoke's git/merge/worktree tests boot their own tmp repos —
+          # so shallow would be test-safe. But every package derives its version
+          # from git via setuptools_scm (dynamic version; tag v0.1.0 in history),
+          # and a depth-1 clone drops tags+history, collapsing the editable
+          # installs to the 0.1.0 fallback. The ~18s a shallow fetch would save
+          # isn't worth degraded version derivation, and
+          # test_ci_workflow_auth_invariant pins this value.
+          fetch-depth: 0
+
+      - name: Reclaim self-hosted runner disk
+        run: PYTHONPATH=packages/yoke-core/src python3 -m yoke_core.tools.github_runner_disk_reclaim
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: uv.lock
+
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+
+      - name: Install dependencies
+        run: uv sync --all-packages --all-groups
+
+      - name: Register libpython with the system loader cache
+        # The setup-python interpreter is a --enable-shared build whose libpython
+        # lives in ${pythonLocation}/lib. setup-python adds LD_LIBRARY_PATH for
+        # normal workflow steps, but tests intentionally spawn python3 with a
+        # cleaned env (merge engine, update_status, installer shim,
+        # product-boundary probes). Those subprocesses need the system loader
+        # cache to know where libpython lives.
+        #
+        # Matrix lanes can share one self-hosted runner, and ldconfig updates
+        # the host-global /etc/ld.so.cache via a fixed /etc/ld.so.cache~ temp
+        # path. Serialize the conf write + cache update so parallel lanes cannot
+        # race that rename.
+        run: |
+          lib_dir="${pythonLocation}/lib"
+          if ! compgen -G "${lib_dir}/libpython*.so*" >/dev/null; then
+            echo "No libpython shared library found under ${pythonLocation}/lib" >&2
+            exit 1
+          fi
+
+          conf_path="/etc/ld.so.conf.d/yoke-setup-python-${{ matrix.python-version }}.conf"
+          sudo flock /var/lock/yoke-ci-ldconfig.lock bash -euo pipefail -c '
+            printf "%s\n" "$1" > "$2"
+            ldconfig
+          ' _ "$lib_dir" "$conf_path"
+
+          # prove a clean-env subprocess can now start the venv interpreter
+          env -i .venv/bin/python3 -c "import sys; print('clean-env venv python OK', sys.version.split()[0])"
+
+      - name: Configure git identity (CI runners have no ~/.gitconfig)
+        run: |
+          git config --global user.email "ci@yoke.local"
+          git config --global user.name "Yoke CI"
+          git config --global init.defaultBranch main
+
+      - name: Start Postgres (durability off, dynamic host port)
+        # Launch the throwaway cluster ourselves so we can disable durability:
+        # the data is disposable, so fsync / full_page_writes / WAL streaming are
+        # pure overhead that dominate this Postgres-heavy suite's write cost.
+        # `-c` server flags are impossible through GitHub `services:`, which is
+        # why we run docker directly. Dynamic host port (`-p 5432`, no host side)
+        # so two matrix lanes sharing one self-hosted instance never collide on a
+        # fixed 5432 ("port is already allocated"). The host port is read back in
+        # the next step.
+        run: |
+          docker run -d \
+            --name "$PG_CONTAINER" \
+            -e POSTGRES_USER=yoke \
+            -e POSTGRES_PASSWORD=yoke \
+            -e POSTGRES_DB=postgres \
+            -p 5432 \
+            postgres:16 \
+            -c fsync=off \
+            -c synchronous_commit=off \
+            -c full_page_writes=off \
+            -c wal_level=minimal \
+            -c max_wal_senders=0
+
+      - name: Resolve Postgres DSN (dynamic host port)
+        # `services:` is gone, so read the mapped host port from the container we
+        # started. `docker port <name> 5432` prints "0.0.0.0:NNNNN" (plus an IPv6
+        # "[::]:NNNNN" line); take the first line and strip everything up to the
+        # last colon. Set the DSN for all later steps via $GITHUB_ENV. libpq tries
+        # every address `localhost` resolves to, so it connects regardless of
+        # whether the IPv4 or IPv6 publish is listed first.
+        run: |
+          host_port="$(docker port "$PG_CONTAINER" 5432 | head -n1 | sed 's/.*://')"
+          echo "Resolved Postgres host port: ${host_port}"
+          echo "YOKE_PG_DSN=host=localhost port=${host_port} user=yoke password=yoke dbname=postgres" >> "$GITHUB_ENV"
+
+      - name: Wait for Postgres
+        # Mirror the local pg_testcluster readiness gate for the GitHub Actions
+        # postgres service. conftest's setup_ambient_test_db opens an admin
+        # connection at collection time with NO retry, so a transient service
+        # hiccup (or the window where pg_isready reports healthy a beat before
+        # the postmaster accepts CREATE DATABASE) would otherwise surface as a
+        # cryptic xdist collection crash instead of a clear, early failure.
+        run: uv run python -m yoke_core.tools.wait_for_pg
+
+      - name: Verify Postgres CREATEDB
+        # The suite gives each pytest-xdist worker its own disposable database
+        # and creates a fresh one per isolated test. Probe that exact privilege
+        # through the same helper the suite uses before the worker fan-out.
+        run: |
+          uv run python - <<'PY'
+          from runtime.api.fixtures.pg_testdb import (
+              create_test_database,
+              drop_test_database,
+          )
+
+          name = create_test_database()
+          try:
+              print("Postgres CREATEDB preflight OK:", name)
+          finally:
+              drop_test_database(name)
+              print("Postgres CREATEDB preflight dropped:", name)
+          PY
+
+      - name: Run pytest
+        id: pytest
+        run: |
+          # -n auto mirrors DEFAULT_PARALLEL_WORKERS in
+          # runtime/api/tools/_pytest_parallel.py (the canonical home the local
+          # run_tests / watch_pytest runners read). CI pins flat `auto` on
+          # purpose: hosted runners should use all cores, not the RAM-aware
+          # cliff that can drop a constrained box to -n 1.
+          uv run python -m pytest runtime/api/ runtime/harness/ tests/ \
+            -n auto \
+            --tb=short \
+            --durations=25 \
+            --junitxml=pytest-report.xml \
+            2>&1 | tee pytest-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload pytest output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-output-${{ matrix.python-version }}
+          path: |
+            pytest-output.txt
+            pytest-report.xml
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Stop Postgres
+        # Self-hosted runner instances can serve more than one job before the
+        # idle reaper terminates them, so remove the manually-started container
+        # (a `services:` container would be auto-reaped). `|| true` keeps a
+        # missing/already-gone container from failing the job.
+        if: always()
+        run: docker rm -f "$PG_CONTAINER" || true
+
+  container:
+    name: container
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    needs: test
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Yoke core image
+        run: docker build --tag yoke-core:${{ github.sha }} .

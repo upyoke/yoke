@@ -1,0 +1,193 @@
+/* Single stylesheet for the full-screen `yoke onboard` wizard.
+   Palette is defined once here; widgets reference these variables and toggle
+   classes rather than hardcoding colors. */
+
+$onboard-accent: #3fb950;
+$onboard-accent-bright: #56d364;
+$onboard-brand: #3fb950;
+$onboard-danger: #f85149;
+$onboard-text: #e6edf3;
+$onboard-dim: #7d8590;
+$onboard-row-bg: #102a1c;
+$onboard-rule: #21262d;
+
+Screen {
+    background: transparent;
+    color: $onboard-text;
+    layout: vertical;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+#onboard-header {
+    height: 1;
+    padding: 0 0 0 3;
+    margin: 1 0 0 0;
+}
+
+/* ── Stepper ────────────────────────────────────────────── */
+#onboard-stepper {
+    height: 1;
+    padding: 0 0 0 3;
+    margin: 1 0 0 0;
+}
+
+.onboard-divider {
+    height: 1;
+    color: $onboard-rule;
+    margin: 0;
+    padding: 0 3;
+}
+
+/* ── Body ───────────────────────────────────────────────── */
+/* The body holds the active SelectionList/Input. A click on empty body space
+   refocuses that child (see OnboardWizardApp.on_click). The selected row shows
+   focus on its own via _OptionRow.-selected, so the body needs no focus border. */
+#onboard-body {
+    height: 1fr;
+    padding: 1 0 0 3;
+}
+
+.onboard-title {
+    height: 1;
+    text-style: bold;
+    color: $onboard-text;
+}
+
+/* Error headline: same bold weight as a title, in the danger color, paired with
+   a leading ✗ glyph in screen-building code. Auto height/1fr width so a long
+   error title wraps instead of clipping on a narrow terminal. */
+.onboard-title-error {
+    height: auto;
+    width: 1fr;
+    text-style: bold;
+    color: $onboard-danger;
+}
+
+.onboard-subtitle {
+    /* Wrap long lines instead of clipping them at the window edge: auto height
+       lets the subtitle grow to as many rows as the wrapped text needs. The
+       body has a left padding of 3 but no right padding, so a full-width child
+       would wrap right up to the terminal's last cell — and a glyph landing in
+       that last cell triggers the terminal's autowrap ambiguity, duplicating
+       the character at the end of one row and the start of the next. A matching
+       right margin pulls the wrap column in from the edge so no glyph ever
+       reaches the last cell, and overflow-x: hidden guarantees no horizontal
+       bleed if a single unbreakable token still overruns. The warmer
+       GitHub-token copy routinely exceeds one row. */
+    height: auto;
+    width: 1fr;
+    margin: 0 3 0 0;
+    overflow-x: hidden;
+    color: $onboard-dim;
+}
+
+.onboard-spacer {
+    height: 1;
+}
+
+.onboard-note {
+    color: $onboard-dim;
+    margin: 1 0 0 0;
+}
+
+/* ── Board art ──────────────────────────────────────────── */
+/* Rendered art keeps its natural size: figlet rows and the emoji master map
+   must not wrap or shrink, so the block keeps its own width/height and scrolls
+   horizontally inside the body when a wide header or long word overruns it. */
+.onboard-art {
+    height: auto;
+    width: auto;
+    margin: 1 0 0 0;
+    overflow-x: auto;
+}
+
+/* ── Selection list ─────────────────────────────────────── */
+SelectionList {
+    height: auto;
+    padding: 0 3 0 0;
+}
+
+_OptionRow {
+    height: 1;
+    width: 1fr;
+    color: $onboard-dim;
+    border-left: blank;
+    padding: 0 0 0 1;
+}
+
+_OptionRow.-selected {
+    color: $onboard-accent-bright;
+    text-style: bold;
+    background: $onboard-row-bg;
+    border-left: thick $onboard-accent;
+    padding: 0;
+}
+
+Screen.plain-glyphs _OptionRow.-selected {
+    border-left: blank;
+    padding: 0 0 0 1;
+}
+
+/* ── Input screen ───────────────────────────────────────── */
+#onboard-input {
+    height: auto;
+    margin: 1 3 0 0;
+    border: round $onboard-accent;
+    background: transparent;
+}
+
+#onboard-input:focus {
+    border: round $onboard-accent-bright;
+}
+
+.onboard-input-error {
+    color: $onboard-danger;
+    height: 1;
+    margin: 1 0 0 0;
+}
+
+/* ── Write plan ─────────────────────────────────────────── */
+.onboard-plan-group-machine {
+    color: $onboard-accent-bright;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+.onboard-plan-group-core,
+.onboard-plan-group-control {
+    color: #58a6ff;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+.onboard-plan-group-repo {
+    color: #d29922;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+.onboard-plan-group-admin {
+    color: #db61a2;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+.onboard-plan-line {
+    color: $onboard-text;
+    /* Wrap long lines instead of clipping them at the window edge: auto height
+       lets a line grow to as many rows as the wrapped text needs, and width 1fr
+       binds the wrap point to the body width so it re-flows on resize. The
+       detail/message/plan lines (repo lists, the publish-capability sentence)
+       routinely exceed one row on a narrow terminal. */
+    height: auto;
+    width: 1fr;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+#onboard-footer {
+    height: 1;
+    color: $onboard-dim;
+    padding: 0 0 0 3;
+    margin: 0 0 1 0;
+    dock: bottom;
+}

@@ -1,0 +1,59 @@
+"""Install-bundle route — ``GET /v1/projects/{project_id}/install-bundle``.
+
+Serves :func:`yoke_core.domain.install_bundle.build_bundle` to
+``yoke install`` / ``yoke refresh`` (Project install contract / project install delivery).
+Auth is enforced by the app-level bearer-token middleware like every
+other ``/v1`` route.
+"""
+
+from __future__ import annotations
+
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRouter
+
+from yoke_core.domain.install_bundle import (
+    InstallBundleError,
+    ProjectNotFoundError,
+    build_bundle,
+)
+
+# Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
+import yoke_core.api.main as _main
+
+router = APIRouter()
+
+
+@router.get("/projects/{project_id}/install-bundle")
+def get_install_bundle(project_id: int) -> JSONResponse:
+    """Render the project-local install bundle for ``project_id``.
+
+    Read-write connection: rendering the ``strategy_files`` section
+    cold-starts the placeholder strategy rows for a project with zero
+    rows (idempotent; established corpora are never touched).
+    """
+    conn = _main.get_db_readwrite()
+    try:
+        bundle = build_bundle(project_id, conn)
+    except ProjectNotFoundError as exc:
+        return JSONResponse(
+            status_code=404,
+            content=_main.ErrorResponse(
+                error=_main.ErrorDetail(code="NOT_FOUND", message=str(exc))
+            ).model_dump(),
+        )
+    except InstallBundleError as exc:
+        return JSONResponse(
+            status_code=500,
+            content=_main.ErrorResponse(
+                error=_main.ErrorDetail(
+                    code="INSTALL_BUNDLE_ERROR",
+                    message=str(exc),
+                )
+            ).model_dump(),
+        )
+    finally:
+        conn.close()
+    return JSONResponse(content=bundle)
+
+
+__all__ = ["router"]

@@ -1,0 +1,8 @@
+{
+  "name": "yoke-boss",
+  "description": "Parameterized quality gate that evaluates specs, PRDs, and plans at pipeline transition points. Simulates multi-perspective review to catch problems before they propagate downstream.",
+  "tools": "Read, Grep, Glob, Bash",
+  "disallowedTools": "Write, Edit",
+  "model": "opus",
+  "maxTurns": 300
+}

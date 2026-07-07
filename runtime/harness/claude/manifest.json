@@ -1,0 +1,48 @@
+{
+  "_generated": "by yoke_core.domain.agents_render — do not hand-edit. Source: yoke_core.domain.agents_render_manifests.CLAUDE_MANIFEST.",
+  "harness_id": "claude-code",
+  "runtime_minimums": {
+    "wrapper_only": "any claude-code build with bash tool support",
+    "hook_enhanced": "any claude-code build (PreToolUse/PostToolUse hooks are stable)",
+    "tested_locally": "claude-code with Opus 4.7"
+  },
+  "bootstrap": {
+    "spec_path": "runtime/harness/bootstrap-spec.json",
+    "mechanisms": [
+      "harness_native_config",
+      "user_prompt_submit_hook"
+    ]
+  },
+  "identity": {
+    "executor": "claude-code",
+    "provider_source": "runtime",
+    "model_source": "runtime",
+    "workspace_source": "payload_cwd_then_git_root"
+  },
+  "supports": {
+    "command_source": "shared_yoke_registry",
+    "disabled_entrypoints": [],
+    "disabled_downstream_paths": [],
+    "optional_local_affordances": [
+      "session_start_hook",
+      "user_prompt_submit_hook",
+      "pre_tool_use_hook",
+      "post_tool_use_hook",
+      "stop_hook"
+    ]
+  },
+  "telemetry": {
+    "canonical_source": "yoke_core",
+    "optional_local_sources": [
+      "hook_logs"
+    ]
+  },
+  "fallback": {
+    "when_hooks_missing": "wrapper_only",
+    "when_path_unsupported": "return unsupported to core"
+  },
+  "canonical_agents": {
+    "source": "runtime/harness/bootstrap-spec.json#canonical_agents",
+    "consumption": "generated"
+  }
+}

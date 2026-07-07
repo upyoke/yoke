@@ -1,0 +1,72 @@
+#!/usr/bin/env sh
+# ephemeral-list.sh — List active ephemeral environments
+#
+# Discovers running ephemeral Docker Compose projects and derives their
+# port mappings from the container names using the same slug-based hash
+# as the deploy workflow.
+#
+# Run on the VPS:
+#   sh ephemeral-list.sh
+#
+# Output format (one line per environment):
+#   SLUG  WEB_PORT  API_PORT  STATUS  UPTIME
+#
+# Template variables:
+#   {{project_name}}   — project identifier (lowercase)
+#   {{domain}}         — project domain for URLs
+#   {{port_base}}      — base port for web containers (e.g., 4000)
+#   {{api_port_base}}  — base port for API containers (e.g., 9000)
+#   {{port_range}}     — modulo range for hash (e.g., 100)
+
+set -e
+
+PROJECT_NAME="{{project_name}}"
+DOMAIN="{{domain}}"
+PORT_BASE={{port_base}}
+API_PORT_BASE={{api_port_base}}
+PORT_RANGE={{port_range}}
+
+# Compute port offset from slug using the same algorithm as the deploy workflow
+compute_offset() {
+    local slug="$1"
+    local hash
+    hash=$(printf '%s' "$slug" | sha256sum | cut -c1-8)
+    printf '%d' "$(( 0x$hash % PORT_RANGE ))"
+}
+
+printf '%-30s %-8s %-8s %-10s %-20s %s\n' \
+    "SLUG" "WEB" "API" "STATUS" "UPTIME" "URL"
+printf '%-30s %-8s %-8s %-10s %-20s %s\n' \
+    "----" "---" "---" "------" "------" "---"
+
+found=0
+for dir in ~/"${PROJECT_NAME}-ephemeral"/*/; do
+    [ -d "$dir" ] || continue
+    slug=$(basename "$dir")
+
+    offset=$(compute_offset "$slug")
+    web_port=$(( PORT_BASE + offset ))
+    api_port=$(( API_PORT_BASE + offset ))
+
+    # Check container status
+    container_info=$(docker ps --filter "name=${PROJECT_NAME}-${slug}" --format '{{.Status}}' 2>/dev/null | head -1)
+    if [ -n "$container_info" ]; then
+        _status="running"
+        uptime="$container_info"
+    else
+        _status="stopped"
+        uptime="-"
+    fi
+
+    url="https://${slug}.${DOMAIN}"
+    printf '%-30s %-8s %-8s %-10s %-20s %s\n' \
+        "$slug" "$web_port" "$api_port" "$_status" "$uptime" "$url"
+    found=$(( found + 1 ))
+done
+
+if [ "$found" -eq 0 ]; then
+    echo "No ephemeral environments found."
+fi
+
+echo ""
+echo "Total: $found environment(s)"

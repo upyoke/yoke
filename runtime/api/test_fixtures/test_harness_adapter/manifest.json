@@ -1,0 +1,26 @@
+{
+  "_purpose": "Fixture manifest used by runtime/api/test_harness_substrate.py to prove universal Yoke source stays harness-agnostic. Not a real harness adapter.",
+  "harness_id": "test-harness",
+  "runtime_minimums": {
+    "wrapper_only": "fixture-only — never instantiated as a real harness",
+    "tested_locally": "test-harness fixture for substrate proof"
+  },
+  "bootstrap": {
+    "spec_path": "runtime/harness/bootstrap-spec.json",
+    "mechanisms": [
+      "wrapper_command"
+    ]
+  },
+  "identity": {
+    "executor": "test-harness",
+    "provider_source": "runtime",
+    "model_source": "runtime",
+    "workspace_source": "payload_cwd_then_git_root"
+  },
+  "supports": {
+    "command_source": "shared_yoke_registry",
+    "disabled_entrypoints": [],
+    "disabled_downstream_paths": [],
+    "optional_local_affordances": []
+  }
+}
