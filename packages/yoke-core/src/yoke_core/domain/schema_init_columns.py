@@ -114,16 +114,13 @@ def apply_additive_schema(conn: Any) -> None:
     )
     conn.commit()
 
-    # Numeric project authority for items. project_sequence carries no DB
-    # default; its backfill (= id) lives in apply_legacy_data_migrations, so a
-    # converge against an already-born universe (where the column exists and is
-    # populated) is a no-op here.
+    # Numeric project authority for items. project_id is self-sufficient
+    # (NOT NULL DEFAULT populates existing rows at ADD time). project_sequence
+    # has no DB default and needs an id-based backfill to be valid, so it, its
+    # backfill, and its unique index live together in
+    # apply_legacy_data_migrations (the birth/full-init path), never on this
+    # additive converge path.
     _add_column_if_not_exists(conn, "items", "project_id", "INTEGER NOT NULL DEFAULT 1")
-    _add_column_if_not_exists(conn, "items", "project_sequence", "INTEGER")
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_items_project_sequence "
-        "ON items(project_id, project_sequence)"
-    )
     conn.commit()
 
     # Add deployment_flow and deploy_stage columns
@@ -225,9 +222,17 @@ def apply_legacy_data_migrations(conn: Any) -> None:
     )
     conn.commit()
 
-    # items.project_sequence — backfill the per-project sequence from the id.
+    # items.project_sequence — add the column, backfill it from the id, and
+    # create its unique index. project_sequence has no DB default so its ADD is
+    # not self-sufficient; the column, its backfill, and its unique index stay
+    # co-located here (project_id is already present from apply_additive_schema).
+    _add_column_if_not_exists(conn, "items", "project_sequence", "INTEGER")
     conn.execute(
         "UPDATE items SET project_sequence = id WHERE project_sequence IS NULL"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_items_project_sequence "
+        "ON items(project_id, project_sequence)"
     )
     conn.commit()
 
