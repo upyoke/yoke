@@ -3,10 +3,15 @@
 SELF_MIGRATION_TEMP_RECIPE = """\
 Temporary pre-ephemeral Yoke self-migration recipe:
 
-Use this only until worktree/SHA ephemeral envs can hydrate prod data and run
-the rehearsal in-env/VPC. It is for small additive Yoke self-migrations that
-must be applied manually during /yoke advance. If the item's deployment flow
-will run migration_apply later, do not also live-apply manually.
+NOTE: pure-additive schema (net-new tables / ADD COLUMN) no longer needs this
+recipe. Server boot converges the full idempotent schema
+(schema_init.converge_core_schema via server_entrypoint.ensure_core_schema), so
+additive tables/columns self-propagate to every born universe on the next
+deploy/boot with no manual apply. Use this recipe ONLY for data-transforming
+governed migrations (backfills, drops, rewrites) that genuinely cannot
+self-propagate, and only until worktree/SHA ephemeral envs can hydrate prod data
+and run the rehearsal in-env/VPC. If the item's deployment flow will run
+migration_apply later, do not also live-apply manually.
 
 Run from the item worktree after the implementation commit, while holding the
 work-claim. The item db_mutation_profile must declare mutation_intent=apply

@@ -135,9 +135,13 @@ provider is never trusted).
 
 ## Upgrades
 
-The server image is versioned by tag; the database schema converges on
-server boot (the entrypoint ensures the core schema before serving), so
-an upgrade is a pull plus a restart:
+The server image is versioned by tag; on every boot the entrypoint
+converges the full idempotent core schema before serving (all tables,
+indexes, AND additive columns), so every net-new additive table or column
+the deployed code expects self-propagates to your already-born database —
+no manual migration step is needed for additive schema. (Data-transforming
+changes — backfills, drops, rewrites — still go through Yoke's governed
+migration runner.) An upgrade is therefore a pull plus a restart:
 
 ```bash
 cd yoke-server

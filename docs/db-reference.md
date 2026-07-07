@@ -86,6 +86,8 @@ Normal runtime commands (reads, domain dispatch, structured-field writes) never 
 
 When a normal command runs against an existing DB whose baseline schema is missing (no `items` table), the router refuses the command and prints remediation pointing at `db_router init`. No silent `CREATE TABLE` as a side effect of a read-looking command.
 
+**Additive schema self-propagates on deploy.** Separately from the CLI bootstrap path above, the API server entrypoint (`yoke_core.api.server_entrypoint.ensure_core_schema`) runs the full idempotent `schema_init.converge_core_schema` — every `CREATE TABLE`/`CREATE INDEX` plus additive `ADD COLUMN` step — on every boot of an already-born universe. So any net-new additive table or column added to the schema-init chain reaches every born universe on its next deploy/restart with no governed migration and no manual catch-up. The governed migration runner (`migration_apply` rehearse/live-apply, with lease/audit/backup) is reserved for data-transforming changes — backfills, drops, rewrites — not net-new additive schema.
+
 ### Retired schema surface registry
 
 Columns (and tables) retired across a project's governed migration lifecycle are catalogued in [`runtime/api/domain/retired_schema_surfaces.yaml`](../runtime/api/domain/retired_schema_surfaces.yaml). The registry is the single live source authorised to name retired columns by their literal identifier.

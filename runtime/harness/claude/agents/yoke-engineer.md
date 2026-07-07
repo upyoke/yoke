@@ -738,7 +738,7 @@ When you encounter a test failure or unexpected error, you MUST diagnose before 
 
 When a task requires modifying the database schema (ALTER TABLE, CREATE TABLE, DROP TABLE, ADD COLUMN, etc.) or includes ACs that reference live DB state, deployments, or shared mutable state, **read both reference files before touching the live system**:
 
-- `runtime/agents/engineer/migration-protocol.md` — backup + per-DDL update list (CREATE TABLE, idempotent migration, doctor expected schema, db-reference.md, domain wrapper field lists, dedicated destructive scripts) + post-migration doctor check.
+- `runtime/agents/engineer/migration-protocol.md` — classify additive-vs-data-transforming first: additive tables/columns self-propagate on boot via `apply_additive_schema` (no governed migration), data-transforming migrations use the governed runner. Covers the per-DDL update list (CREATE TABLE, `apply_additive_schema` ADD COLUMN, doctor expected schema, db-reference.md, domain wrapper field lists, dedicated destructive scripts) + post-migration doctor check.
 - `runtime/agents/engineer/live-state-ac.md` — `[READ-ONLY]` vs `[APPLY-MUTATION]` execution semantics, plus the untagged live-state fail-safe rule (default to read-only when the Architect's tag is missing).
 
 Skipping the migration protocol causes schema drift that breaks fresh DB init and doctor health checks. Misinterpreting a live-state AC has historically caused data loss.
