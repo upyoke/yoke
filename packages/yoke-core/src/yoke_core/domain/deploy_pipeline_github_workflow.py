@@ -51,7 +51,15 @@ def _dispatch_github_actions_workflow(
         )
         return 1, ""
     raw_workflow_inputs = _workflow_inputs(config)
-    workflow_ref = str(config.get("ref", "") or gate_branch or "main")
+    # The ref names which branch of the DEPLOY repo (github_repo) to run the
+    # workflow file from — not a product branch. When the deploy repo and the
+    # product repo are the same (legacy), gate_branch happened to exist in both;
+    # once they split (operator ops repo holding dispatch-only workflows on its
+    # default branch vs. a product repo with its own stage branch), gate_branch
+    # is absent from the deploy repo and the dispatch 422s. gate_branch stays
+    # the source-sha/CI-gate branch (a product concept) below; the workflow ref
+    # defaults to the deploy repo's default branch where the file lives.
+    workflow_ref = str(config.get("ref", "") or "main")
     stage_timeout_min = int(config.get("timeout_min") or timeout_min)
     timeout_sec = stage_timeout_min * 60
 
