@@ -147,18 +147,23 @@ def ensure_permission_catalog() -> None:
 
 
 def ensure_core_schema() -> None:
-    """Apply the idempotent core schema before the API starts serving.
+    """Converge the idempotent core schema before the API starts serving.
 
     A container with a long-lived DB must not report healthy while deployed
-    code requires tables that the DB has not yet created. This is fail-hard:
-    if core schema creation cannot complete, the API should not start.
+    code requires tables OR columns the DB has not yet created. This runs the
+    full idempotent schema convergence (tables, indexes, additive columns) so a
+    deploy propagates every additive schema change to an already-born universe —
+    the boot after a deploy is the only schema-reconciliation point on the prod
+    path. It is strictly non-destructive: the birth-only drops and data
+    backfills stay in :func:`yoke_core.domain.schema_init.cmd_init`. Fail-hard:
+    if convergence cannot complete, the API must not start.
     """
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.schema_init_tables import create_core_tables
+    from yoke_core.domain.schema_init import converge_core_schema
 
     with db_helpers.connect() as conn:
-        create_core_tables(conn)
-    _log.info("core schema ensured on boot")
+        converge_core_schema(conn)
+    _log.info("core schema converged on boot")
 
 
 def universe_is_born() -> bool:

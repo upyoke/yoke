@@ -1,4 +1,21 @@
-"""Idempotent schema-column and data-shape migrations."""
+"""Idempotent schema-column and data-shape migrations.
+
+Two operation classes live here, split into two entry points so the boot
+converge path can run the safe half without the destructive half:
+
+* :func:`apply_additive_schema` — strictly additive DDL (``ADD COLUMN IF NOT
+  EXISTS``, ``CREATE INDEX IF NOT EXISTS``). Structurally incapable of dropping
+  or rewriting a row, so it is safe to run on every server boot of an
+  already-born universe — the mechanism that propagates a newly-deployed
+  additive column to existing prod / self-host universes.
+* :func:`apply_legacy_data_migrations` — the birth/full-init-only tail: guarded
+  destructive drops of retired surfaces, data backfills that normalize legacy
+  rows, the qa-vocabulary rebuild, and the canonical-status validators. Never
+  runs on the deploy/boot converge path.
+
+:func:`apply_idempotent_migrations` runs both, in that order, and is retained as
+the birth and test-fixture entry point so every existing caller is unchanged.
+"""
 
 from __future__ import annotations
 
@@ -43,9 +60,23 @@ def apply_harness_session_columns(conn: Any) -> None:
     conn.commit()
 
 
-def apply_idempotent_migrations(conn: Any) -> None:
-    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+def apply_additive_schema(conn: Any) -> None:
+    """Strictly additive, idempotent schema convergence.
 
+    Contains ONLY ``ADD COLUMN IF NOT EXISTS`` and ``CREATE INDEX IF NOT
+    EXISTS`` — no ``DROP``, no data-backfill ``UPDATE``, no row rewrites. Safe to
+    run on every server boot of an already-born universe (see
+    :func:`yoke_core.domain.schema_init.converge_core_schema`), which is what
+    propagates a newly-deployed additive column to existing prod / self-host
+    universes whose last full ``cmd_init`` predates the column.
+
+    Convergence invariant: this runs only against a universe already born via the
+    full init chain, so every older column already exists and is populated. A new
+    additive column MUST therefore be self-sufficient on ADD alone — nullable
+    (NULL is a valid value) or ``NOT NULL DEFAULT`` (Postgres populates existing
+    rows at ADD time). A column that needs a follow-up data backfill to be valid
+    belongs in :func:`apply_legacy_data_migrations`, not here.
+    """
     # Idempotent ADD COLUMN migrations for epic_tasks
     _add_column_if_not_exists(conn, "epic_tasks", "body", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "github_issue", "TEXT")
@@ -73,24 +104,22 @@ def apply_idempotent_migrations(conn: Any) -> None:
     conn.commit()
 
     # items.source stores the stringified actors.id for the item originator.
+    # NOT NULL DEFAULT populates existing rows at ADD time; the legacy-NULL
+    # normalization lives in apply_legacy_data_migrations.
     _add_column_if_not_exists(
         conn,
         "items",
         "source",
         f"TEXT NOT NULL DEFAULT '{DEFAULT_ITEM_ACTOR_ID}'",
     )
-    conn.execute(
-        f"UPDATE items SET source = {placeholder} WHERE source IS NULL",
-        (DEFAULT_ITEM_ACTOR_ID,),
-    )
     conn.commit()
 
-    # Numeric project authority for items.
+    # Numeric project authority for items. project_sequence carries no DB
+    # default; its backfill (= id) lives in apply_legacy_data_migrations, so a
+    # converge against an already-born universe (where the column exists and is
+    # populated) is a no-op here.
     _add_column_if_not_exists(conn, "items", "project_id", "INTEGER NOT NULL DEFAULT 1")
     _add_column_if_not_exists(conn, "items", "project_sequence", "INTEGER")
-    conn.execute(
-        "UPDATE items SET project_sequence = id WHERE project_sequence IS NULL"
-    )
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_items_project_sequence "
         "ON items(project_id, project_sequence)"
@@ -109,12 +138,6 @@ def apply_idempotent_migrations(conn: Any) -> None:
     # Add project column to release_entries
     _add_column_if_not_exists(conn, "release_entries", "project_id", "INTEGER NOT NULL DEFAULT 1")
     conn.commit()
-
-    # Drop legacy epic_reviews table
-    if _table_exists(conn, "epic_reviews"):
-        conn.execute("DROP TABLE IF EXISTS epic_reviews")
-        conn.commit()
-        print("Dropped legacy epic_reviews table (consolidated into reviews).")
 
     # owner — actor FK companion to items.source. Nullable here because
     # the one-shot migration backfills it during the source/owner
@@ -136,11 +159,87 @@ def apply_idempotent_migrations(conn: Any) -> None:
     conn.commit()
 
     # browser_qa_metadata — JSON-valued structured field populated at
-    # idea/refine time.  Annotated for Postgres cutover; see
-    # :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.  Every existing
-    # row is populated with the explicit negative default on first
-    # migration so seeding callers never encounter NULL/'null' metadata.
+    # idea/refine time.  Added nullable; existing-row normalization to the
+    # negative default lives in apply_legacy_data_migrations.  Annotated for
+    # Postgres cutover; see :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.
     _add_column_if_not_exists(conn, "items", "browser_qa_metadata", "TEXT")  # → JSONB on Postgres
+    conn.commit()
+
+    # db_mutation_profile / db_compatibility_attestation — governed
+    # DB-mutation contract.  DB-level NOT NULL DEFAULT makes omission
+    # structurally impossible: every INSERT lands a row with a valid negative
+    # default and existing rows populate at ADD time.  Annotated for Postgres
+    # cutover; see :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.
+    _add_column_if_not_exists(
+        conn, "items", "db_mutation_profile",
+        "TEXT NOT NULL DEFAULT '{\"state\":\"none\"}'",  # → JSONB on Postgres
+    )
+    _add_column_if_not_exists(
+        conn, "items", "db_compatibility_attestation",
+        "TEXT NOT NULL DEFAULT '{}'",  # → JSONB on Postgres
+    )
+    conn.commit()
+
+    # github_body_compact_pending — nullable ISO timestamp set when the
+    # last successful GitHub body sync landed the compact mirror (body
+    # over budget) and cleared when a full-body sync lands. The repair
+    # pass (backfill-oversized-bodies) reads it as its candidate queue;
+    # owner: yoke_core.domain.backlog_github_body_budget.
+    _add_column_if_not_exists(
+        conn, "items", "github_body_compact_pending", "TEXT",
+    )
+    conn.commit()
+
+    # architecture_impact — operator-authored enum classifying the item's
+    # relationship to the project architecture model. NOT NULL DEFAULT 'none'
+    # populates existing rows at ADD time; refine / idea_readiness_check
+    # escalates 'uncertain' rows.
+    _add_column_if_not_exists(
+        conn, "items", "architecture_impact",
+        "TEXT NOT NULL DEFAULT 'none'",
+    )
+    conn.commit()
+
+    # Add source column to item_sections
+    _add_column_if_not_exists(conn, "item_sections", "source", "TEXT NOT NULL DEFAULT 'operator'")
+    conn.commit()
+
+
+def apply_legacy_data_migrations(conn: Any) -> None:
+    """Birth/full-init-only data-shape migrations and legacy drops.
+
+    Runs ONLY from the full init chain (:func:`yoke_core.domain.schema_init.cmd_init`)
+    and the schema fixtures — never on the boot converge path — because it
+    performs the operations that are unsafe to run on every deploy: guarded
+    destructive drops of retired surfaces, data backfills that normalize legacy
+    NULL/'' rows, the qa-vocabulary table rebuild, and the canonical-status
+    validators. Assumes :func:`apply_additive_schema` has already added every
+    column these statements touch.
+    """
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+    # items.source — normalize any legacy NULL row to the default actor.
+    conn.execute(
+        f"UPDATE items SET source = {placeholder} WHERE source IS NULL",
+        (DEFAULT_ITEM_ACTOR_ID,),
+    )
+    conn.commit()
+
+    # items.project_sequence — backfill the per-project sequence from the id.
+    conn.execute(
+        "UPDATE items SET project_sequence = id WHERE project_sequence IS NULL"
+    )
+    conn.commit()
+
+    # Drop legacy epic_reviews table
+    if _table_exists(conn, "epic_reviews"):
+        conn.execute("DROP TABLE IF EXISTS epic_reviews")
+        conn.commit()
+        print("Dropped legacy epic_reviews table (consolidated into reviews).")
+
+    # browser_qa_metadata — normalize legacy NULL/''/'null' rows to the
+    # explicit negative default so seeding callers never encounter empty
+    # metadata.
     from yoke_core.domain.browser_qa_metadata import NEGATIVE_DEFAULT_JSON
     conn.execute(
         f"UPDATE items SET browser_qa_metadata = {placeholder} "
@@ -151,20 +250,8 @@ def apply_idempotent_migrations(conn: Any) -> None:
     )
     conn.commit()
 
-    # db_mutation_profile / db_compatibility_attestation — governed
-    # DB-mutation contract (governed DB-mutation contract).  DB-level NOT NULL DEFAULT makes
-    # omission structurally impossible: every INSERT lands a row with a
-    # valid negative default.  Annotated for Postgres cutover; see
-    # :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.  Existing rows
-    # are backfilled with the explicit negative defaults.
-    _add_column_if_not_exists(
-        conn, "items", "db_mutation_profile",
-        "TEXT NOT NULL DEFAULT '{\"state\":\"none\"}'",  # → JSONB on Postgres
-    )
-    _add_column_if_not_exists(
-        conn, "items", "db_compatibility_attestation",
-        "TEXT NOT NULL DEFAULT '{}'",  # → JSONB on Postgres
-    )
+    # db_mutation_profile / db_compatibility_attestation — normalize legacy
+    # NULL/''/'null' rows to the explicit negative defaults.
     from yoke_core.domain.db_mutation_profile import (
         NEGATIVE_DEFAULT_JSON as _DMP_NEG,
     )
@@ -187,34 +274,13 @@ def apply_idempotent_migrations(conn: Any) -> None:
     )
     conn.commit()
 
-    # github_body_compact_pending — nullable ISO timestamp set when the
-    # last successful GitHub body sync landed the compact mirror (body
-    # over budget) and cleared when a full-body sync lands. The repair
-    # pass (backfill-oversized-bodies) reads it as its candidate queue;
-    # owner: yoke_core.domain.backlog_github_body_budget.
-    _add_column_if_not_exists(
-        conn, "items", "github_body_compact_pending", "TEXT",
-    )
-    conn.commit()
-
-    # architecture_impact — operator-authored enum classifying the item's
-    # relationship to the project architecture model. Default 'none' so
-    # pre-existing rows treat as "no architectural impact"; refine /
-    # idea_readiness_check escalates 'uncertain' rows.
-    _add_column_if_not_exists(
-        conn, "items", "architecture_impact",
-        "TEXT NOT NULL DEFAULT 'none'",
-    )
+    # architecture_impact — normalize legacy NULL/''/'null' rows to 'none'.
     conn.execute(
         "UPDATE items SET architecture_impact = 'none' "
         "WHERE architecture_impact IS NULL "
         "OR architecture_impact = '' "
         "OR architecture_impact = 'null'"
     )
-    conn.commit()
-
-    # Add source column to item_sections
-    _add_column_if_not_exists(conn, "item_sections", "source", "TEXT NOT NULL DEFAULT 'operator'")
     conn.commit()
 
     # Drop deprecated prd column if upgrading from an older schema
@@ -231,3 +297,16 @@ def apply_idempotent_migrations(conn: Any) -> None:
 
     _validate_item_statuses(conn)
     _validate_epic_task_statuses(conn)
+
+
+def apply_idempotent_migrations(conn: Any) -> None:
+    """Full idempotent migration pass: additive schema then legacy data-shape
+    migrations.
+
+    Retained as the birth/full-init and test-fixture entry point. The boot
+    converge path calls :func:`apply_additive_schema` alone — never this — so it
+    never runs the destructive drops or data backfills in
+    :func:`apply_legacy_data_migrations`.
+    """
+    apply_additive_schema(conn)
+    apply_legacy_data_migrations(conn)

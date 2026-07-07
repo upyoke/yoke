@@ -28,6 +28,10 @@ READINESS_TABLES: Tuple[str, ...] = (
     "harness_sessions",
     "roles",
     "strategy_docs",
+    # representative of the external-identity step
+    # (create_external_identity_tables): a deploy that converges the schema
+    # on boot must land it before reporting schema_ready.
+    "actor_external_identities",
 )
 
 
