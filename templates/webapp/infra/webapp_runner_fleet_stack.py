@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
@@ -338,6 +339,47 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
                 ]),
             ),
         )
+
+        # Manage the GitHub repo webhook that drives ASG scaling as IaC, so a
+        # fleet repoint (github_repo change + apply) moves the subscription
+        # automatically instead of an out-of-band hand edit. Opt-in via a
+        # dedicated RUNNER_FLEET_WEBHOOK_TOKEN (a token with `Webhooks: write`):
+        # when absent the fleet keeps its prior out-of-band webhook (backward
+        # compatible, and the automatic CI GITHUB_TOKEN never triggers this
+        # path). The signing secret is read from the same SSM parameter the
+        # scaling Lambda validates against, so GitHub's delivery signature and
+        # the Lambda's check can never diverge.
+        github_token = os.environ.get("RUNNER_FLEET_WEBHOOK_TOKEN")
+        if github_token and "/" in args.github_repo:
+            import pulumi_github as github
+
+            gh_owner, _, gh_repo = args.github_repo.partition("/")
+            github_provider = github.Provider(
+                "runnerFleetGithubProvider",
+                owner=gh_owner,
+                token=github_token,
+                opts=child_opts,
+            )
+            webhook_secret_value = aws.ssm.get_parameter(
+                name=webhook_secret_parameter_name,
+                with_decryption=True,
+            ).value
+            self.github_webhook = github.RepositoryWebhook(
+                "runnerFleetGithubWebhook",
+                repository=gh_repo,
+                events=["workflow_job"],
+                active=True,
+                configuration={
+                    "url": self.webhook_url.function_url,
+                    "content_type": "json",
+                    "insecure_ssl": False,
+                    "secret": webhook_secret_value,
+                },
+                opts=pulumi.ResourceOptions.merge(
+                    child_opts,
+                    pulumi.ResourceOptions(provider=github_provider),
+                ),
+            )
 
         outputs = {
             "runnerFleetAsgName": self.asg.name,
