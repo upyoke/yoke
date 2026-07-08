@@ -21,11 +21,11 @@ name: cla
 #     fine) and leave it unprotected — the action commits signature records to
 #     it using the workflow's GITHUB_TOKEN, so no personal access token is
 #     needed.
-#   - When the repository starts accepting external pull requests, mark this
-#     workflow's `signature-check` job as a required status check in branch
-#     protection on the default branch, so an unsigned contribution cannot
-#     merge. While the repository is private there are no external pull
-#     requests, and this workflow stays dormant.
+#   - When the repository accepts external pull requests, mark this workflow's
+#     `signature-check` job as a required status check in branch protection on
+#     the default branch, so an unsigned contribution cannot merge. This
+#     repository is public and that required check is configured, so the gate
+#     is live; it stays dormant only until the first external pull request.
 #
 # pull_request_target runs the base branch's workflow definition with write
 # permissions. This job never checks out or executes pull-request code, so
