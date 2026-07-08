@@ -10,7 +10,7 @@ from fastapi.routing import APIRouter
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
 from yoke_contracts.api_urls import API_VERSION_PREFIX
-from yoke_contracts.engine_version import installed_engine_version
+from yoke_contracts.engine_version import advertised_engine_version
 from yoke_core.domain.schema_readiness import missing_readiness_tables
 
 router = APIRouter()
@@ -36,11 +36,12 @@ def health() -> _main.HealthResponse:
     so deploy gates assert this field rather than liveness alone.
     """
     schema_ready, missing = _schema_readiness_snapshot()
+    build = os.environ.get("YOKE_BUILD_SHA", "")
     return _main.HealthResponse(
         status="ok",
         version=API_CONTRACT_VERSION,
-        engine_version=installed_engine_version(),
-        build=os.environ.get("YOKE_BUILD_SHA", ""),
+        engine_version=advertised_engine_version(build=build),
+        build=build,
         schema_ready=schema_ready,
         schema_missing_tables=missing,
     )

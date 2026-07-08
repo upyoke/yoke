@@ -69,7 +69,9 @@ class TestHealthVersionHandshake:
         """``version`` is the /v1 route-shape token; ``engine_version`` is
         the installed engine dist the skew handshake compares."""
         monkeypatch.setattr(
-            items_health, "installed_engine_version", lambda: "3.2.1"
+            items_health,
+            "advertised_engine_version",
+            lambda *, build="": "3.2.1",
         )
         data = client.get("/v1/health").json()
         assert data["version"] == items_health.API_CONTRACT_VERSION == "v1"
@@ -81,9 +83,27 @@ class TestHealthVersionHandshake:
         """No dist metadata (source run) degrades to an empty engine_version
         while the rest of the payload keeps working."""
         monkeypatch.setattr(
-            items_health, "installed_engine_version", lambda: ""
+            items_health,
+            "advertised_engine_version",
+            lambda *, build="": "",
         )
         data = client.get("/v1/health").json()
         assert data["engine_version"] == ""
         assert data["status"] == "ok"
         assert data["version"] == "v1"
+
+    def test_image_build_with_unresolved_scm_metadata_reports_build_only(
+        self, client, test_db, monkeypatch,
+    ):
+        """The image build SHA remains authoritative when wheel metadata
+        only resolved to the setuptools-scm fallback."""
+        from yoke_contracts import engine_version as ev
+
+        monkeypatch.setenv("YOKE_BUILD_SHA", "abc123def456")
+        monkeypatch.setattr(
+            ev, "installed_engine_version",
+            lambda: ev.UNRESOLVED_SCM_FALLBACK_VERSION,
+        )
+        data = client.get("/v1/health").json()
+        assert data["engine_version"] == ""
+        assert data["build"] == "abc123def456"

@@ -45,12 +45,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The server wheel version is derived by setuptools-scm before the
+          # Docker build, because the Docker context intentionally does not
+          # carry .git into the image.
+          fetch-depth: 0
 
       - name: Resolve image reference (sha12 tag, lowercase owner)
         run: |
           owner="${{ github.repository_owner }}"
           echo "IMAGE_REPOSITORY=ghcr.io/${owner,,}/yoke-server" >> "$GITHUB_ENV"
           echo "IMAGE_TAG=${GITHUB_SHA:0:12}" >> "$GITHUB_ENV"
+
+      - name: Resolve package version
+        run: |
+          python -m pip install "setuptools-scm[toml]"
+          version="$(python -m setuptools_scm --root "$GITHUB_WORKSPACE")"
+          echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Login to GHCR
         run: |
@@ -63,7 +74,9 @@ jobs:
         # serves it as `build` so self-hosters can confirm WHICH code is
         # answering after an upgrade.
         run: |
-          docker build --build-arg "YOKE_BUILD_SHA=$IMAGE_TAG" \
+          docker build \
+            --build-arg "YOKE_BUILD_SHA=$IMAGE_TAG" \
+            --build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION" \
             -t "$IMAGE_REPOSITORY:$IMAGE_TAG" .
 
       - name: Push the sha tag

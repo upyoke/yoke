@@ -377,6 +377,18 @@ class TestLocalHandshakeVersion:
         monkeypatch.setattr(ev, "_dist_version", missing)
         assert ev.local_handshake_version() == ""
 
+    def test_image_build_fallback_is_not_advertised(self, monkeypatch):
+        from yoke_contracts import engine_version as ev
+
+        monkeypatch.setattr(
+            ev, "installed_engine_version",
+            lambda: ev.UNRESOLVED_SCM_FALLBACK_VERSION,
+        )
+        assert ev.advertised_engine_version(build="abc123def456") == ""
+        assert ev.advertised_engine_version(build="") == (
+            ev.UNRESOLVED_SCM_FALLBACK_VERSION
+        )
+
 
 class TestContractValidation:
     def test_https_config_validates(self, tmp_path):

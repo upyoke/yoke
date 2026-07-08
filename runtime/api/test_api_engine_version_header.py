@@ -16,7 +16,10 @@ from yoke_contracts.engine_version import ENGINE_VERSION_HEADER
 def _client_with_engine_version(monkeypatch, value: str) -> TestClient:
     from yoke_core.api import app_factory
 
-    monkeypatch.setattr(app_factory, "installed_engine_version", lambda: value)
+    monkeypatch.setattr(
+        app_factory, "advertised_engine_version",
+        lambda *, build="": value,
+    )
     return TestClient(app_factory.create_app())
 
 
@@ -41,3 +44,20 @@ def test_source_run_omits_engine_version_header(monkeypatch):
     resp = client.get("/v1/health")
     assert resp.status_code == 200
     assert ENGINE_VERSION_HEADER not in resp.headers
+
+
+def test_image_fallback_metadata_omits_engine_version_header(monkeypatch):
+    from yoke_core.api import app_factory
+    from yoke_contracts import engine_version as ev
+
+    monkeypatch.setenv("YOKE_BUILD_SHA", "abc123def456")
+    monkeypatch.setattr(
+        ev, "installed_engine_version",
+        lambda: ev.UNRESOLVED_SCM_FALLBACK_VERSION,
+    )
+    client = TestClient(app_factory.create_app())
+    resp = client.get("/v1/health")
+    assert resp.status_code == 200
+    assert ENGINE_VERSION_HEADER not in resp.headers
+    assert resp.json()["engine_version"] == ""
+    assert resp.json()["build"] == "abc123def456"

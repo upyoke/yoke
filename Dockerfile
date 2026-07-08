@@ -10,8 +10,11 @@ WORKDIR /build
 RUN python -m pip install --upgrade pip build wheel
 
 COPY pyproject.toml ./
+COPY .git_archival.txt ./
 COPY runtime ./runtime
 COPY packages ./packages
+
+ARG YOKE_ENGINE_VERSION=""
 
 # Build the root `yoke` wheel (the runtime* tree) plus the four split packages
 # under packages/yoke-*/src. yoke_core imports runtime.* (64 modules) and
@@ -20,8 +23,18 @@ COPY packages ./packages
 # `ModuleNotFoundError: No module named 'yoke_core'`. Build in dependency order
 # with an accumulating --find-links so inter-package deps (yoke-cli ->
 # yoke-contracts, yoke-core -> yoke-cli/yoke-contracts) resolve from
-# /wheels instead of PyPI (where these private packages do not exist).
-RUN python -m pip wheel --wheel-dir /wheels ./packages/yoke-contracts \
+# /wheels instead of PyPI (where these private packages do not exist). Docker
+# builds do not copy .git into the image context, so checkout-based workflows
+# pass the setuptools-scm version explicitly; archive-based builds can resolve
+# from .git_archival.txt when export-subst metadata is present.
+RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
+        export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE="$YOKE_ENGINE_VERSION"; \
+        export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CONTRACTS="$YOKE_ENGINE_VERSION"; \
+        export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CLI="$YOKE_ENGINE_VERSION"; \
+        export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_HARNESS="$YOKE_ENGINE_VERSION"; \
+        export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE="$YOKE_ENGINE_VERSION"; \
+    fi; \
+    python -m pip wheel --wheel-dir /wheels ./packages/yoke-contracts \
     && python -m pip wheel --wheel-dir /wheels --find-links /wheels ./packages/yoke-cli \
     && python -m pip wheel --wheel-dir /wheels --find-links /wheels ./packages/yoke-harness \
     && python -m pip wheel --wheel-dir /wheels --find-links /wheels ./packages/yoke-core \

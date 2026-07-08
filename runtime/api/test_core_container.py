@@ -156,6 +156,9 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
 
     assert "FROM python:3.13-slim AS builder" in dockerfile
     assert "FROM python:3.13-slim AS runtime" in dockerfile
+    assert "COPY .git_archival.txt ./" in dockerfile
+    assert 'ARG YOKE_ENGINE_VERSION=""' in dockerfile
+    assert "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE" in dockerfile
     assert (
         "python -m pip wheel --wheel-dir /wheels --find-links /wheels ."
         in dockerfile
@@ -169,6 +172,16 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "USER yoke" in dockerfile
     assert "curl" not in dockerfile
     assert "wget" not in dockerfile
+
+
+def test_git_archive_metadata_is_exported_for_image_wheel_versions() -> None:
+    attributes = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
+    archival = (REPO_ROOT / ".git_archival.txt").read_text(encoding="utf-8")
+
+    assert ".git_archival.txt export-subst" in attributes
+    assert "node: $Format:%H$" in archival
+    assert "describe-name: $Format:%(describe:tags=true,match=*[0-9]*)$" in archival
+    assert "ref-names: $Format:%D$" in archival
 
 
 def test_dockerfile_ships_declared_server_tree_bundle_sources() -> None:
@@ -215,6 +228,9 @@ def test_ci_builds_container_without_registry_push() -> None:
     ).read_text(encoding="utf-8")
 
     assert "docker build" in workflow
+    assert "fetch-depth: 0" in workflow
+    assert "python -m setuptools_scm --root" in workflow
+    assert '--build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION"' in workflow
     assert "docker push" not in workflow
 
 

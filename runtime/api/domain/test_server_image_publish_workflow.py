@@ -59,7 +59,10 @@ def test_no_operator_secrets_or_registry():
 
 def test_builds_repo_dockerfile_with_build_sha_and_ghcr_tags():
     text = _text()
+    assert "fetch-depth: 0" in text
+    assert "python -m setuptools_scm --root" in text
     assert 'YOKE_BUILD_SHA=$IMAGE_TAG' in text
+    assert 'YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION' in text
     assert "ghcr.io/${owner,,}/yoke-server" in text
     assert 'IMAGE_TAG=${GITHUB_SHA:0:12}' in text
     # latest only advances from main; dispatch on another ref publishes

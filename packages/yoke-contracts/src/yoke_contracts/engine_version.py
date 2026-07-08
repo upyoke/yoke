@@ -11,6 +11,12 @@ shared by every Yoke distribution built together), read via
 ``importlib.metadata``. A process running from a source tree with no
 installed dist metadata resolves to ``""``, which disables advertising
 and comparison gracefully.
+
+Container builds also carry a baked source SHA. If setuptools-scm could
+not see SCM metadata during that build, the wheel metadata falls back to
+the configured fallback version. That value is not a comparable engine
+version, so servers with a build SHA suppress it and let the health
+payload's ``build`` field carry code identity instead.
 """
 
 from __future__ import annotations
@@ -27,6 +33,10 @@ ENGINE_DISTRIBUTION_NAME = "yoke-core"
 #: one repository version, so it is a valid skew-comparison base on
 #: installs that carry no engine.
 CLIENT_DISTRIBUTION_NAME = "yoke-cli"
+
+#: setuptools-scm fallback used when a build has neither SCM nor archive
+#: metadata. It is deliberately not advertised by image-built servers.
+UNRESOLVED_SCM_FALLBACK_VERSION = "0.1.0"
 
 
 def _installed_version(distribution: str) -> str:
@@ -45,6 +55,21 @@ def installed_engine_version() -> str:
     return _installed_version(ENGINE_DISTRIBUTION_NAME)
 
 
+def advertised_engine_version(*, build: str = "") -> str:
+    """Engine version worth advertising to remote clients.
+
+    A container image with ``build`` set but dist metadata at the SCM
+    fallback ran current code from a source snapshot whose version could
+    not be resolved at wheel-build time. Advertising that fallback makes
+    clients report false skew, so the server treats it like missing
+    metadata and omits the handshake value.
+    """
+    version = installed_engine_version()
+    if build and version == UNRESOLVED_SCM_FALLBACK_VERSION:
+        return ""
+    return version
+
+
 def local_handshake_version() -> str:
     """The version this process compares against a server's engine version.
 
@@ -58,9 +83,11 @@ def local_handshake_version() -> str:
 
 
 __all__ = [
+    "advertised_engine_version",
     "CLIENT_DISTRIBUTION_NAME",
     "ENGINE_DISTRIBUTION_NAME",
     "ENGINE_VERSION_HEADER",
     "installed_engine_version",
     "local_handshake_version",
+    "UNRESOLVED_SCM_FALLBACK_VERSION",
 ]
