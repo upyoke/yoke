@@ -26,9 +26,9 @@ from yoke_cli.config.onboard_wizard_widgets import (
 # existing Yoke repo, so these are fixed Yoke identifiers rather than
 # user-entered metadata.
 _YOKE_SLUG = dev_access.YOKE_PROJECT_SLUG
-_YOKE_NAME = "Yoke"
-_YOKE_BRANCH = "main"
-_YOKE_PREFIX = "YOK"
+_YOKE_NAME = dev_access.YOKE_PROJECT_NAME
+_YOKE_BRANCH = dev_access.YOKE_DEFAULT_BRANCH
+_YOKE_PREFIX = dev_access.YOKE_PUBLIC_ITEM_PREFIX
 
 # Picker value used to mean "none of the detected checkouts — clone Yoke".
 _CLONE_YOKE = "clone-yoke"
@@ -39,6 +39,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
+    _preset_dev_checkout: str | None
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, step, title, subtitle, rows, on_select) -> "_View": ...
@@ -134,6 +135,11 @@ class DevFlow:
 
     def _goto_dev_checkout(self: _Shell) -> None:
         """Third step: find an existing checkout, or offer to clone one."""
+        if self._preset_dev_checkout:
+            checkout = self._preset_dev_checkout
+            self._preset_dev_checkout = None
+            self._use_dev_checkout(checkout)
+            return
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking local checkouts.",

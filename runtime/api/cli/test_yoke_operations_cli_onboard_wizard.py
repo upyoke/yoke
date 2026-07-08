@@ -209,7 +209,7 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
     assert len(app.result.board_art_variants) == 1
 
 
-def test_stored_checkout_project_id_skips_project_picker(
+def test_stored_checkout_project_id_shows_confirmation_picker(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -244,6 +244,10 @@ def test_stored_checkout_project_id_skips_project_picker(
             await advance_past_path(pilot)
             await pilot.press("down")   # machine github: Skip for now
             await pilot.press("enter")
+            await pilot.pause()
+            assert "Use an existing project mapping?" in _body_text(app)
+            assert str(checkout) in _body_text(app)
+            await pilot.press("enter")  # stored mapping: reuse checkout
             await pilot.pause()
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)

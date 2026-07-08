@@ -41,6 +41,8 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
 def project_prompt_missing(parsed: argparse.Namespace) -> bool:
     if parsed.project_mode == onboard_config.PROJECT_MODE_MACHINE_ONLY:
         return False
+    if parsed.project_mode == onboard_config.PROJECT_MODE_SOURCE_DEV_ADMIN:
+        return not parsed.project_checkout
     required = [
         parsed.project_checkout,
         parsed.project_slug,

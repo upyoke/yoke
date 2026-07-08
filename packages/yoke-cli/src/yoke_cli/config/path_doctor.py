@@ -57,6 +57,10 @@ class PathDiagnosis:
     ssh_managed_block_present: bool = False
     ssh_resolved: list[ToolResolution] = field(default_factory=list)
     ssh_needs_fix: bool = False
+    preferred_yoke_path: str = ""
+    yoke_shadowed_by: str = ""
+    future_yoke_shadowed_by: str = ""
+    ssh_yoke_shadowed_by: str = ""
 
 
 def tool_bin_dir(env: dict | None = None) -> str:
@@ -96,10 +100,24 @@ def render_managed_block(tool_bin_dir: str) -> str:
         [
             MANAGED_BEGIN,
             "# Managed by Yoke — safe to delete this whole block.",
-            'case ":$PATH:" in',
-            f'  *":{tool_bin_dir}:"*) ;;',
-            f'  *) export PATH="{tool_bin_dir}:$PATH" ;;',
-            "esac",
+            f'_yoke_bin_dir="{tool_bin_dir}"',
+            'if [ -n "${ZSH_VERSION:-}" ]; then',
+            '  path=("${(@)path:#$_yoke_bin_dir}")',
+            '  path=("$_yoke_bin_dir" $path)',
+            "else",
+            '  _yoke_old_path="$PATH"',
+            '  PATH="$_yoke_bin_dir"',
+            '  _yoke_old_ifs="$IFS"',
+            "  IFS=:",
+            "  for _yoke_entry in $_yoke_old_path; do",
+            '    [ "$_yoke_entry" = "$_yoke_bin_dir" ] && continue',
+            '    PATH="$PATH:$_yoke_entry"',
+            "  done",
+            '  IFS="$_yoke_old_ifs"',
+            "  unset _yoke_old_path _yoke_old_ifs _yoke_entry",
+            "fi",
+            "export PATH",
+            "unset _yoke_bin_dir",
             MANAGED_END,
         ]
     )
@@ -238,6 +256,26 @@ def _resolves_runtime_tools(resolved: list[ToolResolution]) -> bool:
     return bool(by_name.get("yoke")) and bool(by_name.get("uv"))
 
 
+def _preferred_yoke_path(bindir: str) -> str:
+    return str(Path(bindir) / "yoke")
+
+
+def _shadowing_yoke_path(
+    resolved: list[ToolResolution],
+    *,
+    bindir: str,
+) -> str:
+    """Return the path that wins over the installed Yoke shim, or ``""``."""
+    preferred = _preferred_yoke_path(bindir)
+    if not Path(preferred).exists():
+        return ""
+    by_name = {res.name: res.path for res in resolved}
+    winner = by_name.get("yoke")
+    if winner and Path(winner).expanduser() != Path(preferred).expanduser():
+        return winner
+    return ""
+
+
 def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagnosis:
     environ = dict(os.environ if env is None else env)
     home_path = home or Path(environ.get("HOME") or str(Path.home()))
@@ -250,6 +288,8 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         ToolResolution(tool, shutil.which(tool, path=path_value or None))
         for tool in TOOLS
     ]
+    preferred_yoke = _preferred_yoke_path(bindir)
+    yoke_shadowed_by = _shadowing_yoke_path(current_resolved, bindir=bindir)
 
     startup = default_startup_file(shell, home_path)
     startup_text = startup.read_text() if startup.exists() else ""
@@ -257,6 +297,10 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
     future_adds_bin = bindir in startup_text
 
     future_resolved = verify_fresh_login(shell, env=environ)
+    future_yoke_shadowed_by = _shadowing_yoke_path(
+        future_resolved,
+        bindir=bindir,
+    )
     future_ok = _resolves_runtime_tools(future_resolved)
     if not future_ok and (managed_block_present or future_adds_bin):
         # The fresh-login probe could not run here (e.g. a sandbox without an
@@ -273,10 +317,13 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         ssh_adds_bin = bindir in ssh_text
         ssh_managed_block_present = MANAGED_BEGIN in ssh_text
         ssh_resolved = verify_ssh_command(shell, env=environ)
+        ssh_yoke_shadowed_by = _shadowing_yoke_path(ssh_resolved, bindir=bindir)
         ssh_ok = _resolves_runtime_tools(ssh_resolved)
         if not ssh_ok and (ssh_managed_block_present or ssh_adds_bin):
             ssh_ok = True
-        ssh_needs_fix = not ssh_ok
+        ssh_needs_fix = (not ssh_ok) or bool(ssh_yoke_shadowed_by)
+    else:
+        ssh_yoke_shadowed_by = ""
 
     return PathDiagnosis(
         current_shell=shell,
@@ -287,12 +334,21 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         future_adds_bin=future_adds_bin,
         managed_block_present=managed_block_present,
         future_resolved=future_resolved,
-        needs_fix=(not future_ok) or ssh_needs_fix,
+        needs_fix=(
+            (not future_ok)
+            or bool(yoke_shadowed_by)
+            or bool(future_yoke_shadowed_by)
+            or ssh_needs_fix
+        ),
         ssh_startup_file=str(ssh_startup) if ssh_startup is not None else "",
         ssh_adds_bin=ssh_adds_bin,
         ssh_managed_block_present=ssh_managed_block_present,
         ssh_resolved=ssh_resolved,
         ssh_needs_fix=ssh_needs_fix,
+        preferred_yoke_path=preferred_yoke,
+        yoke_shadowed_by=yoke_shadowed_by,
+        future_yoke_shadowed_by=future_yoke_shadowed_by,
+        ssh_yoke_shadowed_by=ssh_yoke_shadowed_by,
     )
 
 

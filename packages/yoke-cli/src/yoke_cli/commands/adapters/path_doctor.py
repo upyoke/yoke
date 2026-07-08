@@ -37,6 +37,10 @@ def _diagnosis_json(diag: doctor.PathDiagnosis) -> dict:
         "ssh_managed_block_present": diag.ssh_managed_block_present,
         "ssh_resolved": _resolutions(diag.ssh_resolved),
         "ssh_needs_fix": diag.ssh_needs_fix,
+        "preferred_yoke_path": diag.preferred_yoke_path,
+        "yoke_shadowed_by": diag.yoke_shadowed_by,
+        "future_yoke_shadowed_by": diag.future_yoke_shadowed_by,
+        "ssh_yoke_shadowed_by": diag.ssh_yoke_shadowed_by,
         "needs_fix": diag.needs_fix,
     }
 
@@ -57,6 +61,15 @@ def _render_diagnosis(diag: doctor.PathDiagnosis) -> str:
             "ssh command   : "
             + ("resolves Yoke" if not diag.ssh_needs_fix else "would NOT find yoke/uv"),
         ])
+    for label, winner in (
+        ("current yoke", diag.yoke_shadowed_by),
+        ("future yoke", diag.future_yoke_shadowed_by),
+        ("ssh yoke", diag.ssh_yoke_shadowed_by),
+    ):
+        if winner:
+            lines.append(
+                f"{label:14}: {diag.preferred_yoke_path} exists, but {winner} wins"
+            )
     if diag.needs_fix:
         lines.append("fix           : run `yoke path fix`")
     return "\n".join(lines)

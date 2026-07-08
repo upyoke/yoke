@@ -38,6 +38,7 @@ from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
     SelectionList,
     Stepper,
 )
+from yoke_contracts.api_urls import HOSTED_PROD_URL  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
@@ -166,6 +167,40 @@ def test_preset_destination_skips_picker() -> None:
             text = _body_text(app)
             assert "Your Yoke lives on this machine." in text
             assert "Where should this Yoke live?" not in text
+
+    asyncio.run(scenario())
+
+
+def test_stored_connection_shows_confirmation_picker(tmp_path: Path) -> None:
+    token = tmp_path / "prod.token"
+    token.write_text("actor-token\n", encoding="utf-8")
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps({
+            "schema_version": 1,
+            "active_env": "prod",
+            "connections": {
+                "prod": {
+                    "transport": "https",
+                    "api_url": HOSTED_PROD_URL,
+                    "credential_source": {
+                        "kind": "token_file",
+                        "path": str(token),
+                    },
+                },
+            },
+        }),
+        encoding="utf-8",
+    )
+    app, _spy = make_app(WizardDefaults(config_path=str(config)))
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            text = _body_text(app)
+            assert "Use this saved Yoke connection?" in text
+            assert "Use existing hosted prod connection" in text
+            assert HOSTED_PROD_URL in text
 
     asyncio.run(scenario())
 

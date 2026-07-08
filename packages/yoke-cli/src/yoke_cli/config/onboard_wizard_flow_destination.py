@@ -54,6 +54,7 @@ _DEFAULT_DESTINATION_INDEX = next(
     index for index, row in enumerate(DESTINATION_ROWS)
     if row.value == DEFAULT_DESTINATION
 )
+_STORED_DESTINATION = "stored"
 
 # Rail label per destination: the sign-in destinations keep the Account
 # label; a local run's Account step is universe setup, not sign-in.
@@ -68,6 +69,8 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
     _account_step_label: str
     _destination_preset: bool
+    _api_url_preset: bool
+    _stored_yoke_token_available: bool
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, step, title, subtitle, rows, on_select,
@@ -87,14 +90,14 @@ class DestinationFlow:
         if self._destination_preset:
             self._route_destination(self.result.destination)
             return
-        if self.result.api_url:
-            # A stored connection already names this machine's destination;
-            # route straight to its lane (the rerun convenience path — the
-            # stored token verify still runs before anything is reused).
+        if self._api_url_preset and self.result.api_url:
             self._route_destination(
                 DESTINATION_HOSTED if is_hosted_url(self.result.api_url)
                 else DESTINATION_SERVER
             )
+            return
+        if self._stored_yoke_token_available and self.result.api_url:
+            self._goto_stored_destination_picker()
             return
         self._goto_destination_picker()
 
@@ -116,8 +119,67 @@ class DestinationFlow:
         self._account_step_label = STEP_CONNECT_LABEL
         self._goto(_View(STEP_CONNECT, builder, self._after_destination_select))
 
+    def _goto_stored_destination_picker(self: _Shell) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        stored_destination = (
+            DESTINATION_HOSTED if is_hosted_url(self.result.api_url)
+            else DESTINATION_SERVER
+        )
+        env = str(self.result.env_name or DEFAULT_SIGN_IN_ENV)
+        label = (
+            f"Use existing hosted {env} connection"
+            if stored_destination == DESTINATION_HOSTED
+            else f"Use existing {env} server connection"
+        )
+        rows = [
+            SelectionRow(
+                _STORED_DESTINATION,
+                label,
+                self.result.api_url,
+            ),
+            *DESTINATION_ROWS,
+        ]
+
+        def builder() -> list:
+            self._account_step_label = STEP_CONNECT_LABEL
+            return steps.selection_body(
+                "Use this saved Yoke connection?",
+                "Yoke found a connection in machine config. Reuse it, or choose another home.",
+                rows,
+            )
+
+        self._account_step_label = STEP_CONNECT_LABEL
+        self._goto(_View(
+            STEP_CONNECT,
+            builder,
+            lambda choice: self._after_stored_destination_select(
+                choice,
+                stored_destination,
+            ),
+        ))
+
     def _after_destination_select(self: _Shell, choice: str) -> None:
         self._route_destination(choice)
+
+    def _after_stored_destination_select(
+        self: _Shell,
+        choice: str,
+        stored_destination: str,
+    ) -> None:
+        if choice == _STORED_DESTINATION:
+            self._route_destination(stored_destination)
+            return
+        self._clear_stored_connection()
+        self._route_destination(choice)
+
+    def _clear_stored_connection(self: _Shell) -> None:
+        self.result.api_url = ""
+        self.result.token = None
+        self.result.token_file = None
+        self.result.token_source_kind = "prompt"
+        self.result.yoke_token_verification = None
+        self._stored_yoke_token_available = False
 
     def _route_destination(self: _Shell, choice: str) -> None:
         self.result.destination = choice

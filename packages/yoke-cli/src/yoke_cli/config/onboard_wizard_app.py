@@ -27,6 +27,7 @@ from yoke_cli.config.onboard_terminal import (
 )
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_destinations
+from yoke_cli.config import onboard_project
 from yoke_cli.config.onboard_wizard import (
     WizardDefaults,
     WizardResult,
@@ -122,9 +123,17 @@ class OnboardWizardApp(
         self._stored_github_attempted = False
         self._stored_machine_github_token_file: str | None = None
         self._stored_machine_github_api_url: str | None = None
+        self._api_url_preset = bool(defaults.api_url)
         self._stored_project_attempted = False
         self._stored_project_checkouts: list[machine_config.ConfiguredProject] = []
         self._pending_stored_project_checkout: str | None = None
+        self._project_mode_preset = defaults.project_mode is not None
+        self._project_preset_attempted = False
+        self._preset_dev_checkout: str | None = (
+            defaults.project_checkout
+            if defaults.project_mode == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
+            else None
+        )
         # Apply runs in a worker thread (ApplyFlow): ``_applying`` guards ctrl-C
         # from a mid-mutation teardown; ``_apply_steps`` is the live step model;
         # ``_review_plan`` is the previewed plan the Applying screen renders from.
@@ -151,6 +160,11 @@ class OnboardWizardApp(
             token_file=defaults.token_file,
             mode=(defaults.mode or "quick"),
             apply=defaults.apply,
+            project_mode=(
+                defaults.project_mode
+                or onboard_project.PROJECT_MODE_MACHINE_ONLY
+            ),
+            project_checkout=defaults.project_checkout,
         )
         self._hydrate_stored_credentials(defaults)
         self._post_install = defaults.post_install

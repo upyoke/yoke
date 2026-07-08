@@ -107,6 +107,33 @@ def _resolution_lines(label: str, resolved: list[Any]) -> list[Static]:
     return lines
 
 
+def _shadowing_lines(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
+    warnings = []
+    for label, winner in (
+        ("This shell", diagnosis.yoke_shadowed_by),
+        ("A new Terminal login shell", diagnosis.future_yoke_shadowed_by),
+        ("An SSH command", diagnosis.ssh_yoke_shadowed_by),
+    ):
+        if not winner:
+            continue
+        warnings.append(
+            Static(
+                f"[{DANGER}]![/] {label}: {escape(diagnosis.preferred_yoke_path)} "
+                f"exists, but {escape(winner)} wins.",
+                classes="onboard-plan-line",
+            )
+        )
+    if warnings:
+        warnings.append(
+            Static(
+                "  The PATH fix moves Yoke's bin directory to the front and "
+                "removes duplicate entries.",
+                classes="onboard-plan-line",
+            )
+        )
+    return warnings
+
+
 def install_summary_body() -> list[Static]:
     widgets = _heading(
         f"{_BRAND} {_yoke_version()} is installed.",
@@ -137,6 +164,7 @@ def path_diagnosis_body(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
         widgets.extend(
             _resolution_lines("An SSH command sees:", diagnosis.ssh_resolved)
         )
+    widgets.extend(_shadowing_lines(diagnosis))
     widgets.append(Static("", classes="onboard-spacer"))
     widgets.extend(selection_body("", "", rows))
     return widgets

@@ -30,6 +30,9 @@ from yoke_contracts.api.function_call import (
 # already keys its default project on. Developing Yoke means having access to this
 # project.
 YOKE_PROJECT_SLUG = db_admin_setup.DEFAULT_PROJECT
+YOKE_PROJECT_NAME = "Yoke"
+YOKE_DEFAULT_BRANCH = "main"
+YOKE_PUBLIC_ITEM_PREFIX = "YOK"
 
 # Yoke's canonical GitHub repo (OWNER/REPO). The homebrew formula homepage
 # (packaging/homebrew/Formula/yoke.rb.in) names the same repo; this is the
@@ -104,7 +107,10 @@ def github_can_reach_yoke_repo(api_url: str, token: str) -> bool:
 
 __all__ = [
     "YOKE_GITHUB_REPO",
+    "YOKE_DEFAULT_BRANCH",
+    "YOKE_PROJECT_NAME",
     "YOKE_PROJECT_SLUG",
+    "YOKE_PUBLIC_ITEM_PREFIX",
     "YokeDevAccessError",
     "github_can_reach_yoke_repo",
     "resolve_yoke_token",

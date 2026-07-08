@@ -168,6 +168,9 @@ def test_stored_yoke_token_shows_reuse_feedback(tmp_path) -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
+            text = await _wait_for_body_text(app, pilot, "Use this saved Yoke connection?")
+            assert "Use this saved Yoke connection?" in text
+            await pilot.press("enter")  # reuse saved connection
             text = await _wait_for_body_text(app, pilot, "Yoke token connected.")
             assert "Yoke token connected." in text
             assert "Using existing environment: stage (https://api.stage.test)" in text
