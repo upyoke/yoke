@@ -1,0 +1,59 @@
+name: yoke-deploy-bridge
+
+# Classification: bridge. On a push to this product repo's stage/main,
+# dispatch the environment deploy on the operator's SEPARATE deploy repo,
+# restoring the single-repo habit of "push the product -> it deploys".
+#
+# Generic + leak-safe by construction: the deploy repo, the workflow file
+# to run there, its ref, and the dispatch token are all read from repo
+# variables / secrets, never hardcoded. A fork or self-hoster that has not
+# configured a deploy repo leaves `YOKE_DEPLOY_DISPATCH_REPO` unset and the
+# job no-ops, so this file names no operator-private topology. Runs on the
+# GitHub-hosted runner (public repos get them free); it only fires a
+# workflow_dispatch, so it never touches deploy infrastructure directly.
+#
+# The gate on the deploy side stays authoritative: this bridge dispatches
+# for every push to stage/main, and the deploy repo's env-autodeploy gate
+# decides what actually deploys (e.g. prod stays attended and no-ops).
+
+on:
+  push:
+    branches: [stage, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yoke-deploy-bridge-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch-deploy:
+    name: dispatch env-deploy on the deploy repo
+    runs-on: ubuntu-latest
+    if: ${{ vars.YOKE_DEPLOY_DISPATCH_REPO != '' }}
+    steps:
+      - name: Dispatch the deploy workflow
+        env:
+          GH_TOKEN: ${{ secrets.YOKE_DEPLOY_DISPATCH_TOKEN }}
+          DISPATCH_REPO: ${{ vars.YOKE_DEPLOY_DISPATCH_REPO }}
+          DISPATCH_WORKFLOW: ${{ vars.YOKE_DEPLOY_DISPATCH_WORKFLOW || 'yoke-env-deploy.yml' }}
+          DISPATCH_REF: ${{ vars.YOKE_DEPLOY_DISPATCH_REF || 'main' }}
+          PRODUCT_SHA: ${{ github.sha }}
+          PRODUCT_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::YOKE_DEPLOY_DISPATCH_TOKEN is not set — configure it to enable push-to-deploy. Skipping."
+            exit 0
+          fi
+          # Deploy the exact product commit just pushed (product_ref), and
+          # pass the branch so the deploy repo's auto-deploy policy gate
+          # resolves the right environment. The deploy repo name is not
+          # echoed, to keep it out of this public repo's run logs.
+          echo "Dispatching ${DISPATCH_WORKFLOW} for product ${PRODUCT_BRANCH}@${PRODUCT_SHA}"
+          gh workflow run "$DISPATCH_WORKFLOW" \
+            --repo "$DISPATCH_REPO" \
+            --ref "$DISPATCH_REF" \
+            -f product_ref="$PRODUCT_SHA" \
+            -f product_branch="$PRODUCT_BRANCH"
