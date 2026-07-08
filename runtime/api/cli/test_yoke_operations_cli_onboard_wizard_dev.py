@@ -11,6 +11,7 @@ as source-dev-admin.
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ from yoke_cli.config import onboard_wizard_flow_dev as dev_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config import yoke_dev_access as dev_access  # noqa: E402
 from yoke_cli.config import yoke_dev_detect as dev_detect  # noqa: E402
+from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
@@ -106,6 +108,102 @@ def test_all_pass_single_checkout_reaches_clean_finish(monkeypatch) -> None:
     assert applied["project_slug"] == dev_access.YOKE_PROJECT_SLUG
     assert applied["project_default_branch"] == "main"
     assert applied["project_public_item_prefix"] == "YOK"
+
+
+def test_stored_yoke_checkout_offers_direct_source_dev_path(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    yoke_checkout = tmp_path / "yoke"
+    (yoke_checkout / "runtime" / "harness").mkdir(parents=True)
+    (yoke_checkout / "pyproject.toml").write_text(
+        '[project]\nname = "yoke"\n',
+        encoding="utf-8",
+    )
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps({"projects": {str(yoke_checkout): {"project_id": 1}}}),
+        encoding="utf-8",
+    )
+    _stub_access(monkeypatch)
+    monkeypatch.setattr(
+        dev_detect,
+        "detect_yoke_checkouts",
+        lambda: (_ for _ in ()).throw(AssertionError("preset checkout not used")),
+    )
+    app, spy = make_app(WizardDefaults(
+        config_path=str(config),
+        env_name="prod",
+        api_url="https://api.test",
+        token="actor-token",
+    ))
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            await pilot.press("enter")  # machine github: Connect (default)
+            await type_text(pilot, "ghp_machinepat")
+            await pilot.press("enter")
+            await pilot.press("enter")  # GitHub verification success: Continue
+            text = _error_text(app)
+            assert "Use an existing project mapping?" in text
+            assert "Develop Yoke itself" in text
+            await pilot.press("down")   # direct source-dev row
+            await pilot.press("enter")
+            await pilot.pause()
+            await pilot.press("enter")  # finish: apply
+            await pilot.pause()
+
+    asyncio.run(scenario())
+
+    applied = spy.applied
+    assert applied is not None
+    assert applied["project_mode"] == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
+    assert applied["project_checkout"] == str(yoke_checkout)
+
+
+def test_project_mode_default_forces_source_dev_checkout(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    yoke_checkout = tmp_path / "yoke"
+    (yoke_checkout / "runtime" / "harness").mkdir(parents=True)
+    (yoke_checkout / "pyproject.toml").write_text(
+        '[project]\nname = "yoke"\n',
+        encoding="utf-8",
+    )
+    _stub_access(monkeypatch)
+    monkeypatch.setattr(
+        dev_detect,
+        "detect_yoke_checkouts",
+        lambda: (_ for _ in ()).throw(AssertionError("preset checkout not used")),
+    )
+    app, spy = make_app(WizardDefaults(
+        config_path=str(tmp_path / "config.json"),
+        env_name="prod",
+        api_url="https://api.test",
+        token="actor-token",
+        project_mode=onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
+        project_checkout=str(yoke_checkout),
+    ))
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            await pilot.press("enter")  # machine github: Connect (default)
+            await type_text(pilot, "ghp_machinepat")
+            await pilot.press("enter")
+            await pilot.press("enter")  # GitHub verification success: Continue
+            await pilot.pause()
+            await pilot.press("enter")  # finish: apply
+            await pilot.pause()
+
+    asyncio.run(scenario())
+
+    applied = spy.applied
+    assert applied is not None
+    assert applied["project_mode"] == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
+    assert applied["project_checkout"] == str(yoke_checkout)
 
 
 def test_no_yoke_project_access_renders_error(monkeypatch) -> None:

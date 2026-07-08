@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import os
 
 from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
@@ -44,6 +45,29 @@ def test_apply_fix_replaces_old_block(tmp_path):
     assert text.count(doctor.MANAGED_BEGIN) == 1
     assert "/new/bin" in text
     assert "/old/bin" not in text
+
+
+def test_managed_block_moves_tool_bin_to_front_without_duplicates(tmp_path):
+    block = doctor.render_managed_block(str(tmp_path / ".local" / "bin"))
+    script = tmp_path / "profile"
+    script.write_text(
+        f'PATH="/usr/bin:{tmp_path / ".local" / "bin"}:/bin";\n'
+        f"{block}\n"
+        'printf "%s" "$PATH"\n',
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["bash", str(script)],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    entries = result.stdout.split(os.pathsep)
+    assert entries[0] == str(tmp_path / ".local" / "bin")
+    assert entries.count(str(tmp_path / ".local" / "bin")) == 1
 
 
 def test_default_startup_file_per_shell(tmp_path):
@@ -94,6 +118,46 @@ def test_diagnose_ignores_installer_prepended_path(tmp_path, monkeypatch):
 
     assert diag.current_on_path is True
     assert str(tool_dir) not in observed_probe_env["PATH"].split(":")
+    assert diag.needs_fix is True
+
+
+def test_diagnose_reports_yoke_shadowing(tmp_path, monkeypatch):
+    tool_dir = tmp_path / ".local" / "bin"
+    other_dir = tmp_path / "other" / "bin"
+    tool_dir.mkdir(parents=True)
+    other_dir.mkdir(parents=True)
+    for path in (tool_dir / "yoke", other_dir / "yoke", tool_dir / "uv"):
+        path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        path.chmod(0o755)
+    monkeypatch.setattr(
+        doctor,
+        "verify_fresh_login",
+        lambda shell=None, **_: [
+            doctor.ToolResolution("uv", str(tool_dir / "uv")),
+            doctor.ToolResolution("uvx", None),
+            doctor.ToolResolution("yoke", str(other_dir / "yoke")),
+        ],
+    )
+    monkeypatch.setattr(
+        doctor,
+        "verify_ssh_command",
+        lambda shell=None, **_: [
+            doctor.ToolResolution("uv", str(tool_dir / "uv")),
+            doctor.ToolResolution("uvx", None),
+            doctor.ToolResolution("yoke", str(tool_dir / "yoke")),
+        ],
+    )
+    env = {
+        "PATH": os.pathsep.join([str(other_dir), str(tool_dir), "/usr/bin"]),
+        "HOME": str(tmp_path),
+        "SHELL": "/bin/zsh",
+    }
+
+    diag = doctor.diagnose(env=env, home=tmp_path)
+
+    assert diag.preferred_yoke_path == str(tool_dir / "yoke")
+    assert diag.yoke_shadowed_by == str(other_dir / "yoke")
+    assert diag.future_yoke_shadowed_by == str(other_dir / "yoke")
     assert diag.needs_fix is True
 
 

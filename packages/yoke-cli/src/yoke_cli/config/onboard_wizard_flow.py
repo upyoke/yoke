@@ -37,6 +37,7 @@ from yoke_cli.config.onboard_wizard_widgets import (
     SelectionRow,
 )
 from yoke_cli.config.project_publish_support import is_existing_project_dir
+from yoke_cli.project_install import source_dev
 
 # Modes that offer the "Also publish to GitHub?" follow-up. A clone always
 # brings its own remote and source-dev/admin develops Yoke itself, so neither
@@ -45,6 +46,13 @@ PUBLISH_MODES = (
     onboard_project.PROJECT_MODE_CREATE_REPO,
     onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
 )
+
+
+def _is_yoke_source_checkout(path: Path) -> bool:
+    try:
+        return source_dev.is_yoke_source_checkout(path.expanduser())
+    except OSError:
+        return False
 
 
 def _existing_project_match_summary(result: Any) -> str:
@@ -88,6 +96,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
     _pending_stored_project_checkout: str | None
+    _preset_dev_checkout: str | None
+    _project_mode_preset: bool
+    _project_preset_attempted: bool
     _stored_project_attempted: bool
     _stored_project_checkouts: list[machine_config.ConfiguredProject]
 
@@ -111,33 +122,45 @@ class WizardFlow:
     def _goto_project_mode(self: _Shell) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
+        if self._project_mode_preset and not self._project_preset_attempted:
+            self._project_preset_attempted = True
+            self._on_project_mode(self.result.project_mode)
+            return
         if self._stored_project_checkouts and not self._stored_project_attempted:
             self._stored_project_attempted = True
-            if len(self._stored_project_checkouts) == 1:
-                self._use_stored_project_checkout(self._stored_project_checkouts[0])
-                return
             self._goto_stored_project_picker()
             return
         self._goto(_View(STEP_PROJECT, steps.project_mode_body, self._on_project_mode))
 
     def _goto_stored_project_picker(self: _Shell) -> None:
-        rows = [
-            SelectionRow(
+        rows: list[SelectionRow] = []
+        for index, project in enumerate(self._stored_project_checkouts):
+            checkout = str(project.checkout)
+            rows.append(SelectionRow(
                 f"stored:{index}",
-                str(project.checkout),
+                checkout,
                 f"project id {project.project_id}",
-            )
-            for index, project in enumerate(self._stored_project_checkouts)
-        ]
+            ))
+            if _is_yoke_source_checkout(project.checkout):
+                rows.append(SelectionRow(
+                    f"source-dev:{index}",
+                    "Develop Yoke itself",
+                    f"use {checkout} as the source checkout",
+                ))
         rows.append(SelectionRow(
             "other",
             "Choose another project",
             "show all project options",
         ))
+        rows.append(SelectionRow(
+            "none",
+            "Don't set up a project now",
+            "just the machine",
+        ))
         self._goto(self._selection_view(
             STEP_PROJECT,
-            "Use an existing checkout?",
-            "Yoke found project mappings already saved on this machine.",
+            "Use an existing project mapping?",
+            "Yoke found project mappings saved on this machine. Reuse one, or choose another path.",
             rows,
             self._on_stored_project_choice,
         ))
@@ -145,6 +168,20 @@ class WizardFlow:
     def _on_stored_project_choice(self: _Shell, choice: str) -> None:
         if choice == "other":
             self._goto_project_mode()
+            return
+        if choice == "none":
+            self._on_project_mode(onboard_project.PROJECT_MODE_MACHINE_ONLY)
+            return
+        if choice.startswith("source-dev:"):
+            try:
+                index = int(choice.split(":", 1)[1])
+                project = self._stored_project_checkouts[index]
+            except (IndexError, TypeError, ValueError):
+                self._goto_project_mode()
+                return
+            self._preset_dev_checkout = str(project.checkout)
+            self.result.project_checkout = str(project.checkout)
+            self._on_project_mode(onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN)
             return
         if choice.startswith("stored:"):
             try:

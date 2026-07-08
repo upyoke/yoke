@@ -21,6 +21,7 @@ from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_apply_resume
 from yoke_cli.config import onboard_wizard
+from yoke_cli.config import yoke_dev_access
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 from yoke_cli.config.project_clone_support import (
@@ -184,6 +185,7 @@ def onboard(args: List[str]) -> int:
         destination = onboard_destinations.destination_for_api_url(
             parsed.api_url
         )
+    source_dev_defaults = _source_dev_project_defaults(parsed.project_mode)
     report = _build_report(
         config_path=config_path,
         env_name=env_name,
@@ -205,15 +207,22 @@ def onboard(args: List[str]) -> int:
         project_mode=parsed.project_mode or onboard_config.PROJECT_MODE_MACHINE_ONLY,
         project_remote_url=parsed.project_remote_url,
         project_checkout=parsed.project_checkout,
-        project_slug=parsed.project_slug,
-        project_name=parsed.project_name,
+        project_slug=parsed.project_slug or source_dev_defaults.get("slug"),
+        project_name=parsed.project_name or source_dev_defaults.get("name"),
         project_org=parsed.project_org,
-        project_github_repo=parsed.project_github_repo,
-        project_default_branch=parsed.project_default_branch,
+        project_github_repo=(
+            parsed.project_github_repo or source_dev_defaults.get("github_repo")
+        ),
+        project_default_branch=(
+            parsed.project_default_branch or source_dev_defaults.get("default_branch")
+        ),
         project_default_branch_source=(
             getattr(parsed, "project_default_branch_source", None)
         ),
-        project_public_item_prefix=parsed.project_public_item_prefix,
+        project_public_item_prefix=(
+            parsed.project_public_item_prefix
+            or source_dev_defaults.get("public_item_prefix")
+        ),
         existing_project_id=getattr(parsed, "existing_project_id", None),
         existing_project_match_source=getattr(
             parsed,
@@ -243,7 +252,24 @@ def onboard(args: List[str]) -> int:
         print(onboard_config.dumps_json(report), end="")
     else:
         print(onboard_config.render_human(report), end="")
+    if parsed.apply:
+        _finish_pending_dev_install(
+            parsed.config_path,
+            stream=sys.stderr if parsed.json_mode else sys.stdout,
+        )
     return 0
+
+
+def _source_dev_project_defaults(project_mode: str | None) -> dict[str, str]:
+    if project_mode != onboard_config.PROJECT_MODE_SOURCE_DEV_ADMIN:
+        return {}
+    return {
+        "slug": yoke_dev_access.YOKE_PROJECT_SLUG,
+        "name": yoke_dev_access.YOKE_PROJECT_NAME,
+        "github_repo": yoke_dev_access.YOKE_GITHUB_REPO,
+        "default_branch": yoke_dev_access.YOKE_DEFAULT_BRANCH,
+        "public_item_prefix": yoke_dev_access.YOKE_PUBLIC_ITEM_PREFIX,
+    }
 
 
 def _should_prompt(
@@ -298,6 +324,8 @@ def _run_wizard(
         token=parsed.token,
         token_file=parsed.token_file,
         mode=selected_mode if (parsed.quick or parsed.advanced) else None,
+        project_mode=parsed.project_mode,
+        project_checkout=parsed.project_checkout,
         apply=parsed.apply,
         post_install=parsed.post_install,
     )
@@ -324,7 +352,7 @@ def _run_wizard(
     return result.exit_code
 
 
-def _finish_pending_dev_install(config_path: str | None) -> None:
+def _finish_pending_dev_install(config_path: str | None, *, stream=None) -> None:
     """Run the deferred "Develop Yoke itself" editable install AFTER the wizard UI
     has closed.
 
@@ -336,19 +364,27 @@ def _finish_pending_dev_install(config_path: str | None) -> None:
     from yoke_cli.config import dev_setup
     from yoke_cli.config import project_onboard_apply
 
+    stream = stream or sys.stdout
     root = project_onboard_apply.pop_pending_dev_install(config_path)
     if not root:
         return
-    print("\nFinalizing the Yoke dev install (pointing `yoke` at this checkout)…")
+    print(
+        "\nFinalizing the Yoke dev install (pointing `yoke` at this checkout)…",
+        file=stream,
+    )
     outcome = dev_setup.run_editable_install_step(Path(root))
     if outcome.get("ok"):
         print(
             f"✓ Dev environment ready. Open a new terminal so `yoke` runs "
-            f"from {root}."
+            f"from {root}.",
+            file=stream,
         )
     else:
-        print(f"⚠ Couldn't finish the dev install: {outcome.get('error')}")
-        print(f"  Finish it with: yoke dev setup {root} --editable-install --yes")
+        print(f"⚠ Couldn't finish the dev install: {outcome.get('error')}", file=stream)
+        print(
+            f"  Finish it with: yoke dev setup {root} --editable-install --yes",
+            file=stream,
+        )
 
 
 def _build_report(

@@ -275,6 +275,8 @@ class WizardDefaults:
     token: str | None = None
     token_file: str | None = None
     mode: str | None = None
+    project_mode: str | None = None
+    project_checkout: str | None = None
     apply: bool = False
     # True when the wizard launches directly after a fresh install: the flow
     # opens on an install-summary view before the PATH check. Default skips

@@ -272,8 +272,34 @@ keyboard, while seeing each rendered screen:
    `/Users/testy/.local/bin/yoke`.
 2. Run `yoke onboard` under the bridge above inside a Terminal.app window, so the
    TUI is the real visible app. Input comes from the FIFO, not the keyboard.
-   Launch it with `osascript -e 'tell application "Terminal" to do script
-   "zsh /tmp/launch.sh" in window id <WIZARD_WID>'`.
+   Create the wizard window, set its final bounds, and only then launch the
+   bridge in that existing window:
+
+   ```bash
+   osascript <<'OSA'
+   tell application "Terminal"
+     activate
+     set wizardTab to do script "printf wizard-ready"
+     delay 1
+     set wizardWindow to front window
+     set bounds of wizardWindow to {40, 60, 1540, 980}
+     set wizardWindowId to id of wizardWindow
+
+     set helperTab to do script "printf helper-ready"
+     delay 1
+     set helperWindow to front window
+     set bounds of helperWindow to {40, 1000, 1540, 1220}
+     set helperWindowId to id of helperWindow
+
+     do script "zsh /tmp/launch.sh" in window id wizardWindowId
+     return (wizardWindowId as string) & "," & (helperWindowId as string)
+   end tell
+   OSA
+   ```
+
+   Do not launch the bridge and resize the window afterward: Textual may keep
+   the initial short terminal height for the active screen and leave the previous
+   screen visible below it.
 3. Send keystrokes by writing raw bytes to the FIFO — no window focus or extra
    permission needed: `printf '\r' > /tmp/yoke.fifo` (Enter),
    `printf '\033[B' > /tmp/yoke.fifo` (Down), plain text for input fields.
