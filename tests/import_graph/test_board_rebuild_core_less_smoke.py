@@ -89,7 +89,11 @@ def test_board_rebuild_runs_without_yoke_core(tmp_path: Path) -> None:
 
     board_path = checkout / ".yoke" / "BOARD.md"
     machine_config = tmp_path / "machine-config.json"
+    # The rebuild subprocess spawns its own interpreter, so it does not inherit
+    # the autouse commit-cache isolation fixture. Pin its cache_dir under tmp so
+    # any commit-cache touch during the render stays off the real ~/.yoke/cache.
     machine_config.write_text(json.dumps({
+        "cache_dir": str(tmp_path / "cache"),
         "projects": {
             str(checkout): {
                 "project_id": 37,
