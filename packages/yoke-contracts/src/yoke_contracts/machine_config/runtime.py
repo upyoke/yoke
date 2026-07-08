@@ -52,11 +52,20 @@ def config_path(explicit: str | Path | None = None) -> Path:
 
 
 def cache_dir(path: str | Path | None = None) -> Path:
-    """Return the machine-local Yoke cache directory."""
+    """Return the machine-local Yoke cache directory.
+
+    The default anchors under :func:`yoke_home` (via the relative
+    ``DEFAULT_CACHE_DIR_NAME``) so it honors a ``YOKE_MACHINE_HOME`` override —
+    the same way every other machine path resolves. This is what keeps a
+    subprocess that inherits an isolated ``YOKE_MACHINE_HOME`` (e.g. the
+    merge-worktree engine spawned under a test) off the developer's real
+    ``~/.yoke/cache``; an in-process monkeypatch cannot reach that subprocess.
+    An explicit ``cache_dir`` config value still wins and may be absolute.
+    """
 
     cfg = load_config(path)
     value = cfg.get("cache_dir")
-    raw = value if isinstance(value, str) and value.strip() else contract.DEFAULT_CACHE_ROOT
+    raw = value if isinstance(value, str) and value.strip() else DEFAULT_CACHE_DIR_NAME
     return _machine_path(raw)
 
 

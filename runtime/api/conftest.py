@@ -82,36 +82,6 @@ pytest_plugins = [
 
 
 @pytest.fixture(autouse=True)
-def _isolate_commit_cache(tmp_path, monkeypatch: pytest.MonkeyPatch):
-    """Redirect the on-disk commit/activity caches to a per-test tmp dir.
-
-    Both caches resolve their file location through
-    ``machine_config.cache_dir()`` (``~/.yoke/cache`` by default). Tests
-    that rebuild the board against real temp repos — e.g. the merge-worktree
-    suites — otherwise write their throwaway-repo entries into the developer's
-    real cache and, under xdist, race each other's writes there. That
-    pollution evicted real-repo entries from the production cache. Pinning the
-    cache path per test keeps every API test off the real cache file. Board
-    renderer tests previously did this only under ``board/tests/``; this is the
-    same isolation, broadened to all of ``runtime/api``.
-    """
-    from yoke_contracts.board import widgets_commit_cache as _commit_cache
-    from yoke_contracts.board import activity_cache as _activity_cache
-
-    monkeypatch.setattr(
-        _commit_cache, "_cache_path",
-        lambda: tmp_path / "cache" / ".commit-cache.json",
-    )
-    monkeypatch.setattr(
-        _activity_cache, "_cache_path",
-        lambda: tmp_path / "cache" / "board-activity-day-counts.json",
-    )
-    _commit_cache._reset_memo_for_tests()
-    yield
-    _commit_cache._reset_memo_for_tests()
-
-
-@pytest.fixture(autouse=True)
 def _block_live_github_rest_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make tests fail fast before they can hit live GitHub REST."""
     if os.environ.get("YOKE_TEST_ALLOW_LIVE_REST") != "1":
