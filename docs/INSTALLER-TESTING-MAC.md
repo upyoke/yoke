@@ -1,10 +1,12 @@
-# Cold-Start Test Mac
+# Installer Testing Mac
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately -- before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
+
+Sub-guide for [Installer Testing](INSTALLER-TESTING.md).
 
 Operator recipe for a reusable macOS host used to test the public Yoke
 installer, `yoke onboard`, PATH repair, Git/Xcode recovery, visible terminal
