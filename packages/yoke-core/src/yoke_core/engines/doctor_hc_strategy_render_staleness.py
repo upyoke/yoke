@@ -57,7 +57,11 @@ def _doc_issue(root: Path, slug: str, row: Any) -> "str | None":
     )
     from yoke_core.domain.strategy_docs_paths import strategy_view_path
 
-    path = strategy_view_path(root, slug)
+    # Archived docs render to .yoke/strategy/archive/<slug>.md; resolve the
+    # expected location from the row's archived state so an archived doc is
+    # checked at its real path instead of false-WARNing "rendered file missing".
+    archived = row["archived_at"] is not None
+    path = strategy_view_path(root, slug, archived)
     if not path.is_file():
         return (
             f"{slug}: rendered file missing — run `yoke strategy render "
@@ -86,7 +90,12 @@ def _doc_issue(root: Path, slug: str, row: Any) -> "str | None":
 
 
 def _orphan_files(root: Path, known_slugs: set) -> List[str]:
-    """Rendered-view files whose slug has no row for the project."""
+    """Rendered-view files whose slug has no row for the project.
+
+    The glob is intentionally shallow (top-level ``*.md`` only), so the
+    ``archive/`` subdir is out of scope — archived docs still have rows and
+    are checked at their archived path by :func:`_doc_issue`.
+    """
     from yoke_core.domain.strategy_docs_paths import strategy_dir
 
     docs_dir = strategy_dir(root)
@@ -116,7 +125,7 @@ def _checkout_issues(
     rows: Dict[str, Any] = {
         str(r["slug"]): r
         for r in conn.execute(
-            f"SELECT slug, updated_at FROM {STRATEGY_DOCS_TABLE} "
+            f"SELECT slug, updated_at, archived_at FROM {STRATEGY_DOCS_TABLE} "
             "WHERE project_id = %s",
             (project_id,),
         ).fetchall()

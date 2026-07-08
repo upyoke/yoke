@@ -23,12 +23,15 @@ def render_file_map(
     conn: Any,
     project_id: int,
     slugs: Optional[Sequence[str]] = None,
-) -> List[Dict[str, str]]:
-    """Return ``[{slug, updated_at, file_text}]`` for the project's docs.
+) -> List[Dict[str, Any]]:
+    """Return ``[{slug, updated_at, file_text, archived}]`` for the docs.
 
     ``file_text`` is the complete rendered file (idempotent header line
-    + DB content) — exactly what belongs on disk. ``slugs`` narrows to a
-    subset; ``None`` maps the full corpus. A project with zero rows
+    + DB content) — exactly what belongs on disk. ``archived`` carries the
+    doc's archived state so the writer routes it into
+    ``.yoke/strategy/archive/`` and prunes the stale sibling on a flip.
+    ``slugs`` narrows to a subset; ``None`` maps the full corpus. A
+    project with zero rows
     raises :class:`yoke_core.domain.strategy_docs.StrategyDocMissingError`
     teaching the seed-defaults cold start. Surfaces
     :class:`yoke_core.domain.strategy_docs_header.StrategyHeaderError`
@@ -51,7 +54,7 @@ def render_file_map(
         raise StrategyDocMissingError(
             missing_doc_teaching(conn, project_id, "<any>")
         )
-    files: List[Dict[str, str]] = []
+    files: List[Dict[str, Any]] = []
     for slug in wanted:
         _require_valid_slug(slug)
         doc = get_doc(conn, project_id, slug)
@@ -66,6 +69,7 @@ def render_file_map(
                     slug, doc["updated_at"], doc["content"],
                     updated_by=updated_by,
                 ),
+                "archived": doc.get("archived_at") is not None,
             }
         )
     return files

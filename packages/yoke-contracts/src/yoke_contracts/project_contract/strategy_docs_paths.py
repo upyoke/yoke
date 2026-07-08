@@ -19,6 +19,13 @@ from typing import Optional
 
 STRATEGY_DIR_REL = ".yoke/strategy"
 
+# Archived docs render one level down, under ``.yoke/strategy/archive/``,
+# so the live corpus directory only ever holds active docs. The whole
+# subtree inherits the seeded ``.yoke/.gitignore`` ``strategy/`` rule, so
+# archived views are gitignored local caches exactly like active ones.
+STRATEGY_ARCHIVE_SUBDIR = "archive"
+STRATEGY_ARCHIVE_DIR_REL = f"{STRATEGY_DIR_REL}/{STRATEGY_ARCHIVE_SUBDIR}"
+
 _MD_SUFFIX = ".md"
 
 
@@ -27,43 +34,81 @@ def strategy_dir(target_root: Path | str) -> Path:
     return Path(target_root) / STRATEGY_DIR_REL
 
 
-def strategy_view_rel_path(slug: str) -> str:
-    """Repo-relative rendered-view path for one doc slug."""
+def strategy_archive_dir(target_root: Path | str) -> Path:
+    """Return the archived-doc directory under ``target_root``.
+
+    Created lazily by the writer only when an archived doc is actually
+    rendered — a project with no archived docs never grows the subdir.
+    """
+    return Path(target_root) / STRATEGY_ARCHIVE_DIR_REL
+
+
+def strategy_view_rel_path(slug: str, archived: bool = False) -> str:
+    """Repo-relative rendered-view path for one doc slug.
+
+    ``archived`` routes the slug into the ``archive/`` subdir so a doc's
+    on-disk location tracks its archived state.
+    """
+    if archived:
+        return f"{STRATEGY_ARCHIVE_DIR_REL}/{slug}{_MD_SUFFIX}"
     return f"{STRATEGY_DIR_REL}/{slug}{_MD_SUFFIX}"
 
 
-def strategy_view_path(target_root: Path | str, slug: str) -> Path:
+def strategy_view_path(
+    target_root: Path | str, slug: str, archived: bool = False
+) -> Path:
     """Absolute rendered-view path for one doc slug under ``target_root``."""
-    return Path(target_root) / strategy_view_rel_path(slug)
+    return Path(target_root) / strategy_view_rel_path(slug, archived)
 
 
 def is_strategy_view_path(rel_path: str) -> bool:
-    """True when a repo-relative path names a rendered strategy doc."""
+    """True when a repo-relative path names a rendered strategy doc.
+
+    Recognizes both the active ``.yoke/strategy/<slug>.md`` location and
+    the archived ``.yoke/strategy/archive/<slug>.md`` location.
+    """
     return slug_from_view_path(rel_path) is not None
 
 
 def slug_from_view_path(rel_path: str) -> Optional[str]:
     """Extract the doc slug from a repo-relative rendered-view path.
 
-    Returns ``None`` for paths outside ``.yoke/strategy/``, nested
-    paths, or non-``.md`` files — callers use this both to recognize
-    strategy views and to key the DB row lookup.
+    Accepts the active ``.yoke/strategy/<slug>.md`` path and the archived
+    ``.yoke/strategy/archive/<slug>.md`` path, returning the slug for
+    either. Returns ``None`` for paths outside ``.yoke/strategy/``, more
+    deeply nested paths, or non-``.md`` files — callers use this both to
+    recognize strategy views and to key the DB row lookup.
     """
     prefix = STRATEGY_DIR_REL + "/"
     if not rel_path.startswith(prefix):
         return None
     name = rel_path[len(prefix):]
+    archive_prefix = STRATEGY_ARCHIVE_SUBDIR + "/"
+    if name.startswith(archive_prefix):
+        name = name[len(archive_prefix):]
     if "/" in name or not name.endswith(_MD_SUFFIX):
         return None
     slug = name[: -len(_MD_SUFFIX)]
     return slug or None
 
 
+def is_archived_view_path(rel_path: str) -> bool:
+    """True when a repo-relative path names an *archived* strategy view."""
+    archive_prefix = STRATEGY_ARCHIVE_DIR_REL + "/"
+    return (
+        rel_path.startswith(archive_prefix)
+        and slug_from_view_path(rel_path) is not None
+    )
+
+
 __all__ = [
+    "STRATEGY_ARCHIVE_DIR_REL",
+    "STRATEGY_ARCHIVE_SUBDIR",
     "STRATEGY_DIR_REL",
+    "is_archived_view_path",
     "is_strategy_view_path",
     "slug_from_view_path",
-    "strategy_dir",
+    "strategy_archive_dir",
     "strategy_view_path",
     "strategy_view_rel_path",
 ]

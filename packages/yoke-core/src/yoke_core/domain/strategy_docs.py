@@ -5,12 +5,13 @@ project's strategy documents, keyed ``(project_id, slug)`` — a project's
 corpus is exactly its rows, with no global slug canon (cold starts mint
 the :data:`yoke_core.domain.strategy_docs_defaults.DEFAULT_STRATEGY_DOC_SLUGS`
 placeholders). Each project's ``.yoke/strategy/`` directory holds
-**tracked rendered views** — the ``docs/atlas.md`` precedent, NOT the
-untracked ``.yoke/BOARD.md`` one: the files stay in git (git is the
-revision store), :func:`render_docs` is the only writer of those files,
-and reads always come from the DB. The directory location resolves
-through :mod:`yoke_core.domain.strategy_docs_paths` (the future
-per-project override seam).
+**gitignored local rendered caches** — the seeded ``.yoke/.gitignore``
+``strategy/`` rule keeps the whole subtree out of git, so the DB is the
+sole durable authority: :func:`render_docs` is the only writer of those
+files, and reads always come from the DB. The directory location
+resolves through :mod:`yoke_core.domain.strategy_docs_paths` (the future
+per-project override seam), which also routes archived docs one level
+down into ``.yoke/strategy/archive/``.
 
 Each rendered file begins with the idempotent strategy-doc header (slug,
 row ``updated_at``, content sha256, and DB-is-authoritative notice).
@@ -47,7 +48,12 @@ CREATE TABLE IF NOT EXISTS {STRATEGY_DOCS_TABLE} (
   slug TEXT NOT NULL,
   content TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL,
-  updated_by_actor_id BIGINT
+  updated_by_actor_id BIGINT,
+  -- archived_at: nullable ISO timestamp. NULL = active (renders to
+  -- .yoke/strategy/<slug>.md); a timestamp = archived (renders to
+  -- .yoke/strategy/archive/<slug>.md). Flipped by strategy.doc.archive /
+  -- strategy.doc.unarchive; the doc stays a full, editable corpus row.
+  archived_at TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_docs_project_id_slug
   ON {STRATEGY_DOCS_TABLE}(project_id, slug)
@@ -119,8 +125,9 @@ def project_doc_slugs(conn: Any, project_id: int) -> List[str]:
 
 
 def list_docs(conn: Any, project_id: int) -> List[Dict[str, Any]]:
-    """Return one ``{slug, updated_at, updated_by, bytes}`` row per doc.
+    """Return one ``{slug, updated_at, updated_by, bytes, archived}`` row per doc.
 
+    ``archived`` is ``True`` when the doc carries an ``archived_at`` stamp.
     ``updated_by`` is the last editor's resolved display label (or ``None``):
     the stored identity is the numeric actor id, resolved to a label here for
     display only, the same projection the render header uses.
@@ -128,7 +135,7 @@ def list_docs(conn: Any, project_id: int) -> List[Dict[str, Any]]:
     from yoke_core.domain.actor_render import actor_render_label
 
     rows = conn.execute(
-        f"SELECT slug, updated_at, updated_by_actor_id, content "
+        f"SELECT slug, updated_at, updated_by_actor_id, content, archived_at "
         f"FROM {STRATEGY_DOCS_TABLE} WHERE project_id = %s",
         (project_id,),
     ).fetchall()
@@ -139,6 +146,7 @@ def list_docs(conn: Any, project_id: int) -> List[Dict[str, Any]]:
             "updated_at": str(row["updated_at"]),
             "updated_by": actor_render_label(conn, row["updated_by_actor_id"]),
             "bytes": _byte_len(str(row["content"])),
+            "archived": row["archived_at"] is not None,
         }
         for row in rows
     ]
@@ -163,17 +171,18 @@ def missing_doc_teaching(conn: Any, project_id: int, slug: str) -> str:
 
 
 def get_doc(conn: Any, project_id: int, slug: str) -> Dict[str, Any]:
-    """Return ``{slug, content, updated_at, updated_by_actor_id}`` for a doc.
+    """Return ``{slug, content, updated_at, updated_by_actor_id, archived_at}``.
 
     ``updated_by_actor_id`` is the int id of the last editor (or ``None``);
-    the render path resolves it to a display label. Raises
+    the render path resolves it to a display label. ``archived_at`` is the
+    nullable archive timestamp (``None`` = active). Raises
     :class:`UnknownStrategyDocError` for an invalid slug shape and
     :class:`StrategyDocMissingError` (teaching the project's actual corpus)
     when the project has no row for the slug.
     """
     _require_valid_slug(slug)
     row = conn.execute(
-        f"SELECT slug, content, updated_at, updated_by_actor_id "
+        f"SELECT slug, content, updated_at, updated_by_actor_id, archived_at "
         f"FROM {STRATEGY_DOCS_TABLE} "
         "WHERE project_id = %s AND slug = %s",
         (project_id, slug),
@@ -181,11 +190,13 @@ def get_doc(conn: Any, project_id: int, slug: str) -> Dict[str, Any]:
     if row is None:
         raise StrategyDocMissingError(missing_doc_teaching(conn, project_id, slug))
     actor = row["updated_by_actor_id"]
+    archived_at = row["archived_at"]
     return {
         "slug": str(row["slug"]),
         "content": str(row["content"]),
         "updated_at": str(row["updated_at"]),
         "updated_by_actor_id": int(actor) if actor is not None else None,
+        "archived_at": str(archived_at) if archived_at is not None else None,
     }
 
 
@@ -290,6 +301,52 @@ def replace_doc(
     }
 
 
+def set_doc_archived(
+    conn: Any,
+    project_id: int,
+    slug: str,
+    *,
+    archived: bool,
+) -> Dict[str, Any]:
+    """Flip one doc's archived state; return the change report.
+
+    Archiving stamps ``archived_at`` with the current timestamp;
+    unarchiving clears it back to NULL. The doc's ``content`` and
+    ``updated_at`` are untouched — archiving is orthogonal to content
+    editing, so an archived doc renders byte-identically (just relocated
+    to ``.yoke/strategy/archive/``) and stays a full, editable corpus row.
+
+    Idempotent: flipping to the state a doc is already in is a no-op that
+    returns ``changed=False`` rather than raising. Raises
+    :class:`UnknownStrategyDocError` for an invalid slug and
+    :class:`StrategyDocMissingError` when the project has no row for the
+    slug. Returns ``{slug, archived, archived_at, changed}``.
+    """
+    _require_valid_slug(slug)
+    doc = get_doc(conn, project_id, slug)
+    currently_archived = doc["archived_at"] is not None
+    if currently_archived == archived:
+        return {
+            "slug": slug,
+            "archived": archived,
+            "archived_at": doc["archived_at"],
+            "changed": False,
+        }
+    new_archived_at = next_updated_at() if archived else None
+    conn.execute(
+        f"UPDATE {STRATEGY_DOCS_TABLE} SET archived_at = %s "
+        "WHERE project_id = %s AND slug = %s",
+        (new_archived_at, project_id, slug),
+    )
+    conn.commit()
+    return {
+        "slug": slug,
+        "archived": archived,
+        "archived_at": new_archived_at,
+        "changed": True,
+    }
+
+
 def render_docs(
     *,
     target_root: Path,
@@ -340,4 +397,5 @@ __all__ = [
     "render_docs",
     "replace_conflict_teaching",
     "replace_doc",
+    "set_doc_archived",
 ]
