@@ -186,6 +186,58 @@ def apply_contract_files(
     return contract_map, written, existing, adopted
 
 
+def _gitignore_entry(
+    contract_entries: List[Dict[str, str]],
+) -> Dict[str, str] | None:
+    """Return the ``.yoke/.gitignore`` contract entry, if the bundle has one."""
+    for entry in contract_entries:
+        rel = str(entry.get("path", ""))
+        if rel.startswith(".yoke/") and Path(rel).name == ".gitignore":
+            return entry
+    return None
+
+
+def reconcile_gitignore(
+    repo_root: Path, contract_entries: List[Dict[str, str]],
+) -> List[str]:
+    """Append canonical ``.yoke/.gitignore`` ignore lines missing from an
+    already-present file, returning the lines appended.
+
+    :func:`apply_contract_files` is seed-if-missing — it never touches an
+    existing ``.yoke/.gitignore``. A project onboarded before an ignore name
+    (e.g. ``strategy/``) entered the canonical set would therefore never pick
+    it up on refresh, leaving that project's rendered strategy views tracked.
+    This reconcile brings every existing file up to the canonical ignore set
+    without clobbering its content or operator-added lines. The canonical
+    lines come from the bundle's own gitignore entry (single source), so it
+    stays correct as the ignore set evolves. No-ops when the file is absent
+    (seed-if-missing already wrote the full canonical file) or already complete.
+    """
+    entry = _gitignore_entry(contract_entries)
+    if entry is None:
+        return []
+    target = repo_root / str(entry["path"])
+    if not target.is_file():
+        return []
+    canonical = [
+        line
+        for line in str(entry["content"]).splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    try:
+        current = target.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    present = {line.strip() for line in current.splitlines() if line.strip()}
+    missing = [line for line in canonical if line not in present]
+    if not missing:
+        return []
+    if current and not current.endswith("\n"):
+        current += "\n"
+    target.write_text(current + "\n".join(missing) + "\n", encoding="utf-8")
+    return missing
+
+
 def apply_files(
     repo_root: Path, bundle_files: List[Dict[str, str]]
 ) -> Tuple[Dict[str, str], List[str]]:
