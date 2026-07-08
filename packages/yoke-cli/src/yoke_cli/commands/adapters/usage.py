@@ -179,9 +179,11 @@ from yoke_cli.commands.adapters.render import (
 )
 from yoke_cli.commands.adapters.usage_readiness import READINESS_USAGE_BY_ID
 from yoke_cli.commands.adapters.strategy import (
+    STRATEGY_DOC_ARCHIVE_USAGE,
     STRATEGY_DOC_GET_USAGE,
     STRATEGY_DOC_LIST_USAGE,
     STRATEGY_DOC_REPLACE_USAGE,
+    STRATEGY_DOC_UNARCHIVE_USAGE,
 )
 from yoke_cli.commands.adapters.strategy_create import (
     STRATEGY_DOC_CREATE_USAGE,
@@ -320,6 +322,8 @@ ADAPTER_USAGE: Dict[str, str] = {
     "strategy.doc.get": STRATEGY_DOC_GET_USAGE,
     "strategy.doc.create": STRATEGY_DOC_CREATE_USAGE,
     "strategy.doc.replace": STRATEGY_DOC_REPLACE_USAGE,
+    "strategy.doc.archive": STRATEGY_DOC_ARCHIVE_USAGE,
+    "strategy.doc.unarchive": STRATEGY_DOC_UNARCHIVE_USAGE,
     "strategy.render.run": STRATEGY_RENDER_USAGE,
     "strategy.ingest.run": STRATEGY_INGEST_USAGE,
     "strategy.seed_defaults.run": STRATEGY_SEED_DEFAULTS_USAGE,
