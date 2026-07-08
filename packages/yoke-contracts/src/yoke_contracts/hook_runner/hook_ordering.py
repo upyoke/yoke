@@ -33,6 +33,9 @@ PreToolUse Bash chain order rationale:
    Command Output rule: the truncator both discards failure context and
    masks the command's exit code. Pure shape parse; runs beside the
    polling lint because both protect long-command output discipline.
+5c. ``lint_if_status_capture`` — block ``fi`` followed by ``rc=$?``.
+   Owns the shell status-capture footgun where the status of the ``if``
+   compound masks the command that failed in the condition.
 6. ``lint_subagent_background`` — subagent context deny for background
    watcher flows and wake-loss-prone tools. Runs right after the polling
    lint because the rules are architecturally adjacent (both protect
@@ -138,6 +141,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_tc_label",
     "yoke_core.domain.lint_long_command_polling",
     "yoke_core.domain.lint_pipe_to_truncator",
+    "yoke_core.domain.lint_if_status_capture",
     "yoke_core.domain.lint_subagent_background",
     "yoke_core.domain.lint_session_cwd",
     "yoke_core.domain.lint_workspace_cwd_match",

@@ -97,3 +97,11 @@ def test_ephemeral_template_uses_cached_first_cold_fallback() -> None:
         ephemeral_run_wf,
         build_cmd='docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" build',
     )
+
+
+def test_ephemeral_collision_check_fails_closed_on_ssh_error() -> None:
+    ephemeral_run_wf = _read_template("templates/webapp/ops/ephemeral-run.yml")
+
+    assert "set -o pipefail" in ephemeral_run_wf
+    assert "if collision_output=$(ssh -o LogLevel=ERROR" in ephemeral_run_wf
+    assert "Port collision check failed before deployment." in ephemeral_run_wf

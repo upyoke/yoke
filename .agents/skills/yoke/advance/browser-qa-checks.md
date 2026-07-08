@@ -39,11 +39,18 @@ _head_sha=$(git -C "$_git_dir" rev-parse HEAD 2>/dev/null) || true
 
 ```bash
 if [ -d "$_push_path" ]; then
- _push_output=$(git -C "$_push_path" push origin "$_wt_branch" 2>&1)
+ if _push_output=$(git -C "$_push_path" push origin "$_wt_branch" 2>&1); then
+  _push_exit=0
+ else
+  _push_exit=$?
+ fi
 else
- _push_output=$(git -C "$_push_repo" push origin "$_wt_branch" 2>&1)
+ if _push_output=$(git -C "$_push_repo" push origin "$_wt_branch" 2>&1); then
+  _push_exit=0
+ else
+  _push_exit=$?
+ fi
 fi
-_push_exit=$?
 ```
 
 Push failure → **block**: cannot redeploy. Do NOT update status.

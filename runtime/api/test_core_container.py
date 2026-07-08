@@ -216,3 +216,14 @@ def test_ci_builds_container_without_registry_push() -> None:
 
     assert "docker build" in workflow
     assert "docker push" not in workflow
+
+
+def test_ci_workflow_preserves_pipe_failures() -> None:
+    workflow = (
+        REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "set -o pipefail\n          host_port=" in workflow
+    assert "Postgres host port did not resolve" in workflow
+    assert "2>&1 | tee pytest-output.txt" in workflow
+    assert 'exit "${PIPESTATUS[0]}"' in workflow
