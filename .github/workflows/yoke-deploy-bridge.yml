@@ -8,12 +8,12 @@ name: yoke-deploy-bridge
 # own repo.
 #
 # Generic + leak-safe by construction: the deploy repo, the two workflow
-# files to run there, their ref, and the dispatch token are all read from
-# repo variables / secrets, never hardcoded. A fork or self-hoster that has
-# not set `YOKE_DEPLOY_DISPATCH_REPO` no-ops, so this file names no
-# operator-private topology. Runs on the GitHub-hosted runner (public repos
-# get them free); it only fires workflow_dispatch calls, never touching
-# deploy infrastructure directly.
+# files to run there, the optional ref override, and the dispatch token are
+# all read from repo variables / secrets, never hardcoded. A fork or
+# self-hoster that has not set `YOKE_DEPLOY_DISPATCH_REPO` no-ops, so this
+# file names no operator-private topology. Runs on the GitHub-hosted runner
+# (public repos get them free); it only fires workflow_dispatch calls, never
+# touching deploy infrastructure directly.
 #
 # The gate on the deploy side stays authoritative: this bridge dispatches
 # for every push to stage/main, and the deploy repo's env-autodeploy gate
@@ -44,7 +44,7 @@ jobs:
           DISPATCH_REPO: ${{ vars.YOKE_DEPLOY_DISPATCH_REPO }}
           IMAGE_WORKFLOW: ${{ vars.YOKE_DEPLOY_DISPATCH_IMAGE_WORKFLOW || 'yoke-core-image.yml' }}
           DEPLOY_WORKFLOW: ${{ vars.YOKE_DEPLOY_DISPATCH_WORKFLOW || 'yoke-env-deploy.yml' }}
-          DISPATCH_REF: ${{ vars.YOKE_DEPLOY_DISPATCH_REF || 'main' }}
+          DISPATCH_REF_OVERRIDE: ${{ vars.YOKE_DEPLOY_DISPATCH_REF }}
           PRODUCT_SHA: ${{ github.sha }}
           PRODUCT_BRANCH: ${{ github.ref_name }}
         run: |
@@ -53,18 +53,23 @@ jobs:
             echo "::warning::YOKE_DEPLOY_DISPATCH_TOKEN is not set — configure it to enable push-to-deploy. Skipping."
             exit 0
           fi
+          if [ -n "${DISPATCH_REF_OVERRIDE:-}" ]; then
+            dispatch_ref="$DISPATCH_REF_OVERRIDE"
+          else
+            dispatch_ref="$PRODUCT_BRANCH"
+          fi
           # Deploy the exact product commit just pushed. The deploy repo
           # name is not echoed, to keep it out of this public repo's logs.
-          echo "Dispatching image build + env deploy for product ${PRODUCT_BRANCH}@${PRODUCT_SHA}"
+          echo "Dispatching image build + env deploy for product ${PRODUCT_BRANCH}@${PRODUCT_SHA} via deploy ref ${dispatch_ref}"
           # 1. Build/prewarm the core image for the pushed product sha.
           gh workflow run "$IMAGE_WORKFLOW" \
             --repo "$DISPATCH_REPO" \
-            --ref "$DISPATCH_REF" \
+            --ref "$dispatch_ref" \
             -f product_ref="$PRODUCT_SHA"
           # 2. Walk the env deploy for it (waits for the image above, then
           #    the deploy repo's auto-deploy policy gate decides the env).
           gh workflow run "$DEPLOY_WORKFLOW" \
             --repo "$DISPATCH_REPO" \
-            --ref "$DISPATCH_REF" \
+            --ref "$dispatch_ref" \
             -f product_ref="$PRODUCT_SHA" \
             -f product_branch="$PRODUCT_BRANCH"
