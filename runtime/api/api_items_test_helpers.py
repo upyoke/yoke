@@ -40,7 +40,7 @@ CREATE TABLE project_capabilities (
 CREATE TABLE strategy_docs (
     id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
     slug TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL,
-    updated_by_actor_id INTEGER, UNIQUE(project_id, slug)
+    updated_by_actor_id INTEGER, archived_at TEXT, UNIQUE(project_id, slug)
 );
 CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,

@@ -184,9 +184,11 @@ from yoke_cli.commands.adapters.github_actions_run_wait import (
     github_actions_wait_run,
 )
 from yoke_cli.commands.adapters.strategy import (
+    strategy_doc_archive,
     strategy_doc_get,
     strategy_doc_list,
     strategy_doc_replace,
+    strategy_doc_unarchive,
 )
 from yoke_cli.commands.adapters.strategy_create import (
     strategy_doc_create,
@@ -346,7 +348,8 @@ __all__ = [
     "github_actions_check_ci", "github_actions_secret_set",
     "github_actions_variable_get", "github_actions_variable_set",
     "strategy_doc_list", "strategy_doc_get", "strategy_doc_create",
-    "strategy_doc_replace", "strategy_render", "strategy_ingest",
+    "strategy_doc_replace", "strategy_doc_archive", "strategy_doc_unarchive",
+    "strategy_render", "strategy_ingest",
     "strategy_seed_defaults",
     "strategy_carry_register_new", "strategy_carry_candidate_set",
     "strategy_carry_summary", "strategy_carry_mark",

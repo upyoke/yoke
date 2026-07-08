@@ -153,6 +153,13 @@ def apply_bundle(
             dict(old_manifest.get("contract_files") or {}),
         )
     )
+    # Seed-if-missing never backfills an existing .yoke/.gitignore, so a
+    # project onboarded before an ignore name (e.g. `strategy/`) entered the
+    # canonical set would keep tracking those views. Reconcile the existing
+    # file up to the canonical ignore set on every install/refresh.
+    gitignore_backfilled = files_layer.reconcile_gitignore(
+        repo_root, contract_files,
+    )
     (
         strategy_map,
         strategy_written,
@@ -228,6 +235,7 @@ def apply_bundle(
         "contract_files_written": contract_written,
         "contract_files_existing": contract_existing,
         "contract_files_adopted": contract_adopted,
+        "gitignore_ignores_backfilled": gitignore_backfilled,
         "strategy_files_written": strategy_written,
         "strategy_files_unchanged": strategy_unchanged,
         "strategy_files_preserved_edited": strategy_preserved,

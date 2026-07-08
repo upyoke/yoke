@@ -201,6 +201,12 @@ def apply_additive_schema(conn: Any) -> None:
     _add_column_if_not_exists(conn, "item_sections", "source", "TEXT NOT NULL DEFAULT 'operator'")
     conn.commit()
 
+    # strategy_docs.archived_at — nullable ISO timestamp marking an archived
+    # doc (NULL = active). Self-sufficient on ADD (NULL is the valid active
+    # default); flipped by strategy.doc.archive / strategy.doc.unarchive.
+    _add_column_if_not_exists(conn, "strategy_docs", "archived_at", "TEXT DEFAULT NULL")
+    conn.commit()
+
 
 def apply_legacy_data_migrations(conn: Any) -> None:
     """Birth/full-init-only data-shape migrations and legacy drops.

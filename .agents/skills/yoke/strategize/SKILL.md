@@ -8,7 +8,7 @@ argument-hint: "[--lane LANE] [--model MODEL]"
 
 Guided interactive loop for Strategic Markdown Layer (SML) coherence. Refreshes the SML docs against recent reality, performs source-backed research, proposes changes, obtains operator approval, and records audit trail.
 
-The strategy authority is the Yoke DB `strategy_docs` table, scoped per project; the checkout's `.yoke/strategy/*.md` files are tracked rendered views. Reads go through `yoke strategy doc get <SLUG>`, writes through `yoke strategy doc replace <SLUG> --base-updated-at <TS>` (compare-and-swap; auto-renders the latest full strategy corpus into the checkout), and the end of the approve phase commits the refreshed views.
+The strategy authority is the Yoke DB `strategy_docs` table, scoped per project; the checkout's `.yoke/strategy/*.md` files are gitignored local rendered caches (the seeded `.yoke/.gitignore` `strategy/` rule keeps them out of git — the DB is the sole durable record, so there is no commit of these views). Reads go through `yoke strategy doc get <SLUG>`, writes through `yoke strategy doc replace <SLUG> --base-updated-at <TS>` (compare-and-swap; auto-renders the latest full strategy corpus into the checkout). The durable record of an approved change is the DB write plus the `SMLChangeApproved` event.
 
 Strategize is the "compass" mode -- it ensures Yoke always has a clear, current strategy to charge against. It shapes strategy and frontier coherence, but does not own per-item dependency ordering or session assignment logic (those belong to `feed` and the scheduler).
 
@@ -92,7 +92,7 @@ If the response carries `error.code="claim_conflict"`, print:
 
 Then abort before `StrategizeStarted` or any phase dispatch. Do NOT emit `StrategizeStarted`. Do NOT read any phase files. **Stop immediately.**
 
-No path claims are registered — the strategy authority is the DB, and main-checkout commits of the rendered `.yoke/strategy/*.md` views authorize by matching the project's DB rows (the freshness rule in `lint_main_commit`), not by claim coverage.
+No path claims are registered — the strategy authority is the DB, and the write window is authorized solely by the `STRATEGIZE` process work-claim acquired above. The rendered `.yoke/strategy/*.md` views are gitignored local caches, never committed, so there is no commit to authorize.
 
 To release on abort:
 
@@ -143,7 +143,7 @@ Read and follow each phase file in order. Each phase builds context for the next
 - Emits `SMLChangeProposed` for each proposed change batch
 
 **Approve:** Read `.agents/skills/yoke/strategize/approve.md`
-- Apply approved SML changes, commit them, then run Checkpoint 4 (frontier implication check) and Checkpoint 5 (tradeoff resolution if needed)
+- Apply approved SML changes (DB write is the durable record — the rendered views are gitignored, not committed), then run Checkpoint 4 (frontier implication check) and Checkpoint 5 (tradeoff resolution if needed)
 - Emits `SMLChangeApproved` for approved changes
 
 **Finalize:** Read `.agents/skills/yoke/strategize/finalize.md`

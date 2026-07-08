@@ -158,6 +158,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke strategy doc get", "strategy"),
     _w("yoke strategy doc create", "strategy"),
     _w("yoke strategy doc replace", "strategy"),
+    _w("yoke strategy doc archive", "strategy"),
+    _w("yoke strategy doc unarchive", "strategy"),
     _w("yoke strategy render", "strategy"),
     _w("yoke strategy ingest", "strategy"),
     _w("yoke strategy seed-defaults", "strategy"),

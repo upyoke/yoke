@@ -1,6 +1,6 @@
 # Approve
 
-Write approved SML changes to the DB authority, render + commit the refreshed views, check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
+Write approved SML changes to the DB authority (which re-renders the gitignored local views — there is no commit), check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
 
 ## Prerequisites
 
@@ -72,37 +72,14 @@ If verification fails, re-apply via 1a→1b (fresh base each time).
 Skipped: MISSION changes require explicit operator approval. These were not confirmed.
 ```
 
-## Step 2: Commit the Refreshed Views
+## Step 2: Record the Applied Changes
 
-The DB write landed and `doc replace` refreshed the tracked rendered views. Commit them from the same session (writer-commits-history — the session that writes also renders and commits).
-
-### 2a. Stage
+The DB write landed and `doc replace` refreshed the local rendered views. **Do not commit the views** — `.yoke/strategy/` is gitignored (the seeded `.yoke/.gitignore` `strategy/` rule), so the DB write is already the durable record and there is nothing to stage. The `SMLChangeApproved` event (Step 5) is the audit trail.
 
 ```bash
-cd "$REPO_ROOT" && git add .yoke/strategy/
-```
-
-The auto-render rewrites exactly the docs whose DB-rendered bytes changed (unchanged docs render byte-identical), and the staged files are fresh renders, which is what authorizes this commit on main — the lint's matches-the-master rule checks each staged `.yoke/strategy/*.md` against the project's DB row.
-
-### 2b. Create Commit
-
-```bash
-cd "$REPO_ROOT" && git commit -m "$(cat <<'EOF'
-strategize: {one-line summary of changes}
-
-{rationale summary -- 2-3 sentences covering the strategic reasoning
-behind these changes, referencing the evidence sources from research}
-
-Docs: {list of changed doc slugs}
-Findings: {list of finding numbers that drove these changes}
-EOF
-)"
-```
-
-Capture the commit SHA:
-
-```bash
-_commit_sha=$(cd "$REPO_ROOT" && git rev-parse --short HEAD)
+# .yoke/strategy/*.md are gitignored local caches — no commit. The DB row
+# (and the SMLChangeApproved event below) is the durable record.
+_commit_sha=""
 ```
 
 ### 2c. Collect Changed Docs List
@@ -136,7 +113,7 @@ For each frontier item, assess whether the approved SML changes affect it:
 ```
 ## Frontier Implications
 
-The following SML changes were committed ({_commit_sha}):
+The following SML changes were applied (DB rows updated; gitignored views re-rendered):
 {brief list of changes}
 
 ### Impact on Current Frontier
@@ -217,14 +194,14 @@ yoke events emit \
 ```
 
 Where:
-- `_commit_sha` is the short commit hash from Step 2 (empty string if deferred-all path)
+- `_commit_sha` is retained as `""` — the rendered views are gitignored local caches, not committed, so there is no commit hash. The field stays in the event context (always empty) for backward compatibility with existing `SMLChangeApproved` consumers.
 - `_files_list` is a JSON array of changed filenames (e.g., `"LANDSCAPE.md","VISION.md"`)
 - `_applied_count` is the number of changes written to disk
 - `_deferred_count` is the number of changes deferred
 - `_outcome` is one of: `changes_applied`, `changes_deferred`
 
 For the deferred-all path, use:
-- `_commit_sha` = `""`
+- `_commit_sha` = `""` (same as the applied path — never a commit hash)
 - `_files_list` = empty array
 - `_applied_count` = `0`
 - `_outcome` = `"changes_deferred"`
@@ -284,7 +261,7 @@ If the `pending` bucket is empty, skip this step silently.
 
 This phase produces the following inline context for the Finalize phase (finalize.md):
 
-- `_commit_sha` -- the commit hash of the SML changes (empty if deferred)
+- `_commit_sha` -- retained as `""` (views are gitignored, never committed)
 - `_files_changed` -- list of modified SML files
 - `_applied_count` -- number of changes applied
 - `_deferred_count` -- number of changes deferred

@@ -30,6 +30,7 @@ def conn():
             "project_id INTEGER NOT NULL, "
             "slug TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', "
             "updated_at TEXT NOT NULL, updated_by_actor_id INTEGER, "
+            "archived_at TEXT, "
             "UNIQUE(project_id, slug))"
         )
         db.execute(

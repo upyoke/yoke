@@ -6,7 +6,7 @@ Record the strategy checkpoint (the "last refresh" marker consumed by Phase 1 de
 
 This phase receives inline context from the Approve phase (approve.md):
 
-- `_commit_sha` -- the commit hash of the SML changes (empty string if deferred)
+- `_commit_sha` -- always `""` (the rendered views are gitignored local caches, never committed; the DB write + `SMLChangeApproved` event is the durable record)
 - `_files_changed` -- list of modified SML files (empty if deferred)
 - `_applied_count` -- number of changes applied (0 if deferred)
 - `_deferred_count` -- number of changes deferred
@@ -86,7 +86,7 @@ if [ -n "${_reflected_item_ids}" ]; then
  yoke strategy carry mark \
  --project "$_project" \
  --state reflected \
- --reason "applied in ${_commit_sha}" \
+ --reason "reflected via approved SML change this strategize session" \
  --items ${_reflected_item_ids}
 fi
 ```
@@ -141,7 +141,7 @@ yoke events emit \
 ```
 
 Where:
-- `_commit_sha` is the short commit hash (empty string `""` if deferred)
+- `_commit_sha` is retained as `""` (views are gitignored, never committed; kept in the event context for backward compatibility)
 - `_files_list` is a JSON array of changed filenames (empty `[]` contents if deferred)
 - `_applied_count` and `_deferred_count` are integers
 - `_change_summary` is a one-line summary string
@@ -176,7 +176,7 @@ Print a human-readable summary for the operator. This is the final output of the
 ## Strategize Session Complete
 
 **Outcome:** {changes_applied | changes_deferred}
-**Commit:** {_commit_sha or "none (changes deferred)"}
+**Durable record:** DB rows updated + `SMLChangeApproved` event (rendered `.yoke/strategy/` views are gitignored local caches, not committed)
 
 ### Changes
 {if changes_applied:}

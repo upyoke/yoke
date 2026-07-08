@@ -8,7 +8,7 @@ see which project's corpus served the call.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,6 +33,9 @@ class DocGetResponse(BaseModel):
     slug: str
     content: str
     updated_at: str
+    # Nullable archive stamp: None = active, a timestamp = archived (renders
+    # under .yoke/strategy/archive/). Surfaced so a reader sees archive state.
+    archived_at: Optional[str] = None
 
 
 class DocReplaceRequest(BaseModel):

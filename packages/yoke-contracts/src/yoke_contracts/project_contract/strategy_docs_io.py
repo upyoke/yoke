@@ -8,7 +8,6 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Sequence
 
 from yoke_contracts.project_contract.file_write import write_live_text
 from yoke_contracts.project_contract.strategy_docs_paths import (
-    strategy_dir,
     strategy_view_path,
 )
 
@@ -44,7 +43,14 @@ def read_ingest_files(
     files: List[Dict[str, str]] = []
     for slug_value in slugs:
         slug = validate_slug(str(slug_value))
+        # A doc lives in exactly one location (the writer prunes the stale
+        # sibling on any archive flip), so resolve active first, then the
+        # archive subdir — archived docs stay editable-via-file.
         path = strategy_view_path(target_root, slug)
+        if not path.is_file():
+            archived_path = strategy_view_path(target_root, slug, archived=True)
+            if archived_path.is_file():
+                path = archived_path
         if not path.is_file():
             raise StrategyIngestFileMissingError(
                 f"no rendered file for strategy doc {slug!r} at {path}; "
@@ -65,16 +71,34 @@ def write_rendered_files(
     target_root: Path,
     files: Iterable[Mapping[str, Any]],
 ) -> Dict[str, str]:
-    """Write rendered file texts under ``.yoke/strategy/``."""
-    docs_dir = strategy_dir(Path(target_root))
-    docs_dir.mkdir(parents=True, exist_ok=True)
+    """Write rendered file texts under ``.yoke/strategy/``.
+
+    Each entry's ``archived`` flag routes the doc between the active
+    ``.yoke/strategy/<slug>.md`` location and the archived
+    ``.yoke/strategy/archive/<slug>.md`` location. On every write the
+    stale sibling at the *other* location is pruned, so an archive↔active
+    flip leaves exactly one file for the slug. The ``archive/`` subdir is
+    created lazily (by :func:`write_live_text`) only when an archived doc
+    is actually written — a project with no archived docs never grows it.
+    """
+    target_root = Path(target_root)
     report: Dict[str, str] = {}
     for entry in files:
         file_text = entry.get("file_text")
         if not file_text:
             continue
         slug = require_strategy_doc_slug(str(entry["slug"]))
-        path = docs_dir / f"{slug}.md"
+        archived = bool(entry.get("archived", False))
+        path = strategy_view_path(target_root, slug, archived)
+        # Prune the stale sibling at the OTHER location (a doc that just
+        # flipped archived state left a file behind there) — but ONLY when the
+        # entry explicitly declares its archived state. A flag-less entry comes
+        # from a caller that is not archive-aware, and must never delete a file
+        # at the other location by defaulting to active.
+        if "archived" in entry:
+            stale = strategy_view_path(target_root, slug, not archived)
+            if stale != path and stale.is_file():
+                stale.unlink()
         if path.is_file() and path.read_bytes() == file_text.encode("utf-8"):
             report[slug] = "unchanged"
             continue
