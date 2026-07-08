@@ -24,6 +24,9 @@ lint_long_command_polling=deny
 # Refuse piping a live long command into tail/head.
 lint_pipe_to_truncator=deny
 
+# Refuse `$?` capture immediately after an `if` compound.
+lint_if_status_capture=deny
+
 # Refuse background/Monitor backgrounding tools in subagent context.
 lint_subagent_background=deny
 

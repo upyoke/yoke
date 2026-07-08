@@ -53,6 +53,8 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
               "Refuse same-capture polling loops on a running long command."),
     GuardSpec("lint_pipe_to_truncator", f"{_MODULE_PREFIX}lint_pipe_to_truncator", False,
               "Refuse piping a live long command into tail/head."),
+    GuardSpec("lint_if_status_capture", f"{_MODULE_PREFIX}lint_if_status_capture", False,
+              "Refuse `$?` capture immediately after an `if` compound."),
     GuardSpec("lint_subagent_background", f"{_MODULE_PREFIX}lint_subagent_background", False,
               "Refuse background/Monitor backgrounding tools in subagent context."),
     GuardSpec("lint_session_cwd", f"{_MODULE_PREFIX}lint_session_cwd", False,

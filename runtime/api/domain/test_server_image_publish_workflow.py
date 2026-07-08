@@ -66,3 +66,9 @@ def test_builds_repo_dockerfile_with_build_sha_and_ghcr_tags():
     # the sha tag alone.
     assert "github.ref == 'refs/heads/main'" in text
     assert ":latest" in text
+
+
+def test_login_pipe_preserves_failure_status():
+    text = _text()
+    assert "set -o pipefail" in text
+    assert "| docker login ghcr.io" in text
