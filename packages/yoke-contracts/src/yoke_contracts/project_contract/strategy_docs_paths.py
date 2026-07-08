@@ -109,6 +109,7 @@ __all__ = [
     "is_strategy_view_path",
     "slug_from_view_path",
     "strategy_archive_dir",
+    "strategy_dir",
     "strategy_view_path",
     "strategy_view_rel_path",
 ]
