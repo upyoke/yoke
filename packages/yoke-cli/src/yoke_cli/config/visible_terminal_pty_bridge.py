@@ -5,6 +5,10 @@ still sees a real terminal. Running the launcher under ``tee`` before creating
 the child PTY turns stdout into a pipe, which hides the Terminal window size
 from Textual. This bridge sizes the child PTY from stdout, then ``/dev/tty``,
 then ``COLUMNS``/``LINES`` before forwarding bytes to stdout and a log file.
+The child PTY is also re-synced after launch and before FIFO input is forwarded
+so simple probes see the operator Terminal's current geometry. Textual TUIs
+still need the visible Terminal window sized before launch so their first layout
+starts at the final height.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ from pathlib import Path
 _DEFAULT_TERM = "xterm-256color"
 _WINSIZE_FORMAT = "HHHH"
 _WINSIZE_ZERO = b"\0" * struct.calcsize(_WINSIZE_FORMAT)
+_WINSIZE_RESYNC_INTERVAL_SECONDS = 0.25
 
 
 def _ioctl_winsize(fd: int) -> bytes | None:
@@ -90,6 +95,26 @@ def apply_winsize(fd: int, winsize: bytes | None) -> None:
         pass
 
 
+def _resync_child_winsize(
+    master_fd: int,
+    proc: subprocess.Popen[bytes] | None,
+    *,
+    previous: bytes | None,
+    environ: dict[str, str],
+    tty_path: str,
+) -> bytes | None:
+    current = read_terminal_winsize(environ=environ, tty_path=tty_path)
+    if current is None or current == previous:
+        return previous
+    apply_winsize(master_fd, current)
+    if proc is not None and proc.poll() is None:
+        try:
+            os.kill(proc.pid, signal.SIGWINCH)
+        except OSError:
+            pass
+    return current
+
+
 def _open_fifo(path: str) -> int:
     try:
         os.mkfifo(path, 0o600)
@@ -131,19 +156,36 @@ def run_bridge(
     env.setdefault("TERM", _DEFAULT_TERM)
 
     master_fd, slave_fd = os.openpty()
+    resize_fd: int | None = os.dup(slave_fd)
     winsize = read_terminal_winsize(environ=env, tty_path=tty_path)
-    apply_winsize(slave_fd, winsize)
+    if resize_fd is not None:
+        apply_winsize(resize_fd, winsize)
+    last_winsize_check = 0.0
 
     proc: subprocess.Popen[bytes] | None = None
 
+    def close_resize_fd() -> None:
+        nonlocal resize_fd
+        if resize_fd is None:
+            return
+        try:
+            os.close(resize_fd)
+        except OSError:
+            pass
+        resize_fd = None
+
     def handle_winch(_signum: int, _frame: object) -> None:
-        current = read_terminal_winsize(environ=env, tty_path=tty_path)
-        apply_winsize(master_fd, current)
-        if proc is not None and proc.poll() is None:
-            try:
-                os.kill(proc.pid, signal.SIGWINCH)
-            except OSError:
-                pass
+        nonlocal winsize, last_winsize_check
+        last_winsize_check = time.monotonic()
+        if resize_fd is None:
+            return
+        winsize = _resync_child_winsize(
+            resize_fd,
+            proc,
+            previous=winsize,
+            environ=env,
+            tty_path=tty_path,
+        )
 
     try:
         proc = subprocess.Popen(
@@ -159,6 +201,7 @@ def run_bridge(
 
     old_winch = signal.getsignal(signal.SIGWINCH)
     signal.signal(signal.SIGWINCH, handle_winch)
+    handle_winch(signal.SIGWINCH, None)
 
     fifo_fd = _open_fifo(fifo_path)
     selector = selectors.DefaultSelector()
@@ -174,6 +217,11 @@ def run_bridge(
     try:
         while pty_registered:
             child_done = proc.poll() is not None
+            if child_done:
+                close_resize_fd()
+            now = time.monotonic()
+            if now - last_winsize_check >= _WINSIZE_RESYNC_INTERVAL_SECONDS:
+                handle_winch(signal.SIGWINCH, None)
             events = selector.select(timeout=0 if child_done else 0.1)
             if not events and child_done:
                 data = _read_pty(master_fd)
@@ -201,6 +249,7 @@ def run_bridge(
                     except BlockingIOError:
                         data = b""
                     if data:
+                        handle_winch(signal.SIGWINCH, None)
                         _write_all(master_fd, data)
                     else:
                         selector.unregister(fifo_fd)
@@ -223,6 +272,7 @@ def run_bridge(
             os.close(master_fd)
         except OSError:
             pass
+        close_resize_fd()
         try:
             os.close(fifo_fd)
         except OSError:
