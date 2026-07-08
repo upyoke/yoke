@@ -32,7 +32,7 @@ def _infra_stack(monkeypatch, **arg_overrides):
         },
     )
     kwargs = dict(
-        project_name="yoke",
+        deploy_namespace="yoke",
         domain_name="example.com",
         origin_host="origin.example.com",
         hosted_zone_id="Z123",
@@ -61,7 +61,7 @@ def _api_stack(monkeypatch, **arg_overrides):
         extra_modules={"webapp_distribution_stack": distribution_module},
     )
     kwargs = dict(
-        project_name="yoke",
+        deploy_namespace="yoke",
         environment="prod",
         domain_name="example.com",
         api_host="api.example.com",

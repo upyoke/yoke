@@ -17,6 +17,7 @@ from runtime.api.domain.test_deploy_remote import FakeRunner
 def _policy(**overrides):
     values = dict(
         project="yoke",
+        deploy_namespace="yoke",
         trigger="flow",
         preview_domain="preview.example.com",
         host_env="stage",
@@ -32,6 +33,7 @@ def _policy(**overrides):
 def _env(**overrides) -> DeployEnvironment:
     values = dict(
         project="yoke",
+        deploy_namespace="yoke",
         env_name="stage",
         site_id="yoke-api",
         api_host="api.stage.example.com",
@@ -245,6 +247,34 @@ class TestExecEphemeralTeardown:
             f"rm -rf ~/yoke-ephemeral/{_SLUG}"
         )
         assert deploy_seams.calls[-1][2] == {"status": "stopped"}
+
+    def test_teardown_targets_stable_namespace_after_reparent(
+        self, deploy_seams, monkeypatch
+    ):
+        # Site re-parented to control-plane project 'yoke-next' while its
+        # stable resource namespace stays 'yoke': teardown must target the
+        # namespace-keyed compose project + deploy dir, not the project slug.
+        monkeypatch.setattr(
+            deploy_ephemeral, "load_ephemeral_policy",
+            lambda p: _policy(project="yoke-next", deploy_namespace="yoke"),
+        )
+        monkeypatch.setattr(
+            deploy_ephemeral, "resolve_deploy_environment",
+            lambda p, e: _env(project="yoke-next", deploy_namespace="yoke"),
+        )
+        runner = FakeRunner([
+            CommandResult(0, "", ""),  # compose down
+            CommandResult(0, "", ""),  # rm -rf dir
+        ])
+        rc = deploy_ephemeral.exec_ephemeral_teardown(
+            "yoke-next", branch=_SLUG, runner=runner, emit=lambda _l: None,
+        )
+        assert rc == 0
+        down = runner.calls[0]["argv"][-1]
+        assert f"docker compose -p yoke-{_SLUG} down" in down
+        assert runner.calls[1]["argv"][-1] == (
+            f"rm -rf ~/yoke-ephemeral/{_SLUG}"
+        )
 
 
 class TestRemoteHelpers:

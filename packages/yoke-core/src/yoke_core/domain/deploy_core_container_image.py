@@ -165,7 +165,7 @@ def _wait_for_prewarmed_image(
         "built). Deterministic operator fallback (builds locally): "
         "resolve the target branch SHA from an explicit source checkout, "
         "YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.cli.db_router runs "
-        f"create-run {env.project} {env.project}-{env.env_name}-release "
+        f"create-run {env.project} {env.deploy_namespace}-{env.env_name}-release "
         "--created-by operator, then YOKE_ENV=<control-plane-env>-db-admin python3 -m "
         "yoke_core.tools.watch_deploy -- <run-id> --image-tag <git-short-sha>."
     )

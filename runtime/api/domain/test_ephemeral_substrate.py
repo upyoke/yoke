@@ -75,6 +75,19 @@ class TestPolicy:
         assert policy.web_base_port == 4000  # default fills in
         assert policy.ttl_hours == 24
 
+    def test_deploy_namespace_defaults_to_project(self):
+        policy = ephemeral_policy_from_capability("yoke", _cap())
+        assert policy.deploy_namespace == "yoke"
+
+    def test_deploy_namespace_override_decouples_from_project(self):
+        # A re-parented site keeps its stable namespace even though the
+        # control-plane project slug now differs.
+        policy = ephemeral_policy_from_capability(
+            "yoke-reparented", _cap(), deploy_namespace="yoke"
+        )
+        assert policy.project == "yoke-reparented"
+        assert policy.deploy_namespace == "yoke"
+
     def test_github_push_policy_needs_no_host_env(self):
         policy = ephemeral_policy_from_capability(
             "buzz",

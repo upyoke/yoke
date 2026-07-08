@@ -13,6 +13,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
 def _with_capabilities(base: ProjectRendererSettings, capabilities: dict):
     return ProjectRendererSettings(
         project=base.project,
+        deploy_namespace=base.deploy_namespace,
         display_name=base.display_name,
         site_id=base.site_id,
         site_settings=base.site_settings,

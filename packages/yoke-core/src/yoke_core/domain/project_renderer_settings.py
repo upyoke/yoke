@@ -24,6 +24,14 @@ class ProjectRendererSettings:
     """DB snapshot used by renderer value collection."""
 
     project: str
+    # The stable namespace every deployed AWS resource is named under
+    # (``sites.settings.deploy_namespace``). Deliberately NOT the control-plane
+    # project slug: which project record orchestrates a deploy can change
+    # (re-parenting the site to another project), but the physical resources —
+    # Aurora cluster, S3 buckets, log groups, IAM roles — cannot be renamed
+    # without destroy-and-recreate, so their names must derive from this fixed
+    # value, not from ``project``.
+    deploy_namespace: str
     display_name: str
     site_id: str
     site_settings: Dict[str, Any]
@@ -222,6 +230,10 @@ def _load_project_renderer_settings(
 
     return ProjectRendererSettings(
         project=ident.slug,
+        # Defaults to the project slug — resources are named after the project
+        # unless a site explicitly overrides it (the rare case where the deploy
+        # is owned by a project whose name differs from its resource namespace).
+        deploy_namespace=_stringify(site_settings.get("deploy_namespace"), ident.slug),
         display_name=display_name,
         site_id=site_id,
         site_settings=site_settings,

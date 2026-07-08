@@ -24,6 +24,7 @@ _ENDPOINT = "stage-db.cluster-abc.us-east-1.rds.amazonaws.com"
 def _env(**overrides) -> DeployEnvironment:
     values = dict(
         project="yoke",
+        deploy_namespace="yoke",
         env_name="stage",
         site_id="yoke-api",
         api_host="api.stage.example.com",

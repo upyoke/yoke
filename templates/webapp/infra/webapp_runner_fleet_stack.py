@@ -24,7 +24,7 @@ from webapp_runner_fleet_internals import (
 class WebappRunnerFleetArgs:
     """Inputs for ``WebappRunnerFleetStack``."""
 
-    project_name: str
+    deploy_namespace: str
     github_repo: str
     runner_labels: Sequence[str]
     runner_count: int
@@ -123,10 +123,10 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             raise ValueError("runner fleet v1 supports shutdown_mode=terminate")
 
         region = aws.get_region().name
-        tags = {"project": args.project_name, "component": "github-actions"}
+        tags = {"project": args.deploy_namespace, "component": "github-actions"}
         child_opts = pulumi.ResourceOptions(parent=self)
-        prefix = f"/{args.project_name}/github-actions-runner-fleet"
-        asg_name = f"{args.project_name}-github-actions-runner-fleet"
+        prefix = f"/{args.deploy_namespace}/github-actions-runner-fleet"
+        asg_name = f"{args.deploy_namespace}-github-actions-runner-fleet"
         github_token_parameter_name = f"{prefix}/github-token"
         webhook_secret_parameter_name = f"{prefix}/webhook-secret"
 

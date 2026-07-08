@@ -19,6 +19,7 @@ from yoke_core.domain.deploy_remote import (
 def _env() -> DeployEnvironment:
     return DeployEnvironment(
         project="yoke",
+        deploy_namespace="yoke",
         env_name="prod",
         site_id="yoke-api",
         api_host="api.example.com",

@@ -97,6 +97,7 @@ def _settings_with_environments(
     )
     return ProjectRendererSettings(
         project=base.project,
+        deploy_namespace=base.deploy_namespace,
         display_name=base.display_name,
         site_id=base.site_id,
         site_settings=base.site_settings,

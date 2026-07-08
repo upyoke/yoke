@@ -20,6 +20,7 @@ _FAILED = "123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:broken456"
 def _env(**overrides) -> DeployEnvironment:
     values = dict(
         project="yoke",
+        deploy_namespace="yoke",
         env_name="prod",
         site_id="yoke-api",
         api_host="api.example.com",

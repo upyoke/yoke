@@ -67,7 +67,7 @@ class WebappInfraArgs:
 
     domain_name: str
     origin_host: str
-    project_name: str
+    deploy_namespace: str
     hosted_zone_id: str
     certificate_arn: str
     # CloudFront origin Id. Must equal the live distribution's origin Id
@@ -117,7 +117,7 @@ class WebappInfraStack(pulumi.ComponentResource):
             ),
         )
 
-        tags = {"project": args.project_name}
+        tags = {"project": args.deploy_namespace}
         child_opts = pulumi.ResourceOptions(parent=self)
 
         # --- Route 53 hosted zone (import-only) ---
@@ -148,9 +148,9 @@ class WebappInfraStack(pulumi.ComponentResource):
         # project's ops/DEPLOY runbook.
         self.www_redirect_function = aws.cloudfront.Function(
             "wwwRedirectFunction",
-            name=f"{args.project_name}-www-redirect",
+            name=f"{args.deploy_namespace}-www-redirect",
             runtime="cloudfront-js-2.0",
-            comment=f"{args.project_name}: redirect www to apex domain",
+            comment=f"{args.deploy_namespace}: redirect www to apex domain",
             code=_WWW_REDIRECT_FUNCTION_CODE,
             publish=False,
             opts=child_opts,
@@ -175,7 +175,7 @@ class WebappInfraStack(pulumi.ComponentResource):
             ],
         )
         distribution_hosting = build_distribution_hosting(
-            project_name=args.project_name,
+            deploy_namespace=args.deploy_namespace,
             distribution_bucket_name=args.distribution_bucket_name,
             distribution_origin_id=args.distribution_origin_id,
             app_origin=app_origin,
@@ -190,7 +190,7 @@ class WebappInfraStack(pulumi.ComponentResource):
             "distribution",
             enabled=True,
             is_ipv6_enabled=True,
-            comment=f"{args.project_name} CDN",
+            comment=f"{args.deploy_namespace} CDN",
             http_version="http2and3",
             aliases=[args.domain_name, f"www.{args.domain_name}"],
             origins=distribution_hosting.origins,

@@ -32,6 +32,7 @@ _BINDING = RuntimeDatabaseBinding(
 def _env(**overrides) -> DeployEnvironment:
     values = dict(
         project="yoke",
+        deploy_namespace="yoke",
         env_name="prod",
         site_id="yoke-api",
         api_host="api.example.com",

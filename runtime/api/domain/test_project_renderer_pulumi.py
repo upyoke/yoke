@@ -19,10 +19,11 @@ from yoke_core.domain.project_renderer_settings import (
 )
 
 
-# 25 keys returned by gather_values() (asserted via key-set comparison).
+# 26 keys returned by gather_values() (asserted via key-set comparison).
 _GATHER_VALUES_KEYS = {
     "project_display_name", "PROJECT_NAME_UPPER", "project_description",
-    "project_name", "cloudfront_domain", "cloudfront_id", "certificate_arn",
+    "project_name", "deploy_namespace", "cloudfront_domain", "cloudfront_id",
+    "certificate_arn",
     "hosted_zone_id", "aws_account_id", "vps_description", "domain_name",
     "origin_host", "origin_ip", "aws_region", "ssh_user", "web_port",
     "api_port", "ephemeral_ttl_hours", "web_health_path", "web_smoke_paths",
@@ -135,6 +136,7 @@ def _settings_from_context(
     )
     return ProjectRendererSettings(
         project=project,
+        deploy_namespace=project,
         display_name=base.get("project_display_name", project.title()),
         site_id=f"{project}-site",
         site_settings=site_settings,
@@ -190,7 +192,7 @@ class TestGatherPulumiValues:
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert len(result) == 48
+        assert len(result) == 49
         assert result["origin_id"] == "buzzinfraDistributionOrigin18BAD744B"
         assert result["distribution_bucket_name"] == "buzz-distribution-prod"
         assert result["domain_txt_records_json"] == "[]"

@@ -42,6 +42,10 @@ class DeployEnvironment:
     """Typed snapshot of one deployable project environment."""
 
     project: str
+    # Stable namespace every AWS resource for this deploy is named under;
+    # defaults to ``project`` unless the site overrides it (see
+    # project_renderer_settings.ProjectRendererSettings.deploy_namespace).
+    deploy_namespace: str
     env_name: str
     site_id: str
     api_host: str
@@ -82,11 +86,11 @@ class DeployEnvironment:
 
     @property
     def compose_dir(self) -> str:
-        return f"/opt/{self.project}-core"
+        return f"/opt/{self.deploy_namespace}-core"
 
     @property
     def log_group(self) -> str:
-        return f"/{self.project}/{self.env_name}/core"
+        return f"/{self.deploy_namespace}/{self.env_name}/core"
 
     @property
     def ssh_target(self) -> str:
@@ -187,6 +191,7 @@ def deploy_environment_from_settings(
 
     return DeployEnvironment(
         project=settings.project,
+        deploy_namespace=settings.deploy_namespace,
         env_name=env_name,
         site_id=settings.site_id,
         api_host=str(_require(hosts.get("api"), what="hosts.api", hint=env_hint)),

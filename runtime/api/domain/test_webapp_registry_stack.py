@@ -322,7 +322,7 @@ def _registry_stack(monkeypatch, repository_name="yoke-core"):
     stack = module.WebappRegistryStack(
         "yoke-registry",
         module.WebappRegistryArgs(
-            project_name="yoke", repository_name=repository_name,
+            deploy_namespace="yoke", repository_name=repository_name,
         ),
     )
     return recorder, stack

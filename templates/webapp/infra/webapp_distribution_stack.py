@@ -36,7 +36,7 @@ class WebappDistributionHosting:
 
 def build_distribution_hosting(
     *,
-    project_name: str,
+    deploy_namespace: str,
     distribution_bucket_name: str,
     distribution_origin_id: str,
     app_origin: object,
@@ -92,7 +92,7 @@ def build_distribution_hosting(
         # name is fixed at create time and later name drift is ignored.
         name=f"{distribution_bucket_name}-simple-index",
         runtime="cloudfront-js-2.0",
-        comment=f"{project_name}: serve index.html for PEP 503 simple/ directory URLs",
+        comment=f"{deploy_namespace}: serve index.html for PEP 503 simple/ directory URLs",
         code=_SIMPLE_INDEX_REWRITE_CODE,
         publish=True,
         opts=pulumi.ResourceOptions.merge(

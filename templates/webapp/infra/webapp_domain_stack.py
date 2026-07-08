@@ -52,7 +52,7 @@ class WebappDomainArgs:
     """Inputs for ``WebappDomainStack``."""
 
     domain_name: str
-    project_name: str
+    deploy_namespace: str
     # Existing hosted-zone id to ADOPT instead of creating a new zone. Set this
     # when the zone already exists — most importantly when the domain was
     # registered THROUGH Route 53, which auto-creates a public hosted zone the
@@ -87,7 +87,7 @@ class WebappDomainStack(pulumi.ComponentResource):
     ) -> None:
         super().__init__("webapp:infra:WebappDomainStack", name, None, opts)
 
-        tags = {"project": args.project_name}
+        tags = {"project": args.deploy_namespace}
         child_opts = pulumi.ResourceOptions(parent=self)
 
         # --- Route 53 hosted zone (create, or adopt an existing one) ---
@@ -104,7 +104,7 @@ class WebappDomainStack(pulumi.ComponentResource):
         self.hosted_zone = aws.route53.Zone(
             "hostedZone",
             name=args.domain_name,
-            comment=f"{args.project_name}: apex hosted zone (managed by webapp domain stack)",
+            comment=f"{args.deploy_namespace}: apex hosted zone (managed by webapp domain stack)",
             tags=tags,
             opts=zone_opts,
         )

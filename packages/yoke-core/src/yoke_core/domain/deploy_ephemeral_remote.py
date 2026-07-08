@@ -136,7 +136,7 @@ def ensure_preview_routing(
         remote_path="/etc/nginx/njs.d/ephemeral_port.js", mode="644",
         sudo=True, step="njs port script",
     )
-    site_name = f"{env.project}-ephemeral"
+    site_name = f"{env.deploy_namespace}-ephemeral"
     _push_or_fail(
         runner, env, content=nginx_site,
         remote_path=f"/etc/nginx/sites-available/{site_name}", mode="644",
@@ -162,18 +162,18 @@ def ensure_cleanup_cron(
     emit: Callable[[str], None],
 ) -> None:
     """Install the rendered TTL cleanup script + its cron schedule."""
-    script_path = f"/usr/local/bin/{env.project}-ephemeral-cleanup"
+    script_path = f"/usr/local/bin/{env.deploy_namespace}-ephemeral-cleanup"
     _push_or_fail(
         runner, env, content=cleanup_script, remote_path=script_path,
         mode="755", sudo=True, step="ephemeral cleanup script",
     )
     cron_line = (
         f"0 */6 * * * {env.ssh_user} sh {script_path}"
-        f" >> /tmp/{env.project}-ephemeral-cleanup.log 2>&1\n"
+        f" >> /tmp/{env.deploy_namespace}-ephemeral-cleanup.log 2>&1\n"
     )
     _push_or_fail(
         runner, env, content=cron_line,
-        remote_path=f"/etc/cron.d/{env.project}-ephemeral-cleanup",
+        remote_path=f"/etc/cron.d/{env.deploy_namespace}-ephemeral-cleanup",
         mode="644", sudo=True, step="ephemeral cleanup cron",
     )
     emit("  [ephemeral] TTL cleanup cron converged")

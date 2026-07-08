@@ -34,9 +34,15 @@ def render_webapp_template(relative: str, values: dict) -> str:
 
 
 def routing_values(policy: EphemeralPolicy) -> dict:
-    """Template values for the wildcard routing + cleanup renders."""
+    """Template values for the wildcard routing + cleanup renders.
+
+    ``project_name`` feeds the TTL cleanup script's compose-project prefix,
+    protected-project set, and ephemeral deploy directory — all host-box
+    resource names — so it carries the stable deploy namespace, not the
+    (re-parentable) control-plane project slug.
+    """
     return {
-        "project_name": policy.project,
+        "project_name": policy.deploy_namespace,
         "domain": policy.preview_domain,
         "port_base": str(policy.api_base_port),
         "port_range": str(policy.port_range),
@@ -65,7 +71,7 @@ def slug_files(
         {
             "project": policy.project,
             "slug": slug,
-            "compose_project": compose_project_name(policy.project, slug),
+            "compose_project": compose_project_name(env.deploy_namespace, slug),
             "image_ref": image_ref,
             "api_port": str(api_port),
             "container_port": str(env.api_port),

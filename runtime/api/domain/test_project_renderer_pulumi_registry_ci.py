@@ -97,7 +97,7 @@ class TestRegistryTemplateRender:
         rendered = render_pulumi_stack_yaml(template, {
             "aws_region": "us-east-1",
             "aws_account_id": "123456789012",
-            "project_name": "acme",
+            "deploy_namespace": "acme",
             "repository_name": "acme-core",
             "github_repo_slug": "acme-org/acme",
             "manage_github_oidc_provider": "true",

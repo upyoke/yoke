@@ -24,13 +24,13 @@ if _PROJECT_DIR not in sys.path:
 import pulumi
 
 
-def _infra_args_from_config(project_name: str):
+def _infra_args_from_config(deploy_namespace: str):
     from webapp_infra_stack import WebappInfraArgs
     config = pulumi.Config()
     return WebappInfraArgs(
         domain_name=config.require("domain_name"),
         origin_host=config.require("origin_host"),
-        project_name=project_name,
+        deploy_namespace=deploy_namespace,
         hosted_zone_id=config.require("hosted_zone_id"),
         certificate_arn=config.get("certificate_arn") or "",
         origin_id=config.require("origin_id"),
@@ -44,11 +44,11 @@ def _infra_args_from_config(project_name: str):
     )
 
 
-def _vps_args_from_config(project_name: str):
+def _vps_args_from_config(deploy_namespace: str):
     from webapp_vps_stack import WebappVpsArgs
     config = pulumi.Config()
     return WebappVpsArgs(
-        project_name=project_name,
+        deploy_namespace=deploy_namespace,
         instance_type=config.require("vps_instance_type"),
         root_volume_gb=config.require_int("vps_root_volume_gb"),
         ssh_key_name=config.require("vps_ssh_key_name"),
@@ -56,12 +56,12 @@ def _vps_args_from_config(project_name: str):
     )
 
 
-def _domain_args_from_config(project_name: str):
+def _domain_args_from_config(deploy_namespace: str):
     from webapp_domain_stack import WebappDomainArgs
     config = pulumi.Config()
     return WebappDomainArgs(
         domain_name=config.require("domain_name"),
-        project_name=project_name,
+        deploy_namespace=deploy_namespace,
         # Optional: adopt an existing zone (e.g. one Route 53 auto-created on
         # domain registration) instead of creating a duplicate. Empty = create.
         import_zone_id=config.get("import_zone_id") or "",
@@ -183,15 +183,15 @@ def _domain_mx_records_from_config(config):
     return tuple(parsed)
 
 
-def _registry_args_from_config(project_name: str):
+def _registry_args_from_config(deploy_namespace: str):
     from webapp_registry_stack import WebappRegistryArgs
     config = pulumi.Config()
     manage_provider = config.get_bool("manage_github_oidc_provider")
     return WebappRegistryArgs(
-        project_name=project_name,
+        deploy_namespace=deploy_namespace,
         # Optional: defaults to the project's core repository name so a bare
         # registry stack config needs no extra key.
-        repository_name=config.get("repository_name") or f"{project_name}-core",
+        repository_name=config.get("repository_name") or f"{deploy_namespace}-core",
         # Optional: empty renders the registry without GitHub CI federation.
         github_repo=config.get("github_repo") or "",
         # Optional: exactly one project per AWS account creates the
@@ -203,12 +203,12 @@ def _registry_args_from_config(project_name: str):
     )
 
 
-def _runner_fleet_args_from_config(project_name: str):
+def _runner_fleet_args_from_config(deploy_namespace: str):
     from webapp_runner_fleet_stack import WebappRunnerFleetArgs
     config = pulumi.Config()
     labels = json.loads(config.require("runner_labels"))
     return WebappRunnerFleetArgs(
-        project_name=project_name,
+        deploy_namespace=deploy_namespace,
         github_repo=config.require("github_repo"),
         runner_labels=[str(label) for label in labels],
         runner_count=config.require_int("runner_count"),
@@ -221,13 +221,13 @@ def _runner_fleet_args_from_config(project_name: str):
     )
 
 
-def _environment_args_from_config(project_name: str, stack_name: str):
+def _environment_args_from_config(deploy_namespace: str, stack_name: str):
     from webapp_database_stack import DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
     from webapp_environment_stack import WebappEnvironmentArgs
     config = pulumi.Config()
     seconds_until_auto_pause = config.get_int("database_seconds_until_auto_pause")
     return WebappEnvironmentArgs(
-        project_name=project_name,
+        deploy_namespace=deploy_namespace,
         environment=config.require("environment"),
         stack_name=stack_name,
         domain_name=config.require("domain_name"),
@@ -261,28 +261,28 @@ def _environment_args_from_config(project_name: str, stack_name: str):
 def main() -> None:
     stack = pulumi.get_stack()
     config = pulumi.Config()
-    project_name = config.require("project_name")
+    deploy_namespace = config.require("deploy_namespace")
     stack_kind = config.get("stack_kind") or ""
 
     if stack_kind == "environment":
         from webapp_environment_stack import WebappEnvironmentStack
-        WebappEnvironmentStack(stack, _environment_args_from_config(project_name, stack))
+        WebappEnvironmentStack(stack, _environment_args_from_config(deploy_namespace, stack))
     elif stack.endswith("-infra"):
         from webapp_infra_stack import WebappInfraStack
-        WebappInfraStack(stack, _infra_args_from_config(project_name))
+        WebappInfraStack(stack, _infra_args_from_config(deploy_namespace))
     elif stack.endswith("-vps"):
         from webapp_vps_stack import WebappVpsStack
-        WebappVpsStack(stack, _vps_args_from_config(project_name))
+        WebappVpsStack(stack, _vps_args_from_config(deploy_namespace))
     elif stack.endswith("-domain"):
         from webapp_domain_stack import WebappDomainStack
-        WebappDomainStack(stack, _domain_args_from_config(project_name))
+        WebappDomainStack(stack, _domain_args_from_config(deploy_namespace))
     elif stack.endswith("-registry"):
         from webapp_registry_stack import WebappRegistryStack
-        WebappRegistryStack(stack, _registry_args_from_config(project_name))
+        WebappRegistryStack(stack, _registry_args_from_config(deploy_namespace))
     elif stack.endswith("-runner-fleet"):
         from webapp_runner_fleet_stack import WebappRunnerFleetStack
         WebappRunnerFleetStack(
-            stack, _runner_fleet_args_from_config(project_name),
+            stack, _runner_fleet_args_from_config(deploy_namespace),
         )
     else:
         raise pulumi.RunError(

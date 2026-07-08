@@ -43,6 +43,7 @@ def _sample_settings() -> ProjectRendererSettings:
     )
     return ProjectRendererSettings(
         project="acme",
+        deploy_namespace="acme",
         display_name="Acme",
         site_id="acme-api",
         site_settings={

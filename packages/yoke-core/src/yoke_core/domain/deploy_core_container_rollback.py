@@ -46,7 +46,7 @@ def capture_running_image_ref(
         runner,
         env,
         "docker inspect --format '{{.Config.Image}}' "
-        f"{env.project}-core",
+        f"{env.deploy_namespace}-core",
         timeout=30,
     )
     ref = (probe.stdout or "").strip()
@@ -113,10 +113,10 @@ def attempt_rollback(
             )
         else:
             compose_pull_up(runner, env, emit)
-            wait_container_healthy(runner, env, f"{env.project}-core", emit)
+            wait_container_healthy(runner, env, f"{env.deploy_namespace}-core", emit)
             healthy = True
             emit(
-                f"  [core-deploy] rolled back: {env.project}-core running "
+                f"  [core-deploy] rolled back: {env.deploy_namespace}-core running "
                 f"{prior_image_ref} again (the deploy itself still FAILED)"
             )
     except RemoteConvergenceError as exc:

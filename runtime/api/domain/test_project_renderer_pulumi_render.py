@@ -25,6 +25,7 @@ def _settings_with_pulumi_state(
     )
     return ProjectRendererSettings(
         project=project,
+        deploy_namespace=project,
         display_name=project.title(),
         site_id=f"{project}-site",
         site_settings={},

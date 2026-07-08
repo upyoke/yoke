@@ -25,6 +25,7 @@ def test_project_level_stack_state_renders_from_site_settings():
     }
     settings = ProjectRendererSettings(
         project=base.project,
+        deploy_namespace=base.deploy_namespace,
         display_name=base.display_name,
         site_id=base.site_id,
         site_settings=site_settings,

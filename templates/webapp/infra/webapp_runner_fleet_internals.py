@@ -69,7 +69,7 @@ def _user_data(
     script = f"""#!/bin/bash
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-PROJECT={json.dumps(args.project_name)}
+PROJECT={json.dumps(args.deploy_namespace)}
 REGION={json.dumps(region)}
 GITHUB_REPO={json.dumps(args.github_repo)}
 RUNNER_LABELS={json.dumps(labels_csv)}

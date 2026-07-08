@@ -28,7 +28,7 @@ def _runner_stack(monkeypatch, *, shutdown_mode="terminate"):
     stack = module.WebappRunnerFleetStack(
         "yoke-runner-fleet",
         module.WebappRunnerFleetArgs(
-            project_name="yoke",
+            deploy_namespace="yoke",
             github_repo="upyoke/yoke",
             runner_labels=[
                 "self-hosted", "Linux", "ARM64", "yoke-github-actions",

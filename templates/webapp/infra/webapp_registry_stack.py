@@ -47,7 +47,7 @@ import pulumi_aws as aws
 class WebappRegistryArgs:
     """Inputs for ``WebappRegistryStack``."""
 
-    project_name: str
+    deploy_namespace: str
     # Full repository name (e.g. ``"yoke-core"``). The caller composes it;
     # no template-level default so the rendered config stays explicit.
     repository_name: str
@@ -147,7 +147,7 @@ class WebappRegistryStack(pulumi.ComponentResource):
     ) -> None:
         super().__init__("webapp:infra:WebappRegistryStack", name, None, opts)
 
-        tags = {"project": args.project_name}
+        tags = {"project": args.deploy_namespace}
         child_opts = pulumi.ResourceOptions(parent=self)
 
         # --- ECR repository ---
@@ -223,7 +223,7 @@ class WebappRegistryStack(pulumi.ComponentResource):
 
         self.ci_role = aws.iam.Role(
             "githubActionsCiRole",
-            name=f"{args.project_name}-ci-github",
+            name=f"{args.deploy_namespace}-ci-github",
             description=(
                 f"GitHub Actions CI for {args.github_repo} "
                 "(Pulumi preview/apply + ECR push; short-lived OIDC sessions)"

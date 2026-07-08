@@ -18,7 +18,8 @@ from yoke_core.domain.ephemeral_substrate import (
 
 def _policy(trigger="github-push", preview_domain="buzzabuzz.com"):
     return EphemeralPolicy(
-        project="buzz", trigger=trigger, preview_domain=preview_domain,
+        project="buzz", deploy_namespace="buzz", trigger=trigger,
+        preview_domain=preview_domain,
         host_env="production", api_base_port=9000, web_base_port=4000,
         port_range=100, ttl_hours=24,
     )

@@ -89,7 +89,7 @@ def _environment_stack(monkeypatch, **arg_overrides):
         extra_modules=_fake_sibling_modules(recorder),
     )
     kwargs = dict(
-        project_name="yoke",
+        deploy_namespace="yoke",
         environment="prod",
         stack_name="yoke-prod",
         domain_name="example.com",
@@ -316,7 +316,7 @@ def _vps_stack(monkeypatch, **arg_overrides):
     recorder = _Recorder()
     module = _load_template_module(monkeypatch, recorder, "webapp_vps_stack.py")
     kwargs = dict(
-        project_name="buzz",
+        deploy_namespace="buzz",
         instance_type="t4g.medium",
         root_volume_gb=40,
         ssh_key_name="buzz-key",

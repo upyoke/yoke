@@ -129,7 +129,7 @@ def test_rotation_guard_update_and_delete_semantics(monkeypatch):
 def test_auto_pause_default_and_validation(monkeypatch):
     module = _load_database_stack_module(monkeypatch)
     args = module.WebappDatabaseArgs(
-        project_name="yoke",
+        deploy_namespace="yoke",
         environment="prod",
         database_name="yoke_prod",
         master_username="yoke_admin",

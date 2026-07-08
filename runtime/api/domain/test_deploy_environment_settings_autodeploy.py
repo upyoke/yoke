@@ -23,6 +23,7 @@ from yoke_core.domain.project_renderer_settings import (
 def _settings(environments=()) -> ProjectRendererSettings:
     return ProjectRendererSettings(
         project="yoke",
+        deploy_namespace="yoke",
         display_name="Yoke",
         site_id="yoke-api",
         site_settings={},

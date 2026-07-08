@@ -101,6 +101,10 @@ def _values_from_settings(
         "PROJECT_NAME_UPPER": project_name.upper(),
         "project_description": "",
         "project_name": project_name,
+        # Stable AWS-resource naming input (defaults to the project slug). The
+        # pulumi stacks name every resource under this, NOT the live project
+        # slug, so a re-parent to a differently-named project renames nothing.
+        "deploy_namespace": settings.deploy_namespace,
         "cloudfront_domain": cloudfront_domain,
         "cloudfront_id": cloudfront_id,
         "certificate_arn": _stringify(domain_entry.get("certificate_arn"), "TODO"),

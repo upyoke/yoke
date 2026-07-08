@@ -69,20 +69,27 @@ def gather_pulumi_values(
     values["domain_mx_records_json"] = _domain_mx_records_json(data)
 
     # Pulumi-specific keys with computed defaults when fields are missing.
+    # Named under the deploy namespace (defaults to the project slug), never
+    # the live project slug — so a resource keeps its name when the site is
+    # re-parented to a differently-named project.
+    # ``deploy_namespace`` (the stack config naming input) is set in the base
+    # values dict by _values_from_settings; here it just seeds the computed
+    # stack-name / bucket / KMS defaults below.
+    ns = settings.deploy_namespace
     values["kms_key_alias"] = _stringify(
-        data.get("kmsKeyAlias"), f"alias/{project}-pulumi-state"
+        data.get("kmsKeyAlias"), f"alias/{ns}-pulumi-state"
     )
     values["state_bucket"] = _stringify(
-        data.get("stateBucket"), f"{project}-pulumi-state"
+        data.get("stateBucket"), f"{ns}-pulumi-state"
     )
     values["pulumi_infra_stack_name"] = _stringify(
-        data.get("pulumiInfraStackName"), f"{project}-infra"
+        data.get("pulumiInfraStackName"), f"{ns}-infra"
     )
     values["pulumi_vps_stack_name"] = _stringify(
-        data.get("pulumiVpsStackName"), f"{project}-vps"
+        data.get("pulumiVpsStackName"), f"{ns}-vps"
     )
     values["pulumi_runner_fleet_stack_name"] = _stringify(
-        data.get("pulumiRunnerFleetStackName"), f"{project}-runner-fleet"
+        data.get("pulumiRunnerFleetStackName"), f"{ns}-runner-fleet"
     )
 
     # GitHub CI OIDC keys (registry stack template). The repo slug comes
@@ -237,7 +244,7 @@ def render_pulumi_artifacts(
         stack_key = stack_type.replace("-", "_")
         stack_name = (
             values.get(f"pulumi_{stack_key}_stack_name")
-            or f"{project}-{stack_type}"
+            or f"{settings.deploy_namespace}-{stack_type}"
         )
         stack_template = infra_src / config_tmpl_name
         if stack_template.is_file():
@@ -268,7 +275,7 @@ def render_pulumi_artifacts(
                 stack_values = dict(values)
                 stack_values["repository_name"] = (
                     str(context.get("containerRepositoryName", "") or "")
-                    or f"{project}-core"
+                    or f"{settings.deploy_namespace}-core"
                 )
             elif stack_type == "infra" and domain_stack_owns_domain_records:
                 stack_values = dict(values)

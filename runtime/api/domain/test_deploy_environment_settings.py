@@ -21,6 +21,7 @@ def _settings(
 ) -> ProjectRendererSettings:
     return ProjectRendererSettings(
         project="yoke",
+        deploy_namespace="yoke",
         display_name="Yoke",
         site_id="yoke-api",
         site_settings={},

@@ -105,6 +105,13 @@ class EphemeralPolicy:
     """Typed snapshot of one project's ephemeral-env capability."""
 
     project: str
+    # Stable namespace every host-box preview resource is named under —
+    # the per-slug compose project, deploy directory, wildcard nginx site,
+    # and TTL cleanup cron. Defaults to ``project`` but derives from
+    # ``sites.settings.deploy_namespace`` so a re-parent (the site moving to
+    # a differently-named project) does not strand or collide those
+    # resources, which cannot be renamed without destroy-and-recreate.
+    deploy_namespace: str
     trigger: str
     preview_domain: str
     host_env: str
@@ -120,8 +127,15 @@ class EphemeralPolicy:
         return derive_port(slug, self.web_base_port, self.port_range)
 
 
-def ephemeral_policy_from_capability(project: str, cap: object) -> EphemeralPolicy:
-    """Build the typed policy from a raw capability settings mapping."""
+def ephemeral_policy_from_capability(
+    project: str, cap: object, deploy_namespace: str = ""
+) -> EphemeralPolicy:
+    """Build the typed policy from a raw capability settings mapping.
+
+    *deploy_namespace* is the stable resource namespace previews are named
+    under; it falls back to *project* when the caller does not supply the
+    site-configured value (``load_ephemeral_policy`` passes it in).
+    """
     hint = _CAPABILITY_HINT.format(project=project)
     if not isinstance(cap, dict) or not cap:
         raise EphemeralPolicyError(
@@ -149,6 +163,7 @@ def ephemeral_policy_from_capability(project: str, cap: object) -> EphemeralPoli
         )
     return EphemeralPolicy(
         project=project,
+        deploy_namespace=deploy_namespace or project,
         trigger=trigger,
         preview_domain=preview_domain,
         host_env=host_env,
@@ -167,5 +182,6 @@ def load_ephemeral_policy(project: str) -> EphemeralPolicy:
 
     settings = load_project_renderer_settings(project)
     return ephemeral_policy_from_capability(
-        settings.project, settings.capabilities.get(_CAPABILITY)
+        settings.project, settings.capabilities.get(_CAPABILITY),
+        deploy_namespace=settings.deploy_namespace,
     )

@@ -34,6 +34,7 @@ def snapshot_from_settings(settings: ProjectRendererSettings) -> Dict[str, Any]:
     """Project a settings value into its JSON-serializable snapshot."""
     return {
         "project": settings.project,
+        "deploy_namespace": settings.deploy_namespace,
         "display_name": settings.display_name,
         "site_id": settings.site_id,
         "site_settings": settings.site_settings,
@@ -74,6 +75,7 @@ def settings_from_snapshot(snapshot: Mapping[str, Any]) -> ProjectRendererSettin
     site_settings = snapshot.get("site_settings")
     return ProjectRendererSettings(
         project=project,
+        deploy_namespace=str(snapshot.get("deploy_namespace") or project),
         display_name=str(snapshot.get("display_name") or project),
         site_id=str(snapshot.get("site_id") or ""),
         site_settings=dict(site_settings) if isinstance(site_settings, Mapping) else {},

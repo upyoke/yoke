@@ -145,7 +145,7 @@ def exec_ephemeral_deploy(
         slug = slugify_branch(branch)
         api_port = policy.api_port_for(slug)
         url = preview_url(slug, policy.preview_domain)
-        deploy_dir = ephemeral_deploy_dir(policy.project, slug)
+        deploy_dir = ephemeral_deploy_dir(env.deploy_namespace, slug)
         emit(
             f"  [ephemeral] target {policy.project}/{slug} on host env "
             f"{policy.host_env} ({env.origin_host}, port {api_port})"
@@ -193,7 +193,7 @@ def exec_ephemeral_deploy(
         compose_bootstrap_and_up(runner, env, deploy_dir, emit)
         wait_container_healthy(
             runner, env,
-            f"{compose_project_name(policy.project, slug)}-core", emit,
+            f"{compose_project_name(env.deploy_namespace, slug)}-core", emit,
         )
 
         verify_slug_health(
@@ -250,8 +250,8 @@ def exec_ephemeral_teardown(
         slug = slugify_branch(branch)
         teardown_slug_project(
             runner, env,
-            ephemeral_deploy_dir(policy.project, slug),
-            compose_project_name(policy.project, slug),
+            ephemeral_deploy_dir(env.deploy_namespace, slug),
+            compose_project_name(env.deploy_namespace, slug),
             emit,
         )
         track(policy.project, branch, {"status": "stopped"})

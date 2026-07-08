@@ -44,7 +44,7 @@ def _ami_arch_for_instance(instance_type: str) -> str:
 class WebappVpsArgs:
     """Inputs for ``WebappVpsStack``."""
 
-    project_name: str
+    deploy_namespace: str
     instance_type: str
     root_volume_gb: int
     ssh_key_name: str
@@ -92,7 +92,7 @@ class WebappVpsStack(pulumi.ComponentResource):
             ),
         )
 
-        tags = {"project": args.project_name}
+        tags = {"project": args.deploy_namespace}
         if args.environment:
             # Env-composed VPS instances carry the cost-allocation
             # environment tag; standalone -vps stacks render unchanged.
@@ -107,7 +107,7 @@ class WebappVpsStack(pulumi.ComponentResource):
         self.security_group = aws.ec2.SecurityGroup(
             "vpsSecurityGroup",
             vpc_id=default_vpc.id,
-            description=f"{args.project_name} VPS - public web + SSH",
+            description=f"{args.deploy_namespace} VPS - public web + SSH",
             ingress=[
                 aws.ec2.SecurityGroupIngressArgs(
                     description="SSH from anywhere",

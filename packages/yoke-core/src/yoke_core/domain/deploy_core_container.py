@@ -223,7 +223,7 @@ def render_service_files(
     values = {
         "project": env.project,
         "env_name": env.env_name,
-        "container_name": f"{env.project}-core",
+        "container_name": f"{env.deploy_namespace}-core",
         "image_ref": image_ref,
         "api_port": str(env.api_port),
         "container_port": str(env.api_port),
@@ -309,7 +309,7 @@ def exec_core_container_deploy(
         prior_image_ref = capture_running_image_ref(runner, env, emit)
         compose_up(runner, env, emit)
         try:
-            wait_container_healthy(runner, env, f"{env.project}-core", emit)
+            wait_container_healthy(runner, env, f"{env.deploy_namespace}-core", emit)
             request_id = str(uuid.uuid4())
             verify_origin_health(runner, env, request_id, emit)
         except RemoteConvergenceError:

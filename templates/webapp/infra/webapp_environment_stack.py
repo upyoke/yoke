@@ -118,7 +118,7 @@ def _origin_role_policy_json(
 
 @dataclass
 class WebappEnvironmentArgs:
-    project_name: str
+    deploy_namespace: str
     environment: str
     stack_name: str
     domain_name: str
@@ -139,7 +139,7 @@ class WebappEnvironmentArgs:
     distribution_origin_id: str = ""
     database_seconds_until_auto_pause: int = DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
     # Name of the project's shared ECR repository the origin pulls images
-    # from. Empty (default) composes ``f"{project_name}-core"`` — the same
+    # from. Empty (default) composes ``f"{deploy_namespace}-core"`` — the same
     # default the registry stack's config applies.
     container_repository_name: str = ""
     # Wildcard preview domain for ephemeral environments hosted on this
@@ -170,7 +170,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
 
         # Cost-allocation tags: project + environment on every env-bound
         # resource (the shared registry stack stays project-only).
-        tags = {"project": args.project_name, "environment": args.environment}
+        tags = {"project": args.deploy_namespace, "environment": args.environment}
         child_opts = pulumi.ResourceOptions(parent=self)
         default_vpc = aws.ec2.get_vpc(default=True)
         default_subnets = aws.ec2.get_subnets(
@@ -183,13 +183,13 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
         )
 
         container_repository_name = (
-            args.container_repository_name or f"{args.project_name}-core"
+            args.container_repository_name or f"{args.deploy_namespace}-core"
         )
 
         # --- Origin runtime substrate: log group + ECR-pull/logs role ---
         self.core_log_group = aws.cloudwatch.LogGroup(
             "coreLogGroup",
-            name=f"/{args.project_name}/{args.environment}/core",
+            name=f"/{args.deploy_namespace}/{args.environment}/core",
             retention_in_days=30,
             tags=tags,
             opts=child_opts,
@@ -199,7 +199,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
         # Private, deterministic name (recorded into environments.settings
         # .artifacts.bucket so the qa.artifact.presign resolver finds it),
         # 365-day expiry: run evidence is operational, not an archive.
-        artifacts_bucket_name = f"{args.project_name}-{args.environment}-artifacts"
+        artifacts_bucket_name = f"{args.deploy_namespace}-{args.environment}-artifacts"
         self.artifacts_bucket = aws.s3.BucketV2(
             "artifactsBucket",
             bucket=artifacts_bucket_name,
@@ -274,7 +274,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
         self.vps = WebappVpsStack(
             "vps",
             WebappVpsArgs(
-                project_name=args.project_name,
+                deploy_namespace=args.deploy_namespace,
                 environment=args.environment,
                 instance_type=args.vps_instance_type,
                 root_volume_gb=args.vps_root_volume_gb,
@@ -288,7 +288,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
         self.database = WebappDatabaseStack(
             "database",
             WebappDatabaseArgs(
-                project_name=args.project_name,
+                deploy_namespace=args.deploy_namespace,
                 environment=args.environment,
                 database_name=args.database_name,
                 master_username=args.database_master_username,
@@ -325,7 +325,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
         self.api = WebappApiStack(
             "api",
             WebappApiArgs(
-                project_name=args.project_name,
+                deploy_namespace=args.deploy_namespace,
                 environment=args.environment,
                 domain_name=args.domain_name,
                 api_host=args.api_host,

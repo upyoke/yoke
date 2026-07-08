@@ -112,6 +112,7 @@ class TestProjectRendererSettingsLoader:
 def _settings_with_ephemeral(ephemeral: dict) -> ProjectRendererSettings:
     return ProjectRendererSettings(
         project="buzz",
+        deploy_namespace="buzz",
         display_name="Buzz",
         site_id="buzz-web",
         site_settings={},

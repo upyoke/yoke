@@ -35,7 +35,7 @@ _IDENTIFIER_CLEANUP_RE = re.compile(r"[^a-z0-9-]+")
 class WebappDatabaseArgs:
     """Inputs for ``WebappDatabaseStack``."""
 
-    project_name: str
+    deploy_namespace: str
     environment: str
     database_name: str
     master_username: str
@@ -203,13 +203,13 @@ class WebappDatabaseStack(pulumi.ComponentResource):
         _validate_args(args)
 
         tags = {
-            "project": args.project_name,
+            "project": args.deploy_namespace,
             "environment": args.environment,
         }
         child_opts = pulumi.ResourceOptions(parent=self)
-        cluster_identifier = _aws_identifier(args.project_name, args.environment, "aurora")
+        cluster_identifier = _aws_identifier(args.deploy_namespace, args.environment, "aurora")
         subnet_group_name = _aws_identifier(
-            args.project_name,
+            args.deploy_namespace,
             args.environment,
             "aurora-subnets",
         )
@@ -217,7 +217,7 @@ class WebappDatabaseStack(pulumi.ComponentResource):
         final_snapshot_identifier = None
         if is_prod:
             final_snapshot_identifier = _aws_identifier(
-                args.project_name,
+                args.deploy_namespace,
                 args.environment,
                 "aurora-final",
                 max_length=255,
@@ -234,7 +234,7 @@ class WebappDatabaseStack(pulumi.ComponentResource):
         self.security_group = aws.ec2.SecurityGroup(
             "databaseSecurityGroup",
             vpc_id=args.vpc_id,
-            description=f"{args.project_name} {args.environment} Aurora PostgreSQL",
+            description=f"{args.deploy_namespace} {args.environment} Aurora PostgreSQL",
             ingress=[
                 aws.ec2.SecurityGroupIngressArgs(
                     description="PostgreSQL from caller-provided origin security groups",

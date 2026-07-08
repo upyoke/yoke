@@ -16,7 +16,7 @@ _ALL_VIEWER_ORIGIN_REQUEST_POLICY_ID = "216adef6-5c7f-47e4-b989-5492eafa07d3"
 
 @dataclass
 class WebappApiArgs:
-    project_name: str
+    deploy_namespace: str
     environment: str
     domain_name: str
     api_host: str
@@ -55,11 +55,11 @@ class WebappApiStack(pulumi.ComponentResource):
         super().__init__("webapp:infra:WebappApiStack", name, None, opts)
 
         tags = {
-            "project": args.project_name,
+            "project": args.deploy_namespace,
             "environment": args.environment,
         }
         child_opts = pulumi.ResourceOptions(parent=self)
-        origin_id = f"{args.project_name}-{args.environment}-api-origin"
+        origin_id = f"{args.deploy_namespace}-{args.environment}-api-origin"
 
         aws.route53.get_zone(zone_id=args.hosted_zone_id)
         self.certificate = aws.acm.Certificate(
@@ -131,11 +131,11 @@ class WebappApiStack(pulumi.ComponentResource):
         from webapp_distribution_stack import build_distribution_hosting
 
         distribution_hosting = build_distribution_hosting(
-            project_name=args.project_name,
+            deploy_namespace=args.deploy_namespace,
             distribution_bucket_name=args.distribution_bucket_name,
             distribution_origin_id=(
                 args.distribution_origin_id
-                or f"{args.project_name}-{args.environment}-distribution-static"
+                or f"{args.deploy_namespace}-{args.environment}-distribution-static"
             ),
             app_origin=app_origin,
             tags=tags,
@@ -148,7 +148,7 @@ class WebappApiStack(pulumi.ComponentResource):
             "apiDistribution",
             enabled=True,
             is_ipv6_enabled=True,
-            comment=f"{args.project_name} {args.environment} API edge",
+            comment=f"{args.deploy_namespace} {args.environment} API edge",
             aliases=[args.api_host],
             origins=distribution_hosting.origins,
             default_cache_behavior=aws.cloudfront.DistributionDefaultCacheBehaviorArgs(

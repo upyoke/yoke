@@ -138,7 +138,7 @@ def ensure_nginx_site(
     emit: Callable[[str], None],
 ) -> None:
     """Install the origin nginx site and reload nginx."""
-    site_name = f"{env.project}-core.conf"
+    site_name = f"{env.deploy_namespace}-core.conf"
     push = push_remote_file(
         runner,
         env,
