@@ -5,13 +5,15 @@ project's strategy documents, keyed ``(project_id, slug)`` — a project's
 corpus is exactly its rows, with no global slug canon (cold starts mint
 the :data:`yoke_core.domain.strategy_docs_defaults.DEFAULT_STRATEGY_DOC_SLUGS`
 placeholders). Each project's ``.yoke/strategy/`` directory holds
-**gitignored local rendered caches** — the seeded ``.yoke/.gitignore``
-``strategy/`` rule keeps the whole subtree out of git, so the DB is the
-sole durable authority: :func:`render_docs` is the only writer of those
-files, and reads always come from the DB. The directory location
-resolves through :mod:`yoke_core.domain.strategy_docs_paths` (the future
-per-project override seam), which also routes archived docs one level
-down into ``.yoke/strategy/archive/``.
+**gitignored local rendered views** — the ``.yoke/BOARD.md`` precedent,
+NOT the tracked ``docs/atlas.md`` one: the files are regenerated caches
+(the DB is the revision store), :func:`render_docs` is the only writer of
+those files, and reads always come from the DB. The seeded
+``.yoke/.gitignore`` ``strategy/`` rule keeps the whole subtree out of
+git. The directory location resolves through
+:mod:`yoke_core.domain.strategy_docs_paths` (the future per-project
+override seam), which also routes archived docs one level down into
+``.yoke/strategy/archive/``.
 
 Each rendered file begins with the idempotent strategy-doc header (slug,
 row ``updated_at``, content sha256, and DB-is-authoritative notice).

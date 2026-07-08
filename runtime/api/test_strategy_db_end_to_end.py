@@ -10,15 +10,13 @@ renders land in a real git checkout, ingest CAS round-trips against
 real files, the claim interplay (replace claim-gated, ingest
 foreign-claim-bounced) plays out across two sessions, real
 ``StrategyDocReplaced`` events land in the events table with their
-``source`` markers, the matches-the-master commit rule authorizes a
-real staged index, and the staleness HC closes the loop.
+``source`` markers, and the staleness HC closes the loop.
 """
 
 from __future__ import annotations
 
 import io
 import json
-import os
 import subprocess
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -37,10 +35,7 @@ from yoke_core.domain.handlers._strategy_docs_test_helpers import (
     seed_session,
 )
 from yoke_core.domain.strategy_docs_header import parse_file_text
-from yoke_core.domain.strategy_docs_paths import (
-    strategy_view_path,
-    strategy_view_rel_path,
-)
+from yoke_core.domain.strategy_docs_paths import strategy_view_path
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
@@ -261,35 +256,7 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
     assert landed["success"] is True
     assert "\nX.\n" in _row(db, "MISSION")["content"]
 
-    # 10. Matches-the-master commit rule against the real index: fresh
-    #     renders authorize; a tampered staged copy does not. The temp
-    #     checkout is not in machine config, so the repo→project seam
-    #     is pinned to the seeded project.
-    from yoke_core.domain import lint_main_commit_process_claims as lint
-
-    rc, _, _ = _cli("strategy", "render", "--target-root", root)
-    assert rc == 0
-    old_cwd = os.getcwd()
-    os.chdir(checkout)
-    try:
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(lint, "_commit_repo_project_context", lambda: str(PROJECT))
-            subprocess.run(
-                ["git", "add", ".yoke/strategy/"],
-                check=True, cwd=checkout, timeout=10,
-            )
-            all_paths = [strategy_view_rel_path(s) for s in CORPUS_SLUGS]
-            assert lint.is_strategy_commit_authorized(all_paths) is True
-            _edit_body(checkout, "WISPS", "tampered after render\n")
-            subprocess.run(
-                ["git", "add", strategy_view_rel_path("WISPS")],
-                check=True, cwd=checkout, timeout=10,
-            )
-            assert lint.is_strategy_commit_authorized(all_paths) is False
-    finally:
-        os.chdir(old_cwd)
-
-    # 11. Staleness HC closes the loop: fresh views PASS; a DB write
+    # 10. Staleness HC closes the loop: fresh views PASS; a DB write
     #     without re-render WARNs naming the doc.
     from yoke_core.engines import doctor_hc_strategy_render_staleness as hc
 

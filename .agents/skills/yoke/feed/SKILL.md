@@ -85,7 +85,7 @@ If the response carries `error.code="claim_conflict"`, print:
 
 Then abort before `FeedStarted` or any phase dispatch.
 
-No path claims are registered — the strategy authority is the per-project Yoke DB `strategy_docs` table (the checkout's `.yoke/strategy/*.md` files are tracked rendered views), and holding the project's FEED process claim is what authorizes any `strategy.doc.replace` writes this run makes while bouncing `yoke strategy ingest` from other sessions.
+No path claims are registered — the strategy authority is the per-project Yoke DB `strategy_docs` table (the checkout's `.yoke/strategy/*.md` files are gitignored local rendered views), and holding the project's FEED process claim is what authorizes any `strategy.doc.replace` writes this run makes while bouncing `yoke strategy ingest` from other sessions.
 
 To release on abort:
 

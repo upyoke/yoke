@@ -149,7 +149,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke github-actions variable get", "github_actions"),
     _w("yoke github-actions variable set", "github_actions"),
     # Per-project DB-authoritative strategy docs; each project's
-    # .yoke/strategy/ is a tracked rendered view written only by
+    # .yoke/strategy/ is a gitignored local rendered view written only by
     # `yoke strategy render`, with operator edits written back via
     # `yoke strategy ingest` (CAS), brand-new slugs created by
     # `yoke strategy doc create`, and cold starts minted by

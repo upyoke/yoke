@@ -45,7 +45,7 @@ Read the output and fold it into the rest of the landscape analysis:
 
 If the validator prints `No concrete frontier or prerequisite-prose contradictions detected`, the plan is coherent with live state on those two specific axes — still scan narratively for the other drift categories above.
 
-The validator is read-only and never mutates the plan. It reads the local rendered view at `.yoke/strategy/MASTER-PLAN.md` (a gitignored cache of the DB row); if `HC-strategy-render-staleness` has flagged stale views, run `yoke strategy render --target-root "$REPO_ROOT"` first so the validator sees the DB authority's current content. Any edits to `MASTER-PLAN.md` still flow through the propose and approve phases as with any other SML change.
+The validator is read-only and never mutates the plan. It reads the local rendered view at `.yoke/strategy/MASTER-PLAN.md` (a gitignored cache that `yoke strategy doc replace` re-renders on each write); if `HC-strategy-render-staleness` has flagged stale views, run `yoke strategy render --target-root "$REPO_ROOT"` first so the validator sees the DB authority's current content. Any edits to `MASTER-PLAN.md` still flow through the propose and approve phases as with any other SML change.
 
 ### 1b. Missing Context
 

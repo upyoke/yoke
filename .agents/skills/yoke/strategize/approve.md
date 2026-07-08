@@ -1,6 +1,6 @@
 # Approve
 
-Write approved SML changes to the DB authority (which re-renders the gitignored local views — there is no commit), check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
+Write approved SML changes to the DB authority (which re-renders the gitignored local `.yoke/strategy/` views; there is no commit), check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This phase receives inline context from the Propose phase (propose.md):
 
 ## Step 0: Check for Deferred-All Path
 
-If the Approval Status decision is `deferred`, skip directly to Step 5 (emit event with outcome `changes_deferred`) and then proceed to the Finalize phase (finalize.md). No files are written, no commit is created, no frontier check is needed.
+If the Approval Status decision is `deferred`, skip directly to Step 5 (emit event with outcome `changes_deferred`) and then proceed to the Finalize phase (finalize.md). No DB writes happen and no frontier check is needed.
 
 If the decision is `aborted`, release the STRATEGIZE process work claim and stop the entire strategize pipeline. Do not proceed to finalize.
 
@@ -72,17 +72,9 @@ If verification fails, re-apply via 1a→1b (fresh base each time).
 Skipped: MISSION changes require explicit operator approval. These were not confirmed.
 ```
 
-## Step 2: Record the Applied Changes
+## Step 2: Record the Landed Change
 
-The DB write landed and `doc replace` refreshed the local rendered views. **Do not commit the views** — `.yoke/strategy/` is gitignored (the seeded `.yoke/.gitignore` `strategy/` rule), so the DB write is already the durable record and there is nothing to stage. The `SMLChangeApproved` event (Step 5) is the audit trail.
-
-```bash
-# .yoke/strategy/*.md are gitignored local caches — no commit. The DB row
-# (and the SMLChangeApproved event below) is the durable record.
-_commit_sha=""
-```
-
-### 2c. Collect Changed Docs List
+The DB write in Step 1 is the durable landing — the `strategy_docs` rows are authoritative. Each `doc replace` re-rendered the local `.yoke/strategy/*.md` views, which are gitignored regenerated caches (not tracked, not committed); there is nothing to commit here.
 
 Build the list of docs that were actually replaced for event context:
 
@@ -113,7 +105,7 @@ For each frontier item, assess whether the approved SML changes affect it:
 ```
 ## Frontier Implications
 
-The following SML changes were applied (DB rows updated; gitignored views re-rendered):
+The following SML changes landed in the DB (gitignored views re-rendered):
 {brief list of changes}
 
 ### Impact on Current Frontier
@@ -190,18 +182,16 @@ yoke events emit \
  --severity STATUS \
  --outcome completed \
  --project "${_project}" \
- --context "{\"commit_sha\":\"${_commit_sha}\",\"files_changed\":[${_files_list}],\"changes_applied\":${_applied_count},\"changes_deferred\":${_deferred_count},\"outcome\":\"${_outcome}\"}"
+ --context "{\"files_changed\":[${_files_list}],\"changes_applied\":${_applied_count},\"changes_deferred\":${_deferred_count},\"outcome\":\"${_outcome}\"}"
 ```
 
 Where:
-- `_commit_sha` is retained as `""` — the rendered views are gitignored local caches, not committed, so there is no commit hash. The field stays in the event context (always empty) for backward compatibility with existing `SMLChangeApproved` consumers.
 - `_files_list` is a JSON array of changed filenames (e.g., `"LANDSCAPE.md","VISION.md"`)
 - `_applied_count` is the number of changes written to disk
 - `_deferred_count` is the number of changes deferred
 - `_outcome` is one of: `changes_applied`, `changes_deferred`
 
 For the deferred-all path, use:
-- `_commit_sha` = `""` (same as the applied path — never a commit hash)
 - `_files_list` = empty array
 - `_applied_count` = `0`
 - `_outcome` = `"changes_deferred"`
@@ -261,7 +251,6 @@ If the `pending` bucket is empty, skip this step silently.
 
 This phase produces the following inline context for the Finalize phase (finalize.md):
 
-- `_commit_sha` -- retained as `""` (views are gitignored, never committed)
 - `_files_changed` -- list of modified SML files
 - `_applied_count` -- number of changes applied
 - `_deferred_count` -- number of changes deferred

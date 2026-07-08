@@ -10,20 +10,13 @@ from typing import Iterable, Optional
 from yoke_contracts.hook_runner.main_commit import (
     CLIENT_GIT_COMMIT_FACTS_KEY,
     NO_MAIN_CHECK_SUPPRESSION,
-    STRATEGY_FRESHNESS_SUPPRESSION,
     is_actual_git_commit,
     is_bookkeeping as _contract_is_bookkeeping,
 )
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
-from yoke_core.domain import lint_main_commit_strategy_freshness as strategy_freshness
-from yoke_core.domain.lint_main_commit_process_claims import (
-    is_strategy_commit_authorized,
-)
 from yoke_core.domain.lint_main_commit_client_facts import (
     client_facts,
     client_list,
-    client_project_context,
-    client_strategy_blobs,
 )
 from yoke_core.domain.lint_staged_union import effective_staged_set
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
@@ -168,60 +161,20 @@ def evaluate_payload(payload: dict) -> Optional[str]:
 
     if facts is not None:
         staged = client_list(facts, "staged_paths")
-        worktree_paths = frozenset(client_list(facts, "worktree_content_paths"))
-        client_strategy_blobs_ = client_strategy_blobs(facts)
-        project_ctx = client_project_context(facts)
     else:
         effective = effective_staged_set(command, _staged_files())
         if effective is None or not effective.paths:
             return None
         staged = effective.paths
-        worktree_paths = effective.worktree_content_paths
-        client_strategy_blobs_ = None
-        project_ctx = None
 
     if not staged:
         return None
-
-    # One evaluation = one row fetch: the freshness deny and the
-    # matches-the-master authorization read the same strategy_docs rows
-    # (one dispatcher call, potentially a large https payload), so the
-    # per-evaluation memo dedupes the fetch between them.
-    rows_cache: dict = {}
-    if STRATEGY_FRESHNESS_SUPPRESSION not in command:
-        freshness_kwargs = {
-            "worktree_content_paths": worktree_paths,
-            "rows_cache": rows_cache,
-        }
-        if project_ctx is not None:
-            freshness_kwargs["project_ctx"] = project_ctx
-        if client_strategy_blobs_ is not None:
-            freshness_kwargs["client_strategy_blobs"] = client_strategy_blobs_
-        freshness_denial = strategy_freshness.staged_freshness_denial(
-            staged,
-            **freshness_kwargs,
-        )
-        if freshness_denial is not None:
-            return freshness_denial
 
     if NO_MAIN_CHECK_SUPPRESSION in command:
         return None
 
     non_bookkeeping = [f for f in staged if not is_bookkeeping(f)]
     if not non_bookkeeping:
-        return None
-
-    # Matches-the-master rule: staged strategy rendered views that
-    # byte-match their live strategy_docs rows are always authorized.
-    authorization_kwargs = {
-        "worktree_content_paths": worktree_paths,
-        "rows_cache": rows_cache,
-    }
-    if project_ctx is not None:
-        authorization_kwargs["project_ctx"] = project_ctx
-    if client_strategy_blobs_ is not None:
-        authorization_kwargs["client_strategy_blobs"] = client_strategy_blobs_
-    if is_strategy_commit_authorized(non_bookkeeping, **authorization_kwargs):
         return None
 
     active_items = _active_worktree_items()
@@ -251,17 +204,11 @@ def _emit_denial(payload: dict, reason: str) -> None:
     tool_use_id = payload.get("tool_use_id") or ""
     turn_id = payload.get("turn_id") or payload.get("message_id") or ""
     command_snippet = _extract_command(payload)
-    # The freshness rule is a separate audit stream from impl-on-main.
-    check_id = (
-        "stale_strategy_render_on_main"
-        if reason.startswith("BLOCKED: stale strategy rendered view")
-        else "impl_on_main"
-    )
     try:
         emit_denial_event(
             hook="lint-main-commit",
             tool="Bash",
-            check_id=check_id,
+            check_id="impl_on_main",
             reason=reason,
             session_id=session_id if isinstance(session_id, str) else "",
             tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",

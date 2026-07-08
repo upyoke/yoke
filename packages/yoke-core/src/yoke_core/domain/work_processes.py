@@ -3,14 +3,12 @@
 Defines the opening process keys and their conflict groups. ``STRATEGIZE``
 and ``FEED`` share a conflict group because they operate on the same
 per-project strategy authority — the ``strategy_docs`` DB table (each
-project's ``.yoke/strategy/`` files are tracked rendered views). The
-process claim is a pure process lock: it serializes strategize/feed
-sessions per project and gates the ``strategy.doc.replace`` write path;
-it carries no linked path claims. Main-checkout commits of the rendered
-views authorize via the matches-the-master freshness rule in
-:mod:`yoke_core.domain.lint_main_commit_process_claims`; a project's
-doc corpus is its :mod:`yoke_core.domain.strategy_docs` rows and the
-view location resolves via
+project's ``.yoke/strategy/`` files are gitignored local rendered views
+regenerated from the rows). The process claim is a pure process lock: it
+serializes strategize/feed sessions per project and gates the
+``strategy.doc.replace`` write path; it carries no linked path claims. A
+project's doc corpus is its :mod:`yoke_core.domain.strategy_docs` rows
+and the view location resolves via
 :mod:`yoke_core.domain.strategy_docs_paths`. ``DOCTOR`` has its own
 project-scoped group.
 

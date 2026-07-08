@@ -38,7 +38,7 @@ Print the delta window for operator awareness:
 
 ```
 Delta window: {start timestamp} to now
-Source: {strategy checkpoint / last SML commit / default 14-day fallback}
+Source: {strategy checkpoint / newest SML doc write / default 14-day fallback}
 ```
 
 ## Step 2: State Gathering
@@ -74,7 +74,7 @@ authoritative landed-work enumeration happens in step 2d2.
 
 ### 2c. Recent SML Changes
 
-The rendered `.yoke/strategy/*.md` views are gitignored local caches, so their change history lives in the DB and the event ledger, not in git. Read each doc's last-write metadata:
+The rendered `.yoke/strategy/*.md` views are gitignored local caches, so their change history lives in the DB and the event ledger, not in git. Determine which SML docs changed in the delta window from their DB `updated_at` timestamps, and read each doc's last-write metadata:
 
 ```bash
 yoke strategy doc list --project "$_project"
@@ -305,7 +305,7 @@ yoke events emit \
 ```
 
 Where:
-- `_delta_source` is one of: `event`, `sml_commit`, `default_14d`
+- `_delta_source` is one of: `checkpoint`, `sml_doc_write`, `default_14d`
 - `_sml_changed_count` is the number of SML files modified in the delta window
 - `_active_count` is the count of in-flight items (all statuses except idea/done/cancelled/failed/stopped)
 - `_framing_type` is one of: `specific`, `general_coherence`

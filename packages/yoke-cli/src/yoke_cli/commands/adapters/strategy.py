@@ -1,7 +1,8 @@
 """``yoke strategy doc *`` adapters (list / get / replace / archive).
 
 Per-project DB-authoritative strategy documents (each project's
-``.yoke/strategy/`` files are a gitignored local rendered cache):
+``.yoke/strategy/`` files are a gitignored local rendered view, a
+regenerated cache):
 
 - ``doc list`` -> ``strategy.doc.list`` (slug/updated_at/bytes table,
   marking archived docs).

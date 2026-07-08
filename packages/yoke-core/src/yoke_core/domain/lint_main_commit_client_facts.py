@@ -30,32 +30,7 @@ def client_list(facts: Mapping[str, object], key: str) -> list[str]:
     return [value for value in raw if isinstance(value, str) and value]
 
 
-def client_strategy_blobs(
-    facts: Mapping[str, object],
-) -> dict[str, Mapping[str, object]]:
-    """Return ``{path: blob_summary}`` from client facts."""
-    raw = facts.get("strategy_blobs")
-    if not isinstance(raw, list):
-        return {}
-    out: dict[str, Mapping[str, object]] = {}
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        path = item.get("path")
-        if isinstance(path, str) and path:
-            out[path] = item
-    return out
-
-
-def client_project_context(facts: Mapping[str, object]) -> Optional[str]:
-    """Return the client-resolved project context, if present."""
-    value = facts.get("project_context")
-    return value if isinstance(value, str) and value else None
-
-
 __all__ = [
     "client_facts",
     "client_list",
-    "client_project_context",
-    "client_strategy_blobs",
 ]

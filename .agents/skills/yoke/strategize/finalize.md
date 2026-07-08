@@ -6,7 +6,6 @@ Record the strategy checkpoint (the "last refresh" marker consumed by Phase 1 de
 
 This phase receives inline context from the Approve phase (approve.md):
 
-- `_commit_sha` -- always `""` (the rendered views are gitignored local caches, never committed; the DB write + `SMLChangeApproved` event is the durable record)
 - `_files_changed` -- list of modified SML files (empty if deferred)
 - `_applied_count` -- number of changes applied (0 if deferred)
 - `_deferred_count` -- number of changes deferred
@@ -137,11 +136,10 @@ yoke events emit \
  --severity STATUS \
  --outcome completed \
  --project "${_project}" \
- --context "{\"commit_sha\":\"${_commit_sha}\",\"files_changed\":[${_files_list}],\"changes_applied\":${_applied_count},\"changes_deferred\":${_deferred_count},\"change_summary\":\"${_change_summary}\",\"evidence_sources\":[${_evidence_sources}],\"checkpoints\":\"${_checkpoints}\",\"outcome\":\"${_outcome}\",\"tradeoff_resolution\":\"${_tradeoff_resolution}\",\"carry_reflected\":${_reflected_count:-0},\"carry_dismissed\":${_dismissed_count:-0}}"
+ --context "{\"files_changed\":[${_files_list}],\"changes_applied\":${_applied_count},\"changes_deferred\":${_deferred_count},\"change_summary\":\"${_change_summary}\",\"evidence_sources\":[${_evidence_sources}],\"checkpoints\":\"${_checkpoints}\",\"outcome\":\"${_outcome}\",\"tradeoff_resolution\":\"${_tradeoff_resolution}\",\"carry_reflected\":${_reflected_count:-0},\"carry_dismissed\":${_dismissed_count:-0}}"
 ```
 
 Where:
-- `_commit_sha` is retained as `""` (views are gitignored, never committed; kept in the event context for backward compatibility)
 - `_files_list` is a JSON array of changed filenames (empty `[]` contents if deferred)
 - `_applied_count` and `_deferred_count` are integers
 - `_change_summary` is a one-line summary string
@@ -210,7 +208,7 @@ Print a human-readable summary for the operator. This is the final output of the
 
 ### Next Steps
 {if changes_applied:}
-- SML files updated and committed. Changes will be visible in the next board rebuild.
+- SML docs updated in the DB. Changes will be visible in the next board rebuild.
 - Run `/yoke strategize` again when the landscape shifts or new capabilities land.
 {if changes_deferred:}
 - Deferred changes are recorded in the StrategizeCompleted event context (telemetry).
