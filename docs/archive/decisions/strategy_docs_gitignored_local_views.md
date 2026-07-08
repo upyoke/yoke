@@ -42,6 +42,18 @@ the `SMLChangeApproved` / `StrategyDocReplaced` events are the change ledger.
   directory-level `strategy/` ignore rule — no separate ignore entry, and the
   shallow top-level orphan scan in the staleness HC intentionally excludes it.
 
+- **Event catalog regeneration is a post-merge operator step.** The new
+  `StrategyDocArchived` / `StrategyDocUnarchived` rows live in
+  `AUTHORITATIVE_METADATA`, but `docs/event-catalog.md` is NOT regenerated in
+  this change: the catalog renders from the live `event_registry` (its accurate
+  accumulated state), and running `populate_registry` reconciles the WHOLE
+  registry against current code — too broad to run from an unmerged worktree,
+  and rendering from a throwaway DB would produce a noisy/incorrect diff. The
+  committed catalog and the live registry are consistent today (neither carries
+  the two events yet), so `HC-event-catalog-drift` does not fire. After merge,
+  regenerate + commit the catalog with `python3 -m yoke_core.domain.populate_registry`
+  against the live authority (which then also carries the two new events).
+
 - **The committed-view lint apparatus is now inert, and its retirement is
   deferred.** Because gitignored paths never enter the staged set, the
   main-commit strategy-freshness deny (`lint_main_commit_strategy_freshness` via

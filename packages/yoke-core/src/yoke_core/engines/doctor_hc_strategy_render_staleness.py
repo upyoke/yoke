@@ -48,8 +48,14 @@ def _mapped_checkouts() -> List[Tuple[Path, int]]:
     return pairs
 
 
-def _doc_issue(root: Path, slug: str, row: Any) -> "str | None":
-    """Return one doc's staleness finding, or None when fresh."""
+def _doc_issue(root: Path, slug: str, row: Any, archived: bool) -> "str | None":
+    """Return one doc's staleness finding, or None when fresh.
+
+    ``archived`` is resolved by the caller (guarded against a strategy_docs
+    table whose additive ``archived_at`` column has not converged yet);
+    archived docs render to .yoke/strategy/archive/<slug>.md, so it selects the
+    expected location instead of false-WARNing "rendered file missing".
+    """
     from yoke_core.domain.strategy_docs_header import (
         StrategyHeaderError,
         content_sha256,
@@ -57,10 +63,6 @@ def _doc_issue(root: Path, slug: str, row: Any) -> "str | None":
     )
     from yoke_core.domain.strategy_docs_paths import strategy_view_path
 
-    # Archived docs render to .yoke/strategy/archive/<slug>.md; resolve the
-    # expected location from the row's archived state so an archived doc is
-    # checked at its real path instead of false-WARNing "rendered file missing".
-    archived = row["archived_at"] is not None
     path = strategy_view_path(root, slug, archived)
     if not path.is_file():
         return (
@@ -118,14 +120,20 @@ def _checkout_issues(
 ) -> List[str]:
     """Collect one mapped checkout's findings (or append a skip note)."""
     from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE
+    from yoke_core.domain.schema_common import _column_exists
 
     if not root.is_dir():
         notes.append(f"project {project_id}: checkout {root} not on disk — skipped")
         return []
+    # archived_at is an additive column; a strategy_docs table that predates its
+    # convergence (a minimal-schema fixture) still reads cleanly — treat every
+    # doc as active when the column is absent rather than raising on the SELECT.
+    has_archived = _column_exists(conn, STRATEGY_DOCS_TABLE, "archived_at")
+    columns = "slug, updated_at, archived_at" if has_archived else "slug, updated_at"
     rows: Dict[str, Any] = {
         str(r["slug"]): r
         for r in conn.execute(
-            f"SELECT slug, updated_at, archived_at FROM {STRATEGY_DOCS_TABLE} "
+            f"SELECT {columns} FROM {STRATEGY_DOCS_TABLE} "
             "WHERE project_id = %s",
             (project_id,),
         ).fetchall()
@@ -138,7 +146,9 @@ def _checkout_issues(
         return []
     issues: List[str] = []
     for slug in sorted(rows):
-        issue = _doc_issue(root, slug, rows[slug])
+        row = rows[slug]
+        archived = (row["archived_at"] is not None) if has_archived else False
+        issue = _doc_issue(root, slug, row, archived)
         if issue:
             issues.append(f"- [project {project_id} @ {root}] {issue}")
     for orphan in _orphan_files(root, set(rows)):

@@ -12,7 +12,9 @@ from yoke_contracts.project_contract.strategy_docs_header import (
     parse_file_text,
 )
 from yoke_contracts.project_contract.strategy_docs_paths import (
+    is_archived_view_path,
     slug_from_view_path,
+    strategy_view_rel_path,
 )
 
 STRATEGY_INSTALL_POLICY = "db_render"
@@ -42,6 +44,11 @@ def apply_strategy_files(
     warnings: List[str] = []
     for entry in entries:
         rel, content = entry["path"], entry["content"]
+        # `rel` is this doc's authoritative location (active or archive/); if a
+        # stale copy lingers at the OTHER location — a doc that was archived (or
+        # unarchived) in the DB since this checkout last refreshed — prune it so
+        # the checkout never carries two files for one slug.
+        _prune_relocated_sibling(repo_root, rel, warnings)
         target = repo_root / rel
         if target.is_file():
             try:
@@ -74,6 +81,38 @@ def apply_strategy_files(
         strategy_map[rel] = sha256_text(content)
         written.append(rel)
     return strategy_map, written, unchanged, preserved, warnings
+
+
+def _prune_relocated_sibling(
+    repo_root: Path, rel: str, warnings: List[str],
+) -> None:
+    """Remove a stale copy of a relocated strategy doc at its OTHER location.
+
+    When a doc's authoritative location is ``rel`` (active or ``archive/``),
+    any file for the same slug at the opposite location is a leftover from a
+    pre-relocation refresh. Prune it unless it carries un-ingested local edits,
+    in which case preserve it and warn — the same edit-safety stance the write
+    path takes for the doc's own location.
+    """
+    slug = slug_from_view_path(rel)
+    if slug is None:
+        return
+    sibling_rel = strategy_view_rel_path(slug, not is_archived_view_path(rel))
+    sibling = repo_root / sibling_rel
+    if not sibling.is_file():
+        return
+    try:
+        current = sibling.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        current = None
+    if current is not None and _has_uningested_edits(current):
+        warnings.append(
+            f"{sibling_rel} is a stale copy of a relocated strategy doc but "
+            "has un-ingested local edits; left in place — ingest (or discard) "
+            "it, then rerun `yoke project refresh`"
+        )
+        return
+    sibling.unlink()
 
 
 def _has_uningested_edits(file_text: str) -> bool:

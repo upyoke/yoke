@@ -61,6 +61,9 @@ class IngestDocPlan:
     new_lines: int
     old_bytes: int
     new_bytes: int
+    # The doc's archived state, so the write-back re-render routes the file to
+    # its correct active/archive location instead of defaulting to active.
+    archived: bool = False
 
     @property
     def stale_base(self) -> bool:
@@ -161,6 +164,7 @@ def plan_ingest(
                 new_lines=_line_count(header.body),
                 old_bytes=len(row["content"].encode("utf-8")),
                 new_bytes=len(header.body.encode("utf-8")),
+                archived=row.get("archived_at") is not None,
             )
         )
     return plans

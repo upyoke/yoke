@@ -1,6 +1,6 @@
 # Approve
 
-Write approved SML changes to the DB authority, render + commit the refreshed views, check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
+Write approved SML changes to the DB authority (which re-renders the gitignored local views — there is no commit), check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
 
 ## Prerequisites
 

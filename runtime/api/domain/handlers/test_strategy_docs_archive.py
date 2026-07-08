@@ -155,6 +155,57 @@ class TestArchivedStateSurfaces:
             conn.close()
 
 
+class TestIngestOfArchivedDoc:
+    def test_ingesting_edited_archived_doc_stays_in_archive(
+        self, tmp_db: str, tmp_path: Path,
+    ) -> None:
+        """Editing an archived doc's file and ingesting must re-render it back
+        under archive/ — not relocate it to the active path and delete the
+        archived file."""
+        from yoke_core.domain import events as _events_mod
+        from yoke_core.domain.handlers import strategy_docs_ingest as ingest_handlers
+        from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+            ingest_files_payload,
+        )
+        from yoke_contracts.project_contract.strategy_docs_io import write_rendered_files
+        from yoke_contracts.project_contract.strategy_docs_paths import strategy_view_path
+
+        conn = connect_test_db(tmp_db)
+        try:
+            seed_docs(conn)
+            sd.set_doc_archived(conn, PROJECT_ID, "PAD", archived=True)
+        finally:
+            conn.close()
+
+        root = tmp_path / "checkout"
+        # Full render routes PAD to archive/PAD.md and leaves no active file.
+        sd.render_docs(target_root=root, project_id=PROJECT_ID)
+        active = strategy_view_path(root, "PAD")
+        archived = strategy_view_path(root, "PAD", archived=True)
+        assert archived.is_file() and not active.exists()
+
+        # Operator edits the archived rendered file's body, then ingests it.
+        first_line, _, _ = archived.read_text(encoding="utf-8").partition("\n")
+        archived.write_text(first_line + "\n# PAD\n\nEDITED archived body.\n", encoding="utf-8")
+        payload = ingest_files_payload(root, ["PAD"])
+
+        with patch.object(_events_mod, "emit_event", return_value=ok_emit()):
+            out = ingest_handlers.handle_ingest(
+                build_request("strategy.ingest.run", payload, actor_id="42")
+            )
+        assert out.primary_success is True
+        written = [d for d in out.result_payload["docs"] if d.get("file_text")]
+        assert written and written[0]["slug"] == "PAD"
+        # The write-back doc carries archived=True so it routes correctly.
+        assert written[0]["archived"] is True
+
+        # Replicate the CLI write-back and assert the file stays in archive/.
+        write_rendered_files(root, written)
+        assert archived.is_file()
+        assert not active.exists()
+        assert "EDITED archived body." in archived.read_text(encoding="utf-8")
+
+
 class TestBundleRenderUnification:
     def test_bundle_matches_render_including_updated_by_and_archive_path(
         self, tmp_db: str,

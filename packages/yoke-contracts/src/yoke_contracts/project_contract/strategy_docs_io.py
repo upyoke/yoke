@@ -91,10 +91,14 @@ def write_rendered_files(
         archived = bool(entry.get("archived", False))
         path = strategy_view_path(target_root, slug, archived)
         # Prune the stale sibling at the OTHER location (a doc that just
-        # flipped archived state left a file behind there).
-        stale = strategy_view_path(target_root, slug, not archived)
-        if stale != path and stale.is_file():
-            stale.unlink()
+        # flipped archived state left a file behind there) — but ONLY when the
+        # entry explicitly declares its archived state. A flag-less entry comes
+        # from a caller that is not archive-aware, and must never delete a file
+        # at the other location by defaulting to active.
+        if "archived" in entry:
+            stale = strategy_view_path(target_root, slug, not archived)
+            if stale != path and stale.is_file():
+                stale.unlink()
         if path.is_file() and path.read_bytes() == file_text.encode("utf-8"):
             report[slug] = "unchanged"
             continue

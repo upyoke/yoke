@@ -143,7 +143,7 @@ Read and follow each phase file in order. Each phase builds context for the next
 - Emits `SMLChangeProposed` for each proposed change batch
 
 **Approve:** Read `.agents/skills/yoke/strategize/approve.md`
-- Apply approved SML changes, commit them, then run Checkpoint 4 (frontier implication check) and Checkpoint 5 (tradeoff resolution if needed)
+- Apply approved SML changes (DB write is the durable record — the rendered views are gitignored, not committed), then run Checkpoint 4 (frontier implication check) and Checkpoint 5 (tradeoff resolution if needed)
 - Emits `SMLChangeApproved` for approved changes
 
 **Finalize:** Read `.agents/skills/yoke/strategize/finalize.md`

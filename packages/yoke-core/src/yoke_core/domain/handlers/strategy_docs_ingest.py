@@ -172,17 +172,21 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("ingest_header_invalid", str(exc))
 
     bodies = {plan.slug: plan.file_body for plan in plans}
+    archived_by_slug = {plan.slug: plan.archived for plan in plans}
     for doc in docs:
         if doc["status"] != "written":
             continue
         # The caller advances the written docs' headers on disk from
         # this text so a re-run no-ops; unchanged and conflicted files
         # are never returned (a conflicted file holds the operator's
-        # only copy of their edits).
+        # only copy of their edits). ``archived`` rides along so the
+        # write-back re-render lands an edited archived doc back under
+        # .yoke/strategy/archive/ instead of the active location.
         doc["file_text"] = render_file_text(
             doc["slug"], doc["updated_at"], bodies[doc["slug"]],
             updated_by=ingest_label,
         )
+        doc["archived"] = archived_by_slug.get(doc["slug"], False)
         emit_doc_replaced(
             session_id=session_id, project=project, result=doc,
             source="ingest",
