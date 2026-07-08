@@ -27,11 +27,17 @@ def _request(
     )
 
 
+def _assert_flow_connect_restored(testcase: unittest.TestCase) -> None:
+    from yoke_core.domain import db_helpers, flow
+
+    testcase.assertIs(flow.connect, db_helpers.connect)
+
+
 class TestDeploymentFlowHandlers(unittest.TestCase):
     def test_flow_get_returns_field_value(self):
         conn = Mock()
-        with patch("yoke_core.domain.db_helpers.connect", return_value=conn):
-            with patch("yoke_core.domain.flow.cmd_get", return_value="prod"):
+        with patch("yoke_core.domain.flow.cmd_get", return_value="prod"):
+            with patch("yoke_core.domain.db_helpers.connect", return_value=conn):
                 outcome = deployment_flows.handle_deployment_flow_get(
                     _request(
                         function="deployment_flows.get",
@@ -47,12 +53,13 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
         self.assertEqual(outcome.result_payload["field"], "target_env")
         self.assertEqual(outcome.result_payload["value"], "prod")
         conn.close.assert_called_once()
+        _assert_flow_connect_restored(self)
 
     def test_flow_stages_returns_raw_json(self):
         conn = Mock()
         stages = '[{"name":"deploy","kind":"command"}]'
-        with patch("yoke_core.domain.db_helpers.connect", return_value=conn):
-            with patch("yoke_core.domain.flow.cmd_stages", return_value=stages):
+        with patch("yoke_core.domain.flow.cmd_stages", return_value=stages):
+            with patch("yoke_core.domain.db_helpers.connect", return_value=conn):
                 outcome = deployment_flows.handle_deployment_flow_stages(
                     _request(
                         function="deployment_flows.stages",
@@ -63,6 +70,7 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["stages"], stages)
         conn.close.assert_called_once()
+        _assert_flow_connect_restored(self)
 
     def test_flow_missing_id_returns_payload_error(self):
         outcome = deployment_flows.handle_deployment_flow_get(
