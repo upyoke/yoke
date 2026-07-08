@@ -74,11 +74,13 @@ authoritative landed-work enumeration happens in step 2d2.
 
 ### 2c. Recent SML Changes
 
+The rendered `.yoke/strategy/*.md` views are gitignored local caches, so their change history lives in the DB and the event ledger, not in git. Read each doc's last-write metadata:
+
 ```bash
-git log --oneline ${_since_flag} -- "$REPO_ROOT/.yoke/strategy/MISSION.md" "$REPO_ROOT/.yoke/strategy/LANDSCAPE.md" "$REPO_ROOT/.yoke/strategy/VISION.md" "$REPO_ROOT/.yoke/strategy/MASTER-PLAN.md"
+yoke strategy doc list --project "$_project"
 ```
 
-Note which SML docs were modified and what the commit messages say. (Git history of the tracked rendered views is the revision store — every DB write renders and commits, so this log is the authoritative change narrative.)
+Each row's `updated_at` / `updated_by` shows which docs changed and how recently. The narrative of prior approved changes is the `SMLChangeApproved` / `StrategyDocReplaced` event trail (query the events surface, e.g. `yoke db read "SELECT created_at, context FROM events WHERE event_name = 'SMLChangeApproved' ORDER BY created_at DESC LIMIT 10"`).
 
 ### 2d. Board State
 
