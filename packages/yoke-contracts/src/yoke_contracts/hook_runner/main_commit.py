@@ -19,7 +19,6 @@ from typing import Iterable, Optional, Sequence
 CLIENT_GIT_COMMIT_FACTS_KEY = "_yoke_client_git_commit_facts"
 CLIENT_GIT_COMMIT_FACTS_SCHEMA = 1
 NO_MAIN_CHECK_SUPPRESSION = "# lint:no-main-check"
-STRATEGY_FRESHNESS_SUPPRESSION = "# lint:no-strategy-freshness-check"
 
 BOOKKEEPING_EXACT = frozenset({"AGENTS.md", "CLAUDE.md"})
 BOOKKEEPING_PREFIXES = (
@@ -273,7 +272,6 @@ __all__ = [
     "CLIENT_GIT_COMMIT_FACTS_SCHEMA",
     "EffectiveStagedSet",
     "NO_MAIN_CHECK_SUPPRESSION",
-    "STRATEGY_FRESHNESS_SUPPRESSION",
     "effective_staged_set",
     "git_invocations",
     "is_actual_git_commit",

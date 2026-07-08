@@ -3,9 +3,7 @@
 Covers AC-2 (STRATEGIZE + FEED share ``strategy-control-plane:<project>``
 and conflict on the same project) and the DOCTOR process claim. The
 process claim is a pure process lock — strategy doc/file enumeration
-lives in :mod:`yoke_core.domain.strategy_docs`, and rendered-view
-commit authorization is the matches-the-master rule in
-:mod:`yoke_core.domain.lint_main_commit_process_claims`.
+lives in :mod:`yoke_core.domain.strategy_docs`.
 """
 
 from __future__ import annotations
