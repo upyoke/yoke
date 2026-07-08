@@ -56,6 +56,7 @@ class TestSeedFlows:
             s for s in stages if s.get("name") == "distribution-publish"
         )
         assert publish["workflow"] == "yoke-distribution-publish.yml"
+        assert publish["ref"] == "main"
         assert publish["inputs"] == {
             "channel": "stable",
             "target_env": "prod",
@@ -75,6 +76,7 @@ class TestSeedFlows:
             s for s in stages if s.get("name") == "distribution-publish"
         )
         assert publish["workflow"] == "yoke-distribution-publish.yml"
+        assert publish["ref"] == "stage"
         assert publish["inputs"] == {
             "channel": "latest",
             "target_env": "stage",
