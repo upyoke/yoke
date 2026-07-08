@@ -1,13 +1,17 @@
-"""``yoke strategy doc *`` adapters (list / get / replace).
+"""``yoke strategy doc *`` adapters (list / get / replace / archive).
 
 Per-project DB-authoritative strategy documents (each project's
-``.yoke/strategy/`` files are a tracked rendered view, the
-``docs/atlas.md`` precedent):
+``.yoke/strategy/`` files are a gitignored local rendered cache):
 
-- ``doc list`` -> ``strategy.doc.list`` (slug/updated_at/bytes table).
+- ``doc list`` -> ``strategy.doc.list`` (slug/updated_at/bytes table,
+  marking archived docs).
 - ``doc get`` -> ``strategy.doc.get`` (content to stdout in human mode).
 - ``doc replace`` -> ``strategy.doc.replace`` (process-claim-gated write),
   then ``strategy.render.run`` for the full local rendered view.
+- ``doc archive`` / ``doc unarchive`` -> ``strategy.doc.archive`` /
+  ``strategy.doc.unarchive`` (flip the archived state), then
+  ``strategy.render.run`` so the file relocates to/from
+  ``.yoke/strategy/archive/`` and the stale sibling is pruned.
 
 Project context resolves client-side (``--project`` flag >
 ``$YOKE_PROJECT`` > the machine-config checkout→project map) and
@@ -43,12 +47,16 @@ __all__ = [
     "strategy_doc_list",
     "strategy_doc_get",
     "strategy_doc_replace",
+    "strategy_doc_archive",
+    "strategy_doc_unarchive",
     "strategy_target",
     "resolve_target_root_for_cli",
     "write_rendered_files",
     "STRATEGY_DOC_LIST_USAGE",
     "STRATEGY_DOC_GET_USAGE",
     "STRATEGY_DOC_REPLACE_USAGE",
+    "STRATEGY_DOC_ARCHIVE_USAGE",
+    "STRATEGY_DOC_UNARCHIVE_USAGE",
 ]
 
 
@@ -85,9 +93,10 @@ def strategy_doc_list(args: List[str]) -> int:
             file=stdout,
         )
         for doc in result.get("docs", []):
+            marker = "  [archived]" if doc.get("archived") else ""
             print(
                 f"{doc.get('slug')}\t{doc.get('updated_by') or '-'}\t"
-                f"{doc.get('updated_at')}\t{doc.get('bytes')} bytes",
+                f"{doc.get('updated_at')}\t{doc.get('bytes')} bytes{marker}",
                 file=stdout,
             )
 
@@ -261,4 +270,124 @@ def strategy_doc_replace(args: List[str]) -> int:
         replace_response,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
+    )
+
+
+STRATEGY_DOC_ARCHIVE_USAGE = (
+    "yoke strategy doc archive <slug> [--target-root PATH] "
+    "[--project P] [--session-id S] [--json]"
+)
+
+STRATEGY_DOC_UNARCHIVE_USAGE = (
+    "yoke strategy doc unarchive <slug> [--target-root PATH] "
+    "[--project P] [--session-id S] [--json]"
+)
+
+
+def _strategy_doc_set_archived(
+    args: List[str], *, archived: bool, function_id: str, usage: str,
+) -> int:
+    """Flip a doc's archived state, then re-render so the file relocates.
+
+    Shared body for ``doc archive`` / ``doc unarchive``: dispatch the DB
+    flip (the authority), then re-render the full corpus so the doc moves
+    into/out of ``.yoke/strategy/archive/`` and the stale sibling is
+    pruned. Mirrors ``doc replace``'s render-refresh, including the
+    warn-and-skip when no checkout anchor resolves.
+    """
+    verb = "archive" if archived else "unarchive"
+    parser = argparse.ArgumentParser(
+        prog=f"yoke strategy doc {verb}",
+        description=(
+            f"{verb.capitalize()} one strategy doc on its DB row "
+            f"({'stamps' if archived else 'clears'} archived_at), then "
+            "re-render the corpus so the rendered file "
+            f"{'moves into' if archived else 'moves back out of'} "
+            ".yoke/strategy/archive/ and the stale sibling is pruned. The "
+            "doc stays a full, editable row either way — nothing is "
+            "deleted. Refused only while another session holds the live "
+            "STRATEGIZE/FEED process work-claim for the project."
+        ),
+    )
+    parser.add_argument("slug", help="Strategy doc slug, e.g. INSTALLER-PLAN.")
+    parser.add_argument(
+        "--target-root", dest="target_root", default=None,
+        help=(
+            "Checkout root receiving the refreshed .yoke/strategy/ files "
+            "(defaults like `yoke strategy render`)."
+        ),
+    )
+    add_project_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, usage)
+    if parsed is None:
+        return 2
+
+    _helpers.ensure_handlers_loaded()
+    actor = build_actor(session_id=parsed.session_id)
+    target = strategy_target(parsed.project)
+    flip_response = call_dispatcher(
+        function_id=function_id,
+        target=target,
+        payload={"slug": parsed.slug},
+        actor=actor,
+    )
+    if not flip_response.success:
+        return emit_response(flip_response, json_mode=parsed.json_mode)
+
+    # The DB flip is the authority and it landed. The local render is a
+    # convenience refresh; resolve its anchor only now so an unresolvable
+    # anchor (a linked worktree without --target-root) warns and skips the
+    # render rather than orphaning the successful flip.
+    try:
+        target_root = resolve_target_root_for_cli(parsed.target_root)
+    except RuntimeError as exc:
+        print(
+            f"warning: strategy doc {verb}d in the DB; skipped local "
+            f"render — {exc}",
+            file=sys.stderr,
+        )
+        return emit_response(flip_response, json_mode=parsed.json_mode)
+
+    render_response = call_dispatcher(
+        function_id="strategy.render.run",
+        target=target,
+        payload={},
+        actor=actor,
+    )
+    if not render_response.success:
+        return emit_response(render_response, json_mode=parsed.json_mode)
+
+    report = write_rendered_files(
+        target_root, (render_response.result or {}).get("docs", []),
+    )
+
+    def _human_writer(response, stdout, stderr) -> None:
+        print(json.dumps(response.result, sort_keys=True), file=stdout)
+        for slug, status in report.items():
+            print(f"{slug}\t{status}", file=stdout)
+
+    return emit_response(
+        flip_response,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+def strategy_doc_archive(args: List[str]) -> int:
+    return _strategy_doc_set_archived(
+        args,
+        archived=True,
+        function_id="strategy.doc.archive",
+        usage=STRATEGY_DOC_ARCHIVE_USAGE,
+    )
+
+
+def strategy_doc_unarchive(args: List[str]) -> int:
+    return _strategy_doc_set_archived(
+        args,
+        archived=False,
+        function_id="strategy.doc.unarchive",
+        usage=STRATEGY_DOC_UNARCHIVE_USAGE,
     )

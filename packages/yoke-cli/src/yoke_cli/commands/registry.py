@@ -186,6 +186,10 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("strategy.doc.create", _adapters.strategy_doc_create),
     ("strategy", "doc", "replace"):
         ("strategy.doc.replace", _adapters.strategy_doc_replace),
+    ("strategy", "doc", "archive"):
+        ("strategy.doc.archive", _adapters.strategy_doc_archive),
+    ("strategy", "doc", "unarchive"):
+        ("strategy.doc.unarchive", _adapters.strategy_doc_unarchive),
     ("strategy", "render"):
         ("strategy.render.run", _adapters.strategy_render),
     ("strategy", "ingest"):
