@@ -2,8 +2,9 @@
 
 The Yoke DB ``strategy_docs`` table is the per-project read/write
 authority for strategy documents; each project's ``.yoke/strategy/``
-files are a tracked rendered view (the ``docs/atlas.md`` precedent)
-written only by ``strategy.render.run`` — and by the
+files are a gitignored local rendered view (regenerated cache, the
+``.yoke/BOARD.md`` precedent) written only by ``strategy.render.run`` —
+and by the
 ``strategy.ingest.run`` write-back in the sibling
 :mod:`yoke_core.domain.handlers.strategy_docs_ingest`, which
 re-renders the docs it ingests. Cold-start seeding lives in

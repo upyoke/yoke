@@ -1,10 +1,10 @@
 """Process work-claim acquisition is a pure process lock — no path claims.
 
-The strategy authority is the ``strategy_docs`` DB table; rendered-view
-commits authorize via the matches-the-master rule, so acquiring a
-STRATEGIZE/FEED process claim registers no linked path claims. Release
-still cascades *legacy* linked rows (claims acquired before the
-retirement) through ``_release_linked_path_claims``.
+The strategy authority is the ``strategy_docs`` DB table; the rendered
+``.yoke/strategy/`` views are gitignored local caches that are never
+committed, so acquiring a STRATEGIZE/FEED process claim registers no
+linked path claims. Release still cascades *legacy* linked rows (claims
+acquired before the retirement) through ``_release_linked_path_claims``.
 """
 
 from __future__ import annotations

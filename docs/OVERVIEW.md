@@ -18,7 +18,7 @@ This first wedge is larger than it sounds. In a software product company, the so
 
 Another framing: Yoke is trying to become a wish engine for company operations. Software delivery is the first proving ground.
 
-At the Strategic Markdown Layer (SML), Yoke should keep [MISSION.md](../.yoke/strategy/MISSION.md) for the one-line purpose statement, [LANDSCAPE.md](../.yoke/strategy/LANDSCAPE.md) for source-backed external research and candidate imports, [VISION.md](../.yoke/strategy/VISION.md) for the chosen high-level future state and canonical visual, and [MASTER-PLAN.md](../.yoke/strategy/MASTER-PLAN.md) for the detailed evolving strategy. `Strategize` should first update the landscape, then selectively fold it into the vision and master plan, then shape the frontier until `feed` is coherent. Below that boundary, operational truth belongs in the database.
+At the Strategic Markdown Layer (SML), Yoke should keep `MISSION` for the one-line purpose statement, `LANDSCAPE` for source-backed external research and candidate imports, `VISION` for the chosen high-level future state and canonical visual, and `MASTER-PLAN` for the detailed evolving strategy. These SML docs live in the per-project `strategy_docs` DB table; `.yoke/strategy/*.md` are gitignored local views rendered from those rows. `Strategize` should first update the landscape, then selectively fold it into the vision and master plan, then shape the frontier until `feed` is coherent. Below that boundary, operational truth belongs in the database.
 
 That suggests a product shape: operators should eventually launch workflows, not just commands. A workflow is an end-to-end execution path with ordered stages, gates, evidence, and a defined end state.
 

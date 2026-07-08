@@ -38,7 +38,7 @@ Print the delta window for operator awareness:
 
 ```
 Delta window: {start timestamp} to now
-Source: {strategy checkpoint / last SML commit / default 14-day fallback}
+Source: {strategy checkpoint / newest SML doc write / default 14-day fallback}
 ```
 
 ## Step 2: State Gathering
@@ -74,11 +74,9 @@ authoritative landed-work enumeration happens in step 2d2.
 
 ### 2c. Recent SML Changes
 
-```bash
-git log --oneline ${_since_flag} -- "$REPO_ROOT/.yoke/strategy/MISSION.md" "$REPO_ROOT/.yoke/strategy/LANDSCAPE.md" "$REPO_ROOT/.yoke/strategy/VISION.md" "$REPO_ROOT/.yoke/strategy/MASTER-PLAN.md"
-```
+Determine which SML docs changed in the delta window from their DB `updated_at` timestamps — any doc from `yoke strategy doc list` (step 2a) whose `updated_at` is at or after the window start was written this window.
 
-Note which SML docs were modified and what the commit messages say. (Git history of the tracked rendered views is the revision store — every DB write renders and commits, so this log is the authoritative change narrative.)
+Note which SML docs were modified and roughly when. The `strategy_docs` rows are the authoritative revision store; the local `.yoke/strategy/*.md` views are gitignored regenerated caches, so git history does not track SML changes.
 
 ### 2d. Board State
 
@@ -303,7 +301,7 @@ yoke events emit \
 ```
 
 Where:
-- `_delta_source` is one of: `event`, `sml_commit`, `default_14d`
+- `_delta_source` is one of: `checkpoint`, `sml_doc_write`, `default_14d`
 - `_sml_changed_count` is the number of SML files modified in the delta window
 - `_active_count` is the count of in-flight items (all statuses except idea/done/cancelled/failed/stopped)
 - `_framing_type` is one of: `specific`, `general_coherence`

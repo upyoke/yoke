@@ -1,6 +1,6 @@
 # Approve
 
-Write approved SML changes to the DB authority, render + commit the refreshed views, check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
+Write approved SML changes to the DB authority (which re-renders the local `.yoke/strategy/` views), check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This phase receives inline context from the Propose phase (propose.md):
 
 ## Step 0: Check for Deferred-All Path
 
-If the Approval Status decision is `deferred`, skip directly to Step 5 (emit event with outcome `changes_deferred`) and then proceed to the Finalize phase (finalize.md). No files are written, no commit is created, no frontier check is needed.
+If the Approval Status decision is `deferred`, skip directly to Step 5 (emit event with outcome `changes_deferred`) and then proceed to the Finalize phase (finalize.md). No DB writes happen and no frontier check is needed.
 
 If the decision is `aborted`, release the STRATEGIZE process work claim and stop the entire strategize pipeline. Do not proceed to finalize.
 
@@ -72,40 +72,9 @@ If verification fails, re-apply via 1a→1b (fresh base each time).
 Skipped: MISSION changes require explicit operator approval. These were not confirmed.
 ```
 
-## Step 2: Commit the Refreshed Views
+## Step 2: Record the Landed Change
 
-The DB write landed and `doc replace` refreshed the tracked rendered views. Commit them from the same session (writer-commits-history — the session that writes also renders and commits).
-
-### 2a. Stage
-
-```bash
-cd "$REPO_ROOT" && git add .yoke/strategy/
-```
-
-The auto-render rewrites exactly the docs whose DB-rendered bytes changed (unchanged docs render byte-identical), and the staged files are fresh renders, which is what authorizes this commit on main — the lint's matches-the-master rule checks each staged `.yoke/strategy/*.md` against the project's DB row.
-
-### 2b. Create Commit
-
-```bash
-cd "$REPO_ROOT" && git commit -m "$(cat <<'EOF'
-strategize: {one-line summary of changes}
-
-{rationale summary -- 2-3 sentences covering the strategic reasoning
-behind these changes, referencing the evidence sources from research}
-
-Docs: {list of changed doc slugs}
-Findings: {list of finding numbers that drove these changes}
-EOF
-)"
-```
-
-Capture the commit SHA:
-
-```bash
-_commit_sha=$(cd "$REPO_ROOT" && git rev-parse --short HEAD)
-```
-
-### 2c. Collect Changed Docs List
+The DB write in Step 1 is the durable landing — the `strategy_docs` rows are authoritative. Each `doc replace` re-rendered the local `.yoke/strategy/*.md` views, which are gitignored regenerated caches (not tracked, not committed); there is nothing to commit here.
 
 Build the list of docs that were actually replaced for event context:
 
@@ -136,7 +105,7 @@ For each frontier item, assess whether the approved SML changes affect it:
 ```
 ## Frontier Implications
 
-The following SML changes were committed ({_commit_sha}):
+The following SML changes landed in the DB:
 {brief list of changes}
 
 ### Impact on Current Frontier
@@ -213,18 +182,16 @@ yoke events emit \
  --severity STATUS \
  --outcome completed \
  --project "${_project}" \
- --context "{\"commit_sha\":\"${_commit_sha}\",\"files_changed\":[${_files_list}],\"changes_applied\":${_applied_count},\"changes_deferred\":${_deferred_count},\"outcome\":\"${_outcome}\"}"
+ --context "{\"files_changed\":[${_files_list}],\"changes_applied\":${_applied_count},\"changes_deferred\":${_deferred_count},\"outcome\":\"${_outcome}\"}"
 ```
 
 Where:
-- `_commit_sha` is the short commit hash from Step 2 (empty string if deferred-all path)
 - `_files_list` is a JSON array of changed filenames (e.g., `"LANDSCAPE.md","VISION.md"`)
 - `_applied_count` is the number of changes written to disk
 - `_deferred_count` is the number of changes deferred
 - `_outcome` is one of: `changes_applied`, `changes_deferred`
 
 For the deferred-all path, use:
-- `_commit_sha` = `""`
 - `_files_list` = empty array
 - `_applied_count` = `0`
 - `_outcome` = `"changes_deferred"`
@@ -284,7 +251,6 @@ If the `pending` bucket is empty, skip this step silently.
 
 This phase produces the following inline context for the Finalize phase (finalize.md):
 
-- `_commit_sha` -- the commit hash of the SML changes (empty if deferred)
 - `_files_changed` -- list of modified SML files
 - `_applied_count` -- number of changes applied
 - `_deferred_count` -- number of changes deferred

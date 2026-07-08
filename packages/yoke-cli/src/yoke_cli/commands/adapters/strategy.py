@@ -1,8 +1,8 @@
 """``yoke strategy doc *`` adapters (list / get / replace).
 
 Per-project DB-authoritative strategy documents (each project's
-``.yoke/strategy/`` files are a tracked rendered view, the
-``docs/atlas.md`` precedent):
+``.yoke/strategy/`` files are a gitignored local rendered view, a
+regenerated cache):
 
 - ``doc list`` -> ``strategy.doc.list`` (slug/updated_at/bytes table).
 - ``doc get`` -> ``strategy.doc.get`` (content to stdout in human mode).
