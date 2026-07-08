@@ -52,11 +52,25 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_runner
+from yoke_core.tools import _source_pythonpath, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_deploy"
 KIND = "deploy"
+
+# Emitted when a deploy runs from the invoking checkout's code instead of a
+# pinned-product checkout. The watcher executes whatever ``yoke_core`` is on
+# the path, so a checkout that lags the product being delivered derives
+# resource names (log group, nginx site, container) from stale logic and can
+# strand or collide live infra. ``--product-src`` is the fix.
+LOCAL_CODE_WARNING = (
+    "watch_deploy: running deploy_pipeline from THIS checkout's yoke_core "
+    "code. For a break-glass deploy this MUST match the pinned product being "
+    "delivered — a checkout that lags the product derives resource names from "
+    "stale logic (e.g. a project-slug-named nginx site) and strands infra. "
+    "Pass --product-src <checkout-at-the-deployed-sha> to run the pinned "
+    "product code."
+)
 
 # Per-class regexes. Each is line-oriented; callers feed one line at a
 # time. Keeping them as separate constants lets tests exercise each
@@ -239,6 +253,16 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "resolved path under the project scratch root.",
     )
     parser.add_argument(
+        "--product-src",
+        type=Path,
+        default=None,
+        help="Path to a product checkout at the deployed pin/image sha. "
+        "When given, deploy_pipeline runs with that checkout's source on "
+        "PYTHONPATH so resource naming matches the pinned product, not this "
+        "(possibly stale) checkout. Omit it and the wrapper warns and runs "
+        "the local checkout's code.",
+    )
+    parser.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
         help=(
@@ -307,12 +331,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         raw_path = ns.raw_capture
         progress_path = ns.progress_capture
 
+    deploy_env: dict[str, str] | None = None
+    if ns.product_src is not None:
+        product_root = ns.product_src.resolve()
+        deploy_env = _source_pythonpath.with_source_pythonpath(
+            None, product_root
+        )
+        refusal = _source_pythonpath.import_origin_refusal(
+            product_root, env=deploy_env
+        )
+        if refusal is not None:
+            print(f"watch_deploy --product-src: {refusal}", file=sys.stderr)
+            return 3
+    else:
+        print(LOCAL_CODE_WARNING, file=sys.stderr)
+
     return _watch_runner.run_watcher(
         argv=_deploy_argv(deploy_args),
         classifier=classify_deploy_line,
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        env=deploy_env,
     )
 
 

@@ -8,6 +8,8 @@ nested-invocation rejection path.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from yoke_core.tools import watch_deploy
@@ -298,3 +300,111 @@ class TestNestedInvocationRejectionPath:
         assert rc == 2
         err = capsys.readouterr().err
         assert "watch_deploy expects bare deploy_pipeline args" in err
+
+
+class TestProductSrc:
+    """``--product-src`` runs deploy_pipeline from the pinned product code.
+
+    The break-glass deploy watcher executes whatever ``yoke_core`` is on the
+    path; a checkout lagging the delivered product derives resource names
+    from stale logic. ``--product-src`` points the deploy subprocess at a
+    checkout pinned to the deployed sha; omitting it warns.
+    """
+
+    def test_product_src_prepends_product_pythonpath(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        seen = {}
+        monkeypatch.setattr(
+            watch_deploy._watch_runner,
+            "run_watcher",
+            lambda **kwargs: seen.update(kwargs) or 0,
+        )
+        # Stub the import-origin verification so the test needs no real
+        # product checkout on disk.
+        monkeypatch.setattr(
+            watch_deploy._source_pythonpath,
+            "import_origin_refusal",
+            lambda root, **kwargs: None,
+        )
+        product_root = tmp_path / "product"
+        product_root.mkdir()
+
+        rc = watch_deploy.main(
+            [
+                "--product-src",
+                str(product_root),
+                "--raw-capture",
+                str(tmp_path / "raw.log"),
+                "--progress-capture",
+                str(tmp_path / "prog.log"),
+                "--",
+                "run-1",
+                "--image-tag",
+                "abc123",
+            ]
+        )
+
+        assert rc == 0
+        env = seen["env"]
+        assert env is not None
+        pythonpath = env["PYTHONPATH"].split(os.pathsep)
+        core_src = str((product_root / "packages/yoke-core/src").resolve())
+        assert core_src in pythonpath
+        # The product source leads so it wins over any ambient checkout.
+        assert pythonpath[0].startswith(str(product_root.resolve()))
+
+    def test_absent_product_src_warns_and_inherits_env(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        seen = {}
+        monkeypatch.setattr(
+            watch_deploy._watch_runner,
+            "run_watcher",
+            lambda **kwargs: seen.update(kwargs) or 0,
+        )
+
+        rc = watch_deploy.main(
+            [
+                "--raw-capture",
+                str(tmp_path / "raw.log"),
+                "--progress-capture",
+                str(tmp_path / "prog.log"),
+                "--",
+                "run-1",
+            ]
+        )
+
+        assert rc == 0
+        # None => run_watcher inherits the ambient process env.
+        assert seen["env"] is None
+        err = capsys.readouterr().err
+        assert "--product-src" in err
+        assert "stale logic" in err
+
+    def test_product_src_import_refusal_returns_three(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # run_watcher must NOT be reached when the product checkout can't
+        # import yoke_core — the deploy is refused before it starts.
+        monkeypatch.setattr(
+            watch_deploy._watch_runner,
+            "run_watcher",
+            lambda **kwargs: pytest.fail("run_watcher should not run"),
+        )
+        monkeypatch.setattr(
+            watch_deploy._source_pythonpath,
+            "import_origin_refusal",
+            lambda root, **kwargs: "yoke_core import origin is outside checkout",
+        )
+        product_root = tmp_path / "product"
+        product_root.mkdir()
+
+        rc = watch_deploy.main(
+            ["--product-src", str(product_root), "--", "run-1"]
+        )
+
+        assert rc == 3
+        assert "watch_deploy --product-src" in capsys.readouterr().err
