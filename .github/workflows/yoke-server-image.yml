@@ -54,6 +54,7 @@ jobs:
 
       - name: Login to GHCR
         run: |
+          set -o pipefail
           echo "${{ secrets.GITHUB_TOKEN }}" \
             | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 

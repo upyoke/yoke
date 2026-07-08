@@ -207,7 +207,8 @@ jobs:
           WEB_PORT="${{ inputs.web_port }}"
           HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
 
-          COLLISION=$(ssh -o LogLevel=ERROR ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << COLLEOF | grep '^COLLISION:' | head -1 | sed 's/^COLLISION://'
+          set -o pipefail
+          if collision_output=$(ssh -o LogLevel=ERROR ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << COLLEOF
             # List all running ephemeral compose projects and check for port overlap
             for dir in ~/{{project_name}}-ephemeral/*/; do
               [ -d "\$dir" ] || continue
@@ -220,7 +221,13 @@ jobs:
               fi
             done
           COLLEOF
-          )
+          ); then
+            COLLISION=$(printf '%s\n' "$collision_output" | grep '^COLLISION:' | head -1 | sed 's/^COLLISION://' || true)
+          else
+            collision_rc=$?
+            echo "::error::Port collision check failed before deployment."
+            exit "$collision_rc"
+          fi
 
           if [ -n "$COLLISION" ]; then
             echo "::error::Port collision detected! Slug '$SLUG' (port $WEB_PORT) conflicts with active environment '$COLLISION' using the same port."

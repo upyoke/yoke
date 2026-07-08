@@ -172,7 +172,12 @@ jobs:
         # every address `localhost` resolves to, so it connects regardless of
         # whether the IPv4 or IPv6 publish is listed first.
         run: |
+          set -o pipefail
           host_port="$(docker port "$PG_CONTAINER" 5432 | head -n1 | sed 's/.*://')"
+          if [ -z "$host_port" ]; then
+            echo "Postgres host port did not resolve" >&2
+            exit 1
+          fi
           echo "Resolved Postgres host port: ${host_port}"
           echo "YOKE_PG_DSN=host=localhost port=${host_port} user=yoke password=yoke dbname=postgres" >> "$GITHUB_ENV"
 

@@ -39,6 +39,7 @@ class TestPreToolUseBash(unittest.TestCase):
         )
         # Tail: pipe-to-truncator lint (owns the Command Output rule's
         # pipe-to-truncator clause, beside the polling lint),
+        # if-status-capture lint (blocks `fi; rc=$?` masking),
         # subagent-background lint (sits next to polling lint as
         # architectural sibling), session-cwd guard, workspace-cwd-match
         # guard (writer-class cross-checkout deny), path-claim guard,
@@ -54,6 +55,7 @@ class TestPreToolUseBash(unittest.TestCase):
             chain[5:],
             [
                 "yoke_core.domain.lint_pipe_to_truncator",
+                "yoke_core.domain.lint_if_status_capture",
                 "yoke_core.domain.lint_subagent_background",
                 "yoke_core.domain.lint_session_cwd",
                 "yoke_core.domain.lint_workspace_cwd_match",
@@ -186,6 +188,10 @@ class TestPreToolUseSubagentLint(unittest.TestCase):
         self.assertIn("yoke_core.domain.lint_subagent_background", chain)
         self.assertLess(
             chain.index("yoke_core.domain.lint_long_command_polling"),
+            chain.index("yoke_core.domain.lint_subagent_background"),
+        )
+        self.assertLess(
+            chain.index("yoke_core.domain.lint_if_status_capture"),
             chain.index("yoke_core.domain.lint_subagent_background"),
         )
 
