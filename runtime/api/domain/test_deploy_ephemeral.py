@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import deploy_ephemeral
+from yoke_core.domain import deploy_ephemeral_files
 from yoke_core.domain import deploy_ephemeral_remote as remote
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
@@ -310,3 +311,22 @@ class TestRemoteHelpers:
             runner, _env(), "~/yoke-ephemeral/x"
         )
         assert value == ""
+
+
+def test_slug_files_name_database_by_deploy_namespace(monkeypatch):
+    """A re-parented deploy (project != deploy_namespace) names the preview
+    Postgres database + user by the stable deploy_namespace, keeping every
+    host-box preview resource under one namespace after a re-parent."""
+    monkeypatch.setattr(
+        deploy_ephemeral_files, "render_webapp_template",
+        lambda _relative, _values: "compose-yaml",
+    )
+    policy = _policy(project="platform", deploy_namespace="yoke")
+    env = _env(project="platform", deploy_namespace="yoke")
+
+    _compose, _env_file, dsn = deploy_ephemeral_files.slug_files(
+        policy, env, "my-slug", "img:tag", 9100, "deadbeef",
+    )
+
+    assert "dbname=yoke_ephemeral user=yoke" in dsn
+    assert "platform" not in dsn

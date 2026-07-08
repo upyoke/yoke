@@ -64,8 +64,8 @@ def slug_files(
     carries only hex-safe values because docker compose interpolates
     ``$`` inside env files.
     """
-    database = f"{policy.project}_ephemeral"
-    user = policy.project
+    database = f"{env.deploy_namespace}_ephemeral"
+    user = env.deploy_namespace
     compose_yaml = render_webapp_template(
         "core-service/docker-compose.ephemeral.yml.tmpl",
         {

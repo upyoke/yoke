@@ -10,6 +10,7 @@ from yoke_core.domain.project_renderer_pulumi_instances import (
     PulumiStackInstance,
     gather_pulumi_stack_instances,
     instance_template_values,
+    pulumi_stack_instances_from_settings,
 )
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
@@ -350,3 +351,28 @@ class TestRenderPulumiStackInstances:
         assert "WARNING" in err
         assert "webapp-infra:database_min_capacity_acu" in err
         assert "DB-backed site/environment/capability settings" in err
+
+
+def test_default_distribution_origin_id_uses_deploy_namespace_not_project():
+    """A re-parented deploy (project != deploy_namespace) keeps the default
+    distribution origin id on the stable deploy_namespace, so moving the
+    control-plane project never renames the live CloudFront origin."""
+    env = _environment_settings("yoke-stage", "stage")
+    # A distribution bucket with no explicit origin id triggers the default.
+    env.settings["distribution"] = {"bucket_name": "yoke-stage-artifacts"}
+    settings = ProjectRendererSettings(
+        project="platform",
+        deploy_namespace="yoke",
+        display_name="Platform",
+        site_id="yoke-api",
+        site_settings={},
+        primary_environment=env,
+        environments=(env,),
+        capabilities={},
+    )
+
+    instances = pulumi_stack_instances_from_settings(settings)
+
+    assert instances[0].config["distribution_origin_id"] == (
+        "yoke-stage-distribution-static"
+    )

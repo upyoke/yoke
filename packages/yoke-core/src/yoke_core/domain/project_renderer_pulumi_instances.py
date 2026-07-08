@@ -73,7 +73,7 @@ def _raw_stack_instance_from_environment(
     distribution_origin_id = str(distribution.get("origin_id", "") or "")
     if distribution_bucket_name and not distribution_origin_id:
         distribution_origin_id = _default_distribution_origin_id(
-            settings.project, env.name,
+            settings.deploy_namespace, env.name,
         )
 
     config = {
@@ -124,8 +124,8 @@ def _ephemeral_preview_domain(settings: ProjectRendererSettings, env) -> str:
     return ""
 
 
-def _default_distribution_origin_id(project: str, environment: str) -> str:
-    return f"{project}-{environment}-distribution-static"
+def _default_distribution_origin_id(deploy_namespace: str, environment: str) -> str:
+    return f"{deploy_namespace}-{environment}-distribution-static"
 
 
 def instance_template_values(
