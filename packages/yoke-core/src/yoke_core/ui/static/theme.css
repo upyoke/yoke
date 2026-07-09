@@ -1,0 +1,21 @@
+/* Yoke design tokens — the single customization surface.
+   Both the marketing site and the universe app read these; change a
+   value here and every consumer follows. Provisional starting values. */
+:root {
+  --yoke-ink: #14161a;        /* primary mark + text ink (light) */
+  --yoke-bg: #ffffff;
+  --yoke-muted: #6b7280;
+  --yoke-accent: #3b5bdb;     /* provisional accent — change freely */
+  --yoke-border: #e5e7eb;
+  --yoke-radius: 10px;
+  --yoke-font-sans: 'Geist','Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --yoke-font-mono: ui-monospace,'SF Mono','JetBrains Mono','Fira Code',monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --yoke-ink: #f5f5f5;
+    --yoke-bg: #0d0f12;
+    --yoke-muted: #9aa1ab;
+    --yoke-border: #22262c;
+  }
+}

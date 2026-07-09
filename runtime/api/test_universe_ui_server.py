@@ -101,6 +101,23 @@ class TestAssets:
         )
         assert "export function mountUniverseApp" in page_module
 
+    def test_page_module_wires_the_two_view_shell(self):
+        # Structural pin on the app shell: the mount contract still holds,
+        # and the module drives the new data surfaces + hash routes so the
+        # server allowlist and the client stay in lockstep.
+        page_module = (
+            files("yoke_core.ui").joinpath("static", "app.js")
+            .read_text(encoding="utf-8")
+        )
+        assert "export function mountUniverseApp" in page_module
+        for reference in (
+            "projects.list",
+            "strategy.doc.list",
+            "#/items",
+            "#/strategy",
+        ):
+            assert reference in page_module, reference
+
 
 class TestFunctionProxy:
     def _call(self, ui_client, envelope):
@@ -156,6 +173,54 @@ class TestFunctionProxy:
         assert envelope["success"] is True
         assert envelope["result"]["rows"] == []
         assert envelope["result"]["count"] == 0
+
+    def test_projects_list_returns_well_formed_rows(self, ui_client, test_db):
+        # Anonymous (cookie-only) identity: local mode makes every project
+        # visible, so the seeded corpus comes back as a rows list.
+        response = self._call(ui_client, {
+            "function": "projects.list",
+            "payload": {"fields": ["id", "slug", "name"]},
+        })
+        assert response.status_code == 200
+        envelope = response.json()
+        assert envelope["success"] is True
+        rows = envelope["result"]["rows"]
+        assert isinstance(rows, list)
+        assert any(row.get("slug") == "yoke" for row in rows)
+
+    def test_strategy_doc_list_with_project_target_reaches_handler(
+        self, ui_client, test_db,
+    ):
+        # A project target is required; carry it the way the Strategy view
+        # does and confirm the handler returns a well-formed docs list.
+        projects = self._call(ui_client, {
+            "function": "projects.list",
+            "payload": {"fields": ["id", "slug", "name"]},
+        }).json()["result"]["rows"]
+        project_id = str(projects[0]["id"])
+        response = self._call(ui_client, {
+            "function": "strategy.doc.list",
+            "target": {"kind": "global", "project_id": project_id},
+            "payload": {},
+        })
+        assert response.status_code == 200
+        envelope = response.json()
+        assert envelope["success"] is True
+        assert isinstance(envelope["result"]["docs"], list)
+
+    def test_strategy_doc_list_without_project_is_graceful_error(
+        self, ui_client, test_db,
+    ):
+        # No project target + the browser's empty session: the handler must
+        # return a typed error envelope (HTTP 200, success=false), never a
+        # 500 that would strand the view at "loading…".
+        response = self._call(
+            ui_client, {"function": "strategy.doc.list", "payload": {}},
+        )
+        assert response.status_code == 200
+        envelope = response.json()
+        assert envelope["success"] is False
+        assert envelope["error"]["code"] == "project_context_required"
 
     def test_allowlist_ids_are_registered_claimless_reads(self):
         from yoke_core.domain.handlers.__init_register__ import (
