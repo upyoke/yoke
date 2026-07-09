@@ -30,22 +30,34 @@ def machine_home(monkeypatch, tmp_path) -> Path:
 
 
 def _stub_server(record: dict, *, busy_port: bool = False):
-    def resolve_ui_port(requested=None):
+    def resolve_ui_host(requested=None):
+        host = requested or "127.0.0.1"
+        if host not in {"127.0.0.1", "localhost"}:
+            raise RuntimeError("host must be loopback-only")
+        return host
+
+    def resolve_ui_port(requested=None, *, host="127.0.0.1"):
         if busy_port:
             raise RuntimeError(
                 "port 9999 is already in use; pick another with --port"
             )
         return int(requested or 9999)
 
-    def serve_ui(*, port, token, open_browser):
+    def serve_ui(*, host, port, token, open_browser):
         record["served"] = {
-            "port": port, "token": token, "open_browser": open_browser,
+            "host": host,
+            "port": port,
+            "token": token,
+            "open_browser": open_browser,
         }
 
     return SimpleNamespace(
+        resolve_ui_host=resolve_ui_host,
         resolve_ui_port=resolve_ui_port,
         mint_session_token=lambda: "stub-token",
-        private_url=lambda port, token: f"http://127.0.0.1:{port}/?token={token}",
+        private_url=lambda port, token, *, host="127.0.0.1": (
+            f"http://{host}:{port}/?token={token}"
+        ),
         serve_ui=serve_ui,
     )
 
@@ -153,11 +165,15 @@ class TestLocalServe:
 
         report = json.loads(capsys.readouterr().out)
         assert report["ok"] is True
+        assert report["host"] == "127.0.0.1"
         assert report["port"] == 9999
         assert report["private_url"] == "http://127.0.0.1:9999/?token=stub-token"
         assert report["browser_opened"] is False
         assert record["served"] == {
-            "port": 9999, "token": "stub-token", "open_browser": False,
+            "host": "127.0.0.1",
+            "port": 9999,
+            "token": "stub-token",
+            "open_browser": False,
         }
 
     def test_human_output_prints_the_door(
@@ -186,6 +202,23 @@ class TestLocalServe:
         assert commands.ui(["--port", "8123", "--no-browser", "--json"]) == 0
         assert json.loads(capsys.readouterr().out)["port"] == 8123
         assert record["served"]["port"] == 8123
+
+    def test_explicit_host_passes_through(
+        self, monkeypatch, machine_home, capsys,
+    ):
+        _write_local_connection()
+        record: dict = {}
+        monkeypatch.setattr(
+            commands, "_ui_server", lambda: _stub_server(record),
+        )
+
+        assert commands.ui([
+            "--host", "localhost", "--port", "8123", "--no-browser", "--json",
+        ]) == 0
+        report = json.loads(capsys.readouterr().out)
+        assert report["host"] == "localhost"
+        assert report["private_url"] == "http://localhost:8123/?token=stub-token"
+        assert record["served"]["host"] == "localhost"
 
     def test_busy_port_refusal_names_the_flag(
         self, monkeypatch, machine_home, capsys,

@@ -37,7 +37,7 @@ from yoke_contracts.machine_config.schema import (
 
 AdapterFn = Callable[[List[str]], int]
 
-UI_USAGE = "yoke ui [--port PORT] [--no-browser] [--json]"
+UI_USAGE = "yoke ui [--host HOST] [--port PORT] [--no-browser] [--json]"
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {"yoke ui": UI_USAGE}
 
@@ -113,10 +113,17 @@ def ui(args: List[str]) -> int:
         prog="yoke ui",
         description=(
             "Serve the read-only web view of the machine-local universe. "
-            "Binds 127.0.0.1 only, mints one random session token per run, "
+            "Binds loopback only, mints one random session token per run, "
             "and prints the tokened URL — that URL is the door; treat it "
             "like a password. Requires a non-prod local-postgres "
             "connection (`yoke init --local`)."
+        ),
+    )
+    parser.add_argument(
+        "--host", default=None,
+        help=(
+            "Loopback host for the UI server (default: 127.0.0.1; "
+            "remote-facing hosts are refused)."
         ),
     )
     parser.add_argument(
@@ -148,16 +155,18 @@ def ui(args: List[str]) -> int:
 
     try:
         server = _ui_server()
-        port = server.resolve_ui_port(parsed.port)
+        host = server.resolve_ui_host(parsed.host)
+        port = server.resolve_ui_port(parsed.port, host=host)
     except (UniverseUiError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     token = server.mint_session_token()
-    url = server.private_url(port, token)
+    url = server.private_url(port, token, host=host)
 
     if parsed.json_mode:
         print(json.dumps({
             "ok": True,
+            "host": host,
             "port": port,
             "private_url": url,
             "browser_opened": not parsed.no_browser,
@@ -170,7 +179,10 @@ def ui(args: List[str]) -> int:
 
     try:
         server.serve_ui(
-            port=port, token=token, open_browser=not parsed.no_browser,
+            host=host,
+            port=port,
+            token=token,
+            open_browser=not parsed.no_browser,
         )
     except KeyboardInterrupt:
         print("yoke ui: stopped", file=sys.stderr)

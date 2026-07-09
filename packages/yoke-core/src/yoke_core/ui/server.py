@@ -32,9 +32,12 @@ import uuid
 import webbrowser
 from typing import Any, Dict, Optional
 
-#: Default TCP port for the UI server (loopback only). Collision-probed at
-#: startup; ``--port`` on ``yoke ui`` overrides.
+#: Default bind host and TCP port for the UI server (loopback only).
+#: Collision-probed at startup; ``--host`` and ``--port`` on ``yoke ui``
+#: override within the same loopback-only security boundary.
+DEFAULT_UI_HOST = "127.0.0.1"
 DEFAULT_UI_PORT = 8688
+LOOPBACK_UI_HOSTS = frozenset({"127.0.0.1", "localhost"})
 
 #: ``secrets.token_urlsafe`` byte length for the per-run session token.
 SESSION_TOKEN_BYTES = 32
@@ -63,7 +66,6 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "app.css": "text/css; charset=utf-8",
 }
 
-_BIND_HOST = "127.0.0.1"
 _BROWSER_OPEN_DELAY_S = 0.5
 
 
@@ -87,7 +89,22 @@ def _token_matches(candidate: str, token: str) -> bool:
     )
 
 
-def resolve_ui_port(requested: Optional[int] = None) -> int:
+def resolve_ui_host(requested: Optional[str] = None) -> str:
+    """Return a loopback bind host, refusing remote-facing addresses."""
+    host = DEFAULT_UI_HOST if requested is None else str(requested).strip()
+    if host not in LOOPBACK_UI_HOSTS:
+        raise UiServerError(
+            f"host must be loopback-only ({', '.join(sorted(LOOPBACK_UI_HOSTS))}), "
+            f"got {host!r}"
+        )
+    return host
+
+
+def resolve_ui_port(
+    requested: Optional[int] = None,
+    *,
+    host: str = DEFAULT_UI_HOST,
+) -> int:
     """Return a usable loopback port, probing for collisions.
 
     Mirrors the local-core launcher's socket probe: bind-test the port and
@@ -96,21 +113,27 @@ def resolve_ui_port(requested: Optional[int] = None) -> int:
     port = DEFAULT_UI_PORT if requested is None else int(requested)
     if not 1 <= port <= 65535:
         raise UiServerError(f"port must be between 1 and 65535, got {port}")
+    bind_host = resolve_ui_host(host)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
-            probe.bind((_BIND_HOST, port))
+            probe.bind((bind_host, port))
         except OSError as exc:
             raise UiServerError(
-                f"port {port} is already in use ({exc}); "
+                f"port {port} is already in use on {bind_host} ({exc}); "
                 "pick another with --port"
             ) from exc
     return port
 
 
-def private_url(port: int, token: str) -> str:
+def private_url(
+    port: int,
+    token: str,
+    *,
+    host: str = DEFAULT_UI_HOST,
+) -> str:
     """The tokened URL that admits the caller — terminal-only, never logged."""
-    return f"http://{_BIND_HOST}:{port}/?token={token}"
+    return f"http://{resolve_ui_host(host)}:{port}/?token={token}"
 
 
 def _asset_bytes(asset_name: str) -> bytes:
@@ -242,6 +265,7 @@ def serve_ui(
     port: int,
     token: str,
     open_browser: bool = True,
+    host: str = DEFAULT_UI_HOST,
 ) -> None:
     """Run the UI server until interrupted (blocking).
 
@@ -250,14 +274,17 @@ def serve_ui(
     """
     import uvicorn
 
+    bind_host = resolve_ui_host(host)
     app = create_ui_app(token)
     if open_browser:
         opener = threading.Timer(
-            _BROWSER_OPEN_DELAY_S, webbrowser.open, [private_url(port, token)],
+            _BROWSER_OPEN_DELAY_S,
+            webbrowser.open,
+            [private_url(port, token, host=bind_host)],
         )
         opener.daemon = True
         opener.start()
-    uvicorn.run(app, host=_BIND_HOST, port=port, log_level="warning")
+    uvicorn.run(app, host=bind_host, port=port, log_level="warning")
 
 
 __all__ = [

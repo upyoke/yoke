@@ -202,3 +202,11 @@ class TestPortProbe:
     def test_private_url_carries_the_token(self):
         url = ui_server.private_url(1234, "s3cret")
         assert url == "http://127.0.0.1:1234/?token=s3cret"
+
+    def test_private_url_accepts_localhost(self):
+        url = ui_server.private_url(1234, "s3cret", host="localhost")
+        assert url == "http://localhost:1234/?token=s3cret"
+
+    def test_remote_facing_host_refused(self):
+        with pytest.raises(ui_server.UiServerError, match="loopback-only"):
+            ui_server.resolve_ui_host("0.0.0.0")
