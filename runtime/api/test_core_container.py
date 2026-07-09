@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 from unittest import mock
 
 from yoke_core.api import container_healthcheck, server_entrypoint
+from yoke_core.tools.local_wheel_constraints import constraints_for_wheelhouse
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -160,8 +162,13 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert 'ARG YOKE_ENGINE_VERSION=""' in dockerfile
     assert "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE" in dockerfile
     assert (
-        "python -m pip wheel --wheel-dir /wheels --find-links /wheels ."
-        in dockerfile
+        "python -m pip wheel --no-deps --wheel-dir /wheels "
+        "./packages/yoke-harness" in dockerfile
+    )
+    assert "local_wheel_constraints.py" in dockerfile
+    assert "--constraint /tmp/yoke-local-constraints.txt ." in dockerfile
+    assert dockerfile.index("local_wheel_constraints.py") < dockerfile.index(
+        "--constraint /tmp/yoke-local-constraints.txt ."
     )
     assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
     assert (
@@ -172,6 +179,37 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "USER yoke" in dockerfile
     assert "curl" not in dockerfile
     assert "wget" not in dockerfile
+
+
+def test_local_wheel_constraints_emit_exact_split_package_versions(
+    tmp_path: Path,
+) -> None:
+    _write_wheel_metadata(
+        tmp_path / "yoke_harness-0.2.0.dev1-py3-none-any.whl",
+        name="yoke-harness",
+        version="0.2.0.dev1",
+    )
+    _write_wheel_metadata(
+        tmp_path / "yoke_cli-0.2.0.dev1-py3-none-any.whl",
+        name="yoke-cli",
+        version="0.2.0.dev1",
+    )
+
+    assert constraints_for_wheelhouse(
+        tmp_path, ["yoke-cli", "yoke-harness"]
+    ) == [
+        "yoke-cli==0.2.0.dev1",
+        "yoke-harness==0.2.0.dev1",
+    ]
+
+
+def _write_wheel_metadata(path: Path, *, name: str, version: str) -> None:
+    dist_info = path.name.split("-py3-", 1)[0] + ".dist-info"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            f"{dist_info}/METADATA",
+            f"Metadata-Version: 2.4\nName: {name}\nVersion: {version}\n",
+        )
 
 
 def test_git_archive_metadata_is_exported_for_image_wheel_versions() -> None:

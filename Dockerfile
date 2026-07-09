@@ -17,16 +17,10 @@ COPY packages ./packages
 ARG YOKE_ENGINE_VERSION=""
 
 # Build the root `yoke` wheel (the runtime* tree) plus the four split packages
-# under packages/yoke-*/src. yoke_core imports runtime.* (64 modules) and
-# yoke_harness, so the runtime image needs all five distributions — the old
-# `pip wheel .` shipped only runtime* and the container crashed on startup with
-# `ModuleNotFoundError: No module named 'yoke_core'`. Build in dependency order
-# with an accumulating --find-links so inter-package deps (yoke-cli ->
-# yoke-contracts, yoke-core -> yoke-cli/yoke-contracts) resolve from
-# /wheels instead of PyPI (where these private packages do not exist). Docker
-# builds do not copy .git into the image context, so checkout-based workflows
-# pass the setuptools-scm version explicitly; archive-based builds can resolve
-# from .git_archival.txt when export-subst metadata is present.
+# under packages/yoke-*/src. The split package names may also exist on public
+# indexes, so the wheelhouse first receives dependency-free local wheels, then
+# pins those exact versions while resolving external dependencies. That keeps a
+# public same-name package from replacing the in-repo wheel.
 RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CONTRACTS="$YOKE_ENGINE_VERSION"; \
@@ -34,11 +28,15 @@ RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_HARNESS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE="$YOKE_ENGINE_VERSION"; \
     fi; \
-    python -m pip wheel --wheel-dir /wheels ./packages/yoke-contracts \
-    && python -m pip wheel --wheel-dir /wheels --find-links /wheels ./packages/yoke-cli \
-    && python -m pip wheel --wheel-dir /wheels --find-links /wheels ./packages/yoke-harness \
-    && python -m pip wheel --wheel-dir /wheels --find-links /wheels ./packages/yoke-core \
-    && python -m pip wheel --wheel-dir /wheels --find-links /wheels .
+    python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-contracts \
+    && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-cli \
+    && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-harness \
+    && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-core \
+    && python packages/yoke-core/src/yoke_core/tools/local_wheel_constraints.py \
+        /wheels yoke-contracts yoke-cli yoke-harness yoke-core \
+        > /tmp/yoke-local-constraints.txt \
+    && python -m pip wheel --wheel-dir /wheels --find-links /wheels \
+        --constraint /tmp/yoke-local-constraints.txt .
 
 FROM python:3.13-slim AS runtime
 
