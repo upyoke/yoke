@@ -50,9 +50,11 @@ SESSION_COOKIE_NAME = "yoke_ui_session"
 #: effects and no claim requirement.
 UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "organizations.get",
+    "projects.list",
     "items.get.run",
     "items.list.run",
     "epic_tasks.list.run",
+    "strategy.doc.list",
     "board.data.get",
     "events.query.run",
 })
@@ -64,6 +66,12 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "index.html": "text/html; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
+    "theme.css": "text/css; charset=utf-8",
+    "yoke.svg": "image/svg+xml",
+    "yoke-wordmark.svg": "image/svg+xml",
+    "favicon.svg": "image/svg+xml",
+    "favicon.ico": "image/x-icon",
+    "apple-touch-icon.png": "image/png",
 }
 
 _BROWSER_OPEN_DELAY_S = 0.5
