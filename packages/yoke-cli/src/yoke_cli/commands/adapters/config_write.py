@@ -36,6 +36,9 @@ PROJECT_REGISTER_USAGE = (
     "yoke project register REPO_ROOT --project-id N "
     "[--board-scope SCOPE] [--board-render-path PATH] [--config PATH]"
 )
+STAMP_PROJECT_ENV_USAGE = (
+    "yoke config stamp-project-env [--config PATH]"
+)
 
 
 def env_use(args: List[str]) -> int:
@@ -133,6 +136,29 @@ def project_register(args: List[str]) -> int:
         parsed.project_id,
         board_scope=parsed.board_scope,
         board_render_path=parsed.board_render_path,
+        path=parsed.config_path,
+    ))
+
+
+def config_stamp_project_env(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke config stamp-project-env",
+        description=(
+            "Stamp every untagged projects entry with the connection env its "
+            "project_id belongs to. Defaults to the active env; select another "
+            "with the global env flag (e.g. `yoke --env prod config "
+            "stamp-project-env`). Already-tagged entries are left untouched."
+        ),
+    )
+    parser.add_argument("--config", dest="config_path", default=None)
+    attach_field_note_footer(parser)
+    parsed = parse_or_usage_error(parser, args, STAMP_PROJECT_ENV_USAGE)
+    if parsed is None:
+        return 2
+    writer = _writer()
+    # env is None here so the writer resolves it from the connection env the
+    # invocation selected (global --env / YOKE_ENV, else active_env).
+    return _run(lambda: writer.stamp_untagged_project_envs(
         path=parsed.config_path,
     ))
 
@@ -278,7 +304,9 @@ __all__ = [
     "CONNECTION_SET_USAGE",
     "ENV_USE_USAGE",
     "PROJECT_REGISTER_USAGE",
+    "STAMP_PROJECT_ENV_USAGE",
     "auth_set",
+    "config_stamp_project_env",
     "connection_set",
     "env_use",
     "project_register",

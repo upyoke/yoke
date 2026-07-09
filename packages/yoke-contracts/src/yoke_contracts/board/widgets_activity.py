@@ -31,7 +31,6 @@ from yoke_contracts.board.widgets_commit_cache import (
     commits_per_day as _commits_per_day,
 )
 from yoke_contracts.machine_config import runtime as machine_config
-from yoke_contracts.machine_config.schema import normalize_project_id
 
 # ---------------------------------------------------------------------------
 # Sparkline block characters (level 0-5)
@@ -110,16 +109,10 @@ def _resolve_repos(
 
 
 def _mapped_checkouts(config: dict) -> Dict[int, str]:
-    projects = config.get("projects", {})
+    from yoke_contracts.machine_config.schema import mapped_checkouts
+
     out: Dict[int, str] = {}
-    if not isinstance(projects, dict):
-        return out
-    for checkout, entry in sorted(projects.items()):
-        if not isinstance(entry, dict):
-            continue
-        project_id = normalize_project_id(entry.get("project_id"))
-        if project_id is None:
-            continue
+    for checkout, project_id in mapped_checkouts(config):
         path = Path(str(checkout)).expanduser()
         if path.is_dir():
             out[int(project_id)] = str(path)

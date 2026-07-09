@@ -180,9 +180,9 @@ def hc_config_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             settings = payload.get("settings", {})
             if settings is not None and not isinstance(settings, dict):
                 issues.append("- machine config settings must be an object")
-            projects = payload.get("projects", {})
-            if projects is not None and not isinstance(projects, dict):
-                issues.append("- machine config projects must be an object")
+            projects = payload.get("projects", [])
+            if projects is not None and not isinstance(projects, (list, dict)):
+                issues.append("- machine config projects must be a list of entries")
 
     if issues:
         rec.record("HC-config-validation", "Machine config validation", "WARN", "\n".join(issues))

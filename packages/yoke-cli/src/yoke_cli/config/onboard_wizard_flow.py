@@ -434,7 +434,8 @@ class WizardFlow:
         from yoke_cli.config.onboard_wizard_app import _View
 
         details = _existing_project_match_lines(self.result) + [
-            f"Project id: {self.result.existing_project_id}",
+            f"Project id: {self.result.existing_project_id} "
+            f"(env {self.result.env_name})",
             f"Project: {self.result.project_slug}",
         ]
         if self.result.project_checkout:

@@ -79,10 +79,10 @@ def _seed_project(conn, checkout: str, project: str = "yoke") -> None:
     config_dir = tempfile.mkdtemp(prefix="yoke-machine-config-")
     config_path = os.path.join(config_dir, "config.json")
     payload = {
-        "projects": machine_config_contract.canonical_project_map(
-            {},
+        "projects": machine_config_contract.upsert_project_entry(
+            [],
             checkout=checkout,
-            entry={"project_id": _project_id(project)},
+            project_id=_project_id(project),
         )
     }
     with open(config_path, "w", encoding="utf-8") as fh:

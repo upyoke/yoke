@@ -25,8 +25,10 @@ have one location across execution contexts, such as the disposable Postgres
 test cluster.
 
 Project namespacing is resolved from an explicit project argument, a process
-override, or the current checkout's machine-config `project_id` mapping. Repo
-config keys do not define project context.
+override, or the current checkout's machine-config project entry (the env-scoped
+checkout→project list resolves the row whose env matches the active/requested
+env, since project ids are numbered per universe). Repo config keys do not
+define project context.
 
 ## Accessors
 

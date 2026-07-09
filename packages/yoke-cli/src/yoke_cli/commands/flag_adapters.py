@@ -264,6 +264,7 @@ from yoke_cli.commands.adapters.project_onboard import (
 )
 from yoke_cli.commands.adapters.config_write import (
     auth_set,
+    config_stamp_project_env,
     connection_set,
     env_use,
     project_register,
@@ -357,7 +358,8 @@ __all__ = [
     "strategy_master_plan_check",
     "github_connect", "github_pr_create", "github_status",
     "hook_evaluate", "scratch_dispatch_inputs",
-    "config_example", "status", "dev_setup", "onboard", "onboard_project",
+    "config_example", "config_stamp_project_env",
+    "status", "dev_setup", "onboard", "onboard_project",
     "onboard_checklist_cmd", "onboard_checklist_init",
     "env_use", "connection_set", "auth_set",
     "project_create", "project_import", "project_register",
