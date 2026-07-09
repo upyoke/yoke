@@ -110,6 +110,16 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ): ("local_engine_activation",
         "universe export dumps the machine-held database via the engine"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/local_universe.py",
+        "yoke_core.domain.db_backend",
+    ): ("local_engine_activation",
+        "local demo seeding uses the engine DSN env contract"),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/local_universe.py",
+        "yoke_core.domain.local_demo_seed",
+    ): ("local_engine_activation",
+        "local demo seeding writes demo rows through the embedded engine"),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py",
         "yoke_core.ui.server",
     ): ("local_engine_activation",
@@ -146,6 +156,21 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "packages/yoke-cli/src/yoke_cli/project_install/source_dev.py",
         "yoke_core.domain.project_install_source_link",
     ): ("source_dev_admin", "explicit source-link setup branch only"),
+    (
+        "packages/yoke-cli/src/yoke_cli/project_install/transport.py",
+        "yoke_core.domain.db_backend",
+    ): ("local_engine_activation",
+        "local-postgres project install uses the engine DSN env contract"),
+    (
+        "packages/yoke-cli/src/yoke_cli/project_install/transport.py",
+        "yoke_core.domain.db_helpers",
+    ): ("local_engine_activation",
+        "local-postgres project install reads the local universe database"),
+    (
+        "packages/yoke-cli/src/yoke_cli/project_install/transport.py",
+        "yoke_core.domain.install_bundle",
+    ): ("local_engine_activation",
+        "local-postgres project install renders bundles through the engine"),
     (
         "packages/yoke-cli/src/yoke_cli/transport/dispatcher.py",
         "yoke_core.domain.yoke_function_dispatch",

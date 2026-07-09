@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import importlib
 import json
 import os
 import urllib.error
@@ -76,9 +77,13 @@ def _fetch_bundle_local_postgres(
             "source-dev/admin flow for prod database authority."
         )
     try:
-        from yoke_core.domain import db_backend
-        from yoke_core.domain.db_helpers import connect
-        from yoke_core.domain.install_bundle import build_bundle
+        db_backend = importlib.import_module("yoke_core.domain.db_backend")
+        connect = importlib.import_module(
+            "yoke_core.domain.db_helpers"
+        ).connect
+        build_bundle = importlib.import_module(
+            "yoke_core.domain.install_bundle"
+        ).build_bundle
     except ModuleNotFoundError as exc:
         raise ProjectInstallError(
             "the yoke-core engine package is not importable, so the "

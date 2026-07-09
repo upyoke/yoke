@@ -20,6 +20,7 @@ dump-and-restore between deployment modes.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import sys
 from typing import Any, Callable, Dict, List, Tuple
@@ -267,8 +268,10 @@ def _seed_demo_items(
             f"env {env_name!r} is prod-marked; demo seeding is local-only"
         )
     try:
-        from yoke_core.domain import db_backend
-        from yoke_core.domain.local_demo_seed import seed_demo_items
+        db_backend = importlib.import_module("yoke_core.domain.db_backend")
+        seed_demo_items = importlib.import_module(
+            "yoke_core.domain.local_demo_seed"
+        ).seed_demo_items
     except ModuleNotFoundError as exc:
         raise setup.LocalUniverseSetupError(
             "the yoke-core engine package is not importable; reinstall Yoke"
