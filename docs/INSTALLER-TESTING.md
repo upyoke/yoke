@@ -928,13 +928,211 @@ aws logs filter-log-events --log-group-name /yoke/stage/core \
 Expected CloudWatch evidence: hook relay requests return HTTP `200`, include the
 expected actor/token/request ids, and the error scan is clean.
 
+### Visual User Testing Mode
+
+Use this mode when the question is, "What would a person see on the Mac?" It is
+the preferred evidence path for installer/wizard walkthroughs. The wizard runs
+directly in Terminal.app, input is delivered as macOS keystrokes, and each step is
+captured from the Terminal window region. Do not substitute text-rendered PNGs or
+local browser captures for this mode unless Terminal.app capture is blocked.
+
+Before starting, set the campaign variables and keep the Mac unlocked with the
+display awake:
+
+```bash
+MAC_SSH_HOST=testy@100.117.161.86
+MAC_HOME=/Users/testy
+CAMPAIGN_ROOT=<operator-approved-absolute-evidence-root>
+ASSIGNMENT_ID=A001
+SCENARIO_ID=MAC-STAGE-UI-001
+mkdir -p "$CAMPAIGN_ROOT/screenshots/$ASSIGNMENT_ID/$SCENARIO_ID" \
+  "$CAMPAIGN_ROOT/logs" "$CAMPAIGN_ROOT/reports"
+ssh "$MAC_SSH_HOST" 'caffeinate -u -t 1 || true'
+```
+
+Install or reinstall from the target channel before opening the wizard. For a
+stage publish smoke, install from the stage public installer and skip automatic
+onboarding so the visual run starts from a clean Terminal.app command:
+
+```bash
+ssh "$MAC_SSH_HOST" \
+  'curl -fsSL https://api.stage.upyoke.com/install | bash -s -- --yes --no-onboard'
+ssh "$MAC_SSH_HOST" \
+  "$MAC_HOME/.local/bin/yoke --version; $MAC_HOME/.local/bin/yoke status"
+```
+
+Launch the wizard in a real Terminal.app window. Set the final window bounds
+before the command starts; resizing after Textual has painted can leave an old
+screen visible below the current one. Keep the lower bound above the Dock so
+screenshots do not include it.
+
+```bash
+ssh "$MAC_SSH_HOST" '/bin/zsh -s' <<'REMOTE'
+set -eu
+rm -f /tmp/yoke-installer-window-id
+/usr/bin/osascript <<'OSA'
+tell application "Terminal"
+  activate
+  set wizardTab to do script ""
+  set wizardWindow to front window
+  set bounds of wizardWindow to {66, 90, 1566, 820}
+  do shell script "printf %s " & quoted form of ((id of wizardWindow) as text) & " > /tmp/yoke-installer-window-id"
+  delay 0.5
+  do script "printf '\\033c'; exec $HOME/.local/bin/yoke onboard --post-install" in wizardTab
+end tell
+OSA
+cat /tmp/yoke-installer-window-id
+REMOTE
+```
+
+Drive the wizard the way a user would. Use System Events key codes against the
+front Terminal window. If macOS blocks System Events with an Accessibility prompt,
+grant Terminal.app access under System Settings -> Privacy & Security ->
+Accessibility, or drive the same keys manually through Screen Sharing.
+
+```bash
+# Return
+ssh "$MAC_SSH_HOST" '/usr/bin/osascript <<OSA
+tell application "Terminal"
+  set index of window id (do shell script "cat /tmp/yoke-installer-window-id") to 1
+  activate
+end tell
+tell application "System Events" to key code 36
+OSA'
+
+# Down, then Return
+ssh "$MAC_SSH_HOST" '/usr/bin/osascript <<OSA
+tell application "Terminal"
+  set index of window id (do shell script "cat /tmp/yoke-installer-window-id") to 1
+  activate
+end tell
+tell application "System Events"
+  key code 125
+  key code 36
+end tell
+OSA'
+
+# Up, Up, then Return
+ssh "$MAC_SSH_HOST" '/usr/bin/osascript <<OSA
+tell application "Terminal"
+  set index of window id (do shell script "cat /tmp/yoke-installer-window-id") to 1
+  activate
+end tell
+tell application "System Events"
+  key code 126
+  key code 126
+  key code 36
+end tell
+OSA'
+```
+
+For typed input, use `keystroke` after focusing the wizard window. Never type raw
+secret values into a command or transcript; use token-file flows and type only
+the token file path.
+
+```bash
+ssh "$MAC_SSH_HOST" '/usr/bin/osascript <<OSA
+tell application "Terminal"
+  set index of window id (do shell script "cat /tmp/yoke-installer-window-id") to 1
+  activate
+end tell
+tell application "System Events"
+  keystroke "/tmp/yoke-stage.token"
+  key code 36
+end tell
+OSA'
+```
+
+Capture every screen after a short render wait. Run `screencapture` from
+Terminal.app through a helper Terminal window; direct SSH `screencapture` often
+fails with `could not create image` and may not show a permissions dialog. The
+helper window must sit outside the captured rectangle, and the screenshot region
+should come from the wizard Terminal window bounds rather than
+`screencapture -l`, because Terminal AppleScript ids are not CoreGraphics window
+ids.
+
+```bash
+STEP=000-installed-summary
+ssh "$MAC_SSH_HOST" "/bin/zsh -s" <<REMOTE
+set -eu
+STEP="$STEP"
+TARGET_ID=\$(cat /tmp/yoke-installer-window-id)
+OUT=/tmp/yoke-installer-\${STEP}.png
+rm -f "\$OUT"
+/usr/bin/osascript <<OSA
+tell application "Terminal"
+  set targetWindow to window id \$TARGET_ID
+  set bounds of targetWindow to {66, 90, 1566, 820}
+  delay 0.2
+  set b to bounds of targetWindow
+  set leftPos to item 1 of b
+  set topPos to item 2 of b
+  set rightPos to item 3 of b
+  set bottomPos to item 4 of b
+  set widthVal to rightPos - leftPos
+  set heightVal to bottomPos - topPos
+  set shotCmd to "/bin/sleep 0.5; /usr/sbin/screencapture -R" & leftPos & "," & topPos & "," & widthVal & "," & heightVal & " -o " & quoted form of "\$OUT" & "; /usr/bin/sips -Z 1500 " & quoted form of "\$OUT" & " >/dev/null 2>&1; echo YOKE_SCREENSHOT_DONE"
+  do script shotCmd
+  set helperWindow to front window
+  set bounds of helperWindow to {40, 850, 1540, 900}
+  set index of targetWindow to 1
+  activate
+end tell
+OSA
+for i in 1 2 3 4 5 6 7 8; do
+  [ -s "\$OUT" ] && break
+  sleep 0.5
+done
+ls -l "\$OUT"
+REMOTE
+scp -q "$MAC_SSH_HOST:/tmp/yoke-installer-$STEP.png" \
+  "$CAMPAIGN_ROOT/screenshots/$ASSIGNMENT_ID/$SCENARIO_ID/$STEP.png"
+file "$CAMPAIGN_ROOT/screenshots/$ASSIGNMENT_ID/$SCENARIO_ID/$STEP.png"
+```
+
+Name screenshots in traversal order with stable, descriptive step names, for
+example:
+
+```text
+000-installed-summary.png
+010-path-status.png
+020-destination-picker.png
+030-local-universe.png
+040-github-choice.png
+050-existing-project-reuse.png
+060-project-token-error.png
+070-project-choice.png
+080-review-apply.png
+090-setup-complete.png
+```
+
+For a local-mode reinstall smoke, the current expected visual path is: continue
+from the installed summary, continue past PATH status, choose `This machine` on
+the destination picker, continue from the local-universe explanation, skip
+GitHub, inspect existing-project reuse, capture any project-reuse error, go
+Back, choose `Don't set up a project now`, review, Apply, and capture the setup
+complete report path. If existing local-project reuse requires a Yoke API token
+while the destination is `This machine`, record it as a product bug and finish
+through the machine-only path.
+
+For each visual run, retain:
+
+- The exact installed `yoke --version` and `yoke status`.
+- The public installer URL/channel used.
+- Every Terminal-window screenshot under `screenshots/<assignment>/<scenario>/`.
+- The apply report JSON under `reports/`.
+- Any product bug field-note ids and the screenshot step that proves them.
+
 ### Visible Terminal Capture
 
-SSH TTY output is authoritative. Screenshots are optional and depend on macOS
-Screen Recording and Automation permissions; if direct SSH `screencapture` fails,
-ask the logged-in Terminal.app to run it through `osascript`. For visible TUI
-probes, keep the TUI attached to the Terminal TTY; redirecting stdout through
-`tee` before Textual starts can make Textual paint a smaller rectangle.
+This is the fallback/debug path when the operator needs machine-readable screen
+text, FIFO-driven input, or an unattended run. For user-facing visual testing,
+prefer the real Terminal.app recipe above. SSH TTY output is authoritative.
+Screenshots depend on macOS Screen Recording and Automation permissions; if
+direct SSH `screencapture` fails, ask the logged-in Terminal.app to run it
+through `osascript`. For visible TUI probes, keep the TUI attached to the
+Terminal TTY; redirecting stdout through `tee` before Textual starts can make
+Textual paint a smaller rectangle.
 
 For visible TUI runs after Yoke is installed, use the packaged bridge so the TUI
 sees the real terminal size while input comes from a FIFO:
