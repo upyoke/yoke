@@ -47,6 +47,16 @@ def read_stdin_secret(label: str) -> str:
     return value
 
 
+def replace_secret_file(path: str | Path, label: str, secret: str) -> Path:
+    value = secret.strip()
+    if not value:
+        raise MachineSecretError(f"{label} is empty")
+    selected = Path(path).expanduser()
+    selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    _write_secret(selected, value)
+    return selected
+
+
 def secret_path(name: str, suffix: str) -> Path:
     return _secret_path(name, suffix, create_parent=True)
 
@@ -108,6 +118,7 @@ def _refuse_unisolated_test_write(path: Path) -> None:
 
 __all__ = [
     "MachineSecretError",
+    "replace_secret_file",
     "read_secret_file",
     "read_stdin_secret",
     "secret_path",
