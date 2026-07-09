@@ -25,6 +25,7 @@ from .validate_webapp_pipeline_helpers import (
     _query_scalar,
     _resolve_project_identity,
     _run,
+    _table_exists,
 )
 
 
@@ -138,19 +139,46 @@ def _check_database_prerequisites(
                 f"{project_display} github_repo not set in projects table",
             )
 
-        # 1d. GitHub capability with token
+        # 1d. GitHub App binding and control-plane credentials
         github_settings = _capability_settings(conn, project_key, "github")
         if github_settings:
-            token = _capability_secret(conn, project_key, "github", "token")
-            if token and token != "REPLACE_WITH_PAT":
-                _check_pass(counters, "GitHub token configured in capability_secrets")
+            app_private_key_name = str(
+                github_settings.get("private_key_secret_key") or "app_private_key"
+            )
+            if _table_exists(conn, "project_github_repo_bindings"):
+                binding_count_raw = _query_scalar(
+                    conn,
+                    "SELECT COUNT(*) FROM project_github_repo_bindings "
+                    f"WHERE project_id={_p(conn)}",
+                    (project_id,),
+                )
+            else:
+                binding_count_raw = "0"
+            try:
+                binding_count = int(binding_count_raw or 0)
+            except (TypeError, ValueError):
+                binding_count = 0
+            app_private_key = _capability_secret(
+                conn, project_key, "github", app_private_key_name,
+            )
+            if binding_count > 0:
+                _check_pass(counters, "GitHub App repo binding configured")
             else:
                 _check_fail(
                     counters,
-                    "GitHub token not configured or is placeholder",
+                    "GitHub App repo binding not configured",
+                    "Bind via: yoke projects github-binding bind "
+                    f"--project {project_slug} ...",
+                )
+            if app_private_key:
+                _check_pass(counters, "GitHub App private key configured")
+            else:
+                _check_fail(
+                    counters,
+                    "GitHub App private key not configured",
                     "Store via: yoke projects capability secret set "
                     f"--project {project_slug} --cap-type github "
-                    "--key token <your-pat>",
+                    f"--key {app_private_key_name} --value-stdin",
                 )
         else:
             _check_fail(

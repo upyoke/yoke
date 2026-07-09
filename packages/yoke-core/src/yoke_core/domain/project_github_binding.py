@@ -160,6 +160,7 @@ def cmd_bind_project_repo(
             f"default_branch=COALESCE({p}, default_branch) WHERE id={p}",
             (repo, _clean_optional(default_branch), ident.id),
         )
+        capability_settings = _merged_github_capability_settings(conn, ident.id)
         conn.execute(
             "INSERT INTO project_capabilities "
             "(project_id, type, settings, created_at) "
@@ -169,10 +170,7 @@ def cmd_bind_project_repo(
             (
                 ident.id,
                 "github",
-                json_helper.dumps_compact({
-                    "auth_model": "github_app",
-                    "binding_table": "project_github_repo_bindings",
-                }),
+                json_helper.dumps_compact(capability_settings),
                 now,
             ),
         )
@@ -309,6 +307,28 @@ def _validate_value(value: Any, label: str, accepted: frozenset[str]) -> str:
             f"{label} must be one of {sorted(accepted)}, got {value!r}"
         )
     return cleaned
+
+
+def _merged_github_capability_settings(conn: Any, project_id: int) -> dict[str, Any]:
+    row = query_one(
+        conn,
+        f"SELECT COALESCE(settings, '{{}}') AS settings "
+        f"FROM project_capabilities WHERE project_id={_p(conn)} AND type={_p(conn)}",
+        (project_id, "github"),
+    )
+    settings: dict[str, Any] = {}
+    if row is not None:
+        try:
+            loaded = json_helper.loads_text(str(row["settings"] or "{}"))
+        except Exception:
+            loaded = {}
+        if isinstance(loaded, dict):
+            settings.update({str(key): value for key, value in loaded.items()})
+    settings.update({
+        "auth_model": "github_app",
+        "binding_table": "project_github_repo_bindings",
+    })
+    return settings
 
 
 __all__ = [

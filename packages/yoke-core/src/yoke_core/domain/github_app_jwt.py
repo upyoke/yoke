@@ -41,7 +41,10 @@ def generate_app_jwt(
         "exp": int((selected_now + timedelta(seconds=lifetime_seconds)).timestamp()),
         "iss": selected_issuer,
     }
-    encoded = jwt.encode(payload, private_key_pem, algorithm="RS256")
+    try:
+        encoded = jwt.encode(payload, private_key_pem, algorithm="RS256")
+    except Exception as exc:
+        raise GitHubAppTokenError("GitHub App JWT signing failed") from exc
     return encoded.decode("utf-8") if isinstance(encoded, bytes) else str(encoded)
 
 

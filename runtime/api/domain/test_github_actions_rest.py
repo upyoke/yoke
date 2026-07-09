@@ -111,7 +111,7 @@ class TestResolveToken:
             github_actions_rest.resolve_token("yoke")
         assert exc_info.value.code == 4
         err = capsys.readouterr().err
-        assert "missing_capability" in err and "capability-add" in err
+        assert "missing_capability" in err and "github-binding bind" in err
 
 
 class TestLatestWorkflowRun:
