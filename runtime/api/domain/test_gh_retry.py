@@ -24,6 +24,7 @@ def test_classifier_constants_importable():
     "stderr_text",
     [
         "rate limit exceeded",
+        "HTTP 500: Failed to run workflow dispatch",
         "502 Bad Gateway",
         "503 Service Unavailable",
         "Bad Gateway",

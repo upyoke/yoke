@@ -3,9 +3,9 @@
 The classifier surface (:data:`RETRY_STDERR_MATCHERS`,
 :func:`is_retryable_text`, :data:`MAX_RETRIES`, :data:`BACKOFF_SECONDS`)
 is the canonical list of GitHub-API transient-failure signatures:
-rate-limit / 502 / 503 / Bad Gateway / Service Unavailable transport
-noise, "Could not resolve to a {Node}" GraphQL propagation races on
-fresh resources, and the ``mergePullRequest`` "Base branch was
+rate-limit / 500 / 502 / 503 / Bad Gateway / Service Unavailable
+transport noise, "Could not resolve to a {Node}" GraphQL propagation
+races on fresh resources, and the ``mergePullRequest`` "Base branch was
 modified" cache-staleness race. The REST transport in
 :mod:`yoke_core.domain.gh_rest_transport` consumes this matcher list,
 so adding a transient class (or removing one) only requires editing
@@ -32,6 +32,7 @@ BACKOFF_SECONDS = (5, 15, 45)
 # the haystack before checking, case-sensitive matches scan the raw text.
 RETRY_STDERR_MATCHERS: Tuple[Tuple[str, bool], ...] = (
     ("rate limit", False),
+    ("500", True),
     ("502", True),
     ("503", True),
     ("Bad Gateway", True),

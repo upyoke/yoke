@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, gh_retry
 from yoke_core.domain.db_helpers import query_one, query_scalar
 from yoke_core.domain.project_github_auth import (
     InvalidToken,
@@ -32,7 +32,9 @@ from yoke_core.domain.project_github_auth import (
 # ---------------------------------------------------------------------------
 
 RETRY_DELAYS = (5, 15)
-RETRY_MARKERS = ("rate limit", "502", "503", "Bad Gateway", "Service Unavailable")
+RETRY_MARKERS = tuple(
+    marker for marker, _case_sensitive in gh_retry.RETRY_STDERR_MATCHERS
+)
 
 
 # ---------------------------------------------------------------------------

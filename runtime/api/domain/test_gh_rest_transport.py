@@ -158,6 +158,23 @@ def test_retries_on_502(monkeypatch):
     assert calls["n"] == 2
 
 
+def test_retries_on_500(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_urlopen(request, timeout):
+        calls["n"] += 1
+        if calls["n"] < 2:
+            raise _make_http_error(500, b"internal error")
+        return _FakeResponse(status=200, body=b'{"ok": true}')
+
+    monkeypatch.setattr(t, "urlopen", fake_urlopen)
+    resp = t.request_with_retry(
+        t.RestRequest(method="GET", path="/x"), token="ghp_xyz"
+    )
+    assert resp.body == {"ok": True}
+    assert calls["n"] == 2
+
+
 def test_retries_on_429_rate_limit(monkeypatch):
     calls = {"n": 0}
 

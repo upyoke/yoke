@@ -58,17 +58,46 @@ jobs:
           else
             dispatch_ref="$PRODUCT_BRANCH"
           fi
+          run_workflow_dispatch() {
+            local label="$1"
+            shift
+            local max_attempts=4
+            local attempt=1
+            local delay=10
+            local output_file=""
+            local rc=0
+            while [ "$attempt" -le "$max_attempts" ]; do
+              echo "Dispatching ${label} (attempt ${attempt}/${max_attempts})"
+              output_file="$(mktemp "${RUNNER_TEMP:-/tmp}/yoke-dispatch.XXXXXX")"
+              if gh workflow run "$@" >"$output_file" 2>&1; then
+                cat "$output_file"
+                rm -f "$output_file"
+                return 0
+              fi
+              rc=$?
+              cat "$output_file"
+              rm -f "$output_file"
+              if [ "$attempt" -eq "$max_attempts" ]; then
+                echo "::error::${label} dispatch failed after ${max_attempts} attempts"
+                return "$rc"
+              fi
+              echo "::warning::${label} dispatch failed with exit ${rc}; retrying in ${delay}s"
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
           # Deploy the exact product commit just pushed. The deploy repo
           # name is not echoed, to keep it out of this public repo's logs.
           echo "Dispatching image build + env deploy for product ${PRODUCT_BRANCH}@${PRODUCT_SHA} via deploy ref ${dispatch_ref}"
           # 1. Build/prewarm the core image for the pushed product sha.
-          gh workflow run "$IMAGE_WORKFLOW" \
+          run_workflow_dispatch "image build" "$IMAGE_WORKFLOW" \
             --repo "$DISPATCH_REPO" \
             --ref "$dispatch_ref" \
             -f product_ref="$PRODUCT_SHA"
           # 2. Walk the env deploy for it (waits for the image above, then
           #    the deploy repo's auto-deploy policy gate decides the env).
-          gh workflow run "$DEPLOY_WORKFLOW" \
+          run_workflow_dispatch "env deploy" "$DEPLOY_WORKFLOW" \
             --repo "$DISPATCH_REPO" \
             --ref "$dispatch_ref" \
             -f product_ref="$PRODUCT_SHA" \
