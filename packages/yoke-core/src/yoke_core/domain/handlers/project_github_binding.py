@@ -1,0 +1,149 @@
+"""Handlers for project GitHub App repository bindings."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, Field, ValidationError
+
+from yoke_contracts.api.function_call import (
+    FunctionCallRequest,
+    FunctionError,
+    HandlerOutcome,
+)
+
+
+class ProjectGithubBindingBindRequest(BaseModel):
+    project: str
+    installation_id: str
+    account_id: str
+    account_login: str
+    account_type: str
+    github_repo: str
+    repository_id: Optional[str] = None
+    default_branch: Optional[str] = None
+    repository_selection: str = "selected"
+    permissions: Dict[str, Any] = Field(default_factory=dict)
+    installation_status: str = "active"
+    binding_status: str = "active"
+    last_verified_at: Optional[str] = None
+    last_error: Optional[str] = None
+
+
+class ProjectGithubBindingUnbindRequest(BaseModel):
+    project: str
+
+
+class ProjectGithubBindingStatusRequest(BaseModel):
+    project: str
+
+
+class ProjectGithubBindingStatusResponse(BaseModel):
+    project: str
+    github_repo: str
+    default_branch: str
+    github_sync_mode: str
+    bound: bool
+    binding: Optional[Dict[str, Any]] = None
+    installation: Optional[Dict[str, Any]] = None
+    permission_status: Dict[str, Any]
+    automation: Dict[str, Any]
+
+
+def handle_project_github_binding_bind(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    try:
+        parsed = ProjectGithubBindingBindRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _payload_invalid(exc)
+
+    from yoke_core.domain.project_github_binding import (
+        ProjectGithubBindingError,
+        cmd_bind_project_repo,
+    )
+
+    try:
+        result = cmd_bind_project_repo(**parsed.model_dump())
+    except (LookupError, ProjectGithubBindingError, ValueError) as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message=str(exc),
+                jsonpath="$.payload",
+            ),
+        )
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def handle_project_github_binding_unbind(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    try:
+        parsed = ProjectGithubBindingUnbindRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _payload_invalid(exc)
+
+    from yoke_core.domain.project_github_binding import cmd_unbind_project_repo
+
+    try:
+        result = cmd_unbind_project_repo(parsed.project)
+    except (LookupError, ValueError) as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message=str(exc),
+                jsonpath="$.payload",
+            ),
+        )
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def handle_project_github_binding_status(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    try:
+        parsed = ProjectGithubBindingStatusRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _payload_invalid(exc)
+
+    from yoke_core.domain.project_github_binding import (
+        cmd_project_github_binding_status,
+    )
+
+    try:
+        result = cmd_project_github_binding_status(parsed.project)
+    except (LookupError, ValueError) as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message=str(exc),
+                jsonpath="$.payload",
+            ),
+        )
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def _payload_invalid(exc: ValidationError) -> HandlerOutcome:
+    return HandlerOutcome(
+        primary_success=False,
+        error=FunctionError(
+            code="payload_invalid",
+            message=str(exc),
+            jsonpath="$.payload",
+        ),
+    )
+
+
+__all__ = [
+    "ProjectGithubBindingBindRequest",
+    "ProjectGithubBindingStatusRequest",
+    "ProjectGithubBindingStatusResponse",
+    "ProjectGithubBindingUnbindRequest",
+    "handle_project_github_binding_bind",
+    "handle_project_github_binding_status",
+    "handle_project_github_binding_unbind",
+]

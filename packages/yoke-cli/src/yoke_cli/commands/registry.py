@@ -146,6 +146,15 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("projects.capability_secret.set", _adapters.projects_capability_secret_set),
     ("projects", "checkout-context"):
         ("projects.checkout_context.run", _adapters.projects_checkout_context),
+    ("projects", "github-binding", "bind"):
+        ("projects.github_binding.bind",
+         _adapters.projects_github_binding_bind),
+    ("projects", "github-binding", "unbind"):
+        ("projects.github_binding.unbind",
+         _adapters.projects_github_binding_unbind),
+    ("projects", "github-binding", "status"):
+        ("projects.github_binding.status",
+         _adapters.projects_github_binding_status),
     ("organizations", "get"): ("organizations.get", _adapters.organizations_get),
     ("events", "query"): ("events.query.run", _adapters.events_query),
     ("events", "tail"): ("events.tail.run", _adapters.events_tail),

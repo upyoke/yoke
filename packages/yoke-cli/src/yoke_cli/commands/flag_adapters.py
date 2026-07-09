@@ -169,6 +169,11 @@ from yoke_cli.commands.adapters.project_structure_read import (
 from yoke_cli.commands.adapters.projects_secret import (
     projects_capability_secret_set,
 )
+from yoke_cli.commands.adapters.project_github_binding import (
+    projects_github_binding_bind,
+    projects_github_binding_status,
+    projects_github_binding_unbind,
+)
 from yoke_cli.commands.adapters.github import (
     github_connect,
     github_pr_create,
@@ -328,7 +333,9 @@ __all__ = [
     "doctor_run", "projects_get", "projects_list",
     "projects_resolve_by_github_repo", "projects_create", "projects_update",
     "projects_capability_has", "projects_capability_secret_set",
-    "projects_checkout_context", "organizations_get",
+    "projects_checkout_context", "projects_github_binding_bind",
+    "projects_github_binding_status", "projects_github_binding_unbind",
+    "organizations_get",
     "identity_invite_create", "identity_invite_list",
     "identity_invite_revoke", "identity_link_set", "identity_autojoin_set",
     "project_structure_patch_apply",

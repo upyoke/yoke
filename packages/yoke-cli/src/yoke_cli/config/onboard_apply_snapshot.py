@@ -88,10 +88,27 @@ def _github_authorization_source(kwargs: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _github_binding(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    adoption = _text(kwargs.get("project_github_adoption"))
+    repo = _text(kwargs.get("project_github_repo"))
+    status = _text(kwargs.get("project_github_binding_status"))
+    if not status:
+        if adoption in {"skip", "backlog-only"} or not repo:
+            status = "backlog_only"
+        else:
+            status = "pending_app_connection"
     return {
-        "adoption": _text(kwargs.get("project_github_adoption")),
-        "repo": _text(kwargs.get("project_github_repo")),
+        "adoption": adoption,
+        "repo": repo,
+        "installation_id": _text(kwargs.get("project_github_installation_id")),
+        "repository_id": _text(kwargs.get("project_github_repository_id")),
+        "status": status,
+        "permission_status": _mapping(kwargs.get("project_github_permission_status")),
+        "automation": _mapping(kwargs.get("project_github_automation")),
     }
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, Mapping) else {}
 
 
 def _checkout_provenance(project_mode: str, checkout: str) -> dict[str, Any]:
