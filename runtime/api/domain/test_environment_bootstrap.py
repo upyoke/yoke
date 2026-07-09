@@ -88,23 +88,25 @@ class TestEventScanRoot:
         root = _event_scan_root()
         assert (root / "runtime" / "api").is_dir()
 
-    def test_falls_back_to_installed_package(self, monkeypatch):
-        """Inside the deployed container there is no .git ancestor; the
-        scan root falls back to the installed runtime package parent."""
-        import runtime as runtime_pkg
-        from pathlib import Path as _P
-
+    def test_falls_back_to_server_source_tree(self, monkeypatch, tmp_path):
+        """Package installs have no repo root; use the bundle source resolver."""
         from yoke_core.domain import environment_bootstrap as eb
 
         def _raise(_start=None):
             raise RuntimeError("no repo root")
 
+        bundle_root = tmp_path / "bundle-source"
+        bundle_root.mkdir()
+
         monkeypatch.setattr(
             "yoke_core.api.repo_root.find_repo_root", _raise
         )
+        monkeypatch.setattr(
+            "yoke_core.domain.install_bundle.server_tree_root",
+            lambda: bundle_root,
+        )
         root = eb._event_scan_root()
-        assert root == _P(runtime_pkg.__file__).resolve().parent.parent
-        assert (root / "runtime" / "api").is_dir()
+        assert root == bundle_root
 
 
 class TestRunBootstrapRealDb:

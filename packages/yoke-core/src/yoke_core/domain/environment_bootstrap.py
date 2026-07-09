@@ -123,20 +123,20 @@ def populate_event_registry(
 
 
 def _event_scan_root() -> Path:
-    """The event-discovery scan root: the repo, else the installed package.
+    """The event-discovery scan root: the repo, else the server source tree.
 
-    Inside the deployed container the runtime package lives in
-    site-packages with no ``.git`` ancestor; the installed package parent
-    is the same ``runtime/api`` scan surface discovery expects.
+    Source checkouts resolve to the repo root. Containers and product wheels
+    use the install-bundle source-tree resolver, which handles declared
+    server roots, source-runtime layouts, and the packaged bundle tree.
     """
     from yoke_core.api.repo_root import find_repo_root
 
     try:
         return find_repo_root(Path(__file__))
     except RuntimeError:
-        import runtime as _runtime_pkg
+        from yoke_core.domain.install_bundle import server_tree_root
 
-        return Path(_runtime_pkg.__file__).resolve().parent.parent
+        return server_tree_root()
 
 
 def universe_is_born(dsn: str) -> bool:
