@@ -22,7 +22,8 @@ _GROUP_A_SLUGS = (
     "session-lane-mismatch",
 )
 
-# Group B — task 10 (harness substrate parity HCs, appended after Group A)
+# Group B — harness substrate parity / packaging drift HCs (appended after
+# Group A). Every renderer/snapshot output that must match its source lives here.
 _GROUP_B_SLUGS = (
     "harness-substrate-drift",
     "codex-hook-matchers",
@@ -33,6 +34,7 @@ _GROUP_B_SLUGS = (
     "codex-agent-adapter-drift",
     "codex-subagent-surface-truth",
     "path-claim-bash-guard",
+    "install-bundle-drift",
 )
 
 # Group C — ledger-audit HCs (cross-session mutation evidence)
@@ -80,7 +82,7 @@ def test_bundle_holds_group_a_then_group_b_in_order():
 
 
 def test_each_substrate_parity_slug_registered_exactly_once():
-    """AC-2: task 10's 9 entries appear exactly once in the bundle."""
+    """Every substrate-parity / packaging-drift slug appears exactly once."""
     slugs = [hc.slug for hc in HARNESS_HEALTH_CHECKS]
     for slug in _GROUP_B_SLUGS:
         assert slugs.count(slug) == 1, (
