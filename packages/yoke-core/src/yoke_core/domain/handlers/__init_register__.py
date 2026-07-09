@@ -11,14 +11,17 @@ an arbitrary next-integer slot; see
 ``docs/archive/decisions/handler-registrar-naming-convention.md``.
 
 Idempotency contract: :func:`register_all_handlers` is callable safely
-multiple times within one process. The function short-circuits once the
-registry is populated, so the FastAPI ``lifespan`` running on every
-``TestClient`` instantiation does not raise. Within a single registration
-cycle, :func:`yoke_core.domain.yoke_function_registry.register`
+multiple times within one process. The function short-circuits once a
+complete registration cycle has populated the registry, so the FastAPI
+``lifespan`` running on every ``TestClient`` instantiation does not raise.
+Within a single registration cycle,
+:func:`yoke_core.domain.yoke_function_registry.register`
 still raises :class:`RegistryDuplicateError` on real id collisions —
 the guard short-circuits only the already-fully-registered case.
 """
 from __future__ import annotations
+
+import threading
 
 from yoke_core.domain import yoke_function_registry
 
@@ -90,27 +93,42 @@ _DOMAIN_REGISTRARS = (
     _register_strategy,
 )
 
+_REGISTRATION_LOCK = threading.Lock()
+_REGISTRATION_COMPLETE = False
+
 
 def register_all_handlers() -> None:
     """Register every Yoke function handler, idempotently.
 
-    Returns immediately when the registry already holds any entries — the
-    FastAPI lifespan runs `register_all_handlers()` on every `TestClient`
-    instantiation, so this guard makes the function safe to call repeatedly
-    within the same process. Real handler-id collisions still raise
+    Returns immediately when a complete registration cycle has already
+    populated the registry — the FastAPI lifespan runs
+    `register_all_handlers()` on every `TestClient` instantiation, so
+    this guard makes the function safe to call repeatedly within the same
+    process. Real handler-id collisions still raise
     `RegistryDuplicateError` from `yoke_core.domain.yoke_function_registry.register`
     because they are caught by the per-id check there; the guard here only
-    short-circuits the already-fully-registered case.
+    short-circuits the already-fully-registered case. The lock makes the
+    first registration cycle atomic to concurrent callers, so a second
+    first request cannot observe the registry halfway through bootstrap.
 
     Tests that need a fresh registration cycle (e.g. function-dispatcher
     tests with a fake DB) opt in by calling
     `yoke_core.domain.yoke_function_registry.reset_registry_for_tests()`
     immediately before `register_all_handlers()`.
     """
-    if yoke_function_registry.list_entries():
+    global _REGISTRATION_COMPLETE
+    if _REGISTRATION_COMPLETE and yoke_function_registry.list_entries():
         return
-    for module in _DOMAIN_REGISTRARS:
-        module.register(yoke_function_registry)
+    with _REGISTRATION_LOCK:
+        if _REGISTRATION_COMPLETE and yoke_function_registry.list_entries():
+            return
+        if yoke_function_registry.list_entries():
+            # Dispatcher tests may intentionally install a tiny fake registry
+            # and then exercise dispatch without the production catalog.
+            return
+        for module in _DOMAIN_REGISTRARS:
+            module.register(yoke_function_registry)
+        _REGISTRATION_COMPLETE = True
 
 
 __all__ = ["register_all_handlers"]
