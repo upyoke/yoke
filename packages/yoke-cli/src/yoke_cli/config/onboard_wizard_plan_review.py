@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_reuse_feedback
 from yoke_cli.config.onboard_plan_labels import friendly_line as _friendly_line
+from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from textual.widgets import Static
@@ -56,7 +57,7 @@ def render_write_plan(plan: dict[str, Any]) -> list[Static]:
 
     grouped = classify_plan(plan)
     widgets: list[Static] = []
-    for label, css_class, key in _PLAN_GROUPS:
+    for label, css_class, key in _groups_for_plan(plan, reuse=False):
         lines = grouped.get(key, [])
         if not lines:
             continue
@@ -75,10 +76,11 @@ def render_reuse_summary(plan: dict[str, Any]) -> list[Static]:
     from textual.widgets import Static
 
     grouped = onboard_reuse_feedback.grouped_lines_for_plan(plan)
-    if not any(grouped.get(key) for _label, _css, key in _REUSE_GROUPS):
+    groups = _groups_for_plan(plan, reuse=True)
+    if not any(grouped.get(key) for _label, _css, key in groups):
         return []
     widgets: list[Static] = []
-    for label, css_class, key in _REUSE_GROUPS:
+    for label, css_class, key in groups:
         lines = grouped.get(key, [])
         if not lines:
             continue
@@ -119,6 +121,33 @@ def classify_plan(plan: dict[str, Any]) -> dict[str, list[str]]:
         else:
             grouped["core"].append(text)
     return grouped
+
+
+def _groups_for_plan(
+    plan: dict[str, Any],
+    *,
+    reuse: bool,
+) -> tuple[tuple[str, str, str], ...]:
+    groups = _REUSE_GROUPS if reuse else _PLAN_GROUPS
+    if not _uses_local_database(plan):
+        return groups
+    replacement = (
+        "Already in the local Yoke database"
+        if reuse else
+        "In the local Yoke database"
+    )
+    return tuple(
+        (replacement, css, key) if key == "core" else (label, css, key)
+        for label, css, key in groups
+    )
+
+
+def _uses_local_database(plan: dict[str, Any]) -> bool:
+    inner = plan.get("plan", {}) if isinstance(plan, dict) else {}
+    connection = inner.get("connection") if isinstance(inner, dict) else None
+    if not isinstance(connection, dict):
+        return False
+    return str(connection.get("transport") or "") in POSTGRES_TRANSPORTS
 
 
 __all__ = ["classify_plan", "render_reuse_summary", "render_write_plan"]

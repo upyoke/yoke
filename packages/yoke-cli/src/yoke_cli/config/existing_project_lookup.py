@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import urllib.error
 import urllib.request
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
+from yoke_cli.config.local_universe_setup import LOCAL_ENV
 
 _TIMEOUT_S = 20.0
 MATCH_SOURCE_LOCAL_CHECKOUT = "local-checkout"
@@ -127,6 +129,45 @@ def find_by_project_id(
     return _project_from_row(row)
 
 
+def find_local_by_project_id(
+    *,
+    config_path: str | Path | None,
+    project_id: int,
+) -> ExistingProject:
+    """Return a project from this machine's local Yoke universe."""
+    numeric = _positive_project_id(project_id)
+    if numeric is None:
+        raise ExistingProjectReferenceError("local project_id must be positive")
+    response = _call_local_function(
+        config_path=config_path,
+        function="projects.get",
+        payload={"project": str(numeric)},
+    )
+    if not response.get("success"):
+        error = response.get("error")
+        code = ""
+        message = ""
+        if isinstance(error, Mapping):
+            code = str(error.get("code") or "")
+            message = str(error.get("message") or "")
+        if code == "permission_denied":
+            raise ExistingProjectAccessError(
+                message or f"this local Yoke universe cannot access project {numeric}"
+            )
+        if code == "not_found":
+            raise ExistingProjectReferenceError(
+                message or f"project {numeric} was not found"
+            )
+        raise ExistingProjectLookupError(
+            message or f"projects.get could not read project {numeric}"
+        )
+    result = response.get("result")
+    row = result.get("row") if isinstance(result, Mapping) else None
+    if not isinstance(row, Mapping):
+        raise ExistingProjectLookupError("projects.get returned an invalid row")
+    return _project_from_row(row)
+
+
 def find_by_github_repo(
     *,
     api_url: str,
@@ -187,6 +228,73 @@ def normalize_github_repo(value: Any) -> str:
     return f"{parts[0]}/{parts[1]}".lower()
 
 
+def _call_local_function(
+    *,
+    config_path: str | Path | None,
+    function: str,
+    payload: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    from yoke_cli.config import machine_config
+    from yoke_cli.project_install.files import ProjectInstallError
+    from yoke_cli.project_install.transport import _local_postgres_env
+    from yoke_cli.transport.dispatcher import call_dispatcher
+    from yoke_contracts.api.function_call import ActorContext, TargetRef
+    from yoke_contracts.machine_config.schema import (
+        MachineConfigContractError,
+        POSTGRES_TRANSPORTS,
+        connection_is_prod,
+    )
+
+    try:
+        connection = machine_config.active_connection(
+            config_path,
+            explicit_env=LOCAL_ENV,
+        )
+    except (machine_config.MachineConfigError, MachineConfigContractError) as exc:
+        raise ExistingProjectLookupError(
+            "this machine does not have a usable local universe connection yet; "
+            "finish local machine setup first, then retry project setup"
+        ) from exc
+    transport = str(connection.get("transport") or "")
+    if transport not in POSTGRES_TRANSPORTS:
+        raise ExistingProjectLookupError(
+            f"env {LOCAL_ENV!r} is {transport or 'unconfigured'}, not local-postgres"
+        )
+    if connection_is_prod(connection):
+        raise ExistingProjectLookupError(
+            f"env {LOCAL_ENV!r} is marked prod; local onboarding will not read "
+            "projects through a prod local-postgres authority"
+        )
+    try:
+        # Dynamic import keeps yoke-cli's static engine-import boundary intact
+        # (see test_installer_package_boundaries); local project-reuse lookup
+        # reads the engine DSN env contract only on the local-postgres branch.
+        db_backend = importlib.import_module("yoke_core.domain.db_backend")
+    except ModuleNotFoundError as exc:
+        raise ExistingProjectLookupError(
+            "the yoke-core engine package is not importable, so local project "
+            "metadata cannot be verified; reinstall Yoke or choose a hosted/server "
+            "destination"
+        ) from exc
+    try:
+        with _local_postgres_env(
+            connection,
+            config_path,
+            dsn_env=db_backend.PG_DSN_ENV,
+            dsn_file_env=db_backend.PG_DSN_FILE_ENV,
+        ):
+            response = call_dispatcher(
+                function_id=function,
+                target=TargetRef(kind="global"),
+                payload=dict(payload),
+                actor=ActorContext(actor_id=None, session_id=""),
+                local_only=True,
+            )
+    except ProjectInstallError as exc:
+        raise ExistingProjectLookupError(str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
 def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:
     try:
         project_id = int(row.get("id") or 0)
@@ -197,8 +305,8 @@ def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:
     slug = _text(row.get("slug"))
     name = _text(row.get("name")) or slug
     github_repo = _text(row.get("github_repo"))
-    if not slug or not github_repo:
-        raise ExistingProjectLookupError("matched project row is missing slug or repo")
+    if not slug:
+        raise ExistingProjectLookupError("matched project row is missing slug")
     return ExistingProject(
         id=project_id,
         slug=slug,
@@ -284,6 +392,7 @@ __all__ = [
     "MATCH_SOURCE_GITHUB_REPO",
     "MATCH_SOURCE_LOCAL_CHECKOUT",
     "LocalProjectReference",
+    "find_local_by_project_id",
     "find_by_project_id",
     "find_by_github_repo",
     "find_local_project_reference",

@@ -31,6 +31,7 @@ from yoke_cli.config.onboard_wizard import (
     PROJECT_GITHUB_REUSE_MACHINE,
     reuse_choice_to_adoption,
 )
+from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_FINISH,
     STEP_PROJECT,
@@ -57,10 +58,11 @@ def _is_yoke_source_checkout(path: Path) -> bool:
 
 def _existing_project_match_summary(result: Any) -> str:
     source = getattr(result, "existing_project_match_source", None)
+    database = _project_database_label(result)
     if source == existing_project_lookup.MATCH_SOURCE_LOCAL_CHECKOUT:
-        return "Local project metadata matched a Yoke core database project."
+        return f"Local project metadata matched a {database} project."
     if source == existing_project_lookup.MATCH_SOURCE_GITHUB_REPO:
-        return "The Yoke core database already has a project for this GitHub repo."
+        return f"The {database} already has a project for this GitHub repo."
     return "Yoke found an existing project and will reuse it."
 
 
@@ -69,20 +71,29 @@ def _existing_project_match_lines(result: Any) -> list[str]:
     project_id = getattr(result, "existing_project_id", None)
     github_repo = str(getattr(result, "project_github_repo", "") or "").strip()
     local_source = str(getattr(result, "existing_project_local_source", "") or "").strip()
+    database = _project_database_label(result)
 
     if source == existing_project_lookup.MATCH_SOURCE_LOCAL_CHECKOUT:
         local_label = local_source or "local checkout metadata"
         return [
             f"Local machine: found project id {project_id} in {local_label}.",
-            f"Yoke core database: verified project id {project_id}.",
+            f"{database}: verified project id {project_id}.",
         ]
     if source == existing_project_lookup.MATCH_SOURCE_GITHUB_REPO:
         repo_label = f"GitHub repo {github_repo}" if github_repo else "the GitHub repo"
         return [
-            f"Yoke core database: matched {repo_label}.",
+            f"{database}: matched {repo_label}.",
             "Local machine: no existing Yoke project metadata was used.",
         ]
-    return ["Yoke core database: existing project verified."]
+    return [f"{database}: existing project verified."]
+
+
+def _project_database_label(result: Any) -> str:
+    return (
+        "local Yoke database"
+        if getattr(result, "destination", None) == DESTINATION_LOCAL
+        else "Yoke core database"
+    )
 
 
 def fetch_repo_owners(api_url: str, token: str) -> list:
@@ -292,8 +303,35 @@ class WizardFlow:
                 retry=lambda: self._after_local_checkout_source(value),
             )
             return
-        token = self._yoke_token_for_project_lookup()
         if local_ref is not None:
+            if self.result.destination == DESTINATION_LOCAL:
+                self._run_checking(
+                    step=STEP_PROJECT,
+                    title="Checking local Yoke project.",
+                    message=(
+                        f"Verifying project {local_ref.project_id} from "
+                        f"{local_ref.source} in the local universe."
+                    ),
+                    work=lambda: existing_project_lookup.find_local_by_project_id(
+                        config_path=self.result.config_path,
+                        project_id=local_ref.project_id,
+                    ),
+                    on_success=lambda project: self._after_existing_project_lookup(
+                        project,
+                        match_source=(
+                            existing_project_lookup.MATCH_SOURCE_LOCAL_CHECKOUT
+                        ),
+                        local_source=local_ref.source,
+                    ),
+                    on_error=lambda exc: self._goto_existing_project_lookup_error(
+                        exc,
+                        retry=lambda: self._after_local_checkout_source(value),
+                        local_destination=True,
+                    ),
+                    group="onboard-existing-project",
+                )
+                return
+            token = self._yoke_token_for_project_lookup()
             if not token:
                 self._goto_existing_project_lookup_error(
                     existing_project_lookup.ExistingProjectLookupError(
@@ -334,6 +372,7 @@ class WizardFlow:
         self.result.project_github_repo = (
             existing_project_lookup.normalize_github_repo(remote) or None
         )
+        token = self._yoke_token_for_project_lookup()
         if not token:
             self._goto_slug()
             return
@@ -477,6 +516,7 @@ class WizardFlow:
         exc: BaseException,
         *,
         retry: Callable[[], None],
+        local_destination: bool = False,
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
@@ -484,15 +524,19 @@ class WizardFlow:
             SelectionRow("retry", "Try again", "rerun the project check"),
             SelectionRow("back", "Back", "choose a different project option"),
         ]
+        hint = (
+            "Verify this machine's local universe, or choose a different project "
+            "option."
+            if local_destination else
+            "Use a Yoke API token that can access this project, or choose "
+            "a different project option."
+        )
         self._goto(_View(
             STEP_PROJECT,
             lambda: steps.verification_body(
                 "Can't use that Yoke project.",
                 str(exc),
-                [
-                    "Use a Yoke API token that can access this project, or choose "
-                    "a different project option.",
-                ],
+                [hint],
                 rows,
                 ok=False,
             ),

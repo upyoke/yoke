@@ -393,6 +393,12 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
             "Create your Yoke home folder at ~/.yoke",
         ("set-active-env", "prod"): 'Make "prod" your active environment',
         ("set-https-api-url", "https://api.test"): "Connect to https://api.test",
+        ("local-universe-init", "create"):
+            "Create this machine's local Yoke universe under ~/.yoke",
+        ("local-universe-init", "verify"):
+            "Verify this machine's existing local Yoke universe under ~/.yoke",
+        ("local-universe-init", "unavailable"):
+            "Check this machine's local Yoke universe connection under ~/.yoke",
         ("store-token-reference", "prod.token"): "Save your API token (owner-only)",
         ("machine-github-connection", "connect"):
             onboard_github_copy.MACHINE_TOKEN_REVIEW,

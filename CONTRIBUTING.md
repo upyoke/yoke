@@ -36,7 +36,7 @@ The checkout is a uv workspace. Sync it, then run the canonical test target
 inside the checkout-local venv — your installed `yoke` is not involved:
 
 ```bash
-uv sync --all-packages --all-groups
+uv sync --all-packages --all-groups --locked
 uv run python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/
 ```
 

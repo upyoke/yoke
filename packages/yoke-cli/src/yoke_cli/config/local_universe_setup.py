@@ -28,6 +28,9 @@ from yoke_contracts.machine_config import schema as contract
 
 #: The machine-config env label local mode owns.
 LOCAL_ENV = "local"
+LOCAL_UNIVERSE_CREATE = "create"
+LOCAL_UNIVERSE_VERIFY = "verify"
+LOCAL_UNIVERSE_UNAVAILABLE = "unavailable"
 
 
 class LocalUniverseSetupError(RuntimeError):
@@ -82,6 +85,63 @@ def run_local_init(
     report["active_env"] = _active_env(config_path)
     report["ok"] = True
     return report
+
+
+def inspect_local_state(config_path: Optional[str] = None) -> Dict[str, Any]:
+    """Describe whether local onboarding will create or reuse a universe."""
+    try:
+        payload = machine_config.load_config(config_path)
+    except machine_config.MachineConfigError as exc:
+        return {
+            "state": LOCAL_UNIVERSE_UNAVAILABLE,
+            "connection": False,
+            "active": False,
+            "reason": str(exc),
+        }
+    connections = payload.get("connections")
+    entry = connections.get(LOCAL_ENV) if isinstance(connections, dict) else None
+    active = str(payload.get("active_env") or "") == LOCAL_ENV
+    if not isinstance(entry, dict):
+        return {
+            "state": LOCAL_UNIVERSE_CREATE,
+            "connection": False,
+            "active": active,
+            "reason": "",
+        }
+    transport = str(entry.get("transport") or "").strip()
+    if transport != contract.DEFAULT_TRANSPORT:
+        return {
+            "state": LOCAL_UNIVERSE_UNAVAILABLE,
+            "connection": True,
+            "active": active,
+            "reason": (
+                f"connections.{LOCAL_ENV}.transport is "
+                f"{transport or 'unset'}, not {contract.DEFAULT_TRANSPORT}"
+            ),
+        }
+    if contract.connection_is_prod(entry):
+        return {
+            "state": LOCAL_UNIVERSE_UNAVAILABLE,
+            "connection": True,
+            "active": active,
+            "reason": f"connections.{LOCAL_ENV} is marked prod",
+        }
+    if _stored_dsn(entry):
+        return {
+            "state": LOCAL_UNIVERSE_VERIFY,
+            "connection": True,
+            "active": active,
+            "reason": "",
+        }
+    return {
+        "state": LOCAL_UNIVERSE_UNAVAILABLE,
+        "connection": True,
+        "active": active,
+        "reason": (
+            f"connections.{LOCAL_ENV}.credential_source does not point at a "
+            "readable DSN secret"
+        ),
+    }
 
 
 def postgres_start(emit: Callable[[str], None] = lambda _line: None) -> Dict[str, Any]:
@@ -186,7 +246,11 @@ def _active_env(config_path: Optional[str]) -> str:
 
 __all__ = [
     "LOCAL_ENV",
+    "LOCAL_UNIVERSE_CREATE",
+    "LOCAL_UNIVERSE_UNAVAILABLE",
+    "LOCAL_UNIVERSE_VERIFY",
     "LocalUniverseSetupError",
+    "inspect_local_state",
     "postgres_start",
     "postgres_status",
     "postgres_stop",
