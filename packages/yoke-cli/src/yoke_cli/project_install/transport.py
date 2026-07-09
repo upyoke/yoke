@@ -1,18 +1,26 @@
-"""HTTPS bundle resolution for ``yoke project install``."""
+"""Bundle resolution for ``yoke project install``."""
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Iterator, Mapping, Optional, Tuple
 
 from yoke_cli.config import machine_config
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_cli.transport.https import TransportError, resolve_https_connection
 from yoke_contracts.api_urls import join_api_url
-from yoke_contracts.machine_config.schema import MachineConfigContractError
+from yoke_contracts.machine_config.schema import (
+    CREDENTIAL_KIND_DSN_FILE,
+    CREDENTIAL_KIND_ENV,
+    MachineConfigContractError,
+    POSTGRES_TRANSPORTS,
+    connection_is_prod,
+)
 
 _FETCH_TIMEOUT_S = 30.0
 _BUNDLE_PATH_TEMPLATE = "/v1/projects/{project_id}/install-bundle"
@@ -24,9 +32,22 @@ def resolve_bundle(
     explicit_env: Optional[str],
     config_path: str | Path | None,
 ) -> Tuple[Dict[str, Any], str]:
-    """Resolve the bundle through the product-client HTTPS transport."""
+    """Resolve the project install bundle for the active transport."""
     try:
-        machine_config.product_connection(config_path, explicit_env=explicit_env)
+        connection = machine_config.active_connection(
+            config_path,
+            explicit_env=explicit_env,
+        )
+    except MachineConfigContractError as exc:
+        raise ProjectInstallError(str(exc)) from exc
+
+    if str(connection.get("transport") or "") in POSTGRES_TRANSPORTS:
+        return (
+            _fetch_bundle_local_postgres(project_id, connection, config_path),
+            f"local-postgres:{connection.get('env') or '<env>'}",
+        )
+
+    try:
         connection = resolve_https_connection(
             config_path, explicit_env=explicit_env,
         )
@@ -39,6 +60,112 @@ def resolve_bundle(
             "or use the explicit Yoke source-dev/admin setup branch"
         )
     return _fetch_bundle_https(connection, project_id), connection.api_url
+
+
+def _fetch_bundle_local_postgres(
+    project_id: int,
+    connection: Mapping[str, Any],
+    config_path: str | Path | None,
+) -> Dict[str, Any]:
+    env_name = str(connection.get("env") or "<env>")
+    if connection_is_prod(connection):
+        raise ProjectInstallError(
+            f"env {env_name!r} is a prod-marked local-postgres connection; "
+            "`yoke project install` only builds local bundles from non-prod "
+            "local mode. Use an HTTPS product-client env or an audited "
+            "source-dev/admin flow for prod database authority."
+        )
+    try:
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.install_bundle import build_bundle
+    except ModuleNotFoundError as exc:
+        raise ProjectInstallError(
+            "the yoke-core engine package is not importable, so the "
+            "local-postgres install bundle cannot be rendered; reinstall "
+            "Yoke or switch to an HTTPS product-client env"
+        ) from exc
+    with _local_postgres_env(
+        connection,
+        config_path,
+        dsn_env=db_backend.PG_DSN_ENV,
+        dsn_file_env=db_backend.PG_DSN_FILE_ENV,
+    ):
+        conn = connect()
+        try:
+            return build_bundle(project_id, conn)
+        finally:
+            conn.close()
+
+
+@contextlib.contextmanager
+def _local_postgres_env(
+    connection: Mapping[str, Any],
+    config_path: str | Path | None,
+    *,
+    dsn_env: str,
+    dsn_file_env: str,
+) -> Iterator[None]:
+    source = connection.get("credential_source")
+    source = source if isinstance(source, Mapping) else {}
+    kind = str(source.get("kind") or "")
+    updates: dict[str, str] = {}
+    removals: set[str] = set()
+    if kind == CREDENTIAL_KIND_DSN_FILE:
+        raw_path = str(source.get("path") or "").strip()
+        if not raw_path:
+            raise ProjectInstallError(
+                "local-postgres credential_source.kind 'dsn_file' requires path"
+            )
+        dsn_path = _credential_path(raw_path, config_path)
+        if not dsn_path.is_file():
+            raise ProjectInstallError(
+                f"local-postgres DSN file is missing: {dsn_path}"
+            )
+        updates[dsn_file_env] = str(dsn_path)
+        removals.add(dsn_env)
+    elif kind == CREDENTIAL_KIND_ENV:
+        name = str(source.get("name") or dsn_env).strip()
+        dsn = os.environ.get(name, "").strip()
+        if not dsn:
+            raise ProjectInstallError(
+                f"local-postgres credential env var is missing: {name}"
+            )
+        updates[dsn_env] = dsn
+        removals.add(dsn_file_env)
+    else:
+        raise ProjectInstallError(
+            "local-postgres project install requires credential_source.kind "
+            f"'dsn_file' or 'env' (got {kind or 'nothing'})"
+        )
+    with _patched_env(updates, removals):
+        yield
+
+
+def _credential_path(raw_path: str, config_path: str | Path | None) -> Path:
+    path = Path(raw_path).expanduser()
+    if path.is_absolute():
+        return path
+    return machine_config.config_path(config_path).parent / path
+
+
+@contextlib.contextmanager
+def _patched_env(
+    updates: Mapping[str, str],
+    removals: set[str],
+) -> Iterator[None]:
+    prior = {name: os.environ.get(name) for name in set(updates) | removals}
+    try:
+        for name in removals:
+            os.environ.pop(name, None)
+        os.environ.update(updates)
+        yield
+    finally:
+        for name, value in prior.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 def _fetch_bundle_https(connection, project_id: int) -> Dict[str, Any]:

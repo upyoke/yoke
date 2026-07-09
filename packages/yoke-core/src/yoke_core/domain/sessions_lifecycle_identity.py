@@ -33,7 +33,7 @@ def resolve_reactivation_identity(
     execution_lane: str,
 ) -> tuple[str, str]:
     """Return ``(model, lane)`` for reactivating an ended session."""
-    from runtime.harness.hook_helpers import _is_placeholder_model
+    from yoke_harness.hooks.identity import _is_placeholder_model
 
     stored_model = _stored_value(existing, "model")
     resolved_model = (
@@ -69,7 +69,7 @@ def refresh_active_duplicate_identity(
     """
     if existing is None:
         return
-    from runtime.harness.hook_helpers import _is_placeholder_model
+    from yoke_harness.hooks.identity import _is_placeholder_model
 
     stored_model = _stored_value(existing, "model")
     if _is_placeholder_model(stored_model) and not _is_placeholder_model(model):

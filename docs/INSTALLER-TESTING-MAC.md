@@ -204,6 +204,64 @@ Expected: no-env `yoke status` uses prod after `yoke env use prod`, while
 `YOKE_ENV=stage yoke status` still reaches stage. A stage installer proof may
 leave active env on stage; restore prod before normal operator use.
 
+## Prod Local-Mode Cold-Start Smoke
+
+Use this after a prod publish that changes the installer, local universe,
+project install bundle, board rendering, or `yoke ui`. Start from
+`Reset Between Runs`; that wipe is the ground truth that the next install is a
+cold start. Keep evidence under the campaign root from the parent guide:
+TTY text in `captures/`, screenshots in `screenshots/`, and UI screenshots in a
+named subdirectory such as `screenshots/yoke-ui/`.
+
+Run the product installer without launching the wizard, then exercise local mode
+non-interactively:
+
+```bash
+ssh -tt -e none testy@100.117.161.86
+curl -fsSL https://api.upyoke.com/install | bash -s -- --yes --no-onboard
+export PATH="$HOME/.local/bin:$PATH"
+yoke --version
+yoke init --local --json
+mkdir -p "$HOME/code/my-project"
+cd "$HOME/code/my-project"
+git init
+yoke onboard project "$HOME/code/my-project" \
+  --slug my-project \
+  --name "My Project" \
+  --default-branch main \
+  --public-item-prefix MYPR \
+  --github-adoption skip \
+  --config "$HOME/.yoke/config.json" \
+  --yes \
+  --json
+yoke local demo seed --project my-project --json
+yoke board rebuild --print
+```
+
+Capture the live TTY after each major step. For the installer and any visible
+TUI step, use the region screenshot procedure in `Visual And Terminal Modes`;
+the bridge log or SSH transcript is the fallback when macOS blocks image
+capture.
+
+Then prove the local dashboard:
+
+```bash
+cd "$HOME/code/my-project"
+yoke ui --host 127.0.0.1 --port 8787
+```
+
+From the operator machine, tunnel the port and capture the dashboard in a local
+browser:
+
+```bash
+ssh -N -L 8787:127.0.0.1:8787 testy@100.117.161.86
+```
+
+Open `http://127.0.0.1:8787`, verify the seeded items and board data are visible,
+and save a screenshot under the campaign root. If Browser QA is available on the
+Mac, a `yoke qa browser screenshot` capture is acceptable; otherwise the SSH
+tunnel plus local browser screenshot is the required fallback.
+
 ## Session Registration And Telemetry Smoke
 
 Use after a stage or prod publish that touches hooks, auth, session identity,

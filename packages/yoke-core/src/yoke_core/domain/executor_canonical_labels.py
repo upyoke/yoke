@@ -9,10 +9,8 @@ Importers:
 
 * :mod:`yoke_core.engines.doctor_hc_executor_canonicalization` — uses
   :data:`CANONICAL_HARNESS_IDS` as the basis for the leak filter.
-* Future consolidation may route
-  :mod:`runtime.harness.hook_helpers_identity`'s canonical-id literals
-  through this module so the canonical-id set lives in exactly one
-  place; that follow-up is tracked separately.
+* :mod:`yoke_harness.hooks.identity` — packaged writer-side helper
+  surface for canonical-id resolution.
 """
 
 from __future__ import annotations

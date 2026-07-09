@@ -34,9 +34,13 @@ INIT_USAGE = (
 )
 
 EXPORT_USAGE = "yoke universe export [--out PATH] [--json]"
+DEMO_SEED_USAGE = (
+    "yoke local demo seed [--project PROJECT] [--count N] [--config PATH] [--json]"
+)
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke init": INIT_USAGE,
+    "yoke local demo seed": DEMO_SEED_USAGE,
     "yoke local-postgres start": "yoke local-postgres start [--json]",
     "yoke local-postgres stop": "yoke local-postgres stop [--json]",
     "yoke local-postgres status": "yoke local-postgres status [--json]",
@@ -139,6 +143,52 @@ def universe_export(args: List[str]) -> int:
     return 0
 
 
+def local_demo_seed(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke local demo seed",
+        description=(
+            "Seed a non-prod local universe with a few demo backlog items "
+            "for installer smoke tests."
+        ),
+    )
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project slug or id; defaults to the checkout's configured project.",
+    )
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=3,
+        help="Number of smoke items to create (default: 3).",
+    )
+    parser.add_argument("--config", dest="config_path", default=None,
+                        help="Machine config path override.")
+    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parsed = parse_or_usage_error(parser, args, DEMO_SEED_USAGE)
+    if parsed is None:
+        return 2
+    if parsed.count < 1:
+        print("error: --count must be at least 1", file=sys.stderr)
+        return 2
+    try:
+        report = _seed_demo_items(
+            project=parsed.project,
+            count=parsed.count,
+            config_path=parsed.config_path,
+        )
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if parsed.json_mode:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        for item in report.get("items", []):
+            print(f"{item.get('item_ref')}: {item.get('title')}")
+        print(report.get("next_step", "run `yoke board rebuild --print`"))
+    return 0
+
+
 def local_postgres_start(args: List[str]) -> int:
     parsed = _lifecycle_parse("start", args)
     if parsed is None:
@@ -189,6 +239,46 @@ def _lifecycle_run(operation: Callable[[], Dict[str, Any]], json_mode: bool) -> 
     return 0
 
 
+def _seed_demo_items(
+    *,
+    project: str | None,
+    count: int,
+    config_path: str | None,
+) -> Dict[str, Any]:
+    from yoke_cli.config import machine_config
+    from yoke_cli.project_install.transport import _local_postgres_env
+    from yoke_contracts.machine_config import schema as contract
+
+    try:
+        connection = machine_config.active_connection(config_path)
+    except contract.MachineConfigContractError as exc:
+        raise setup.LocalUniverseSetupError(str(exc)) from exc
+    transport = str(connection.get("transport") or "").strip()
+    env_name = str(connection.get("env") or "<env>")
+    if transport not in contract.POSTGRES_TRANSPORTS:
+        raise setup.LocalUniverseSetupError(
+            f"env {env_name!r} is {transport or 'unconfigured'}, not local-postgres"
+        )
+    if contract.connection_is_prod(connection):
+        raise setup.LocalUniverseSetupError(
+            f"env {env_name!r} is prod-marked; demo seeding is local-only"
+        )
+    try:
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.local_demo_seed import seed_demo_items
+    except ModuleNotFoundError as exc:
+        raise setup.LocalUniverseSetupError(
+            "the yoke-core engine package is not importable; reinstall Yoke"
+        ) from exc
+    with _local_postgres_env(
+        connection,
+        config_path,
+        dsn_env=db_backend.PG_DSN_ENV,
+        dsn_file_env=db_backend.PG_DSN_FILE_ENV,
+    ):
+        return seed_demo_items(project=project, count=count)
+
+
 def _emit_for(json_mode: bool) -> Callable[[str], None]:
     """Progress lines go to stderr in JSON mode so stdout stays parseable."""
     stream = sys.stderr if json_mode else sys.stdout
@@ -215,6 +305,7 @@ def _print_init_summary(report: Dict[str, Any]) -> None:
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("init",): init,
+    ("local", "demo", "seed"): local_demo_seed,
     ("local-postgres", "start"): local_postgres_start,
     ("local-postgres", "stop"): local_postgres_stop,
     ("local-postgres", "status"): local_postgres_status,
@@ -226,6 +317,7 @@ __all__ = [
     "TOOL_SHAPED_SUBCOMMANDS",
     "TOOL_SHAPED_USAGE",
     "init",
+    "local_demo_seed",
     "local_postgres_start",
     "local_postgres_status",
     "local_postgres_stop",

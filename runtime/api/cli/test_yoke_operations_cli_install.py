@@ -7,6 +7,7 @@ import json
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
+from yoke_cli.project_install import transport as project_install_transport
 from yoke_core.domain import project_install
 from yoke_core.domain.project_install_test_helpers import (
     DEFAULT_CONTRACT_FILES,
@@ -138,11 +139,62 @@ def test_install_without_project_id_exits_nonzero(cfg, repo, capsys) -> None:
     assert "--project-id" in capsys.readouterr().err
 
 
-def test_install_requires_https_bundle_before_repo_writes(
-    cfg, repo, tmp_path, capsys
+def test_install_accepts_non_prod_local_postgres_bundle(
+    cfg, repo, tmp_path, capsys, monkeypatch,
 ) -> None:
     _seed_local_postgres_connection(cfg, tmp_path)
     capsys.readouterr()
+
+    def _fetch_local(project_id, connection, config_path):
+        assert project_id == 7
+        assert connection["env"] == "source-dev-admin"
+        assert connection["transport"] == contract.DEFAULT_TRANSPORT
+        assert str(config_path) == str(cfg)
+        return make_bundle()
+
+    monkeypatch.setattr(
+        project_install_transport,
+        "_fetch_bundle_local_postgres",
+        _fetch_local,
+    )
+
+    rc = yoke_operations_cli.main([
+        "project", "install", str(repo),
+        "--project-id", "7", "--config", str(cfg), "--json",
+    ])
+
+    assert rc == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["operation"] == "install"
+    assert report["source"] == "local-postgres:source-dev-admin"
+    assert (repo / ".yoke/install-manifest.json").exists()
+    assert (repo / ".claude/skills/yoke/onboard-project/SKILL.md").is_file()
+
+
+def test_install_refuses_prod_marked_local_postgres_before_repo_writes(
+    cfg, repo, tmp_path, capsys,
+) -> None:
+    dsn = tmp_path / "prod.dsn"
+    dsn.write_text("postgresql://localhost/yoke_prod\n", encoding="utf-8")
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(
+        json.dumps({
+            "schema_version": 1,
+            "active_env": "prod-db-admin",
+            "connections": {
+                "prod-db-admin": {
+                    "transport": contract.DEFAULT_TRANSPORT,
+                    "prod": True,
+                    "credential_source": {
+                        "kind": contract.CREDENTIAL_KIND_DSN_FILE,
+                        "path": str(dsn),
+                    },
+                },
+            },
+            "settings": {},
+        }) + "\n",
+        encoding="utf-8",
+    )
 
     rc = yoke_operations_cli.main([
         "project", "install", str(repo),
@@ -150,8 +202,8 @@ def test_install_requires_https_bundle_before_repo_writes(
     ])
 
     assert rc == 1
-    captured = capsys.readouterr()
-    assert "not an HTTPS product-client connection" in captured.err
+    err = capsys.readouterr().err
+    assert "prod-marked local-postgres connection" in err
     assert not (repo / ".yoke/install-manifest.json").exists()
     assert not (repo / ".claude").exists()
 

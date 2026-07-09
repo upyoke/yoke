@@ -24,7 +24,7 @@ from .sessions_analytics import (
 from .sessions_queries import _now_iso
 from .sessions_render import _resolve_effective_ttl, reclaim_stale_session
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
-from runtime.harness.hook_helpers import is_codex
+from yoke_harness.hooks.identity import is_codex
 
 
 def _minutes_since(iso_value: Optional[str]) -> int:

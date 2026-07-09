@@ -6,7 +6,8 @@ scenario catalog, retaining evidence, or importing campaign results into QA.
 
 For macOS-specific testing, use [INSTALLER-TESTING-MAC.md](INSTALLER-TESTING-MAC.md)
 as the sub-guide. The Mac guide covers the reusable physical Mac, visible
-Terminal runs, screenshot constraints, Git/Xcode cases, and reset procedure.
+Terminal runs, screenshot constraints, Git/Xcode cases, reset procedure, and
+the prod local-mode dashboard smoke.
 
 ## First Question
 

@@ -12,6 +12,7 @@ from typing import Any, Optional
 from yoke_cli.config import machine_config
 
 
+_CLAUDE_LEGACY = "claude"
 _CLAUDE_COARSE = "claude-code"
 _CODEX_COARSE = "codex"
 _PLACEHOLDER_MODEL_VALUES = frozenset({"", "default", "auto", "unknown"})
@@ -37,7 +38,10 @@ def _payload_field(stdin_data: str, field: str) -> str:
 def _is_placeholder_model(value: object) -> bool:
     if not isinstance(value, str):
         return True
-    return value.strip().lower() in _PLACEHOLDER_MODEL_VALUES
+    normalized = value.strip().lower()
+    if normalized in _PLACEHOLDER_MODEL_VALUES:
+        return True
+    return normalized.startswith("<") and normalized.endswith(">")
 
 
 def is_codex(executor: Optional[str]) -> bool:
@@ -45,6 +49,24 @@ def is_codex(executor: Optional[str]) -> bool:
         return False
     e = executor.strip().lower()
     return e == _CODEX_COARSE or e.startswith("codex-")
+
+
+def is_claude(executor: Optional[str]) -> bool:
+    if not executor:
+        return False
+    e = executor.strip().lower()
+    return e in {_CLAUDE_LEGACY, _CLAUDE_COARSE} or e.startswith("claude-")
+
+
+def canonical_harness_id(executor: Optional[str]) -> str:
+    if not executor or not executor.strip():
+        raise ValueError("canonical_harness_id requires a non-empty executor")
+    e = executor.strip().lower()
+    if is_codex(e):
+        return _CODEX_COARSE
+    if is_claude(e):
+        return _CLAUDE_COARSE
+    raise ValueError(f"unknown harness executor: {executor!r}")
 
 
 def _normalize_surface_token(value: str) -> str:
@@ -60,6 +82,18 @@ def _compose_executor(family: str, coarse: str, raw_entrypoint: Optional[str]) -
     if normalized == coarse or normalized.startswith(f"{family}-"):
         return normalized
     return f"{family}-{normalized}"
+
+
+def compose_executor_from_entrypoint(
+    executor: Optional[str],
+    entrypoint: Optional[str],
+) -> str:
+    value = (executor or "").strip()
+    if is_codex(value):
+        return _compose_executor("codex", _CODEX_COARSE, entrypoint)
+    if is_claude(value):
+        return _compose_executor("claude", _CLAUDE_COARSE, entrypoint)
+    return value
 
 
 def _normalize_entrypoint(originator: str = "", source: str = "") -> Optional[str]:
@@ -218,6 +252,14 @@ def detect_executor() -> str:
     )
 
 
+def detect_provider(executor: Optional[str] = None) -> str:
+    if os.environ.get("YOKE_PROVIDER"):
+        return os.environ["YOKE_PROVIDER"]
+    if is_codex(executor or detect_executor()):
+        return "openai"
+    return "anthropic"
+
+
 def detect_entrypoint() -> Optional[str]:
     val = os.environ.get("CLAUDE_CODE_ENTRYPOINT")
     if val:
@@ -309,10 +351,16 @@ def detect_model(
 __all__ = [
     "_codex_resolve_entrypoint",
     "_codex_resolve_model",
+    "_compose_executor",
     "_is_placeholder_model",
+    "_normalize_surface_token",
+    "canonical_harness_id",
+    "compose_executor_from_entrypoint",
     "detect_entrypoint",
     "detect_executor",
     "detect_model",
+    "detect_provider",
+    "is_claude",
     "is_codex",
     "resolve_session_id",
     "write_runtime_cache",

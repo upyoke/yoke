@@ -74,15 +74,18 @@ def yoke_version() -> str:
 
 
 def server_tree_root() -> Path:
-    """Root of the server's own code tree (wheel/container keeps repo layout).
+    """Root of the install-bundle source tree.
 
-    ``YOKE_SERVER_TREE_ROOT`` wins when set — a wheel install carries only
-    the ``runtime`` package, so containers COPY the repo-root bundle sources
+    ``YOKE_SERVER_TREE_ROOT`` wins when set — containers COPY the repo-root bundle sources
     (``templates/``, ``.agents/``, rendered agent adapters) to a declared
     tree and point this env var at it. Set-but-invalid fails loudly rather
     than silently falling back to a site-packages parent that lacks the
-    sources. Otherwise resolved from the ``runtime`` package location,
-    never from cwd — the API process may run anywhere.
+    sources.
+
+    Source checkouts resolve from the root ``runtime`` package location,
+    never from cwd — the API process may run anywhere. Product wheels do
+    not ship that root package, so local mode falls back to the packaged
+    bundle-source tree inside ``yoke_core``.
     """
     import os
 
@@ -95,9 +98,29 @@ def server_tree_root() -> Path:
                 f"{declared}"
             )
         return root
-    import runtime
+    try:
+        import runtime
 
-    return Path(runtime.__file__).resolve().parent.parent
+        return Path(runtime.__file__).resolve().parent.parent
+    except ModuleNotFoundError:
+        return _packaged_tree_root()
+
+
+def _packaged_tree_root() -> Path:
+    from importlib import resources
+
+    root = resources.files("yoke_core.install_bundle_tree")
+    try:
+        path = Path(root)
+    except TypeError as exc:
+        raise InstallBundleError(
+            "packaged install-bundle source tree is not filesystem-backed"
+        ) from exc
+    if not path.is_dir():
+        raise InstallBundleError(
+            f"packaged install-bundle source tree is missing: {path}"
+        )
+    return path
 
 
 def _read_text(path: Path) -> Optional[str]:

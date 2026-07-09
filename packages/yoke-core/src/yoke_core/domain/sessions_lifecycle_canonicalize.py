@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
-from runtime.harness.hook_helpers_identity import (
+from yoke_harness.hooks.identity import (
     canonical_harness_id,
     compose_executor_from_entrypoint,
 )

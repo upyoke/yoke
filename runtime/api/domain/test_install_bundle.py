@@ -3,11 +3,24 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import install_bundle
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PACKAGED_ROOT = (
+    REPO_ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
+)
+INSTALL_BUNDLE_SOURCE_DIRS = (
+    ".agents/skills/yoke",
+    "runtime/harness/claude/agents",
+    "runtime/harness/claude/rules",
+    "runtime/harness/codex/agents",
+)
 
 
 @pytest.fixture()
@@ -81,6 +94,27 @@ def test_build_bundle_is_deterministic(conn) -> None:
     paths = [entry["path"] for entry in first["files"]]
     assert paths == sorted(paths)
     assert len(paths) == len(set(paths)), "bundle paths must be unique"
+
+
+def test_packaged_install_bundle_tree_matches_source_inputs() -> None:
+    for rel in INSTALL_BUNDLE_SOURCE_DIRS:
+        source = REPO_ROOT / rel
+        packaged = PACKAGED_ROOT / rel
+        source_files = sorted(
+            path.relative_to(source).as_posix()
+            for path in source.rglob("*")
+            if path.is_file()
+        )
+        packaged_files = sorted(
+            path.relative_to(packaged).as_posix()
+            for path in packaged.rglob("*")
+            if path.is_file()
+        )
+        assert packaged_files == source_files
+        for file_rel in source_files:
+            assert (packaged / file_rel).read_bytes() == (
+                source / file_rel
+            ).read_bytes()
 
 
 def test_full_skill_suite_duplicated_under_both_harness_dirs(conn) -> None:

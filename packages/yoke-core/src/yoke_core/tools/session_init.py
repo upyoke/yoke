@@ -41,10 +41,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Sequence
 
-from yoke_core.domain.db_helpers import connect, resolve_db_path
 from yoke_core.tools import python_interpreter_probe
-from runtime.harness.hook_helpers_identity import detect_executor, detect_provider
-from runtime.harness.hook_helpers_model import _is_placeholder_model, detect_model
+from yoke_core.domain.db_helpers import connect, resolve_db_path
+from yoke_harness.hooks.identity import (
+    _is_placeholder_model,
+    detect_executor,
+    detect_model,
+    detect_provider,
+)
 
 
 def _resolve_executor() -> str:

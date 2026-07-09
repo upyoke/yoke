@@ -68,6 +68,24 @@ def test_product_wheels_exercise_installer_plan_surfaces(
         present=("yoke_core", "psycopg"),
         absent=("runtime",),
     )
+    _assert_command(
+        venv_python,
+        project,
+        env,
+        [
+            "-c",
+            (
+                "from yoke_core.domain import local_universe; "
+                "from yoke_core.domain.install_bundle import server_tree_root; "
+                "root = server_tree_root(); "
+                "assert (root / '.agents/skills/yoke/SKILL.md').is_file(); "
+                "assert (root / 'runtime/harness/claude/agents').is_dir(); "
+                "print(local_universe.LOCAL_DBNAME)"
+            ),
+        ],
+        0,
+        "yoke",
+    )
 
     _assert_command(
         yoke,

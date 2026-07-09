@@ -37,7 +37,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from runtime.harness.hook_helpers import is_codex
+from yoke_harness.hooks.identity import is_codex
 
 from . import sessions_analytics as _sa
 from .sessions_lifecycle_canonicalize import canonicalize_executor

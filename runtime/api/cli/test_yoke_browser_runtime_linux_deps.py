@@ -93,6 +93,34 @@ def test_amazon_linux_installs_dnf_deps_before_chromium(tmp_path, monkeypatch) -
     assert ["npx", "playwright", "install", "--with-deps", "chromium"] not in commands
 
 
+def test_daemon_start_missing_node_points_to_browser_setup(tmp_path, monkeypatch) -> None:
+    browser = tmp_path / "browser"
+    browser.joinpath("src").mkdir(parents=True)
+    browser.joinpath("src", "daemon.js").write_text("", encoding="utf-8")
+    monkeypatch.setattr(browser_client, "_browser_dir", lambda: browser)
+    monkeypatch.setattr(
+        browser_client, "_state_file_path", lambda: tmp_path / "state.json",
+    )
+    monkeypatch.setattr(
+        browser_client.DaemonState, "load", staticmethod(lambda path=None: None),
+    )
+    monkeypatch.setattr(
+        browser_client.subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(command, 1, "", ""),
+    )
+
+    try:
+        browser_client.daemon_start()
+    except RuntimeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("daemon_start should require Node.js")
+
+    assert "Node.js 18+" in message
+    assert "yoke qa browser setup" in message
+
+
 def test_amazon_linux_deps_command_uses_sudo_dnf_when_packages_missing(monkeypatch) -> None:
     monkeypatch.setattr(browser_linux_deps, "_os_release_id", lambda: "amzn")
     monkeypatch.setattr(browser_linux_deps.sys, "platform", "linux")

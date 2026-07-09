@@ -13,9 +13,12 @@ import sys
 from typing import List, Optional
 
 import yoke_core.api.service_client_shared as _shared
-
-from runtime.harness.hook_helpers import is_claude, is_codex
-from runtime.harness.hook_helpers_model import _is_placeholder_model, detect_model
+from yoke_harness.hooks.identity import (
+    _is_placeholder_model,
+    detect_model,
+    is_claude,
+    is_codex,
+)
 
 from yoke_core.api.service_client_shared import (
     _get_config_path,

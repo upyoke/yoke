@@ -64,3 +64,9 @@ where = ["src"]
 # The universe UI page ships inside the wheel; the server resolves these
 # via importlib.resources (yoke_core.ui.server.ASSET_CONTENT_TYPES).
 "yoke_core.ui" = ["static/*"]
+"yoke_core.install_bundle_tree" = [
+    ".agents/skills/yoke/**/*",
+    "runtime/harness/claude/agents/**/*",
+    "runtime/harness/claude/rules/**/*",
+    "runtime/harness/codex/agents/**/*",
+]

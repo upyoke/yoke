@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from runtime.harness.hook_helpers import compose_executor_from_entrypoint
+from yoke_harness.hooks.identity import compose_executor_from_entrypoint
 
 from yoke_core.api.service_client_shared import (
     SESSION_REQUIRED_ERROR,

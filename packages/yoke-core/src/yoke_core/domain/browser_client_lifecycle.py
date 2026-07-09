@@ -52,7 +52,11 @@ def daemon_start(
     # Preflight: node
     node_check = subprocess.run(["which", "node"], capture_output=True)
     if node_check.returncode != 0:
-        raise RuntimeError("node not found in PATH")
+        raise RuntimeError(
+            "Node.js 18+ is required for Browser QA and `node` was not "
+            "found on PATH. Run `yoke qa browser setup` to install or "
+            "diagnose the browser runtime prerequisites, then retry."
+        )
     if not daemon_js.exists():
         raise RuntimeError(f"daemon.js not found at {daemon_js}")
 
