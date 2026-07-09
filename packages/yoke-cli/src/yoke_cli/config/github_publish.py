@@ -6,8 +6,9 @@ listing the accounts a token can create repos under, and creating a repo. Both
 live behind the small functions here so the wizard and ``project_onboard`` can
 drive them while tests mock the network at one seam.
 
-The token is the machine GitHub PAT the Connect step already connected, so no
-``gh`` CLI prerequisite is introduced — the REST API is hit directly.
+The token is a short-lived GitHub App user access token refreshed from machine
+authorization, so no ``gh`` CLI prerequisite is introduced — the REST API is hit
+directly.
 """
 
 from __future__ import annotations

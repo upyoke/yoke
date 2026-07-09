@@ -62,10 +62,15 @@ def test_onboard_project_dry_run_reports_plan_without_repo_or_config_mutation(
         "project.checkout.register",
         "project.install",
     ]
-    assert payload["github_adoption"]["choice"] == "unselected"
-    assert payload["github_adoption"]["requires_explicit_choice"] is True
+    assert payload["github_adoption"]["choice"] == "app-binding"
+    assert payload["github_adoption"]["requires_explicit_choice"] is False
+    assert payload["github_adoption"]["binding"] == {
+        "status": "pending_app_connection",
+        "repo": "owner/local",
+        "requires_app_installation": True,
+    }
     assert payload["github_adoption"]["machine_github_credential_promoted"] is False
-    assert_github_preview(payload, enabled=False)
+    assert_github_preview(payload, enabled=True)
     assert tree_snapshot(checkout) == before_checkout
     assert config.read_text(encoding="utf-8") == before_config
     assert not (checkout / ".yoke/install-manifest.json").exists()

@@ -127,9 +127,9 @@ def _apply_github_row(
     github_adoption: Mapping[str, Any] | None,
 ) -> None:
     choice = str((github_adoption or {}).get("choice") or "skip")
-    if choice == "skip":
+    if choice in ("skip", "backlog-only"):
         row_status["machine-github-connection"] = STATUS_DEFERRED
-    elif choice == "temporary-only":
+    elif choice in ("temporary-only", "app-binding"):
         row_status["machine-github-connection"] = STATUS_CONFIGURED
     else:
         row_status["machine-github-connection"] = STATUS_VERIFIED

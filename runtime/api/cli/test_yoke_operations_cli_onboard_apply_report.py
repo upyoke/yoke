@@ -9,6 +9,7 @@ from yoke_cli.commands.adapters import onboard as onboard_adapter
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_wizard
 from yoke_cli.config.project_clone_support import ClonePlan
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 from yoke_cli.config.project_publish_support import PublishRequest
 
 
@@ -357,11 +358,12 @@ def test_apply_report_carries_replay_safe_input_snapshot(
             "project_checkout": str(checkout),
             "project_slug": "widget",
             "project_name": "Widget",
+            "project_github_repo": "octo-org/widget",
             "project_default_branch": "main",
             "project_public_item_prefix": "WIDG",
-            "project_github_adoption": "different-token",
-            "project_github_token": "project-gh-secret",
-            "project_github_token_file": "/tmp/project-gh-token",
+            "project_github_adoption": GITHUB_ADOPTION_APP_BINDING,
+            "project_github_token": None,
+            "project_github_token_file": None,
             "project_clone": clone,
         },
     )
@@ -382,7 +384,6 @@ def test_apply_report_carries_replay_safe_input_snapshot(
     serialized = json.dumps(payload)
     assert "yoke-secret" not in serialized
     assert "machine-gh-secret" not in serialized
-    assert "project-gh-secret" not in serialized
     assert "publish-secret" not in serialized
     assert "clone-secret" not in serialized
 

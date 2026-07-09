@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, List, Mapping
+from typing import Any, List
 
 from yoke_cli.commands._helpers import (
     attach_field_note_footer,
@@ -21,8 +21,8 @@ from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_apply_resume
 from yoke_cli.config import onboard_wizard
+from yoke_cli.config import github_user_tokens
 from yoke_cli.config import yoke_dev_access
-from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
@@ -42,7 +42,8 @@ ONBOARD_USAGE = (
     "[--project-mode machine-only|create-repo|clone-remote|import-remote|"
     "local-checkout --checkout PATH [--remote-url URL] "
     "--project-slug SLUG --project-name NAME --default-branch BRANCH "
-    "--public-item-prefix PREFIX]"
+    "--public-item-prefix PREFIX [--github-repo OWNER/REPO] "
+    "[--github-adoption app-binding|backlog-only|skip]]"
 )
 
 
@@ -86,11 +87,7 @@ def onboard(args: List[str]) -> int:
             confirmed=parsed.apply,
             json_mode=parsed.json_mode,
         )
-    if parsed.token_stdin and parsed.github_token_stdin:
-        print(
-            "error: --token-stdin and --github-token-stdin cannot both read stdin",
-            file=sys.stderr,
-        )
+    if _reject_project_github_token_args(parsed):
         return 2
     parsed.resume_payload = None
     if parsed.resume_run_id:
@@ -155,26 +152,17 @@ def onboard(args: List[str]) -> int:
         if not token:
             print("error: token on stdin is empty", file=sys.stderr)
             return 2
-    github_token_stdin_value = None
-    if parsed.github_token_stdin:
-        github_token_stdin_value = sys.stdin.read().strip()
-        if not github_token_stdin_value:
-            print("error: GitHub token on stdin is empty", file=sys.stderr)
-            return 2
     machine_github_choice = getattr(parsed, "machine_github_choice", None) or "skip"
     try:
-        needs_project_token = _project_needs_machine_github_token(parsed)
-        machine_github_token_file = _machine_github_token_file(
+        needs_user_token = _project_needs_machine_github_token(parsed)
+        machine_github_token = _machine_github_user_token(
             parsed,
-            allow_config=(
-                needs_project_token
-                or machine_github_choice == "connect"
-            ),
+            required=needs_user_token,
         )
-        machine_github_token = _machine_github_token(parsed, machine_github_token_file)
+        machine_github_token_file = None
         project_publish = _project_publish(parsed, machine_github_token)
         project_clone = _project_clone(parsed, machine_github_token, project_publish)
-    except machine_secrets.MachineSecretError as exc:
+    except github_user_tokens.GitHubUserTokenError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     # The legacy flag lane (--api-url without --local/--connect) reaches
@@ -203,6 +191,7 @@ def onboard(args: List[str]) -> int:
         machine_github_token_file=machine_github_token_file,
         machine_github_token_source_kind=(
             getattr(parsed, "machine_github_token_source_kind", None)
+            or ("github_app_user_access_token" if machine_github_token else None)
         ),
         project_mode=parsed.project_mode or onboard_config.PROJECT_MODE_MACHINE_ONLY,
         project_remote_url=parsed.project_remote_url,
@@ -235,9 +224,9 @@ def onboard(args: List[str]) -> int:
             None,
         ),
         project_github_adoption=parsed.github_adoption,
-        project_github_token=parsed.github_token,
-        project_github_token_file=parsed.github_token_file,
-        project_github_token_stdin_value=github_token_stdin_value,
+        project_github_token=None,
+        project_github_token_file=None,
+        project_github_token_stdin_value=None,
         project_publish=project_publish,
         project_clone=project_clone,
         project_keep_existing_remote=bool(
@@ -490,49 +479,17 @@ _apply_with_durable_report = onboard_apply.apply_with_durable_report
 _print_failure_summary = onboard_apply.print_failure_summary
 
 
-def _machine_github_token_file(
+def _machine_github_user_token(
     parsed: argparse.Namespace,
     *,
-    allow_config: bool,
+    required: bool,
 ) -> str | None:
-    explicit = str(getattr(parsed, "machine_github_token_file", "") or "").strip()
-    if explicit:
-        return explicit
-    if not allow_config:
+    if not required:
         return None
-    configured = _configured_machine_github_token_file(
-        getattr(parsed, "config_path", None)
+    refreshed = github_user_tokens.refresh_from_machine_config(
+        config_path=getattr(parsed, "config_path", None),
     )
-    return configured
-
-
-def _configured_machine_github_token_file(config_path: Any) -> str | None:
-    try:
-        payload = machine_config.load_config(machine_config.config_path(config_path))
-    except (MachineConfigContractError, machine_config.MachineConfigError):
-        return None
-    github = payload.get("github")
-    if not isinstance(github, Mapping):
-        return None
-    source = github.get("credential_source")
-    if not isinstance(source, Mapping):
-        return None
-    if str(source.get("kind") or "") != "token_file":
-        return None
-    path = str(source.get("path") or "").strip()
-    return path or None
-
-
-def _machine_github_token(
-    parsed: argparse.Namespace,
-    token_file: str | None,
-) -> str | None:
-    token = str(getattr(parsed, "machine_github_token", "") or "").strip()
-    if token:
-        return token
-    if not token_file:
-        return None
-    return machine_secrets.read_secret_file(token_file, "GitHub token")
+    return refreshed.access_token
 
 
 def _project_publish(
@@ -544,8 +501,10 @@ def _project_publish(
     if not (owner and name):
         return None
     if not machine_github_token:
-        raise machine_secrets.MachineSecretError(
-            "GitHub token file is required to resume creating a GitHub repo"
+        raise github_user_tokens.GitHubUserTokenError(
+            "GitHub App user authorization is required to create a GitHub repo. "
+            "Run `yoke github connect` when browser authorization is available, "
+            "or continue backlog-only."
         )
     return PublishRequest(
         owner=owner,
@@ -571,8 +530,10 @@ def _project_clone(
         return None
     if outcome in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE):
         if not machine_github_token:
-            raise machine_secrets.MachineSecretError(
-                "GitHub token file is required to resume the saved clone outcome"
+            raise github_user_tokens.GitHubUserTokenError(
+                "GitHub App user authorization is required for the saved clone "
+                "outcome. Run `yoke github connect` when browser authorization "
+                "is available, or choose a plain clone/backlog-only flow."
             )
     return ClonePlan(
         outcome=outcome,
@@ -588,12 +549,28 @@ def _project_clone(
 
 
 def _project_needs_machine_github_token(parsed: argparse.Namespace) -> bool:
-    if str(getattr(parsed, "project_clone_outcome", "") or "").strip():
+    outcome = str(getattr(parsed, "project_clone_outcome", "") or "").strip()
+    if outcome in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE):
         return True
     return bool(
         str(getattr(parsed, "project_publish_owner", "") or "").strip()
         and str(getattr(parsed, "project_publish_repo_name", "") or "").strip()
     )
+
+
+def _reject_project_github_token_args(parsed: argparse.Namespace) -> bool:
+    if not (
+        getattr(parsed, "github_token", None)
+        or getattr(parsed, "github_token_file", None)
+        or getattr(parsed, "github_token_stdin", False)
+    ):
+        return False
+    print(
+        "error: project GitHub token inputs are no longer supported; use "
+        "--github-adoption app-binding or --github-adoption backlog-only",
+        file=sys.stderr,
+    )
+    return True
 
 
 __all__ = ["ONBOARD_USAGE", "onboard"]

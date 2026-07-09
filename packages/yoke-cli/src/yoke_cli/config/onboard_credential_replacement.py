@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import secrets as machine_secrets
 
 
@@ -51,18 +50,6 @@ def replacement_problems(
     if yoke_problem:
         problems.append(yoke_problem)
 
-    if machine_github_choice == onboard_machine_github.CHOICE_CONNECT:
-        github_problem = _replacement_problem(
-            label="machine GitHub token",
-            target=machine_secrets.secret_path_no_create("github", "token"),
-            incoming=_incoming_secret(
-                token=machine_github_token,
-                token_file=machine_github_token_file,
-            ),
-            guidance="remove the saved GitHub token file or skip connecting GitHub",
-        )
-        if github_problem:
-            problems.append(github_problem)
     return problems
 
 

@@ -24,7 +24,6 @@ from yoke_cli.config import onboard_machine_github  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config.onboard_wizard import (  # noqa: E402
-    PROJECT_GITHUB_REUSE_MACHINE,
     WizardDefaults,
     WizardResult,
 )
@@ -334,24 +333,14 @@ def test_existing_project_with_board_art_skips_art_flow(
     assert app.result.board_art_variants == []
 
 
-def test_reuse_machine_pat_shares_token_with_project(monkeypatch) -> None:
-    from yoke_cli.config import github_publish
-    from yoke_cli.config import onboard_wizard_flow
-
-    # Owner list is fetched behind a seam — patch it so no scenario hits GitHub.
-    monkeypatch.setattr(
-        onboard_wizard_flow, "fetch_repo_owners",
-        lambda api_url, token: [github_publish.RepoOwner("octocat", "user")],
-    )
+def test_github_app_unavailable_keeps_new_project_backlog_only() -> None:
     app, spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("enter")  # machine github: Connect a token (default)
-            await type_text(pilot, "ghp_machinepat")
-            await pilot.press("enter")
-            await pilot.press("enter")  # GitHub verification success: Continue
+            await pilot.press("enter")  # machine GitHub: connect (default)
+            await pilot.press("enter")  # App flow unavailable: backlog-only
             mode_index = next(
                 i for i, r in enumerate(steps.MODE_ROWS)
                 if r.value == onboard_project.PROJECT_MODE_CREATE_REPO
@@ -363,18 +352,10 @@ def test_reuse_machine_pat_shares_token_with_project(monkeypatch) -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # slug placeholder -> demo
             await pilot.press("enter")  # name placeholder
-            await pilot.press("enter")  # publish: Yes — publish (preselected)
-            await pilot.press("enter")  # owner picker: octocat (only row)
-            await pilot.press("enter")  # repo name placeholder -> demo
+            await pilot.press("enter")  # publish: Yes (preselected)
+            await pilot.press("enter")  # App publishing unavailable: backlog-only
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            reuse_index = next(
-                i for i, r in enumerate(steps.PROJECT_GITHUB_ROWS)
-                if r.value == PROJECT_GITHUB_REUSE_MACHINE
-            )
-            for _ in range(reuse_index):
-                await pilot.press("down")
-            await pilot.press("enter")  # project github: reuse machine PAT
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -383,17 +364,12 @@ def test_reuse_machine_pat_shares_token_with_project(monkeypatch) -> None:
 
     applied = spy.applied
     assert applied is not None
-    assert applied["machine_github_token"] == "ghp_machinepat"
-    assert applied["project_github_token"] == "ghp_machinepat"
-    assert applied["project_github_adoption"] == "store-token"
-    assert applied["project_github_repo"] == "octocat/demo"
-    publish = applied["project_publish"]
-    assert publish is not None
-    assert publish.owner == "octocat"
-    assert publish.name == "demo"
-    assert publish.user_login == "octocat"
-    assert publish.token == "ghp_machinepat"
-    assert publish.private is True
+    assert applied["machine_github_choice"] == onboard_machine_github.CHOICE_SKIP
+    assert applied["machine_github_token"] is None
+    assert applied["project_github_token"] is None
+    assert applied["project_github_adoption"] is None
+    assert applied["project_github_repo"] is None
+    assert applied["project_publish"] is None
 
 
 def test_keystrokes_during_transition_reach_the_new_input() -> None:

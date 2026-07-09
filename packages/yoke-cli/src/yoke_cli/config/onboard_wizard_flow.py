@@ -37,6 +37,7 @@ from yoke_cli.config.onboard_wizard_widgets import (
     SelectionRow,
 )
 from yoke_cli.config.project_publish_support import is_existing_project_dir
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 from yoke_cli.project_install import source_dev
 
 # Modes that offer the "Also publish to GitHub?" follow-up. A clone always
@@ -542,7 +543,7 @@ class WizardFlow:
     def _on_project_github(self: _Shell, choice: str) -> None:
         if choice == PROJECT_GITHUB_REUSE_MACHINE and not self.result.machine_github_token:
             choice = "skip"
-        if choice in (PROJECT_GITHUB_REUSE_MACHINE, "store-token"):
+        if choice in (PROJECT_GITHUB_REUSE_MACHINE, GITHUB_ADOPTION_APP_BINDING):
             self._goto_project_github_unavailable()
             return
         self.result.project_github_adoption = reuse_choice_to_adoption(choice)

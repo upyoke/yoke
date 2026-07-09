@@ -34,125 +34,102 @@ def test_github_machine_help_and_registry(capsys) -> None:
     assert yoke_operations_cli.main(["github", "connect", "--help"]) == 0
     connect_out = capsys.readouterr().out
     assert "yoke github connect" in connect_out
-    for flag in (
-        "--token-file",
-        "--token-stdin",
-        "--github-repo",
-        "--api-url",
-        "--config",
-        "--json",
-    ):
+    for flag in ("--api-url", "--config", "--json"):
         assert flag in connect_out
+    for removed_flag in ("--token-file", "--token-stdin", "--github-repo"):
+        assert removed_flag not in connect_out
 
     assert yoke_operations_cli.main(["github", "status", "--help"]) == 0
     status_out = capsys.readouterr().out
     assert "yoke github status" in status_out
-    for flag in ("--config", "--github-repo", "--api-url", "--json"):
+    for flag in ("--config", "--api-url", "--offline", "--json"):
         assert flag in status_out
+    assert "--github-repo" not in status_out
 
 
-def test_github_connect_writes_metadata_without_token_or_runtime_auth(
+def test_github_connect_reports_browser_flow_unavailable_without_manual_token(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     config = tmp_path / "machine" / "config.json"
-    token_file = tmp_path / "github.pat"
-    token_file.write_text(f"{TOKEN}\n", encoding="utf-8")
 
-    with github_server(expected_token=TOKEN) as server:
-        rc = yoke_operations_cli.main([
-            "github",
-            "connect",
-            "--token-file",
-            str(token_file),
-            "--api-url",
-            server.url,
-            "--github-repo",
-            "machine-user/private-tool",
-            "--config",
-            str(config),
-            "--json",
-        ])
-
-    captured = capsys.readouterr()
-    assert rc == 0
-    payload = json.loads(captured.out)
-    assert payload["ok"] is True
-    assert payload["operation"] == "github.connect"
-    assert login(payload) == "machine-user"
-    assert {"read:org", "repo", "workflow"} <= scopes(payload)
-    assert payload["permissions"]["ok"] is True
-    assert payload["permissions"]["mode"] == "classic"
-    assert {"machine-user", "octo-org"} <= owner_logins(payload)
-    assert {
-        "machine-user/private-tool",
-        "octo-org/app",
-    } <= repo_full_names(payload)
-    assert requested_repo(payload)["full_name"] == "machine-user/private-tool"
-    assert requested_repo(payload)["permissions"]["admin"] is True
-
-    written_text = config.read_text(encoding="utf-8")
-    _assert_token_absent(TOKEN, captured.out, captured.err, written_text)
-    written = json.loads(written_text)
-    github = written["github"]
-    stored_token = tmp_path / "home" / "secrets" / "github.token"
-    assert github["api_url"] == server.url
-    assert github["credential_source"] == {
-        "kind": "token_file",
-        "path": str(stored_token),
-    }
-    assert stored_token.read_text(encoding="utf-8") == TOKEN + "\n"
-    assert str(token_file) not in written_text
-    assert github["verified_login"] == "machine-user"
-    assert github["verified_user_id"] == 1001
-    assert {"read:org", "repo", "workflow"} <= scopes(github)
-    _assert_no_project_runtime_auth(written)
-
-
-def test_github_connect_rejects_valid_pat_missing_required_scope(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
-    config = tmp_path / "machine" / "config.json"
-    token_file = tmp_path / "github.pat"
-    token_file.write_text(f"{TOKEN}\n", encoding="utf-8")
-
-    with github_server(expected_token=TOKEN, oauth_scopes="repo, read:org") as server:
-        rc = yoke_operations_cli.main([
-            "github",
-            "connect",
-            "--token-file",
-            str(token_file),
-            "--api-url",
-            server.url,
-            "--config",
-            str(config),
-        ])
+    rc = yoke_operations_cli.main([
+        "github",
+        "connect",
+        "--config",
+        str(config),
+        "--json",
+    ])
 
     captured = capsys.readouterr()
     assert rc == 1
-    assert "missing required classic PAT scope(s): workflow" in captured.err
-    assert "Workflows: write" in captured.err
+    payload = json.loads(captured.out)
+    assert payload["ok"] is False
+    assert payload["operation"] == "github.connect"
+    assert payload["connection_model"] == "github_app"
+    assert payload["configured"] is False
+    assert payload["issues"][0]["code"] == "github_app_browser_flow_unavailable"
     assert not config.exists()
 
 
-def test_github_status_reads_config_validates_online_and_does_not_leak_token(
+def test_github_connect_rejects_manual_token_flags(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     config = tmp_path / "machine" / "config.json"
     token_file = tmp_path / "github.pat"
     token_file.write_text(f"{TOKEN}\n", encoding="utf-8")
+
+    rc = yoke_operations_cli.main([
+        "github",
+        "connect",
+        "--token-file",
+        str(token_file),
+        "--config",
+        str(config),
+    ])
+
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "--token-file" in captured.err
+    assert not config.exists()
+
+
+def test_github_status_reads_app_config_offline(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    config = tmp_path / "machine" / "config.json"
+    refresh_file = tmp_path / "github.refresh"
+    refresh_file.write_text("refresh-token\n", encoding="utf-8")
     config.parent.mkdir(parents=True)
     config.write_text(
         json.dumps(
             {
                 "schema_version": 1,
                 "github": {
-                    "api_url": "https://stale.example.invalid",
-                    "credential_source": {"kind": "token_file", "path": str(token_file)},
-                    "verified_login": "cached-user",
-                    "verified_user_id": 42,
+                    "api_url": "https://api.github.example",
+                    "app_slug": "yoke-local",
+                    "client_id": "Iv1.local",
+                    "installations": [
+                        {
+                            "installation_id": 123,
+                            "account_login": "octo-org",
+                            "account_type": "Organization",
+                            "repository_selection": "selected",
+                        }
+                    ],
+                    "repositories": [
+                        {"repository_id": 456, "full_name": "octo-org/app"},
+                    ],
+                    "authorization": {
+                        "kind": "github_app_user_authorization",
+                        "refresh_credential_ref": str(refresh_file),
+                        "login": "cached-user",
+                        "github_user_id": 42,
+                        "status": "authorized",
+                        "permissions": {"issues": "write", "contents": "read"},
+                    },
                 },
             },
             indent=2,
@@ -161,39 +138,33 @@ def test_github_status_reads_config_validates_online_and_does_not_leak_token(
         encoding="utf-8",
     )
 
-    with github_server(expected_token=TOKEN) as server:
-        rc = yoke_operations_cli.main([
-            "github",
-            "status",
-            "--config",
-            str(config),
-            "--api-url",
-            server.url,
-            "--github-repo",
-            "machine-user/private-tool",
-            "--json",
-        ])
+    rc = yoke_operations_cli.main([
+        "github",
+        "status",
+        "--config",
+        str(config),
+        "--offline",
+        "--json",
+    ])
 
     captured = capsys.readouterr()
     assert rc == 0
     payload = json.loads(captured.out)
     assert payload["ok"] is True
     assert payload["operation"] == "github.status"
-    assert payload["api_url"] == server.url
-    assert login(payload) == "machine-user"
-    assert {"read:org", "repo", "workflow"} <= scopes(payload)
+    assert payload["connection_model"] == "github_app"
+    assert payload["api_url"] == "https://api.github.example"
+    assert payload["identity"]["checked"] is False
+    assert payload["identity"]["login"] == "cached-user"
+    assert payload["authorization"]["present"] is True
+    assert payload["app"]["client_id"] == "Iv1.local"
+    assert payload["access"]["owners"] == ["octo-org"]
+    assert payload["access"]["repos"] == ["octo-org/app"]
     assert payload["permissions"]["ok"] is True
-    assert payload["permissions"]["mode"] == "classic"
-    assert {"machine-user", "octo-org"} <= owner_logins(payload)
-    assert {
-        "machine-user/private-tool",
-        "octo-org/app",
-    } <= repo_full_names(payload)
-    assert requested_repo(payload)["full_name"] == "machine-user/private-tool"
-    assert requested_repo(payload)["permissions"]["admin"] is True
+    assert payload["permissions"]["mode"] == "github_app"
 
     written_text = config.read_text(encoding="utf-8")
-    _assert_token_absent(TOKEN, captured.out, captured.err, written_text)
+    _assert_token_absent("refresh-token", captured.out, captured.err, written_text)
     _assert_no_project_runtime_auth(json.loads(written_text))
 
 

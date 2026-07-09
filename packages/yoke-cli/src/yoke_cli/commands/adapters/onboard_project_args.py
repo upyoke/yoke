@@ -6,7 +6,7 @@ import argparse
 
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_github_copy
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_CHOICES
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_INPUT_CHOICES
 
 
 def add_project_args(parser: argparse.ArgumentParser) -> None:
@@ -29,13 +29,16 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--github-adoption",
-        choices=GITHUB_ADOPTION_CHOICES,
+        choices=GITHUB_ADOPTION_INPUT_CHOICES,
         default=None,
         help=onboard_github_copy.PROJECT_TOKEN_ADOPTION_HELP,
     )
-    parser.add_argument("--github-token", dest="github_token", default=None)
-    parser.add_argument("--github-token-file", dest="github_token_file", default=None)
-    parser.add_argument("--github-token-stdin", action="store_true")
+    parser.add_argument("--github-token", dest="github_token", default=None,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--github-token-file", dest="github_token_file", default=None,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--github-token-stdin", action="store_true",
+                        help=argparse.SUPPRESS)
 
 
 def project_prompt_missing(parsed: argparse.Namespace) -> bool:

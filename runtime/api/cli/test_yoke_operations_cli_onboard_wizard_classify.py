@@ -21,6 +21,7 @@ from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_report  # noqa: E402
 from yoke_cli.config import onboard_reuse_feedback  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING  # noqa: E402
 from yoke_cli.config.project_clone_support import ClonePlan  # noqa: E402
 from yoke_cli.config.project_publish_support import PublishRequest  # noqa: E402
 
@@ -362,7 +363,10 @@ def test_classify_plan_buckets_writes() -> None:
         "plan": {"steps": [
             {"action": "create-or-validate-dir", "target": "/home/.yoke"},
             {"action": "project-create-checkout", "target": "/home/code/demo"},
-            {"action": "project-github-auth-choice", "target": "store-token"},
+            {
+                "action": "project-github-auth-choice",
+                "target": GITHUB_ADOPTION_APP_BINDING,
+            },
         ]},
     }
     grouped = steps.classify_plan(plan)
@@ -420,7 +424,7 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
             "Write your board art and initial BOARD.md",
         ("project-source-dev-admin", "/src/yoke"):
             "Set up the Yoke source checkout at /src/yoke",
-        ("project-github-auth-choice", "store-token"):
+        ("project-github-auth-choice", GITHUB_ADOPTION_APP_BINDING):
             onboard_github_copy.PROJECT_TOKEN_REVIEW,
         ("project-github-auth-choice", "skip"):
             "Don't set up Yoke with access to a GitHub remote",

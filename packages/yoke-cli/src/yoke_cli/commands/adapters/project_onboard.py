@@ -16,17 +16,16 @@ from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import project_onboard
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 from yoke_cli.config.project_github_adoption import (
-    GITHUB_ADOPTION_CHOICES,
+    GITHUB_ADOPTION_INPUT_CHOICES,
     ProjectGithubAdoptionError,
 )
 from yoke_cli.project_install.files import ProjectInstallError
 
 GITHUB_ADOPTION_FLAGS = (
-    "[--github-adoption temporary-only|store-token|different-token|skip] "
-    "[--github-token TOKEN | --github-token-file PATH | --github-token-stdin]"
+    "[--github-adoption app-binding|backlog-only|skip]"
 )
 PROJECT_CREATE_USAGE = (
-    "yoke project create CHECKOUT [GITHUB_TOKEN] --slug SLUG --name NAME "
+    "yoke project create CHECKOUT --slug SLUG --name NAME "
     "[--org ORG] --github-repo OWNER/REPO --default-branch BRANCH "
     f"--public-item-prefix PREFIX {GITHUB_ADOPTION_FLAGS} --config PATH "
     "[--yes | --dry-run] [--json]"
@@ -53,6 +52,8 @@ def project_create(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, PROJECT_CREATE_USAGE)
     if parsed is None:
         return 2
+    if _reject_project_github_token_args(parsed):
+        return 2
     try:
         report = project_onboard.create_project(
             checkout=parsed.checkout,
@@ -62,9 +63,9 @@ def project_create(args: List[str]) -> int:
             github_repo=parsed.github_repo,
             default_branch=parsed.default_branch,
             public_item_prefix=parsed.public_item_prefix,
-            github_token=_github_token_arg(parsed),
-            github_token_file=parsed.github_token_file,
-            github_token_stdin_value=_github_token_stdin_value(parsed),
+            github_token=None,
+            github_token_file=None,
+            github_token_stdin_value=None,
             github_adoption_choice=parsed.github_adoption,
             config_path=parsed.config_path,
             apply=parsed.apply,
@@ -76,15 +77,6 @@ def project_create(args: List[str]) -> int:
     return 0
 
 
-def _github_token_arg(parsed: argparse.Namespace) -> str | None:
-    positional = getattr(parsed, "github_token_value", None)
-    if parsed.github_token and positional:
-        raise project_onboard.ProjectOnboardError(
-            "positional GitHub token is mutually exclusive with --github-token"
-        )
-    return parsed.github_token or positional
-
-
 def project_import(args: List[str]) -> int:
     parser = _project_parser("yoke project import", PROJECT_IMPORT_USAGE)
     parser.add_argument("remote_url")
@@ -92,6 +84,8 @@ def project_import(args: List[str]) -> int:
     _add_github_adoption_args(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_IMPORT_USAGE)
     if parsed is None:
+        return 2
+    if _reject_project_github_token_args(parsed):
         return 2
     try:
         report = project_onboard.import_project(
@@ -103,9 +97,9 @@ def project_import(args: List[str]) -> int:
             github_repo=parsed.github_repo,
             default_branch=parsed.default_branch,
             public_item_prefix=parsed.public_item_prefix,
-            github_token=_github_token_arg(parsed),
-            github_token_file=parsed.github_token_file,
-            github_token_stdin_value=_github_token_stdin_value(parsed),
+            github_token=None,
+            github_token_file=None,
+            github_token_stdin_value=None,
             github_adoption_choice=parsed.github_adoption,
             config_path=parsed.config_path,
             apply=parsed.apply,
@@ -124,6 +118,8 @@ def onboard_project(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, ONBOARD_PROJECT_USAGE)
     if parsed is None:
         return 2
+    if _reject_project_github_token_args(parsed):
+        return 2
     try:
         report = project_onboard.onboard_existing(
             checkout=parsed.checkout,
@@ -133,9 +129,9 @@ def onboard_project(args: List[str]) -> int:
             github_repo=parsed.github_repo,
             default_branch=parsed.default_branch,
             public_item_prefix=parsed.public_item_prefix,
-            github_token=_github_token_arg(parsed),
-            github_token_file=parsed.github_token_file,
-            github_token_stdin_value=_github_token_stdin_value(parsed),
+            github_token=None,
+            github_token_file=None,
+            github_token_stdin_value=None,
             github_adoption_choice=parsed.github_adoption,
             config_path=parsed.config_path,
             apply=parsed.apply,
@@ -175,17 +171,32 @@ def _project_parser(prog: str, usage: str) -> argparse.ArgumentParser:
 def _add_github_adoption_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--github-adoption",
-        choices=GITHUB_ADOPTION_CHOICES,
+        choices=GITHUB_ADOPTION_INPUT_CHOICES,
         default=None,
         help=onboard_github_copy.PROJECT_TOKEN_ADOPTION_HELP,
     )
-    parser.add_argument("--github-token", dest="github_token", default=None)
-    parser.add_argument("--github-token-file", dest="github_token_file", default=None)
-    parser.add_argument("--github-token-stdin", action="store_true")
+    parser.add_argument("--github-token", dest="github_token", default=None,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--github-token-file", dest="github_token_file", default=None,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--github-token-stdin", action="store_true",
+                        help=argparse.SUPPRESS)
 
 
-def _github_token_stdin_value(parsed: argparse.Namespace) -> str | None:
-    return sys.stdin.read().strip() if parsed.github_token_stdin else None
+def _reject_project_github_token_args(parsed: argparse.Namespace) -> bool:
+    if not (
+        getattr(parsed, "github_token_value", None)
+        or getattr(parsed, "github_token", None)
+        or getattr(parsed, "github_token_file", None)
+        or getattr(parsed, "github_token_stdin", False)
+    ):
+        return False
+    print(
+        "error: project GitHub token inputs are no longer supported; use "
+        "--github-adoption app-binding or --github-adoption backlog-only",
+        file=sys.stderr,
+    )
+    return True
 
 
 def _emit(report: dict, json_mode: bool) -> None:
