@@ -103,15 +103,13 @@ yoke project create ~/work/demo \
   --github-repo owner/demo \
   --default-branch main \
   --public-item-prefix DMO \
-  --github-adoption store-token \
-  --github-token-stdin \
+  --github-adoption app-binding \
   --config ~/.yoke/config.json \
   --yes
 ```
 
-This initializes the checkout, creates the project, stores the selected
-project GitHub capability when requested, registers the checkout, and runs
-project install.
+This initializes the checkout, creates the project, records the GitHub App repo
+binding when requested, registers the checkout, and runs project install.
 
 ### Existing remote
 
@@ -122,7 +120,7 @@ yoke project import git@github.com:owner/demo.git ~/work/demo \
   --github-repo owner/demo \
   --default-branch main \
   --public-item-prefix DMO \
-  --github-adoption skip \
+  --github-adoption backlog-only \
   --config ~/.yoke/config.json \
   --yes
 ```
@@ -141,7 +139,7 @@ yoke onboard project ~/work/demo \
   --github-repo owner/demo \
   --default-branch main \
   --public-item-prefix DMO \
-  --github-adoption temporary-only \
+  --github-adoption app-binding \
   --config ~/.yoke/config.json \
   --dry-run \
   --json
@@ -156,7 +154,7 @@ yoke onboard project ~/work/demo \
   --github-repo owner/demo \
   --default-branch main \
   --public-item-prefix DMO \
-  --github-adoption temporary-only \
+  --github-adoption app-binding \
   --config ~/.yoke/config.json \
   --yes \
   --json
@@ -178,23 +176,20 @@ yoke project install ~/work/demo \
 Project onboarding requires an explicit choice before applying GitHub
 automation when `--github-repo` is present:
 
-- `temporary-only` uses the provided token only during this onboarding run.
-- `store-token` stores the provided token as the project `github.token`
-  capability secret.
-- `different-token` stores a separate project token instead of using a
-  machine credential.
-- `skip` leaves GitHub automation unconfigured.
+- `app-binding` records that the project should use a GitHub App repo binding.
+- `backlog-only` leaves GitHub automation unconfigured.
+- `skip` is accepted as an alias for `backlog-only`.
 
 Dry-run JSON includes `github_adoption` and `automation_preview`. The preview
 names the project write surface and the GitHub categories Yoke is preparing
 to manage: labels, issue templates, pull request templates, Actions variables,
 Actions secrets, branch protection, and environment protection.
 
-Token input methods (`--github-token`, `--github-token-file`,
-`--github-token-stdin`, or the positional token on create) are import methods,
-not persisted source modes. Stored project GitHub tokens are Yoke-owned
-literal values in the project capability store. `aws-admin` capability secrets
-and `ssh.private_key` are machine-local files under
+Project-supplied GitHub credential input methods (`--github-token`, `--github-token-file`,
+`--github-token-stdin`, or the old positional token on create) are rejected.
+Project GitHub automation uses GitHub App repo bindings; a backlog-only project
+does not resolve GitHub auth at all. `aws-admin` capability secrets and
+`ssh.private_key` are machine-local files under
 `~/.yoke/secrets/capability-secrets/<project>/<capability>/`. Raw secret
 values are not printed.
 

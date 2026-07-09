@@ -4,7 +4,7 @@ Carved out of :mod:`yoke_core.engines.doctor_hc_worktrees_gh` to keep
 the parent module under the authored-file cap. Provides typed
 ``list_issues_by_labels_rest`` and ``search_issues_by_query_rest``
 helpers consumed by ``hc_orphaned_gh_issues`` and
-``hc_gh_orphan_detection``; each issues PAT-backed REST calls and
+``hc_gh_orphan_detection``; each issues bearer-token REST calls and
 returns a ``subprocess.CompletedProcess`` so the existing HC parsers
 stay shape-compatible.
 """

@@ -82,7 +82,7 @@ def test_clone_ambient_success_does_not_use_token(tmp_path: Path) -> None:
     parent.mkdir()
 
     outcome = clone.clone_with_token_fallback(
-        parent, "widgets", str(bare), token="ghp_should_not_be_used",
+        parent, "widgets", str(bare), token="ghs_should_not_be_used",
     )
 
     assert outcome.used_token is False
@@ -97,7 +97,7 @@ def test_clone_ambient_fail_token_success_rehomes_origin_cleanly(
     bare = _seed_bare_source(tmp_path)
     parent = tmp_path / "checkouts"
     parent.mkdir()
-    token = "ghp_secret_token_value"
+    token = "ghs_secret_token_value"
 
     # Ambient clones a bogus local path (fails fast, no network, no prompt); the
     # fallback's normalized HTTPS URL is redirected to the real bare source.
@@ -128,7 +128,7 @@ def test_clone_token_fail_raises_clear_error_without_leaking_token(
 ) -> None:
     parent = tmp_path / "checkouts"
     parent.mkdir()
-    token = "ghp_secret_token_value"
+    token = "ghs_secret_token_value"
     bogus = tmp_path / "nonexistent.git"
 
     monkeypatch.setattr(clone, "_looks_like_access_failure", lambda _stderr: True)
@@ -260,6 +260,6 @@ def test_clone_progress_lines_token_fallback_is_informational() -> None:
     )
     assert lines == [
         "  Cloning acme/widgets…",
-        "  Your git setup couldn't reach it — used your connected GitHub token.",
+        "  Your git setup couldn't reach it — used your connected GitHub credential.",
         "  ✓ Cloned.",
     ]

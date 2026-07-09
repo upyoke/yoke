@@ -82,7 +82,7 @@ class TestProjectsCapabilitySecretSet:
         ][0] == "projects.capability_secret.set"
 
     def test_positional_secret_dispatches_without_printing_secret(self) -> None:
-        secret = "ghp_project_runtime_secret"
+        secret = "ghs_project_runtime_secret"
 
         def stub(request: FunctionCallRequest) -> FunctionCallResponse:
             _CAPTURED_REQUESTS.append(request)

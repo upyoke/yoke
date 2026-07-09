@@ -3,7 +3,7 @@
 Each sibling sync module (``backlog_github_label_sync``,
 ``backlog_github_item_create``, ``backlog_github_state_sync``, etc.)
 needs to call into the canonical ``backlog_github_sync`` shim for
-``_dry_run``, ``_pat_available``, ``_validate_issue_in_repo``,
+``_dry_run``, ``_github_auth_available``, ``_validate_issue_in_repo``,
 and the high-level helpers re-exported there. A module-level
 ``from yoke_core.domain import backlog_github_sync`` re-entered the
 sibling under ``-m`` execution because the entrypoint runs the shim

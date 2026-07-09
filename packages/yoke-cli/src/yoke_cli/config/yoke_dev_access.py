@@ -2,7 +2,7 @@
 
 Developing Yoke needs two independent grants the wizard verifies before it
 sets the source checkout up: the connected Yoke token must reach Yoke's own
-project in the Yoke core database, and a GitHub PAT must be able to read Yoke's
+project in the Yoke core database, and a GitHub App auth must be able to read Yoke's
 GitHub repo. Both checks live here behind small functions so the wizard drives
 them while tests mock the network at one seam each.
 
@@ -89,7 +89,7 @@ def yoke_project_reachable(api_url: str, token: str) -> bool:
 
 
 def github_can_reach_yoke_repo(api_url: str, token: str) -> bool:
-    """True when the GitHub PAT can read Yoke's repo.
+    """True when the GitHub App auth can read Yoke's repo.
 
     Reuses the read-only machine verifier: passing ``github_repo`` makes it hit
     ``/repos/{owner}/{repo}``, which raises for a token that cannot reach the

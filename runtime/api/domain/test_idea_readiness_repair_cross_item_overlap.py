@@ -226,7 +226,7 @@ class TestProbe:
         assert len(issues) == 1
         assert issues[0].context["classifier_phase"] == "register"
 
-    def test_no_path_claims_table_returns_empty(self, conn):
+    def test_no_github_authh_claims_table_returns_empty(self, conn):
         # If the schema is incomplete, the probe must self-skip cleanly.
         conn.execute("DROP TABLE IF EXISTS path_claim_targets CASCADE")
         conn.execute("DROP TABLE IF EXISTS path_claims CASCADE")

@@ -1,10 +1,10 @@
-"""Detect what a GitHub token can actually do, for the onboard connect screen.
+"""Detect what a GitHub user token can actually do for onboarding.
 
-GitHub reports a fine-grained PAT's per-repo ``permissions`` as the OWNER's role,
-not the token's grant, so that field lies. To report honestly, this detector runs
-two NON-MUTATING probes that exploit GitHub's auth-before-validation order: each
-sends a deliberately invalid body so nothing can ever be created, and reads the
-HTTP status the permission gate returns BEFORE body validation.
+GitHub can report per-repo ``permissions`` as the owner role rather than the
+token grant, so this detector uses non-mutating probes for the capabilities the
+onboarding flow needs. Each probe exploits GitHub's auth-before-validation order:
+it sends a deliberately invalid body so nothing can ever be created, then reads
+the HTTP status the permission gate returns before body validation.
 
   * Create probe: ``POST /user/repos`` with ``{"name": ""}``. An empty name can
     never create a repo. 422 => the token passed the create gate; 403 => it did
@@ -13,9 +13,9 @@ HTTP status the permission gate returns BEFORE body validation.
     (missing the required ``message``/``content``, so it writes nothing). 422 =>
     contents:write is granted on that repo; 403 => it is not.
 
-Classic PATs report their grants reliably through X-OAuth-Scopes, so the classic
-branch needs no probes. Every probe failure or timeout yields UNKNOWN (None) and
-never raises into the connect flow.
+Scope-bearing tokens report grants through X-OAuth-Scopes, so that branch needs
+no probes. Every probe failure or timeout yields UNKNOWN (None) and never raises
+into the connect flow.
 """
 
 from __future__ import annotations
@@ -25,19 +25,19 @@ import urllib.error
 import urllib.request
 from typing import Any, Mapping, Optional
 
-from yoke_contracts import github_pat_permissions as pat_contract
+from yoke_contracts import github_user_token_permissions as user_token_contract
 
 _TIMEOUT_S = 20.0
 _CREATE_PROBE_PATH = "/user/repos"
 _WRITE_PROBE_FILE = ".yoke-capability-probe"
 _PROBE_CAN = 422  # passed the permission gate, failed body validation
 _PROBE_CANNOT = 403  # blocked at the permission gate
-# How many repos each fine-grained probe samples. Public probes confirm
+# How many repos each repository-token probe samples. Public probes confirm
 # "all repositories" access (a non-granted public repo writable => broad grant);
 # private probes confirm the per-repo writable set the picker would offer.
 _PUBLIC_WRITE_SAMPLE = 3
 # Each private repo costs one write-probe API call (GitHub's per-repo permissions
-# field lies for fine-grained tokens), so the write set is a bounded sample. The
+# field may not show token grants), so the write set is a bounded sample. The
 # connect screen tells the user how many of their repos were actually checked.
 _PRIVATE_WRITE_SAMPLE = 25
 # Bound the displayed writable/readonly lists; the connect screen is fixed-width.
@@ -167,8 +167,8 @@ def _repo_details(verification: Mapping[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def _classic_writable(details: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
-    """Split classic repos into writable/readonly by the real per-repo push flag."""
+def _scoped_token_writable(details: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+    """Split repos into writable/readonly by the real per-repo push flag."""
     writable: list[str] = []
     readonly: list[str] = []
     for repo in details:
@@ -180,24 +180,24 @@ def _classic_writable(details: list[dict[str, Any]]) -> tuple[list[str], list[st
     return writable, readonly
 
 
-def _detect_classic(
+def _detect_scoped_token(
     scopes: list[str],
     details: list[dict[str, Any]],
     see_private: int,
     see_public: int,
 ) -> dict[str, Any]:
-    create = pat_contract.classic_can_create_repos(scopes)
+    create = user_token_contract.scoped_token_can_create_repos(scopes)
     can_create = bool(create["can_create"])
-    writable, readonly = _classic_writable(details)
+    writable, readonly = _scoped_token_writable(details)
     return {
-        "kind": "classic",
+        "kind": "scoped_token",
         "can_create": can_create,
         "create_private": bool(create["create_private"]),
-        # A classic repo/public_repo token can push to repos it creates.
+        # A repo/public_repo-scoped token can push to repos it creates.
         "can_push_new": can_create,
         "can_publish": can_create,
         "writable": writable[:_DISPLAY_LIST_CAP],
-        # Cap the display list like the fine-grained branch; the true size lives
+        # Cap the display list like the repository-token branch; the true size lives
         # in readonly_count so the "except" summary can count the remainder.
         "readonly": readonly[:_DISPLAY_LIST_CAP],
         "writable_count": len(writable),
@@ -218,7 +218,7 @@ def _any_true(results: list[Optional[bool]]) -> Optional[bool]:
     return None
 
 
-def _detect_fine_grained(
+def _detect_repository_token(
     api_url: str,
     token: str,
     details: list[dict[str, Any]],
@@ -247,7 +247,7 @@ def _detect_fine_grained(
             readonly.append(repo)
     readonly.extend(private[_PRIVATE_WRITE_SAMPLE:])
     return {
-        "kind": "fine_grained",
+        "kind": "repository_token",
         "can_create": can_create,
         "create_private": None,
         "can_push_new": push_new,
@@ -272,17 +272,17 @@ def detect_capability(
 ) -> dict[str, Any]:
     """Report precisely what ``token`` can and cannot do.
 
-    Classic PATs derive from X-OAuth-Scopes (no probes). Fine-grained PATs probe
-    create + write, since GitHub's reported per-repo permissions are the owner's
-    role, not the token's grant.
+    Scope-bearing tokens derive from X-OAuth-Scopes (no probes). Repository
+    tokens probe create + write, since GitHub's reported per-repo permissions
+    may be the owner's role rather than the token grant.
     """
     scopes = [str(s) for s in verification.get("scopes") or [] if str(s)]
     details = _repo_details(verification)
     see_private = sum(1 for repo in details if repo["private"])
     see_public = sum(1 for repo in details if not repo["private"])
     if scopes:
-        return _detect_classic(scopes, details, see_private, see_public)
-    return _detect_fine_grained(
+        return _detect_scoped_token(scopes, details, see_private, see_public)
+    return _detect_repository_token(
         api_url, token, details, see_private, see_public,
         request_status=request_status,
     )

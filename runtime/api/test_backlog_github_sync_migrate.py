@@ -50,7 +50,7 @@ class TestMigrateIssueToRepo:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_REPO_MIG}.get_issue",
             return_value=_source_issue(
                 200, title="[YOK-90] My issue title", body="Issue body content",
@@ -115,7 +115,7 @@ class TestMigrateIssueToRepo:
             github_rest.Comment(id=2, body="Second comment", user_login="bob"),
         ]
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_REPO_MIG}.get_issue", return_value=_source_issue(201),
         ), patch(
             f"{_REPO_MIG}.create_issue", return_value=_created_issue(556),
@@ -145,7 +145,7 @@ class TestMigrateIssueToRepo:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_REPO_MIG}.get_issue",
             return_value=_source_issue(202, state="CLOSED"),
         ), patch(
@@ -186,7 +186,7 @@ class TestMigrateIssueToRepo:
 
     def test_fetch_title_failure_returns_error(self):
         stderr = io.StringIO()
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_REPO_MIG}.get_issue",
             side_effect=github_rest.RestTransportError("boom", status=500),
         ):
@@ -199,7 +199,7 @@ class TestMigrateIssueToRepo:
 
     def test_create_failure_returns_error(self):
         stderr = io.StringIO()
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_REPO_MIG}.get_issue", return_value=_source_issue(300),
         ), patch(
             f"{_REPO_MIG}.create_issue",

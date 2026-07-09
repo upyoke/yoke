@@ -94,9 +94,9 @@ def close_issue(
         gh_project = project or "yoke"
         if _bgs()._github_sync_skip(gh_project, "close-issue", conn=conn, out=stdout):
             return 0
-        if not _bgs()._pat_available(gh_project):
+        if not _bgs()._github_auth_available(gh_project):
             print(
-                f"Error: project '{gh_project}' has no usable GitHub PAT",
+                f"Error: project '{gh_project}' has no usable GitHub App auth",
                 file=stderr,
             )
             return 1
@@ -189,9 +189,9 @@ def reopen_issue(
         gh_project = project or "yoke"
         if _bgs()._github_sync_skip(gh_project, "reopen-issue", conn=conn, out=stdout):
             return 0
-        if not _bgs()._pat_available(gh_project):
+        if not _bgs()._github_auth_available(gh_project):
             print(
-                f"Error: project '{gh_project}' has no usable GitHub PAT",
+                f"Error: project '{gh_project}' has no usable GitHub App auth",
                 file=stderr,
             )
             return 1
@@ -279,7 +279,7 @@ def _sync_flag_label(
             gh_project, f"sync-{log_name}-label", conn=conn, out=stdout,
         ):
             return 0
-        if not _bgs()._pat_available(gh_project):
+        if not _bgs()._github_auth_available(gh_project):
             return 0
         if not _bgs()._validate_issue_in_repo(
             item_ref, str(issue_num), repo, project=gh_project, stderr=stderr,

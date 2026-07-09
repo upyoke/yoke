@@ -1,4 +1,4 @@
-"""Patch-friendly wrappers for resync detection and repair stages (PAT REST).
+"""Patch-friendly wrappers for resync detection and repair stages (bearer-token REST).
 
 Exception propagation contract: these wrappers do not catch
 :class:`yoke_core.domain.project_github_auth.ProjectGithubAuthError` or
@@ -81,8 +81,8 @@ def _repair_drift(drift, paired, db_path):
 
 
 def _emit_gh_unavailable_doctor():
-    """Retired hook: prior callers emitted WARN HCs when the PAT was absent.
-    PAT-backed transports surface the missing-PAT condition through their
+    """Retired hook: prior callers emitted WARN HCs when the GitHub App auth was absent.
+    bearer-token transports surface the missing-auth condition through their
     own typed errors, so callers SKIP via the canonical reason string.
     """
     from yoke_core.engines.resync_apply import _emit_gh_unavailable_doctor as _fn

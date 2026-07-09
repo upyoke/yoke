@@ -22,7 +22,7 @@ def test_wait_run_inventory_is_https_relay_safe() -> None:
     assert row.function_id == "github_actions.wait_run"
     assert row.disposition == inventory.HTTPS_RELAY
     assert row.transport_branch == "https-relay"
-    assert row.capability_required == "project GitHub capability/PAT"
+    assert row.capability_required == "project GitHub App auth"
     assert row.import_edges == ()
 
 

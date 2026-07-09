@@ -43,7 +43,7 @@ from yoke_core.domain.db_helpers import query_rows
 import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
 
-from yoke_core.engines.doctor_hc_gh_skip import GH_PAT_NOT_CONFIGURED_SKIP_REASON
+from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -66,7 +66,7 @@ from yoke_core.engines.doctor_hc_worktrees_gh_repo import (  # noqa: F401
 from yoke_core.engines.doctor_hc_worktrees_gh_project import (  # noqa: F401
     hc_project_deploy_flows,
     hc_project_gh_secrets,
-    hc_project_gh_token,
+    hc_project_gh_auth,
     hc_project_health,
     hc_project_lookup,
     hc_project_repo_exists,
@@ -98,13 +98,13 @@ def hc_orphaned_gh_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     is translated to a FAIL record with an operator-facing repair hint
     keyed off the failure code.
 
-    When the host has no PAT configured for Yoke, SKIPs with the
+    When the host has no GitHub App auth configured for Yoke, SKIPs with the
     canonical reason (no FAIL, no host-``gh`` probe).
     """
-    if not _wt._pat_configured("yoke", db_path=args.db_path):
+    if not _wt._github_auth_configured("yoke", db_path=args.db_path):
         rec.record(
             "HC-orphaned-gh-issues", "Orphaned GitHub issues", "SKIP",
-            GH_PAT_NOT_CONFIGURED_SKIP_REASON.format(project="yoke"),
+            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
         )
         return
 
@@ -191,12 +191,12 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
     auth through the canonical resolver.  Per-project ``ProjectGithubAuthError``
     is translated to a FAIL record with an operator-facing repair hint.
 
-    SKIPs with the canonical reason when no PAT is configured for Yoke.
+    SKIPs with the canonical reason when no GitHub App auth is configured for Yoke.
     """
-    if not _wt._pat_configured("yoke", db_path=args.db_path):
+    if not _wt._github_auth_configured("yoke", db_path=args.db_path):
         rec.record(
             "HC-gh-orphan-detection", "GitHub orphan detection", "SKIP",
-            GH_PAT_NOT_CONFIGURED_SKIP_REASON.format(project="yoke"),
+            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
         )
         return
 

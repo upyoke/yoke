@@ -24,13 +24,13 @@ from yoke_core.engines.doctor import hc_orphaned_gh_issues
 class TestOrphanedGhIssues:
     """Tests for hc_orphaned_gh_issues."""
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=False)
-    def test_no_pat_skips(self, mock_gh):
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=False)
+    def test_no_github_auth_skips(self, mock_gh):
         rec = _run_hc(hc_orphaned_gh_issues)
         assert _result(rec).result == "SKIP"
-        assert "PAT capability not configured" in _result(rec).detail
+        assert "GitHub App repo binding is not available" in _result(rec).detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
@@ -45,7 +45,7 @@ class TestOrphanedGhIssues:
         rec = _run_hc(hc_orphaned_gh_issues, conn)
         assert _result(rec).result == "PASS"
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
     def test_uses_dynamic_yoke_repo(self, mock_rest, mock_avail):
         """AC-3: Yoke repo is resolved via canonical resolver — not a

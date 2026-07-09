@@ -90,7 +90,7 @@ class TestFetchFailedLogZip:
         _install_urlopen(monkeypatch, [zip_bytes])
 
         result = github_actions_logs.fetch_failed_log_zip(
-            "o/r", "123", token="ghp_test"
+            "o/r", "123", token="ghs_test"
         )
 
         assert result == zip_bytes
@@ -103,7 +103,7 @@ class TestFetchFailedLogZip:
         _install_urlopen(monkeypatch, [_make_http_error(401, b"Bad credentials")])
 
         with pytest.raises(RestAuthError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghp_x")
+            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
 
         assert exc_info.value.status == 401
 
@@ -111,7 +111,7 @@ class TestFetchFailedLogZip:
         _install_urlopen(monkeypatch, [_make_http_error(403, b"forbidden scope")])
 
         with pytest.raises(RestAuthError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghp_x")
+            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
 
         assert exc_info.value.status == 403
 
@@ -119,7 +119,7 @@ class TestFetchFailedLogZip:
         _install_urlopen(monkeypatch, [_make_http_error(404)])
 
         with pytest.raises(RestNotFoundError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghp_x")
+            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
 
         assert exc_info.value.status == 404
 
@@ -132,7 +132,7 @@ class TestFetchFailedLogZip:
         _install_urlopen(monkeypatch, responses)
 
         with pytest.raises(RestServerError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghp_x")
+            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
 
         assert exc_info.value.status in (500, 502, 503)
 
@@ -142,7 +142,7 @@ class TestFetchFailedLogZip:
         _install_urlopen(monkeypatch, responses)
 
         result = github_actions_logs.fetch_failed_log_zip(
-            "o/r", "123", token="ghp_x"
+            "o/r", "123", token="ghs_x"
         )
 
         assert result == zip_bytes
@@ -150,7 +150,7 @@ class TestFetchFailedLogZip:
     def test_no_token_in_error_text(self, monkeypatch):
         """NFR-3: typed errors must not echo the bearer token."""
         _install_urlopen(monkeypatch, [_make_http_error(401, b"Bad credentials")])
-        secret = "ghp_secret_token_must_not_leak"
+        secret = "ghs_secret_token_must_not_leak"
 
         with pytest.raises(RestAuthError) as exc_info:
             github_actions_logs.fetch_failed_log_zip("o/r", "123", token=secret)
@@ -234,7 +234,7 @@ class TestFetchFailedLog:
         monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
 
         result = github_actions_logs.fetch_failed_log(
-            "o/r", "123", token="ghp_x"
+            "o/r", "123", token="ghs_x"
         )
 
         assert result == {"build": "compile failed"}
@@ -282,7 +282,7 @@ class TestFetchFailedLog:
         monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
 
         result = github_actions_logs.fetch_failed_log(
-            "o/r", "123", token="ghp_x"
+            "o/r", "123", token="ghs_x"
         )
 
         # Only the failed job's log should be present.
@@ -310,7 +310,7 @@ class TestFetchFailedLog:
         monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
 
         result = github_actions_logs.fetch_failed_log(
-            "o/r", "123", token="ghp_x"
+            "o/r", "123", token="ghs_x"
         )
 
         assert result == {}

@@ -16,8 +16,8 @@ def test_run_reads_colors_from_project_local_labels(tmp_path, monkeypatch) -> No
     auth = ProjectGithubAuth(
         project="buzz",
         repo="org/buzz",
-        token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
     with patch.object(

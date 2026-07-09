@@ -103,7 +103,7 @@ def test_no_machine_token_drops_reuse_machine_row() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now (no PAT)
+            await pilot.press("down")   # machine github: Skip for now (no GitHub App user token)
             await pilot.press("enter")
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await type_text(pilot, "https://github.com/acme/widgets.git")  # remote first
@@ -160,11 +160,11 @@ def test_skip_after_app_binding_clears_stale_project_token() -> None:
 
     async def scenario() -> None:
         async with app.run_test():
-            app.result.machine_github_token = "ghp_machinepat"
+            app.result.machine_github_token = "ghu_machine_token"
             app.result.project_github_repo = "acme/widgets"
             # A prior visit left App-binding state plus a stale token.
             app.result.project_github_adoption = GITHUB_ADOPTION_APP_BINDING
-            app.result.project_github_token = "ghp_projectpat"
+            app.result.project_github_token = "ghs_project_token"
             app._on_project_github("skip")
 
     asyncio.run(scenario())
@@ -185,12 +185,12 @@ def test_declined_publish_clears_app_binding_adoption() -> None:
 
     async def scenario() -> None:
         async with app.run_test():
-            app.result.machine_github_token = "ghp_machinepat"
+            app.result.machine_github_token = "ghu_machine_token"
             # Prior connected-repo visit set adoption, then the user
             # back-navigated to the publish prompt and declined.
             app.result.project_github_repo = "acme/widgets"
             app.result.project_github_adoption = GITHUB_ADOPTION_APP_BINDING
-            app.result.project_github_token = "ghp_projectpat"
+            app.result.project_github_token = "ghs_project_token"
             app._after_repo("")
 
     asyncio.run(scenario())

@@ -17,7 +17,7 @@ from typing import Mapping, Sequence
 from yoke_core.domain.deploy_remote import aws_capability_env
 
 
-SECRET_MARKERS: tuple[str, ...] = ("yoke_v1_", "github_pat_")
+SECRET_MARKERS: tuple[str, ...] = ("yoke_v1_", "ghu_", "ghs_", "ghr_")
 DEFAULT_REGION = "us-east-1"
 DEFAULT_AWS_PROJECT = "yoke"
 

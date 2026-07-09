@@ -1,14 +1,14 @@
 """Resync engine: read/repair behavior with no host ``gh`` binary.
 
 Verifies the engine never probes for host ``gh`` and always routes through
-the PAT-backed REST transport:
+the bearer-token REST transport:
 
 - The detect path's ``_fetch_gh_issues_per_project`` consumes
   ``request_with_retry`` directly.
-- The CLI fail-closes with exit 2 when the Yoke PAT is not configured;
-  the no-PAT skip print path is gone.
+- The CLI fail-closes with exit 2 when the Yoke GitHub App auth is not configured;
+  the no-auth skip print path is gone.
 
-All tests masking ``gh`` from PATH still pass when the PAT resolves
+All tests masking ``gh`` from PATH still pass when the GitHub App auth resolves
 because the engine never spawns ``gh`` in the first place.
 """
 
@@ -99,11 +99,11 @@ class TestFetchUsesRestDirectly:
 
 
 class TestMainFailsClosedWithoutGh:
-    """The CLI fail-closes with exit 2 when Yoke PAT is missing; the
+    """The CLI fail-closes with exit 2 when Yoke GitHub App auth is missing; the
     legacy ``Note: gh CLI not available. Skipping ...`` print is gone.
     """
 
-    def test_detect_no_pat_returns_exit_2(self, monkeypatch, tmp_path):
+    def test_detect_no_github_auth_returns_exit_2(self, monkeypatch, tmp_path):
         _mask_path(monkeypatch)
         with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema) as db_path:
             yoke_root = str(tmp_path)
@@ -117,7 +117,7 @@ class TestMainFailsClosedWithoutGh:
                 rc = resync_mod.main(["--detect-only"])
         assert rc == 2
 
-    def test_no_legacy_skip_print_on_no_pat(self, monkeypatch, tmp_path, capsys):
+    def test_no_legacy_skip_print_on_no_github_auth(self, monkeypatch, tmp_path, capsys):
         """The legacy ``gh CLI not available. Skipping`` print is gone."""
         _mask_path(monkeypatch)
         with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema) as db_path:

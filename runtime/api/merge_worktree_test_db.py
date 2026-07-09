@@ -45,7 +45,7 @@ def _seed_yoke_project_with_pat(conn, *, repo_path: str, item_id: int,
     """Seed projects + github capability + literal token secret + items row.
 
     Shared by the merge_env fixture and the standalone epic-tasks helper so
-    the REST PAT precondition resolves the same way on every test DB.
+    the REST auth precondition resolves the same way on every test DB.
     """
     conn.execute(
         "DELETE FROM capability_secrets "
@@ -94,7 +94,7 @@ def _seed_yoke_project_with_pat(conn, *, repo_path: str, item_id: int,
         "INSERT INTO capability_secrets "
         "(project_id, type, key, source, value, created_at) "
         "VALUES (1, 'github', 'token', 'literal', "
-        "'ghp_test_token', '2026-01-01T00:00:00Z') "
+        "'ghs_test_token', '2026-01-01T00:00:00Z') "
         "ON CONFLICT(project_id, type, key) DO UPDATE SET "
         "source = EXCLUDED.source, "
         "value = EXCLUDED.value, "
@@ -189,7 +189,7 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
         (TEST_ITEM_ID, TEST_BRANCH, task_status),
     )
     # Seed projects + github capability + secret + items so the REST
-    # transport's PAT precondition resolves; tests stub REST responses via
+    # transport's auth precondition resolves; tests stub REST responses via
     # the merge_env fixture's per-test rest_fake_dir.
     conn.execute(
         """

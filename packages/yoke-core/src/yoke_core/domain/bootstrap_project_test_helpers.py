@@ -9,6 +9,7 @@ from pathlib import Path
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.bootstrap_project import BootstrapContext
+from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
@@ -77,6 +78,29 @@ def _install_fake_rest(monkeypatch) -> list[tuple[str, str]]:
     return seen
 
 
+def install_fake_project_github_auth(monkeypatch) -> None:
+    """Patch bootstrap modules to resolve a shaped GitHub App auth bundle."""
+
+    def fake_resolve(project: str, **_kwargs) -> ProjectGithubAuth:
+        return ProjectGithubAuth(
+            project=project,
+            repo="example-org/buzz",
+            token="ghs_installation_token",
+            env={"GH_TOKEN": "ghs_installation_token"},
+            installation_id="12345",
+            token_source="github_app_installation",
+        )
+
+    monkeypatch.setattr(
+        "yoke_core.domain.bootstrap_project_preflight.resolve_project_github_auth",
+        fake_resolve,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.bootstrap_project_setup.resolve_project_github_auth",
+        fake_resolve,
+    )
+
+
 _BOOTSTRAP_SCHEMA_DDL = """
     CREATE TABLE projects (
       id INTEGER PRIMARY KEY,
@@ -123,7 +147,6 @@ def _apply_bootstrap_seed(
     key_path: str,
     include_project: bool = True,
     include_github_capability: bool = True,
-    github_token: str | None = "ghp_fake_token_123",
     include_ssh_capability: bool = True,
 ) -> None:
     """Apply the bootstrap schema + selected buzz rows to a connection."""
@@ -170,10 +193,10 @@ def _apply_bootstrap_seed(
                 '{{"user":"openclaw","host":"45.55.157.144","key_path":"{0}"}}'.format(key_path),
             ),
         )
-    # The canonical project_github_auth resolver requires a
-    # project_capabilities row for ('buzz', 'github') plus a token
-    # secret. Tests that historically only seeded the secret now seed
-    # both so the resolver can return a valid env to gh subprocesses.
+    # The canonical project_github_auth resolver requires a github capability
+    # row plus a GitHub App repository binding. Bootstrap tests that exercise
+    # successful GitHub setup patch the resolver directly; this seed covers the
+    # DB rows unrelated to installation-token minting.
     if include_project and include_github_capability:
         conn.execute(
             "INSERT INTO project_capabilities (project_id, type, settings) "
@@ -184,13 +207,6 @@ def _apply_bootstrap_seed(
                 '{"repo_owner":"example-org","repo_name":"buzz"}',
             ),
         )
-        if github_token is not None:
-            conn.execute(
-                "INSERT INTO capability_secrets "
-                "(project_id, type, key, value, source) "
-                f"VALUES ({p}, {p}, {p}, {p}, {p})",
-                (2, "github", "token", github_token, "literal"),
-            )
     if include_project:
         conn.execute(
             "INSERT INTO project_capabilities (project_id, type, settings) "

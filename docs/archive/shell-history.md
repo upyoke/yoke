@@ -903,7 +903,7 @@ Subcommands:
 
 Key behavior:
 - **Auth check:** Historical script-era readiness check. Current callers use the project GitHub auth resolver.
-- **Token requirements:** GitHub token with `repo` + `workflow` scopes, stored through the project capability secret model.
+- **Repository access:** Project GitHub App auth that can dispatch workflows and read run status.
 - **JSON parsing:** Uses `python3` for JSON field extraction from `gh api` responses
 - Exit codes: 0 = success, 1 = failed/not found, 2 = waiting (poll only), 3 = in-progress (poll only), 4 = project auth failure
 

@@ -26,7 +26,7 @@ from yoke_contracts.api.function_call import (
 class RunGetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     run_id: str = Field(..., min_length=1, description="GitHub Actions run id.")
-    project: str = Field("yoke", description="Project capability owning the PAT.")
+    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
 
 
 class RunGetResponse(BaseModel):

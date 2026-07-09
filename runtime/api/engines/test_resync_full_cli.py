@@ -30,8 +30,8 @@ class TestMainCLI:
             rc = main(["--unknown"])
         assert rc == 1
 
-    def test_detect_no_pat_fails_closed(self, test_db):
-        """When the Yoke PAT is not configured, the engine fail-closes
+    def test_detect_no_github_auth_fails_closed(self, test_db):
+        """When the Yoke GitHub App auth is not configured, the engine fail-closes
         at the boundary with exit 2 + a repair hint -- the old
         SKIP-on-no-gh path has been retired.
         """

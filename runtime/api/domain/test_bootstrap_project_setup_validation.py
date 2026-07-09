@@ -17,6 +17,7 @@ from yoke_core.domain.bootstrap_project_helpers import SshKeyResolutionError
 from yoke_core.domain.bootstrap_project_test_helpers import (
     _install_fake_rest,
     bootstrap_seeded_db,
+    install_fake_project_github_auth,
     setup_validation_ctx,
     update_bootstrap_backend_ssh_settings,
     write_fake_rendered_workflows,
@@ -111,6 +112,7 @@ def test_run_setup_aborts_before_upload(
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", fake_run
         )
+        install_fake_project_github_auth(monkeypatch)
         rc = run_setup(ctx)
         err = capsys.readouterr().err
         assert rc == 2, f"mode={mode}: expected rc=2, got {rc}; stderr was:\n{err}"
@@ -140,6 +142,7 @@ def test_run_setup_persists_key_path_back_to_db(tmp_path: Path, monkeypatch) -> 
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", fake_run
         )
+        install_fake_project_github_auth(monkeypatch)
         _install_fake_rest(monkeypatch)
         assert run_setup(ctx) == 0
 

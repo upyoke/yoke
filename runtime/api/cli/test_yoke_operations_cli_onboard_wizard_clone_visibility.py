@@ -2,7 +2,7 @@
 
 After the clone folder the wizard asks whether the repo is public or private.
 Public keeps the original paste-URL input; private lists the repos the connected
-GitHub token can reach and records the chosen repo's clone URL as the remote.
+GitHub credential can reach and records the chosen repo's clone URL as the remote.
 ``build_report`` is spied at the wizard boundary and the private-repo list is
 stubbed, so no scenario hits GitHub or git. Without a machine token the
 visibility screen is omitted and the clone path stays on the paste-URL input.
@@ -67,14 +67,14 @@ async def _pick_mode(pilot, value: str) -> None:
     await pilot.press("enter")
 
 
-async def _connect_machine_pat(app, pilot) -> None:
+async def _connect_machine_github(app, pilot) -> None:
     await advance_past_path(pilot)
-    await pilot.press("enter")  # machine github: Connect a token (PAT) (default)
+    await pilot.press("enter")  # machine github: Connect a token (GitHub App user token) (default)
     await pilot.pause()
-    await type_text(pilot, "ghp_machinepat")
+    await type_text(pilot, "ghu_machine_token")
     await pilot.press("enter")
-    assert "GitHub token connected." in await _wait_for_body_text(
-        app, pilot, "GitHub token connected."
+    assert "GitHub App connection saved." in await _wait_for_body_text(
+        app, pilot, "GitHub App connection saved."
     )
     await pilot.press("enter")  # GitHub verification success: Continue
 
@@ -87,7 +87,7 @@ async def _skip_machine_github(pilot) -> None:
 
 async def _start_clone(app, pilot, *, connect_pat: bool) -> None:
     if connect_pat:
-        await _connect_machine_pat(app, pilot)
+        await _connect_machine_github(app, pilot)
     else:
         await _skip_machine_github(pilot)
     await pilot.pause()

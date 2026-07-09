@@ -95,7 +95,7 @@ class DevFlow:
             "Connect GitHub after the App browser flow is available, then rerun onboarding."
         )
 
-    def _after_dev_github_pat(self: _Shell, value: str) -> None:
+    def _after_dev_github_auth(self: _Shell, value: str) -> None:
         self.result.machine_github_token = value
         if not self.result.machine_github_api_url:
             self.result.machine_github_api_url = "https://api.github.com"

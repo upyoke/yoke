@@ -111,7 +111,7 @@ def test_create_and_publish_inits_commits_and_pushes(tmp_path: Path, monkeypatch
     monkeypatch.setenv("GIT_COMMITTER_NAME", "Test")
     monkeypatch.setenv("GIT_COMMITTER_EMAIL", "t@example.com")
 
-    token = "ghp_publish_secret_token"
+    token = "ghs_publish_secret_token"
     request = pub.PublishRequest(
         owner="octocat", name="widget", user_login="octocat", token=token,
     )
@@ -138,7 +138,7 @@ def test_create_and_publish_denied_push_raises_typed_naming_error(
 ) -> None:
     """A denied push after a successful create raises a repo-naming typed error.
 
-    A fine-grained selected-repositories PAT POSTs the repo OK then the push is
+    A repository-scoped selected-repositories GitHub App auth POSTs the repo OK then the push is
     refused with a 403. The seam converts that raw ProjectOnboardError into a
     friendly GitHubPublishError that names the orphaned repo to delete.
     """
@@ -161,7 +161,7 @@ def test_create_and_publish_denied_push_raises_typed_naming_error(
     monkeypatch.setattr(pub, "publish_to_remote", _denied_push)
 
     request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghp_x",
+        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
     )
     with pytest.raises(pub.GitHubPublishError) as excinfo:
         pub.create_and_publish(checkout, request, default_branch="main")
@@ -193,7 +193,7 @@ def test_create_and_publish_non_403_push_error_names_repo_and_resume(
     monkeypatch.setattr(pub, "publish_to_remote", _network_push)
 
     request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghp_x",
+        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
     )
     with pytest.raises(pub.GitHubPublishError) as excinfo:
         pub.create_and_publish(checkout, request, default_branch="main")
@@ -225,7 +225,7 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
     monkeypatch.setattr(pub, "https_remote", lambda repo: str(bare))
 
     request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghp_x",
+        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
     )
     created = pub.create_and_publish(checkout, request, default_branch="main")
 
@@ -239,7 +239,7 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
 
 def test_create_and_publish_private_default_in_request() -> None:
     request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghp_x",
+        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
     )
     assert request.private is True
     assert request.api_url == "https://api.github.com"
@@ -266,7 +266,7 @@ def test_create_repo_call_uses_request_private_flag(tmp_path: Path, monkeypatch)
     monkeypatch.setattr(github_publish, "create_repo", _fake_create)
 
     request = pub.PublishRequest(
-        owner="acme-inc", name="thing", user_login="octocat", token="ghp_x",
+        owner="acme-inc", name="thing", user_login="octocat", token="ghs_x",
         private=True,
     )
     pub.create_and_publish(checkout, request, default_branch="main")

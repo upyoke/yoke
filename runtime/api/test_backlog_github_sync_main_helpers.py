@@ -20,8 +20,8 @@ _LABEL_REST = "yoke_core.domain.backlog_github_label_sync._rest"
 def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "yoke")
     return ProjectGithubAuth(
-        project=proj, repo="upyoke/yoke", token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        project=proj, repo="upyoke/yoke", token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -142,7 +142,7 @@ class TestHelpers:
 
     def test_update_repo_labels_dry_run(self):
         stdout = io.StringIO()
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch.object(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             backlog_github_label_sync, "resolve_project_github_auth",
             side_effect=_ok_resolver,
         ), patch(f"{GH_PATCH}._repo_labels", return_value={}), patch(
@@ -158,7 +158,7 @@ class TestHelpers:
         from yoke_core.domain import project_label_policy
 
         expected = project_label_policy.get_color("label_color_type_epic", "5319E7")
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch.object(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             backlog_github_label_sync, "resolve_project_github_auth",
             side_effect=_ok_resolver,
         ), patch(f"{GH_PATCH}._repo_labels", return_value={"type:epic": "ffffff"}), patch(
@@ -175,7 +175,7 @@ class TestHelpers:
 
     def test_update_repo_labels_fetch_failure(self):
         stderr = io.StringIO()
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch.object(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             backlog_github_label_sync, "resolve_project_github_auth",
             side_effect=_ok_resolver,
         ), patch(f"{GH_PATCH}._repo_labels", side_effect=RuntimeError("boom")):

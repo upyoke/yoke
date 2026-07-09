@@ -24,11 +24,11 @@ def configure_repo_helper(
     *,
     config_path: str | Path | None,
 ) -> dict[str, Any]:
-    """Configure ``root`` to use the stored machine GitHub token for pushes.
+    """Configure ``root`` to use the stored machine GitHub credential for pushes.
 
-    The helper reads the owner-only token file from Yoke machine config at git
-    credential-request time. The token is not embedded in the remote URL or
-    persisted in ``.git/config``.
+    The helper reads the owner-only credential file from Yoke machine config at
+    git credential-request time. The credential is not embedded in the remote
+    URL or persisted in ``.git/config``.
     """
     source = _machine_github_credential_source(config_path)
     if not source:

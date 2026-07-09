@@ -31,8 +31,8 @@ from yoke_contracts.api.function_call import (
 _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
-    token="ghp_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghp_test_token"},
+    token="ghs_test_token",
+    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 

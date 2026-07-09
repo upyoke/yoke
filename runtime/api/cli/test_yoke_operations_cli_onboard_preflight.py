@@ -72,26 +72,6 @@ def test_same_existing_yoke_token_is_clear(
     ) == []
 
 
-def test_different_existing_machine_github_token_blocks_review(
-    tmp_path: Path, monkeypatch,
-) -> None:
-    from yoke_cli.config import onboard_machine_github
-
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
-    saved = tmp_path / "home" / "secrets" / "github.token"
-    saved.parent.mkdir(parents=True)
-    saved.write_text("ghp_existing\n", encoding="utf-8")
-
-    problems = onboard_preflight.preflight_problems(_Result(
-        machine_github_choice=onboard_machine_github.CHOICE_CONNECT,
-        machine_github_token="ghp_new",
-    ))
-
-    assert any("different machine GitHub token" in p for p in problems)
-    assert "ghp_existing" not in "\n".join(problems)
-    assert "ghp_new" not in "\n".join(problems)
-
-
 def test_create_clear_for_a_fresh_target(tmp_path: Path) -> None:
     result = _Result(
         project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
@@ -129,7 +109,7 @@ def test_revoked_token_is_flagged(tmp_path: Path) -> None:
     result = _Result(
         project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
         project_checkout=str(tmp_path / "fresh"),
-        machine_github_token="ghp_revoked",
+        machine_github_token="ghs_revoked",
     )
     probes = onboard_preflight.PreflightProbes(
         token_ok=lambda _api, _token: False,
@@ -151,7 +131,7 @@ def test_populated_repo_name_is_flagged(tmp_path: Path) -> None:
         project_publish_to_github=True,
         project_publish_owner="octocat",
         project_publish_repo_name="widget",
-        machine_github_token="ghp_ok",
+        machine_github_token="ghs_ok",
     )
     probes = onboard_preflight.PreflightProbes(
         token_ok=lambda _api, _token: True,
@@ -161,7 +141,7 @@ def test_populated_repo_name_is_flagged(tmp_path: Path) -> None:
     assert any("already exists and has content" in p for p in problems)
     # The probe authenticated with the connected token and the chosen owner/name.
     assert seen == {
-        "api_url": "https://api.github.com", "token": "ghp_ok",
+        "api_url": "https://api.github.com", "token": "ghs_ok",
         "owner": "octocat", "name": "widget",
     }
 
@@ -173,7 +153,7 @@ def test_free_repo_name_is_clear(tmp_path: Path) -> None:
         project_publish_to_github=True,
         project_publish_owner="octocat",
         project_publish_repo_name="widget",
-        machine_github_token="ghp_ok",
+        machine_github_token="ghs_ok",
     )
     probes = onboard_preflight.PreflightProbes(
         token_ok=lambda _api, _token: True,
@@ -191,7 +171,7 @@ def test_empty_existing_repo_is_resumable(tmp_path: Path) -> None:
         project_publish_to_github=True,
         project_publish_owner="octocat",
         project_publish_repo_name="widget",
-        machine_github_token="ghp_ok",
+        machine_github_token="ghs_ok",
     )
     probes = onboard_preflight.PreflightProbes(
         token_ok=lambda _api, _token: True,
@@ -208,7 +188,7 @@ def test_empty_existing_repo_surfaces_reuse_note(tmp_path: Path) -> None:
         project_publish_to_github=True,
         project_publish_owner="octocat",
         project_publish_repo_name="widget",
-        machine_github_token="ghp_ok",
+        machine_github_token="ghs_ok",
     )
     probes = onboard_preflight.PreflightProbes(
         token_ok=lambda _api, _token: True,
@@ -228,7 +208,7 @@ def test_ambiguous_repo_probe_blocks_apply(tmp_path: Path) -> None:
         project_publish_to_github=True,
         project_publish_owner="octocat",
         project_publish_repo_name="widget",
-        machine_github_token="ghp_ok",
+        machine_github_token="ghs_ok",
     )
     probes = onboard_preflight.PreflightProbes(
         token_ok=lambda _api, _token: True,
@@ -257,13 +237,13 @@ def test_default_repo_classifier_splits_empty_and_populated(monkeypatch) -> None
     probes = onboard_preflight.default_probes()
     assert probes.repo_availability is not None
     assert probes.repo_availability(
-        "https://api.github.com", "ghp_ok", "octocat", "widget"
+        "https://api.github.com", "ghs_ok", "octocat", "widget"
     ) == onboard_preflight.REPO_EMPTY_RESUMABLE
     assert probes.repo_availability(
-        "https://api.github.com", "ghp_ok", "octocat", "full"
+        "https://api.github.com", "ghs_ok", "octocat", "full"
     ) == onboard_preflight.REPO_POPULATED_BLOCKING
     assert probes.repo_availability(
-        "https://api.github.com", "ghp_ok", "octocat", "missing"
+        "https://api.github.com", "ghs_ok", "octocat", "missing"
     ) == onboard_preflight.REPO_AMBIGUOUS_BLOCKING
 
 
@@ -277,7 +257,7 @@ def test_all_problems_reported_together(tmp_path: Path) -> None:
         project_mode=onboard_project.PROJECT_MODE_CLONE_REMOTE,
         project_remote_url="https://github.com/acme/widgets.git",
         project_checkout=str(full),
-        machine_github_token="ghp_revoked",
+        machine_github_token="ghs_revoked",
     )
     probes = onboard_preflight.PreflightProbes(token_ok=lambda _a, _t: False)
     problems = onboard_preflight.preflight_problems(result, probes=probes)

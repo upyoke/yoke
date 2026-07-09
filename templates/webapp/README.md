@@ -228,7 +228,7 @@ The hotfix workflow template is identical to the deploy workflow except: it uses
 
 ### Step 12: Bootstrap GitHub Actions
 
-Once your VPS, SSH keys, and GitHub token are configured:
+Once your VPS, SSH keys, and GitHub App connection are configured:
 
 ```bash
 yoke onboard project ~/path/to/acme \

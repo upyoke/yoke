@@ -1,4 +1,4 @@
-"""PAT-driven GitHub REST transport for the merge engine.
+"""bearer-token GitHub REST transport for the merge engine.
 
 Stdlib-only HTTP client for resolved project GitHub auth, applying the
 shared transient-failure retry policy from :mod:`yoke_core.domain.gh_retry`.
@@ -156,7 +156,7 @@ def request_with_retry(
     :data:`gh_retry.MAX_RETRIES`.
     """
     if not token:
-        raise RestAuthError("GitHub PAT is empty")
+        raise RestAuthError("GitHub bearer token is empty")
 
     fake_dir = os.environ.get(_FAKE_DIR_ENV, "").strip()
     if fake_dir:

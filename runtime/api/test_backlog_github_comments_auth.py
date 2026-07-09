@@ -35,7 +35,7 @@ class TestPostCommentAuthTranslation:
         insert_item(db, id=30, type="issue", status="implementing", project="buzz", github_issue="#50")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_comments, "resolve_project_github_auth",
@@ -56,7 +56,7 @@ class TestPostCommentAuthTranslation:
         insert_item(db, id=31, type="issue", status="implementing", project="buzz", github_issue="#51")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_comments, "resolve_project_github_auth",

@@ -58,7 +58,7 @@ def _make_db() -> Any:
     conn.execute(
         "INSERT INTO capability_secrets (project_id, type, key, source, value) "
         "VALUES (%s, 'github', 'token', 'literal', %s)",
-        (SEED_PROJECT_IDS["buzz"], "ghp_buzz_test"),
+        (SEED_PROJECT_IDS["buzz"], "ghs_buzz_test"),
     )
     conn.commit()
     return pg_testdb.drop_database_on_close(conn, name)
@@ -134,7 +134,7 @@ class TestSyncItemDedup:
     def _patch_chain(self, list_return, create_return=None):
         """Common patch chain for sync_item dedup integration tests."""
         return [
-            patch("yoke_core.domain.backlog_github_sync._pat_available", return_value=True),
+            patch("yoke_core.domain.backlog_github_sync._github_auth_available", return_value=True),
             patch(
                 "yoke_core.domain.backlog_github_item_create.resolve_project_github_auth",
                 return_value=None,
@@ -155,7 +155,7 @@ class TestSyncItemDedup:
         stdout = io.StringIO()
 
         with patch(
-            "yoke_core.domain.backlog_github_sync._pat_available", return_value=True,
+            "yoke_core.domain.backlog_github_sync._github_auth_available", return_value=True,
         ), patch(
             "yoke_core.domain.backlog_github_item_create.resolve_project_github_auth",
             return_value=None,
@@ -181,7 +181,7 @@ class TestSyncItemDedup:
         stdout = io.StringIO()
 
         with patch(
-            "yoke_core.domain.backlog_github_sync._pat_available", return_value=True,
+            "yoke_core.domain.backlog_github_sync._github_auth_available", return_value=True,
         ), patch(
             "yoke_core.domain.backlog_github_item_create.resolve_project_github_auth",
             return_value=None,
@@ -218,7 +218,7 @@ class TestSyncItemDedup:
         created = _issue(3545, "[YOK-1500] New")
 
         with patch(
-            "yoke_core.domain.backlog_github_sync._pat_available", return_value=True,
+            "yoke_core.domain.backlog_github_sync._github_auth_available", return_value=True,
         ), patch(
             "yoke_core.domain.backlog_github_item_create.resolve_project_github_auth",
             return_value=None,
@@ -249,7 +249,7 @@ class TestSyncItemDedup:
         created = _issue(4242, "[BUZ-42] New")
 
         with patch(
-            "yoke_core.domain.backlog_github_sync._pat_available", return_value=True,
+            "yoke_core.domain.backlog_github_sync._github_auth_available", return_value=True,
         ), patch(
             "yoke_core.domain.backlog_github_item_create.resolve_project_github_auth",
             return_value=None,

@@ -233,37 +233,37 @@ def test_github_connect_account() -> None:
     assert_golden("github_connect_account", render(app, drive, title="yoke onboard · GitHub"))
 
 
-def test_github_pat_paste() -> None:
+def test_github_app_connect_pending() -> None:
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._on_machine_github("connect")
 
-    assert_golden("github_pat_paste", render(app, drive, title="yoke onboard · GitHub"))
+    assert_golden("github_app_connect_pending", render(app, drive, title="yoke onboard · GitHub"))
 
 
-def test_github_pat_verified() -> None:
+def test_github_scoped_token_verified() -> None:
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_machine_github_success(GITHUB_MACHINE_VERIFICATION)
 
-    assert_golden("github_pat_verified", render(app, drive, title="yoke onboard · GitHub"))
+    assert_golden("github_scoped_token_verified", render(app, drive, title="yoke onboard · GitHub"))
 
 
-def test_github_fine_grained_pat_verified() -> None:
+def test_github_repository_token_verified() -> None:
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_machine_github_success(GITHUB_FINE_GRAINED_MACHINE_VERIFICATION)
 
     assert_golden(
-        "github_fine_grained_pat_verified",
+        "github_repository_token_verified",
         render(app, drive, title="yoke onboard · GitHub"),
     )
 
 
-def test_github_pat_error() -> None:
+def test_github_app_connect_error() -> None:
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
@@ -271,7 +271,7 @@ def test_github_pat_error() -> None:
             "GitHub check failed: https://api.github.com/user returned HTTP 401"
         )
 
-    assert_golden("github_pat_error", render(app, drive, title="yoke onboard · GitHub"))
+    assert_golden("github_app_connect_error", render(app, drive, title="yoke onboard · GitHub"))
 
 
 # --------------------------------------------------------------------------- #

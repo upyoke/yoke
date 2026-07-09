@@ -1,4 +1,4 @@
-"""Handler for ``github.pr.create`` — open a pull request via PAT-backed REST.
+"""Handler for ``github.pr.create`` — open a pull request via bearer-token REST.
 
 First member of the repo-level ``github.*`` family (PRs are repo
 surfaces, not Actions surfaces, so this deliberately does not overload
@@ -8,7 +8,7 @@ to the host ``gh`` binary Yoke is otherwise free of.
 
 Owner/repo resolve from the project's GitHub capability
 (``resolve_project_github_auth`` — ``projects.github_repo`` + the
-capability-owned PAT), the same resolver the ``github_actions.*``
+GitHub App repo binding), the same resolver the ``github_actions.*``
 handlers use; the payload never carries a repo slug. The POST routes
 through :func:`yoke_core.domain.github_pr_rest.create_pull_request`.
 """
@@ -48,7 +48,7 @@ class PrCreateRequest(BaseModel):
     draft: bool = Field(False, description="Open the PR as a draft.")
     project: str = Field(
         "yoke",
-        description="Project capability owning the GitHub repo + PAT.",
+        description="Project capability owning the GitHub repo binding.",
     )
 
 

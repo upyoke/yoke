@@ -47,11 +47,11 @@ def test_https_remote_builds_clean_https_url_not_ssh() -> None:
 
 
 def test_git_auth_header_encodes_x_access_token_as_basic() -> None:
-    header = transport.git_auth_header("ghp_secret")
+    header = transport.git_auth_header("ghs_secret")
     assert header.startswith("AUTHORIZATION: basic ")
     encoded = header.split(" ", 2)[2]
     decoded = base64.b64decode(encoded).decode("utf-8")
-    assert decoded == "x-access-token:ghp_secret"
+    assert decoded == "x-access-token:ghs_secret"
 
 
 # ── non-interactive env ─────────────────────────────────────────────────
@@ -107,7 +107,7 @@ def test_run_git_with_token_does_not_persist_or_leak(tmp_path: Path) -> None:
     # Stored origin is the clean URL; the token travels only in the -c header.
     transport.run_git(repo, "remote", "add", "origin", str(bare))
 
-    token = "ghp_run_git_secret"
+    token = "ghs_run_git_secret"
     transport.run_git(repo, "push", "-u", "origin", "main", token=token)
 
     # The push landed.
@@ -186,7 +186,7 @@ def test_remote_is_reachable_missing_git_raises_specific_error(monkeypatch) -> N
 def test_run_git_failure_scrubs_token_header_from_error(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     _init_repo(repo)
-    token = "ghp_should_not_leak"
+    token = "ghs_should_not_leak"
     # Push to a nonexistent remote so git fails; the -c header is on the argv and
     # could echo into stderr — the raised error must redact it.
     transport.run_git(

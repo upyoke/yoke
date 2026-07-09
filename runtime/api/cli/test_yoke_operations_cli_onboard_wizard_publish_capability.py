@@ -1,13 +1,13 @@
-"""Coverage for the publish-ability guard and publish-only PAT staleness.
+"""Coverage for the publish-ability guard and publish-only GitHub auth staleness.
 
 The wizard refuses the create+push unless the connected token's real publish-
-ability is a confirmed True (create AND push-to-a-new-repo): a classic PAT with
-no repo scope (can_publish=False) and a select-repositories fine-grained PAT
+ability is a confirmed True (create AND push-to-a-new-repo): a scope-bearing token with
+no repo scope (can_publish=False) and a select-repositories repository-scoped GitHub App user token
 (can create, can't push, can_publish=False) both route to the block screen rather
-than orphan an empty repo; an "all repositories" fine-grained token (can_publish
-True) and a classic repo-scope PAT both proceed to the owner picker. With no
-machine token the guard does not block — the user pastes a publish-only PAT next,
-and declining publish afterward drops that PAT while leaving a genuine machine
+than orphan an empty repo; an "all repositories" repository-scoped token (can_publish
+True) and a scope-bearing repo GitHub App user token both proceed to the owner picker. With no
+machine token the guard does not block — the user pastes a publish-only GitHub auth next,
+and declining publish afterward drops that GitHub App user token while leaving a genuine machine
 connection intact.
 
 The suite drives the real ``OnboardWizardApp`` handlers and reads the rendered
@@ -56,9 +56,9 @@ def _stub_owners(monkeypatch):
 def _verification_with_publish(
     kind: str, can_publish: object, *, can_create: object | None = None
 ) -> dict:
-    # A select-repositories fine-grained token can create but can't push to a
+    # A select-repositories repository-scoped token can create but can't push to a
     # brand-new repo, so can_create stays True while can_publish is False; the
-    # default ties create to publish for the simpler classic cases.
+    # default ties create to publish for the simpler scoped_token cases.
     if can_create is None:
         can_create = can_publish
     return {
@@ -101,7 +101,7 @@ def _drive_publish_choice(verification: dict | None) -> tuple[object, str]:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            app.result.machine_github_token = "ghp_machinepat"
+            app.result.machine_github_token = "ghu_machine_token"
             app.result.machine_github_verification = verification
             app.result.project_checkout = "/home/code/widget"
             app._on_publish_choice(screens.PUBLISH_YES)
@@ -115,17 +115,17 @@ def _drive_publish_choice(verification: dict | None) -> tuple[object, str]:
     return app, captured["body"]
 
 
-def test_publish_blocked_when_classic_cannot_publish() -> None:
-    """A classic PAT with no repo scope (can_publish=False) routes to the block."""
+def test_publish_blocked_when_scoped_token_cannot_publish() -> None:
+    """A scope-bearing token with no repo scope (can_publish=False) routes to the block."""
     app, body = _drive_publish_choice(
-        _verification_with_publish("classic", False)
+        _verification_with_publish("scoped_token", False)
     )
     assert app.result.project_publish_to_github is False
     assert "can't publish a new repo" in body.lower()
 
 
-def test_publish_blocked_when_fine_grained_select_repositories() -> None:
-    """A select-repositories fine-grained PAT (can create, can't push) blocks.
+def test_publish_blocked_when_repository_token_select_repositories() -> None:
+    """A select-repositories repository-scoped GitHub App user token (can create, can't push) blocks.
 
     can_publish=False: it can create a repo but cannot push to a brand-new repo
     outside its selected-repositories allowlist, so the create+push is a
@@ -133,7 +133,7 @@ def test_publish_blocked_when_fine_grained_select_repositories() -> None:
     names the push gap, not a create gap (can_create is True here).
     """
     app, body = _drive_publish_choice(
-        _verification_with_publish("fine_grained", False, can_create=True)
+        _verification_with_publish("repository_token", False, can_create=True)
     )
     assert app.result.project_publish_to_github is False
     assert "can't publish a new repo" in body.lower()
@@ -142,24 +142,24 @@ def test_publish_blocked_when_fine_grained_select_repositories() -> None:
     assert "brand-new repo" in body.lower()
 
 
-def test_publish_proceeds_when_fine_grained_all_repositories() -> None:
-    """An "all repositories" fine-grained PAT (can_publish=True) proceeds.
+def test_publish_proceeds_when_repository_token_all_repositories() -> None:
+    """An "all repositories" repository-scoped GitHub App user token (can_publish=True) proceeds.
 
-    This is the case the old create-only guard wrongly refused: a fine-grained
+    This is the case the old create-only guard wrongly refused: a repository-scoped
     token that CAN push to a brand-new repo is publish-able and proceeds to the
     owner picker.
     """
     app, body = _drive_publish_choice(
-        _verification_with_publish("fine_grained", True)
+        _verification_with_publish("repository_token", True)
     )
     assert app.result.project_publish_to_github is True
     assert "can't publish a new repo" not in body.lower()
 
 
-def test_publish_proceeds_when_classic_can_publish() -> None:
-    """A classic PAT with the repo scope (can_publish=True) proceeds to the picker."""
+def test_publish_proceeds_when_scoped_token_can_publish() -> None:
+    """A scope-bearing token with the repo scope (can_publish=True) proceeds to the picker."""
     app, body = _drive_publish_choice(
-        _verification_with_publish("classic", True)
+        _verification_with_publish("scoped_token", True)
     )
     assert app.result.project_publish_to_github is True
     assert "can't publish a new repo" not in body.lower()
@@ -171,9 +171,9 @@ def test_publish_block_screen_ack_keeps_it_local() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            app.result.machine_github_token = "ghp_machinepat"
+            app.result.machine_github_token = "ghu_machine_token"
             app.result.machine_github_verification = _verification_with_publish(
-                "classic", False
+                "scoped_token", False
             )
             app.result.project_checkout = "/home/code/widget"
             app._on_publish_choice(screens.PUBLISH_YES)  # -> block screen
@@ -190,8 +190,8 @@ def test_publish_block_screen_ack_keeps_it_local() -> None:
     assert app.result.project_github_adoption is None
 
 
-def test_publish_yes_without_machine_token_still_prompts_for_pat() -> None:
-    """No connected token: the guard does not block — the user pastes a PAT next."""
+def test_publish_yes_without_machine_token_still_prompts_for_github_auth() -> None:
+    """No connected token: the guard does not block — the user pastes a GitHub App user token next."""
     app, _spy = make_app()
     captured = {"body": ""}
 
@@ -207,30 +207,30 @@ def test_publish_yes_without_machine_token_still_prompts_for_pat() -> None:
 
     asyncio.run(scenario())
 
-    # Not blocked — publish stays on and the PAT prompt (not the block) is shown.
+    # Not blocked — publish stays on and the GitHub App user token prompt (not the block) is shown.
     assert app.result.project_publish_to_github is True
     assert "can't publish a new repo" not in captured["body"].lower()
 
 
 # --------------------------------------------------------------------------- #
-# Publish-only PAT staleness — declining publish after a back-nav PAT clears it
+# Publish-only GitHub App user token staleness — declining publish after a back-nav GitHub App user token clears it
 # --------------------------------------------------------------------------- #
 
 
-def test_publish_only_pat_cleared_when_publish_later_declined() -> None:
-    """A publish-only PAT pasted at the prompt is dropped on a later decline."""
+def test_publish_only_token_cleared_when_publish_later_declined() -> None:
+    """A publish-only GitHub auth pasted at the prompt is dropped on a later decline."""
     app, _spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test():
             app.result.project_checkout = "/home/code/widget"
-            # A prior back-nav visit pasted a publish-only PAT — the state
-            # _after_publish_pat leaves (the owner fetch it also triggers hits
+            # A prior back-nav visit pasted a publish-only GitHub auth — the state
+            # _after_publish_github_auth leaves (the owner fetch it also triggers hits
             # the network, so the provenance state is set directly here).
-            app.result.machine_github_token = "ghp_publishpat"
+            app.result.machine_github_token = "ghu_publish_token"
             app.result.machine_github_api_url = "https://api.github.com"
             app.result.machine_github_token_source_kind = "prompt"
-            app._publish_pat_only = True
+            app._publish_user_token_only = True
             # The user back-navigates and now declines publish.
             app._on_publish_choice(screens.PUBLISH_NO)
 
@@ -239,7 +239,7 @@ def test_publish_only_pat_cleared_when_publish_later_declined() -> None:
     assert app.result.machine_github_token is None
     assert app.result.machine_github_api_url is None
     assert app.result.machine_github_token_source_kind is None
-    assert app._publish_pat_only is False
+    assert app._publish_user_token_only is False
 
 
 def test_genuine_machine_token_survives_a_later_publish_decline() -> None:
@@ -254,12 +254,12 @@ def test_genuine_machine_token_survives_a_later_publish_decline() -> None:
         async with app.run_test():
             app.result.project_checkout = "/home/code/widget"
             # A real machine connect ran (sets the token, resets the flag).
-            app.result.machine_github_token = "ghp_realmachine"
+            app.result.machine_github_token = "ghu_real_machine"
             app.result.machine_github_api_url = "https://api.github.com"
             app.result.machine_github_token_source_kind = "prompt"
-            app._publish_pat_only = False
+            app._publish_user_token_only = False
             app._on_publish_choice(screens.PUBLISH_NO)
 
     asyncio.run(scenario())
 
-    assert app.result.machine_github_token == "ghp_realmachine"
+    assert app.result.machine_github_token == "ghu_real_machine"

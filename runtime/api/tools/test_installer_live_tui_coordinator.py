@@ -785,22 +785,22 @@ def test_seed_known_recipes_adds_github_wave_recipes(
     ]
     assert "Set up a project." in skip["expected_text"]
 
-    classic_file = json_helper.load_path(recipe_dir / "GITHUB-002.json")
-    assert isinstance(classic_file, dict)
-    assert "19101" in classic_file["command"]
-    assert classic_file["actions"][7] == {
+    scoped_token_file = json_helper.load_path(recipe_dir / "GITHUB-002.json")
+    assert isinstance(scoped_token_file, dict)
+    assert "19101" in scoped_token_file["command"]
+    assert scoped_token_file["actions"][7] == {
         "step": "060-github-picker",
         "keys": ["Down", "Enter"],
     }
-    assert classic_file["actions"][-2]["keys"] == ["Down", "Down", "Enter"]
-    assert classic_file["actions"][-1]["keys"] == [
+    assert scoped_token_file["actions"][-2]["keys"] == ["Down", "Down", "Enter"]
+    assert scoped_token_file["actions"][-1]["keys"] == [
         "/tmp/yoke-fake-github.token",
         "Enter",
     ]
-    assert "repo/workflow scopes" in classic_file["notes"]
+    assert "repo/workflow permissions" in scoped_token_file["notes"]
     assert (
-        "Success! GitHub token connected for recipe-classic."
-        in classic_file["expected_text"]
+        "Success! GitHub App connection saved for recipe-scoped."
+        in scoped_token_file["expected_text"]
     )
 
     paste = json_helper.load_path(recipe_dir / "GITHUB-003.json")
@@ -813,7 +813,7 @@ def test_seed_known_recipes_adds_github_wave_recipes(
         "paste_file:/tmp/yoke-fake-github.token",
         "Enter",
     ]
-    assert "Paste your GitHub token (PAT)." in paste["expected_text"]
+    assert "Connect GitHub through the Yoke GitHub App." in paste["expected_text"]
 
     readonly = json_helper.load_path(recipe_dir / "GITHUB-004.json")
     assert isinstance(readonly, dict)
@@ -835,7 +835,7 @@ def test_seed_known_recipes_adds_github_wave_recipes(
     empty = json_helper.load_path(recipe_dir / "GITHUB-007.json")
     assert isinstance(empty, dict)
     assert "/tmp/yoke-github-empty.token" in empty["command"]
-    assert "GitHub token file is empty" in empty["expected_text"]
+    assert "GitHub credential file is empty" in empty["expected_text"]
 
     many = json_helper.load_path(recipe_dir / "GITHUB-008.json")
     assert isinstance(many, dict)
@@ -861,7 +861,7 @@ def test_seed_known_recipes_adds_github_wave_recipes(
         {"step": "010-yoke-stored-token-result", "keys": ["Enter"]},
         {"step": "020-github-stored-token-result", "keys": ["Enter"]},
     ]
-    assert "Using existing GitHub token file" in " ".join(stored["expected_text"])
+    assert "Using existing GitHub credential file" in " ".join(stored["expected_text"])
 
 
 def test_seed_known_recipes_adds_project_source_front_half_recipes(
@@ -1346,7 +1346,7 @@ def test_seed_known_recipes_adds_publish_recipes(
     assert isinstance(empty, dict)
     assert "19112" in empty["command"]
     assert (
-        f"Repos this token can see: {coordinator.PROJECT_PUBLISH_EMPTY_REPO}"
+        f"Repos this connection can see: {coordinator.PROJECT_PUBLISH_EMPTY_REPO}"
         in empty["expected_text"]
     )
 
@@ -1360,11 +1360,11 @@ def test_seed_known_recipes_adds_publish_recipes(
     assert isinstance(denied, dict)
     assert "19114" in denied["command"]
     assert (
-        "This token can't create a repo it can also push to."
+        "This credential can't create a repo it can also push to."
         in (denied["expected_text"])
     )
     assert (
-        "first and make sure this token has write access"
+        "first and make sure this connection has write access"
         in (denied["expected_text"])
     )
 
@@ -1421,8 +1421,8 @@ def test_seed_known_recipes_adds_publish_recipes(
 
     store = json_helper.load_path(recipe_dir / "PUBLISH-011.json")
     assert isinstance(store, dict)
-    assert "Paste this project's GitHub token" in store["expected_text"]
-    assert "Yoke stores it in the Yoke core database" in store["expected_text"]
+    assert "Connect this project through the GitHub App" in store["expected_text"]
+    assert "Yoke records the GitHub App binding in the Yoke core database" in store["expected_text"]
     assert "Review what Yoke will save." in store["expected_text"]
     assert "Nothing is written until you choose Apply." in store["expected_text"]
     assert any(
@@ -1445,9 +1445,9 @@ def test_seed_known_recipes_adds_publish_recipes(
 
     reuse = json_helper.load_path(recipe_dir / "PUBLISH-012.json")
     assert isinstance(reuse, dict)
-    assert "Reuse this machine's token" in reuse["expected_text"]
+    assert "Use this machine's GitHub App connection" in reuse["expected_text"]
     assert any(
-        "Yoke stores your project's GitHub token" in text
+        "Yoke records your project's GitHub App binding" in text
         for text in reuse["expected_text"]
     )
     assert "Review what Yoke will save." in reuse["expected_text"]
@@ -1821,7 +1821,7 @@ def test_seed_known_recipes_adds_terminal_and_state_recipes(
     assert "yoke-state-restore-active-env.json" in github["command"]
     assert github["start_delay"] == coordinator.STATE_TUI_SETUP_START_DELAY
     assert (
-        "Using existing GitHub token file from machine config."
+        "Using existing GitHub credential file from machine config."
         in github["expected_text"]
     )
 

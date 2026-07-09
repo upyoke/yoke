@@ -89,7 +89,7 @@ def credential_status(source: Mapping[str, Any]) -> dict[str, Any]:
             issues.append(_issue(
                 "error",
                 "github_token_missing",
-                f"GitHub token file is missing: {path}",
+                f"GitHub credential file is missing: {path}",
                 "Run `yoke github connect TOKEN` to import a fresh token.",
             ))
     elif kind:
@@ -121,15 +121,15 @@ def read_token_source(source: Mapping[str, Any]) -> str:
 
 def read_token_file(token_path: Path) -> str:
     if not token_path.is_file():
-        raise GitHubCredentialError(f"GitHub token file is missing: {token_path}")
+        raise GitHubCredentialError(f"GitHub credential file is missing: {token_path}")
     try:
         token = token_path.read_text(encoding="utf-8").strip()
     except OSError as exc:
         raise GitHubCredentialError(
-            f"GitHub token file is unreadable: {token_path}"
+            f"GitHub credential file is unreadable: {token_path}"
         ) from exc
     if not token:
-        raise GitHubCredentialError(f"GitHub token file is empty: {token_path}")
+        raise GitHubCredentialError(f"GitHub credential file is empty: {token_path}")
     return token
 
 

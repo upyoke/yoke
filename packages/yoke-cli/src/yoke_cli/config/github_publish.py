@@ -193,7 +193,7 @@ def _reuse_existing_repo(
     if not isinstance(existing, Mapping) or not existing.get("full_name"):
         raise GitHubPublishError(
             f"a repo named {owner}/{name} already exists but could not be read "
-            "to resume — check the name and your GitHub token, then re-run"
+            "to resume — check the name and your GitHub credential, then re-run"
         )
     if not _repo_is_empty(api_url, token, owner=owner, name=name):
         raise GitHubPublishError(

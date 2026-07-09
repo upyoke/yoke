@@ -39,7 +39,7 @@ def test_projects_capability_secret_set_forces_literal_source(monkeypatch) -> No
             "project": "demo",
             "cap_type": "github",
             "key": "token",
-            "value": "ghp_secret",
+            "value": "ghs_secret",
         })
     )
 
@@ -55,7 +55,7 @@ def test_projects_capability_secret_set_forces_literal_source(monkeypatch) -> No
         "project": "demo",
         "cap_type": "github",
         "key": "token",
-        "value": "ghp_secret",
+        "value": "ghs_secret",
         "source": "literal",
     }
 

@@ -83,7 +83,7 @@ def test_all_critical_pass_with_no_gh(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("yoke_core.domain.check_prerequisites.shutil.which", fake_which)
     monkeypatch.setattr("yoke_core.domain.check_prerequisites.subprocess.run", fake_run)
 
-    # The PAT-only build of the prereq check does not depend on the host
+    # The GitHub App auth-only build of the prereq check does not depend on the host
     # gh CLI; the canonical resolver against the dev-shell DB may
     # legitimately WARN, so accept either PASS or WARN here.
     assert run_checks(tmp_path) == 0
@@ -186,8 +186,8 @@ def test_fails_when_permission_rules_missing(tmp_path, monkeypatch, capsys):
     assert "Some critical checks failed." in out
 
 
-def test_warns_when_canonical_resolver_missing_token(tmp_path, monkeypatch, capsys):
-    """No Yoke github token → WARN (non-strict) with concrete repair text."""
+def test_warns_when_canonical_resolver_missing_app_auth(tmp_path, monkeypatch, capsys):
+    """No Yoke GitHub App auth -> WARN (non-strict) with concrete repair text."""
     _seed_repo(tmp_path)
 
     def fake_which(name: str):

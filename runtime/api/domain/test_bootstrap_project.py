@@ -12,6 +12,7 @@ from pathlib import Path
 from yoke_core.domain.bootstrap_project import BootstrapContext, run_preflight
 from yoke_core.domain.bootstrap_project_helpers import _connect
 from yoke_core.domain.bootstrap_project_test_helpers import (
+    install_fake_project_github_auth,
     _make_fake_run,
     _preflight_ctx,
     bootstrap_seeded_db,
@@ -50,6 +51,7 @@ def test_run_preflight_does_not_require_legacy_db_file(
 
     monkeypatch.setattr("yoke_core.domain.bootstrap_project.shutil.which", lambda _name: "/usr/bin/gh")
     monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", _make_fake_run())
+    install_fake_project_github_auth(monkeypatch)
 
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         assert not db_path.exists()
@@ -67,7 +69,7 @@ def test_run_preflight_translates_missing_capability_to_fail(
     # Canonical resolver returns MissingCapability when there is no
     # ``(project, github)`` ``project_capabilities`` row. Preflight must
     # translate that into a [FAIL] with the matching ``repair_command_hint``
-    # text ("capability-add buzz github"), not a generic host-login nudge.
+    # text, not a generic host-login nudge.
     ssh_key = _write_fake_ssh_key(tmp_path)
 
     monkeypatch.setattr(
@@ -86,9 +88,9 @@ def test_run_preflight_translates_missing_capability_to_fail(
     output = capsys.readouterr().out
     assert rc == 1
     assert "github auth not resolvable" in output
-    assert "no 'github' capability row" in output
-    # Repair hint routes to the canonical capability-add CLI, not host login.
-    assert "capability-add buzz github" in output
+    assert "has no GitHub App capability row" in output
+    # Repair hint routes to the canonical GitHub App binding CLI, not host login.
+    assert "projects github-binding bind" in output
     retired_hint = "gh " + "auth " + "login"
     assert retired_hint not in output
 
@@ -109,26 +111,26 @@ def test_run_preflight_detects_missing_buzz_record(tmp_path: Path, monkeypatch, 
     assert "projects table missing buzz record" in output
 
 
-def test_run_preflight_detects_missing_token(tmp_path: Path, monkeypatch, capsys) -> None:
-    # DB has a buzz projects row and a github capability but the stored
-    # token is the placeholder sentinel — preflight must flag it.
+def test_run_preflight_detects_missing_github_app_binding(
+    tmp_path: Path, monkeypatch, capsys,
+) -> None:
+    # DB has a buzz projects row and a github capability but no repository
+    # binding, so preflight must flag the App binding gap.
     ssh_key = _write_fake_ssh_key(tmp_path)
 
     monkeypatch.setattr("yoke_core.domain.bootstrap_project.shutil.which", lambda _name: "/usr/bin/gh")
     monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", _make_fake_run())
 
-    with bootstrap_seeded_db(
-        tmp_path, ssh_key, github_token="REPLACE_WITH_PAT"
-    ) as db_path:
+    with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         ctx = _preflight_ctx(tmp_path, yoke_db=db_path)
         rc = run_preflight(ctx)
     output = capsys.readouterr().out
     assert rc == 1
-    assert "GitHub token not configured" in output
+    assert "not bound to a GitHub App repository" in output
 
 
 def test_run_preflight_no_longer_probes_host_gh(tmp_path: Path, monkeypatch, capsys) -> None:
-    # PAT-backed REST is the GitHub transport now; preflight must not
+    # bearer-token REST is the GitHub transport now; preflight must not
     # surface the retired host-gh installer messaging regardless of
     # whether the host gh binary is present. The banned strings are
     # built by concatenation so the AC-1 / AC-2 grep recipes return
@@ -164,6 +166,7 @@ def test_run_preflight_happy_path_reports_success(tmp_path: Path, monkeypatch, c
         "yoke_core.domain.bootstrap_project_helpers._run",
         _make_fake_run(gh_auth_ok=True, ssh_ok=True, tls_state="exists"),
     )
+    install_fake_project_github_auth(monkeypatch)
 
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         ctx = BootstrapContext(

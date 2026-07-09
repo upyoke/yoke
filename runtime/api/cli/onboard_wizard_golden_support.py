@@ -153,7 +153,7 @@ _GITHUB_REPO_DETAILS = [
 
 def _capability(**overrides: Any) -> dict[str, Any]:
     base = {
-        "kind": "classic", "can_create": True, "create_private": True,
+        "kind": "scoped_token", "can_create": True, "create_private": True,
         "can_push_new": True, "can_publish": True,
         "writable": ["machine-user/private-tool", "octo-org/app"],
         "readonly": ["octo-org/website"], "see_private": 2, "see_public": 1,
@@ -177,13 +177,13 @@ GITHUB_MACHINE_VERIFICATION = {
     "scopes": ["repo", "workflow"],
     "permissions": {
         "ok": True,
-        "mode": "classic",
+        "mode": "scoped_token",
         "create_repos": {
             "can_create": True,
             "create_private": True,
-            "basis": "classic_scope:repo",
+            "basis": "scope:repo",
         },
-        "summary": "classic PAT scopes include repo, workflow",
+        "summary": "scope-bearing token scopes include repo, workflow",
     },
     "capability": _capability(),
 }
@@ -192,18 +192,18 @@ GITHUB_FINE_GRAINED_MACHINE_VERIFICATION = {
     "identity": {"checked": True, "ok": True, "login": "machine-user", "id": 1001},
     "access": GITHUB_MACHINE_VERIFICATION["access"],
     "capability": _capability(
-        kind="fine_grained", create_private=None, can_push_new=False,
+        kind="repository_token", create_private=None, can_push_new=False,
         can_publish=False, writable=["machine-user/private-tool"],
         readonly=["octo-org/website", "octo-org/app"],
         write_probed_count=2, write_probe_total=2,
     ),
     "permissions": {
         "ok": True,
-        "mode": "fine_grained_non_mutating",
+        "mode": "repository_token_non_mutating",
         "create_repos": {
             "can_create": None,
             "create_private": None,
-            "basis": "fine_grained_undetectable",
+            "basis": "repository_token_undetectable",
         },
         "repo": "octo-org/app",
         "write_verified": False,

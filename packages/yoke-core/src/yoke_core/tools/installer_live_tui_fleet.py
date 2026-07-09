@@ -920,7 +920,7 @@ def _stored_state_profile(
         raise ValueError(f"yoke token file not found: {resolved_yoke_token}")
     resolved_github_token = github_token_file.expanduser() if github_token_file else None
     if resolved_github_token is not None and not resolved_github_token.is_file():
-        raise ValueError(f"github token file not found: {resolved_github_token}")
+        raise ValueError(f"github credential file not found: {resolved_github_token}")
     if github_repo and resolved_github_token is None:
         raise ValueError("--github-repo requires --github-token-file")
     return StoredStateProfile(

@@ -1,7 +1,7 @@
-"""Post-merge status and item side effects for done-transition (PAT REST).
+"""Post-merge status and item side effects for done-transition (bearer-token REST).
 
 GitHub batch sync (label add, status comment, close) for cascaded epic
-tasks routes through the canonical PAT-backed REST transport
+tasks routes through the canonical bearer-token REST transport
 (:mod:`yoke_core.domain.gh_rest_transport`). The legacy host-``gh``
 path has been retired.
 """
@@ -162,7 +162,7 @@ def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
 def _batch_github_sync_tasks(
     item_id: int, epic_name: str, task_nums: list[str]
 ) -> None:
-    """Post batch GitHub summary for cascaded tasks via PAT REST."""
+    """Post batch GitHub summary for cascaded tasks via bearer-token REST."""
     item_project = _parent()._query_item_field(item_id, "project") or "yoke"
 
     try:

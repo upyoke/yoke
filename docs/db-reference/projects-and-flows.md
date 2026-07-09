@@ -136,8 +136,7 @@ Seed data: none — capability rows are configured per project during onboarding
 ## Table: capability_secrets
 
 Per-key DB secret storage for project capabilities. Separates sensitive values
-that Yoke core must hold, such as the project GitHub PAT, from non-sensitive
-settings. DB-backed writes store imported literal values in
+that Yoke core must hold from non-sensitive settings. DB-backed writes store imported literal values in
 `capability_secrets`; `source` is always `literal`. `aws-admin` secrets and
 `ssh.private_key` are not stored here: they live on the local machine under
 `~/.yoke/secrets/capability-secrets/<project>/<capability>/<key>`.
@@ -177,7 +176,7 @@ Seed data: 6 templates seeded by `python3 -m yoke_core.cli.db_router projects in
 - `ephemeral-env` -- Per-branch ephemeral environments (keys: web_base_port, api_base_port, compose_file, env_file, startup_timeout_s; requires: docker)
 - `aws-admin` -- AWS credentials with broad admin access (keys: access_key_id [secret], secret_access_key [secret], region)
 - `aws-route53` -- DNS management via Route53 (keys: hosted_zone_id; requires: aws-admin)
-- `github` -- GitHub token for Actions triggering and API access (keys: token [secret], repo_owner, repo_name). Secrets are stored in `capability_secrets`; non-sensitive settings (repo_owner, repo_name) are in the `settings` column. **Token scope requirements:** `repo` (full repository access) and `workflow` (GitHub Actions workflow management).
+- `github` -- GitHub App repo binding metadata for issue sync, PRs, Actions, and API access (keys: repo_owner, repo_name, installation_id, repository_id). GitHub App private-key and webhook secret material belongs to the control-plane secret store, not `capability_secrets`.
 
 **Bootstrap config field:** The `github` capability may include an `ssh_key_path` secret pointing to the SSH private key used by the bootstrap script to configure GitHub Secrets for deployment workflows.
 

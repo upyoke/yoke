@@ -1,4 +1,4 @@
-"""check_prerequisites: PAT-only behavior and no-gh-on-laptop coverage.
+"""check_prerequisites: GitHub App auth-only behavior and no-gh-on-laptop coverage.
 
 Companion to ``test_check_prerequisites.py``. Verifies the YOK-1843
 task 5 contract:
@@ -7,7 +7,7 @@ task 5 contract:
   teaching strings (the exact tokens live in ``_BANNED_STRINGS`` below,
   built via concatenation so the AC-1 / AC-2 grep recipes report zero
   hits anywhere in the tree).
-- The PAT-resolution check surfaces operator-friendly text under any
+- The GitHub App auth resolution check surfaces operator-friendly text under any
   resolver outcome.
 """
 
@@ -101,7 +101,7 @@ def _patch_shutil_no_gh(monkeypatch):
     def fake_which(name: str):
         if name == "gh":
             raise AssertionError(
-                "check_prerequisites must not probe host gh CLI in PAT-only mode"
+                "check_prerequisites must not probe host gh CLI in GitHub App auth-only mode"
             )
         if name == "git":
             return "/usr/bin/git"
@@ -151,10 +151,10 @@ def test_messaging_emits_no_brew_install_gh(tmp_path, monkeypatch, capsys):
     _assert_no_gh_strings(out)
 
 
-def test_pat_only_resolver_pass_emits_canonical_label(
+def test_github_auth_only_resolver_pass_emits_canonical_label(
     tmp_path, monkeypatch, capsys, _patch_shutil_no_gh,
 ):
-    """When the PAT resolver succeeds, the table emits the migrated label."""
+    """When the GitHub App resolver succeeds, the table emits the migrated label."""
     _seed_minimal_repo(tmp_path)
 
     from yoke_core.domain import project_github_auth as pga
@@ -162,8 +162,8 @@ def test_pat_only_resolver_pass_emits_canonical_label(
     fake_auth = pga.ProjectGithubAuth(
         project="yoke",
         repo="upyoke/yoke",
-        token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
     monkeypatch.setattr(
         "yoke_core.domain.check_prerequisites.resolve_project_github_auth",
@@ -173,11 +173,11 @@ def test_pat_only_resolver_pass_emits_canonical_label(
     rc = run_checks(tmp_path)
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Project GitHub PAT configured" in out
+    assert "Project GitHub App auth configured" in out
     _assert_no_gh_strings(out)
 
 
-def test_pat_resolver_failure_warns_without_host_gh_messaging(
+def test_github_auth_resolver_failure_warns_without_host_gh_messaging(
     tmp_path, monkeypatch, capsys, _patch_shutil_no_gh,
 ):
     """Resolver failure WARNs (non-strict) with the canonical repair hint."""
@@ -195,12 +195,12 @@ def test_pat_resolver_failure_warns_without_host_gh_messaging(
     rc = run_checks(tmp_path)
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Project GitHub PAT configured" in out
+    assert "Project GitHub App auth configured" in out
     assert "capability secret set" in out
     _assert_no_gh_strings(out)
 
 
-def test_pat_resolver_failure_strict_fails_critical(
+def test_github_auth_resolver_failure_strict_fails_critical(
     tmp_path, monkeypatch, capsys, _patch_shutil_no_gh,
 ):
     """--strict promotes resolver WARN to FAIL without rehydrating host gh teaching."""

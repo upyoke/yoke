@@ -51,11 +51,11 @@ _DELEGATED_SYNC_HCS = [
 ]
 
 
-def _pat_configured(project: str = "yoke", db_path=None) -> bool:
-    """Return True when the project PAT capability resolves successfully.
+def _github_auth_configured(project: str = "yoke", db_path=None) -> bool:
+    """Return True when the project GitHub App auth resolves successfully.
 
     GitHub doctor HCs SKIP via
-    :data:`doctor_hc_gh_skip.GH_PAT_NOT_CONFIGURED_SKIP_REASON` when this
+    :data:`doctor_hc_gh_skip.GH_APP_AUTH_UNAVAILABLE_SKIP_REASON` when this
     returns False; there is no host-``gh`` fallback.
     """
     try:

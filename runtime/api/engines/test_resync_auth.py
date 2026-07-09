@@ -1,4 +1,4 @@
-"""Resync engine: fail-closed GitHub-auth regressions (PAT REST).
+"""Resync engine: fail-closed GitHub-auth regressions (bearer-token REST).
 
 Covers the canonical-resolver propagation chain end-to-end:
 
@@ -13,7 +13,7 @@ Covers the canonical-resolver propagation chain end-to-end:
 - The top-level engine surface (``resync.main``) exits non-zero with a
   warning when one project fails auth and continues with healthy projects.
 
-Yoke does NOT use the ``gh`` CLI; all GitHub access is PAT-backed REST.
+Yoke does NOT use the ``gh`` CLI; all GitHub access is bearer-token REST.
 """
 
 from __future__ import annotations

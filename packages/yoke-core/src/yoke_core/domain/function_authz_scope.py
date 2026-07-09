@@ -144,7 +144,7 @@ _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
     # domain) governs who can enter the org → org admin, reads included
     # (invite listings expose member emails).
     ("identity.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
-    # GitHub Actions config uses the project's stored PAT against its repo →
+    # GitHub Actions config uses the project's stored GitHub App auth against its repo →
     # project admin on the target project (writes); reads still need the target.
     ("github_actions.", AuthzSpec(PROJECT, PERM_PROJECT_ADMIN)),
     # Project-local install/refresh/uninstall write the caller's own checkout.

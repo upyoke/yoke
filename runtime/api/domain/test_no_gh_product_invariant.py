@@ -72,6 +72,6 @@ def test_no_host_gh_cli_dependency_in_live_surfaces() -> None:
 
     assert not violations, (
         "Host GitHub CLI dependency residue found in live Yoke surfaces. "
-        "Use PAT-backed REST through project GitHub auth instead.\n\n"
+        "Use bearer-token REST through project GitHub auth instead.\n\n"
         + "\n".join(violations[:40])
     )

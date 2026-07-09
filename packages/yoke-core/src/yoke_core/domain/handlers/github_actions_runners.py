@@ -55,7 +55,7 @@ class RunnersStatusRequest(BaseModel):
             "the runner-fleet capability supplies it."
         ),
     )
-    project: str = Field("yoke", description="Project capability owning the PAT.")
+    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
     runner_capability: str = Field(
         RUNNER_FLEET_CAPABILITY_TYPE,
         min_length=1,

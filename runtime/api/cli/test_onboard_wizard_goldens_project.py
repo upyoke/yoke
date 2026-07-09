@@ -140,7 +140,7 @@ def test_project_github_auth() -> None:
         # A connected machine token renders the full 3-row picker (reuse-machine
         # included). The no-token variant — which drops the reuse-machine row —
         # is covered by the flow regression suite.
-        a.result.machine_github_token = "ghp_machinepat"
+        a.result.machine_github_token = "ghs_machine_token"
         a._after_prefix("PROJ")
 
     assert_golden("project_github_auth", render(app, drive, title="yoke onboard · Project"))

@@ -198,7 +198,7 @@ class TestFailureModes:
             db_path=db_path,
         )
         projects.cmd_capability_set_secret(
-            "yoke", "github", "token", "ghp_stranded", db_path=db_path,
+            "yoke", "github", "token", "ghs_stranded", db_path=db_path,
         )
 
         with pytest.raises(pga.MissingRepoBinding) as info:

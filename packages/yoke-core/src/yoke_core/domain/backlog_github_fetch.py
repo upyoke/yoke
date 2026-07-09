@@ -163,7 +163,7 @@ def _close_if_owned(conn: Optional[Any], owns: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
-# GitHub PAT availability / env
+# GitHub auth availability / env
 # ---------------------------------------------------------------------------
 
 
@@ -201,15 +201,14 @@ def _github_sync_skip(
     return True
 
 
-def _pat_available(project: str) -> bool:
-    """Return True iff ``project`` has resolvable GitHub PAT auth.
+def _github_auth_available(project: str) -> bool:
+    """Return True iff ``project`` has resolvable GitHub App auth.
 
     Replacement gate predicate for the retired ``_gh_available``. Wraps
     :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`
     in try/except so the gate never raises; auth-resolution failures
     surface as ``False`` and the caller short-circuits without a host
-    ``gh`` lookup. Token material lives in the ``github`` project
-    capability (``github.token`` row).
+    ``gh`` lookup.
     """
     try:
         resolve_project_github_auth(project)

@@ -1,6 +1,6 @@
 """Doctor HC tests for the canonical project-GitHub-auth resolver path.
 
-Covers ``HC-project-gh-token``, which goes through
+Covers ``HC-project-gh-auth``, which goes through
 ``yoke_core.domain.project_github_auth.resolve_project_github_auth``.
 
 The older project-HC fixtures plus the rest of the project-HC suite live in
@@ -18,9 +18,10 @@ import pytest
 from yoke_core.engines.doctor import (
     DoctorArgs,
     RecordCollector,
-    hc_project_gh_token,
+    hc_project_gh_auth,
 )
 from runtime.api.fixtures.file_test_db import init_test_db
+from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
 
 @pytest.fixture
@@ -53,14 +54,6 @@ def db_path(tmp_path: Path) -> str:
         yield path
 
 
-def _seed_buzz_token(db_path: str, value: str = "ghp_buzz_secret") -> None:
-    from yoke_core.domain import projects as p
-    p.cmd_capability_set_secret(
-        "buzz", "github", "token", value,
-        source="literal", db_path=db_path,
-    )
-
-
 def _args(**overrides) -> DoctorArgs:
     defaults = dict(
         file=None, fix=False, only=None, quick=False,
@@ -76,86 +69,57 @@ def _run_hc(fn, conn, **kwargs) -> RecordCollector:
     return rec
 
 
-def _patch_invalid_source(monkeypatch: pytest.MonkeyPatch, source: str) -> None:
-    from yoke_core.domain import project_github_auth as pga
+def _patch_resolved_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     import yoke_core.engines.doctor_hc_worktrees_gh_project as hc
 
-    def _raise_invalid(project, *, db_path=None, conn=None, base_env=None):
-        raise pga.InvalidSecretSource(
-            project,
-            f"project '{project}' github token uses unsupported "
-            f"capability_secrets.source={source!r}",
+    def _resolve(project, *, db_path=None, conn=None, base_env=None):
+        return ProjectGithubAuth(
+            project=project,
+            repo="example-org/buzz",
+            token="ghs_installation_token",
+            env={"GH_TOKEN": "ghs_installation_token"},
+            installation_id="12345",
+            token_source="github_app_installation",
         )
 
-    monkeypatch.setattr(hc, "resolve_project_github_auth", _raise_invalid)
+    monkeypatch.setattr(hc, "resolve_project_github_auth", _resolve)
 
 
-class TestProjectGhTokenCanonical:
+class TestProjectGhAuthCanonical:
     """Doctor now resolves project GitHub auth through the canonical
     resolver (``project_github_auth.resolve_project_github_auth``).
-    Fixtures seed ``capability_secrets`` with Yoke-owned literal values.
     """
 
-    def test_passes_with_literal_secret(self, db_path: str):
+    def test_passes_with_resolved_app_auth(
+        self, db_path: str, monkeypatch: pytest.MonkeyPatch,
+    ):
         from yoke_core.domain.db_helpers import connect
-        _seed_buzz_token(db_path)
+        _patch_resolved_auth(monkeypatch)
         conn = connect(db_path)
         try:
             rec = _run_hc(
-                hc_project_gh_token, conn,
+                hc_project_gh_auth, conn,
                 project="buzz", db_path=db_path,
             )
         finally:
             conn.close()
         assert rec.results[0].result == "PASS"
-        assert "capability_secrets" in rec.results[0].detail
+        assert "GitHub App auth" in rec.results[0].check_name
+        assert "project repo binding" in rec.results[0].detail
 
-    def test_fails_with_file_source(
-        self, db_path: str, monkeypatch: pytest.MonkeyPatch
-    ):
+    def test_fails_with_repair_hint_when_binding_missing(self, db_path: str):
         from yoke_core.domain.db_helpers import connect
-        _patch_invalid_source(monkeypatch, "file")
         conn = connect(db_path)
         try:
             rec = _run_hc(
-                hc_project_gh_token, conn,
-                project="buzz", db_path=db_path,
-            )
-        finally:
-            conn.close()
-        assert rec.results[0].result == "FAIL"
-        assert "capability_secrets.source='file'" in rec.results[0].detail
-        assert "capability secret set" in rec.results[0].detail
-
-    def test_fails_with_env_source(self, db_path: str, monkeypatch):
-        from yoke_core.domain.db_helpers import connect
-        _patch_invalid_source(monkeypatch, "env")
-        conn = connect(db_path)
-        try:
-            rec = _run_hc(
-                hc_project_gh_token, conn,
-                project="buzz", db_path=db_path,
-            )
-        finally:
-            conn.close()
-        assert rec.results[0].result == "FAIL"
-        assert "capability_secrets.source='env'" in rec.results[0].detail
-        assert "capability secret set" in rec.results[0].detail
-
-    def test_fails_with_repair_hint_when_no_token(self, db_path: str):
-        from yoke_core.domain.db_helpers import connect
-        # No capability_secrets row at all → MissingToken → FAIL + hint.
-        conn = connect(db_path)
-        try:
-            rec = _run_hc(
-                hc_project_gh_token, conn,
+                hc_project_gh_auth, conn,
                 project="buzz", db_path=db_path,
             )
         finally:
             conn.close()
         assert rec.results[0].result == "FAIL"
         assert "Repair:" in rec.results[0].detail
-        assert "capability secret set" in rec.results[0].detail
+        assert "projects github-binding bind" in rec.results[0].detail
 
     def test_fails_when_capability_missing(self, db_path: str):
         from yoke_core.domain.db_helpers import connect
@@ -168,16 +132,14 @@ class TestProjectGhTokenCanonical:
             )
             conn.commit()
             rec = _run_hc(
-                hc_project_gh_token, conn,
+                hc_project_gh_auth, conn,
                 project="buzz", db_path=db_path,
             )
         finally:
             conn.close()
         assert rec.results[0].result == "FAIL"
-        assert (
-            "missing_capability" in rec.results[0].detail
-            or "capability-add" in rec.results[0].detail
-        )
+        assert "GitHub App capability row" in rec.results[0].detail
+        assert "projects github-binding bind" in rec.results[0].detail
 
     def test_no_global_auth_fallback_string(self, db_path: str):
         """The obsolete global-auth WARN string is gone."""
@@ -185,7 +147,7 @@ class TestProjectGhTokenCanonical:
         conn = connect(db_path)
         try:
             rec = _run_hc(
-                hc_project_gh_token, conn,
+                hc_project_gh_auth, conn,
                 project="buzz", db_path=db_path,
             )
         finally:

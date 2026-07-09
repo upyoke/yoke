@@ -1,4 +1,4 @@
-"""Parent-epic checkbox writeback for terminal-success task transitions (PAT REST).
+"""Parent-epic checkbox writeback for terminal-success task transitions (bearer-token REST).
 
 When an epic task reaches terminal success, locate the parent epic's GitHub
 issue body and flip the corresponding ``- [ ] #N`` checkbox to ``- [x] #N``.

@@ -29,14 +29,14 @@ from yoke_core.engines.doctor import (
 class TestWrongRepoIssues:
     """Tests for hc_wrong_repo_issues."""
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=False)
-    def test_no_pat_skips(self, mock_gh):
-        """T6: SKIPs with canonical reason when project PAT is missing."""
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=False)
+    def test_no_github_auth_skips(self, mock_gh):
+        """T6: SKIPs with canonical reason when project GitHub App auth is unavailable."""
         rec = _run_hc(hc_wrong_repo_issues)
         assert _result(rec).result == "SKIP"
-        assert "PAT capability not configured" in _result(rec).detail
+        assert "GitHub App repo binding is not available" in _result(rec).detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
@@ -51,7 +51,7 @@ class TestWrongRepoIssues:
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
@@ -72,7 +72,7 @@ class TestWrongRepoIssues:
         assert "YOK-662" in _result(rec).detail
         assert "wrong" in _result(rec).detail.lower() or "Wrong" in _result(rec).detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
@@ -92,7 +92,7 @@ class TestWrongRepoIssues:
         # Same-repo skip must short-circuit BEFORE the REST lookup.
         assert mock_gh_run.call_count == 0
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
@@ -130,7 +130,7 @@ class TestWrongRepoIssues:
         # Only the 4 buzz rows reach the REST call — yoke rows skip.
         assert mock_gh_run.call_count == 4
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))

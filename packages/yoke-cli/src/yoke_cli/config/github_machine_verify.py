@@ -8,8 +8,8 @@ import urllib.parse
 import urllib.request
 from typing import Any, Mapping
 
-from yoke_contracts import github_pat_permissions as pat_contract
-from yoke_cli.config import github_machine_fine_grained
+from yoke_contracts import github_user_token_permissions as user_token_contract
+from yoke_cli.config import github_machine_repository_token
 from yoke_cli.config import github_token_capability
 
 _TIMEOUT_S = 20.0
@@ -80,7 +80,7 @@ def _detect_capability(
     except Exception:  # noqa: BLE001 - detection is advisory, must not block connect
         scopes = result.get("scopes") or []
         return {
-            "kind": "classic" if scopes else "fine_grained",
+            "kind": "scoped_token" if scopes else "repository_token",
             "can_create": None,
             "create_private": None,
             "can_push_new": None,
@@ -228,48 +228,48 @@ def _verify_permission_contract(
     scopes: list[str],
 ) -> dict[str, Any]:
     if scopes:
-        evaluation = pat_contract.evaluate_classic_scopes(scopes)
+        evaluation = user_token_contract.evaluate_scoped_token_scopes(scopes)
         if evaluation["ok"]:
             return {
                 **evaluation,
-                "create_repos": pat_contract.classic_can_create_repos(scopes),
+                "create_repos": user_token_contract.scoped_token_can_create_repos(scopes),
                 "summary": (
-                    "classic PAT scopes include "
-                    + ", ".join(pat_contract.classic_scope_lines())
+                    "required GitHub credential scopes include "
+                    + ", ".join(user_token_contract.scoped_token_scope_lines())
                 ),
             }
         missing = ", ".join(str(scope) for scope in evaluation["missing"])
         raise GitHubMachineVerificationError(
-            "GitHub token is valid"
+            "GitHub credential is valid"
             f" for {identity.get('login')}, but it is missing required"
-            f" classic PAT scope(s): {missing}. Either enable those scopes"
-            " on a classic PAT, or create a fine-grained PAT with "
-            f"{pat_contract.fine_grained_permission_sentence()}."
+            f" GitHub credential scope(s): {missing}. Enable those scopes, or"
+            " reconnect through the Yoke GitHub App with "
+            f"{user_token_contract.repository_permission_sentence()}."
         )
     repo_full_name = _probe_repo_name(access)
     if repo_full_name:
         try:
-            fine_grained = github_machine_fine_grained.verify_read_access(
+            repository_token = github_machine_repository_token.verify_read_access(
                 api_url,
                 token,
                 identity,
                 repo_full_name,
                 request_json=_request_json,
             )
-        except github_machine_fine_grained.FineGrainedVerificationError as exc:
+        except github_machine_repository_token.RepositoryTokenVerificationError as exc:
             raise GitHubMachineVerificationError(str(exc)) from exc
-        # Fine-grained PATs expose no create grant via API, so create capability
-        # is honestly unknown rather than asserted either way.
-        fine_grained["create_repos"] = {
+        # Repository-scoped user tokens expose no create grant via API, so create
+        # capability is honestly unknown rather than asserted either way.
+        repository_token["create_repos"] = {
             "can_create": None,
             "create_private": None,
-            "basis": "fine_grained_undetectable",
+            "basis": "repository_token_undetectable",
         }
-        return fine_grained
+        return repository_token
     raise GitHubMachineVerificationError(
-        "GitHub accepted this token, but it did not expose classic PAT scopes"
-        " or any accessible repositories to smoke-test. Enable repository"
-        f" access plus {pat_contract.fine_grained_permission_sentence()}, then retry."
+        "GitHub accepted this token, but it did not expose scopes or any "
+        "accessible repositories to smoke-test. Enable repository access plus "
+        f"{user_token_contract.repository_permission_sentence()}, then retry."
     )
 
 

@@ -21,7 +21,7 @@ def clone_outcome_action(plan: ClonePlan) -> str | None:
     return None
 
 
-def store_github_auth(
+def store_github_binding(
     progress: onboard_apply_progress.ProgressCallback | None,
     target: str,
     project: Mapping[str, Any],
@@ -32,7 +32,7 @@ def store_github_auth(
     return None
 
 
-def finish_github_auth(
+def finish_github_binding(
     progress: onboard_apply_progress.ProgressCallback | None,
     target: str,
     github_adoption: Mapping[str, Any] | None,
@@ -41,4 +41,4 @@ def finish_github_auth(
     onboard_apply_progress.emit(progress, "project-github-auth-choice", target, status)
 
 
-__all__ = ["clone_outcome_action", "finish_github_auth", "store_github_auth"]
+__all__ = ["clone_outcome_action", "finish_github_binding", "store_github_binding"]

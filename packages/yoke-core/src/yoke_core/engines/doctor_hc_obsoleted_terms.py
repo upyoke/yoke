@@ -250,8 +250,8 @@ def _path_in_allowlist(rel_str: str, allow: tuple[str, ...]) -> bool:
     return any(rel_str.startswith(entry) for entry in allow)
 
 
-def _needs_slash_normalization(pat_src: str) -> bool:
-    """Return True when ``pat_src`` targets a dotted Python module path.
+def _needs_slash_normalization(pattern_src: str) -> bool:
+    """Return True when ``pattern_src`` targets a dotted Python module path.
 
     Slash-to-dot translation of the haystack lets a single dotted pattern
     catch both ``runtime.harness.codex.codex_hooks_tool_events`` and the
@@ -260,7 +260,7 @@ def _needs_slash_normalization(pat_src: str) -> bool:
     stay original-only to avoid false positives on legitimate slash-form
     path lists (``items/epic_tasks/events``, ``path/file overlap``, etc).
     """
-    return pat_src.startswith((r"runtime\.", r"yoke_"))
+    return pattern_src.startswith((r"runtime\.", r"yoke_"))
 
 
 def _iter_scan_paths(repo_root: Path):
@@ -306,16 +306,16 @@ def scan_repo(repo_root: Path) -> list[str]:
         rel_str = str(rel)
         if _path_in_allowlist(rel_str, PATH_ALLOWLIST_ALL_PATTERNS):
             continue
-        for pat_src, pat in compiled:
-            allow = _PER_PATTERN_PATH_ALLOWLIST.get(pat_src, ())
+        for pattern_src, compiled_pattern in compiled:
+            allow = _PER_PATTERN_PATH_ALLOWLIST.get(pattern_src, ())
             if _path_in_allowlist(rel_str, allow):
                 continue
-            normalize = _needs_slash_normalization(pat_src)
-            label = OBSOLETED_TERM_LABELS.get(pat_src, pat_src)
+            normalize = _needs_slash_normalization(pattern_src)
+            label = OBSOLETED_TERM_LABELS.get(pattern_src, pattern_src)
             for i, line in enumerate(lines, start=1):
-                if pat.search(line):
+                if compiled_pattern.search(line):
                     hits.append(f"{rel}:{i}: [{label}] {line.rstrip()[:160]}")
-                elif normalize and pat.search(line.replace("/", ".")):
+                elif normalize and compiled_pattern.search(line.replace("/", ".")):
                     hits.append(f"{rel}:{i}: [{label}] {line.rstrip()[:160]}")
     return hits
 

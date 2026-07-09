@@ -5,7 +5,7 @@ secrets, configures the production environment, renders + copies the
 workflow templates, and prints the TLS-provisioning runbook. Git and
 SSH subprocess invocations route through ``_run`` so test suites can
 intercept those via a single monkeypatch; GitHub mutations route
-through the PAT-backed REST transport
+through the bearer-token REST transport
 (``gh_rest_transport.request_with_retry``) and PyNaCl-backed
 ``github_secrets_rest`` helper.
 """
@@ -54,8 +54,8 @@ def run_setup(ctx: BootstrapContext) -> int:
     project_upper = project_slug.upper()
 
     # Resolve canonical project GitHub auth once so REST calls below run
-    # against an explicit token from the project's capability_secrets row
-    # rather than any host-CLI credential state.
+    # against a short-lived App installation token rather than any host-CLI
+    # credential state.
     conn = helpers._connect()
     try:
         try:
@@ -74,7 +74,7 @@ def run_setup(ctx: BootstrapContext) -> int:
     print(f"  SSH host:    {cfg.ssh_host}")
     print(f"  SSH user:    {cfg.ssh_user}")
     print(f"  SSH key:     {cfg.ssh_key_path}")
-    print(f"  Token:       {'[set]' if cfg.github_token else '[missing]'}")
+    print(f"  GitHub App:  installation {resolved.installation_id or '[resolved]'}")
 
     if not cfg.github_repo:
         print("Error: Missing github_repo for project", file=sys.stderr)

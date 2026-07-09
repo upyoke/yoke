@@ -41,7 +41,7 @@ class CheckCiRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     workflow: str = Field(..., min_length=1, description="Workflow file (e.g. ci.yml).")
     branch: str = Field("main", description="Branch to inspect (default: main).")
-    project: str = Field("yoke", description="Project capability owning the PAT.")
+    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
 
 
 class CheckCiResponse(BaseModel):

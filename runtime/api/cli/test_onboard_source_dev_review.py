@@ -2,10 +2,9 @@
 
 Covers the plain-language labels the onboard review shows (the core DB records
 the PROJECT, not the checkout path; the source-dev github-auth line names the
-clone's origin remote), that the REVIEW plan derives the same github-auth target
-as the apply path, and that the GitHub "can push to" list counts its remainder
-from the true total rather than a display-capped sample. The apply/engine seam
-lives in ``test_onboard_source_dev_apply.py``.
+clone's origin remote), and that the REVIEW plan derives the same github-auth
+target as the apply path. The apply/engine seam lives in
+``test_onboard_source_dev_apply.py``.
 """
 
 from __future__ import annotations
@@ -15,7 +14,6 @@ from pathlib import Path
 from yoke_cli.config import onboard_plan_labels
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_report
-from yoke_cli.config import onboard_wizard_flow_github
 from yoke_cli.config import yoke_dev_detect
 from yoke_cli.config import yoke_token_verify
 
@@ -35,7 +33,7 @@ def test_source_dev_github_auth_target_and_label() -> None:
     assert onboard_project._github_auth_target(
         {}, mode=onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
     ) == "source-dev"
-    assert onboard_project._github_auth_target({}) == "skip"
+    assert onboard_project._github_auth_target({}) == "backlog-only"
     remote_line = onboard_plan_labels.friendly_line(
         "project-github-auth-choice", "source-dev",
     )
@@ -72,36 +70,6 @@ def test_source_dev_next_steps_open_new_shell(tmp_path: Path) -> None:
     assert not any("--editable-install" in step for step in steps)
 
 
-def test_push_summary_notes_probe_sample_coverage() -> None:
-    # Q3: each private repo costs one write-probe call, so the wizard checks a
-    # bounded sample and must say how many of the user's repos it actually checked
-    # — plus count the display remainder from writable_count, not the shown list.
-    capability = {
-        "kind": "fine-grained",
-        "writable": [f"repo{i}" for i in range(8)],  # display-capped names
-        "writable_count": 20,                          # writable found in sample
-        "can_publish": True,
-        "write_probed_count": 25,
-        "write_probe_total": 40,
-    }
-    line = onboard_wizard_flow_github._push_capability_line(capability)
-    assert "and 16 more" in line  # 20 writable - 4 shown
-    assert "checked 25 of 40 repos" in line
-
-
-def test_push_summary_no_sample_note_when_all_checked() -> None:
-    capability = {
-        "kind": "fine-grained",
-        "writable": ["a", "b"],
-        "writable_count": 2,
-        "can_publish": True,
-        "write_probed_count": 2,
-        "write_probe_total": 2,
-    }
-    line = onboard_wizard_flow_github._push_capability_line(capability)
-    assert "checked" not in line
-
-
 def test_reuse_summary_uses_distinct_already_labels() -> None:
     # The "already set up" review block must NOT repeat the write-plan group
     # labels, or the review renders "On this machine (~/.yoke)" twice (conflicting).
@@ -111,16 +79,6 @@ def test_reuse_summary_uses_distinct_already_labels() -> None:
     reuse_labels = {label for label, _c, _k in review._REUSE_GROUPS}
     assert plan_labels.isdisjoint(reuse_labels)
     assert all(label.startswith("Already") for label in reuse_labels)
-
-
-def test_bounded_join_with_total_counts_remainder() -> None:
-    items = [f"r{i}" for i in range(8)]
-    assert onboard_wizard_flow_github._bounded_join_with_total(items, 4, 50) == (
-        "r0, r1, r2, r3, and 46 more"
-    )
-    assert onboard_wizard_flow_github._bounded_join_with_total(
-        ["a", "b"], 4, 2,
-    ) == "a, b"
 
 
 def test_bounded_entries_uses_and_n_more() -> None:
@@ -154,7 +112,7 @@ def test_project_report_clones_yoke_repo_for_source_dev(
     tmp_path: Path, monkeypatch
 ) -> None:
     # F1: source-dev onboarding passes Yoke's own repo as the clone target + the
-    # machine GitHub token, so a fresh folder is cloned (not git-init'd empty).
+    # machine GitHub credential, so a fresh folder is cloned (not git-init'd empty).
     captured: dict = {}
     monkeypatch.setattr(
         onboard_project.project_onboard, "onboard_existing",

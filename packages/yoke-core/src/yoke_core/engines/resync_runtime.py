@@ -1,9 +1,9 @@
-"""Runtime helpers for the resync engine (PAT REST).
+"""Runtime helpers for the resync engine (bearer-token REST).
 
 GitHub auth is fail-closed: every helper resolves repo + token through
 :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`
 and lets :class:`ProjectGithubAuthError` propagate. Yoke does NOT use
-the ``gh`` CLI; all GitHub access is PAT-backed REST through
+the ``gh`` CLI; all GitHub access is bearer-token REST through
 :mod:`yoke_core.domain.gh_rest_transport` and the typed surface in
 :mod:`yoke_core.domain.github_rest`.
 """

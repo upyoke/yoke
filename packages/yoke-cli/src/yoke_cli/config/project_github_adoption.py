@@ -58,7 +58,7 @@ def github_adoption_report(
     explicit = choice is not None
     if token_value:
         raise ProjectGithubAdoptionError(
-            "Project GitHub token inputs are no longer supported. Use "
+            "Project-supplied GitHub credentials are no longer supported. Use "
             "--github-adoption app-binding for a GitHub App repo binding, or "
             "--github-adoption backlog-only."
         )
@@ -101,7 +101,7 @@ def github_adoption_report(
     }
 
 
-def should_store_project_github_token(
+def should_store_project_github_binding(
     github_adoption: Mapping[str, Any] | None,
 ) -> bool:
     return False

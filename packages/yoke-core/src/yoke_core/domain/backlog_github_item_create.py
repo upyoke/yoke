@@ -102,7 +102,7 @@ def sync_item(
 
         # Backlog-only projects never mirror to GitHub: logged skip,
         # not an auth error. Gated before auth so a backlog-only project
-        # without a PAT still short-circuits cleanly.
+        # without a GitHub App auth still short-circuits cleanly.
         if _bgs()._github_sync_skip(gh_project, "sync-item", conn=conn, out=stdout):
             return 0
 
@@ -136,9 +136,9 @@ def sync_item(
         if _bgs()._dry_run():
             print(f"[DRY-RUN] Skipping GitHub: sync-item for {item_ref}", file=stdout)
             return 0
-        if not _bgs()._pat_available(gh_project):
+        if not _bgs()._github_auth_available(gh_project):
             print(
-                f"Error: project '{gh_project}' has no usable GitHub PAT for sync",
+                f"Error: project '{gh_project}' has no usable GitHub App auth for sync",
                 file=stderr,
             )
             return 1

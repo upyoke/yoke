@@ -19,8 +19,8 @@ from yoke_core.api import service_client_backlog_github as relay
 
 
 _OK_AUTH = ProjectGithubAuth(
-    project="buzz", repo="org/buzz", token="ghp_fake",
-    env={"GH_TOKEN": "ghp_fake"},
+    project="buzz", repo="org/buzz", token="ghs_fake",
+    env={"GH_TOKEN": "ghs_fake"},
 )
 
 

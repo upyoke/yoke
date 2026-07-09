@@ -240,12 +240,12 @@ def test_create_repo_is_idempotent_on_a_second_run(monkeypatch) -> None:
     monkeypatch.setattr(github_publish.urllib.request, "urlopen", replay)
 
     first = github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
     )
     replay.resume_pass()
     second = github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
     )
 

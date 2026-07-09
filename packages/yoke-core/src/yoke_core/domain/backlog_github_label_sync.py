@@ -11,7 +11,7 @@ idempotency).
 The private helpers ``_get_issue_labels`` / ``_get_issue_state`` /
 ``_repo_labels`` / ``_ensure_label`` / ``_reconcile_category`` remain
 exported for the other sync siblings; each is a thin wrapper around the
-canonical REST helper resolved through the project's PAT auth.
+canonical REST helper resolved through the project's GitHub App auth.
 """
 
 from __future__ import annotations
@@ -121,9 +121,9 @@ def update_repo_labels(
     dry_run = _bgs()._dry_run() if dry_run is None else dry_run
     if _bgs()._github_sync_skip(project, "repo-label-sync", out=stdout):
         return 0
-    if not _bgs()._pat_available(project):
+    if not _bgs()._github_auth_available(project):
         print(
-            f"Error: project '{project}' has no usable GitHub PAT for label sync.",
+            f"Error: project '{project}' has no usable GitHub App auth for label sync.",
             file=stderr,
         )
         return 1
@@ -183,7 +183,7 @@ def sync_labels(
 ) -> int:
     """Compare and update all GitHub labels for a backlog item.
 
-    Idempotent. No-op if github_issue is null or PAT is unavailable.
+    Idempotent. No-op if github_issue is null or GitHub App auth is unavailable.
     """
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
@@ -212,7 +212,7 @@ def sync_labels(
         gh_project = project or "yoke"
         if _bgs()._github_sync_skip(gh_project, "sync-labels", conn=conn, out=stdout):
             return 0
-        if not _bgs()._pat_available(gh_project):
+        if not _bgs()._github_auth_available(gh_project):
             return 0
         if not _bgs()._validate_issue_in_repo(
             item_ref, str(issue_num), repo, project=gh_project, stderr=stderr,

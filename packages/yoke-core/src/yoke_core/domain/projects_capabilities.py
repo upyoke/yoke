@@ -92,7 +92,7 @@ def cmd_capability_get_secret(
 
     ``aws-admin`` secrets are machine-local under
     ``~/.yoke/secrets/capability-secrets``. Other capability secrets,
-    including the GitHub PAT, live in :data:`capability_secrets` with
+    including the GitHub App auth, live in :data:`capability_secrets` with
     ``source='literal'``.
 
     When ``conn`` is supplied the read happens against the caller's

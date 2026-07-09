@@ -125,6 +125,9 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects capability has", "projects.capability"),
     _w("yoke projects capability-secret set", "projects.capability"),
     _w("yoke projects capability secret set", "projects.capability"),
+    _w("yoke projects github-binding bind", "projects.github_binding"),
+    _w("yoke projects github-binding unbind", "projects.github_binding"),
+    _w("yoke projects github-binding status", "projects.github_binding"),
     # checkout→project identity for the strategize/feed preambles — works over
     # https and from any cwd.
     _w("yoke projects checkout-context", "projects"),
@@ -139,11 +142,11 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke project-structure command-definitions get", "project_structure.command_definitions"),
     _w("yoke project-structure command-definitions list", "project_structure.command_definitions"),
     _w("yoke project-structure deploy-defaults get", "project_structure.deploy_defaults"),
-    # PAT-backed GitHub Actions advisory checks.
+    # bearer-token GitHub Actions advisory checks.
     _w("yoke github-actions check-ci", "github_actions"),
     _w("yoke github-actions wait-run", "github_actions"),
     _w("yoke github-actions runners status", "github_actions"),
-    # repo secret/variable writer: PAT-backed repo secret/variable writers — CI arming +
+    # repo secret/variable writer: bearer-token repo secret/variable writers — CI arming +
     # rotation recipes with no host GitHub CLI.
     _w("yoke github-actions secret set", "github_actions"),
     _w("yoke github-actions variable get", "github_actions"),
@@ -163,7 +166,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke strategy render", "strategy"),
     _w("yoke strategy ingest", "strategy"),
     _w("yoke strategy seed-defaults", "strategy"),
-    # PR-create was the last PAT-backed GitHub admin surface without a wrapper
+    # PR-create was the last bearer-token GitHub admin surface without a wrapper
     # (repo-level github family, not github_actions).
     _w("yoke github pr create", "github"),
     # Project-scoped scratch path resolver for shepherd skill dispatch.

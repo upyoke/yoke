@@ -110,7 +110,7 @@ def test_create_repo_reuses_empty_repo_on_name_exists(monkeypatch) -> None:
     _install(monkeypatch, recorder)
 
     reused = github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
     )
 
@@ -148,7 +148,7 @@ def test_create_repo_fresh_create_is_not_flagged_reused(monkeypatch) -> None:
     _install(monkeypatch, recorder)
 
     created = github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
     )
 
@@ -175,7 +175,7 @@ def test_create_repo_reuses_empty_repo_when_commits_list_empty(monkeypatch) -> N
     _install(monkeypatch, recorder)
 
     reused = github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
     )
 
@@ -201,7 +201,7 @@ def test_create_repo_refuses_populated_repo_on_name_exists(monkeypatch) -> None:
 
     with pytest.raises(github_publish.GitHubPublishError) as caught:
         github_publish.create_repo(
-            "https://api.github.com", "ghp_x",
+            "https://api.github.com", "ghs_x",
             owner="octocat", name="widget", user_login="octocat",
         )
 
@@ -219,7 +219,7 @@ def test_create_repo_propagates_non_422_create_error(monkeypatch) -> None:
 
     with pytest.raises(github_publish.GitHubPublishError) as caught:
         github_publish.create_repo(
-            "https://api.github.com", "ghp_x",
+            "https://api.github.com", "ghs_x",
             owner="octocat", name="widget", user_login="octocat",
         )
 

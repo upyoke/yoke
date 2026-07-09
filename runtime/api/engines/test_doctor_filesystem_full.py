@@ -17,7 +17,7 @@ import pytest
 
 from yoke_core.engines.doctor import (
     RecordCollector,
-    _pat_configured,
+    _github_auth_configured,
     _resolve_main_root,
     _resolve_repo_root,
     hc_agent_consistency,
@@ -63,8 +63,8 @@ class TestDoctorHelpers:
         with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(repo_root)):
             assert _resolve_main_root() == str(repo_root)
 
-    def test_pat_configured_returns_true_when_resolver_succeeds(self):
-        """_pat_configured is True iff resolve_project_github_auth succeeds."""
+    def test_github_auth_configured_returns_true_when_resolver_succeeds(self):
+        """_github_auth_configured is True iff resolve_project_github_auth succeeds."""
         from yoke_core.domain.project_github_auth import (
             MissingCapability, ProjectGithubAuth,
         )
@@ -75,12 +75,12 @@ class TestDoctorHelpers:
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
             return_value=auth,
         ):
-            assert _pat_configured() is True
+            assert _github_auth_configured() is True
         with patch(
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
             side_effect=MissingCapability("yoke", "no capability"),
         ):
-            assert _pat_configured() is False
+            assert _github_auth_configured() is False
 
     def test_canonical_resolver_injects_gh_token_env(self, tmp_path, monkeypatch):
         """Resolver returns a frozen auth bundle whose env carries
@@ -105,11 +105,11 @@ class TestDoctorHelpers:
             base_settings_json=None, create=True, db_path=db,
         )
         p.cmd_capability_set_secret(
-            "buzz", "github", "token", "ghp_secret",
+            "buzz", "github", "token", "ghs_secret",
             source="literal", db_path=db,
         )
         auth = resolve_project_github_auth("buzz", db_path=db)
-        assert auth.env["GH_TOKEN"] == "ghp_secret"
+        assert auth.env["GH_TOKEN"] == "ghs_secret"
         assert auth.repo == "example-org/buzz"
 
     def test_canonical_resolver_raises_missing_capability(self, tmp_path):

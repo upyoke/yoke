@@ -81,11 +81,11 @@ def test_probe_status_swallows_seam_exceptions() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# detect_capability — classic (no probes)
+# detect_capability — scoped_token (no probes)
 # --------------------------------------------------------------------------- #
 
 
-def _classic_verification() -> dict:
+def _scoped_token_verification() -> dict:
     return {
         "scopes": ["repo", "workflow"],
         "access": {
@@ -100,14 +100,14 @@ def _classic_verification() -> dict:
     }
 
 
-def test_detect_classic_repo_scope_can_publish() -> None:
+def test_detect_scoped_token_repo_scope_can_publish() -> None:
     def _fail(*_a, **_k):
-        raise AssertionError("classic must not probe")
+        raise AssertionError("scoped token must not probe")
 
     result = cap.detect_capability(
-        "https://api", "t", _classic_verification(), request_status=_fail
+        "https://api", "t", _scoped_token_verification(), request_status=_fail
     )
-    assert result["kind"] == "classic"
+    assert result["kind"] == "scoped_token"
     assert result["can_create"] is True
     assert result["can_push_new"] is True
     assert result["can_publish"] is True
@@ -118,9 +118,9 @@ def test_detect_classic_repo_scope_can_publish() -> None:
     assert result["see_public"] == 1
 
 
-def test_detect_classic_caps_readonly_display_but_keeps_full_count() -> None:
+def test_detect_scoped_token_caps_readonly_display_but_keeps_full_count() -> None:
     # The connect screen is fixed-width, so the readonly display list is capped
-    # (like the fine-grained branch); readonly_count carries the true size so the
+    # (like the repository-scoped branch); readonly_count carries the true size so the
     # "except" summary counts the remainder instead of understating it.
     readonly_names = [f"org/ro{i}" for i in range(10)]
     verification = {
@@ -140,24 +140,24 @@ def test_detect_classic_caps_readonly_display_but_keeps_full_count() -> None:
     }
 
     def _fail(*_a, **_k):
-        raise AssertionError("classic must not probe")
+        raise AssertionError("scoped token must not probe")
 
     result = cap.detect_capability(
         "https://api", "t", verification, request_status=_fail
     )
-    assert result["kind"] == "classic"
+    assert result["kind"] == "scoped_token"
     assert result["readonly"] == readonly_names[: cap._DISPLAY_LIST_CAP]
     assert result["readonly_count"] == len(readonly_names)
 
 
-def test_detect_classic_no_create_scope_cannot_create() -> None:
+def test_detect_scoped_token_no_create_scope_cannot_create() -> None:
     verification = {
         "scopes": ["workflow"],  # no repo/public_repo
         "access": {"repos": [], "repo_details": []},
     }
 
     def _fail(*_a, **_k):
-        raise AssertionError("classic must not probe")
+        raise AssertionError("scoped token must not probe")
 
     result = cap.detect_capability(
         "https://api", "t", verification, request_status=_fail
@@ -167,11 +167,11 @@ def test_detect_classic_no_create_scope_cannot_create() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# detect_capability — fine-grained (probes)
+# detect_capability — repository-scoped (probes)
 # --------------------------------------------------------------------------- #
 
 
-def _fine_grained_verification() -> dict:
+def _repository_token_verification() -> dict:
     return {
         "scopes": [],
         "access": {
@@ -184,7 +184,7 @@ def _fine_grained_verification() -> dict:
     }
 
 
-def test_detect_fine_grained_select_repositories_cannot_publish() -> None:
+def test_detect_repository_token_select_repositories_cannot_publish() -> None:
     """The user's real case: create 422, all public-write 403 -> can't publish."""
     seam = _status_seam({
         ("POST", _CREATE_PATH): 422,                      # can create
@@ -192,9 +192,9 @@ def test_detect_fine_grained_select_repositories_cannot_publish() -> None:
         ("PUT", _write_path("me/granted")): 422,          # writable granted repo
     })
     result = cap.detect_capability(
-        "https://api", "t", _fine_grained_verification(), request_status=seam
+        "https://api", "t", _repository_token_verification(), request_status=seam
     )
-    assert result["kind"] == "fine_grained"
+    assert result["kind"] == "repository_token"
     assert result["can_create"] is True
     assert result["can_push_new"] is False
     assert result["can_publish"] is False
@@ -204,7 +204,7 @@ def test_detect_fine_grained_select_repositories_cannot_publish() -> None:
     assert result["write_probe_total"] == 1
 
 
-def test_detect_fine_grained_all_repositories_can_publish() -> None:
+def test_detect_repository_token_all_repositories_can_publish() -> None:
     """create 422 + a public-write 422 -> "all repositories" -> can publish."""
     seam = _status_seam({
         ("POST", _CREATE_PATH): 422,                      # can create
@@ -212,27 +212,27 @@ def test_detect_fine_grained_all_repositories_can_publish() -> None:
         ("PUT", _write_path("me/granted")): 422,
     })
     result = cap.detect_capability(
-        "https://api", "t", _fine_grained_verification(), request_status=seam
+        "https://api", "t", _repository_token_verification(), request_status=seam
     )
     assert result["can_create"] is True
     assert result["can_push_new"] is True
     assert result["can_publish"] is True
 
 
-def test_detect_fine_grained_create_blocked_cannot_publish() -> None:
+def test_detect_repository_token_create_blocked_cannot_publish() -> None:
     seam = _status_seam({
         ("POST", _CREATE_PATH): 403,                      # can't create
         ("PUT", _write_path("octo/public")): 422,
         ("PUT", _write_path("me/granted")): 422,
     })
     result = cap.detect_capability(
-        "https://api", "t", _fine_grained_verification(), request_status=seam
+        "https://api", "t", _repository_token_verification(), request_status=seam
     )
     assert result["can_create"] is False
     assert result["can_publish"] is False
 
 
-def test_detect_fine_grained_no_public_repo_push_new_unknown() -> None:
+def test_detect_repository_token_no_public_repo_push_new_unknown() -> None:
     """With no public repo to probe, push-to-new is unknown, so publish is False."""
     verification = {
         "scopes": [],

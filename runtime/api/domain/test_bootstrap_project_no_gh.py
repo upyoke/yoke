@@ -1,15 +1,14 @@
-"""Bootstrap suite: PAT-only behavior and no-gh-on-laptop coverage.
+"""Bootstrap suite: GitHub App auth-only behavior and no-gh-on-laptop coverage.
 
 Companion to ``test_bootstrap_project.py`` /
-``test_bootstrap_project_setup.py``. Verifies the YOK-1843 task 5
-migration:
+``test_bootstrap_project_setup.py``. Verifies current bootstrap behavior:
 
-- Preflight PASSes with PAT only — no host ``gh`` probe anywhere in
+- Preflight PASSes with GitHub App auth only — no host ``gh`` probe anywhere in
   the run.
-- ``run_setup`` succeeds against the PAT-backed REST transport (the
+- ``run_setup`` succeeds against the bearer-token REST transport (the
   ``GET /user`` and ``PUT /environments/production`` calls) and
   ``gh secret set`` remains the only ``gh`` shell-out.
-- ``run_setup`` surfaces typed REST failure modes (missing PAT, 401,
+- ``run_setup`` surfaces typed REST failure modes (missing GitHub App auth, 401,
   403 elevated scope) without inheriting host credentials.
 """
 
@@ -31,7 +30,32 @@ from yoke_core.domain.bootstrap_project_test_helpers import (
     setup_validation_ctx,
     write_fake_rendered_workflows,
 )
-from runtime.api.fixtures.file_test_db import connect_test_db
+from yoke_core.domain.project_github_auth import ProjectGithubAuth
+
+
+def _resolved_auth(project: str = "buzz") -> ProjectGithubAuth:
+    return ProjectGithubAuth(
+        project=project,
+        repo="example-org/buzz",
+        token="ghs_installation_token",
+        env={"GH_TOKEN": "ghs_installation_token"},
+        installation_id="12345",
+        token_source="github_app_installation",
+    )
+
+
+def _patch_preflight_auth(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "yoke_core.domain.bootstrap_project_preflight.resolve_project_github_auth",
+        lambda project, **_kw: _resolved_auth(project),
+    )
+
+
+def _patch_setup_auth(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "yoke_core.domain.bootstrap_project_setup.resolve_project_github_auth",
+        lambda project, **_kw: _resolved_auth(project),
+    )
 
 
 def _no_gh_run(cmd, *, stdin=None, cwd=None, env=None):
@@ -86,7 +110,7 @@ def _install_setup_rest(monkeypatch) -> list[tuple[str, str]]:
     return seen
 
 
-def test_preflight_pat_only_success_no_host_gh_probe(
+def test_preflight_github_app_auth_only_success_no_host_gh_probe(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
     """Preflight emits no host gh probe and PASSes against a clean DB."""
@@ -103,6 +127,7 @@ def test_preflight_pat_only_success_no_host_gh_probe(
         "yoke_core.domain.bootstrap_project_helpers._run",
         _make_fake_run(ssh_ok=True, tls_state="exists"),
     )
+    _patch_preflight_auth(monkeypatch)
 
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         ctx = BootstrapContext(
@@ -121,11 +146,11 @@ def test_preflight_pat_only_success_no_host_gh_probe(
         assert ("gh CLI" + " installed") not in out
         assert ("gh CLI" + " not installed") not in out
         assert ("brew" + " install gh") not in out
-        # The canonical PAT-resolution PASS line should appear instead.
+        # The canonical GitHub App auth resolution PASS line should appear instead.
         assert "github auth resolved (canonical)" in out
 
 
-def test_setup_uses_pat_backed_rest_for_user_and_env(
+def test_setup_uses_github_app_auth_rest_for_user_and_env(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
     """run_setup hits /user + PUT environments through gh_rest_transport."""
@@ -133,6 +158,7 @@ def test_setup_uses_pat_backed_rest_for_user_and_env(
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
         )
+        _patch_setup_auth(monkeypatch)
         rest_calls = _install_setup_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
@@ -147,7 +173,7 @@ def test_setup_uses_pat_backed_rest_for_user_and_env(
         assert "Creating production environment... done" in out
 
 
-def test_setup_surfaces_401_when_pat_invalid(
+def test_setup_surfaces_401_when_github_auth_invalid(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
     """REST 401 surfaces via typed RestAuthError; setup returns 2 cleanly."""
@@ -155,6 +181,7 @@ def test_setup_surfaces_401_when_pat_invalid(
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
         )
+        _patch_setup_auth(monkeypatch)
 
         def fake_urlopen(request, timeout):
             raise urllib.error.HTTPError(
@@ -185,6 +212,7 @@ def test_setup_surfaces_403_elevated_scope(
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
         )
+        _patch_setup_auth(monkeypatch)
         public_key_b64 = _fake_repo_public_key_b64()
 
         def fake_urlopen(request, timeout):
@@ -214,34 +242,17 @@ def test_setup_surfaces_403_elevated_scope(
         assert "403" in err
 
 
-def test_setup_surfaces_missing_pat(
+def test_setup_surfaces_missing_github_app_binding(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
-    """When the project capability has no token, run_setup exits 2 before
-    any REST call fires."""
-    with setup_validation_ctx(tmp_path) as (ctx, db_path, _):
-        # Drop the seeded token so resolve_project_github_auth raises
-        # MissingToken. The token is read by the canonical resolver (Path A),
-        # which on Postgres resolves through the backend factory to the
-        # per-test database — connect_test_db targets that same DB so the
-        # delete is visible to the resolver on both backends.
-        conn = connect_test_db(db_path)
-        try:
-            conn.execute(
-                "DELETE FROM capability_secrets "
-                "WHERE project_id=(SELECT id FROM projects WHERE slug='buzz') "
-                "AND type='github' AND key='token'"
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
+    """When the project lacks a repo binding, setup exits before REST."""
+    with setup_validation_ctx(tmp_path) as (ctx, _, _):
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
         )
 
         def explode_urlopen(_request, _timeout):
-            raise AssertionError("REST must not be called when PAT is missing")
+            raise AssertionError("REST must not be called when GitHub App auth is missing")
 
         monkeypatch.setattr(
             "yoke_core.domain.gh_rest_transport.urlopen", explode_urlopen,
@@ -250,13 +261,13 @@ def test_setup_surfaces_missing_pat(
         rc = run_setup(ctx)
         err = capsys.readouterr().err
         assert rc == 2
-        assert "no github token" in err.lower() or "github token" in err.lower()
+        assert "not bound to a GitHub App repository" in err
 
 
 def test_setup_emits_zero_gh_shellouts(
     tmp_path: Path, monkeypatch,
 ) -> None:
-    """Every GitHub mutation in run_setup goes through PAT-backed REST;
+    """Every GitHub mutation in run_setup goes through bearer-token REST;
     the host gh CLI is never invoked."""
     with setup_validation_ctx(tmp_path) as (ctx, _, _):
         seen_gh: list[list[str]] = []
@@ -269,6 +280,7 @@ def test_setup_emits_zero_gh_shellouts(
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", fake_run,
         )
+        _patch_setup_auth(monkeypatch)
         _install_setup_rest(monkeypatch)
 
         assert run_setup(ctx) == 0

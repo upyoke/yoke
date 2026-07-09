@@ -4,7 +4,7 @@ This module family (``github_rest`` + ``github_rest_issues``,
 ``github_rest_labels``, ``github_rest_comments``, ``github_rest_sub_issues``,
 ``github_rest_graphql``) is Yoke's canonical surface for talking to
 GitHub. Yoke does NOT use the ``gh`` CLI; all GitHub access is
-PAT-backed REST through :mod:`yoke_core.domain.gh_rest_transport`.
+bearer-token REST through :mod:`yoke_core.domain.gh_rest_transport`.
 
 The split mirrors the ``backlog_github_*`` and ``epic_task_sync_github_*``
 file families: one umbrella defining shared dataclasses and the

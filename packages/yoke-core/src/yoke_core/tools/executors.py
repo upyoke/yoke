@@ -222,7 +222,7 @@ def _gh_runs_for_workflow(
 ) -> Optional[dict]:
     """Return the most recent workflow run metadata, or ``None``.
 
-    PAT-driven via :func:`github_actions_rest.latest_workflow_run` when
+    bearer-token via :func:`github_actions_rest.latest_workflow_run` when
     queried by branch. ``commit_sha`` lookups go through a thin REST
     call because the helper only exposes the branch path; both shapes
     return the same upstream ``workflow_runs[0]`` envelope so callers

@@ -106,7 +106,7 @@ def test_make_it_mine_rehomes_keeping_upstream(tmp_path: Path, monkeypatch) -> N
     # lands locally (no network, no SSH host-key prompt).
     monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo: str(new_origin))
 
-    token = "ghp_make_it_mine_token"
+    token = "ghs_make_it_mine_token"
     plan = clone.ClonePlan(
         outcome=clone.CLONE_OUTCOME_MAKE_IT_MINE,
         keep_upstream=True,
@@ -150,7 +150,7 @@ def test_make_it_mine_clean_copy_drops_upstream(tmp_path: Path, monkeypatch) -> 
         outcome=clone.CLONE_OUTCOME_MAKE_IT_MINE,
         keep_upstream=False,
         publish=PublishRequest(
-            owner="octocat", name="widgets", user_login="octocat", token="ghp_x",
+            owner="octocat", name="widgets", user_login="octocat", token="ghs_x",
         ),
     )
     outcome = project_onboard._apply_clone_outcome(
@@ -179,7 +179,7 @@ def test_fork_sets_origin_fork_and_upstream_source(tmp_path: Path, monkeypatch) 
     monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo: str(fork))
 
     plan = clone.ClonePlan(
-        outcome=clone.CLONE_OUTCOME_FORK, fallback_token="ghp_x",
+        outcome=clone.CLONE_OUTCOME_FORK, fallback_token="ghs_x",
     )
     outcome = project_onboard._apply_clone_outcome(
         target, remote_url="git@github.com:acme/widgets.git",
@@ -258,7 +258,7 @@ def test_make_it_mine_resume_reuses_created_repo_and_repushes(
         outcome=clone.CLONE_OUTCOME_MAKE_IT_MINE,
         keep_upstream=False,
         publish=PublishRequest(
-            owner="octocat", name="widgets", user_login="octocat", token="ghp_x",
+            owner="octocat", name="widgets", user_login="octocat", token="ghs_x",
         ),
     )
     outcome = project_onboard._apply_clone_outcome(

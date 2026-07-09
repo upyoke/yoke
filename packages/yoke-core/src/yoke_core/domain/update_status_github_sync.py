@@ -1,4 +1,4 @@
-"""GitHub side effects for epic-task status transitions (PAT REST).
+"""GitHub side effects for epic-task status transitions (bearer-token REST).
 
 Owns the three GitHub mutations performed on every epic-task status write:
 
@@ -11,7 +11,7 @@ Owns the three GitHub mutations performed on every epic-task status write:
   ``GitHubCloseFailure`` event emission on failure.
 
 Each helper honors the dry-run env var and dispatches through the canonical
-PAT-backed REST transport (:mod:`yoke_core.domain.gh_rest_transport`).
+bearer-token REST transport (:mod:`yoke_core.domain.gh_rest_transport`).
 ``ProjectGithubAuthError`` from the canonical resolver and
 ``RestTransportError`` from the transport propagate so callers can surface
 typed failures; helpers degrade with a warning for read-side paths.

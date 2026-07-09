@@ -1,15 +1,15 @@
-"""Non-mutating verification for fine-grained GitHub machine PATs."""
+"""Non-mutating verification for repository-scoped GitHub user tokens."""
 
 from __future__ import annotations
 
 import urllib.parse
 from typing import Any, Mapping, Protocol
 
-from yoke_contracts import github_pat_permissions as pat_contract
+from yoke_contracts import github_user_token_permissions as user_token_contract
 
 
-class FineGrainedVerificationError(RuntimeError):
-    """Fine-grained PAT read probes did not satisfy Yoke's contract."""
+class RepositoryTokenVerificationError(RuntimeError):
+    """Repository-scoped token probes did not satisfy Yoke's contract."""
 
 
 class RequestJson(Protocol):
@@ -31,7 +31,7 @@ def verify_read_access(
     *,
     request_json: RequestJson,
 ) -> dict[str, Any]:
-    """Run GET-only fine-grained PAT probes against one accessible repository."""
+    """Run GET-only repository-permission probes against one accessible repo."""
     owner, repo = _repo_parts(repo_full_name)
     checked: list[dict[str, Any]] = []
     environment_name = _first_environment_name(
@@ -41,8 +41,8 @@ def verify_read_access(
         repo,
         request_json=request_json,
     )
-    for permission in pat_contract.REQUIRED_FINE_GRAINED_PAT_PERMISSIONS:
-        probe = pat_contract.fine_grained_read_probe(permission.key)
+    for permission in user_token_contract.REQUIRED_REPOSITORY_USER_TOKEN_PERMISSIONS:
+        probe = user_token_contract.repository_read_probe(permission.key)
         if not probe.path_template:
             checked.append(_probe_skipped(permission, probe.unavailable_reason))
             continue
@@ -79,11 +79,11 @@ def verify_read_access(
     failures = [check for check in checked if check["status"] == "failed"]
     if failures:
         missing = ", ".join(str(check["label"]) for check in failures)
-        raise FineGrainedVerificationError(
-            "GitHub token is valid"
-            f" for {identity.get('login')}, but non-mutating fine-grained"
+        raise RepositoryTokenVerificationError(
+            "GitHub credential is valid"
+            f" for {identity.get('login')}, but non-mutating repository"
             f" read checks failed for {missing} against {repo_full_name}."
-            " Enable those permissions on the PAT, then retry."
+            " Enable those permissions through the Yoke GitHub App, then retry."
         )
     verified = [str(check["label"]) for check in checked if check["ok"]]
     skipped = [str(check["label"]) for check in checked if not check["ok"]]
@@ -93,17 +93,17 @@ def verify_read_access(
     if skipped:
         summary += "; not checked without writing or an existing resource: "
         summary += ", ".join(skipped)
-    summary += ". Fine-grained write grants were not mutated during onboarding."
+    summary += ". Repository write grants were not mutated during onboarding."
     return {
         "ok": True,
-        "mode": "fine_grained_non_mutating",
+        "mode": "repository_token_non_mutating",
         "required": [
             {
                 "key": permission.key,
                 "label": permission.label,
                 "access": permission.access,
             }
-            for permission in pat_contract.REQUIRED_FINE_GRAINED_PAT_PERMISSIONS
+            for permission in user_token_contract.REQUIRED_REPOSITORY_USER_TOKEN_PERMISSIONS
         ],
         "repo": repo_full_name,
         "write_verified": False,
@@ -113,7 +113,7 @@ def verify_read_access(
 
 
 def _probe_skipped(
-    permission: pat_contract.GitHubPatPermission,
+    permission: user_token_contract.GitHubUserTokenPermission,
     reason: str,
 ) -> dict[str, Any]:
     return {
@@ -162,7 +162,7 @@ def _first_environment_name(
 def _repo_parts(github_repo: str) -> tuple[str, str]:
     parts = github_repo.strip().split("/")
     if len(parts) != 2 or not all(part.strip() for part in parts):
-        raise FineGrainedVerificationError("GitHub repo must be OWNER/REPO")
+        raise RepositoryTokenVerificationError("GitHub repo must be OWNER/REPO")
     return parts[0].strip(), parts[1].strip()
 
 
@@ -182,7 +182,7 @@ def _probe_path(
 
 
 __all__ = [
-    "FineGrainedVerificationError",
+    "RepositoryTokenVerificationError",
     "RequestJson",
     "verify_read_access",
 ]

@@ -1,7 +1,7 @@
-"""Live-wizard coverage for the publish-PAT and Review pre-flight Apply gates.
+"""Live-wizard coverage for the publish-GitHub App user token and Review pre-flight Apply gates.
 
 Companion to the inline-validation suite: these two gates fire later in the flow
-(at the publish-only PAT prompt and on the Review screen) and withhold the
+(at the publish-only GitHub auth prompt and on the Review screen) and withhold the
 forward action until the problem clears, rather than failing at Apply. Driven
 through the real ``OnboardWizardApp`` pilot reading the live DOM.
 """
@@ -64,7 +64,7 @@ def _body_text(app) -> str:
     )
 
 
-# ── publish-only PAT publish-ability gate ────────────────────────────────
+# ── publish-only GitHub auth publish-ability gate ────────────────────────────────
 
 
 def _verification(*, can_publish: bool) -> dict:
@@ -72,7 +72,7 @@ def _verification(*, can_publish: bool) -> dict:
         "identity": {"login": "machine-user"},
         "access": {"owners": ["machine-user"], "repos": ["machine-user/x"]},
         "capability": {
-            "kind": "classic",
+            "kind": "scoped_token",
             "can_create": can_publish,
             "create_private": None,
             "can_push_new": can_publish,
@@ -87,10 +87,10 @@ def _verification(*, can_publish: bool) -> dict:
     }
 
 
-def test_publish_pat_that_cannot_publish_blocks_inline(monkeypatch) -> None:
-    """A publish-only PAT that can't create/push a new repo is blocked at entry.
+def test_publish_github_auth_that_cannot_publish_blocks_inline(monkeypatch) -> None:
+    """A publish-only GitHub auth that can't create/push a new repo is blocked at entry.
 
-    The pasted PAT is verified at the prompt; a can_publish=False token routes to
+    The pasted GitHub App user token is verified at the prompt; a can_publish=False token routes to
     the cannot-publish block screen instead of advancing to the owner picker and
     orphaning an empty repo at Apply.
     """
@@ -111,9 +111,9 @@ def test_publish_pat_that_cannot_publish_blocks_inline(monkeypatch) -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # slug placeholder
             await pilot.press("enter")  # name placeholder
-            await pilot.press("enter")  # publish: Yes (no machine token -> PAT prompt)
-            await type_text(pilot, "ghp_cannot_publish")
-            await pilot.press("enter")  # submit PAT -> verified -> blocked
+            await pilot.press("enter")  # publish: Yes (no machine token -> GitHub App user token prompt)
+            await type_text(pilot, "ghs_cannot_publish")
+            await pilot.press("enter")  # submit GitHub App user token -> verified -> blocked
             await pilot.pause()
             await pilot.pause()
             assert "can't publish a new repo" in _body_text(app).lower()
@@ -122,8 +122,8 @@ def test_publish_pat_that_cannot_publish_blocks_inline(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_unverifiable_publish_pat_shows_retry(monkeypatch) -> None:
-    """A publish-only PAT that fails verification shows a retry screen inline."""
+def test_unverifiable_publish_github_auth_shows_retry(monkeypatch) -> None:
+    """A publish-only GitHub auth that fails verification shows a retry screen inline."""
     from yoke_cli.config import github_machine_verify
     from yoke_cli.config import onboard_wizard_flow_github as github_flow
 
@@ -142,8 +142,8 @@ def test_unverifiable_publish_pat_shows_retry(monkeypatch) -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # slug
             await pilot.press("enter")  # name
-            await pilot.press("enter")  # publish: Yes -> PAT prompt
-            await type_text(pilot, "ghp_bad")
+            await pilot.press("enter")  # publish: Yes -> GitHub App user token prompt
+            await type_text(pilot, "ghs_bad")
             await pilot.press("enter")  # submit -> verify fails -> retry screen
             await pilot.pause()
             await pilot.pause()

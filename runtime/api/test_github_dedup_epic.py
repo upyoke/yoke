@@ -48,7 +48,7 @@ def epic_db():
         conn.execute(
             "INSERT INTO capability_secrets (project_id, type, key, source, value) "
             "VALUES (%s, 'github', 'token', 'literal', %s)",
-            (SEED_PROJECT_IDS["buzz"], "ghp_buzz_test"),
+            (SEED_PROJECT_IDS["buzz"], "ghs_buzz_test"),
         )
         conn.commit()
         yield conn
@@ -68,8 +68,8 @@ def _mock_project_github_auth():
     auth = ProjectGithubAuth(
         project="buzz",
         repo="org/buzz",
-        token="ghp_buzz_test",
-        env={"GH_TOKEN": "ghp_buzz_test"},
+        token="ghs_buzz_test",
+        env={"GH_TOKEN": "ghs_buzz_test"},
     )
     with patch(
         "yoke_core.domain.epic_task_sync.resolve_project_github_auth",

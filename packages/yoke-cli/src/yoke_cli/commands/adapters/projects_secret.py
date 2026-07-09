@@ -36,11 +36,12 @@ def projects_capability_secret_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects capability secret set",
         description=(
-            "Store a project capability secret. GitHub tokens are stored "
-            "in Yoke's DB-backed capability_secrets store; aws-admin "
-            "secrets and ssh.private_key are stored on this machine under "
-            "~/.yoke/secrets. VALUE is the default input; --value-file "
-            "and --value-stdin import the secret value without printing it."
+            "Store a project capability secret. GitHub App private keys use "
+            "the app_private_key secret while repository access uses binding "
+            "rows; aws-admin secrets and ssh.private_key are stored on this "
+            "machine under ~/.yoke/secrets. VALUE is the default input; "
+            "--value-file and --value-stdin import the secret value without "
+            "printing it."
         ),
     )
     parser.add_argument("--project", required=True)

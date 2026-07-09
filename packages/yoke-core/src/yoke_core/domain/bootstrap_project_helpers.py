@@ -46,7 +46,6 @@ class SetupConfig:
     ssh_host: str
     ssh_user: str
     ssh_key_path: Path
-    github_token: str
 
 
 def _connect(_db_path: Path | None = None) -> Any:
@@ -234,7 +233,6 @@ def _load_setup_config(ctx: BootstrapContext) -> SetupConfig:
         display_name = _query_scalar(
             conn, f"SELECT name FROM projects WHERE id={p}", (ident.id,)
         ) or ident.slug
-        github_token = _capability_secret(conn, ctx.project, "github", "token")
         ssh_settings = _capability_settings(conn, ctx.project, "ssh")
     finally:
         conn.close()
@@ -249,7 +247,6 @@ def _load_setup_config(ctx: BootstrapContext) -> SetupConfig:
         ssh_host=str(ssh_settings.get("host", "") or ""),
         ssh_user=str(ssh_settings.get("user", "") or ""),
         ssh_key_path=ssh_key_path,
-        github_token=github_token,
     )
 
 

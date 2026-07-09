@@ -122,8 +122,9 @@ def _make_buzz_repo(root: Path) -> Path:
 def test_canonical_resolver_missing_capability_translates_to_fail(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
-    """No github capability row → resolver raises MissingCapability →
-    Section 3 emits a [FAIL] with the canonical capability-add repair hint,
+    """No github capability row -> resolver raises MissingCapability.
+
+    Section 3 emits a [FAIL] with the canonical App-binding repair hint,
     not the retired host-login instruction.
     """
     with init_test_db(tmp_path, apply_schema=_seed_backend_minus_github()) as token:
@@ -167,7 +168,7 @@ def test_canonical_resolver_missing_capability_translates_to_fail(
         assert rc == 1
         # Canonical resolver text + repair hint surface in the check output.
         assert "github auth not resolvable" in out
-        assert "no 'github' capability row" in out
-        assert "capability-add buzz github" in out
+        assert "no GitHub App capability row" in out
+        assert "yoke projects github-binding bind --project buzz" in out
         retired_hint = "Run: gh " + "auth " + "login"
         assert retired_hint not in out

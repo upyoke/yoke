@@ -55,7 +55,7 @@ CORE_COMMANDS: list[dict] = [
         ),
         "notes": (
             "The rendered body is the source of truth for ticket content "
-            "and is auto-synced to the GitHub issue via PAT-backed REST. "
+            "and is auto-synced to the GitHub issue via bearer-token REST. "
             "items.github_issue stores '#NNNN' format and is for outbound "
             "linking only — Yoke automation never shells out to ``gh`` "
             "to read or write the issue; the function-call surface and "

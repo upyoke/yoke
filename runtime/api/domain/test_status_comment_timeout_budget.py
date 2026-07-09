@@ -56,8 +56,8 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
             calls["sync_skip"] = (project, operation)
             return False
 
-        def _pat_available(self, project):
-            calls["pat_project"] = project
+        def _github_auth_available(self, project):
+            calls["github_auth_project"] = project
             return True
 
         def _validate_issue_in_repo(self, item_ref, issue_num, repo, **kwargs):

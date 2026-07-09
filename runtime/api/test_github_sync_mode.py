@@ -162,13 +162,13 @@ class TestSyncSurfacesSkip:
             in stdout.getvalue()
         )
 
-    def test_enabled_project_still_reaches_pat_gate(self, db):
-        """Default mode keeps the pre-switch behavior: the PAT gate runs."""
+    def test_enabled_project_still_reaches_github_auth_gate(self, db):
+        """Default mode keeps the pre-switch behavior: the GitHub App auth gate runs."""
         insert_item(db, id=76, project="buzz", github_issue="#84", spec="Body")
         stdout, stderr = io.StringIO(), io.StringIO()
 
         with mock.patch(
-            "yoke_core.domain.backlog_github_sync._pat_available",
+            "yoke_core.domain.backlog_github_sync._github_auth_available",
             return_value=False,
         ) as pat:
             rc = backlog_github_sync.sync_body(
@@ -177,7 +177,7 @@ class TestSyncSurfacesSkip:
 
         assert rc == 1
         pat.assert_called_once_with("buzz")
-        assert "no usable GitHub PAT" in stderr.getvalue()
+        assert "no usable GitHub App auth" in stderr.getvalue()
 
 
 class TestExplicitRefusal:

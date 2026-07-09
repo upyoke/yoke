@@ -20,7 +20,7 @@ SOURCE_TREE_HEALTH_CHECK_SLUGS = frozenset({
 
 PROJECT_SAFE_QUICK_HEALTH_CHECK_SLUGS = frozenset({
     "project-lookup",
-    "project-gh-token",
+    "project-gh-auth",
     "project-deploy-flows",
     "projects-ci-workflow-configured",
 })

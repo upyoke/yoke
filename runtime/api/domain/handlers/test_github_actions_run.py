@@ -22,8 +22,8 @@ from yoke_contracts.api.function_call import (
 _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
-    token="ghp_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghp_test_token"},
+    token="ghs_test_token",
+    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 
@@ -98,7 +98,7 @@ class TestHandleRunGet:
         assert outcome.primary_success is True
         assert outcome.result_payload["state"] == "running"
         assert outcome.result_payload["message"] == "in_progress"
-        assert calls == [("/repos/o/r/actions/runs/123", "ghp_test_token")]
+        assert calls == [("/repos/o/r/actions/runs/123", "ghs_test_token")]
 
     def test_rejects_non_global_target(self):
         outcome = handle_run_get(_make_request(target_kind="item"))

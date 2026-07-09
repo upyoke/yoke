@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan_parser = subparsers.add_parser(
         "scan-log",
-        help="Fail when a log contains raw Yoke/GitHub token markers.",
+        help="Fail when a log contains raw Yoke/GitHub credential markers.",
     )
     scan_parser.add_argument("path", type=Path)
     scan_parser.add_argument("--json", action="store_true")

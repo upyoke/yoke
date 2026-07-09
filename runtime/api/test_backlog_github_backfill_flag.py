@@ -30,8 +30,8 @@ from yoke_core.domain.project_github_auth import ProjectGithubAuth
 _OK_AUTH = ProjectGithubAuth(
     project="buzz",
     repo="org/buzz",
-    token="ghp_fake",
-    env={"GH_TOKEN": "ghp_fake"},
+    token="ghs_fake",
+    env={"GH_TOKEN": "ghs_fake"},
 )
 
 

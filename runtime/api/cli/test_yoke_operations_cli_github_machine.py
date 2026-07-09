@@ -168,8 +168,8 @@ def test_github_status_reads_app_config_offline(
     _assert_no_project_runtime_auth(json.loads(written_text))
 
 
-def test_verify_classic_result_carries_create_repos_capability() -> None:
-    """A classic PAT with the repo scope reports create=True on the result."""
+def test_verify_scoped_token_result_carries_create_repos_capability() -> None:
+    """A scope-bearing token with the repo scope reports create=True on the result."""
     from yoke_cli.config import github_machine_verify
 
     with github_server(expected_token=TOKEN) as server:
@@ -182,12 +182,12 @@ def test_verify_classic_result_carries_create_repos_capability() -> None:
     assert create["create_private"] is True
 
 
-def test_verify_classic_no_repo_scope_reports_cannot_create() -> None:
-    """A classic PAT missing the repo scope still fails the scope contract.
+def test_verify_scoped_token_no_repo_scope_reports_cannot_create() -> None:
+    """A scope-bearing token missing the repo scope still fails the scope contract.
 
-    The repo+workflow contract requires both, so a public_repo+workflow PAT is
-    rejected before create-capability matters; but a repo-less PAT that DID
-    satisfy the contract (repo present) is the only classic case that reaches
+    The repo+workflow contract requires both, so a public_repo+workflow GitHub App user token is
+    rejected before create-capability matters; but a repo-less GitHub App user token that DID
+    satisfy the contract (repo present) is the only scoped_token case that reaches
     the create_repos derivation, so the create-False path is exercised directly
     through the classifier instead (see the contract suite). This test guards
     the contract-rejection wiring the create classifier sits behind.
@@ -212,23 +212,23 @@ def test_verify_classic_no_repo_scope_reports_cannot_create() -> None:
             raise AssertionError("expected the missing-repo-scope contract error")
 
 
-def test_verify_fine_grained_result_carries_unknown_create_repos(monkeypatch) -> None:
-    """A fine-grained PAT reports create_repos.can_create is None (unknown)."""
-    from yoke_cli.config import github_machine_fine_grained
+def test_verify_repository_token_result_carries_unknown_create_repos(monkeypatch) -> None:
+    """A repository-scoped GitHub App user token reports create_repos.can_create is None (unknown)."""
+    from yoke_cli.config import github_machine_repository_token
     from yoke_cli.config import github_machine_verify
 
     def _fake_read_access(api_url, token, identity, repo_full_name, *, request_json):
         return {
             "ok": True,
-            "mode": "fine_grained_non_mutating",
+            "mode": "repository_token_non_mutating",
             "repo": repo_full_name,
             "summary": "non-mutating read checks passed",
         }
 
     monkeypatch.setattr(
-        github_machine_fine_grained, "verify_read_access", _fake_read_access
+        github_machine_repository_token, "verify_read_access", _fake_read_access
     )
-    # No X-OAuth-Scopes header forces the fine-grained branch.
+    # No X-OAuth-Scopes header forces the repository-scoped branch.
     with github_server(expected_token=TOKEN, oauth_scopes="") as server:
         result = github_machine_verify.verify(
             server.url, TOKEN, github_repo="machine-user/private-tool"
@@ -237,7 +237,7 @@ def test_verify_fine_grained_result_carries_unknown_create_repos(monkeypatch) ->
     create = result["permissions"]["create_repos"]
     assert create["can_create"] is None
     assert create["create_private"] is None
-    assert create["basis"] == "fine_grained_undetectable"
+    assert create["basis"] == "repository_token_undetectable"
 
 
 def _assert_token_absent(token: str, *texts: str) -> None:

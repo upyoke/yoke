@@ -24,8 +24,8 @@ from yoke_core.domain.project_github_auth import (
 _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
-    token="ghp_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghp_test_token"},
+    token="ghs_test_token",
+    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 
@@ -89,7 +89,7 @@ def _resolver_ok(monkeypatch):
 
 class TestResolveToken:
     def test_returns_token_on_success(self, _resolver_ok):
-        assert github_actions_rest.resolve_token("yoke") == "ghp_test_token"
+        assert github_actions_rest.resolve_token("yoke") == "ghs_test_token"
 
     def test_exits_4_on_missing_token(self, monkeypatch, capsys):
         monkeypatch.setattr(
@@ -132,7 +132,7 @@ class TestLatestWorkflowRun:
         }
         with _fake_urls(monkeypatch, [payload]) as calls:
             result = github_actions_rest.latest_workflow_run(
-                "o/r", "deploy.yml", branch="main", token="ghp_x"
+                "o/r", "deploy.yml", branch="main", token="ghs_x"
             )
         assert result is not None
         assert result["id"] == 12345
@@ -144,7 +144,7 @@ class TestLatestWorkflowRun:
     def test_returns_none_on_empty_runs(self, monkeypatch):
         with _fake_urls(monkeypatch, [{"workflow_runs": []}]):
             result = github_actions_rest.latest_workflow_run(
-                "o/r", "deploy.yml", branch="main", token="ghp_x"
+                "o/r", "deploy.yml", branch="main", token="ghs_x"
             )
         assert result is None
 
@@ -158,7 +158,7 @@ class TestLatestWorkflowRun:
             from yoke_core.domain import gh_rest_transport
             monkeypatch.setattr(gh_rest_transport, "sleep", lambda _s: None)
             result = github_actions_rest.latest_workflow_run(
-                "o/r", "deploy.yml", branch="main", token="ghp_x"
+                "o/r", "deploy.yml", branch="main", token="ghs_x"
             )
         assert result is None
 
@@ -167,7 +167,7 @@ class TestRestHelpers:
     def test_get_returns_parsed_body(self, monkeypatch):
         with _fake_urls(monkeypatch, [{"status": "completed"}]):
             data = github_actions_rest.rest_get(
-                "/repos/o/r/actions/runs/1", token="ghp_x"
+                "/repos/o/r/actions/runs/1", token="ghs_x"
             )
         assert data == {"status": "completed"}
 
@@ -177,7 +177,7 @@ class TestRestHelpers:
             "https://example/foo", 404, "Not Found", {}, None  # type: ignore[arg-type]
         )
         with _fake_urls(monkeypatch, [err]):
-            data = github_actions_rest.rest_get("/repos/o/r/missing", token="ghp_x")
+            data = github_actions_rest.rest_get("/repos/o/r/missing", token="ghs_x")
         assert data is None
 
     def test_post_dispatches_body(self, monkeypatch):
@@ -185,7 +185,7 @@ class TestRestHelpers:
             github_actions_rest.rest_post(
                 "/repos/o/r/actions/workflows/ci.yml/dispatches",
                 body={"ref": "main"},
-                token="ghp_x",
+                token="ghs_x",
             )
         assert calls and "/actions/workflows/ci.yml/dispatches" in calls[0]
 

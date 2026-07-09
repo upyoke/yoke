@@ -1,4 +1,4 @@
-"""Linkage and heavy-fetch stages for resync detection (PAT REST)."""
+"""Linkage and heavy-fetch stages for resync detection (bearer-token REST)."""
 
 from __future__ import annotations
 

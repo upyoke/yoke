@@ -80,7 +80,7 @@ def test_fake_dir_returns_canned_success(monkeypatch, tmp_path):
     monkeypatch.setenv(fakes.FAKE_DIR_ENV, str(tmp_path))
     resp = t.request_with_retry(
         t.RestRequest(method="POST", path="/repos/o/r/pulls"),
-        token="ghp_x",
+        token="ghs_x",
     )
     assert resp.status == 200
     assert resp.body == {"number": 33, "url": "u"}
@@ -93,7 +93,7 @@ def test_fake_dir_returns_canned_error(monkeypatch, tmp_path):
     with pytest.raises(t.RestUnprocessableError):
         t.request_with_retry(
             t.RestRequest(method="POST", path="/repos/o/r/pulls"),
-            token="ghp_x",
+            token="ghs_x",
         )
 
 
@@ -101,7 +101,7 @@ def test_fake_dir_missing_file_raises(monkeypatch, tmp_path):
     monkeypatch.setenv(fakes.FAKE_DIR_ENV, str(tmp_path))
     with pytest.raises(t.RestTransportError):
         t.request_with_retry(
-            t.RestRequest(method="GET", path="/missing"), token="ghp_x"
+            t.RestRequest(method="GET", path="/missing"), token="ghs_x"
         )
 
 
@@ -122,7 +122,7 @@ def test_fake_dir_query_in_filename(monkeypatch, tmp_path):
             path="/repos/o/r/pulls",
             query={"head": "o:b", "state": "open"},
         ),
-        token="ghp_x",
+        token="ghs_x",
     )
     assert resp.body == [{"number": 7, "url": "u"}]
 
@@ -144,7 +144,7 @@ def test_max_attempts_one_disables_retry(monkeypatch):
     with pytest.raises(t.RestServerError):
         t.request_with_retry(
             t.RestRequest(method="GET", path="/x"),
-            token="ghp_x",
+            token="ghs_x",
             max_attempts=1,
         )
 

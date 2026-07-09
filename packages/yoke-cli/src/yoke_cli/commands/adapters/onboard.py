@@ -566,7 +566,7 @@ def _reject_project_github_token_args(parsed: argparse.Namespace) -> bool:
     ):
         return False
     print(
-        "error: project GitHub token inputs are no longer supported; use "
+        "error: project-supplied GitHub credentials are no longer supported; use "
         "--github-adoption app-binding or --github-adoption backlog-only",
         file=sys.stderr,
     )

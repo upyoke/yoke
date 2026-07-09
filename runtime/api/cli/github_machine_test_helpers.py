@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
-TOKEN = "ghp_product_safe_machine_secret"
+TOKEN = "ghs_product_safe_machine_secret"
 
 
 class GitHubServer:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
-from yoke_core.engines.doctor_hc_gh_skip import GH_PAT_NOT_CONFIGURED_SKIP_REASON
+from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
 from yoke_core.engines.resync_detect import DriftRecord
 
 
@@ -135,14 +135,14 @@ def _emit_doctor_format(
 
 
 def _emit_gh_unavailable_doctor() -> None:
-    """Emit SKIP for all GitHub-dependent HCs when the project PAT is not
+    """Emit SKIP for all GitHub-dependent HCs when the project GitHub App auth is not
     configured.
 
     Routes through the canonical
-    :data:`yoke_core.engines.doctor_hc_gh_skip.GH_PAT_NOT_CONFIGURED_SKIP_REASON`
+    :data:`yoke_core.engines.doctor_hc_gh_skip.GH_APP_AUTH_UNAVAILABLE_SKIP_REASON`
     so the operator sees one consistent message across the doctor report.
     """
-    skip_msg = GH_PAT_NOT_CONFIGURED_SKIP_REASON.format(project="yoke")
+    skip_msg = GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke")
     for hc in [
         "HC-missing-gh-issues|Missing GitHub issues",
         "HC-title-drift|Title drift",

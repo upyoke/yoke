@@ -1,9 +1,9 @@
 """``yoke github-actions`` family adapters.
 
-Atlas-unified PAT-backed GitHub Actions surfaces. Each adapter
+Atlas-unified bearer-token GitHub Actions surfaces. Each adapter
 dispatches its function id, which calls into
 :mod:`yoke_core.domain.gh_rest_transport` using the project's stored
-PAT — no host GitHub CLI binary required:
+GitHub App auth — no host GitHub CLI binary required:
 
 - ``check-ci`` -> ``github_actions.check_ci`` (main-branch advisory;
   ``--wait`` / ``--timeout`` poll CLIENT-side until the run completes —
@@ -67,7 +67,7 @@ def github_actions_check_ci(args: List[str]) -> int:
             "--wait polls client-side until the run completes or "
             "--timeout elapses (state 'timeout') — each poll is one "
             "single-shot dispatch, so waiting works over the https "
-            "relay too. PAT-backed REST; no host gh binary required."
+            "relay too. bearer-token REST; no host gh binary required."
         ),
     )
     parser.add_argument("repo", help="GitHub repo slug, e.g. upyoke/yoke.")
@@ -93,7 +93,7 @@ def github_actions_check_ci(args: List[str]) -> int:
     )
     parser.add_argument(
         "--project", default="yoke",
-        help="Project capability owning the PAT (default: yoke).",
+        help="Project capability owning the GitHub App repo binding (default: yoke).",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -147,7 +147,7 @@ def _add_repo_name_project(
     parser.add_argument("name", help=f"Actions {noun} name, e.g. {example}.")
     parser.add_argument(
         "--project", default="yoke",
-        help="Project capability owning the PAT (default: yoke).",
+        help="Project capability owning the GitHub App repo binding (default: yoke).",
     )
 
 
@@ -155,7 +155,7 @@ def github_actions_secret_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github-actions secret set",
         description=(
-            "Create or update a repo Actions secret via PAT-backed REST "
+            "Create or update a repo Actions secret via bearer-token REST "
             "(libsodium sealed-box encryption against the repo public "
             "key; no host GitHub CLI). VALUE is the default input. "
             "--value-file and --value-stdin are available for scripts; "
@@ -248,7 +248,7 @@ def github_actions_variable_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github-actions variable set",
         description=(
-            "Create or update a repo Actions variable via PAT-backed "
+            "Create or update a repo Actions variable via bearer-token "
             "REST (no host GitHub CLI). Variables are non-secret "
             "plaintext config (e.g. a CI master gate), so the value is "
             "a plain flag. For secret material use `yoke "
@@ -297,7 +297,7 @@ def github_actions_variable_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github-actions variable get",
         description=(
-            "Read a repo Actions variable via PAT-backed REST (no host "
+            "Read a repo Actions variable via bearer-token REST (no host "
             "GitHub CLI). Read-only sibling of `variable set` for "
             "confirming arming-gate state (e.g. why a workflow job "
             "self-skipped on its `vars` condition) without mutating "

@@ -91,8 +91,8 @@ def _stub_project_github_auth():
     """
     def _ok(project, **kwargs):
         return ProjectGithubAuth(
-            project=project, repo="org/buzz", token="ghp_test",
-            env={"GH_TOKEN": "ghp_test"},
+            project=project, repo="org/buzz", token="ghs_test",
+            env={"GH_TOKEN": "ghs_test"},
         )
 
     with patch(
@@ -171,7 +171,7 @@ class TestSyncTaskLabel:
 
 class TestSyncTaskBody:
     def test_body_sync_routes_through_typed_rest(self, db):
-        """A body sync against a project with a resolved PAT routes the
+        """A body sync against a project with a resolved GitHub App auth routes the
         validator (existence check) and the body-write step through the
         typed ``github_rest.*`` surface — no argv shim involved."""
         insert_item(db, id=1246, type="epic", status="implementing", project="buzz")

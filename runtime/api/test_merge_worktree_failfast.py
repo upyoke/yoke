@@ -2,11 +2,11 @@
 
 These tests cover the production regressions surfaced during the
 harness-hook usher incident on 2026-04-10, and the REST migration in
-YOK-1839 (PAT-driven REST instead of ``gh`` CLI). Each test seeds:
+YOK-1839 (bearer-token REST instead of ``gh`` CLI). Each test seeds:
 
 - a ``yoke`` project with ``github_repo='anthropics/yoke'``
 - a ``github`` project capability + literal ``token`` secret
-- ``items.project_id`` pointing at Yoke so the engine's PAT precondition resolves
+- ``items.project_id`` pointing at Yoke so the engine's auth precondition resolves
 - ``YOKE_REST_FAKE_DIR`` pointing at per-test canned response files
   produced by :mod:`runtime.api.merge_worktree_test_rest_fakes`
 

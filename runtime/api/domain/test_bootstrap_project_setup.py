@@ -17,6 +17,7 @@ from yoke_core.domain.bootstrap_project import (
 from yoke_core.domain.bootstrap_project_test_helpers import (
     _install_fake_rest,
     bootstrap_seeded_db,
+    install_fake_project_github_auth,
     register_bootstrap_backend_checkout,
     write_fake_rendered_workflows,
 )
@@ -41,7 +42,6 @@ def test_load_setup_config_prefers_env_key_path(tmp_path: Path, monkeypatch) -> 
     assert cfg.github_repo == "example-org/buzz"
     assert cfg.display_name == "Buzz"
     assert cfg.ssh_key_path == env_key
-    assert cfg.github_token == "ghp_fake_token_123"
 
 
 def test_run_setup_resolves_auth_with_active_connection(
@@ -52,7 +52,8 @@ def test_run_setup_resolves_auth_with_active_connection(
     seen: dict[str, object] = {}
 
     class Resolved:
-        token = "ghp_fake_token_123"
+        token = "ghs_fake_token_123"
+        installation_id = "12345"
 
     def fake_resolve(project, *, db_path=None, conn=None, base_env=None):
         seen["project"] = project
@@ -91,7 +92,7 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
     ssh_key.write_text("fake-ssh-key")
 
     def fake_run(cmd, *, stdin=None, cwd=None, env=None):
-        # Every GitHub interaction routes through PAT-backed REST — the
+        # Every GitHub interaction routes through bearer-token REST — the
         # host gh CLI is never invoked.
         if cmd and cmd[0] == "gh":
             raise AssertionError(f"unexpected gh shell-out: {cmd}")
@@ -126,6 +127,7 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
         )
 
         monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", fake_run)
+        install_fake_project_github_auth(monkeypatch)
         rest_calls = _install_fake_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
@@ -134,7 +136,7 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
         output = capsys.readouterr().out
         assert "Step 2: Creating GitHub Secrets" in output
         assert "Push successful" in output
-        # PAT-backed REST replaced the prior `gh api user` + `gh api PUT
+        # bearer-token REST replaced the prior `gh api user` + `gh api PUT
         # environments` shellouts.
         methods_paths = {(m, p) for m, p in rest_calls}
         assert ("GET", "/user") in methods_paths
@@ -150,7 +152,7 @@ def test_run_setup_prints_tls_instructions_when_missing(tmp_path: Path, monkeypa
     ssh_key.write_text("fake-ssh-key")
 
     def fake_run(cmd, *, stdin=None, cwd=None, env=None):
-        # Every GitHub interaction routes through PAT-backed REST — the
+        # Every GitHub interaction routes through bearer-token REST — the
         # host gh CLI is never invoked.
         if cmd and cmd[0] == "gh":
             raise AssertionError(f"unexpected gh shell-out: {cmd}")
@@ -178,6 +180,7 @@ def test_run_setup_prints_tls_instructions_when_missing(tmp_path: Path, monkeypa
         )
 
         monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", fake_run)
+        install_fake_project_github_auth(monkeypatch)
         _install_fake_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
