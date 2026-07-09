@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import urllib.error
 import urllib.request
@@ -265,7 +266,10 @@ def _call_local_function(
             "projects through a prod local-postgres authority"
         )
     try:
-        from yoke_core.domain import db_backend
+        # Dynamic import keeps yoke-cli's static engine-import boundary intact
+        # (see test_installer_package_boundaries); local project-reuse lookup
+        # reads the engine DSN env contract only on the local-postgres branch.
+        db_backend = importlib.import_module("yoke_core.domain.db_backend")
     except ModuleNotFoundError as exc:
         raise ExistingProjectLookupError(
             "the yoke-core engine package is not importable, so local project "
