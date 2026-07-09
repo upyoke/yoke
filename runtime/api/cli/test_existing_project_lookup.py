@@ -105,6 +105,41 @@ def test_find_local_by_project_id_uses_local_dispatch(tmp_path, monkeypatch) -> 
     }]
 
 
+def test_find_local_by_project_id_accepts_local_project_without_github_repo(
+    tmp_path, monkeypatch
+) -> None:
+    def fake_call(**kwargs):
+        return {
+            "success": True,
+            "result": {
+                "row": {
+                    "id": "37",
+                    "slug": "local-project",
+                    "name": "Local Project",
+                    "github_repo": None,
+                    "default_branch": "main",
+                    "public_item_prefix": "LOC",
+                },
+            },
+        }
+
+    monkeypatch.setattr(existing_project_lookup, "_call_local_function", fake_call)
+
+    project = existing_project_lookup.find_local_by_project_id(
+        config_path=tmp_path / "config.json",
+        project_id=37,
+    )
+
+    assert project == existing_project_lookup.ExistingProject(
+        id=37,
+        slug="local-project",
+        name="Local Project",
+        github_repo="",
+        default_branch="main",
+        public_item_prefix="LOC",
+    )
+
+
 def test_find_local_by_project_id_requires_local_connection(tmp_path) -> None:
     with pytest.raises(
         existing_project_lookup.ExistingProjectLookupError,

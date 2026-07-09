@@ -301,8 +301,8 @@ def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:
     slug = _text(row.get("slug"))
     name = _text(row.get("name")) or slug
     github_repo = _text(row.get("github_repo"))
-    if not slug or not github_repo:
-        raise ExistingProjectLookupError("matched project row is missing slug or repo")
+    if not slug:
+        raise ExistingProjectLookupError("matched project row is missing slug")
     return ExistingProject(
         id=project_id,
         slug=slug,
