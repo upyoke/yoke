@@ -39,16 +39,22 @@ def apply_local_universe(
     it is never removed.
     """
     report["identity"] = {"checked": False, "ok": None, "status": "local-universe"}
-    onboard_apply_progress.emit(progress, "local-universe-init", env_name, "running")
+    universe_target = str(reuse.get("local_universe") or "create")
+    onboard_apply_progress.emit(
+        progress, "local-universe-init", universe_target, "running",
+    )
     try:
         local_report = local_universe_setup.run_local_init(
             config_path=str(cfg_path),
         )
     except local_universe_setup.LocalUniverseSetupError as exc:
         raise error_cls(str(exc)) from exc
-    onboard_apply_progress.emit(progress, "local-universe-init", env_name, "done")
+    onboard_apply_progress.emit(
+        progress, "local-universe-init", universe_target, "done",
+    )
     report["local_universe"] = {
         "born": bool(local_report.get("born")),
+        "repaired": bool(local_report.get("repaired")),
         "connection_written": bool(
             (local_report.get("connection") or {}).get("written")
         ),
