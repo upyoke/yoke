@@ -72,7 +72,7 @@ jobs:
           python -m pip install uv
 
       - name: Install build tooling
-        run: uv sync --all-packages --all-groups
+        run: uv sync --all-packages --all-groups --locked
 
       - name: Build and validate the release artifact contract
         run: |
