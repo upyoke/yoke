@@ -25,7 +25,7 @@ def build(kwargs: Mapping[str, Any]) -> dict[str, Any]:
         "destination": _text(kwargs.get("destination")),
         "mode": _text(kwargs.get("mode")),
         "check_identity": bool(kwargs.get("check_identity")),
-        "token_sources": _token_sources(kwargs),
+        "credential_sources": _credential_sources(kwargs),
         "machine_github": _machine_github(kwargs),
         "project": _project(kwargs, project_mode),
         "checkout_provenance": _checkout_provenance(project_mode, checkout),
@@ -36,8 +36,7 @@ def _machine_github(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "choice": _text(kwargs.get("machine_github_choice")),
         "api_url": _text(kwargs.get("machine_github_api_url")),
-        "token_source_kind": _text(kwargs.get("machine_github_token_source_kind")),
-        "token_file": _text(kwargs.get("machine_github_token_file")),
+        "authorization_source": _github_authorization_source(kwargs),
     }
 
 
@@ -61,27 +60,37 @@ def _project(kwargs: Mapping[str, Any], project_mode: str) -> dict[str, Any]:
             kwargs.get("existing_project_local_source")
         ),
         "github_adoption": _text(kwargs.get("project_github_adoption")),
-        "github_token_file": _text(kwargs.get("project_github_token_file")),
+        "github_binding": _github_binding(kwargs),
         "keep_existing_remote": bool(kwargs.get("project_keep_existing_remote")),
         "publish": _publish(kwargs.get("project_publish")),
         "clone": _clone(kwargs.get("project_clone")),
     }
 
 
-def _token_sources(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+def _credential_sources(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "yoke": {
             "kind": _text(kwargs.get("token_source_kind") or "argument"),
             "path": _text(kwargs.get("token_file")),
         },
-        "machine_github": {
-            "kind": _text(kwargs.get("machine_github_token_source_kind")),
-            "path": _text(kwargs.get("machine_github_token_file")),
+        "github_app": {
+            "machine": _github_authorization_source(kwargs),
+            "project": _github_binding(kwargs),
         },
-        "project_github": {
-            "kind": "file" if kwargs.get("project_github_token_file") else "",
-            "path": _text(kwargs.get("project_github_token_file")),
-        },
+    }
+
+
+def _github_authorization_source(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    choice = _text(kwargs.get("machine_github_choice"))
+    if choice == "connect":
+        return {"kind": "github_app_user_authorization"}
+    return {"kind": ""}
+
+
+def _github_binding(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "adoption": _text(kwargs.get("project_github_adoption")),
+        "repo": _text(kwargs.get("project_github_repo")),
     }
 
 

@@ -66,7 +66,7 @@ def friendly_publish_error(message: str) -> str:
     """Rewrite a GitHub create/push permission denial; return others unchanged."""
     if _PUBLISH_DENIED_RE.search(message):
         return (
-            "Your GitHub token doesn't have permission to create a repo. "
+            "GitHub authorization doesn't have permission to create a repo. "
             "Create the repo on GitHub first, then re-run and choose Clone or "
             "an existing folder."
         )

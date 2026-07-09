@@ -38,6 +38,7 @@ from yoke_contracts.machine_config.schema_transport import (
 )
 from yoke_contracts.machine_config.schema_github import (
     DEFAULT_GITHUB_API_URL, github_config, has_github_config,
+    GITHUB_AUTH_KIND_USER_AUTHORIZATION, GITHUB_AUTH_STATUSES,
     normalize_github_payload, validate_github_config,
 )
 from yoke_contracts.machine_config.schema_connections import (

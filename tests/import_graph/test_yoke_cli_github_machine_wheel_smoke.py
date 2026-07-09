@@ -1,8 +1,8 @@
-"""Product-wheel smoke for product-safe machine GitHub commands.
+"""Product-wheel smoke for product-safe machine GitHub App commands.
 
-The engine wheel (yoke-core) installs alongside the client; the GitHub
-machine commands stay a pure product-client flow with the engine present
-but inert, and never shell out to the ``gh`` CLI.
+The engine wheel (yoke-core) installs alongside the client; the GitHub machine
+commands stay a pure product-client flow with the engine present but inert, and
+never shell out to the ``gh`` CLI.
 """
 
 from __future__ import annotations
@@ -10,15 +10,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import threading
 from yoke_core.tools.build_release import create_seeded_pip_venv
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
 
 BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-TOKEN = "ghp_clean_wheel_machine_secret"
-
+REFRESH_SECRET = "github-app-refresh-secret"
 def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
     tmp_path: Path,
     product_wheelhouse: Path,
@@ -55,196 +51,76 @@ def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
         "assert importlib.util.find_spec('yoke_core') is not None",
     ], cwd=checkout, env=env)
 
-    with _github_server(expected_token=TOKEN) as api_url:
-        help_result = _run([str(yoke), "--help"], cwd=checkout, env=env)
-        assert "yoke github connect" in help_result.stdout
-        assert "yoke github status" in help_result.stdout
-        for args, flags in (
-            (
-                ("github", "connect", "--help"),
-                ("--token-file", "--github-repo", "--api-url", "--config"),
-            ),
-            (
-                ("github", "status", "--help"),
-                ("--config", "--github-repo", "--api-url", "--json"),
-            ),
-        ):
-            sub_help = _run([str(yoke), *args], cwd=checkout, env=env)
-            for flag in flags:
-                assert flag in sub_help.stdout
+    help_result = _run([str(yoke), "--help"], cwd=checkout, env=env)
+    assert "yoke github connect" in help_result.stdout
+    assert "yoke github status" in help_result.stdout
+    for args, flags, absent in (
+        (
+            ("github", "connect", "--help"),
+            ("--api-url", "--config", "--json"),
+            ("--token-file", "--github-repo", "--token-stdin"),
+        ),
+        (
+            ("github", "status", "--help"),
+            ("--config", "--api-url", "--offline", "--json"),
+            ("--github-repo",),
+        ),
+    ):
+        sub_help = _run([str(yoke), *args], cwd=checkout, env=env)
+        for flag in flags:
+            assert flag in sub_help.stdout
+        for flag in absent:
+            assert flag not in sub_help.stdout
 
-        connected = _run([
-            str(yoke), "github", "connect",
-            TOKEN,
-            "--api-url", api_url,
-            "--config", str(config),
-            "--json",
-        ], cwd=checkout, env=env)
-        connect_payload = json.loads(connected.stdout)
-        assert connect_payload["ok"] is True
-        assert connect_payload["operation"] == "github.connect"
-        assert connect_payload["identity"]["login"] == "machine-user"
-        assert {"read:org", "repo", "workflow"} <= set(
-            connect_payload["scopes"]
-        )
-        _assert_token_absent(
-            connected.stdout,
-            connected.stderr,
-            config.read_text("utf-8"),
-        )
+    refused = _run([
+        str(yoke), "github", "connect",
+        "--config", str(config),
+        "--json",
+    ], cwd=checkout, env=env, check=False)
+    assert refused.returncode == 1
+    refused_payload = json.loads(refused.stdout)
+    assert refused_payload["operation"] == "github.connect"
+    assert refused_payload["ok"] is False
+    assert refused_payload["connection_model"] == "github_app"
+    assert not (machine_home / "secrets" / "github.token").exists()
 
-        config_payload = json.loads(config.read_text("utf-8"))
-        stored_token = machine_home / "secrets" / "github.token"
-        assert config_payload["github"]["api_url"] == api_url
-        assert config_payload["github"]["credential_source"] == {
-            "kind": "token_file",
-            "path": str(stored_token),
-        }
-        assert stored_token.read_text("utf-8") == TOKEN + "\n"
-        assert config_payload["github"]["verified_login"] == "machine-user"
-        _assert_no_project_runtime_auth(config_payload)
+    refresh = machine_home / "secrets" / "github.user-refresh"
+    refresh.parent.mkdir(parents=True)
+    refresh.write_text(f"{REFRESH_SECRET}\n", encoding="utf-8")
+    config.write_text(json.dumps({
+        "schema_version": 1,
+        "github": {
+            "api_url": "https://api.github.com",
+            "app_slug": "yoke",
+            "client_id": "Iv1.example",
+            "authorization": {
+                "kind": "github_app_user_authorization",
+                "refresh_credential_ref": str(refresh),
+                "github_user_id": 1001,
+                "login": "machine-user",
+                "status": "authorized",
+                "scopes": [],
+            },
+        },
+    }, indent=2) + "\n", encoding="utf-8")
 
-        status = _run([
-            str(yoke), "github", "status",
-            "--config", str(config),
-            "--api-url", api_url,
-            "--json",
-        ], cwd=checkout, env=env)
-        status_payload = json.loads(status.stdout)
-        assert status_payload["ok"] is True
-        assert status_payload["operation"] == "github.status"
-        assert status_payload["api_url"] == api_url
-        assert status_payload["identity"]["login"] == "machine-user"
-        assert {"machine-user", "octo-org"} <= set(status_payload["access"]["owners"])
-        assert {
-            "machine-user/private-tool",
-            "octo-org/app",
-        } <= set(status_payload["access"]["repos"])
-        _assert_token_absent(
-            status.stdout,
-            status.stderr,
-            config.read_text("utf-8"),
-        )
+    status = _run([
+        str(yoke), "github", "status",
+        "--config", str(config),
+        "--offline",
+        "--json",
+    ], cwd=checkout, env=env)
+    status_payload = json.loads(status.stdout)
+    assert status_payload["ok"] is True
+    assert status_payload["operation"] == "github.status"
+    assert status_payload["api_url"] == "https://api.github.com"
+    assert status_payload["identity"]["login"] == "machine-user"
+    assert status_payload["authorization"]["present"] is True
+    _assert_token_absent(status.stdout, status.stderr, config.read_text("utf-8"))
 
     assert readme.read_text("utf-8") == "# external\n"
     assert sorted(path.name for path in checkout.iterdir()) == ["README.md"]
     assert not gh_marker.exists()
-
-class _GitHubServer:
-    def __init__(self, *, expected_token: str) -> None:
-        self.expected_token = expected_token
-        self.server: ThreadingHTTPServer | None = None
-        self.thread: threading.Thread | None = None
-
-    def __enter__(self) -> str:
-        expected = self.expected_token
-
-        class Handler(BaseHTTPRequestHandler):
-            def do_GET(self) -> None:  # noqa: N802
-                path = urlsplit(self.path).path
-                if self.headers.get("Authorization") != f"Bearer {expected}":
-                    self._write_json(401, {"message": "Bad credentials"})
-                    return
-                if path == "/user":
-                    self._write_json(
-                        200,
-                        {"login": "machine-user", "id": 1001, "type": "User"},
-                        extra_headers={
-                            "X-OAuth-Scopes": "repo, workflow, read:org",
-                            "X-Accepted-OAuth-Scopes": "user, repo",
-                        },
-                    )
-                    return
-                if path == "/user/orgs":
-                    self._write_json(
-                        200,
-                        [{"login": "octo-org", "id": 2002, "type": "Organization"}],
-                    )
-                    return
-                if path == "/user/repos":
-                    self._write_json(
-                        200,
-                        [
-                            {
-                                "full_name": "machine-user/private-tool",
-                                "private": True,
-                                "owner": {
-                                    "login": "machine-user",
-                                    "type": "User",
-                                },
-                                "permissions": {
-                                    "admin": True,
-                                    "push": True,
-                                    "pull": True,
-                                },
-                            },
-                            {
-                                "full_name": "octo-org/app",
-                                "private": True,
-                                "owner": {
-                                    "login": "octo-org",
-                                    "type": "Organization",
-                                },
-                                "permissions": {
-                                    "admin": False,
-                                    "push": True,
-                                    "pull": True,
-                                },
-                            },
-                        ],
-                    )
-                    return
-                if path == "/rate_limit":
-                    self._write_json(
-                        200,
-                        {
-                            "resources": {
-                                "core": {
-                                    "limit": 5000,
-                                    "remaining": 4999,
-                                }
-                            }
-                        },
-                    )
-                    return
-                self._write_json(404, {"message": f"not found: {path}"})
-
-            def _write_json(
-                self,
-                status: int,
-                payload: object,
-                *,
-                extra_headers: dict[str, str] | None = None,
-            ) -> None:
-                body = json.dumps(payload).encode()
-                self.send_response(status)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                for key, value in (extra_headers or {}).items():
-                    self.send_header(key, value)
-                self.end_headers()
-                self.wfile.write(body)
-
-            def log_message(self, _format: str, *args) -> None:
-                return
-
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        host, port = self.server.server_address
-        return f"http://{host}:{port}"
-
-    def __exit__(self, *_exc: object) -> None:
-        if self.server is not None:
-            self.server.shutdown()
-            self.server.server_close()
-        if self.thread is not None:
-            self.thread.join(timeout=2)
-
-
-def _github_server(*, expected_token: str) -> _GitHubServer:
-    return _GitHubServer(expected_token=expected_token)
-
 
 def _product_env(
     machine_home: Path,
@@ -314,7 +190,7 @@ def _format_result(result: subprocess.CompletedProcess[str]) -> str:
 
 def _assert_token_absent(*texts: str) -> None:
     for text in texts:
-        assert TOKEN not in text
+        assert REFRESH_SECRET not in text
 
 def _assert_no_project_runtime_auth(payload: dict[str, object]) -> None:
     for key in (

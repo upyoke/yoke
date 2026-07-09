@@ -149,7 +149,9 @@ def normalize_run_id(run_id: str) -> str:
 
 
 def _restore_token_file(parsed: Any, snapshot: Mapping[str, Any]) -> None:
-    sources = _mapping(snapshot.get("token_sources"))
+    sources = _mapping(snapshot.get("credential_sources"))
+    if not sources:
+        sources = _mapping(snapshot.get("token_sources"))
     yoke = _mapping(sources.get("yoke"))
     if not (getattr(parsed, "token", None) or getattr(parsed, "token_file", None)):
         path = str(yoke.get("path") or "")

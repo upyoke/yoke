@@ -48,8 +48,8 @@ mirroring backlog content to that repo's issue tracker. This is the
   success and print one canonical mode-language line
   (`GitHub <operation> skipped for project '<slug>':
   github_sync_mode=backlog_only ...`). The flow continues; nothing
-  reaches GitHub. A backlog-only project needs no GitHub PAT — the skip
-  fires before auth resolution and is never reported as an auth failure.
+  reaches GitHub. A backlog-only project resolves no GitHub App token — the
+  skip fires before auth resolution and is never reported as an auth failure.
 - **Structured-field writes with `options.sync_github_body=true` no-op
   cleanly.** The body-sync step reports success (no `sync_warning`); the
   DB write and board rebuild proceed as normal.

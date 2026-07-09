@@ -2,12 +2,12 @@
 
 A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
 :class:`onboard_wizard_app.OnboardWizardApp`. It owns the source-dev-admin path:
-verify the connected Yoke token reaches Yoke's own project, verify a GitHub
-PAT reaches Yoke's repo, then smart-detect an existing local Yoke checkout
-(found → use it; many → pick; none → point at one or clone). Each failed check
-renders the recoverable error screen; success sets the source-dev-admin project
-fields and routes to Finish, where ``_project_report`` maps the mode onto
-``onboard_existing(operation="onboard.source-dev-admin")``.
+verify the connected Yoke token reaches Yoke's own project, verify GitHub
+authorization for Yoke's repo, then smart-detect an existing local Yoke
+checkout (found -> use it; many -> pick; none -> point at one or clone). Each
+failed check renders the recoverable error screen; success sets the
+source-dev-admin project fields and routes to Finish, where ``_project_report``
+maps the mode onto ``onboard_existing(operation="onboard.source-dev-admin")``.
 """
 
 from __future__ import annotations
@@ -86,21 +86,13 @@ class DevFlow:
         return True
 
     def _goto_dev_github_check(self: _Shell) -> None:
-        """Second grant: a GitHub PAT that can read Yoke's repo.
-
-        Reuse the connected machine GitHub PAT when there is one; otherwise
-        prompt for a PAT with the same password input the rest of the wizard
-        uses, then run the repo-access check on whichever token we have.
-        """
+        """Second grant: GitHub authorization that can read Yoke's repo."""
         if self.result.machine_github_token:
             self._run_dev_github_check(self.result.machine_github_token)
             return
-        self._goto_input(
-            STEP_PROJECT, "Paste a GitHub token (PAT) for Yoke's repo.",
-            "Never shown on screen. Used to verify you can read Yoke's GitHub repo.",
-            placeholder="paste GitHub token", password=True,
-            allow_placeholder=False,
-            on_done=self._after_dev_github_pat,
+        self._goto_dev_error(
+            "Developing Yoke requires GitHub App access to Yoke's repo. "
+            "Connect GitHub after the App browser flow is available, then rerun onboarding."
         )
 
     def _after_dev_github_pat(self: _Shell, value: str) -> None:
@@ -113,7 +105,7 @@ class DevFlow:
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking Yoke GitHub access.",
-            message="Verifying this PAT can read Yoke's repo.",
+            message="Verifying GitHub authorization can read Yoke's repo.",
             work=lambda: self._check_dev_github_access(github_token),
             on_success=lambda _result: self._goto_dev_checkout(),
             on_error=lambda exc: self._goto_dev_error(str(exc)),

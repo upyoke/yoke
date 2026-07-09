@@ -2,9 +2,9 @@
 
 A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
 :class:`onboard_wizard_app.OnboardWizardApp`. It owns the clone path's screens
-after the clone folder: the public/private visibility split (public pastes a
-URL, private picks from the connected token's repos), the 3-way post-URL outcome
-(clone / make-it-mine / fork), and the make-it-mine new-repo visibility step.
+    after the clone folder: the public/private visibility split (public pastes a
+    URL, private picks from connected GitHub repos), the 3-way post-URL outcome
+    (clone / make-it-mine / fork), and the make-it-mine new-repo visibility step.
 Each answer is recorded onto ``self.result`` and routed back into the shared
 project step (``_goto_slug``) or, for make-it-mine, on through the reused publish
 owner-picker. Make-it-mine always keeps the source as a pull-only ``upstream``
@@ -59,7 +59,7 @@ class CloneFlow(CloneSourceFlow):
     # ── Clone visibility (public / private split) ───────────
 
     def _goto_clone_visibility(self: _Shell) -> None:
-        # Listing private repos needs the connected GitHub token. Without one,
+        # Listing private repos needs connected GitHub authorization. Without it,
         # the private branch can't enumerate anything, so the visibility screen
         # is omitted entirely and the clone path stays on the original paste-URL
         # input rather than offering a row that dead-ends.
@@ -92,7 +92,7 @@ class CloneFlow(CloneSourceFlow):
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking private repos.",
-            message="Loading repos this token can read.",
+            message="Loading repos available through GitHub authorization.",
             work=self._fetch_private_repos,
             on_success=self._show_private_repo_picker,
             on_error=self._goto_private_repo_picker_error,
@@ -109,10 +109,10 @@ class CloneFlow(CloneSourceFlow):
         from yoke_cli.config.onboard_wizard_app import _View
 
         if not repos:
-            # No private repos the token can reach: the picker would be an empty
+            # No private repos are reachable: the picker would be an empty
             # SelectionList whose Enter no-ops (action_choose guards on its rows),
             # and the screen has no input — a dead-end. Fall back to pasting the
-            # URL, mirroring the no-token and public branches.
+            # URL, mirroring the no-authorization and public branches.
             self._goto_clone_url_input()
             return
         self._goto(_View(
@@ -220,13 +220,13 @@ class CloneFlow(CloneSourceFlow):
     # ── Clone outcome (clone path only) ─────────────────────
 
     def _source_push_access(self: _Shell) -> Optional[bool]:
-        """Probe whether the connected token can push to the source repo.
+        """Probe whether GitHub authorization can push to the source repo.
 
         Runs the non-mutating write probe (``can_write_repo``) against the
-        cloned source's ``owner/repo``. Returns True when the token owns / can
-        push to it (writable variant), False or None otherwise (read-only
-        variant — the safe default, since "Clone it" has no side effects when
-        in doubt). Returns None without a connected token or a recognizable
+        cloned source's ``owner/repo``. Returns True when authorization can push
+        to it (writable variant), False or None otherwise (read-only variant —
+        the safe default, since "Clone it" has no side effects when in doubt).
+        Returns None without connected GitHub authorization or a recognizable
         source repo: there is nothing to probe, so the read-only variant shows.
         Single seam so tests patch one method.
         """
@@ -243,7 +243,7 @@ class CloneFlow(CloneSourceFlow):
             self._run_checking(
                 step=STEP_PROJECT,
                 title="Checking source access.",
-                message="Seeing whether this token can push to the source repo.",
+                message="Seeing whether GitHub authorization can push to the source repo.",
                 work=self._source_push_access,
                 on_success=self._show_clone_outcome,
                 on_error=lambda _exc: self._show_clone_outcome(None),

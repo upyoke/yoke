@@ -70,9 +70,18 @@ def canonical_example_payload() -> dict[str, Any]:
         "cache_dir": _contract().DEFAULT_CACHE_ROOT,
         "github": {
             "api_url": _contract().DEFAULT_GITHUB_API_URL,
-            "credential_source": {
-                "kind": "token_file",
-                "path": "~/.yoke/secrets/github.token",
+            "app_slug": "yoke",
+            "app_id": 12345,
+            "client_id": "Iv1.example",
+            "authorization": {
+                "kind": _contract().GITHUB_AUTH_KIND_USER_AUTHORIZATION,
+                "refresh_credential_ref": (
+                    "~/.yoke/secrets/github.user-refresh"
+                ),
+                "github_user_id": 1001,
+                "login": "example-user",
+                "status": "authorized",
+                "scopes": [],
             },
         },
         "projects": {

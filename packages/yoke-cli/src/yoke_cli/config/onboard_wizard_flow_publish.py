@@ -4,9 +4,8 @@ A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
 :class:`onboard_wizard_app.OnboardWizardApp`. It owns the "Also publish to
 GitHub?" follow-up offered for the create-new and existing-folder project modes
 (:data:`onboard_wizard_flow.PUBLISH_MODES`): the publish yes/no choice, the
-create-capability guard that blocks a doomed create+push, the publish-only PAT
-prompt, and the owner-picker + repo-name screens. Each answer is recorded onto
-``self.result`` and routed back into the shared project step
+GitHub App availability gate, and the owner-picker + repo-name screens. Each
+answer is recorded onto ``self.result`` and routed back into the shared project step
 (``_after_repo`` -> ``_after_branch``). It holds no report-assembly logic; the
 PublishRequest it populates is assembled in :class:`onboard_wizard.WizardResult`.
 
@@ -57,13 +56,10 @@ class PublishFlow:
             self.result.project_keep_existing_remote = True
             self._after_repo("")
             return
-        # The offer is shown whether or not a machine token is connected: with no
-        # token the Yes branch collects a PAT first, so the user always has a way
-        # to set up GitHub for a new project.
         self._goto(self._selection_view(
             STEP_PROJECT,
             "Also publish to GitHub?",
-            "Yoke creates the repo with your token and connects it as your remote.",
+            "Yoke creates the repo through the Yoke GitHub App and connects it as your remote.",
             project_screens.PUBLISH_ROWS, self._on_publish_choice,
         ))
 
@@ -71,9 +67,6 @@ class PublishFlow:
         if choice != project_screens.PUBLISH_YES:
             self.result.project_publish_to_github = False
             if getattr(self, "_publish_pat_only", False):
-                # A prior back-nav visit pasted a publish-only PAT; declining now
-                # drops it so it can't surface as a saved machine connection or
-                # as the reuse-machine project token at apply.
                 self.result.machine_github_token = None
                 self.result.machine_github_api_url = None
                 self.result.machine_github_token_source_kind = None
@@ -81,34 +74,42 @@ class PublishFlow:
             self._after_repo("")
             return
         self.result.project_publish_to_github = True
-        # Block the create+push unless the connected token's real publish-ability
-        # is a confirmed True. Publishing needs BOTH create and push-to-a-new-repo:
-        # an "all repositories" fine-grained token (can_publish True) qualifies and
-        # proceeds, but a select-repositories one (can create, can't push to a
-        # brand-new repo) and a classic-no-scope token (can't create) do not.
-        # Refuse before any repo is created so the user isn't left with an orphaned
-        # empty repo. With no machine token yet, the user pastes a publish-only PAT
-        # next — there is nothing to verify — so keep the existing prompt path.
-        if self.result.machine_github_token and not self._machine_can_publish():
-            self.result.project_publish_to_github = False
-            self._goto_publish_cannot_create()
-            return
-        # Publishing needs a token to create the repo. With none yet (machine
-        # GitHub skipped or its PAT never connected) collect one now — the owner
-        # picker and PublishRequest both read machine_github_token.
-        if not self.result.machine_github_token:
-            self._goto_publish_pat()
-            return
-        self._goto_owner_picker()
+        self._goto_publish_unavailable()
+
+    def _goto_publish_unavailable(self: _Shell) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        def _select(choice: str) -> None:
+            if choice == "backlog":
+                self.result.project_publish_to_github = False
+                self._after_repo("")
+                return
+            self._goto_publish_prompt()
+
+        self._goto(_View(
+            STEP_PROJECT,
+            lambda: steps.verification_body(
+                "GitHub App publishing is not available here yet.",
+                (
+                    "This setup flow no longer accepts manual GitHub credentials. "
+                    "Keep the project local or connect GitHub after the App flow is available."
+                ),
+                [
+                    "No repository will be created on GitHub during this run.",
+                    "The project can still be set up locally.",
+                ],
+                steps.GITHUB_APP_UNAVAILABLE_ROWS,
+                ok=False,
+            ),
+            _select,
+        ))
 
     def _machine_can_publish(self: _Shell) -> bool:
-        """True only when the connected token's publish-ability is confirmed True.
+        """True only when connected GitHub publish ability is confirmed True.
 
-        Reads ``capability.can_publish`` (create AND push-to-a-new-repo) recorded
-        by verification. Anything other than a confirmed True (None unknown or
-        False) is treated as cannot-publish so the doomed create+push never runs
-        and orphans an empty repo. This correctly allows an "all repositories"
-        fine-grained token and refuses a select-repositories one.
+        Reads ``capability.can_publish`` (create AND push-to-a-new-repo)
+        recorded by verification. Anything other than a confirmed True is
+        treated as cannot-publish so the doomed create+push never runs.
         """
         verification = self.result.machine_github_verification
         if not isinstance(verification, dict):
@@ -128,7 +129,7 @@ class PublishFlow:
         self._goto(_View(
             STEP_PROJECT,
             lambda: steps.verification_body(
-                "Your GitHub token can't publish a new repo.",
+                "GitHub authorization can't publish a new repo.",
                 self._cannot_publish_reason(),
                 [],
                 steps.VERIFY_OK_ROWS,
@@ -145,68 +146,21 @@ class PublishFlow:
         )
         can_create = capability.get("can_create") if isinstance(capability, dict) else None
         tail = (
-            " Create the repo on GitHub first and make sure this token has write "
-            "access to it, and then re-run yoke onboard."
+            " Create the repo on GitHub first and make sure GitHub authorization "
+            "has write access to it, and then re-run yoke onboard."
         )
         if can_create is True:
             return (
-                "This token is scoped to selected repositories, so it can't publish "
-                "a brand-new repo in one step." + tail
+                "GitHub authorization is scoped to selected repositories, so it "
+                "can't publish a brand-new repo in one step." + tail
             )
-        return "This token can't create a repo it can also push to." + tail
+        return "GitHub authorization can't create a repo it can also push to." + tail
 
     def _goto_publish_pat(self: _Shell) -> None:
-        self._goto_input(
-            STEP_PROJECT, "Paste a GitHub token (PAT) to publish with.",
-            "Never shown. Used to create the repo; not saved as a connection.",
-            placeholder="paste GitHub token", password=True,
-            allow_placeholder=False, on_done=self._after_publish_pat,
-        )
+        self._goto_publish_unavailable()
 
     def _after_publish_pat(self: _Shell, value: str) -> None:
-        # Verify the pasted PAT before proceeding so a token that can't create or
-        # push a new repo is caught HERE, inline, instead of orphaning an empty
-        # repo at Apply. The verification feeds the same publish-ability guard the
-        # machine-token path uses.
-        from yoke_cli.config.onboard_wizard_flow_github import (
-            verify_machine_github_token,
-        )
-
-        api_url = "https://api.github.com"
-
-        def _work() -> dict[str, Any]:
-            return verify_machine_github_token(api_url, value)
-
-        def _success(verification: Any) -> None:
-            # Store the prompted PAT as the machine token so the owner picker, the
-            # PublishRequest, and the later reuse-machine row all read it. Choice
-            # stays skip, so it publishes but is never saved as a connection.
-            self.result.machine_github_token = value
-            self.result.machine_github_api_url = api_url
-            self.result.machine_github_token_source_kind = "prompt"
-            self.result.machine_github_verification = verification
-            self._publish_pat_only = True  # provenance: set only to publish
-            if not self._machine_can_publish():
-                # The pasted PAT can't create/push a new repo — refuse before
-                # creating one, with the same reason copy the machine-token path
-                # shows.
-                self.result.project_publish_to_github = False
-                self._goto_publish_cannot_create()
-                return
-            self._goto_owner_picker()
-
-        def _error(exc: BaseException) -> None:
-            self._goto_publish_pat_error(str(exc))
-
-        self._run_checking(
-            step=STEP_PROJECT,
-            title="Checking GitHub token.",
-            message="Verifying this PAT before creating a repo.",
-            work=_work,
-            on_success=_success,
-            on_error=_error,
-            group="onboard-publish-token",
-        )
+        self._goto_publish_unavailable()
 
     def _goto_publish_pat_error(self: _Shell, message: str) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
@@ -222,9 +176,9 @@ class PublishFlow:
         self._goto(_View(
             STEP_PROJECT,
             lambda: steps.verification_body(
-                "That GitHub token could not be verified.",
+                "GitHub authorization could not be verified.",
                 message,
-                ["Check the token value and its GitHub PAT permissions."],
+                ["Check GitHub App access and network availability."],
                 steps.VERIFY_RETRY_ROWS,
                 ok=False,
             ),
@@ -235,7 +189,7 @@ class PublishFlow:
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking GitHub owners.",
-            message="Finding where this token can create the repo.",
+            message="Finding where GitHub authorization can create the repo.",
             work=self._fetch_repo_owners,
             on_success=self._show_owner_picker,
             on_error=self._goto_owner_picker_error,
@@ -266,7 +220,7 @@ class PublishFlow:
             lambda: steps.verification_body(
                 "Couldn't load GitHub owners.",
                 str(exc),
-                ["Check the token, GitHub availability, and network connection."],
+                ["Check GitHub App access, GitHub availability, and the network."],
                 steps.PROBE_RETRY_ROWS,
                 ok=False,
             ),

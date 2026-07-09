@@ -32,7 +32,8 @@ on consent when missing). Everything else is deferred until it is needed:
 - `git`: needed only at the `yoke onboard` project step, and only for a
   create, clone, import, or local-checkout mode. Machine-only onboarding needs
   no git.
-- Optional: a GitHub token if this machine should run GitHub product commands.
+- Optional: a Yoke GitHub App connection if this machine should run GitHub
+  product commands.
 
 Python is uv-provisioned, not a user prerequisite. Node.js, npm, and the
 Playwright browser runtime are deferred to first `yoke qa browser` use — see
@@ -82,15 +83,13 @@ reports; a conflicting existing `local` connection is only replaced with
 
 GitHub sync needs no server in any mode: sync executes wherever the
 engine dispatches. In local mode the engine dispatches in-process and
-authenticates with your own project GitHub token, stored as the project
-`github.token` capability secret inside the local universe — the same
-`capability_secrets` row every other deployment mode reads (see "Project
-GitHub Adoption Choices" below for how the token is adopted).
+authenticates through the Yoke GitHub App once a project is bound to an
+installed App repository.
 
 The repo connection is optional per project: set
 `github_sync_mode=backlog_only` on a project row and its backlog stays
-DB-only — every issue-sync surface skips it and no PAT is needed. Full
-semantics, the flip commands, and the safe ordering for changing a
+DB-only — every issue-sync surface skips it and no GitHub App token is
+resolved. Full semantics, the flip commands, and the safe ordering for changing a
 project's `github_repo` live in [github-sync.md](github-sync.md).
 
 Manage the embedded server directly when needed:
@@ -170,16 +169,17 @@ diagnostic to run after setup or when a project command cannot resolve context.
 
 ### 4. Optional Machine GitHub Connection
 
-Connect a machine GitHub credential only when this machine should run GitHub
-product commands such as repository checks or product onboarding previews.
+Connect the Yoke GitHub App only when this machine should run GitHub product
+commands such as repository checks or product onboarding previews.
 
 ```bash
-yoke github connect --token-stdin
+yoke github connect
 yoke github status
 ```
 
-This machine credential is not project runtime authority. A project GitHub
-capability is adopted explicitly during project create/import/onboard.
+The machine connection records GitHub App authorization metadata, not a PAT.
+Project runtime authority comes from a project repository binding to an
+installed App repository.
 
 ### 5. Set Up a Project
 
@@ -196,8 +196,7 @@ yoke project create ~/work/my-app \
   --github-repo owner/my-app \
   --default-branch main \
   --public-item-prefix APP \
-  --github-adoption store-token \
-  --github-token-stdin \
+  --github-adoption skip \
   --config ~/.yoke/config.json \
   --yes
 ```
@@ -225,7 +224,7 @@ yoke onboard project ~/work/my-app \
   --github-repo owner/my-app \
   --default-branch main \
   --public-item-prefix APP \
-  --github-adoption temporary-only \
+  --github-adoption skip \
   --config ~/.yoke/config.json \
   --dry-run \
   --json
@@ -248,20 +247,15 @@ when the project already exists in the active env.
 
 ### 6. Project GitHub Adoption Choices
 
-When `--github-repo` is present, choose how Yoke should treat project
-GitHub automation:
-
-- `temporary-only` uses the provided token for this onboarding run only.
-- `store-token` stores the provided token as the project `github.token`
-  capability secret.
-- `different-token` stores a separate project token instead of any machine
-  credential.
-- `skip` leaves GitHub automation unconfigured for this pass.
+When `--github-repo` is present, Yoke records the repository identity for
+code delivery. GitHub issue automation is enabled by binding the project to
+an installed Yoke GitHub App repository; use `--github-adoption skip` for
+backlog-only setup until that binding is available.
 
 Dry runs and JSON output include an `automation_preview` covering project
 writes plus GitHub labels, issue templates, pull request templates, Actions
 variables, Actions secrets, branch protection, and environment protection.
-Raw token values are never printed.
+GitHub App credentials are never printed.
 
 ### 7. Install Report, Checklist, and Handoff
 

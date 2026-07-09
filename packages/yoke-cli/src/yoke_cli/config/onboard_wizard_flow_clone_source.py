@@ -112,8 +112,8 @@ class CloneSourceFlow:
             return None
         raise RuntimeError(
             "Yoke couldn't reach that repo - check the URL"
-            + (", or that your token has access to it." if token
-               else " (a private repo needs a connected GitHub token).")
+            + (", or that GitHub authorization can access it." if token
+               else " (a private repo needs connected GitHub authorization).")
         )
 
     def _after_remote_checked(
@@ -175,7 +175,7 @@ class CloneSourceFlow:
             lambda: steps.verification_body(
                 "Couldn't reach that repo.",
                 str(exc),
-                ["Check the URL and, for private repos, the connected GitHub token."],
+                ["Check the URL and, for private repos, GitHub authorization."],
                 CLONE_REMOTE_ERROR_ROWS,
                 ok=False,
             ),

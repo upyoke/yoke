@@ -10,10 +10,6 @@ import pytest
 pytest.importorskip("textual")
 
 from yoke_cli.config import onboard_wizard_flow_connect  # noqa: E402
-from yoke_cli.config import onboard_wizard_flow_github  # noqa: E402
-from yoke_cli.config.github_machine_verify import (  # noqa: E402
-    GitHubMachineVerificationError,
-)
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
     STEP_CONNECT,
@@ -209,28 +205,28 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_machine_github_pat_verifies_before_project() -> None:
+def test_machine_github_connect_uses_app_unavailable_placeholder() -> None:
     app, _spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine github: connect
-            await type_text(pilot, "ghp_machinepat")
-            await pilot.press("enter")
-            text = await _wait_for_body_text(app, pilot, "GitHub token connected.")
-            assert "GitHub token connected." in text
-            assert "Success! GitHub token connected for" in text
-            assert "machine-user/private-tool" in text
-            await pilot.press("enter")  # Continue to Project
+            text = await _wait_for_body_text(
+                app, pilot, "GitHub App connection is not available here yet.",
+            )
+            assert "no longer accepts manual GitHub credentials" in text
+            assert "Use backlog only" in text
+            await pilot.press("enter")  # Use backlog only
             await pilot.pause()
             assert app.query_one(Stepper).active == STEP_PROJECT
-            assert app.result.machine_github_token == "ghp_machinepat"
+            assert app.result.machine_github_choice == "skip"
+            assert app.result.machine_github_token is None
 
     asyncio.run(scenario())
 
 
-def test_stored_machine_github_token_shows_reuse_feedback(tmp_path) -> None:
+def test_stored_machine_github_token_file_is_not_reused(tmp_path) -> None:
     token_file = tmp_path / "github.token"
     token_file.write_text("ghp_filemachinepat\n", encoding="utf-8")
     config = tmp_path / "config.json"
@@ -256,92 +252,15 @@ def test_stored_machine_github_token_shows_reuse_feedback(tmp_path) -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            text = await _wait_for_body_text(app, pilot, "GitHub token connected.")
-            assert "GitHub token connected." in text
-            assert "Using existing GitHub token file from machine config." in text
-
-    asyncio.run(scenario())
-
-
-def test_machine_github_token_file_verifies_before_project(tmp_path) -> None:
-    token_file = tmp_path / "github.token"
-    token_file.write_text("ghp_filemachinepat\n", encoding="utf-8")
-    app, _spy = make_app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
-            await pilot.press("down")   # machine github: Read token from a file
+            text = await _wait_for_body_text(app, pilot, "Connect GitHub?")
+            assert "Connect GitHub" in text
+            assert "Use backlog only" in text
+            assert "Read token from a file" not in text
+            await pilot.press("down")  # Use backlog only
             await pilot.press("enter")
-            await type_text(pilot, str(token_file))
-            await pilot.press("enter")
-            text = await _wait_for_body_text(app, pilot, "GitHub token connected.")
-            assert "GitHub token connected." in text
-            assert "Success! GitHub token connected for" in text
-            await pilot.press("enter")  # Continue to Project
             await pilot.pause()
             assert app.query_one(Stepper).active == STEP_PROJECT
-            assert app.result.machine_github_token == "ghp_filemachinepat"
-            assert app.result.machine_github_token_file == str(token_file)
-            assert app.result.machine_github_token_source_kind == "token_file"
-
-    asyncio.run(scenario())
-
-
-def test_machine_github_pat_error_can_retry(monkeypatch) -> None:
-    def reject(_api_url: str, _token: str) -> dict:
-        raise GitHubMachineVerificationError("missing required classic PAT scope")
-
-    monkeypatch.setattr(onboard_wizard_flow_github, "verify_machine_github_token", reject)
-    app, _spy = make_app()
-
-    async def scenario() -> None:
-        from textual.widgets import Input
-
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("enter")  # machine github: connect
-            await type_text(pilot, "ghp_bad")
-            await pilot.press("enter")
-            text = await _wait_for_body_text(
-                app, pilot, "GitHub token could not be verified.",
-            )
-            assert "GitHub token could not be verified." in text
-            assert "missing required classic PAT scope" in text
-            await pilot.press("enter")  # Try again
-            await pilot.pause()
-            assert app.query_one("#onboard-input", Input).password is True
             assert app.result.machine_github_token is None
-
-    asyncio.run(scenario())
-
-
-def test_machine_github_token_file_error_retries_file_input(tmp_path) -> None:
-    missing = tmp_path / "missing.token"
-    app, _spy = make_app()
-
-    async def scenario() -> None:
-        from textual.widgets import Input
-
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
-            await pilot.press("down")   # machine github: Read token from a file
-            await pilot.press("enter")
-            await type_text(pilot, str(missing))
-            await pilot.press("enter")
-            text = await _wait_for_body_text(
-                app, pilot, "GitHub token could not be verified.",
-            )
-            assert "GitHub token could not be verified." in text
-            assert "GitHub token file is missing" in text
-            await pilot.press("enter")  # Try again
-            await pilot.pause()
-            token_input = app.query_one("#onboard-input", Input)
-            assert token_input.password is False
-            assert app.result.machine_github_token is None
-            assert app.result.machine_github_token_file is None
 
     asyncio.run(scenario())
 
