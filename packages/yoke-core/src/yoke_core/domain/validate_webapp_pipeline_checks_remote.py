@@ -2,11 +2,11 @@
 
 Owns Section 3 (GitHub Actions infrastructure), Section 4 (Yoke pipeline
 entrypoint presence), Section 5 (deployment flow readiness), and Section 6
-(SSH connectivity). GitHub probes route through the PAT-backed REST
+(SSH connectivity). GitHub probes route through the App-backed REST
 transport (``gh_rest_transport.request_with_retry``). The repo-scoped
 GitHub Actions secrets listing (``GET /repos/{o}/{n}/actions/secrets``)
-is reachable with a standard PAT and is the only secret enumeration
-this validator performs.
+uses the App bearer token resolved for the project and is the only secret
+enumeration this validator performs.
 """
 
 from __future__ import annotations
@@ -67,14 +67,12 @@ def _check_github_actions_infrastructure(
         finally:
             conn.close()
 
-    # 3a. Canonical project GitHub auth resolves. PAT-backed REST is the
-    # GitHub transport now; the host ``gh`` CLI is NOT a Yoke
-    # prerequisite. A typed resolver error names the gap exactly
-    # (missing capability, missing token, bad env source) and
-    # ``repair_command_hint`` directs operators to the canonical
-    # ``yoke projects capability secret set`` call. Skip when the
-    # control-plane marker is
-    # absent; ``_check_database_prerequisites`` already surfaced that as a FAIL.
+    # 3a. Canonical project GitHub auth resolves. App-backed REST is the
+    # GitHub transport now; the host ``gh`` CLI is NOT a Yoke prerequisite. A
+    # typed resolver error names the binding, installation, permission, or
+    # credential gap and ``repair_command_hint`` directs operators to the
+    # canonical repair. Skip when the control-plane marker is absent;
+    # ``_check_database_prerequisites`` already surfaced that as a FAIL.
     token: str = ""
     if ctx.control_plane_marker.is_file():
         try:
@@ -119,7 +117,7 @@ def _check_github_actions_infrastructure(
             f"Run bootstrap: python3 -m yoke_core.domain.bootstrap_project cli {project_slug}",
         )
 
-    # 3c. GitHub Actions secrets (repo-scoped — standard PAT scope).
+    # 3c. GitHub Actions secrets (repo-scoped App permission).
     if token and github_repo:
         secret_names = _rest_actions_secret_names(github_repo, token)
         for sec in (

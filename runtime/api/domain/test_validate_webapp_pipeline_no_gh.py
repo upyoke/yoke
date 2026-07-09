@@ -1,18 +1,17 @@
-"""validate_webapp_pipeline: PAT-only behavior and no-gh-on-laptop coverage.
+"""validate_webapp_pipeline: App-backed REST and no-gh-on-laptop coverage.
 
 Companion to ``test_validate_webapp_pipeline.py`` /
 ``test_validate_webapp_pipeline_auth.py`` / ``..._misc.py``. Verifies
-YOK-1843 task 5 contract on the remote-checks module:
+the remote-checks module contract:
 
 - ``_check_github_actions_infrastructure`` runs without probing
   ``shutil.which('gh')``.
 - The repo-scoped GitHub Actions secrets listing
   (``GET /repos/{owner}/{name}/actions/secrets``) and the production
   environment lookup (``GET /repos/{owner}/{name}/environments``) both
-  route through the PAT-backed REST transport.
+  route through the App-backed REST transport.
 - The allowlisted environment-scoped enumeration is SKIPped cleanly when
-  the resolver yields no token (the elevated-scope branch is not
-  reachable without a valid PAT).
+  the resolver yields no token.
 """
 
 from __future__ import annotations
@@ -31,6 +30,7 @@ from yoke_core.domain.validate_webapp_pipeline import (
     ValidateContext,
     run_validation,
 )
+from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
@@ -69,6 +69,35 @@ CREATE TABLE capability_secrets (
   source TEXT NOT NULL DEFAULT 'literal' CHECK(source = 'literal'),
   UNIQUE(project_id, type, key)
 );
+CREATE TABLE github_app_installations (
+  id INTEGER PRIMARY KEY,
+  installation_id TEXT NOT NULL UNIQUE,
+  account_id TEXT NOT NULL,
+  account_login TEXT NOT NULL,
+  account_type TEXT NOT NULL,
+  repository_selection TEXT NOT NULL DEFAULT 'selected',
+  permissions TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'active',
+  last_verified_at TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE project_github_repo_bindings (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL,
+  installation_id TEXT NOT NULL,
+  repository_id TEXT,
+  github_repo TEXT NOT NULL,
+  default_branch TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  permissions TEXT NOT NULL DEFAULT '{}',
+  last_verified_at TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(project_id)
+);
 CREATE TABLE deployment_flows (
   id TEXT PRIMARY KEY,
   project_id INTEGER NOT NULL,
@@ -82,8 +111,7 @@ CREATE TABLE deployment_flows (
 def _init_db(
     db_dir: Path,
     *,
-    include_token: bool = True,
-    secret_names: list[str] | None = None,
+    include_app_auth: bool = True,
 ):
     """Yield a backend-routed control-plane marker with the pipeline schema.
 
@@ -110,13 +138,73 @@ def _init_db(
             conn.execute(
                 "INSERT INTO project_capabilities (project_id, type, settings) "
                 f"VALUES ({p}, {p}, {p})",
-                (2, "github", json.dumps({"repo": "example-org/buzz"})),
+                (
+                    2,
+                    "github",
+                    json.dumps({
+                        "auth_model": "github_app",
+                        "app_issuer": "Iv1.validator",
+                        "private_key_secret_key": "app_private_key",
+                    }),
+                ),
             )
-            if include_token:
+            if include_app_auth:
                 conn.execute(
                     "INSERT INTO capability_secrets (project_id, type, key, value) "
                     f"VALUES ({p}, {p}, {p}, {p})",
-                    (2, "github", "token", "gho_realtoken"),
+                    (2, "github", "app_private_key", "test-private-key"),
+                )
+                conn.execute(
+                    "INSERT INTO github_app_installations "
+                    "(installation_id, account_id, account_login, account_type, "
+                    "repository_selection, permissions, status, created_at, updated_at) "
+                    f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
+                    (
+                        "12345",
+                        "9988",
+                        "example-org",
+                        "Organization",
+                        "selected",
+                        json.dumps({
+                            "metadata": "read",
+                            "issues": "write",
+                            "pull_requests": "write",
+                            "contents": "write",
+                            "actions": "write",
+                            "workflows": "write",
+                            "secrets": "write",
+                            "variables": "write",
+                        }),
+                        "active",
+                        "2026-01-01T00:00:00Z",
+                        "2026-01-01T00:00:00Z",
+                    ),
+                )
+                conn.execute(
+                    "INSERT INTO project_github_repo_bindings "
+                    "(project_id, installation_id, repository_id, github_repo, "
+                    "default_branch, status, permissions, created_at, updated_at) "
+                    f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
+                    (
+                        2,
+                        "12345",
+                        "4567",
+                        "example-org/buzz",
+                        "main",
+                        "active",
+                        json.dumps({
+                            "metadata": "read",
+                            "issues": "write",
+                            "pull_requests": "write",
+                            "contents": "write",
+                            "actions": "write",
+                            "workflows": "write",
+                            "secrets": "write",
+                            "variables": "write",
+                        }),
+                        "2026-01-01T00:00:00Z",
+                        "2026-01-01T00:00:00Z",
+                    ),
                 )
             conn.execute(
                 "INSERT INTO deployment_flows (id, project_id, name, stages) "
@@ -133,6 +221,16 @@ def _init_db(
     with init_test_db(db_dir, apply_schema=_apply) as db_path:
         Path(db_path).touch()
         yield Path(db_path)
+
+
+def _fake_app_auth() -> ProjectGithubAuth:
+    return ProjectGithubAuth(
+        project="buzz",
+        repo="example-org/buzz",
+        token="ghs_validator",
+        env={"GH_TOKEN": "ghs_validator"},
+        installation_id="12345",
+    )
 
 
 def _make_repo(root: Path) -> Path:
@@ -195,7 +293,7 @@ def _patch_subprocess_helpers(monkeypatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_remote_validation_uses_pat_backed_rest(
+def test_remote_validation_uses_app_backed_rest(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
     _make_repo(tmp_path)
@@ -230,6 +328,11 @@ def test_remote_validation_uses_pat_backed_rest(
     monkeypatch.setattr(
         "yoke_core.domain.gh_rest_transport.urlopen", fake_urlopen,
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.validate_webapp_pipeline_checks_remote."
+        "resolve_project_github_auth",
+        lambda *_args, **_kwargs: _fake_app_auth(),
+    )
 
     with _init_db(tmp_path) as db_path:
         ctx = ValidateContext(
@@ -244,9 +347,7 @@ def test_remote_validation_uses_pat_backed_rest(
     assert rc == 0, out
     assert "GitHub secret exists: BUZZ_SSH_KEY" in out
     assert "GitHub environment 'production' exists" in out
-    # The migration retired the host-CLI line entirely. Banned strings
-    # built by concatenation so the AC-1 / AC-2 grep recipes return
-    # zero hits anywhere in the live tree.
+    # The validator should never degrade to host-CLI install guidance.
     assert ("gh CLI" + " installed") not in out
     assert ("gh CLI" + " not installed") not in out
     # Both REST endpoints were hit.
@@ -254,14 +355,10 @@ def test_remote_validation_uses_pat_backed_rest(
     assert any(p.endswith("/environments") for _m, p in seen)
 
 
-def test_remote_validation_no_pat_skips_rest_probes(
+def test_remote_validation_no_app_auth_skips_rest_probes(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
-    """When the canonical resolver yields no token, the validator emits
-    the typed [FAIL] with the repair hint and skips REST cleanly. This
-    is the SKIP-with-reason behavior the allowlisted elevated-scope
-    branch follows when admin:repo scope is not configured.
-    """
+    """When the canonical resolver yields no token, REST probes do not run."""
     _make_repo(tmp_path)
     script_dir = tmp_path / "scripts"
     script_dir.mkdir()
@@ -269,13 +366,13 @@ def test_remote_validation_no_pat_skips_rest_probes(
     _patch_subprocess_helpers(monkeypatch)
 
     def explode_urlopen(_request, _timeout):
-        raise AssertionError("REST must not be called without a PAT")
+        raise AssertionError("REST must not be called without App auth")
 
     monkeypatch.setattr(
         "yoke_core.domain.gh_rest_transport.urlopen", explode_urlopen,
     )
 
-    with _init_db(tmp_path, include_token=False) as db_path:
+    with _init_db(tmp_path, include_app_auth=False) as db_path:
         ctx = ValidateContext(
             project_root=tmp_path,
             script_dir=script_dir,
@@ -286,13 +383,10 @@ def test_remote_validation_no_pat_skips_rest_probes(
     out = capsys.readouterr().out
 
     assert rc == 1
-    # Resolver-failure repair hint surfaces (capability secret set
-    # routes the operator to the canonical fix).
     assert "github auth not resolvable" in out
-    assert "capability secret set" in out
+    assert "github-binding bind" in out
     # Crucially, the validator did NOT degrade to a host gh probe.
-    # Banned strings built by concatenation so the AC-1 / AC-2 grep
-    # recipes return zero hits anywhere in the live tree.
+    # The validator should never degrade to host-CLI install guidance.
     assert ("gh CLI" + " not installed") not in out
     assert ("brew" + " install gh") not in out
 
@@ -300,7 +394,7 @@ def test_remote_validation_no_pat_skips_rest_probes(
 def test_remote_validation_403_does_not_crash_validator(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
-    """When the secrets endpoint returns 403 (e.g. scope shortfall), the
+    """When the secrets endpoint returns 403 (e.g. permission shortfall), the
     validator surfaces "GitHub secret missing" FAILs but does not raise."""
     _make_repo(tmp_path)
     script_dir = tmp_path / "scripts"
@@ -314,7 +408,7 @@ def test_remote_validation_403_does_not_crash_validator(
             raise urllib.error.HTTPError(
                 url=request.full_url,
                 code=403,
-                msg="Forbidden — admin:repo scope required",
+                msg="Forbidden - required GitHub App permission missing",
                 hdrs=None,
                 fp=None,
             )
@@ -326,6 +420,11 @@ def test_remote_validation_403_does_not_crash_validator(
 
     monkeypatch.setattr(
         "yoke_core.domain.gh_rest_transport.urlopen", fake_urlopen,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.validate_webapp_pipeline_checks_remote."
+        "resolve_project_github_auth",
+        lambda *_args, **_kwargs: _fake_app_auth(),
     )
 
     with _init_db(tmp_path) as db_path:
@@ -339,7 +438,6 @@ def test_remote_validation_403_does_not_crash_validator(
     out = capsys.readouterr().out
 
     assert rc == 1
-    # Each expected secret surfaces a FAIL with the bootstrap remediation,
-    # which is the SKIP-with-reason equivalent for the missing data path.
+    # Each expected secret surfaces a FAIL with the bootstrap remediation.
     for name in ("BUZZ_SSH_KEY", "BUZZ_SSH_HOST", "BUZZ_SSH_USER"):
         assert f"GitHub secret missing: {name}" in out
