@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import List, Optional
@@ -244,6 +245,14 @@ class TestIngest:
         assert rc == 1
         assert _CAPTURED_REQUESTS == []
 
+    def test_commit_flag_is_not_supported(self, tmp_path: Path) -> None:
+        rc = _run(
+            "strategy", "ingest", "PAD", "--commit", "strategy: edit",
+            "--target-root", str(tmp_path),
+        )
+        assert rc == 2
+        assert _CAPTURED_REQUESTS == []
+
     def test_resolution_failure_returns_two(self) -> None:
         with patch(
             "yoke_cli.commands.adapters.strategy_render."
@@ -264,6 +273,82 @@ class TestIngest:
         out = capsys.readouterr().out
         assert "yoke strategy ingest MASTER-PLAN --dry-run" in out
         assert "compare-and-swap" in out
+        assert "--commit" not in out
+
+    def test_json_omits_returned_file_texts(
+        self, tmp_path: Path,
+    ) -> None:
+        doc_text = "<!-- h -->\n# MISSION\n"
+
+        def _stub_call_dispatcher(**kwargs) -> FunctionCallResponse:
+            request = FunctionCallRequest(
+                function=kwargs["function_id"],
+                actor=kwargs["actor"],
+                target=kwargs["target"],
+                payload=kwargs.get("payload") or {},
+            )
+            _CAPTURED_REQUESTS.append(request)
+            return FunctionCallResponse(
+                success=True, function=request.function,
+                version=request.version, request_id=request.request_id,
+                result={
+                    "project_id": 1,
+                    "project_slug": "yoke",
+                    "target_root": str(tmp_path),
+                    "dry_run": False,
+                    "written": 1,
+                    "unchanged": 0,
+                    "conflicts": 0,
+                    "docs": [{
+                        "slug": "MISSION",
+                        "status": "written",
+                        "updated_at": "x",
+                        "old_lines": 1,
+                        "new_lines": 2,
+                        "line_delta": 1,
+                        "file_text": doc_text,
+                        "archived": False,
+                    }],
+                },
+            )
+
+        stdout = io.StringIO()
+        env = {"YOKE_SESSION_ID": "test-session"}
+        with patch.dict("os.environ", env):
+            with patch(
+                "yoke_cli.commands.adapters.strategy_render.call_dispatcher",
+                side_effect=_stub_call_dispatcher,
+            ):
+                with patch(
+                    "yoke_cli.commands._helpers."
+                    "ensure_handlers_loaded"
+                ):
+                    with patch(
+                        "yoke_cli.commands.adapters.strategy_render."
+                        "read_ingest_files",
+                        return_value=[{
+                            "slug": "MISSION", "path": "MISSION.md",
+                            "text": "<!-- old -->\n# MISSION\n",
+                        }],
+                    ):
+                        with redirect_stdout(stdout), \
+                                redirect_stderr(io.StringIO()):
+                            rc = cli_main([
+                                "strategy", "ingest", "MISSION",
+                                "--target-root", str(tmp_path),
+                                "--json",
+                            ])
+        assert rc == 0
+        rendered = tmp_path / ".yoke" / "strategy" / "MISSION.md"
+        assert rendered.read_text(encoding="utf-8") == doc_text
+        payload = json.loads(stdout.getvalue())
+        doc = payload["result"]["docs"][0]
+        assert "file_text" not in doc
+        assert doc["file_bytes"] == len(doc_text.encode("utf-8"))
+        assert doc["file_lines"] == 2
+        assert doc["path"] == ".yoke/strategy/MISSION.md"
+        assert doc["render_status"] == "written"
+        assert payload["result"]["rendered"] == {"unchanged": 0, "written": 1}
 
 
 class TestRender:
@@ -310,6 +395,55 @@ class TestRender:
         rendered = tmp_path / ".yoke" / "strategy" / "MISSION.md"
         assert rendered.read_text(encoding="utf-8") == "<!-- h -->\n# MISSION\n"
         assert "MISSION\twritten" in capsys.readouterr().out
+
+    def test_json_omits_returned_file_texts(
+        self, tmp_path: Path,
+    ) -> None:
+        doc_text = "<!-- h -->\n# MISSION\n"
+
+        def _stub(request: FunctionCallRequest) -> FunctionCallResponse:
+            _CAPTURED_REQUESTS.append(request)
+            return FunctionCallResponse(
+                success=True, function=request.function,
+                version=request.version, request_id=request.request_id,
+                result={
+                    "project_id": 1, "project_slug": "yoke",
+                    "docs": [{
+                        "slug": "MISSION", "updated_at": "x",
+                        "file_text": doc_text,
+                    }],
+                },
+            )
+
+        stdout = io.StringIO()
+        env = {"YOKE_SESSION_ID": "test-session"}
+        with patch.dict("os.environ", env):
+            with patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch",
+                side_effect=_stub,
+            ):
+                with patch(
+                    "yoke_cli.commands._helpers."
+                    "ensure_handlers_loaded"
+                ):
+                    with redirect_stdout(stdout), redirect_stderr(io.StringIO()):
+                        rc = cli_main([
+                            "strategy", "render",
+                            "--target-root", str(tmp_path),
+                            "--json",
+                        ])
+        assert rc == 0
+        rendered = tmp_path / ".yoke" / "strategy" / "MISSION.md"
+        assert rendered.read_text(encoding="utf-8") == doc_text
+        payload = json.loads(stdout.getvalue())
+        doc = payload["result"]["docs"][0]
+        assert "file_text" not in doc
+        assert doc["file_bytes"] == len(doc_text.encode("utf-8"))
+        assert doc["file_lines"] == 2
+        assert doc["path"] == ".yoke/strategy/MISSION.md"
+        assert doc["render_status"] == "written"
+        assert payload["result"]["target_root"] == str(tmp_path.resolve())
+        assert payload["result"]["rendered"] == {"unchanged": 0, "written": 1}
 
     def test_env_var_anchor_used_when_no_flag(self, tmp_path: Path) -> None:
         rc = _run(

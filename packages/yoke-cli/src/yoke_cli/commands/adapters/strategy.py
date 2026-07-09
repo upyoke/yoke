@@ -158,7 +158,7 @@ def strategy_doc_replace(args: List[str]) -> int:
         description=(
             "Replace one strategy doc's full content in the Yoke DB "
             "(the authority), then re-render the latest full strategy "
-            "corpus into the checkout's tracked .yoke/strategy/ view. "
+            "corpus into the checkout's gitignored .yoke/strategy/ view. "
             "Replacement content may be header-free body or a rendered "
             ".yoke/strategy/<slug>.md file; a valid generated header is "
             "ignored before storage. "

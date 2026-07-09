@@ -77,7 +77,7 @@ class TestApply:
     def test_header_only_drift_keeps_committed_file(self, repo) -> None:
         # The DB row's updated_at can advance on a no-op re-save while the body
         # stays byte-identical. A metadata-only header bump must not churn the
-        # clean tracked view (observed: a freshly-cloned project showed every
+        # clean local view (observed: a freshly-cloned project showed every
         # strategy doc as git-modified with only the updated_at field changed).
         apply_bundle(repo, make_bundle(strategy=[strategy_entry(
             "MISSION", "# M\n\nv1\n", updated_at="2026-06-11T00:00:00Z",

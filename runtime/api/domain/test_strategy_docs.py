@@ -231,7 +231,7 @@ class TestReplaceWrite:
         """Re-replacing the exact stored content must NOT advance the row.
 
         A no-op write that still minted a fresh updated_at would churn the
-        tracked .yoke/strategy/ render header (new CAS timestamp) with no
+        gitignored .yoke/strategy/ render header (new CAS timestamp) with no
         real edit — the dirty-strategy-file recurrence. The gate preserves
         updated_at + updated_by and reports unchanged=True.
         """

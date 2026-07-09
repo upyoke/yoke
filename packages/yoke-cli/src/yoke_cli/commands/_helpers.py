@@ -135,7 +135,7 @@ def add_session_arg(parser: argparse.ArgumentParser) -> None:
 def add_json_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--json", dest="json_mode", action="store_true",
-        help="Emit the typed FunctionCallResponse envelope verbatim on stdout.",
+        help="Emit the command's JSON response envelope on stdout.",
     )
 
 

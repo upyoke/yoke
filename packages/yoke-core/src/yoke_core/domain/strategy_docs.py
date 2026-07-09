@@ -261,7 +261,7 @@ def replace_doc(
         # No-op write: identical content from a caller whose base is still
         # the live row. Skip the UPDATE so updated_at / updated_by_actor_id
         # are NOT advanced — a write that changes nothing must not move the
-        # row, or the tracked .yoke/strategy/ view churns (a fresh CAS
+        # row, or the gitignored .yoke/strategy/ view churns (a fresh CAS
         # timestamp lands in the render header) with no real edit.
         #
         # The base-freshness half of the guard is load-bearing: a STALE base

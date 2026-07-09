@@ -32,10 +32,11 @@ the `SMLChangeApproved` / `StrategyDocReplaced` events are the change ledger.
 
 - **The strategize approve phase no longer commits the views.** `git add
   .yoke/strategy/` stages nothing under the ignore rule, so the old commit step
-  would fail on an empty commit. The DB write plus the `SMLChangeApproved` event
-  is the durable record. `_commit_sha` is retained as `""` in the strategize
-  event contexts for backward compatibility with existing consumers rather than
-  ripped out of two event emissions.
+  would fail on an empty commit. No strategy command stages the rendered
+  views. The DB write plus the `SMLChangeApproved` event is the durable record.
+  `_commit_sha` is retained as `""` in the strategize event contexts for
+  backward compatibility with existing consumers rather than ripped out of two
+  event emissions.
 
 - **Archived docs inherit the same treatment.** `strategy.doc.archive` routes a
   doc to `.yoke/strategy/archive/<slug>.md`, already covered by the
