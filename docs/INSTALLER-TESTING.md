@@ -10,29 +10,38 @@ This guide preserves the Live TUI campaign mechanics for the public installer
 and `yoke onboard`. Use it when starting a new installer campaign, extending the
 scenario catalog, retaining evidence, or importing campaign results into QA.
 
-## First Question
+## Evidence Root
 
-Before creating files or running a campaign, ask the operator where retained
-evidence should live.
+Before creating files or running a campaign, choose a retained evidence root
+under `~/.yoke`. The standard root for installer smoke campaigns is:
 
-Do not hardcode a personal, machine-local, iCloud, `/tmp`, or worktree path in
-the campaign instructions. The operator-provided campaign root is the durable
-evidence authority for that run. `/tmp` and remote host staging directories are
-scratch only.
+```text
+$HOME/.yoke/installer-smoke-evidence/<campaign-id>/
+```
+
+All retained installer evidence belongs under `~/.yoke`, never inside the repo
+checkout. In particular, do not create or reuse repo-local paths such as
+`.yoke/installer-smoke-evidence/`; project `.yoke/` directories are for Yoke
+contract files and generated project views, not campaign evidence. `/tmp` and
+remote host staging directories are scratch only.
+
+Ask the operator for the campaign id and any non-standard `~/.yoke` subdirectory
+to use for the retained campaign root. Do not hardcode personal, iCloud, `/tmp`,
+or worktree paths in the campaign instructions.
 
 Use explicit variables in every command:
 
 ```bash
 CATALOG_DOC=docs/INSTALLER-TESTING.md
 CAMPAIGN_ID=<operator-approved-campaign-id>
-CAMPAIGN_ROOT=<operator-approved-absolute-evidence-root>
+CAMPAIGN_ROOT="$HOME/.yoke/installer-smoke-evidence/$CAMPAIGN_ID"
 ENDPOINT=stage
 LEDGER="$CAMPAIGN_ROOT/host-ledger.json"
 ```
 
 Ask for these values at campaign start:
 
-- Retained evidence root and campaign id.
+- Campaign id and retained evidence root under `~/.yoke`.
 - Endpoint and channel to test, usually `stage` / `latest` or `prod` / `stable`.
 - Scenario subset from the embedded catalog in this guide.
 - Host lane: physical Mac, manual SSH host, EC2 fleet, or mixed.
@@ -942,7 +951,7 @@ display awake:
 ```bash
 MAC_SSH_HOST=testy@100.117.161.86
 MAC_HOME=/Users/testy
-CAMPAIGN_ROOT=<operator-approved-absolute-evidence-root>
+CAMPAIGN_ROOT="$HOME/.yoke/installer-smoke-evidence/<campaign-id>"
 ASSIGNMENT_ID=A001
 SCENARIO_ID=MAC-STAGE-UI-001
 mkdir -p "$CAMPAIGN_ROOT/screenshots/$ASSIGNMENT_ID/$SCENARIO_ID" \
