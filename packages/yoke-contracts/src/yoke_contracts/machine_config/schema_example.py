@@ -75,12 +75,14 @@ def canonical_example_payload() -> dict[str, Any]:
                 "path": "~/.yoke/secrets/github.token",
             },
         },
-        "projects": {
-            "/Users/example/yoke": {
+        "projects": [
+            {
+                "checkout": "/Users/example/yoke",
                 "project_id": 1,
+                "env": "prod",
                 "board": {"render_path": _contract().DEFAULT_BOARD_PATH, "scope": "yoke"},
             },
-        },
+        ],
         "settings": {},
     })
 

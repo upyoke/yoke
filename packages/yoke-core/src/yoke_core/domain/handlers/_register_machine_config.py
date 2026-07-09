@@ -53,6 +53,10 @@ def _register_writers(registry) -> None:
         ("project.register.run", machine_config_write.handle_project_register,
          machine_config_write.ProjectRegisterRequest,
          machine_config_write.ProjectRegisterResponse),
+        ("config.stamp_project_env.run",
+         machine_config_write.handle_stamp_project_env,
+         machine_config_write.StampProjectEnvRequest,
+         machine_config_write.StampProjectEnvResponse),
     )
     for function_id, handler, request_model, response_model in writers:
         registry.register(

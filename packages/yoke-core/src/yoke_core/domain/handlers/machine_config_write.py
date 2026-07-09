@@ -77,6 +77,18 @@ class ProjectRegisterResponse(BaseModel):
     config: str
 
 
+class StampProjectEnvRequest(BaseModel):
+    env: Optional[str] = None
+    config_path: Optional[str] = None
+
+
+class StampProjectEnvResponse(BaseModel):
+    env: str
+    stamped: list
+    skipped: list
+    config: str
+
+
 def handle_env_use(request: FunctionCallRequest) -> HandlerOutcome:
     payload = request.payload or {}
     return _outcome(lambda: machine_config_writer.set_active_env(
@@ -118,6 +130,14 @@ def handle_project_register(request: FunctionCallRequest) -> HandlerOutcome:
     ))
 
 
+def handle_stamp_project_env(request: FunctionCallRequest) -> HandlerOutcome:
+    payload = request.payload or {}
+    return _outcome(lambda: machine_config_writer.stamp_untagged_project_envs(
+        payload.get("env"),
+        path=payload.get("config_path"),
+    ))
+
+
 def _outcome(operation) -> HandlerOutcome:
     try:
         result = operation()
@@ -141,8 +161,11 @@ __all__ = [
     "EnvUseResponse",
     "ProjectRegisterRequest",
     "ProjectRegisterResponse",
+    "StampProjectEnvRequest",
+    "StampProjectEnvResponse",
     "handle_auth_set",
     "handle_connection_set",
     "handle_env_use",
     "handle_project_register",
+    "handle_stamp_project_env",
 ]

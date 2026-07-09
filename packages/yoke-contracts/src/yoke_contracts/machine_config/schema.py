@@ -12,16 +12,20 @@ from typing import Any, Mapping
 
 from yoke_contracts.machine_config.schema_projects import (
     ValidationIssue,
-    canonical_project_entry,
-    canonical_project_map,
     checkout_path_candidates,
+    entry_project_id_for_env,
+    entry_resolves_under_env,
     normalize_project_id,
+    normalize_projects,
     project_entry_for_checkout,
+    upsert_project_entry,
     _error,
     _is_nonempty_str,
     _nonempty_str,
     _strip_worktree_path,
-    _validate_project_entry,
+)
+from yoke_contracts.machine_config.schema_project_validation import (
+    validate_projects,
 )
 from yoke_contracts.machine_config.credential_sources import (
     CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
@@ -81,7 +85,12 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     projects = raw.get("projects")
     settings = raw.get("settings")
     connections = raw.get("connections")
-    normalized["projects"] = dict(projects) if isinstance(projects, Mapping) else {}
+    if isinstance(projects, list):
+        normalized["projects"] = list(projects)
+    elif isinstance(projects, Mapping):
+        normalized["projects"] = dict(projects)
+    else:
+        normalized["projects"] = []
     normalized["settings"] = dict(settings) if isinstance(settings, Mapping) else {}
     normalize_github_payload(raw, normalized)
     if isinstance(connections, Mapping):
@@ -152,19 +161,43 @@ def validate_payload(
         if value is not None and not _is_nonempty_str(value):
             issues.append(_error(f"{key}_invalid",
                                  f"{key} must be a non-empty string", path=key))
-    projects = raw.get("projects", {})
-    if projects is not None and not isinstance(projects, Mapping):
-        issues.append(_error("projects_invalid",
-                             "projects must map checkout paths to entries",
-                             path="projects"))
-    elif isinstance(projects, Mapping):
-        for checkout, entry in projects.items():
-            issues.extend(_validate_project_entry(checkout, entry))
+    connection_labels = (
+        {str(label) for label in connections}
+        if isinstance(connections, Mapping) else set()
+    )
+    issues.extend(validate_projects(
+        raw.get("projects"), connection_labels=connection_labels))
     settings = raw.get("settings", {})
     if settings is not None and not isinstance(settings, Mapping):
         issues.append(_error(
             "settings_invalid", "settings must be an object", path="settings"))
     return issues
+
+def mapped_checkouts(
+    payload: Mapping[str, Any],
+    *,
+    explicit_env: str | None = None,
+) -> list[tuple[str, int]]:
+    """Return ``(checkout, project_id)`` pairs resolving under the current env.
+
+    Env-scoped reverse/enumeration surface for callers that map a project id
+    back to its machine-local checkout (``project id -> checkout``, board
+    activity, per-checkout settings). Because ids are per universe, only the
+    rows matching the resolved connection env contribute; an untagged legacy
+    row resolves under the active env (or by path alone with no env context).
+    """
+    try:
+        env: str | None = selected_env(payload, explicit_env=explicit_env)
+    except MachineConfigContractError:
+        env = None
+    active = str(payload.get("active_env") or "").strip()
+    pairs: list[tuple[str, int]] = []
+    for entry in normalize_projects(payload.get("projects")):
+        project_id = entry_project_id_for_env(entry, env=env, active_env=active)
+        if project_id is not None:
+            pairs.append((entry["checkout"], project_id))
+    return pairs
+
 
 def selected_env(payload: Mapping[str, Any], explicit_env: str | None = None) -> str:
     """Resolve env precedence: explicit, ``YOKE_ENV``, then ``active_env``."""

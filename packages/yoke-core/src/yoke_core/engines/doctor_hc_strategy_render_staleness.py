@@ -32,20 +32,13 @@ _HC_DESC = "Rendered .yoke/strategy/ views stale vs strategy_docs DB rows"
 def _mapped_checkouts() -> List[Tuple[Path, int]]:
     """Return ``(checkout_root, project_id)`` pairs from machine config."""
     from yoke_core.domain import machine_config
-    from yoke_contracts.machine_config.schema import normalize_project_id
+    from yoke_contracts.machine_config.schema import mapped_checkouts
 
     cfg = machine_config.load_config()
-    projects = cfg.get("projects", {})
-    pairs: List[Tuple[Path, int]] = []
-    if isinstance(projects, dict):
-        for checkout, entry in sorted(projects.items()):
-            if not isinstance(entry, dict):
-                continue
-            project_id = normalize_project_id(entry.get("project_id"))
-            if project_id is None:
-                continue
-            pairs.append((Path(str(checkout)).expanduser(), project_id))
-    return pairs
+    return [
+        (Path(checkout).expanduser(), project_id)
+        for checkout, project_id in mapped_checkouts(cfg)
+    ]
 
 
 def _doc_issue(root: Path, slug: str, row: Any, archived: bool) -> "str | None":

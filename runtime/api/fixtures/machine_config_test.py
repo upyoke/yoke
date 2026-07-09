@@ -68,11 +68,10 @@ def register_machine_checkout(
         payload: dict[str, Any] = json.loads(config_path.read_text())
     else:
         payload = {}
-    projects = payload.setdefault("projects", {})
-    payload["projects"] = contract.canonical_project_map(
-        projects,
+    payload["projects"] = contract.upsert_project_entry(
+        payload.get("projects"),
         checkout=str(checkout),
-        entry={"project_id": int(project_id)},
+        project_id=int(project_id),
     )
     config_path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
     os.environ["YOKE_MACHINE_CONFIG_FILE"] = str(config_path)
@@ -93,19 +92,12 @@ def clear_machine_checkout(project_id: int) -> None:
     config_path = Path(raw_path)
     if config_path.is_file():
         payload: dict[str, Any] = json.loads(config_path.read_text())
-        projects = payload.get("projects")
-        if isinstance(projects, dict):
-            for existing_checkout, entry in list(projects.items()):
-                canonical = (
-                    contract.canonical_project_entry(entry)
-                    if isinstance(entry, dict) else None
-                )
-                if canonical is None:
-                    projects.pop(existing_checkout, None)
-                    continue
-                if int(canonical["project_id"]) == int(project_id):
-                    projects.pop(existing_checkout, None)
-            config_path.write_text(
-                json.dumps(payload, sort_keys=True), encoding="utf-8"
-            )
+        entries = contract.normalize_projects(payload.get("projects"))
+        payload["projects"] = [
+            entry for entry in entries
+            if entry["project_id"] != int(project_id)
+        ]
+        config_path.write_text(
+            json.dumps(payload, sort_keys=True), encoding="utf-8"
+        )
     os.environ.pop("YOKE_MACHINE_CONFIG_FILE", None)

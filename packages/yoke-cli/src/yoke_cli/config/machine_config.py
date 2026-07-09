@@ -109,13 +109,28 @@ def temp_root(path: str | Path | None = None) -> str:
 
 
 def project_entry(repo_root: str | Path, path: str | Path | None = None) -> dict[str, Any]:
-    """Return the machine-config entry for a checkout, or ``{}``."""
+    """Return the machine-config entry for a checkout, or ``{}``.
 
-    entry = contract.project_entry_for_checkout(load_config(path), repo_root)
+    Resolution is scoped to the active/requested connection env — a mapping
+    tagged for a different universe does not resolve here.
+    """
+
+    cfg = load_config(path)
+    entry = contract.project_entry_for_checkout(
+        cfg, repo_root, env=_resolved_env(cfg))
     project_id = contract.normalize_project_id(entry.get("project_id"))
     if project_id is not None:
         entry["project_id"] = project_id
     return entry
+
+
+def _resolved_env(cfg: Mapping[str, Any]) -> str | None:
+    """Resolved connection env for a loaded config, or ``None`` when unset."""
+
+    try:
+        return contract.selected_env(cfg)
+    except contract.MachineConfigContractError:
+        return None
 
 
 def configured_projects(
@@ -123,28 +138,28 @@ def configured_projects(
     *,
     existing_only: bool = False,
 ) -> list[ConfiguredProject]:
-    """Return project checkout mappings recorded in machine config."""
+    """Return project checkout mappings recorded in machine config.
+
+    Scoped to the resolved connection env — mappings tagged for a different
+    universe are omitted, since their per-universe ids do not apply here.
+    """
 
     payload = load_config(path)
-    projects = payload.get("projects", {})
-    if not isinstance(projects, Mapping):
-        return []
+    env = _resolved_env(payload)
+    active = str(payload.get("active_env") or "").strip()
     out: list[ConfiguredProject] = []
-    for raw_checkout, raw_entry in projects.items():
-        if not isinstance(raw_checkout, str) or not raw_checkout.strip():
-            continue
-        if not isinstance(raw_entry, Mapping):
-            continue
-        project_id = contract.normalize_project_id(raw_entry.get("project_id"))
+    for entry in contract.normalize_projects(payload.get("projects")):
+        project_id = contract.entry_project_id_for_env(
+            entry, env=env, active_env=active)
         if project_id is None:
             continue
-        checkout = Path(raw_checkout).expanduser()
+        checkout = Path(entry["checkout"]).expanduser()
         if existing_only and not checkout.exists():
             continue
         out.append(ConfiguredProject(
             checkout=checkout,
             project_id=project_id,
-            entry=dict(raw_entry),
+            entry=dict(entry),
         ))
     return out
 
