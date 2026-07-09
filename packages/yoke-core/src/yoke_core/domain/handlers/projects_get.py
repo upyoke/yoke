@@ -213,6 +213,7 @@ def handle_projects_resolve_by_github_repo(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect, query_rows
+    from yoke_core.domain.project_github_binding import normalize_github_repo
     from yoke_core.domain.projects import PROJECT_FIELDS
 
     try:
@@ -226,7 +227,7 @@ def handle_projects_resolve_by_github_repo(
                 jsonpath="$.payload",
             ),
         )
-    wanted = _normalize_github_repo(parsed.github_repo)
+    wanted = normalize_github_repo(parsed.github_repo)
     if not wanted:
         return HandlerOutcome(
             primary_success=False,
@@ -251,7 +252,7 @@ def handle_projects_resolve_by_github_repo(
     matching_rows = [
         row
         for row in rows
-        if _normalize_github_repo(row.get("github_repo")) == wanted
+        if normalize_github_repo(row.get("github_repo")) == wanted
     ]
     if matching_rows:
         visible_rows = matching_rows
@@ -304,24 +305,6 @@ def handle_projects_resolve_by_github_repo(
             jsonpath="$.payload.github_repo",
         ),
     )
-
-
-def _normalize_github_repo(value: Any) -> str:
-    cleaned = str(value or "").strip()
-    if not cleaned:
-        return ""
-    cleaned = cleaned.removesuffix(".git")
-    if cleaned.startswith("git@github.com:"):
-        cleaned = cleaned.split(":", 1)[1]
-    else:
-        marker = "github.com/"
-        if marker in cleaned:
-            cleaned = cleaned.split(marker, 1)[1]
-    cleaned = cleaned.strip("/")
-    parts = [part for part in cleaned.split("/") if part]
-    if len(parts) < 2:
-        return ""
-    return f"{parts[0]}/{parts[1]}".lower()
 
 
 def _row_project_id(row: Dict[str, Any]) -> int:

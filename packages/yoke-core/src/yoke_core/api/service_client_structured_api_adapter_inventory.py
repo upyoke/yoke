@@ -33,6 +33,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_strategy impo
 from yoke_core.api.service_client_structured_api_adapter_inventory_ops import (
     OPS_ADAPTERS,
 )
+from yoke_core.api.service_client_structured_api_adapter_inventory_projects import (
+    PROJECT_ADAPTERS,
+)
 from yoke_core.api.service_client_structured_api_adapter_inventory_types import (
     AGENT_PATH_VALUES,
     AdapterEntry,
@@ -107,6 +110,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     _read_entry(function_id="ouroboros.field_note.list", cli_invocation="yoke ouroboros field-note list --limit N"),
     _read_entry(function_id="ouroboros.field_note.get", cli_invocation="yoke ouroboros field-note get NOTE_ID"),
     _read_entry(function_id="projects.list", cli_invocation="yoke projects list"),
+    *PROJECT_ADAPTERS,
     _read_entry(function_id="organizations.get", cli_invocation="yoke organizations get"),
     # Sign-in admission admin family (org-admin-gated at dispatch).
     AdapterEntry(
