@@ -17,6 +17,7 @@ from yoke_core.domain.bootstrap_project_helpers import SshKeyResolutionError
 from yoke_core.domain.bootstrap_project_test_helpers import (
     _install_fake_rest,
     bootstrap_seeded_db,
+    register_bootstrap_backend_checkout,
     setup_validation_ctx,
     update_bootstrap_backend_ssh_settings,
     write_fake_rendered_workflows,
@@ -30,8 +31,11 @@ def test_load_setup_config_prefers_db_key_path_when_env_unset(
     db_key = tmp_path / ".db-key"
     db_key.write_text("from-db")
     monkeypatch.delenv("BUZZ_SSH_KEY_PATH", raising=False)
+    repo_path = tmp_path / "buzz-repo"
+    repo_path.mkdir()
 
     with bootstrap_seeded_db(tmp_path, db_key) as db_path:
+        register_bootstrap_backend_checkout(db_path, repo_path)
         ctx = BootstrapContext(
             project="buzz",
             project_root=tmp_path,
@@ -47,8 +51,11 @@ def test_load_setup_config_raises_when_env_and_db_both_missing(
 ) -> None:
     placeholder = tmp_path / ".placeholder-key"
     monkeypatch.delenv("BUZZ_SSH_KEY_PATH", raising=False)
+    repo_path = tmp_path / "buzz-repo"
+    repo_path.mkdir()
 
     with bootstrap_seeded_db(tmp_path, placeholder) as db_path:
+        register_bootstrap_backend_checkout(db_path, repo_path)
         update_bootstrap_backend_ssh_settings(
             db_path, json.dumps({"host": "h", "user": "u"})
         )

@@ -230,7 +230,18 @@ def _load_setup_config(ctx: BootstrapContext) -> SetupConfig:
             conn, f"SELECT github_repo FROM projects WHERE id={p}", (ident.id,)
         ) or ""
         checkout = checkout_for_project(conn, ident.slug)
-        repo_path = str(checkout) if checkout is not None else ""
+        if checkout is None:
+            # A repo-tree writer with no resolved checkout must fail loudly.
+            # Falling through to an empty repo_path lands cfg.repo_path on
+            # Path() (the current working directory), and setup would then
+            # render workflow files into whatever unrelated checkout the
+            # process happens to run from (see the cwd-pollution regression).
+            raise FileNotFoundError(
+                f"project {ident.slug!r} has no machine-local checkout mapping; "
+                "refusing to fall back to the current directory to write "
+                "rendered files into an unrelated checkout"
+            )
+        repo_path = str(checkout)
         display_name = _query_scalar(
             conn, f"SELECT name FROM projects WHERE id={p}", (ident.id,)
         ) or ident.slug
@@ -245,7 +256,7 @@ def _load_setup_config(ctx: BootstrapContext) -> SetupConfig:
         project=ident.slug,
         display_name=display_name,
         github_repo=github_repo,
-        repo_path=Path(repo_path).expanduser() if repo_path else Path(),
+        repo_path=Path(repo_path).expanduser(),
         ssh_host=str(ssh_settings.get("host", "") or ""),
         ssh_user=str(ssh_settings.get("user", "") or ""),
         ssh_key_path=ssh_key_path,

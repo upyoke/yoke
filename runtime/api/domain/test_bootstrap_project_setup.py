@@ -28,8 +28,11 @@ def test_load_setup_config_prefers_env_key_path(tmp_path: Path, monkeypatch) -> 
     env_key = tmp_path / ".env-key"
     env_key.write_text("secret")
     monkeypatch.setenv("BUZZ_SSH_KEY_PATH", str(env_key))
+    repo_path = tmp_path / "buzz-repo"
+    repo_path.mkdir()
 
     with bootstrap_seeded_db(tmp_path, db_key) as db_path:
+        register_bootstrap_backend_checkout(db_path, repo_path)
         ctx = BootstrapContext(
             project="buzz",
             project_root=tmp_path,
@@ -38,10 +41,38 @@ def test_load_setup_config_prefers_env_key_path(tmp_path: Path, monkeypatch) -> 
         )
         cfg = _load_setup_config(ctx)
 
+    # Resolves to the registered machine-local checkout, never the cwd.
+    assert cfg.repo_path == repo_path
     assert cfg.github_repo == "example-org/buzz"
     assert cfg.display_name == "Buzz"
     assert cfg.ssh_key_path == env_key
     assert cfg.github_token == "ghp_fake_token_123"
+
+
+def test_load_setup_config_refuses_cwd_fallback_when_unmapped(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A project with no machine-local checkout mapping must NOT silently
+    resolve to the current directory (which used to let setup render workflow
+    files into whatever unrelated checkout the process ran from)."""
+    import pytest
+
+    db_key = tmp_path / ".db-key"
+    db_key.write_text("db-secret")
+    empty_config = tmp_path / "machine-config" / "config.json"
+    empty_config.parent.mkdir(parents=True)
+    empty_config.write_text('{"projects": []}')
+    monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(empty_config))
+
+    with bootstrap_seeded_db(tmp_path, db_key) as db_path:
+        ctx = BootstrapContext(
+            project="buzz",
+            project_root=tmp_path,
+            script_dir=tmp_path,
+            yoke_db=db_path,
+        )
+        with pytest.raises(FileNotFoundError, match="no machine-local checkout mapping"):
+            _load_setup_config(ctx)
 
 
 def test_run_setup_resolves_auth_with_active_connection(
@@ -49,6 +80,8 @@ def test_run_setup_resolves_auth_with_active_connection(
 ) -> None:
     ssh_key = tmp_path / ".ssh_key"
     ssh_key.write_text("fake-ssh-key")
+    repo_path = tmp_path / "buzz-repo"
+    repo_path.mkdir()
     seen: dict[str, object] = {}
 
     class Resolved:
@@ -67,6 +100,7 @@ def test_run_setup_resolves_auth_with_active_connection(
     )
 
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
+        register_bootstrap_backend_checkout(db_path, repo_path)
         ctx = BootstrapContext(
             project="buzz",
             project_root=tmp_path,
