@@ -185,7 +185,10 @@ def local_demo_seed(args: List[str]) -> int:
     else:
         for item in report.get("items", []):
             print(f"{item.get('item_ref')}: {item.get('title')}")
-        print(report.get("next_step", "run `yoke board rebuild --print`"))
+        print(report.get(
+            "next_step",
+            "run `yoke board rebuild --print --no-pager`",
+        ))
     return 0
 
 

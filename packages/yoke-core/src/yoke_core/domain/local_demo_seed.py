@@ -64,7 +64,9 @@ def seed_demo_items(
         "project": project,
         "source_actor_id": source_actor,
         "items": created,
-        "next_step": "run `yoke board rebuild --print` in the project checkout",
+        "next_step": (
+            "run `yoke board rebuild --print --no-pager` in the project checkout"
+        ),
     }
 
 

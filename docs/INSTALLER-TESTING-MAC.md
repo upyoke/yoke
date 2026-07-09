@@ -235,7 +235,7 @@ yoke onboard project "$HOME/code/my-project" \
   --yes \
   --json
 yoke local demo seed --project my-project --json
-yoke board rebuild --print
+yoke board rebuild --print --no-pager
 ```
 
 Capture the live TTY after each major step. For the installer and any visible
@@ -272,7 +272,7 @@ real SSH TTY so the user can watch the same terminal.
 cd "$HOME/code/buzz"
 YOKE_ENV=stage yoke status
 YOKE_ENV=stage claude -p 'Reply exactly: YOKE_STAGE_SESSION_SMOKE_OK'
-YOKE_ENV=stage yoke board rebuild --print
+YOKE_ENV=stage yoke board rebuild --print --no-pager
 ```
 
 The board should show a fresh Buzz session. Verify the control plane:
@@ -426,7 +426,8 @@ Board rendering caveat: Terminal.app and iTerm2-style terminals render rich
 art. GNU Screen, dumb terminals, and one-shot SSH commands with no `TERM`
 render plain ASCII plus a terminal-mode explanation. This applies only to
 terminal board commands such as `yoke board` and `yoke board rebuild --print`;
-it must not block `yoke onboard`.
+it must not block `yoke onboard`. Use `--no-pager` for one-shot SSH smokes so
+the command cannot stop inside `less`.
 
 ## Git And Xcode Cases
 
