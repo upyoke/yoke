@@ -55,7 +55,7 @@ def _stub_backend(monkeypatch):
 
 def _publish() -> PublishRequest:
     return PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghp_x",
+        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
     )
 
 

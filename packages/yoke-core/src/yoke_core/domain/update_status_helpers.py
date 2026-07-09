@@ -4,7 +4,7 @@ Validation helpers, dry-run checks, transition utilities, constants/lookup
 tables, and guard checks used by ``update_status.py``.
 
 GitHub side effects flow through
-:mod:`yoke_core.domain.gh_rest_transport` (PAT-backed REST). Callers
+:mod:`yoke_core.domain.gh_rest_transport` (bearer-token REST). Callers
 dispatch REST calls directly via the helpers in
 ``update_status_github_sync`` / ``update_status_epic_checkbox``.
 """

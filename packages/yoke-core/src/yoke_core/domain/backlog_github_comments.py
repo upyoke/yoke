@@ -87,7 +87,7 @@ def post_comment(
         gh_project = project or "yoke"
         if _bgs()._github_sync_skip(gh_project, "post-comment", conn=conn, out=stdout):
             return 0
-        if not _bgs()._pat_available(gh_project):
+        if not _bgs()._github_auth_available(gh_project):
             return 0
         colors = _label_colors()
 

@@ -25,8 +25,8 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 _AUTH = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
-    token="ghp_synthetic_for_tests",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghp_synthetic_for_tests"},
+    token="ghs_synthetic_for_tests",
+    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_synthetic_for_tests"},
 )
 
 

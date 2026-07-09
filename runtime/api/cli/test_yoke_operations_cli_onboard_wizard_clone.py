@@ -76,8 +76,8 @@ def _stub_push_access(monkeypatch):
 
 async def _connect_machine_pat(pilot) -> None:
     await advance_past_path(pilot)
-    await pilot.press("enter")  # machine github: Connect a token (PAT) (default)
-    await type_text(pilot, "ghp_machinepat")
+    await pilot.press("enter")  # machine github: Connect a token (GitHub App user token) (default)
+    await type_text(pilot, "ghu_machine_token")
     await pilot.press("enter")
     await pilot.press("enter")  # GitHub verification success: Continue
 
@@ -179,7 +179,7 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
     # "Duplicate it" always keeps the source as a pull-only upstream — that is
     # what lets a private copy pull from a public original.
     assert plan.keep_upstream is True
-    assert plan.fallback_token == "ghp_machinepat"
+    assert plan.fallback_token == "ghu_machine_token"
     publish = plan.publish
     assert publish is not None
     assert publish.owner == "octocat"
@@ -259,7 +259,7 @@ def test_fork_builds_clone_plan_with_token() -> None:
     plan = applied["project_clone"]
     assert plan is not None
     assert plan.outcome == clone.CLONE_OUTCOME_FORK
-    assert plan.fallback_token == "ghp_machinepat"
+    assert plan.fallback_token == "ghu_machine_token"
     assert plan.publish is None
     # Fork does not run the keep-upstream screen; the default stays True but is
     # ignored by the fork outcome (it always tracks the source as upstream).
@@ -327,7 +327,7 @@ def test_clone_existing_yoke_project_uses_project_id_and_skips_setup(
     plan = applied["project_clone"]
     assert plan is not None
     assert plan.outcome == clone.CLONE_OUTCOME_JUST_CLONE
-    assert plan.fallback_token == "ghp_machinepat"
+    assert plan.fallback_token == "ghu_machine_token"
 
 
 def _body_text(app) -> str:

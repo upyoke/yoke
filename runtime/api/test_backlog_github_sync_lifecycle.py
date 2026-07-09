@@ -26,8 +26,8 @@ from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
 def _ok_auth(project: str = "buzz") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=f"org/{project}", token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        project=project, repo=f"org/{project}", token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -46,7 +46,7 @@ class TestPostComment:
         insert_item(db, id=30, type="issue", status="implementing", project="buzz", github_issue="#50")
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             backlog_github_comments, "resolve_project_github_auth",
@@ -77,7 +77,7 @@ class TestPostComment:
     def test_noop_when_no_github_issue(self):
         db = _make_db()
         insert_item(db, id=30, type="issue", status="idea", project="buzz")
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch.object(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             backlog_github_comments.github_rest, "post_comment",
         ) as post_comment:
             rc = backlog_github_sync.post_comment("30", "idea", "implementing", conn=db)
@@ -107,7 +107,7 @@ class TestCloseIssue:
         insert_item(db, id=40, type="issue", status="done", project="buzz", github_issue="#60")
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
@@ -142,7 +142,7 @@ class TestCloseIssue:
         insert_item(db, id=40, type="issue", status="done", project="buzz", github_issue="#60")
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
@@ -173,7 +173,7 @@ class TestCloseIssue:
         db = _make_db()
         insert_item(db, id=40, type="issue", status="done", project="buzz")
         stdout = io.StringIO()
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch.object(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             backlog_github_state_sync.github_rest, "set_issue_state",
         ) as set_state:
             rc = backlog_github_sync.close_issue("40", conn=db, stdout=stdout)
@@ -194,7 +194,7 @@ class TestReopenIssue:
         insert_item(db, id=50, type="issue", status="implementing", project="buzz", github_issue="#70")
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             backlog_github_state_sync, "_get_issue_state",
@@ -217,7 +217,7 @@ class TestReopenIssue:
         insert_item(db, id=50, type="issue", status="implementing", project="buzz", github_issue="#70")
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             backlog_github_state_sync, "_get_issue_state",

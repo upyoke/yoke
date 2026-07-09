@@ -1,17 +1,13 @@
-"""REST check-runs handling for tokens that lack check-runs read scope.
+"""REST check-runs handling for auth that lacks check-runs read scope.
 
-The legacy ``gh pr checks --json state`` path used to surface a
-``Resource not accessible by personal access token`` error and fall back
-to the REST ``/check-runs`` endpoint. After YOK-1839 the merge engine
-ALWAYS calls REST ``/check-runs`` directly; a 403 there returns
-``CheckRunsState(states=(), readable=False)`` which routes to
-``SKIPPED_NO_CHECKS`` so the local-verification substitute gate decides
-whether the merge proceeds.
+The merge engine calls REST ``/check-runs`` directly; a 403 there returns
+``CheckRunsState(states=(), readable=False)`` so the
+local-verification substitute gate decides whether the merge proceeds.
 
 A 403 reading ``/check-runs`` returns ``CheckRunsState(states=(),
 readable=False)``, which the engine routes to ``SKIPPED_UNREADABLE``
 (reason ``checks_unreadable_403``) — distinct from the genuinely-absent
-``SKIPPED_NO_CHECKS`` so the substitute gate can tell a no-scope token
+``SKIPPED_NO_CHECKS`` so the substitute gate can tell unreadable checks
 apart from a no-CI repo.
 
 Transport-level coverage (auth errors, 403 handling, retry policy) lives

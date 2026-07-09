@@ -257,7 +257,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     # events/ouroboros) + onboard-checklist; parity-synced into the inventory.
     *OPS_ADAPTERS,
     *GITHUB_ACTIONS_ADAPTERS,
-    AdapterEntry(function_id="github.pr.create", cli_invocation="yoke github pr create --title TITLE --head BRANCH [--base BRANCH] [--body TEXT | --body-stdin] [--draft]", notes="PAT-backed pull-request create via github_pr_rest; owner/repo resolve from the project's GitHub capability, never from a CLI argument."),
+    AdapterEntry(function_id="github.pr.create", cli_invocation="yoke github pr create --title TITLE --head BRANCH [--base BRANCH] [--body TEXT | --body-stdin] [--draft]", notes="bearer-token pull-request create via github_pr_rest; owner/repo resolve from the project's GitHub capability, never from a CLI argument."),
     _read_entry(
         function_id="items.get.run",
         cli_invocation=(

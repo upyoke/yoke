@@ -51,7 +51,7 @@ def finish_after_dispatch(
     project = project_from_result(result)
     project_id = int(project["id"])
     secret_result = None if reuse_github_auth else (
-        progress_steps.store_github_auth(
+        progress_steps.store_github_binding(
             progress, github_auth_target, project, token_value, github_adoption,
             config_path,
         )
@@ -173,20 +173,20 @@ def install_existing_project(
             clone_outcome=clone_outcome,
             register_mapping=True,
         )
-    finish_github_auth_if_needed(
+    finish_github_binding_if_needed(
         progress, github_auth_target, github_adoption, reuse_github_auth,
     )
     return report
 
 
-def finish_github_auth_if_needed(
+def finish_github_binding_if_needed(
     progress: onboard_apply_progress.ProgressCallback | None,
     github_auth_target: str,
     github_adoption: dict[str, Any],
     reuse_github_auth: bool,
 ) -> None:
     if not reuse_github_auth:
-        progress_steps.finish_github_auth(progress, github_auth_target, github_adoption)
+        progress_steps.finish_github_binding(progress, github_auth_target, github_adoption)
 
 
 def register_project_mapping_if_needed(
@@ -242,7 +242,7 @@ def pop_pending_dev_install(config_path: str | Path | None) -> str | None:
 __all__ = [
     "ensure_git_available",
     "existing_project_key",
-    "finish_github_auth_if_needed",
+    "finish_github_binding_if_needed",
     "finish_after_dispatch",
     "install_existing_project",
     "pop_pending_dev_install",

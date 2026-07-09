@@ -1,6 +1,6 @@
 """Status sync + parent-epic checkbox update without host ``gh``.
 
-Verifies update_status side effects route through the PAT-backed REST
+Verifies update_status side effects route through the bearer-token REST
 transport and never spawn ``gh``:
 
 - ``_run_gh`` symbol is no longer present on the front-door module.

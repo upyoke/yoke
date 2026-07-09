@@ -27,9 +27,9 @@ DEFAULT_ENDPOINT = "stage"
 DEFAULT_ASSIGNMENT_SIZE = 5
 SECRET_MARKERS: tuple[str, ...] = (
     "yoke_v1_",
-    "github_pat_",
-    "ghp_",
-    "github_fine_grained_pat_",
+    "ghu_",
+    "ghs_",
+    "ghr_",
     "AWS_SECRET_ACCESS_KEY",
     "AWS_ACCESS_KEY_ID",
 )

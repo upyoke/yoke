@@ -1,4 +1,4 @@
-"""Tests for the PAT-driven GitHub REST transport."""
+"""Tests for the bearer-token GitHub REST transport."""
 
 from __future__ import annotations
 
@@ -73,14 +73,14 @@ def test_auth_header_includes_pat(monkeypatch):
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
 
     req = t.RestRequest(method="get", path="/repos/o/r/pulls/1")
-    resp = t.request_with_retry(req, token="ghp_xyz")
+    resp = t.request_with_retry(req, token="ghs_xyz")
     assert resp.status == 200
     assert resp.body == {"id": 1}
     assert seen["url"] == "https://api.github.com/repos/o/r/pulls/1"
     assert seen["method"] == "GET"
     # urllib normalises header names to title-case.
     headers_lower = {k.lower(): v for k, v in seen["headers"].items()}
-    assert headers_lower["authorization"] == "Bearer ghp_xyz"
+    assert headers_lower["authorization"] == "Bearer ghs_xyz"
     assert headers_lower["accept"] == "application/vnd.github+json"
     assert headers_lower["x-github-api-version"] == t.GITHUB_API_VERSION
 
@@ -94,7 +94,7 @@ def test_test_guard_blocks_default_network_transport(monkeypatch):
     monkeypatch.setenv("YOKE_TEST_BLOCK_LIVE_REST", "1")
     monkeypatch.setattr(t, "urlopen", t.urllib.request.urlopen)
     with pytest.raises(RuntimeError, match="live GitHub REST call"):
-        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_x")
+        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_x")
 
 
 def test_post_body_encoded_as_json(monkeypatch):
@@ -109,7 +109,7 @@ def test_post_body_encoded_as_json(monkeypatch):
     payload = {"title": "x", "head": "b", "base": "main", "body": "auto"}
     resp = t.request_with_retry(
         t.RestRequest(method="POST", path="/repos/o/r/pulls", body=payload),
-        token="ghp_xyz",
+        token="ghs_xyz",
     )
     assert resp.body == {"number": 17}
     assert json.loads(seen["body"].decode()) == payload
@@ -130,7 +130,7 @@ def test_query_string_encoded(monkeypatch):
             path="/repos/o/r/pulls",
             query={"head": "o:branch", "state": "open"},
         ),
-        token="ghp_xyz",
+        token="ghs_xyz",
     )
     assert "head=o%3Abranch" in seen["url"]
     assert "state=open" in seen["url"]
@@ -152,7 +152,7 @@ def test_retries_on_502(monkeypatch):
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
     resp = t.request_with_retry(
-        t.RestRequest(method="GET", path="/x"), token="ghp_xyz"
+        t.RestRequest(method="GET", path="/x"), token="ghs_xyz"
     )
     assert resp.body == {"ok": True}
     assert calls["n"] == 2
@@ -169,7 +169,7 @@ def test_retries_on_500(monkeypatch):
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
     resp = t.request_with_retry(
-        t.RestRequest(method="GET", path="/x"), token="ghp_xyz"
+        t.RestRequest(method="GET", path="/x"), token="ghs_xyz"
     )
     assert resp.body == {"ok": True}
     assert calls["n"] == 2
@@ -185,7 +185,7 @@ def test_retries_on_429_rate_limit(monkeypatch):
         return _FakeResponse(status=200, body=b"{}")
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_xyz")
+    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_xyz")
     assert calls["n"] == 2
 
 
@@ -199,7 +199,7 @@ def test_retries_on_503(monkeypatch):
         return _FakeResponse(status=200, body=b"{}")
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_xyz")
+    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_xyz")
     assert calls["n"] == 2
 
 
@@ -216,7 +216,7 @@ def test_retries_on_422_with_graphql_propagation_body(monkeypatch):
         return _FakeResponse(status=200, body=b"{}")
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_xyz")
+    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_xyz")
     assert calls["n"] == 2
 
 
@@ -230,7 +230,7 @@ def test_422_without_retryable_body_terminal(monkeypatch):
     with pytest.raises(t.RestUnprocessableError) as excinfo:
         t.request_with_retry(
             t.RestRequest(method="POST", path="/repos/o/r/pulls", body={"head": "b"}),
-            token="ghp_xyz",
+            token="ghs_xyz",
         )
     assert excinfo.value.status == 422
     assert "already exists" in (excinfo.value.body or "")
@@ -256,7 +256,7 @@ def test_retries_on_200_with_base_branch_modified_envelope(monkeypatch):
             path="/repos/o/r/pulls/1/merge",
             body={"merge_method": "merge"},
         ),
-        token="ghp_xyz",
+        token="ghs_xyz",
     )
     assert resp.body == {"merged": True}
     assert calls["n"] == 2
@@ -276,7 +276,7 @@ def test_persistent_base_branch_modified_exhausts_retries(monkeypatch):
     with pytest.raises(t.RestUnprocessableError):
         t.request_with_retry(
             t.RestRequest(method="PUT", path="/repos/o/r/pulls/1/merge"),
-            token="ghp_xyz",
+            token="ghs_xyz",
         )
     assert calls["n"] == 3  # MAX_RETRIES
 
@@ -291,7 +291,7 @@ def test_network_error_retries(monkeypatch, capsys):
         return _FakeResponse(status=200, body=b"{}")
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_xyz")
+    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_xyz")
     assert calls["n"] == 2
     assert (
         "GitHub REST retry 1/3 after network failure: timed out"
@@ -313,7 +313,7 @@ def test_response_read_error_retries(monkeypatch):
         return _FakeResponse(status=200, body=b"{}")
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    t.request_with_retry(t.RestRequest(method="GET", path="x"), token="ghp_xyz")
+    t.request_with_retry(t.RestRequest(method="GET", path="x"), token="ghs_xyz")
     assert calls["n"] == 2
 
 
@@ -328,7 +328,7 @@ def test_401_is_terminal_auth_error(monkeypatch):
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
     with pytest.raises(t.RestAuthError) as excinfo:
-        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_x")
+        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_x")
     assert excinfo.value.status == 401
 
 
@@ -339,7 +339,7 @@ def test_403_is_terminal_auth_error(monkeypatch):
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
     with pytest.raises(t.RestAuthError):
-        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_x")
+        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_x")
 
 
 # Rate-limit recognition tests (429 + 403-with-rate-limit-body) live in
@@ -352,7 +352,7 @@ def test_404_is_terminal_not_found(monkeypatch):
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
     with pytest.raises(t.RestNotFoundError):
-        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_x")
+        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_x")
 
 
 # Helpers and test-seam coverage live in test_gh_rest_transport_seam.py.

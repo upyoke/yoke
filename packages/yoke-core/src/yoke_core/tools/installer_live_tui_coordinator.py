@@ -187,7 +187,7 @@ REMOTE_GITHUB_INVALID_TOKEN_PATH = "/tmp/yoke-github-invalid.token"
 REMOTE_FAKE_GITHUB_TOKEN_PATH = "/tmp/yoke-fake-github.token"
 REMOTE_FAKE_GITHUB_STORED_TOKEN_PATH = "/tmp/yoke-fake-github-stored.token"
 STATE_TUI_SETUP_START_DELAY = 45.0
-GITHUB_FAKE_CLASSIC_API_PORT = 19101
+GITHUB_FAKE_SCOPED_TOKEN_API_PORT = 19101
 GITHUB_FAKE_READONLY_API_PORT = 19102
 GITHUB_FAKE_PARTIAL_API_PORT = 19103
 GITHUB_FAKE_MANY_API_PORT = 19104
@@ -1961,11 +1961,11 @@ def _known_recipe_template(
             "notes": "Grounded from skipping the machine GitHub credential step.",
         }
     if scenario_id == "GITHUB-002":
-        port = GITHUB_FAKE_CLASSIC_API_PORT
+        port = GITHUB_FAKE_SCOPED_TOKEN_API_PORT
         return {
             "command": _fake_github_api_onboard_command(
                 port=port,
-                profile=_fake_classic_github_profile(),
+                profile=_fake_scoped_token_github_profile(),
             ),
             "stage_files": _stage_stage_yoke_token_files(),
             "actions": _github_token_file_actions(
@@ -1974,28 +1974,28 @@ def _known_recipe_template(
             ),
             "expected_text": [
                 "Save a local GitHub credential?",
-                "Point at your GitHub token file.",
-                "GitHub token connected.",
-                "Success! GitHub token connected for recipe-classic.",
-                "GitHub username: recipe-classic",
-                "Owner of: recipe-classic",
-                "Repos this token can see: recipe-classic/app, recipe-classic/cli",
+                "Point at your GitHub credential file.",
+                "GitHub App connection saved.",
+                "Success! GitHub App connection saved for recipe-scoped.",
+                "GitHub username: recipe-scoped",
+                "Owner of: recipe-scoped",
+                "Repos this connection can see: recipe-scoped/app, recipe-scoped/cli",
                 "Can push to all 2 repos you can see, and to new repos.",
             ],
             "post_checks": ["secret_free"],
             "start_delay": 3.0,
             "step_delay": 4.0,
             "notes": (
-                "Grounded from a localhost GitHub API fixture with classic "
-                "repo/workflow scopes."
+                "Grounded from a localhost GitHub API fixture with scoped "
+                "repo/workflow permissions."
             ),
         }
     if scenario_id == "GITHUB-003":
-        port = GITHUB_FAKE_CLASSIC_API_PORT
+        port = GITHUB_FAKE_SCOPED_TOKEN_API_PORT
         return {
             "command": _fake_github_api_onboard_command(
                 port=port,
-                profile=_fake_classic_github_profile(),
+                profile=_fake_scoped_token_github_profile(),
             ),
             "stage_files": _stage_stage_yoke_token_files(),
             "actions": _github_token_paste_actions(
@@ -2003,16 +2003,16 @@ def _known_recipe_template(
                 stored_api_error=True,
             ),
             "expected_text": [
-                "Paste your GitHub token (PAT).",
+                "Connect GitHub through the Yoke GitHub App.",
                 "Never shown on screen.",
-                "GitHub token connected.",
-                "Success! GitHub token connected for recipe-classic.",
+                "GitHub App connection saved.",
+                "Success! GitHub App connection saved for recipe-scoped.",
             ],
             "post_checks": ["secret_free"],
             "start_delay": 3.0,
             "step_delay": 4.0,
             "notes": (
-                "Grounded from password-field PAT paste through a localhost "
+                "Grounded from GitHub auth input through a localhost "
                 "GitHub API fixture."
             ),
         }
@@ -2029,14 +2029,14 @@ def _known_recipe_template(
                 stored_api_error=True,
             ),
             "expected_text": [
-                "Success! GitHub fine-grained token connected for recipe-readonly.",
-                "Repos this token can see: recipe-readonly/app",
-                "Can't push to any of the repos checked with this token.",
+                "Success! GitHub repository access connected for recipe-readonly.",
+                "Repos this connection can see: recipe-readonly/app",
+                "Can't push to any of the repos checked with this connection.",
             ],
             "post_checks": ["secret_free"],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from a fine-grained read-only capability summary.",
+            "notes": "Grounded from a repository-scoped read-only capability summary.",
         }
     if scenario_id == "GITHUB-005":
         port = GITHUB_FAKE_PARTIAL_API_PORT
@@ -2051,15 +2051,15 @@ def _known_recipe_template(
                 stored_api_error=True,
             ),
             "expected_text": [
-                "Success! GitHub fine-grained token connected for recipe-partial.",
-                "Repos this token can see: recipe-partial/app, recipe-partial/docs",
+                "Success! GitHub repository access connected for recipe-partial.",
+                "Repos this connection can see: recipe-partial/app, recipe-partial/docs",
                 "Can push to recipe-partial/app, but not to new repos.",
             ],
             "post_checks": ["secret_free"],
             "start_delay": 3.0,
             "step_delay": 4.0,
             "notes": (
-                "Grounded from a fine-grained token with one writable repo and "
+                "Grounded from repository access with one writable repo and "
                 "no new-repo publish capability."
             ),
         }
@@ -2074,7 +2074,7 @@ def _known_recipe_template(
                 token_path=REMOTE_GITHUB_INVALID_TOKEN_PATH,
             ),
             "expected_text": [
-                "GitHub token could not be verified.",
+                "GitHub credential could not be verified.",
                 "GitHub check failed",
                 "HTTP 401",
                 "Try again",
@@ -2083,7 +2083,7 @@ def _known_recipe_template(
             "post_checks": ["secret_free", "no_text:Traceback"],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from invalid PAT retry behavior.",
+            "notes": "Grounded from invalid GitHub auth retry behavior.",
         }
     if scenario_id == "GITHUB-007":
         return {
@@ -2095,15 +2095,15 @@ def _known_recipe_template(
                 token_path=REMOTE_GITHUB_EMPTY_TOKEN_PATH,
             ),
             "expected_text": [
-                "GitHub token could not be verified.",
-                "GitHub token file is empty",
+                "GitHub credential could not be verified.",
+                "GitHub credential file is empty",
                 "Try again",
                 "Back",
             ],
             "post_checks": ["secret_free", "no_text:Traceback"],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from empty GitHub token-file retry behavior.",
+            "notes": "Grounded from empty GitHub credential-file retry behavior.",
         }
     if scenario_id == "GITHUB-008":
         port = GITHUB_FAKE_MANY_API_PORT
@@ -2118,8 +2118,8 @@ def _known_recipe_template(
                 stored_api_error=True,
             ),
             "expected_text": [
-                "Success! GitHub fine-grained token connected for recipe-many.",
-                "Repos this token can see: recipe-many/app-1, recipe-many/app-2,",
+                "Success! GitHub repository access connected for recipe-many.",
+                "Repos this connection can see: recipe-many/app-1, recipe-many/app-2,",
                 "recipe-many/app-3, recipe-many/app-4, and 3 more",
             ],
             "post_checks": ["secret_free", "no_text:including"],
@@ -2140,7 +2140,7 @@ def _known_recipe_template(
                 stored_api_error=True,
             ),
             "expected_text": [
-                "GitHub token connected.",
+                "GitHub App connection saved.",
                 "Can push to recipe-partial/app, but not to new repos.",
             ],
             "post_checks": ["secret_free"],
@@ -2159,13 +2159,13 @@ def _known_recipe_template(
             "expected_text": [
                 "Using existing Yoke token file from machine config.",
                 "Yoke token connected.",
-                "Using existing GitHub token file from machine config.",
-                "GitHub token connected.",
+                "Using existing GitHub credential file from machine config.",
+                "GitHub App connection saved.",
             ],
             "post_checks": ["secret_free"],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from prepared stored-state GitHub token reuse.",
+            "notes": "Grounded from prepared stored-state GitHub credential reuse.",
         }
     if scenario_id == "PROJECT-SOURCE-001":
         return {
@@ -2275,7 +2275,7 @@ def _known_recipe_template(
             "stage_files": _stage_stage_yoke_token_files(),
             "actions": _project_source_private_clone_actions(),
             "expected_text": [
-                "GitHub token connected.",
+                "GitHub App connection saved.",
                 "Is the repo public or private?",
                 "Which private repo?",
                 "recipe-private/private-source",
@@ -2862,7 +2862,7 @@ def _known_recipe_template(
                 repo_name="empty-repo",
             ),
             "expected_text": [
-                f"Repos this token can see: {PROJECT_PUBLISH_EMPTY_REPO}",
+                f"Repos this connection can see: {PROJECT_PUBLISH_EMPTY_REPO}",
                 "Review what Yoke will save.",
             ],
             "post_checks": ["secret_free", "no_text:Traceback"],
@@ -2907,14 +2907,14 @@ def _known_recipe_template(
                 PROJECT_PUBLISH_DENIED_PATH,
             ),
             "expected_text": [
-                "Your GitHub token can't publish a new repo.",
-                "This token can't create a repo it can also push to.",
-                "first and make sure this token has write access",
+                "Your GitHub credential can't publish a new repo.",
+                "This credential can't create a repo it can also push to.",
+                "first and make sure this connection has write access",
             ],
             "post_checks": ["secret_free", "no_text:Traceback"],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from a token that cannot create a private repo.",
+            "notes": "Grounded from a credential that cannot create a private repo.",
         }
     if scenario_id == "PUBLISH-007":
         return {
@@ -2928,14 +2928,14 @@ def _known_recipe_template(
                 PROJECT_PUBLISH_NO_PUSH_PATH,
             ),
             "expected_text": [
-                "Your GitHub token can't publish a new repo.",
+                "Your GitHub credential can't publish a new repo.",
                 "selected repositories",
                 "brand-new repo",
             ],
             "post_checks": ["secret_free", "no_text:Traceback"],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from a token that can create but cannot push new repos.",
+            "notes": "Grounded from a credential that can create but cannot push new repos.",
         }
     if scenario_id == "PUBLISH-008":
         return {
@@ -3002,9 +3002,9 @@ def _known_recipe_template(
                 repo_name="store-recipe",
             ),
             "expected_text": [
-                "Supply a token for this project",
-                "Paste this project's GitHub token",
-                "Yoke stores it in the Yoke core database",
+                "Connect this project repository",
+                "Connect this project through the GitHub App",
+                "Yoke records the GitHub App binding in the Yoke core database",
                 "Review what Yoke will save.",
                 "Nothing is written until you choose Apply.",
             ],
@@ -3015,7 +3015,7 @@ def _known_recipe_template(
             ],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from project store-token path with password paste.",
+            "notes": "Grounded from project GitHub App binding path with password paste.",
         }
     if scenario_id == "PUBLISH-012":
         return {
@@ -3029,15 +3029,15 @@ def _known_recipe_template(
                 repo_name="reuse-recipe",
             ),
             "expected_text": [
-                "Reuse this machine's token",
-                "Yoke stores your project's GitHub token in the Yoke core database",
+                "Use this machine's GitHub App connection",
+                "Yoke records your project's GitHub App binding in the Yoke core database",
                 "Review what Yoke will save.",
                 "In the Yoke core database",
             ],
             "post_checks": ["secret_free", "no_text:Traceback"],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from project reuse-machine adoption after publish.",
+            "notes": "Grounded from project GitHub App reuse adoption after publish.",
         }
     if scenario_id == "PUBLISH-013":
         return {
@@ -3159,7 +3159,7 @@ def _known_recipe_template(
             ],
             "start_delay": 0.0,
             "step_delay": 0.5,
-            "notes": "Grounded from project GitHub token-store Apply failure.",
+            "notes": "Grounded from project GitHub App binding Apply failure.",
         }
     if scenario_id == "APPLY-006":
         return {
@@ -3656,8 +3656,8 @@ def _state_recipe_template(
             "expected_text": [
                 "Using existing Yoke token file from machine config.",
                 "Yoke token connected.",
-                "Using existing GitHub token file from machine config.",
-                "GitHub token connected.",
+                "Using existing GitHub credential file from machine config.",
+                "GitHub App connection saved.",
             ],
             "post_checks": ["secret_free", "no_text:Traceback"],
             "start_delay": STATE_TUI_SETUP_START_DELAY,
@@ -3756,7 +3756,7 @@ def _state_recipe_template(
             "post_checks": ["secret_free", "no_text:Traceback"],
             "start_delay": 0.0,
             "step_delay": 0.5,
-            "notes": "Grounded from machine config with stage and prod token-file connections.",
+            "notes": "Grounded from machine config with stage and prod credential-file connections.",
         }
     if scenario_id == "STATE-007":
         return {
@@ -3764,8 +3764,8 @@ def _state_recipe_template(
             "actions": _github_stored_token_actions(),
             "expected_text": [
                 "Using existing Yoke token file from machine config.",
-                "Using existing GitHub token file from machine config.",
-                "GitHub token connected.",
+                "Using existing GitHub credential file from machine config.",
+                "GitHub App connection saved.",
             ],
             "post_checks": ["secret_free", "no_text:Traceback"],
             "start_delay": STATE_TUI_SETUP_START_DELAY,
@@ -5001,7 +5001,7 @@ def _project_apply_token_store_failure_command() -> str:
             function_errors={
                 "projects.capability_secret.set": {
                     "code": "permission_denied",
-                    "message": "permission denied storing project GitHub token",
+                    "message": "permission denied recording project GitHub App binding",
                 },
             }
         ),
@@ -6265,14 +6265,14 @@ def _empty_board_data_payload(
     )
 
 
-def _fake_classic_github_profile() -> dict[str, object]:
+def _fake_scoped_token_github_profile() -> dict[str, object]:
     return {
-        "login": "recipe-classic",
+        "login": "recipe-scoped",
         "id": 201,
         "scopes": ["repo", "workflow"],
         "repos": [
-            _fake_github_repo("recipe-classic/app", private=True, push=True),
-            _fake_github_repo("recipe-classic/cli", private=False, push=True),
+            _fake_github_repo("recipe-scoped/app", private=True, push=True),
+            _fake_github_repo("recipe-scoped/cli", private=False, push=True),
         ],
         "orgs": [],
         "create_status": 422,

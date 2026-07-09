@@ -10,7 +10,7 @@ the typed class name on stderr. The body-budget check is never invoked
 on the auth-failure path.
 
 GitHub access goes through the typed :mod:`yoke_core.domain.github_rest`
-surface (PAT-backed REST). Yoke does NOT use the ``gh`` CLI.
+surface (bearer-token REST). Yoke does NOT use the ``gh`` CLI.
 """
 
 from __future__ import annotations
@@ -84,9 +84,9 @@ def sync_body(
         gh_project = project or "yoke"
         if _bgs()._github_sync_skip(gh_project, "sync-body", conn=conn, out=stdout):
             return 0
-        if not _bgs()._pat_available(gh_project):
+        if not _bgs()._github_auth_available(gh_project):
             print(
-                f"Error: project '{gh_project}' has no usable GitHub PAT for sync-body",
+                f"Error: project '{gh_project}' has no usable GitHub App auth for sync-body",
                 file=stderr,
             )
             return 1
@@ -190,9 +190,9 @@ def sync_title(
         gh_project = project or "yoke"
         if _bgs()._github_sync_skip(gh_project, "sync-title", conn=conn, out=stdout):
             return 0
-        if not _bgs()._pat_available(gh_project):
+        if not _bgs()._github_auth_available(gh_project):
             print(
-                f"Error: project '{gh_project}' has no usable GitHub PAT for sync-title",
+                f"Error: project '{gh_project}' has no usable GitHub App auth for sync-title",
                 file=stderr,
             )
             return 1

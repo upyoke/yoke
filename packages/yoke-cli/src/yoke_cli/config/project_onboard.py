@@ -34,12 +34,12 @@ _resumable_clone = apply_clone.resumable_clone
 _apply_clone_outcome = apply_clone.apply_clone_outcome
 
 
-def _finish_github_auth(*args, **kwargs):
+def _finish_github_binding(*args, **kwargs):
     # Bound lazily (not aliased at module load) so importing
     # project_onboard_apply as an entry point doesn't read this attribute
     # mid-cycle, before it is defined — project_onboard_apply imports
     # onboard_apply_progress -> onboard_project -> project_onboard.
-    return project_onboard_apply.finish_github_auth_if_needed(*args, **kwargs)
+    return project_onboard_apply.finish_github_binding_if_needed(*args, **kwargs)
 
 
 def create_project(
@@ -112,7 +112,7 @@ def create_project(
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
         )
-    _finish_github_auth(progress, github_auth_target, github_adoption, reuse_github_auth)
+    _finish_github_binding(progress, github_auth_target, github_adoption, reuse_github_auth)
     return report
 
 
@@ -235,7 +235,7 @@ def import_project(
             reuse_github_auth=reuse_github_auth,
             clone_outcome=outcome,
         )
-    _finish_github_auth(progress, github_auth_target, github_adoption, reuse_github_auth)
+    _finish_github_binding(progress, github_auth_target, github_adoption, reuse_github_auth)
     return report
 
 
@@ -353,7 +353,7 @@ def onboard_existing(
             reuse_github_auth=reuse_github_auth,
             register_mapping=True,
         )
-    _finish_github_auth(progress, github_auth_target, github_adoption, reuse_github_auth)
+    _finish_github_binding(progress, github_auth_target, github_adoption, reuse_github_auth)
     return report
 
 __all__ = [

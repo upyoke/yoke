@@ -1,9 +1,9 @@
 """Project bootstrap preflight checks.
 
-Hosts ``run_preflight`` — the PAT/yoke-db/ssh/config probe that runs
+Hosts ``run_preflight`` — the GitHub App auth/yoke-db/ssh/config probe that runs
 before any mutation occurs. Each branch prints a ``[PASS]``/``[FAIL]``
 line and accumulates a failure count so the operator sees every gap
-in a single run. GitHub operations route through the PAT-backed REST
+in a single run. GitHub operations route through the bearer-token REST
 transport (``yoke_core.domain.gh_rest_transport``).
 """
 
@@ -60,7 +60,6 @@ def run_preflight(ctx: BootstrapContext) -> int:
     ssh_host = ""
     ssh_user = ""
     ssh_key_path = ""
-    token_value = ""
 
     conn = _connect()
     try:
@@ -83,12 +82,10 @@ def run_preflight(ctx: BootstrapContext) -> int:
         project_id = ident.id
         project_upper = ident.slug.upper()
         # Canonical project GitHub auth resolution is the sole GitHub
-        # prerequisite: a typed resolver failure names the specific gap
-        # (missing capability row, empty token, bad env var) and the
-        # repair-hint surface routes operators to the matching
-        # ``yoke projects capability secret set`` call. The caller-owned
-        # connection keeps
-        # bootstrap on active Postgres authority instead of a DB path token.
+        # prerequisite: a typed resolver failure names the specific App
+        # binding, installation, permission, or credential gap. The
+        # caller-owned connection keeps bootstrap on active Postgres
+        # authority instead of a DB path token.
         try:
             resolve_project_github_auth(project, conn=conn)
             _print_pass(f"project '{project}' github auth resolved (canonical)")
@@ -121,36 +118,18 @@ def run_preflight(ctx: BootstrapContext) -> int:
             )
 
         github_settings = _capability_settings(conn, project, "github")
-        token_value = _capability_secret(conn, project, "github", "token")
         if github_settings:
             _print_pass(
-                f"project_capabilities has github entry for {project} (token: [set])"
+                f"project_capabilities has GitHub App entry for {project}"
             )
         else:
             fail_count += 1
             _print_fail(
                 f"project_capabilities missing github entry for {project}",
-                "Add a github capability:",
-                f'  python3 -m yoke_core.domain.projects capability-set-settings {project} github \'{{"repo_owner":"OWNER","repo_name":"REPO"}}\' --new',
-                "  yoke projects capability secret set "
-                f"--project {project} --cap-type github --key token YOUR_PAT",
+                "Bind a GitHub App repository:",
+                "  yoke projects github-binding bind "
+                f"--project {project} --github-repo OWNER/REPO ...",
                 f"Re-run: python3 -m yoke_core.domain.bootstrap_project cli {project}",
-            )
-
-        if token_value and token_value != "REPLACE_WITH_PAT":
-            _print_pass("GitHub token configured (token: [set])")
-        else:
-            fail_count += 1
-            _print_fail(
-                "GitHub token not configured",
-                "1. Go to https://github.com/settings/tokens/new",
-                f'2. Name it: "Yoke — {project} deployment"',
-                "3. Select scopes: [x] repo   [x] workflow",
-                '4. Click "Generate token" and copy it',
-                "5. Store the token:",
-                "     yoke projects capability secret set "
-                f"--project {project} --cap-type github --key token <paste_token>",
-                f"6. Re-run: python3 -m yoke_core.domain.bootstrap_project cli {project}",
             )
 
         ssh_settings = _capability_settings(conn, project, "ssh")

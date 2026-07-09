@@ -46,7 +46,7 @@ def put_environment(
 
 
 def fetch_authenticated_user(*, token: str) -> Mapping[str, Any]:
-    """Return the GitHub user record for the PAT-authenticated principal.
+    """Return the GitHub user record for the GitHub App auth-authenticated principal.
 
     Used by bootstrap_project_setup to resolve the operator's login and
     numeric ID for the ``reviewers`` deployment-protection rule.

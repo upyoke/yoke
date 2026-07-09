@@ -34,8 +34,8 @@ _LABEL_REST_STATE = "yoke_core.domain.backlog_github_state_sync._label_rest"
 def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "yoke")
     return ProjectGithubAuth(
-        project=proj, repo="upyoke/yoke", token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        project=proj, repo="upyoke/yoke", token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -73,7 +73,7 @@ def _setup_item(item_id=42, status="implementing"):
 
 def test_block_sets_flag_and_preserves_status():
     db = _setup_item(item_id=42, status="implementing")
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_state_sync, "resolve_project_github_auth",
@@ -95,7 +95,7 @@ def test_unblock_clears_flag_and_preserves_status():
     db = _setup_item(item_id=43, status="refined-idea")
     db.execute("UPDATE items SET blocked = 1 WHERE id = 43")
     db.commit()
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_state_sync, "resolve_project_github_auth",

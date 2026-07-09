@@ -24,9 +24,48 @@ CREATE TABLE capability_secrets (id INTEGER PRIMARY KEY, project_id INTEGER NOT 
   type TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
   source TEXT NOT NULL DEFAULT 'literal' CHECK(source = 'literal'),
   UNIQUE(project_id, type, key));
+CREATE TABLE github_app_installations (
+  id INTEGER PRIMARY KEY,
+  installation_id TEXT NOT NULL UNIQUE,
+  account_id TEXT NOT NULL,
+  account_login TEXT NOT NULL,
+  account_type TEXT NOT NULL,
+  repository_selection TEXT NOT NULL DEFAULT 'selected',
+  permissions TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'active',
+  last_verified_at TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL);
+CREATE TABLE project_github_repo_bindings (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL,
+  installation_id TEXT NOT NULL,
+  repository_id TEXT,
+  github_repo TEXT NOT NULL,
+  default_branch TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  permissions TEXT NOT NULL DEFAULT '{}',
+  last_verified_at TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(project_id));
 CREATE TABLE deployment_flows (id TEXT PRIMARY KEY, project_id INTEGER NOT NULL,
   name TEXT NOT NULL, stages TEXT NOT NULL);
 """
+
+
+_APP_PERMISSIONS = {
+    "metadata": "read",
+    "issues": "write",
+    "pull_requests": "write",
+    "contents": "write",
+    "actions": "write",
+    "workflows": "write",
+    "secrets": "write",
+    "variables": "write",
+}
 
 
 class _RestResp:
@@ -84,7 +123,7 @@ def _seed_buzz(
     conn,
     db_dir: Path,
     *,
-    github_token: str,
+    include_app_auth: bool,
     ssh_settings: dict | None,
     docker_settings: dict | None,
     flow_stages: list | None,
@@ -100,13 +139,57 @@ def _seed_buzz(
     conn.execute(
         "INSERT INTO project_capabilities (project_id, type, settings) "
         f"VALUES ({p}, {p}, {p})",
-        (2, "github", json.dumps({"repo": "example-org/buzz"})),
+        (
+            2,
+            "github",
+            json.dumps({
+                "auth_model": "github_app",
+                "app_issuer": "Iv1.validator",
+                "private_key_secret_key": "app_private_key",
+            }),
+        ),
     )
-    conn.execute(
-        "INSERT INTO capability_secrets (project_id, type, key, value) "
-        f"VALUES ({p}, {p}, {p}, {p})",
-        (2, "github", "token", github_token),
-    )
+    if include_app_auth:
+        permissions_json = json.dumps(_APP_PERMISSIONS)
+        conn.execute(
+            "INSERT INTO capability_secrets (project_id, type, key, value) "
+            f"VALUES ({p}, {p}, {p}, {p})",
+            (2, "github", "app_private_key", "test-private-key"),
+        )
+        conn.execute(
+            "INSERT INTO github_app_installations "
+            "(installation_id, account_id, account_login, account_type, "
+            "repository_selection, permissions, status, created_at, updated_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
+            (
+                "12345",
+                "9988",
+                "example-org",
+                "Organization",
+                "selected",
+                permissions_json,
+                "active",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO project_github_repo_bindings "
+            "(project_id, installation_id, repository_id, github_repo, "
+            "default_branch, status, permissions, created_at, updated_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
+            (
+                2,
+                "12345",
+                "4567",
+                "example-org/buzz",
+                default_branch,
+                "active",
+                permissions_json,
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
     if ssh_settings is not None:
         conn.execute(
             "INSERT INTO project_capabilities (project_id, type, settings) "
@@ -139,7 +222,7 @@ def _init_db(
     db_dir: Path,
     *,
     include_buzz: bool = True,
-    github_token: str = "gho_realtoken",
+    include_app_auth: bool = True,
     ssh_settings: dict | None = None,
     docker_settings: dict | None = None,
     flow_stages: list | None = None,
@@ -163,7 +246,7 @@ def _init_db(
                 _seed_buzz(
                     conn,
                     db_dir,
-                    github_token=github_token,
+                    include_app_auth=include_app_auth,
                     ssh_settings=ssh_settings,
                     docker_settings=docker_settings,
                     flow_stages=flow_stages,
@@ -224,6 +307,14 @@ def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
         "yoke_core.domain.validate_webapp_pipeline_checks_remote._which",
         lambda cmd: True,
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.validate_webapp_pipeline_checks_remote.resolve_project_github_auth",
+        lambda project, **_kwargs: type(
+            "ResolvedGithubAppAuth",
+            (),
+            {"project": project, "repo": "example-org/buzz", "token": "ghs_validator"},
+        )(),
+    )
     _install_rest_happy(monkeypatch)
 
     with _init_db(
@@ -242,7 +333,7 @@ def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
 
     # Happy path has one warning: SSH section preserves prior "incomplete" behavior.
-    assert rc == 0
+    assert rc == 0, out
     assert "Pre-flight PASSED with 1 warning(s)" in out
     assert "[FAIL]" not in out
     assert "Workflow file exists: buzz-deploy.yml" in out
@@ -303,7 +394,7 @@ def test_run_validation_missing_project_and_token(tmp_path: Path, monkeypatch, c
     assert "Buzz github_repo not set" in out
     assert "No github capability for buzz" in out
     assert "No deployment flows for buzz" in out
-    # PAT-only validator no longer probes the host gh CLI. Banned
+    # GitHub App auth-only validator no longer probes the host gh CLI. Banned
     # strings built by concatenation so the AC-1 / AC-2 grep recipes
     # return zero hits anywhere in the live tree.
     assert ("gh CLI" + " not installed") not in out
@@ -311,7 +402,9 @@ def test_run_validation_missing_project_and_token(tmp_path: Path, monkeypatch, c
     assert "buzz github auth not resolvable" in out
 
 
-def test_run_validation_flags_placeholder_github_token(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_run_validation_flags_missing_github_app_binding(
+    tmp_path: Path, monkeypatch, capsys,
+) -> None:
     _make_buzz_repo(tmp_path)
     script_dir = _make_script_dir(tmp_path)
 
@@ -336,7 +429,7 @@ def test_run_validation_flags_placeholder_github_token(tmp_path: Path, monkeypat
         lambda cmd, **_: subprocess.CompletedProcess(cmd, 0, "", ""),
     )
 
-    with _init_db(tmp_path, github_token="REPLACE_WITH_PAT") as db_path:
+    with _init_db(tmp_path, include_app_auth=False) as db_path:
         ctx = ValidateContext(
             project_root=tmp_path,
             script_dir=script_dir,
@@ -345,8 +438,8 @@ def test_run_validation_flags_placeholder_github_token(tmp_path: Path, monkeypat
         )
         rc = run_validation(ctx)
     out = capsys.readouterr().out
-    assert rc == 1  # placeholder token + missing workflow gh secrets etc.
-    assert "GitHub token not configured or is placeholder" in out
+    assert rc == 1
+    assert "GitHub App repo binding not configured" in out
 
 
 # Misconfiguration / CLI / SSH tests live in test_validate_webapp_pipeline_misc.py.

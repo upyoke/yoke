@@ -166,7 +166,7 @@ class CloneOutcome:
 
     ``used_token`` is True only when the ambient clone failed and the token
     fallback then succeeded — that is the single case the wizard surfaces the
-    "used your connected GitHub token" line for.
+    "used your connected GitHub credential" line for.
     """
 
     used_token: bool
@@ -207,8 +207,8 @@ def clone_with_token_fallback(
         # never reach a log line.
         scrubbed = fallback.stderr.replace(header, REDACTED_AUTH_HEADER).strip()
         raise CloneAccessError(
-            "clone failed even with your connected GitHub token — the token "
-            "lacks access or the repo was not found: "
+            "clone failed even with your connected GitHub credential — the "
+            "credential lacks access or the repo was not found: "
             + (scrubbed or "unknown error")
         )
     target = parent / name
@@ -269,7 +269,7 @@ def clone_progress_lines(repo: str, outcome: CloneOutcome) -> list[str]:
     lines = [f"  Cloning {repo}…"]
     if outcome.used_token:
         lines.append(
-            "  Your git setup couldn't reach it — used your connected GitHub token."
+            "  Your git setup couldn't reach it — used your connected GitHub credential."
         )
     lines.append("  ✓ Cloned.")
     return lines

@@ -1,4 +1,4 @@
-"""Tests for rate-limit recognition in the PAT-driven GitHub REST transport.
+"""Tests for rate-limit recognition in the bearer-token GitHub REST transport.
 
 Covers the typed `RateLimitedError` class introduced for both canonical 429
 responses and the 403-shaped secondary rate limit GitHub returns when the
@@ -62,7 +62,7 @@ def test_429_classifies_as_rate_limited(monkeypatch):
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
     with pytest.raises(t.RateLimitedError) as excinfo:
-        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_x")
+        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_x")
     assert excinfo.value.status == 429
 
 
@@ -78,7 +78,7 @@ def test_403_with_rate_limit_body_classifies_as_rate_limited(monkeypatch):
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
     with pytest.raises(t.RateLimitedError) as excinfo:
-        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_x")
+        t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_x")
     assert excinfo.value.status == 403
     # Three attempts proves the retry budget was applied — without
     # RateLimitedError recognition, a 403 would have terminated on the
@@ -99,7 +99,7 @@ def test_403_with_secondary_rate_limit_marker_retries_then_succeeds(monkeypatch)
         return _FakeResponse(status=200, body=b"{}")
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_x")
+    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_x")
     assert calls["n"] == 2
 
 
@@ -116,7 +116,7 @@ def test_403_with_abuse_marker_retries_then_succeeds(monkeypatch):
         return _FakeResponse(status=200, body=b"{}")
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghp_x")
+    t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_x")
     assert calls["n"] == 2
 
 

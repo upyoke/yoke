@@ -1,4 +1,4 @@
-"""Worktree health checks — wrong-repo GitHub issue migration (PAT REST).
+"""Worktree health checks — wrong-repo GitHub issue migration (bearer-token REST).
 
 Sibling of ``doctor_hc_worktrees_gh`` carrying ``hc_wrong_repo_issues``
 and its private migration helper. GitHub auth + repo resolution flows
@@ -32,7 +32,7 @@ from yoke_core.domain.projects_github_sync_mode import (
 import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
 
-from yoke_core.engines.doctor_hc_gh_skip import GH_PAT_NOT_CONFIGURED_SKIP_REASON
+from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
 
 
 def _p(conn) -> str:
@@ -55,14 +55,14 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-wrong-repo-issues: Wrong-repo GitHub issues.
 
     Resolves the Yoke source repo dynamically through the canonical
-    resolver. SKIPs with the canonical reason when no PAT is configured
+    resolver. SKIPs with the canonical reason when no GitHub App auth is configured
     for Yoke; FAIL only fires on other auth misconfigurations after a
     capability row exists.
     """
-    if not _wt._pat_configured("yoke", db_path=args.db_path):
+    if not _wt._github_auth_configured("yoke", db_path=args.db_path):
         rec.record(
             "HC-wrong-repo-issues", "Wrong-repo GitHub issues", "SKIP",
-            GH_PAT_NOT_CONFIGURED_SKIP_REASON.format(project="yoke"),
+            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
         )
         return
 

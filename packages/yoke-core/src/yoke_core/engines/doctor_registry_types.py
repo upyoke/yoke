@@ -21,12 +21,12 @@ class HealthCheck:
     parent registry re-exports this name so existing callers continue
     to import it from :mod:`doctor_registry`.
 
-    ``github_dependent`` is **PAT-capability-dependent**: HCs with this
+    ``github_dependent`` is **GitHub App auth-dependent**: HCs with this
     flag set auto-skip when
     :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`
-    cannot return a usable PAT for the project. The flag name is
+    cannot return a usable GitHub App auth for the project. The flag name is
     preserved for stability; the semantic shifted from "requires the
-    host ``gh`` binary" to "requires the project PAT capability".
+    host ``gh`` binary" to "requires the project GitHub App auth capability".
     """
 
     slug: str

@@ -6,7 +6,7 @@ functions and test patch targets directly from their canonical owners.
 
 Sibling layout (each imported directly — no two-hop indirection):
 
-- ``backlog_github_transport``      — PAT availability probe + dry-run helper
+- ``backlog_github_transport``      — GitHub auth availability probe + dry-run helper
 - ``backlog_github_label_sync``     — label reconcile, ``update_repo_labels``,
                                        ``sync_labels``
 - ``backlog_github_item_create``    — ``sync_item`` create/dedup, ``_regenerate_md``
@@ -29,10 +29,10 @@ from __future__ import annotations
 # ``backlog_github_sync.epic_task_sync.sync_epic_tasks``.
 from yoke_core.domain import epic_task_sync  # noqa: F401 — patch surface
 
-# Transport: PAT availability probe + epic-children dispatch
+# Transport: GitHub auth availability probe + epic-children dispatch
 from yoke_core.domain.backlog_github_transport import (  # noqa: F401
     _dry_run,
-    _pat_available,
+    _github_auth_available,
     _sync_epic_children,
 )
 
@@ -116,7 +116,7 @@ __all__ = [
     # Transport
     "_dry_run",
     "_github_sync_skip",
-    "_pat_available",
+    "_github_auth_available",
     "_sync_epic_children",
     # Shared read helpers
     "_open_conn",

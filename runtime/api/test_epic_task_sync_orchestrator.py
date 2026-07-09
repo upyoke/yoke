@@ -64,8 +64,8 @@ def _ok_auth(project: str, **kwargs):
     return ProjectGithubAuth(
         project=project,
         repo="org/buzz",
-        token="ghp_test_token",
-        env={"GH_TOKEN": "ghp_test_token"},
+        token="ghs_test_token",
+        env={"GH_TOKEN": "ghs_test_token"},
     )
 
 

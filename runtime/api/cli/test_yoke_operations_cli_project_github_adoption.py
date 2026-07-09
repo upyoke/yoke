@@ -80,7 +80,7 @@ def test_onboard_project_rejects_project_github_token_file(
     checkout.mkdir()
     run_git(checkout, "init")
     github_token = tmp_path / "github.token"
-    github_token.write_text("ghp_local_project_secret\n", encoding="utf-8")
+    github_token.write_text("ghs_local_project_secret\n", encoding="utf-8")
 
     config = write_https_config(tmp_path, "product-token")
     rc = yoke_operations_cli.main([
@@ -106,10 +106,10 @@ def test_onboard_project_rejects_project_github_token_file(
     assert rc == 2
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "project GitHub token inputs are no longer supported" in captured.err
-    assert "ghp_local_project_secret" not in captured.err
-    assert "ghp_local_project_secret" not in tree_text(checkout)
-    assert "ghp_local_project_secret" not in config.read_text(encoding="utf-8")
+    assert "project-supplied GitHub credentials are no longer supported" in captured.err
+    assert "ghs_local_project_secret" not in captured.err
+    assert "ghs_local_project_secret" not in tree_text(checkout)
+    assert "ghs_local_project_secret" not in config.read_text(encoding="utf-8")
 
 
 def test_legacy_onboard_project_token_store_failure_is_friendly(

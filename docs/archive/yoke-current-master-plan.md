@@ -2641,7 +2641,7 @@ Yoke's job is **accurate state visibility, nothing more**. All sophistication ar
 3. Usher polling: block and poll (<5 min runs) or exit and ask operator to re-run?
 4. Branch push timing: after engineer finishes (recommended) or on worktree creation?
 5. Who pushes to main: weave (recommended, owns merge sequence) or conduct?
-6. GitHub token scope: `repo` (full) or restricted (`workflow` + `actions:read` + `contents:write`)?
+6. GitHub App repository permissions: full repo access or only workflow dispatch, Actions read, and contents write?
 
 ---
 

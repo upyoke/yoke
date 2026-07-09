@@ -110,7 +110,7 @@ class TestDoctorRunScope(unittest.TestCase):
                 fn=_record("server"),
             ),
             HealthCheck(
-                slug="project-gh-token",
+                slug="project-gh-auth",
                 name="Project token",
                 fn=_record("token"),
             ),

@@ -79,13 +79,13 @@ def test_target_dataclass_carries_owner_repo_split():
 
     auth = ProjectGithubAuth(
         project="yoke", repo="upyoke/yoke",
-        token="ghp_x", env={"GH_TOKEN": "ghp_x"},
+        token="ghs_x", env={"GH_TOKEN": "ghs_x"},
     )
     tgt = Target.from_auth(auth)
     assert tgt.owner == "upyoke"
     assert tgt.repo == "yoke"
     assert tgt.repo_slug == "upyoke/yoke"
-    assert tgt.token == "ghp_x"
+    assert tgt.token == "ghs_x"
     assert tgt.project == "yoke"
 
 

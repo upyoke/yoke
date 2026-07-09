@@ -1,10 +1,10 @@
 """Worktree health checks — project-level capability checks.
 
-Project-scoped HCs (repo presence, GitHub token, worktrees, deployment
+Project-scoped HCs (repo presence, GitHub App auth, worktrees, deployment
 flows, production health, GitHub Actions secrets, VPS reachability).
-HC-project-gh-secrets uses PAT-backed REST ``GET /actions/secrets``,
+HC-project-gh-secrets uses bearer-token REST ``GET /actions/secrets``,
 which needs ``secrets:read`` (or ``admin:repo``) scope; 401/403 SKIPs
-with the canonical reason -- same UX as missing PAT.
+with the canonical reason -- same UX as missing GitHub App auth.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from yoke_core.domain.project_checkout_locations import checkout_for_project
 import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
 
-from yoke_core.engines.doctor_hc_gh_skip import GH_PAT_NOT_CONFIGURED_SKIP_REASON
+from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -69,8 +69,8 @@ def hc_project_repo_exists(conn, args: DoctorArgs, rec: RecordCollector) -> None
         rec.record("HC-project-repo-exists", f"Project checkout installed ({args.project})", "FAIL",
                     f"mapped checkout '{rp}' does not exist on disk")
 
-def hc_project_gh_token(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-project-gh-token: GitHub token capability for project.
+def hc_project_gh_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    """HC-project-gh-auth: GitHub App auth for project.
 
     Resolves through the canonical :func:`resolve_project_github_auth`
     surface; on any typed ``ProjectGithubAuthError`` the HC FAILs with the
@@ -83,18 +83,18 @@ def hc_project_gh_token(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         resolve_project_github_auth(proj_id, db_path=args.db_path)
     except ProjectGithubAuthError as err:
         rec.record(
-            "HC-project-gh-token",
-            f"GitHub token capability ({proj_id})",
+            "HC-project-gh-auth",
+            f"GitHub App auth ({proj_id})",
             "FAIL",
             f"{err}\nRepair: {repair_command_hint(err, proj_id)}",
         )
         return
 
     rec.record(
-        "HC-project-gh-token",
-        f"GitHub token capability ({proj_id})",
+        "HC-project-gh-auth",
+        f"GitHub App auth ({proj_id})",
         "PASS",
-        f"Resolved github auth via project_capabilities + capability_secrets",
+        f"Resolved GitHub App auth via project repo binding",
     )
 
 def hc_project_worktrees(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -191,11 +191,11 @@ def hc_project_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     f"{url} returned HTTP {status}")
 
 def hc_project_gh_secrets(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-project-gh-secrets: GitHub Actions secrets present (PAT REST).
+    """HC-project-gh-secrets: GitHub Actions secrets present (bearer-token REST).
 
-    ``GET /repos/{owner}/{name}/actions/secrets`` requires the PAT to
+    ``GET /repos/{owner}/{name}/actions/secrets`` requires the GitHub App auth to
     carry the ``secrets:read`` (or ``admin:repo``) scope; 401/403 SKIPs
-    with the canonical reason -- same UX as missing PAT.
+    with the canonical reason -- same UX as missing GitHub App auth.
     """
     name_label = f"GitHub Actions secrets ({args.project})"
     slug = "HC-project-gh-secrets"
@@ -209,7 +209,7 @@ def hc_project_gh_secrets(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         auth = resolve_project_github_auth(args.project, db_path=args.db_path, conn=conn)
     except ProjectGithubAuthError:
         rec.record(slug, name_label, "SKIP",
-                   GH_PAT_NOT_CONFIGURED_SKIP_REASON.format(project=args.project))
+                   GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=args.project))
         return
     parts = gh_repo.split("/", 1)
     if len(parts) != 2:
@@ -223,7 +223,7 @@ def hc_project_gh_secrets(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         )
     except RestAuthError:
         rec.record(slug, name_label, "SKIP",
-                   GH_PAT_NOT_CONFIGURED_SKIP_REASON.format(project=args.project))
+                   GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=args.project))
         return
     except RestNotFoundError:
         rec.record(slug, name_label, "WARN",

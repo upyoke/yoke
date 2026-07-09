@@ -160,7 +160,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "Use -C with absolute path. Worktree paths under "
             ".worktrees/<branch>. The CI advisory dispatches "
             "github_actions.check_ci through gh_rest_transport "
-            "(PAT-backed REST). For a GitHub REST verb that lacks a "
+            "(bearer-token REST). For a GitHub REST verb that lacks a "
             "friendly helper, use `gh_rest_transport.RestRequest` with "
             "`request_with_retry`; do not guess a "
             "`github_actions_rest.rest_delete` helper."

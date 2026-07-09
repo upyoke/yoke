@@ -66,11 +66,11 @@ class PublishFlow:
     def _on_publish_choice(self: _Shell, choice: str) -> None:
         if choice != project_screens.PUBLISH_YES:
             self.result.project_publish_to_github = False
-            if getattr(self, "_publish_pat_only", False):
+            if getattr(self, "_publish_user_token_only", False):
                 self.result.machine_github_token = None
                 self.result.machine_github_api_url = None
                 self.result.machine_github_token_source_kind = None
-                self._publish_pat_only = False
+                self._publish_user_token_only = False
             self._after_repo("")
             return
         self.result.project_publish_to_github = True
@@ -156,18 +156,18 @@ class PublishFlow:
             )
         return "GitHub authorization can't create a repo it can also push to." + tail
 
-    def _goto_publish_pat(self: _Shell) -> None:
+    def _goto_publish_github_auth(self: _Shell) -> None:
         self._goto_publish_unavailable()
 
-    def _after_publish_pat(self: _Shell, value: str) -> None:
+    def _after_publish_github_auth(self: _Shell, value: str) -> None:
         self._goto_publish_unavailable()
 
-    def _goto_publish_pat_error(self: _Shell, message: str) -> None:
+    def _goto_publish_github_auth_error(self: _Shell, message: str) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
         def _retry(choice: str) -> None:
             if choice == "retry":
-                self._goto_publish_pat()
+                self._goto_publish_github_auth()
                 return
             # "Back": abandon publishing and keep the project local.
             self.result.project_publish_to_github = False

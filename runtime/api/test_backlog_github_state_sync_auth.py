@@ -41,7 +41,7 @@ class TestCloseIssueAuthTranslation:
         insert_item(db, id=40, type="issue", status="done", project="buzz", github_issue="#60")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
@@ -67,7 +67,7 @@ class TestReopenIssueAuthTranslation:
         insert_item(db, id=50, type="issue", status="implementing", project="buzz", github_issue="#70")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "_get_issue_state",
@@ -91,7 +91,7 @@ class TestFlagLabelAuthTranslation:
         insert_item(db, id=60, type="issue", status="implementing", project="buzz", github_issue="#80")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
@@ -110,7 +110,7 @@ class TestFlagLabelAuthTranslation:
         insert_item(db, id=70, type="issue", status="implementing", project="buzz", github_issue="#90")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",

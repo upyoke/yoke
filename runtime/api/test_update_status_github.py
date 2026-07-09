@@ -8,7 +8,7 @@ Covers:
   - Cross-project repo resolution
   - CLI entry point shape
 
-Status sync now dispatches GitHub side effects through the PAT-backed
+Status sync now dispatches GitHub side effects through the bearer-token
 REST transport (``yoke_core.domain.gh_rest_transport.request_with_retry``);
 the host ``gh`` shell-out path was retired alongside ``_run_gh``. New
 tests patch ``request_with_retry`` on the consuming module (canonical

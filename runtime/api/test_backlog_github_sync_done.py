@@ -35,8 +35,8 @@ _DONE_WRITER = "yoke_core.domain.backlog_github_done_sync._writer"
 def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "buzz")
     return ProjectGithubAuth(
-        project=proj, repo="org/buzz", token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        project=proj, repo="org/buzz", token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -65,7 +65,7 @@ def test_sync_done_item_batches_body_labels_and_close():
         "source:ben", "owner:ben",
     )
 
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_done_sync, "resolve_project_github_auth",
@@ -137,7 +137,7 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
         captured_bodies.append(chosen)
         return BodyWriteResult(returncode=0, mode=mode, stdout="", stderr="")
 
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_done_sync, "resolve_project_github_auth",

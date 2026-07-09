@@ -1,9 +1,8 @@
 """Yoke prerequisite checks.
 
-Yoke's GitHub operations run through the PAT-backed REST transport
-(``yoke_core.domain.gh_rest_transport``). The github auth check
-resolves through ``project_github_auth.resolve_project_github_auth``
-(DB capability + token).
+Yoke's GitHub operations run through bearer-token REST calls. The GitHub auth
+check resolves through ``project_github_auth.resolve_project_github_auth``
+(repo binding + short-lived GitHub App token).
 """
 
 from __future__ import annotations
@@ -109,11 +108,9 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     results: list[tuple[str, str]] = []
     auth_repair_hint: Optional[str] = None
 
-    # Resolve project GitHub auth: PASS when Yoke's seeded github
-    # capability + token resolve cleanly, WARN with concrete repair text
-    # on resolver failures (operators may legitimately not have a token
-    # in dev). ``--strict`` upgrades WARN to FAIL so CI trips on the same
-    # gap.
+    # Resolve project GitHub auth: PASS when Yoke's repo binding can produce a
+    # bearer token, WARN with concrete repair text on resolver failures.
+    # ``--strict`` upgrades WARN to FAIL so CI trips on the same gap.
     github_authed = False
     try:
         resolve_project_github_auth("yoke")
@@ -129,12 +126,12 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
             f"{type(exc).__name__}: {exc}"
         )
     if github_authed:
-        _add_result(results, "Project GitHub PAT configured", "✅")
+        _add_result(results, "Project GitHub App auth configured", "✅")
     elif strict:
-        _add_result(results, "Project GitHub PAT configured", "❌")
+        _add_result(results, "Project GitHub App auth configured", "❌")
         critical_fail = True
     else:
-        _add_result(results, "Project GitHub PAT configured", "🚨")
+        _add_result(results, "Project GitHub App auth configured", "🚨")
 
     git_ok = _git_version_ok()
     _add_result(results, "Git version >= 2.15", "✅" if git_ok else "❌")

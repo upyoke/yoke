@@ -74,7 +74,7 @@ def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
     shared backoff schedule.
     """
     if not token:
-        raise RestAuthError("GitHub PAT is empty")
+        raise RestAuthError("GitHub bearer token is empty")
 
     url = f"{GITHUB_API_BASE}/repos/{repo}/actions/runs/{run_id}/logs"
     headers = {

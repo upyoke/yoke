@@ -103,16 +103,16 @@ def stub_token_verifiers(monkeypatch) -> None:
             "scopes": ["repo", "workflow"],
             "permissions": {
                 "ok": True,
-                "mode": "classic",
+                "mode": "scoped_token",
                 "create_repos": {
                     "can_create": True,
                     "create_private": True,
-                    "basis": "classic_scope:repo",
+                    "basis": "scope:repo",
                 },
-                "summary": "classic PAT scopes include repo, workflow",
+                "summary": "scope-bearing token scopes include repo, workflow",
             },
             "capability": {
-                "kind": "classic",
+                "kind": "scoped_token",
                 "can_create": True,
                 "create_private": True,
                 "can_push_new": True,

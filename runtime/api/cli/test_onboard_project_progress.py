@@ -42,7 +42,7 @@ def test_project_apply_progress_events_follow_real_substeps(
             project_github_repo="owner/local",
             project_default_branch="main",
             project_public_item_prefix="LOC",
-            project_github_adoption="skip",
+            project_github_adoption="backlog-only",
             progress=lambda action, target, status: events.append(
                 (action, target, status)
             ),
@@ -59,7 +59,7 @@ def test_project_apply_progress_events_follow_real_substeps(
         ("project-checkout-register", str(checkout), "running"),
         ("project-checkout-register", str(checkout), "done"),
         ("project-install-scaffold", "", "done"),
-        ("project-github-auth-choice", "skip", "skipped"),
+        ("project-github-auth-choice", "backlog-only", "skipped"),
     ]
 
 
@@ -90,7 +90,7 @@ def test_apply_report_records_project_substep_statuses(
             "--github-repo", "owner/local",
             "--default-branch", "main",
             "--public-item-prefix", "LOC",
-            "--github-adoption", "skip",
+            "--github-adoption", "backlog-only",
             "--yes",
             "--json",
         ])

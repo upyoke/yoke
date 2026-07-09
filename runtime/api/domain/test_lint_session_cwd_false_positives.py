@@ -62,7 +62,7 @@ def test_grep_E_regex_operand_not_extracted():
 def test_grep_pattern_in_pipe_not_extracted():
     """field-note 8820: the grep clause of a pipe must not surface its
     pattern; the leading ``cd`` claim is the only real target."""
-    cmd = f'cd {WT} && grep -rn PAT runtime | grep -v /fixtures'
+    cmd = f'cd {WT} && grep -rn TOKEN runtime | grep -v /fixtures'
     assert extract_command_targets(cmd) == [WT]
 
 

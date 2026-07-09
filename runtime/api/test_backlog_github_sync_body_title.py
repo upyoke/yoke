@@ -41,8 +41,8 @@ def _ok_resolver(*args, **kwargs):
     return ProjectGithubAuth(
         project=kwargs.get("project") or (args[0] if args else "buzz"),
         repo="org/buzz",
-        token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -71,7 +71,7 @@ class TestSyncBody:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             body_title_sync.github_rest, "update_issue",
@@ -101,7 +101,7 @@ class TestSyncBody:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             body_title_sync.github_rest, "update_issue",
@@ -128,7 +128,7 @@ class TestSyncBody:
         stdout = io.StringIO()
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             body_title_sync.github_rest, "update_issue",
@@ -170,7 +170,7 @@ class TestSyncBody:
         ), patch.object(
             body_title_sync, "resolve_project_github_auth",
             side_effect=raise_missing_token,
-        ), patch(f"{GH_PATCH}._pat_available", return_value=True), patch.object(
+        ), patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
             rc = backlog_github_sync.sync_body("60", conn=db, stderr=stderr)
@@ -188,7 +188,7 @@ class TestSyncBody:
     def test_noop_when_no_github_issue(self):
         db = _make_db()
         insert_item(db, id=60, type="issue", status="idea", project="buzz")
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch.object(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
             rc = backlog_github_sync.sync_body("60", conn=db)
@@ -226,7 +226,7 @@ class TestSyncTitle:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             body_title_sync.github_rest, "update_issue",
@@ -247,7 +247,7 @@ class TestSyncTitle:
     def test_noop_when_no_github_issue(self):
         db = _make_db()
         insert_item(db, id=70, type="issue", status="idea", project="buzz")
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch.object(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
             rc = backlog_github_sync.sync_title("70", conn=db)

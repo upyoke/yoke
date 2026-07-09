@@ -54,10 +54,10 @@ def _stub_owners(monkeypatch):
     )
 
 
-async def _connect_machine_pat(pilot) -> None:
+async def _connect_machine_github_auth(pilot) -> None:
     await advance_past_path(pilot)
-    await pilot.press("enter")  # machine github: Connect a token (PAT) (default)
-    await type_text(pilot, "ghp_machinepat")
+    await pilot.press("enter")  # machine github: connect account default
+    await type_text(pilot, "ghu_machine_token")
     await pilot.press("enter")
     await pilot.press("enter")  # GitHub verification success: Continue
 
@@ -170,7 +170,7 @@ def test_clone_outcome_screen_writable_variant_drops_fork(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await _connect_machine_github_auth(pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")
@@ -221,7 +221,7 @@ def test_empty_private_repo_picker_falls_back_to_paste_url(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await _connect_machine_github_auth(pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("down")   # visibility: move to Private
             await pilot.press("enter")  # -> empty picker -> paste-URL fallback
@@ -241,7 +241,7 @@ def test_clone_outcome_screen_drops_fork_row_for_non_github_remote() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await _connect_machine_github_auth(pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://gitlab.com/acme/widgets.git")
@@ -275,7 +275,7 @@ def test_prior_partial_clone_offers_resume_then_continues(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await _connect_machine_github_auth(pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")

@@ -23,10 +23,6 @@ def store_machine_secret(name: str, suffix: str, secret: str) -> Path:
     return path
 
 
-def store_github_token(secret: str) -> Path:
-    return store_machine_secret("github", "token", secret)
-
-
 def read_secret_file(path: str | Path, label: str) -> str:
     selected = Path(path).expanduser()
     if not selected.is_file():
@@ -124,6 +120,5 @@ __all__ = [
     "secret_path",
     "secret_path_no_create",
     "secrets_dir",
-    "store_github_token",
     "store_machine_secret",
 ]

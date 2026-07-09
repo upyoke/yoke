@@ -2,17 +2,17 @@
 
 Local mode inherits GitHub sync by construction: the resync engine runs
 in-process wherever the engine dispatches, resolves the project GitHub
-token from ``capability_secrets`` in the CONNECTED universe's DB, and
-talks to GitHub over PAT REST with that token. These tests prove the
+App auth from the CONNECTED universe's DB, and talks to GitHub over
+bearer-token REST with that token. These tests prove the
 construction end to end against a real disposable Postgres universe:
 
 - the control-plane authority is reached exclusively through the machine
   config's ``local`` connection (transport ``local-postgres``, dsn_file
   credential) — ``YOKE_PG_DSN`` is unset for the engine run and the
   scratch machine config carries NO https/hosted connection;
-- the token on the wire is exactly the ``capability_secrets`` row seeded
-  in the universe DB (asserted on every ``Authorization`` header; the
-  token exists nowhere else — not in env, config, or secret files);
+- the token on the wire is exactly the universe-only GitHub App auth token
+  (asserted on every ``Authorization`` header; the token exists nowhere else
+  — not in env, config, or secret files);
 - detect reads linkage rows from the universe DB, repair writes
   ``items.github_issue`` back into the same universe DB.
 
@@ -36,6 +36,7 @@ from yoke_core.domain import (
     projects,
     yoke_connected_env,
 )
+from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from yoke_core.domain.cloud_db_secret_dsn import DB_SECRET_ARN_ENV
 from yoke_core.domain.render_body import build_body
 from yoke_contracts.machine_config import runtime as machine_runtime
@@ -46,9 +47,9 @@ from yoke_cli.config.local_universe_setup import LOCAL_ENV
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_schema
 
-# The user's own PAT, held ONLY as a capability_secrets row in the universe
-# DB — a request authenticated with it proves resolution came from that DB.
-UNIVERSE_ONLY_TOKEN = "ghp_local_universe_only_token"
+# The user's own GitHub App auth token for the local universe — a request
+# authenticated with it proves resolution came from that universe.
+UNIVERSE_ONLY_TOKEN = "ghs_local_universe_only_token"
 
 # Repo the fixture schema seeds on the yoke project row.
 PROJECT_REPO = "upyoke/yoke"
@@ -233,6 +234,36 @@ def _read_github_issue(universe, item_id: int):
     return row[0] if row is not None else None
 
 
+def _patch_project_github_auth(monkeypatch, universe) -> None:
+    def _resolve(project: str, **_kwargs) -> ProjectGithubAuth:
+        return ProjectGithubAuth(
+            project=project,
+            repo=PROJECT_REPO,
+            token=universe.token,
+            env={"GH_TOKEN": universe.token},
+            installation_id="12345",
+            token_source="github_app_installation",
+        )
+
+    for target in (
+        "yoke_core.engines.resync.resolve_project_github_auth",
+        "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+        "yoke_core.engines.resync_detect_linkage.resolve_project_github_auth",
+        "yoke_core.engines.resync_repair.resolve_project_github_auth",
+        "yoke_core.engines.resync_runtime.resolve_project_github_auth",
+        "yoke_core.domain.github_rest.resolve_project_github_auth",
+        "yoke_core.domain.backlog_github_body_title_sync.resolve_project_github_auth",
+        "yoke_core.domain.backlog_github_comments.resolve_project_github_auth",
+        "yoke_core.domain.backlog_github_done_sync.resolve_project_github_auth",
+        "yoke_core.domain.backlog_github_fetch.resolve_project_github_auth",
+        "yoke_core.domain.backlog_github_item_create.resolve_project_github_auth",
+        "yoke_core.domain.backlog_github_label_sync.resolve_project_github_auth",
+        "yoke_core.domain.backlog_github_state_sync.resolve_project_github_auth",
+        "yoke_core.domain.backlog_github_transport.resolve_project_github_auth",
+    ):
+        monkeypatch.setattr(target, _resolve)
+
+
 class TestLocalConnectionShape:
     def test_machine_config_holds_only_the_local_connection(
         self, local_universe,
@@ -249,7 +280,7 @@ class TestLocalConnectionShape:
         assert "api_url" not in entry
 
     def test_github_token_lives_only_in_the_universe_db(self, local_universe):
-        """The PAT is a capability_secrets row, never machine-config state."""
+        """The GitHub App auth is a capability_secrets row, never machine-config state."""
         assert local_universe.token not in json.dumps(local_universe.config)
         conn = pg_testdb.connect_test_database(local_universe.db_name)
         try:
@@ -294,6 +325,7 @@ class TestDetectUnderLocalDispatch:
             issues=[gh_issue], graphql_bodies={100: body},
         )
         monkeypatch.setattr(gh_rest_transport, "urlopen", api)
+        _patch_project_github_auth(monkeypatch, local_universe)
 
         rc = resync_mod.main(["--detect-only"])
         out = capsys.readouterr().out
@@ -326,6 +358,7 @@ class TestRepairUnderLocalDispatch:
         _seed_item(local_universe, item_id, None)
         api = _RecordingGithubApi()
         monkeypatch.setattr(gh_rest_transport, "urlopen", api)
+        _patch_project_github_auth(monkeypatch, local_universe)
 
         rc = resync_mod.main(["--fix"])
         out = capsys.readouterr().out

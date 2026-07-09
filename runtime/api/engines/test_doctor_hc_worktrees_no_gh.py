@@ -3,11 +3,11 @@
 Verifies the four GitHub-dependent HCs (`orphaned-gh-issues`,
 `gh-orphan-detection`, `wrong-repo-issues`, `project-gh-secrets`):
 
-- SKIP with :data:`yoke_core.engines.doctor_hc_gh_skip.GH_PAT_NOT_CONFIGURED_SKIP_REASON`
-  when the project PAT is not configured (no host-``gh`` probe).
-- PASS / FAIL / WARN normally when PAT-backed REST returns shaped responses.
-- HC-project-gh-secrets SKIPs on REST 403 (PAT lacks ``secrets:read`` /
-  ``admin:repo`` scope) -- same UX as missing PAT.
+- SKIP with :data:`yoke_core.engines.doctor_hc_gh_skip.GH_APP_AUTH_UNAVAILABLE_SKIP_REASON`
+  when the project GitHub App auth is unavailable (no host-``gh`` probe).
+- PASS / FAIL / WARN normally when bearer-token REST returns shaped responses.
+- HC-project-gh-secrets SKIPs on REST 403 (GitHub App auth lacks ``secrets:read`` /
+  ``admin:repo`` scope) -- same UX as missing GitHub App auth.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from yoke_core.engines.doctor import (
     hc_project_gh_secrets,
     hc_wrong_repo_issues,
 )
-from yoke_core.engines.doctor_hc_gh_skip import GH_PAT_NOT_CONFIGURED_SKIP_REASON
+from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
 
 
 def _make_conn() -> Any:
@@ -92,7 +92,7 @@ def _auth(project: str = "yoke", repo: str = "upyoke/yoke") -> ProjectGithubAuth
 
 
 def _canonical_skip(project: str = "yoke") -> str:
-    return GH_PAT_NOT_CONFIGURED_SKIP_REASON.format(project=project)
+    return GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=project)
 
 
 class TestOrphanedGhIssuesNoPat:
@@ -117,7 +117,7 @@ class TestGhOrphanDetectionNoPat:
         assert rec.results[0].detail == _canonical_skip("yoke")
 
 
-class TestWrongRepoIssuesNoPat:
+class TestWrongRepoIssuesNoGitHubAuth:
     def test_skips_with_canonical_reason(self):
         with patch(
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
@@ -128,8 +128,8 @@ class TestWrongRepoIssuesNoPat:
         assert rec.results[0].detail == _canonical_skip("yoke")
 
 
-class TestProjectGhSecretsNoPat:
-    def test_skips_with_canonical_reason_on_missing_pat(self):
+class TestProjectGhSecretsNoGitHubAuth:
+    def test_skips_with_canonical_reason_on_missing_auth(self):
         conn = _make_conn()
         _seed_project(conn, "buzz", "org/buzz")
         with patch(
@@ -138,10 +138,10 @@ class TestProjectGhSecretsNoPat:
         ):
             rec = _run_hc(hc_project_gh_secrets, conn, project="buzz")
         assert rec.results[0].result == "SKIP"
-        assert "PAT capability not configured" in rec.results[0].detail
+        assert rec.results[0].detail == _canonical_skip("buzz")
 
     def test_skips_with_canonical_reason_on_403_scope_failure(self):
-        """AC-11: 403 (PAT lacks secrets:read scope) -> SKIP, not FAIL."""
+        """AC-11: 403 (GitHub App auth lacks secrets:read scope) -> SKIP, not FAIL."""
         conn = _make_conn()
         _seed_project(conn, "buzz", "org/buzz")
         with patch(
@@ -153,11 +153,11 @@ class TestProjectGhSecretsNoPat:
         ):
             rec = _run_hc(hc_project_gh_secrets, conn, project="buzz")
         assert rec.results[0].result == "SKIP"
-        assert "PAT capability not configured" in rec.results[0].detail
+        assert rec.results[0].detail == _canonical_skip("buzz")
 
 
-class TestRestPassWithPat:
-    """With a valid PAT, the HCs PASS via REST."""
+class TestRestPassWithGitHubAuth:
+    """With a valid GitHub App auth, the HCs PASS via REST."""
 
     def test_orphaned_gh_issues_passes_when_no_orphans(self):
         conn = _make_conn()

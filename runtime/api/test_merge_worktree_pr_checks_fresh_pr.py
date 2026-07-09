@@ -134,14 +134,14 @@ class TestWaitForCiRestSeam:
 class TestProjectAuthSurface:
     """REST helpers route project-auth failures to a typed error class."""
 
-    def test_validate_pat_for_merge_routes_missing_token(self, monkeypatch) -> None:
+    def test_validate_github_auth_for_merge_routes_missing_token(self, monkeypatch) -> None:
         from yoke_core.domain.project_github_auth import MissingToken
         from yoke_core.engines import merge_worktree_pr_rest
 
         def _raise(*_a, **_kw):
             raise MissingToken(
                 "yoke",
-                "project 'yoke' has no github token in capability_secrets",
+                "project 'yoke' has no legacy github.token",
             )
 
         monkeypatch.setattr(
@@ -152,20 +152,20 @@ class TestProjectAuthSurface:
 
         ctx = _stub_ctx()
         ctx.project = "yoke"
-        ok, message = merge_worktree_pr_rest.validate_pat_for_merge(ctx)
+        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(ctx)
         assert ok is False
         assert "missing_token" in (message or "")
-        assert "capability secret set" in (message or "")
+        assert "legacy github.token is no longer used" in (message or "")
 
-    def test_validate_pat_for_merge_routes_no_project(self) -> None:
+    def test_validate_github_auth_for_merge_routes_no_project(self) -> None:
         from yoke_core.engines import merge_worktree_pr_rest
 
         ctx = _stub_ctx()  # no project set
-        ok, message = merge_worktree_pr_rest.validate_pat_for_merge(ctx)
+        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(ctx)
         assert ok is False
         assert "merge context has no project" in (message or "")
 
-    def test_validate_pat_for_merge_succeeds_when_token_present(
+    def test_validate_github_auth_for_merge_succeeds_when_token_present(
         self, monkeypatch
     ) -> None:
         from yoke_core.domain.project_github_auth import ProjectGithubAuth
@@ -175,11 +175,11 @@ class TestProjectAuthSurface:
             merge_worktree_pr_rest,
             "resolve_project_github_auth",
             lambda *_a, **_kw: ProjectGithubAuth(
-                project="yoke", repo="o/r", token="ghp_x", env={"GH_TOKEN": "ghp_x"}
+                project="yoke", repo="o/r", token="ghs_x", env={"GH_TOKEN": "ghs_x"}
             ),
         )
         ctx = _stub_ctx()
         ctx.project = "yoke"
-        ok, message = merge_worktree_pr_rest.validate_pat_for_merge(ctx)
+        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(ctx)
         assert ok is True
         assert message is None

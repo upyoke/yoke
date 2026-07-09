@@ -31,8 +31,8 @@ _SECRET_VALUE = "shh-rotated-access-key"
 _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
-    token="ghp_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghp_test_token"},
+    token="ghs_test_token",
+    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 
@@ -116,7 +116,7 @@ class TestSecretSet:
             "repo": "upyoke/yoke",
             "name": "YOKE_CI_TEST",
             "value": _SECRET_VALUE,
-            "token": "ghp_test_token",
+            "token": "ghs_test_token",
         }]
         assert outcome.result_payload == {
             "repo": "upyoke/yoke",
@@ -196,7 +196,7 @@ class TestVariableSet:
         )
         assert outcome.primary_success
         assert calls[0]["value"] == "false"
-        assert calls[0]["token"] == "ghp_test_token"
+        assert calls[0]["token"] == "ghs_test_token"
         assert outcome.result_payload == {
             "repo": "upyoke/yoke",
             "name": "YOKE_PULUMI_CI_ENABLED",

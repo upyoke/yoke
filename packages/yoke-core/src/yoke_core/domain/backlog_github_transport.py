@@ -4,7 +4,7 @@ Yoke does NOT use the ``gh`` CLI; all GitHub access goes through typed REST
 surfaces using bearer tokens returned by
 :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`.
 This module hosts the thin ``_dry_run`` env-var gate, the historical
-``_pat_available`` auth probe name, and the ``_sync_epic_children`` dispatch
+``_github_auth_available`` auth probe name, and the ``_sync_epic_children`` dispatch
 wrapper used by ``sync_item``.
 """
 
@@ -25,7 +25,7 @@ def _dry_run() -> bool:
     return os.environ.get("YOKE_DRY_RUN", "0") == "1"
 
 
-def _pat_available(project: str) -> bool:
+def _github_auth_available(project: str) -> bool:
     """Return True iff the project has resolvable GitHub App auth.
 
     Wraps :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`
@@ -66,6 +66,6 @@ def _sync_epic_children(
 
 __all__ = [
     "_dry_run",
-    "_pat_available",
+    "_github_auth_available",
     "_sync_epic_children",
 ]

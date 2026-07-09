@@ -29,13 +29,13 @@ class TestConfigureCapability:
     def test_create_capability(self, client, test_db):
         resp = client.post("/v1/items/1/capability", json={
             "type": "github",
-            "config": {"token": "ghp_test_token_value", "repo": "test"},
+            "config": {"token": "ghs_test_token_value", "repo": "test"},
         })
         assert resp.status_code == 201
         data = resp.json()
         assert data["project"] == "yoke"
         assert data["type"] == "github"
-        assert data["config"]["token"] == "ghp_test_token_value"
+        assert data["config"]["token"] == "ghs_test_token_value"
         assert "id" in data
         assert "created_at" in data
 

@@ -84,7 +84,7 @@ def test_no_qa_requirements_nonexistent_columns() -> None:
     _assert_no_hits("qa_requirements non-existent column references", _hits(pattern, paths))
 
 
-def test_no_path_targets_or_path_claim_targets_nonexistent_columns() -> None:
+def test_no_github_authh_targets_or_path_claim_targets_nonexistent_columns() -> None:
     """AC-11: real columns are path_targets.path_string and path_claim_targets.{claim_id,target_id}."""
     paths = _iter_md(
         [

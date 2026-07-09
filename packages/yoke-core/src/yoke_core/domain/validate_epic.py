@@ -53,7 +53,7 @@ def _issue_accessible_via_rest(
 ) -> bool:
     """Return True when ``GET /repos/<owner>/<name>/issues/<n>`` responds 200.
 
-    Routes via the canonical PAT-backed REST transport.
+    Routes via the canonical bearer-token REST transport.
     """
     if not repo or not issue_num:
         return False

@@ -1,4 +1,4 @@
-"""GitHub fetch helpers for resync detection (PAT REST).
+"""GitHub fetch helpers for resync detection (bearer-token REST).
 
 The :func:`_fetch_gh_issues_per_project` helper returns a per-project mapping.
 On normal fetch the per-project value is ``{issue_number: issue}``; on
@@ -13,7 +13,7 @@ value MUST check for the ``_auth_error`` key before treating it as an issues
 map.
 
 GitHub I/O dispatches through
-:mod:`yoke_core.domain.gh_rest_transport` (PAT). Tests patch the REST
+:mod:`yoke_core.domain.gh_rest_transport` (GitHub App auth). Tests patch the REST
 transport surface directly.
 """
 
@@ -176,9 +176,9 @@ def _graphql_batch_fetch(
     project: str = "yoke",
     batch_size: int = 50,
 ) -> Dict[int, Dict]:
-    """Fetch issue bodies and comments via batched GraphQL (PAT REST).
+    """Fetch issue bodies and comments via batched GraphQL (bearer-token REST).
 
-    GitHub exposes GraphQL at ``/graphql``; the canonical PAT transport
+    GitHub exposes GraphQL at ``/graphql``; the canonical GitHub App auth transport
     handles auth + retry. Returns ``{issue_number: {number, body, comments}}``
     shaped as a stable dict so callers stay independent of REST response detail.
     """

@@ -74,7 +74,7 @@ def github_actions_runners_status(args: List[str]) -> int:
     )
     parser.add_argument(
         "--project", default="yoke",
-        help="Project capability owning the PAT (default: yoke).",
+        help="Project capability owning the GitHub App repo binding (default: yoke).",
     )
     add_session_arg(parser)
     add_json_arg(parser)

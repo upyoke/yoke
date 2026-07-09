@@ -4,7 +4,7 @@ Carved out of :mod:`yoke_core.engines.doctor_hc_worktrees_gh_repo` to
 keep the parent module under the authored-file cap. Provides typed
 ``issue_view_state`` / ``issue_view_full`` / ``issue_create`` /
 ``issue_comment`` / ``issue_close`` / ``issue_delete`` helpers that
-issue PAT-backed REST calls and return ``subprocess.CompletedProcess``
+issue bearer-token REST calls and return ``subprocess.CompletedProcess``
 shape-compatible objects (the parent module's existing parsers expect
 ``returncode`` / ``stdout`` / ``stderr``).
 """

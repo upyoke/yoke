@@ -58,7 +58,7 @@ def _stub_detect(monkeypatch, checkouts):
 async def _pick_develop_yoke(pilot) -> None:
     await advance_past_path(pilot)
     await pilot.press("enter")  # machine github: Connect (default)
-    await type_text(pilot, "ghp_machinepat")
+    await type_text(pilot, "ghu_machine_token")
     await pilot.press("enter")
     await pilot.press("enter")  # GitHub verification success: Continue
     index = next(
@@ -142,7 +142,7 @@ def test_stored_yoke_checkout_offers_direct_source_dev_path(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine github: Connect (default)
-            await type_text(pilot, "ghp_machinepat")
+            await type_text(pilot, "ghu_machine_token")
             await pilot.press("enter")
             await pilot.press("enter")  # GitHub verification success: Continue
             text = _error_text(app)
@@ -191,7 +191,7 @@ def test_project_mode_default_forces_source_dev_checkout(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine github: Connect (default)
-            await type_text(pilot, "ghp_machinepat")
+            await type_text(pilot, "ghu_machine_token")
             await pilot.press("enter")
             await pilot.press("enter")  # GitHub verification success: Continue
             await pilot.pause()
@@ -249,7 +249,7 @@ def test_not_connected_to_control_plane_renders_error(monkeypatch) -> None:
 
 
 def test_no_github_repo_access_renders_you_need_both_error(monkeypatch) -> None:
-    """A PAT that can't read Yoke's repo shows the 'you need both' error."""
+    """A GitHub App user token that can't read Yoke's repo shows the 'you need both' error."""
     _stub_access(monkeypatch, github_ok=False)
     app, _spy = make_app()
     captured: dict[str, str] = {}
@@ -268,8 +268,8 @@ def test_no_github_repo_access_renders_you_need_both_error(monkeypatch) -> None:
     )
 
 
-def test_no_machine_pat_prompts_then_runs_github_check(monkeypatch) -> None:
-    """Without a connected PAT the dev flow prompts for one before the repo check."""
+def test_no_machine_github_auth_prompts_then_runs_github_check(monkeypatch) -> None:
+    """Without a connected GitHub App user token the dev flow prompts for one before the repo check."""
     _stub_access(monkeypatch)
     _stub_detect(monkeypatch, [Path("/home/dev/yoke")])
     app, spy = make_app()
@@ -277,7 +277,7 @@ def test_no_machine_pat_prompts_then_runs_github_check(monkeypatch) -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now (no PAT)
+            await pilot.press("down")   # machine github: Skip for now (no GitHub App user token)
             await pilot.press("enter")
             index = next(
                 i for i, r in enumerate(steps.MODE_ROWS)
@@ -287,11 +287,11 @@ def test_no_machine_pat_prompts_then_runs_github_check(monkeypatch) -> None:
                 await pilot.press("down")
             await pilot.press("enter")  # Develop Yoke itself
             await pilot.pause()
-            # Yoke-project check passed; now the PAT input is showing.
+            # Yoke-project check passed; now the GitHub App user token input is showing.
             from textual.widgets import Input
             inputs = list(app.query("#onboard-body Input").results(Input))
-            assert inputs, "missing PAT prompt before the GitHub repo check"
-            await type_text(pilot, "ghp_devpat")
+            assert inputs, "missing GitHub App user token prompt before the GitHub repo check"
+            await type_text(pilot, "ghs_dev_token")
             await pilot.press("enter")  # runs github check -> detect -> finish
             await pilot.pause()
             await pilot.press("enter")  # finish: apply
@@ -301,7 +301,7 @@ def test_no_machine_pat_prompts_then_runs_github_check(monkeypatch) -> None:
 
     applied = spy.applied
     assert applied is not None
-    assert app.result.machine_github_token == "ghp_devpat"
+    assert app.result.machine_github_token == "ghs_dev_token"
     assert applied["project_mode"] == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
 
 

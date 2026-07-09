@@ -52,7 +52,7 @@ def _set_backlog_only(conn, slug: str) -> None:
 
 
 class TestWrongRepoIssuesSyncMode:
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
@@ -75,7 +75,7 @@ class TestWrongRepoIssuesSyncMode:
         assert "buzz" in _result(rec).detail
         assert mock_gh_run.call_count == 0
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
@@ -106,7 +106,7 @@ class TestWrongRepoIssuesSyncMode:
 
 
 class TestOrphanedGhIssuesSyncMode:
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth(f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
@@ -126,7 +126,7 @@ class TestOrphanedGhIssuesSyncMode:
 
 
 class TestGhOrphanDetectionSyncMode:
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth(f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")

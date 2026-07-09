@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from yoke_cli.config import machine_config
-from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config.writer_credentials import (
     CredentialWriteError,
     credential_from_inputs,
@@ -247,14 +246,6 @@ def set_github(
     return {"github": dict(entry), "config": str(cfg_path)}
 
 
-def store_github_token(secret: str) -> Path:
-    """Store the machine GitHub PAT under the Yoke secrets directory."""
-    try:
-        return machine_secrets.store_github_token(secret)
-    except machine_secrets.MachineSecretError as exc:
-        raise MachineConfigWriteError(str(exc)) from exc
-
-
 def _load_payload(path: str | Path | None) -> tuple[dict[str, Any], Path]:
     cfg_path = machine_config.config_path(path)
     payload = machine_config.load_config(path)
@@ -284,4 +275,4 @@ def _write_payload(payload: dict[str, Any], cfg_path: Path) -> None:
 
 __all__ = ["MachineConfigWriteError", "register_project", "set_github",
            "set_runtime_paths", "set_active_env", "set_connection",
-           "set_credential", "store_github_token"]
+           "set_credential"]

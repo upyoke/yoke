@@ -1,4 +1,4 @@
-"""Doctor HC tests for ``HC-project-gh-secrets`` (PAT REST).
+"""Doctor HC tests for ``HC-project-gh-secrets`` (bearer-token REST).
 
 The HC dispatches ``GET /repos/{owner}/{name}/actions/secrets``. Tests
 mock the canonical resolver + REST transport rather than the legacy
@@ -34,8 +34,8 @@ def _auth(project: str = "buzz", repo: str = "org/buzz") -> ProjectGithubAuth:
 
 
 class TestProjectGhSecrets:
-    def test_skips_when_pat_unavailable(self):
-        """When the project PAT is not configured, SKIP with canonical reason."""
+    def test_skips_when_github_auth_unavailable(self):
+        """When the project GitHub App auth is unavailable, SKIP with canonical reason."""
         conn = _make_conn()
         _seed_project(conn, "buzz", github_repo="org/buzz")
         with patch(
@@ -44,7 +44,7 @@ class TestProjectGhSecrets:
         ):
             rec = _run_hc(hc_project_gh_secrets, conn)
         assert rec.results[0].result == "SKIP"
-        assert "PAT capability not configured" in rec.results[0].detail
+        assert "GitHub App repo binding is not available" in rec.results[0].detail
 
     def test_passes_when_secrets_found(self):
         conn = _make_conn()
@@ -94,7 +94,7 @@ class TestProjectGhSecrets:
         ):
             rec = _run_hc(hc_project_gh_secrets, conn)
         assert rec.results[0].result == "SKIP"
-        assert "PAT capability not configured" in rec.results[0].detail
+        assert "GitHub App repo binding is not available" in rec.results[0].detail
 
     def test_runs_for_yoke(self):
         """Yoke is a first-class GitHub project; secrets HC runs as normal."""

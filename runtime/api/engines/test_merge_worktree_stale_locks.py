@@ -135,7 +135,7 @@ class TestRunnerStaleLockRetry:
         )
         monkeypatch.setattr(
             merge_worktree_runner,
-            "validate_pat_for_merge",
+            "validate_github_auth_for_merge",
             lambda _ctx: (True, None),
         )
 

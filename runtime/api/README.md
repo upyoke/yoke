@@ -265,7 +265,7 @@ Configures a capability for the project associated with the given item. Uses UPS
 ```bash
 curl -X POST http://localhost:8765/v1/items/42/capability \
   -H "Content-Type: application/json" \
-  -d '{"type": "github", "config": {"token": "ghp_your_token_here", "repo_owner": "org", "repo_name": "project"}}'
+  -d '{"type": "github", "config": {"token": "ghs_your_token_here", "repo_owner": "org", "repo_name": "project"}}'
 ```
 
 | Status | Code | Cause |

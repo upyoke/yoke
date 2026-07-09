@@ -160,7 +160,7 @@ def test_project_create_dry_run_rejects_positional_github_token(
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     checkout = tmp_path / "checkouts" / "demo"
-    token = "ghp_project_positional_secret"
+    token = "ghs_project_positional_secret"
 
     rc = yoke_operations_cli.main([
         "project", "create", str(checkout), token,
@@ -177,7 +177,7 @@ def test_project_create_dry_run_rejects_positional_github_token(
     assert rc == 2
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "project GitHub token inputs are no longer supported" in captured.err
+    assert "project-supplied GitHub credentials are no longer supported" in captured.err
     assert token not in captured.err
 
 
@@ -186,7 +186,7 @@ def test_project_create_apply_rejects_positional_github_token(
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     checkout = tmp_path / "checkouts" / "direct"
-    token = "ghp_project_direct_secret"
+    token = "ghs_project_direct_secret"
 
     config = write_https_config(tmp_path, "product-token")
     with ProjectOnboardApi():
@@ -205,7 +205,7 @@ def test_project_create_apply_rejects_positional_github_token(
     assert rc == 2
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "project GitHub token inputs are no longer supported" in captured.err
+    assert "project-supplied GitHub credentials are no longer supported" in captured.err
     assert token not in captured.err
     assert not checkout.exists()
     assert token not in config.read_text(encoding="utf-8")

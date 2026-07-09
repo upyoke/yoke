@@ -14,7 +14,7 @@ __all__ = ["build_parser"]
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="github-actions",
-        description="GitHub Actions integration via PAT-backed REST transport",
+        description="GitHub Actions integration via bearer-token REST transport",
     )
     sub = parser.add_subparsers(dest="subcmd")
 

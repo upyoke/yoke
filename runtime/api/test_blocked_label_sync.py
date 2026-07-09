@@ -38,8 +38,8 @@ _LABEL_REST_LABELS = "yoke_core.domain.backlog_github_label_sync._rest"
 def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "buzz")
     return ProjectGithubAuth(
-        project=proj, repo="org/buzz", token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        project=proj, repo="org/buzz", token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -49,7 +49,7 @@ def test_sync_blocked_label_adds_label_when_true():
                 project="buzz", github_issue="#50")
     stdout = io.StringIO()
 
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_state_sync, "resolve_project_github_auth",
@@ -69,7 +69,7 @@ def test_sync_blocked_label_adds_label_when_true():
     assert ensure.call_args.args[0] == "blocked"
     assert ensure.call_args.args[1] == BLOCKED_LABEL_COLOR
     add_labels.assert_called_once_with(
-        "org/buzz", 50, ["blocked"], token="ghp_fake",
+        "org/buzz", 50, ["blocked"], token="ghs_fake",
     )
     assert "Blocked label added: BUZ-30 → #50" in stdout.getvalue()
     db.close()
@@ -81,7 +81,7 @@ def test_sync_blocked_label_removes_label_when_false():
                 project="buzz", github_issue="#51")
     stdout = io.StringIO()
 
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_state_sync, "resolve_project_github_auth",
@@ -110,7 +110,7 @@ def test_full_sync_labels_adds_blocked_label_when_flagged():
     db.execute("UPDATE items SET blocked = 1 WHERE id = 34")
     db.commit()
 
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_label_sync, "resolve_project_github_auth",
@@ -136,7 +136,7 @@ def test_full_sync_labels_removes_blocked_and_legacy_status_labels_when_unblocke
     insert_item(db, id=35, type="issue", status="implementing",
                 project="buzz", github_issue="#55")
 
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_label_sync, "resolve_project_github_auth",
@@ -186,7 +186,7 @@ def test_sync_blocked_label_dry_run():
 def test_sync_blocked_label_noop_without_github_issue():
     db = _make_db()
     insert_item(db, id=33, type="issue", status="idea", project="buzz")
-    with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{_LABEL_REST_STATE}.ensure_label",
     ) as ensure, patch(
         f"{_LABEL_REST_STATE}.add_labels",

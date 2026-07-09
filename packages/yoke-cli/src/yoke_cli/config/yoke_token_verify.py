@@ -289,7 +289,7 @@ def _top_role(roles: Any) -> str:
 def _bounded_entries(entries: list[str]) -> str:
     """List entries in full when few; else the first few plus "and N more".
 
-    Matches the "…, and N more" summary the GitHub token screen uses
+    Matches the "…, and N more" summary the GitHub credential screen uses
     (onboard_wizard_flow_github) so every onboard list truncates the same way.
     """
     entries = [entry for entry in entries if entry]

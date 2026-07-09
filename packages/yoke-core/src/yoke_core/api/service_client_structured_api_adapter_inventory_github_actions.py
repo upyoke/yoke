@@ -18,7 +18,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "<workflow-file> --branch main"
         ),
         notes=(
-            "PAT-backed main-branch CI advisory via gh_rest_transport; "
+            "bearer-token main-branch CI advisory via gh_rest_transport; "
             "single-shot handler. --wait/--timeout poll CLIENT-side in "
             "the adapter, one dispatch per poll."
         ),
@@ -30,7 +30,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "--timeout SEC"
         ),
         notes=(
-            "PAT-backed workflow-run polling wrapper. The registered "
+            "bearer-token workflow-run polling wrapper. The registered "
             "server read is single-shot; wait/timeout stays client-side."
         ),
     ),
@@ -70,7 +70,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "yoke github-actions variable set <owner/repo> "
             "<variable-name> --value VALUE"
         ),
-        notes="PAT-backed repo-variable upsert via github_variables_rest.",
+        notes="bearer-token repo-variable upsert via github_variables_rest.",
     ),
 )
 

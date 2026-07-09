@@ -1,6 +1,6 @@
 """Handlers for ``github_actions.secret.set`` / ``github_actions.variable.set``.
 
-PAT-backed GitHub Actions repo-config writers so CI arming and
+bearer-token GitHub Actions repo-config writers so CI arming and
 rotation recipes run with no host GitHub CLI binary:
 
 - ``github_actions.secret.set`` routes through
@@ -38,7 +38,7 @@ class SecretSetRequest(BaseModel):
         ..., min_length=1,
         description="Secret value; never logged, never echoed in responses.",
     )
-    project: str = Field("yoke", description="Project capability owning the PAT.")
+    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
 
 
 class SecretSetResponse(BaseModel):
@@ -51,7 +51,7 @@ class VariableSetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     name: str = Field(..., min_length=1, description="Actions variable name.")
     value: str = Field(..., description="Variable value (non-secret plaintext).")
-    project: str = Field("yoke", description="Project capability owning the PAT.")
+    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
 
 
 class VariableSetResponse(BaseModel):

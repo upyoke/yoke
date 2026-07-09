@@ -253,10 +253,10 @@ def github_token(
 ) -> tuple[str | None, str | None]:
     sources = [bool(token), bool(token_file), token_stdin_value is not None]
     if sum(1 for source in sources if source) > 1:
-        raise ProjectOnboardError("GitHub token sources are mutually exclusive")
+        raise ProjectOnboardError("Project GitHub credential inputs are mutually exclusive")
     if any(sources):
         raise ProjectOnboardError(
-            "Project GitHub token inputs are no longer supported; use a "
+            "Project-supplied GitHub credentials are no longer supported; use a "
             "GitHub App repo binding or backlog-only mode."
         )
     return None, None

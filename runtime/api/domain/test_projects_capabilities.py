@@ -100,11 +100,11 @@ class TestIdentityGeneration:
 class TestCapabilitySecrets:
     def test_set_then_get_literal(self, cap_db: str) -> None:
         pc.cmd_capability_set_secret(
-            "yoke", "github", "token", "ghp_secret", db_path=cap_db
+            "yoke", "github", "token", "ghs_secret", db_path=cap_db
         )
         assert pc.cmd_capability_get_secret(
             "yoke", "github", "token", db_path=cap_db
-        ) == "ghp_secret"
+        ) == "ghs_secret"
 
     def test_get_missing_returns_none(self, cap_db: str) -> None:
         assert pc.cmd_capability_get_secret(

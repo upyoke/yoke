@@ -124,7 +124,7 @@ def _seed_github_auth(conn: Any, project: str) -> None:
     conn.execute(
         "INSERT INTO capability_secrets "
         "(project_id, type, key, value, source) "
-        "VALUES (%s, 'github', 'token', 'ghp_test', 'literal')",
+        "VALUES (%s, 'github', 'token', 'ghs_test', 'literal')",
         (_project_id(project),),
     )
 

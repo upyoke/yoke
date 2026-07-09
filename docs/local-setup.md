@@ -177,7 +177,7 @@ yoke github connect
 yoke github status
 ```
 
-The machine connection records GitHub App authorization metadata, not a PAT.
+The machine connection records GitHub App authorization metadata.
 Project runtime authority comes from a project repository binding to an
 installed App repository.
 

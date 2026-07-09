@@ -41,7 +41,7 @@ def initialized_db(tmp_path: Path) -> str:
 class TestCapabilitySecrets:
     def test_set_and_get_literal_secret(self, initialized_db: str):
         msg = projects.cmd_capability_set_secret(
-            "yoke", "github", "token", "ghp_abc123",
+            "yoke", "github", "token", "ghs_abc123",
             source="literal", db_path=initialized_db,
         )
         assert "token" in msg
@@ -49,7 +49,7 @@ class TestCapabilitySecrets:
         result = projects.cmd_capability_get_secret(
             "yoke", "github", "token", db_path=initialized_db,
         )
-        assert result == "ghp_abc123"
+        assert result == "ghs_abc123"
 
     def test_get_secret_rejects_file_source(self, monkeypatch):
         conn = _fake_secret_row(monkeypatch, "file")

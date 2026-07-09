@@ -39,8 +39,8 @@ _CREATE_PATCH = "yoke_core.domain.backlog_github_item_create.github_rest.create_
 def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "buzz")
     return ProjectGithubAuth(
-        project=proj, repo="org/buzz", token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        project=proj, repo="org/buzz", token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -102,7 +102,7 @@ class TestSyncItem:
 
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
-        ), patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        ), patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             _DEDUP_PATCH, return_value=[],
         ), patch(
             _CREATE_PATCH, return_value=_fake_issue(number=999),
@@ -135,7 +135,7 @@ class TestSyncItem:
 
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
-        ), patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        ), patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             _DEDUP_PATCH, return_value=[],
         ), patch(
             _CREATE_PATCH, return_value=_fake_issue(number=1001),
@@ -204,7 +204,7 @@ class TestSyncItem:
 
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
-        ), patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        ), patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             _DEDUP_PATCH, return_value=[],
         ), patch(
             _CREATE_PATCH, return_value=_fake_issue(number=777),
@@ -245,7 +245,7 @@ class TestSyncItemCompactMirror:
 
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
-        ), patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        ), patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             _DEDUP_PATCH, return_value=[],
         ), patch(
             _CREATE_PATCH, return_value=_fake_issue(number=901),

@@ -107,9 +107,9 @@ def _scan_text(
         return []
     out: list[str] = []
     for i, line in enumerate(text.splitlines(), start=1):
-        for pat_src, pat in compiled:
-            if pat.search(line):
-                label = labels.get(pat_src, pat_src)
+        for pattern_src, compiled_pattern in compiled:
+            if compiled_pattern.search(line):
+                label = labels.get(pattern_src, pattern_src)
                 if source_item_id is not None:
                     obsoleting_id = _obsoleting_ticket_id(label)
                     if obsoleting_id == source_item_id:

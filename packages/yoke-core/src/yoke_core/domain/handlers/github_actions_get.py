@@ -1,6 +1,6 @@
 """Handler for ``github_actions.variable.get``.
 
-Read-only PAT-backed sibling of the ``github_actions.variable.set``
+Read-only bearer-token sibling of the ``github_actions.variable.set``
 writer: confirms Actions repo-variable state (arming gates such as the
 CI-enable flag) without mutating repo config and with no host GitHub
 CLI binary. Surfaced because the write-only family left a self-skipped
@@ -30,7 +30,7 @@ from yoke_contracts.api.function_call import (
 class VariableGetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     name: str = Field(..., min_length=1, description="Actions variable name.")
-    project: str = Field("yoke", description="Project capability owning the PAT.")
+    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
 
 
 class VariableGetResponse(BaseModel):

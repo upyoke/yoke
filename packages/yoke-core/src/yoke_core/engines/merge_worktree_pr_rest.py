@@ -96,11 +96,11 @@ def resolve_auth(ctx: MergeContext) -> ProjectGithubAuth:
         ) from exc
 
 
-def validate_pat_for_merge(ctx: MergeContext) -> Tuple[bool, Optional[str]]:
+def validate_github_auth_for_merge(ctx: MergeContext) -> Tuple[bool, Optional[str]]:
     """Cheap precondition check used by ``merge_worktree_runner.run``.
 
-    Returns ``(True, None)`` when the resolver succeeds and the token is
-    non-empty. Returns ``(False, message)`` when the resolver fails, with
+    Returns ``(True, None)`` when the resolver succeeds and the bearer token
+    is non-empty. Returns ``(False, message)`` when the resolver fails, with
     ``message`` already including the repair hint so callers can fail-fast
     with one operator-actionable line.
     """
@@ -113,9 +113,8 @@ def validate_pat_for_merge(ctx: MergeContext) -> Tuple[bool, Optional[str]]:
         return False, message
     if not auth.token:
         return False, (
-            f"Error: project '{ctx.project}' resolved an empty github token; "
-            "set via `yoke projects capability secret set "
-            f"--project {ctx.project} --cap-type github --key token <PAT>`"
+            f"Error: project '{ctx.project}' resolved an empty GitHub bearer token; "
+            "reconnect the GitHub App installation or refresh the repo binding"
         )
     return True, None
 
@@ -337,5 +336,5 @@ __all__ = (
     "get_pr_merge_state",
     "merge_pr",
     "resolve_auth",
-    "validate_pat_for_merge",
+    "validate_github_auth_for_merge",
 )

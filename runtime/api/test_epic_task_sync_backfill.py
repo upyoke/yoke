@@ -71,8 +71,8 @@ def _stub_project_github_auth():
     a known repo+token without DB I/O."""
     def _ok(project, **kwargs):
         return ProjectGithubAuth(
-            project=project, repo="org/buzz", token="ghp_test",
-            env={"GH_TOKEN": "ghp_test"},
+            project=project, repo="org/buzz", token="ghs_test",
+            env={"GH_TOKEN": "ghs_test"},
         )
 
     with patch(

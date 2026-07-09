@@ -191,7 +191,7 @@ class UpdateStatusEnv:
                 " ON CONFLICT (project_id, type) DO UPDATE SET settings = excluded.settings",
                 row,
             )
-        for row in [(1, "ghp_yoke_test"), (2, "ghp_buzz_test")]:
+        for row in [(1, "ghs_yoke_test"), (2, "ghs_buzz_test")]:
             conn.execute(
                 "INSERT INTO capability_secrets"
                 " (project_id, type, key, source, value)"

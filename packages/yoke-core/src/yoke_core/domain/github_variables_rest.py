@@ -1,4 +1,4 @@
-"""GitHub Actions repo variables — set via PAT-backed REST (upsert).
+"""GitHub Actions repo variables — set via bearer-token REST (upsert).
 
 Sibling of :mod:`yoke_core.domain.github_secrets_rest`: secrets need
 libsodium sealed-box encryption, repo variables are plaintext

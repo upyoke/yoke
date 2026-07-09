@@ -85,10 +85,11 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
     ),
     (
         "github", "GitHub Integration",
-        "GitHub token for Actions triggering and API access",
-        '[{"key":"token","description":"GitHub Personal Access Token","secret":true},'
-        '{"key":"repo_owner","description":"GitHub repo owner","secret":false},'
-        '{"key":"repo_name","description":"GitHub repo name","secret":false}]',
+        "GitHub App repo binding for issue sync, PRs, Actions, and API access",
+        '[{"key":"repo_owner","description":"GitHub repo owner","secret":false},'
+        '{"key":"repo_name","description":"GitHub repo name","secret":false},'
+        '{"key":"installation_id","description":"GitHub App installation id","secret":false},'
+        '{"key":"repository_id","description":"GitHub repository id","secret":false}]',
         "[]",
     ),
     (

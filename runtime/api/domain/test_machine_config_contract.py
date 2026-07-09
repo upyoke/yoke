@@ -45,7 +45,7 @@ def test_github_app_authorization_config_is_valid_without_env_connection() -> No
     assert contract.validate_payload(payload) == []
 
 
-def test_github_pat_machine_config_is_rejected() -> None:
+def test_github_github_auth_machine_config_is_rejected() -> None:
     payload = {
         "schema_version": 1,
         "github": {

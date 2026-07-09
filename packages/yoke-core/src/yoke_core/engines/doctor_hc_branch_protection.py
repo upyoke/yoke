@@ -21,7 +21,7 @@ Two-mode model (operator decision recorded 2026-05-26):
   merges. WARN (INFO-style guidance) — not a failure, because remote
   blocking is unavailable for plan reasons, not configuration drift.
 
-The HC SKIPs cleanly (not FAIL) on a no-PAT host so bare-laptop runs
+The HC SKIPs cleanly (not FAIL) on a no-auth host so bare-laptop runs
 do not register as failures.
 
 Emits ``BranchProtectionCheckFailed`` (WARN) on drift / unavailability

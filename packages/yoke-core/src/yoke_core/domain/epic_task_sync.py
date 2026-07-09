@@ -85,7 +85,7 @@ def _yoke_root() -> Path:
 
 
 def _resolve_pat(project: str) -> str:
-    """Resolve project PAT via the canonical resolver. Fail-closed.
+    """Resolve project GitHub App auth via the canonical resolver. Fail-closed.
 
     Missing project metadata and resolver failures propagate as
     :class:`ProjectGithubAuthError` so sync callers fail closed before

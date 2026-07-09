@@ -121,7 +121,7 @@ class TestInferAndCreatePreventions:
         ) in text
 
     def test_prevention_2_warns_against_lifecycle_py_intuition(self):
-        """The classic mistake (naming ``lifecycle.py`` for gate
+        """The common mistake (naming ``lifecycle.py`` for gate
         composition) must be called out so future agents recognize the
         anti-pattern in their own drafts."""
         text = _read(_INFER_AND_CREATE)

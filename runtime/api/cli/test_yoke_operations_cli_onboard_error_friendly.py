@@ -96,7 +96,7 @@ def test_friendly_publish_error_rewrites_write_access_denial() -> None:
     raw = "git push failed with 128: remote: Write access to repository not granted."
     friendly = friendly_publish_error(raw)
     assert friendly == (
-        "Your GitHub token doesn't have permission to create a repo. "
+        "GitHub authorization doesn't have permission to create a repo. "
         "Create the repo on GitHub first, then re-run and choose Clone or "
         "an existing folder."
     )

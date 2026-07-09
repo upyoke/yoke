@@ -31,8 +31,8 @@ _LABEL_REST_LABELS = "yoke_core.domain.backlog_github_label_sync._rest"
 def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "buzz")
     return ProjectGithubAuth(
-        project=proj, repo="org/buzz", token="ghp_fake",
-        env={"GH_TOKEN": "ghp_fake"},
+        project=proj, repo="org/buzz", token="ghs_fake",
+        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -45,7 +45,7 @@ class TestSyncFrozenLabel:
     def test_missing_issue_is_silent(self):
         db = _make_db()
         insert_item(db, id=7, type="issue", status="implementing", project="buzz")
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_LABEL_REST_STATE}.ensure_label",
         ) as ensure, patch(
             f"{_LABEL_REST_STATE}.add_labels",
@@ -71,7 +71,7 @@ class TestSyncFrozenLabel:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
@@ -84,7 +84,7 @@ class TestSyncFrozenLabel:
         assert rc == 0
         ensure.assert_called_once()
         add_labels.assert_called_once_with(
-            "org/buzz", 42, ["frozen"], token="ghp_fake",
+            "org/buzz", 42, ["frozen"], token="ghs_fake",
         )
         assert "Frozen label added: BUZ-7 → #42" in stdout.getvalue()
         db.close()
@@ -97,7 +97,7 @@ class TestSyncFrozenLabel:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
@@ -109,7 +109,7 @@ class TestSyncFrozenLabel:
 
         assert rc == 0
         remove_label.assert_called_once_with(
-            "org/buzz", 42, "frozen", token="ghp_fake",
+            "org/buzz", 42, "frozen", token="ghs_fake",
         )
         assert "Frozen label removed: BUZ-7 → #42" in stdout.getvalue()
         db.close()
@@ -124,7 +124,7 @@ class TestSyncLabels:
     def test_noop_when_no_github_issue(self):
         db = _make_db()
         insert_item(db, id=10, type="issue", status="idea", project="buzz")
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_LABEL_REST_LABELS}.fetch_issue_labels",
         ) as fetch:
             rc = backlog_github_sync.sync_labels("10", conn=db)
@@ -165,7 +165,7 @@ class TestSyncLabels:
         def fake_remove_label(repo, issue_num, label, *, token):
             removed.append((repo, issue_num, label))
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_label_sync, "resolve_project_github_auth",
@@ -195,7 +195,7 @@ class TestSyncLabels:
         db = _make_db()
         insert_item(db, id=10, type="issue", status="idea", project="buzz", github_issue="#5")
         stderr = io.StringIO()
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=False,
         ):
             rc = backlog_github_sync.sync_labels("10", conn=db, stderr=stderr)
@@ -232,7 +232,7 @@ class TestSyncLabels:
         def fake_add_labels(repo, issue_num, labels, *, token):
             added.append((repo, issue_num, tuple(labels)))
 
-        with patch(f"{GH_PATCH}._pat_available", return_value=True), patch(
+        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_label_sync, "resolve_project_github_auth",

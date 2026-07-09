@@ -6,7 +6,7 @@ import time
 from typing import Callable, Optional
 
 from yoke_core.engines.merge_worktree_prepare import MergeArgs
-from yoke_core.engines.merge_worktree_pr_rest import validate_pat_for_merge
+from yoke_core.engines.merge_worktree_pr_rest import validate_github_auth_for_merge
 
 
 # Exit code returned when the pre-acquire merge-lock retry budget is exhausted
@@ -86,19 +86,19 @@ def run(args: MergeArgs) -> int:
         _print(err, err=True)
         return 1
 
-    # Resolve context first so the PAT precondition has the project on hand.
+    # Resolve context first so the GitHub auth precondition has the project on hand.
     try:
         ctx = resolve_context(args)
     except RuntimeError as e:
         _print(str(e), err=True)
         return 1
 
-    # Require a readable GitHub PAT for non-local merges. Local merges
-    # never touch GitHub and remain exempt from the auth precondition.
+    # Require GitHub App auth for non-local merges. Local merges never touch
+    # GitHub and remain exempt from the auth precondition.
     if not args.local_merge:
-        ok, message = validate_pat_for_merge(ctx)
+        ok, message = validate_github_auth_for_merge(ctx)
         if not ok:
-            _print(message or "Error: GitHub PAT validation failed.", err=True)
+            _print(message or "Error: GitHub auth validation failed.", err=True)
             return 1
 
     # Verify branch exists

@@ -3,7 +3,7 @@
 Single entry point for every Yoke code path that creates or edits a
 GitHub issue body carrying a rendered backlog item, epic, or epic-task
 body. Picks compact-vs-full mode via the body-budget guard, dispatches
-through the typed PAT-backed REST surface
+through the typed bearer-token REST surface
 (:mod:`yoke_core.domain.github_rest`), and emits the compact-mode
 telemetry notice.
 

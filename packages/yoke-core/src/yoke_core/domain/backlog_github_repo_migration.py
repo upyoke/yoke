@@ -73,9 +73,9 @@ def migrate_issue_to_repo(
         target_project, "migrate-issue", conn=conn, out=stderr,
     ):
         return 1
-    if not _bgs()._pat_available(target_project):
+    if not _bgs()._github_auth_available(target_project):
         print(
-            f"Error: project '{target_project}' has no usable GitHub PAT "
+            f"Error: project '{target_project}' has no usable GitHub App auth "
             "for migrate-issue",
             file=stderr,
         )

@@ -282,7 +282,7 @@ def merge_env(tmp_path: Path, request) -> MergeEnv:
         }),
     )
 
-    # Seed yoke project + github PAT + items row via shared helper so
+    # Seed yoke project + github GitHub App auth + items row via shared helper so
     # the REST precondition resolves for every merge subprocess test.
     from runtime.api.merge_worktree_test_db import _seed_yoke_project_with_pat
     _seed_conn = db_backend.connect()

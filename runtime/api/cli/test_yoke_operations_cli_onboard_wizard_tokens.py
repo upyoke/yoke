@@ -228,7 +228,7 @@ def test_machine_github_connect_uses_app_unavailable_placeholder() -> None:
 
 def test_stored_machine_github_token_file_is_not_reused(tmp_path) -> None:
     token_file = tmp_path / "github.token"
-    token_file.write_text("ghp_filemachinepat\n", encoding="utf-8")
+    token_file.write_text("ghs_file_machine_token\n", encoding="utf-8")
     config = tmp_path / "config.json"
     config.write_text(
         json.dumps({

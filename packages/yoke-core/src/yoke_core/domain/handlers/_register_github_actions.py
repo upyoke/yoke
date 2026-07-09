@@ -1,6 +1,6 @@
 """Handler registrations for ``github_actions.*`` handlers.
 
-Agent-facing PAT-backed GitHub Actions surfaces. Carries
+Agent-facing bearer-token GitHub Actions surfaces. Carries
 ``github_actions.check_ci`` (main-branch CI advisory) plus the repo
 config writers ``github_actions.secret.set`` (sealed-box repo secret)
 and ``github_actions.variable.set`` (repo variable upsert) plus the

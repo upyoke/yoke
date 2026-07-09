@@ -170,7 +170,7 @@ from yoke_core.engines.doctor_hc_historical_yok_n import (  # noqa: F401
 )
 from yoke_core.engines.doctor_hc_worktrees import (  # noqa: F401
     _DELEGATED_SYNC_HCS,
-    _pat_configured,
+    _github_auth_configured,
     hc_branch_divergence,
     hc_cross_project_commits,
     hc_main_checkout,
@@ -185,7 +185,7 @@ from yoke_core.engines.doctor_hc_worktrees_gh import (  # noqa: F401
     hc_orphaned_gh_issues,
     hc_project_deploy_flows,
     hc_project_gh_secrets,
-    hc_project_gh_token,
+    hc_project_gh_auth,
     hc_project_health,
     hc_project_lookup,
     hc_project_repo_exists,
@@ -323,7 +323,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     # Project-specific HCs (non-yoke)
     HealthCheck("project-lookup", "Project lookup", hc_project_lookup),
     HealthCheck("project-repo-exists", "Project repo exists", hc_project_repo_exists),
-    HealthCheck("project-gh-token", "GitHub token capability", hc_project_gh_token),
+    HealthCheck("project-gh-auth", "GitHub App auth", hc_project_gh_auth),
     HealthCheck("project-worktrees", "Project worktree health", hc_project_worktrees),
     HealthCheck("project-deploy-flows", "Deployment flow state", hc_project_deploy_flows),
     HealthCheck("project-health", "Production health", hc_project_health, github_dependent=True),

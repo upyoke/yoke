@@ -80,8 +80,8 @@ def _ensure_label(
 ) -> None:
     """Idempotently ensure ``label`` exists in ``repo`` with the given
     colour/description. ``repo`` is the canonical ``owner/name`` slug —
-    callers no longer pass an argv ``-R`` array. ``project`` resolves the
-    PAT through the canonical auth surface.
+    callers no longer pass an argv ``-R`` array. ``project`` resolves
+    GitHub App auth through the canonical auth surface.
     """
     if dry_run:
         return
@@ -141,7 +141,7 @@ def _validate_issue_in_repo(
     except github_rest.RestAuthError as exc:
         print(
             f"Error: permission denied probing issue #{issue_num} for YOK-{item_ref} "
-            f"in {repo}: {exc}. Configured PAT lacks scope for this repo.",
+            f"in {repo}: {exc}. GitHub App access lacks permission for this repo.",
             file=stderr,
         )
         return False

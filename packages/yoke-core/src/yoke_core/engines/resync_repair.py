@@ -1,4 +1,4 @@
-"""Repair helpers for resync apply (PAT REST direct).
+"""Repair helpers for resync apply (bearer-token REST direct).
 
 This module no longer threads a ``run_gh_fn`` callable through its
 function signatures. Title edits and epic-task state changes call

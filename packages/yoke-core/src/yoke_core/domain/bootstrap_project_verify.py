@@ -4,7 +4,7 @@ Hosts ``run_verify`` — read-only checks against the live GitHub repo
 and VPS that confirm the workflows, secrets, environments, and SSH
 key fingerprints match the local DB state. Returns 0 when every
 expected artifact exists; 1 on any failure. GitHub probes route
-through the PAT-backed REST transport
+through the bearer-token REST transport
 (``gh_rest_transport.request_with_retry``).
 """
 

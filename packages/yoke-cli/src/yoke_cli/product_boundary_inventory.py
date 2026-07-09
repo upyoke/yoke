@@ -160,7 +160,7 @@ def _branch(command: str, disposition: str, operation: ops.OperationEntry | None
 
 def _config(command: str, disposition: str) -> str:
     by_command = {
-        "yoke github connect": "machine config path and GitHub token source",
+        "yoke github connect": "machine config path and GitHub App authorization source",
         "yoke onboard": "target config path, env, API URL, token source, optional local checkout handoff inputs",
         "yoke dev setup": "Yoke source checkout; optional local-postgres DSN inputs",
         "yoke dev db-admin setup": "project/env deploy settings plus capability-owned AWS credentials",
@@ -178,7 +178,7 @@ def _config(command: str, disposition: str) -> str:
 
 def _capability(command: str, disposition: str) -> str:
     if command.startswith("yoke github pr ") or command.startswith("yoke github-actions "):
-        return "project GitHub capability/PAT"
+        return "project GitHub App auth"
     if command in _PROJECT_INSTALL:
         return "project install bundle endpoint"
     if command == "yoke dev setup": return "yoke-core source package for apply/source-link repair"

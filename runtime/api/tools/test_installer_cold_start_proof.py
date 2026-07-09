@@ -45,7 +45,7 @@ def test_render_linux_probe_script_runs_installer_and_smokes_product() -> None:
     assert "qa browser" not in script
     # No raw secret markers leak into a generated script.
     assert "yoke_v1_" not in script
-    assert "github_pat_" not in script
+    assert "ghu_" not in script
 
 
 def test_render_linux_probe_script_tolerates_first_run_status_nonzero() -> None:
@@ -158,7 +158,7 @@ def test_prepare_evidence_dir_writes_manifest_scripts_and_browser_cell(
 def test_scan_secret_markers_detects_raw_token_prefixes() -> None:
     assert proof.scan_secret_markers("clean log") == []
     assert proof.scan_secret_markers("oops yoke_v1_example") == ["yoke_v1_"]
-    assert proof.scan_secret_markers("oops github_pat_example") == ["github_pat_"]
+    assert proof.scan_secret_markers("oops ghu_example") == ["ghu_"]
 
 
 def test_scan_log_file_ignores_policy_field_but_not_other_json_values(

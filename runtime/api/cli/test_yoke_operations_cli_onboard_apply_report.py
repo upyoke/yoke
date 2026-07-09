@@ -47,8 +47,8 @@ def test_apply_report_writes_statuses_and_redacts_tokens(
     writer.step_started("create-or-validate-dir", "/tmp/home")
     writer.step_done("create-or-validate-dir", "/tmp/home")
     writer.fail(RuntimeError(
-        "Authorization: Bearer ghp_secret token=supersecret "
-        "https://octo:ghp_urlsecret@github.com/acme/widget.git"
+        "Authorization: Bearer ghs_secret token=supersecret "
+        "https://octo:ghs_urlsecret@github.com/acme/widget.git"
     ))
 
     payload = json.loads(Path(writer.summary()["path"]).read_text(encoding="utf-8"))
@@ -57,18 +57,18 @@ def test_apply_report_writes_statuses_and_redacts_tokens(
     assert payload["steps"][0]["status"] == "done"
     assert payload["steps"][1]["status"] == "failed"
     serialized = json.dumps(payload)
-    assert "ghp_secret" not in serialized
+    assert "ghs_secret" not in serialized
     assert "supersecret" not in serialized
-    assert "ghp_urlsecret" not in serialized
+    assert "ghs_urlsecret" not in serialized
 
 
 def test_sanitize_text_redacts_url_embedded_credentials() -> None:
     redacted = onboard_apply_report.sanitize_text(
         "fatal: Authentication failed for "
-        "https://octo:ghp_urlsecret@github.com/acme/widget.git?token=supersecret"
+        "https://octo:ghs_urlsecret@github.com/acme/widget.git?token=supersecret"
     )
 
-    assert "ghp_urlsecret" not in redacted
+    assert "ghs_urlsecret" not in redacted
     assert "supersecret" not in redacted
     assert (
         "https://octo:<redacted>@github.com/acme/widget.git?token=<redacted>"
@@ -78,12 +78,12 @@ def test_sanitize_text_redacts_url_embedded_credentials() -> None:
 
 def test_sanitize_text_redacts_token_assignment_variants() -> None:
     redacted = onboard_apply_report.sanitize_text(
-        "failed with token = ghp_spaced, token:ghp_colon; token=ghp_plain"
+        "failed with token = ghs_spaced, token:ghs_colon; token=ghs_plain"
     )
 
-    assert "ghp_spaced" not in redacted
-    assert "ghp_colon" not in redacted
-    assert "ghp_plain" not in redacted
+    assert "ghs_spaced" not in redacted
+    assert "ghs_colon" not in redacted
+    assert "ghs_plain" not in redacted
     assert "token = <redacted>" in redacted
     assert "token:<redacted>" in redacted
     assert "token=<redacted>" in redacted
@@ -97,7 +97,7 @@ def test_adapter_converts_apply_failure_to_typed_report(
     def fake_build_report(**kwargs):
         if kwargs.get("apply"):
             raise onboard_adapter.onboard_config.OnboardError(
-                "Authorization: token ghp_secret"
+                "Authorization: token ghs_secret"
             )
         return _preview()
 
@@ -120,7 +120,7 @@ def test_adapter_converts_apply_failure_to_typed_report(
     payload = json.loads(Path(raised.value.report_path).read_text(encoding="utf-8"))
     assert payload["final_status"] == "failed"
     assert raised.value.failed_step == payload["failed_step"]
-    assert "ghp_secret" not in json.dumps(payload)
+    assert "ghs_secret" not in json.dumps(payload)
 
 
 def test_noninteractive_failure_prints_report_summary(

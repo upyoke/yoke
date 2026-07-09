@@ -6,7 +6,7 @@ from pathlib import Path
 from subprocess import CompletedProcess
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_github_auth import MissingCapability
+from yoke_core.domain.project_github_auth import MissingCapability, ProjectGithubAuth
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.validate_epic import run_validation
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
@@ -136,7 +136,7 @@ def test_validation_uses_postgres_authority_without_file_marker(
     assert err.getvalue() == ""
 
 
-def test_numeric_epic_validation_passes_with_pat_missing(tmp_path, monkeypatch, capsys):
+def test_numeric_epic_validation_passes_with_github_auth_missing(tmp_path, monkeypatch, capsys):
     """When the canonical resolver raises (no project capability), the
     GitHub-checks subsection is skipped cleanly. Replaces the previous
     ``shutil.which("gh") is None`` skip path."""
@@ -230,7 +230,7 @@ def test_reports_missing_worktree_and_stale_heartbeat(tmp_path, monkeypatch, cap
 
 def test_cross_project_github_checks_use_rest(tmp_path, monkeypatch):
     """Validate that the GitHub accessibility probe routes through the
-    REST helper with the resolved PAT — the previous ``gh issue view -R``
+    REST helper with the resolved GitHub App auth — the previous ``gh issue view -R``
     subprocess shape is retired."""
     rest_calls = []
 
@@ -254,16 +254,23 @@ def test_cross_project_github_checks_use_rest(tmp_path, monkeypatch):
             INSERT INTO items (id, project_id, project_sequence) VALUES (42, 100, 42);
             INSERT INTO projects (id, slug, name, github_repo, public_item_prefix)
             VALUES (100, 'acme', 'Acme', 'owner/acme', 'YOK');
-            INSERT INTO project_capabilities (project_id, type, settings)
-            VALUES (100, 'github', '{}');
-            INSERT INTO capability_secrets (project_id, type, key, source, value)
-            VALUES (100, 'github', 'token', 'literal', 'ghp_test');
             INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree, github_issue, last_heartbeat)
             VALUES ('42', 1, 'Task one', 'implemented', '', '#123', NULL);
             """
         )
         conn.commit()
 
+        monkeypatch.setattr(
+            "yoke_core.domain.validate_epic.resolve_project_github_auth",
+            lambda project, **_kw: ProjectGithubAuth(
+                project=project,
+                repo="owner/acme",
+                token="ghs_test",
+                env={"GH_TOKEN": "ghs_test"},
+                installation_id="12345",
+                token_source="github_app_installation",
+            ),
+        )
         monkeypatch.setattr(
             "yoke_core.domain.validate_epic._issue_accessible_via_rest",
             fake_accessible,
@@ -272,4 +279,4 @@ def test_cross_project_github_checks_use_rest(tmp_path, monkeypatch):
 
         rc = run_validation(tmp_path, "42", out=_Writer(), err=_Writer())
     assert rc == 0
-    assert rest_calls == [("owner/acme", "123", "ghp_test")]
+    assert rest_calls == [("owner/acme", "123", "ghs_test")]

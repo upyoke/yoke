@@ -59,7 +59,7 @@ def test_list_repo_owners_leads_with_user_then_orgs(monkeypatch) -> None:
     })
     _install(monkeypatch, recorder)
 
-    owners = github_publish.list_repo_owners("https://api.github.com", "ghp_x")
+    owners = github_publish.list_repo_owners("https://api.github.com", "ghs_x")
 
     assert [o.login for o in owners] == ["octocat", "acme-inc", "side-project-co"]
     assert owners[0].kind == "user"
@@ -74,7 +74,7 @@ def test_list_repo_owners_tolerates_no_orgs(monkeypatch) -> None:
     })
     _install(monkeypatch, recorder)
 
-    owners = github_publish.list_repo_owners("https://api.github.com", "ghp_x")
+    owners = github_publish.list_repo_owners("https://api.github.com", "ghs_x")
 
     assert [o.login for o in owners] == ["solo"]
     assert owners[0].kind == "user"
@@ -85,7 +85,7 @@ def test_list_repo_owners_requires_a_login(monkeypatch) -> None:
     _install(monkeypatch, recorder)
 
     with pytest.raises(github_publish.GitHubPublishError):
-        github_publish.list_repo_owners("https://api.github.com", "ghp_x")
+        github_publish.list_repo_owners("https://api.github.com", "ghs_x")
 
 
 def test_create_repo_for_user_posts_to_user_repos_private(monkeypatch) -> None:
@@ -101,7 +101,7 @@ def test_create_repo_for_user_posts_to_user_repos_private(monkeypatch) -> None:
     _install(monkeypatch, recorder)
 
     created = github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
     )
 
@@ -120,7 +120,7 @@ def test_create_repo_for_org_posts_to_org_repos(monkeypatch) -> None:
     _install(monkeypatch, recorder)
 
     created = github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="acme-inc", name="widget", user_login="octocat",
     )
 
@@ -138,7 +138,7 @@ def test_create_repo_public_when_private_false(monkeypatch) -> None:
     _install(monkeypatch, recorder)
 
     github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="octocat", name="open", user_login="octocat", private=False,
     )
 
@@ -151,7 +151,7 @@ def test_create_repo_requires_full_name(monkeypatch) -> None:
 
     with pytest.raises(github_publish.GitHubPublishError):
         github_publish.create_repo(
-            "https://api.github.com", "ghp_x",
+            "https://api.github.com", "ghs_x",
             owner="octocat", name="widget", user_login="octocat",
         )
 
@@ -165,7 +165,7 @@ def test_create_repo_happy_path_makes_no_extra_calls(monkeypatch) -> None:
     _install(monkeypatch, recorder)
 
     github_publish.create_repo(
-        "https://api.github.com", "ghp_x",
+        "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
     )
 
@@ -186,7 +186,7 @@ def test_fork_repo_posts_to_forks_endpoint(monkeypatch) -> None:
     _install(monkeypatch, recorder)
 
     fork = github_publish.fork_repo(
-        "https://api.github.com", "ghp_x", owner="acme", repo="widgets",
+        "https://api.github.com", "ghs_x", owner="acme", repo="widgets",
     )
 
     assert fork["full_name"] == "octocat/widgets"
@@ -202,5 +202,5 @@ def test_fork_repo_requires_full_name(monkeypatch) -> None:
 
     with pytest.raises(github_publish.GitHubPublishError):
         github_publish.fork_repo(
-            "https://api.github.com", "ghp_x", owner="acme", repo="widgets",
+            "https://api.github.com", "ghs_x", owner="acme", repo="widgets",
         )

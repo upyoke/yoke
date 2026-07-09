@@ -12,9 +12,9 @@ Responsibilities live across responsibility-named siblings:
 - ``update_status_auto_derive`` -- ``auto_derive_epic_status`` parent
   recomputation.
 - ``update_status_github_sync`` -- ``_github_label_sync``,
-  ``_github_comment_post``, ``_github_close_on_terminal`` (PAT REST).
+  ``_github_comment_post``, ``_github_close_on_terminal`` (bearer-token REST).
 - ``update_status_epic_checkbox`` -- ``_update_epic_checkbox`` parent
-  body writeback (PAT REST).
+  body writeback (bearer-token REST).
 
 This front door keeps ``update_task_status`` (the public mutator that
 orchestrates all of the above) and ``main`` (the CLI entry point).  The full
@@ -228,7 +228,7 @@ def update_task_status(
         )
         github_issue = str(val) if val else ""
 
-    # No linked issue -> nothing to sync. PAT resolution + transport errors
+    # No linked issue -> nothing to sync. GitHub App auth resolution + transport errors
     # surface inside the helpers below as actionable warnings (NFR-2).
     if not github_issue:
         return 0

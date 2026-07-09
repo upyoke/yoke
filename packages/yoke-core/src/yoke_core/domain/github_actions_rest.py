@@ -1,9 +1,9 @@
-"""PAT-backed REST helpers for the GitHub Actions command surface.
+"""bearer-token REST helpers for the GitHub Actions command surface.
 
 Carved out of :mod:`github_actions` to keep that orchestration module
 under the authored-file line cap. Every helper dispatches through
 :mod:`yoke_core.domain.gh_rest_transport` and consumes the resolved
-project PAT from
+project GitHub App auth from
 :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`.
 
 No host ``gh`` binary is required to use these helpers. Failed-log
@@ -31,7 +31,7 @@ from yoke_core.domain.project_github_auth import (
 
 
 def resolve_token(project: str = "yoke") -> str:
-    """Resolve the project GitHub PAT; exit 4 + repair hint on failure."""
+    """Resolve the project GitHub App auth; exit 4 + repair hint on failure."""
     try:
         resolved = resolve_project_github_auth(project)
     except ProjectGithubAuthError as exc:

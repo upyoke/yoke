@@ -113,7 +113,7 @@ yoke items get YOK-N spec`
   - Multi-field returns one value per line in field order. Valid fields: architecture_impact, blocked, blocked_reason, body, browser_qa_metadata, created_at, db_compatibility_attestation, db_mutation_profile, deploy_log, deploy_stage, deployed_to, deployment_flow, design_spec, flow, frozen, github_issue, id, merged_at, priority, project, rework_count, shepherd_caveats, shepherd_log, source, spec, status, technical_plan, test_results, title, type, updated_at, worktree, worktree_plan. For body-section filtering, use `yoke items get YOK-N body --section "## File Budget"`.
 - _Inspect a Yoke item's rendered body (GitHub issue surrogate)_
   - `yoke items get YOK-N body`
-  - The rendered body is the source of truth for ticket content and is auto-synced to the GitHub issue via PAT-backed REST. items.github_issue stores '#NNNN' format and is for outbound linking only — Yoke automation never shells out to ``gh`` to read or write the issue; the function-call surface and ``project_github_auth.resolve_project_github_auth`` handle every GitHub mutation through REST/GraphQL.
+  - The rendered body is the source of truth for ticket content and is auto-synced to the GitHub issue via bearer-token REST. items.github_issue stores '#NNNN' format and is for outbound linking only — Yoke automation never shells out to ``gh`` to read or write the issue; the function-call surface and ``project_github_auth.resolve_project_github_auth`` handle every GitHub mutation through REST/GraphQL.
 - _Inspect open work via registered reads + diagnostic SQL_
   - `# Recent item scan:
 yoke items list --project all --fields "id,status,title" --limit 20
@@ -222,7 +222,7 @@ git -C $(git rev-parse --show-toplevel) log --oneline -20
 yoke github-actions check-ci $(yoke projects get --project yoke --field github_repo) ci.yml --branch main
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N status --porcelain
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N rev-parse HEAD`
-  - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport (PAT-backed REST). For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
+  - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport (bearer-token REST). For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths'
 yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim widen examples omit --item' --correlation-id polish-run-2026-05-20`

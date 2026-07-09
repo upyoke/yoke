@@ -1,4 +1,4 @@
-"""GitHub pull-request create via PAT-backed REST.
+"""GitHub pull-request create via bearer-token REST.
 
 Sibling of :mod:`yoke_core.domain.github_secrets_rest` /
 :mod:`yoke_core.domain.github_variables_rest` for the repo-level

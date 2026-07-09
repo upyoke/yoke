@@ -1,4 +1,4 @@
-"""Focused checks for machine GitHub token verification."""
+"""Focused checks for machine GitHub credential verification."""
 
 from __future__ import annotations
 
@@ -10,25 +10,25 @@ from urllib.parse import urlsplit
 import pytest
 
 from yoke_cli.config import github_machine_verify
-from yoke_contracts import github_pat_permissions as pat_contract
+from yoke_contracts import github_user_token_permissions as user_token_contract
 
 TOKEN = "github-machine-token"
 
 
-def test_required_fine_grained_permissions_have_probe_declarations() -> None:
-    assert set(pat_contract.fine_grained_read_probe_keys()) == {
+def test_required_repository_token_permissions_have_probe_declarations() -> None:
+    assert set(user_token_contract.repository_read_probe_keys()) == {
         permission.key
-        for permission in pat_contract.REQUIRED_FINE_GRAINED_PAT_PERMISSIONS
+        for permission in user_token_contract.REQUIRED_REPOSITORY_USER_TOKEN_PERMISSIONS
     }
 
 
-def test_fine_grained_token_runs_non_mutating_read_probes() -> None:
+def test_repository_token_token_runs_non_mutating_read_probes() -> None:
     with _github_server() as server:
         report = github_machine_verify.verify(server.api_url, TOKEN)
 
     permissions = report["permissions"]
     assert report["scopes"] == []
-    assert permissions["mode"] == "fine_grained_non_mutating"
+    assert permissions["mode"] == "repository_token_non_mutating"
     assert permissions["ok"] is True
     assert permissions["repo"] == "octo-org/app"
     statuses = {
@@ -57,12 +57,12 @@ def test_fine_grained_token_runs_non_mutating_read_probes() -> None:
         "PUT /repos/octo-org/app/contents/.yoke-capability-probe",
     ]
     capability = report["capability"]
-    assert capability["kind"] == "fine_grained"
+    assert capability["kind"] == "repository_token"
     assert capability["can_create"] is True  # 422 from the empty-name probe
     assert "octo-org/app" in capability["writable"]
 
 
-def test_fine_grained_probe_failure_names_missing_permission() -> None:
+def test_repository_token_probe_failure_names_missing_permission() -> None:
     with _github_server(fail_path="/repos/octo-org/app/actions/secrets") as server:
         with pytest.raises(github_machine_verify.GitHubMachineVerificationError) as exc:
             github_machine_verify.verify(server.api_url, TOKEN)

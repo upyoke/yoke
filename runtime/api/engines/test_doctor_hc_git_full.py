@@ -211,14 +211,14 @@ class TestDelegatedSync:
 class TestGhOrphanDetection:
     """Tests for hc_gh_orphan_detection."""
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=False)
-    def test_no_pat_skips(self, mock_gh):
-        """T4: HC SKIPs with canonical reason when project PAT is missing."""
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=False)
+    def test_no_github_auth_skips(self, mock_gh):
+        """T4: HC SKIPs with canonical reason when project GitHub App auth is unavailable."""
         rec = _run_hc(hc_gh_orphan_detection)
         assert _result(rec).result == "SKIP"
-        assert "PAT capability not configured" in _result(rec).detail
+        assert "GitHub App repo binding is not available" in _result(rec).detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
@@ -239,7 +239,7 @@ class TestGhOrphanDetection:
         assert _result(rec).result == "WARN"
         assert "#999" in _result(rec).detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
@@ -258,7 +258,7 @@ class TestGhOrphanDetection:
         rec = _run_hc(hc_gh_orphan_detection, conn)
         assert _result(rec).result == "PASS"
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
@@ -282,7 +282,7 @@ class TestGhOrphanDetection:
         rec = _run_hc(hc_gh_orphan_detection, conn)
         assert "#20" not in _result(rec).detail if _result(rec).detail else True
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
@@ -294,7 +294,7 @@ class TestGhOrphanDetection:
         rec = _run_hc(hc_gh_orphan_detection, conn)
         assert _result(rec).result == "PASS"
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._pat_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
