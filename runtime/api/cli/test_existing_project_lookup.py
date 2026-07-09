@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from runtime.api.cli.project_onboarding_test_helpers import ProjectOnboardApi
 from yoke_cli.config import existing_project_lookup
 
@@ -67,6 +69,51 @@ def test_find_by_project_id_blocks_when_project_is_not_visible() -> None:
             assert "permission denied" in str(exc)
         else:  # pragma: no cover - assertion guard
             raise AssertionError("expected ExistingProjectAccessError")
+
+
+def test_find_local_by_project_id_uses_local_dispatch(tmp_path, monkeypatch) -> None:
+    calls = []
+
+    def fake_call(**kwargs):
+        calls.append(kwargs)
+        return {
+            "success": True,
+            "result": {
+                "row": {
+                    "id": "37",
+                    "slug": "buzz",
+                    "name": "Buzz",
+                    "github_repo": "example-org/buzz",
+                    "default_branch": "main",
+                    "public_item_prefix": "BUZZ",
+                },
+            },
+        }
+
+    monkeypatch.setattr(existing_project_lookup, "_call_local_function", fake_call)
+
+    project = existing_project_lookup.find_local_by_project_id(
+        config_path=tmp_path / "config.json",
+        project_id=37,
+    )
+
+    assert project.slug == "buzz"
+    assert calls == [{
+        "config_path": tmp_path / "config.json",
+        "function": "projects.get",
+        "payload": {"project": "37"},
+    }]
+
+
+def test_find_local_by_project_id_requires_local_connection(tmp_path) -> None:
+    with pytest.raises(
+        existing_project_lookup.ExistingProjectLookupError,
+        match="local universe connection",
+    ):
+        existing_project_lookup.find_local_by_project_id(
+            config_path=tmp_path / "missing-config.json",
+            project_id=37,
+        )
 
 
 def test_find_by_github_repo_returns_none_when_no_project_matches() -> None:

@@ -183,6 +183,7 @@ def test_local_dry_run_plans_universe_init_without_sign_in_steps(
     assert payload["destination"] == onboard_destinations.DESTINATION_LOCAL
     actions = [step["action"] for step in payload["plan"]["steps"]]
     assert "local-universe-init" in actions
+    assert _plan_step(payload, "local-universe-init")["target"] == "create"
     assert "set-https-api-url" not in actions
     assert "store-token-reference" not in actions
     assert payload["plan"]["active_env"] == LOCAL
@@ -305,9 +306,14 @@ def test_local_rerun_verifies_universe_and_keeps_active_env(
         payload = json.loads(capsys.readouterr().out)
 
     assert payload["applied"] is True
+    assert _plan_step(payload, "local-universe-init")["target"] == "verify"
     config = _config_payload(scratch_home)
     assert config["active_env"] == LOCAL
     assert set(config["connections"]) == {LOCAL}
+
+
+def _plan_step(payload: dict, action: str) -> dict:
+    return next(step for step in payload["plan"]["steps"] if step["action"] == action)
 
 
 # ── snapshot persistence + resume restore ────────────────────────────────

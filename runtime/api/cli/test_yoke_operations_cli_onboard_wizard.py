@@ -28,6 +28,7 @@ from yoke_cli.config.onboard_wizard import (  # noqa: E402
     WizardDefaults,
     WizardResult,
 )
+from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL  # noqa: E402
 from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
     SelectionList,
 )
@@ -207,6 +208,84 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
     assert applied["project_slug"] == "buzz"
     assert applied["project_name"] == "Buzz"
     assert len(app.result.board_art_variants) == 1
+
+
+def test_local_destination_manifest_project_id_uses_local_universe(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    checkout = tmp_path / "buzz"
+    (checkout / ".yoke").mkdir(parents=True)
+    (checkout / ".yoke" / "install-manifest.json").write_text(
+        '{"manifest_schema": 1, "project_id": 37}\n',
+        encoding="utf-8",
+    )
+    local_calls = []
+
+    def fail_hosted_lookup(**_kwargs):
+        raise AssertionError("local mode must not use the hosted project lookup")
+
+    def fake_local_lookup(**kwargs):
+        local_calls.append(kwargs)
+        return existing_project_lookup.ExistingProject(
+            id=37,
+            slug="buzz",
+            name="Buzz",
+            github_repo="example-org/buzz",
+            default_branch="main",
+            public_item_prefix="BUZZ",
+        )
+
+    monkeypatch.setattr(
+        existing_project_lookup,
+        "find_by_project_id",
+        fail_hosted_lookup,
+    )
+    monkeypatch.setattr(
+        existing_project_lookup,
+        "find_local_by_project_id",
+        fake_local_lookup,
+    )
+    config = tmp_path / "config.json"
+    app, spy = make_app(WizardDefaults(
+        config_path=str(config),
+        destination=DESTINATION_LOCAL,
+    ))
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            assert "Your Yoke lives on this machine." in _body_text(app)
+            await pilot.press("enter")  # universe summary: Continue
+            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("enter")
+            await pilot.press("enter")  # project: existing folder
+            await type_text(pilot, str(checkout))
+            await pilot.press("enter")
+            await pilot.pause()
+            title = next(
+                str(w.render()) for w in app.query(".onboard-title").results(Static)
+            )
+            body = _body_text(app)
+            assert title == "Existing Yoke project found."
+            assert (
+                "Local project metadata matched a local Yoke database project."
+                in body
+            )
+            assert "local Yoke database: verified project id 37." in body
+            await pilot.press("enter")  # continue -> board art
+            await complete_board_art(pilot)
+            await pilot.press("enter")  # finish: apply
+            await pilot.pause()
+
+    asyncio.run(scenario())
+
+    assert local_calls == [{"config_path": str(config), "project_id": 37}]
+    applied = spy.applied
+    assert applied is not None
+    assert applied["destination"] == DESTINATION_LOCAL
+    assert applied["existing_project_id"] == 37
+    assert applied["project_slug"] == "buzz"
 
 
 def test_stored_checkout_project_id_shows_confirmation_picker(

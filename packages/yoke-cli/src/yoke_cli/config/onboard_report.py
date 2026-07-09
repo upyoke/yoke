@@ -11,7 +11,7 @@ from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
     CLONE_OUTCOME_MAKE_IT_MINE,
 )
-from yoke_contracts.machine_config.schema import DEFAULT_TRANSPORT
+from yoke_contracts.machine_config.schema import DEFAULT_TRANSPORT, POSTGRES_TRANSPORTS
 from yoke_contracts.project_contract.board_art.config_paths import (
     board_art_path_for_config,
 )
@@ -58,7 +58,10 @@ def build_plan(
         # The universe birth replaces the sign-in writes: it records the
         # local connection (DSN reference) itself and verifies idempotently
         # on rerun, so it is always planned.
-        steps.append({"action": "local-universe-init", "target": env_name})
+        steps.append({
+            "action": "local-universe-init",
+            "target": str(reuse.get("local_universe") or "create"),
+        })
     if not reuse.get("active_env"):
         steps.append({"action": "set-active-env", "target": env_name})
     if not local_destination and not reuse.get("connection"):
@@ -282,9 +285,10 @@ def render_human(report: Dict[str, Any]) -> str:
     for step in report["plan"]["steps"]:
         lines.append(f"  - {step['action']}: {step['target']}")
     reuse_groups = onboard_reuse_feedback.grouped_lines_for_plan(report)
-    if any(reuse_groups.get(key) for _label, key in _REUSE_GROUP_LABELS):
+    labels = _reuse_group_labels_for_report(report)
+    if any(reuse_groups.get(key) for _label, key in labels):
         lines.extend(["", "Already detected / reused:"])
-        for label, key in _REUSE_GROUP_LABELS:
+        for label, key in labels:
             grouped_lines = reuse_groups.get(key, [])
             if not grouped_lines:
                 continue
@@ -312,6 +316,19 @@ def render_human(report: Dict[str, Any]) -> str:
         lines.append("Rerun with --yes to apply this plan.")
         lines.append("")
     return "\n".join(lines)
+
+
+def _reuse_group_labels_for_report(report: Dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    plan = report.get("plan") if isinstance(report, dict) else None
+    connection = plan.get("connection") if isinstance(plan, dict) else None
+    if not isinstance(connection, dict):
+        return _REUSE_GROUP_LABELS
+    if str(connection.get("transport") or "") not in POSTGRES_TRANSPORTS:
+        return _REUSE_GROUP_LABELS
+    return tuple(
+        ("In the local Yoke database", key) if key == "core" else (label, key)
+        for label, key in _REUSE_GROUP_LABELS
+    )
 
 
 def _append_project_handoff(lines: list[str], project_report: dict[str, Any]) -> None:
