@@ -47,6 +47,19 @@ CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
 CLAUDE_RULES_SOURCE = "runtime/harness/claude/rules"
 
+# The full set of repo-root source dirs the packaged install-bundle tree
+# (``yoke_core.install_bundle_tree``) snapshots. Single source of truth for the
+# snapshot materializer (:mod:`install_bundle_tree_sync`), its drift check
+# (``HC-install-bundle-drift``), and the ``test_install_bundle`` invariant, so
+# the packaging surfaces cannot silently disagree on which dirs ship. Order
+# matches the ``pyproject.toml`` package-data globs.
+INSTALL_BUNDLE_SOURCE_DIRS = (
+    SKILLS_SOURCE,
+    CLAUDE_AGENTS_SOURCE,
+    CLAUDE_RULES_SOURCE,
+    CODEX_AGENTS_SOURCE,
+)
+
 # Project-repo destination dirs.
 CLAUDE_SKILLS_DEST = ".claude/skills/yoke"
 CODEX_SKILLS_DEST = ".codex/skills/yoke"
@@ -322,6 +335,7 @@ def build_bundle(project_id: int, conn) -> Dict[str, Any]:
 
 __all__ = [
     "BUNDLE_SCHEMA",
+    "INSTALL_BUNDLE_SOURCE_DIRS",
     "InstallBundleError",
     "ProjectNotFoundError",
     "build_bundle",

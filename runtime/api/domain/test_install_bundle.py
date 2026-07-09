@@ -8,19 +8,14 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import install_bundle
+from yoke_core.domain import install_bundle, install_bundle_tree_sync
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-PACKAGED_ROOT = (
-    REPO_ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-)
-INSTALL_BUNDLE_SOURCE_DIRS = (
-    ".agents/skills/yoke",
-    "runtime/harness/claude/agents",
-    "runtime/harness/claude/rules",
-    "runtime/harness/codex/agents",
-)
+PACKAGED_ROOT = REPO_ROOT / install_bundle_tree_sync.PACKAGED_TREE_REL
+# Single source of truth — the same tuple the materializer and drift HC consume.
+INSTALL_BUNDLE_SOURCE_DIRS = install_bundle.INSTALL_BUNDLE_SOURCE_DIRS
+PYPROJECT = REPO_ROOT / "packages/yoke-core/pyproject.toml"
 
 
 @pytest.fixture()
@@ -115,6 +110,26 @@ def test_packaged_install_bundle_tree_matches_source_inputs() -> None:
             assert (packaged / file_rel).read_bytes() == (
                 source / file_rel
             ).read_bytes()
+
+
+def test_detect_drift_agrees_the_snapshot_is_in_sync() -> None:
+    # The materializer's drift detector (which HC-install-bundle-drift consumes)
+    # must agree with the byte-level invariant above — one code path guards the
+    # shipped wheel, so a divergence between the two is itself the bug.
+    assert install_bundle_tree_sync.detect_drift(target_root=REPO_ROOT) == []
+
+
+def test_pyproject_package_data_covers_every_source_dir() -> None:
+    # setuptools can only ship files it globs. If a source dir is added to
+    # INSTALL_BUNDLE_SOURCE_DIRS (and materialized) but not globbed here, the
+    # wheel silently omits it — drift the byte test can't see (the packaged
+    # tree matches, but the wheel wouldn't carry it). Keep the two in lockstep.
+    text = PYPROJECT.read_text("utf-8")
+    for rel in INSTALL_BUNDLE_SOURCE_DIRS:
+        assert f'"{rel}/**/*"' in text, (
+            f"pyproject package-data is missing a glob for {rel!r}; the wheel "
+            f"would not ship it"
+        )
 
 
 def test_full_skill_suite_duplicated_under_both_harness_dirs(conn) -> None:
