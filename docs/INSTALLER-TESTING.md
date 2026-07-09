@@ -190,20 +190,18 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 | `AUTH-010` | `prepared-stored-state` | Stored token invalid | Replacement route is available |
 | `AUTH-011` | `prepared-yoke` | Token sees many projects/orgs | Projects and orgs lists truncate consistently and do not overflow |
 
-### Wave 5: Machine GitHub Credential
+### Wave 5: Machine GitHub App Connection
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `GITHUB-001` | `prepared-yoke` | Skip GitHub | Project step reachable; machine config has no GitHub credential |
-| `GITHUB-002` | `prepared-yoke` | Classic PAT by token file | Identity, owners, scopes render; no PAT leak |
-| `GITHUB-003` | `prepared-yoke` | Classic PAT by paste | Password field masks value; no PAT leak |
-| `GITHUB-004` | `prepared-yoke` | Fine-grained PAT read-only | Capability summary explains limits |
-| `GITHUB-005` | `prepared-yoke` | Fine-grained PAT with partial write | Writable/readonly repo summary is correct |
-| `GITHUB-006` | `prepared-yoke` | Invalid PAT | HTTP 401 friendly error |
-| `GITHUB-007` | `prepared-yoke` | Empty PAT file | Friendly empty-token error |
-| `GITHUB-008` | `prepared-yoke` | Token sees many repos | Repo list truncates consistently and does not overflow |
-| `GITHUB-009` | `prepared-yoke` | Token cannot create repo | Later publish paths block before Apply |
-| `GITHUB-010` | `prepared-stored-state` | Stored GitHub token reuse | Offered and verified, not blindly trusted |
+| `GITHUB-001` | `prepared-yoke` | Skip GitHub | Project step reachable; machine config has no GitHub App connection |
+| `GITHUB-002` | `prepared-yoke` | Connect GitHub App | Browser-flow placeholder renders without asking for a token |
+| `GITHUB-003` | `prepared-yoke` | Connect unavailable | User can continue backlog-only; no machine secret is written |
+| `GITHUB-004` | `prepared-yoke` | Stored App authorization | Identity and installation summary render; no credential value leaks |
+| `GITHUB-005` | `prepared-yoke` | Revoked App authorization | Friendly reconnect guidance; no crash |
+| `GITHUB-006` | `prepared-yoke` | App sees many repos | Repo list truncates consistently and does not overflow |
+| `GITHUB-007` | `prepared-yoke` | App cannot create repo | Later publish paths block before Apply |
+| `GITHUB-008` | `prepared-stored-state` | Stored App authorization reuse | Offered and verified, not blindly trusted |
 
 ### Wave 6: Project Source Picker
 
@@ -254,14 +252,13 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 | `PUBLISH-003` | `prepared-git` | Publish to org owner | Org owner renders and applies |
 | `PUBLISH-004` | `prepared-git` | Repo exists and empty | Review note says Yoke will reuse/adopt |
 | `PUBLISH-005` | `prepared-git` | Repo exists non-empty | Block before Apply |
-| `PUBLISH-006` | `prepared-git` | Token cannot create private repo | Block before Apply |
-| `PUBLISH-007` | `prepared-git` | Token can create but cannot push | Block before orphaning empty repo |
+| `PUBLISH-006` | `prepared-git` | App cannot create private repo | Block before Apply |
+| `PUBLISH-007` | `prepared-git` | App can create but cannot push | Block before orphaning empty repo |
 | `PUBLISH-008` | `fault-injection` | Repo created then push fails | Failure report names repo, start-over cleanup, and retry resumes push |
 | `PUBLISH-009` | `prepared-git` | Project GitHub adoption skip | Capability not stored |
-| `PUBLISH-010` | `prepared-git` | Project GitHub adoption temporary-only | Token used during run only |
-| `PUBLISH-011` | `prepared-git` | Project GitHub adoption store-token | Project secret stored; no token leak |
-| `PUBLISH-012` | `prepared-git` | Project GitHub adoption reuse-machine | Project token source traces to machine credential choice |
-| `PUBLISH-013` | `prepared-git` | Project GitHub adoption different-token | Separate project token prompt/file route works |
+| `PUBLISH-010` | `prepared-git` | Project GitHub App binding | Project records the selected App installation/repository |
+| `PUBLISH-011` | `prepared-git` | Project GitHub App binding unavailable | Project remains backlog-only; no credential secret is stored |
+| `PUBLISH-012` | `prepared-git` | Project GitHub App binding reuse | Project binding traces to the installed App repository |
 
 ### Wave 9: Review, Apply, Resume
 
@@ -302,7 +299,7 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
 | `STATE-001` | `prepared-stored-state` | Reuse active Yoke connection | Verifies stored token; no blind trust |
-| `STATE-002` | `prepared-stored-state` | Reuse machine GitHub credential | Verifies stored token; no blind trust |
+| `STATE-002` | `prepared-stored-state` | Reuse machine GitHub App authorization | Verifies stored authorization; no blind trust |
 | `STATE-003` | `prepared-stored-state` | One stored project checkout | Auto-routes to project verification |
 | `STATE-004` | `prepared-stored-state` | Multiple stored project checkouts | Picker appears |
 | `STATE-005` | `prepared-stored-state` | Stored project no longer visible | Friendly lookup error and alternate path |
@@ -424,7 +421,6 @@ python3 -m yoke_core.tools.installer_live_tui_fleet fleet-prepare \
   --profile prepared-git \
   --endpoint "$ENDPOINT" \
   --yoke-token-file <local-yoke-token-file> \
-  --github-token-file <local-github-token-file> \
   --github-repo <owner/repo> \
   --execute \
   --json
@@ -740,17 +736,17 @@ ssh "$MAC_SSH_HOST" 'sudo pmset -a sleep 0 disksleep 0 displaysleep 0 powernap 0
 
 ### Mac Tokens
 
-Stage short-lived token files on the Mac, never raw token values:
+Stage short-lived Yoke token files on the Mac, never raw token values:
 
 ```bash
 scp ./yoke-stage.token "$MAC_SSH_HOST":/tmp/yoke-stage.token
 scp ./yoke-prod.token "$MAC_SSH_HOST":/tmp/yoke-prod.token
-scp ./github-yoke-e2e.token "$MAC_SSH_HOST":/tmp/yoke-github.token
-ssh "$MAC_SSH_HOST" 'chmod 600 /tmp/yoke-stage.token /tmp/yoke-prod.token /tmp/yoke-github.token'
+ssh "$MAC_SSH_HOST" 'chmod 600 /tmp/yoke-stage.token /tmp/yoke-prod.token'
 ```
 
-In the wizard, choose token-from-file and use `/tmp/yoke-stage.token` for stage
-auth and `/tmp/yoke-github.token` for GitHub auth.
+In the wizard, choose token-from-file and use `/tmp/yoke-stage.token` for
+stage auth. GitHub uses the Yoke GitHub App connection flow or backlog-only
+skip.
 
 ### Claude Code SSH Smoke
 
@@ -799,8 +795,9 @@ curl -fsSL https://api.stage.upyoke.com/install | bash
 
 Manual proof path: accept uv install if missing, accept PATH repair, confirm
 handoff into `yoke onboard`, pick upyoke.com on the destination picker, choose
-stage, use `/tmp/yoke-stage.token` and `/tmp/yoke-github.token`, clone/import
-under `~/code`, apply, and record the report path.
+stage, use `/tmp/yoke-stage.token`, choose the GitHub App connection or
+backlog-only skip, clone/import under `~/code`, apply, and record the report
+path.
 
 Post-run checks:
 
@@ -1319,7 +1316,7 @@ rm -rf "$HOME/.yoke" "$HOME/.yoke-e2e-logs" "$HOME/.local/share/uv" \
   "$HOME/Library/Application Support/yoke"
 rm -f "$HOME/.local/bin/yoke" "$HOME/.local/bin/uv" "$HOME/.local/bin/uvx" \
   "$HOME/.local/bin/env" /tmp/yoke-install /tmp/yoke-token \
-  /tmp/yoke-stage.token /tmp/yoke-prod.token /tmp/yoke-github.token /tmp/github.token
+  /tmp/yoke-stage.token /tmp/yoke-prod.token
 [ ! -d "$HOME/code" ] || /usr/bin/find "$HOME/code" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 if [ -x /opt/homebrew/bin/brew ] && /opt/homebrew/bin/brew list --versions uv >/dev/null 2>&1; then
   /opt/homebrew/bin/brew uninstall uv

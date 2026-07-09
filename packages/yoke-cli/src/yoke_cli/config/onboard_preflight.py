@@ -135,8 +135,8 @@ def _network_findings(
     # The connected token still authenticates.
     if token and probes.token_ok is not None and not probes.token_ok(api_url, token):
         problems.append(
-            "Your connected GitHub token no longer works — re-run and paste a "
-            "fresh one."
+            "Your connected GitHub authorization no longer works; reconnect "
+            "GitHub before publishing."
         )
 
     # The repo a publish would create isn't already taken on GitHub.

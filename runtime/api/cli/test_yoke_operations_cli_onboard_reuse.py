@@ -24,8 +24,8 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     secrets.mkdir(parents=True)
     token = secrets / "prod.token"
     token.write_text("actor-token\n", encoding="utf-8")
-    github_token = secrets / "github.token"
-    github_token.write_text("ghp_token\n", encoding="utf-8")
+    github_refresh = secrets / "github.user-refresh"
+    github_refresh.write_text("refresh\n", encoding="utf-8")
     temp_root = home / "tmp"
     cache_dir = home / "cache"
     temp_root.mkdir()
@@ -76,9 +76,15 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
             },
             "github": {
                 "api_url": "https://api.github.com",
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(github_token),
+                "app_slug": "yoke",
+                "client_id": "Iv1.example",
+                "authorization": {
+                    "kind": "github_app_user_authorization",
+                    "refresh_credential_ref": str(github_refresh),
+                    "github_user_id": 1001,
+                    "login": "machine-user",
+                    "status": "authorized",
+                    "scopes": [],
                 },
             },
             "temp_root": str(temp_root),
@@ -98,8 +104,6 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
             check_identity=False,
             machine_github_choice=onboard_machine_github.CHOICE_CONNECT,
             machine_github_api_url="https://api.github.com",
-            machine_github_token_file=github_token,
-            machine_github_token_source_kind="token_file",
             project_mode="local-checkout",
             project_checkout=checkout,
             project_slug="local",

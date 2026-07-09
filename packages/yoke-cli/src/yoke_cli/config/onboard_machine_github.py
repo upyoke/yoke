@@ -10,7 +10,6 @@ from yoke_cli.config import github_machine
 CHOICE_CONNECT = "connect"
 CHOICE_SKIP = "skip"
 CHOICE_LATER = "later"
-CHOICE_TOKEN_FILE = "file"
 CHOICES = (CHOICE_SKIP, CHOICE_CONNECT, CHOICE_LATER)
 
 
@@ -30,8 +29,11 @@ def plan(
         "choice": selected,
         "applied": False,
         "api_url": api_url or "https://api.github.com",
-        "token_source": _token_source(token_file, token_source_kind),
-        "writes_machine_secret": selected == CHOICE_CONNECT,
+        "authorization_source": {
+            "kind": "github_app" if selected == CHOICE_CONNECT else "none",
+        },
+        "writes_machine_secret": False,
+        "requires_browser_flow": selected == CHOICE_CONNECT,
     }
 
 
@@ -53,7 +55,7 @@ def apply(
             token_source_kind=token_source_kind,
         )
     try:
-        return github_machine.connect(
+        report = github_machine.connect(
             config_path=config_path,
             token=token,
             token_file=token_file,
@@ -62,6 +64,13 @@ def apply(
         )
     except github_machine.GitHubMachineError as exc:
         raise OnboardMachineGithubError(str(exc)) from exc
+    if not report.get("ok"):
+        issues = report.get("issues") or []
+        first = issues[0] if issues else {}
+        raise OnboardMachineGithubError(
+            str(first.get("message") or "GitHub App connection is unavailable")
+        )
+    return report
 
 
 def normalize_choice(choice: str | None) -> str:
@@ -74,17 +83,10 @@ def normalize_choice(choice: str | None) -> str:
     return selected
 
 
-def _token_source(token_file: str | None, token_source_kind: str | None) -> dict[str, str]:
-    if token_file:
-        return {"kind": "token_file", "path": token_file}
-    return {"kind": token_source_kind or "none"}
-
-
 __all__ = [
     "CHOICE_CONNECT",
     "CHOICE_LATER",
     "CHOICE_SKIP",
-    "CHOICE_TOKEN_FILE",
     "OnboardMachineGithubError",
     "apply",
     "normalize_choice",

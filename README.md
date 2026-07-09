@@ -114,11 +114,11 @@ mode, `yoke universe export` dumps the whole universe to one portable
 `pg_restore`-compatible artifact. See
 [docs/local-setup.md](docs/local-setup.md) ("Local Mode").
 
-Optionally connect a machine-level GitHub credential for product commands
-that need to inspect or write GitHub from this machine:
+Optionally connect the Yoke GitHub App for product commands that need to
+inspect or write GitHub from this machine:
 
 ```bash
-yoke github connect --token-stdin
+yoke github connect
 yoke github status
 ```
 
@@ -143,7 +143,7 @@ you want to script a single mode:
 yoke project create ~/work/my-app \
   --slug my-app --name "My App" --github-repo owner/my-app \
   --default-branch main --public-item-prefix APP \
-  --github-adoption store-token --github-token-stdin \
+  --github-adoption skip \
   --config ~/.yoke/config.json --yes
 
 # Existing remote
@@ -156,7 +156,7 @@ yoke project import git@github.com:owner/my-app.git ~/work/my-app \
 yoke onboard project ~/work/my-app \
   --slug my-app --name "My App" --github-repo owner/my-app \
   --default-branch main --public-item-prefix APP \
-  --github-adoption temporary-only --config ~/.yoke/config.json --yes
+  --github-adoption skip --config ~/.yoke/config.json --yes
 ```
 
 `git` is needed only when a project mode creates, clones, imports, or registers

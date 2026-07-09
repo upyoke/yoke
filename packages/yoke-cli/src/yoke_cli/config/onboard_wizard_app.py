@@ -251,16 +251,6 @@ class OnboardWizardApp(
             github = machine_config.github_config(self.result.config_path)
         except (OSError, RuntimeError, ValueError):
             return
-        source = github.get("credential_source")
-        if not isinstance(source, dict) or source.get("kind") != "token_file":
-            return
-        token_file = str(source.get("path") or "").strip()
-        if not token_file:
-            return
-        token_path = Path(token_file).expanduser()
-        if not token_path.is_file():
-            return
-        self._stored_machine_github_token_file = str(token_path)
         self._stored_machine_github_api_url = str(
             github.get("api_url") or "https://api.github.com"
         ).strip()

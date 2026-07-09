@@ -24,6 +24,45 @@ def test_canonical_example_is_valid_machine_config() -> None:
     assert json.loads(contract.canonical_example_text()) == payload
 
 
+def test_github_app_authorization_config_is_valid_without_env_connection() -> None:
+    payload = {
+        "schema_version": 1,
+        "github": {
+            "api_url": contract.DEFAULT_GITHUB_API_URL,
+            "app_slug": "yoke",
+            "client_id": "Iv1.example",
+            "authorization": {
+                "kind": contract.GITHUB_AUTH_KIND_USER_AUTHORIZATION,
+                "refresh_credential_ref": "~/.yoke/secrets/github.user-refresh",
+                "github_user_id": 1001,
+                "login": "machine-user",
+                "status": "authorized",
+                "scopes": [],
+            },
+        },
+    }
+
+    assert contract.validate_payload(payload) == []
+
+
+def test_github_pat_machine_config_is_rejected() -> None:
+    payload = {
+        "schema_version": 1,
+        "github": {
+            "api_url": contract.DEFAULT_GITHUB_API_URL,
+            "credential_source": {
+                "kind": "token_file",
+                "path": "~/.yoke/secrets/github.token",
+            },
+        },
+    }
+
+    codes = {issue.code for issue in contract.validate_payload(payload)}
+
+    assert "github_key_invalid" in codes
+    assert "github_authorization_required" in codes
+
+
 def test_requires_positive_integer_project_id() -> None:
     issues = contract.validate_payload({
         "schema_version": 1,

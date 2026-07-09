@@ -3,8 +3,8 @@
 Sibling of :mod:`yoke_cli.commands.adapters.github_actions` for the
 repo-level ``github.*`` function family. Each adapter dispatches its
 function id, which calls into
-:mod:`yoke_core.domain.gh_rest_transport` using the project's stored
-PAT — no host GitHub CLI binary required:
+:mod:`yoke_core.domain.gh_rest_transport` using the project's resolved
+GitHub authorization material -- no host GitHub CLI binary required:
 
 - ``pr create`` -> ``github.pr.create`` (open a pull request on the
   project's GitHub repo; owner/repo resolve from the project
@@ -39,14 +39,12 @@ __all__ = [
 
 
 GITHUB_CONNECT_USAGE = (
-    "yoke github connect [TOKEN | --token-file PATH | --token-stdin] "
-    "[--github-repo OWNER/REPO] [--api-url URL] [--config PATH] [--json]"
+    "yoke github connect [--api-url URL] [--config PATH] [--json]"
 )
 
 
 GITHUB_STATUS_USAGE = (
-    "yoke github status [--github-repo OWNER/REPO] [--config PATH] "
-    "[--api-url URL] [--offline] [--json]"
+    "yoke github status [--config PATH] [--api-url URL] [--offline] [--json]"
 )
 
 
@@ -61,63 +59,29 @@ def github_connect(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github connect",
         description=(
-            "Validate and store a machine-level GitHub token in Yoke "
-            "machine secrets. "
-            "This never writes project runtime auth or promotes the token into "
-            "a project GitHub capability."
+            "Start the machine-level Yoke GitHub App authorization flow. "
+            "This never accepts or stores manual GitHub credentials and never writes "
+            "project runtime auth."
         ),
-    )
-    parser.add_argument("token", nargs="?", help="GitHub PAT to import.")
-    parser.add_argument("--token-file", default=None)
-    parser.add_argument(
-        "--token-stdin",
-        action="store_true",
-        help="Read the GitHub PAT from stdin.",
     )
     parser.add_argument(
         "--api-url",
         default=None,
         help="GitHub API root (default: https://api.github.com).",
     )
-    parser.add_argument(
-        "--github-repo",
-        dest="github_repo",
-        default=None,
-        help="Verify access to OWNER/REPO before storing the token.",
-    )
     parser.add_argument("--config", dest="config_path", default=None)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_CONNECT_USAGE)
     if parsed is None:
         return 2
-    token_sources = [
-        bool(parsed.token),
-        bool(parsed.token_file),
-        bool(parsed.token_stdin),
-    ]
-    if sum(1 for given in token_sources if given) != 1:
-        return usage_error(
-            "exactly one GitHub token source is required: "
-            f"{GITHUB_CONNECT_USAGE}"
-        )
-    token = parsed.token
-    token_source_kind = "argument"
-    if parsed.token_stdin:
-        token = sys.stdin.read().strip()
-        token_source_kind = "stdin"
-        if not token:
-            return usage_error(
-                "GitHub token on stdin is empty; pipe it in: "
-                f"{GITHUB_CONNECT_USAGE}"
-            )
     try:
         report = github_machine.connect(
             config_path=parsed.config_path,
-            token=token,
-            token_file=parsed.token_file,
-            token_source_kind=token_source_kind,
+            token=None,
+            token_file=None,
+            token_source_kind="none",
             api_url=parsed.api_url,
-            github_repo=parsed.github_repo,
+            github_repo=None,
         )
     except github_machine.GitHubMachineError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -126,7 +90,7 @@ def github_connect(args: List[str]) -> int:
         print(github_machine.dumps_json(report), end="")
     else:
         print(github_machine.render_human(report), end="")
-    return 0
+    return 0 if report.get("ok") else 1
 
 
 def github_status(args: List[str]) -> int:
@@ -134,15 +98,9 @@ def github_status(args: List[str]) -> int:
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--api-url", default=None)
     parser.add_argument(
-        "--github-repo",
-        dest="github_repo",
-        default=None,
-        help="Verify access to OWNER/REPO with the stored machine token.",
-    )
-    parser.add_argument(
         "--offline",
         action="store_true",
-        help="Read config and token-file presence without calling GitHub.",
+        help="Read local config without attempting live GitHub checks.",
     )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_STATUS_USAGE)
@@ -153,7 +111,7 @@ def github_status(args: List[str]) -> int:
             config_path=parsed.config_path,
             api_url=parsed.api_url,
             check=not parsed.offline,
-            github_repo=parsed.github_repo,
+            github_repo=None,
         )
     except github_machine.GitHubMachineError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -170,7 +128,7 @@ def github_pr_create(args: List[str]) -> int:
         prog="yoke github pr create",
         description=(
             "Open a pull request --head -> --base on the project's "
-            "GitHub repo via PAT-backed REST (no host gh binary). The "
+            "GitHub repo via resolved REST auth (no host gh binary). The "
             "repo is resolved from --project's GitHub capability "
             "(projects.github_repo), never passed as an argument. "
             "Prints the created PR number + URL."
@@ -205,7 +163,7 @@ def github_pr_create(args: List[str]) -> int:
     )
     parser.add_argument(
         "--project", default="yoke",
-        help="Project capability owning the GitHub repo + PAT (default: yoke).",
+        help="Project capability owning the GitHub repo (default: yoke).",
     )
     add_session_arg(parser)
     add_json_arg(parser)

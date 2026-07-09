@@ -7,8 +7,8 @@ answer onto ``self.result`` and routes to the next view through the shell's
 ``_goto`` / ``_goto_input`` / ``_selection_view`` primitives. It holds no
 Textual plumbing and no report-assembly logic — only the decision graph.
 
-The machine GitHub step runs before the project step so the project's GitHub
-auth can honestly reuse the machine token that is already connected by then.
+The machine GitHub step runs before the project step so repo binding can use
+the machine's GitHub App authorization once that flow is connected.
 """
 
 from __future__ import annotations
@@ -525,9 +525,9 @@ class WizardFlow:
         if not self.result.project_github_repo:
             self._goto_board_art_intro()
             return
-        # The reuse-machine row only makes sense with a connected machine token;
-        # without one, drop it so the picker never offers an option
-        # (store-token + None token) that dead-ends at apply.
+        # The connected-repo row only makes sense once the machine has a GitHub
+        # App authorization. Without one, drop it so the picker never offers a
+        # route that cannot bind a repository.
         if self.result.machine_github_token:
             rows = steps.PROJECT_GITHUB_ROWS
         else:
@@ -540,31 +540,42 @@ class WizardFlow:
         ))
 
     def _on_project_github(self: _Shell, choice: str) -> None:
-        # Defense in depth: reuse-machine without a machine token has nothing to
-        # reuse and would map to store-token with a None token, dead-ending at
-        # apply. Degrade it to skip so the picker can never produce that state.
         if choice == PROJECT_GITHUB_REUSE_MACHINE and not self.result.machine_github_token:
             choice = "skip"
+        if choice in (PROJECT_GITHUB_REUSE_MACHINE, "store-token"):
+            self._goto_project_github_unavailable()
+            return
         self.result.project_github_adoption = reuse_choice_to_adoption(choice)
-        if choice == PROJECT_GITHUB_REUSE_MACHINE:
-            # The machine step already ran, so the connected machine token is
-            # available now — reuse it directly as the project token.
-            self.result.project_github_token = self.result.machine_github_token
-        if choice in ("skip", PROJECT_GITHUB_REUSE_MACHINE):
-            if choice == "skip":
-                # Clear any project token a prior back-nav visit pasted; carrying
-                # it into a skip adoption raises "token cannot be combined with
-                # --github-adoption skip" at apply.
-                self.result.project_github_token = None
+        if choice == "skip":
+            self.result.project_github_token = None
             self._goto_board_art_intro()
             return
-        self._goto_input(
-            STEP_PROJECT, onboard_github_copy.PROJECT_TOKEN_PASTE_TITLE,
-            onboard_github_copy.PROJECT_TOKEN_PASTE_SUBTITLE,
-            placeholder="paste GitHub token", password=True,
-            allow_placeholder=False,
-            on_done=self._after_project_token,
-        )
+
+    def _goto_project_github_unavailable(self: _Shell) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        self._goto(_View(
+            STEP_PROJECT,
+            lambda: steps.verification_body(
+                "GitHub repo binding is not available here yet.",
+                onboard_github_copy.PROJECT_TOKEN_PASTE_SUBTITLE,
+                [
+                    "The project will stay backlog-only if you continue.",
+                    "Repo binding arrives through the GitHub App setup flow.",
+                ],
+                steps.GITHUB_APP_UNAVAILABLE_ROWS,
+                ok=False,
+            ),
+            self._on_project_github_unavailable,
+        ))
+
+    def _on_project_github_unavailable(self: _Shell, choice: str) -> None:
+        if choice == "backlog":
+            self.result.project_github_adoption = "skip"
+            self.result.project_github_token = None
+            self._goto_board_art_intro()
+            return
+        self._after_prefix(self.result.project_public_item_prefix or "")
 
     def _after_project_token(self: _Shell, value: str) -> None:
         self.result.project_github_token = value

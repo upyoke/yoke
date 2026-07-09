@@ -98,7 +98,7 @@ class ApplyReportWriter:
             "checkout_path": str(kwargs.get("project_checkout") or ""),
             "source_repo": str(kwargs.get("project_remote_url") or ""),
             "target_github_repo": _target_github_repo(kwargs),
-            "token_sources": _token_sources(kwargs),
+            "credential_sources": _credential_sources(kwargs),
             "input_snapshot": onboard_apply_snapshot.build(kwargs),
             "steps": steps,
             "final_status": None,
@@ -346,20 +346,29 @@ def _start_over_hint(kwargs: Mapping[str, Any]) -> str:
     return f"Re-run to redo setup: {RESUME_COMMAND}"
 
 
-def _token_sources(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+def _credential_sources(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "yoke": {
             "kind": str(kwargs.get("token_source_kind") or "argument"),
             "path": str(kwargs.get("token_file") or ""),
         },
-        "machine_github": {
-            "kind": str(kwargs.get("machine_github_token_source_kind") or ""),
-            "path": str(kwargs.get("machine_github_token_file") or ""),
+        "github_app": {
+            "machine": _github_authorization_source(kwargs),
+            "project": _github_binding(kwargs),
         },
-        "project_github": {
-            "kind": "file" if kwargs.get("project_github_token_file") else "",
-            "path": str(kwargs.get("project_github_token_file") or ""),
-        },
+    }
+
+
+def _github_authorization_source(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    if str(kwargs.get("machine_github_choice") or "") == "connect":
+        return {"kind": "github_app_user_authorization"}
+    return {"kind": ""}
+
+
+def _github_binding(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "adoption": str(kwargs.get("project_github_adoption") or ""),
+        "repo": str(kwargs.get("project_github_repo") or ""),
     }
 
 

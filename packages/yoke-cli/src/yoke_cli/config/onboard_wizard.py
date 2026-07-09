@@ -22,8 +22,7 @@ from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_STORE_CHOICES
 
-# Project-credential choice surfaced as a first-class wizard option. It maps to
-# the store-token adoption with the machine PAT reused as the project token.
+# Project GitHub binding choice surfaced as a first-class wizard option.
 PROJECT_GITHUB_REUSE_MACHINE = "reuse-machine"
 
 
@@ -136,8 +135,8 @@ class WizardResult:
         """Assemble a PublishRequest from the chosen owner/repo, or None.
 
         Shared by the "Also publish to GitHub?" path and the clone "make it
-        mine" path. Returns None without a chosen owner or a connected machine
-        token — there is nothing to create the repo with in that case.
+        mine" path. Returns None without a chosen owner or usable GitHub
+        authorization; there is nothing to create the repo with in that case.
         """
         from yoke_cli.config.onboard_project import PublishRequest
 
@@ -156,9 +155,9 @@ class WizardResult:
         """Assemble the "Also publish to GitHub?" PublishRequest, or None.
 
         Returns None for the clone path (clones re-home through the ClonePlan,
-        never the publish path) and unless the user chose to publish with a
-        connected token — so the publish is silently a no-op the Finish plan
-        reflects.
+        never the publish path) and unless the user chose to publish with
+        usable GitHub authorization, so the publish is silently a no-op the
+        Finish plan reflects.
         """
         if self.project_mode in onboard_project.PROJECT_REMOTE_MODES:
             return None
@@ -170,11 +169,10 @@ class WizardResult:
         """Assemble a ClonePlan from the clone-outcome answers, or None.
 
         Returns None for non-clone modes and when no outcome was chosen (the
-        default just-clone with today's behavior). The connected token used for
-        the private-clone fallback and the fork call is the machine GitHub PAT
-        — the only token connected by the time the clone runs (the project
-        token step comes later). "Make it mine" carries a PublishRequest built
-        from the chosen owner/repo so the new private repo is created at apply.
+        default just-clone with today's behavior). GitHub authorization for
+        the private-clone fallback and the fork call is captured before project
+        binding. "Make it mine" carries a PublishRequest built from the chosen
+        owner/repo so the new private repo is created at apply.
         """
         from yoke_cli.config.onboard_project import ClonePlan
         from yoke_cli.config.project_clone_support import (

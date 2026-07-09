@@ -63,11 +63,9 @@ MODE_ROWS = [
 
 MACHINE_GITHUB_ROWS = [
     SelectionRow(onboard_machine_github.CHOICE_CONNECT,
-                 "Connect a token (PAT)", "paste a GitHub token"),
+                 "Connect GitHub", "open the Yoke GitHub App flow"),
     SelectionRow(onboard_machine_github.CHOICE_SKIP,
-                 "Skip for now", "connect later"),
-    SelectionRow(onboard_machine_github.CHOICE_TOKEN_FILE,
-                 "Read token from a file", "path on disk"),
+                 "Use backlog only", "connect later"),
 ]
 
 TOKEN_SOURCE_ROWS = [
@@ -89,6 +87,11 @@ PROBE_RETRY_ROWS = [
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
+GITHUB_APP_UNAVAILABLE_ROWS = [
+    SelectionRow("backlog", "Use backlog only", "continue without GitHub"),
+    SelectionRow("back", "Back", "choose a different option"),
+]
+
 PROJECT_GITHUB_ROWS = [
     SelectionRow(PROJECT_GITHUB_REUSE_MACHINE,
                  onboard_github_copy.PROJECT_GITHUB_REUSE_LABEL,
@@ -101,10 +104,8 @@ PROJECT_GITHUB_ROWS = [
                  onboard_github_copy.PROJECT_GITHUB_SKIP_DESC),
 ]
 
-# Same picker minus the reuse-machine row, shown when no machine token was
-# connected. Without a machine token there is nothing to reuse, so offering
-# the reuse-machine row would map to store-token with a None token and dead-end
-# at apply — drop the row rather than offer an option that cannot succeed.
+# Same picker minus the connected-repo row, shown when no machine GitHub
+# authorization was connected.
 PROJECT_GITHUB_ROWS_NO_MACHINE = PROJECT_GITHUB_ROWS[1:]
 
 CONFIRM_ROWS = [
@@ -115,7 +116,7 @@ REVIEW_TITLE = f"Review what {BRAND} will save."
 REVIEW_SUBTITLE = "Nothing is written until you choose Apply."
 
 # Shown when the Review pre-flight found problems: Apply is withheld until they
-# clear, so the only forward action is to step back and fix them (or quit).
+    # clear, so the only forward action is to step back and fix them (or quit).
 REVIEW_BLOCKED_ROWS = [
     SelectionRow("back", "Back to fix that", "step back and correct it"),
     SelectionRow("cancel", "Quit", "nothing is saved"),
@@ -247,7 +248,7 @@ def finish_body(
         widgets.append(SelectionList(FINISH_EMPTY_ROWS))
         return widgets
     # Pre-flight found problems: show ALL of them at once and guard Apply behind a
-    # single "Back to fix that" row, so a stale target / token / repo-name can't
+    # single "Back to fix that" row, so a stale target / repo name can't
     # be applied into a half-written state.
     if problems:
         widgets = [
@@ -329,6 +330,7 @@ __all__ = [
     "APPLY_STATUS_GLYPHS",
     "APPLY_SUCCESS_ROWS",
     "FINISH_EMPTY_ROWS",
+    "GITHUB_APP_UNAVAILABLE_ROWS",
     "MACHINE_GITHUB_ROWS",
     "MODE_ROWS",
     "PROJECT_GITHUB_ROWS",

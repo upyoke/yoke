@@ -1,68 +1,42 @@
-"""Shared user-facing copy for GitHub credential screens in onboarding.
-
-Two distinct GitHub credential concepts must read consistently wherever they
-surface — the wizard screens, the Finish review, and the ``yoke onboard`` /
-``yoke project`` CLI help:
-
-* The **machine token** (PAT) is stored locally on this machine in
-  ``~/.yoke/secrets`` and used locally to clone, create, fork, and publish
-  repos. Machine-token copy always says *local machine* / ``~/.yoke/secrets``.
-* The **project token** is stored by Yoke in the Yoke core database so it can
-  sync and manage Issues, PRs, CI, and Actions. Project-token copy always says
-  *Yoke core database* / Issues, PRs, CI, Actions.
-
-Centralizing the promise strings keeps the wording identical across every
-surface instead of drifting between hand-edited literals.
-"""
+"""Shared user-facing copy for GitHub App onboarding screens."""
 
 from __future__ import annotations
 
-# ── Machine token (PAT): stored locally on this machine ─────────────────────
-MACHINE_TOKEN_TITLE = "Save a local GitHub credential?"
+MACHINE_TOKEN_TITLE = "Connect GitHub?"
 MACHINE_TOKEN_SUBTITLE = (
-    "Saved only on this machine in ~/.yoke/secrets. "
-    "Used locally to clone, create, fork, and publish repos."
+    "Use the Yoke GitHub App to authorize this machine for local repo "
+    "operations, or stay backlog-only."
 )
-# Finish-review line for the machine GitHub connection.
-MACHINE_TOKEN_REVIEW = "Save a local GitHub credential for repo operations"
+MACHINE_TOKEN_REVIEW = "Connect this machine through the Yoke GitHub App"
 
-# ── Project token: stored in the Yoke core database ────────────────────────
-# The canonical project-token promise. Used as-is on the project GitHub prompt
-# subtitle and embedded into the PAT-paste subtitle and CLI help below so the
-# wording never diverges between surfaces.
 PROJECT_TOKEN_PROMISE = (
-    "Yoke stores your project's GitHub token in the Yoke core database to "
-    "sync and manage Issues, PRs, CI, and Actions."
+    "Bind this project to a repository the Yoke GitHub App can access, or keep "
+    "it backlog-only."
 )
 
 PROJECT_GITHUB_PROMPT_TITLE = "How should Yoke manage this project on GitHub?"
 PROJECT_GITHUB_PROMPT_SUBTITLE = PROJECT_TOKEN_PROMISE
 
-PROJECT_TOKEN_PASTE_TITLE = "Paste this project's GitHub token (PAT)."
+PROJECT_TOKEN_PASTE_TITLE = "GitHub App repo binding is required."
 PROJECT_TOKEN_PASTE_SUBTITLE = (
-    "Never shown on screen. Yoke stores it in the Yoke core database to sync "
-    "and manage Issues, PRs, CI, and Actions."
+    "Use a repository already available to the Yoke GitHub App, add repository "
+    "access in GitHub, or keep this project backlog-only."
 )
 
-# Finish-review line for storing the project token in the core database.
 PROJECT_TOKEN_REVIEW = (
-    "Store this project's GitHub token in the Yoke core database for Issues, "
-    "PRs, CI, and Actions"
+    "Bind this project to a GitHub App repository for Issues, PRs, CI, and Actions"
 )
 
-# Project-token rows on the "manage this project on GitHub?" picker.
-PROJECT_GITHUB_REUSE_LABEL = "Reuse this machine's token"
-PROJECT_GITHUB_REUSE_DESC = "copy into the Yoke core database for this project"
-PROJECT_GITHUB_STORE_LABEL = "Supply a token for this project"
-PROJECT_GITHUB_STORE_DESC = "store in the Yoke core database for this project"
+PROJECT_GITHUB_REUSE_LABEL = "Use connected repo"
+PROJECT_GITHUB_REUSE_DESC = "select from GitHub App repository access"
+PROJECT_GITHUB_STORE_LABEL = "Add repo access"
+PROJECT_GITHUB_STORE_DESC = "open GitHub to change app access"
 PROJECT_GITHUB_SKIP_LABEL = "Skip GitHub for this project"
-PROJECT_GITHUB_SKIP_DESC = "no GitHub automation"
+PROJECT_GITHUB_SKIP_DESC = "backlog-only"
 
-# CLI help for the project-token --github-adoption store/different choices.
 PROJECT_TOKEN_ADOPTION_HELP = (
-    "store-token/different-token securely stores the project GitHub token in "
-    "the Yoke core database so Yoke can sync and manage Issues, PRs, CI, and "
-    "Actions. GitHub App auth is planned as a future replacement."
+    "Project GitHub automation now uses a Yoke GitHub App repo binding. "
+    "Use skip/backlog-only until repo binding is available in this setup flow."
 )
 
 

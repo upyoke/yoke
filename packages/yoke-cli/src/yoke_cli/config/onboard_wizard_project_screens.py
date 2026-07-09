@@ -32,8 +32,8 @@ PUBLISH_ROWS = [
 ]
 
 # "Is the repo public or private?" — shown after the clone folder. Public routes
-# to the paste-URL input (the original clone path); private lists the repos the
-# connected GitHub token can reach so the user picks instead of pasting.
+# to the paste-URL input; private lists repos reachable through connected GitHub
+# authorization so the user picks instead of pasting.
 CLONE_VISIBILITY_PUBLIC = "public"
 CLONE_VISIBILITY_PRIVATE = "private"
 CLONE_VISIBILITY_ROWS = [
@@ -58,12 +58,12 @@ NEW_REPO_VISIBILITY_ROWS = [
 # (first row) — it has no side effects, so it is the safe default in both
 # variants.
 #
-# The hint set adapts to whether the connected token can push to the source
-# repo. When the token CAN push, "Clone it" pushes straight back and the
-# read-only-specific "Fork it" row is irrelevant; when it CANNOT, "Clone it" is
+# The hint set adapts to whether connected GitHub authorization can push to the
+# source repo. When it can, "Clone it" pushes straight back and the
+# read-only-specific "Fork it" row is irrelevant; otherwise "Clone it" is
 # read-only and the fork row offers a writable path with PRs back. Both variants
 # only show "Fork it" when the keep_fork condition holds (github.com remote +
-# connected token); see ``clone_outcome_rows``.
+# connected GitHub authorization); see ``clone_outcome_rows``.
 _CLONE_IT_WRITABLE = SelectionRow(
     CLONE_OUTCOME_JUST_CLONE, "Clone it", "push straight back to {repo}")
 _CLONE_IT_READONLY = SelectionRow(
@@ -74,8 +74,8 @@ _DUPLICATE_IT = SelectionRow(
 _FORK_IT = SelectionRow(
     CLONE_OUTCOME_FORK, "Fork it",
     "push to a new fork we'll create — open PRs back to {repo}")
-# Writable: the token owns / can push to the source, so "Clone it" pushes back
-# and there is no read-only fork affordance.
+    # Writable: GitHub authorization can push to the source, so "Clone it" pushes
+    # back and there is no read-only fork affordance.
 CLONE_OUTCOME_ROWS_WRITABLE = [_CLONE_IT_WRITABLE, _DUPLICATE_IT]
 # Read-only: "Clone it" is read-only, and "Fork it" is offered as the writable
 # path with PRs back (subject to the keep_fork condition).
@@ -103,19 +103,19 @@ def clone_outcome_rows(
     """Clone-outcome rows with the source repo interpolated into the hints.
 
     ``push_access`` is the result of the non-mutating write probe against the
-    source repo: True means the token can push to it, so the writable variant
-    (Clone it pushes back; no read-only fork) is shown. Anything else (False or
-    unknown/None) shows the read-only variant — the safe default, since "Clone
-    it" has no side effects when in doubt.
+    source repo: True means GitHub authorization can push to it, so the writable
+    variant (Clone it pushes back; no read-only fork) is shown. Anything else
+    (False or unknown/None) shows the read-only variant — the safe default,
+    since "Clone it" has no side effects when in doubt.
 
     The "Fork it" row only appears in the read-only variant, and only when both
     a github.com remote (forking parses the source owner/repo and calls the
     GitHub forks API, which a non-github host like gitlab.com cannot satisfy)
-    AND a connected token (the fork call authenticates with it) are present.
-    Drop it if either is missing so the review never shows an outcome that 403s
-    at apply. Clone-it and duplicate-it work for any remote, so they always
-    appear. Falls back to "the source" when the remote URL is not a
-    recognizable github.com owner/repo.
+    AND connected GitHub authorization are present. Drop it if either is
+    missing so the review never shows an outcome that 403s at apply. Clone-it
+    and duplicate-it work for any remote, so they always appear. Falls back to
+    "the source" when the remote URL is not a recognizable github.com
+    owner/repo.
     """
     parsed = default_repo(remote_url)
     repo = parsed or "the source"
@@ -172,7 +172,7 @@ def repo_rows(repos: list) -> list[SelectionRow]:
 def publish_prompt_body() -> list[Static]:
     return selection_body(
         "Also publish to GitHub?",
-        "Yoke creates the repo with your token and connects it as your remote.",
+        "Yoke creates the repo with GitHub authorization and connects it as your remote.",
         PUBLISH_ROWS,
     )
 
@@ -196,7 +196,7 @@ def new_repo_visibility_body() -> list[Static]:
 def owner_picker_body(owners: list) -> list[Static]:
     return selection_body(
         "Where on GitHub?",
-        "Accounts your token can create repos under.",
+        "Accounts the GitHub App can create repos under.",
         owner_rows(owners),
     )
 
@@ -204,7 +204,7 @@ def owner_picker_body(owners: list) -> list[Static]:
 def repo_picker_body(repos: list) -> list[Static]:
     return selection_body(
         "Which private repo?",
-        "Private repos your GitHub token can reach.",
+        "Private repos available through GitHub authorization.",
         repo_rows(repos),
     )
 

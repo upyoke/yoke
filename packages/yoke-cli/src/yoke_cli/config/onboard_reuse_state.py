@@ -108,18 +108,18 @@ def _machine_github_matches(
     github = payload.get("github")
     if not isinstance(github, Mapping):
         return False
-    token_source = machine_github.get("token_source")
-    if not isinstance(token_source, Mapping):
+    authorization_source = machine_github.get("authorization_source")
+    if not isinstance(authorization_source, Mapping):
         return False
-    source = github.get("credential_source")
-    if not isinstance(source, Mapping):
+    authorization = github.get("authorization")
+    if not isinstance(authorization, Mapping):
         return False
+    refresh_ref = _path_text(authorization.get("refresh_credential_ref"))
     return (
         _clean_url(github.get("api_url")) == _clean_url(machine_github.get("api_url"))
-        and str(source.get("kind") or "") == str(token_source.get("kind") or "")
-        and _path_text(source.get("path")) == _path_text(token_source.get("path"))
-        and bool(_path_text(source.get("path")))
-        and Path(_path_text(source.get("path"))).expanduser().is_file()
+        and str(authorization_source.get("kind") or "") == "github_app"
+        and bool(refresh_ref)
+        and Path(refresh_ref).expanduser().is_file()
     )
 
 
