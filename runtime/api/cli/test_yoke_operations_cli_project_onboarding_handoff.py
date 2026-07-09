@@ -45,7 +45,7 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
             "--github-repo", "owner/local",
             "--default-branch", "main",
             "--public-item-prefix", "LOC",
-            "--github-adoption", "temporary-only",
+            "--github-adoption", "app-binding",
             "--config", str(config),
             "--yes",
             "--json",

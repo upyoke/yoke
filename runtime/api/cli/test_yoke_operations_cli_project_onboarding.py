@@ -13,7 +13,6 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     assert_github_preview,
     git_output,
     seed_remote,
-    tree_text,
     write_https_config,
 )
 from yoke_cli.config import onboard
@@ -23,11 +22,9 @@ from yoke_cli import main as yoke_operations_cli
 
 def test_project_create_new_repo_binds_identity_and_installs(
     tmp_path: Path, monkeypatch, capsys
-) -> None:
+    ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     checkout = tmp_path / "checkouts" / "demo"
-    github_token = tmp_path / "github.token"
-    github_token.write_text("ghp_project_secret\n", encoding="utf-8")
 
     with ProjectOnboardApi() as api:
         config = write_https_config(tmp_path, "product-token", api.url)
@@ -38,8 +35,7 @@ def test_project_create_new_repo_binds_identity_and_installs(
             "--github-repo", "owner/demo",
             "--default-branch", "main",
             "--public-item-prefix", "DMO",
-            "--github-adoption", "store-token",
-            "--github-token-file", str(github_token),
+            "--github-adoption", "app-binding",
             "--config", str(config),
             "--yes",
             "--json",
@@ -64,21 +60,26 @@ def test_project_create_new_repo_binds_identity_and_installs(
     }
     assert payload["install"]["operation"] == "install"
     assert payload["install"]["project_id"] == 41
-    assert payload["capabilities"]["github"]["secret_refs"] == ["token"]
+    assert payload["capabilities"] == {}
     assert payload["github_adoption"] == {
-        "choice": "store-token",
+        "choice": "app-binding",
         "explicit": True,
         "github_repo": "owner/demo",
         "automation_enabled": True,
         "requires_explicit_choice": False,
         "machine_github_credential_promoted": False,
         "secret": {
-            "provided": True,
-            "import_method": "file",
-            "stored": True,
-            "storage": "capability_secrets:github.token",
-            "persisted_source": "literal",
-            "required": True,
+            "provided": False,
+            "import_method": None,
+            "stored": False,
+            "storage": None,
+            "persisted_source": None,
+            "required": False,
+        },
+        "binding": {
+            "status": "pending_app_connection",
+            "repo": "owner/demo",
+            "requires_app_installation": True,
         },
     }
     assert_github_preview(payload, enabled=True)
@@ -91,14 +92,7 @@ def test_project_create_new_repo_binds_identity_and_installs(
         "default_branch": "main",
         "public_item_prefix": "DMO",
     }
-    secret_call = api.function_call("projects.capability_secret.set")
-    assert secret_call["payload"] == {
-        "project": "demo",
-        "cap_type": "github",
-        "key": "token",
-        "value": "ghp_project_secret",
-        "source": "literal",
-    }
+    assert api.function_calls("projects.capability_secret.set") == []
     assert api.requests_for("GET", "/v1/projects/41/install-bundle")
 
     assert (checkout / ".git").is_dir()
@@ -116,9 +110,6 @@ def test_project_create_new_repo_binds_identity_and_installs(
     assert config_payload["projects"][str(checkout.resolve())] == {
         "project_id": 41,
     }
-    assert "ghp_project_secret" not in out
-    assert "ghp_project_secret" not in tree_text(checkout)
-    assert "ghp_project_secret" not in config.read_text(encoding="utf-8")
 
 
 def test_onboard_create_project_permission_denied_is_friendly(
@@ -164,7 +155,7 @@ def test_onboard_create_project_permission_denied_is_friendly(
     assert "resume:" in captured.err
 
 
-def test_project_create_dry_run_accepts_positional_github_token(
+def test_project_create_dry_run_rejects_positional_github_token(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
@@ -183,40 +174,22 @@ def test_project_create_dry_run_accepts_positional_github_token(
         "--json",
     ])
 
-    assert rc == 0
-    out = capsys.readouterr().out
-    payload = json.loads(out)
-    assert payload["operation"] == "project.create"
-    assert payload["project"] == {
-        "slug": "demo",
-        "name": "Demo",
-        "github_repo": "owner/demo",
-        "default_branch": "main",
-        "public_item_prefix": "DMO",
-    }
-    assert payload["github_adoption"]["choice"] == "store-token"
-    assert payload["github_adoption"]["explicit"] is False
-    assert payload["github_adoption"]["secret"] == {
-        "provided": True,
-        "import_method": "direct",
-        "stored": True,
-        "storage": "capability_secrets:github.token",
-        "persisted_source": "literal",
-        "required": True,
-    }
-    assert_github_preview(payload, enabled=True)
-    assert token not in out
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "project GitHub token inputs are no longer supported" in captured.err
+    assert token not in captured.err
 
 
-def test_project_create_apply_stores_positional_github_token_as_capability_secret(
+def test_project_create_apply_rejects_positional_github_token(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     checkout = tmp_path / "checkouts" / "direct"
     token = "ghp_project_direct_secret"
 
-    with ProjectOnboardApi() as api:
-        config = write_https_config(tmp_path, "product-token", api.url)
+    config = write_https_config(tmp_path, "product-token")
+    with ProjectOnboardApi():
         rc = yoke_operations_cli.main([
             "project", "create", str(checkout), token,
             "--slug", "demo",
@@ -229,32 +202,12 @@ def test_project_create_apply_stores_positional_github_token_as_capability_secre
             "--json",
         ])
 
-    assert rc == 0
-    out = capsys.readouterr().out
-    payload = json.loads(out)
-    assert payload["operation"] == "project.create"
-    assert payload["applied"] is True
-    assert payload["capabilities"]["github"]["secret_refs"] == ["token"]
-
-    create_call = api.function_call("projects.create")
-    assert create_call["payload"] == {
-        "slug": "demo",
-        "name": "Demo",
-        "github_repo": "owner/demo",
-        "default_branch": "main",
-        "public_item_prefix": "DMO",
-    }
-    secret_call = api.function_call("projects.capability_secret.set")
-    assert secret_call["payload"] == {
-        "project": "demo",
-        "cap_type": "github",
-        "key": "token",
-        "value": token,
-        "source": "literal",
-    }
-
-    assert token not in out
-    assert token not in tree_text(checkout)
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "project GitHub token inputs are no longer supported" in captured.err
+    assert token not in captured.err
+    assert not checkout.exists()
     assert token not in config.read_text(encoding="utf-8")
 
 

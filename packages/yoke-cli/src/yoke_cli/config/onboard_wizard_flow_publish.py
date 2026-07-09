@@ -258,7 +258,7 @@ class PublishFlow:
         if not value:
             # No repo means no GitHub adoption. Clear any adoption + token a
             # prior back-nav visit set so declining publish can't leave a stale
-            # store-token + token that raises "adoption requires --github-repo"
+            # App binding that raises "adoption requires --github-repo"
             # at apply.
             self.result.project_github_adoption = None
             self.result.project_github_token = None

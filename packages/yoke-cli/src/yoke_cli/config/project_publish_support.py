@@ -9,8 +9,9 @@ REST write lives in :mod:`github_publish`; this module stitches it to git.
 Onboarding runs every project git op over HTTPS, never SSH: the Textual wizard
 owns the TTY, so an SSH host-key prompt on a fresh host would garble the UI and
 deadlock. ``origin`` is the clean HTTPS URL with no embedded credential; the
-push authenticates with the connected token carried as a single request-scoped
-``http.extraheader`` (never written to ``.git/config`` or the stored remote).
+push authenticates with the refreshed GitHub App user token carried as a single
+request-scoped ``http.extraheader`` (never written to ``.git/config`` or the
+stored remote).
 """
 
 from __future__ import annotations
@@ -27,10 +28,10 @@ from yoke_cli.config.github_publish import GitHubPublishError
 from yoke_cli.config.project_git_transport import https_remote, run_git
 from yoke_cli.config.project_onboard_support import ProjectOnboardError
 
-# Substrings (case-insensitive) that mark a git/GitHub push or write denial — a
-# fine-grained selected-repositories PAT pushing to a brand-new repo, or a
-# classic PAT without write access. Used to convert the raw git failure into a
-# typed, repo-naming GitHubPublishError at the publish seam.
+# Substrings (case-insensitive) that mark a git/GitHub push or write denial for
+# a GitHub App user authorization that cannot push to the created repo. Used to
+# convert the raw git failure into a typed, repo-naming GitHubPublishError at
+# the publish seam.
 _PUSH_DENIED_SIGNATURES = (
     "write access to repository not granted",
     "permission to",  # "Permission to X denied"
@@ -185,7 +186,7 @@ class PublishRequest:
     """Inputs for creating a GitHub repo and pushing the checkout to it.
 
     Carried from the wizard's "Also publish to GitHub?" answer: the owner the
-    user picked, the repo name, and the machine token/api that the create call
+    user picked, the repo name, and the App user token/api that the create call
     authenticates with. ``user_login`` selects the user-vs-org create endpoint.
     """
 

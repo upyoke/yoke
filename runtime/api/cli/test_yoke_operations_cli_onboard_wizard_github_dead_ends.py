@@ -1,10 +1,11 @@
 """Regression coverage for the project-GitHub picker Apply dead-ends.
 
-These four bugs all rendered a green write-plan at apply=False but raised at
-apply=True with no in-wizard recovery. The picker offered reuse-machine with no
-machine token to reuse, and back-navigation left a stale project token or a
-store-token adoption after the user re-chose skip or declined publish. The fixes
-gate the reuse-machine row by machine-token presence and clear the stale state.
+These bugs all rendered a green write-plan at apply=False but raised at
+apply=True with no in-wizard recovery. The picker offered connected-repo choices
+without a usable GitHub App authorization, and back-navigation left stale project
+GitHub state after the user re-chose backlog-only or declined publish. The fixes
+gate the connected-repo row by machine GitHub authorization and clear stale
+binding state.
 
 The suite drives the real ``OnboardWizardApp`` routing through the pilot to the
 buggy state, then asserts the picker rows and the collected ``WizardResult`` so
@@ -27,7 +28,11 @@ from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config.onboard_wizard import PROJECT_GITHUB_REUSE_MACHINE  # noqa: E402
-from yoke_cli.config.project_github_adoption import github_adoption_report  # noqa: E402
+from yoke_cli.config.project_github_adoption import (  # noqa: E402
+    GITHUB_ADOPTION_APP_BINDING,
+    GITHUB_ADOPTION_BACKLOG_ONLY,
+    github_adoption_report,
+)
 from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
@@ -121,7 +126,7 @@ def test_forced_reuse_machine_without_token_degrades_to_skip() -> None:
     """Defense in depth: a reuse-machine choice with no token becomes skip.
 
     Driven at the handler inside a running app so a forced reuse-machine value
-    (e.g. a future row regression) still cannot produce store-token + None.
+    (e.g. a future row regression) still cannot produce app-binding + no repo.
     """
     app, _spy = make_app()
 
@@ -137,7 +142,7 @@ def test_forced_reuse_machine_without_token_degrades_to_skip() -> None:
     assert app.result.project_github_adoption == "skip"
     assert app.result.project_github_token is None
     # The apply-time adoption gate accepts the degraded skip state.
-    assert _adoption_call(app.result)["choice"] == "skip"
+    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY
 
 
 # --------------------------------------------------------------------------- #
@@ -145,11 +150,11 @@ def test_forced_reuse_machine_without_token_degrades_to_skip() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_skip_after_store_token_clears_pasted_token() -> None:
-    """Re-selecting skip clears a project token a prior visit pasted.
+def test_skip_after_app_binding_clears_stale_project_token() -> None:
+    """Re-selecting backlog-only clears stale project GitHub credentials.
 
-    Carrying the token into a skip adoption raised "token cannot be combined
-    with --github-adoption skip" at apply.
+    Carrying a token into a backlog-only adoption is no longer supported and
+    would raise at apply.
     """
     app, _spy = make_app()
 
@@ -157,8 +162,8 @@ def test_skip_after_store_token_clears_pasted_token() -> None:
         async with app.run_test():
             app.result.machine_github_token = "ghp_machinepat"
             app.result.project_github_repo = "acme/widgets"
-            # A prior store-token visit pasted a project PAT.
-            app.result.project_github_adoption = "store-token"
+            # A prior visit left App-binding state plus a stale token.
+            app.result.project_github_adoption = GITHUB_ADOPTION_APP_BINDING
             app.result.project_github_token = "ghp_projectpat"
             app._on_project_github("skip")
 
@@ -167,13 +172,13 @@ def test_skip_after_store_token_clears_pasted_token() -> None:
     assert app.result.project_github_token is None
     assert app.result.project_github_adoption == "skip"
     # The cleaned skip state no longer trips the apply-time gate.
-    assert _adoption_call(app.result)["choice"] == "skip"
+    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY
 
 
-def test_declined_publish_clears_store_token_adoption() -> None:
-    """Clearing the repo (declined publish) resets a stale store-token adoption.
+def test_declined_publish_clears_app_binding_adoption() -> None:
+    """Clearing the repo (declined publish) resets stale App-binding adoption.
 
-    Leaving adoption='store-token' + a token with no repo raised "GitHub
+    Leaving adoption='app-binding' with no repo raised "GitHub
     adoption requires --github-repo OWNER/REPO" at apply.
     """
     app, _spy = make_app()
@@ -181,10 +186,10 @@ def test_declined_publish_clears_store_token_adoption() -> None:
     async def scenario() -> None:
         async with app.run_test():
             app.result.machine_github_token = "ghp_machinepat"
-            # Prior store-token visit set adoption + token, then the user
+            # Prior connected-repo visit set adoption, then the user
             # back-navigated to the publish prompt and declined.
             app.result.project_github_repo = "acme/widgets"
-            app.result.project_github_adoption = "store-token"
+            app.result.project_github_adoption = GITHUB_ADOPTION_APP_BINDING
             app.result.project_github_token = "ghp_projectpat"
             app._after_repo("")
 
@@ -195,4 +200,4 @@ def test_declined_publish_clears_store_token_adoption() -> None:
     assert app.result.project_github_token is None
     # With no repo and no adoption/token, the gate normalizes to skip and
     # accepts it instead of raising.
-    assert _adoption_call(app.result)["choice"] == "skip"
+    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY

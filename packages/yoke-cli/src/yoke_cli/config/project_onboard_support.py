@@ -10,10 +10,7 @@ from typing import Any, Iterator, Mapping
 from yoke_cli.config import machine_config
 from yoke_cli.config import project_onboarding_handoff
 from yoke_cli.config import project_worktrees_ignore
-from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config.project_github_adoption import (
-    GITHUB_SECRET_SOURCE,
-    GITHUB_TOKEN_KEY,
     with_github_adoption_report,
 )
 from yoke_cli.transport.dispatcher import call_dispatcher
@@ -75,7 +72,6 @@ def dry_run_report(
 
 def project_api_payload(**values: Any) -> dict[str, Any]:
     return {key: value for key, value in values.items() if value is not None}
-
 
 def project_dry_run(
     operation: str,
@@ -249,24 +245,6 @@ def project_from_result(result: Mapping[str, Any]) -> Mapping[str, Any]:
     return project
 
 
-def store_project_github_token(
-    project: Mapping[str, Any],
-    token_value: str,
-    config_path: str | Path | None,
-) -> Mapping[str, Any]:
-    return dispatch(
-        "projects.capability_secret.set",
-        {
-            "project": str(project.get("slug") or project["id"]),
-            "cap_type": "github",
-            "key": GITHUB_TOKEN_KEY,
-            "value": token_value,
-            "source": GITHUB_SECRET_SOURCE,
-        },
-        config_path,
-    )
-
-
 def github_token(
     *,
     token: str | None,
@@ -276,15 +254,11 @@ def github_token(
     sources = [bool(token), bool(token_file), token_stdin_value is not None]
     if sum(1 for source in sources if source) > 1:
         raise ProjectOnboardError("GitHub token sources are mutually exclusive")
-    if token:
-        return _nonempty(token, "GitHub token"), "direct"
-    if token_file:
-        return (
-            machine_secrets.read_secret_file(token_file, "GitHub token"),
-            "file",
+    if any(sources):
+        raise ProjectOnboardError(
+            "Project GitHub token inputs are no longer supported; use a "
+            "GitHub App repo binding or backlog-only mode."
         )
-    if token_stdin_value is not None:
-        return _nonempty(token_stdin_value, "GitHub token"), "stdin"
     return None, None
 
 
@@ -311,10 +285,3 @@ def _project_preview(
         "public_item_prefix": public_item_prefix,
     }
     return {key: value for key, value in values.items() if value is not None}
-
-
-def _nonempty(value: str, label: str) -> str:
-    cleaned = value.strip()
-    if not cleaned:
-        raise ProjectOnboardError(f"{label} is empty")
-    return cleaned

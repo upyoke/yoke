@@ -104,8 +104,6 @@ def test_cli_resume_restores_saved_project_choices(
     config = home / "config.json"
     yoke_token_file = tmp_path / "yoke.token"
     yoke_token_file.write_text("resume-yoke-token", encoding="utf-8")
-    github_token_file = tmp_path / "github.token"
-    github_token_file.write_text("resume-github-token", encoding="utf-8")
     publish = PublishRequest(
         owner="octo-org",
         name="widget-copy",
@@ -133,8 +131,6 @@ def test_cli_resume_restores_saved_project_choices(
             "mode": "quick",
             "machine_github_choice": "connect",
             "machine_github_api_url": "https://api.github.example",
-            "machine_github_token_file": str(github_token_file),
-            "machine_github_token_source_kind": "file",
             "project_mode": "clone-remote",
             "project_remote_url": "https://github.com/octo/source.git",
             "project_checkout": str(tmp_path / "widget"),
@@ -157,10 +153,18 @@ def test_cli_resume_restores_saved_project_choices(
         captured.append(kwargs)
         return {"ok": True}
 
+    class _Refreshed:
+        access_token = "resume-github-app-user-token"
+
     monkeypatch.setattr(
         onboard_adapter,
         "_apply_with_durable_report",
         fake_apply_with_durable_report,
+    )
+    monkeypatch.setattr(
+        onboard_adapter.github_user_tokens,
+        "refresh_from_machine_config",
+        lambda **_kwargs: _Refreshed(),
     )
 
     rc = onboard_adapter.onboard([
@@ -175,25 +179,26 @@ def test_cli_resume_restores_saved_project_choices(
     assert captured
     kwargs = captured[0]
     assert kwargs["machine_github_choice"] == "connect"
-    assert kwargs["machine_github_token_file"] == str(github_token_file)
-    assert kwargs["machine_github_token"] == "resume-github-token"
+    assert kwargs["machine_github_token_file"] is None
+    assert kwargs["machine_github_token_source_kind"] == "github_app_user_access_token"
+    assert kwargs["machine_github_token"] == "resume-github-app-user-token"
     assert kwargs["project_default_branch_source"] == (
         onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO
     )
     saved_clone = kwargs["project_clone"]
     assert isinstance(saved_clone, ClonePlan)
     assert saved_clone.outcome == "make-it-mine"
-    assert saved_clone.fallback_token == "resume-github-token"
+    assert saved_clone.fallback_token == "resume-github-app-user-token"
     assert saved_clone.fork_api_url == "https://api.github.example"
     saved_publish = saved_clone.publish
     assert isinstance(saved_publish, PublishRequest)
     assert saved_publish.owner == "octo-org"
     assert saved_publish.name == "widget-copy"
     assert saved_publish.user_login == "octocat"
-    assert saved_publish.token == "resume-github-token"
+    assert saved_publish.token == "resume-github-app-user-token"
     assert saved_publish.private is False
     out = capsys.readouterr().out
-    assert "resume-github-token" not in out
+    assert "resume-github-app-user-token" not in out
 
 
 def test_start_over_requires_yes_before_removing_checkout(

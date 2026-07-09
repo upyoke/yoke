@@ -131,7 +131,7 @@ def assert_github_preview(payload: dict[str, Any], *, enabled: bool) -> None:
         write["category"] for write in preview["github"]["writes"]
     } == EXPECTED_GITHUB_PREVIEW_CATEGORIES
     expected_status = (
-        "preview-only-no-mutator" if enabled else "skipped-by-adoption-choice"
+        "pending-app-installation" if enabled else "skipped-by-adoption-choice"
     )
     assert {
         write["status"] for write in preview["github"]["writes"]

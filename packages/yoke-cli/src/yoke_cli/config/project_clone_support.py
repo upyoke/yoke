@@ -64,8 +64,8 @@ class ClonePlan:
     only by ``make-it-mine``, where it always keeps the source as a pull-only
     ``upstream`` remote so a private copy can still pull from a public original.
     ``publish`` carries the GitHub repo-create inputs for ``make-it-mine``;
-    ``fallback_token`` is the connected token (project token, else machine PAT)
-    the private-clone fallback and the fork call authenticate with.
+    ``fallback_token`` is the refreshed GitHub App user token the private-clone
+    fallback and the fork call authenticate with.
     """
 
     outcome: str = CLONE_OUTCOME_JUST_CLONE

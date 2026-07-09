@@ -17,6 +17,7 @@ from textual.widgets import Static
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 # Apply result screens live in a sibling module; re-export so steps.apply_* stays
 # the single import surface for the flow and tests.
 from yoke_cli.config.onboard_wizard_apply_steps import (  # noqa: F401
@@ -96,7 +97,7 @@ PROJECT_GITHUB_ROWS = [
     SelectionRow(PROJECT_GITHUB_REUSE_MACHINE,
                  onboard_github_copy.PROJECT_GITHUB_REUSE_LABEL,
                  onboard_github_copy.PROJECT_GITHUB_REUSE_DESC),
-    SelectionRow("store-token",
+    SelectionRow(GITHUB_ADOPTION_APP_BINDING,
                  onboard_github_copy.PROJECT_GITHUB_STORE_LABEL,
                  onboard_github_copy.PROJECT_GITHUB_STORE_DESC),
     SelectionRow("skip",

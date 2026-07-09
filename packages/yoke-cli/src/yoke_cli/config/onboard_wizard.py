@@ -20,7 +20,7 @@ from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_STORE_CHOICES
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 
 # Project GitHub binding choice surfaced as a first-class wizard option.
 PROJECT_GITHUB_REUSE_MACHINE = "reuse-machine"
@@ -321,9 +321,9 @@ def default_config_path(config_path: str | None) -> str:
 
 
 def reuse_choice_to_adoption(choice: str) -> str:
-    """Translate the wizard's reuse-machine choice to a store adoption value."""
+    """Translate the wizard's connected-repo choice to an App binding value."""
     if choice == PROJECT_GITHUB_REUSE_MACHINE:
-        return GITHUB_ADOPTION_STORE_CHOICES[0]
+        return GITHUB_ADOPTION_APP_BINDING
     return choice
 
 

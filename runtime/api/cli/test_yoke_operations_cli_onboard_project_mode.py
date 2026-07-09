@@ -57,7 +57,7 @@ def test_onboard_local_checkout_dry_run_previews_project_handoff(
         "path": str(checkout.resolve()),
         "mode": "existing-local",
     }
-    assert payload["project_onboarding"]["github_adoption"]["choice"] == "skip"
+    assert payload["project_onboarding"]["github_adoption"]["choice"] == "backlog-only"
     assert "/yoke onboard-project" in payload["next_steps"][1]
     assert "actor-token" not in out
     assert not config.exists()
@@ -199,7 +199,7 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     assert project_report["handoff"]["agent_command"].startswith(
         "/yoke onboard-project --project-root "
     )
-    assert project_report["github_adoption"]["choice"] == "skip"
+    assert project_report["github_adoption"]["choice"] == "backlog-only"
 
     get_call = api.function_call("projects.get")
     assert get_call["payload"] == {"project": "local"}
@@ -216,7 +216,7 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     assert "actor-token" not in config.read_text(encoding="utf-8")
 
 
-def test_onboard_project_adoption_preflight_runs_before_machine_write(
+def test_legacy_project_github_adoption_rejected_before_machine_write(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
     home = tmp_path / "home"
@@ -242,10 +242,13 @@ def test_onboard_project_adoption_preflight_runs_before_machine_write(
         "--github-repo", "owner/local",
         "--default-branch", "main",
         "--public-item-prefix", "LOC",
+        "--github-adoption", "different-token",
         "--yes",
         "--json",
     ])
 
     assert rc == 1
-    assert "choose --github-adoption temporary-only" in capsys.readouterr().err
+    assert "--github-adoption different-token is no longer supported" in (
+        capsys.readouterr().err
+    )
     assert not config.exists()

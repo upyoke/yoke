@@ -5,14 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.config import github_credentials
+from yoke_cli.config import github_user_tokens
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import project_onboard
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.project_git_transport import https_remote
-from yoke_cli.config.project_github_adoption import ProjectGithubAdoptionError
+from yoke_cli.config.project_github_adoption import (
+    GITHUB_ADOPTION_APP_BINDING,
+    GITHUB_ADOPTION_BACKLOG_ONLY,
+    ProjectGithubAdoptionError,
+)
 from yoke_cli.config.project_publish_support import PublishRequest
 from yoke_cli.config.yoke_dev_access import YOKE_GITHUB_REPO
 from yoke_cli.project_install.files import ProjectInstallError
@@ -91,9 +95,8 @@ def project_inputs(
         required["--remote-url"] = project_remote_url
     # --github-repo is never a precondition for create-repo. The repo arrives one
     # of three ways, each handled downstream: publishing creates it at apply;
-    # adopting an existing repo is validated by github_adoption_report (which
-    # requires the repo only when the adoption choice is not "skip"); declining
-    # both yields a valid local-only project with no remote.
+    # app binding validates an existing repo once selected; declining both
+    # yields a valid local-only project with no remote.
     missing = [
         flag for flag, value in required.items() if not str(value or "").strip()
     ]
@@ -136,17 +139,12 @@ def _normalize_existing_project_id(value: int | None) -> int | None:
 
 
 def _machine_github_token(config_path: Path) -> str | None:
-    """The machine GitHub PAT saved in config, or None — used to clone Yoke."""
+    """A refreshed local GitHub App user token, or None — used to clone Yoke."""
     try:
-        github = machine_config.github_config(config_path)
-    except Exception:
-        return None
-    source = github.get("credential_source") if isinstance(github, Mapping) else None
-    if not source:
-        return None
-    try:
-        return github_credentials.read_token_source(source)
-    except github_credentials.GitHubCredentialError:
+        return github_user_tokens.refresh_from_machine_config(
+            config_path=config_path,
+        ).access_token
+    except github_user_tokens.GitHubUserTokenError:
         return None
 
 
@@ -285,9 +283,16 @@ def _github_auth_target(inputs: dict[str, Any], *, mode: str | None = None) -> s
     effective_mode = mode if mode is not None else str(inputs.get("mode") or "")
     if effective_mode == PROJECT_MODE_SOURCE_DEV_ADMIN:
         # Source-dev gets Yoke's GitHub remote from the clone, so it is neither a
-        # "skip" (no remote) nor a per-project token binding.
+        # "skip" (no remote) nor a per-project App binding.
         return "source-dev"
-    return str(inputs.get("github_adoption") or "skip")
+    selected = str(inputs.get("github_adoption") or "").strip()
+    if selected in ("", "skip"):
+        return (
+            GITHUB_ADOPTION_APP_BINDING
+            if inputs.get("github_repo")
+            else GITHUB_ADOPTION_BACKLOG_ONLY
+        )
+    return selected
 
 
 def _project_kwargs(
@@ -325,18 +330,8 @@ def preflight_project_apply(project_report: Any) -> None:
         return
     if github_adoption.get("requires_explicit_choice"):
         raise OnboardProjectError(
-            "choose --github-adoption temporary-only, store-token, "
-            "different-token, or skip before applying GitHub project adoption"
-        )
-    secret = github_adoption.get("secret")
-    if (
-        isinstance(secret, dict)
-        and secret.get("required")
-        and not secret.get("provided")
-    ):
-        choice = github_adoption.get("choice")
-        raise OnboardProjectError(
-            f"--github-adoption {choice} requires a GitHub token source"
+            "choose --github-adoption app-binding or backlog-only before "
+            "applying GitHub project adoption"
         )
 
 

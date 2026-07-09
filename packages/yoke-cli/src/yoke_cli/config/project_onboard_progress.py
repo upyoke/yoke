@@ -11,10 +11,6 @@ from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_MAKE_IT_MINE,
     ClonePlan,
 )
-from yoke_cli.config.project_github_adoption import (
-    should_store_project_github_token,
-)
-from yoke_cli.config.project_onboard_support import store_project_github_token
 
 
 def clone_outcome_action(plan: ClonePlan) -> str | None:
@@ -33,10 +29,7 @@ def store_github_auth(
     github_adoption: Mapping[str, Any] | None,
     config_path: str | Path | None,
 ) -> Mapping[str, Any] | None:
-    if not token_value or not should_store_project_github_token(github_adoption):
-        return None
-    with onboard_apply_progress.step(progress, "project-github-auth-choice", target):
-        return store_project_github_token(project, token_value, config_path)
+    return None
 
 
 def finish_github_auth(
@@ -44,9 +37,7 @@ def finish_github_auth(
     target: str,
     github_adoption: Mapping[str, Any] | None,
 ) -> None:
-    if should_store_project_github_token(github_adoption):
-        return
-    status = "skipped" if target in ("", "skip") else "done"
+    status = "skipped" if target in ("", "skip", "backlog-only") else "done"
     onboard_apply_progress.emit(progress, "project-github-auth-choice", target, status)
 
 

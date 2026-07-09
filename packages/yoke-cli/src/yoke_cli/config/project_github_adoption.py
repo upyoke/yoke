@@ -1,4 +1,4 @@
-"""GitHub adoption reporting for project onboarding."""
+"""GitHub App repository binding reporting for project onboarding."""
 
 from __future__ import annotations
 
@@ -10,17 +10,25 @@ class ProjectGithubAdoptionError(RuntimeError):
     """Project GitHub adoption cannot proceed."""
 
 
+GITHUB_ADOPTION_APP_BINDING = "app-binding"
+GITHUB_ADOPTION_BACKLOG_ONLY = "backlog-only"
 GITHUB_ADOPTION_CHOICES = (
+    GITHUB_ADOPTION_APP_BINDING,
+    GITHUB_ADOPTION_BACKLOG_ONLY,
+    "skip",
+)
+GITHUB_ADOPTION_LEGACY_CHOICES = (
     "temporary-only",
     "store-token",
     "different-token",
-    "skip",
 )
-GITHUB_ADOPTION_STORE_CHOICES = ("store-token", "different-token")
-GITHUB_ADOPTION_UNSELECTED = "unselected"
-GITHUB_SECRET_REF = "capability_secrets:github.token"
-GITHUB_SECRET_SOURCE = "literal"
-GITHUB_TOKEN_KEY = "token"
+GITHUB_ADOPTION_INPUT_CHOICES = (
+    *GITHUB_ADOPTION_CHOICES,
+    *GITHUB_ADOPTION_LEGACY_CHOICES,
+)
+GITHUB_ADOPTION_STORE_CHOICES: tuple[str, ...] = ()
+GITHUB_BINDING_PENDING_STATUS = "pending_app_connection"
+GITHUB_BINDING_BACKLOG_ONLY_STATUS = "backlog_only"
 GITHUB_AUTOMATION_CATEGORIES = (
     "labels",
     "issue_templates",
@@ -48,63 +56,55 @@ def github_adoption_report(
     apply: bool,
 ) -> dict[str, Any]:
     explicit = choice is not None
+    if token_value:
+        raise ProjectGithubAdoptionError(
+            "Project GitHub token inputs are no longer supported. Use "
+            "--github-adoption app-binding for a GitHub App repo binding, or "
+            "--github-adoption backlog-only."
+        )
     normalized = _normalize_github_adoption_choice(
         choice=choice, github_repo=github_repo, token_value=token_value,
     )
-    if not github_repo and normalized != "skip":
+    if not github_repo and normalized == GITHUB_ADOPTION_APP_BINDING:
         raise ProjectGithubAdoptionError(
-            "GitHub adoption requires --github-repo OWNER/REPO"
+            "--github-adoption app-binding requires --github-repo OWNER/REPO"
         )
-    if normalized == "skip" and token_value:
-        raise ProjectGithubAdoptionError(
-            "GitHub token input cannot be combined with --github-adoption skip"
-        )
-    if normalized in GITHUB_ADOPTION_STORE_CHOICES and apply and not token_value:
-        raise ProjectGithubAdoptionError(
-            f"--github-adoption {normalized} requires a GitHub token source"
-        )
-    if normalized == GITHUB_ADOPTION_UNSELECTED and apply:
-        raise ProjectGithubAdoptionError(
-            "choose --github-adoption temporary-only, store-token, "
-            "different-token, or skip before applying GitHub project adoption"
-        )
-
-    will_store = normalized in GITHUB_ADOPTION_STORE_CHOICES and bool(token_value)
     secret: dict[str, Any] = {
-        "provided": bool(token_value),
+        "provided": False,
         "import_method": token_import_method,
-        "stored": will_store,
-        "storage": GITHUB_SECRET_REF if will_store else None,
-        "persisted_source": GITHUB_SECRET_SOURCE if will_store else None,
-        "required": normalized in GITHUB_ADOPTION_STORE_CHOICES,
+        "stored": False,
+        "storage": None,
+        "persisted_source": None,
+        "required": False,
     }
-    if normalized == "temporary-only":
-        secret["stored"] = False
-        secret["storage"] = None
-        secret["persisted_source"] = None
+    binding_status = (
+        GITHUB_BINDING_PENDING_STATUS
+        if normalized == GITHUB_ADOPTION_APP_BINDING
+        else GITHUB_BINDING_BACKLOG_ONLY_STATUS
+    )
 
     return {
         "choice": normalized,
         "explicit": explicit,
         "github_repo": github_repo,
         "automation_enabled": bool(
-            github_repo and normalized not in ("skip", GITHUB_ADOPTION_UNSELECTED)
+            github_repo and normalized == GITHUB_ADOPTION_APP_BINDING
         ),
-        "requires_explicit_choice": (
-            bool(github_repo) and normalized == GITHUB_ADOPTION_UNSELECTED
-        ),
+        "requires_explicit_choice": False,
         "machine_github_credential_promoted": False,
         "secret": secret,
+        "binding": {
+            "status": binding_status,
+            "repo": github_repo,
+            "requires_app_installation": normalized == GITHUB_ADOPTION_APP_BINDING,
+        },
     }
 
 
 def should_store_project_github_token(
     github_adoption: Mapping[str, Any] | None,
 ) -> bool:
-    if not github_adoption:
-        return False
-    secret = github_adoption.get("secret")
-    return isinstance(secret, Mapping) and secret.get("stored") is True
+    return False
 
 
 def github_capabilities_payload(
@@ -113,9 +113,9 @@ def github_capabilities_payload(
 ) -> dict[str, Any] | None:
     if not github_repo or not github_adoption:
         return None
-    if github_adoption.get("choice") not in GITHUB_ADOPTION_STORE_CHOICES:
+    if github_adoption.get("choice") != GITHUB_ADOPTION_APP_BINDING:
         return None
-    return {"github": {"settings": {"repo": github_repo}}}
+    return {"github": {"settings": {"repo": github_repo, "auth": "github_app"}}}
 
 
 def with_github_adoption_report(
@@ -174,17 +174,22 @@ def _normalize_github_adoption_choice(
     token_value: str | None,
 ) -> str:
     if choice is not None:
+        if choice in GITHUB_ADOPTION_LEGACY_CHOICES:
+            raise ProjectGithubAdoptionError(
+                f"--github-adoption {choice} is no longer supported. Use "
+                "--github-adoption app-binding or --github-adoption backlog-only."
+            )
+        if choice == "skip":
+            return GITHUB_ADOPTION_BACKLOG_ONLY
         if choice not in GITHUB_ADOPTION_CHOICES:
             raise ProjectGithubAdoptionError(
                 "unknown GitHub adoption choice: "
-                f"{choice}; expected one of {', '.join(GITHUB_ADOPTION_CHOICES)}"
+                f"{choice}; expected one of app-binding, backlog-only, skip"
             )
         return choice
     if not github_repo:
-        return "skip"
-    if token_value:
-        return "store-token"
-    return GITHUB_ADOPTION_UNSELECTED
+        return GITHUB_ADOPTION_BACKLOG_ONLY
+    return GITHUB_ADOPTION_APP_BINDING
 
 
 def _project_write_preview(
@@ -197,15 +202,11 @@ def _project_write_preview(
         "surface": PROJECT_SURFACE_BY_OPERATION.get(operation, operation),
         "fields": sorted(str(key) for key in project.keys()),
     }]
-    if should_store_project_github_token(github_adoption):
-        secret = github_adoption.get("secret") or {}
+    if github_adoption.get("choice") == GITHUB_ADOPTION_APP_BINDING:
         writes.append({
-            "surface": "projects.capability_secret.set",
-            "capability": "github",
-            "key": GITHUB_TOKEN_KEY,
-            "storage": GITHUB_SECRET_REF,
-            "persisted_source": GITHUB_SECRET_SOURCE,
-            "import_method": secret.get("import_method"),
+            "surface": "project.github_app_repo_binding",
+            "repo": _project_value(project, "github_repo"),
+            "status": GITHUB_BINDING_PENDING_STATUS,
         })
     writes.extend([
         {"surface": "project.checkout.register", "checkout": "machine-config"},
@@ -222,7 +223,7 @@ def _github_write_preview(
     if not github_repo:
         status = "skipped-no-repo"
     elif github_adoption.get("automation_enabled"):
-        status = "preview-only-no-mutator"
+        status = "pending-app-installation"
     else:
         status = "skipped-by-adoption-choice"
     return [
