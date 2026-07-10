@@ -123,6 +123,39 @@ class TestPushRemoteFile:
         )
         assert runner.calls[0]["input_text"] == "PRIVATE KEY\n"
 
+    def test_home_relative_path_expands_without_exposing_suffix(self):
+        runner = FakeRunner()
+        push_remote_file(
+            runner,
+            _env(),
+            content="{}\n",
+            remote_path="~/.docker/config.json",
+            mode="600",
+            sudo=False,
+        )
+
+        remote_command = runner.calls[0]["argv"][-1]
+        assert remote_command == (
+            'install -m 600 /dev/stdin "$HOME"/.docker/config.json'
+        )
+
+    def test_home_relative_suffix_remains_shell_quoted(self):
+        runner = FakeRunner()
+        push_remote_file(
+            runner,
+            _env(),
+            content="{}\n",
+            remote_path="~/.docker/$(cat >&2)/config file",
+            mode="600",
+            sudo=False,
+        )
+
+        remote_command = runner.calls[0]["argv"][-1]
+        assert remote_command == (
+            'install -m 600 /dev/stdin "$HOME"/'
+            "'.docker/$(cat >&2)/config file'"
+        )
+
     def test_rejects_non_octal_mode_before_running_ssh(self):
         runner = FakeRunner()
 

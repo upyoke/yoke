@@ -216,9 +216,17 @@ def push_remote_file(
     if re.fullmatch(r"[0-7]{3,4}", str(mode)) is None:
         raise ValueError("remote file mode must be a three- or four-digit octal value")
     prefix = "sudo " if sudo else ""
+    path_text = str(remote_path)
+    if path_text.startswith("~/"):
+        # Quoting the whole path would suppress the remote shell's tilde
+        # expansion. Expand only the trusted HOME token and independently
+        # shell-quote the caller-provided suffix.
+        remote_path_arg = '"$HOME"/' + shlex.quote(path_text[2:])
+    else:
+        remote_path_arg = shlex.quote(path_text)
     remote = (
         f"{prefix}install -m {shlex.quote(str(mode))} /dev/stdin "
-        f"{shlex.quote(str(remote_path))}"
+        f"{remote_path_arg}"
     )
     return run_remote(
         runner, env, remote, input_text=content, timeout=timeout
