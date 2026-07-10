@@ -89,8 +89,12 @@ jobs:
           # test_ci_workflow_auth_invariant pins this value.
           fetch-depth: 0
 
-      - name: Reclaim self-hosted runner disk
-        run: PYTHONPATH=packages/yoke-core/src python3 -m yoke_core.tools.github_runner_disk_reclaim
+      - name: Reclaim runner disk
+        run: >-
+          PYTHONPATH=packages/yoke-core/src python3 -m
+          yoke_core.tools.github_runner_disk_reclaim
+          --runner-environment "${{ runner.environment }}"
+          --runner-os "${{ runner.os }}"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5

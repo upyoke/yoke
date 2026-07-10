@@ -281,3 +281,13 @@ def test_ci_workflow_preserves_pipe_failures() -> None:
     assert "Postgres host port did not resolve" in workflow
     assert "2>&1 | tee pytest-output.txt" in workflow
     assert 'exit "${PIPESTATUS[0]}"' in workflow
+
+
+def test_ci_disk_reclaim_receives_explicit_runner_authority() -> None:
+    workflow = (
+        REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml"
+    ).read_text(encoding="utf-8")
+
+    assert '--runner-environment "${{ runner.environment }}"' in workflow
+    assert '--runner-os "${{ runner.os }}"' in workflow
+    assert "--hosted-image-build-cleanup" not in workflow
