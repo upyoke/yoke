@@ -5,9 +5,6 @@ filter per invocation. The deploy phase emits stage banners, executor
 output (CI workflow polling, ephemeral verification, scripted
 deploys), and approval halts; the wrapper keeps that filtering in one
 reusable command-shaped surface.
-
-The classifier maps:
-
 - ``Error:`` / ``Warning:`` / ``fatal:`` headers and stage-failure
   banners (``Stage '<name>' failed``) → ``URGENT`` (immediate emit).
 - ``--- Stage: <name> ... ---`` banners, ``Awaiting human approval``
@@ -54,12 +51,12 @@ from typing import Sequence
 
 from yoke_core.tools import _source_pythonpath, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.tools.watch_deploy_product_source import WatchDeployProductSourceError, prepare_product_deploy_args
 
 WRAPPER_MODULE = "yoke_core.tools.watch_deploy"
 KIND = "deploy"
 
-# Emitted when a deploy runs from the invoking checkout's code instead of a
-# pinned-product checkout. The watcher executes whatever ``yoke_core`` is on
+# The watcher executes whatever ``yoke_core`` is on
 # the path, so a checkout that lags the product being delivered derives
 # resource names (log group, nginx site, container) from stale logic and can
 # strand or collide live infra. ``--product-src`` is the fix.
@@ -72,8 +69,7 @@ LOCAL_CODE_WARNING = (
     "product code."
 )
 
-# Per-class regexes. Each is line-oriented; callers feed one line at a
-# time. Keeping them as separate constants lets tests exercise each
+# Per-class regexes let tests exercise each
 # class independently without re-parsing the union pattern.
 DEPLOY_URGENT_PREFIXES: tuple[str, ...] = (
     "Error:",
@@ -257,10 +253,8 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         type=Path,
         default=None,
         help="Path to a product checkout at the deployed pin/image sha. "
-        "When given, deploy_pipeline runs with that checkout's source on "
-        "PYTHONPATH so resource naming matches the pinned product, not this "
-        "(possibly stale) checkout. Omit it and the wrapper warns and runs "
-        "the local checkout's code.",
+        "Uses that checkout for both Python source and deploy build context. "
+        "Omit it to warn and run this checkout's code.",
     )
     parser.add_argument(
         "passthrough",
@@ -312,12 +306,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(NESTED_DEPLOY_REJECTION_MESSAGE, file=sys.stderr)
         return 2
 
+    product_root: Path | None = None
+    deploy_env: dict[str, str] | None = None
+    if ns.product_src is not None:
+        product_root = ns.product_src.resolve()
+        deploy_env = _source_pythonpath.with_source_pythonpath(None, product_root)
+        refusal = _source_pythonpath.import_origin_refusal(product_root, env=deploy_env)
+        if refusal is not None:
+            print(f"watch_deploy --product-src: {refusal}", file=sys.stderr)
+            return 3
+        try:
+            deploy_args = prepare_product_deploy_args(deploy_args, product_root)
+        except (WatchDeployProductSourceError, ValueError, OSError) as exc:
+            print(f"watch_deploy --product-src: {exc}", file=sys.stderr)
+            return 3
+
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
         _watch_runner.print_streaming_pair(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=deploy_args,
+            wrapper_options=(
+                ["--product-src", str(product_root)] if product_root else []
+            ),
             raw_capture=raw_path,
             progress_capture=progress_path,
         )
@@ -331,19 +343,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raw_path = ns.raw_capture
         progress_path = ns.progress_capture
 
-    deploy_env: dict[str, str] | None = None
-    if ns.product_src is not None:
-        product_root = ns.product_src.resolve()
-        deploy_env = _source_pythonpath.with_source_pythonpath(
-            None, product_root
-        )
-        refusal = _source_pythonpath.import_origin_refusal(
-            product_root, env=deploy_env
-        )
-        if refusal is not None:
-            print(f"watch_deploy --product-src: {refusal}", file=sys.stderr)
-            return 3
-    else:
+    if ns.product_src is None:
         print(LOCAL_CODE_WARNING, file=sys.stderr)
 
     return _watch_runner.run_watcher(

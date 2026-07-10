@@ -7,6 +7,9 @@ from typing import Any, Mapping
 
 from yoke_cli.config import machine_config
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.machine_config.schema_github_access import (
+    GITHUB_REPOSITORY_ALLOWED_KEYS,
+)
 
 
 def not_configured(
@@ -48,7 +51,12 @@ def connected(
         if isinstance(item, Mapping)
     ]
     repositories = [
-        dict(item) for item in github.get("repositories") or []
+        {
+            key: value
+            for key, value in item.items()
+            if key in GITHUB_REPOSITORY_ALLOWED_KEYS
+        }
+        for item in github.get("repositories") or []
         if isinstance(item, Mapping)
     ]
     ok = not any(item.get("severity") == "error" for item in issues)
@@ -76,6 +84,7 @@ def connected(
         "access": {
             "owners": [str(item.get("account_login")) for item in installations],
             "repos": [str(item.get("full_name")) for item in repositories],
+            "repositories": repositories,
             "repo_count": len(repositories),
             "repo_listing_ok": live_check_ok,
             "org_listing_ok": live_check_ok,
@@ -153,7 +162,7 @@ def _base(config_path: str | Path | None, api_url: str | None) -> dict[str, Any]
 
 
 def _empty_access() -> dict[str, Any]:
-    return {"owners": [], "repos": [], "repo_count": 0,
+    return {"owners": [], "repos": [], "repositories": [], "repo_count": 0,
             "repo_listing_ok": None, "org_listing_ok": None}
 
 

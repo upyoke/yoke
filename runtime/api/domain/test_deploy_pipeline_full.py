@@ -224,12 +224,14 @@ class TestPipelineCLI:
         args = parser.parse_args([
             "run-test-001", "--timeout", "60", "--from-stage", "deploy",
             "--fresh", "--image-tag", "abc123def456",
+            "--product-repo-path", "/repo",
         ])
         assert args.primary_arg == "run-test-001"
         assert args.timeout == 60
         assert args.from_stage == "deploy"
         assert args.fresh is True
         assert args.image_tag == "abc123def456"
+        assert args.product_repo_path == "/repo"
 
     def test_cli_defaults(self):
         parser = deploy_pipeline._build_parser()
@@ -238,6 +240,16 @@ class TestPipelineCLI:
         assert args.from_stage == ""
         assert args.fresh is False
         assert args.image_tag == ""
+        assert args.product_repo_path == ""
+
+    def test_cli_forwards_explicit_product_repo_path(self, monkeypatch):
+        run = mock.Mock(return_value=0)
+        monkeypatch.setattr(deploy_pipeline, "run_pipeline", run)
+
+        assert deploy_pipeline.main([
+            "run-test-001", "--product-repo-path", "/pinned",
+        ]) == 0
+        assert run.call_args.kwargs["product_repo_path"] == "/pinned"
 
 
 class TestQaRecorderCLI:

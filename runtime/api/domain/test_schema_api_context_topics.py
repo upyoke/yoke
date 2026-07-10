@@ -130,6 +130,20 @@ def test_core_topic_includes_dependency_wrappers() -> None:
     assert "yoke shepherd dependency-remove" not in body
 
 
+def test_core_topic_pins_itemless_deploy_to_product_checkout() -> None:
+    body = sac.render_topic_packet("core")
+    fetch = 'git -C "$source_checkout" fetch origin "$target_branch"'
+    resolve = 'rev-parse --short=12 FETCH_HEAD'
+    watched = (
+        'watch_deploy --product-src "$source_checkout" -- {run-id} '
+        '--image-tag "$deploy_image_tag"'
+    )
+    assert fetch in body
+    assert resolve in body
+    assert watched in body
+    assert body.index(fetch) < body.index(resolve) < body.index(watched)
+
+
 def test_every_role_packet_teaches_worktree_source_pythonpath() -> None:
     body = sac.render_topic_packet("core")
     for token in (

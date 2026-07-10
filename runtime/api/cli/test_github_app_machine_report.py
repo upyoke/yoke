@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from yoke_cli.config import github_machine_report
 from yoke_cli.config import github_machine_state
 from yoke_contracts import github_app_installation_permissions
@@ -31,6 +33,44 @@ def test_human_report_renders_permission_repair_details() -> None:
 
     assert "missing_permission: octo-org workflows:write (granted=read)" in rendered
     assert "hint: Update the App installation permissions." in rendered
+
+
+def test_json_access_exposes_only_public_repository_metadata() -> None:
+    report = github_machine_report.connected(
+        None,
+        {
+            "api_url": "https://api.github.com",
+            "repositories": [{
+                "repository_id": 456,
+                "full_name": "octo-org/app",
+                "default_branch": "main",
+                "installation_id": 123,
+                "access_token": "must-not-leak",
+                "refresh_credential_ref": "/must/not/leak",
+            }],
+        },
+        authorization={"present": True},
+        checked=True,
+        live_check_ok=True,
+        permissions={"usable": True},
+        issues=[],
+    )
+
+    assert report["access"]["repos"] == ["octo-org/app"]
+    assert report["access"]["repositories"] == [{
+        "repository_id": 456,
+        "full_name": "octo-org/app",
+        "default_branch": "main",
+        "installation_id": 123,
+    }]
+    serialized = json.dumps(report)
+    assert "must-not-leak" not in serialized
+    assert "/must/not/leak" not in serialized
+
+    rendered = github_machine_report.render_human(report)
+    assert "repos: 1 accessible" in rendered
+    assert "octo-org/app" not in rendered
+    assert "repository_id" not in rendered
 
 
 def test_install_url_rejects_unsafe_app_slug() -> None:

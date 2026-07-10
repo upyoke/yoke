@@ -7,7 +7,6 @@ dispatch table stays small; the dispatcher delegates the
 
 from __future__ import annotations
 
-import os
 import sys
 import time
 from typing import Any, Dict, List, Optional
@@ -34,6 +33,8 @@ def _dispatch_github_actions_workflow(
     timeout_min: int,
     fresh: bool,
     gate_branch: str,
+    product_repo_path: str = "",
+    image_tag: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
     """Handle github-actions-workflow executor.
@@ -75,7 +76,12 @@ def _dispatch_github_actions_workflow(
     if not ci_passed:
         return 1, ci_msg or ""
 
-    head_sha, sha_error = _resolve_publish_sha(project_repo_path, gate_branch)
+    publish_product = name == "distribution-publish" and product_repo_path
+    head_sha, sha_error = _resolve_publish_sha(
+        product_repo_path if publish_product else project_repo_path,
+        gate_branch,
+        image_tag=image_tag if publish_product else "",
+    )
     if sha_error:
         print(f"Error: {sha_error}", file=sys.stderr)
         return 1, sha_error
@@ -201,22 +207,24 @@ def _resolve_workflow_inputs(
 def _resolve_publish_sha(
     project_repo_path: str,
     gate_branch: str,
+    *,
+    image_tag: str = "",
 ) -> tuple[str, str]:
-    """Resolve the SHA the publish must ship: the deployed branch's remote HEAD.
+    """Resolve the publish source from an explicit product pin when supplied.
 
-    ``gate_branch`` is the target env's deploy branch (stage->'stage',
-    prod->'main'); core-deploy resolves the image tag from that branch's
-    remote HEAD (``resolve_image_tag`` -> ``git fetch origin <branch>`` +
-    ``FETCH_HEAD``), so the published artifact MUST carry the same SHA — never
-    the local working-tree HEAD, which can be an unpushed commit absent from
-    the remote. A phantom local SHA dies at ``git checkout`` inside the
-    dispatched workflow ("reference is not a tree").
-
-    Returns ``(sha, error)``. A non-empty error means fail-fast: do not
-    dispatch a doomed publish. When there is no gate branch (the ephemeral
-    tier deploys an unmerged worktree branch) the deploy subject is the local
-    worktree, so the local HEAD is the correct SHA.
+    Unpinned legacy callers retain remote deploy-branch resolution; worktree
+    flows without a gate branch use their local HEAD.
     """
+    if image_tag:
+        from yoke_core.domain.deploy_product_source import (
+            DeployProductSourceError,
+            resolve_product_commit,
+        )
+
+        try:
+            return resolve_product_commit(project_repo_path, image_tag), ""
+        except DeployProductSourceError as exc:
+            return "", str(exc)
     if gate_branch:
         repo = project_repo_path or "."
         result = _run_cmd(
@@ -232,12 +240,10 @@ def _resolve_publish_sha(
                 f"remote or unreachable; push '{gate_branch}' before publishing"
             )
         return sha, ""
-    if project_repo_path and os.path.isdir(os.path.join(project_repo_path, ".git")):
-        sha = _run_cmd(
-            ["git", "-C", project_repo_path, "rev-parse", "HEAD"]
-        ).stdout.strip()
-    else:
-        sha = _run_cmd(["git", "rev-parse", "HEAD"]).stdout.strip()
+    command = ["git", "rev-parse", "HEAD"]
+    if project_repo_path:
+        command[1:1] = ["-C", project_repo_path]
+    sha = _run_cmd(command).stdout.strip()
     return sha, ""
 
 

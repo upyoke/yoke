@@ -161,6 +161,12 @@ def test_connect_discovers_installation_repositories_and_permissions(
     assert report["identity"]["login"] == "octocat"
     assert report["access"]["owners"] == ["octo-org"]
     assert report["access"]["repos"] == ["octo-org/app"]
+    assert report["access"]["repositories"] == [{
+        "repository_id": 456,
+        "full_name": "octo-org/app",
+        "default_branch": "main",
+        "installation_id": 123,
+    }]
     assert report["permissions"]["ok"] is True
     assert report["install_url"].endswith("/apps/yoke-local/installations/new")
     assert report["state"] == "connected"

@@ -113,20 +113,29 @@ WATCHERS_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Run deployment pipeline with watcher (admin/source-dev)",
+        "purpose": (
+            "Run item-less deployment pipeline with pinned product source "
+            "(admin/source-dev)"
+        ),
         "recipe": (
-            "YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy "
-            "--print-streaming-pair -- {run-id} [--image-tag <git-short-sha-for-itemless-env>]\n"
-            "# Codex/native shell can run foreground instead:\n"
-            "YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy "
-            "-- {run-id} [--image-tag <git-short-sha-for-itemless-env>]"
+            "source_checkout=<source-checkout> target_branch=<main-or-stage>\n"
+            "git -C \"$source_checkout\" fetch origin \"$target_branch\" && "
+            "deploy_image_tag=\"$(git -C \"$source_checkout\" rev-parse "
+            "--short=12 FETCH_HEAD)\"\n"
+            "YOKE_ENV=<control-plane-env>-db-admin python3 -m "
+            "yoke_core.tools.watch_deploy --product-src \"$source_checkout\" "
+            "-- {run-id} --image-tag \"$deploy_image_tag\""
         ),
         "notes": (
             "watch_deploy supplies the `python3 -m "
-            "yoke_core.domain.deploy_pipeline` prefix itself; pass only "
-            "bare deploy_pipeline args after `--` (`run-...`, optional "
-            "`--from-stage`, and for item-less prod/stage environment deploys "
-            "a required `--image-tag` resolved from the target branch). This "
+            "yoke_core.domain.deploy_pipeline` prefix itself. `--product-src` "
+            "is a watcher option and must precede `--`; pass only bare "
+            "deploy_pipeline args after `--` (`run-...`, optional "
+            "`--from-stage`, and the required `--image-tag`). The product "
+            "checkout pins the executing code, build context, and product "
+            "release SHA; use the same checkout and image tag on every retry "
+            "or resume. Claude adds `--print-streaming-pair` immediately "
+            "before `--`; Codex/native shells run the shown command. This "
             "local-Postgres control-plane recipe is for "
             "source-dev/admin or audited break-glass operation only; "
             "routine access stays on `/yoke usher`, domain-specific "
@@ -134,9 +143,11 @@ WATCHERS_COMMANDS: list[dict] = [
             "HTTPS/API authority. Do not use `YOKE_ENV=<env>-db-admin` as a "
             "normal retry after a product read fails. Item-less environment "
             "deploys are valid only as operator-attended admin runs: create "
-            "the run with `db_router runs create-run`, resolve the target "
-            "branch SHA from an explicit source checkout, then execute the "
-            "printed run id through this watcher with `--image-tag`."
+            "the run with `db_router runs create-run` under the project that "
+            "owns the deployment environment and flow (which may differ from "
+            "the product project), resolve the target branch SHA from the "
+            "explicit product checkout, then execute the printed run id "
+            "through this watcher with `--product-src` and `--image-tag`."
         ),
     },
     {

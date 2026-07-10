@@ -5,7 +5,7 @@ Canonical Python owner of the deployment pipeline. Retired the
 
 CLI usage::
 
-    python3 -m yoke_core.domain.deploy_pipeline <run-id|item-id> [--timeout M] [--from-stage S] [--fresh]
+    python3 -m yoke_core.domain.deploy_pipeline <run-id|item-id> [--product-repo-path PATH] [--timeout M] [--from-stage S] [--fresh]
 
 Exit codes: 0 = success, 1 = stage failed, 2 = awaiting approval, 3 = usage/setup error.
 """
@@ -18,12 +18,12 @@ import subprocess
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
+from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.deploy_pipeline_executors import (
-    _dispatch_ephemeral_verify,
+    _dispatch_ephemeral_verify,  # noqa: F401 - compatibility re-export
     _dispatch_executor,
-    _dispatch_github_actions_workflow,
+    _dispatch_github_actions_workflow,  # noqa: F401 - compatibility re-export
 )
 from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
@@ -41,6 +41,7 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 from yoke_core.domain.deployment_flow_seed_stage import ensure_seed_stage
 from yoke_core.domain.flow_init import _SEED_FLOWS
 from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
 
 
 EXIT_SUCCESS = 0
@@ -109,18 +110,17 @@ def run_pipeline(
     from_stage: str = "",
     fresh: bool = False,
     image_tag: str = "",
+    product_repo_path: str = "",
     sd: Optional[str] = None,
 ) -> int:
     """Execute the deployment pipeline.  Returns exit code."""
     sd = sd or _resolve_script_dir()
 
-    # --- Determine mode ---
     run_id, project, flow_id = "", "", ""
     run_status, current_stage = "", ""
     member_items: List[str] = []
 
     if primary_arg.startswith("run-"):
-        # Run-based path
         run_id = primary_arg
         run_row = _yoke_db("runs", "get", run_id, sd=sd)
         if not run_row:
@@ -138,12 +138,8 @@ def run_pipeline(
             member_items = [line.split("|")[1] for line in items_output.strip().split("\n") if "|" in line]
 
         if not member_items:
-            # Environment-level deploys (stage bootstrap, operator
-            # redeploys) carry zero items by design; item-bound behavior
-            # applies only when items are attached.
             print(f"Run {run_id} has no member items (environment-level deploy)")
     else:
-        # Legacy item-based path
         item_num = primary_arg.replace("YOK-", "").replace("yok-", "")
         print("Warning: Legacy item-based pipeline invocation. Auto-creating a deployment run.", file=sys.stderr)
 
@@ -170,6 +166,14 @@ def run_pipeline(
     if not flow_id:
         print(f"Error: deployment run '{run_id}' has no flow assigned", file=sys.stderr)
         return EXIT_USAGE
+    try:
+        product_source = validate_itemless_product_source(
+            product_repo_path, image_tag, member_items,
+        )
+    except (DeployProductSourceError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    product_repo_path = product_source.repo_path if product_source else ""
 
     try:
         _converge_seeded_flow_config(flow_id)
@@ -180,7 +184,6 @@ def run_pipeline(
         )
         return EXIT_USAGE
 
-    # --- Read stages ---
     stages_json = _flow_db("stages", flow_id, sd=sd)
     if not stages_json:
         print(f"Error: deployment flow '{flow_id}' not found or has no stages", file=sys.stderr)
@@ -191,7 +194,6 @@ def run_pipeline(
         print(f"Error: no stages found in flow '{flow_id}'", file=sys.stderr)
         return EXIT_USAGE
 
-    # --- Resolve project repo info ---
     github_repo = _project_db("get", project, "github_repo", sd=sd) if project else ""
     project_repo_path = ""
     if project:
@@ -202,7 +204,6 @@ def run_pipeline(
             conn.close()
         project_repo_path = str(checkout) if checkout is not None else ""
 
-    # Flow target environment, consumed by env-aware executors.
     target_env = _flow_db("get", flow_id, "target_env", sd=sd)
     target_env = "" if target_env == "null" else target_env
     print(
@@ -217,14 +218,12 @@ def run_pipeline(
     # branch. Consumed by the merged gate and the CI gate.
     gate_branch = resolve_flow_gate_branch(project, target_env, project_repo_path)
 
-    # --- Branch verification (item-bound; item-less runs skip it) ---
     ok, first_item, branch = _resolve_and_verify_branch(
         member_items, project_repo_path, target_branch=gate_branch, sd=sd,
     )
     if not ok:
         return EXIT_USAGE
 
-    # --- Seed QA ---
     deploy_qa_recorder.cmd_seed_from_flow(run_id, script_dir=sd)
 
     # --- Determine start position ---
@@ -292,6 +291,7 @@ def run_pipeline(
             github_repo=github_repo,
             project=project,
             project_repo_path=project_repo_path,
+            product_repo_path=product_repo_path,
             branch=branch,
             first_item=first_item,
             timeout_min=timeout_min,
@@ -398,10 +398,6 @@ def run_pipeline(
     return EXIT_SUCCESS
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deploy-pipeline",
@@ -411,6 +407,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--timeout", type=int, default=30, help="Timeout in minutes")
     p.add_argument("--from-stage", default="", help="Resume from this stage")
     p.add_argument("--fresh", action="store_true", help="Skip existing-run search")
+    p.add_argument("--product-repo-path", default="", help="Pinned product checkout for an itemless environment deploy")
     p.add_argument(
         "--image-tag",
         default="",
@@ -428,6 +425,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         from_stage=args.from_stage,
         fresh=args.fresh,
         image_tag=args.image_tag,
+        product_repo_path=args.product_repo_path,
     )
 
 

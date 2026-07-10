@@ -12,6 +12,7 @@ import subprocess
 from unittest import mock
 
 from yoke_core.domain import deploy_pipeline_github_workflow
+from yoke_core.domain import deploy_product_source
 
 
 class TestPublishShaFromDeployedRef:
@@ -111,3 +112,46 @@ class TestPublishShaFromDeployedRef:
         assert "stage" in diag and "remote" in diag
         # The doomed publish is never dispatched.
         assert not [c for c in gh_calls if c and c[0] == "trigger"]
+
+    def test_explicit_image_pin_resolves_in_product_checkout(self):
+        gh_calls = []
+        full_commit = "a" * 40
+
+        def _fake_gh(*args, **kwargs):
+            gh_calls.append((args, kwargs))
+            return subprocess.CompletedProcess(
+                args=args, returncode=0,
+                stdout="run-9\n" if args[0] == "trigger" else "",
+            )
+
+        with mock.patch.object(
+            deploy_pipeline_github_workflow, "_check_ci_gate",
+            return_value=(True, ""),
+        ), mock.patch.object(
+            deploy_product_source, "resolve_product_commit",
+            return_value=full_commit,
+        ) as resolve, mock.patch.object(
+            deploy_pipeline_github_workflow, "_github_actions",
+            side_effect=_fake_gh,
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_poll_github_actions",
+            return_value=(0, "completed: success"),
+        ):
+            rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
+                {
+                    "workflow": "yoke-distribution-publish.yml",
+                    "inputs": {"source_sha": "{head_sha}"},
+                    "ref": "main", "reconcile_by_head_sha": False,
+                },
+                name="distribution-publish", run_id="run-test", member_items=[],
+                github_repo="deploy-owner/workflows", project="platform",
+                project_repo_path="/deploy-owner", product_repo_path="/product",
+                image_tag="abc123def456", timeout_min=30, fresh=False,
+                gate_branch="main", sd="/tmp/sd",
+            )
+
+        assert (rc, diag) == (0, "")
+        resolve.assert_called_once_with("/product", "abc123def456")
+        trigger = next(call for call in gh_calls if call[0][0] == "trigger")
+        assert f"source_sha={full_commit}" in trigger[0]
+        assert trigger[1]["project"] == "platform"

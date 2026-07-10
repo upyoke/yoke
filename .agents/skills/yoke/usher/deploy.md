@@ -79,19 +79,20 @@ The target-env resolver is `yoke deployment-runs resolve-target-env`; the other 
 
 ### Environment-level deploys (no item)
 
-If the operator asks for a Yoke prod/stage environment redeploy without an attached backlog item, do **not** route through `start-for-item` and do **not** invent an item. Resolve the target branch SHA from an explicit Yoke source checkout, create a zero-item deployment run from the flow id, and execute that run id with the resolved image tag:
+If the operator asks for a Yoke prod/stage environment redeploy without an attached backlog item, do **not** route through `start-for-item` and do **not** invent an item. Resolve the target branch SHA from an explicit Yoke product-source checkout, create a zero-item deployment run under the project that owns the deployment environments and flows, and execute that run id with both the product checkout and resolved image tag:
 
 ```bash
 target_env=prod
 target_branch=main
 source_checkout=<source-checkout>
+deploy_owner_project=<deploy-owner-project>
 git -C "$source_checkout" fetch origin "$target_branch"
 deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
-YOKE_ENV=prod-db-admin python3 -m yoke_core.cli.db_router runs create-run yoke "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
-YOKE_ENV=prod-db-admin python3 -m yoke_core.tools.watch_deploy -- {run-id} --image-tag "$deploy_image_tag"
+YOKE_ENV=prod-db-admin python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
+YOKE_ENV=prod-db-admin python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
 ```
 
-`yoke-prod-release` / `yoke-stage-release` are deployment-flow ids; the first command prints the concrete `run-...` id. Zero rows in `deployment_run_items` are valid for these environment-level runs. `deploy_pipeline` skips item branch verification and item status writes, while the flow still gates the declared environment branch (`main` for prod, `stage` for stage), runs env activation, deploys the explicitly tagged core image, checks public health, and records `deployment_runs.current_stage` / `status`.
+`yoke-prod-release` / `yoke-stage-release` are deployment-flow ids; the first command prints the concrete `run-...` id. The deploy-owner project may differ from the Yoke product project after environment/flow re-parenting; it remains the run authority, while `--product-src` pins the code, build context, and product release metadata to the checkout that supplied the image tag. Zero rows in `deployment_run_items` are valid for these environment-level runs. `deploy_pipeline` skips item branch verification and item status writes, while the flow still gates the declared environment branch (`main` for prod, `stage` for stage), runs env activation, deploys the explicitly tagged core image, checks public health, and records `deployment_runs.current_stage` / `status`. Every retry or `--from-stage` resume of this item-less run must repeat the same `--product-src "$source_checkout"` and `--image-tag "$deploy_image_tag"` arguments.
 
 ### 8c8: Run-level QA seeding
 **Do NOT manually seed** — the retained deploy pipeline invoked by `python3 -m yoke_core.tools.watch_deploy` calls the internal deploy QA recorder automatically.

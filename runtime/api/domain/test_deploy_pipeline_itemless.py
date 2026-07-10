@@ -52,12 +52,19 @@ class TestItemLessRun:
         dispatched = []
 
         def fake_dispatch(stage, **kwargs):
-            dispatched.append(stage["name"])
+            dispatched.append((
+                stage["name"], kwargs["project_repo_path"],
+                kwargs["product_repo_path"],
+            ))
             return 0, ""
 
         verify = mock.Mock()
+        checkout_lookup = mock.Mock(return_value="/repo")
         with mock.patch.object(
             deploy_pipeline, "resolve_flow_gate_branch", return_value="stage",
+        ), mock.patch.object(
+            deploy_pipeline, "validate_itemless_product_source",
+            return_value=mock.Mock(repo_path="/pinned/product"),
         ), mock.patch.object(
             deploy_pipeline, "_yoke_db", side_effect=fake_yoke_db,
         ), mock.patch.object(
@@ -67,7 +74,7 @@ class TestItemLessRun:
         ), mock.patch.object(
             deploy_pipeline, "_project_db", return_value="",
         ), mock.patch.object(
-            deploy_pipeline, "checkout_for_project", return_value="/repo",
+            deploy_pipeline, "checkout_for_project", checkout_lookup,
         ), mock.patch.object(
             deploy_pipeline_gates, "_verify_branch_merged", verify,
         ), mock.patch.object(
@@ -83,7 +90,10 @@ class TestItemLessRun:
         ), mock.patch.object(
             deploy_pipeline, "query_scalar", return_value=0,
         ):
-            rc = deploy_pipeline.run_pipeline(run_id, sd="/tmp/sd")
+            rc = deploy_pipeline.run_pipeline(
+                run_id, product_repo_path="/pinned/product",
+                image_tag="abc123", sd="/tmp/sd",
+            )
 
         assert rc == deploy_pipeline.EXIT_SUCCESS
         out = capsys.readouterr().out
@@ -104,7 +114,11 @@ class TestItemLessRun:
         # The run row still advances: both stages dispatch in order, the
         # run row's current_stage is written per stage plus the final
         # marker, and status moves executing -> succeeded.
-        assert dispatched == ["merged", "complete"]
+        assert dispatched == [
+            ("merged", "/repo", "/pinned/product"),
+            ("complete", "/repo", "/pinned/product"),
+        ]
+        checkout_lookup.assert_called_once()
         stage_updates = [
             c[4] for c in db_calls
             if c[:4] == ("runs", "update", run_id, "current_stage")

@@ -113,17 +113,20 @@ PRIMARY KEY (run_id, item_id)
 **Item-bound vs environment-level execution:**
 
 - Item-bound delivery starts from `/yoke usher YOK-N` or `runs start-for-item`, which creates the run and inserts membership rows.
-- Environment-level deploys create the run directly, leave `deployment_run_items` empty, then execute the run id:
+- Environment-level deploys create the run directly under the project that owns the deployment environment and flow, leave `deployment_run_items` empty, then execute the run id with the Yoke product checkout that supplies the deploy code, build context, and release SHA:
 
 ```bash
 target_env=<target-env>
 target_branch=<main-or-stage>
 source_checkout=<source-checkout>
+deploy_owner_project=<deploy-owner-project>
 git -C "$source_checkout" fetch origin "$target_branch"
 deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
-YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.cli.db_router runs create-run yoke "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
-YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy -- {run-id} --image-tag "$deploy_image_tag"
+YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
+YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
 ```
+
+The deploy-owner project may differ from the product project after environment/flow re-parenting. Every retry or `--from-stage` resume of the item-less run must repeat the same `--product-src` and `--image-tag` arguments.
 
 ## Table: deployment_run_qa
 

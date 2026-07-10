@@ -168,7 +168,12 @@ def test_github_status_reads_app_config_offline(
                         }
                     ],
                     "repositories": [
-                        {"repository_id": 456, "full_name": "octo-org/app"},
+                        {
+                            "repository_id": 456,
+                            "full_name": "octo-org/app",
+                            "default_branch": "main",
+                            "installation_id": 123,
+                        },
                     ],
                     "authorization": {
                         "kind": "github_app_user_authorization",
@@ -210,6 +215,12 @@ def test_github_status_reads_app_config_offline(
     assert payload["app"]["client_id"] == "Iv1.local"
     assert payload["access"]["owners"] == ["octo-org"]
     assert payload["access"]["repos"] == ["octo-org/app"]
+    assert payload["access"]["repositories"] == [{
+        "repository_id": 456,
+        "full_name": "octo-org/app",
+        "default_branch": "main",
+        "installation_id": 123,
+    }]
     assert payload["permissions"]["ok"] is True
     assert payload["permissions"]["mode"] == "github_app_installation"
     assert payload["ready"] is True

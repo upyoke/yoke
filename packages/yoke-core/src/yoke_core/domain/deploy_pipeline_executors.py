@@ -49,13 +49,10 @@ def _dispatch_executor(
     image_tag: str = "",
     target_env: str = "",
     gate_branch: str,
+    product_repo_path: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
     """Dispatch the executor for a stage.
-
-    ``gate_branch`` is the flow's gate branch (the target env's declared
-    deploy branch, else the project base branch) — consumed by the CI gate
-    inside the github-actions-workflow path.
 
     Returns ``(exit_code, diagnostic)``; diagnostic carries executor output for
     the pipeline's failure event.
@@ -88,7 +85,7 @@ def _dispatch_executor(
         return (
             _dispatch_health_check(
                 config, project, target_env,
-                project_repo_path=project_repo_path,
+                project_repo_path=product_repo_path or project_repo_path,
                 image_tag=str(config.get("image_tag", "") or image_tag or ""),
             ),
             "",
@@ -108,7 +105,7 @@ def _dispatch_executor(
             exec_core_container_deploy(
                 project,
                 target_env,
-                repo_path=project_repo_path,
+                repo_path=product_repo_path or project_repo_path,
                 image_tag=str(config.get("image_tag", "") or image_tag or ""),
             ),
             "",
@@ -148,6 +145,8 @@ def _dispatch_executor(
             project_repo_path=project_repo_path,
             timeout_min=timeout_min, fresh=fresh,
             gate_branch=gate_branch, sd=sd,
+            product_repo_path=product_repo_path,
+            image_tag=str(config.get("image_tag", "") or image_tag or ""),
         )
 
     print(f"Error: unknown executor type '{executor}'", file=sys.stderr)
@@ -254,7 +253,7 @@ def _dispatch_health_check(
     )
     if rc != 0:
         return rc
-    if project == "yoke":
+    if env.deploy_namespace == "yoke":
         manifest_gate = verify_deployed_cli_manifest(target_env)
         print(manifest_gate.message)
         if manifest_gate.checked and not manifest_gate.ok:

@@ -162,12 +162,15 @@ def _wait_for_prewarmed_image(
         f"{tag} (failed or still running). Once the image exists, re-fire "
         "this deploy via the yoke-env-deploy workflow_dispatch lane (no "
         "new commit — an empty commit mints a NEW sha the prewarm never "
-        "built). Deterministic operator fallback (builds locally): "
-        "resolve the target branch SHA from an explicit source checkout, "
-        "YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.cli.db_router runs "
-        f"create-run {env.project} {env.deploy_namespace}-{env.env_name}-release "
-        "--created-by operator, then YOKE_ENV=<control-plane-env>-db-admin python3 -m "
-        "yoke_core.tools.watch_deploy -- <run-id> --image-tag <git-short-sha>."
+        "built). Deterministic operator fallback (builds locally): run "
+        "git -C <source-checkout> fetch origin <target-branch>, resolve "
+        "<git-short-sha> from FETCH_HEAD, then YOKE_ENV=<control-plane-env>"
+        "-db-admin python3 -m yoke_core.cli.db_router runs create-run "
+        f"{env.project} {env.deploy_namespace}-{env.env_name}-release "
+        "--created-by operator. Execute the printed run id with "
+        "YOKE_ENV=<control-plane-env>-db-admin python3 -m "
+        "yoke_core.tools.watch_deploy --product-src <source-checkout> -- "
+        "<run-id> --image-tag <git-short-sha>."
     )
 
 

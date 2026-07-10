@@ -22,6 +22,7 @@ def _dispatch(stage, **overrides):
         image_tag="",
         target_env="prod",
         gate_branch="main",
+        product_repo_path="",
         sd=None,
     )
     kwargs.update(overrides)
@@ -78,6 +79,21 @@ class TestEnvExecutorDispatch:
             "yoke", "prod", repo_path="", image_tag="15917b2efb54"
         )
 
+    def test_core_container_deploy_uses_itemless_product_checkout(self):
+        with mock.patch(
+            "yoke_core.domain.deploy_core_container.exec_core_container_deploy",
+            return_value=0,
+        ) as deploy:
+            rc, _ = _dispatch(
+                _stage("core-container-deploy"),
+                project="platform", product_repo_path="/product",
+                image_tag="15917b2efb54", member_items=[],
+            )
+        assert rc == 0
+        deploy.assert_called_once_with(
+            "platform", "prod", repo_path="/product", image_tag="15917b2efb54",
+        )
+
     def test_core_container_deploy_stage_config_tag_wins(self):
         with mock.patch(
             "yoke_core.domain.deploy_core_container."
@@ -92,6 +108,22 @@ class TestEnvExecutorDispatch:
         deploy.assert_called_once_with(
             "yoke", "prod", repo_path="/repo", image_tag="stage-config"
         )
+
+    def test_distribution_publish_keeps_owner_and_product_sources_separate(self):
+        with mock.patch.object(
+            deploy_pipeline_executors, "_dispatch_github_actions_workflow",
+            return_value=(0, ""),
+        ) as workflow:
+            rc, diag = _dispatch(
+                _stage("github-actions-workflow"), project="platform",
+                product_repo_path="/product", image_tag="abc123", member_items=[],
+            )
+        assert (rc, diag) == (0, "")
+        kwargs = workflow.call_args.kwargs
+        assert kwargs["project"] == "platform"
+        assert kwargs["project_repo_path"] == "/repo"
+        assert kwargs["product_repo_path"] == "/product"
+        assert kwargs["image_tag"] == "abc123"
 
     def test_ephemeral_deploy_receives_branch_repo_and_label(self):
         with mock.patch(
@@ -145,6 +177,7 @@ class TestEnvExecutorDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.deploy_namespace = "yoke"
         with mock.patch(
             "yoke_core.domain.deploy_environment_settings."
             "resolve_deploy_environment",
@@ -162,7 +195,10 @@ class TestEnvExecutorDispatch:
             "verify_deployed_cli_manifest",
             return_value=_manifest_gate(),
         ) as manifest:
-            rc, _ = _dispatch(_stage("health-check"))
+            rc, _ = _dispatch(
+                _stage("health-check"), project="platform",
+                product_repo_path="/product", member_items=[],
+            )
         assert rc == 0
         args, kwargs = health.call_args
         assert args == ("https://api.example.com/v1/health",)
@@ -174,12 +210,14 @@ class TestEnvExecutorDispatch:
         # not just HTTP liveness.
         assert kwargs["require_schema_ready"] is True
         assert resolve.call_args.kwargs["declared_branch"] == "main"
+        assert resolve.call_args.args[1] == "/product"
         manifest.assert_called_once_with("prod")
 
     def test_yoke_health_check_fails_on_manifest_drift(self):
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.deploy_namespace = "yoke"
         with mock.patch(
             "yoke_core.domain.deploy_environment_settings."
             "resolve_deploy_environment",
@@ -204,6 +242,7 @@ class TestEnvExecutorDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.deploy_namespace = "buzz"
         with mock.patch(
             "yoke_core.domain.deploy_environment_settings."
             "resolve_deploy_environment",
@@ -216,10 +255,11 @@ class TestEnvExecutorDispatch:
             deploy_pipeline_executors,
             "verify_deployed_cli_manifest",
             return_value=_manifest_gate(),
-        ):
+        ) as manifest:
             rc, _ = _dispatch(_stage("health-check"), project_repo_path="")
         assert rc == 0
         assert health.call_args.kwargs["expected_build"] == ""
+        manifest.assert_not_called()
 
     def test_health_check_uses_pipeline_image_tag_without_repo_path(self):
         fake_env = mock.Mock()

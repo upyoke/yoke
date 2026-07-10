@@ -186,7 +186,11 @@ class TestEnsureImageWaitMode:
         assert ".github/workflows/yoke-core-image.yml" in message
         assert "workflow_dispatch" in message
         assert "runs create-run yoke yoke-stage-release" in message
-        assert "watch_deploy" in message
+        assert "git -C <source-checkout> fetch origin <target-branch>" in message
+        assert (
+            "watch_deploy --product-src <source-checkout> -- <run-id> "
+            "--image-tag <git-short-sha>"
+        ) in message
         # The runner-build path is unreachable: probes only, no docker.
         assert len(runner.calls) == 4
         for call in runner.calls:

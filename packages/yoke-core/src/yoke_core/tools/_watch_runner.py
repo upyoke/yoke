@@ -275,6 +275,7 @@ def print_streaming_pair(
     wrapper_args: Sequence[str],
     raw_capture: Path,
     progress_capture: Path,
+    wrapper_options: Sequence[str] = (),
     env_prefix: str = "",
     out: Optional[TextIO] = None,
 ) -> None:
@@ -287,21 +288,19 @@ def print_streaming_pair(
     """
     stream = out or sys.stdout
     cmd_args = shlex.join(wrapper_args)
+    option_args = shlex.join(wrapper_options)
+    option_prefix = f"{option_args} " if option_args else ""
     # Helper-resolved capture paths normally land under the temp scratch
     # root and contain no spaces, but ``YOKE_SCRATCH_ROOT`` and operator-
     # supplied paths can. ``shlex.quote`` keeps the printed shell shape
     # safe to copy-paste even when a segment contains whitespace.
     raw_q = shlex.quote(str(raw_capture))
     progress_q = shlex.quote(str(progress_capture))
-    # The cwd anchor is part of the command, not ambient state: backgrounded
-    # Bash calls do not reliably inherit a harness's sticky cwd, and
-    # `python3 -m` + relative pytest paths execute whatever tree the process
-    # lands in — a silent wrong-tree run (13336). Baking `cd <mint-cwd> &&`
-    # into the emitted line makes the pair self-anchoring.
+    # Anchor the emitted command so background execution cannot drift checkouts.
     cwd_q = shlex.quote(os.getcwd())
     prefix = f"{env_prefix} " if env_prefix else ""
     bash_invocation = (
-        f"cd {cwd_q} && {prefix}python3 -m {wrapper_module} "
+        f"cd {cwd_q} && {prefix}python3 -m {wrapper_module} {option_prefix}"
         f"--raw-capture {raw_q} "
         f"--progress-capture {progress_q} "
         f"-- {cmd_args}"

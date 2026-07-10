@@ -15,19 +15,20 @@ Stage authority now lives on the `deployment_runs` row (`current_stage` column),
 
 **The `deploy_stage` column** on the `items` table is retained as a read cache during the transition period, kept in sync with the run's `current_stage`. New code should read stage from the run, not from the item. See `runtime/api/domain/approval.py` constants `STAGE_AUTHORITY_FIELD` (`current_stage`) and `STAGE_CACHE_FIELD` (`deploy_stage`) for the canonical machine-readable distinction.
 
-**Environment-level runs:** For an operator-attended Yoke prod/stage redeploy, create the run from the flow id and execute the run id. Do not create a backlog item just to satisfy membership. These ticketless runs are source-dev/admin or audited break-glass operations because they use the `<release-control-plane-env>-db-admin` local-Postgres authority; normal product reads stay on HTTPS/API-backed `yoke ...` wrappers or `yoke db read`. The release control plane is where `deployment_runs` and deployment events are written; `target_env` is the environment being changed. Normal operator releases use `release_control_plane_env=prod`, including stage target deploys, so release history stays in one place. A stage-isolated rehearsal uses `release_control_plane_env=stage` and `target_env=stage`.
+**Environment-level runs:** For an operator-attended Yoke prod/stage redeploy, create the run from the flow id and execute the run id. Do not create a backlog item just to satisfy membership. These ticketless runs are source-dev/admin or audited break-glass operations because they use the `<release-control-plane-env>-db-admin` local-Postgres authority; normal product reads stay on HTTPS/API-backed `yoke ...` wrappers or `yoke db read`. The release control plane is where `deployment_runs` and deployment events are written; `target_env` is the environment being changed. Normal operator releases use `release_control_plane_env=prod`, including stage target deploys, so release history stays in one place. A stage-isolated rehearsal uses `release_control_plane_env=stage` and `target_env=stage`. The deploy-owner project owns the environment and flow rows; after re-parenting it may differ from the Yoke product project, whose checkout supplies the deploy code, image build context, and release SHA.
 
 ```bash
 release_control_plane_env=<prod-or-stage>
 target_env=<target-env>
 target_branch=<main-or-stage>
 source_checkout=<source-checkout>
+deploy_owner_project=<deploy-owner-project>
 export YOKE_ENV="${release_control_plane_env}-db-admin"
 export YOKE_RELEASE_CONTROL_PLANE_ENV="$release_control_plane_env"
 git -C "$source_checkout" fetch origin "$target_branch"
 deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
-python3 -m yoke_core.cli.db_router runs create-run yoke "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
-python3 -m yoke_core.tools.watch_deploy -- {run-id} --image-tag "$deploy_image_tag"
+python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
+python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
 ```
 
 These runs leave `deployment_run_items` empty by design. The pipeline skips item branch/status writes but still advances `deployment_runs.current_stage` / `status` and emits run-level deployment events.
@@ -56,7 +57,7 @@ When an executor encounters a missing capability, it follows the capability self
 2. Usher records the capability need as an event via `yoke_core.domain.events.emit_event`
 3. If the template is novel (`TEMPLATE = 'NEW'`), Usher saves it to `capability_templates`
 4. Usher halts the deployment run and exits (items stay at `release`)
-5. Operator configures the capability (adds row to `project_capabilities`) and re-runs `/yoke usher YOK-N` for item-bound delivery, or re-runs `watch_deploy -- {run-id} --image-tag "$deploy_image_tag"` for an item-less environment deploy
+5. Operator configures the capability (adds row to `project_capabilities`) and re-runs `/yoke usher YOK-N` for item-bound delivery, or re-runs `watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"` for an item-less environment deploy; every retry or `--from-stage` resume must preserve the same product checkout and image tag
 
 ## Human Approval Gate
 

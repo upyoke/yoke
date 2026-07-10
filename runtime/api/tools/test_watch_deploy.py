@@ -305,10 +305,7 @@ class TestNestedInvocationRejectionPath:
 class TestProductSrc:
     """``--product-src`` runs deploy_pipeline from the pinned product code.
 
-    The break-glass deploy watcher executes whatever ``yoke_core`` is on the
-    path; a checkout lagging the delivered product derives resource names
-    from stale logic. ``--product-src`` points the deploy subprocess at a
-    checkout pinned to the deployed sha; omitting it warns.
+    A pinned checkout supplies both code and deploy build context.
     """
 
     def test_product_src_prepends_product_pythonpath(
@@ -320,12 +317,15 @@ class TestProductSrc:
             "run_watcher",
             lambda **kwargs: seen.update(kwargs) or 0,
         )
-        # Stub the import-origin verification so the test needs no real
-        # product checkout on disk.
+        # Keep the test independent of a real product checkout.
         monkeypatch.setattr(
             watch_deploy._source_pythonpath,
             "import_origin_refusal",
             lambda root, **kwargs: None,
+        )
+        monkeypatch.setattr(
+            watch_deploy, "prepare_product_deploy_args",
+            lambda args, root: [*args, "--product-repo-path", str(root.resolve())],
         )
         product_root = tmp_path / "product"
         product_root.mkdir()
