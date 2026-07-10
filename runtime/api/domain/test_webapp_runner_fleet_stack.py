@@ -196,6 +196,14 @@ def test_runner_network_is_dedicated_and_egress_limited(monkeypatch):
 def test_idle_reaper_runs_outside_the_workflow_host(monkeypatch):
     recorder, _stack = _runner_stack(monkeypatch)
 
+    reaper_runtime = recorder.single("runnerFleetGithubReaperRuntime")
+    for parameter_name in (
+        "runnerFleetLifecycleState",
+        "runnerFleetQueueActivity",
+        "runnerFleetRunnerProgress",
+        "runnerFleetRunnerCompletion",
+    ):
+        assert recorder.single(parameter_name) in reaper_runtime.opts.depends_on
     schedule = recorder.single("runnerFleetIdleReaperSchedule")
     assert schedule.kwargs["schedule_expression"] == "rate(1 minute)"
     target = recorder.single("runnerFleetIdleReaperTarget")

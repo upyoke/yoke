@@ -267,7 +267,18 @@ def create_runner_github_broker(
                 )
             )
         ),
-        opts=child_opts,
+        opts=pulumi.ResourceOptions.merge(
+            child_opts,
+            # The policy body resolves these ARNs through nested Output.apply
+            # calls. Declare the complete graph up front so a saved Pulumi
+            # plan and its constrained apply observe identical dependencies.
+            pulumi.ResourceOptions(depends_on=[
+                state.lifecycle_state,
+                state.queue_activity,
+                state.runner_progress,
+                state.runner_completion,
+            ]),
+        ),
     )
     reaper_function = aws.lambda_.Function(
         "runnerFleetGithubReaper",
