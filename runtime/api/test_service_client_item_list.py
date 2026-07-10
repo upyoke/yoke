@@ -2,9 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from yoke_core.api import service_client
 from yoke_core.api import service_client_items_listing
-from runtime.api.conftest import insert_item
+from runtime.api.fixtures.backlog import insert_item
+from runtime.api.fixtures.backlog import test_db  # noqa: F401 - pytest discovery
+
+
+@pytest.fixture
+def canonical_items_db(test_db) -> Any:  # noqa: F811 - imported fixture dependency
+    """Connection-shaped item fixture, insulated from generic fixture collisions."""
+    return test_db
 
 
 def _seed_items_conn(conn: Any) -> Any:
@@ -24,8 +33,8 @@ def _seed_items_conn(conn: Any) -> Any:
     return conn
 
 
-def test_item_list_limit_caps_rows(monkeypatch, capsys, test_db) -> None:
-    conn = _seed_items_conn(test_db)
+def test_item_list_limit_caps_rows(monkeypatch, capsys, canonical_items_db) -> None:
+    conn = _seed_items_conn(canonical_items_db)
     monkeypatch.setattr(service_client_items_listing, "_get_db_readonly", lambda: conn)
 
     rc = service_client.cmd_item_list(["--limit", "2"])
@@ -38,10 +47,14 @@ def test_item_list_limit_caps_rows(monkeypatch, capsys, test_db) -> None:
     ]
 
 
-def test_item_list_body_without_id_uses_hidden_row_id(monkeypatch, capsys, test_db) -> None:
+def test_item_list_body_without_id_uses_hidden_row_id(
+    monkeypatch,
+    capsys,
+    canonical_items_db,
+) -> None:
     from yoke_core.domain import render_body
 
-    conn = _seed_items_conn(test_db)
+    conn = _seed_items_conn(canonical_items_db)
     monkeypatch.setattr(service_client_items_listing, "_get_db_readonly", lambda: conn)
     monkeypatch.setattr(
         render_body,

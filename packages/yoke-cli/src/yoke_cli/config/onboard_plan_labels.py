@@ -26,6 +26,11 @@ _CLONE_OUTCOME_LABELS = {
     CLONE_OUTCOME_FORK: " as a fork you can PR back",
     CLONE_OUTCOME_JUST_CLONE: "",
 }
+_LOCAL_UNIVERSE_LABELS = {
+    "create": "Create this machine's local Yoke universe under ~/.yoke",
+    "verify": "Verify this machine's existing local Yoke universe under ~/.yoke",
+    "unavailable": "Check this machine's local Yoke universe connection under ~/.yoke",
+}
 
 
 def friendly_line(action: str, target: str, project_name: str = "") -> str:
@@ -37,10 +42,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == "set-https-api-url":
         return f"Connect to {target}"
     if action == "local-universe-init":
-        return (
-            "Create (or verify) this machine's local Yoke universe under "
-            "~/.yoke"
-        )
+        return _LOCAL_UNIVERSE_LABELS.get(target, _LOCAL_UNIVERSE_LABELS["create"])
     if action == "store-token-reference":
         return "Save your API token (owner-only)"
     if action == "machine-github-connection":

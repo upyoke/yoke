@@ -179,19 +179,13 @@ def _mapped_checkouts(
     machine_config_path: Path | str | None,
 ) -> List[Tuple[Path, int]]:
     from yoke_core.domain import machine_config
-    from yoke_contracts.machine_config.schema import normalize_project_id
+    from yoke_contracts.machine_config.schema import mapped_checkouts
 
     cfg = machine_config.load_config(machine_config_path)
-    projects = cfg.get("projects", {})
-    pairs: List[Tuple[Path, int]] = []
-    if isinstance(projects, dict):
-        for checkout, entry in sorted(projects.items()):
-            if not isinstance(entry, dict):
-                continue
-            mapped = normalize_project_id(entry.get("project_id"))
-            if mapped is not None:
-                pairs.append((Path(str(checkout)).expanduser(), mapped))
-    return pairs
+    return [
+        (Path(checkout).expanduser(), project_id)
+        for checkout, project_id in mapped_checkouts(cfg)
+    ]
 
 
 def _default_for_key(key: str, override: str | None) -> str:

@@ -14,8 +14,7 @@ is permissive). With an actor:
   * org            -> checked against the target org (org admin),
   * project        -> the op's real target project, with NO fallback: an
     existing target resolves to its real project and is checked; an
-    unresolvable target (missing item / global) defers to the handler
-    (target_not_found), never silently aimed at yoke,
+    unresolvable target is denied before the handler, never silently aimed at yoke,
   * deny           -> an unclassified *side-effecting* function fails closed,
   * client-local / actor-session -> allowed.
 
@@ -206,7 +205,7 @@ def test_org_scoped_op_requires_org_admin(conn):
     assert denied.error.error.code == "permission_denied"
 
 
-def test_project_op_without_resolvable_target_defers_to_handler_no_fallback(conn):
+def test_project_op_without_resolvable_target_is_denied_without_fallback(conn):
     yoke = resolve_project_id(conn, "yoke")
     actor_id = _project_owner(conn, yoke)
     cases = [
@@ -226,8 +225,9 @@ def test_project_op_without_resolvable_target_defers_to_handler_no_fallback(conn
     ]
     for entry, request in cases:
         res = check_dispatch_permission(conn, entry, request)
-        assert res.error is None
-        assert res.project_id is None
+        assert res.error is not None and res.error.error is not None
+        assert (res.error.error.code, res.project_id) == ("permission_denied", None)
+
 
 def test_every_registered_function_is_explicitly_classified():
     # Coverage guard: no live function may fall through to the fail-closed DENY

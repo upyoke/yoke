@@ -17,19 +17,9 @@ from yoke_core.engines.doctor import (
     hc_backlog_quality,
     hc_config_validation,
 )
-from runtime.api.conftest import (
-    insert_deployment_run,
-    insert_event,
-    insert_item,
-    insert_qa_requirement,
-    insert_qa_run,
-)
-from yoke_core.domain.db_helpers import iso8601_now
+from runtime.api.conftest import insert_item
 
 from yoke_core.engines._doctor_hc_db_full_test_helpers import (
-    _add_deployment_preview_environments_table,
-    _add_ephemeral_environments_table,
-    _default_args,
     _result,
     _run_hc,
 )
@@ -223,12 +213,14 @@ class TestHCConfigValidationFull:
         assert "machine config not found" in r.detail
 
     def test_invalid_machine_config_shape_warns(self, test_db, tmp_path):
+        # projects is a flat list of entries (an empty list is valid); a
+        # scalar is the invalid shape the HC must flag.
         config_path = self._write_machine_config(
             tmp_path,
-            '{"settings": {}, "projects": []}\n',
+            '{"settings": {}, "projects": "not-a-list"}\n',
         )
         with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
             rec = _run_hc(hc_config_validation, test_db)
         r = _result(rec)
         assert r.result == "WARN"
-        assert "projects must be an object" in r.detail
+        assert "projects must be a list" in r.detail

@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import onboard_project
+from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
 _GROUP_ORDER = ("machine", "core", "repo", "admin")
 
@@ -41,10 +42,22 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
     connection = inner.get("connection")
     connection = connection if isinstance(connection, Mapping) else {}
     api_url = str(connection.get("api_url") or "").strip()
+    local_connection = str(connection.get("transport") or "") in POSTGRES_TRANSPORTS
+    database_label = "local Yoke database" if local_connection else "Yoke core database"
 
     if reuse.get("yoke_home"):
         machine.append("Yoke home folder already exists.")
-    if reuse.get("connection") and reuse.get("token_reference"):
+    if local_connection and reuse.get("connection"):
+        if str(reuse.get("local_universe") or "") == "unavailable":
+            machine.append(
+                "Local universe connection is saved but needs attention before "
+                "Yoke can use it."
+            )
+        else:
+            machine.append(
+                "Local universe connection is already saved; Apply will verify it."
+            )
+    elif reuse.get("connection") and reuse.get("token_reference"):
         target = f" for {env}" if env else ""
         endpoint = f" at {api_url}" if api_url else ""
         machine.append(
@@ -77,6 +90,7 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
             project=project,
             project_name=project_name,
             project_id=project_id,
+            database_label=database_label,
         )
     if reuse.get("project_checkout"):
         checkout = str(project.get("checkout") or "").strip()
@@ -90,7 +104,11 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
         repo_lines.append(
             f"Matching clone already exists{target}; Apply will reuse it."
         )
-    _append_default_branch_lines(grouped, project)
+    _append_default_branch_lines(
+        grouped,
+        project,
+        database_label=database_label,
+    )
     if reuse.get("project_existing_remote"):
         repo = str(project.get("github_repo") or "").strip()
         if repo and repo != "None":
@@ -99,7 +117,7 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
             repo_lines.append("Using this checkout's existing git remote.")
     if reuse.get("project_github_auth"):
         if reuse.get("project_identity"):
-            core.append("Project GitHub settings come from the Yoke core database.")
+            core.append(f"Project GitHub settings come from the {database_label}.")
         elif not reuse.get("project_existing_remote"):
             core.append("Project GitHub settings are already available.")
     if reuse.get("project_scaffold"):
@@ -138,6 +156,7 @@ def _append_existing_project_identity(
     project: Mapping[str, Any],
     project_name: str,
     project_id: str,
+    database_label: str,
 ) -> None:
     suffix = f" (id {project_id})" if project_id else ""
     source = str(project.get("existing_project_match_source") or "").strip()
@@ -150,12 +169,12 @@ def _append_existing_project_identity(
             f"Local project metadata matched {label} from {local_label}."
         )
         grouped["core"].append(
-            f"Yoke core database verified existing project: {project_name}{suffix}."
+            f"{database_label} verified existing project: {project_name}{suffix}."
         )
     elif source == existing_project_lookup.MATCH_SOURCE_GITHUB_REPO:
         repo_label = repo if repo and repo != "None" else "the GitHub repo"
         grouped["core"].append(
-            "Yoke core database matched existing project by GitHub repo: "
+            f"{database_label} matched existing project by GitHub repo: "
             f"{repo_label}{suffix}."
         )
         grouped["machine"].append(
@@ -163,29 +182,37 @@ def _append_existing_project_identity(
         )
     else:
         grouped["core"].append(
-            f"Existing Yoke project detected in the Yoke core database: "
+            f"Existing Yoke project detected in the {database_label}: "
             f"{project_name}{suffix}."
         )
-    _append_existing_project_metadata_lines(grouped["core"], project)
+    _append_existing_project_metadata_lines(
+        grouped["core"],
+        project,
+        database_label=database_label,
+    )
 
 
 def _append_existing_project_metadata_lines(
     lines: list[str],
     project: Mapping[str, Any],
+    *,
+    database_label: str,
 ) -> None:
     repo = str(project.get("github_repo") or "").strip()
     if repo and repo != "None":
-        lines.append(f"Existing project GitHub repo in the Yoke core database: {repo}.")
+        lines.append(f"Existing project GitHub repo in the {database_label}: {repo}.")
     prefix = str(project.get("public_item_prefix") or "").strip()
     if prefix and prefix != "None":
         lines.append(
-            f"Existing project issue prefix in the Yoke core database: {prefix}."
+            f"Existing project issue prefix in the {database_label}: {prefix}."
         )
 
 
 def _append_default_branch_lines(
     grouped: dict[str, list[str]],
     project: Mapping[str, Any],
+    *,
+    database_label: str = "Yoke core database",
 ) -> None:
     branch = str(project.get("default_branch") or "").strip()
     if not branch or branch == "None":
@@ -193,7 +220,7 @@ def _append_default_branch_lines(
     source = str(project.get("default_branch_source") or "").strip()
     if source == onboard_project.DEFAULT_BRANCH_SOURCE_EXISTING_PROJECT:
         grouped["core"].append(
-            f"Existing project default branch in the Yoke core database: {branch}."
+            f"Existing project default branch in the {database_label}: {branch}."
         )
         return
     if source == onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO:

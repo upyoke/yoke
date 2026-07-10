@@ -5,6 +5,9 @@ from __future__ import annotations
 from io import StringIO
 from types import SimpleNamespace
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import RestResponse, RestUnprocessableError
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
@@ -83,6 +86,10 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
         token="tok",
     )
 
+    def fake_resolve_auth(project, *, required_permissions):
+        calls["auth"] = (project, required_permissions)
+        return auth
+
     monkeypatch.setattr(comments, "_bgs", lambda: FakeBacklogGithubSync())
     monkeypatch.setattr(comments, "_open_conn", lambda conn: (conn, False))
     monkeypatch.setattr(comments, "_resolve_item_id", lambda item_id, conn: 1902)
@@ -93,7 +100,7 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
         lambda item_id, conn: ("#4619", "yoke", "upyoke/yoke"),
     )
     monkeypatch.setattr(comments, "_label_colors", lambda: {"status": "C5DEF5"})
-    monkeypatch.setattr(comments, "resolve_project_github_auth", lambda project: auth)
+    monkeypatch.setattr(comments, "resolve_project_github_auth", fake_resolve_auth)
     monkeypatch.setattr(comments.github_rest, "post_comment", fake_post_comment)
     monkeypatch.setattr(comments, "_ensure_label", fake_ensure_label)
     monkeypatch.setattr(comments._label_rest, "add_labels", fake_add_labels)
@@ -114,6 +121,7 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
     expected_budget = {"timeout_seconds": 5.0, "max_attempts": 1}
     validate_kwargs = calls["validate"][3]  # type: ignore[index]
     assert validate_kwargs == expected_budget | {"project": "yoke", "stderr": validate_kwargs["stderr"]}
+    assert calls["auth"] == ("yoke", GITHUB_ISSUES_WRITE_PERMISSION_LEVELS)
     assert calls["comment"]["timeout_seconds"] == 5.0  # type: ignore[index]
     assert calls["comment"]["max_attempts"] == 1  # type: ignore[index]
     assert calls["ensure"][4] == expected_budget  # type: ignore[index]
@@ -128,6 +136,7 @@ def test_rest_comment_and_label_helpers_forward_budget(monkeypatch):
     from yoke_core.domain import github_rest_comments as comments
 
     calls: list[tuple[str, str, dict[str, object]]] = []
+    target_calls: list[tuple[str, object, object]] = []
 
     def fake_request(req, *, token, **kwargs):
         calls.append((req.method, req.path, kwargs))
@@ -140,11 +149,11 @@ def test_rest_comment_and_label_helpers_forward_budget(monkeypatch):
             body={"id": 1, "body": "ok", "html_url": "", "user": {"login": "bot"}},
         )
 
-    monkeypatch.setattr(
-        comments,
-        "_target_for",
-        lambda project, db_path=None: SimpleNamespace(owner="o", repo="r", token="t"),
-    )
+    def fake_target_for(project, *, required_permissions, db_path=None):
+        target_calls.append((project, db_path, required_permissions))
+        return SimpleNamespace(owner="o", repo="r", token="t")
+
+    monkeypatch.setattr(comments, "_target_for", fake_target_for)
     monkeypatch.setattr(comments, "request_with_retry", fake_request)
     comments.post_comment(
         project="yoke",
@@ -181,5 +190,8 @@ def test_rest_comment_and_label_helpers_forward_budget(monkeypatch):
     )
 
     assert calls
+    assert target_calls == [
+        ("yoke", None, GITHUB_ISSUES_WRITE_PERMISSION_LEVELS),
+    ]
     assert all(kwargs == {"timeout_seconds": 5.0, "max_attempts": 1}
                for _, _, kwargs in calls)

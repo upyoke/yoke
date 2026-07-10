@@ -115,6 +115,11 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ): ("local_engine_activation",
         "local demo seeding uses the engine DSN env contract"),
     (
+        "packages/yoke-cli/src/yoke_cli/config/existing_project_lookup.py",
+        "yoke_core.domain.db_backend",
+    ): ("local_engine_activation",
+        "local project-reuse lookup reads the engine DSN env contract to verify local project metadata"),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/local_universe.py",
         "yoke_core.domain.local_demo_seed",
     ): ("local_engine_activation",

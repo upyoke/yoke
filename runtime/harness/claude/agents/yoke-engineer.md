@@ -301,12 +301,10 @@ yoke events query --item YOK-N --limit 20`
 yoke items structured-field replace YOK-N --field test_results --stdin < PATH`
   - Dispatches items.structured_field.replace, runs render-body and GitHub sync. Use a prewritten PATH for multiline content; avoid shell read/merge/write choreography.
 - _Apply additive structured-field transform_
-  - `# Progress Log append (canonical agent shape):
-yoke items progress-log append YOK-N --headline "verified tests" --content-file PATH
-# Other additive transforms:
+  - `# Other additive transforms:
 yoke items structured-field append-addendum YOK-N --field spec --heading "Implementation Notes" --content-file PATH --json
 yoke items structured-field section-upsert YOK-N --section "Acceptance Criteria" --content-file PATH --json`
-  - Progress Log append routes through ``items.progress_log.append`` and is the agent-facing shape through the registered progress-log append surface. Other additive variants route through registered ``yoke items structured-field ...`` adapters.
+  - Progress Log append has its own claimed, atomic recipe in this packet. These additive variants route through registered ``yoke items structured-field ...`` adapters.
 - _List item dependencies (both directions)_
   - `yoke shepherd dependency-list YOK-N`
   - Canonical agent shape (function id ``shepherd.dependency_list.run``); works over https. Typed rows around item_dependencies — use over raw SQL; guessed columns are not the canonical schema. Operator-debug fallback: `python3 -m yoke_core.cli.db_router shepherd dependency-list YOK-N`.

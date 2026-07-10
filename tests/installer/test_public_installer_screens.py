@@ -13,7 +13,12 @@ import json
 import subprocess
 from pathlib import Path
 
-from public_installer_helpers import RecordingRunner, load_installer, write_channel
+from public_installer_helpers import (
+    RecordingRunner,
+    branded_installer_glyphs as branded_installer_glyphs,
+    load_installer,
+    write_channel,
+)
 
 
 def _options(installer_mod, **overrides):

@@ -17,7 +17,6 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
-    RestTransportError,
     request_with_retry,
 )
 

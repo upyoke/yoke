@@ -1,8 +1,8 @@
 """Orchestrator for epic-task GitHub sync.
 
-Drives parent/child issue creation, linkage, task writeback, and dispatch-chain
-generation. Helpers resolve through ``epic_task_sync_github`` so test patches
-reach them; the fallback parent-body edit uses the shared budget guard.
+Drives GitHub issue creation for epics and epic tasks, linkage, task writeback,
+and dispatch-chain generation. Helpers resolve through ``epic_task_sync_github``
+so test patches reach them; the fallback parent-body edit uses the shared budget guard.
 """
 
 from __future__ import annotations

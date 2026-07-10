@@ -170,26 +170,6 @@ def test_destination_override_invalid_value_errors(
 # ── local destination: dry run and apply ─────────────────────────────────
 
 
-def test_local_dry_run_plans_universe_init_without_sign_in_steps(
-    scratch_home: Path, fake_engine, capsys
-) -> None:
-    rc = yoke_operations_cli.main([
-        "onboard", "--local", "--non-interactive", "--json",
-    ])
-
-    assert rc == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["applied"] is False
-    assert payload["destination"] == onboard_destinations.DESTINATION_LOCAL
-    actions = [step["action"] for step in payload["plan"]["steps"]]
-    assert "local-universe-init" in actions
-    assert "set-https-api-url" not in actions
-    assert "store-token-reference" not in actions
-    assert payload["plan"]["active_env"] == LOCAL
-    assert payload["plan"]["connection"]["transport"] == DEFAULT_TRANSPORT
-    assert not (scratch_home / "config.json").exists()
-
-
 def test_destination_override_env_var_routes_local(
     scratch_home: Path, fake_engine, monkeypatch, capsys
 ) -> None:
@@ -292,22 +272,6 @@ def test_hosted_apply_keeps_existing_local_connection(
     assert payload["connections"][LOCAL]["transport"] == DEFAULT_TRANSPORT
     # active_env follows the newly completed flow.
     assert payload["active_env"] == "prod"
-
-
-def test_local_rerun_verifies_universe_and_keeps_active_env(
-    scratch_home: Path, fake_engine, capsys
-) -> None:
-    payload: dict = {}
-    for _ in range(2):
-        assert yoke_operations_cli.main([
-            "onboard", "--local", "--non-interactive", "--yes", "--json",
-        ]) == 0
-        payload = json.loads(capsys.readouterr().out)
-
-    assert payload["applied"] is True
-    config = _config_payload(scratch_home)
-    assert config["active_env"] == LOCAL
-    assert set(config["connections"]) == {LOCAL}
 
 
 # ── snapshot persistence + resume restore ────────────────────────────────

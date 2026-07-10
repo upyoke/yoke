@@ -7,6 +7,9 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.ephemeral_substrate import slugify_branch
 from yoke_core.tools import executors
 
@@ -120,7 +123,11 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
             )
 
         self.assertEqual(result, run)
-        resolve.assert_called_once_with("buzz", "org/repo")
+        resolve.assert_called_once_with(
+            "buzz",
+            "org/repo",
+            required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        )
         latest.assert_called_once_with(
             "org/repo", "deploy.yml", branch="feature", token="ghs_test",
         )

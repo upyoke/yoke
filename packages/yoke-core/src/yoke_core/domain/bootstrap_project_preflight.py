@@ -15,7 +15,6 @@ from yoke_core.domain import bootstrap_project_helpers as helpers
 from yoke_core.domain.bootstrap_project_helpers import (
     BootstrapContext,
     SshKeyResolutionError,
-    _capability_secret,
     _capability_settings,
     _connect,
     _print_fail,
@@ -55,7 +54,6 @@ def run_preflight(ctx: BootstrapContext) -> int:
     fail_count = 0
 
     github_repo = ""
-    display_name = project
     ssh_settings: dict = {}
     ssh_host = ""
     ssh_user = ""
@@ -101,9 +99,6 @@ def run_preflight(ctx: BootstrapContext) -> int:
         github_repo = _query_scalar(
             conn, f"SELECT github_repo FROM projects WHERE id={p}", (project_id,)
         ) or ""
-        display_name = _query_scalar(
-            conn, f"SELECT name FROM projects WHERE id={p}", (project_id,)
-        ) or project
         if github_repo:
             _print_pass(
                 f"projects table has {project} record (github_repo: {github_repo})"

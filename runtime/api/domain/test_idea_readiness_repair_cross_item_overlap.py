@@ -15,6 +15,9 @@ AC traceability:
   test files.
 """
 
+# The imported ``conn`` fixture is intentionally re-bound by helper/test parameters.
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import re
@@ -27,9 +30,9 @@ from yoke_core.domain.idea_readiness_repair_cross_item_overlap import (
     probe_cross_item_overlap,
 )
 import yoke_core.domain.idea_readiness_repair_cross_item_overlap as overlap_mod
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
-    conn,
+    conn as conn,
     local_human,
     seed_target,
 )

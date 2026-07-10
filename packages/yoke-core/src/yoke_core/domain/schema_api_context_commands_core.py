@@ -122,9 +122,6 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Apply additive structured-field transform",
         "recipe": (
-            "# Progress Log append (canonical agent shape):\n"
-            "yoke items progress-log append YOK-N "
-            "--headline \"verified tests\" --content-file PATH\n"
             "# Other additive transforms:\n"
             "yoke items structured-field append-addendum YOK-N "
             "--field spec --heading \"Implementation Notes\" "
@@ -134,9 +131,8 @@ CORE_COMMANDS: list[dict] = [
             "--content-file PATH --json"
         ),
         "notes": (
-            "Progress Log append routes through ``items.progress_log."
-            "append`` and is the agent-facing shape through the registered progress-log append surface. "
-            "Other additive variants route through registered "
+            "Progress Log append has its own claimed, atomic recipe in this "
+            "packet. These additive variants route through registered "
             "``yoke items structured-field ...`` adapters."
         ),
     },

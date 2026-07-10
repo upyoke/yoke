@@ -169,7 +169,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Project-scoped scratch path resolver for shepherd skill dispatch.
     _w("yoke scratch dispatch-inputs", "scratch"),
     # machine-config status: machine config example + local status diagnostics.
-    _w("yoke config example", "config"),
+    _w("yoke config example", "config"), _w("yoke config stamp-project-env", "config"),
     _w("yoke status", "status"),
     _w("yoke onboard checklist", "onboard"),
     _w("yoke onboard checklist init", "onboard"),

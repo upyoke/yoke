@@ -2,24 +2,20 @@
 
 from __future__ import annotations
 
-import json
-import urllib.error
-import urllib.request
-import uuid
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_contracts import github_origin
-from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
+from yoke_cli.config.existing_project_http import (
+    ExistingProjectLookupError,
+    call_function as _call_function,
+)
+from yoke_cli.config.local_universe_setup import LOCAL_ENV
 
-_TIMEOUT_S = 20.0
 MATCH_SOURCE_LOCAL_CHECKOUT = "local-checkout"
 MATCH_SOURCE_GITHUB_REPO = "github-repo"
-
-
-class ExistingProjectLookupError(RuntimeError):
-    """The API lookup for an existing project could not complete."""
 
 
 class ExistingProjectAccessError(ExistingProjectLookupError):
@@ -128,6 +124,45 @@ def find_by_project_id(
     return _project_from_row(row)
 
 
+def find_local_by_project_id(
+    *,
+    config_path: str | Path | None,
+    project_id: int,
+) -> ExistingProject:
+    """Return a project from this machine's local Yoke universe."""
+    numeric = _positive_project_id(project_id)
+    if numeric is None:
+        raise ExistingProjectReferenceError("local project_id must be positive")
+    response = _call_local_function(
+        config_path=config_path,
+        function="projects.get",
+        payload={"project": str(numeric)},
+    )
+    if not response.get("success"):
+        error = response.get("error")
+        code = ""
+        message = ""
+        if isinstance(error, Mapping):
+            code = str(error.get("code") or "")
+            message = str(error.get("message") or "")
+        if code == "permission_denied":
+            raise ExistingProjectAccessError(
+                message or f"this local Yoke universe cannot access project {numeric}"
+            )
+        if code == "not_found":
+            raise ExistingProjectReferenceError(
+                message or f"project {numeric} was not found"
+            )
+        raise ExistingProjectLookupError(
+            message or f"projects.get could not read project {numeric}"
+        )
+    result = response.get("result")
+    row = result.get("row") if isinstance(result, Mapping) else None
+    if not isinstance(row, Mapping):
+        raise ExistingProjectLookupError("projects.get returned an invalid row")
+    return _project_from_row(row)
+
+
 def find_by_github_repo(
     *,
     api_url: str,
@@ -178,6 +213,73 @@ def normalize_github_repo(value: Any) -> str:
     return normalized.casefold()
 
 
+def _call_local_function(
+    *,
+    config_path: str | Path | None,
+    function: str,
+    payload: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    from yoke_cli.config import machine_config
+    from yoke_cli.project_install.files import ProjectInstallError
+    from yoke_cli.project_install.transport import _local_postgres_env
+    from yoke_cli.transport.dispatcher import call_dispatcher
+    from yoke_contracts.api.function_call import ActorContext, TargetRef
+    from yoke_contracts.machine_config.schema import (
+        MachineConfigContractError,
+        POSTGRES_TRANSPORTS,
+        connection_is_prod,
+    )
+
+    try:
+        connection = machine_config.active_connection(
+            config_path,
+            explicit_env=LOCAL_ENV,
+        )
+    except (machine_config.MachineConfigError, MachineConfigContractError) as exc:
+        raise ExistingProjectLookupError(
+            "this machine does not have a usable local universe connection yet; "
+            "finish local machine setup first, then retry project setup"
+        ) from exc
+    transport = str(connection.get("transport") or "")
+    if transport not in POSTGRES_TRANSPORTS:
+        raise ExistingProjectLookupError(
+            f"env {LOCAL_ENV!r} is {transport or 'unconfigured'}, not local-postgres"
+        )
+    if connection_is_prod(connection):
+        raise ExistingProjectLookupError(
+            f"env {LOCAL_ENV!r} is marked prod; local onboarding will not read "
+            "projects through a prod local-postgres authority"
+        )
+    try:
+        # Dynamic import keeps yoke-cli's static engine-import boundary intact
+        # (see test_installer_package_boundaries); local project-reuse lookup
+        # reads the engine DSN env contract only on the local-postgres branch.
+        db_backend = importlib.import_module("yoke_core.domain.db_backend")
+    except ModuleNotFoundError as exc:
+        raise ExistingProjectLookupError(
+            "the yoke-core engine package is not importable, so local project "
+            "metadata cannot be verified; reinstall Yoke or choose a hosted/server "
+            "destination"
+        ) from exc
+    try:
+        with _local_postgres_env(
+            connection,
+            config_path,
+            dsn_env=db_backend.PG_DSN_ENV,
+            dsn_file_env=db_backend.PG_DSN_FILE_ENV,
+        ):
+            response = call_dispatcher(
+                function_id=function,
+                target=TargetRef(kind="global"),
+                payload=dict(payload),
+                actor=ActorContext(actor_id=None, session_id=""),
+                local_only=True,
+            )
+    except ProjectInstallError as exc:
+        raise ExistingProjectLookupError(str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
 def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:
     try:
         project_id = int(row.get("id") or 0)
@@ -188,8 +290,8 @@ def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:
     slug = _text(row.get("slug"))
     name = _text(row.get("name")) or slug
     github_repo = _text(row.get("github_repo"))
-    if not slug or not github_repo:
-        raise ExistingProjectLookupError("matched project row is missing slug or repo")
+    if not slug:
+        raise ExistingProjectLookupError("matched project row is missing slug")
     return ExistingProject(
         id=project_id,
         slug=slug,
@@ -208,61 +310,6 @@ def _positive_project_id(value: Any) -> int | None:
     return project_id if project_id > 0 else None
 
 
-def _call_function(
-    *,
-    api_url: str,
-    token: str,
-    function: str,
-    payload: Mapping[str, Any],
-) -> Mapping[str, Any]:
-    body = json.dumps({
-        "function": function,
-        "version": "v1",
-        "actor": {"actor_id": None, "session_id": ""},
-        "target": {"kind": "global"},
-        "request_id": str(uuid.uuid4()),
-        "payload": dict(payload),
-        "preconditions": {},
-        "options": {},
-    }).encode("utf-8")
-    request = urllib.request.Request(
-        join_api_url(api_url, FUNCTIONS_CALL_PATH),
-        data=body,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        },
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        try:
-            raw = exc.read().decode("utf-8")
-        except Exception:
-            raw = ""
-        if raw:
-            try:
-                payload = json.loads(raw)
-            except ValueError:
-                payload = {}
-            if isinstance(payload, Mapping):
-                return payload
-        raise ExistingProjectLookupError(
-            f"{function} lookup returned HTTP {exc.code}"
-        ) from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise ExistingProjectLookupError(str(exc)) from exc
-    try:
-        parsed = json.loads(raw) if raw else {}
-    except ValueError as exc:
-        raise ExistingProjectLookupError(f"{function} returned invalid JSON") from exc
-    if not isinstance(parsed, Mapping):
-        raise ExistingProjectLookupError(f"{function} returned a non-object response")
-    return parsed
-
-
 def _text(value: Any) -> str:
     return str(value or "").strip()
 
@@ -275,6 +322,7 @@ __all__ = [
     "MATCH_SOURCE_GITHUB_REPO",
     "MATCH_SOURCE_LOCAL_CHECKOUT",
     "LocalProjectReference",
+    "find_local_by_project_id",
     "find_by_project_id",
     "find_by_github_repo",
     "find_local_project_reference",

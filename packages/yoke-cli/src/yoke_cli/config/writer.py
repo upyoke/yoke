@@ -11,44 +11,21 @@ These commands write machine-local state only, never repos or the Yoke DB.
 
 from __future__ import annotations
 
-from functools import wraps
-import json
 from pathlib import Path
-from typing import Any, Callable, Mapping, Optional, TypeVar
+from typing import Any, Mapping, Optional
 
-from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
+from yoke_cli.config.machine_config_mutation import (
+    MachineConfigWriteError as MachineConfigWriteError,
+    load_payload as _load_payload,
+    serialized_mutation as _serialized_mutation,
+    write_payload as _write_payload,
+)
 from yoke_cli.config.writer_credentials import (
     CredentialWriteError,
     credential_from_inputs,
 )
 from yoke_contracts.machine_config import schema as contract
-
-
-class MachineConfigWriteError(RuntimeError):
-    """The requested machine-config mutation cannot be applied."""
-
-
-_Result = TypeVar("_Result")
-
-
-def _serialized_mutation(
-    operation: Callable[..., _Result],
-) -> Callable[..., _Result]:
-    """Serialize one complete config read-modify-replace transaction."""
-    @wraps(operation)
-    def locked(*args: Any, **kwargs: Any) -> _Result:
-        cfg_path = machine_config.config_path(kwargs.get("path"))
-        try:
-            with machine_config_file.exclusive_lock(cfg_path):
-                return operation(*args, **kwargs)
-        except (
-            machine_config.MachineConfigError,
-            machine_config_file.MachineConfigFileError,
-        ) as exc:
-            raise MachineConfigWriteError(str(exc)) from exc
-
-    return locked
 
 
 @_serialized_mutation
@@ -210,23 +187,82 @@ def register_project(
     if normalized is None:
         raise MachineConfigWriteError("--project-id must be a positive integer")
     payload, cfg_path = _load_payload(path)
-    projects = payload.setdefault("projects", {})
-    if not isinstance(projects, dict):
-        projects = {}
-    entry: dict[str, Any] = {"project_id": normalized}
+    env = _registration_env(payload)
+    # Project ids are per universe, so the mapping records the id per env: the
+    # (checkout, env) row is upserted, leaving the checkout's rows for other
+    # envs intact.
     board = {k: v for k, v in (
         ("scope", board_scope), ("render_path", board_render_path),
     ) if v}
-    if board:
-        entry["board"] = board
-    try:
-        payload["projects"] = contract.canonical_project_map(
-            projects, checkout=str(root), entry=entry,
-        )
-    except ValueError as exc:
-        raise MachineConfigWriteError(str(exc)) from exc
+    payload["projects"] = contract.upsert_project_entry(
+        payload.get("projects"), checkout=str(root),
+        project_id=normalized, env=env, board=board or None,
+    )
     _write_payload(payload, cfg_path)
-    return {"checkout": str(root), "entry": entry, "config": str(cfg_path)}
+    written = next(
+        (e for e in payload["projects"]
+         if e.get("checkout") == str(root) and e.get("env") == env),
+        {},
+    )
+    return {"checkout": str(root), "entry": written, "config": str(cfg_path)}
+
+
+@_serialized_mutation
+def stamp_untagged_project_envs(
+    env: str | None = None,
+    *,
+    path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Stamp ``env`` onto every untagged ``projects`` entry; log each stamp.
+
+    The creating env cannot be recovered from an untagged legacy entry, so
+    the operator chooses one via ``--env`` (default: the machine's current
+    ``active_env``). Already-tagged entries are left untouched. Normalizes a
+    legacy checkout-keyed object into the canonical flat list. The full
+    stamped payload is validated before it is written, so a bogus env is
+    refused rather than landing an invalid config.
+    """
+    payload, cfg_path = _load_payload(path)
+    env = env if _nonempty(env) else _registration_env(payload)
+    connections = payload.get("connections")
+    labels = set(connections) if isinstance(connections, dict) else set()
+    if env not in labels:
+        raise MachineConfigWriteError(
+            f"env {env!r} has no entry in connections (configured: "
+            f"{sorted(labels)}); pass a configured env via --env or add one "
+            "first with `yoke connection set ENV --transport ...`"
+        )
+    entries = contract.normalize_projects(payload.get("projects"))
+    stamped: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    for entry in entries:
+        if _nonempty(entry.get("env")):
+            skipped.append({"checkout": entry["checkout"], "env": entry["env"]})
+            continue
+        entry["env"] = env
+        stamped.append({
+            "checkout": entry["checkout"], "env": env,
+            "project_id": entry["project_id"],
+        })
+    payload["projects"] = entries
+    _write_payload(payload, cfg_path)
+    return {"env": env, "stamped": stamped, "skipped": skipped,
+            "config": str(cfg_path)}
+
+
+def _registration_env(payload: Mapping[str, Any]) -> str:
+    """Resolve the connection env a project mapping is being written under."""
+    try:
+        return contract.selected_env(payload)
+    except contract.MachineConfigContractError as exc:
+        raise MachineConfigWriteError(
+            "cannot record a project mapping without a resolvable connection "
+            "env; add one first with `yoke connection set ENV --transport ...`"
+        ) from exc
+
+
+def _nonempty(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
 
 
 @_serialized_mutation
@@ -289,31 +325,6 @@ def clear_github(*, path: str | Path | None = None) -> dict[str, Any]:
     }
 
 
-def _load_payload(path: str | Path | None) -> tuple[dict[str, Any], Path]:
-    cfg_path = machine_config.config_path(path)
-    payload = machine_config.load_config(path)
-    if not payload:
-        payload = {"schema_version": contract.SCHEMA_VERSION}
-    return payload, cfg_path
-
-
-def _write_payload(payload: dict[str, Any], cfg_path: Path) -> None:
-    errors = [issue for issue in contract.validate_payload(payload)
-              if issue.severity == "error"]
-    if errors:
-        detail = "\n".join(
-            f"  - {issue.code}: {issue.message}"
-            + (f" ({issue.path})" if issue.path else "")
-            for issue in errors
-        )
-        raise MachineConfigWriteError(
-            f"refusing to write invalid machine config:\n{detail}"
-        )
-    machine_config_file.atomic_write_text(
-        cfg_path, json.dumps(payload, indent=2) + "\n",
-    )
-
-
 def _github_credential_ref(value: Any) -> str:
     if not isinstance(value, Mapping):
         return ""
@@ -323,6 +334,7 @@ def _github_credential_ref(value: Any) -> str:
     return str(authorization.get("refresh_credential_ref") or "").strip()
 
 
-__all__ = ["MachineConfigWriteError", "clear_github", "register_project", "set_github",
+__all__ = ["MachineConfigWriteError", "clear_github", "register_project",
+           "stamp_untagged_project_envs", "set_github",
            "set_runtime_paths", "set_active_env", "set_connection",
            "set_credential"]

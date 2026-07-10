@@ -68,7 +68,10 @@ def test_writer_waits_for_stable_lock_then_merges_latest_payload(
     payload = json.loads(config.read_text(encoding="utf-8"))
     assert payload["temp_root"] == seed["temp_root"]
     assert payload["cache_dir"] == seed["cache_dir"]
-    assert payload["projects"][str(repo.resolve())]["project_id"] == 7
+    entry = contract.project_entry_for_checkout(
+        payload, repo.resolve(), env=payload["active_env"],
+    )
+    assert entry["project_id"] == 7
     lock_path = config.with_name(config.name + ".lock")
     assert lock_path.is_file()
     assert stat.S_IMODE(lock_path.stat().st_mode) == 0o600
@@ -78,7 +81,7 @@ def test_every_public_writer_mutation_is_serialized() -> None:
     for name in (
         "clear_github", "register_project", "set_active_env",
         "set_connection", "set_credential", "set_github",
-        "set_runtime_paths",
+        "set_runtime_paths", "stamp_untagged_project_envs",
     ):
         assert hasattr(getattr(writer, name), "__wrapped__"), name
 

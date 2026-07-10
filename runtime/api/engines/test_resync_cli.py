@@ -4,26 +4,23 @@ Pytest fixtures (test_db, populated_db) are shared via
 _resync_test_helpers (private module).
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
-import json
 import os
-import sys
 from io import StringIO
 from unittest import mock
-
-import pytest
 
 from yoke_core.engines.resync import (
     DriftRecord,
     _emit_doctor_format,
     main,
-    stage2_compare,
 )
 
 from yoke_core.engines._resync_test_helpers import (
-    populated_db,
-    test_db,
+    populated_db as populated_db,
+    test_db as test_db,
 )
 
 

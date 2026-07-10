@@ -6,10 +6,12 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_cli.config import machine_config
+from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_clone_resume
 from yoke_cli.project_install import files as project_install_files
+from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
 
 def detect(
@@ -32,10 +34,16 @@ def detect(
     project_id = _positive_int(project_inputs.get("existing_project_id"))
     mode = str(project_inputs.get("mode") or "")
     remote_url = str(project_inputs.get("remote_url") or "")
+    local_state = (
+        local_universe_setup.inspect_local_state(str(cfg_path))
+        if env_name == local_universe_setup.LOCAL_ENV and not api_url
+        else {}
+    )
     return {
         "yoke_home": cfg_path.parent.is_dir(),
         "active_env": str(payload.get("active_env") or "") == env_name,
         "connection": _connection_matches(connection, api_url),
+        "local_universe": str(local_state.get("state") or ""),
         "token_reference": (
             _credential_source_matches(connection, credential_source)
             and planned_token_path
@@ -80,6 +88,8 @@ def _connection_entry(payload: Mapping[str, Any], env_name: str) -> Mapping[str,
 
 
 def _connection_matches(connection: Mapping[str, Any], api_url: str) -> bool:
+    if not api_url:
+        return str(connection.get("transport") or "") in POSTGRES_TRANSPORTS
     return (
         str(connection.get("transport") or "") == "https"
         and _clean_url(connection.get("api_url")) == _clean_url(api_url)

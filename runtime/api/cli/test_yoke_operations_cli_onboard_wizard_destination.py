@@ -22,6 +22,7 @@ pytest.importorskip("textual")
 from yoke_cli import main as yoke_operations_cli  # noqa: E402
 from yoke_cli.commands.adapters import onboard_apply  # noqa: E402
 from yoke_cli.config import local_universe_setup  # noqa: E402
+from yoke_cli.config import writer  # noqa: E402
 from yoke_cli.config.onboard_destinations import (  # noqa: E402
     DESTINATION_HOSTED,
     DESTINATION_LOCAL,
@@ -108,6 +109,8 @@ def test_local_pick_swaps_sign_in_for_universe_summary() -> None:
             await pilot.press("enter")
             text = _body_text(app)
             assert "Your Yoke lives on this machine." in text
+            assert "Apply creates a private local universe under ~/.yoke" in text
+            assert "Future reinstalls preserve this database by default" in text
             assert app.result.destination == DESTINATION_LOCAL
             assert app.result.env_name == local_universe_setup.LOCAL_ENV
             assert app.result.api_url == ""
@@ -119,6 +122,31 @@ def test_local_pick_swaps_sign_in_for_universe_summary() -> None:
             await pilot.press("enter")  # summary: Continue -> GitHub step
             await pilot.pause()
             assert stepper.active == STEP_GITHUB
+
+    asyncio.run(scenario())
+
+
+def test_local_pick_names_existing_universe_on_rerun(tmp_path: Path) -> None:
+    config = tmp_path / "config.json"
+    writer.set_connection(
+        local_universe_setup.LOCAL_ENV,
+        transport="local-postgres",
+        dsn=FAKE_DSN,
+        path=config,
+    )
+    writer.set_active_env(local_universe_setup.LOCAL_ENV, path=config)
+    app, _spy = make_app(_picker_defaults(config_path=str(config)))
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            await pilot.press("down")   # picker: wrap hosted -> This machine
+            await pilot.press("enter")
+            text = _body_text(app)
+            assert "Your Yoke lives on this machine." in text
+            assert "Yoke found an existing local universe connection in ~/.yoke." in text
+            assert "Apply verifies the existing database and preserves" in text
+            assert app.query_one(SelectionList).rows[0].label == "Use existing"
 
     asyncio.run(scenario())
 

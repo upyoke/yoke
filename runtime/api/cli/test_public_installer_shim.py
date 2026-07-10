@@ -51,6 +51,10 @@ def test_pipe_invocation_without_yes_fails_without_tty_noise(
         capture_output=True,
         env=env,
         check=False,
+        # A local test runner may itself own a controlling PTY. Detach this
+        # child so the curl-pipe scenario exercises the intended no-TTY path
+        # instead of opening the runner's /dev/tty and waiting for consent.
+        start_new_session=True,
     )
 
     assert result.returncode == 1

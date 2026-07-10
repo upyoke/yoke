@@ -2,11 +2,32 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Mapping
 
 from yoke_contracts.machine_config.schema_transport import POSTGRES_TRANSPORTS
 
+ENV_OVERRIDE = "YOKE_ENV"
 PROD_FLAG_KEY = "prod"
+
+
+class MachineConfigContractError(RuntimeError):
+    """Raised when the selected machine config cannot be used."""
+
+
+def selected_env(payload: Mapping[str, Any], explicit_env: str | None = None) -> str:
+    """Resolve env precedence: explicit, ``YOKE_ENV``, then ``active_env``."""
+    requested = (
+        (explicit_env or "").strip()
+        or os.environ.get(ENV_OVERRIDE, "").strip()
+    )
+    configured = str(payload.get("active_env") or "").strip()
+    selected = requested or configured
+    if not selected:
+        raise MachineConfigContractError(
+            "active env is not configured; run `yoke env use <env>` or pass --env"
+        )
+    return selected
 
 
 def connection_is_prod(connection: Mapping[str, Any]) -> bool:
@@ -37,4 +58,11 @@ def local_postgres_envs(
     )
 
 
-__all__ = ["PROD_FLAG_KEY", "connection_is_prod", "local_postgres_envs"]
+__all__ = [
+    "ENV_OVERRIDE",
+    "MachineConfigContractError",
+    "PROD_FLAG_KEY",
+    "connection_is_prod",
+    "local_postgres_envs",
+    "selected_env",
+]

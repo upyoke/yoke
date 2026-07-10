@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Callable, Protocol
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import github_publish
 from yoke_cli.config import machine_config
+from yoke_cli.config import onboard_existing_project
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_input_validation as input_validation
 from yoke_cli.config import onboard_project
@@ -30,13 +31,13 @@ from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard import (
     github_connected,
 )
+from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.onboard_wizard_project_github import ProjectGithubAccessFlow
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_FINISH,
     STEP_PROJECT,
     SelectionRow,
 )
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
 from yoke_cli.config.project_publish_support import is_existing_project_dir
 from yoke_cli.project_install import source_dev
 
@@ -54,36 +55,6 @@ def _is_yoke_source_checkout(path: Path) -> bool:
         return source_dev.is_yoke_source_checkout(path.expanduser())
     except OSError:
         return False
-
-
-def _existing_project_match_summary(result: Any) -> str:
-    source = getattr(result, "existing_project_match_source", None)
-    if source == existing_project_lookup.MATCH_SOURCE_LOCAL_CHECKOUT:
-        return "Local project metadata matched a Yoke core database project."
-    if source == existing_project_lookup.MATCH_SOURCE_GITHUB_REPO:
-        return "The Yoke core database already has a project for this GitHub repo."
-    return "Yoke found an existing project and will reuse it."
-
-
-def _existing_project_match_lines(result: Any) -> list[str]:
-    source = getattr(result, "existing_project_match_source", None)
-    project_id = getattr(result, "existing_project_id", None)
-    github_repo = str(getattr(result, "project_github_repo", "") or "").strip()
-    local_source = str(getattr(result, "existing_project_local_source", "") or "").strip()
-
-    if source == existing_project_lookup.MATCH_SOURCE_LOCAL_CHECKOUT:
-        local_label = local_source or "local checkout metadata"
-        return [
-            f"Local machine: found project id {project_id} in {local_label}.",
-            f"Yoke core database: verified project id {project_id}.",
-        ]
-    if source == existing_project_lookup.MATCH_SOURCE_GITHUB_REPO:
-        repo_label = f"GitHub repo {github_repo}" if github_repo else "the GitHub repo"
-        return [
-            f"Yoke core database: matched {repo_label}.",
-            "Local machine: no existing Yoke project metadata was used.",
-        ]
-    return ["Yoke core database: existing project verified."]
 
 
 def fetch_repo_owners(api_url: str, token: str) -> list:
@@ -293,8 +264,35 @@ class WizardFlow(ProjectGithubAccessFlow):
                 retry=lambda: self._after_local_checkout_source(value),
             )
             return
-        token = self._yoke_token_for_project_lookup()
         if local_ref is not None:
+            if self.result.destination == DESTINATION_LOCAL:
+                self._run_checking(
+                    step=STEP_PROJECT,
+                    title="Checking local Yoke project.",
+                    message=(
+                        f"Verifying project {local_ref.project_id} from "
+                        f"{local_ref.source} in the local universe."
+                    ),
+                    work=lambda: existing_project_lookup.find_local_by_project_id(
+                        config_path=self.result.config_path,
+                        project_id=local_ref.project_id,
+                    ),
+                    on_success=lambda project: self._after_existing_project_lookup(
+                        project,
+                        match_source=(
+                            existing_project_lookup.MATCH_SOURCE_LOCAL_CHECKOUT
+                        ),
+                        local_source=local_ref.source,
+                    ),
+                    on_error=lambda exc: self._goto_existing_project_lookup_error(
+                        exc,
+                        retry=lambda: self._after_local_checkout_source(value),
+                        local_destination=True,
+                    ),
+                    group="onboard-existing-project",
+                )
+                return
+            token = self._yoke_token_for_project_lookup()
             if not token:
                 self._goto_existing_project_lookup_error(
                     existing_project_lookup.ExistingProjectLookupError(
@@ -335,6 +333,7 @@ class WizardFlow(ProjectGithubAccessFlow):
         self.result.project_github_repo = (
             existing_project_lookup.normalize_github_repo(remote) or None
         )
+        token = self._yoke_token_for_project_lookup()
         if not token:
             self._goto_slug()
             return
@@ -397,21 +396,12 @@ class WizardFlow(ProjectGithubAccessFlow):
         match_source: str | None = None,
         local_source: str | None = None,
     ) -> None:
-        self.result.existing_project_id = project.id
-        self.result.existing_project_match_source = match_source
-        self.result.existing_project_local_source = local_source
-        self.result.project_slug = project.slug
-        self.result.project_name = project.name
-        self.result.project_github_repo = project.github_repo
-        self.result.project_default_branch = project.default_branch
-        self.result.project_public_item_prefix = project.public_item_prefix
-        self.result.project_github_adoption = GITHUB_ADOPTION_BACKLOG_ONLY
-        self.result.project_publish_to_github = False
-        self.result.project_publish_owner = None
-        self.result.project_publish_repo_name = None
-        self.result.board_art_word = None
-        self.result.board_art_seed = None
-        self.result.board_art_variants = []
+        onboard_existing_project.record_match(
+            self.result,
+            project,
+            match_source=match_source,
+            local_source=local_source,
+        )
 
     def _after_existing_project_lookup(
         self: _Shell,
@@ -433,8 +423,9 @@ class WizardFlow(ProjectGithubAccessFlow):
     def _goto_existing_project_ready(self: _Shell) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        details = _existing_project_match_lines(self.result) + [
-            f"Project id: {self.result.existing_project_id}",
+        details = onboard_existing_project.match_lines(self.result) + [
+            f"Project id: {self.result.existing_project_id} "
+            f"(env {self.result.env_name})",
             f"Project: {self.result.project_slug}",
         ]
         if self.result.project_checkout:
@@ -457,7 +448,7 @@ class WizardFlow(ProjectGithubAccessFlow):
             STEP_PROJECT,
             lambda: steps.verification_body(
                 "Existing Yoke project found.",
-                _existing_project_match_summary(self.result),
+                onboard_existing_project.match_summary(self.result),
                 details,
                 steps.VERIFY_OK_ROWS,
                 ok=True,
@@ -476,6 +467,7 @@ class WizardFlow(ProjectGithubAccessFlow):
         exc: BaseException,
         *,
         retry: Callable[[], None],
+        local_destination: bool = False,
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
@@ -483,15 +475,15 @@ class WizardFlow(ProjectGithubAccessFlow):
             SelectionRow("retry", "Try again", "rerun the project check"),
             SelectionRow("back", "Back", "choose a different project option"),
         ]
+        hint = onboard_existing_project.lookup_error_hint(
+            local_destination=local_destination,
+        )
         self._goto(_View(
             STEP_PROJECT,
             lambda: steps.verification_body(
                 "Can't use that Yoke project.",
                 str(exc),
-                [
-                    "Use a Yoke API token that can access this project, or choose "
-                    "a different project option.",
-                ],
+                [hint],
                 rows,
                 ok=False,
             ),

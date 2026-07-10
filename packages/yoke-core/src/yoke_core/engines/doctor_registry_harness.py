@@ -58,6 +58,9 @@ from yoke_core.engines.doctor_hc_executor_canonicalization import (
 from yoke_core.engines.doctor_hc_harness_substrate import (
     hc_harness_substrate_drift,
 )
+from yoke_core.engines.doctor_hc_install_bundle_drift import (
+    hc_install_bundle_drift,
+)
 from yoke_core.engines.doctor_hc_path_claim_bash_guard import (
     hc_path_claim_bash_guard,
 )
@@ -168,6 +171,11 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "path-claim-bash-guard",
         "Path-claim Bash guard wired into rendered hook chains",
         hc_path_claim_bash_guard,
+    ),
+    HealthCheck(
+        "install-bundle-drift",
+        "Packaged install-bundle tree matches its source dirs",
+        hc_install_bundle_drift,
     ),
     HealthCheck(
         "claim-boundary-audit",

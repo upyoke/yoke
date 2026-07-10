@@ -18,8 +18,13 @@ import pytest
 
 import yoke_core.engines.resync as resync_mod
 from yoke_core.engines.resync import PairedItem
+from yoke_core.engines._resync_test_helpers import (
+    populated_db as populated_db,
+    test_db as test_db,
+)
 
-pytest_plugins = ("yoke_core.engines._resync_test_helpers",)
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 class TestHelpers:
@@ -134,7 +139,7 @@ class TestStage1:
     def test_stage1_5_heavy_fetch_uses_resolved_repo_and_token_together(self):
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "stale/yoke",
+                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "yoke", "stale/yoke",
             ),
             PairedItem(
                 "YOK-77", "/tmp/077.md", 7, "backlog", "buzz", "stale/buzz",

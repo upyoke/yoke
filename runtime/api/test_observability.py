@@ -49,6 +49,7 @@ def test_new_request_id_preserves_header_or_generates_uuid() -> None:
 def test_configure_otel_respects_explicit_disable() -> None:
     enabled, reason = observability.configure_otel(
         None,
+        env={"YOKE_OTEL_DISABLED": "1"},
     )
     assert enabled is False
     assert reason == "disabled"

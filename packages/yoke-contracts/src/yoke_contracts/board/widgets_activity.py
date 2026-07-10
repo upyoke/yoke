@@ -9,6 +9,7 @@ used across more than one widget submodule (``_CHART``, ``_FIRE``).
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.config import BoardConfig
@@ -19,9 +20,6 @@ from yoke_contracts.board.project_scope import (
     project_filter as _project_filter,
     project_ref_where,
     visible_project_ids,
-)
-from yoke_contracts.board.project_checkout_mapping import (
-    configured_project_checkouts,
 )
 from yoke_contracts.board.sql import (
     day_from_timestamp_expr,
@@ -92,7 +90,7 @@ def _resolve_repos(
     db: BoardDBLike, scope: str, repo_root: Optional[str] = None
 ) -> List[str]:
     """Resolve local checkout paths for the projects a scope covers."""
-    mapped = configured_project_checkouts(machine_config.load_config())
+    mapped = _mapped_checkouts(machine_config.load_config())
     if scope == "all":
         visibility = project_id_filter()
         rows = db.query_quiet(f"SELECT id FROM projects WHERE 1=1{visibility}")
@@ -108,6 +106,17 @@ def _resolve_repos(
     if rows and rows[0] and int(rows[0][0]) in mapped:
         return [mapped[int(rows[0][0])]]
     return [repo_root] if repo_root else []
+
+
+def _mapped_checkouts(config: dict) -> Dict[int, str]:
+    from yoke_contracts.machine_config.schema import mapped_checkouts
+
+    out: Dict[int, str] = {}
+    for checkout, project_id in mapped_checkouts(config):
+        path = Path(str(checkout)).expanduser()
+        if path.is_dir():
+            out[int(project_id)] = str(path)
+    return out
 
 
 def _project_age_days(db: BoardDBLike, scope: str) -> Tuple[Optional[str], int]:

@@ -9,6 +9,8 @@ Sibling to ``test_merge_worktree_locks.py``; kept separate so the existing
 334-line lock-test file does not grow further.
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import subprocess
@@ -26,7 +28,7 @@ from yoke_core.engines.merge_worktree_runner import (
     _pre_acquire_check_with_retry,
 )
 
-from yoke_core.engines._merge_worktree_test_helpers import mw_db
+from yoke_core.engines._merge_worktree_test_helpers import mw_db as mw_db
 
 
 class TestPreAcquireCheckRetryUnit:

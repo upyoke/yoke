@@ -38,10 +38,9 @@ from yoke_cli.commands.adapters.project_onboard import (
     ONBOARD_PROJECT_USAGE,
 )
 from yoke_cli.commands.adapters.config_write import (
-    AUTH_SET_USAGE,
-    CONNECTION_SET_USAGE,
-    ENV_USE_USAGE,
-    PROJECT_REGISTER_USAGE,
+    AUTH_SET_USAGE, CONNECTION_SET_USAGE,
+    ENV_USE_USAGE, PROJECT_REGISTER_USAGE,
+    STAMP_PROJECT_ENV_USAGE,
 )
 from yoke_cli.commands.adapters.db_claim import DB_CLAIM_AMEND_USAGE
 from yoke_cli.commands.adapters.db import DB_READ_USAGE
@@ -335,6 +334,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "hook.evaluate.run": HOOK_EVALUATE_USAGE,
     "scratch.dispatch_inputs": SCRATCH_DISPATCH_INPUTS_USAGE,
     "config.example.run": CONFIG_EXAMPLE_USAGE,
+    "config.stamp_project_env.run": STAMP_PROJECT_ENV_USAGE,
     "status.run": STATUS_USAGE,
     "dev.setup.run": DEV_SETUP_USAGE, "dev.path_snapshot_prewarm.run": DEV_PATH_SNAPSHOT_PREWARM_USAGE,
     "onboard.run": ONBOARD_USAGE,

@@ -23,6 +23,9 @@ from yoke_core.engines._resync_test_helpers import (
     test_db,  # noqa: F401 — imported pytest fixture
 )
 
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
 
 def _resolved_auth(
     token: str = "test-token",
@@ -41,7 +44,7 @@ class TestHeavyFetchUnavailable:
     ):
         paired = [
             resync_mod.PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "buzz", "",
+                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "buzz", "",
             ),
         ]
         light = {
@@ -49,7 +52,7 @@ class TestHeavyFetchUnavailable:
             "yoke": {
                 100: {
                     "number": 100,
-                    "title": "[YOK-42] Unrelated repository issue",
+                    "title": f"[{TEST_ITEM_REF}] Unrelated repository issue",
                     "labels": [],
                     "state": "CLOSED",
                     "body": "unrelated body",
@@ -66,14 +69,14 @@ class TestHeavyFetchUnavailable:
     ):
         paired = [
             resync_mod.PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "stale/repo",
+                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "yoke", "stale/repo",
             ),
         ]
         light = {
             "yoke": {
                 100: {
                     "number": 100,
-                    "title": "[YOK-42] Incorrect title",
+                    "title": f"[{TEST_ITEM_REF}] Incorrect title",
                     "labels": [],
                     "state": "CLOSED",
                     "body": "incorrect body",
@@ -101,14 +104,14 @@ class TestHeavyFetchUnavailable:
     ):
         paired = [
             resync_mod.PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "buzz", "",
+                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "buzz", "",
             ),
         ]
         light = {
             "buzz": {
                 100: {
                     "number": 100,
-                    "title": "[YOK-42] title",
+                    "title": f"[{TEST_ITEM_REF}] title",
                     "labels": [],
                     "state": "OPEN",
                     "body": "",
@@ -208,7 +211,7 @@ class TestEngineMultiProjectPartialAuthFailure:
             headers={},
             body=[{
                 "number": 100,
-                "title": "[YOK-42] Test item",
+                "title": f"[{TEST_ITEM_REF}] Test item",
                 "labels": [],
                 "state": "OPEN",
                 "body": "",

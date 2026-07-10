@@ -19,9 +19,8 @@ CREATE TABLE IF NOT EXISTS github_app_installations (
     updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS project_github_repo_bindings (
-    project_id INTEGER PRIMARY KEY REFERENCES projects(id),
-    installation_id TEXT NOT NULL
-        REFERENCES github_app_installations(installation_id),
+    project_id INTEGER PRIMARY KEY,
+    installation_id TEXT NOT NULL,
     repository_id TEXT NOT NULL,
     api_url TEXT NOT NULL DEFAULT '{DEFAULT_GITHUB_API_URL}',
     github_repo TEXT NOT NULL,

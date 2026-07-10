@@ -26,6 +26,7 @@ from pathlib import Path
 
 from public_installer_helpers import (
     INSTALL_SHIM_PATH,
+    branded_installer_glyphs as branded_installer_glyphs,
     load_installer,
     write_executable,
 )

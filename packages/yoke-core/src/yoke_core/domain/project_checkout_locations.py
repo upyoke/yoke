@@ -5,7 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.machine_config.schema import normalize_project_id
+from yoke_contracts.machine_config.schema import (
+    mapped_checkouts,
+    normalize_project_id,
+)
 
 from yoke_core.domain import db_backend, machine_config, project_settings
 from yoke_core.domain.project_identity import resolve_project_id
@@ -16,20 +19,19 @@ def checkout_for_project_id(
     *,
     config_path: str | Path | None = None,
 ) -> Optional[Path]:
-    """Return this machine's checkout path for a project id, if configured."""
+    """Return this machine's checkout path for a project id, if configured.
+
+    Env-scoped: matches the checkout whose entry resolves to ``project_id``
+    under the active/requested connection env (ids are per universe).
+    """
 
     if project_id is None:
         return None
     target = int(project_id)
-    projects = machine_config.load_config(config_path).get("projects", {})
-    if not isinstance(projects, dict):
-        return None
-    for checkout, entry in sorted(projects.items()):
-        if not isinstance(entry, dict):
-            continue
-        mapped = normalize_project_id(entry.get("project_id"))
+    cfg = machine_config.load_config(config_path)
+    for checkout, mapped in sorted(mapped_checkouts(cfg)):
         if mapped == target:
-            return Path(str(checkout)).expanduser()
+            return Path(checkout).expanduser()
     return None
 
 

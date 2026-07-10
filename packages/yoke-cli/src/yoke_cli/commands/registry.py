@@ -211,6 +211,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("scratch.dispatch_inputs", _adapters.scratch_dispatch_inputs),
     ("config", "example"):
         ("config.example.run", _adapters.config_example),
+    ("config", "stamp-project-env"):
+        ("config.stamp_project_env.run", _adapters.config_stamp_project_env),
     ("status",):
         ("status.run", _adapters.status),
     ("onboard", "checklist", "init"):

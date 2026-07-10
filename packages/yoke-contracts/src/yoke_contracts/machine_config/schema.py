@@ -6,26 +6,29 @@ names the machine-global default. Per-command routing (``--env`` /
 (decision record: ``docs/archive/decisions/machine-config-env-connections.md``).
 """
 from __future__ import annotations
-import os
 from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_contracts.machine_config.schema_projects import (
     ValidationIssue,
-    canonical_project_entry as canonical_project_entry,
-    canonical_project_map as canonical_project_map,
     checkout_path_candidates as checkout_path_candidates,
+    entry_project_id_for_env as entry_project_id_for_env,
+    entry_resolves_under_env as entry_resolves_under_env,
+    mapped_checkouts as mapped_checkouts,
     normalize_project_id as normalize_project_id,
+    normalize_projects as normalize_projects,
     project_entry_for_checkout as project_entry_for_checkout,
+    upsert_project_entry as upsert_project_entry,
     _error,
     _is_nonempty_str,
     _nonempty_str,
     _strip_worktree_path as _strip_worktree_path,
-    _validate_project_entry,
+)
+from yoke_contracts.machine_config.schema_project_validation import (
+    validate_projects,
 )
 from yoke_contracts.machine_config.credential_sources import (
-    CREDENTIAL_KIND_AWS_SECRETS_MANAGER as CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
-    CREDENTIAL_KIND_DSN_FILE as CREDENTIAL_KIND_DSN_FILE,
+    CREDENTIAL_KIND_AWS_SECRETS_MANAGER as CREDENTIAL_KIND_AWS_SECRETS_MANAGER, CREDENTIAL_KIND_DSN_FILE as CREDENTIAL_KIND_DSN_FILE,
     CREDENTIAL_KIND_ENV as CREDENTIAL_KIND_ENV,
     CREDENTIAL_KIND_TOKEN_FILE as CREDENTIAL_KIND_TOKEN_FILE,
     CREDENTIAL_KINDS as CREDENTIAL_KINDS,
@@ -33,24 +36,24 @@ from yoke_contracts.machine_config.credential_sources import (
     validate_credential_source as _validate_credential_source_impl,
 )
 from yoke_contracts.machine_config.schema_transport import (
-    DEFAULT_TRANSPORT as DEFAULT_TRANSPORT, POSTGRES_TRANSPORTS,
-    PRODUCT_CLIENT_TRANSPORTS as PRODUCT_CLIENT_TRANSPORTS,
+    DEFAULT_TRANSPORT as DEFAULT_TRANSPORT, POSTGRES_TRANSPORTS, PRODUCT_CLIENT_TRANSPORTS as PRODUCT_CLIENT_TRANSPORTS,
     TRANSPORTS, TRANSPORT_HTTPS,
 )
 from yoke_contracts.machine_config.schema_github import (
-    DEFAULT_GITHUB_API_URL as DEFAULT_GITHUB_API_URL,
-    DEFAULT_GITHUB_WEB_URL as DEFAULT_GITHUB_WEB_URL,
-    github_config as github_config, has_github_config,
-    GITHUB_AUTH_KIND_USER_AUTHORIZATION as GITHUB_AUTH_KIND_USER_AUTHORIZATION,
-    GITHUB_AUTH_STATUSES as GITHUB_AUTH_STATUSES,
-    normalize_github_payload, validate_github_config,
+    DEFAULT_GITHUB_API_URL as DEFAULT_GITHUB_API_URL, DEFAULT_GITHUB_WEB_URL as DEFAULT_GITHUB_WEB_URL,
+    GITHUB_AUTH_KIND_USER_AUTHORIZATION as GITHUB_AUTH_KIND_USER_AUTHORIZATION, GITHUB_AUTH_STATUSES as GITHUB_AUTH_STATUSES,
+    github_config as github_config, has_github_config, normalize_github_payload, validate_github_config,
 )
 from yoke_contracts.machine_config.schema_connections import (
-    PROD_FLAG_KEY, connection_is_prod as connection_is_prod, local_postgres_envs,
+    ENV_OVERRIDE as ENV_OVERRIDE,
+    MachineConfigContractError as MachineConfigContractError,
+    PROD_FLAG_KEY,
+    connection_is_prod as connection_is_prod,
+    local_postgres_envs,
+    selected_env as selected_env,
 )
 
 SCHEMA_VERSION = 1
-ENV_OVERRIDE = "YOKE_ENV"
 DEFAULT_CONFIG_NAME = "config.json"
 DEFAULT_BOARD_PATH = ".yoke/BOARD.md"
 DEFAULT_CACHE_DIR_NAME = "cache"
@@ -61,9 +64,6 @@ SECRETS_DIR_NAME = "secrets"
 # SSH local-forward parameters the readiness self-heal needs; a declared
 # ``connections.<env>.postgres.tunnel`` block must carry all of them.
 TUNNEL_REQUIRED_KEYS = ("bastion", "identity_file", "remote_host", "remote_port")
-
-class MachineConfigContractError(RuntimeError):
-    """Raised when the selected machine config cannot be used."""
 
 from yoke_contracts.machine_config.schema_example import (  # noqa: E402
     canonical_example_payload as canonical_example_payload,
@@ -86,7 +86,12 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     projects = raw.get("projects")
     settings = raw.get("settings")
     connections = raw.get("connections")
-    normalized["projects"] = dict(projects) if isinstance(projects, Mapping) else {}
+    if isinstance(projects, list):
+        normalized["projects"] = list(projects)
+    elif isinstance(projects, Mapping):
+        normalized["projects"] = dict(projects)
+    else:
+        normalized["projects"] = []
     normalized["settings"] = dict(settings) if isinstance(settings, Mapping) else {}
     normalize_github_payload(raw, normalized)
     if isinstance(connections, Mapping):
@@ -157,30 +162,17 @@ def validate_payload(
         if value is not None and not _is_nonempty_str(value):
             issues.append(_error(f"{key}_invalid",
                                  f"{key} must be a non-empty string", path=key))
-    projects = raw.get("projects", {})
-    if projects is not None and not isinstance(projects, Mapping):
-        issues.append(_error("projects_invalid",
-                             "projects must map checkout paths to entries",
-                             path="projects"))
-    elif isinstance(projects, Mapping):
-        for checkout, entry in projects.items():
-            issues.extend(_validate_project_entry(checkout, entry))
+    connection_labels = (
+        {str(label) for label in connections}
+        if isinstance(connections, Mapping) else set()
+    )
+    issues.extend(validate_projects(
+        raw.get("projects"), connection_labels=connection_labels))
     settings = raw.get("settings", {})
     if settings is not None and not isinstance(settings, Mapping):
         issues.append(_error(
             "settings_invalid", "settings must be an object", path="settings"))
     return issues
-
-def selected_env(payload: Mapping[str, Any], explicit_env: str | None = None) -> str:
-    """Resolve env precedence: explicit, ``YOKE_ENV``, then ``active_env``."""
-    requested = (explicit_env or "").strip() or os.environ.get(ENV_OVERRIDE, "").strip()
-    configured = str(payload.get("active_env") or "").strip()
-    selected = requested or configured
-    if not selected:
-        raise MachineConfigContractError(
-            "active env is not configured; run `yoke env use <env>` or pass --env"
-        )
-    return selected
 
 def active_connection(
     payload: Mapping[str, Any],

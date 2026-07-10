@@ -226,9 +226,10 @@ def _assert_https_only_machine_config(config_path: Path, *, checkout: Path) -> N
     assert config["connections"]["product"]["transport"] == "https"
     assert "postgres" not in config["connections"]["product"]
     assert "github" not in config
-    assert config["projects"][str(checkout.resolve())] == {
-        "project_id": PROJECT_ID,
-    }
+    assert config["projects"] == [
+        {"checkout": str(checkout.resolve()), "project_id": PROJECT_ID,
+         "env": "product"},
+    ]
 
 
 def _issue_codes(report: Mapping[str, object]) -> set[str]:

@@ -9,24 +9,14 @@ from __future__ import annotations
 
 import textwrap
 
-from unittest.mock import patch
-
 from yoke_core.engines.doctor import (
     hc_deferred_items,
     hc_incomplete_deploy_stage,
     hc_projects_without_flows,
 )
-from runtime.api.conftest import (
-    insert_deployment_run,
-    insert_event,
-    insert_item,
-    insert_qa_requirement,
-    insert_qa_run,
-)
-from yoke_core.domain.db_helpers import iso8601_now
+from runtime.api.conftest import insert_item
 
 from yoke_core.engines._doctor_hc_db_full_test_helpers import (
-    _default_args,
     _result,
     _run_hc,
 )
@@ -262,7 +252,7 @@ class TestHCProjectsWithoutFlows:
     def test_graceful_no_projects_table(self, test_db):
         """Test 5: Graceful when projects table is missing."""
         test_db.execute("DROP TABLE IF EXISTS deployment_flows")
-        test_db.execute("DROP TABLE IF EXISTS projects")
+        test_db.execute("DROP TABLE IF EXISTS projects CASCADE")
         test_db.commit()
         rec = _run_hc(hc_projects_without_flows, test_db)
         assert _result(rec).result == "PASS"

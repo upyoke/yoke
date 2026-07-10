@@ -12,7 +12,6 @@ under the 350-line cap.
 from __future__ import annotations
 
 import io
-import json
 import urllib.error
 
 import pytest

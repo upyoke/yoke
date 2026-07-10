@@ -38,7 +38,7 @@ def rest_env(merge_env: MergeEnv):
     """Wrap ``merge_env`` and clear the shared fake-dir for per-test overrides.
 
     The shared ``merge_env`` fixture already seeds the ``yoke`` project,
-    GitHub App installation and repo binding, binds the YOK-42 items row to
+    GitHub App installation and repo binding, binds the synthetic item row to
     ``project='yoke'``, and pre-populates the
     fake-dir with happy-path REST responses. Failfast tests need
     scenario-specific responses, so this fixture clears the fake-dir to

@@ -198,15 +198,15 @@ class TestLifecycleTransitionPreconditions:
         assert resp.status_code == 422, resp.text
         assert resp.json()["error"]["code"] == "precondition_failed"
 
-    def test_missing_item_returns_target_not_found(
+    def test_missing_item_without_project_fails_closed(
         self, registered_lifecycle, test_db,
     ):
         resp = _post_lifecycle(
             test_db,
             _lifecycle_envelope(99999, "reviewing-implementation"),
         )
-        assert resp.status_code == 404, resp.text
-        assert resp.json()["error"]["code"] == "target_not_found"
+        assert resp.status_code == 403, resp.text
+        assert resp.json()["error"]["code"] == "permission_denied"
 
 
 class TestLifecycleTransitionGateMapping:

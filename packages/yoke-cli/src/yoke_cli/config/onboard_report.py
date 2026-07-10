@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from yoke_cli.config import onboard_project
-from yoke_cli.config import onboard_reuse_feedback
+from yoke_cli.config.onboard_report_render import render_human
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
     CLONE_OUTCOME_MAKE_IT_MINE,
@@ -25,14 +25,6 @@ _PROJECT_ACTION = {
     onboard_project.PROJECT_MODE_LOCAL_CHECKOUT: "project-onboard-local-checkout",
     onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN: "project-source-dev-admin",
 }
-_REUSE_GROUP_LABELS = (
-    ("On this machine (~/.yoke)", "machine"),
-    ("In the Yoke core database", "core"),
-    ("In your project folder", "repo"),
-    ("Advanced / admin", "admin"),
-)
-
-
 def build_plan(
     cfg_path: Path,
     env_name: str,
@@ -58,7 +50,10 @@ def build_plan(
         # The universe birth replaces the sign-in writes: it records the
         # local connection (DSN reference) itself and verifies idempotently
         # on rerun, so it is always planned.
-        steps.append({"action": "local-universe-init", "target": env_name})
+        steps.append({
+            "action": "local-universe-init",
+            "target": str(reuse.get("local_universe") or "create"),
+        })
     if not reuse.get("active_env"):
         steps.append({"action": "set-active-env", "target": env_name})
     if not local_destination and not reuse.get("connection"):
@@ -267,95 +262,6 @@ def next_steps(cfg_path: Path, project_mode: str) -> list[str]:
         "yoke project install <repo> --project-id <id>",
         "yoke onboard project <repo>",
     ]
-
-
-def render_human(report: Dict[str, Any]) -> str:
-    lines = [
-        "Yoke onboard",
-        f"  mode: {report['mode']}",
-        f"  project mode: {report.get('project_mode', PROJECT_MODE_MACHINE_ONLY)}",
-        f"  config: {report['config_path']}",
-        f"  applied: {str(report['applied']).lower()}",
-        "",
-        "Write plan:",
-    ]
-    for step in report["plan"]["steps"]:
-        lines.append(f"  - {step['action']}: {step['target']}")
-    reuse_groups = onboard_reuse_feedback.grouped_lines_for_plan(report)
-    if any(reuse_groups.get(key) for _label, key in _REUSE_GROUP_LABELS):
-        lines.extend(["", "Already detected / reused:"])
-        for label, key in _REUSE_GROUP_LABELS:
-            grouped_lines = reuse_groups.get(key, [])
-            if not grouped_lines:
-                continue
-            lines.append(f"  {label}:")
-            lines.extend(f"    - {line}" for line in grouped_lines)
-    identity = report["identity"]
-    if identity.get("checked"):
-        lines.extend([
-            "",
-            f"Identity check: {identity.get('status')}",
-        ])
-    machine_github = report.get("machine_github")
-    if isinstance(machine_github, dict):
-        lines.extend([
-            "",
-            f"Machine GitHub: {machine_github.get('choice')}",
-        ])
-    project_report = report.get("project_onboarding")
-    if isinstance(project_report, dict):
-        _append_project_handoff(lines, project_report)
-    lines.extend(["", "Next steps:"])
-    lines.extend(f"  - {step}" for step in report["next_steps"])
-    lines.append("")
-    if not report["applied"]:
-        lines.append("Rerun with --yes to apply this plan.")
-        lines.append("")
-    return "\n".join(lines)
-
-
-def _append_project_handoff(lines: list[str], project_report: dict[str, Any]) -> None:
-    lines.extend(["", "Project handoff:"])
-    lines.append(f"  operation: {project_report.get('operation')}")
-    checkout = project_report.get("checkout")
-    if isinstance(checkout, dict):
-        lines.append(f"  checkout: {checkout.get('path')}")
-    lines.append(f"  applied: {str(project_report.get('applied')).lower()}")
-    handoff = project_report.get("handoff")
-    if isinstance(handoff, dict):
-        lines.append(f"  run id: {handoff.get('run_id')}")
-        lines.append(f"  next: {handoff.get('agent_command')}")
-    _append_clone_resume(lines, project_report)
-
-
-def _append_clone_resume(lines: list[str], project_report: dict[str, Any]) -> None:
-    """Append resume-aware lines naming what a re-run reused vs did fresh.
-
-    Rendered only when the clone apply reused a prior partial run's work (the
-    ``clone_resume`` block is absent on a fresh run, so a first run's report is
-    unchanged). Each line names the concrete thing that was picked up rather than
-    re-done — the warm counterpart to the fresh "Clone the project into X" /
-    "Create repo Y and re-home onto it" / "Push <branch>" wording.
-    """
-    resume = project_report.get("clone_resume")
-    if not isinstance(resume, dict) or not any(resume.values()):
-        return
-    project = project_report.get("project")
-    project = project if isinstance(project, dict) else {}
-    checkout = project_report.get("checkout")
-    checkout = checkout if isinstance(checkout, dict) else {}
-    lines.extend(["", "Resumed from a prior run:"])
-    if resume.get("clone_reused"):
-        lines.append(f"  - Reused your existing clone at {checkout.get('path')}")
-    if resume.get("repo_reused"):
-        lines.append(
-            f"  - Repo {project.get('github_repo')} already existed — reused"
-        )
-    if resume.get("origin_rehomed"):
-        lines.append(
-            f"  - Re-pushed {project.get('default_branch')} "
-            "(resuming a prior run)"
-        )
 
 
 def _credential_target(source: dict[str, Any]) -> str:

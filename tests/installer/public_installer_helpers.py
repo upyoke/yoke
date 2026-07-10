@@ -8,11 +8,19 @@ from pathlib import Path
 from types import ModuleType
 from typing import Sequence
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALLER_PATH = REPO_ROOT / "packaging" / "public-installer" / "install.py"
 INSTALL_SHIM_PATH = REPO_ROOT / "packaging" / "public-installer" / "install"
 RunResult = subprocess.CompletedProcess[str]
+
+
+@pytest.fixture(autouse=True)
+def branded_installer_glyphs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep branded install.py output independent of the runner terminal."""
+    monkeypatch.setenv("YOKE_INSTALL_FORCE_PLAIN", "0")
 
 
 def load_installer(name: str = "yoke_public_installer") -> ModuleType:

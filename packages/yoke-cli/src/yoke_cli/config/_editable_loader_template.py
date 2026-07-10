@@ -82,10 +82,17 @@ def _root_from_config(config_path: Path):
     except (OSError, ValueError):
         return None
     projects = data.get("projects") if isinstance(data, dict) else None
-    if not isinstance(projects, dict):
+    # projects is a flat list of {checkout, ...} entries; the legacy
+    # checkout-keyed object is still tolerated. Standalone shim — no yoke
+    # imports available, so both shapes are unpacked inline.
+    if isinstance(projects, list):
+        checkouts = [e.get("checkout") for e in projects if isinstance(e, dict)]
+    elif isinstance(projects, dict):
+        checkouts = list(projects.keys())
+    else:
         return None
     # Sorted for deterministic selection when more than one checkout qualifies.
-    for key in sorted(projects):
+    for key in sorted(c for c in checkouts if isinstance(c, str) and c.strip()):
         candidate = Path(str(key)).expanduser()
         if _is_yoke_checkout(candidate):
             return candidate

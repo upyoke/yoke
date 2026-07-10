@@ -25,7 +25,7 @@ from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE
 
 def test_resolve_settings_reads_env_defaults() -> None:
     settings = server_entrypoint.resolve_settings(
-        argv=[],
+        argv=[], env={"YOKE_API_PORT": "9000", "YOKE_API_LOG_LEVEL": "warning"},
     )
     assert settings.port == 9000
     assert settings.log_level == "warning"

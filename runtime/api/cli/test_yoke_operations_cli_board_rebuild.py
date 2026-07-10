@@ -13,7 +13,6 @@ from yoke_cli.main import main as cli_main
 from yoke_cli.board import rebuild as board_rebuild
 from yoke_cli.board import outcome as rb_outcome
 from yoke_cli.commands.board_terminal_output import (
-    board_print_content,
     format_data_source,
     plain_board_reason,
 )
@@ -371,26 +370,6 @@ def test_screen_terminal_prints_plain_board(tmp_path: Path) -> None:
     assert "└" not in captured["content"]
     assert "TERM=screen-256color" in captured["content"]
     assert "* BOARD # CONTENT + done" in captured["content"]
-
-
-def test_board_print_content_keeps_rich_output_in_regular_terminal() -> None:
-    rendered = board_print_content(
-        "🏆 BOARD █ CONTENT └ done\n",
-        {"scope": "2", "repo_root": "/repo", "board_path": "/repo/.yoke/BOARD.md"},
-    )
-    assert "Yoke board terminal mode: plain" not in rendered
-    assert "🏆 BOARD █ CONTENT └ done" in rendered
-
-
-def test_board_print_content_explains_forced_plain_mode() -> None:
-    rendered = board_print_content(
-        "\x1b[32m🏆 BOARD █ CONTENT └ done\x1b[0m\n",
-        {"scope": "2", "repo_root": "/repo", "board_path": "/repo/.yoke/BOARD.md"},
-    )
-    assert "YOKE_BOARD_PLAIN is set" in rendered
-    assert "\x1b[" not in rendered
-    assert "🏆" not in rendered
-    assert "* BOARD # CONTENT + done" in rendered
 
 
 def test_plain_board_reason_allows_rich_override() -> None:

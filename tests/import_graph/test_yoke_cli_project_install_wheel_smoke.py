@@ -173,9 +173,9 @@ def _assert_installed(checkout: Path, config: Path) -> None:
     assert sorted(manifest["contract_files"]) == [".yoke/lint-config"]
     assert sorted(manifest["strategy_files"]) == [".yoke/strategy/MISSION.md"]
     config_payload = json.loads(config.read_text("utf-8"))
-    assert config_payload["projects"][str(checkout.resolve())] == {
-        "project_id": 7
-    }
+    assert config_payload["projects"] == [
+        {"checkout": str(checkout.resolve()), "project_id": 7, "env": "smoke"},
+    ]
 
 
 def _bundle(files: list[dict[str, str]] | None = None) -> dict[str, Any]:
