@@ -1,4 +1,16 @@
-"""Total hook deadline helpers for the shared hook runner."""
+"""Total hook deadline helpers for the shared hook runner.
+
+Wheel-shipped home: the ``POST /v1/hooks/evaluate`` route clamps request
+deadlines to :func:`resolve_total_timeout_ms`, so the budget resolution
+must import on a wheels-only install (no repo tree on ``sys.path``). The
+repo-tree hook runner (``runtime.harness.hook_runner``) imports these
+helpers from here.
+
+Distinct from :mod:`yoke_harness.hooks.deadline`, the CLIENT-side budget:
+that one reads the ``YOKE_HOOK_TOTAL_TIMEOUT_MS`` env var on the relaying
+machine, while this server/source-side budget reads the machine-config
+keys via :mod:`yoke_core.domain.runtime_settings`.
+"""
 
 from __future__ import annotations
 

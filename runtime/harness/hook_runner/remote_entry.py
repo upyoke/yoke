@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from runtime.harness.hook_runner.capability_resolve import resolve_capability
-from runtime.harness.hook_runner.deadline import resolve_total_timeout_ms
+from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
 from runtime.harness.hook_runner.remote_policy import (
     DEADLINE_EXHAUSTED_MARKER,
     RunControls,

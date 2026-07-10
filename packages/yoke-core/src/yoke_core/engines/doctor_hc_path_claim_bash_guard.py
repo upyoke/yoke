@@ -1,13 +1,13 @@
 """HC-path-claim-bash-guard: rendered hook chains include the path-claim guard.
 
-Verifies the post-1638 wiring of ``yoke_core.domain.path_claim_bash_guard``
-in the PreToolUse@Bash chain. Two layers are checked:
+Verifies the wiring of ``yoke_core.domain.path_claim_bash_guard`` in the
+PreToolUse@Bash chain. Two layers are checked:
 
 1. Both Claude ``settings.json`` and Codex ``hooks.json`` register a
    ``yoke hook evaluate`` command for the PreToolUse@Bash matcher --
    that is, the rendered hook config delegates the chain to the stable
    Yoke CLI boundary.
-2. ``runtime.harness.hook_runner.chain_registry.chain_for("PreToolUse",
+2. ``yoke_contracts.hook_runner.chain_registry.chain_for("PreToolUse",
    "Bash")`` includes ``yoke_core.domain.path_claim_bash_guard`` -- the
    ordered policy module list the runner actually executes.
 
@@ -73,7 +73,7 @@ def _hook_cli_delegated(commands: Sequence[str]) -> bool:
 
 def _chain_has_guard() -> bool:
     """Return True when the chain registry lists the guard for PreToolUse@Bash."""
-    from runtime.harness.hook_runner.chain_registry import chain_for
+    from yoke_contracts.hook_runner.chain_registry import chain_for
 
     return _GUARD_MODULE in chain_for("PreToolUse", "Bash")
 

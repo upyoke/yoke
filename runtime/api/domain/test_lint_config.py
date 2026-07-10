@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_core.domain import lint_config
-from runtime.harness.hook_runner.chain_registry import chain_for
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 

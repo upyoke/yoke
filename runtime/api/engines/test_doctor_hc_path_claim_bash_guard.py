@@ -113,16 +113,16 @@ def test_fail_when_hook_config_missing(monkeypatch, tmp_path, conn):
     assert "missing" in rec.results[0].detail
 
 
-def test_chain_registry_lookup_matches_post_1638_source():
+def test_chain_registry_lookup_lists_guard():
     """The chain registry is the authoritative chain composition source."""
-    from runtime.harness.hook_runner.chain_registry import chain_for
+    from yoke_contracts.hook_runner.chain_registry import chain_for
 
     chain = chain_for("PreToolUse", "Bash")
     assert "yoke_core.domain.path_claim_bash_guard" in chain
     assert mod._chain_has_guard() is True
 
 
-def test_smoke_uses_evaluate_payload_against_post_1638_signature():
+def test_smoke_uses_current_evaluate_payload_signature():
     """The real smoke must succeed against the current evaluate_payload signature."""
     ok, detail = mod._run_guard_smoke()
     assert ok, detail
