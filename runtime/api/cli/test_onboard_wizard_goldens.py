@@ -22,7 +22,7 @@ goldens from both gate modules.
 
 from __future__ import annotations
 
-from pathlib import Path
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -95,14 +95,17 @@ def test_path_diagnosis_allclear(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_path_preview(monkeypatch: pytest.MonkeyPatch) -> None:
-    missing = [path_doctor.ToolResolution(tool, None) for tool in path_doctor.TOOLS]
-    monkeypatch.setattr(path_doctor, "tool_bin_dir", lambda env=None: _BIN_DIR)
-    monkeypatch.setattr(path_doctor, "current_shell", lambda env=None: "zsh")
-    monkeypatch.setattr(path_doctor, "default_startup_file", lambda shell, home: Path(STARTUP))
-    monkeypatch.setattr(
-        path_doctor, "default_ssh_startup_file", lambda shell, home: Path("~/.zshenv")
+    # This is a render golden, not a shell-probe test. Pin the complete domain
+    # result so the SVG cannot inherit PATH, startup-file, or subprocess state
+    # from the host or an earlier test in the same xdist worker.
+    diagnosis = replace(
+        DIAGNOSIS_NEEDS_FIX,
+        tool_bin_dir=_BIN_DIR,
+        startup_file=STARTUP,
+        ssh_startup_file="~/.zshenv",
+        ssh_needs_fix=True,
     )
-    monkeypatch.setattr(path_doctor, "verify_ssh_command", lambda shell=None, env=None: missing)
+    monkeypatch.setattr(path_doctor, "diagnose", lambda **_: diagnosis)
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:

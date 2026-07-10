@@ -71,7 +71,24 @@ def assert_golden(name: str, svg: str) -> None:
     expected = path.read_text(encoding="utf-8")
     assert captured == expected, (
         f"{name}.svg drifted from its blessed golden. Re-bless with "
-        f"YOKE_WIZARD_GOLDEN_UPDATE=1 if the change is approved."
+        f"YOKE_WIZARD_GOLDEN_UPDATE=1 if the change is approved. "
+        f"{_mismatch_summary(expected, captured)}"
+    )
+
+
+def _mismatch_summary(expected: str, captured: str) -> str:
+    """Return bounded first-difference evidence for CI golden failures."""
+    common_length = min(len(expected), len(captured))
+    offset = next(
+        (index for index in range(common_length) if expected[index] != captured[index]),
+        common_length,
+    )
+    start = max(0, offset - 80)
+    end = offset + 160
+    line = expected.count("\n", 0, offset) + 1
+    return (
+        f"First difference: byte {offset}, expected line {line}; "
+        f"expected={expected[start:end]!r}; captured={captured[start:end]!r}."
     )
 
 
