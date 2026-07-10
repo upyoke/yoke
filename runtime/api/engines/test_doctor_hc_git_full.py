@@ -21,7 +21,6 @@ from yoke_core.engines._doctor_hc_git_test_helpers import (
 )
 from yoke_core.engines._project_identity_test_helpers import _seed_project
 from yoke_core.engines.doctor import (
-    RecordCollector,
     _DELEGATED_SYNC_HCS,
     hc_delegated_sync,
     hc_gh_orphan_detection,
@@ -156,7 +155,7 @@ class TestDelegatedSync:
             "HC-task-label-drift|Task label drift|PASS|0\n"
             "HC-orphan-epic-tasks|Orphan epic tasks|PASS|0\n"
         ))
-        rec = _run_hc(hc_delegated_sync, fix=True)
+        _run_hc(hc_delegated_sync, fix=True)
         # Verify the call included --fix flag
         cmd = mock_run.call_args[0][0]
         cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
@@ -177,7 +176,7 @@ class TestDelegatedSync:
             "HC-task-label-drift|Task label drift|PASS|0\n"
             "HC-orphan-epic-tasks|Orphan epic tasks|PASS|0\n"
         ))
-        rec = _run_hc(hc_delegated_sync, fix=False)
+        _run_hc(hc_delegated_sync, fix=False)
         cmd = mock_run.call_args[0][0]
         cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
         assert "--detect-only" in cmd_str
@@ -220,7 +219,7 @@ class TestGhOrphanDetection:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_orphan_detected(self, mock_gh_run, mock_resolve, mock_avail):
         """T1: Orphan issue (#999) detected."""
@@ -241,7 +240,7 @@ class TestGhOrphanDetection:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_known_issue_not_flagged(self, mock_gh_run, mock_resolve, mock_avail):
         """T2: Known issue is NOT flagged."""
@@ -260,7 +259,7 @@ class TestGhOrphanDetection:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_epic_task_issue_not_flagged(self, mock_gh_run, mock_resolve, mock_avail):
         """T3: Epic task issue (#20) excluded from orphan detection."""
@@ -284,7 +283,7 @@ class TestGhOrphanDetection:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_pass_no_github_issues(self, mock_gh_run, mock_resolve, mock_avail):
         """T5: PASS when no GitHub issues exist."""
@@ -296,7 +295,7 @@ class TestGhOrphanDetection:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_multiple_orphans(self, mock_gh_run, mock_resolve, mock_avail):
         """T6: Multiple orphans detected."""
@@ -325,4 +324,4 @@ def _auth(repo: str):
     touching every test that stubs the resolver.
     """
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
-    return ProjectGithubAuth(project="yoke", repo=repo, token="t", env={"GH_TOKEN": "t"})
+    return ProjectGithubAuth(project="yoke", repo=repo, token="t")

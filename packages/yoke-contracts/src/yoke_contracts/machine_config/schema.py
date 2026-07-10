@@ -12,37 +12,41 @@ from typing import Any, Mapping
 
 from yoke_contracts.machine_config.schema_projects import (
     ValidationIssue,
-    canonical_project_entry,
-    canonical_project_map,
-    checkout_path_candidates,
-    normalize_project_id,
-    project_entry_for_checkout,
+    canonical_project_entry as canonical_project_entry,
+    canonical_project_map as canonical_project_map,
+    checkout_path_candidates as checkout_path_candidates,
+    normalize_project_id as normalize_project_id,
+    project_entry_for_checkout as project_entry_for_checkout,
     _error,
     _is_nonempty_str,
     _nonempty_str,
-    _strip_worktree_path,
+    _strip_worktree_path as _strip_worktree_path,
     _validate_project_entry,
 )
 from yoke_contracts.machine_config.credential_sources import (
-    CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
-    CREDENTIAL_KIND_DSN_FILE,
-    CREDENTIAL_KIND_ENV,
-    CREDENTIAL_KIND_TOKEN_FILE,
-    CREDENTIAL_KINDS,
+    CREDENTIAL_KIND_AWS_SECRETS_MANAGER as CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
+    CREDENTIAL_KIND_DSN_FILE as CREDENTIAL_KIND_DSN_FILE,
+    CREDENTIAL_KIND_ENV as CREDENTIAL_KIND_ENV,
+    CREDENTIAL_KIND_TOKEN_FILE as CREDENTIAL_KIND_TOKEN_FILE,
+    CREDENTIAL_KINDS as CREDENTIAL_KINDS,
     TOKEN_CREDENTIAL_KINDS,
     validate_credential_source as _validate_credential_source_impl,
 )
 from yoke_contracts.machine_config.schema_transport import (
-    DEFAULT_TRANSPORT, POSTGRES_TRANSPORTS, PRODUCT_CLIENT_TRANSPORTS,
+    DEFAULT_TRANSPORT as DEFAULT_TRANSPORT, POSTGRES_TRANSPORTS,
+    PRODUCT_CLIENT_TRANSPORTS as PRODUCT_CLIENT_TRANSPORTS,
     TRANSPORTS, TRANSPORT_HTTPS,
 )
 from yoke_contracts.machine_config.schema_github import (
-    DEFAULT_GITHUB_API_URL, github_config, has_github_config,
-    GITHUB_AUTH_KIND_USER_AUTHORIZATION, GITHUB_AUTH_STATUSES,
+    DEFAULT_GITHUB_API_URL as DEFAULT_GITHUB_API_URL,
+    DEFAULT_GITHUB_WEB_URL as DEFAULT_GITHUB_WEB_URL,
+    github_config as github_config, has_github_config,
+    GITHUB_AUTH_KIND_USER_AUTHORIZATION as GITHUB_AUTH_KIND_USER_AUTHORIZATION,
+    GITHUB_AUTH_STATUSES as GITHUB_AUTH_STATUSES,
     normalize_github_payload, validate_github_config,
 )
 from yoke_contracts.machine_config.schema_connections import (
-    PROD_FLAG_KEY, connection_is_prod, local_postgres_envs,
+    PROD_FLAG_KEY, connection_is_prod as connection_is_prod, local_postgres_envs,
 )
 
 SCHEMA_VERSION = 1
@@ -62,11 +66,11 @@ class MachineConfigContractError(RuntimeError):
     """Raised when the selected machine config cannot be used."""
 
 from yoke_contracts.machine_config.schema_example import (  # noqa: E402
-    canonical_example_payload,
-    canonical_example_text,
+    canonical_example_payload as canonical_example_payload,
+    canonical_example_text as canonical_example_text,
 )
 from yoke_contracts.machine_config.schema_product import (  # noqa: E402
-    product_client_connection,
+    product_client_connection as product_client_connection,
 )
 
 

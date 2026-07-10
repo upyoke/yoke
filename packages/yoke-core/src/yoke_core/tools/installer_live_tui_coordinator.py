@@ -168,6 +168,16 @@ KNOWN_RECIPE_IDS = {
     "STATE-008",
     "STATE-009",
 }
+MANUAL_GITHUB_APP_RECIPE_IDS = {
+    *(f"GITHUB-{number:03d}" for number in range(2, 11)),
+    "PROJECT-SOURCE-006",
+    "PROJECT-META-008",
+    *(f"PUBLISH-{number:03d}" for number in range(2, 14)),
+    "APPLY-005",
+    "APPLY-008",
+    "STATE-002",
+    "STATE-007",
+}
 PROD_BASE_URL = HOSTED_PROD_URL
 PROD_TOKEN_FILE_ENV = "YOKE_INSTALLER_LIVE_PROD_TOKEN_FILE"
 REMOTE_PROD_TOKEN_PATH = "/tmp/yoke-prod.token"
@@ -181,53 +191,30 @@ AUTH_FAKE_CUSTOM_API_PORT = 19087
 AUTH_FAKE_NO_ACCESS_API_PORT = 19088
 AUTH_FAKE_MANY_ACCESS_API_PORT = 19089
 AUTH_FAKE_TOKEN_VALUE = "test-token-for-live-recipe"
-REMOTE_GITHUB_TOKEN_PATH = "/tmp/yoke-github.token"
-REMOTE_GITHUB_EMPTY_TOKEN_PATH = "/tmp/yoke-github-empty.token"
-REMOTE_GITHUB_INVALID_TOKEN_PATH = "/tmp/yoke-github-invalid.token"
-REMOTE_FAKE_GITHUB_TOKEN_PATH = "/tmp/yoke-fake-github.token"
-REMOTE_FAKE_GITHUB_STORED_TOKEN_PATH = "/tmp/yoke-fake-github-stored.token"
 STATE_TUI_SETUP_START_DELAY = 45.0
-GITHUB_FAKE_SCOPED_TOKEN_API_PORT = 19101
-GITHUB_FAKE_READONLY_API_PORT = 19102
-GITHUB_FAKE_PARTIAL_API_PORT = 19103
-GITHUB_FAKE_MANY_API_PORT = 19104
-GITHUB_FAKE_TOKEN_VALUE = "test-github-token-for-live-recipe"
-GITHUB_FAKE_STORED_TOKEN_VALUE = "bad-stored-github-token-for-live-recipe"
-PROJECT_SOURCE_FAKE_PRIVATE_API_PORT = 19105
 PROJECT_SOURCE_NEW_PATH = "/tmp/yoke-project-source-new"
 PROJECT_SOURCE_EXISTING_PATH = "/tmp/yoke-project-source-existing"
 PROJECT_SOURCE_CONFLICT_PATH = "/tmp/yoke-project-source-conflict"
 PROJECT_SOURCE_CLONE_MAIN_PATH = "/tmp/yoke-project-source-clone-main"
 PROJECT_SOURCE_CLONE_MASTER_PATH = "/tmp/yoke-project-source-clone-master"
-PROJECT_SOURCE_CLONE_PRIVATE_PATH = "/tmp/yoke-project-source-clone-private"
 PROJECT_SOURCE_MAIN_REMOTE_PATH = (
     "/tmp/yoke-project-source-remotes/github.com/recipe/main-source.git"
 )
 PROJECT_SOURCE_MASTER_REMOTE_PATH = (
     "/tmp/yoke-project-source-remotes/github.com/recipe/master-source.git"
 )
-PROJECT_SOURCE_PRIVATE_REMOTE_PATH = (
-    "/tmp/yoke-project-source-remotes/github.com/recipe-private/private-source.git"
-)
 PROJECT_SOURCE_MAIN_REMOTE_URL = f"file://{PROJECT_SOURCE_MAIN_REMOTE_PATH}"
 PROJECT_SOURCE_MASTER_REMOTE_URL = f"file://{PROJECT_SOURCE_MASTER_REMOTE_PATH}"
-PROJECT_SOURCE_PRIVATE_REMOTE_URL = f"file://{PROJECT_SOURCE_PRIVATE_REMOTE_PATH}"
 PROJECT_SOURCE_MISSING_REMOTE_URL = (
     "file:///tmp/yoke-project-source-remotes/github.com/recipe/missing-source.git"
 )
 PROJECT_SOURCE_DEV_YOKE_API_PORT = 19106
 PROJECT_SOURCE_DEV_NO_ACCESS_API_PORT = 19107
-PROJECT_SOURCE_DEV_GITHUB_API_PORT = 19108
 PROJECT_SOURCE_DEV_FRESH_YOKE_API_PORT = 19112
-PROJECT_SOURCE_DEV_FRESH_GITHUB_API_PORT = 19113
 PROJECT_SOURCE_DEV_EXISTING_YOKE_API_PORT = 19114
-PROJECT_SOURCE_DEV_EXISTING_GITHUB_API_PORT = 19115
 PROJECT_SOURCE_DEV_CONFLICT_YOKE_API_PORT = 19116
-PROJECT_SOURCE_DEV_CONFLICT_GITHUB_API_PORT = 19117
 PROJECT_SOURCE_DEV_DEFAULT_YOKE_API_PORT = 19118
-PROJECT_SOURCE_DEV_DEFAULT_GITHUB_API_PORT = 19119
 PROJECT_SOURCE_DEV_PUSH_YOKE_API_PORT = 19120
-PROJECT_SOURCE_DEV_PUSH_GITHUB_API_PORT = 19121
 PROJECT_SOURCE_DEV_FRESH_PATH = "/tmp/yoke-project-source-dev-fresh"
 PROJECT_SOURCE_DEV_EXISTING_PATH = "/tmp/yoke-project-source-dev-existing"
 PROJECT_SOURCE_DEV_CONFLICT_PATH = "/tmp/yoke-project-source-dev-conflict"
@@ -252,38 +239,16 @@ PROJECT_META_BOARD_DATA_FAIL_PATH = "/tmp/yoke-project-meta-board-data-fail"
 PROJECT_META_TILDE_IMMEDIATE_PATH = "~/code/yoke-project-meta-immediate"
 PROJECT_META_TILDE_SETTLED_PATH = "~/code/yoke-project-meta-settled"
 PROJECT_META_FAKE_YOKE_API_PORT = 19109
-PROJECT_META_FAKE_GITHUB_API_PORT = 19110
 PROJECT_META_LONG_TEXT_INPUT = "a" * 70
 PROJECT_PUBLISH_LOCAL_PATH = "/tmp/yoke-project-publish-local"
-PROJECT_PUBLISH_USER_PATH = "/tmp/yoke-project-publish-user"
-PROJECT_PUBLISH_ORG_PATH = "/tmp/yoke-project-publish-org"
-PROJECT_PUBLISH_EMPTY_PATH = "/tmp/yoke-project-publish-empty"
-PROJECT_PUBLISH_POPULATED_PATH = "/tmp/yoke-project-publish-populated"
-PROJECT_PUBLISH_DENIED_PATH = "/tmp/yoke-project-publish-denied"
-PROJECT_PUBLISH_NO_PUSH_PATH = "/tmp/yoke-project-publish-no-push"
-PROJECT_PUBLISH_PUSH_FAIL_PATH = "/tmp/yoke-project-publish-push-fail"
-PROJECT_PUBLISH_SKIP_PATH = "/tmp/yoke-project-publish-skip"
-PROJECT_PUBLISH_STORE_PATH = "/tmp/yoke-project-publish-store"
-PROJECT_PUBLISH_REUSE_PATH = "/tmp/yoke-project-publish-reuse"
-PROJECT_PUBLISH_TEMPORARY_PATH = "/tmp/yoke-project-publish-temporary"
-PROJECT_PUBLISH_DIFFERENT_PATH = "/tmp/yoke-project-publish-different"
 APPLY_CREATE_PATH = "/tmp/yoke-apply-create"
 APPLY_CLONE_PATH = "/tmp/yoke-apply-clone"
-APPLY_TOKEN_STORE_PATH = "/tmp/yoke-apply-token-store"
 APPLY_PROJECT_DENIED_PATH = "/tmp/yoke-apply-project-denied"
 APPLY_CLONE_CONFLICT_PATH = "/tmp/yoke-apply-clone-conflict"
 APPLY_BOARD_FAIL_PATH = "/tmp/yoke-apply-board-fail"
 APPLY_RESUME_PATH = "/tmp/yoke-apply-resume"
 APPLY_REPORT_AUDIT_PATH = "/tmp/yoke-apply-report-audit"
 APPLY_CTRL_C_PATH = "/tmp/yoke-apply-ctrl-c"
-PROJECT_PUBLISH_FAKE_GITHUB_API_PORT = 19111
-PROJECT_PUBLISH_EMPTY_GITHUB_API_PORT = 19112
-PROJECT_PUBLISH_POPULATED_GITHUB_API_PORT = 19113
-PROJECT_PUBLISH_DENIED_GITHUB_API_PORT = 19114
-PROJECT_PUBLISH_NO_PUSH_GITHUB_API_PORT = 19115
-PROJECT_PUBLISH_APPLY_YOKE_API_PORT = 19116
-PROJECT_PUBLISH_APPLY_GITHUB_API_PORT = 19117
-APPLY_TOKEN_STORE_YOKE_API_PORT = 19118
 APPLY_PROJECT_DENIED_YOKE_API_PORT = 19119
 APPLY_SUCCESS_YOKE_API_PORT = 19120
 APPLY_BOARD_FAIL_YOKE_API_PORT = 19121
@@ -298,18 +263,6 @@ STATE_PROJECT_TWO_PATH = "/tmp/yoke-state-project-two"
 STATE_PROJECT_MISSING_PATH = "/tmp/yoke-state-project-missing"
 TERM_LONG_PROJECT_NAME = "yoke-term-long-project-name-" + ("a" * 32)
 TERM_LONG_PROJECT_PATH = f"/tmp/{TERM_LONG_PROJECT_NAME}"
-PROJECT_PUBLISH_USER = "publish-user"
-PROJECT_PUBLISH_ORG = "publish-org"
-PROJECT_PUBLISH_EMPTY_REPO = f"{PROJECT_PUBLISH_USER}/empty-repo"
-PROJECT_PUBLISH_POPULATED_REPO = f"{PROJECT_PUBLISH_USER}/populated-repo"
-PROJECT_PUBLISH_CREATED_REPO = f"{PROJECT_PUBLISH_USER}/yoke-project-publish-push-fail"
-PROJECT_PUBLISH_APPLY_FAILURE_EXPECTED_TEXT = (
-    "Couldn't finish setup.",
-    PROJECT_PUBLISH_CREATED_REPO,
-    "git push -u origin PUB failed",
-    "Failed step: 02-project-create-checkout",
-    "start over instead",
-)
 
 
 def assign_hosts(
@@ -582,11 +535,17 @@ def seed_known_recipes(
             continue
         template = _known_recipe_template(scenario_id, base_url)
         if template is None:
+            reason = (
+                "manual GitHub App validation requires an HTTPS device-flow "
+                "and installation fixture"
+                if scenario_id in MANUAL_GITHUB_APP_RECIPE_IDS
+                else "no grounded recipe template is available"
+            )
             unseeded.append(
                 {
                     "scenario_id": scenario_id,
                     "recipe_path": str(path),
-                    "reason": "no grounded recipe template is available",
+                    "reason": reason,
                 }
             )
             continue
@@ -1220,6 +1179,8 @@ def _known_recipe_template(
     scenario_id: str,
     base_url: str,
 ) -> dict[str, object] | None:
+    if scenario_id in MANUAL_GITHUB_APP_RECIPE_IDS:
+        return None
     interactive_accept = {
         "command": _install_command(base_url),
         "actions": [
@@ -1950,222 +1911,15 @@ def _known_recipe_template(
             "stage_files": _stage_stage_yoke_token_files(),
             "actions": _github_skip_actions(),
             "expected_text": [
-                "Save a local GitHub credential?",
-                "Skip for now",
+                "Connect GitHub?",
+                "Use backlog only",
                 "Set up a project.",
                 "Where's the code?",
             ],
             "post_checks": ["secret_free"],
             "start_delay": 3.0,
             "step_delay": 4.0,
-            "notes": "Grounded from skipping the machine GitHub credential step.",
-        }
-    if scenario_id == "GITHUB-002":
-        port = GITHUB_FAKE_SCOPED_TOKEN_API_PORT
-        return {
-            "command": _fake_github_api_onboard_command(
-                port=port,
-                profile=_fake_scoped_token_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_token_file_actions(
-                token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-                stored_api_error=True,
-            ),
-            "expected_text": [
-                "Save a local GitHub credential?",
-                "Point at your GitHub credential file.",
-                "GitHub App connection saved.",
-                "Success! GitHub App connection saved for recipe-scoped.",
-                "GitHub username: recipe-scoped",
-                "Owner of: recipe-scoped",
-                "Repos this connection can see: recipe-scoped/app, recipe-scoped/cli",
-                "Can push to all 2 repos you can see, and to new repos.",
-            ],
-            "post_checks": ["secret_free"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": (
-                "Grounded from a localhost GitHub API fixture with scoped "
-                "repo/workflow permissions."
-            ),
-        }
-    if scenario_id == "GITHUB-003":
-        port = GITHUB_FAKE_SCOPED_TOKEN_API_PORT
-        return {
-            "command": _fake_github_api_onboard_command(
-                port=port,
-                profile=_fake_scoped_token_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_token_paste_actions(
-                token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-                stored_api_error=True,
-            ),
-            "expected_text": [
-                "Connect GitHub through the Yoke GitHub App.",
-                "Never shown on screen.",
-                "GitHub App connection saved.",
-                "Success! GitHub App connection saved for recipe-scoped.",
-            ],
-            "post_checks": ["secret_free"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": (
-                "Grounded from GitHub auth input through a localhost "
-                "GitHub API fixture."
-            ),
-        }
-    if scenario_id == "GITHUB-004":
-        port = GITHUB_FAKE_READONLY_API_PORT
-        return {
-            "command": _fake_github_api_onboard_command(
-                port=port,
-                profile=_fake_readonly_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_token_file_actions(
-                token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-                stored_api_error=True,
-            ),
-            "expected_text": [
-                "Success! GitHub repository access connected for recipe-readonly.",
-                "Repos this connection can see: recipe-readonly/app",
-                "Can't push to any of the repos checked with this connection.",
-            ],
-            "post_checks": ["secret_free"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from a repository-scoped read-only capability summary.",
-        }
-    if scenario_id == "GITHUB-005":
-        port = GITHUB_FAKE_PARTIAL_API_PORT
-        return {
-            "command": _fake_github_api_onboard_command(
-                port=port,
-                profile=_fake_partial_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_token_file_actions(
-                token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-                stored_api_error=True,
-            ),
-            "expected_text": [
-                "Success! GitHub repository access connected for recipe-partial.",
-                "Repos this connection can see: recipe-partial/app, recipe-partial/docs",
-                "Can push to recipe-partial/app, but not to new repos.",
-            ],
-            "post_checks": ["secret_free"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": (
-                "Grounded from repository access with one writable repo and "
-                "no new-repo publish capability."
-            ),
-        }
-    if scenario_id == "GITHUB-006":
-        return {
-            "command": _prepare_token_onboard_command(
-                token_path=REMOTE_GITHUB_INVALID_TOKEN_PATH,
-                token_value="not-a-real-github-token",
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_token_file_actions(
-                token_path=REMOTE_GITHUB_INVALID_TOKEN_PATH,
-            ),
-            "expected_text": [
-                "GitHub credential could not be verified.",
-                "GitHub check failed",
-                "HTTP 401",
-                "Try again",
-                "Back",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from invalid GitHub auth retry behavior.",
-        }
-    if scenario_id == "GITHUB-007":
-        return {
-            "command": _prepare_empty_token_onboard_command(
-                REMOTE_GITHUB_EMPTY_TOKEN_PATH,
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_token_file_actions(
-                token_path=REMOTE_GITHUB_EMPTY_TOKEN_PATH,
-            ),
-            "expected_text": [
-                "GitHub credential could not be verified.",
-                "GitHub credential file is empty",
-                "Try again",
-                "Back",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from empty GitHub credential-file retry behavior.",
-        }
-    if scenario_id == "GITHUB-008":
-        port = GITHUB_FAKE_MANY_API_PORT
-        return {
-            "command": _fake_github_api_onboard_command(
-                port=port,
-                profile=_fake_many_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_token_file_actions(
-                token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-                stored_api_error=True,
-            ),
-            "expected_text": [
-                "Success! GitHub repository access connected for recipe-many.",
-                "Repos this connection can see: recipe-many/app-1, recipe-many/app-2,",
-                "recipe-many/app-3, recipe-many/app-4, and 3 more",
-            ],
-            "post_checks": ["secret_free", "no_text:including"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from a broad repo list with bounded display copy.",
-        }
-    if scenario_id == "GITHUB-009":
-        port = GITHUB_FAKE_PARTIAL_API_PORT
-        return {
-            "command": _fake_github_api_onboard_command(
-                port=port,
-                profile=_fake_partial_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_token_file_actions(
-                token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-                stored_api_error=True,
-            ),
-            "expected_text": [
-                "GitHub App connection saved.",
-                "Can push to recipe-partial/app, but not to new repos.",
-            ],
-            "post_checks": ["secret_free"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": (
-                "Grounded from the capability line that later create-and-publish "
-                "paths consume before Apply."
-            ),
-        }
-    if scenario_id == "GITHUB-010":
-        return {
-            "command": _restore_stored_yoke_token_onboard_command(),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _github_stored_token_actions(),
-            "expected_text": [
-                "Using existing Yoke token file from machine config.",
-                "Yoke token connected.",
-                "Using existing GitHub credential file from machine config.",
-                "GitHub App connection saved.",
-            ],
-            "post_checks": ["secret_free"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from prepared stored-state GitHub credential reuse.",
+            "notes": "Grounded from choosing backlog-only at the machine App step.",
         }
     if scenario_id == "PROJECT-SOURCE-001":
         return {
@@ -2264,29 +2018,6 @@ def _known_recipe_template(
             "notes": (
                 "Grounded from a local bare file:// source with GitHub-shaped "
                 "owner/repo path and default branch main."
-            ),
-        }
-    if scenario_id == "PROJECT-SOURCE-006":
-        return {
-            "command": _project_source_fake_github_onboard_command(
-                profile=_fake_private_clone_github_profile(),
-                remote_branches={"private-source": "main"},
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_source_private_clone_actions(),
-            "expected_text": [
-                "GitHub App connection saved.",
-                "Is the repo public or private?",
-                "Which private repo?",
-                "recipe-private/private-source",
-                "Where should Yoke clone it?",
-            ],
-            "post_checks": ["secret_free"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": (
-                "Grounded from private clone picker using a localhost GitHub API "
-                "and a local bare clone URL."
             ),
         }
     if scenario_id == "PROJECT-SOURCE-007":
@@ -2422,7 +2153,6 @@ def _known_recipe_template(
         return {
             "command": _project_source_dev_onboard_command(
                 yoke_port=PROJECT_SOURCE_DEV_YOKE_API_PORT,
-                github_port=PROJECT_SOURCE_DEV_GITHUB_API_PORT,
             ),
             "actions": _project_source_dev_checkout_actions(
                 PROJECT_SOURCE_DEV_FRESH_PATH,
@@ -2442,7 +2172,6 @@ def _known_recipe_template(
         return {
             "command": _project_source_dev_post_apply_command(
                 yoke_port=PROJECT_SOURCE_DEV_FRESH_YOKE_API_PORT,
-                github_port=PROJECT_SOURCE_DEV_FRESH_GITHUB_API_PORT,
             ),
             "execution_mode": "ssh-command",
             "actions": [{"step": "000-source-dev-post-apply"}],
@@ -2466,7 +2195,6 @@ def _known_recipe_template(
         return {
             "command": _project_source_dev_onboard_command(
                 yoke_port=PROJECT_SOURCE_DEV_EXISTING_YOKE_API_PORT,
-                github_port=PROJECT_SOURCE_DEV_EXISTING_GITHUB_API_PORT,
                 existing_dev_checkout=True,
             ),
             "actions": _project_source_dev_checkout_actions(
@@ -2488,7 +2216,6 @@ def _known_recipe_template(
         return {
             "command": _project_source_dev_onboard_command(
                 yoke_port=PROJECT_SOURCE_DEV_CONFLICT_YOKE_API_PORT,
-                github_port=PROJECT_SOURCE_DEV_CONFLICT_GITHUB_API_PORT,
                 conflict_dev_checkout=True,
             ),
             "actions": _project_source_dev_checkout_actions(
@@ -2511,7 +2238,6 @@ def _known_recipe_template(
         return {
             "command": _project_source_dev_onboard_command(
                 yoke_port=PROJECT_SOURCE_DEV_DEFAULT_YOKE_API_PORT,
-                github_port=PROJECT_SOURCE_DEV_DEFAULT_GITHUB_API_PORT,
             ),
             "actions": _project_source_dev_checkout_actions(
                 PROJECT_SOURCE_DEV_DEFAULT_PATH,
@@ -2532,7 +2258,6 @@ def _known_recipe_template(
         return {
             "command": _project_source_dev_onboard_command(
                 yoke_port=PROJECT_SOURCE_DEV_PUSH_YOKE_API_PORT,
-                github_port=PROJECT_SOURCE_DEV_PUSH_GITHUB_API_PORT,
             ),
             "actions": _project_source_dev_checkout_actions(
                 PROJECT_SOURCE_DEV_PUSH_PATH,
@@ -2546,7 +2271,7 @@ def _known_recipe_template(
             "start_delay": 3.0,
             "step_delay": 4.0,
             "notes": (
-                "Live TUI recipe covers source-dev push credential review; "
+                "Live TUI recipe covers source-dev push review; "
                 "post-apply helper behavior is covered by source-dev apply tests."
             ),
         }
@@ -2698,29 +2423,6 @@ def _known_recipe_template(
             "step_delay": 4.0,
             "notes": "Grounded from public item-prefix inline validation.",
         }
-    if scenario_id == "PROJECT-META-008":
-        return {
-            "command": _project_meta_many_org_onboard_command(),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": [
-                *_project_meta_fake_github_existing_actions(PROJECT_META_CHECKOUT_PATH),
-                {"step": "120-project-name-input", "keys": ["Enter"]},
-                {"step": "130-publish-prompt", "keys": ["Enter"]},
-                {"step": "140-owner-picker", "keys": ["Enter"]},
-            ],
-            "expected_text": [
-                "Where on GitHub?",
-                "Accounts your token can create repos under.",
-                "meta-recipe",
-                "meta-org-one",
-                "meta-org-two",
-                "organization",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from a fake GitHub account with multiple org owners.",
-        }
     if scenario_id == "PROJECT-META-009":
         return {
             "command": _project_meta_board_data_failure_onboard_command(),
@@ -2796,271 +2498,6 @@ def _known_recipe_template(
             "start_delay": 3.0,
             "step_delay": 4.0,
             "notes": "Grounded from create-project Review with GitHub publish declined.",
-        }
-    if scenario_id == "PUBLISH-002":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_USER_PATH,
-                profile=_fake_publish_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_publish_actions(
-                PROJECT_PUBLISH_USER_PATH,
-                repo_name="user-recipe",
-            ),
-            "expected_text": [
-                "Where on GitHub?",
-                PROJECT_PUBLISH_USER,
-                "Name the repo.",
-                "Created as publish-user/",
-                "Review what Yoke will save.",
-                "Nothing is written until you choose Apply.",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from publish-to-user owner picker through Review.",
-        }
-    if scenario_id == "PUBLISH-003":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_ORG_PATH,
-                profile=_fake_publish_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_publish_actions(
-                PROJECT_PUBLISH_ORG_PATH,
-                owner_keys=("Down", "Enter"),
-                repo_name="org-recipe",
-            ),
-            "expected_text": [
-                "Where on GitHub?",
-                PROJECT_PUBLISH_ORG,
-                "organization",
-                "Created as publish-org/",
-                "Review what Yoke will save.",
-                "Nothing is written until you choose Apply.",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from publish-to-organization owner picker through Review.",
-        }
-    if scenario_id == "PUBLISH-004":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_EMPTY_PATH,
-                port=PROJECT_PUBLISH_EMPTY_GITHUB_API_PORT,
-                profile=_fake_publish_existing_repo_profile(
-                    empty=True,
-                    full_name=PROJECT_PUBLISH_EMPTY_REPO,
-                ),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_publish_actions(
-                PROJECT_PUBLISH_EMPTY_PATH,
-                repo_name="empty-repo",
-            ),
-            "expected_text": [
-                f"Repos this connection can see: {PROJECT_PUBLISH_EMPTY_REPO}",
-                "Review what Yoke will save.",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from Review preflight detecting an empty resumable repo.",
-        }
-    if scenario_id == "PUBLISH-005":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_POPULATED_PATH,
-                port=PROJECT_PUBLISH_POPULATED_GITHUB_API_PORT,
-                profile=_fake_publish_existing_repo_profile(
-                    empty=False,
-                    full_name=PROJECT_PUBLISH_POPULATED_REPO,
-                ),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_publish_actions(
-                PROJECT_PUBLISH_POPULATED_PATH,
-                repo_name="populated-repo",
-            ),
-            "expected_text": [
-                "A few things to fix before applying.",
-                "already exists and has content",
-                "Back to fix that",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from Review preflight blocking a populated repo name.",
-        }
-    if scenario_id == "PUBLISH-006":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_DENIED_PATH,
-                port=PROJECT_PUBLISH_DENIED_GITHUB_API_PORT,
-                profile=_fake_readonly_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_publish_denied_actions(
-                PROJECT_PUBLISH_DENIED_PATH,
-            ),
-            "expected_text": [
-                "Your GitHub credential can't publish a new repo.",
-                "This credential can't create a repo it can also push to.",
-                "first and make sure this connection has write access",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from a credential that cannot create a private repo.",
-        }
-    if scenario_id == "PUBLISH-007":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_NO_PUSH_PATH,
-                port=PROJECT_PUBLISH_NO_PUSH_GITHUB_API_PORT,
-                profile=_fake_publish_create_no_push_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_publish_denied_actions(
-                PROJECT_PUBLISH_NO_PUSH_PATH,
-            ),
-            "expected_text": [
-                "Your GitHub credential can't publish a new repo.",
-                "selected repositories",
-                "brand-new repo",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from a credential that can create but cannot push new repos.",
-        }
-    if scenario_id == "PUBLISH-008":
-        return {
-            "command": _project_publish_apply_failure_onboard_command(),
-            "actions": _project_publish_apply_failure_actions(
-                PROJECT_PUBLISH_PUSH_FAIL_PATH,
-            ),
-            "expected_text": list(PROJECT_PUBLISH_APPLY_FAILURE_EXPECTED_TEXT),
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from repo-created-then-push-fails Apply recovery copy.",
-        }
-    if scenario_id == "PUBLISH-009":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_SKIP_PATH,
-                profile=_fake_publish_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_publish_actions(
-                PROJECT_PUBLISH_SKIP_PATH,
-                repo_name="skip-recipe",
-                adoption_keys=("Down", "Down", "Enter"),
-            ),
-            "expected_text": [
-                "How should Yoke manage this project on GitHub?",
-                "Skip GitHub for this project",
-                "Review what Yoke will save.",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from publish repo creation with project GitHub adoption skipped.",
-        }
-    if scenario_id == "PUBLISH-010":
-        return {
-            "command": _project_publish_noninteractive_adoption_command(
-                path=PROJECT_PUBLISH_TEMPORARY_PATH,
-                slug="publish-temporary",
-                github_repo=f"{PROJECT_PUBLISH_USER}/temporary-recipe",
-                adoption="temporary-only",
-            ),
-            "actions": [{"step": "000-run-noninteractive"}],
-            "expected_text": [
-                "adoption_choice=temporary-only",
-                "adoption_stored=false",
-                "adoption_automation_enabled=true",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 1.0,
-            "step_delay": 1.0,
-            "notes": "Grounded from noninteractive temporary-only project GitHub adoption.",
-        }
-    if scenario_id == "PUBLISH-011":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_STORE_PATH,
-                profile=_fake_publish_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_store_token_actions(
-                PROJECT_PUBLISH_STORE_PATH,
-                repo_name="store-recipe",
-            ),
-            "expected_text": [
-                "Connect this project repository",
-                "Connect this project through the GitHub App",
-                "Yoke records the GitHub App binding in the Yoke core database",
-                "Review what Yoke will save.",
-                "Nothing is written until you choose Apply.",
-            ],
-            "post_checks": [
-                "secret_free",
-                "no_text:Traceback",
-                f"no_text:{GITHUB_FAKE_TOKEN_VALUE}",
-            ],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from project GitHub App binding path with password paste.",
-        }
-    if scenario_id == "PUBLISH-012":
-        return {
-            "command": _project_publish_fake_github_onboard_command(
-                path=PROJECT_PUBLISH_REUSE_PATH,
-                profile=_fake_publish_github_profile(),
-            ),
-            "stage_files": _stage_stage_yoke_token_files(),
-            "actions": _project_publish_publish_actions(
-                PROJECT_PUBLISH_REUSE_PATH,
-                repo_name="reuse-recipe",
-            ),
-            "expected_text": [
-                "Use this machine's GitHub App connection",
-                "Yoke records your project's GitHub App binding in the Yoke core database",
-                "Review what Yoke will save.",
-                "In the Yoke core database",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from project GitHub App reuse adoption after publish.",
-        }
-    if scenario_id == "PUBLISH-013":
-        return {
-            "command": _project_publish_noninteractive_adoption_command(
-                path=PROJECT_PUBLISH_DIFFERENT_PATH,
-                slug="publish-different",
-                github_repo=f"{PROJECT_PUBLISH_USER}/different-recipe",
-                adoption="different-token",
-            ),
-            "actions": [{"step": "000-run-noninteractive"}],
-            "expected_text": [
-                "adoption_choice=different-token",
-                "adoption_import_method=file",
-                "adoption_stored=true",
-            ],
-            "post_checks": [
-                "secret_free",
-                "no_text:Traceback",
-                f"no_text:{GITHUB_FAKE_TOKEN_VALUE}",
-            ],
-            "start_delay": 1.0,
-            "step_delay": 1.0,
-            "notes": "Grounded from noninteractive different-token project GitHub adoption.",
         }
     if scenario_id == "APPLY-001":
         return {
@@ -3140,27 +2577,6 @@ def _known_recipe_template(
             "step_delay": 0.5,
             "notes": "Grounded from noninteractive Apply failing while storing token reference under an unusable config path.",
         }
-    if scenario_id == "APPLY-005":
-        return {
-            "command": _project_apply_token_store_failure_command(),
-            "execution_mode": "ssh-command",
-            "expected_return_codes": [1],
-            "actions": [{"step": "000-token-store-failure"}],
-            "expected_text": [
-                "Your API token lacks projects.capability_secret.set rights.",
-                "failed step:",
-                "report:",
-                "resume:",
-            ],
-            "post_checks": [
-                "secret_free",
-                "no_text:Traceback",
-                f"no_text:{GITHUB_FAKE_TOKEN_VALUE}",
-            ],
-            "start_delay": 0.0,
-            "step_delay": 0.5,
-            "notes": "Grounded from project GitHub App binding Apply failure.",
-        }
     if scenario_id == "APPLY-006":
         return {
             "command": _project_apply_project_create_failure_command(),
@@ -3196,18 +2612,6 @@ def _known_recipe_template(
             "start_delay": 0.0,
             "step_delay": 0.5,
             "notes": "Grounded from clone Apply target-folder recovery guidance.",
-        }
-    if scenario_id == "APPLY-008":
-        return {
-            "command": _project_publish_apply_failure_onboard_command(),
-            "actions": _project_publish_apply_failure_actions(
-                PROJECT_PUBLISH_PUSH_FAIL_PATH,
-            ),
-            "expected_text": list(PROJECT_PUBLISH_APPLY_FAILURE_EXPECTED_TEXT),
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": 3.0,
-            "step_delay": 4.0,
-            "notes": "Grounded from publish Apply recovery also covered by PUBLISH-008.",
         }
     if scenario_id == "APPLY-009":
         api_url = f"http://127.0.0.1:{APPLY_BOARD_FAIL_YOKE_API_PORT}"
@@ -3413,8 +2817,6 @@ def _machine_only_onboard_command(
         token_path,
         "--project-mode",
         "machine-only",
-        "--github-adoption",
-        "skip",
         "--yes",
         "--json",
     ]
@@ -3649,21 +3051,6 @@ def _state_recipe_template(
             "step_delay": 4.0,
             "notes": "Grounded from live prepared-stored-state Account reuse proof.",
         }
-    if scenario_id == "STATE-002":
-        return {
-            "command": _state_onboard_command(base_url, log_name="state-002"),
-            "actions": _github_stored_token_actions(),
-            "expected_text": [
-                "Using existing Yoke token file from machine config.",
-                "Yoke token connected.",
-                "Using existing GitHub credential file from machine config.",
-                "GitHub App connection saved.",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": STATE_TUI_SETUP_START_DELAY,
-            "step_delay": 4.0,
-            "notes": "Grounded from live prepared-stored-state GitHub reuse proof.",
-        }
     if scenario_id == "STATE-003":
         return {
             "command": _state_project_onboard_command(
@@ -3757,20 +3144,6 @@ def _state_recipe_template(
             "start_delay": 0.0,
             "step_delay": 0.5,
             "notes": "Grounded from machine config with stage and prod credential-file connections.",
-        }
-    if scenario_id == "STATE-007":
-        return {
-            "command": _state_onboard_command(base_url, log_name="state-007"),
-            "actions": _github_stored_token_actions(),
-            "expected_text": [
-                "Using existing Yoke token file from machine config.",
-                "Using existing GitHub credential file from machine config.",
-                "GitHub App connection saved.",
-            ],
-            "post_checks": ["secret_free", "no_text:Traceback"],
-            "start_delay": STATE_TUI_SETUP_START_DELAY,
-            "step_delay": 4.0,
-            "notes": "Grounded from rerunning onboarding on an already prepared machine.",
         }
     if scenario_id == "STATE-008":
         return {
@@ -3927,39 +3300,6 @@ def _github_skip_actions() -> list[dict[str, object]]:
     ]
 
 
-def _github_token_file_actions(
-    *,
-    token_path: str,
-    stored_api_error: bool = False,
-) -> list[dict[str, object]]:
-    return [
-        *_github_picker_actions(stored_api_error=stored_api_error),
-        {"step": "070-github-token-file-input", "keys": ["Down", "Down", "Enter"]},
-        {"step": "080-github-token-result", "keys": [token_path, "Enter"]},
-    ]
-
-
-def _github_token_paste_actions(
-    *,
-    token_path: str,
-    stored_api_error: bool = False,
-) -> list[dict[str, object]]:
-    return [
-        *_github_picker_actions(stored_api_error=stored_api_error),
-        {"step": "070-github-token-paste-input", "keys": ["Enter"]},
-        {
-            "step": "080-github-token-result",
-            "keys": [f"paste_file:{token_path}", "Enter"],
-        },
-    ]
-
-
-def _github_stored_token_actions() -> list[dict[str, object]]:
-    return [
-        {"step": "000-path-all-clear"},
-        {"step": "010-yoke-stored-token-result", "keys": ["Enter"]},
-        {"step": "020-github-stored-token-result", "keys": ["Enter"]},
-    ]
 
 
 def _project_source_project_mode_actions() -> list[dict[str, object]]:
@@ -4038,24 +3378,6 @@ def _project_source_clone_conflict_actions(
     ]
 
 
-def _project_source_fake_github_prefix_actions() -> list[dict[str, object]]:
-    return [
-        *_github_token_file_actions(
-            token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-            stored_api_error=True,
-        ),
-        {"step": "090-project-mode", "keys": ["Enter"]},
-    ]
-
-
-def _project_source_private_clone_actions() -> list[dict[str, object]]:
-    return [
-        *_project_source_fake_github_prefix_actions(),
-        {"step": "100-clone-visibility", "keys": ["Down", "Enter"]},
-        {"step": "110-private-repo-picker", "keys": ["Down", "Enter"]},
-        {"step": "120-clone-folder-input", "keys": ["Enter"]},
-    ]
-
 
 def _project_source_git_required_actions() -> list[dict[str, object]]:
     return [
@@ -4075,8 +3397,9 @@ def _project_source_dev_mode_actions() -> list[dict[str, object]]:
     return [
         {"step": "000-path-all-clear"},
         {"step": "010-yoke-stored-token-result", "keys": ["Enter"]},
-        {"step": "020-github-stored-token-result", "keys": ["Enter"]},
-        {"step": "030-project-mode", "keys": ["Enter"]},
+        {"step": "020-github-picker", "keys": ["Enter"]},
+        {"step": "030-github-skip-option", "keys": ["Down"]},
+        {"step": "031-project-mode", "keys": ["Enter"]},
         {
             "step": "040-source-dev-option",
             "keys": ["Down", "Down", "Down"],
@@ -4175,13 +3498,6 @@ def _project_meta_fake_yoke_prefix_actions(api_url: str) -> list[dict[str, objec
     ]
 
 
-def _project_meta_fake_github_existing_actions(path: str) -> list[dict[str, object]]:
-    return [
-        *_project_source_fake_github_prefix_actions(),
-        {"step": "100-existing-folder-input", "keys": ["Enter"]},
-        {"step": "110-project-slug-input", "keys": [path, "Enter"]},
-    ]
-
 
 def _project_meta_apply_failure_actions(path: str) -> list[dict[str, object]]:
     api_url = f"http://127.0.0.1:{PROJECT_META_FAKE_YOKE_API_PORT}"
@@ -4212,153 +3528,6 @@ def _project_publish_no_publish_actions(path: str) -> list[dict[str, object]]:
         *_project_meta_board_art_actions(first_step=150),
     ]
 
-
-def _project_publish_fake_github_project_mode_actions(
-    *,
-    create: bool = False,
-) -> list[dict[str, object]]:
-    mode_keys = ["Down", "Down", "Enter"] if create else ["Enter"]
-    return [
-        *_github_token_file_actions(
-            token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-            stored_api_error=True,
-        ),
-        {"step": "090-project-mode", "keys": mode_keys},
-    ]
-
-
-def _project_publish_fake_github_checkout_actions(
-    path: str,
-    *,
-    create: bool = False,
-) -> list[dict[str, object]]:
-    return [
-        *_project_publish_fake_github_project_mode_actions(create=create),
-        {"step": "100-project-folder-input", "keys": [path, "Enter"]},
-    ]
-
-
-def _project_publish_publish_prefix_actions(
-    path: str,
-    *,
-    owner_keys: Sequence[str] = ("Enter",),
-    repo_name: str,
-    create: bool = False,
-) -> list[dict[str, object]]:
-    actions = [
-        *_project_publish_fake_github_checkout_actions(path, create=create),
-        {"step": "110-project-slug-input", "keys": ["Enter"]},
-        {"step": "120-project-name-input", "keys": ["Enter"]},
-        {"step": "130-publish-prompt", "keys": ["Enter"]},
-        {"step": "140-publish-yes", "keys": ["Enter"]},
-    ]
-    owner_key_list = list(owner_keys)
-    if len(owner_key_list) > 1 and owner_key_list[-1] == "Enter":
-        actions.extend(
-            [
-                {"step": "150-owner-picker-option", "keys": owner_key_list[:-1]},
-                {"step": "151-owner-picker", "keys": ["Enter"]},
-            ]
-        )
-    else:
-        actions.append({"step": "150-owner-picker", "keys": owner_key_list})
-    actions.extend(
-        [
-            {"step": "160-repo-name-input", "keys": [repo_name, "Enter"]},
-            {"step": "170-default-branch-input", "keys": ["Enter"]},
-            {"step": "180-prefix-input", "keys": ["PUB", "Enter"]},
-        ]
-    )
-    return actions
-
-
-def _project_publish_publish_actions(
-    path: str,
-    *,
-    owner_keys: Sequence[str] = ("Enter",),
-    repo_name: str,
-    adoption_keys: Sequence[str] = ("Enter",),
-    create: bool = False,
-) -> list[dict[str, object]]:
-    actions = [
-        *_project_publish_publish_prefix_actions(
-            path,
-            owner_keys=owner_keys,
-            repo_name=repo_name,
-            create=create,
-        ),
-    ]
-    adoption_key_list = list(adoption_keys)
-    if len(adoption_key_list) > 1 and adoption_key_list[-1] == "Enter":
-        actions.extend(
-            [
-                {
-                    "step": "190-project-github-adoption-option",
-                    "keys": adoption_key_list[:-1],
-                },
-                {
-                    "step": "191-project-github-adoption",
-                    "keys": ["Enter"],
-                },
-            ]
-        )
-    else:
-        actions.append(
-            {
-                "step": "190-project-github-adoption",
-                "keys": adoption_key_list,
-            }
-        )
-    actions.extend(_project_meta_board_art_actions(first_step=200))
-    return actions
-
-
-def _project_publish_store_token_actions(
-    path: str,
-    *,
-    repo_name: str,
-) -> list[dict[str, object]]:
-    return [
-        *_project_publish_publish_prefix_actions(path, repo_name=repo_name),
-        {"step": "190-project-github-store-token-option", "keys": ["Down"]},
-        {"step": "191-project-github-store-token", "keys": ["Enter"]},
-        {
-            "step": "200-project-token-input",
-            "keys": [f"paste_file:{REMOTE_FAKE_GITHUB_TOKEN_PATH}", "Enter"],
-        },
-        *_project_meta_board_art_actions(first_step=210),
-    ]
-
-
-def _project_publish_publish_denied_actions(path: str) -> list[dict[str, object]]:
-    return [
-        *_project_publish_fake_github_checkout_actions(path),
-        {"step": "110-project-slug-input", "keys": ["Enter"]},
-        {"step": "120-project-name-input", "keys": ["Enter"]},
-        {"step": "130-publish-prompt", "keys": ["Enter"]},
-        {"step": "140-publish-denied-result", "keys": ["Enter"]},
-    ]
-
-
-def _project_publish_apply_failure_actions(path: str) -> list[dict[str, object]]:
-    return [
-        *_github_stored_token_actions(),
-        {"step": "030-github-stored-token-result", "keys": ["Enter"]},
-        {
-            "step": "040-project-mode",
-            "keys": ["Down", "Down", "Enter"],
-        },
-        {"step": "050-create-folder-input", "keys": [path, "Enter"]},
-        {"step": "060-project-slug-input", "keys": ["Enter"]},
-        {"step": "070-project-name-input", "keys": ["Enter"]},
-        {"step": "080-owner-picker", "keys": ["Enter"]},
-        {"step": "090-repo-name-input", "keys": ["Enter"]},
-        {"step": "100-default-branch-input", "keys": ["Enter"]},
-        {"step": "110-prefix-input", "keys": ["PUB", "Enter"]},
-        {"step": "120-project-github-adoption", "keys": ["Enter"]},
-        *_project_meta_board_art_actions(first_step=130),
-        {"step": "200-apply", "keys": ["Enter"]},
-    ]
 
 
 def _project_apply_interactive_local_actions(
@@ -4468,55 +3637,6 @@ def _fake_yoke_api_onboard_command(
         f"sleep 1; {_path_ready_onboard_command(log_name='fake-yoke-api')}"
     )
 
-
-def _fake_github_api_onboard_command(
-    *,
-    port: int,
-    profile: Mapping[str, object],
-) -> str:
-    server = _fake_github_api_server_command(port=port, profile=profile)
-    api_url = f"http://127.0.0.1:{port}"
-    return (
-        f"{_prepare_token_command(token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH, token_value=GITHUB_FAKE_TOKEN_VALUE)}; "
-        f"{_prepare_token_command(token_path=REMOTE_FAKE_GITHUB_STORED_TOKEN_PATH, token_value=GITHUB_FAKE_STORED_TOKEN_VALUE)}; "
-        f"{_machine_github_config_command(api_url=api_url, token_path=REMOTE_FAKE_GITHUB_STORED_TOKEN_PATH)}; "
-        f"{server} >/tmp/yoke-fake-github-api-{port}.log 2>&1 & "
-        "fake_github_pid=$!; "
-        "trap 'kill \"$fake_github_pid\" >/dev/null 2>&1 || true' EXIT; "
-        f"sleep 1; {_path_ready_onboard_command(log_name='fake-github-api')}"
-    )
-
-
-def _machine_github_config_command(*, api_url: str, token_path: str) -> str:
-    script = (
-        "import json,pathlib,sys\n"
-        "path=pathlib.Path.home()/'.yoke'/'config.json'\n"
-        "path.parent.mkdir(parents=True,exist_ok=True)\n"
-        "payload={}\n"
-        "if path.is_file():\n"
-        "    try:\n"
-        "        loaded=json.loads(path.read_text(encoding='utf-8'))\n"
-        "        payload=loaded if isinstance(loaded,dict) else {}\n"
-        "    except ValueError:\n"
-        "        payload={}\n"
-        "payload['github']={\n"
-        "    'api_url':sys.argv[1],\n"
-        "    'credential_source':{'kind':'token_file','path':sys.argv[2]},\n"
-        "    'verified_login':'stored-recipe',\n"
-        "    'scopes':[],\n"
-        "}\n"
-        "path.write_text(json.dumps(payload,indent=2,sort_keys=True)+'\\n',encoding='utf-8')\n"
-        "path.chmod(0o600)\n"
-    )
-    return " ".join(
-        [
-            "python3",
-            "-c",
-            shlex.quote(script),
-            shlex.quote(api_url),
-            shlex.quote(token_path),
-        ]
-    )
 
 
 def _machine_yoke_config_command(*, api_url: str, token_path: str) -> str:
@@ -4711,26 +3831,10 @@ def _project_source_onboard_command(
     )
 
 
-def _project_source_fake_github_onboard_command(
-    *,
-    profile: Mapping[str, object],
-    remote_branches: Mapping[str, str] | None = None,
-) -> str:
-    return (
-        f"{_project_source_setup_command(remote_branches=remote_branches)}; "
-        f"{_fake_github_api_onboard_command(port=PROJECT_SOURCE_FAKE_PRIVATE_API_PORT, profile=profile)}"
-    )
-
 
 def _project_meta_onboard_command(*, path: str = PROJECT_META_CHECKOUT_PATH) -> str:
     return f"{_project_meta_setup_command(path=path)}; {_onboard_command()}"
 
-
-def _project_meta_many_org_onboard_command() -> str:
-    return (
-        f"{_project_meta_setup_command()}; "
-        f"{_fake_github_api_onboard_command(port=PROJECT_META_FAKE_GITHUB_API_PORT, profile=_fake_many_org_github_profile())}"
-    )
 
 
 def _project_meta_board_data_failure_onboard_command() -> str:
@@ -4743,182 +3847,6 @@ def _project_meta_board_data_failure_onboard_command() -> str:
 def _project_publish_stage_onboard_command(path: str) -> str:
     return f"{_project_meta_setup_command(path=path)}; {_onboard_command()}"
 
-
-def _project_publish_fake_github_onboard_command(
-    *,
-    path: str,
-    profile: Mapping[str, object],
-    port: int = PROJECT_PUBLISH_FAKE_GITHUB_API_PORT,
-) -> str:
-    return (
-        f"{_project_meta_setup_command(path=path)}; "
-        f"{_fake_github_api_onboard_command(port=port, profile=profile)}"
-    )
-
-
-def _project_publish_apply_failure_onboard_command() -> str:
-    yoke_api_url = f"http://127.0.0.1:{PROJECT_PUBLISH_APPLY_YOKE_API_PORT}"
-    github_api_url = f"http://127.0.0.1:{PROJECT_PUBLISH_APPLY_GITHUB_API_PORT}"
-    yoke_server = _fake_yoke_api_server_command(
-        port=PROJECT_PUBLISH_APPLY_YOKE_API_PORT,
-        payload=_fake_publish_yoke_payload(),
-    )
-    github_server = _fake_github_api_server_command(
-        port=PROJECT_PUBLISH_APPLY_GITHUB_API_PORT,
-        profile=_fake_publish_create_profile(),
-    )
-    git_config = "/tmp/yoke-project-publish-push-fail.gitconfig"
-    commands = [
-        _project_source_cleanup_command(),
-        "command -v git >/dev/null || sudo dnf install -y git",
-        _prepare_token_command(
-            token_path=REMOTE_FAKE_YOKE_TOKEN_PATH,
-            token_value=AUTH_FAKE_TOKEN_VALUE,
-        ),
-        _prepare_token_command(
-            token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-            token_value=GITHUB_FAKE_TOKEN_VALUE,
-        ),
-        _machine_yoke_config_command(
-            api_url=yoke_api_url,
-            token_path=REMOTE_FAKE_YOKE_TOKEN_PATH,
-        ),
-        _machine_github_config_command(
-            api_url=github_api_url,
-            token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-        ),
-        f"rm -f {shlex.quote(git_config)}",
-        (
-            f"git config --file {shlex.quote(git_config)} user.email "
-            "recipe@example.invalid"
-        ),
-        f"git config --file {shlex.quote(git_config)} user.name Recipe",
-        (
-            f"git config --file {shlex.quote(git_config)} "
-            "url.http://127.0.0.1:9/.insteadOf https://github.com/"
-        ),
-    ]
-    setup = " && ".join(commands)
-    return (
-        f"{setup}; "
-        f"{yoke_server} >/tmp/yoke-publish-yoke-api.log 2>&1 & "
-        "publish_yoke_pid=$!; "
-        f"{github_server} >/tmp/yoke-publish-github-api.log 2>&1 & "
-        "publish_github_pid=$!; "
-        'trap \'kill "$publish_yoke_pid" "$publish_github_pid" '
-        ">/dev/null 2>&1 || true' EXIT; "
-        f"sleep 1; {_onboard_command(env={'GIT_CONFIG_GLOBAL': git_config})}"
-    )
-
-
-def _project_publish_noninteractive_adoption_command(
-    *,
-    path: str,
-    slug: str,
-    github_repo: str,
-    adoption: str,
-) -> str:
-    yoke_bin = '"$HOME/.local/bin/yoke"'
-    args = [
-        "onboard",
-        "--non-interactive",
-        "--quick",
-        "--json",
-        "--env",
-        "stage",
-        "--api-url",
-        f"http://127.0.0.1:{PROJECT_PUBLISH_APPLY_YOKE_API_PORT}",
-        "--token-file",
-        REMOTE_FAKE_YOKE_TOKEN_PATH,
-        "--project-mode",
-        "local-checkout",
-        "--checkout",
-        path,
-        "--project-slug",
-        slug,
-        "--project-name",
-        slug.replace("-", " ").title(),
-        "--github-repo",
-        github_repo,
-        "--default-branch",
-        "main",
-        "--public-item-prefix",
-        "PUB",
-        "--github-adoption",
-        adoption,
-        "--github-token-file",
-        REMOTE_FAKE_GITHUB_TOKEN_PATH,
-    ]
-    onboard = " ".join([yoke_bin, *(shlex.quote(value) for value in args)])
-    output_path = "/tmp/yoke-publish-adoption-output.json"
-    adoption_summary = _project_github_adoption_summary_command(output_path)
-    setup = " && ".join(
-        [
-            _project_meta_setup_command(path=path),
-            _prepare_token_command(
-                token_path=REMOTE_FAKE_YOKE_TOKEN_PATH,
-                token_value=AUTH_FAKE_TOKEN_VALUE,
-            ),
-            _prepare_token_command(
-                token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-                token_value=GITHUB_FAKE_TOKEN_VALUE,
-            ),
-        ]
-    )
-    yoke_server = _fake_yoke_api_server_command(
-        port=PROJECT_PUBLISH_APPLY_YOKE_API_PORT,
-        payload=_fake_publish_yoke_payload(),
-    )
-    return (
-        f"{setup}; "
-        f"{yoke_server} >/tmp/yoke-publish-yoke-api.log 2>&1 & "
-        "publish_yoke_pid=$!; "
-        'trap \'kill "$publish_yoke_pid" >/dev/null 2>&1 || true\' EXIT; '
-        f"sleep 1; {onboard} >{shlex.quote(output_path)}; "
-        f"_rc=$?; cat {shlex.quote(output_path)}; {adoption_summary}; "
-        "sleep 8; exit \"$_rc\""
-    )
-
-
-def _project_github_adoption_summary_command(output_path: str) -> str:
-    script = "\n".join(
-        [
-            "import json, sys",
-            "try:",
-            "    data = json.load(open(sys.argv[1], encoding='utf-8'))",
-            "except Exception as exc:",
-            "    print('adoption_summary_error=' + type(exc).__name__)",
-            "    sys.exit(0)",
-            "def find_adoption(value):",
-            "    if isinstance(value, dict):",
-            "        adoption = value.get('github_adoption')",
-            "        if isinstance(adoption, dict):",
-            "            return adoption",
-            "        for child in value.values():",
-            "            found = find_adoption(child)",
-            "            if found:",
-            "                return found",
-            "    elif isinstance(value, list):",
-            "        for child in value:",
-            "            found = find_adoption(child)",
-            "            if found:",
-            "                return found",
-            "    return {}",
-            "adoption = find_adoption(data)",
-            "secret = adoption.get('secret') or {}",
-            "def norm(value):",
-            "    if isinstance(value, bool):",
-            "        return str(value).lower()",
-            "    if value is None:",
-            "        return 'null'",
-            "    return str(value)",
-            "print('adoption_choice=' + norm(adoption.get('choice')))",
-            "print('adoption_stored=' + norm(secret.get('stored')))",
-            "print('adoption_import_method=' + norm(secret.get('import_method')))",
-            "print('adoption_automation_enabled=' + norm(adoption.get('automation_enabled')))",
-        ]
-    )
-    return f"python3 -c {shlex.quote(script)} {shlex.quote(output_path)}"
 
 
 def _project_apply_clone_review_command() -> str:
@@ -4951,7 +3879,7 @@ def _project_apply_clone_review_command() -> str:
         "--public-item-prefix",
         "APC",
         "--github-adoption",
-        "skip",
+        "backlog-only",
     ]
     return " && ".join(
         [
@@ -4993,25 +3921,6 @@ def _project_apply_machine_config_failure_command() -> str:
     )
 
 
-def _project_apply_token_store_failure_command() -> str:
-    return _project_apply_fake_yoke_local_apply_command(
-        path=APPLY_TOKEN_STORE_PATH,
-        port=APPLY_TOKEN_STORE_YOKE_API_PORT,
-        payload=_fake_apply_yoke_payload(
-            function_errors={
-                "projects.capability_secret.set": {
-                    "code": "permission_denied",
-                    "message": "permission denied recording project GitHub App binding",
-                },
-            }
-        ),
-        slug="apply-token-store",
-        github_repo="owner/apply-token-store",
-        github_adoption="different-token",
-        github_token_file=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-        log_name="token-store",
-    )
-
 
 def _project_apply_project_create_failure_command() -> str:
     return _project_apply_fake_yoke_local_apply_command(
@@ -5031,7 +3940,7 @@ def _project_apply_project_create_failure_command() -> str:
         ),
         slug="apply-project-denied",
         github_repo="owner/apply-project-denied",
-        github_adoption="skip",
+        github_adoption="backlog-only",
         log_name="project-denied",
     )
 
@@ -5067,7 +3976,7 @@ def _project_apply_clone_conflict_failure_command() -> str:
         "--public-item-prefix",
         "ACC",
         "--github-adoption",
-        "skip",
+        "backlog-only",
     ]
     return " && ".join(
         [
@@ -5094,7 +4003,7 @@ def _project_apply_success_command(
         payload=_fake_apply_yoke_payload(),
         slug=slug,
         github_repo=f"owner/{slug}",
-        github_adoption="skip",
+        github_adoption="backlog-only",
         log_name=slug,
     )
 
@@ -5185,7 +4094,6 @@ def _project_apply_fake_yoke_local_apply_command(
     github_repo: str,
     github_adoption: str,
     log_name: str,
-    github_token_file: str | None = None,
 ) -> str:
     payload = _payload_with_board_data(payload, path=path)
     yoke_server = _fake_yoke_api_server_command(port=port, payload=payload)
@@ -5196,13 +4104,6 @@ def _project_apply_fake_yoke_local_apply_command(
             token_value=AUTH_FAKE_TOKEN_VALUE,
         ),
     ]
-    if github_token_file:
-        commands.append(
-            _prepare_token_command(
-                token_path=github_token_file,
-                token_value=GITHUB_FAKE_TOKEN_VALUE,
-            )
-        )
     args = [
         "onboard",
         "--non-interactive",
@@ -5233,8 +4134,6 @@ def _project_apply_fake_yoke_local_apply_command(
         "--github-adoption",
         github_adoption,
     ]
-    if github_token_file:
-        args.extend(["--github-token-file", github_token_file])
     setup = " && ".join(commands)
     pid_name = f"apply_{log_name.replace('-', '_')}_pid"
     return (
@@ -5274,16 +4173,16 @@ def _project_apply_seed_resume_report_command(*, api_url: str, path: str) -> str
         "  'checkout_path':checkout,\n"
         "  'source_repo':'',\n"
         "  'target_github_repo':'owner/apply-resume',\n"
-        "  'credential_sources':{'yoke':{'kind':'file','path':'/tmp/yoke-fake-api.token'},'github_app':{'machine':{'kind':''},'project':{'adoption':'skip','repo':'owner/apply-resume'}}},\n"
+        "  'credential_sources':{'yoke':{'kind':'file','path':'/tmp/yoke-fake-api.token'},'github_app':{'machine':{'kind':''},'project':{'adoption':'backlog-only','repo':'owner/apply-resume'}}},\n"
         "  'input_snapshot':{\n"
         "    'config_path':config_path,\n"
         "    'env_name':'stage',\n"
         "    'api_url':api_url,\n"
         "    'mode':'quick',\n"
         "    'check_identity':False,\n"
-        "    'credential_sources':{'yoke':{'kind':'file','path':'/tmp/yoke-fake-api.token'},'github_app':{'machine':{'kind':''},'project':{'adoption':'skip','repo':'owner/apply-resume'}}},\n"
+        "    'credential_sources':{'yoke':{'kind':'file','path':'/tmp/yoke-fake-api.token'},'github_app':{'machine':{'kind':''},'project':{'adoption':'backlog-only','repo':'owner/apply-resume'}}},\n"
         "    'machine_github':{'choice':'skip','api_url':'','authorization_source':{'kind':''}},\n"
-        "    'project':{'mode':'local-checkout','remote_url':'','checkout':checkout,'slug':'apply-resume','name':'Apply Resume','org':'','github_repo':'owner/apply-resume','default_branch':'main','default_branch_source':'','public_item_prefix':'APL','existing_project_id':None,'existing_project_match_source':'','existing_project_local_source':'','github_adoption':'skip','github_binding':{'adoption':'skip','repo':'owner/apply-resume'},'keep_existing_remote':False,'publish':None,'clone':None},\n"
+        "    'project':{'mode':'local-checkout','remote_url':'','checkout':checkout,'slug':'apply-resume','name':'Apply Resume','org':'','github_repo':'owner/apply-resume','default_branch':'main','default_branch_source':'','public_item_prefix':'APL','existing_project_id':None,'existing_project_match_source':'','existing_project_local_source':'','github_adoption':'backlog-only','github_binding':{'adoption':'backlog-only','repo':'owner/apply-resume'},'keep_existing_remote':False,'publish':None,'clone':None},\n"
         "    'checkout_provenance':{'path':checkout,'project_mode':'local-checkout','existed_before_apply':True,'created_by_run':False,'safe_to_remove_on_start_over':False},\n"
         "  },\n"
         "  'steps':[\n"
@@ -5312,17 +4211,11 @@ def _yoke_command(args: Sequence[str]) -> str:
 def _project_source_dev_post_apply_command(
     *,
     yoke_port: int = PROJECT_SOURCE_DEV_FRESH_YOKE_API_PORT,
-    github_port: int = PROJECT_SOURCE_DEV_FRESH_GITHUB_API_PORT,
 ) -> str:
     yoke_api_url = f"http://127.0.0.1:{yoke_port}"
-    github_api_url = f"http://127.0.0.1:{github_port}"
     yoke_server = _fake_yoke_api_server_command(
         port=yoke_port,
         payload=_fake_source_dev_yoke_payload(access=True),
-    )
-    github_server = _fake_github_api_server_command(
-        port=github_port,
-        profile=_fake_source_dev_github_profile(),
     )
     args = [
         "onboard",
@@ -5350,7 +4243,7 @@ def _project_source_dev_post_apply_command(
         "--public-item-prefix",
         "YOK",
         "--github-adoption",
-        "skip",
+        "backlog-only",
     ]
     commands = [
         _project_source_dev_setup_command(),
@@ -5361,17 +4254,9 @@ def _project_source_dev_post_apply_command(
             token_path=REMOTE_FAKE_YOKE_TOKEN_PATH,
             token_value=AUTH_FAKE_TOKEN_VALUE,
         ),
-        _prepare_token_command(
-            token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-            token_value=GITHUB_FAKE_TOKEN_VALUE,
-        ),
         _machine_yoke_config_command(
             api_url=yoke_api_url,
             token_path=REMOTE_FAKE_YOKE_TOKEN_PATH,
-        ),
-        _machine_github_config_command(
-            api_url=github_api_url,
-            token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
         ),
     ]
     setup = " && ".join(commands)
@@ -5388,10 +4273,7 @@ def _project_source_dev_post_apply_command(
         f"{setup}; "
         f"{yoke_server} >/tmp/yoke-source-dev-api-{yoke_port}.log 2>&1 & "
         "source_dev_yoke_pid=$!; "
-        f"{github_server} >/tmp/yoke-source-dev-github-{github_port}.log 2>&1 & "
-        "source_dev_github_pid=$!; "
-        'trap \'kill "$source_dev_yoke_pid" "$source_dev_github_pid" '
-        ">/dev/null 2>&1 || true' EXIT; "
+        'trap \'kill "$source_dev_yoke_pid" >/dev/null 2>&1 || true\' EXIT; '
         f"sleep 1; {apply_command} && {probe}"
     )
 
@@ -5604,19 +4486,13 @@ def _project_source_dev_onboard_command(
     *,
     yoke_port: int = PROJECT_SOURCE_DEV_YOKE_API_PORT,
     yoke_payload: Mapping[str, object] | None = None,
-    github_port: int = PROJECT_SOURCE_DEV_GITHUB_API_PORT,
     existing_dev_checkout: bool = False,
     conflict_dev_checkout: bool = False,
 ) -> str:
     yoke_api_url = f"http://127.0.0.1:{yoke_port}"
-    github_api_url = f"http://127.0.0.1:{github_port}"
     yoke_server = _fake_yoke_api_server_command(
         port=yoke_port,
         payload=yoke_payload or _fake_source_dev_yoke_payload(access=True),
-    )
-    github_server = _fake_github_api_server_command(
-        port=github_port,
-        profile=_fake_source_dev_github_profile(),
     )
     commands = [
         _project_source_dev_setup_command(
@@ -5627,17 +4503,9 @@ def _project_source_dev_onboard_command(
             token_path=REMOTE_FAKE_YOKE_TOKEN_PATH,
             token_value=AUTH_FAKE_TOKEN_VALUE,
         ),
-        _prepare_token_command(
-            token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
-            token_value=GITHUB_FAKE_TOKEN_VALUE,
-        ),
         _machine_yoke_config_command(
             api_url=yoke_api_url,
             token_path=REMOTE_FAKE_YOKE_TOKEN_PATH,
-        ),
-        _machine_github_config_command(
-            api_url=github_api_url,
-            token_path=REMOTE_FAKE_GITHUB_TOKEN_PATH,
         ),
     ]
     setup = " && ".join(commands)
@@ -5645,10 +4513,7 @@ def _project_source_dev_onboard_command(
         f"{setup}; "
         f"{yoke_server} >/tmp/yoke-source-dev-api-{yoke_port}.log 2>&1 & "
         "source_dev_yoke_pid=$!; "
-        f"{github_server} >/tmp/yoke-source-dev-github-{github_port}.log 2>&1 & "
-        "source_dev_github_pid=$!; "
-        'trap \'kill "$source_dev_yoke_pid" "$source_dev_github_pid" '
-        ">/dev/null 2>&1 || true' EXIT; "
+        'trap \'kill "$source_dev_yoke_pid" >/dev/null 2>&1 || true\' EXIT; '
         f"sleep 1; {_onboard_command()}"
     )
 
@@ -5698,7 +4563,6 @@ def _project_source_cleanup_command() -> str:
         PROJECT_SOURCE_CONFLICT_PATH,
         PROJECT_SOURCE_CLONE_MAIN_PATH,
         PROJECT_SOURCE_CLONE_MASTER_PATH,
-        PROJECT_SOURCE_CLONE_PRIVATE_PATH,
         PROJECT_SOURCE_DEV_FRESH_PATH,
         PROJECT_SOURCE_DEV_EXISTING_PATH,
         PROJECT_SOURCE_DEV_CONFLICT_PATH,
@@ -5708,28 +4572,14 @@ def _project_source_cleanup_command() -> str:
         PROJECT_META_CREATE_PATH,
         PROJECT_META_BOARD_DATA_FAIL_PATH,
         PROJECT_PUBLISH_LOCAL_PATH,
-        PROJECT_PUBLISH_USER_PATH,
-        PROJECT_PUBLISH_ORG_PATH,
-        PROJECT_PUBLISH_EMPTY_PATH,
-        PROJECT_PUBLISH_POPULATED_PATH,
-        PROJECT_PUBLISH_DENIED_PATH,
-        PROJECT_PUBLISH_NO_PUSH_PATH,
-        PROJECT_PUBLISH_PUSH_FAIL_PATH,
-        PROJECT_PUBLISH_SKIP_PATH,
-        PROJECT_PUBLISH_STORE_PATH,
-        PROJECT_PUBLISH_REUSE_PATH,
-        PROJECT_PUBLISH_TEMPORARY_PATH,
-        PROJECT_PUBLISH_DIFFERENT_PATH,
         APPLY_CREATE_PATH,
         APPLY_CLONE_PATH,
-        APPLY_TOKEN_STORE_PATH,
         APPLY_PROJECT_DENIED_PATH,
         APPLY_CLONE_CONFLICT_PATH,
         APPLY_BOARD_FAIL_PATH,
         APPLY_RESUME_PATH,
         APPLY_REPORT_AUDIT_PATH,
         APPLY_CTRL_C_PATH,
-        "/tmp/yoke-project-publish-push-fail.gitconfig",
         "/tmp/yoke-project-source-seeds",
         "/tmp/yoke-project-source-remotes",
         "/tmp/yoke-project-source-dev-remotes",
@@ -5809,8 +4659,6 @@ def _project_source_remote_path_for(name: str) -> str:
         return PROJECT_SOURCE_MAIN_REMOTE_PATH
     if name == "master-source":
         return PROJECT_SOURCE_MASTER_REMOTE_PATH
-    if name == "private-source":
-        return PROJECT_SOURCE_PRIVATE_REMOTE_PATH
     raise ValueError(f"unsupported project source remote: {name}")
 
 
@@ -5931,131 +4779,6 @@ def _fake_yoke_api_server_command(
         ]
     )
 
-
-def _fake_github_api_server_command(
-    *,
-    port: int,
-    profile: Mapping[str, object],
-) -> str:
-    script = (
-        "import http.server,json,socketserver,sys,urllib.parse\n"
-        "profile=json.loads(sys.argv[1])\n"
-        "port=int(sys.argv[2])\n"
-        "good_token=sys.argv[3]\n"
-        "scopes=', '.join(profile.get('scopes') or [])\n"
-        "repos=profile.get('repos') or []\n"
-        "writable=set(profile.get('writable') or [])\n"
-        "empty_repos=set(profile.get('empty_repos') or [])\n"
-        "create_conflicts=set(profile.get('create_conflicts') or [])\n"
-        "def repo_named(full_name):\n"
-        "    for repo in repos:\n"
-        "        if repo.get('full_name') == full_name:\n"
-        "            return repo\n"
-        "    return None\n"
-        "def repo_payload(full_name, private=True):\n"
-        "    owner, name = full_name.split('/', 1)\n"
-        "    return {'full_name': full_name, 'name': name, 'private': bool(private), 'owner': {'login': owner}, 'clone_url': 'https://github.com/' + full_name + '.git', 'ssh_url': 'git@github.com:' + full_name + '.git', 'html_url': 'https://github.com/' + full_name, 'default_branch': 'main', 'permissions': {'admin': True, 'maintain': True, 'push': True, 'pull': True}}\n"
-        "class Handler(http.server.BaseHTTPRequestHandler):\n"
-        "    def _authorized(self):\n"
-        "        header=self.headers.get('Authorization','')\n"
-        "        return header == 'Bearer ' + good_token\n"
-        "    def _send(self,status,payload):\n"
-        "        body=json.dumps(payload).encode('utf-8')\n"
-        "        self.send_response(status)\n"
-        "        self.send_header('Content-Type','application/json')\n"
-        "        if scopes:\n"
-        "            self.send_header('X-OAuth-Scopes',scopes)\n"
-        "        self.send_header('Content-Length',str(len(body)))\n"
-        "        self.end_headers()\n"
-        "        self.wfile.write(body)\n"
-        "    def _reject(self):\n"
-        "        self._send(401, {'message':'bad credentials'})\n"
-        "    def do_GET(self):\n"
-        "        if not self._authorized():\n"
-        "            self._reject(); return\n"
-        "        parsed=urllib.parse.urlparse(self.path)\n"
-        "        path=parsed.path\n"
-        "        if path == '/user':\n"
-        "            self._send(200, {'login': profile.get('login'), 'id': profile.get('id', 101)})\n"
-        "            return\n"
-        "        if path == '/user/repos':\n"
-        "            self._send(200, repos); return\n"
-        "        if path == '/user/orgs':\n"
-        "            self._send(200, profile.get('orgs') or []); return\n"
-        "        if path.startswith('/repos/'):\n"
-        "            parts=path.split('/')\n"
-        "            full_name=''\n"
-        "            if len(parts) >= 4:\n"
-        "                full_name=urllib.parse.unquote(parts[2]) + '/' + urllib.parse.unquote(parts[3])\n"
-        "            if path.endswith('/environments'):\n"
-        "                self._send(200, {'environments':[{'name':'prod'}]}); return\n"
-        "            repo=repo_named(full_name)\n"
-        "            if path.endswith('/commits'):\n"
-        "                if full_name in empty_repos:\n"
-        "                    self._send(409, {'message':'Git Repository is empty'}); return\n"
-        "                if repo is None:\n"
-        "                    self._send(404, {'message':'not found'}); return\n"
-        "                self._send(200, [{'sha':'abc123'}]); return\n"
-        "            if len(parts) == 4:\n"
-        "                if repo is None:\n"
-        "                    self._send(404, {'message':'not found'}); return\n"
-        "                self._send(200, repo); return\n"
-        "            self._send(200, {'ok': True}); return\n"
-        "        self._send(404, {'message':'not found'})\n"
-        "    def do_POST(self):\n"
-        "        if not self._authorized():\n"
-        "            self._reject(); return\n"
-        "        parsed=urllib.parse.urlparse(self.path)\n"
-        "        path=parsed.path\n"
-        "        length=int(self.headers.get('Content-Length','0') or '0')\n"
-        "        raw=self.rfile.read(length).decode('utf-8')\n"
-        "        try:\n"
-        "            request=json.loads(raw) if raw else {}\n"
-        "        except ValueError:\n"
-        "            request={}\n"
-        "        parts=path.split('/')\n"
-        "        is_user_create = path == '/user/repos'\n"
-        "        is_org_create = len(parts) == 4 and parts[1] == 'orgs' and parts[3] == 'repos'\n"
-        "        if is_user_create or is_org_create:\n"
-        "            name=str(request.get('name') or '').strip()\n"
-        "            if not name:\n"
-        "                self._send(int(profile.get('create_status', 403)), {'message':'probe'}); return\n"
-        "            owner=str(profile.get('login') or 'recipe') if is_user_create else urllib.parse.unquote(parts[2])\n"
-        "            full_name=owner + '/' + name\n"
-        "            if full_name in create_conflicts:\n"
-        "                self._send(422, {'message':'name already exists on this account'}); return\n"
-        "            status=int(profile.get('actual_create_status', 201))\n"
-        "            if status < 200 or status >= 300:\n"
-        "                self._send(status, {'message': profile.get('actual_create_message') or 'create failed'}); return\n"
-        "            self._send(status, repo_payload(full_name, private=bool(request.get('private', True)))); return\n"
-        "        self._send(404, {'message':'not found'})\n"
-        "    def do_PUT(self):\n"
-        "        if not self._authorized():\n"
-        "            self._reject(); return\n"
-        "        path=urllib.parse.urlparse(self.path).path\n"
-        "        parts=path.split('/')\n"
-        "        if len(parts) >= 6 and parts[1] == 'repos' and parts[4] == 'contents':\n"
-        "            full_name=urllib.parse.unquote(parts[2]) + '/' + urllib.parse.unquote(parts[3])\n"
-        "            self._send(422 if full_name in writable else 403, {'message':'probe'})\n"
-        "            return\n"
-        "        self._send(404, {'message':'not found'})\n"
-        "    def log_message(self,*args):\n"
-        "        return\n"
-        "class ReuseServer(socketserver.TCPServer):\n"
-        "    allow_reuse_address=True\n"
-        "with ReuseServer(('127.0.0.1', port), Handler) as httpd:\n"
-        "    httpd.serve_forever()\n"
-    )
-    return " ".join(
-        [
-            "python3",
-            "-c",
-            shlex.quote(script),
-            shlex.quote(json_helper.dumps_compact(dict(profile))),
-            shlex.quote(str(port)),
-            shlex.quote(GITHUB_FAKE_TOKEN_VALUE),
-        ]
-    )
 
 
 def _fake_success_identity_payload() -> dict[str, object]:
@@ -6264,207 +4987,6 @@ def _empty_board_data_payload(
         vision_entries=[],
     )
 
-
-def _fake_scoped_token_github_profile() -> dict[str, object]:
-    return {
-        "login": "recipe-scoped",
-        "id": 201,
-        "scopes": ["repo", "workflow"],
-        "repos": [
-            _fake_github_repo("recipe-scoped/app", private=True, push=True),
-            _fake_github_repo("recipe-scoped/cli", private=False, push=True),
-        ],
-        "orgs": [],
-        "create_status": 422,
-        "writable": [],
-    }
-
-
-def _fake_publish_github_profile() -> dict[str, object]:
-    return {
-        "login": PROJECT_PUBLISH_USER,
-        "id": 208,
-        "scopes": ["repo", "workflow"],
-        "repos": [
-            _fake_github_repo(
-                f"{PROJECT_PUBLISH_USER}/existing",
-                private=True,
-                push=True,
-            ),
-        ],
-        "orgs": [{"login": PROJECT_PUBLISH_ORG}],
-        "create_status": 422,
-        "actual_create_status": 201,
-        "writable": [],
-    }
-
-
-def _fake_publish_existing_repo_profile(
-    *,
-    empty: bool,
-    full_name: str,
-) -> dict[str, object]:
-    profile = _fake_publish_github_profile()
-    profile["repos"] = [
-        _fake_github_repo(full_name, private=True, push=True),
-    ]
-    if empty:
-        profile["empty_repos"] = [full_name]
-        profile["create_conflicts"] = [full_name]
-    return profile
-
-
-def _fake_publish_create_no_push_profile() -> dict[str, object]:
-    return {
-        "login": "publish-selected",
-        "id": 209,
-        "scopes": [],
-        "repos": [
-            _fake_github_repo(
-                "publish-selected/public-readable",
-                private=False,
-                push=False,
-            ),
-        ],
-        "orgs": [],
-        "create_status": 422,
-        "writable": [],
-    }
-
-
-def _fake_publish_create_profile() -> dict[str, object]:
-    return {
-        "login": PROJECT_PUBLISH_USER,
-        "id": 210,
-        "scopes": ["repo", "workflow"],
-        "repos": [
-            _fake_github_repo(
-                f"{PROJECT_PUBLISH_USER}/existing",
-                private=True,
-                push=True,
-            ),
-        ],
-        "orgs": [],
-        "create_status": 422,
-        "actual_create_status": 201,
-        "writable": [],
-    }
-
-
-def _fake_source_dev_github_profile() -> dict[str, object]:
-    return {
-        "login": "source-dev-recipe",
-        "id": 206,
-        "scopes": ["repo", "workflow"],
-        "create_status": 201,
-        "orgs": [{"login": "beebauman"}],
-        "repos": [
-            _fake_github_repo("upyoke/yoke", private=True, push=True),
-        ],
-    }
-
-
-def _fake_many_org_github_profile() -> dict[str, object]:
-    return {
-        "login": "meta-recipe",
-        "id": 207,
-        "scopes": ["repo", "workflow"],
-        "repos": [
-            _fake_github_repo("meta-recipe/project", private=True, push=True),
-        ],
-        "orgs": [
-            {"login": "meta-org-one"},
-            {"login": "meta-org-two"},
-        ],
-        "create_status": 422,
-        "writable": ["meta-recipe/project"],
-    }
-
-
-def _fake_readonly_github_profile() -> dict[str, object]:
-    return {
-        "login": "recipe-readonly",
-        "id": 202,
-        "scopes": [],
-        "repos": [
-            _fake_github_repo("recipe-readonly/app", private=True, push=False),
-        ],
-        "orgs": [],
-        "create_status": 403,
-        "writable": [],
-    }
-
-
-def _fake_partial_github_profile() -> dict[str, object]:
-    return {
-        "login": "recipe-partial",
-        "id": 203,
-        "scopes": [],
-        "repos": [
-            _fake_github_repo("recipe-partial/app", private=True, push=True),
-            _fake_github_repo("recipe-partial/docs", private=True, push=False),
-        ],
-        "orgs": [],
-        "create_status": 403,
-        "writable": ["recipe-partial/app"],
-    }
-
-
-def _fake_many_github_profile() -> dict[str, object]:
-    repos = [
-        _fake_github_repo(f"recipe-many/app-{index}", private=index <= 3, push=True)
-        for index in range(1, 8)
-    ]
-    return {
-        "login": "recipe-many",
-        "id": 204,
-        "scopes": [],
-        "repos": repos,
-        "orgs": [],
-        "create_status": 422,
-        "writable": [str(repo["full_name"]) for repo in repos],
-    }
-
-
-def _fake_private_clone_github_profile() -> dict[str, object]:
-    return {
-        "login": "recipe-private",
-        "id": 205,
-        "scopes": [],
-        "repos": [
-            _fake_github_repo(
-                "recipe-private/private-source",
-                private=True,
-                push=False,
-                clone_url=PROJECT_SOURCE_PRIVATE_REMOTE_URL,
-            ),
-        ],
-        "orgs": [],
-        "create_status": 403,
-        "writable": [],
-    }
-
-
-def _fake_github_repo(
-    full_name: str,
-    *,
-    private: bool,
-    push: bool,
-    clone_url: str | None = None,
-) -> dict[str, object]:
-    owner, _repo = full_name.split("/", 1)
-    return {
-        "full_name": full_name,
-        "clone_url": clone_url or f"https://github.com/{full_name}.git",
-        "private": private,
-        "owner": {"login": owner},
-        "permissions": {
-            "admin": False,
-            "maintain": False,
-            "push": push,
-            "pull": True,
-        },
-    }
 
 
 def _path_fix_expected_text() -> list[str]:

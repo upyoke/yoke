@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from textual.widgets import Static
 
+from yoke_contracts import github_origin
 from yoke_cli.config.onboard_wizard_steps import selection_body
 from yoke_cli.config.onboard_wizard_widgets import SelectionRow
 from yoke_cli.config.project_clone_support import (
@@ -62,8 +63,9 @@ NEW_REPO_VISIBILITY_ROWS = [
 # source repo. When it can, "Clone it" pushes straight back and the
 # read-only-specific "Fork it" row is irrelevant; otherwise "Clone it" is
 # read-only and the fork row offers a writable path with PRs back. Both variants
-# only show "Fork it" when the keep_fork condition holds (github.com remote +
-# connected GitHub authorization); see ``clone_outcome_rows``.
+# only show "Fork it" when the keep_fork condition holds (a remote on the
+# configured GitHub deployment + connected authorization); see
+# ``clone_outcome_rows``.
 _CLONE_IT_WRITABLE = SelectionRow(
     CLONE_OUTCOME_JUST_CLONE, "Clone it", "push straight back to {repo}")
 _CLONE_IT_READONLY = SelectionRow(
@@ -82,16 +84,20 @@ CLONE_OUTCOME_ROWS_WRITABLE = [_CLONE_IT_WRITABLE, _DUPLICATE_IT]
 CLONE_OUTCOME_ROWS_READONLY = [_CLONE_IT_READONLY, _DUPLICATE_IT, _FORK_IT]
 
 
-def default_repo(remote_url: str | None) -> str | None:
+def default_repo(
+    remote_url: str | None,
+    *,
+    web_url: str | None = None,
+) -> str | None:
     if not remote_url:
         return None
-    cleaned = remote_url.removesuffix(".git")
-    if cleaned.startswith("git@github.com:"):
-        return cleaned.split(":", 1)[1]
-    marker = "github.com/"
-    if marker in cleaned:
-        return cleaned.split(marker, 1)[1].strip("/")
-    return None
+    try:
+        return github_origin.normalize_github_repository(
+            remote_url,
+            web_url=web_url or github_origin.DEFAULT_GITHUB_WEB_URL,
+        )
+    except github_origin.GitHubApiOriginError:
+        return None
 
 
 def clone_outcome_rows(
@@ -99,6 +105,7 @@ def clone_outcome_rows(
     *,
     has_token: bool = True,
     push_access: bool | None = None,
+    web_url: str | None = None,
 ) -> list[SelectionRow]:
     """Clone-outcome rows with the source repo interpolated into the hints.
 
@@ -109,15 +116,16 @@ def clone_outcome_rows(
     since "Clone it" has no side effects when in doubt.
 
     The "Fork it" row only appears in the read-only variant, and only when both
-    a github.com remote (forking parses the source owner/repo and calls the
-    GitHub forks API, which a non-github host like gitlab.com cannot satisfy)
-    AND connected GitHub authorization are present. Drop it if either is
+    a remote on the configured GitHub deployment (forking parses the source
+    owner/repo and calls that deployment's forks API) AND connected GitHub
+    authorization are present. Drop it if either is
     missing so the review never shows an outcome that 403s at apply. Clone-it
     and duplicate-it work for any remote, so they always appear. Falls back to
-    "the source" when the remote URL is not a recognizable github.com
+    "the source" when the remote URL is not on the configured GitHub
+    deployment's
     owner/repo.
     """
-    parsed = default_repo(remote_url)
+    parsed = default_repo(remote_url, web_url=web_url)
     repo = parsed or "the source"
     rows = CLONE_OUTCOME_ROWS_WRITABLE if push_access is True else CLONE_OUTCOME_ROWS_READONLY
     keep_fork = bool(parsed) and has_token
@@ -134,12 +142,18 @@ def clone_outcome_body(
     *,
     has_token: bool = True,
     push_access: bool | None = None,
+    web_url: str | None = None,
 ) -> list[Static]:
-    repo = default_repo(remote_url) or "the source"
+    repo = default_repo(remote_url, web_url=web_url) or "the source"
     return selection_body(
         f"How do you want to copy {repo}?",
         None,
-        clone_outcome_rows(remote_url, has_token=has_token, push_access=push_access),
+        clone_outcome_rows(
+            remote_url,
+            has_token=has_token,
+            push_access=push_access,
+            web_url=web_url,
+        ),
     )
 
 
@@ -196,7 +210,7 @@ def new_repo_visibility_body() -> list[Static]:
 def owner_picker_body(owners: list) -> list[Static]:
     return selection_body(
         "Where on GitHub?",
-        "Accounts the GitHub App can create repos under.",
+        "Accounts available through your GitHub App connection.",
         owner_rows(owners),
     )
 

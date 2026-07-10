@@ -1,4 +1,4 @@
-"""bearer-token REST helpers for the GitHub Actions command surface.
+"""GitHub App bearer-token REST helpers for the Actions command surface.
 
 Carved out of :mod:`github_actions` to keep that orchestration module
 under the authored-file line cap. Every helper dispatches through
@@ -30,13 +30,35 @@ from yoke_core.domain.project_github_auth import (
 )
 
 
-def resolve_token(project: str = "yoke") -> str:
-    """Resolve the project GitHub App auth; exit 4 + repair hint on failure."""
+def resolve_token(
+    project: str,
+    repo: str,
+    *,
+    required_permissions: Mapping[str, str],
+) -> str:
+    """Resolve project App auth for exactly the requested bound repository."""
     try:
-        resolved = resolve_project_github_auth(project)
+        resolved = resolve_project_github_auth(
+            project,
+            required_permissions=required_permissions,
+        )
     except ProjectGithubAuthError as exc:
         print(f"Error: {exc.code}: {exc}", file=sys.stderr)
         print(f"  Repair: {repair_command_hint(exc, project)}", file=sys.stderr)
+        sys.exit(4)
+    requested_repo = str(repo or "").strip()
+    if requested_repo.casefold() != resolved.repo.casefold():
+        print(
+            "Error: repository_binding_mismatch: requested repository "
+            f"{requested_repo!r} does not match project '{project}' binding "
+            f"{resolved.repo!r}",
+            file=sys.stderr,
+        )
+        print(
+            "  Repair: use the project's bound repository or rebind it with "
+            "`yoke projects github-binding bind`",
+            file=sys.stderr,
+        )
         sys.exit(4)
     return resolved.token
 
@@ -132,21 +154,28 @@ def latest_workflow_run(
     token: str,
 ) -> Optional[Dict[str, Any]]:
     """Return the most recent ``workflow_runs[0]`` dict on a branch, or ``None``."""
-    try:
-        data = rest_get(
-            f"/repos/{repo}/actions/workflows/{workflow}/runs",
-            query={"branch": branch, "per_page": "1"},
-            token=token,
-        )
-    except RestTransportError:
-        return None
+    data = rest_get(
+        f"/repos/{repo}/actions/workflows/{workflow}/runs",
+        query={"branch": branch, "per_page": "1"},
+        token=token,
+    )
     if not isinstance(data, dict):
-        return None
+        raise RestTransportError(
+            "GitHub workflow-runs response must be an object"
+        )
     runs = data.get("workflow_runs")
-    if not isinstance(runs, list) or not runs:
+    if not isinstance(runs, list):
+        raise RestTransportError(
+            "GitHub workflow-runs response omitted workflow_runs"
+        )
+    if not runs:
         return None
     first = runs[0]
-    return first if isinstance(first, dict) else None
+    if not isinstance(first, dict):
+        raise RestTransportError(
+            "GitHub workflow-runs response contained a malformed run"
+        )
+    return first
 
 
 __all__ = [

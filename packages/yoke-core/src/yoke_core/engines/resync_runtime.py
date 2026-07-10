@@ -14,17 +14,11 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain import backlog_github_sync
-from yoke_core.domain.project_github_auth import (
-    InvalidToken,
-    ProjectGithubAuthError,
-    resolve_project_github_auth,
-)
-from yoke_core.domain.worktree import resolve_yoke_root as resolve_worktree_yoke_root
+from yoke_core.domain.project_github_auth import resolve_project_github_auth
 
 
 def _parent():
@@ -61,14 +55,6 @@ def _is_dry_run() -> bool:
     return os.environ.get("YOKE_DRY_RUN", "0") == "1"
 
 
-def _gh_env(project: str) -> Dict[str, str]:
-    """Build the env dict scoped to ``project`` (canonical resolver).
-
-    Raises :class:`ProjectGithubAuthError` when configuration is incomplete.
-    """
-    return dict(resolve_project_github_auth(project).env)
-
-
 def _query_item_status(item_id: str) -> Optional[str]:
     """Look up an item's local status via the DB helpers."""
     try:
@@ -96,16 +82,11 @@ def _query_item_status(item_id: str) -> Optional[str]:
 def _call_domain_sync(func, *args, project: str = "yoke", **kwargs) -> bool:
     """Invoke a :mod:`yoke_core.domain.backlog_github_sync` function in-process.
 
-    Domain helpers read ``GH_TOKEN`` from ``os.environ`` so the project
-    token is merged into ``os.environ`` for the duration of the call and
-    restored afterwards.
+    Resolve auth up front so a missing binding remains a typed failure. Domain
+    helpers resolve their own request-scoped token; process-global environment
+    mutation would let concurrent project syncs observe each other's token.
     """
-    auth = resolve_project_github_auth(project)
-    token_env = {"GH_TOKEN": auth.token}
-    saved: Dict[str, Optional[str]] = {}
-    for key, value in token_env.items():
-        saved[key] = os.environ.get(key)
-        os.environ[key] = value
+    resolve_project_github_auth(project)
     stderr = io.StringIO()
     try:
         rc = func(*args, stdout=io.StringIO(), stderr=stderr, **kwargs)
@@ -118,12 +99,6 @@ def _call_domain_sync(func, *args, project: str = "yoke", **kwargs) -> bool:
             func, stderr.getvalue(), f"{type(exc).__name__}: {exc}",
         )
         return False
-    finally:
-        for key, original in saved.items():
-            if original is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = original
 
 
 def _print_domain_sync_reason(func, stderr_text: str, fallback: str) -> None:

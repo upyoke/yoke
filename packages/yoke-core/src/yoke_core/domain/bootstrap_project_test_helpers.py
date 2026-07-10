@@ -9,7 +9,7 @@ from pathlib import Path
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.bootstrap_project import BootstrapContext
-from yoke_core.domain.project_github_auth import ProjectGithubAuth
+from yoke_core.domain.project_github_auth import MissingPermission, ProjectGithubAuth
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
@@ -49,8 +49,7 @@ def _fake_repo_public_key_b64() -> str:
 
 
 def _install_fake_rest(monkeypatch) -> list[tuple[str, str]]:
-    """Install a urlopen fake covering setup's /user, public-key, PUT secret,
-    and PUT environment calls.
+    """Install a urlopen fake covering public-key, secret, and optional env calls.
 
     Returns a list of ``(method, path)`` tuples for routing assertions.
     """
@@ -62,8 +61,6 @@ def _install_fake_rest(monkeypatch) -> list[tuple[str, str]]:
         url = request.full_url
         path = url.split("api.github.com", 1)[-1] if "api.github.com" in url else url
         seen.append((method, path))
-        if method == "GET" and path == "/user":
-            return _FakeRestResponse(200, {"login": "tester", "id": 123})
         if method == "GET" and path.endswith("/actions/secrets/public-key"):
             return _FakeRestResponse(200, {"key_id": "kid-1", "key": public_key_b64})
         if method == "PUT" and "/actions/secrets/" in path:
@@ -81,12 +78,14 @@ def _install_fake_rest(monkeypatch) -> list[tuple[str, str]]:
 def install_fake_project_github_auth(monkeypatch) -> None:
     """Patch bootstrap modules to resolve a shaped GitHub App auth bundle."""
 
-    def fake_resolve(project: str, **_kwargs) -> ProjectGithubAuth:
+    def fake_resolve(project: str, **kwargs) -> ProjectGithubAuth:
+        required = kwargs.get("required_permissions") or {}
+        if required.get("administration"):
+            raise MissingPermission(project, "Administration: write not granted")
         return ProjectGithubAuth(
             project=project,
             repo="example-org/buzz",
             token="ghs_installation_token",
-            env={"GH_TOKEN": "ghs_installation_token"},
             installation_id="12345",
             token_source="github_app_installation",
         )
@@ -204,7 +203,8 @@ def _apply_bootstrap_seed(
             (
                 2,
                 "github",
-                '{"repo_owner":"example-org","repo_name":"buzz"}',
+                '{"repo_owner":"example-org","repo_name":"buzz",'
+                '"installation_id":"12345","repository_id":"4567"}',
             ),
         )
     if include_project:
@@ -278,12 +278,7 @@ def _make_fake_run(
     ssh_ok: bool = True,
     tls_state: str = "exists",
 ):
-    """Return a fake _run that mocks GitHub CLI auth, SSH, and the TLS probe.
-
-    ``gh_auth_ok`` is retained for legacy callers but no longer drives any
-    gh subprocess — preflight resolves project github auth via the
-    canonical resolver (DB-backed), not via a host-credential probe.
-    """
+    """Return a fake runner for SSH and TLS preflight probes."""
 
     _unused_gh_auth_ok = gh_auth_ok  # retained for callsite back-compat
 
@@ -302,16 +297,7 @@ def _make_fake_run(
 
 @contextlib.contextmanager
 def bootstrap_seeded_db(tmp_path: Path, ssh_key: Path, **seed_options):
-    """Context manager yielding a seeded ``ctx.yoke_db`` token (PG-portable).
-
-    Enters :func:`init_test_db` so a disposable per-test Postgres database is
-    created and ``YOKE_PG_DSN`` repointed at it for the body (dropped on
-    exit). The :func:`seed_bootstrap_backend_db` strategy lands the bootstrap
-    rows in that DB so the canonical ``resolve_project_github_auth`` resolver
-    reads real state instead of the shared ``dbname=postgres`` database. Yields
-    the ``db_path`` compatibility token; the caller threads it into
-    ``BootstrapContext(yoke_db=...)`` while all reads go through Postgres.
-    """
+    """Yield a seeded Postgres-backed ``ctx.yoke_db`` compatibility token."""
     with init_test_db(
         tmp_path,
         apply_schema=seed_bootstrap_backend_db(str(ssh_key), **seed_options),

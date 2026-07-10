@@ -9,10 +9,8 @@ conflict; the re-home and fork remote steps are idempotent on a second run.
 
 from __future__ import annotations
 
-import io
 import json
 import subprocess
-import urllib.error
 from pathlib import Path
 
 import pytest
@@ -22,8 +20,13 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     seed_remote,
     write_https_config,
 )
+from runtime.api.cli.project_onboard_github_replay_test_support import (
+    CreateRepoReplay,
+)
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import github_publish
+from yoke_cli.config import github_publish_transport
+from yoke_cli.config import project_clone_resume
 from yoke_cli.config import project_clone_support as clone
 from yoke_cli.config import project_onboard
 from yoke_cli.config.project_onboard import ProjectOnboardError
@@ -102,6 +105,17 @@ def test_origin_is_normalizes_ssh_https(tmp_path: Path) -> None:
     assert clone.origin_is(target, str(tmp_path / "other.git")) is False
 
 
+def test_same_repo_normalizes_ghes_ssh_and_https_without_crossing_hosts() -> None:
+    assert project_clone_resume.same_repo(
+        "git@ghe.example:acme/widgets.git",
+        "https://ghe.example/acme/widgets.git",
+    ) is True
+    assert project_clone_resume.same_repo(
+        "git@ghe.example:acme/widgets.git",
+        "https://other.example/acme/widgets.git",
+    ) is False
+
+
 # ── _resumable_clone ─────────────────────────────────────────────────────
 
 
@@ -175,78 +189,23 @@ def test_set_fork_remotes_is_idempotent_on_a_second_run(tmp_path: Path) -> None:
     assert _git(target, "remote", "get-url", "upstream") == str(source)
 
 
-class _CreateRepoReplay:
-    """Replays the GitHub REST seam: first run creates, the resume run 422s.
-
-    Two passes share one instance. Pass 1 (``self.calls == 0``) returns a fresh
-    repo for the create POST. Pass 2 simulates the prior run already having
-    created the repo: the create POST 422s, the GET answers the (still empty)
-    repo, and the commits probe answers 409 — exercising create_repo's reuse.
-    """
-
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def first_pass(self):
-        self.calls = 0
-        return self
-
-    def resume_pass(self):
-        self.calls = 1
-        return self
-
-    def __call__(self, request, timeout: float = 0.0):
-        url_path = request.full_url.split("?", 1)[0]
-        if url_path.endswith("/user/repos"):
-            if self.calls == 0:
-                return self._ok({
-                    "full_name": "octocat/widget",
-                    "private": True,
-                    "default_branch": "main",
-                })
-            raise self._error(request.full_url, 422, "name already exists")
-        if url_path.endswith("/octocat/widget/commits"):
-            raise self._error(request.full_url, 409, "Git Repository is empty")
-        if url_path.endswith("/repos/octocat/widget"):
-            return self._ok({
-                "full_name": "octocat/widget",
-                "private": True,
-                "default_branch": "main",
-            })
-        raise AssertionError(f"unexpected GitHub call: {request.full_url}")
-
-    @staticmethod
-    def _ok(payload: dict):
-        class _Resp(io.BytesIO):
-            def __enter__(self_inner):
-                return self_inner
-
-            def __exit__(self_inner, *exc):
-                return False
-
-        return _Resp(json.dumps(payload).encode("utf-8"))
-
-    @staticmethod
-    def _error(url: str, status: int, message: str) -> urllib.error.HTTPError:
-        body = io.BytesIO(json.dumps({"message": message}).encode("utf-8"))
-        return urllib.error.HTTPError(url, status, message, {}, body)
-
-
 def test_create_repo_is_idempotent_on_a_second_run(monkeypatch) -> None:
     # The repo-create step resumes: a first run creates the repo, a second run
     # (the prior push hadn't landed) finds the empty repo via 422 and reuses it
     # rather than aborting — so onboarding's last non-idempotent step completes.
-    replay = _CreateRepoReplay()
-    monkeypatch.setattr(github_publish.urllib.request, "urlopen", replay)
+    replay = CreateRepoReplay()
+    monkeypatch.setattr(github_publish_transport, "_urlopen", replay)
 
     first = github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
+        administration_allowed=True,
     )
     replay.resume_pass()
     second = github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
+        administration_allowed=True,
     )
 
     assert first["full_name"] == second["full_name"] == "octocat/widget"
@@ -290,7 +249,7 @@ def test_import_resumes_over_an_existing_matching_clone(
             "project", "import", str(remote), str(checkout),
             "--slug", "imported", "--name", "Imported",
             "--github-repo", "owner/imported", "--default-branch", "trunk",
-            "--public-item-prefix", "IMP", "--github-adoption", "skip",
+            "--public-item-prefix", "IMP", "--github-adoption", "backlog-only",
             "--config", str(config), "--yes", "--json",
         ])
 
@@ -332,7 +291,7 @@ def test_fresh_import_carries_no_clone_resume_block(
             "project", "import", str(remote), str(checkout),
             "--slug", "fresh", "--name", "Fresh",
             "--github-repo", "owner/fresh", "--default-branch", "trunk",
-            "--public-item-prefix", "FRS", "--github-adoption", "skip",
+            "--public-item-prefix", "FRS", "--github-adoption", "backlog-only",
             "--config", str(config), "--yes", "--json",
         ])
 

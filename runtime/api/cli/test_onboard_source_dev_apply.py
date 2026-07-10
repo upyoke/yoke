@@ -21,9 +21,30 @@ import pytest
 
 from yoke_cli.config import dev_setup
 from yoke_cli.config import github_git_credentials
+from yoke_cli.config import github_git_credential_store
 from yoke_cli.config import project_onboard_apply
 from yoke_cli.config.project_onboard_support import ProjectOnboardError
 
+
+def _github_app_config(config: Path, credential: Path, token: str) -> None:
+    github_git_credential_store.write_credential_document(credential, {
+        "schema_version": 1, "access_token": token,
+        "expires_at": "2099-07-09T17:00:00+00:00", "refresh_token": "refresh-secret",
+        "refresh_expires_at": "2099-12-09T17:00:00+00:00", "scope": "",
+        "token_type": "bearer",
+    })
+    config.write_text(json.dumps({
+        "schema_version": 1,
+        "github": {
+            "api_url": "https://api.github.com", "web_url": "https://github.com",
+            "app_slug": "yoke", "client_id": "Iv1.local",
+            "authorization": {
+                "kind": "github_app_user_authorization",
+                "status": "authorized",
+                "refresh_credential_ref": str(credential),
+            },
+        },
+    }), encoding="utf-8")
 
 def _yoke_source_checkout(root: Path) -> Path:
     """A tree that ``is_yoke_source_checkout`` accepts."""
@@ -43,7 +64,6 @@ def _finish(root: Path, config: Path, **overrides):
         config_path=config,
         progress=None,
         github_auth_target="source-dev",
-        token_value=None,
         scaffold_action="project-install-scaffold",
         reuse_github_auth=True,
     )
@@ -129,22 +149,9 @@ def test_source_dev_apply_configures_github_push_helper(
     root = _yoke_source_checkout(tmp_path / "yoke")
     _git(root, "init")
     token = "source-dev-secret"
-    token_file = tmp_path / "home" / "secrets" / "github.token"
-    token_file.parent.mkdir(parents=True)
-    token_file.write_text(token + "\n", encoding="utf-8")
+    token_file = tmp_path / "home" / "secrets" / "github-app-user.json"
     config = tmp_path / "config.json"
-    config.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "github": {
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(token_file),
-                },
-            },
-        }),
-        encoding="utf-8",
-    )
+    _github_app_config(config, token_file, token)
 
     def _fake_engine(_repo_root, **_kwargs):
         return {
@@ -166,6 +173,8 @@ def test_source_dev_apply_configures_github_push_helper(
 
     git_credentials = report["install"]["git_credentials"]
     assert git_credentials["configured"] is True
+    assert "credential_source" not in git_credentials
+    assert str(token_file) not in json.dumps(report)
     helper = _git(
         root, "config", "--local", "--get",
         github_git_credentials.GITHUB_CREDENTIAL_HELPER_KEY,
@@ -173,13 +182,26 @@ def test_source_dev_apply_configures_github_push_helper(
     assert str(config) in helper
     assert github_git_credentials.STABLE_HELPER_FILE_NAME in helper
     assert "yoke_cli.config.github_git_credential_helper" not in helper
-    assert _git(
-        root, "config", "--local", "--get",
-        github_git_credentials.GIT_CREDENTIAL_HELPER_KEY,
-    ) == "\n"
+    for stable_name in (
+        github_git_credentials.STABLE_STORE_FILE_NAME,
+        github_git_credentials.STABLE_FILE_IO_NAME,
+        github_git_credentials.STABLE_ORIGIN_FILE_NAME,
+        github_git_credentials.STABLE_TOKEN_CONTRACT_NAME,
+    ):
+        assert (tmp_path / "site" / stable_name).is_file()
+    assert subprocess.run(
+        ["git", "config", "--local", "--get-all", "credential.helper"],
+        cwd=root, text=True, capture_output=True, check=False,
+    ).returncode == 1
     config_text = (root / ".git" / "config").read_text(encoding="utf-8")
     assert token not in config_text
     assert str(token_file) not in config_text
+
+
+def test_github_helper_key_uses_configured_ghes_authority() -> None:
+    assert github_git_credentials.credential_helper_key(
+        "https://github.enterprise.example:8443"
+    ) == "credential.https://github.enterprise.example:8443.helper"
 
 
 def test_github_push_helper_serves_token_without_persisting_it(tmp_path: Path) -> None:
@@ -187,21 +209,9 @@ def test_github_push_helper_serves_token_without_persisting_it(tmp_path: Path) -
     root.mkdir()
     _git(root, "init")
     token = "helper-secret"
-    token_file = tmp_path / "github.token"
-    token_file.write_text(token + "\n", encoding="utf-8")
+    token_file = tmp_path / "github-app-user.json"
     config = tmp_path / "config.json"
-    config.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "github": {
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(token_file),
-                },
-            },
-        }),
-        encoding="utf-8",
-    )
+    _github_app_config(config, token_file, token)
     _git(root, "config", "--local", github_git_credentials.GIT_CREDENTIAL_HELPER_KEY, "")
     helper_path = github_git_credentials.install_stable_helper(tmp_path / "site")
     _git(
@@ -229,21 +239,9 @@ def test_github_push_helper_survives_editable_import_repoint(tmp_path: Path) -> 
     root.mkdir()
     _git(root, "init")
     token = "repoint-secret"
-    token_file = tmp_path / "github.token"
-    token_file.write_text(token + "\n", encoding="utf-8")
+    token_file = tmp_path / "github-app-user.json"
     config = tmp_path / "config.json"
-    config.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "github": {
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(token_file),
-                },
-            },
-        }),
-        encoding="utf-8",
-    )
+    _github_app_config(config, token_file, token)
     helper_path = github_git_credentials.install_stable_helper(tmp_path / "site")
     _git(root, "config", "--local", github_git_credentials.GIT_CREDENTIAL_HELPER_KEY, "")
     _git(
@@ -278,8 +276,10 @@ def test_github_push_helper_survives_editable_import_repoint(tmp_path: Path) -> 
     assert "username=x-access-token" in result.stdout
     assert f"password={token}" in result.stdout
     helper_text = helper_path.read_text(encoding="utf-8")
-    assert "from yoke_cli" not in helper_text
-    assert "import yoke_cli" not in helper_text
+    assert "_yoke_github_git_credential_store" in helper_text
+    assert (
+        tmp_path / "site" / github_git_credentials.STABLE_STORE_FILE_NAME
+    ).is_file()
 
 
 def test_external_checkout_apply_still_uses_product_install(

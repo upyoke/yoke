@@ -16,22 +16,11 @@ import sys
 import types
 from pathlib import Path
 
-
-class _FakeOutput:
-    """Stand-in for ``pulumi.Output``: ``apply`` runs the fn immediately."""
-
-    def __init__(self, value):
-        self.value = value
-
-    def apply(self, fn):
-        return fn(self.value)
-
-    @staticmethod
-    def concat(*parts):
-        return "".join(
-            str(part.value if isinstance(part, _FakeOutput) else part)
-            for part in parts
-        )
+from runtime.api.domain.webapp_pulumi_test_support import (
+    _FakeOutput,
+    _make_certificate_class,
+    _make_dynamic_module,
+)
 
 
 class _FakeArgs:
@@ -87,32 +76,6 @@ class _FakeResourceOptions:
         return merged
 
 
-def _make_dynamic_module(recorder):
-    dynamic = types.ModuleType("pulumi.dynamic")
-
-    class _ResourceProvider:
-        pass
-
-    class _Resource:
-        def __init__(self, provider, resource_name, props, opts=None):
-            self.resource_type = "pulumi:dynamic:Resource"
-            self.resource_name = resource_name
-            self.provider = provider
-            self.props = props
-            self.opts = opts
-            recorder.resources.append(self)
-
-    class _CreateResult:
-        def __init__(self, id_=None, outs=None):
-            self.id_ = id_
-            self.outs = outs
-
-    dynamic.ResourceProvider = _ResourceProvider
-    dynamic.Resource = _Resource
-    dynamic.CreateResult = _CreateResult
-    return dynamic
-
-
 class _Recorder:
     """Collects every fake resource construction + ``pulumi.export`` call."""
 
@@ -150,31 +113,6 @@ def _make_resource_class(recorder, type_name):
     return _Resource
 
 
-def _make_certificate_class(recorder):
-    class _Certificate:
-        def __init__(self, resource_name, opts=None, **kwargs):
-            self.resource_type = "aws:acm:Certificate"
-            self.resource_name = resource_name
-            self.opts = opts
-            self.kwargs = kwargs
-            self.arn = "arn:aws:acm:us-east-1:123456789012:certificate/new"
-            self.domain_validation_options = _FakeOutput([
-                types.SimpleNamespace(
-                    resource_record_name="_api.example.com",
-                    resource_record_type="CNAME",
-                    resource_record_value="_api-validation.example.com",
-                ),
-                types.SimpleNamespace(
-                    resource_record_name="_origin.example.com",
-                    resource_record_type="CNAME",
-                    resource_record_value="_origin-validation.example.com",
-                ),
-            ])
-            recorder.resources.append(self)
-
-    return _Certificate
-
-
 def _build_fake_pulumi(recorder):
     fake = types.ModuleType("pulumi")
     fake.ComponentResource = _FakeComponentResource
@@ -202,6 +140,16 @@ def _build_fake_aws(recorder):
             ids=["subnet-a", "subnet-b"],
         ),
         GetSubnetsFilterArgs=_FakeArgs,
+        Vpc=_make_resource_class(recorder, "aws:ec2:Vpc"),
+        InternetGateway=_make_resource_class(
+            recorder, "aws:ec2:InternetGateway",
+        ),
+        Subnet=_make_resource_class(recorder, "aws:ec2:Subnet"),
+        RouteTable=_make_resource_class(recorder, "aws:ec2:RouteTable"),
+        Route=_make_resource_class(recorder, "aws:ec2:Route"),
+        RouteTableAssociation=_make_resource_class(
+            recorder, "aws:ec2:RouteTableAssociation",
+        ),
         SecurityGroup=_make_resource_class(recorder, "aws:ec2:SecurityGroup"),
         SecurityGroupIngressArgs=_FakeArgs,
         SecurityGroupEgressArgs=_FakeArgs,
@@ -225,6 +173,8 @@ def _build_fake_aws(recorder):
     )
     aws.cloudwatch = types.SimpleNamespace(
         LogGroup=_make_resource_class(recorder, "aws:cloudwatch:LogGroup"),
+        EventRule=_make_resource_class(recorder, "aws:cloudwatch:EventRule"),
+        EventTarget=_make_resource_class(recorder, "aws:cloudwatch:EventTarget"),
     )
     aws.cloudfront = types.SimpleNamespace(
         Distribution=_make_resource_class(

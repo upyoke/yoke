@@ -1,15 +1,20 @@
-"""Machine-level GitHub App connection checks for the product CLI."""
+"""Machine-level GitHub App authorization for the product CLI."""
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
+import uuid
 
-from yoke_cli.config import github_credentials
-from yoke_cli.config import machine_config
+from yoke_cli.config import github_app_user_api
+from yoke_cli.config import github_device_flow
+from yoke_cli.config import github_machine_report as reports
+from yoke_cli.config import github_machine_state as state
+from yoke_cli.config import github_user_tokens
+from yoke_cli.config import machine_config, secrets, writer
 from yoke_contracts.machine_config import schema as contract
-
 
 class GitHubMachineError(RuntimeError):
     """The machine GitHub App connection cannot be used."""
@@ -18,256 +23,271 @@ class GitHubMachineError(RuntimeError):
 def connect(
     *,
     config_path: str | Path | None,
-    token: str | None = None,
-    token_file: str | Path | None = None,
-    token_source_kind: str = "argument",
-    api_url: str | None,
-    github_repo: str | None = None,
+    client_id: str | None = None,
+    app_slug: str | None = None,
+    app_id: int | None = None,
+    api_url: str | None = None,
+    web_url: str | None = None,
+    add_installation: bool = False,
+    device_opener: Callable[..., Any] | None = None,
+    api_opener: Callable[..., Any] | None = None,
+    browser_open: Callable[[str], Any] | None = None,
+    notify: Callable[[Mapping[str, Any]], None] | None = None,
+    sleep: Callable[[float], None] | None = None,
+    monotonic: Callable[[], float] | None = None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
-    selected_url = _clean_api_url(api_url)
-    report = _base_report(config_path, selected_url)
-    report.update({
-        "ok": False,
-        "operation": "github.connect",
-        "configured": False,
-        "applied": False,
-        "connection_model": "github_app",
-        "token_source": {"kind": token_source_kind if token or token_file else "none"},
-        "identity": {"checked": False, "ok": None},
-        "access": _empty_access(),
-        "scopes": [],
-        "permissions": {"ok": None, "mode": "github_app"},
-        "issues": [_issue(
-            "error",
-            "github_app_browser_flow_unavailable",
-            (
-                "GitHub App browser authorization is the only supported "
-                "machine GitHub connection, and the browser callback flow is "
-                "not available in this build."
-            ),
-            (
-                "Use backlog-only for now, then run `yoke github connect` when "
-                "browser authorization is available."
-            ),
-        )],
-    })
-    if token or token_file or github_repo:
-        report["issues"].insert(0, _issue(
-            "error",
-            "github_manual_credential_input_unsupported",
-            "yoke github connect no longer accepts manual GitHub credentials or repo probes.",
-            "Run `yoke github connect` with no token flags to start the GitHub App flow.",
-        ))
+    """Authorize the App user, discover installations, and persist metadata."""
+    try:
+        existing = state.existing_config(config_path)
+        metadata = state.public_app_metadata(
+            existing, client_id=client_id, app_slug=app_slug, app_id=app_id,
+            api_url=api_url, web_url=web_url,
+        )
+    except (ValueError, machine_config.MachineConfigError) as exc:
+        raise GitHubMachineError(str(exc)) from exc
+    progress: list[dict[str, Any]] = []
+
+    def record(event: Mapping[str, Any]) -> None:
+        public_event = dict(event)
+        progress.append(public_event)
+        if notify is not None:
+            notify(public_event)
+
+    device_kwargs: dict[str, Any] = {}
+    if sleep is not None:
+        device_kwargs["sleep"] = sleep
+    if monotonic is not None:
+        device_kwargs["monotonic"] = monotonic
+    try:
+        device = github_device_flow.authorize(
+            client_id=metadata["client_id"], web_url=metadata["web_url"],
+            opener=device_opener, browser_open=browser_open, notify=record,
+            **device_kwargs,
+        )
+    except github_device_flow.GitHubDeviceFlowError as exc:
+        raise GitHubMachineError(str(exc)) from exc
+    expected_credential_ref = state.credential_ref(existing)
+    credential_path = secrets.secret_path(
+        f"github-app-user-{uuid.uuid4().hex}", "json"
+    )
+    try:
+        github_user_tokens.store_initial_token(
+            credential_path, device.token_response, now=now
+        )
+    except github_user_tokens.GitHubUserTokenError as exc:
+        raise GitHubMachineError(
+            "GitHub App user authorization could not be saved safely. Repair "
+            "the local secrets directory permissions, then retry."
+        ) from exc
+    authorization = {
+        "kind": contract.GITHUB_AUTH_KIND_USER_AUTHORIZATION,
+        "refresh_credential_ref": str(credential_path),
+        "status": "authorized",
+    }
+    snapshot: dict[str, Any] | None = None
+    discovery_error: github_app_user_api.GitHubAppUserApiError | None = None
+    try:
+        snapshot = github_app_user_api.discover_access(
+            api_url=metadata["api_url"],
+            access_token=str(device.token_response["access_token"]),
+            opener=api_opener,
+        )
+        authorization.update({
+            "github_user_id": snapshot["user"]["id"],
+            "login": snapshot["user"]["login"],
+        })
+    except github_app_user_api.GitHubAppUserApiError as exc:
+        discovery_error = exc
+    github = state.github_entry(
+        metadata,
+        authorization,
+        snapshot,
+        cached_snapshot=existing if discovery_error is not None else None,
+    )
+    try:
+        mutation = writer.set_github(
+            github, expected_credential_ref=expected_credential_ref,
+            path=config_path,
+        )
+    except writer.MachineConfigWriteError as exc:
+        try:
+            state.remove_owned_credential(credential_path)
+        except (OSError, ValueError) as cleanup_exc:
+            raise GitHubMachineError(
+                f"{exc}; the new local credential could not be cleaned up "
+                "safely, so run `yoke github disconnect` before retrying"
+            ) from cleanup_exc
+        raise GitHubMachineError(str(exc)) from exc
+    cleanup_issue: dict[str, str] | None = None
+    replaced_ref = str(mutation["replaced_credential_ref"] or "")
+    if replaced_ref and replaced_ref != str(credential_path):
+        try:
+            state.remove_owned_credential(Path(replaced_ref))
+        except (OSError, ValueError):
+            cleanup_issue = reports.issue(
+                "warning", "github_previous_credential_not_removed",
+                "The previous local GitHub App credential could not be removed safely",
+                "Run `yoke github disconnect`, then reconnect GitHub.",
+            )
+    report = state.connected_report(
+        config_path=config_path, github=github, progress=progress,
+        checked=True, discovery_error=discovery_error,
+    )
+    report["operation"] = "github.connect"
+    if cleanup_issue:
+        report["issues"].append(cleanup_issue)
+    if snapshot is not None and (
+        not snapshot["installations"] or add_installation
+    ):
+        _open_install_page(
+            report, browser_open=browser_open, notify=record,
+            pending=not snapshot["installations"],
+        )
+        report["progress"] = progress
     return report
 
 
 def status(
     *,
     config_path: str | Path | None,
-    api_url: str | None = None,
     check: bool = True,
-    github_repo: str | None = None,
+    api_opener: Callable[..., Any] | None = None,
+    token_opener: Callable[..., Any] | None = None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
-    report = _base_report(config_path, api_url)
-    report["operation"] = "github.status"
     try:
-        cfg = machine_config.github_config(config_path)
+        github = state.existing_config(config_path)
     except machine_config.MachineConfigError as exc:
         raise GitHubMachineError(str(exc)) from exc
-    if not cfg:
-        report.update({
-            "ok": False,
-            "configured": False,
-            "connection_model": "github_app",
-            "identity": {"checked": False, "ok": None},
-            "access": _empty_access(),
-            "scopes": [],
-            "permissions": {"ok": None, "mode": "github_app"},
-            "issues": [_issue(
-                "error",
-                "github_not_configured",
-                "machine GitHub App authorization is not configured",
-                "Run `yoke github connect` to open the GitHub App flow.",
-            )],
-        })
+    if not github:
+        return reports.not_configured(config_path, None)
+    if not check:
+        return state.connected_report(
+            config_path=config_path, github=github, progress=[], checked=False,
+        )
+    expected_credential_ref = state.credential_ref(github)
+    try:
+        token = github_user_tokens.access_token_from_machine_config(
+            config_path=config_path, opener=token_opener, now=now
+        )
+        if token.refresh_credential_ref != expected_credential_ref:
+            raise GitHubMachineError(
+                "machine GitHub App authorization changed while status was "
+                "running; retry against the current connection"
+            )
+        snapshot = github_app_user_api.discover_access(
+            api_url=str(github["api_url"]), access_token=token.access_token,
+            opener=api_opener,
+        )
+    except github_user_tokens.GitHubUserTokenError:
+        return state.connected_report(
+            config_path=config_path, github=github, progress=[], checked=True,
+            token_error=(
+                "GitHub App user authorization could not provide a valid access "
+                "token"
+            ),
+        )
+    except github_app_user_api.GitHubAppUserApiError as exc:
+        persistence_error = None
+        if exc.status == 401:
+            persistence_error = state.mark_revoked(github, config_path=config_path)
+        report = state.connected_report(
+            config_path=config_path, github=github, progress=[], checked=True,
+            discovery_error=exc,
+        )
+        if persistence_error:
+            report["issues"].append(reports.issue(
+                "error", "github_revoked_status_not_persisted", persistence_error,
+                "Repair machine-config permissions, then reconnect GitHub.",
+            ))
         return report
-    selected_url = _clean_api_url(api_url or str(cfg.get("api_url") or ""))
-    report["api_url"] = selected_url
-    validation_issues = [
-        issue.as_dict()
-        for issue in contract.validate_github_config({"github": cfg})
-    ]
-    authorization = cfg.get("authorization")
-    authorization = authorization if isinstance(authorization, Mapping) else {}
-    authorization_report = github_credentials.authorization_status(authorization)
-    issues = [*validation_issues, *authorization_report.pop("issues")]
-    scopes = list(authorization.get("scopes") or [])
-    permissions = authorization.get("permissions")
-    permissions = permissions if isinstance(permissions, Mapping) else {}
-    report.update({
-        "ok": not any(issue.get("severity") == "error" for issue in issues),
-        "configured": True,
-        "connection_model": "github_app",
-        "app": {
-            "slug": str(cfg.get("app_slug") or ""),
-            "app_id": cfg.get("app_id"),
-            "client_id": str(cfg.get("client_id") or ""),
-        },
-        "authorization": authorization_report,
-        "credential_source": {"kind": None, "present": None},
-        "identity": _offline_identity(authorization, check=check),
-        "access": _app_access(cfg),
-        "scopes": scopes,
-        "permissions": {
-            "ok": None if not permissions else True,
-            "mode": "github_app",
-            "summary": _permission_summary(permissions),
-            "items": dict(permissions),
-        },
-        "issues": issues,
+    refreshed = dict(github)
+    authorization = dict(refreshed.get("authorization") or {})
+    authorization.update({
+        "status": "authorized",
+        "github_user_id": snapshot["user"]["id"],
+        "login": snapshot["user"]["login"],
     })
-    return report
+    refreshed.update({
+        "authorization": authorization,
+        "installations": snapshot["installations"],
+        "repositories": snapshot["repositories"],
+    })
+    try:
+        writer.set_github(
+            refreshed, expected_credential_ref=expected_credential_ref,
+            path=config_path,
+        )
+    except writer.MachineConfigWriteError as exc:
+        raise GitHubMachineError(str(exc)) from exc
+    return state.connected_report(
+        config_path=config_path, github=refreshed, progress=[], checked=True,
+    )
+
+
+def disconnect(*, config_path: str | Path | None) -> dict[str, Any]:
+    """Forget local authorization without uninstalling the App from GitHub."""
+    try:
+        result = writer.clear_github(path=config_path)
+    except writer.MachineConfigWriteError as exc:
+        raise GitHubMachineError(str(exc)) from exc
+    removed = False
+    issue: dict[str, str] | None = None
+    credential_ref = str(result["removed_credential_ref"] or "")
+    if credential_ref:
+        try:
+            removed = state.remove_owned_credential(Path(credential_ref))
+        except (OSError, ValueError):
+            issue = reports.issue(
+                "warning", "github_credential_not_removed",
+                "The local GitHub App credential could not be removed safely",
+                "Repair the local secrets directory permissions, then retry disconnect.",
+            )
+    return {
+        "ok": issue is None,
+        "operation": "github.disconnect",
+        "configured": False,
+        "config_path": result["config"],
+        "credential_removed": removed,
+        "github_app_uninstalled": False,
+        "issues": [issue] if issue else [],
+    }
 
 
 def dumps_json(report: Mapping[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=True) + "\n"
 
 
-def render_human(report: Mapping[str, Any]) -> str:
-    lines = [
-        "Yoke GitHub",
-        f"  config: {report.get('config_path')}",
-        f"  api_url: {report.get('api_url')}",
-        f"  configured: {str(report.get('configured')).lower()}",
-        f"  ok: {str(report.get('ok')).lower()}",
-    ]
-    identity = report.get("identity")
-    if isinstance(identity, Mapping) and identity.get("checked"):
-        lines.append(f"  login: {identity.get('login')}")
-    access = report.get("access")
-    if isinstance(access, Mapping):
-        lines.append(f"  owners: {', '.join(access.get('owners') or [])}")
-        repos = access.get("repos") or []
-        lines.append(f"  repos: {len(repos)} accessible")
-        requested_repo = access.get("requested_repo")
-        if isinstance(requested_repo, Mapping):
-            lines.append(
-                "  requested_repo: "
-                f"{requested_repo.get('full_name')} "
-                f"ok={str(requested_repo.get('ok')).lower()}"
-            )
-    permissions = report.get("permissions")
-    if isinstance(permissions, Mapping) and permissions.get("ok") is not None:
-        lines.append(
-            "  permissions: "
-            f"{str(permissions.get('ok')).lower()} "
-            f"({permissions.get('mode')})"
+render_human = reports.render_human
+
+
+def _open_install_page(
+    report: dict[str, Any], *, browser_open: Callable[[str], Any] | None,
+    notify: Callable[[Mapping[str, Any]], None] | None, pending: bool,
+) -> None:
+    import webbrowser
+
+    install_url = str(report.get("install_url") or "").strip()
+    if not install_url:
+        raise GitHubMachineError(
+            "GitHub App installation URL is unavailable because the configured "
+            "GitHub endpoints are invalid"
         )
-        if permissions.get("summary"):
-            lines.append(f"  permission_summary: {permissions.get('summary')}")
-    issues = report.get("issues") or []
-    if issues:
-        lines.append("")
-        lines.append("Issues:")
-        for issue in issues:
-            lines.append(f"  - {issue.get('code')}: {issue.get('message')}")
-    lines.append("")
-    return "\n".join(lines)
-
-
-def _base_report(
-    config_path: str | Path | None,
-    api_url: str | None,
-) -> dict[str, Any]:
-    cfg_path = machine_config.config_path(config_path)
-    return {
-        "config_path": str(cfg_path),
-        "api_url": _clean_api_url(api_url),
-        "connection_model": "github_app",
-        "authorization": {
-            "kind": contract.GITHUB_AUTH_KIND_USER_AUTHORIZATION,
-            "present": None,
-        },
-    }
-
-
-def _offline_identity(authorization: Mapping[str, Any], *, check: bool) -> dict[str, Any]:
-    return {
-        "checked": check,
-        "ok": None,
-        "login": authorization.get("login") or "",
-        "id": authorization.get("github_user_id"),
-    }
-
-
-def _empty_access() -> dict[str, Any]:
-    return {
-        "owners": [],
-        "repos": [],
-        "repo_count": 0,
-        "repo_listing_ok": None,
-        "org_listing_ok": None,
-    }
-
-
-def _app_access(cfg: Mapping[str, Any]) -> dict[str, Any]:
-    installations = [
-        item for item in cfg.get("installations") or []
-        if isinstance(item, Mapping)
-    ]
-    repositories = [
-        item for item in cfg.get("repositories") or []
-        if isinstance(item, Mapping)
-    ]
-    owners = [
-        str(item.get("account_login"))
-        for item in installations
-        if str(item.get("account_login") or "")
-    ]
-    repos = [
-        str(item.get("full_name"))
-        for item in repositories
-        if str(item.get("full_name") or "")
-    ]
-    return {
-        "owners": owners,
-        "repos": repos,
-        "repo_count": len(repos),
-        "repo_listing_ok": None,
-        "org_listing_ok": None,
-        "installations": [dict(item) for item in installations],
-    }
-
-
-def _permission_summary(permissions: Mapping[str, Any]) -> str:
-    if not permissions:
-        return ""
-    enabled = [
-        f"{key}:{value}"
-        for key, value in sorted(permissions.items())
-        if value not in (None, "", False)
-    ]
-    return ", ".join(enabled)
-
-
-def _clean_api_url(api_url: str | None) -> str:
-    value = (api_url or contract.DEFAULT_GITHUB_API_URL).strip().rstrip("/")
-    if not value:
-        return contract.DEFAULT_GITHUB_API_URL
-    return value
-
-
-def _issue(severity: str, code: str, message: str, hint: str = "") -> dict[str, str]:
-    issue = {"severity": severity, "code": code, "message": message}
-    if hint:
-        issue["hint"] = hint
-    return issue
+    opened = False
+    try:
+        opened = bool((browser_open or webbrowser.open)(install_url))
+    except Exception:
+        pass
+    report.update({"install_url": install_url, "install_browser_opened": opened})
+    if pending:
+        report["state"] = "pending_installation"
+    if notify is not None:
+        notify({"phase": "app_installation", "install_url": install_url,
+                "browser_opened": opened})
 
 
 __all__ = [
-    "GitHubMachineError",
-    "connect",
-    "dumps_json",
-    "render_human",
-    "status",
+    "GitHubMachineError", "connect", "disconnect", "dumps_json",
+    "render_human", "status",
 ]

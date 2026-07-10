@@ -29,7 +29,7 @@ def test_project_create_apply_sends_requested_org(
             "--github-repo", "owner/demo",
             "--default-branch", "main",
             "--public-item-prefix", "DMO",
-            "--github-adoption", "skip",
+            "--github-adoption", "backlog-only",
             "--config", str(config),
             "--yes",
             "--json",
@@ -46,6 +46,7 @@ def test_project_create_apply_sends_requested_org(
         "github_repo": "owner/demo",
         "default_branch": "main",
         "public_item_prefix": "DMO",
+        "github_sync_mode": "backlog_only",
     }
 
 

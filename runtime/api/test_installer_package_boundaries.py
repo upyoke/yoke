@@ -175,6 +175,13 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "packages/yoke-cli/src/yoke_cli/transport/dispatcher.py",
         "yoke_core.domain.yoke_function_dispatch",
     ): ("local_universe_dispatch", "in-process dispatch branch for non-https connections"),
+    (
+        "packages/yoke-cli/src/yoke_cli/transport/local_github_dispatch.py",
+        "yoke_core.domain.project_github_auth",
+    ): (
+        "local_universe_dispatch",
+        "project-scoped GitHub App token dispatch for a local universe",
+    ),
 }
 
 

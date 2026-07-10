@@ -81,24 +81,11 @@ class TestProjectsCapabilitySecretSet:
             ("projects", "capability", "secret", "set")
         ][0] == "projects.capability_secret.set"
 
-    def test_positional_secret_dispatches_without_printing_secret(self) -> None:
+    def test_github_secret_is_rejected_before_read_or_dispatch(self) -> None:
         secret = "ghs_project_runtime_secret"
 
         def stub(request: FunctionCallRequest) -> FunctionCallResponse:
-            _CAPTURED_REQUESTS.append(request)
-            return FunctionCallResponse(
-                success=True,
-                function=request.function,
-                version=request.version,
-                request_id=request.request_id,
-                result={
-                    "project": "demo",
-                    "cap_type": "github",
-                    "key": "token",
-                    "source": "literal",
-                    "stored": True,
-                },
-            )
+            raise AssertionError(f"retired GitHub secret reached dispatch: {request}")
 
         rc, out, err = _run_capture(
             stub,
@@ -108,17 +95,10 @@ class TestProjectsCapabilitySecretSet:
             "--key", "token",
             secret,
         )
-        assert rc == 0
+        assert rc == 2
         assert secret not in out
         assert secret not in err
-        assert _CAPTURED_REQUESTS[-1].function == "projects.capability_secret.set"
-        assert _CAPTURED_REQUESTS[-1].payload == {
-            "project": "demo",
-            "cap_type": "github",
-            "key": "token",
-            "value": secret,
-            "source": "literal",
-        }
+        assert "GitHub capability secrets are retired" in err
 
     def test_aws_secret_writes_machine_file_without_secret_dispatch(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

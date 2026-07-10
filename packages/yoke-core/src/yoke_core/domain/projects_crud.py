@@ -218,6 +218,13 @@ def cmd_update(
         if not exists:
             raise LookupError(f"Error: project '{project_id}' not found")
 
+        if field == "github_repo":
+            from yoke_core.domain.projects_upsert import (
+                _binding_guarded_github_repo,
+            )
+
+            value = _binding_guarded_github_repo(conn, numeric_project_id, value)
+
         conn.execute(
             f"UPDATE projects SET {field}=%s WHERE id=%s",
             (value, numeric_project_id),

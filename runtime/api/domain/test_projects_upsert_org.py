@@ -33,6 +33,12 @@ def test_create_project_in_requested_org(test_db):
     ).fetchone()
     assert row[0] == org_id
     assert row[1] == "owner/installer-demo"
+    capability_count = conn.execute(
+        "SELECT COUNT(*) FROM project_capabilities c JOIN projects p "
+        "ON p.id=c.project_id WHERE p.slug=%s AND c.type='github'",
+        ("installer-demo",),
+    ).fetchone()[0]
+    assert capability_count == 0
 
 
 def test_create_project_without_org_uses_default_org(test_db):

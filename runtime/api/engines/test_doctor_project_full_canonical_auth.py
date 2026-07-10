@@ -36,6 +36,10 @@ def db_path(tmp_path: Path) -> str:
     from yoke_core.domain.project_seed_test_helpers import (
         seed_project_identities,
     )
+    from yoke_core.domain.github_app_user_verification import (
+        VerifiedProjectGitHubBinding,
+    )
+    from yoke_core.domain.project_github_binding import cmd_bind_project_repo
 
     def _apply() -> None:
         p.cmd_init()
@@ -44,11 +48,32 @@ def db_path(tmp_path: Path) -> str:
             seed_project_identities(conn)
         finally:
             conn.close()
-        p.cmd_capability_set_settings(
-            "buzz", "github",
-            '{"repo_owner":"example-org","repo_name":"buzz"}',
-            base_settings_json=None, create=True,
+        verified = VerifiedProjectGitHubBinding(
+            installation_id="12345",
+            account_id="9988",
+            account_login="example-org",
+            account_type="Organization",
+            repository_selection="selected",
+            permissions={},
+            repository_id="4567",
+            github_repo="example-org/buzz",
+            default_branch="main",
         )
+        cmd_bind_project_repo(
+            "buzz",
+            installation_id="12345",
+            repository_id="4567",
+            github_repo="example-org/buzz",
+            expected_api_url="https://api.github.com",
+            github_user_access_token="user-token",
+            verifier=lambda **_kwargs: verified,
+        )
+        conn = connect()
+        try:
+            conn.execute("DELETE FROM project_github_repo_bindings")
+            conn.commit()
+        finally:
+            conn.close()
 
     with init_test_db(tmp_path, apply_schema=_apply) as path:
         yield path
@@ -72,12 +97,11 @@ def _run_hc(fn, conn, **kwargs) -> RecordCollector:
 def _patch_resolved_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     import yoke_core.engines.doctor_hc_worktrees_gh_project as hc
 
-    def _resolve(project, *, db_path=None, conn=None, base_env=None):
+    def _resolve(project, *, db_path=None, conn=None):
         return ProjectGithubAuth(
             project=project,
             repo="example-org/buzz",
             token="ghs_installation_token",
-            env={"GH_TOKEN": "ghs_installation_token"},
             installation_id="12345",
             token_source="github_app_installation",
         )

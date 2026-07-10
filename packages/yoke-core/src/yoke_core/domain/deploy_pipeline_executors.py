@@ -1,8 +1,4 @@
-"""Deployment pipeline executor dispatch.
-
-Keeps stage-specific executor handling separate from the main pipeline loop so
-``deploy_pipeline.py`` can stay focused on run orchestration.
-"""
+"""Stage-specific executor dispatch for deployment pipeline orchestration."""
 
 from __future__ import annotations
 
@@ -61,10 +57,8 @@ def _dispatch_executor(
     deploy branch, else the project base branch) — consumed by the CI gate
     inside the github-actions-workflow path.
 
-    Returns ``(exit_code, diagnostic)``.  ``diagnostic`` carries the executor's
-    stdout/stderr (currently populated by the github-actions-workflow poll path)
-    so :func:`run_pipeline` can include it in the ``DeploymentRunStageFailed``
-    event payload without manual log archaeology.
+    Returns ``(exit_code, diagnostic)``; diagnostic carries executor output for
+    the pipeline's failure event.
 
     Kind-typed stages dispatch before the executor vocabulary:
     ``kind=migration_apply`` routes through the governed-migration
@@ -331,7 +325,9 @@ def _dispatch_ephemeral_verify(
     buf = io.StringIO()
     try:
         with redirect_stdout(buf):
-            rc = _executors.exec_ephemeral_verify(github_repo, branch, workflow, domain, "")
+            rc = _executors.exec_ephemeral_verify(
+                github_repo, branch, workflow, domain, "", project=project,
+            )
     except Exception as exc:  # pragma: no cover
         print(f"Error: exec_ephemeral_verify raised: {exc}", file=sys.stderr)
         return 1

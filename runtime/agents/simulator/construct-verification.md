@@ -8,7 +8,7 @@ Any specific reference to a codebase artifact counts as a "code construct" and m
 
 - **Health check IDs** (e.g., HC-sync-failure, HC-schema-drift) — Grep for the ID in doctor scripts
 - **Function/method names** (e.g., `_body_write_full`, `findByEmail`) — Grep for the definition
-- **Variable and environment variable names** (e.g., `$YOKE_DB`, `$GH_TOKEN`) — Grep for assignment or usage
+- **Variable and environment variable names** (e.g., `$YOKE_DB`, `$AWS_REGION`) — Grep for assignment or usage
 - **Script file paths** (e.g., `.agents/skills/yoke/scripts/foo.sh`) — Glob or Read to confirm existence
 - **Config keys** (e.g., `temp_root`) and DB policy keys — Grep in the machine config contract or DB schema
 - **Table and column names** (e.g., `epic_tasks.task_num`) — Grep in schema or migration files

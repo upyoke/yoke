@@ -144,6 +144,36 @@ def test_dispatch_permission_allows_role_project_and_denies_missing_project_role
         conn.close()
 
 
+def test_project_scoped_github_write_denies_omitted_project_context():
+    conn = _conn()
+    try:
+        actor_id = seed_human_actor(conn)
+        buzz_id = resolve_project_id(conn, "buzz")
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=buzz_id,
+            role_name=ROLE_OWNER,
+            granted_by_actor_id=actor_id,
+        )
+        entry = _entry("github_actions.secret.set")
+        request = FunctionCallRequest(
+            function=entry.function_id,
+            actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
+            target=TargetRef(kind="global"),
+            payload={"repo": "upyoke/yoke", "name": "CI", "value": "secret"},
+        )
+
+        denied = check_dispatch_permission(conn, entry, request)
+
+        assert denied.error is not None
+        assert denied.error.error is not None
+        assert denied.error.error.code == "permission_denied"
+        assert denied.project_id is None
+    finally:
+        conn.close()
+
+
 def test_shepherd_dependency_writes_require_item_write_permission():
     assert permission_key_for(
         _read_entry("shepherd.dependency_list.run")

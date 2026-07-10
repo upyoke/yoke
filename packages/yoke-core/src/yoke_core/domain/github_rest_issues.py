@@ -20,8 +20,13 @@ Owner: re-exported from :mod:`yoke_core.domain.github_rest`.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Optional, Sequence
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    GITHUB_METADATA_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
     RestRequest,
@@ -53,11 +58,17 @@ def _parse_issue(payload: Any):
     )
 
 
-def _target_for(project: str, *, db_path: Optional[str] = None):
+def _target_for(
+    project: str, *, required_permissions, db_path: Optional[str] = None,
+):
     """Resolve the typed REST target — small wrapper so call sites stay tight."""
     from yoke_core.domain.github_rest import resolve_target
 
-    return resolve_target(project, db_path=db_path)
+    return resolve_target(
+        project,
+        db_path=db_path,
+        required_permissions=required_permissions,
+    )
 
 
 def create_issue(
@@ -65,7 +76,11 @@ def create_issue(
     labels: Sequence[str] = (), db_path: Optional[str] = None,
 ):
     """POST /repos/{owner}/{repo}/issues. Returns the typed Issue."""
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    )
     payload: dict[str, Any] = {"title": title, "body": body}
     if labels:
         payload["labels"] = list(labels)
@@ -90,7 +105,6 @@ def update_issue(
     Pass ``None`` for fields you don't want to change. Returns the
     updated Issue.
     """
-    tgt = _target_for(project, db_path=db_path)
     patch: dict[str, Any] = {}
     if title is not None:
         patch["title"] = title
@@ -98,6 +112,11 @@ def update_issue(
         patch["body"] = body
     if not patch:
         return get_issue(project=project, number=number, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    )
     resp = request_with_retry(
         RestRequest(
             method="PATCH",
@@ -122,7 +141,11 @@ def set_issue_state(
     """
     if state not in ("open", "closed"):
         raise ValueError(f"state must be 'open' or 'closed', got: {state!r}")
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    )
     if comment:
         # Lazy import to avoid umbrella-init circular binding.
         from yoke_core.domain.github_rest_comments import post_comment
@@ -151,7 +174,11 @@ def get_issue(
     inspect the exception to distinguish rate-limit / permission /
     transient from "actually absent."
     """
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    )
     try:
         resp = request_with_retry(
             RestRequest(
@@ -187,9 +214,13 @@ def list_issues(
     (``GET /search/issues``) with the project repo scope; otherwise
     the issues list endpoint. Returns a list of typed Issue.
     """
-    tgt = _target_for(project, db_path=db_path)
     items: list[Any] = []
     if search:
+        tgt = _target_for(
+            project,
+            db_path=db_path,
+            required_permissions=GITHUB_METADATA_READ_PERMISSION_LEVELS,
+        )
         query = f"repo:{tgt.owner}/{tgt.repo} {search}"
         if label:
             query += f' label:"{label}"'
@@ -213,6 +244,11 @@ def list_issues(
             page += 1
         items = items[:limit]
     else:
+        tgt = _target_for(
+            project,
+            db_path=db_path,
+            required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+        )
         page = 1
         per_page = min(100, max(1, limit))
         while len(items) < limit:
@@ -251,7 +287,11 @@ def delete_issue(
     """
     from yoke_core.domain.github_rest_graphql import graphql_query
 
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    )
     # First resolve the issue's node_id via REST (deleteIssue needs it).
     resp = request_with_retry(
         RestRequest(
@@ -269,4 +309,5 @@ def delete_issue(
         query="mutation($id: ID!) { deleteIssue(input: {issueId: $id}) { repository { id } } }",
         variables={"id": node_id},
         db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
     )

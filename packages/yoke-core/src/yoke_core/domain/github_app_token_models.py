@@ -33,7 +33,7 @@ class GitHubAppTokenResponseError(GitHubAppTokenError):
 class InstallationToken:
     """Short-lived bearer token minted for one GitHub App installation."""
 
-    token: str
+    token: str = field(repr=False)
     expires_at: datetime
     permissions: Mapping[str, str] = field(default_factory=dict)
     repository_selection: str = ""
@@ -53,9 +53,9 @@ class InstallationToken:
 class UserAccessToken:
     """Short-lived token minted from GitHub App user authorization."""
 
-    access_token: str
+    access_token: str = field(repr=False)
     expires_at: datetime
-    refresh_token: str
+    refresh_token: str = field(repr=False)
     refresh_expires_at: datetime
     scope: str = ""
     token_type: str = "bearer"

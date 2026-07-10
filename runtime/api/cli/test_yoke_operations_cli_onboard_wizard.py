@@ -22,6 +22,7 @@ from textual.widgets import Static  # noqa: E402
 from yoke_cli.config import existing_project_lookup  # noqa: E402
 from yoke_cli.config import onboard_machine_github  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
+from yoke_cli.config import onboard_wizard_flow_github  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config.onboard_wizard import (  # noqa: E402
     WizardDefaults,
@@ -333,13 +334,23 @@ def test_existing_project_with_board_art_skips_art_flow(
     assert app.result.board_art_variants == []
 
 
-def test_github_app_unavailable_keeps_new_project_backlog_only() -> None:
+def test_github_app_unavailable_keeps_new_project_backlog_only(monkeypatch) -> None:
+    monkeypatch.setattr(
+        onboard_wizard_flow_github.github_machine,
+        "connect",
+        lambda **_: {
+            "ok": False,
+            "issues": [{"message": "GitHub App configuration is unavailable."}],
+        },
+    )
     app, spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine GitHub: connect (default)
+            await app.workers.wait_for_complete()
+            await pilot.pause()
             await pilot.press("enter")  # App flow unavailable: backlog-only
             mode_index = next(
                 i for i, r in enumerate(steps.MODE_ROWS)
@@ -365,8 +376,8 @@ def test_github_app_unavailable_keeps_new_project_backlog_only() -> None:
     applied = spy.applied
     assert applied is not None
     assert applied["machine_github_choice"] == onboard_machine_github.CHOICE_SKIP
-    assert applied["machine_github_token"] is None
-    assert applied["project_github_token"] is None
+    assert "machine_github_token" not in applied
+    assert "project_github_token" not in applied
     assert applied["project_github_adoption"] is None
     assert applied["project_github_repo"] is None
     assert applied["project_publish"] is None

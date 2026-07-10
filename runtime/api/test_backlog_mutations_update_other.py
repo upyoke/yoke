@@ -6,6 +6,9 @@ handling for unknown items / unknown fields, the shell-fallback writers
 GitHub issue migration before the DB write.
 """
 
+# The shared pytest fixture intentionally shares its name with test parameters.
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import io
@@ -17,7 +20,7 @@ from runtime.api.backlog_mutations_test_helpers import (
     _item_field,
     _patch_externals,
     _seed_item,
-    tmp_db,  # noqa: F401 — re-exported fixture
+    tmp_db as tmp_db,
 )
 from yoke_core.domain import backlog, db_backend
 
@@ -30,13 +33,30 @@ def _set_project_repos(db_path: str) -> None:
     conn = _conn(db_path)
     p = _p(conn)
     try:
-        for slug, repo in (
-            ("yoke", "testowner/yoke-repo"),
-            ("buzz", "testowner/buzz-repo"),
+        conn.execute(
+            "INSERT INTO github_app_installations ("
+            "installation_id, account_id, account_login, account_type, "
+            "created_at, updated_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
+            ("migration-install", "1", "testowner", "Organization", "now", "now"),
+        )
+        for repository_id, slug, repo in (
+            ("101", "yoke", "testowner/yoke-repo"),
+            ("102", "buzz", "testowner/buzz-repo"),
         ):
+            project_id = conn.execute(
+                f"SELECT id FROM projects WHERE slug = {p}", (slug,),
+            ).fetchone()[0]
             conn.execute(
                 f"UPDATE projects SET github_repo = {p} WHERE slug = {p}",
-                (repo, slug),
+                (f"stale/{slug}", slug),
+            )
+            conn.execute(
+                "INSERT INTO project_github_repo_bindings ("
+                "project_id, installation_id, repository_id, github_repo, "
+                "created_at, updated_at) "
+                f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
+                (project_id, "migration-install", repository_id, repo, "now", "now"),
             )
         conn.commit()
     finally:
@@ -136,6 +156,7 @@ class TestExecuteUpdate:
             "10",
             "42",
             "testowner/yoke-repo",
+            "yoke",
             "testowner/buzz-repo",
             "buzz",
             conn=mock.ANY,

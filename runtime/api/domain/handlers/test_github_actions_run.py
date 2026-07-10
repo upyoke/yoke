@@ -6,6 +6,9 @@ from typing import Any, Dict, Optional
 
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.handlers import github_actions_run
 from yoke_core.domain.handlers.github_actions_run import (
     _classify,
@@ -23,7 +26,6 @@ _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
     token="ghs_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 
@@ -31,9 +33,13 @@ def _make_request(
     payload: Optional[Dict[str, Any]] = None,
     *,
     target_kind: str = "global",
+    include_project: bool = True,
 ) -> FunctionCallRequest:
     if payload is None:
         payload = {"repo": "upyoke/yoke", "run_id": "123"}
+    payload = dict(payload)
+    if include_project:
+        payload.setdefault("project", "yoke")
     return FunctionCallRequest(
         function="github_actions.wait_run",
         actor=ActorContext(session_id="test-session"),
@@ -44,15 +50,24 @@ def _make_request(
 
 @pytest.fixture(autouse=True)
 def _auth_resolved(monkeypatch):
+    calls = []
+
+    def _resolve(project, **kwargs):
+        calls.append((project, kwargs))
+        return _RESOLVED
+
     monkeypatch.setattr(
         "yoke_core.domain.project_github_auth.resolve_project_github_auth",
-        lambda project: _RESOLVED,
+        _resolve,
     )
+    return calls
 
 
 class TestClassify:
     def test_completed_success(self):
-        payload = github_actions_run.RunGetRequest(repo="o/r", run_id="123")
+        payload = github_actions_run.RunGetRequest(
+            repo="o/r", run_id="123", project="yoke",
+        )
         out = _classify(
             payload,
             {"id": 123, "status": "completed", "conclusion": "success"},
@@ -61,7 +76,9 @@ class TestClassify:
         assert out.message == "success"
 
     def test_completed_failure(self):
-        payload = github_actions_run.RunGetRequest(repo="o/r", run_id="123")
+        payload = github_actions_run.RunGetRequest(
+            repo="o/r", run_id="123", project="yoke",
+        )
         out = _classify(
             payload,
             {"id": 123, "status": "completed", "conclusion": "failure"},
@@ -70,7 +87,9 @@ class TestClassify:
         assert out.message == "failed:failure"
 
     def test_running_statuses(self):
-        payload = github_actions_run.RunGetRequest(repo="o/r", run_id="123")
+        payload = github_actions_run.RunGetRequest(
+            repo="o/r", run_id="123", project="yoke",
+        )
         assert _classify(payload, {"status": "queued"}).state == "waiting"
         assert _classify(payload, {"status": "pending"}).state == "waiting"
         assert _classify(payload, {"status": "waiting"}).state == "waiting"
@@ -78,7 +97,13 @@ class TestClassify:
 
 
 class TestHandleRunGet:
-    def test_returns_single_run_state(self, monkeypatch):
+    def test_rejects_missing_project(self):
+        outcome = handle_run_get(_make_request(include_project=False))
+        assert outcome.primary_success is False
+        assert outcome.error.code == "invalid_payload"
+        assert "project" in outcome.error.message
+
+    def test_returns_single_run_state(self, monkeypatch, _auth_resolved):
         calls = []
 
         def fake_rest_get(path, *, token):
@@ -87,18 +112,28 @@ class TestHandleRunGet:
                 "id": 123,
                 "status": "in_progress",
                 "conclusion": None,
-                "html_url": "https://github.com/o/r/actions/runs/123",
+                "html_url": "https://github.com/upyoke/yoke/actions/runs/123",
             }
 
         monkeypatch.setattr(
             "yoke_core.domain.github_actions_rest.rest_get", fake_rest_get,
         )
-        outcome = handle_run_get(_make_request({"repo": "o/r", "run_id": "123"}))
+        outcome = handle_run_get(_make_request({
+            "repo": "upyoke/yoke", "run_id": "123",
+        }))
 
         assert outcome.primary_success is True
         assert outcome.result_payload["state"] == "running"
         assert outcome.result_payload["message"] == "in_progress"
-        assert calls == [("/repos/o/r/actions/runs/123", "ghs_test_token")]
+        assert calls == [
+            ("/repos/upyoke/yoke/actions/runs/123", "ghs_test_token")
+        ]
+        assert _auth_resolved == [
+            (
+                "yoke",
+                {"required_permissions": GITHUB_ACTIONS_READ_PERMISSION_LEVELS},
+            )
+        ]
 
     def test_rejects_non_global_target(self):
         outcome = handle_run_get(_make_request(target_kind="item"))

@@ -13,6 +13,9 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
@@ -35,10 +38,9 @@ from yoke_core.domain import project_label_policy
 def _issue_snapshot(issue_num: int, repo: str, project: str) -> tuple[list[str], str]:
     """Fetch labels + state for an issue via typed REST."""
     try:
-        auth = resolve_project_github_auth(project)
+        resolve_project_github_auth(project)
     except Exception:  # noqa: BLE001
         return [], "UNKNOWN"
-    target_repo = repo or auth.repo
     try:
         issue = github_rest.get_issue(
             project=project, number=issue_num,
@@ -89,7 +91,12 @@ def sync_done_item(
         if _bgs()._github_sync_skip(gh_project, "sync-done-item", conn=conn, out=stdout):
             return 0
         if not _bgs()._github_auth_available(gh_project):
-            return 0
+            print(
+                f"Error: project '{gh_project}' has no usable GitHub App auth "
+                "for sync-done-item",
+                file=stderr,
+            )
+            return 1
         if not _bgs()._validate_issue_in_repo(
             item_ref, str(issue_num), repo, project=gh_project, stderr=stderr
         ):
@@ -169,11 +176,14 @@ def sync_done_item(
         _budget.record_sync_mode(conn, int(item_pk), edit.mode)
 
         try:
-            auth = resolve_project_github_auth(gh_project)
+            auth = resolve_project_github_auth(
+                gh_project,
+                required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"Error: auth failed mid-flow for {github_issue}: {exc}", file=stderr)
             return 1
-        target_repo = repo or auth.repo
+        target_repo = auth.repo
         if add_labels:
             try:
                 _label_rest.add_labels(target_repo, issue_num, add_labels, token=auth.token)

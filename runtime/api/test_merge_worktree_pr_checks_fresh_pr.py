@@ -25,18 +25,17 @@ class TestWaitForCiRestSeam:
         monkeypatch.setattr(
             merge_worktree_ci,
             "get_check_runs",
-            lambda *_a, **_kw: (CheckRunsState(states=(), readable=True), None),
+            lambda *_a, **_kw: (CheckRunsState(states=()), None),
         )
 
         outcome = merge_worktree._wait_for_ci("3309", _stub_ctx())
         assert outcome.outcome == "skipped"
         assert outcome.reason == "no_checks_configured"
 
-    def test_check_runs_unreadable_skips_cleanly(self, monkeypatch) -> None:
-        """Token without check-runs read scope ⇒ SKIPPED, not FAILED."""
+    def test_check_runs_authorization_failure_fails_closed(self, monkeypatch) -> None:
+        """The required Checks read grant cannot degrade into a CI skip."""
         from yoke_core.engines import merge_worktree
         from yoke_core.engines import merge_worktree_ci
-        from yoke_core.engines.merge_worktree_ci_rest import CheckRunsState
 
         monkeypatch.setattr(
             merge_worktree, "_emit_merge_event", lambda *_a, **_kw: None
@@ -44,11 +43,13 @@ class TestWaitForCiRestSeam:
         monkeypatch.setattr(
             merge_worktree_ci,
             "get_check_runs",
-            lambda *_a, **_kw: (CheckRunsState(states=(), readable=False), None),
+            lambda *_a, **_kw: (
+                None, "check-runs REST authorization failed: HTTP 403",
+            ),
         )
 
         outcome = merge_worktree._wait_for_ci("3309", _stub_ctx())
-        assert outcome.outcome == "skipped"
+        assert outcome.outcome == "failed"
 
     def test_all_success_runs_pass(self, monkeypatch) -> None:
         from yoke_core.engines import merge_worktree
@@ -62,7 +63,7 @@ class TestWaitForCiRestSeam:
             merge_worktree_ci,
             "get_check_runs",
             lambda *_a, **_kw: (
-                CheckRunsState(states=("SUCCESS", "SUCCESS"), readable=True),
+                CheckRunsState(states=("SUCCESS", "SUCCESS")),
                 None,
             ),
         )
@@ -81,7 +82,7 @@ class TestWaitForCiRestSeam:
             merge_worktree_ci,
             "get_check_runs",
             lambda *_a, **_kw: (
-                CheckRunsState(states=("SUCCESS", "FAILURE"), readable=True),
+                CheckRunsState(states=("SUCCESS", "FAILURE")),
                 None,
             ),
         )
@@ -102,7 +103,7 @@ class TestWaitForCiRestSeam:
             "get_check_runs",
             lambda *_a, **_kw: (
                 CheckRunsState(
-                    states=("SUCCESS", "NEUTRAL", "SKIPPED"), readable=True
+                    states=("SUCCESS", "NEUTRAL", "SKIPPED")
                 ),
                 None,
             ),
@@ -134,14 +135,14 @@ class TestWaitForCiRestSeam:
 class TestProjectAuthSurface:
     """REST helpers route project-auth failures to a typed error class."""
 
-    def test_validate_github_auth_for_merge_routes_missing_token(self, monkeypatch) -> None:
-        from yoke_core.domain.project_github_auth import MissingToken
+    def test_validate_github_auth_for_merge_routes_missing_app_credentials(self, monkeypatch) -> None:
+        from yoke_core.domain.project_github_auth import MissingAppCredentials
         from yoke_core.engines import merge_worktree_pr_rest
 
         def _raise(*_a, **_kw):
-            raise MissingToken(
+            raise MissingAppCredentials(
                 "yoke",
-                "project 'yoke' has no legacy github.token",
+                "GitHub App control-plane credentials are unavailable",
             )
 
         monkeypatch.setattr(
@@ -154,8 +155,8 @@ class TestProjectAuthSurface:
         ctx.project = "yoke"
         ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(ctx)
         assert ok is False
-        assert "missing_token" in (message or "")
-        assert "legacy github.token is no longer used" in (message or "")
+        assert "missing_app_credentials" in (message or "")
+        assert "control-plane App issuer" in (message or "")
 
     def test_validate_github_auth_for_merge_routes_no_project(self) -> None:
         from yoke_core.engines import merge_worktree_pr_rest
@@ -168,18 +169,33 @@ class TestProjectAuthSurface:
     def test_validate_github_auth_for_merge_succeeds_when_token_present(
         self, monkeypatch
     ) -> None:
+        from yoke_contracts.github_app_installation_permissions import (
+            GITHUB_METADATA_READ_PERMISSION_LEVELS,
+        )
         from yoke_core.domain.project_github_auth import ProjectGithubAuth
         from yoke_core.engines import merge_worktree_pr_rest
+
+        calls = []
+
+        def _resolve(*args, **kwargs):
+            calls.append((args, kwargs))
+            return ProjectGithubAuth(
+                project="yoke", repo="o/r", token="ghs_x"
+            )
 
         monkeypatch.setattr(
             merge_worktree_pr_rest,
             "resolve_project_github_auth",
-            lambda *_a, **_kw: ProjectGithubAuth(
-                project="yoke", repo="o/r", token="ghs_x", env={"GH_TOKEN": "ghs_x"}
-            ),
+            _resolve,
         )
         ctx = _stub_ctx()
         ctx.project = "yoke"
         ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(ctx)
         assert ok is True
         assert message is None
+        assert calls == [
+            (
+                ("yoke",),
+                {"required_permissions": GITHUB_METADATA_READ_PERMISSION_LEVELS},
+            )
+        ]

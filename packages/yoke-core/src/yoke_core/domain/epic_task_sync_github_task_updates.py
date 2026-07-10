@@ -18,6 +18,9 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
@@ -61,7 +64,7 @@ def sync_task_label(
     context = _etsg()._task_context(epic_id, task_num, conn=conn)
     if context is None:
         return 0
-    github_issue, project, repo, _body = context
+    github_issue, project, _body = context
     issue_num_str = github_issue.lstrip("#")
     if not issue_num_str or issue_num_str == "null":
         return 0
@@ -75,11 +78,14 @@ def sync_task_label(
     color = project_label_policy.get_color("label_color_status", LABEL_COLOR_DEFAULT)
 
     try:
-        auth = _etsg().resolve_project_github_auth(gh_project)
+        auth = _etsg().resolve_project_github_auth(
+            gh_project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
     except Exception as exc:  # noqa: BLE001
         print(f"Warning: auth failed for sync_task_label: {exc}", file=stderr)
         return 1
-    target_repo = repo or auth.repo
+    target_repo = auth.repo
 
     try:
         _label_rest.ensure_label(
@@ -143,7 +149,7 @@ def sync_task_body(
     context = _etsg()._task_context(epic_id, task_num, conn=conn)
     if context is None:
         return 0
-    github_issue, project, repo, body = context
+    github_issue, project, body = context
     issue_num_str = github_issue.lstrip("#")
     if not issue_num_str or issue_num_str == "null":
         return 0
@@ -160,7 +166,6 @@ def sync_task_body(
     if not _etsg()._validate_issue_in_repo(
         f"{epic_id}/{task_num}",
         str(issue_num),
-        repo,
         project=gh_project,
         stderr=stderr,
     ):

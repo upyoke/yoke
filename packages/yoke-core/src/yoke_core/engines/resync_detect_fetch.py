@@ -1,16 +1,11 @@
 """GitHub fetch helpers for resync detection (bearer-token REST).
 
 The :func:`_fetch_gh_issues_per_project` helper returns a per-project mapping.
-On normal fetch the per-project value is ``{issue_number: issue}``; on
-:class:`ProjectGithubAuthError` from the canonical resolver the value becomes
-the sentinel dict ``{"_auth_error": "<code>", "_repair_hint": "<text>"}``.
-
-The sentinel exists so the engine continues processing healthy projects after
-one project's auth fails -- Yoke is the control plane and re-raises at the
-top boundary; per-project failures for non-Yoke projects surface as
-detection-result warnings. Downstream consumers that iterate the per-project
-value MUST check for the ``_auth_error`` key before treating it as an issues
-map.
+On normal fetch the per-project value is ``{issue_number: issue}``; when a
+non-control-plane project's GitHub state cannot be read, the value is an
+explicit unavailable sentinel.  Downstream stages must skip classification
+and repair for unavailable projects instead of treating a failed read as an
+empty repository.
 
 GitHub I/O dispatches through
 :mod:`yoke_core.domain.gh_rest_transport` (GitHub App auth). Tests patch the REST
@@ -19,8 +14,11 @@ transport surface directly.
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, Iterable, List
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestRequest,
@@ -29,22 +27,68 @@ from yoke_core.domain.gh_rest_transport import (
 )
 from yoke_core.domain.project_github_auth import (
     InvalidToken,
+    MissingRepoMetadata,
+    ProjectGithubAuth,
     ProjectGithubAuthError,
+    TransportFailure,
     repair_command_hint,
     resolve_project_github_auth,
 )
 
 
-def _auth_failure_sentinel(error: ProjectGithubAuthError) -> Dict[str, str]:
-    """Render the typed auth failure as the per-project sentinel dict."""
+UNAVAILABLE_KEY = "_github_unavailable"
+UNAVAILABLE_CODE_KEY = "_unavailable_code"
+UNAVAILABLE_HINT_KEY = "_repair_hint"
+UNAVAILABLE_STAGE_KEY = "_unavailable_stage"
+
+
+def _unavailable_sentinel(
+    error: ProjectGithubAuthError,
+    *,
+    stage: str,
+) -> Dict[str, str]:
+    """Render a typed GitHub read failure as a per-project sentinel."""
     return {
-        "_auth_error": error.code,
-        "_repair_hint": repair_command_hint(error, error.project),
+        UNAVAILABLE_KEY: "true",
+        UNAVAILABLE_CODE_KEY: error.code,
+        UNAVAILABLE_HINT_KEY: repair_command_hint(error, error.project),
+        UNAVAILABLE_STAGE_KEY: stage,
     }
 
 
+def _auth_failure_sentinel(
+    error: ProjectGithubAuthError,
+    *,
+    stage: str = "issues",
+) -> Dict[str, str]:
+    """Render an auth failure as the shared unavailable state."""
+    return _unavailable_sentinel(error, stage=stage)
+
+
+def _transport_failure_sentinel(
+    project: str,
+    error: RestTransportError,
+    *,
+    stage: str,
+) -> Dict[str, str]:
+    """Render a REST/GraphQL transport failure without leaking response data."""
+    typed = TransportFailure(
+        project,
+        f"GitHub {stage} read failed for project '{project}': {error}",
+    )
+    return _unavailable_sentinel(typed, stage=stage)
+
+
+def _project_unavailable(per_project_value: Dict) -> bool:
+    """True when GitHub state was not completely available for a project."""
+    return (
+        isinstance(per_project_value, dict)
+        and UNAVAILABLE_KEY in per_project_value
+    )
+
+
 # Per-project sentinel key marking a project whose GitHub sync mode is
-# backlog_only. Mirrors the ``_auth_error`` sentinel shape: downstream
+# backlog_only. Mirrors the unavailable sentinel shape: downstream
 # consumers skip classification for the project entirely — its items are
 # never orphans, never drift, never repaired.
 SYNC_DISABLED_KEY = "_sync_disabled"
@@ -72,8 +116,8 @@ def _list_issues_via_rest(
 ) -> List[Dict]:
     """Paginate ``/repos/{owner}/{repo}/issues`` returning legacy-shaped dicts."""
     parts = repo.split("/", 1)
-    if len(parts) != 2:
-        return []
+    if len(parts) != 2 or not all(parts):
+        raise RestTransportError("resolved GitHub repository metadata is invalid")
     owner, name = parts
 
     per_page = 100
@@ -94,16 +138,23 @@ def _list_issues_via_rest(
         )
         body = resp.body
         if not isinstance(body, list):
-            break
+            raise RestTransportError("GitHub issues endpoint returned an invalid payload")
         if not body:
             break
         for entry in body:
             if not isinstance(entry, dict):
-                continue
+                raise RestTransportError(
+                    "GitHub issues endpoint returned an invalid issue entry"
+                )
             if entry.get("pull_request") is not None:
                 continue
+            number = entry.get("number")
+            if not isinstance(number, int) or number <= 0:
+                raise RestTransportError(
+                    "GitHub issues endpoint returned an issue without a valid number"
+                )
             collected.append({
-                "number": entry.get("number"),
+                "number": number,
                 "title": entry.get("title") or "",
                 "labels": [
                     {"name": lab.get("name", "")}
@@ -120,21 +171,25 @@ def _list_issues_via_rest(
     return collected[:limit]
 
 
-def _fetch_gh_issues_per_project(project_map: Dict[str, str]) -> Dict[str, Dict]:
-    """Fetch GitHub issues per project; record per-project auth failures.
+def _fetch_gh_issues_per_project(projects: Iterable[str]) -> Dict[str, Dict]:
+    """Fetch GitHub issues per project; record per-project read failures.
 
     Yoke (the control plane) re-raises ``ProjectGithubAuthError`` so the
     engine boundary can fail-closed before any classification work happens.
-    Non-Yoke auth failures land in the result dict as the ``_auth_error``
-    sentinel and the loop continues with the remaining projects.
+    Non-Yoke failures land in the result dict as the unavailable sentinel and
+    the loop continues with the remaining projects. Repository and token
+    always come from the same canonical auth resolution.
     """
     by_project: Dict[str, Dict] = {}
+    project_slugs = tuple(sorted(set(projects)))
 
     # Yoke fetch -- fail-closed at the engine boundary, so let
     # ProjectGithubAuthError propagate. Skipped entirely when the caller
     # excluded yoke from the map (its GitHub sync mode is backlog_only).
-    if "yoke" in project_map:
-        yoke_auth = resolve_project_github_auth("yoke")
+    if "yoke" in project_slugs:
+        yoke_auth = resolve_project_github_auth(
+            "yoke", required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+        )
         try:
             yoke_issues = _list_issues_via_rest(
                 yoke_auth.repo, token=yoke_auth.token,
@@ -143,14 +198,21 @@ def _fetch_gh_issues_per_project(project_map: Dict[str, str]) -> Dict[str, Dict]
             raise InvalidToken(
                 "yoke", f"REST rejected token for project 'yoke': {exc}"
             ) from exc
+        except RestTransportError as exc:
+            raise TransportFailure(
+                "yoke", f"GitHub issues read failed for project 'yoke': {exc}"
+            ) from exc
         by_project["yoke"] = {i["number"]: i for i in yoke_issues}
 
     # Non-yoke projects -- per-project catch keeps the loop alive.
-    for proj, repo in project_map.items():
-        if proj == "yoke" or not repo:
+    for proj in project_slugs:
+        if proj == "yoke":
             continue
         try:
-            auth = resolve_project_github_auth(proj)
+            auth = resolve_project_github_auth(
+                proj,
+                required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+            )
         except ProjectGithubAuthError as exc:
             by_project[proj] = _auth_failure_sentinel(exc)
             continue
@@ -161,8 +223,10 @@ def _fetch_gh_issues_per_project(project_map: Dict[str, str]) -> Dict[str, Dict]
                 InvalidToken(proj, f"REST rejected token for project '{proj}': {exc}")
             )
             continue
-        except RestTransportError:
-            by_project[proj] = {}
+        except RestTransportError as exc:
+            by_project[proj] = _transport_failure_sentinel(
+                proj, exc, stage="issues",
+            )
             continue
         by_project[proj] = {i["number"]: i for i in issues}
 
@@ -171,10 +235,10 @@ def _fetch_gh_issues_per_project(project_map: Dict[str, str]) -> Dict[str, Dict]
 
 def _graphql_batch_fetch(
     nums: List[int],
-    owner: str,
-    repo: str,
     project: str = "yoke",
     batch_size: int = 50,
+    *,
+    auth: ProjectGithubAuth | None = None,
 ) -> Dict[int, Dict]:
     """Fetch issue bodies and comments via batched GraphQL (bearer-token REST).
 
@@ -183,13 +247,20 @@ def _graphql_batch_fetch(
     shaped as a stable dict so callers stay independent of REST response detail.
     """
     result_map: Dict[int, Dict] = {}
-    if not nums or not owner or not repo:
+    if not nums:
         return result_map
 
-    try:
-        auth = resolve_project_github_auth(project)
-    except ProjectGithubAuthError:
-        return result_map
+    resolved = auth or resolve_project_github_auth(
+        project,
+        required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    )
+    parts = resolved.repo.split("/", 1)
+    if len(parts) != 2 or not all(parts):
+        raise MissingRepoMetadata(
+            project,
+            f"project '{project}' has invalid bound GitHub repository metadata",
+        )
+    owner, repo = parts
 
     for i in range(0, len(nums), batch_size):
         batch = nums[i:i + batch_size]
@@ -215,28 +286,52 @@ def _graphql_batch_fetch(
             + "}"
         )
 
-        try:
-            resp = request_with_retry(
-                RestRequest(
-                    method="POST",
-                    path="/graphql",
-                    body={"query": query},
-                ),
-                token=auth.token,
-            )
-        except RestTransportError:
-            continue
+        resp = request_with_retry(
+            RestRequest(
+                method="POST",
+                path="/graphql",
+                body={"query": query},
+            ),
+            token=resolved.token,
+        )
 
-        payload = resp.body if isinstance(resp.body, dict) else {}
-        repo_data = payload.get("data", {}).get("repository", {}) if isinstance(payload, dict) else {}
+        payload = resp.body
+        if not isinstance(payload, dict):
+            raise RestTransportError(
+                f"GitHub GraphQL returned an invalid payload for project '{project}'"
+            )
+        if payload.get("errors"):
+            raise RestTransportError(
+                f"GitHub GraphQL returned errors for project '{project}'"
+            )
+        data = payload.get("data")
+        repo_data = data.get("repository") if isinstance(data, dict) else None
         if not isinstance(repo_data, dict):
-            continue
+            raise RestTransportError(
+                f"GitHub GraphQL omitted repository data for project '{project}'"
+            )
+        expected_keys = {f"issue_{number}" for number in batch}
+        if not expected_keys.issubset(repo_data):
+            raise RestTransportError(
+                f"GitHub GraphQL returned incomplete issue data for project '{project}'"
+            )
         for key, value in repo_data.items():
             if value is None or not isinstance(value, dict):
                 continue
-            comments_nodes = (value.get("comments") or {}).get("nodes") or []
-            result_map[value["number"]] = {
-                "number": value["number"],
+            number = value.get("number")
+            comments = value.get("comments")
+            if (
+                not isinstance(number, int)
+                or number <= 0
+                or not isinstance(comments, dict)
+                or not isinstance(comments.get("nodes"), list)
+            ):
+                raise RestTransportError(
+                    f"GitHub GraphQL returned invalid issue data for project '{project}'"
+                )
+            comments_nodes = comments["nodes"]
+            result_map[number] = {
+                "number": number,
                 "body": value.get("body", "") or "",
                 "comments": comments_nodes,
             }

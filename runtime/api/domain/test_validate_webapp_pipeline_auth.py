@@ -2,7 +2,7 @@
 
 Split out of ``test_validate_webapp_pipeline.py`` (formerly 315 lines)
 so the authored file stays under the 350-line limit. Covers the
-``MissingCapability`` / ``MissingToken`` translation path through
+``MissingCapability`` / ``MissingAppCredentials`` translation path through
 ``_check_github_actions_infrastructure``.
 """
 
@@ -20,6 +20,12 @@ from yoke_core.domain.validate_webapp_pipeline import (
     ValidateContext,
     run_validation,
 )
+from yoke_core.domain.validate_webapp_pipeline_checks_remote import (
+    _REMOTE_GITHUB_READ_PERMISSION_LEVELS,
+    _check_github_actions_infrastructure,
+)
+from yoke_core.domain.validate_webapp_pipeline_helpers import Counters
+from runtime.api.domain.validate_webapp_pipeline_test_support import fake_app_auth
 
 
 _SEED_SCHEMA_DDL = """
@@ -135,8 +141,8 @@ def test_canonical_resolver_missing_capability_translates_to_fail(
         script_dir.mkdir(parents=True, exist_ok=True)
 
         def fake_run(cmd, *, cwd=None, stdin=None, env=None):
-            # gh subprocesses must always carry GH_TOKEN; but on this path
-            # the resolver fails before gh runs, so we just return cleanly.
+            # The resolver fails before any GitHub REST request; unrelated
+            # local validation commands can return cleanly.
             return subprocess.CompletedProcess(cmd, 0, "", "")
 
         monkeypatch.setattr(
@@ -172,3 +178,44 @@ def test_canonical_resolver_missing_capability_translates_to_fail(
         assert "yoke projects github-binding bind --project buzz" in out
         retired_hint = "Run: gh " + "auth " + "login"
         assert retired_hint not in out
+
+
+def test_remote_checks_reject_repo_projection_mismatch_before_io(
+    tmp_path: Path, monkeypatch, capsys,
+) -> None:
+    marker = tmp_path / "control-plane"
+    marker.touch()
+    ctx = ValidateContext(
+        project_root=tmp_path,
+        script_dir=tmp_path / "scripts",
+        control_plane_marker=marker,
+        project="buzz",
+    )
+    def resolve_auth(*_args, **kwargs):
+        assert (
+            kwargs["required_permissions"]
+            is _REMOTE_GITHUB_READ_PERMISSION_LEVELS
+        )
+        return fake_app_auth()
+
+    monkeypatch.setattr(
+        "yoke_core.domain.validate_webapp_pipeline_checks_remote."
+        "resolve_project_github_auth",
+        resolve_auth,
+    )
+
+    def unexpected_io(*_args, **_kwargs):
+        raise AssertionError("repo mismatch must stop before GitHub I/O")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.validate_webapp_pipeline_checks_remote."
+        "_rest_actions_secret_names",
+        unexpected_io,
+    )
+    counters = Counters()
+    _check_github_actions_infrastructure(
+        ctx, counters, "", "other-owner/other-repo",
+    )
+
+    assert counters.failed == 1
+    assert "does not match verified App binding" in capsys.readouterr().out

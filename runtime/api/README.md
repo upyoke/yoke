@@ -255,7 +255,7 @@ curl -X POST http://localhost:8765/v1/items/42/approve \
 POST /v1/items/{id}/capability
 ```
 
-Configures a capability for the project associated with the given item. Uses UPSERT semantics -- creates a new capability (201) or updates an existing one (200) based on the `(project, type)` pair.
+Configures a non-GitHub capability for the project associated with the given item. Uses UPSERT semantics -- creates a new capability (201) or updates an existing one (200) based on the `(project, type)` pair. GitHub uses a verified project binding and control-plane-minted short-lived installation tokens instead.
 
 | Field | Type | Required | Validation |
 |-------|------|----------|------------|
@@ -265,7 +265,7 @@ Configures a capability for the project associated with the given item. Uses UPS
 ```bash
 curl -X POST http://localhost:8765/v1/items/42/capability \
   -H "Content-Type: application/json" \
-  -d '{"type": "github", "config": {"token": "ghs_your_token_here", "repo_owner": "org", "repo_name": "project"}}'
+  -d '{"type": "ci_workflow_file", "config": {"workflow_file": "ci.yml"}}'
 ```
 
 | Status | Code | Cause |

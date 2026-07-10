@@ -4,7 +4,7 @@ The wizard owns the TTY, so every onboarding git op must run over HTTPS (no SSH
 host-key prompt) and non-interactively (``GIT_TERMINAL_PROMPT=0`` fails fast
 instead of prompting). These assert the URL shape, the auth-header encoding, the
 non-interactive env, and that ``run_git`` injects the token only as a
-request-scoped header that never persists in ``.git/config`` and never leaks
+URL-scoped header that never persists in ``.git/config`` and never leaks
 into a raised error. Runs against a local temp repo — no network.
 """
 
@@ -46,12 +46,34 @@ def test_https_remote_builds_clean_https_url_not_ssh() -> None:
     assert "github.com" in url
 
 
+def test_https_remote_uses_configured_ghes_web_origin() -> None:
+    assert transport.https_remote(
+        "Octo/Widget", web_url="https://ghe.example:8443",
+    ) == "https://ghe.example:8443/Octo/Widget.git"
+
+
 def test_git_auth_header_encodes_x_access_token_as_basic() -> None:
     header = transport.git_auth_header("ghs_secret")
     assert header.startswith("AUTHORIZATION: basic ")
     encoded = header.split(" ", 2)[2]
     decoded = base64.b64decode(encoded).decode("utf-8")
     assert decoded == "x-access-token:ghs_secret"
+
+
+def test_git_auth_config_requires_exact_configured_github_origin() -> None:
+    token = "ghu_short_lived"
+    config = transport.git_auth_config(
+        token,
+        "https://ghe.example/Owner/Repo.git",
+        web_url="https://ghe.example",
+    )
+    assert config is not None
+    assert config.startswith("http.https://ghe.example/.extraheader=")
+    assert transport.git_auth_config(
+        token,
+        "https://attacker.example/Owner/Repo.git",
+        web_url="https://ghe.example",
+    ) is None
 
 
 # ── non-interactive env ─────────────────────────────────────────────────
@@ -73,6 +95,22 @@ def test_non_interactive_env_preserves_explicit_ssh_command() -> None:
     assert env["GIT_TERMINAL_PROMPT"] == "0"
 
 
+def test_non_interactive_env_forces_trace_redaction() -> None:
+    env = transport.non_interactive_git_env({"GIT_TRACE_REDACT": "0"})
+
+    assert env["GIT_TRACE_REDACT"] == "1"
+
+
+def test_non_interactive_env_forces_tls_verification_and_preserves_custom_ca() -> None:
+    env = transport.non_interactive_git_env({
+        "GIT_SSL_NO_VERIFY": "1",
+        "GIT_SSL_CAINFO": "/trusted/company-ca.pem",
+    })
+
+    assert env["GIT_SSL_NO_VERIFY"] == "0"
+    assert env["GIT_SSL_CAINFO"] == "/trusted/company-ca.pem"
+
+
 # ── run_git token injection + non-persistence ───────────────────────────
 
 
@@ -89,11 +127,24 @@ def test_run_git_runs_non_interactively(tmp_path: Path, monkeypatch) -> None:
     _init_repo(repo)
     monkeypatch.setattr(transport.subprocess, "run", _capture)
 
-    transport.run_git(repo, "rev-parse", "--is-inside-work-tree")
+    token = "argv-secret"
+    transport.run_git(
+        repo, "rev-parse", "--is-inside-work-tree", token=token,
+    )
 
     assert seen["env"]["GIT_TERMINAL_PROMPT"] == "0"
     # No token => no http.extraheader option on the argv.
     assert "http.extraheader" not in " ".join(seen["cmd"])
+    assert token not in " ".join(seen["cmd"])
+    auth_config = transport.git_auth_config(
+        token, "https://github.com/octocat/app.git"
+    )
+    assert auth_config is not None
+    env = transport.git_config_env((auth_config,), base={})
+    assert env["GIT_CONFIG_KEY_0"] == (
+        "http.https://github.com/.extraheader"
+    )
+    assert "AUTHORIZATION: basic" in env["GIT_CONFIG_VALUE_0"]
 
 
 def test_run_git_with_token_does_not_persist_or_leak(tmp_path: Path) -> None:
@@ -104,7 +155,7 @@ def test_run_git_with_token_does_not_persist_or_leak(tmp_path: Path) -> None:
     (repo / "f.txt").write_text("x\n", encoding="utf-8")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-m", "seed")
-    # Stored origin is the clean URL; the token travels only in the -c header.
+    # Stored origin is a local path, so no GitHub token is attached at all.
     transport.run_git(repo, "remote", "add", "origin", str(bare))
 
     token = "ghs_run_git_secret"
@@ -117,6 +168,74 @@ def test_run_git_with_token_does_not_persist_or_leak(tmp_path: Path) -> None:
     assert token not in config_text
     assert "extraheader" not in config_text
     assert _git(repo, "remote", "get-url", "origin") == str(bare)
+
+
+@pytest.mark.parametrize(
+    ("remote", "web_url", "expected_key"),
+    [
+        (
+            "https://github.com/octocat/widget.git",
+            "https://github.com",
+            "http.https://github.com/.extraheader",
+        ),
+        (
+            "https://ghe.example/octocat/widget.git",
+            "https://ghe.example",
+            "http.https://ghe.example/.extraheader",
+        ),
+    ],
+)
+def test_run_git_scopes_auth_and_disables_redirects(
+    tmp_path: Path, monkeypatch, remote: str, web_url: str, expected_key: str,
+) -> None:
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _git(repo, "remote", "add", "origin", remote)
+    real_run = subprocess.run
+    seen: dict = {}
+
+    def capture(command, *args, **kwargs):
+        if command[:2] == ["git", "push"]:
+            seen["env"] = kwargs["env"]
+            return subprocess.CompletedProcess(command, 1, "", "push refused")
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(transport.subprocess, "run", capture)
+    with pytest.raises(ProjectOnboardError):
+        transport.run_git(
+            repo, "push", "origin", "main", token="ghu_short_lived",
+            github_web_url=web_url,
+        )
+    env = seen["env"]
+    assert expected_key in {env[key] for key in env if key.startswith("GIT_CONFIG_KEY_")}
+    assert "http.followRedirects" in {
+        env[key] for key in env if key.startswith("GIT_CONFIG_KEY_")
+    }
+
+
+def test_run_git_never_attaches_github_auth_to_unrelated_host(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _git(repo, "remote", "add", "origin", "https://attacker.example/o/r.git")
+    real_run = subprocess.run
+    seen: dict = {}
+
+    def capture(command, *args, **kwargs):
+        if command[:2] == ["git", "push"]:
+            seen["env"] = kwargs["env"]
+            return subprocess.CompletedProcess(command, 1, "", "push refused")
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(transport.subprocess, "run", capture)
+    with pytest.raises(ProjectOnboardError):
+        transport.run_git(
+            repo, "push", "origin", "main", token="ghu_do_not_send",
+            github_web_url="https://ghe.example",
+        )
+    values = [str(value) for value in seen["env"].values()]
+    assert not any("AUTHORIZATION" in value for value in values)
 
 
 # ── remote default-branch + reachability probes (ls-remote) ──────────────

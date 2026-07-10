@@ -18,8 +18,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
+from yoke_contracts import github_origin
 from yoke_cli.config import onboard_input_validation as validation
 from yoke_cli.config import onboard_credential_replacement
+from yoke_cli.config import github_user_tokens
+from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_git_prerequisite
 
@@ -41,13 +44,12 @@ class _ResultLike(Protocol):  # pragma: no cover - structural typing only
     project_publish_to_github: bool
     project_publish_owner: str | None
     project_publish_repo_name: str | None
-    machine_github_token: str | None
     machine_github_api_url: str | None
+    config_path: str
     env_name: str
     token: str | None
     token_file: str | None
     machine_github_choice: str | None
-    machine_github_token_file: str | None
 
 
 @dataclass(frozen=True)
@@ -129,8 +131,22 @@ def _network_findings(
 ) -> tuple[list[str], list[str]]:
     problems: list[str] = []
     notes: list[str] = []
-    token = getattr(result, "machine_github_token", None)
-    api_url = getattr(result, "machine_github_api_url", None) or "https://api.github.com"
+    token: str | None = None
+    github_config = machine_config.github_config(getattr(result, "config_path", None))
+    if github_config:
+        try:
+            token = github_user_tokens.access_token_from_machine_config(
+                config_path=getattr(result, "config_path", None),
+            ).access_token
+        except github_user_tokens.GitHubUserTokenError:
+            problems.append(
+                "Your connected GitHub authorization could not be refreshed; "
+                "reconnect GitHub before publishing."
+            )
+    api_url = (
+        getattr(result, "machine_github_api_url", None)
+        or github_origin.DEFAULT_GITHUB_API_URL
+    )
 
     # The connected token still authenticates.
     if token and probes.token_ok is not None and not probes.token_ok(api_url, token):
@@ -182,40 +198,39 @@ def _slug_fallback(result: _ResultLike) -> str | None:
 def default_probes() -> PreflightProbes:
     """Build the live probes the wizard wires for the Review pre-flight.
 
-    ``token_ok`` reuses the machine-token verifier; ``repo_availability`` probes
+    ``token_ok`` refreshes the App user's live installation snapshot;
+    ``repo_availability`` probes
     the target repo and, when it exists, its commits endpoint. Unknown transport
     states block Review as ambiguous instead of being treated as free.
     """
-    from yoke_cli.config import github_machine_verify
-    from yoke_cli.config import github_token_capability
+    from yoke_cli.config import github_app_user_api
+    from yoke_cli.config import github_publish_transport
 
     def _token_ok(api_url: str, token: str) -> bool:
         try:
-            github_machine_verify.verify(api_url, token)
+            github_app_user_api.discover_access(
+                api_url=api_url, access_token=token,
+            )
             return True
-        except Exception:  # noqa: BLE001 - any verify failure is a real problem
+        except github_app_user_api.GitHubAppUserApiError:
             return False
 
     def _repo_availability(api_url: str, token: str, owner: str, name: str) -> str:
-        status = github_token_capability.probe_status(
-            api_url, f"/repos/{owner}/{name}", token, method="GET", body=None,
-        )
-        if status == _HTTP_NOT_FOUND:
-            return REPO_FREE
-        if status != _HTTP_OK:
+        try:
+            github_publish_transport.request_json(
+                api_url, f"/repos/{owner}/{name}", token,
+            )
+        except github_publish_transport.GitHubPublishError as exc:
+            return REPO_FREE if exc.status == _HTTP_NOT_FOUND else REPO_AMBIGUOUS_BLOCKING
+        try:
+            github_publish_transport.request_json(
+                api_url, f"/repos/{owner}/{name}/commits", token,
+            )
+        except github_publish_transport.GitHubPublishError as exc:
+            if exc.status == _HTTP_EMPTY_REPOSITORY:
+                return REPO_EMPTY_RESUMABLE
             return REPO_AMBIGUOUS_BLOCKING
-        commits_status = github_token_capability.probe_status(
-            api_url,
-            f"/repos/{owner}/{name}/commits",
-            token,
-            method="GET",
-            body=None,
-        )
-        if commits_status == _HTTP_EMPTY_REPOSITORY:
-            return REPO_EMPTY_RESUMABLE
-        if commits_status == _HTTP_OK:
-            return REPO_POPULATED_BLOCKING
-        return REPO_AMBIGUOUS_BLOCKING
+        return REPO_POPULATED_BLOCKING
 
     return PreflightProbes(repo_availability=_repo_availability, token_ok=_token_ok)
 

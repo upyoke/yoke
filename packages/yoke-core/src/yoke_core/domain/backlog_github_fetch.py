@@ -10,12 +10,10 @@ typed surface via the canonical ``_label_rest`` import.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import project_label_policy
-from yoke_core.domain.epic_task_sync import _db_path
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
@@ -85,7 +83,13 @@ def _item_context(
     *,
     conn: Any,
 ) -> Optional[tuple[str, str, str]]:
-    """Return (github_issue, project, github_repo) for an item, or None."""
+    """Return ``(github_issue, project, github_repo_projection)`` for an item.
+
+    The final value is retained project metadata for diagnostics and drift
+    checks. Network callers must resolve :class:`ProjectGithubAuth` and use
+    its verified ``repo`` value rather than treating this projection as an
+    outbound target.
+    """
     p = _p(conn)
     try:
         lookup_id = _resolve_item_id(item_id, conn=conn)

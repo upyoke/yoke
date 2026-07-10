@@ -11,6 +11,9 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
@@ -166,7 +169,10 @@ def _batch_github_sync_tasks(
     item_project = _parent()._query_item_field(item_id, "project") or "yoke"
 
     try:
-        auth = resolve_project_github_auth(item_project)
+        auth = resolve_project_github_auth(
+            item_project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError as exc:
         print(
             f"Warning: skipping batch GitHub sync for {len(task_nums)} task(s); "

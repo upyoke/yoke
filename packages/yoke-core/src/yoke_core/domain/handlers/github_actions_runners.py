@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -18,18 +19,27 @@ from yoke_core.domain.github_actions_runner_fleet_capability import (
 from yoke_core.domain.handlers.github_actions_set import (
     _bad_request,
     _transport_failed,
-    _validate_and_resolve,
+    _validate_and_resolve_auth,
 )
 from yoke_core.domain.projects_capabilities_settings import (
     cmd_capability_get_settings,
 )
 from yoke_contracts.api.function_call import (
+    FunctionError,
     FunctionCallRequest,
     HandlerOutcome,
+)
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+    GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
 )
 
 
 DEFAULT_REQUIRED_LABELS = DEFAULT_RUNNER_LABELS
+RUNNERS_STATUS_PERMISSION_LEVELS = MappingProxyType({
+    **GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+    **GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
+})
 
 
 class RunnersStatusRequest(BaseModel):
@@ -55,7 +65,11 @@ class RunnersStatusRequest(BaseModel):
             "the runner-fleet capability supplies it."
         ),
     )
-    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
+    project: str = Field(
+        ...,
+        min_length=1,
+        description="Project capability owning the GitHub App repo binding.",
+    )
     runner_capability: str = Field(
         RUNNER_FLEET_CAPABILITY_TYPE,
         min_length=1,
@@ -96,13 +110,31 @@ class RunnersStatusResponse(BaseModel):
 
 
 def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
-    payload, token, err = _validate_and_resolve(
+    permission_error = HandlerOutcome(
+        result_payload={},
+        primary_success=False,
+        error=FunctionError(
+            code="github_app_permission_required",
+            message=(
+                "Repository self-hosted runner status requires the optional "
+                "GitHub App permission Administration: Read. Update the App "
+                "permission, approve the installation change, then refresh "
+                "the project binding."
+            ),
+        ),
+    )
+    payload, resolved, err = _validate_and_resolve_auth(
         request, RunnersStatusRequest, "github_actions.runners.status",
+        required_permissions=RUNNERS_STATUS_PERMISSION_LEVELS,
+        missing_permission_error=permission_error,
     )
     if err is not None:
         return err
     assert payload is not None
-    assert token is not None
+    assert resolved is not None
+    if not _permission_at_least_read(resolved.permissions.get("administration")):
+        return permission_error
+    token = resolved.token
 
     settings, capability_configured, err = _resolve_runner_fleet_settings(payload)
     if err is not None:
@@ -112,6 +144,11 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
         return _bad_request(
             "repo must be owner/name, either as an argument or in the "
             f"{payload.runner_capability!r} capability settings",
+            jsonpath="$.payload.repo",
+        )
+    if repo.casefold() != resolved.repo.casefold():
+        return _bad_request(
+            f"repo must match project binding {resolved.repo!r}",
             jsonpath="$.payload.repo",
         )
     variable_name = (payload.variable_name or settings.variable_name).strip()
@@ -237,6 +274,10 @@ def _clean_labels(labels: List[str]) -> List[str]:
 def _has_labels(runner: RunnerSummary, required: List[str]) -> bool:
     available = {label.lower() for label in runner.labels}
     return all(label.lower() in available for label in required)
+
+
+def _permission_at_least_read(value: Any) -> bool:
+    return str(value or "").strip().lower() in {"read", "write", "admin"}
 
 
 def _runs_on_value(labels: List[str]) -> str:

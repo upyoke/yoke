@@ -37,6 +37,7 @@ def _maybe_migrate_project_issue(
         str(item_dict["id"]),
         issue_num,
         old_repo,
+        old_project,
         new_repo,
         target_project,
         conn=conn,

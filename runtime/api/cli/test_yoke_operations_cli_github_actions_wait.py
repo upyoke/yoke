@@ -75,6 +75,7 @@ def test_wait_for_no_runs_waits_for_run_to_appear() -> None:
     # the run to appear rather than skipping CI (fail-open).
     rc, sleeps, _out = _run_wait(
         "github-actions", "check-ci", "o/r", "ci.yml", "--wait",
+        "--project", "yoke",
         stub=_stub_states(["no_runs", "running", "passed"]),
         clock=[0, 10, 20],
     )
@@ -88,6 +89,7 @@ def test_wait_accepts_no_runs_after_appearance_window() -> None:
     # genuine (branch runs no CI), so the gate returns no_runs and skips.
     rc, _sleeps, out = _run_wait(
         "github-actions", "check-ci", "o/r", "ci.yml", "--wait", "--json",
+        "--project", "yoke",
         stub=_stub_states(["no_runs", "no_runs"]),
         clock=[0, 10, 95],
     )

@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts import github_origin
 from yoke_cli.config import github_user_tokens
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import project_onboard
-from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.project_git_transport import https_remote
 from yoke_cli.config.project_github_adoption import (
@@ -138,10 +138,10 @@ def _normalize_existing_project_id(value: int | None) -> int | None:
     return numeric
 
 
-def _machine_github_token(config_path: Path) -> str | None:
+def _github_user_access_token(config_path: Path) -> str | None:
     """A refreshed local GitHub App user token, or None — used to clone Yoke."""
     try:
-        return github_user_tokens.refresh_from_machine_config(
+        return github_user_tokens.access_token_from_machine_config(
             config_path=config_path,
         ).access_token
     except github_user_tokens.GitHubUserTokenError:
@@ -153,9 +153,6 @@ def project_report(
     config_path: Path,
     apply: bool,
     inputs: dict[str, Any],
-    github_token: str | None,
-    github_token_file: str | Path | None,
-    github_token_stdin_value: str | None,
     reuse: Mapping[str, Any] | None = None,
     progress: onboard_apply_progress.ProgressCallback | None = None,
 ) -> dict[str, Any]:
@@ -164,9 +161,6 @@ def project_report(
             config_path=config_path,
             apply=apply,
             inputs=inputs,
-            github_token=github_token,
-            github_token_file=github_token_file,
-            github_token_stdin_value=github_token_stdin_value,
             reuse=reuse,
             progress=progress,
         )
@@ -174,7 +168,6 @@ def project_report(
         ProjectGithubAdoptionError,
         ProjectInstallError,
         project_onboard.ProjectOnboardError,
-        machine_secrets.MachineSecretError,
     ) as exc:
         raise OnboardProjectError(str(exc)) from exc
 
@@ -184,17 +177,11 @@ def _project_report(
     config_path: Path,
     apply: bool,
     inputs: dict[str, Any],
-    github_token: str | None,
-    github_token_file: str | Path | None,
-    github_token_stdin_value: str | None,
     reuse: Mapping[str, Any] | None,
     progress: onboard_apply_progress.ProgressCallback | None,
 ) -> dict[str, Any]:
     kwargs = _project_kwargs(
         inputs=inputs,
-        github_token=github_token,
-        github_token_file=github_token_file,
-        github_token_stdin_value=github_token_stdin_value,
         config_path=config_path,
         apply=apply,
     )
@@ -247,12 +234,21 @@ def _project_report(
     )
     clone_remote_url: str | None = None
     clone_token: str | None = None
+    clone_web_url: str | None = None
     if mode == PROJECT_MODE_SOURCE_DEV_ADMIN:
         # A fresh "Develop Yoke itself" folder is cloned from Yoke's own repo
         # (not git-init'd empty), authenticated with the machine GitHub
         # credential saved earlier in this apply.
-        clone_remote_url = https_remote(YOKE_GITHUB_REPO)
-        clone_token = _machine_github_token(config_path)
+        github_config = machine_config.github_config(config_path)
+        clone_web_url = github_origin.DEFAULT_GITHUB_WEB_URL
+        clone_remote_url = https_remote(
+            YOKE_GITHUB_REPO, web_url=clone_web_url,
+        )
+        configured_web = github_origin.validate_github_web_endpoint(
+            str(github_config.get("web_url") or clone_web_url)
+        )
+        if configured_web.origin == clone_web_url:
+            clone_token = _github_user_access_token(config_path)
     return project_onboard.onboard_existing(
         operation=operation,
         publish=publish,
@@ -265,6 +261,7 @@ def _project_report(
         reuse_github_auth=reuse_github_auth,
         clone_remote_url=clone_remote_url,
         clone_token=clone_token,
+        clone_web_url=clone_web_url,
         **kwargs,
     )
 
@@ -298,9 +295,6 @@ def _github_auth_target(inputs: dict[str, Any], *, mode: str | None = None) -> s
 def _project_kwargs(
     *,
     inputs: dict[str, Any],
-    github_token: str | None,
-    github_token_file: str | Path | None,
-    github_token_stdin_value: str | None,
     config_path: Path,
     apply: bool,
 ) -> dict[str, Any]:
@@ -313,9 +307,6 @@ def _project_kwargs(
         "default_branch": inputs["default_branch"],
         "public_item_prefix": inputs["public_item_prefix"],
         "existing_project_id": inputs.get("existing_project_id"),
-        "github_token": github_token,
-        "github_token_file": github_token_file,
-        "github_token_stdin_value": github_token_stdin_value,
         "github_adoption_choice": inputs.get("github_adoption"),
         "config_path": config_path,
         "apply": apply,

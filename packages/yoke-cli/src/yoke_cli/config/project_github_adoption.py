@@ -5,6 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts.project_contract.github_sync_mode import (
+    GITHUB_SYNC_BACKLOG_ONLY,
+)
+
 
 class ProjectGithubAdoptionError(RuntimeError):
     """Project GitHub adoption cannot proceed."""
@@ -15,18 +19,8 @@ GITHUB_ADOPTION_BACKLOG_ONLY = "backlog-only"
 GITHUB_ADOPTION_CHOICES = (
     GITHUB_ADOPTION_APP_BINDING,
     GITHUB_ADOPTION_BACKLOG_ONLY,
-    "skip",
 )
-GITHUB_ADOPTION_LEGACY_CHOICES = (
-    "temporary-only",
-    "store-token",
-    "different-token",
-)
-GITHUB_ADOPTION_INPUT_CHOICES = (
-    *GITHUB_ADOPTION_CHOICES,
-    *GITHUB_ADOPTION_LEGACY_CHOICES,
-)
-GITHUB_ADOPTION_STORE_CHOICES: tuple[str, ...] = ()
+GITHUB_ADOPTION_INPUT_CHOICES = GITHUB_ADOPTION_CHOICES
 GITHUB_BINDING_PENDING_STATUS = "pending_app_connection"
 GITHUB_BINDING_BACKLOG_ONLY_STATUS = "backlog_only"
 GITHUB_AUTOMATION_CATEGORIES = (
@@ -35,8 +29,11 @@ GITHUB_AUTOMATION_CATEGORIES = (
     "pull_request_templates",
     "actions_variables",
     "actions_secrets",
+)
+GITHUB_ADMIN_AUTOMATION_CATEGORIES = (
     "branch_protection",
     "environment_protection",
+    "runner_administration",
 )
 PROJECT_SURFACE_BY_OPERATION = {
     "project.create": "projects.create",
@@ -51,32 +48,16 @@ def github_adoption_report(
     *,
     choice: str | None,
     github_repo: str | None,
-    token_value: str | None,
-    token_import_method: str | None,
     apply: bool,
 ) -> dict[str, Any]:
     explicit = choice is not None
-    if token_value:
-        raise ProjectGithubAdoptionError(
-            "Project-supplied GitHub credentials are no longer supported. Use "
-            "--github-adoption app-binding for a GitHub App repo binding, or "
-            "--github-adoption backlog-only."
-        )
     normalized = _normalize_github_adoption_choice(
-        choice=choice, github_repo=github_repo, token_value=token_value,
+        choice=choice, github_repo=github_repo,
     )
     if not github_repo and normalized == GITHUB_ADOPTION_APP_BINDING:
         raise ProjectGithubAdoptionError(
             "--github-adoption app-binding requires --github-repo OWNER/REPO"
         )
-    secret: dict[str, Any] = {
-        "provided": False,
-        "import_method": token_import_method,
-        "stored": False,
-        "storage": None,
-        "persisted_source": None,
-        "required": False,
-    }
     binding_status = (
         GITHUB_BINDING_PENDING_STATUS
         if normalized == GITHUB_ADOPTION_APP_BINDING
@@ -91,8 +72,6 @@ def github_adoption_report(
             github_repo and normalized == GITHUB_ADOPTION_APP_BINDING
         ),
         "requires_explicit_choice": False,
-        "machine_github_credential_promoted": False,
-        "secret": secret,
         "binding": {
             "status": binding_status,
             "repo": github_repo,
@@ -104,18 +83,16 @@ def github_adoption_report(
 def should_store_project_github_binding(
     github_adoption: Mapping[str, Any] | None,
 ) -> bool:
-    return False
+    return bool(
+        github_adoption
+        and github_adoption.get("choice") == GITHUB_ADOPTION_APP_BINDING
+        and github_adoption.get("github_repo")
+    )
 
 
-def github_capabilities_payload(
-    github_repo: str | None,
-    github_adoption: Mapping[str, Any] | None,
-) -> dict[str, Any] | None:
-    if not github_repo or not github_adoption:
-        return None
-    if github_adoption.get("choice") != GITHUB_ADOPTION_APP_BINDING:
-        return None
-    return {"github": {"settings": {"repo": github_repo, "auth": "github_app"}}}
+def github_sync_mode(github_adoption: Mapping[str, Any] | None) -> str:
+    """Stage onboarding safely; verified binding enables sync transactionally."""
+    return GITHUB_SYNC_BACKLOG_ONLY
 
 
 def with_github_adoption_report(
@@ -171,20 +148,12 @@ def _normalize_github_adoption_choice(
     *,
     choice: str | None,
     github_repo: str | None,
-    token_value: str | None,
 ) -> str:
     if choice is not None:
-        if choice in GITHUB_ADOPTION_LEGACY_CHOICES:
-            raise ProjectGithubAdoptionError(
-                f"--github-adoption {choice} is no longer supported. Use "
-                "--github-adoption app-binding or --github-adoption backlog-only."
-            )
-        if choice == "skip":
-            return GITHUB_ADOPTION_BACKLOG_ONLY
         if choice not in GITHUB_ADOPTION_CHOICES:
             raise ProjectGithubAdoptionError(
                 "unknown GitHub adoption choice: "
-                f"{choice}; expected one of app-binding, backlog-only, skip"
+                f"{choice}; expected one of app-binding, backlog-only"
             )
         return choice
     if not github_repo:
@@ -226,7 +195,7 @@ def _github_write_preview(
         status = "pending-app-installation"
     else:
         status = "skipped-by-adoption-choice"
-    return [
+    writes = [
         {
             "category": category,
             "target": github_repo,
@@ -235,6 +204,18 @@ def _github_write_preview(
         }
         for category in GITHUB_AUTOMATION_CATEGORIES
     ]
+    admin_status = (
+        "requires-optional-administration"
+        if github_repo and github_adoption.get("automation_enabled")
+        else status
+    )
+    writes.extend({
+        "category": category,
+        "target": github_repo,
+        "status": admin_status,
+        "items": [],
+    } for category in GITHUB_ADMIN_AUTOMATION_CATEGORIES)
+    return writes
 
 
 def _project_value(project: Mapping[str, Any], key: str) -> Any:

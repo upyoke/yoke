@@ -9,18 +9,19 @@ REST write lives in :mod:`github_publish`; this module stitches it to git.
 Onboarding runs every project git op over HTTPS, never SSH: the Textual wizard
 owns the TTY, so an SSH host-key prompt on a fresh host would garble the UI and
 deadlock. ``origin`` is the clean HTTPS URL with no embedded credential; the
-push authenticates with the refreshed GitHub App user token carried as a single
-request-scoped ``http.extraheader`` (never written to ``.git/config`` or the
+push authenticates with the refreshed GitHub App user token carried as a
+URL-scoped ``http.extraheader`` (never written to ``.git/config`` or the
 stored remote).
 """
 
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts import github_origin
 from yoke_cli.config import github_publish
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config import project_git_prerequisite
@@ -113,7 +114,9 @@ def publish_checkout_needed(root: Path, publish: "PublishRequest") -> bool:
     """
     if not has_remote(root):
         return True
-    return project_clone_resume.origin_is(root, https_remote(publish.full_name))
+    return project_clone_resume.origin_is(
+        root, https_remote(publish.full_name, web_url=publish.web_url),
+    )
 
 
 def init_repo_if_needed(root: Path, default_branch: str) -> bool:
@@ -158,16 +161,17 @@ def publish_to_remote(
     github_repo: str,
     default_branch: str,
     token: str | None = None,
+    web_url: str | None = None,
 ) -> None:
     """Attach the created repo as HTTPS ``origin`` and push the default branch.
 
     Assumes the repo was already created on GitHub by the caller. A commit must
     exist for the push to land; the caller commits any pending tree first.
     ``origin`` is stored as the clean HTTPS URL; the push authenticates with
-    ``token`` carried as a request-scoped header (never persisted to the remote
+    ``token`` carried as a URL-scoped header (never persisted to the remote
     or ``.git/config``), so a private repo pushes without an interactive prompt.
     """
-    desired_remote = https_remote(github_repo)
+    desired_remote = https_remote(github_repo, web_url=web_url)
     existing_origin = project_clone_resume.remote_url(root, "origin")
     if existing_origin:
         if not project_clone_resume.same_repo(existing_origin, desired_remote):
@@ -178,7 +182,10 @@ def publish_to_remote(
             )
     else:
         run_git(root, "remote", "add", "origin", desired_remote)
-    run_git(root, "push", "-u", "origin", default_branch, token=token)
+    run_git(
+        root, "push", "-u", "origin", default_branch,
+        token=token, github_web_url=web_url,
+    )
 
 
 @dataclass(frozen=True)
@@ -193,9 +200,11 @@ class PublishRequest:
     owner: str
     name: str
     user_login: str
-    token: str
-    api_url: str = "https://api.github.com"
+    token: str = field(repr=False)
+    api_url: str = github_origin.DEFAULT_GITHUB_API_URL
+    web_url: str = github_origin.DEFAULT_GITHUB_WEB_URL
     private: bool = True
+    administration_allowed: bool = False
 
     @property
     def full_name(self) -> str:
@@ -216,21 +225,38 @@ def create_and_publish(
     and the default branch pushed with upstream tracking.
     """
     project_git_prerequisite.require_git_available()
-    created = github_publish.create_repo(
-        publish.api_url,
-        publish.token,
-        owner=publish.owner,
-        name=publish.name,
-        user_login=publish.user_login,
-        private=publish.private,
+    desired_remote = https_remote(publish.full_name, web_url=publish.web_url)
+    existing_origin = (
+        project_clone_resume.remote_url(root, "origin")
+        if is_git_repo(root)
+        else None
     )
+    if existing_origin and project_clone_resume.same_repo(
+        existing_origin, desired_remote,
+    ):
+        created = {
+            "full_name": publish.full_name,
+            "private": publish.private,
+            "reused": True,
+        }
+    else:
+        created = github_publish.create_repo(
+            publish.api_url,
+            publish.token,
+            owner=publish.owner,
+            name=publish.name,
+            user_login=publish.user_login,
+            private=publish.private,
+            administration_allowed=publish.administration_allowed,
+            web_url=publish.web_url,
+        )
     init_repo_if_needed(root, default_branch)
     ensure_initial_commit(root, default_branch)
     full_name = created["full_name"]
     try:
         publish_to_remote(
             root, github_repo=full_name, default_branch=default_branch,
-            token=publish.token,
+            token=publish.token, web_url=publish.web_url,
         )
     except ProjectOnboardError as exc:
         raise GitHubPublishError(
@@ -249,7 +275,8 @@ def _post_create_push_failure_message(
 ) -> str:
     if push_denied:
         return (
-            f"GitHub created {full_name}, but this token couldn't push to it. "
+            f"GitHub created {full_name}, but the GitHub App authorization "
+            "couldn't push to it. "
             "The repo is empty — delete it on GitHub, then re-run and choose "
             "Clone or an existing folder."
         )

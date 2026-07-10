@@ -10,28 +10,20 @@ Schema scaffolding shared via _doctor_filesystem_full_test_helpers (private modu
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from yoke_core.engines.doctor import (
-    RecordCollector,
     _github_auth_configured,
     _resolve_main_root,
     _resolve_repo_root,
     hc_agent_consistency,
     hc_doc_drift,
-    hc_doc_health,
-    hc_prompt_command_consistency,
-    hc_prompt_doctrine_consistency,
-    hc_size_bloat,
 )
 
 from yoke_core.engines._doctor_filesystem_full_test_helpers import (
-    _args,
     _cp,
-    _make_conn,
     _run_hc,
 )
 
@@ -69,7 +61,7 @@ class TestDoctorHelpers:
             MissingCapability, ProjectGithubAuth,
         )
         auth = ProjectGithubAuth(
-            project="yoke", repo="o/r", token="t", env={"GH_TOKEN": "t"},
+            project="yoke", repo="o/r", token="t",
         )
         with patch(
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
@@ -82,11 +74,22 @@ class TestDoctorHelpers:
         ):
             assert _github_auth_configured() is False
 
-    def test_canonical_resolver_injects_gh_token_env(self, tmp_path, monkeypatch):
-        """Resolver returns a frozen auth bundle whose env carries
-        ``GH_TOKEN`` for downstream ``subprocess.run`` calls."""
+    def test_canonical_resolver_keeps_token_out_of_process_env(
+        self, tmp_path, monkeypatch,
+    ):
+        """Resolver returns only request-scoped bearer-token material."""
         from yoke_core.domain import projects as p
-        from yoke_core.domain.project_github_auth import resolve_project_github_auth
+        from yoke_core.domain.github_app_user_verification import (
+            VerifiedProjectGitHubBinding,
+        )
+        from yoke_core.domain.project_github_auth import (
+            bind_local_github_user_token_provider,
+            resolve_project_github_auth,
+        )
+        from yoke_core.domain.project_github_binding import cmd_bind_project_repo
+        from yoke_contracts.github_app_installation_permissions import (
+            REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS,
+        )
 
         db = str(tmp_path / "doctor.db")
         p.cmd_init(db_path=db)
@@ -99,17 +102,28 @@ class TestDoctorHelpers:
             seed_project_identities(conn)
         finally:
             conn.close()
-        p.cmd_capability_set_settings(
-            "buzz", "github",
-            '{"repo_owner":"example-org","repo_name":"buzz"}',
-            base_settings_json=None, create=True, db_path=db,
+        verified = VerifiedProjectGitHubBinding(
+            installation_id="12345", account_id="9988",
+            account_login="example-org", account_type="Organization",
+            repository_selection="selected",
+            permissions=dict(REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS),
+            repository_id="4567", github_repo="example-org/buzz",
+            default_branch="main",
         )
-        p.cmd_capability_set_secret(
-            "buzz", "github", "token", "ghs_secret",
-            source="literal", db_path=db,
+        cmd_bind_project_repo(
+            "buzz", installation_id="12345", repository_id="4567",
+            github_repo="example-org/buzz",
+            expected_api_url="https://api.github.com",
+            github_user_access_token="user-token",
+            verifier=lambda **_kwargs: verified,
+            db_path=db,
         )
-        auth = resolve_project_github_auth("buzz", db_path=db)
-        assert auth.env["GH_TOKEN"] == "ghs_secret"
+        with bind_local_github_user_token_provider(
+            lambda: "ghu_user_token", api_url="https://api.github.com",
+        ):
+            auth = resolve_project_github_auth("buzz", db_path=db)
+        assert auth.token == "ghu_user_token"
+        assert not hasattr(auth, "env")
         assert auth.repo == "example-org/buzz"
 
     def test_canonical_resolver_raises_missing_capability(self, tmp_path):

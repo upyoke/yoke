@@ -14,18 +14,23 @@ from typing import Any, Dict, List
 
 import pytest
 
-from yoke_core.domain import github_actions, github_actions_rest
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+)
+from yoke_core.domain import (
+    github_actions_rest,
+)
+from yoke_core.domain.gh_rest_transport import RestServerError, RestTransportError
 from yoke_core.domain.project_github_auth import (
+    MissingAppCredentials,
     MissingCapability,
-    MissingToken,
     ProjectGithubAuth,
 )
 
 _RESOLVED = ProjectGithubAuth(
     project="yoke",
-    repo="upyoke/yoke",
+    repo="o/r",
     token="ghs_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 
@@ -81,26 +86,61 @@ def _fake_urls(monkeypatch, responses: List[Any]):
 
 @pytest.fixture
 def _resolver_ok(monkeypatch):
+    calls = []
+
+    def _resolve(project, **kwargs):
+        calls.append((project, kwargs))
+        return _RESOLVED
+
     monkeypatch.setattr(
         github_actions_rest, "resolve_project_github_auth",
-        lambda project, **kw: _RESOLVED,
+        _resolve,
     )
+    return calls
 
 
 class TestResolveToken:
     def test_returns_token_on_success(self, _resolver_ok):
-        assert github_actions_rest.resolve_token("yoke") == "ghs_test_token"
+        assert github_actions_rest.resolve_token(
+            "yoke",
+            "o/r",
+            required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        ) == "ghs_test_token"
+        assert _resolver_ok == [
+            (
+                "yoke",
+                {"required_permissions": GITHUB_ACTIONS_READ_PERMISSION_LEVELS},
+            )
+        ]
 
-    def test_exits_4_on_missing_token(self, monkeypatch, capsys):
-        monkeypatch.setattr(
-            github_actions_rest, "resolve_project_github_auth",
-            _raise_error(MissingToken),
-        )
+    def test_exits_4_when_repo_does_not_match_binding(
+        self, _resolver_ok, capsys,
+    ):
         with pytest.raises(SystemExit) as exc_info:
-            github_actions_rest.resolve_token("yoke")
+            github_actions_rest.resolve_token(
+                "yoke",
+                "other/repo",
+                required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+            )
         assert exc_info.value.code == 4
         err = capsys.readouterr().err
-        assert "missing_token" in err and "Repair:" in err
+        assert "repository_binding_mismatch" in err
+        assert "o/r" in err
+
+    def test_exits_4_on_missing_app_credentials(self, monkeypatch, capsys):
+        monkeypatch.setattr(
+            github_actions_rest, "resolve_project_github_auth",
+            _raise_error(MissingAppCredentials),
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            github_actions_rest.resolve_token(
+                "yoke",
+                "o/r",
+                required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+            )
+        assert exc_info.value.code == 4
+        err = capsys.readouterr().err
+        assert "missing_app_credentials" in err and "Repair:" in err
 
     def test_exits_4_on_missing_capability_with_repair_hint(self, monkeypatch, capsys):
         monkeypatch.setattr(
@@ -108,7 +148,11 @@ class TestResolveToken:
             _raise_error(MissingCapability),
         )
         with pytest.raises(SystemExit) as exc_info:
-            github_actions_rest.resolve_token("yoke")
+            github_actions_rest.resolve_token(
+                "yoke",
+                "o/r",
+                required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+            )
         assert exc_info.value.code == 4
         err = capsys.readouterr().err
         assert "missing_capability" in err and "github-binding bind" in err
@@ -148,7 +192,7 @@ class TestLatestWorkflowRun:
             )
         assert result is None
 
-    def test_returns_none_on_rest_error(self, monkeypatch):
+    def test_propagates_rest_error(self, monkeypatch):
         import urllib.error
         err = urllib.error.HTTPError(
             "https://example/foo", 500, "boom", {}, None  # type: ignore[arg-type]
@@ -157,10 +201,17 @@ class TestLatestWorkflowRun:
         with _fake_urls(monkeypatch, [err, err, err]):
             from yoke_core.domain import gh_rest_transport
             monkeypatch.setattr(gh_rest_transport, "sleep", lambda _s: None)
-            result = github_actions_rest.latest_workflow_run(
-                "o/r", "deploy.yml", branch="main", token="ghs_x"
-            )
-        assert result is None
+            with pytest.raises(RestServerError):
+                github_actions_rest.latest_workflow_run(
+                    "o/r", "deploy.yml", branch="main", token="ghs_x"
+                )
+
+    def test_rejects_malformed_response(self, monkeypatch):
+        with _fake_urls(monkeypatch, [{}]):
+            with pytest.raises(RestTransportError, match="omitted workflow_runs"):
+                github_actions_rest.latest_workflow_run(
+                    "o/r", "deploy.yml", branch="main", token="ghs_x"
+                )
 
 
 class TestRestHelpers:
@@ -188,83 +239,3 @@ class TestRestHelpers:
                 token="ghs_x",
             )
         assert calls and "/actions/workflows/ci.yml/dispatches" in calls[0]
-
-
-def _run_payload(**fields: Any) -> Dict[str, Any]:
-    base = {"id": 42, "status": "queued", "conclusion": None, "html_url": "https://x"}
-    base.update(fields)
-    return {"workflow_runs": [base]}
-
-
-class TestCheckCi:
-    def test_green(self, _resolver_ok, monkeypatch):
-        with _fake_urls(
-            monkeypatch,
-            [_run_payload(status="completed", conclusion="success")],
-        ):
-            with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_check_ci("o/r", "ci.yml")
-            assert exc_info.value.code == 0
-
-    def test_red(self, _resolver_ok, monkeypatch):
-        with _fake_urls(
-            monkeypatch,
-            [_run_payload(status="completed", conclusion="failure")],
-        ):
-            with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_check_ci("o/r", "ci.yml")
-            assert exc_info.value.code == 1
-
-    def test_running_no_wait(self, _resolver_ok, monkeypatch):
-        with _fake_urls(
-            monkeypatch,
-            [_run_payload(status="in_progress", conclusion=None)],
-        ):
-            with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_check_ci("o/r", "ci.yml", wait=False)
-            assert exc_info.value.code == 2
-
-    def test_queued_classified_as_running(self, _resolver_ok, monkeypatch, capsys):
-        """Operator decision: ``queued`` collapses into the running exit code."""
-        with _fake_urls(
-            monkeypatch,
-            [_run_payload(status="queued", conclusion=None)],
-        ):
-            with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_check_ci("o/r", "ci.yml", wait=False)
-            assert exc_info.value.code == 2
-        assert "running:queued" in capsys.readouterr().out
-
-    def test_no_runs(self, _resolver_ok, monkeypatch):
-        with _fake_urls(monkeypatch, [{"workflow_runs": []}]):
-            with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_check_ci("o/r", "ci.yml")
-            assert exc_info.value.code == 0
-
-    def test_malformed_response(self, _resolver_ok, monkeypatch):
-        """Missing ``workflow_runs`` key surfaces as ``no_runs`` (exit 0)."""
-        with _fake_urls(monkeypatch, [{}]):
-            with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_check_ci("o/r", "ci.yml")
-            assert exc_info.value.code == 0
-
-    def test_missing_token_exits_4(self, monkeypatch, capsys):
-        """``RestAuthError`` surrogate: resolver raises ``MissingToken`` → exit 4."""
-        monkeypatch.setattr(
-            github_actions_rest, "resolve_project_github_auth",
-            _raise_error(MissingToken),
-        )
-        with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_check_ci("o/r", "ci.yml")
-        assert exc_info.value.code == 4
-        assert "missing_token" in capsys.readouterr().err
-
-    def test_resolver_capability_exits_4(self, monkeypatch, capsys):
-        monkeypatch.setattr(
-            github_actions_rest, "resolve_project_github_auth",
-            _raise_error(MissingCapability),
-        )
-        with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_check_ci("o/r", "ci.yml")
-        assert exc_info.value.code == 4
-        assert "missing_capability" in capsys.readouterr().err

@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 from yoke_cli.config import github_publish
+from yoke_cli.config import github_publish_transport
 
 
 class _FakeResponse(io.BytesIO):
@@ -49,7 +50,7 @@ class _Recorder:
 
 
 def _install(monkeypatch, recorder: _Recorder) -> None:
-    monkeypatch.setattr(github_publish.urllib.request, "urlopen", recorder)
+    monkeypatch.setattr(github_publish_transport, "_urlopen", recorder)
 
 
 def test_list_repo_owners_leads_with_user_then_orgs(monkeypatch) -> None:
@@ -103,6 +104,7 @@ def test_create_repo_for_user_posts_to_user_repos_private(monkeypatch) -> None:
     created = github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
+        administration_allowed=True,
     )
 
     assert created["full_name"] == "octocat/widget"
@@ -111,6 +113,38 @@ def test_create_repo_for_user_posts_to_user_repos_private(monkeypatch) -> None:
     assert req["url"].endswith("/user/repos")
     assert req["method"] == "POST"
     assert req["body"] == {"name": "widget", "private": True}
+
+
+def test_create_repo_requires_optional_administration_without_network(monkeypatch) -> None:
+    recorder = _Recorder({})
+    _install(monkeypatch, recorder)
+
+    with pytest.raises(github_publish.GitHubPublishError) as caught:
+        github_publish.create_repo(
+            "https://api.github.com", "ghu_short_lived",
+            owner="octocat", name="widget", user_login="octocat",
+        )
+
+    assert "optional GitHub App Administration permission" in str(caught.value)
+    assert "https://github.com/new" in str(caught.value)
+    assert recorder.requests == []
+
+
+def test_create_repo_ghes_guidance_never_links_public_github(monkeypatch) -> None:
+    recorder = _Recorder({})
+    _install(monkeypatch, recorder)
+
+    with pytest.raises(github_publish.GitHubPublishError) as caught:
+        github_publish.create_repo(
+            "https://ghe.example/api/v3", "ghu_short_lived",
+            owner="octocat", name="widget", user_login="octocat",
+            web_url="https://ghe.example",
+        )
+
+    message = str(caught.value)
+    assert "https://ghe.example/new" in message
+    assert "https://github.com" not in message
+    assert recorder.requests == []
 
 
 def test_create_repo_for_org_posts_to_org_repos(monkeypatch) -> None:
@@ -122,6 +156,7 @@ def test_create_repo_for_org_posts_to_org_repos(monkeypatch) -> None:
     created = github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="acme-inc", name="widget", user_login="octocat",
+        administration_allowed=True,
     )
 
     assert created["full_name"] == "acme-inc/widget"
@@ -140,6 +175,7 @@ def test_create_repo_public_when_private_false(monkeypatch) -> None:
     github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="octocat", name="open", user_login="octocat", private=False,
+        administration_allowed=True,
     )
 
     assert recorder.requests[-1]["body"] == {"name": "open", "private": False}
@@ -153,6 +189,7 @@ def test_create_repo_requires_full_name(monkeypatch) -> None:
         github_publish.create_repo(
             "https://api.github.com", "ghs_x",
             owner="octocat", name="widget", user_login="octocat",
+            administration_allowed=True,
         )
 
 
@@ -167,6 +204,7 @@ def test_create_repo_happy_path_makes_no_extra_calls(monkeypatch) -> None:
     github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
+        administration_allowed=True,
     )
 
     assert len(recorder.requests) == 1

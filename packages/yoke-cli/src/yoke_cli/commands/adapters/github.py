@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping
 
 from yoke_cli.config import github_machine
 from yoke_cli.commands._helpers import (
@@ -30,27 +30,34 @@ from yoke_contracts.api.function_call import TargetRef
 
 __all__ = [
     "GITHUB_CONNECT_USAGE",
+    "GITHUB_DISCONNECT_USAGE",
     "GITHUB_PR_CREATE_USAGE",
     "GITHUB_STATUS_USAGE",
     "github_connect",
+    "github_disconnect",
     "github_pr_create",
     "github_status",
 ]
 
 
 GITHUB_CONNECT_USAGE = (
-    "yoke github connect [--api-url URL] [--config PATH] [--json]"
+    "yoke github connect [--client-id ID] [--app-slug SLUG] "
+    "[--app-id ID] [--api-url URL] [--web-url URL] [--add-installation] "
+    "[--config PATH] [--json]"
 )
 
 
+GITHUB_DISCONNECT_USAGE = "yoke github disconnect [--config PATH] [--json]"
+
+
 GITHUB_STATUS_USAGE = (
-    "yoke github status [--config PATH] [--api-url URL] [--offline] [--json]"
+    "yoke github status [--config PATH] [--offline] [--json]"
 )
 
 
 GITHUB_PR_CREATE_USAGE = (
     "yoke github pr create --title TITLE --head BRANCH [--base BRANCH] "
-    "[--body TEXT | --body-stdin] [--draft] [--project P] "
+    "[--body TEXT | --body-stdin] [--draft] --project P "
     "[--session-id S] [--json]"
 )
 
@@ -65,9 +72,30 @@ def github_connect(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
+        "--client-id",
+        default=None,
+        help="Public GitHub App client id (or YOKE_GITHUB_APP_CLIENT_ID).",
+    )
+    parser.add_argument(
+        "--app-slug",
+        default=None,
+        help="Public GitHub App slug (or YOKE_GITHUB_APP_SLUG).",
+    )
+    parser.add_argument("--app-id", type=int, default=None)
+    parser.add_argument(
+        "--add-installation",
+        action="store_true",
+        help="Open the App installation page to add an account or repositories.",
+    )
+    parser.add_argument(
         "--api-url",
         default=None,
         help="GitHub API root (default: https://api.github.com).",
+    )
+    parser.add_argument(
+        "--web-url",
+        default=None,
+        help="GitHub browser origin (default: https://github.com).",
     )
     parser.add_argument("--config", dest="config_path", default=None)
     add_json_arg(parser)
@@ -77,11 +105,13 @@ def github_connect(args: List[str]) -> int:
     try:
         report = github_machine.connect(
             config_path=parsed.config_path,
-            token=None,
-            token_file=None,
-            token_source_kind="none",
+            client_id=parsed.client_id,
+            app_slug=parsed.app_slug,
+            app_id=parsed.app_id,
             api_url=parsed.api_url,
-            github_repo=None,
+            web_url=parsed.web_url,
+            add_installation=parsed.add_installation,
+            notify=_render_connect_progress,
         )
     except github_machine.GitHubMachineError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -93,10 +123,39 @@ def github_connect(args: List[str]) -> int:
     return 0 if report.get("ok") else 1
 
 
+def github_disconnect(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke github disconnect",
+        description=(
+            "Remove this machine's GitHub App user authorization. This does "
+            "not uninstall the App or change repository access on GitHub."
+        ),
+    )
+    parser.add_argument("--config", dest="config_path", default=None)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, GITHUB_DISCONNECT_USAGE)
+    if parsed is None:
+        return 2
+    try:
+        report = github_machine.disconnect(config_path=parsed.config_path)
+    except github_machine.GitHubMachineError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if parsed.json_mode:
+        print(github_machine.dumps_json(report), end="")
+    else:
+        print("GitHub App authorization removed from this machine.\n")
+        for issue in report.get("issues") or []:
+            print(
+                f"warning: {issue.get('message') or issue.get('code')}",
+                file=sys.stderr,
+            )
+    return 0 if report.get("ok") else 1
+
+
 def github_status(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke github status")
     parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--api-url", default=None)
     parser.add_argument(
         "--offline",
         action="store_true",
@@ -109,9 +168,7 @@ def github_status(args: List[str]) -> int:
     try:
         report = github_machine.status(
             config_path=parsed.config_path,
-            api_url=parsed.api_url,
             check=not parsed.offline,
-            github_repo=None,
         )
     except github_machine.GitHubMachineError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -123,14 +180,39 @@ def github_status(args: List[str]) -> int:
     return 0 if report.get("ok") else 1
 
 
+def _render_connect_progress(event: Mapping[str, Any]) -> None:
+    phase = event.get("phase")
+    if phase == "device_authorization":
+        print(
+            f"Open {event.get('verification_uri')} and enter code "
+            f"{event.get('user_code')}",
+            file=sys.stderr,
+            flush=True,
+        )
+    elif phase == "device_browser" and not event.get("browser_opened"):
+        print(
+            f"Browser did not open; use {event.get('verification_uri')} with "
+            f"code {event.get('user_code')}",
+            file=sys.stderr,
+            flush=True,
+        )
+    elif phase == "app_installation":
+        prefix = "Opened" if event.get("browser_opened") else "Open"
+        print(
+            f"{prefix} {event.get('install_url')} to install the App and choose repositories.",
+            file=sys.stderr,
+            flush=True,
+        )
+
+
 def github_pr_create(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github pr create",
         description=(
             "Open a pull request --head -> --base on the project's "
             "GitHub repo via resolved REST auth (no host gh binary). The "
-            "repo is resolved from --project's GitHub capability "
-            "(projects.github_repo), never passed as an argument. "
+            "repo is resolved from --project's verified GitHub App binding, "
+            "never passed as an argument. "
             "Prints the created PR number + URL."
         ),
     )
@@ -162,8 +244,8 @@ def github_pr_create(args: List[str]) -> int:
         "--draft", action="store_true", help="Open the PR as a draft.",
     )
     parser.add_argument(
-        "--project", default="yoke",
-        help="Project capability owning the GitHub repo (default: yoke).",
+        "--project", required=True,
+        help="Project capability owning the GitHub repo.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

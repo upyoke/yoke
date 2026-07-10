@@ -13,9 +13,6 @@ def replacement_problems_from_result(result: Any) -> list[str]:
         env_name=str(getattr(result, "env_name", "") or ""),
         token=getattr(result, "token", None),
         token_file=getattr(result, "token_file", None),
-        machine_github_choice=getattr(result, "machine_github_choice", None),
-        machine_github_token=getattr(result, "machine_github_token", None),
-        machine_github_token_file=getattr(result, "machine_github_token_file", None),
     )
 
 
@@ -24,9 +21,6 @@ def replacement_problems_from_kwargs(kwargs: dict[str, Any]) -> list[str]:
         env_name=str(kwargs.get("env_name") or ""),
         token=kwargs.get("token"),
         token_file=kwargs.get("token_file"),
-        machine_github_choice=kwargs.get("machine_github_choice"),
-        machine_github_token=kwargs.get("machine_github_token"),
-        machine_github_token_file=kwargs.get("machine_github_token_file"),
     )
 
 
@@ -35,9 +29,6 @@ def replacement_problems(
     env_name: str,
     token: str | None,
     token_file: str | Path | None,
-    machine_github_choice: str | None,
-    machine_github_token: str | None,
-    machine_github_token_file: str | Path | None,
 ) -> list[str]:
     problems: list[str] = []
     selected_env = env_name.strip() or "prod"

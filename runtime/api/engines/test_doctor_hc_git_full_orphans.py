@@ -32,7 +32,7 @@ class TestOrphanedGhIssues:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
     def test_no_orphans_passes(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
@@ -66,7 +66,7 @@ class TestOrphanedGhIssues:
         _seed_project(conn, "yoke", github_repo="custom/owner-repo")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-            side_effect=lambda project, db_path=None: _auth("custom/owner-repo"),
+            side_effect=lambda project, db_path=None, **_kwargs: _auth("custom/owner-repo"),
         ):
             _run_hc(hc_orphaned_gh_issues, conn)
 
@@ -79,4 +79,4 @@ class TestOrphanedGhIssues:
 def _auth(repo: str):
     """Build a ProjectGithubAuth stub for resolver patches."""
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
-    return ProjectGithubAuth(project="yoke", repo=repo, token="t", env={"GH_TOKEN": "t"})
+    return ProjectGithubAuth(project="yoke", repo=repo, token="t")

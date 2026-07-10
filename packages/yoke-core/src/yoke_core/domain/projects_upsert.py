@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_scalar
 from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX
+from yoke_core.domain.project_github_binding_payload import normalize_github_repo
 
 
 def cmd_upsert(
@@ -96,14 +97,6 @@ def cmd_upsert(
                 "UPDATE projects SET github_sync_mode=%s WHERE id=%s",
                 (selected_sync_mode, numeric_id),
             )
-        if _clean_optional(github_repo):
-            conn.execute(
-                "INSERT INTO project_capabilities "
-                "(project_id, type, settings, created_at) "
-                "VALUES (%s, %s, %s, %s) "
-                "ON CONFLICT(project_id, type) DO NOTHING",
-                (numeric_id, "github", "{}", now),
-            )
         from yoke_core.domain.project_policy_capabilities import (
             ensure_default_policy_capabilities,
         )
@@ -165,6 +158,11 @@ def _update(
     emoji: Optional[str],
 ) -> int:
     numeric_id = int(existing["id"])
+    selected_github_repo = (
+        existing["github_repo"]
+        if github_repo is None
+        else _binding_guarded_github_repo(conn, numeric_id, github_repo)
+    )
     conn.execute(
         "UPDATE projects SET slug=%s, name=%s, emoji=%s, "
         "default_branch=%s, github_repo=%s, public_item_prefix=%s WHERE id=%s",
@@ -172,13 +170,40 @@ def _update(
             slug, name,
             _clean_optional(emoji) if emoji is not None else existing["emoji"],
             _clean_optional(default_branch) or existing["default_branch"] or "main",
-            _clean_optional(github_repo) if github_repo is not None else existing["github_repo"],
+            selected_github_repo,
             _clean_optional(public_item_prefix) or existing["public_item_prefix"]
             or DEFAULT_PUBLIC_ITEM_PREFIX,
             numeric_id,
         ),
     )
     return numeric_id
+
+
+def _binding_guarded_github_repo(
+    conn: Any,
+    project_id: int,
+    github_repo: Optional[str],
+) -> Optional[str]:
+    """Keep the project repo projection aligned with a verified binding."""
+    candidate = _clean_optional(github_repo)
+    binding = query_one(
+        conn,
+        "SELECT github_repo FROM project_github_repo_bindings WHERE project_id=%s",
+        (project_id,),
+    )
+    if binding is None:
+        return candidate
+    bound_repo = str(binding["github_repo"] or "").strip()
+    if (
+        not candidate
+        or not bound_repo
+        or normalize_github_repo(candidate) != normalize_github_repo(bound_repo)
+    ):
+        raise ValueError(
+            "project github_repo is binding-owned and must match the verified "
+            "GitHub App repo; rebind the repository to change it"
+        )
+    return bound_repo
 
 
 def _row_by_id(conn: Any, project_id: int) -> Any:

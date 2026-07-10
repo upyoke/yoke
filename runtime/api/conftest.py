@@ -76,7 +76,6 @@ _AMBIENT_TEST_PG_DSN_FILE = os.environ.get(_db_backend.PG_DSN_FILE_ENV)
 
 pytest_plugins = [
     "runtime.api.fixtures.backlog",
-    "runtime.api.fixtures.github",
     "runtime.api.fixtures.runtime",
 ]
 

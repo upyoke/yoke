@@ -18,7 +18,6 @@ from typing import Iterator
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain import projects
 from yoke_core.domain import projects_capabilities_settings as pcs
 from yoke_core.domain.settings_cas import SettingsConflictError
 from runtime.api.fixtures.file_test_db import init_test_db
@@ -134,8 +133,8 @@ class TestCapabilitySettings:
     def test_runner_fleet_settings_are_canonicalized(self, cap_db: str) -> None:
         pcs.cmd_capability_set_settings(
             "yoke", "github-actions-runner-fleet",
-            '{"repo":"upyoke/yoke","desired_runner_count":2,'
-            '"max_runner_count":4}',
+            '{"repo":"upyoke/yoke","desired_runner_count":1,'
+            '"max_runner_count":1}',
             create=True, db_path=cap_db,
         )
 
@@ -149,8 +148,27 @@ class TestCapabilitySettings:
             "self-hosted", "Linux", "ARM64", "yoke-github-actions",
         ]
         assert stored["variable_name"] == "YOKE_LINUX_RUNS_ON"
-        assert stored["desired_runner_count"] == 2
-        assert stored["max_runner_count"] == 4
+        assert stored["desired_runner_count"] == 1
+        assert stored["max_runner_count"] == 1
+        assert stored["lifecycle"]["ephemeral_runners"] is True
+
+    def test_runner_fleet_rejects_shared_host_parallelism(
+        self, cap_db: str,
+    ) -> None:
+        with pytest.raises(ValueError, match="one isolated runner host"):
+            pcs.cmd_capability_set_settings(
+                "yoke", "github-actions-runner-fleet",
+                '{"desired_runner_count":2,"max_runner_count":4}',
+                create=True, db_path=cap_db,
+            )
+
+    def test_runner_fleet_rejects_zero_idle_grace(self, cap_db: str) -> None:
+        with pytest.raises(ValueError, match="greater than or equal to 1"):
+            pcs.cmd_capability_set_settings(
+                "yoke", "github-actions-runner-fleet",
+                '{"lifecycle":{"idle_shutdown_minutes":0}}',
+                create=True, db_path=cap_db,
+            )
 
     def test_runner_fleet_rejects_repo_without_owner(self, cap_db: str) -> None:
         with pytest.raises(ValueError, match="owner/name"):
@@ -272,68 +290,3 @@ class TestMergeSettings:
             pcs.cmd_capability_merge_settings(
                 "yoke", "docker", {"registry": "ecr"}, db_path=cap_db
             )
-
-
-# ---------------------------------------------------------------------------
-# CLI wiring through yoke_core.domain.projects
-# ---------------------------------------------------------------------------
-
-
-class TestProjectsCliWiring:
-    def test_cli_create_get_set_round_trip(self, cap_db: str, capsys) -> None:
-        assert projects.main(
-            ["capability-set-settings", "yoke", "docker",
-             '{"host":"a"}', "--new"]
-        ) == 0
-        capsys.readouterr()
-        assert projects.main(
-            ["capability-get-settings", "yoke", "docker"]
-        ) == 0
-        base = capsys.readouterr().out.strip()
-        assert projects.main(
-            ["capability-set-settings", "yoke", "docker",
-             '{"host":"b"}', "--base", base]
-        ) == 0
-        capsys.readouterr()
-        assert _settings(cap_db) == {"host": "b"}
-
-    def test_cli_set_without_base_exits_2_teaching_flow(
-        self, cap_db: str, capsys
-    ) -> None:
-        rc = projects.main(
-            ["capability-set-settings", "yoke", "docker", "{}"]
-        )
-        assert rc == 2
-        err = capsys.readouterr().err
-        assert "--base is required" in err
-        assert "capability-get-settings" in err
-
-    def test_cli_stale_base_exits_1_with_conflict(
-        self, cap_db: str, capsys
-    ) -> None:
-        assert projects.main(
-            ["capability-set-settings", "yoke", "docker",
-             '{"host":"a"}', "--new"]
-        ) == 0
-        rc = projects.main(
-            ["capability-set-settings", "yoke", "docker",
-             '{"host":"b"}', "--base", '{"host":"stale"}']
-        )
-        assert rc == 1
-        assert "settings_conflict" in capsys.readouterr().err
-
-    def test_cli_merge_sets_key_path(self, cap_db: str, capsys) -> None:
-        rc = projects.main(
-            ["capability-merge-settings", "yoke", "docker",
-             "--set", "host=a", "--set", "ports.web=3000"]
-        )
-        assert rc == 0
-        capsys.readouterr()
-        final = _settings(cap_db)
-        assert final["host"] == "a"
-        assert final["ports"]["web"] == 3000
-
-    def test_cli_get_missing_exits_1(self, cap_db: str) -> None:
-        assert projects.main(
-            ["capability-get-settings", "yoke", "absent"]
-        ) == 1

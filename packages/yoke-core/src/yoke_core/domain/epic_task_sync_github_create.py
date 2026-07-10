@@ -16,6 +16,9 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain import backlog_github_body_budget as _budget
 from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
@@ -125,7 +128,10 @@ def _resolve_or_create_epic_issue(
         # Reuse the backlog item's existing GitHub issue — ensure it
         # carries the ``type:epic`` label.
         try:
-            auth = resolve_project_github_auth(gh_project)
+            auth = resolve_project_github_auth(
+                gh_project,
+                required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+            )
             _label_rest.add_labels(
                 auth.repo, int(backlog_github_issue), ["type:epic"],
                 token=auth.token,

@@ -19,6 +19,8 @@ secret; callers that need evidence log redacted forms.
 from __future__ import annotations
 
 import os
+import re
+import shlex
 import subprocess
 from dataclasses import dataclass
 from typing import List, Mapping, Optional, Sequence
@@ -211,8 +213,13 @@ def push_remote_file(
     write; secret-bearing payloads (env files) therefore never appear in
     process listings or shell history on either side.
     """
+    if re.fullmatch(r"[0-7]{3,4}", str(mode)) is None:
+        raise ValueError("remote file mode must be a three- or four-digit octal value")
     prefix = "sudo " if sudo else ""
-    remote = f"{prefix}install -m {mode} /dev/stdin {remote_path}"
+    remote = (
+        f"{prefix}install -m {shlex.quote(str(mode))} /dev/stdin "
+        f"{shlex.quote(str(remote_path))}"
+    )
     return run_remote(
         runner, env, remote, input_text=content, timeout=timeout
     )

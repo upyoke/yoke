@@ -10,8 +10,6 @@ from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestTransportError,
 )
-from yoke_core.domain.github_actions_logs import fetch_failed_log
-
 GetLatestRun = Callable[[], Optional[Dict[str, Any]]]
 CheckAuth = Callable[[], None]
 Sleep = Callable[[float], None]
@@ -58,14 +56,29 @@ def check_ci_command(
 
     while True:
         run = get_latest_run()
-        if not run:
-            print("no_runs")
-            sys.exit(0)
-
-        ci_id = run.get("id")
+        ci_id = run.get("id") if run else None
         if not ci_id:
-            print("no_runs")
-            sys.exit(0)
+            if not wait:
+                print("no_runs")
+                sys.exit(0)
+            elapsed = int(now() - start)
+            appearance_timeout = min(
+                timeout_sec, CHECK_CI_APPEARANCE_TIMEOUT_SEC,
+            )
+            if elapsed >= appearance_timeout:
+                print("no_runs")
+                sys.exit(0)
+            sleep_sec = min(
+                interval, max(1, appearance_timeout - elapsed),
+            )
+            print(
+                "  CI run has not appeared yet "
+                f"(elapsed: {elapsed}s, appearance timeout: "
+                f"{appearance_timeout}s)",
+                file=sys.stderr,
+            )
+            sleep(sleep_sec)
+            continue
 
         ci_status = str(run.get("status") or "")
         ci_conclusion = str(run.get("conclusion") or "")
@@ -97,20 +110,18 @@ def failed_log_command(
     *,
     tail_lines: int,
     check_auth: CheckAuth,
-    fetch_log: Optional[FetchFailedLog] = None,
+    fetch_log: FetchFailedLog,
 ) -> None:
     """Fetch a concise failed-step log tail and exit with legacy CLI code.
 
     Uses the REST ZIP-logs endpoint via :mod:`github_actions_logs` with
-    automatic per-job fallback on ZIP 404. The ``fetch_log`` parameter
-    exists as a test seam; production callers leave it ``None`` and the
-    default :func:`github_actions_logs.fetch_failed_log` is invoked.
+    automatic per-job fallback on ZIP 404. The caller supplies a fetcher
+    already bound to explicit project auth and the verified repository.
     """
     check_auth()
 
-    fetch = fetch_log if fetch_log is not None else _default_fetch_log
     try:
-        per_job = fetch(repo, run_id)
+        per_job = fetch_log(repo, run_id)
     except RestAuthError as exc:
         # Never log the token. RestAuthError.message carries only
         # HTTP status + body snippet (no Authorization header).
@@ -138,21 +149,6 @@ def failed_log_command(
 
     print("\n".join(lines))
     sys.exit(0)
-
-
-def _default_fetch_log(repo: str, run_id: str) -> Dict[str, str]:
-    """Production binding: resolve the project token + dispatch via REST.
-
-    Kept private so the test seam in ``failed_log_command`` is the public
-    monkeypatch point. The resolver is imported at call time to keep the
-    module's import graph minimal and to let tests stub
-    ``github_actions_rest.resolve_project_github_auth`` consistently
-    with the sibling REST tests.
-    """
-    from yoke_core.domain.github_actions_rest import resolve_token
-
-    token = resolve_token()
-    return fetch_failed_log(repo, run_id, token=token)
 
 
 def _join_job_logs(per_job: Dict[str, str]) -> str:

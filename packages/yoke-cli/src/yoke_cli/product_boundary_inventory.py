@@ -33,20 +33,20 @@ _ENGINE_IMPORT_BOUNDARY_ROOTS = frozenset(
 def _commands(text: str) -> frozenset[str]:
     return frozenset(f"yoke {line}" for line in text.split("|") if line)
 
-_PRODUCT = _commands("auth set|config example|connect|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host init|status|templates fetch|templates list|ui|universe export")
+_PRODUCT = _commands("auth set|config example|connect|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host init|status|templates fetch|templates list|ui|universe export")
 _PROJECT_INSTALL = _commands("project install|project refresh|project snapshot sync|project uninstall")
 _SOURCE_DEV = _commands("agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets check|packets render|resync|scratch dispatch-inputs|usher reconcile-github")
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
 @dataclass(frozen=True)
 class ImportEdge:
-    source: str; target: str; kind: str; classification: str = ""; rationale: str = ""
+    source: str; target: str; kind: str; classification: str = ""; rationale: str = ""  # noqa: E702
 
 @dataclass(frozen=True)
 class InventoryRow:
-    command_helper: str; function_id: str | None; import_edges: tuple[ImportEdge, ...]
-    transport_branch: str; config_required: str; capability_required: str
-    expected_product_install_behavior: str; expected_refusal_shape: str
-    owner: str; disposition: str
+    command_helper: str; function_id: str | None; import_edges: tuple[ImportEdge, ...]  # noqa: E702
+    transport_branch: str; config_required: str; capability_required: str  # noqa: E702
+    expected_product_install_behavior: str; expected_refusal_shape: str  # noqa: E702
+    owner: str; disposition: str  # noqa: E702
 
 def generate_inventory(*, repo_root: Path | str | None = None, package_root: Path | str | None = None) -> tuple[InventoryRow, ...]:
     """Return deterministic product-boundary rows for this CLI build."""
@@ -160,15 +160,15 @@ def _branch(command: str, disposition: str, operation: ops.OperationEntry | None
 
 def _config(command: str, disposition: str) -> str:
     by_command = {
-        "yoke github connect": "machine config path and GitHub App authorization source",
-        "yoke onboard": "target config path, env, API URL, token source, optional local checkout handoff inputs",
+        "yoke github connect": "machine config path and GitHub App authorization source", "yoke github disconnect": "machine config path and local authorization removal",
+        "yoke onboard": "target config path, env, API URL, GitHub App authorization, optional local checkout handoff inputs",
         "yoke dev setup": "Yoke source checkout; optional local-postgres DSN inputs",
         "yoke dev db-admin setup": "project/env deploy settings plus capability-owned AWS credentials",
         "yoke aws exec": "project aws-admin capability settings plus local AWS CLI",
     }
     if command in _PROJECT_INSTALL:
         return "machine config HTTPS env plus project id or checkout mapping"
-    if command in by_command: return by_command[command]
+    if command in by_command: return by_command[command]  # noqa: E701
     return {
         HTTPS_RELAY: "active env machine config; HTTPS preferred",
         SOURCE_DEV_ADMIN: "source checkout/admin runtime",
@@ -181,9 +181,9 @@ def _capability(command: str, disposition: str) -> str:
         return "project GitHub App auth"
     if command in _PROJECT_INSTALL:
         return "project install bundle endpoint"
-    if command == "yoke dev setup": return "yoke-core source package for apply/source-link repair"
-    if command == "yoke dev db-admin setup": return "project aws-admin, pulumi-state, ssh, database, and runtime settings"
-    if command == "yoke aws exec": return "project aws-admin capability credentials"
+    if command == "yoke dev setup": return "yoke-core source package for apply/source-link repair"  # noqa: E701
+    if command == "yoke dev db-admin setup": return "project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
+    if command == "yoke aws exec": return "project aws-admin capability credentials"  # noqa: E701
     if disposition == HTTPS_RELAY:
         return "server-registered function id"
     if disposition == OPERATOR_DEBUG_PERMANENT:

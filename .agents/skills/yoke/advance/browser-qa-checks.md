@@ -100,11 +100,12 @@ fi
 
 Resolve repo slug and workflow, find run for pushed commit:
 ```bash
-_repo_slug=$(yoke projects get --project "$_item_project" --field github_repo 2>/dev/null) || true
+_repo_slug=$(yoke projects github-binding status --project "$_item_project" \
+ --field github_repo 2>/dev/null) || true
 _eph_workflow="${_item_project}-ephemeral.yml"
 
 sleep 5
-if _run_id=$(python3 -m yoke_core.domain.github_actions find-run "$_repo_slug" "$_eph_workflow" "$_head_sha" 2>/dev/null); then
+if _run_id=$(python3 -m yoke_core.domain.github_actions find-run "$_repo_slug" "$_eph_workflow" "$_head_sha" --project "$_item_project" 2>/dev/null); then
  _find_exit=0
 else
  _find_exit=$?
@@ -116,7 +117,7 @@ Retry once after 10s if not found:
 ```bash
 if [ "$_find_exit" -ne 0 ] || [ -z "$_run_id" ]; then
  sleep 10
- if _run_id=$(python3 -m yoke_core.domain.github_actions find-run "$_repo_slug" "$_eph_workflow" "$_head_sha" 2>/dev/null); then
+ if _run_id=$(python3 -m yoke_core.domain.github_actions find-run "$_repo_slug" "$_eph_workflow" "$_head_sha" --project "$_item_project" 2>/dev/null); then
  _find_exit=0
  else
  _find_exit=$?

@@ -10,11 +10,13 @@ is already origin, and the created repo's full_name lands on the API payload.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from yoke_cli.config import project_onboard
 from yoke_cli.config import project_onboard_apply
+from yoke_cli.config import project_onboard_progress
 from yoke_cli.config.project_publish_support import PublishRequest
 
 
@@ -68,10 +70,7 @@ def _base_kwargs(checkout: Path) -> dict:
         "github_repo": None,
         "default_branch": "main",
         "public_item_prefix": "WIDG",
-        "github_token": None,
-        "github_token_file": None,
-        "github_token_stdin_value": None,
-        "github_adoption_choice": "skip",
+        "github_adoption_choice": "backlog-only",
         "config_path": None,
         "apply": True,
     }
@@ -94,6 +93,67 @@ def test_create_project_publishes_and_records_repo(tmp_path, monkeypatch, _stub_
     assert len(calls) == 1
     created = next(p for fn, p in _stub_backend if fn == "projects.create")
     assert created["github_repo"] == "octocat/widget"
+
+
+def test_fresh_create_refreshes_app_access_before_binding(
+    tmp_path, monkeypatch, _stub_backend,
+) -> None:
+    events: list[str] = []
+    github_config = {
+        "api_url": "https://api.github.com",
+        "repositories": [],
+    }
+
+    def _create(*_args, **_kwargs):
+        events.append("publish")
+        return {"full_name": "octocat/widget", "private": True}
+
+    def _status(**_kwargs):
+        events.append("refresh")
+        github_config["repositories"] = [{
+            "full_name": "octocat/widget",
+            "repository_id": 88,
+            "installation_id": 7,
+        }]
+        return {"ok": True}
+
+    def _binding_dispatch(function_id, payload, _config_path):
+        assert function_id == "projects.github_binding.bind"
+        events.append("bind")
+        assert payload["repository_id"] == 88
+        assert payload["installation_id"] == 7
+        return {
+            "binding": {"status": "active"},
+            "permission_status": {"ok": True},
+            "github_sync_mode": "enabled",
+        }
+
+    monkeypatch.setattr(project_onboard, "create_and_publish", _create)
+    monkeypatch.setattr(
+        project_onboard, "publish_checkout_needed", lambda *_args: True,
+    )
+    monkeypatch.setattr(project_onboard, "init_repo_if_needed", lambda *_args: True)
+    monkeypatch.setattr(project_onboard_progress.github_machine, "status", _status)
+    monkeypatch.setattr(
+        project_onboard_progress.machine_config,
+        "github_config",
+        lambda _path: github_config,
+    )
+    monkeypatch.setattr(
+        project_onboard_progress.github_user_tokens,
+        "access_token_from_machine_config",
+        lambda **_kwargs: SimpleNamespace(access_token="ghu_short_lived"),
+    )
+    monkeypatch.setattr(project_onboard_progress, "dispatch", _binding_dispatch)
+    kwargs = _base_kwargs(tmp_path / "new")
+    kwargs.update({
+        "github_repo": "octocat/widget",
+        "github_adoption_choice": "app-binding",
+    })
+
+    project_onboard.create_project(publish=_publish(), **kwargs)
+
+    assert events == ["publish", "refresh", "bind"]
 
 
 def test_create_project_no_publish_does_not_create_repo(tmp_path, monkeypatch, _stub_backend):

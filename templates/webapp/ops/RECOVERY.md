@@ -215,9 +215,13 @@ ssh {{ssh_user}}@<new-eip> 'sudo sh /tmp/provision-tls.sh'
 # Reinstall cron jobs (build cache prune, weekly cleanup, ephemeral cleanup)
 ssh {{ssh_user}}@<new-eip> 'sh /tmp/setup-vps-maintenance.sh'
 
-# Redeploy application
-gh workflow run "{{project_display_name}} Deploy" --repo <repo>/{{project_name}} --ref main
+# Redeploy application through the recovery item's configured Yoke flow.
+# From a Yoke-enabled Codex session, run: /yoke usher YOK-N
 ```
+
+Replace `YOK-N` with the recovery item. Usher resolves the project's bound
+repository and dispatches the configured workflow with a short-lived GitHub
+App installation token.
 
 ## 6. Verify
 

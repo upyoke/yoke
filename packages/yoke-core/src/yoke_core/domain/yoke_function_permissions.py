@@ -118,7 +118,13 @@ def check_dispatch_permission(
                 error=_error_response(request, entry, "ambiguous_project", str(exc)),
             )
         if project_context is None:
-            return DispatchPermission(spec.permission_key, None, None)
+            return DispatchPermission(
+                spec.permission_key, None, None,
+                error=_error_response(
+                    request, entry, "permission_denied",
+                    "could not resolve a target project for project-scoped function",
+                ),
+            )
         project_id, project_slug = project_context
     try:
         require_permission(

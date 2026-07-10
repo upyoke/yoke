@@ -16,7 +16,6 @@ from runtime.api.backlog_github_sync_test_helpers import (
 from runtime.api.conftest import insert_item
 from yoke_core.domain import (
     backlog_github_comments,
-    backlog_github_label_sync_rest as _label_rest,
     backlog_github_state_sync,
     backlog_github_sync,
     github_rest,
@@ -27,7 +26,6 @@ from yoke_core.domain.project_github_auth import ProjectGithubAuth
 def _ok_auth(project: str = "buzz") -> ProjectGithubAuth:
     return ProjectGithubAuth(
         project=project, repo=f"org/{project}", token="ghs_fake",
-        env={"GH_TOKEN": "ghs_fake"},
     )
 
 

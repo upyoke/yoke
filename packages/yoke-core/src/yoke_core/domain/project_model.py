@@ -14,7 +14,7 @@ Returned shape::
       "policy":   {"breakage_policy": "founder_cutover" | "compatibility_required"},
       "structure": {"families": {family_name: [entries...], ...}},
       "capabilities": {cap_type: {...settings...}, ...},
-      "secrets_metadata": [{"type": "github", "key": "token", "source": "literal"},
+      "secrets_metadata": [{"type": "deploy", "key": "api_token", "source": "literal"},
                            ...],   # value omitted; metadata only
       "deployment_flows": [{"id": "...", "name": "...", "stages": [...]}, ...],
     }

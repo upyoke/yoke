@@ -55,13 +55,15 @@ _item_gh=$(yoke items get {N} github_issue 2>/dev/null)
 
 If `_item_gh` is empty or null:
 - Check canonical project GitHub auth via the resolver — Yoke and Buzz both
-  resolve through the same surface (`projects.github_repo` +
-  `capability_secrets[project, github, token]`); no host-credential fallback.
+  resolve through the same verified `project_github_repo_bindings` surface;
+  the control plane mints a short-lived
+  installation token and never falls back to a host credential or project
+  capability secret.
   The direct resolver probe and issue-sync helper are source-dev/operator-debug
   internals with no registered product CLI wrapper. Lifecycle transitions
   normally sync as a side effect.
-- If the resolver raises (missing capability, missing repo, missing token, unreadable file source, empty env source, invalid token, transport failure), emit advisory:
- > **Advisory:** No GitHub issue linked and project GitHub auth not resolvable. Repair per the github-auth-resolver doctor output, then retry the advance so lifecycle sync side effects can run. Direct issue sync and capability-secret source repair helpers are operator-debug/source-dev only unless a registered wrapper is available for the exact repair.
+- If the resolver raises (missing or suspended installation, missing repo binding, insufficient App permissions, installation-token minting failure, transport failure), emit advisory:
+ > **Advisory:** No GitHub issue linked and project GitHub App binding not resolvable. Repair per the github-auth-resolver doctor output, then retry the advance so lifecycle sync side effects can run. Direct issue sync and control-plane App repairs are operator-debug/source-dev only unless a registered wrapper is available for the exact repair.
 
 ### 3. Body completeness: advisory only
 

@@ -9,10 +9,7 @@ used across more than one widget submodule (``_CHART``, ``_FIRE``).
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
-UTC = timezone.utc  # datetime.UTC is Python 3.11+; this alias also works on 3.10
 
 from yoke_contracts.board.config import BoardConfig
 from yoke_contracts.board.activity_cache import activity_day_counts
@@ -23,6 +20,9 @@ from yoke_contracts.board.project_scope import (
     project_ref_where,
     visible_project_ids,
 )
+from yoke_contracts.board.project_checkout_mapping import (
+    configured_project_checkouts,
+)
 from yoke_contracts.board.sql import (
     day_from_timestamp_expr,
     timestamp_expr,
@@ -31,7 +31,8 @@ from yoke_contracts.board.widgets_commit_cache import (
     commits_per_day as _commits_per_day,
 )
 from yoke_contracts.machine_config import runtime as machine_config
-from yoke_contracts.machine_config.schema import normalize_project_id
+
+UTC = timezone.utc  # datetime.UTC is Python 3.11+; this alias also works on 3.10
 
 # ---------------------------------------------------------------------------
 # Sparkline block characters (level 0-5)
@@ -91,7 +92,7 @@ def _resolve_repos(
     db: BoardDBLike, scope: str, repo_root: Optional[str] = None
 ) -> List[str]:
     """Resolve local checkout paths for the projects a scope covers."""
-    mapped = _mapped_checkouts(machine_config.load_config())
+    mapped = configured_project_checkouts(machine_config.load_config())
     if scope == "all":
         visibility = project_id_filter()
         rows = db.query_quiet(f"SELECT id FROM projects WHERE 1=1{visibility}")
@@ -107,23 +108,6 @@ def _resolve_repos(
     if rows and rows[0] and int(rows[0][0]) in mapped:
         return [mapped[int(rows[0][0])]]
     return [repo_root] if repo_root else []
-
-
-def _mapped_checkouts(config: dict) -> Dict[int, str]:
-    projects = config.get("projects", {})
-    out: Dict[int, str] = {}
-    if not isinstance(projects, dict):
-        return out
-    for checkout, entry in sorted(projects.items()):
-        if not isinstance(entry, dict):
-            continue
-        project_id = normalize_project_id(entry.get("project_id"))
-        if project_id is None:
-            continue
-        path = Path(str(checkout)).expanduser()
-        if path.is_dir():
-            out[int(project_id)] = str(path)
-    return out
 
 
 def _project_age_days(db: BoardDBLike, scope: str) -> Tuple[Optional[str], int]:

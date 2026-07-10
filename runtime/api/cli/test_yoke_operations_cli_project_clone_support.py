@@ -98,11 +98,21 @@ def test_clone_ambient_fail_token_success_rehomes_origin_cleanly(
     parent = tmp_path / "checkouts"
     parent.mkdir()
     token = "ghs_secret_token_value"
+    seen_commands: list[list[str]] = []
+    real_run = clone.subprocess.run
+
+    def capture(command, *args, **kwargs):
+        seen_commands.append(list(command))
+        return real_run(command, *args, **kwargs)
 
     # Ambient clones a bogus local path (fails fast, no network, no prompt); the
     # fallback's normalized HTTPS URL is redirected to the real bare source.
     monkeypatch.setattr(clone, "_looks_like_access_failure", lambda _stderr: True)
-    monkeypatch.setattr(clone, "https_clone_url", lambda _url: str(bare))
+    monkeypatch.setattr(clone, "https_clone_url", lambda _url, **_: str(bare))
+    monkeypatch.setattr(
+        clone, "git_auth_config", lambda *_args, **_kwargs: "http.test.extraheader=x",
+    )
+    monkeypatch.setattr(clone.subprocess, "run", capture)
 
     outcome = clone.clone_with_token_fallback(
         parent, "widgets", "git@github.com:acme/widgets.git", token=token,
@@ -121,6 +131,21 @@ def test_clone_ambient_fail_token_success_rehomes_origin_cleanly(
     origin = _git(target, "remote", "get-url", "origin")
     assert origin == str(bare)
     assert token not in origin
+    assert all(token not in " ".join(command) for command in seen_commands)
+    assert all("extraheader" not in " ".join(command) for command in seen_commands)
+
+
+def test_clone_plan_repr_hides_all_tokens() -> None:
+    plan = clone.ClonePlan(
+        fallback_token="fallback-secret",
+        publish=clone.PublishRequest(
+            owner="octocat", name="app", user_login="octocat",
+            token="publish-secret",
+        ),
+    )
+
+    assert "fallback-secret" not in repr(plan)
+    assert "publish-secret" not in repr(plan)
 
 
 def test_clone_token_fail_raises_clear_error_without_leaking_token(
@@ -133,7 +158,10 @@ def test_clone_token_fail_raises_clear_error_without_leaking_token(
 
     monkeypatch.setattr(clone, "_looks_like_access_failure", lambda _stderr: True)
     # Even the fallback clones a path that does not exist -> full failure.
-    monkeypatch.setattr(clone, "https_clone_url", lambda _url: str(bogus))
+    monkeypatch.setattr(clone, "https_clone_url", lambda _url, **_: str(bogus))
+    monkeypatch.setattr(
+        clone, "git_auth_config", lambda *_args, **_kwargs: "http.test.extraheader=x",
+    )
 
     with pytest.raises(clone.CloneAccessError) as exc:
         clone.clone_with_token_fallback(
@@ -146,6 +174,24 @@ def test_clone_token_fail_raises_clear_error_without_leaking_token(
     encoded = base64.b64encode(f"x-access-token:{token}".encode()).decode()
     assert token not in message
     assert encoded not in message
+
+
+def test_ghes_clone_references_use_configured_web_origin() -> None:
+    web_url = "https://ghe.example"
+    assert clone.https_clone_url(
+        "git@ghe.example:Owner/Repo.git", web_url=web_url,
+    ) == "https://ghe.example/Owner/Repo.git"
+    assert clone.source_owner_repo(
+        "https://ghe.example/Owner/Repo.git", web_url=web_url,
+    ) == ("Owner", "Repo")
+
+
+def test_clone_token_transport_rejects_unrelated_origin() -> None:
+    with pytest.raises(clone.CloneAccessError, match="configured web origin"):
+        clone.https_clone_url(
+            "https://attacker.example/Owner/Repo.git",
+            web_url="https://ghe.example",
+        )
 
 
 def test_clone_no_token_access_failure_raises(tmp_path: Path, monkeypatch) -> None:
@@ -260,6 +306,6 @@ def test_clone_progress_lines_token_fallback_is_informational() -> None:
     )
     assert lines == [
         "  Cloning acme/widgets…",
-        "  Your git setup couldn't reach it — used your connected GitHub credential.",
+        "  Your git setup couldn't reach it — used connected GitHub App access.",
         "  ✓ Cloned.",
     ]

@@ -44,7 +44,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == "store-token-reference":
         return "Save your API token (owner-only)"
     if action == "machine-github-connection":
-        return (onboard_github_copy.MACHINE_TOKEN_REVIEW if target == "connect"
+        return (onboard_github_copy.MACHINE_GITHUB_REVIEW if target == "connect"
                 else "Skip connecting GitHub for now")
     if action == "create-runtime-dir":
         return f"Set up the {_RUNTIME_DIR_LABELS.get(target, target)} directory"
@@ -95,7 +95,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             return "Use Yoke's GitHub \"origin\" remote from the clone"
         return ("Don't set up Yoke with access to a GitHub remote"
                 if target in ("skip", "")
-                else onboard_github_copy.PROJECT_TOKEN_REVIEW)
+                else onboard_github_copy.PROJECT_GITHUB_REVIEW)
     humanized = action.replace("-", " ").replace("_", " ").strip().capitalize()
     return f"{humanized}: {target}" if target else humanized
 

@@ -90,7 +90,8 @@ if [ -n "$_item_flow" ] && [ "$_item_flow" != "null" ]; then
  else
  # Resolve and run ephemeral verify executor
  _item_project=$(yoke items get {N} project 2>/dev/null) || true
- _ev_github_repo=$(yoke projects get --project "$_item_project" --field github_repo 2>/dev/null) || true
+ _ev_github_repo=$(yoke projects github-binding status \
+ --project "$_item_project" --field github_repo 2>/dev/null) || true
  # For epics, iterate all lanes; for issues, the resolver returns one branch.
  _ev_branches=$(python3 -m yoke_core.domain.worktree_item_resolve YOK-{N} --branches 2>/dev/null) || true
  if [ -z "$_ev_branches" ]; then
@@ -227,11 +228,14 @@ Then halt the entire usher batch — do NOT proceed to later items in the merge-
 
 After all merges complete, check main CI:
 ```bash
-_repo=$(yoke projects get --project yoke --field github_repo)
-yoke github-actions check-ci "$_repo" ci.yml --branch main
+_repo=$(yoke projects github-binding status --project "$_usher_project" \
+ --field github_repo)
+yoke github-actions check-ci "$_repo" ci.yml --branch main \
+ --project "$_usher_project"
 ```
 
-PAT-backed REST; no host `gh` binary needed. `state == "failed"` →
+The command resolves the project's verified App binding and uses a short-lived
+installation token; no host `gh` binary is needed. `state == "failed"` →
 advisory warning. `passed` / `running` / `no_runs` → skip silently.
 GitHub Actions `queued` collapses into `running` for the deploy-stage poller.
 

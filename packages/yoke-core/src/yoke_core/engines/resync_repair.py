@@ -11,7 +11,6 @@ surface in a later caller rewrite.
 from __future__ import annotations
 
 import io
-import os
 import re
 import sys
 from typing import List, Optional, Tuple
@@ -56,9 +55,7 @@ def _repair_local_orphan_backlog(
     propagates to the engine boundary.
     """
     num = item_id.replace("YOK-", "")
-    auth = resolve_project_github_auth(project or "yoke")
-    prior = os.environ.get("GH_TOKEN")
-    os.environ["GH_TOKEN"] = auth.token
+    resolve_project_github_auth(project or "yoke")
     captured = io.StringIO()
     try:
         rc = _parent().backlog_github_sync.sync_item(
@@ -66,11 +63,6 @@ def _repair_local_orphan_backlog(
         )
     except Exception:
         return (False, False, None)
-    finally:
-        if prior is None:
-            os.environ.pop("GH_TOKEN", None)
-        else:
-            os.environ["GH_TOKEN"] = prior
     if rc != 0:
         return (False, False, None)
     match = _REUSE_MARKER_RE.search(captured.getvalue())

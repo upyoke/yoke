@@ -5,6 +5,9 @@ import io
 from pathlib import Path
 from subprocess import CompletedProcess
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_github_auth import MissingCapability, ProjectGithubAuth
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -253,23 +256,29 @@ def test_cross_project_github_checks_use_rest(tmp_path, monkeypatch):
             """
             INSERT INTO items (id, project_id, project_sequence) VALUES (42, 100, 42);
             INSERT INTO projects (id, slug, name, github_repo, public_item_prefix)
-            VALUES (100, 'acme', 'Acme', 'owner/acme', 'YOK');
+            VALUES (100, 'acme', 'Acme', 'stale-owner/stale-repo', 'YOK');
             INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree, github_issue, last_heartbeat)
             VALUES ('42', 1, 'Task one', 'implemented', '', '#123', NULL);
             """
         )
         conn.commit()
 
-        monkeypatch.setattr(
-            "yoke_core.domain.validate_epic.resolve_project_github_auth",
-            lambda project, **_kw: ProjectGithubAuth(
+        def fake_auth(project, **kwargs):
+            assert (
+                kwargs["required_permissions"]
+                is GITHUB_ISSUES_READ_PERMISSION_LEVELS
+            )
+            return ProjectGithubAuth(
                 project=project,
-                repo="owner/acme",
+                repo="verified-owner/acme",
                 token="ghs_test",
-                env={"GH_TOKEN": "ghs_test"},
                 installation_id="12345",
                 token_source="github_app_installation",
-            ),
+            )
+
+        monkeypatch.setattr(
+            "yoke_core.domain.validate_epic.resolve_project_github_auth",
+            fake_auth,
         )
         monkeypatch.setattr(
             "yoke_core.domain.validate_epic._issue_accessible_via_rest",
@@ -279,4 +288,4 @@ def test_cross_project_github_checks_use_rest(tmp_path, monkeypatch):
 
         rc = run_validation(tmp_path, "42", out=_Writer(), err=_Writer())
     assert rc == 0
-    assert rest_calls == [("owner/acme", "123", "ghs_test")]
+    assert rest_calls == [("verified-owner/acme", "123", "ghs_test")]

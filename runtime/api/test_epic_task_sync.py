@@ -19,14 +19,16 @@ from unittest.mock import patch
 
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import (
-    backlog_github_body_writer,
     epic_task_sync,
     github_rest,
 )
 from yoke_core.domain.project_github_auth import (
-    MissingToken,
     ProjectGithubAuth,
 )
 from runtime.api.fixtures.file_test_db import (
@@ -84,25 +86,17 @@ def _mock_yoke_root():
 
 @pytest.fixture(autouse=True)
 def _stub_project_github_auth():
-    """Stub the canonical resolver consumed by ``epic_task_sync._resolve_pat``.
-
-    Real-DB reads would leak into this test DB. Default-stub
-    succeeds; individual tests override by re-patching.
-    """
+    """Keep project-scoped GitHub calls on the test resolver."""
     def _ok(project, **kwargs):
         return ProjectGithubAuth(
             project=project, repo="org/buzz", token="ghs_test",
-            env={"GH_TOKEN": "ghs_test"},
         )
 
     with patch(
-        "yoke_core.domain.epic_task_sync.resolve_project_github_auth",
-        side_effect=_ok,
-    ), patch(
         "yoke_core.domain.epic_task_sync_github.resolve_project_github_auth",
         side_effect=_ok,
-    ):
-        yield
+    ) as resolver:
+        yield resolver
 
 
 class TestSyncTaskLabel:
@@ -126,7 +120,9 @@ class TestSyncTaskLabel:
         remove.assert_not_called()
         fetch.assert_not_called()
 
-    def test_label_sync_reconciles_status_labels(self, db):
+    def test_label_sync_reconciles_status_labels(
+        self, db, _stub_project_github_auth,
+    ):
         insert_item(db, id=1246, type="epic", status="implementing", project="buzz")
         insert_epic_task(
             db,
@@ -161,6 +157,34 @@ class TestSyncTaskLabel:
             label for call in add_labels.call_args_list for label in call.args[2]
         ]
         assert "status:implementing" in added_flat
+        assert (
+            _stub_project_github_auth.call_args.kwargs["required_permissions"]
+            is GITHUB_ISSUES_WRITE_PERMISSION_LEVELS
+        )
+
+    def test_label_sync_uses_verified_repo_over_stale_project_projection(self, db):
+        insert_item(db, id=1247, type="epic", status="implementing", project="buzz")
+        insert_epic_task(
+            db, epic_id=1247, task_num=1, title="Task 1",
+            status="implementing", github_issue="#78",
+        )
+        db.execute(
+            "UPDATE projects SET github_repo=%s WHERE slug=%s",
+            ("stale-owner/stale-repo", "buzz"),
+        )
+        db.commit()
+
+        with patch(f"{_LABEL_REST}.ensure_label") as ensure, patch(
+            f"{_LABEL_REST}.fetch_issue_labels", return_value=[],
+        ), patch(f"{_LABEL_REST}.add_labels"), patch(
+            f"{_LABEL_REST}.remove_label",
+        ):
+            rc = epic_task_sync.sync_task_label(
+                "1247", 1, "implementing", conn=db,
+            )
+
+        assert rc == 0
+        assert ensure.call_args.args[2] == "org/buzz"
 
     def test_label_usage_is_nonfatal(self, capsys):
         rc = epic_task_sync.main(["label", "1246", "1"])
@@ -170,7 +194,9 @@ class TestSyncTaskLabel:
 
 
 class TestSyncTaskBody:
-    def test_body_sync_routes_through_typed_rest(self, db):
+    def test_body_sync_routes_through_typed_rest(
+        self, db, _stub_project_github_auth,
+    ):
         """A body sync against a project with a resolved GitHub App auth routes the
         validator (existence check) and the body-write step through the
         typed ``github_rest.*`` surface — no argv shim involved."""
@@ -207,6 +233,10 @@ class TestSyncTaskBody:
         update_issue_mock.assert_called_once()
         assert update_issue_mock.call_args.kwargs["project"] == "buzz"
         assert update_issue_mock.call_args.kwargs["number"] == 77
+        assert (
+            _stub_project_github_auth.call_args.kwargs["required_permissions"]
+            is GITHUB_ISSUES_READ_PERMISSION_LEVELS
+        )
         assert stderr.getvalue() == ""
 
     def test_body_usage_is_error(self, capsys):

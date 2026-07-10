@@ -81,12 +81,15 @@ values.
 Optional machine GitHub connection:
 
 ```bash
-yoke github connect --token-stdin
+yoke github connect
 yoke github status
 ```
 
-This is a machine credential for product commands. It is never silently
-promoted into a project's GitHub capability.
+`yoke github connect` opens GitHub's device-authorization flow. Yoke stores an
+owner-only refresh credential reference, then lists the App installations and
+repositories the signed-in user can reach. A project binding is created only
+after onboarding selects one of those repositories; a typed repository id and
+installation id are verified again by the server before the binding is saved.
 
 ## 3. Choose the Project Entry Path
 
@@ -176,22 +179,28 @@ yoke project install ~/work/demo \
 Project onboarding requires an explicit choice before applying GitHub
 automation when `--github-repo` is present:
 
-- `app-binding` records that the project should use a GitHub App repo binding.
-- `backlog-only` leaves GitHub automation unconfigured.
-- `skip` is accepted as an alias for `backlog-only`.
+- `app-binding` verifies and records a GitHub App installation/repository
+  binding and sets `github_sync_mode=enabled`.
+- `backlog-only` explicitly sets `github_sync_mode=backlog_only`.
 
 Dry-run JSON includes `github_adoption` and `automation_preview`. The preview
 names the project write surface and the GitHub categories Yoke is preparing
 to manage: labels, issue templates, pull request templates, Actions variables,
 Actions secrets, branch protection, and environment protection.
 
-Project-supplied GitHub credential input methods (`--github-token`, `--github-token-file`,
-`--github-token-stdin`, or the old positional token on create) are rejected.
-Project GitHub automation uses GitHub App repo bindings; a backlog-only project
-does not resolve GitHub auth at all. `aws-admin` capability secrets and
+Project onboarding accepts no project-supplied GitHub credential. GitHub
+automation uses GitHub App repo bindings; a backlog-only project does not
+resolve GitHub auth at all. `aws-admin` capability secrets and
 `ssh.private_key` are machine-local files under
 `~/.yoke/secrets/capability-secrets/<project>/<capability>/`. Raw secret
 values are not printed.
+
+The default App grant is least-privilege: Metadata read; Checks read; and
+Issues, Pull requests, Contents, Actions, Workflows, Secrets, and Variables
+write. Repository creation, GitHub environment configuration, branch
+protection, and runner administration require the optional Administration
+permission. Without it, Yoke opens or names the corresponding GitHub settings
+page and continues without claiming that the administrative step ran.
 
 ## 5. Capture the Install Report
 

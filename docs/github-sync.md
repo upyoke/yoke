@@ -10,10 +10,16 @@ Every backlog→GitHub surface routes through the
 body/title updates, status comments, state close/reopen, status and flag
 labels, done-transition closeout, epic-task issues, progress notes) or the
 resync engine (`yoke resync`, `yoke_core.engines.resync`), which detects
-and repairs drift between the DB and the linked issues. Repo and token
-resolve per project through
+and repairs drift between the DB and the linked issues. Repository authority
+and a short-lived installation token resolve per project through
 `yoke_core.domain.project_github_auth.resolve_project_github_auth`
-(`projects.github_repo` + the `github` capability secret).
+(an active, verified `project_github_repo_bindings` row). The binding is the
+sole outbound repository authority; `projects.github_repo` is a compatibility
+display projection and never overrides it. The
+resolver fails closed when the App installation is suspended, the exact
+repository is unavailable, or required permissions are missing; GitHub
+authentication never falls back to a project capability secret or host
+credential.
 
 ## The per-project switch: `projects.github_sync_mode`
 
@@ -35,8 +41,8 @@ yoke projects get --project <slug> --field github_sync_mode
 yoke projects update --slug <slug> --name <Name> --github-sync-mode backlog_only
 ```
 
-`backlog_only` is independent of `github_repo`: a project can keep its
-repo binding for code delivery (pushes, CI, deploys) while never
+`backlog_only` is independent of the GitHub App repo binding: a project can
+keep the binding for code delivery (pushes, CI, deploys) while never
 mirroring backlog content to that repo's issue tracker. This is the
 "repo connection optional — sync off" posture.
 
@@ -64,24 +70,22 @@ mirroring backlog content to that repo's issue tracker. This is the
   message when the target project is backlog-only, instead of creating an
   issue there.
 
-## Changing a project's `github_repo` — ordering
+## Rebinding a project repository — ordering
 
-Flipping `projects.github_repo` to a different repo does NOT move or
-create issues by itself — but the *next* sync (a lifecycle transition, a
-structured-field write, or `yoke resync --fix`) targets the new repo. If
-the backlog is not meant to appear in the new repo's issue tracker, the
-safe order is:
+Changing the verified App binding does not move existing issues. If the
+backlog should not immediately sync into the replacement repository, use this
+order:
 
 1. **Sync off first:** set `github_sync_mode=backlog_only` for the
    project and verify (`yoke projects get --project <slug> --field
    github_sync_mode`).
-2. **Then flip the repo:** update `github_repo` to the new `owner/repo`.
-3. **Old refs stay historical:** existing `items.github_issue` /
+2. **Bind verified App access:** run `yoke projects github-binding bind` with
+   the project, installation id, repository id, and new `owner/repo`.
+3. **Migrate intentionally or keep history:** existing `items.github_issue` /
    `epic_tasks.github_issue` numbers keep pointing at the old repo's
-   issues as historical records. Nothing rewrites, closes, or migrates
-   them, and no new sync writes land anywhere while the mode is
-   `backlog_only`.
+   issues until the explicit issue-migration flow moves them. No sync writes
+   land while the project remains `backlog_only`.
 
-Doing step 2 before step 1 leaves a window where the first sync
-mass-creates the backlog as issues in the new repo. The switch exists so
-that window never opens.
+Re-enable sync only after the binding and issue disposition are verified.
+Rebinding before step 1 leaves a window where the next sync can create backlog
+issues in the new repository.

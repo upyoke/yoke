@@ -278,7 +278,7 @@ class TestCheckRegistrationWait:
             except StopIteration:
                 st = states_sequence[-1]
             return (
-                merge_worktree_ci_rest.CheckRunsState(states=st, readable=True),
+                merge_worktree_ci_rest.CheckRunsState(states=st),
                 None,
             )
 

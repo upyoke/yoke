@@ -35,11 +35,19 @@ services:
       YOKE_OIDC_CLIENT_ID: ${YOKE_OIDC_CLIENT_ID:-}
       YOKE_OIDC_REDIRECT_URL: ${YOKE_OIDC_REDIRECT_URL:-}
       YOKE_OIDC_CLIENT_SECRET_FILE: ${YOKE_OIDC_CLIENT_SECRET_FILE:-}
+      # GitHub App installation-token authority (optional). Nonsecret values
+      # live in .env; the private key is a mounted owner-only file.
+      YOKE_GITHUB_APP_ISSUER: ${YOKE_GITHUB_APP_ISSUER:-}
+      YOKE_GITHUB_APP_API_URL: ${YOKE_GITHUB_APP_API_URL:-}
+      YOKE_GITHUB_APP_PRIVATE_KEY_FILE: ${YOKE_GITHUB_APP_PRIVATE_KEY_FILE:-}
     secrets:
       - yoke-db-dsn
       # Uncomment after writing ./secrets/oidc-client-secret (0600) and
       # setting YOKE_OIDC_CLIENT_SECRET_FILE in .env:
       #- yoke-oidc-client-secret
+      # Uncomment after writing ./secrets/github-app-private-key.pem (0600)
+      # and setting the GitHub App values in .env:
+      #- yoke-github-app-private-key
     ports:
       - "${YOKE_API_PUBLISH:-127.0.0.1:8765}:8765"
 
@@ -53,6 +61,8 @@ secrets:
   # this block is uncommented.
   #yoke-oidc-client-secret:
   #  file: ./secrets/oidc-client-secret
+  #yoke-github-app-private-key:
+  #  file: ./secrets/github-app-private-key.pem
 
 volumes:
   pgdata:

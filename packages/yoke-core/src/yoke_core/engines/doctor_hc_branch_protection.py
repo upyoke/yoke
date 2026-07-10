@@ -33,8 +33,11 @@ distinguishes ``branch_protection_absent``,
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Iterable, Sequence, Tuple
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain import events as _events
 from yoke_core.domain import gh_rest_transport
 from yoke_core.domain.gh_rest_transport import (
@@ -83,7 +86,11 @@ def hc_branch_protection_required_check(
     project = args.project or "yoke"
 
     try:
-        auth = resolve_project_github_auth(project, db_path=args.db_path)
+        auth = resolve_project_github_auth(
+            project,
+            db_path=args.db_path,
+            required_permissions=GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError as err:
         rec.record(
             CHECK_ID, CHECK_NAME, "SKIP",

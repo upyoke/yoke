@@ -106,7 +106,10 @@ def _seeded_conn() -> Any:
     conn.execute(
         "INSERT INTO project_capabilities (project_id, type, settings) "
         "VALUES (%s, %s, %s)",
-        (7, "github", json.dumps({"repo_owner": "acme-org", "repo_name": "acme"})),
+        (7, "github", json.dumps({
+            "repo_owner": "acme-org", "repo_name": "acme",
+            "installation_id": "12345", "repository_id": "4567",
+        })),
     )
     return conn
 

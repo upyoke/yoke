@@ -360,7 +360,7 @@ def test_seed_known_recipes_uses_token_file_for_machine_only_stage(
     assert recipe["status"] == "ready"
     assert "onboard --non-interactive --quick" in recipe["command"]
     assert "--project-mode machine-only" in recipe["command"]
-    assert "--github-adoption skip" in recipe["command"]
+    assert "--github-adoption" not in recipe["command"]
     assert recipe["stage_files"] == [
         {
             "source_path": str(token),
@@ -633,6 +633,7 @@ def test_seed_known_recipes_adds_auth_wave_recipes(
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
     assert result["seeded_count"] == 11
+    assert result["unseeded_count"] == 0
     for scenario_id in profiles:
         recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
         assert isinstance(recipe, dict)
@@ -741,15 +742,7 @@ def test_seed_known_recipes_adds_github_wave_recipes(
     recipe_dir = campaign_root / "recipe-stubs"
     recipe_dir.mkdir(parents=True)
     profiles = {
-        "GITHUB-001": "prepared-yoke",
-        "GITHUB-002": "prepared-yoke",
-        "GITHUB-003": "prepared-yoke",
-        "GITHUB-004": "prepared-yoke",
-        "GITHUB-005": "prepared-yoke",
-        "GITHUB-006": "prepared-yoke",
-        "GITHUB-007": "prepared-yoke",
-        "GITHUB-008": "prepared-yoke",
-        "GITHUB-009": "prepared-yoke",
+        **{f"GITHUB-{number:03d}": "prepared-yoke" for number in range(1, 10)},
         "GITHUB-010": "prepared-stored-state",
     }
     for scenario_id, profile in profiles.items():
@@ -758,7 +751,7 @@ def test_seed_known_recipes_adds_github_wave_recipes(
             {
                 "scenario_id": scenario_id,
                 "status": "blocked",
-                "blocked_reason": "exact key/action recipe is not authored",
+                "blocked_reason": "manual App fixture is required",
                 "host_profile": profile,
                 "actions": [],
                 "expected_text": [],
@@ -767,14 +760,20 @@ def test_seed_known_recipes_adds_github_wave_recipes(
 
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
-    assert result["seeded_count"] == 10
-    for scenario_id in profiles:
-        recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
-        assert isinstance(recipe, dict)
-        assert recipe["status"] == "ready"
+    assert result["seeded_count"] == 1
+    assert result["unseeded_count"] == 9
+    assert [item["scenario_id"] for item in result["seeded"]] == ["GITHUB-001"]
+    assert {item["scenario_id"] for item in result["unseeded"]} == {
+        f"GITHUB-{number:03d}" for number in range(2, 11)
+    }
+    assert all(
+        "HTTPS device-flow and installation fixture" in item["reason"]
+        for item in result["unseeded"]
+    )
 
     skip = json_helper.load_path(recipe_dir / "GITHUB-001.json")
     assert isinstance(skip, dict)
+    assert skip["status"] == "ready"
     assert "path fix --yes" in skip["command"]
     assert skip["stage_files"] == [
         {"source_path": str(stage_token), "remote_path": str(stage_token)}
@@ -783,85 +782,13 @@ def test_seed_known_recipes_adds_github_wave_recipes(
         {"step": "060-github-skip-option", "keys": ["Down"]},
         {"step": "061-project-mode", "keys": ["Enter"]},
     ]
-    assert "Set up a project." in skip["expected_text"]
+    assert "Connect GitHub?" in skip["expected_text"]
+    assert "Use backlog only" in skip["expected_text"]
 
-    scoped_token_file = json_helper.load_path(recipe_dir / "GITHUB-002.json")
-    assert isinstance(scoped_token_file, dict)
-    assert "19101" in scoped_token_file["command"]
-    assert scoped_token_file["actions"][7] == {
-        "step": "060-github-picker",
-        "keys": ["Down", "Enter"],
-    }
-    assert scoped_token_file["actions"][-2]["keys"] == ["Down", "Down", "Enter"]
-    assert scoped_token_file["actions"][-1]["keys"] == [
-        "/tmp/yoke-fake-github.token",
-        "Enter",
-    ]
-    assert "repo/workflow permissions" in scoped_token_file["notes"]
-    assert (
-        "Success! GitHub App connection saved for recipe-scoped."
-        in scoped_token_file["expected_text"]
-    )
-
-    paste = json_helper.load_path(recipe_dir / "GITHUB-003.json")
-    assert isinstance(paste, dict)
-    assert paste["actions"][-2] == {
-        "step": "070-github-token-paste-input",
-        "keys": ["Enter"],
-    }
-    assert paste["actions"][-1]["keys"] == [
-        "paste_file:/tmp/yoke-fake-github.token",
-        "Enter",
-    ]
-    assert "Connect GitHub through the Yoke GitHub App." in paste["expected_text"]
-
-    readonly = json_helper.load_path(recipe_dir / "GITHUB-004.json")
-    assert isinstance(readonly, dict)
-    assert "19102" in readonly["command"]
-    assert "Can't push to any of the repos checked" in " ".join(
-        readonly["expected_text"]
-    )
-
-    partial = json_helper.load_path(recipe_dir / "GITHUB-005.json")
-    assert isinstance(partial, dict)
-    assert "19103" in partial["command"]
-    assert "but not to new repos" in " ".join(partial["expected_text"])
-
-    invalid = json_helper.load_path(recipe_dir / "GITHUB-006.json")
-    assert isinstance(invalid, dict)
-    assert "/tmp/yoke-github-invalid.token" in invalid["command"]
-    assert "HTTP 401" in invalid["expected_text"]
-
-    empty = json_helper.load_path(recipe_dir / "GITHUB-007.json")
-    assert isinstance(empty, dict)
-    assert "/tmp/yoke-github-empty.token" in empty["command"]
-    assert "GitHub credential file is empty" in empty["expected_text"]
-
-    many = json_helper.load_path(recipe_dir / "GITHUB-008.json")
-    assert isinstance(many, dict)
-    assert "19104" in many["command"]
-    assert any(value.endswith("recipe-many/app-2,") for value in many["expected_text"])
-    assert any(value.startswith("recipe-many/app-3") for value in many["expected_text"])
-    assert "and 3 more" in " ".join(many["expected_text"])
-    assert "no_text:including" in many["post_checks"]
-
-    cannot_create = json_helper.load_path(recipe_dir / "GITHUB-009.json")
-    assert isinstance(cannot_create, dict)
-    assert "19103" in cannot_create["command"]
-    assert "but not to new repos" in " ".join(cannot_create["expected_text"])
-
-    stored = json_helper.load_path(recipe_dir / "GITHUB-010.json")
-    assert isinstance(stored, dict)
-    assert stored["stage_files"] == [
-        {"source_path": str(stage_token), "remote_path": str(stage_token)}
-    ]
-    assert f"cp {stage_token}" in stored["command"]
-    assert stored["actions"] == [
-        {"step": "000-path-all-clear"},
-        {"step": "010-yoke-stored-token-result", "keys": ["Enter"]},
-        {"step": "020-github-stored-token-result", "keys": ["Enter"]},
-    ]
-    assert "Using existing GitHub credential file" in " ".join(stored["expected_text"])
+    for scenario_id in sorted(set(profiles) - {"GITHUB-001"}):
+        recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
+        assert recipe["status"] == "blocked"
+        assert recipe["blocked_reason"] == "manual App fixture is required"
 
 
 def test_seed_known_recipes_adds_project_source_front_half_recipes(
@@ -910,12 +837,18 @@ def test_seed_known_recipes_adds_project_source_front_half_recipes(
 
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
-    assert result["seeded_count"] == 19
+    assert result["seeded_count"] == 18
+    assert result["unseeded_count"] == 1
+    assert result["unseeded"][0]["scenario_id"] == "PROJECT-SOURCE-006"
+    assert "HTTPS device-flow and installation fixture" in result["unseeded"][0][
+        "reason"
+    ]
     for scenario_id in profiles:
         recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
         assert isinstance(recipe, dict)
-        assert recipe["status"] == "ready"
-        if scenario_id <= "PROJECT-SOURCE-012":
+        expected_status = "blocked" if scenario_id == "PROJECT-SOURCE-006" else "ready"
+        assert recipe["status"] == expected_status
+        if scenario_id <= "PROJECT-SOURCE-012" and scenario_id != "PROJECT-SOURCE-006":
             assert recipe["stage_files"] == [
                 {"source_path": str(stage_token), "remote_path": str(stage_token)}
             ]
@@ -970,10 +903,8 @@ def test_seed_known_recipes_adds_project_source_front_half_recipes(
 
     private_clone = json_helper.load_path(recipe_dir / "PROJECT-SOURCE-006.json")
     assert isinstance(private_clone, dict)
-    assert "19105" in private_clone["command"]
-    assert "private-source" in private_clone["command"]
-    assert private_clone["actions"][-3]["keys"] == ["Down", "Enter"]
-    assert "Which private repo?" in private_clone["expected_text"]
+    assert private_clone["status"] == "blocked"
+    assert private_clone["blocked_reason"] == "exact key/action recipe is not authored"
 
     unreachable = json_helper.load_path(recipe_dir / "PROJECT-SOURCE-007.json")
     assert isinstance(unreachable, dict)
@@ -1033,7 +964,7 @@ def test_seed_known_recipes_adds_project_source_front_half_recipes(
         "keys": ["/tmp/yoke-project-source-dev-fresh", "Enter"],
     }
     assert "19106" in source_allowed["command"]
-    assert "19108" in source_allowed["command"]
+    assert "19108" not in source_allowed["command"]
     assert "Checking Yoke access." not in source_allowed["expected_text"]
     assert "Set up the Yoke source checkout" not in source_allowed["expected_text"]
     assert (
@@ -1046,7 +977,7 @@ def test_seed_known_recipes_adds_project_source_front_half_recipes(
     assert source_fresh["execution_mode"] == "ssh-command"
     assert source_fresh["actions"] == [{"step": "000-source-dev-post-apply"}]
     assert "19112" in source_fresh["command"]
-    assert "19113" in source_fresh["command"]
+    assert "19113" not in source_fresh["command"]
     assert "source-dev-admin" in source_fresh["command"]
     assert "https://github.com/upyoke/yoke.git" in source_fresh["command"]
     assert "source-dev post-apply proof: ok" in source_fresh["expected_text"]
@@ -1055,7 +986,7 @@ def test_seed_known_recipes_adds_project_source_front_half_recipes(
     source_existing = json_helper.load_path(recipe_dir / "PROJECT-SOURCE-016.json")
     assert isinstance(source_existing, dict)
     assert "19114" in source_existing["command"]
-    assert "19115" in source_existing["command"]
+    assert "19115" not in source_existing["command"]
     assert "/tmp/yoke-project-source-dev-existing" in source_existing["command"]
     assert "Set up the Yoke source checkout at" in source_existing["expected_text"]
     assert "Register this checkout in ~/.yoke/config.json" not in source_existing[
@@ -1069,14 +1000,14 @@ def test_seed_known_recipes_adds_project_source_front_half_recipes(
     source_conflict = json_helper.load_path(recipe_dir / "PROJECT-SOURCE-017.json")
     assert isinstance(source_conflict, dict)
     assert "19116" in source_conflict["command"]
-    assert "19117" in source_conflict["command"]
+    assert "19117" not in source_conflict["command"]
     assert "/tmp/yoke-project-source-dev-conflict" in source_conflict["command"]
     assert "existing Yoke clone" in " ".join(source_conflict["expected_text"])
 
     source_default = json_helper.load_path(recipe_dir / "PROJECT-SOURCE-018.json")
     assert isinstance(source_default, dict)
     assert "19118" in source_default["command"]
-    assert "19119" in source_default["command"]
+    assert "19119" not in source_default["command"]
     assert "~/code/yoke" in source_default["expected_text"]
     assert "/tmp/yoke-project-source-dev-default" in source_default["expected_text"]
     assert "Set up the Yoke source checkout" not in source_default["expected_text"]
@@ -1087,8 +1018,8 @@ def test_seed_known_recipes_adds_project_source_front_half_recipes(
     source_push = json_helper.load_path(recipe_dir / "PROJECT-SOURCE-019.json")
     assert isinstance(source_push, dict)
     assert "19120" in source_push["command"]
-    assert "19121" in source_push["command"]
-    assert "source-dev push credential review" in source_push["notes"]
+    assert "19121" not in source_push["command"]
+    assert "source-dev push review" in source_push["notes"]
     assert "Set up the Yoke source checkout" in source_push["expected_text"]
     assert "Register this checkout in ~/.yoke/config.json" not in source_push[
         "expected_text"
@@ -1133,11 +1064,15 @@ def test_seed_known_recipes_adds_project_metadata_recipes(
 
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
-    assert result["seeded_count"] == 11
+    assert result["seeded_count"] == 10
+    assert result["unseeded_count"] == 1
+    assert result["unseeded"][0]["scenario_id"] == "PROJECT-META-008"
     for scenario_id in profiles:
         recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
         assert isinstance(recipe, dict)
-        assert recipe["status"] == "ready"
+        assert recipe["status"] == (
+            "blocked" if scenario_id == "PROJECT-META-008" else "ready"
+        )
 
     valid = json_helper.load_path(recipe_dir / "PROJECT-META-001.json")
     assert isinstance(valid, dict)
@@ -1205,13 +1140,8 @@ def test_seed_known_recipes_adds_project_metadata_recipes(
 
     owner_picker = json_helper.load_path(recipe_dir / "PROJECT-META-008.json")
     assert isinstance(owner_picker, dict)
-    assert "19110" in owner_picker["command"]
-    assert "meta-org-one" in owner_picker["expected_text"]
-    assert "Where on GitHub?" in owner_picker["expected_text"]
-    assert owner_picker["actions"][-1] == {
-        "step": "140-owner-picker",
-        "keys": ["Enter"],
-    }
+    assert owner_picker["status"] == "blocked"
+    assert owner_picker["blocked_reason"] == "exact key/action recipe is not authored"
 
     board_fail = json_helper.load_path(recipe_dir / "PROJECT-META-009.json")
     assert isinstance(board_fail, dict)
@@ -1250,7 +1180,7 @@ def test_seed_known_recipes_adds_project_metadata_recipes(
     assert "yoke-project-meta-settled" in settled_tilde["expected_text"]
 
 
-def test_seed_known_recipes_adds_publish_recipes(
+def test_seed_known_recipes_keeps_github_publish_recipes_manual(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1262,26 +1192,16 @@ def test_seed_known_recipes_adds_publish_recipes(
     recipe_dir.mkdir(parents=True)
     profiles = {
         "PUBLISH-001": "prepared-git",
-        "PUBLISH-002": "prepared-git",
-        "PUBLISH-003": "prepared-git",
-        "PUBLISH-004": "prepared-git",
-        "PUBLISH-005": "prepared-git",
-        "PUBLISH-006": "prepared-git",
-        "PUBLISH-007": "prepared-git",
-        "PUBLISH-008": "fault-injection",
-        "PUBLISH-009": "prepared-git",
-        "PUBLISH-010": "prepared-git",
-        "PUBLISH-011": "prepared-git",
-        "PUBLISH-012": "prepared-git",
-        "PUBLISH-013": "prepared-git",
+        **{f"PUBLISH-{number:03d}": "prepared-git" for number in range(2, 14)},
     }
+    profiles["PUBLISH-008"] = "fault-injection"
     for scenario_id, profile in profiles.items():
         json_helper.dump_path(
             recipe_dir / f"{scenario_id}.json",
             {
                 "scenario_id": scenario_id,
                 "status": "blocked",
-                "blocked_reason": "exact key/action recipe is not authored",
+                "blocked_reason": "manual App fixture is required",
                 "host_profile": profile,
                 "actions": [],
                 "expected_text": [],
@@ -1290,193 +1210,31 @@ def test_seed_known_recipes_adds_publish_recipes(
 
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
-    assert result["seeded_count"] == 13
-    for scenario_id in profiles:
-        recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
-        assert isinstance(recipe, dict)
-        assert recipe["status"] == "ready"
-        assert not any(
-            "board-art-gallery" in str(action.get("step", ""))
-            for action in recipe["actions"]
-        )
+    assert result["seeded_count"] == 1
+    assert result["unseeded_count"] == 12
+    assert [item["scenario_id"] for item in result["seeded"]] == ["PUBLISH-001"]
+    assert {item["scenario_id"] for item in result["unseeded"]} == {
+        f"PUBLISH-{number:03d}" for number in range(2, 14)
+    }
+    assert all(
+        "HTTPS device-flow and installation fixture" in item["reason"]
+        for item in result["unseeded"]
+    )
 
     local = json_helper.load_path(recipe_dir / "PUBLISH-001.json")
     assert isinstance(local, dict)
-    assert "No \u2014 keep it local" in local["expected_text"]
-    assert {
-        "step": "110-publish-prompt",
-        "keys": ["Enter"],
-    } in local["actions"]
-    assert {
-        "step": "120-publish-decline-option",
-        "keys": ["Down"],
-    } in local["actions"]
-    assert {
-        "step": "210-review-from-board-art",
-        "keys": ["Enter"],
-    } in local["actions"]
+    assert local["status"] == "ready"
+    assert "No — keep it local" in local["expected_text"]
+    assert {"step": "110-publish-prompt", "keys": ["Enter"]} in local["actions"]
+    assert {"step": "120-publish-decline-option", "keys": ["Down"]} in local["actions"]
     assert local["stage_files"] == [
         {"source_path": str(stage_token), "remote_path": str(stage_token)}
     ]
 
-    user = json_helper.load_path(recipe_dir / "PUBLISH-002.json")
-    assert isinstance(user, dict)
-    assert "19111" in user["command"]
-    assert "publish-user" in user["expected_text"]
-    assert "Where on GitHub?" in user["expected_text"]
-    assert "Review what Yoke will save." in user["expected_text"]
-    assert any(
-        action.get("keys") == [str(stage_token), "Enter"] for action in user["actions"]
-    )
-
-    org = json_helper.load_path(recipe_dir / "PUBLISH-003.json")
-    assert isinstance(org, dict)
-    assert "publish-org" in org["expected_text"]
-    assert "Review what Yoke will save." in org["expected_text"]
-    assert {
-        "step": "150-owner-picker-option",
-        "keys": ["Down"],
-    } in org["actions"]
-    assert {
-        "step": "151-owner-picker",
-        "keys": ["Enter"],
-    } in org["actions"]
-
-    empty = json_helper.load_path(recipe_dir / "PUBLISH-004.json")
-    assert isinstance(empty, dict)
-    assert "19112" in empty["command"]
-    assert (
-        f"Repos this connection can see: {coordinator.PROJECT_PUBLISH_EMPTY_REPO}"
-        in empty["expected_text"]
-    )
-
-    populated = json_helper.load_path(recipe_dir / "PUBLISH-005.json")
-    assert isinstance(populated, dict)
-    assert "19113" in populated["command"]
-    assert "A few things to fix before applying." in populated["expected_text"]
-    assert "Back to fix that" in populated["expected_text"]
-
-    denied = json_helper.load_path(recipe_dir / "PUBLISH-006.json")
-    assert isinstance(denied, dict)
-    assert "19114" in denied["command"]
-    assert (
-        "This credential can't create a repo it can also push to."
-        in (denied["expected_text"])
-    )
-    assert (
-        "first and make sure this connection has write access"
-        in (denied["expected_text"])
-    )
-
-    no_push = json_helper.load_path(recipe_dir / "PUBLISH-007.json")
-    assert isinstance(no_push, dict)
-    assert "19115" in no_push["command"]
-    assert "selected repositories" in no_push["expected_text"]
-
-    apply_failure = json_helper.load_path(recipe_dir / "PUBLISH-008.json")
-    assert isinstance(apply_failure, dict)
-    assert "sudo dnf install -y git" in apply_failure["command"]
-    assert "GIT_CONFIG_GLOBAL" in apply_failure["command"]
-    assert "publish-user/yoke-project-publish-push-fail" in apply_failure["expected_text"]
-    assert "git push -u origin PUB failed" in apply_failure["expected_text"]
-    assert "Failed step: 02-project-create-checkout" in apply_failure["expected_text"]
-    assert "Applying your setup." not in apply_failure["expected_text"]
-    assert {
-        "step": "030-github-stored-token-result",
-        "keys": ["Enter"],
-    } in apply_failure["actions"]
-    assert {
-        "step": "090-repo-name-input",
-        "keys": ["Enter"],
-    } in apply_failure["actions"]
-    assert apply_failure["actions"][-1] == {
-        "step": "200-apply",
-        "keys": ["Enter"],
-    }
-
-    skip = json_helper.load_path(recipe_dir / "PUBLISH-009.json")
-    assert isinstance(skip, dict)
-    assert "Skip GitHub for this project" in skip["expected_text"]
-    assert {
-        "step": "190-project-github-adoption-option",
-        "keys": ["Down", "Down"],
-    } in skip["actions"]
-    assert {
-        "step": "191-project-github-adoption",
-        "keys": ["Enter"],
-    } in skip["actions"]
-    assert {
-        "step": "200-board-art-intro",
-        "keys": ["Enter"],
-    } in skip["actions"]
-
-    temporary = json_helper.load_path(recipe_dir / "PUBLISH-010.json")
-    assert isinstance(temporary, dict)
-    assert "--github-adoption temporary-only" in temporary["command"]
-    assert "publish_yoke_pid" in temporary["command"]
-    assert "adoption_choice=" in temporary["command"]
-    assert "find_adoption" in temporary["command"]
-    assert temporary["actions"] == [{"step": "000-run-noninteractive"}]
-    assert "adoption_stored=false" in temporary["expected_text"]
-
-    store = json_helper.load_path(recipe_dir / "PUBLISH-011.json")
-    assert isinstance(store, dict)
-    assert "Connect this project through the GitHub App" in store["expected_text"]
-    assert "Yoke records the GitHub App binding in the Yoke core database" in store["expected_text"]
-    assert "Review what Yoke will save." in store["expected_text"]
-    assert "Nothing is written until you choose Apply." in store["expected_text"]
-    assert any(
-        f"paste_file:{coordinator.REMOTE_FAKE_GITHUB_TOKEN_PATH}"
-        in action.get(
-            "keys",
-            [],
-        )
-        for action in store["actions"]
-    )
-    assert not any(
-        action.get("step") == "250-board-art-gallery" for action in store["actions"]
-    )
-    assert store["actions"][-3:] == [
-        {"step": "250-board-art-save", "keys": ["Enter"]},
-        {"step": "260-board-art-continue-option", "keys": ["Down"]},
-        {"step": "270-review-from-board-art", "keys": ["Enter"]},
-    ]
-    assert f"no_text:{coordinator.GITHUB_FAKE_TOKEN_VALUE}" in store["post_checks"]
-
-    reuse = json_helper.load_path(recipe_dir / "PUBLISH-012.json")
-    assert isinstance(reuse, dict)
-    assert "Use this machine's GitHub App connection" in reuse["expected_text"]
-    assert any(
-        "Yoke records your project's GitHub App binding" in text
-        for text in reuse["expected_text"]
-    )
-    assert "Review what Yoke will save." in reuse["expected_text"]
-    assert "In the Yoke core database" in reuse["expected_text"]
-    assert {
-        "step": "190-project-github-adoption",
-        "keys": ["Enter"],
-    } in reuse["actions"]
-    assert {
-        "step": "240-board-art-save",
-        "keys": ["Enter"],
-    } in reuse["actions"]
-    assert {
-        "step": "250-board-art-continue-option",
-        "keys": ["Down"],
-    } in reuse["actions"]
-    assert {
-        "step": "260-review-from-board-art",
-        "keys": ["Enter"],
-    } in reuse["actions"]
-
-    different = json_helper.load_path(recipe_dir / "PUBLISH-013.json")
-    assert isinstance(different, dict)
-    assert "--github-adoption different-token" in different["command"]
-    assert "--github-token-file /tmp/yoke-fake-github.token" in different["command"]
-    assert "publish_yoke_pid" in different["command"]
-    assert "adoption_choice=" in different["command"]
-    assert different["actions"] == [{"step": "000-run-noninteractive"}]
-    assert "adoption_stored=true" in different["expected_text"]
+    for scenario_id in sorted(set(profiles) - {"PUBLISH-001"}):
+        recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
+        assert recipe["status"] == "blocked"
+        assert recipe["blocked_reason"] == "manual App fixture is required"
 
 
 def test_seed_known_recipes_adds_apply_recipes(
@@ -1518,15 +1276,23 @@ def test_seed_known_recipes_adds_apply_recipes(
 
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
-    assert result["seeded_count"] == 12
+    assert result["seeded_count"] == 10
+    assert result["unseeded_count"] == 2
+    assert {item["scenario_id"] for item in result["unseeded"]} == {
+        "APPLY-005",
+        "APPLY-008",
+    }
     for scenario_id in profiles:
         recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
         assert isinstance(recipe, dict)
-        assert recipe["status"] == "ready"
-        assert not any(
-            "board-art-gallery" in str(action.get("step", ""))
-            for action in recipe["actions"]
-        )
+        if scenario_id in {"APPLY-005", "APPLY-008"}:
+            assert recipe["status"] == "blocked"
+        else:
+            assert recipe["status"] == "ready"
+            assert not any(
+                "board-art-gallery" in str(action.get("step", ""))
+                for action in recipe["actions"]
+            )
 
     machine = json_helper.load_path(recipe_dir / "APPLY-001.json")
     assert isinstance(machine, dict)
@@ -1567,11 +1333,9 @@ def test_seed_known_recipes_adds_apply_recipes(
     assert "03-store-token-reference" in machine_fail["expected_text"]
     assert "File exists: '/dev/null'" in machine_fail["expected_text"]
 
-    token_fail = json_helper.load_path(recipe_dir / "APPLY-005.json")
-    assert isinstance(token_fail, dict)
-    assert "19118" in token_fail["command"]
-    assert "projects.capability_secret.set" in token_fail["expected_text"][0]
-    assert f"no_text:{coordinator.GITHUB_FAKE_TOKEN_VALUE}" in token_fail["post_checks"]
+    binding_fail = json_helper.load_path(recipe_dir / "APPLY-005.json")
+    assert isinstance(binding_fail, dict)
+    assert binding_fail["status"] == "blocked"
 
     create_fail = json_helper.load_path(recipe_dir / "APPLY-006.json")
     assert isinstance(create_fail, dict)
@@ -1587,11 +1351,7 @@ def test_seed_known_recipes_adds_apply_recipes(
 
     publish_fail = json_helper.load_path(recipe_dir / "APPLY-008.json")
     assert isinstance(publish_fail, dict)
-    assert "GIT_CONFIG_GLOBAL" in publish_fail["command"]
-    assert publish_fail["actions"][-1] == {
-        "step": "200-apply",
-        "keys": ["Enter"],
-    }
+    assert publish_fail["status"] == "blocked"
 
     board_fail = json_helper.load_path(recipe_dir / "APPLY-009.json")
     assert isinstance(board_fail, dict)
@@ -1713,11 +1473,18 @@ def test_seed_known_recipes_adds_terminal_and_state_recipes(
 
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
-    assert result["seeded_count"] == 21
+    assert result["seeded_count"] == 19
+    assert result["unseeded_count"] == 2
+    assert {item["scenario_id"] for item in result["unseeded"]} == {
+        "STATE-002",
+        "STATE-007",
+    }
     for scenario_id in profiles:
         recipe = json_helper.load_path(recipe_dir / f"{scenario_id}.json")
         assert isinstance(recipe, dict)
-        assert recipe["status"] == "ready"
+        assert recipe["status"] == (
+            "blocked" if scenario_id in {"STATE-002", "STATE-007"} else "ready"
+        )
 
     term_size = json_helper.load_path(recipe_dir / "TERM-003.json")
     assert isinstance(term_size, dict)
@@ -1817,13 +1584,7 @@ def test_seed_known_recipes_adds_terminal_and_state_recipes(
 
     github = json_helper.load_path(recipe_dir / "STATE-002.json")
     assert isinstance(github, dict)
-    assert "state-002-install-refresh.log" in github["command"]
-    assert "yoke-state-restore-active-env.json" in github["command"]
-    assert github["start_delay"] == coordinator.STATE_TUI_SETUP_START_DELAY
-    assert (
-        "Using existing GitHub credential file from machine config."
-        in github["expected_text"]
-    )
+    assert github["status"] == "blocked"
 
     one_project = json_helper.load_path(recipe_dir / "STATE-003.json")
     assert isinstance(one_project, dict)
@@ -1864,8 +1625,7 @@ def test_seed_known_recipes_adds_terminal_and_state_recipes(
 
     repeat = json_helper.load_path(recipe_dir / "STATE-007.json")
     assert isinstance(repeat, dict)
-    assert "state-007-install-refresh.log" in repeat["command"]
-    assert "yoke-state-restore-env.json" in repeat["command"]
+    assert repeat["status"] == "blocked"
 
     one_shot = json_helper.load_path(recipe_dir / "STATE-008.json")
     assert isinstance(one_shot, dict)

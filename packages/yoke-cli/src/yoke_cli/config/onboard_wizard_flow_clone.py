@@ -18,13 +18,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
+from yoke_contracts import github_origin
+from yoke_contracts.github_app_installation_permissions import ACCESS_WRITE
+from yoke_cli.config import github_app_machine_access
 from yoke_cli.config import github_publish
-from yoke_cli.config import github_token_capability
 from yoke_cli.config import onboard_input_validation as input_validation
+from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import onboard_wizard_project_screens as project_screens
 from yoke_cli.config import project_clone_support as clone_support
 from yoke_cli.config.onboard_wizard_flow_clone_source import CloneSourceFlow
+from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 
 
@@ -63,7 +67,7 @@ class CloneFlow(CloneSourceFlow):
         # the private branch can't enumerate anything, so the visibility screen
         # is omitted entirely and the clone path stays on the original paste-URL
         # input rather than offering a row that dead-ends.
-        if not self.result.machine_github_token:
+        if not github_connected(self.result):
             self._goto_clone_url_input()
             return
         self._goto(self._selection_view(
@@ -83,7 +87,7 @@ class CloneFlow(CloneSourceFlow):
         self._goto_input(
             STEP_PROJECT, "Clone a project from GitHub.",
             "Paste the repo's git URL — Yoke clones it into a new folder.",
-            placeholder="https://github.com/acme/project.git",
+            placeholder=f"{github_state.web_url(self.result)}/acme/project.git",
             on_done=self._after_remote,
             allow_placeholder=False,
         )
@@ -101,8 +105,8 @@ class CloneFlow(CloneSourceFlow):
 
     def _fetch_private_repos(self: _Shell) -> list:
         return fetch_private_repos(
-            self.result.machine_github_api_url or "https://api.github.com",
-            self.result.machine_github_token or "",
+            self.result.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL,
+            github_state.user_access_token(self.result) or "",
         )
 
     def _show_private_repo_picker(self: _Shell, repos: Any) -> None:
@@ -129,7 +133,10 @@ class CloneFlow(CloneSourceFlow):
             lambda: steps.verification_body(
                 "Couldn't load private repos.",
                 str(exc),
-                ["Check the token, GitHub availability, and network connection."],
+                [
+                    "Check GitHub App authorization, GitHub availability, "
+                    "and the network connection."
+                ],
                 steps.PROBE_RETRY_ROWS,
                 ok=False,
             ),
@@ -145,7 +152,10 @@ class CloneFlow(CloneSourceFlow):
     # ── Local folder (defaults from the repo name) ──────────
 
     def _goto_clone_folder(self: _Shell) -> None:
-        repo = project_screens.default_repo(self.result.project_remote_url)
+        repo = project_screens.default_repo(
+            self.result.project_remote_url,
+            web_url=github_state.web_url(self.result),
+        )
         slug = repo.rsplit("/", 1)[-1] if repo else "my-project"
         self._goto_input(
             STEP_PROJECT, "Where should Yoke clone it?",
@@ -230,16 +240,23 @@ class CloneFlow(CloneSourceFlow):
         source repo: there is nothing to probe, so the read-only variant shows.
         Single seam so tests patch one method.
         """
-        token = self.result.machine_github_token
-        source_repo = project_screens.default_repo(self.result.project_remote_url)
-        if not (token and source_repo):
+        source_repo = project_screens.default_repo(
+            self.result.project_remote_url,
+            web_url=github_state.web_url(self.result),
+        )
+        if not source_repo:
             return None
-        api_url = self.result.machine_github_api_url or "https://api.github.com"
-        return github_token_capability.can_write_repo(api_url, token, source_repo)
+        return github_app_machine_access.repository_permission(
+            source_repo, "contents", ACCESS_WRITE,
+            config_path=self.result.config_path,
+        )
 
     def _goto_clone_outcome(self: _Shell) -> None:
-        source_repo = project_screens.default_repo(self.result.project_remote_url)
-        if self.result.machine_github_token and source_repo:
+        source_repo = project_screens.default_repo(
+            self.result.project_remote_url,
+            web_url=github_state.web_url(self.result),
+        )
+        if github_connected(self.result) and source_repo:
             self._run_checking(
                 step=STEP_PROJECT,
                 title="Checking source access.",
@@ -256,11 +273,14 @@ class CloneFlow(CloneSourceFlow):
         from yoke_cli.config.onboard_wizard_app import _View
 
         remote = self.result.project_remote_url
-        has_token = bool(self.result.machine_github_token)
+        has_token = github_connected(self.result)
         self._goto(_View(
             STEP_PROJECT,
             lambda: project_screens.clone_outcome_body(
-                remote, has_token=has_token, push_access=push_access,
+                remote,
+                has_token=has_token,
+                push_access=push_access,
+                web_url=github_state.web_url(self.result),
             ),
             self._on_clone_outcome,
         ))
@@ -306,7 +326,7 @@ class CloneFlow(CloneSourceFlow):
             self.result.project_clone_outcome
             == clone_support.CLONE_OUTCOME_MAKE_IT_MINE
         ):
-            if not self.result.machine_github_token:
+            if not github_connected(self.result):
                 self.result.project_clone_outcome = (
                     clone_support.CLONE_OUTCOME_JUST_CLONE
                 )
@@ -315,7 +335,13 @@ class CloneFlow(CloneSourceFlow):
             self.result.project_publish_to_github = True
             self._goto_owner_picker()
             return
-        self._after_repo(project_screens.default_repo(self.result.project_remote_url) or "")
+        self._after_repo(
+            project_screens.default_repo(
+                self.result.project_remote_url,
+                web_url=github_state.web_url(self.result),
+            )
+            or ""
+        )
 
 
 __all__ = ["CloneFlow", "fetch_private_repos"]

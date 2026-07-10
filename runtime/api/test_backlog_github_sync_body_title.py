@@ -32,7 +32,7 @@ from yoke_core.domain import (
 # Real resolver class so the AC-9 regression can construct + raise the
 # typed exception subclass that callers branch on.
 from yoke_core.domain.project_github_auth import (
-    MissingToken,
+    MissingRepoBinding,
     ProjectGithubAuth,
 )
 
@@ -42,7 +42,6 @@ def _ok_resolver(*args, **kwargs):
         project=kwargs.get("project") or (args[0] if args else "buzz"),
         repo="org/buzz",
         token="ghs_fake",
-        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -162,14 +161,14 @@ class TestSyncBody:
                 "body_exceeds_budget should not be called on auth failure",
             )
 
-        def raise_missing_token(*a, **kw):
-            raise MissingToken("buzz", "no token configured for buzz")
+        def raise_missing_binding(*a, **kw):
+            raise MissingRepoBinding("buzz", "repository is not bound")
 
         with patch.object(
             body_budget, "body_exceeds_budget", side_effect=fail_budget_check,
         ), patch.object(
             body_title_sync, "resolve_project_github_auth",
-            side_effect=raise_missing_token,
+            side_effect=raise_missing_binding,
         ), patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
@@ -179,7 +178,7 @@ class TestSyncBody:
         # REST call MUST NOT be made on auth failure.
         update_issue.assert_not_called()
         msg = stderr.getvalue()
-        assert "MissingToken" in msg
+        assert "MissingRepoBinding" in msg
         # No GraphQL "Body is too long" error path is exercised.
         assert "GraphQL" not in msg
         assert "Body is too long" not in msg

@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from typing import NamedTuple, Optional, Tuple
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS as CHECKS_READ,
+    GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
+)
 from yoke_core.domain import gh_rest_transport
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
@@ -26,16 +30,9 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
 class CheckRunsState(NamedTuple):
-    """Result of ``GET /repos/{o}/{r}/commits/{sha}/check-runs``.
-
-    ``readable=False`` signals the token cannot read check-runs at all
-    (403); the caller routes to its no-checks-configured branch in that
-    case so a token without checks permission does not synthesize a CI
-    failure for a PR that may have none.
-    """
+    """Result of ``GET /repos/{o}/{r}/commits/{sha}/check-runs``."""
 
     states: tuple[str, ...]
-    readable: bool = True
 
 
 # REST check-run status / conclusion pairs translated to the legacy state
@@ -57,7 +54,7 @@ _CHECK_RUN_TO_STATE = {
 def get_pr_head_sha(ctx: MergeContext, pr_num: str) -> Tuple[str, Optional[str]]:
     """Return ``(head_sha, error)`` for ``pr_num``."""
     try:
-        auth = resolve_auth(ctx)
+        auth = resolve_auth(ctx, required_permissions=PR_READ)
     except AuthResolutionFailed as exc:
         return "", f"auth resolution failed: {exc}"
     owner, repo = gh_rest_transport.split_repo(auth.repo)
@@ -86,7 +83,7 @@ def get_check_runs(
     if sha_err is not None:
         return None, sha_err
     try:
-        auth = resolve_auth(ctx)
+        auth = resolve_auth(ctx, required_permissions=CHECKS_READ)
     except AuthResolutionFailed as exc:
         return None, f"auth resolution failed: {exc}"
     owner, repo = gh_rest_transport.split_repo(auth.repo)
@@ -96,10 +93,10 @@ def get_check_runs(
     )
     try:
         resp = request_with_retry(req, token=auth.token)
-    except RestAuthError:
-        return CheckRunsState(states=(), readable=False), None
+    except RestAuthError as exc:
+        return None, f"check-runs REST authorization failed: {exc}"
     except RestNotFoundError:
-        return CheckRunsState(states=(), readable=True), None
+        return CheckRunsState(states=()), None
     except RestTransportError as exc:
         return None, f"check-runs REST read failed: {exc}"
 
@@ -116,4 +113,4 @@ def get_check_runs(
         conclusion = str(run.get("conclusion") or "").strip()
         key = (status, conclusion)
         states.append(_CHECK_RUN_TO_STATE.get(key, "FAILURE"))
-    return CheckRunsState(states=tuple(states), readable=True), None
+    return CheckRunsState(states=tuple(states)), None

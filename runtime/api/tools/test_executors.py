@@ -256,104 +256,6 @@ class ExecHealthCheckTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
 
-class ExecEphemeralVerifyTests(unittest.TestCase):
-    def _success_run(self) -> dict:
-        return {
-            "id": 9999,
-            "status": "completed",
-            "conclusion": "success",
-            "created_at": "2026-04-11T00:00:00Z",
-        }
-
-    def test_success_prints_ephemeral_url(self) -> None:
-        with mock.patch.object(
-            executors, "_gh_runs_for_workflow", return_value=self._success_run()
-        ):
-            buf = io.StringIO()
-            with redirect_stdout(buf):
-                rc = executors.exec_ephemeral_verify(
-                    "org/repo",
-                    "YOK-1369",
-                    "deploy.yml",
-                    "previews.yoke.test",
-                )
-        self.assertEqual(rc, 0)
-        self.assertIn("EPHEMERAL_URL=https://yok-1369.previews.yoke.test", buf.getvalue())
-
-    def test_failure_when_run_not_found(self) -> None:
-        with mock.patch.object(executors, "_gh_runs_for_workflow", return_value=None):
-            buf = io.StringIO()
-            with redirect_stderr(buf):
-                rc = executors.exec_ephemeral_verify(
-                    "org/repo",
-                    "YOK-1369",
-                    "deploy.yml",
-                    "previews.yoke.test",
-                    commit_sha="abc123",
-                )
-        self.assertEqual(rc, 1)
-        self.assertIn("No ephemeral deploy run found", buf.getvalue())
-
-    def test_failure_when_run_in_progress(self) -> None:
-        pending = {
-            "id": 1,
-            "status": "in_progress",
-            "conclusion": "",
-            "created_at": "",
-        }
-        with mock.patch.object(executors, "_gh_runs_for_workflow", return_value=pending):
-            buf = io.StringIO()
-            with redirect_stderr(buf):
-                rc = executors.exec_ephemeral_verify(
-                    "org/repo", "YOK-1369", "deploy.yml", "example.test"
-                )
-        self.assertEqual(rc, 1)
-        self.assertIn("still in_progress", buf.getvalue())
-
-    def test_failure_when_conclusion_not_success(self) -> None:
-        failed = {
-            "id": 2,
-            "status": "completed",
-            "conclusion": "failure",
-            "created_at": "",
-        }
-        with mock.patch.object(executors, "_gh_runs_for_workflow", return_value=failed):
-            buf = io.StringIO()
-            with redirect_stderr(buf):
-                rc = executors.exec_ephemeral_verify(
-                    "org/repo", "YOK-1369", "deploy.yml", "example.test"
-                )
-        self.assertEqual(rc, 1)
-        self.assertIn("concluded with: failure", buf.getvalue())
-
-    def test_rejects_missing_branch_and_sha(self) -> None:
-        buf = io.StringIO()
-        with redirect_stderr(buf):
-            rc = executors.exec_ephemeral_verify(
-                "org/repo", "", "deploy.yml", "example.test"
-            )
-        self.assertEqual(rc, 1)
-        self.assertIn("at least one of", buf.getvalue())
-
-    def test_rejects_missing_domain(self) -> None:
-        buf = io.StringIO()
-        with redirect_stderr(buf):
-            rc = executors.exec_ephemeral_verify(
-                "org/repo", "YOK-1369", "deploy.yml", ""
-            )
-        self.assertEqual(rc, 1)
-        self.assertIn("domain not provided", buf.getvalue())
-
-
-class SlugifyTests(unittest.TestCase):
-    def test_matches_legacy_shell_slug(self) -> None:
-        self.assertEqual(executors.slugify_branch("YOK-1369"), "yok-1369")
-        self.assertEqual(
-            executors.slugify_branch("feature/foo bar"), "feature-foo-bar"
-        )
-        self.assertEqual(executors.slugify_branch("--X--Y--"), "x-y")
-
-
 class MainCLITests(unittest.TestCase):
     def test_auto_dispatch(self) -> None:
         buf = io.StringIO()
@@ -377,10 +279,16 @@ class MainCLITests(unittest.TestCase):
     def test_ephemeral_verify_dispatch(self) -> None:
         with mock.patch.object(executors, "exec_ephemeral_verify", return_value=0) as m:
             rc = executors.main(
-                ["ephemeral-verify", "org/repo", "br", "wf.yml", "d.example", "abc"]
+                [
+                    "ephemeral-verify", "buzz", "org/repo", "br", "wf.yml",
+                    "d.example", "abc",
+                ]
             )
         self.assertEqual(rc, 0)
-        m.assert_called_once_with("org/repo", "br", "wf.yml", "d.example", "abc")
+        m.assert_called_once_with(
+            "org/repo", "br", "wf.yml", "d.example", "abc",
+            project="buzz",
+        )
 
     def test_unknown_command(self) -> None:
         buf = io.StringIO()

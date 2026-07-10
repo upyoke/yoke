@@ -2,9 +2,9 @@
 
 After the clone folder the wizard asks whether the repo is public or private.
 Public keeps the original paste-URL input; private lists the repos the connected
-GitHub credential can reach and records the chosen repo's clone URL as the remote.
+GitHub App authorization can reach and records the chosen repo's clone URL as the remote.
 ``build_report`` is spied at the wizard boundary and the private-repo list is
-stubbed, so no scenario hits GitHub or git. Without a machine token the
+stubbed, so no scenario hits GitHub or git. Without a connected App the
 visibility screen is omitted and the clone path stays on the paste-URL input.
 """
 
@@ -17,7 +17,7 @@ import pytest
 pytest.importorskip("textual")
 
 from yoke_cli.config import github_publish  # noqa: E402
-from yoke_cli.config import github_token_capability  # noqa: E402
+from yoke_cli.config import github_app_machine_access  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_clone as clone_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_project_screens as screens  # noqa: E402
@@ -30,6 +30,9 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     stub_source_branch,
     type_text,
+)
+from runtime.api.cli.onboard_wizard_github_app_test_support import (  # noqa: E402
+    connect_github_app,
 )
 
 _PRIVATE_REPOS = [
@@ -55,8 +58,8 @@ def _stub_private_repos(monkeypatch):
         lambda api_url, token: list(_PRIVATE_REPOS),
     )
     monkeypatch.setattr(
-        github_token_capability, "can_write_repo",
-        lambda api_url, token, repo: None,
+        github_app_machine_access, "repository_permission",
+        lambda repo, permission, required, config_path: None,
     )
 
 
@@ -67,33 +70,21 @@ async def _pick_mode(pilot, value: str) -> None:
     await pilot.press("enter")
 
 
-async def _connect_machine_github(app, pilot) -> None:
-    await advance_past_path(pilot)
-    await pilot.press("enter")  # machine github: Connect a token (GitHub App user token) (default)
-    await pilot.pause()
-    await type_text(pilot, "ghu_machine_token")
-    await pilot.press("enter")
-    assert "GitHub App connection saved." in await _wait_for_body_text(
-        app, pilot, "GitHub App connection saved."
-    )
-    await pilot.press("enter")  # GitHub verification success: Continue
-
-
 async def _skip_machine_github(pilot) -> None:
     await advance_past_path(pilot)
     await pilot.press("down")   # machine github: Skip for now
-    await pilot.press("enter")  # (no token)
+    await pilot.press("enter")  # continue without GitHub
 
 
-async def _start_clone(app, pilot, *, connect_pat: bool) -> None:
-    if connect_pat:
-        await _connect_machine_github(app, pilot)
+async def _start_clone(app, pilot, *, connect_github: bool) -> None:
+    if connect_github:
+        await connect_github_app(app, pilot)
     else:
         await _skip_machine_github(pilot)
     await pilot.pause()
     await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     # Clone opens straight on the visibility split (token) or the paste-URL
-    # input (no token); the local folder is asked after the remote now.
+    # input (no App connection); the local folder is asked after the remote now.
 
 
 def _body_text(app) -> str:
@@ -131,7 +122,7 @@ def test_public_clone_routes_to_paste_url_input() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _start_clone(app, pilot, connect_pat=True)
+            await _start_clone(app, pilot, connect_github=True)
             await pilot.press("enter")  # visibility: Public (default)
             await pilot.pause()
             # The active view is the paste-URL Input, not a SelectionList.
@@ -155,7 +146,7 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _start_clone(app, pilot, connect_pat=True)
+            await _start_clone(app, pilot, connect_github=True)
             await pilot.press("down")   # visibility: move to Private
             await pilot.press("enter")
             selection = await _wait_for_selection(app, pilot)
@@ -174,21 +165,21 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
     asyncio.run(scenario())
 
 
-def test_no_machine_token_omits_visibility_and_uses_paste_url() -> None:
-    """Without a machine token the visibility screen is skipped (no dead-end)."""
+def test_no_app_connection_omits_visibility_and_uses_paste_url() -> None:
+    """Without an App connection the visibility screen is skipped (no dead-end)."""
     app, spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _start_clone(app, pilot, connect_pat=False)
+            await _start_clone(app, pilot, connect_github=False)
             await pilot.pause()
             # No visibility SelectionList — the clone path is straight on the
-            # paste-URL Input because there is no token to list private repos.
+            # paste-URL Input because no App connection can list private repos.
             from textual.widgets import Input
             inputs = list(app.query("#onboard-body Input").results(Input))
             assert inputs, "no-token clone should land directly on paste-URL input"
             selection = list(app.query("#onboard-body SelectionList").results(SelectionList))
-            assert not selection, "no visibility screen without a machine token"
+            assert not selection, "no visibility screen without an App connection"
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")
             await pilot.pause()

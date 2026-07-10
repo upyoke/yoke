@@ -1,18 +1,8 @@
-"""Capability-settings surface: read/CAS-write/merge ``project_capabilities.settings``.
+"""CAS-protected reads, full writes, and merges for capability settings.
 
-Owner: ``yoke_core.domain.projects`` (orchestration layer), mirroring
-how :mod:`yoke_core.domain.projects_environments_settings` owns the
-environment settings family; secrets and capability listings stay in
-:mod:`yoke_core.domain.projects_capabilities`.
-
-Writes are lost-update protected via value-CAS (the as-read settings text
-is the base token — :mod:`yoke_core.domain.settings_cas`). The full
-write requires exactly one of ``--base`` (CAS-update an existing row) or
-``--new`` (insert-only create); a stale base or a lost create race raises
-the typed :class:`~yoke_core.domain.settings_cas.SettingsConflictError`.
-``capability-merge-settings`` updates single key paths through an internal
-read-merge-CAS cycle (absent rows start from the empty object) so
-concurrent writers compose instead of erasing each other.
+Generic capabilities support full compare-and-swap replacement and key-path
+merge. GitHub settings are binding-owned: generic full writes are closed and
+merge admits only the documented optional boolean on a canonical binding.
 """
 
 from __future__ import annotations
@@ -25,6 +15,11 @@ from yoke_core.domain.db_helpers import (
     query_scalar,
 )
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.project_github_capability_settings import (
+    assert_github_capability_merge_target,
+    reject_github_capability_full_settings_write,
+    validate_github_capability_merge_assignments,
+)
 from yoke_core.domain.projects_capability_settings_validation import (
     canonicalize_capability_settings,
 )
@@ -282,6 +277,7 @@ def cmd_capability_set_settings(
     (insert-only) is required — value-CAS protects against lost updates;
     no blind-upsert path exists.
     """
+    cap_type = reject_github_capability_full_settings_write(cap_type)
     has_base = bool(
         base_settings_json is not None and str(base_settings_json).strip()
     )
@@ -320,14 +316,17 @@ def cmd_capability_merge_settings(
     insert-only, so the merge surface is the universal single-key repair
     recipe for both existing and missing rows.
     """
+    cap_type = validate_github_capability_merge_assignments(cap_type, assignments)
     conn = connect(db_path)
     try:
         project_id = resolve_project_id(conn, project)
+        assert_github_capability_merge_target(conn, project_id, cap_type)
 
         def read_current() -> Optional[str]:
             return _read_settings_text(conn, project_id, cap_type)
 
         def cas_write(base: Optional[str], merged_text: str) -> str:
+            assert_github_capability_merge_target(conn, project_id, cap_type)
             merged_text = _canonicalize_capability_settings(cap_type, merged_text)
             if base is None:
                 return _cas_create(conn, project, project_id, cap_type, merged_text)

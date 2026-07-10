@@ -35,6 +35,11 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_source_branch,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_github_app_test_support import (  # noqa: E402
+    connect_github_app,
+    select_connected_repository,
+    stub_github_app_access,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +56,7 @@ def _stub_source_branch(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _stub_owners(monkeypatch):
+def _stub_github_app(monkeypatch, _stub_path_doctor):
     monkeypatch.setattr(
         onboard_wizard_flow, "fetch_repo_owners",
         lambda api_url, token: [
@@ -59,7 +64,12 @@ def _stub_owners(monkeypatch):
             github_publish.RepoOwner("acme-inc", "organization"),
         ],
     )
-
+    stub_github_app_access(
+        monkeypatch,
+        owners=("octocat", "acme-inc", "acme"),
+        repositories=("acme/widgets", "octocat/widgets"),
+        user_access_token="short-lived-clone-access",
+    )
 
 @pytest.fixture(autouse=True)
 def _stub_push_access(monkeypatch):
@@ -74,14 +84,6 @@ def _stub_push_access(monkeypatch):
     )
 
 
-async def _connect_machine_pat(pilot) -> None:
-    await advance_past_path(pilot)
-    await pilot.press("enter")  # machine github: Connect a token (GitHub App user token) (default)
-    await type_text(pilot, "ghu_machine_token")
-    await pilot.press("enter")
-    await pilot.press("enter")  # GitHub verification success: Continue
-
-
 async def _pick_mode(pilot, value: str) -> None:
     index = next(i for i, r in enumerate(steps.MODE_ROWS) if r.value == value)
     for _ in range(index):
@@ -89,8 +91,8 @@ async def _pick_mode(pilot, value: str) -> None:
     await pilot.press("enter")
 
 
-async def _to_clone_outcome(pilot) -> None:
-    await _connect_machine_pat(pilot)
+async def _to_clone_outcome(app, pilot) -> None:
+    await connect_github_app(app, pilot)
     await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     await pilot.press("enter")  # visibility: Public (default) -> paste-URL input
     await type_text(pilot, "git@github.com:acme/widgets.git")  # remote url
@@ -103,22 +105,16 @@ def test_clone_it_keeps_origin_on_source() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _to_clone_outcome(pilot)
+            await _to_clone_outcome(app, pilot)
             await pilot.press("enter")  # "Clone it" (default, first row)
             await pilot.press("enter")  # slug placeholder
             await pilot.press("enter")  # name placeholder
             # just-clone records the source repo and routes through project
             # github auth (origin stays the source); reuse-machine then finish.
-            reuse_index = next(
-                i for i, r in enumerate(steps.PROJECT_GITHUB_ROWS)
-                if r.value == "reuse-machine"
-            )
             # No "default branch" prompt for a clone — it's detected from the
             # source at the URL step, so the name input lands straight on prefix.
             await pilot.press("enter")  # prefix
-            for _ in range(reuse_index):
-                await pilot.press("down")
-            await pilot.press("enter")  # project github reuse-machine
+            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -140,7 +136,7 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _to_clone_outcome(pilot)
+            await _to_clone_outcome(app, pilot)
             await pilot.press("down")   # move to "Duplicate it"
             await pilot.press("enter")
             await pilot.press("enter")  # new-repo visibility: Private (default)
@@ -158,13 +154,7 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
             await pilot.press("enter")  # repo name placeholder -> widgets
             # Clone path skips the default-branch prompt (detected at URL step).
             await pilot.press("enter")  # prefix
-            reuse_index = next(
-                i for i, r in enumerate(steps.PROJECT_GITHUB_ROWS)
-                if r.value == "reuse-machine"
-            )
-            for _ in range(reuse_index):
-                await pilot.press("down")
-            await pilot.press("enter")  # project github reuse-machine
+            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -179,7 +169,7 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
     # "Duplicate it" always keeps the source as a pull-only upstream — that is
     # what lets a private copy pull from a public original.
     assert plan.keep_upstream is True
-    assert plan.fallback_token == "ghu_machine_token"
+    assert plan.fallback_token == "short-lived-clone-access"
     publish = plan.publish
     assert publish is not None
     assert publish.owner == "octocat"
@@ -191,7 +181,7 @@ def test_duplicate_public_visibility_sets_public_publish() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _to_clone_outcome(pilot)
+            await _to_clone_outcome(app, pilot)
             await pilot.press("down")   # "Duplicate it"
             await pilot.press("enter")
             await pilot.press("down")   # new-repo visibility: move to Public
@@ -202,13 +192,7 @@ def test_duplicate_public_visibility_sets_public_publish() -> None:
             await pilot.press("enter")  # repo name
             # clone skips the default-branch prompt
             await pilot.press("enter")  # prefix
-            reuse_index = next(
-                i for i, r in enumerate(steps.PROJECT_GITHUB_ROWS)
-                if r.value == "reuse-machine"
-            )
-            for _ in range(reuse_index):
-                await pilot.press("down")
-            await pilot.press("enter")
+            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -228,12 +212,12 @@ def test_duplicate_public_visibility_sets_public_publish() -> None:
     assert publish.private is False
 
 
-def test_fork_builds_clone_plan_with_token() -> None:
+def test_fork_builds_clone_plan_with_app_access() -> None:
     app, spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _to_clone_outcome(pilot)
+            await _to_clone_outcome(app, pilot)
             await pilot.press("down")   # move to "Duplicate it"
             await pilot.press("down")   # move to "Fork it"
             await pilot.press("enter")  # outcome: Fork it
@@ -241,13 +225,7 @@ def test_fork_builds_clone_plan_with_token() -> None:
             await pilot.press("enter")  # name
             # clone skips the default-branch prompt
             await pilot.press("enter")  # prefix
-            reuse_index = next(
-                i for i, r in enumerate(steps.PROJECT_GITHUB_ROWS)
-                if r.value == "reuse-machine"
-            )
-            for _ in range(reuse_index):
-                await pilot.press("down")
-            await pilot.press("enter")  # project github reuse-machine
+            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -259,7 +237,7 @@ def test_fork_builds_clone_plan_with_token() -> None:
     plan = applied["project_clone"]
     assert plan is not None
     assert plan.outcome == clone.CLONE_OUTCOME_FORK
-    assert plan.fallback_token == "ghu_machine_token"
+    assert plan.fallback_token == "short-lived-clone-access"
     assert plan.publish is None
     # Fork does not run the keep-upstream screen; the default stays True but is
     # ignored by the fork outcome (it always tracks the source as upstream).
@@ -285,7 +263,7 @@ def test_clone_existing_yoke_project_uses_project_id_and_skips_setup(
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await connect_github_app(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public
             await type_text(pilot, "git@github.com:example-org/buzz.git")
@@ -322,12 +300,12 @@ def test_clone_existing_yoke_project_uses_project_id_and_skips_setup(
     assert applied["project_name"] == "Buzz"
     assert applied["project_github_repo"] == "example-org/buzz"
     assert applied["project_public_item_prefix"] == "BUZZ"
-    assert applied["project_github_adoption"] == "skip"
+    assert applied["project_github_adoption"] == "backlog-only"
     assert len(app.result.board_art_variants) == 1
     plan = applied["project_clone"]
     assert plan is not None
     assert plan.outcome == clone.CLONE_OUTCOME_JUST_CLONE
-    assert plan.fallback_token == "ghu_machine_token"
+    assert plan.fallback_token == "short-lived-clone-access"
 
 
 def _body_text(app) -> str:
@@ -352,7 +330,7 @@ def test_clone_existing_yoke_project_access_error_blocks_setup(monkeypatch) -> N
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await connect_github_app(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public
             await type_text(pilot, "git@github.com:example-org/buzz.git")
@@ -370,17 +348,17 @@ def test_clone_existing_yoke_project_access_error_blocks_setup(monkeypatch) -> N
     assert app.result.existing_project_id is None
 
 
-def test_duplicate_without_token_falls_back_to_just_clone(monkeypatch) -> None:
-    # No machine token: the push probe has nothing to probe and the clone-outcome
+def test_duplicate_without_app_connection_falls_back_to_just_clone(monkeypatch) -> None:
+    # No App connection: the push probe has nothing to probe and the clone-outcome
     # screen shows the read-only variant; duplicate then degrades to just-clone at
-    # name time because there is no token to create the new repo with.
+    # name time because there is no App connection to create the new repo with.
     app, spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("down")   # machine github: Skip for now
-            await pilot.press("enter")  # (no token)
+            await pilot.press("enter")  # continue without GitHub
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await type_text(pilot, "git@github.com:acme/widgets.git")  # remote first
             await pilot.press("enter")  # remote -> clone-folder input
@@ -389,7 +367,7 @@ def test_duplicate_without_token_falls_back_to_just_clone(monkeypatch) -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # new-repo visibility: Private (default)
             await pilot.press("enter")  # slug (no keep-upstream screen)
-            await pilot.press("enter")  # name -> no token, falls back to just-clone
+            await pilot.press("enter")  # name -> no App, falls back to just-clone
             # clone skips the default-branch prompt
             await pilot.press("enter")  # prefix
             await complete_board_art(pilot)  # board art -> Finish
@@ -402,7 +380,7 @@ def test_duplicate_without_token_falls_back_to_just_clone(monkeypatch) -> None:
     assert applied is not None
     plan = applied["project_clone"]
     assert plan is not None
-    # Without a connected token there is nothing to create the new repo with, so
+    # Without a connected App there is nothing to create the new repo with, so
     # the wizard degrades to a plain clone rather than stranding the user.
     assert plan.outcome == clone.CLONE_OUTCOME_JUST_CLONE
     assert plan.publish is None

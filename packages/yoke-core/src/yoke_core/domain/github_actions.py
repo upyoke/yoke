@@ -1,13 +1,11 @@
 """GitHub Actions integration — trigger, poll, wait-run, find-run, check-ci, failed-log.
 
-Every public command resolves project GitHub auth through the canonical
-:func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`
-resolver (default ``"yoke"``); ``ProjectGithubAuthError`` surfaces as
-``sys.exit(4)`` with the typed code + repair hint. Fail-closed: no
-host-credential fallback.
+Every command resolves canonical project GitHub auth and verifies the requested
+repository matches that binding;
+``ProjectGithubAuthError`` surfaces as
+``sys.exit(4)`` with the typed code + repair hint. No credential fallback.
 
-All REST calls dispatch through
-:mod:`yoke_core.domain.gh_rest_transport` via the per-helper modules
+All REST calls dispatch through :mod:`yoke_core.domain.gh_rest_transport` via
 :mod:`yoke_core.domain.github_actions_rest` (workflow-run JSON) and
 :mod:`yoke_core.domain.github_actions_logs` (failed-log ZIP bytes).
 No host ``gh`` binary required.
@@ -22,6 +20,10 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.github_actions_cli import build_parser as _build_parser
 from yoke_core.domain.github_actions_rest import (
@@ -44,10 +46,15 @@ def cmd_trigger(
     workflow: str,
     ref: str = "main",
     inputs: Optional[Dict[str, str]] = None,
-    project: str = "yoke",
+    *,
+    project: str,
 ) -> None:
     """Dispatch a workflow and print the new run ID. Exit 0=success / 1=error / 4=auth."""
-    token = resolve_token(project)
+    token = resolve_token(
+        project,
+        repo,
+        required_permissions=GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
+    )
     pre_run_id = latest_run_id(repo, workflow, branch=ref, token=token)
 
     payload: Dict[str, Any] = {"ref": ref}
@@ -93,9 +100,13 @@ def cmd_trigger(
     sys.exit(1)
 
 
-def cmd_poll(repo: str, run_id: str, project: str = "yoke") -> None:
+def cmd_poll(repo: str, run_id: str, *, project: str) -> None:
     """Get run status. Exit 0=success / 1=failed / 2=waiting / 3=in_progress."""
-    token = resolve_token(project)
+    token = resolve_token(
+        project,
+        repo,
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
     exit_code, message = run_state(repo, run_id, token=token)
     output = sys.stderr if exit_code == 1 and message.startswith("Error:") else sys.stdout
     print(message, file=output)
@@ -103,12 +114,16 @@ def cmd_poll(repo: str, run_id: str, project: str = "yoke") -> None:
 
 
 def cmd_jobs_count(
-    repo: str, run_id: str, attempt: int = 1, project: str = "yoke",
+    repo: str, run_id: str, attempt: int = 1, *, project: str,
 ) -> None:
     """Print the total job count for a workflow run attempt. Exit 0 on
     success (prints the integer); exit 1 on REST failure.
     """
-    token = resolve_token(project)
+    token = resolve_token(
+        project,
+        repo,
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
     try:
         data = rest_get(
             f"/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs",
@@ -132,10 +147,15 @@ def cmd_wait_run(
     repo: str,
     run_id: str,
     timeout_sec: int = 1800,
-    project: str = "yoke",
+    *,
+    project: str,
 ) -> None:
     """Wait for a terminal state. Exit 0=success / 1=failed / 3=timeout."""
-    token = resolve_token(project)
+    token = resolve_token(
+        project,
+        repo,
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
 
     start = time.monotonic()
     attempt = 0
@@ -166,10 +186,15 @@ def cmd_find_run(
     repo: str,
     workflow: str,
     commit_sha: str,
-    project: str = "yoke",
+    *,
+    project: str,
 ) -> None:
     """Find a run by commit SHA. Exit 0=found / 1=not_found."""
-    token = resolve_token(project)
+    token = resolve_token(
+        project,
+        repo,
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
     try:
         data = rest_get(
             f"/repos/{repo}/actions/workflows/{workflow}/runs",
@@ -201,32 +226,42 @@ def cmd_check_ci(
     branch: str = "main",
     wait: bool = False,
     timeout_sec: int = 600,
-    project: str = "yoke",
+    *,
+    project: str,
 ) -> None:
     """Check CI on a branch. Exit 0=pass / 1=fail / 2=running / 3=timeout."""
-    token = resolve_token(project)
+    token = resolve_token(
+        project,
+        repo,
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
 
     def _bound_latest_run() -> Optional[Dict[str, Any]]:
         return latest_workflow_run(repo, workflow, branch=branch, token=token)
 
-    check_ci_command(
-        repo,
-        workflow,
-        branch=branch,
-        wait=wait,
-        timeout_sec=timeout_sec,
-        check_auth=lambda: None,
-        get_latest_run=_bound_latest_run,
-        now=time.time,
-        sleep=time.sleep,
-    )
+    try:
+        check_ci_command(
+            repo,
+            workflow,
+            branch=branch,
+            wait=wait,
+            timeout_sec=timeout_sec,
+            check_auth=lambda: None,
+            get_latest_run=_bound_latest_run,
+            now=time.time,
+            sleep=time.sleep,
+        )
+    except RestTransportError as exc:
+        print(f"Error: CI check failed for '{workflow}': {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 def cmd_failed_log(
     repo: str,
     run_id: str,
     tail_lines: int = 50,
-    project: str = "yoke",
+    *,
+    project: str,
 ) -> None:
     """Fetch failed-step log tail. Exit 0=ok / 1=fail / 4=auth.
 
@@ -236,7 +271,11 @@ def cmd_failed_log(
     runs once here so the auth-failure exit code stays distinct from
     fetch failures inside the inner command.
     """
-    token = resolve_token(project)
+    token = resolve_token(
+        project,
+        repo,
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
 
     from yoke_core.domain.github_actions_logs import fetch_failed_log
 
@@ -265,16 +304,24 @@ def main(argv: Optional[List[str]] = None) -> None:
         for inp in (args.inputs or []):
             k, _, v = inp.partition("=")
             inputs_dict[k] = v
-        cmd_trigger(args.repo, args.workflow, ref=args.ref, inputs=inputs_dict or None)
+        cmd_trigger(
+            args.repo, args.workflow, ref=args.ref,
+            inputs=inputs_dict or None, project=args.project,
+        )
 
     elif args.subcmd == "poll":
-        cmd_poll(args.repo, args.run_id)
+        cmd_poll(args.repo, args.run_id, project=args.project)
 
     elif args.subcmd == "find-run":
-        cmd_find_run(args.repo, args.workflow, args.commit_sha)
+        cmd_find_run(
+            args.repo, args.workflow, args.commit_sha, project=args.project,
+        )
 
     elif args.subcmd == "wait-run":
-        cmd_wait_run(args.repo, args.run_id, timeout_sec=args.timeout_sec)
+        cmd_wait_run(
+            args.repo, args.run_id, timeout_sec=args.timeout_sec,
+            project=args.project,
+        )
 
     elif args.subcmd == "check-ci":
         cmd_check_ci(
@@ -283,13 +330,20 @@ def main(argv: Optional[List[str]] = None) -> None:
             branch=args.branch,
             wait=args.wait,
             timeout_sec=args.timeout_sec,
+            project=args.project,
         )
 
     elif args.subcmd == "failed-log":
-        cmd_failed_log(args.repo, args.run_id, tail_lines=args.tail_lines)
+        cmd_failed_log(
+            args.repo, args.run_id, tail_lines=args.tail_lines,
+            project=args.project,
+        )
 
     elif args.subcmd == "jobs-count":
-        cmd_jobs_count(args.repo, args.run_id, attempt=args.attempt)
+        cmd_jobs_count(
+            args.repo, args.run_id, attempt=args.attempt,
+            project=args.project,
+        )
 
 
 if __name__ == "__main__":

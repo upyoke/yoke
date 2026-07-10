@@ -10,6 +10,9 @@ Pytest fixtures (test_db, populated_db) are shared via
 _resync_test_helpers (private module). No live GitHub calls are made.
 """
 
+# Imported pytest fixtures intentionally share names with test parameters.
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 from unittest import mock
@@ -23,9 +26,9 @@ from yoke_core.engines.resync_detect_fetch import (
 )
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from yoke_core.engines._resync_test_helpers import (  # noqa: F401 — fixtures
-    populated_db,
-    test_db,
+from yoke_core.engines._resync_test_helpers import (
+    populated_db,  # noqa: F401 — imported pytest fixture
+    test_db,  # noqa: F401 — imported pytest fixture
 )
 
 # populated_db seeds items 42 (linked to GH #100) and 43 (linked to #101).
@@ -78,7 +81,7 @@ class TestFetchSkipsExcludedYoke:
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
             side_effect=_explode,
         ):
-            result = _fetch_gh_issues_per_project({})
+            result = _fetch_gh_issues_per_project(set())
 
         assert result == {}
 
@@ -86,7 +89,10 @@ class TestFetchSkipsExcludedYoke:
         assert _project_sync_disabled({SYNC_DISABLED_KEY: "backlog_only"})
         assert not _project_sync_disabled({})
         assert not _project_sync_disabled({100: {"number": 100}})
-        assert not _project_sync_disabled({"_auth_error": "missing_token"})
+        assert not _project_sync_disabled({
+            "_github_unavailable": "true",
+            "_unavailable_code": "missing_repo_binding",
+        })
 
 
 class TestStage1LinkageBacklogOnly:
@@ -101,10 +107,10 @@ class TestStage1LinkageBacklogOnly:
         yoke_root = tmp_path / "state"
         (yoke_root / "backlog").mkdir(parents=True)
 
-        observed_maps: list[dict] = []
+        observed_rosters: list[set[str]] = []
 
-        def fake_fetch(project_map):
-            observed_maps.append(dict(project_map))
+        def fake_fetch(projects):
+            observed_rosters.append(set(projects))
             return {}
 
         with mock.patch(
@@ -116,7 +122,7 @@ class TestStage1LinkageBacklogOnly:
             )
 
         # yoke was excluded from the fetch map entirely.
-        assert observed_maps and "yoke" not in observed_maps[0]
+        assert observed_rosters and "yoke" not in observed_rosters[0]
         # Its items (including the unlinked one) are not classified at all.
         assert paired == []
         assert local_orphans == []
@@ -184,7 +190,7 @@ class TestEngineMainBacklogOnly:
             "project 'yoke' github_sync_mode=backlog_only" in out
         )
         assert "Local orphans: 0" in out
-        assert "Auth Failures" not in out
+        assert "GitHub Reads Unavailable" not in out
 
     def test_fix_repairs_nothing_for_backlog_only_project(
         self, populated_db, tmp_path, capsys,

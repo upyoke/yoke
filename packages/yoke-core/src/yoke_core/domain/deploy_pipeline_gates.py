@@ -163,7 +163,7 @@ def _check_ci_gate(
     r = _github_actions(
         "check-ci", github_repo, ci_workflow,
         "--branch", branch, "--wait", "--timeout", str(timeout_sec),
-        sd=sd, timeout=timeout_sec + 30,
+        project=project, sd=sd, timeout=timeout_sec + 30,
     )
     output = (r.stdout + r.stderr).strip()
 
@@ -188,5 +188,11 @@ def _check_ci_gate(
             "  2. Or increase --timeout if the CI workflow normally takes longer\n"
         )
 
-    # Unexpected — advisory, don't block
-    return True, f"  CI gate: unexpected error (exit {r.returncode}) — proceeding with advisory warning"
+    detail = f"\n\nGitHub Actions detail:\n{output}" if output else ""
+    return False, (
+        f"\nBLOCKED: Cannot deploy — CI verification returned unexpected "
+        f"exit code {r.returncode}.{detail}\n\n"
+        "Remediation:\n"
+        "  1. Repair the project's GitHub App binding/auth or CI query failure\n"
+        "  2. Re-run the deployment pipeline after CI can be verified\n"
+    )

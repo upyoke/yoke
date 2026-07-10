@@ -22,7 +22,7 @@ The module is also usable as a CLI for ad-hoc invocation:
 
     python3 -m yoke_core.tools.executors auto
     python3 -m yoke_core.tools.executors health-check <url> [request-id]
-    python3 -m yoke_core.tools.executors ephemeral-verify <repo> <branch> <workflow> <domain> [sha]
+    python3 -m yoke_core.tools.executors ephemeral-verify <project> <repo> <branch> <workflow> <domain> [sha]
 
 The CLI exits with the same code the Python function returns.
 """
@@ -36,15 +36,15 @@ import urllib.error
 import urllib.request
 from typing import List, Optional
 
-# Clock aliases so the warmup loop's timing is monkeypatchable in tests.
-_monotonic = time.monotonic
-_sleep = time.sleep
-
-from yoke_core.domain.ephemeral_substrate import slugify_branch
 from yoke_core.domain.github_actions_rest import (
     latest_workflow_run,
     resolve_token,
 )
+from yoke_core.tools.executors_ephemeral_verify import verify_ephemeral_workflow
+
+# Clock aliases so the warmup loop's timing is monkeypatchable in tests.
+_monotonic = time.monotonic
+_sleep = time.sleep
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +218,12 @@ def _attempt_health_check(
 
 
 def _gh_runs_for_workflow(
-    github_repo: str, workflow: str, *, branch: str = "", commit_sha: str = ""
+    github_repo: str,
+    workflow: str,
+    *,
+    project: str,
+    branch: str = "",
+    commit_sha: str = "",
 ) -> Optional[dict]:
     """Return the most recent workflow run metadata, or ``None``.
 
@@ -230,21 +235,24 @@ def _gh_runs_for_workflow(
     """
     if not branch and not commit_sha:
         return None
-    token = resolve_token("yoke")
+    from yoke_contracts.github_app_installation_permissions import (
+        GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
+
+    token = resolve_token(
+        project,
+        github_repo,
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
     if branch:
         return latest_workflow_run(github_repo, workflow, branch=branch, token=token)
 
     from yoke_core.domain.github_actions_rest import rest_get
-    from yoke_core.domain.gh_rest_transport import RestTransportError
-
-    try:
-        data = rest_get(
-            f"/repos/{github_repo}/actions/workflows/{workflow}/runs",
-            query={"head_sha": commit_sha, "per_page": "1"},
-            token=token,
-        )
-    except RestTransportError:
-        return None
+    data = rest_get(
+        f"/repos/{github_repo}/actions/workflows/{workflow}/runs",
+        query={"head_sha": commit_sha, "per_page": "1"},
+        token=token,
+    )
     if not isinstance(data, dict):
         return None
     runs = data.get("workflow_runs")
@@ -260,80 +268,19 @@ def exec_ephemeral_verify(
     workflow: str,
     domain: str,
     commit_sha: str = "",
+    *,
+    project: str,
 ) -> int:
-    """Verify the ephemeral deploy workflow succeeded and print preview URL.
-
-    Preserves the shell contract: on success prints human-readable progress
-    and a trailing ``EPHEMERAL_URL=<url>`` line that
-    :mod:`yoke_core.domain.deploy_pipeline` parses.
-    """
-    if not github_repo or not workflow:
-        print(
-            "Usage: exec_ephemeral_verify(github_repo, branch, workflow, domain, commit_sha='')",
-            file=sys.stderr,
-        )
-        return 1
-    if not branch and not commit_sha:
-        print(
-            "Error: at least one of <branch> or <commit_sha> must be provided",
-            file=sys.stderr,
-        )
-        return 1
-    if not domain:
-        print(
-            "Error: domain not provided — cannot compute preview URL",
-            file=sys.stderr,
-        )
-        return 1
-
-    run_data: Optional[dict] = None
-    if branch:
-        print(f"  Looking for ephemeral deploy run: {workflow} on branch {branch}...")
-        run_data = _gh_runs_for_workflow(github_repo, workflow, branch=branch)
-        if run_data is None:
-            print("  No run found by branch, trying SHA fallback...", file=sys.stderr)
-    if run_data is None and commit_sha:
-        print(f"  Looking for ephemeral deploy run: {workflow} @ {commit_sha}...")
-        run_data = _gh_runs_for_workflow(github_repo, workflow, commit_sha=commit_sha)
-
-    if run_data is None:
-        sha_label = commit_sha or "none"
-        branch_label = branch or "none"
-        print(
-            f"  No ephemeral deploy run found (SHA: {sha_label}, branch: {branch_label})",
-            file=sys.stderr,
-        )
-        print("  The ephemeral deploy workflow may not have triggered.", file=sys.stderr)
-        return 1
-
-    run_id = run_data.get("id", "")
-    run_status = run_data.get("status", "")
-    run_conclusion = run_data.get("conclusion", "") or ""
-    run_created = run_data.get("created_at", "")
-    print(
-        f"  Found run {run_id} (status: {run_status}, conclusion: {run_conclusion}, "
-        f"created: {run_created})"
+    """Verify the deploy workflow and preserve the ``EPHEMERAL_URL`` contract."""
+    return verify_ephemeral_workflow(
+        github_repo,
+        branch,
+        workflow,
+        domain,
+        commit_sha,
+        project=project,
+        run_lookup=_gh_runs_for_workflow,
     )
-
-    if run_status != "completed":
-        print(
-            f"  Ephemeral deploy run {run_id} is still {run_status} — not yet complete",
-            file=sys.stderr,
-        )
-        return 1
-    if run_conclusion != "success":
-        print(
-            f"  Ephemeral deploy run {run_id} concluded with: {run_conclusion}",
-            file=sys.stderr,
-        )
-        return 1
-
-    slug = slugify_branch(branch)
-    preview_url = f"https://{slug}.{domain}"
-    print("  Ephemeral deploy verified successfully")
-    print(f"  Preview URL: {preview_url}")
-    print(f"EPHEMERAL_URL={preview_url}")
-    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -366,15 +313,18 @@ def main(argv: Optional[List[str]] = None) -> int:
             rest[0], request_id=rest[1] if len(rest) == 2 else ""
         )
     if cmd == "ephemeral-verify":
-        if len(rest) < 4 or len(rest) > 5:
+        if len(rest) < 5 or len(rest) > 6:
             print(
                 "Usage: python3 -m yoke_core.tools.executors ephemeral-verify "
-                "<github_repo> <branch> <workflow> <domain> [commit_sha]",
+                "<project> <github_repo> <branch> <workflow> <domain> [commit_sha]",
                 file=sys.stderr,
             )
             return 1
-        commit_sha = rest[4] if len(rest) == 5 else ""
-        return exec_ephemeral_verify(rest[0], rest[1], rest[2], rest[3], commit_sha)
+        commit_sha = rest[5] if len(rest) == 6 else ""
+        return exec_ephemeral_verify(
+            rest[1], rest[2], rest[3], rest[4], commit_sha,
+            project=rest[0],
+        )
     print(f"Error: unknown executor '{cmd}'", file=sys.stderr)
     return 1
 

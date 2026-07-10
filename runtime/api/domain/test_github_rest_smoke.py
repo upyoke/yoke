@@ -11,6 +11,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    GITHUB_METADATA_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestResponse,
     RestUnprocessableError,
@@ -79,7 +84,7 @@ def test_target_dataclass_carries_owner_repo_split():
 
     auth = ProjectGithubAuth(
         project="yoke", repo="upyoke/yoke",
-        token="ghs_x", env={"GH_TOKEN": "ghs_x"},
+        token="ghs_x",
     )
     tgt = Target.from_auth(auth)
     assert tgt.owner == "upyoke"
@@ -102,11 +107,13 @@ def test_github_rest_label_delete_encodes_label_path_segment(monkeypatch):
         calls.append((req.method, req.path))
         return RestResponse(status=200, headers={}, body=[])
 
-    monkeypatch.setattr(
-        labels,
-        "_target_for",
-        lambda project, db_path=None: SimpleNamespace(owner="o", repo="r", token="t"),
-    )
+    target_calls = []
+
+    def _target_for(project, *, required_permissions, db_path=None):
+        target_calls.append((project, required_permissions))
+        return SimpleNamespace(owner="o", repo="r", token="t")
+
+    monkeypatch.setattr(labels, "_target_for", _target_for)
     monkeypatch.setattr(labels, "request_with_retry", fake_request)
 
     labels.remove_labels(
@@ -117,6 +124,39 @@ def test_github_rest_label_delete_encodes_label_path_segment(monkeypatch):
         "DELETE",
         _api_path("repos/o/r/issues/3129/labels/status%3Aplan%20drafted%2Fnext"),
     )
+    assert target_calls == [
+        ("yoke", GITHUB_ISSUES_WRITE_PERMISSION_LEVELS),
+        ("yoke", GITHUB_ISSUES_READ_PERMISSION_LEVELS),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("search", "expected_permissions"),
+    [
+        ("status:open", GITHUB_METADATA_READ_PERMISSION_LEVELS),
+        ("", GITHUB_ISSUES_READ_PERMISSION_LEVELS),
+    ],
+)
+def test_list_issues_scopes_search_and_repo_endpoints_separately(
+    monkeypatch, search, expected_permissions,
+):
+    from yoke_core.domain import github_rest_issues as issues
+
+    target_calls = []
+
+    def _target_for(project, *, required_permissions, db_path=None):
+        target_calls.append((project, required_permissions))
+        return SimpleNamespace(owner="o", repo="r", token="t")
+
+    def fake_request(req, *, token):
+        body = {"items": []} if req.path == "/search/issues" else []
+        return RestResponse(status=200, headers={}, body=body)
+
+    monkeypatch.setattr(issues, "_target_for", _target_for)
+    monkeypatch.setattr(issues, "request_with_retry", fake_request)
+
+    assert issues.list_issues(project="yoke", search=search, limit=1) == []
+    assert target_calls == [("yoke", expected_permissions)]
 
 
 def test_backlog_label_rest_encodes_label_path_segments(monkeypatch):

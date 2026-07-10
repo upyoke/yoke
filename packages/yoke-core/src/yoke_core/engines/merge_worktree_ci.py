@@ -41,14 +41,12 @@ class CIOutcome(NamedTuple):
 
 
 PASSED = CIOutcome("passed")
-# Three distinct "skipped" reasons so the substitute gate (and telemetry)
-# can tell apart genuinely-no-CI, a 403-unreadable token, and a declared
-# workflow whose checks never registered — instead of collapsing all three
-# to one tag. All three route to the freshness-bound local
+# Two distinct "skipped" reasons let the substitute gate (and telemetry)
+# tell genuinely-no-CI from a declared workflow whose checks never registered.
+# Both route to the freshness-bound local
 # substitute downstream; the reason rides the MergePullRequestCiSkipped
 # event so the distinction is observable.
 SKIPPED_NO_CHECKS = CIOutcome("skipped", "no_checks_configured")
-SKIPPED_UNREADABLE = CIOutcome("skipped", "checks_unreadable_403")
 SKIPPED_UNREGISTERED = CIOutcome("skipped", "checks_declared_unregistered")
 FAILED = CIOutcome("failed")
 
@@ -117,10 +115,9 @@ def _wait_for_ci(pr_num: str, ctx: MergeContext) -> CIOutcome:
     head SHA, translating each check-run's ``status``/``conclusion`` into
     the canonical state vocabulary the legacy helper produced (SUCCESS,
     FAILURE, PENDING, etc.). When the token cannot read check-runs at all
-    or no check-runs are configured, the helper returns
-    :data:`SKIPPED_NO_CHECKS` so the caller's local-verification
-    substitute gate decides whether the merge proceeds. Terminal failure
-    classes emit ``MergePullRequestCiFailed``.
+    or no check-runs are configured, the helper fails authorization errors
+    and returns :data:`SKIPPED_NO_CHECKS` only for a readable empty result.
+    Terminal failure classes emit ``MergePullRequestCiFailed``.
     """
     from yoke_core.domain import runtime_settings
 
@@ -153,11 +150,6 @@ def _wait_for_ci(pr_num: str, ctx: MergeContext) -> CIOutcome:
         return FAILED
     assert initial_state is not None
     poll_interval = runtime_settings.get_seconds("ci_poll_interval", 30)
-
-    # A 403-unreadable token is distinct from genuinely-absent checks.
-    if not initial_state.readable:
-        _print("(CI check-runs unreadable for this token — skipping)")
-        return SKIPPED_UNREADABLE
 
     # Empty check-runs. When the project declares a CI workflow the
     # runs may not be registered on the head SHA yet — wait a bounded window
@@ -193,9 +185,6 @@ def _wait_for_ci(pr_num: str, ctx: MergeContext) -> CIOutcome:
                 )
                 return FAILED
             assert reg_state is not None
-            if not reg_state.readable:
-                _print("(CI check-runs unreadable for this token — skipping)")
-                return SKIPPED_UNREADABLE
             if reg_state.states:
                 initial_state = reg_state
                 break
@@ -235,9 +224,6 @@ def _wait_for_ci(pr_num: str, ctx: MergeContext) -> CIOutcome:
             )
             return FAILED
         assert next_state is not None
-        if not next_state.readable:
-            _print("(CI check-runs unreadable for this token — skipping)")
-            return SKIPPED_UNREADABLE
         if not next_state.states:
             _print("(No CI checks configured — skipping)")
             return SKIPPED_NO_CHECKS

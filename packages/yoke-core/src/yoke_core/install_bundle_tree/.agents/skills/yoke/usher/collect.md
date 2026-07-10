@@ -121,7 +121,8 @@ for _ip_item in $_ready_items; do
 done
 
 if [ -n "$_usher_project" ]; then
- _repo=$(yoke projects get --project "$_usher_project" --field github_repo)
+ _repo=$(yoke projects github-binding status --project "$_usher_project" \
+ --field github_repo)
  _workflow_settings=$(python3 -m yoke_core.cli.db_router query \
  "SELECT settings FROM project_capabilities WHERE project_id=(SELECT id FROM projects WHERE slug='$_usher_project') AND type='ci_workflow_file'" 2>/dev/null) || true
  _workflow_file=""
@@ -130,16 +131,17 @@ if [ -n "$_usher_project" ]; then
  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("workflow_file",""))' 2>/dev/null) || true
  fi
  if [ -n "$_repo" ] && [ -n "$_workflow_file" ]; then
- yoke github-actions check-ci "$_repo" "$_workflow_file" --branch main
+ yoke github-actions check-ci "$_repo" "$_workflow_file" --branch main \
+ --project "$_usher_project"
  fi
 fi
 ```
 
-PAT-backed REST; no host `gh` binary needed. The recipe reads
-`projects.github_repo` for the repo slug and the `ci_workflow_file`
-capability for the workflow filename, so the call works from any
-checkout for any registered project. Run `yoke github-actions check-ci --help`
-for flag detail.
+The GitHub action resolves the project's verified App binding and uses a
+short-lived installation token; no host `gh` binary is needed. The recipe reads
+the verified binding for the repo slug and the `ci_workflow_file` capability
+for the workflow filename, so the call works from any checkout for any
+registered project. Run `yoke github-actions check-ci --help` for flag detail.
 
 If the result reports `"state": "failed"`:
 ```

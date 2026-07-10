@@ -5,11 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_contracts.machine_config import schema as contract
-
-
-class GitHubCredentialError(RuntimeError):
-    """The configured GitHub credential cannot be read."""
 
 
 def authorization_status(authorization: Mapping[str, Any]) -> dict[str, Any]:
@@ -18,11 +15,9 @@ def authorization_status(authorization: Mapping[str, Any]) -> dict[str, Any]:
     status_value = str(authorization.get("status") or "")
     raw_ref = str(authorization.get("refresh_credential_ref") or "").strip()
     status: dict[str, Any] = {
-        "kind": kind or None,
         "status": status_value or None,
         "login": str(authorization.get("login") or ""),
         "github_user_id": authorization.get("github_user_id"),
-        "refresh_credential_ref": raw_ref,
         "present": False,
     }
     issues: list[dict[str, str]] = []
@@ -30,22 +25,25 @@ def authorization_status(authorization: Mapping[str, Any]) -> dict[str, Any]:
         issues.append(_issue(
             "error",
             "github_authorization_kind_unknown",
-            f"unsupported GitHub authorization kind: {kind or '<missing>'}",
+            "GitHub App authorization has an unsupported format",
             "Reconnect GitHub through the Yoke GitHub App.",
         ))
     if raw_ref:
         refresh_path = Path(raw_ref).expanduser()
-        status.update({
-            "refresh_credential_ref": str(refresh_path),
-            "present": refresh_path.is_file(),
-        })
-        if not refresh_path.is_file():
+        present = False
+        try:
+            credential_store.read_credential_document(refresh_path)
+            present = True
+        except credential_store.GitHubCredentialStoreError:
             issues.append(_issue(
                 "error",
-                "github_refresh_credential_missing",
-                f"GitHub App refresh credential is missing: {refresh_path}",
+                "github_refresh_credential_invalid",
+                "GitHub App refresh credential is missing, unsafe, or unreadable",
                 "Reconnect GitHub through the Yoke GitHub App.",
             ))
+        status.update({
+            "present": present,
+        })
     else:
         issues.append(_issue(
             "error",
@@ -78,61 +76,6 @@ def authorization_status(authorization: Mapping[str, Any]) -> dict[str, Any]:
     return status
 
 
-def credential_status(source: Mapping[str, Any]) -> dict[str, Any]:
-    kind = str(source.get("kind") or "")
-    status: dict[str, Any] = {"kind": kind or None, "present": False}
-    issues = []
-    if kind == contract.CREDENTIAL_KIND_TOKEN_FILE:
-        path = Path(str(source.get("path") or "")).expanduser()
-        status.update({"path": str(path), "present": path.is_file()})
-        if not path.is_file():
-            issues.append(_issue(
-                "error",
-                "github_token_missing",
-                f"GitHub credential file is missing: {path}",
-                "Run `yoke github connect TOKEN` to import a fresh token.",
-            ))
-    elif kind:
-        issues.append(_issue(
-            "error",
-            "github_credential_kind_unknown",
-            f"unsupported GitHub credential kind: {kind}",
-            "Reconnect GitHub through the Yoke GitHub App.",
-        ))
-    else:
-        issues.append(_issue(
-            "error",
-            "github_credential_source_missing",
-            "machine GitHub credential_source is missing a kind",
-            "Reconnect GitHub through the Yoke GitHub App.",
-        ))
-    status["issues"] = issues
-    return status
-
-
-def read_token_source(source: Mapping[str, Any]) -> str:
-    kind = str(source.get("kind") or "")
-    if kind == contract.CREDENTIAL_KIND_TOKEN_FILE:
-        return read_token_file(Path(str(source.get("path") or "")).expanduser())
-    raise GitHubCredentialError(
-        "GitHub credential_source.kind must be 'token_file'"
-    )
-
-
-def read_token_file(token_path: Path) -> str:
-    if not token_path.is_file():
-        raise GitHubCredentialError(f"GitHub credential file is missing: {token_path}")
-    try:
-        token = token_path.read_text(encoding="utf-8").strip()
-    except OSError as exc:
-        raise GitHubCredentialError(
-            f"GitHub credential file is unreadable: {token_path}"
-        ) from exc
-    if not token:
-        raise GitHubCredentialError(f"GitHub credential file is empty: {token_path}")
-    return token
-
-
 def _issue(severity: str, code: str, message: str, hint: str = "") -> dict[str, str]:
     issue = {"severity": severity, "code": code, "message": message}
     if hint:
@@ -141,9 +84,5 @@ def _issue(severity: str, code: str, message: str, hint: str = "") -> dict[str, 
 
 
 __all__ = [
-    "GitHubCredentialError",
     "authorization_status",
-    "credential_status",
-    "read_token_file",
-    "read_token_source",
 ]

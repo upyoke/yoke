@@ -21,6 +21,7 @@ from yoke_cli.transport.dispatcher import (
     call_dispatcher,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 from yoke_contracts.machine_config.capability_secrets import (
     is_machine_local_capability_secret,
 )
@@ -36,12 +37,13 @@ def projects_capability_secret_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects capability secret set",
         description=(
-            "Store a project capability secret. GitHub App private keys use "
-            "the app_private_key secret while repository access uses binding "
-            "rows; aws-admin secrets and ssh.private_key are stored on this "
-            "machine under ~/.yoke/secrets. VALUE is the default input; "
-            "--value-file and --value-stdin import the secret value without "
-            "printing it."
+            "Store a project capability secret. GitHub authentication is not "
+            "a project capability secret: repository access uses App binding "
+            "rows, and the App private key is control-plane deployment "
+            "configuration. aws-admin secrets and ssh.private_key are stored "
+            "on this machine under ~/.yoke/secrets. VALUE is the default "
+            "input; --value-file and --value-stdin import the secret value "
+            "without printing it."
         ),
     )
     parser.add_argument("--project", required=True)
@@ -50,7 +52,8 @@ def projects_capability_secret_set(args: List[str]) -> int:
     parser.add_argument("value", nargs="?")
     parser.add_argument("--value-file", dest="value_file", default=None)
     parser.add_argument("--value-stdin", dest="value_stdin", action="store_true")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, PROJECTS_CAPABILITY_SECRET_SET_USAGE,
     )
@@ -61,6 +64,11 @@ def projects_capability_secret_set(args: List[str]) -> int:
         return usage_error(
             "exactly one secret value source is required: "
             f"{PROJECTS_CAPABILITY_SECRET_SET_USAGE}"
+        )
+    if str(parsed.cap_type).strip().casefold() == GITHUB_CAPABILITY_TYPE:
+        return usage_error(
+            "GitHub capability secrets are retired; connect or bind the "
+            "repository through the GitHub App"
         )
     try:
         value = _project_secret_value(parsed)

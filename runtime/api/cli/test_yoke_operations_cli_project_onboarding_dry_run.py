@@ -69,7 +69,6 @@ def test_onboard_project_dry_run_reports_plan_without_repo_or_config_mutation(
         "repo": "owner/local",
         "requires_app_installation": True,
     }
-    assert payload["github_adoption"]["machine_github_credential_promoted"] is False
     assert_github_preview(payload, enabled=True)
     assert tree_snapshot(checkout) == before_checkout
     assert config.read_text(encoding="utf-8") == before_config

@@ -41,28 +41,28 @@ def initialized_db(tmp_path: Path) -> str:
 class TestCapabilitySecrets:
     def test_set_and_get_literal_secret(self, initialized_db: str):
         msg = projects.cmd_capability_set_secret(
-            "yoke", "github", "token", "ghs_abc123",
+            "yoke", "deploy", "token", "deploy-secret",
             source="literal", db_path=initialized_db,
         )
         assert "token" in msg
 
         result = projects.cmd_capability_get_secret(
-            "yoke", "github", "token", db_path=initialized_db,
+            "yoke", "deploy", "token", db_path=initialized_db,
         )
-        assert result == "ghs_abc123"
+        assert result == "deploy-secret"
 
     def test_get_secret_rejects_file_source(self, monkeypatch):
         conn = _fake_secret_row(monkeypatch, "file")
         with pytest.raises(ValueError, match="unsupported source='file'"):
             projects.cmd_capability_get_secret(
-                "yoke", "github", "token", conn=conn,
+                "yoke", "deploy", "token", conn=conn,
             )
 
     def test_get_secret_rejects_missing_file_source(self, monkeypatch):
         conn = _fake_secret_row(monkeypatch, "file")
         with pytest.raises(ValueError, match="unsupported source='file'"):
             projects.cmd_capability_get_secret(
-                "yoke", "github", "token", conn=conn,
+                "yoke", "deploy", "token", conn=conn,
             )
 
     def test_get_secret_rejects_env_source(self, monkeypatch):
@@ -70,7 +70,7 @@ class TestCapabilitySecrets:
         conn = _fake_secret_row(monkeypatch, "env")
         with pytest.raises(ValueError, match="unsupported source='env'"):
             projects.cmd_capability_get_secret(
-                "yoke", "github", "token", conn=conn,
+                "yoke", "deploy", "token", conn=conn,
             )
 
     def test_get_secret_rejects_missing_env_source(self, monkeypatch):
@@ -78,13 +78,13 @@ class TestCapabilitySecrets:
         conn = _fake_secret_row(monkeypatch, "env")
         with pytest.raises(ValueError, match="unsupported source='env'"):
             projects.cmd_capability_get_secret(
-                "yoke", "github", "token", conn=conn,
+                "yoke", "deploy", "token", conn=conn,
             )
 
     def test_set_secret_external_source_raises(self, initialized_db: str):
         with pytest.raises(ValueError, match="source='literal'"):
             projects.cmd_capability_set_secret(
-                "yoke", "github", "k", "v",
+                "yoke", "deploy", "k", "v",
                 source="file", db_path=initialized_db,
             )
 
@@ -114,13 +114,13 @@ class TestCapabilitySecrets:
 
     def test_upsert_secret_overwrites(self, initialized_db: str):
         projects.cmd_capability_set_secret(
-            "yoke", "github", "tok", "old_val", db_path=initialized_db,
+            "yoke", "deploy", "tok", "old_val", db_path=initialized_db,
         )
         projects.cmd_capability_set_secret(
-            "yoke", "github", "tok", "new_val", db_path=initialized_db,
+            "yoke", "deploy", "tok", "new_val", db_path=initialized_db,
         )
         result = projects.cmd_capability_get_secret(
-            "yoke", "github", "tok", db_path=initialized_db,
+            "yoke", "deploy", "tok", db_path=initialized_db,
         )
         assert result == "new_val"
 

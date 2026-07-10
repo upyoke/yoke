@@ -21,6 +21,9 @@ import os
 import sys
 from pathlib import Path
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_contracts.project_contract.label_policy import read_labels_file
 from yoke_core.domain import project_label_policy
 from yoke_core.domain.backlog_github_label_sync_rest import ensure_label
@@ -75,7 +78,10 @@ def _project_label_overrides() -> dict:
 
 def run(project: str) -> int:
     try:
-        auth = resolve_project_github_auth(project)
+        auth = resolve_project_github_auth(
+            project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError as exc:
         print(f"Error: cannot resolve GitHub auth for project '{project}': {exc}", file=sys.stderr)
         return 2

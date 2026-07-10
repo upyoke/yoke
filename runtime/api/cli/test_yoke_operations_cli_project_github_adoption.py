@@ -3,17 +3,30 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     assert_github_preview,
     run_git,
-    tree_text,
     write_https_config,
 )
 from yoke_cli import main as yoke_operations_cli
+from yoke_cli.config.project_github_adoption import (
+    GITHUB_ADOPTION_INPUT_CHOICES,
+    ProjectGithubAdoptionError,
+    github_adoption_report,
+)
 
 
-def test_onboard_project_defaults_repo_to_app_binding(
+def test_retired_skip_alias_is_not_an_adoption_choice() -> None:
+    assert GITHUB_ADOPTION_INPUT_CHOICES == ("app-binding", "backlog-only")
+
+    with pytest.raises(ProjectGithubAdoptionError, match="expected one of"):
+        github_adoption_report(choice="skip", github_repo="owner/repo", apply=False)
+
+
+def test_onboard_project_explicit_backlog_only_needs_no_app_binding(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
@@ -39,6 +52,7 @@ def test_onboard_project_defaults_repo_to_app_binding(
             "--github-repo", "owner/local",
             "--default-branch", "main",
             "--public-item-prefix", "LOC",
+            "--github-adoption", "backlog-only",
             "--config", str(config),
             "--yes",
             "--json",
@@ -49,91 +63,16 @@ def test_onboard_project_defaults_repo_to_app_binding(
     payload = json.loads(out)
     assert payload["operation"] == "onboard.project"
     assert payload["applied"] is True
-    assert payload["github_adoption"]["choice"] == "app-binding"
-    assert payload["github_adoption"]["secret"] == {
-        "provided": False,
-        "import_method": None,
-        "stored": False,
-        "storage": None,
-        "persisted_source": None,
-        "required": False,
-    }
+    assert payload["github_adoption"]["choice"] == "backlog-only"
     assert payload["github_adoption"]["binding"] == {
-        "status": "pending_app_connection",
+        "status": "skipped",
         "repo": "owner/local",
-        "requires_app_installation": True,
+        "requires_app_installation": False,
     }
-    assert_github_preview(payload, enabled=True)
+    assert_github_preview(payload, enabled=False)
     assert payload["automation_preview"]["project"]["surface"] == "project.upsert"
 
     get_call = api.function_call("projects.get")
     assert get_call["payload"] == {"project": "local"}
     assert api.function_calls("projects.create") == []
     assert api.function_calls("projects.capability_secret.set") == []
-
-
-def test_onboard_project_rejects_project_github_token_file(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
-    checkout = tmp_path / "local-checkout"
-    checkout.mkdir()
-    run_git(checkout, "init")
-    github_token = tmp_path / "github.token"
-    github_token.write_text("ghs_local_project_secret\n", encoding="utf-8")
-
-    config = write_https_config(tmp_path, "product-token")
-    rc = yoke_operations_cli.main([
-        "onboard",
-        "--config", str(config),
-        "--env", "prod",
-        "--api-url", "https://api.example.test",
-        "product-token",
-        "--yes",
-        "--json",
-        "--skip-identity-check",
-        "--project-mode", "local-checkout",
-        "--checkout", str(checkout),
-        "--project-slug", "local",
-        "--project-name", "Local",
-        "--github-repo", "owner/local",
-        "--default-branch", "main",
-        "--public-item-prefix", "LOC",
-        "--github-adoption", "app-binding",
-        "--github-token-file", str(github_token),
-    ])
-
-    assert rc == 2
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert "project-supplied GitHub credentials are no longer supported" in captured.err
-    assert "ghs_local_project_secret" not in captured.err
-    assert "ghs_local_project_secret" not in tree_text(checkout)
-    assert "ghs_local_project_secret" not in config.read_text(encoding="utf-8")
-
-
-def test_legacy_onboard_project_token_store_failure_is_friendly(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
-    checkout = tmp_path / "local-checkout"
-    checkout.mkdir()
-    run_git(checkout, "init")
-    config = write_https_config(tmp_path, "product-token")
-    rc = yoke_operations_cli.main([
-        "onboard", "project", str(checkout),
-        "--slug", "local",
-        "--name", "Local",
-        "--github-repo", "owner/local",
-        "--default-branch", "main",
-        "--public-item-prefix", "LOC",
-        "--github-adoption", "different-token",
-        "--config", str(config),
-        "--yes",
-        "--json",
-    ])
-
-    assert rc == 1
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert "--github-adoption different-token is no longer supported" in captured.err

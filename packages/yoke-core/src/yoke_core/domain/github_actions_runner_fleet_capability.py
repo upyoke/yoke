@@ -16,8 +16,8 @@ from yoke_contracts.github_actions_runner_fleet import (
 DEFAULT_PROVIDER = "aws-ec2"
 DEFAULT_INSTANCE_TYPE = "m7g.2xlarge"
 DEFAULT_ARCHITECTURE = "arm64"
-DEFAULT_DESIRED_RUNNER_COUNT = 4
-DEFAULT_MAX_RUNNER_COUNT = 4
+DEFAULT_DESIRED_RUNNER_COUNT = 1
+DEFAULT_MAX_RUNNER_COUNT = 1
 DEFAULT_ROOT_VOLUME_GB = 200
 DEFAULT_GITHUB_CAPABILITY = "github"
 DEFAULT_AWS_CAPABILITY = "aws-admin"
@@ -49,8 +49,8 @@ class RunnerFleetLifecycleSettings(BaseModel):
     """Lifecycle intent for an operator- or automation-started runner fleet."""
 
     start_mode: str = DEFAULT_START_MODE
-    idle_shutdown_minutes: int = Field(30, ge=0)
-    ephemeral_runners: bool = False
+    idle_shutdown_minutes: int = Field(30, ge=1)
+    ephemeral_runners: bool = True
     shutdown_mode: str = DEFAULT_SHUTDOWN_MODE
 
     @field_validator("start_mode")
@@ -140,6 +140,12 @@ class RunnerFleetSettings(BaseModel):
                 "max_runner_count must be greater than or equal to "
                 "desired_runner_count"
             )
+        if self.desired_runner_count != 1 or self.max_runner_count != 1:
+            raise ValueError(
+                "runner fleet v1 requires exactly one isolated runner host"
+            )
+        if not self.lifecycle.ephemeral_runners:
+            raise ValueError("runner fleet v1 requires ephemeral_runners=true")
         return self
 
 

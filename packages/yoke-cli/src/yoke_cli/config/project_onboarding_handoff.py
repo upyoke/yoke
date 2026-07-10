@@ -17,6 +17,7 @@ from yoke_contracts.onboard_checklist import (
     STATUS_DEFERRED,
     STATUS_VERIFIED,
 )
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
 
 DispatchFn = Callable[[str, Mapping[str, Any], str | Path | None], Mapping[str, Any]]
 
@@ -126,10 +127,12 @@ def _apply_github_row(
     evidence: dict[str, Any],
     github_adoption: Mapping[str, Any] | None,
 ) -> None:
-    choice = str((github_adoption or {}).get("choice") or "skip")
-    if choice in ("skip", "backlog-only"):
+    choice = str(
+        (github_adoption or {}).get("choice") or GITHUB_ADOPTION_BACKLOG_ONLY
+    )
+    if choice == GITHUB_ADOPTION_BACKLOG_ONLY:
         row_status["machine-github-connection"] = STATUS_DEFERRED
-    elif choice in ("temporary-only", "app-binding"):
+    elif choice == "app-binding":
         row_status["machine-github-connection"] = STATUS_CONFIGURED
     else:
         row_status["machine-github-connection"] = STATUS_VERIFIED

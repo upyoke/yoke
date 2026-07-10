@@ -1,26 +1,20 @@
-"""GitHub REST helpers for publishing a project to a new repo.
+"""GitHub REST helpers for App-authorized project publishing.
 
-Onboarding's "Also publish to GitHub?" step needs two GitHub writes that the
-read-only verification helper (:mod:`github_machine_verify`) does not cover:
-listing the accounts a token can create repos under, and creating a repo. Both
-live behind the small functions here so the wizard and ``project_onboard`` can
-drive them while tests mock the network at one seam.
-
-The token is a short-lived GitHub App user access token refreshed from machine
-authorization, so no ``gh`` CLI prerequisite is introduced — the REST API is hit
-directly.
+The token is short-lived local GitHub App user authorization. These helpers use
+the REST API directly and never require a host ``gh`` binary.
 """
 
 from __future__ import annotations
 
-import json
-import urllib.error
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-_TIMEOUT_S = 20.0
+from yoke_cli.config.github_publish_transport import (
+    GitHubPublishError,
+    request_json as _request_json,
+)
+from yoke_contracts import github_origin
 _USER_PATH = "/user"
 _ORGS_PATH = "/user/orgs"
 _USER_REPOS_PATH = "/user/repos"
@@ -29,24 +23,6 @@ _USER_REPOS_PATH = "/user/repos"
 # 409 ("Git Repository is empty"). Both are recognised by code, not message.
 _HTTP_NAME_ALREADY_EXISTS = 422
 _HTTP_EMPTY_REPOSITORY = 409
-
-
-class GitHubPublishError(RuntimeError):
-    """A GitHub publish REST call failed.
-
-    ``status`` carries the HTTP status code when the failure was a non-2xx REST
-    response (set by :func:`_request_json` where it wraps an
-    :class:`urllib.error.HTTPError`); it is ``None`` for transport/parse
-    failures. Callers branch on it to recognise a specific status — e.g.
-    :func:`create_repo` treats a ``422`` as "name already exists" and resumes —
-    without re-parsing the message string.
-    """
-
-    def __init__(self, *args: Any, status: int | None = None) -> None:
-        super().__init__(*args)
-        self.status = status
-
-
 @dataclass(frozen=True)
 class RepoOwner:
     """One account a token can create repos under."""
@@ -133,26 +109,22 @@ def create_repo(
     name: str,
     user_login: str,
     private: bool = True,
+    administration_allowed: bool = False,
+    web_url: str = github_origin.DEFAULT_GITHUB_WEB_URL,
 ) -> dict[str, Any]:
-    """Create a repo under ``owner`` and return its summary.
-
-    The endpoint differs by owner kind: the authenticated user's own repos go
-    to ``POST /user/repos``; an org's repos go to ``POST /orgs/{org}/repos``.
-    The repo is private by default. The returned dict carries ``full_name``,
-    ``clone_url``/``ssh_url``, and ``default_branch`` for the push that follows.
-
-    Idempotent on a resume: when the create POST fails because the name already
-    exists (HTTP 422) AND the pre-existing repo is empty (no commits — our prior
-    run created it but the push had not landed yet), the existing repo is reused
-    and its summary returned in the same shape, so the idempotent re-home can
-    re-push and complete. A pre-existing repo that already has content is NOT
-    adopted — it raises a recovery-shaped error rather than risk pushing into a
-    populated repo the caller did not mean to publish over.
-
-    The returned summary carries ``reused``: ``False`` on a fresh create, ``True``
-    on the 422 resume path, so the caller can tell the user the repo already
-    existed and was reused rather than freshly created this run.
-    """
+    """Create a repo, safely resuming only a prior empty-repo create."""
+    endpoint = _require_github_com_mutation(
+        api_url, web_url=web_url, action="repository creation",
+    )
+    manual_url = endpoint.new_repository_url()
+    if not administration_allowed:
+        raise GitHubPublishError(
+            "Creating repositories through Yoke is an optional GitHub App "
+            "Administration permission and is off by default. Create the "
+            f"repository at {manual_url}, grant the Yoke GitHub App "
+            "access to it, then rerun onboarding; or reconnect the App with "
+            "Administration: write to enable one-step creation."
+        )
     body: dict[str, Any] = {"name": name, "private": bool(private)}
     if owner == user_login:
         path = _USER_REPOS_PATH
@@ -193,7 +165,7 @@ def _reuse_existing_repo(
     if not isinstance(existing, Mapping) or not existing.get("full_name"):
         raise GitHubPublishError(
             f"a repo named {owner}/{name} already exists but could not be read "
-            "to resume — check the name and your GitHub credential, then re-run"
+            "to resume — check the name and GitHub App authorization, then re-run"
         )
     if not _repo_is_empty(api_url, token, owner=owner, name=name):
         raise GitHubPublishError(
@@ -254,6 +226,7 @@ def fork_repo(
     *,
     owner: str,
     repo: str,
+    web_url: str = github_origin.DEFAULT_GITHUB_WEB_URL,
 ) -> dict[str, Any]:
     """Fork ``owner/repo`` into the authenticated account and return its summary.
 
@@ -263,6 +236,9 @@ def fork_repo(
     ``ssh_url``/``default_branch`` for the re-home that follows. GitHub forks are
     eventually consistent, but the create response already names the fork.
     """
+    _require_github_com_mutation(
+        api_url, web_url=web_url, action="repository forking",
+    )
     path = (
         f"/repos/{urllib.parse.quote(owner, safe='')}"
         f"/{urllib.parse.quote(repo, safe='')}/forks"
@@ -282,60 +258,20 @@ def fork_repo(
     }
 
 
-def _request_json(
+def _require_github_com_mutation(
     api_url: str,
-    path: str,
-    token: str,
     *,
-    method: str = "GET",
-    query: Mapping[str, str] | None = None,
-    body: Mapping[str, Any] | None = None,
-) -> Any:
-    url = api_url.rstrip("/") + path
-    if query:
-        url = url + "?" + urllib.parse.urlencode(query)
-    data = json.dumps(dict(body)).encode("utf-8") if body is not None else None
-    request = urllib.request.Request(
-        url,
-        data=data,
-        method=method,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "Content-Type": "application/json",
-        },
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        detail = _error_detail(exc)
+    action: str,
+    web_url: str = github_origin.DEFAULT_GITHUB_WEB_URL,
+) -> github_origin.GitHubEndpointPair:
+    endpoint = github_origin.validate_github_endpoint_pair(api_url, web_url)
+    if endpoint.deployment_kind != "github_cloud":
         raise GitHubPublishError(
-            f"GitHub call failed: {method} {url} returned HTTP {exc.code}"
-            + (f" — {detail}" if detail else ""),
-            status=exc.code,
-        ) from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise GitHubPublishError(
-            f"GitHub call failed against {url}: {exc}"
-        ) from exc
-    try:
-        return json.loads(raw) if raw else None
-    except ValueError as exc:
-        raise GitHubPublishError(
-            f"GitHub call returned invalid JSON from {url}"
-        ) from exc
-
-
-def _error_detail(exc: urllib.error.HTTPError) -> str:
-    try:
-        payload = json.loads(exc.read().decode("utf-8"))
-    except (ValueError, OSError):
-        return ""
-    if isinstance(payload, Mapping) and payload.get("message"):
-        return str(payload["message"])
-    return ""
+            f"One-step {action} currently supports GitHub.com only. Complete "
+            f"that action at {endpoint.new_repository_url()}, grant the App "
+            "access, then refresh onboarding."
+        )
+    return endpoint
 
 
 __all__ = [
@@ -344,6 +280,5 @@ __all__ = [
     "RepoRef",
     "create_repo",
     "fork_repo",
-    "list_repo_owners",
-    "list_user_repos",
+    "list_repo_owners", "list_user_repos",
 ]

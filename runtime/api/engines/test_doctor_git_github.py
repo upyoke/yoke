@@ -12,6 +12,10 @@ import json
 import textwrap
 from unittest.mock import patch
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_METADATA_READ_PERMISSION_LEVELS,
+)
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
@@ -124,7 +128,12 @@ def _make_completed(returncode=0, stdout="", stderr=""):
 def _auth(repo: str = "upyoke/yoke"):
     """Build a ProjectGithubAuth stub for resolver patches."""
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
-    return ProjectGithubAuth(project="yoke", repo=repo, token="t", env={"GH_TOKEN": "t"})
+    return ProjectGithubAuth(project="yoke", repo=repo, token="t")
+
+
+def _auth_for_project(project: str, **_kwargs):
+    repo = "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
+    return _auth(repo)
 
 
 class TestHcOrphanedGhIssues:
@@ -138,7 +147,7 @@ class TestHcOrphanedGhIssues:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth())
+           side_effect=lambda project, db_path=None, **_kwargs: _auth())
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
     def test_no_orphans_passes(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
@@ -150,6 +159,10 @@ class TestHcOrphanedGhIssues:
         mock_rest.return_value = _make_completed(stdout="100\n")
         rec = _run_hc(hc_orphaned_gh_issues, conn)
         assert rec.results[0].result == "PASS"
+        assert (
+            mock_resolve.call_args.kwargs["required_permissions"]
+            is GITHUB_ISSUES_READ_PERMISSION_LEVELS
+        )
 
 
 class TestHcGhOrphanDetection:
@@ -163,7 +176,7 @@ class TestHcGhOrphanDetection:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth())
+           side_effect=lambda project, db_path=None, **_kwargs: _auth())
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_orphan_detected_warns(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
@@ -173,6 +186,25 @@ class TestHcGhOrphanDetection:
         rec = _run_hc(hc_gh_orphan_detection, conn)
         assert rec.results[0].result == "WARN"
         assert "#999" in rec.results[0].detail
+        assert (
+            mock_resolve.call_args.kwargs["required_permissions"]
+            is GITHUB_METADATA_READ_PERMISSION_LEVELS
+        )
+        assert mock_rest.call_args.kwargs["search"] == "[YOK- is:issue"
+
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
+           side_effect=lambda project, db_path=None, **_kwargs: _auth())
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
+    def test_search_failure_warns(self, mock_rest, mock_resolve, mock_avail):
+        conn = _make_conn()
+        _seed_project(conn, "yoke", github_repo="upyoke/yoke")
+        mock_rest.return_value = _make_completed(returncode=1)
+
+        rec = _run_hc(hc_gh_orphan_detection, conn)
+
+        assert rec.results[0].result == "WARN"
+        assert "search failed" in rec.results[0].detail
 
 
 class TestHcWrongRepoIssues:
@@ -186,7 +218,7 @@ class TestHcWrongRepoIssues:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth())
+           side_effect=_auth_for_project)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_correct_repo_passes(self, mock_gh_run, mock_resolve, mock_avail):
         conn = _make_conn()
@@ -199,7 +231,7 @@ class TestHcWrongRepoIssues:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth())
+           side_effect=_auth_for_project)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_wrong_repo_warns(self, mock_gh_run, mock_resolve, mock_avail):
         conn = _make_conn()

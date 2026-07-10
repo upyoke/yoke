@@ -106,6 +106,37 @@ class TestPushRemoteFile:
         )
         assert runner.calls[0]["argv"][-1].startswith("sudo install -m 644 ")
 
+    def test_quotes_remote_path_before_sending_secret_stdin(self):
+        runner = FakeRunner()
+        push_remote_file(
+            runner,
+            _env(),
+            content="PRIVATE KEY\n",
+            remote_path="/opt/yoke/$(cat >&2)/private key.pem",
+            mode="600",
+            sudo=False,
+        )
+
+        remote_command = runner.calls[0]["argv"][-1]
+        assert remote_command == (
+            "install -m 600 /dev/stdin '/opt/yoke/$(cat >&2)/private key.pem'"
+        )
+        assert runner.calls[0]["input_text"] == "PRIVATE KEY\n"
+
+    def test_rejects_non_octal_mode_before_running_ssh(self):
+        runner = FakeRunner()
+
+        with pytest.raises(ValueError, match="octal"):
+            push_remote_file(
+                runner,
+                _env(),
+                content="PRIVATE KEY\n",
+                remote_path="/opt/yoke/private-key.pem",
+                mode="600; cat /dev/stdin",
+            )
+
+        assert runner.calls == []
+
 
 class TestAwsCapabilityEnv:
     def test_materializes_capability_secrets_into_env(self, monkeypatch):

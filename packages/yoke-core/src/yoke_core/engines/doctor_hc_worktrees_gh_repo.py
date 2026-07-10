@@ -17,6 +17,10 @@ import json
 import re
 from typing import List
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_github_auth import (
@@ -28,15 +32,9 @@ from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
 )
-
 import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
-
 from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
-
-
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 from yoke_core.engines.doctor_hc_worktrees_gh_repo_rest import (
     issue_close,
     issue_comment,
@@ -49,6 +47,10 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+
+
+def _p(conn) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -70,9 +72,19 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record("HC-wrong-repo-issues", "Wrong-repo GitHub issues", "PASS", "")
         return
 
+    required_permissions = (
+        GITHUB_ISSUES_WRITE_PERMISSION_LEVELS
+        if args.fix
+        else GITHUB_ISSUES_READ_PERMISSION_LEVELS
+    )
+
     # Resolve Yoke repo + auth dynamically.  Failure is a doctor FAIL.
     try:
-        yoke_auth = resolve_project_github_auth("yoke", db_path=args.db_path)
+        yoke_auth = resolve_project_github_auth(
+            "yoke",
+            db_path=args.db_path,
+            required_permissions=required_permissions,
+        )
     except ProjectGithubAuthError as err:
         rec.record(
             "HC-wrong-repo-issues", "Wrong-repo GitHub issues", "FAIL",
@@ -83,18 +95,14 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     yoke_repo = yoke_auth.repo
     yoke_token = yoke_auth.token
 
-    # Get items with github_issue + project with github_repo. Same-repo
-    # rows (target_repo == resolved Yoke repo) cannot prove the
-    # wrong-repo invariant — they are filtered below before any REST
-    # call so the doctor scan stays O(distinct external projects)
-    # instead of O(every linked Yoke row).
+    # Resolve each linked item's project binding before selecting a network
+    # target. The projects-table repo projection is deliberately not read.
     rows = query_rows(
         conn,
-        "SELECT i.id, i.github_issue, p.slug AS project, p.github_repo "
+        "SELECT i.id, i.github_issue, p.slug AS project "
         "FROM items i "
         "JOIN projects p ON i.project_id = p.id "
-        "WHERE i.github_issue IS NOT NULL AND i.github_issue <> '' "
-        "AND p.github_repo IS NOT NULL AND p.github_repo <> ''",
+        "WHERE i.github_issue IS NOT NULL AND i.github_issue <> ''",
     )
 
     issues: List[str] = []
@@ -103,11 +111,9 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # Memoize per-project auth so each distinct project resolves once,
     # not once per item — the live DB at investigation time carried
     # ~1.8k linked Yoke rows where this collapses to a single resolve.
-    project_auth_cache: dict[str, object] = {}
-    # Backlog-only projects are out of scope: after the documented
-    # sync-off -> repo-flip cutover their github_issue refs point at the
-    # old repo as historical records, not wrong-repo violations
-    # (docs/github-sync.md, "Old refs stay historical").
+    project_auth_cache: dict[str, object] = {"yoke": yoke_auth}
+    # Backlog-only projects are out of scope: their linked issue refs are
+    # historical records, not wrong-repo violations.
     sync_enabled_cache: dict[str, bool] = {}
     sync_disabled_notes: List[str] = []
     yoke_repo_norm = (yoke_repo or "").lower()
@@ -116,7 +122,6 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         item_id = row["id"]
         gh = row["github_issue"]
         project = row["project"]
-        target_repo = row["github_repo"]
         num = gh.replace("#", "")
 
         enabled = sync_enabled_cache.get(project)
@@ -130,15 +135,15 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if not enabled:
             continue
 
-        # Same-repo Yoke rows cannot prove the wrong-repo invariant.
-        if (target_repo or "").lower() == yoke_repo_norm:
-            continue
-
-        # Check if issue exists in target repo (project-scoped auth)
+        # Check if issue exists in the verified project binding.
         cached = project_auth_cache.get(project)
         if cached is None:
             try:
-                cached = resolve_project_github_auth(project, db_path=args.db_path)
+                cached = resolve_project_github_auth(
+                    project,
+                    db_path=args.db_path,
+                    required_permissions=required_permissions,
+                )
             except ProjectGithubAuthError as err:
                 # Cache the failure too so we do not retry per row.
                 project_auth_cache[project] = err
@@ -154,6 +159,9 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             count += 1
             continue
         project_auth = cached
+        target_repo = project_auth.repo
+        if target_repo.lower() == yoke_repo_norm:
+            continue
         r = issue_view_state(repo=target_repo, num=num, token=project_auth.token)
         state = r.stdout.strip() if r.returncode == 0 else ""
 

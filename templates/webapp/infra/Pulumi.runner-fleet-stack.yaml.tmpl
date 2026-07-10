@@ -2,6 +2,14 @@ config:
   aws:region: {{aws_region}}
   webapp-infra:deploy_namespace: {{deploy_namespace}}
   webapp-infra:github_repo: {{runner_fleet_repo}}
+  webapp-infra:github_repo_owner: {{runner_fleet_github_repo_owner}}
+  webapp-infra:github_repo_name: {{runner_fleet_github_repo_name}}
+  webapp-infra:github_installation_id: "{{runner_fleet_github_installation_id}}"
+  webapp-infra:github_repository_id: "{{runner_fleet_github_repository_id}}"
+  webapp-infra:github_app_issuer: {{runner_fleet_github_app_issuer}}
+  webapp-infra:github_api_url: {{runner_fleet_github_api_url}}
+  webapp-infra:github_web_url: {{runner_fleet_github_web_url}}
+  webapp-infra:github_private_key_secret_arn: {{runner_fleet_github_private_key_secret_arn}}
   webapp-infra:runner_labels: '{{runner_fleet_labels_json}}'
   webapp-infra:runner_count: "{{runner_fleet_runner_count}}"
   webapp-infra:max_runner_count: "{{runner_fleet_max_runner_count}}"

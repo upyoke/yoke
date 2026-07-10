@@ -8,16 +8,13 @@ from typing import Any
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import project_onboard_apply
 from yoke_cli.config import project_onboard_progress as progress_steps
-from yoke_cli.config.project_github_adoption import (
-    github_adoption_report,
-)
+from yoke_cli.config.project_github_adoption import github_sync_mode, github_adoption_report
 from yoke_cli.config.project_onboard_support import (
     PLAN,
     ProjectDispatchError,
     ProjectOnboardError,
     dispatch,
     dry_run_report,
-    github_token as resolve_github_token,
     project_api_payload,
     project_dry_run,
 )
@@ -51,9 +48,6 @@ def create_project(
     github_repo: str | None,
     default_branch: str,
     public_item_prefix: str,
-    github_token: str | None,
-    github_token_file: str | Path | None,
-    github_token_stdin_value: str | None,
     github_adoption_choice: str | None,
     config_path: str | Path | None,
     apply: bool,
@@ -68,22 +62,16 @@ def create_project(
 ) -> dict[str, Any]:
     root = Path(checkout).expanduser().resolve()
     progress_target = checkout_target or str(root)
-    token_value, token_import_method = resolve_github_token(
-        token=github_token,
-        token_file=github_token_file,
-        token_stdin_value=github_token_stdin_value,
-    )
     github_adoption = github_adoption_report(
         choice=github_adoption_choice,
         github_repo=github_repo,
-        token_value=token_value,
-        token_import_method=token_import_method,
         apply=apply,
     )
     payload = project_api_payload(
         slug=slug, name=name, org=org,
         github_repo=github_repo, default_branch=default_branch,
         public_item_prefix=public_item_prefix,
+        github_sync_mode=github_sync_mode(github_adoption),
     )
     if not apply:
         return project_dry_run(
@@ -98,6 +86,9 @@ def create_project(
             created = create_and_publish(root, publish, default_branch=default_branch)
             github_repo = created["full_name"]
             payload["github_repo"] = github_repo
+            progress_steps.record_mutated_repository(
+                github_adoption, github_repo, config_path,
+            )
     with onboard_apply_progress.step(progress, scaffold_action):
         result = dispatch("projects.create", payload, config_path)
         report = project_onboard_apply.finish_after_dispatch(
@@ -108,7 +99,6 @@ def create_project(
             config_path=config_path,
             progress=progress,
             github_auth_target=github_auth_target,
-            token_value=token_value,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
         )
@@ -126,9 +116,6 @@ def import_project(
     github_repo: str | None,
     default_branch: str,
     public_item_prefix: str,
-    github_token: str | None,
-    github_token_file: str | Path | None,
-    github_token_stdin_value: str | None,
     github_adoption_choice: str | None,
     config_path: str | Path | None,
     apply: bool,
@@ -142,25 +129,19 @@ def import_project(
     reuse_github_auth: bool = False,
     existing_project_id: int | None = None,
 ) -> dict[str, Any]:
-    plan = clone or ClonePlan()
+    plan = apply_clone.prepare_clone_plan(clone or ClonePlan(), config_path)
     root = Path(checkout).expanduser().resolve()
     progress_target = checkout_target or str(root)
-    token_value, token_import_method = resolve_github_token(
-        token=github_token,
-        token_file=github_token_file,
-        token_stdin_value=github_token_stdin_value,
-    )
     github_adoption = github_adoption_report(
         choice=github_adoption_choice,
         github_repo=github_repo,
-        token_value=token_value,
-        token_import_method=token_import_method,
         apply=apply,
     )
     payload = project_api_payload(
         slug=slug, name=name, org=org,
         github_repo=github_repo, default_branch=default_branch,
         public_item_prefix=public_item_prefix,
+        github_sync_mode=github_sync_mode(github_adoption),
     )
     if not apply:
         if existing_project_id is not None:
@@ -178,7 +159,10 @@ def import_project(
     else:
         onboard_apply_progress.emit(progress, checkout_action, progress_target, "running")
         try:
-            clone_reused = _resumable_clone(root, remote_url, token=plan.fallback_token)
+            clone_reused = _resumable_clone(
+                root, remote_url, token=plan.fallback_token,
+                github_web_url=plan.fork_web_url,
+            )
         except Exception:
             onboard_apply_progress.emit(progress, checkout_action, progress_target, "failed")
             raise
@@ -209,7 +193,6 @@ def import_project(
             config_path=config_path,
             progress=progress,
             github_auth_target=github_auth_target,
-            token_value=token_value,
             clone_outcome=outcome,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
@@ -217,6 +200,9 @@ def import_project(
     if outcome is not None and outcome.github_repo is not None:
         github_repo = outcome.github_repo
         payload["github_repo"] = outcome.github_repo
+        progress_steps.record_mutated_repository(
+            github_adoption, outcome.github_repo, config_path,
+        )
     if outcome is not None and outcome.branch is not None:
         default_branch = outcome.branch
         payload["default_branch"] = outcome.branch
@@ -230,7 +216,6 @@ def import_project(
             config_path=config_path,
             progress=progress,
             github_auth_target=github_auth_target,
-            token_value=token_value,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
             clone_outcome=outcome,
@@ -249,9 +234,6 @@ def onboard_existing(
     github_repo: str | None,
     default_branch: str,
     public_item_prefix: str,
-    github_token: str | None,
-    github_token_file: str | Path | None,
-    github_token_stdin_value: str | None,
     github_adoption_choice: str | None,
     config_path: str | Path | None,
     apply: bool,
@@ -266,6 +248,7 @@ def onboard_existing(
     existing_project_id: int | None = None,
     clone_remote_url: str | None = None,
     clone_token: str | None = None,
+    clone_web_url: str | None = None,
 ) -> dict[str, Any]:
     root = Path(checkout).expanduser().resolve()
     progress_target = checkout_target or str(root)
@@ -275,16 +258,9 @@ def onboard_existing(
     # checkout out of a plain file.
     if root.exists() and not root.is_dir():
         raise ProjectOnboardError(f"checkout is not a directory: {root}")
-    token_value, token_import_method = resolve_github_token(
-        token=github_token,
-        token_file=github_token_file,
-        token_stdin_value=github_token_stdin_value,
-    )
     github_adoption = github_adoption_report(
         choice=github_adoption_choice,
         github_repo=github_repo,
-        token_value=token_value,
-        token_import_method=token_import_method,
         apply=apply,
     )
     if not apply:
@@ -310,7 +286,10 @@ def onboard_existing(
                 # so the checkout holds Yoke's source and its origin remote,
                 # instead of an empty git init. resumable_clone reuses a folder
                 # that is already this clone and errors on a conflicting one.
-                _resumable_clone(root, clone_remote_url, token=clone_token)
+                _resumable_clone(
+                    root, clone_remote_url, token=clone_token,
+                    github_web_url=clone_web_url,
+                )
             else:
                 root.mkdir(parents=True, exist_ok=True)
                 init_repo_if_needed(root, default_branch)
@@ -320,12 +299,17 @@ def onboard_existing(
                 # origin resumes a prior create-then-push attempt.
                 created = create_and_publish(root, publish, default_branch=default_branch)
                 github_repo = created["full_name"]
+                progress_steps.record_mutated_repository(
+                    github_adoption, github_repo, config_path,
+                )
     payload = project_api_payload(
         slug=slug, name=name, org=org,
         github_repo=github_repo, default_branch=default_branch,
         public_item_prefix=public_item_prefix,
+        github_sync_mode=github_sync_mode(github_adoption),
     )
     with onboard_apply_progress.step(progress, scaffold_action):
+        persist_sync_mode = True
         try:
             result = dispatch(
                 "projects.get",
@@ -340,6 +324,7 @@ def onboard_existing(
             if exc.code != "not_found":
                 raise
             result = dispatch("projects.create", payload, config_path)
+            persist_sync_mode = False
         report = project_onboard_apply.finish_after_dispatch(
             operation=operation,
             root=root,
@@ -348,10 +333,10 @@ def onboard_existing(
             config_path=config_path,
             progress=progress,
             github_auth_target=github_auth_target,
-            token_value=token_value,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
             register_mapping=True,
+            persist_sync_mode=persist_sync_mode,
         )
     _finish_github_binding(progress, github_auth_target, github_adoption, reuse_github_auth)
     return report

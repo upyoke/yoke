@@ -106,7 +106,7 @@ def applied_report(
     github_adoption: Mapping[str, Any] | None = None,
     *,
     config_path: str | Path | None = None,
-    secret_result: Mapping[str, Any] | None = None,
+    binding_result: Mapping[str, Any] | None = None,
     clone_outcome: Any | None = None,
 ) -> dict[str, Any]:
     project_id = int(project["id"])
@@ -122,7 +122,7 @@ def applied_report(
         },
         "install": dict(install),
         "worktrees_ignore": worktrees_ignore,
-        "capabilities": capabilities_report(api_result, secret_result),
+        "capabilities": capabilities_report(api_result, binding_result),
     }
     resume = clone_resume_report(clone_outcome)
     if resume is not None:
@@ -167,16 +167,16 @@ def clone_resume_report(clone_outcome: Any | None) -> dict[str, bool] | None:
 
 def capabilities_report(
     api_result: Mapping[str, Any],
-    secret_result: Mapping[str, Any] | None,
+    binding_result: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     capabilities = {
         str(cap_type): dict(value)
         for cap_type, value in dict(api_result.get("capabilities") or {}).items()
         if isinstance(value, Mapping)
     }
-    if secret_result:
-        cap_type = str(secret_result.get("cap_type") or "")
-        key = str(secret_result.get("key") or "")
+    if binding_result:
+        cap_type = str(binding_result.get("cap_type") or "")
+        key = str(binding_result.get("key") or "")
         if cap_type and key:
             capability = dict(capabilities.get(cap_type) or {})
             secret_refs = [
@@ -243,23 +243,6 @@ def project_from_result(result: Mapping[str, Any]) -> Mapping[str, Any]:
             return row
         raise ProjectOnboardError("project response did not include project.id")
     return project
-
-
-def github_token(
-    *,
-    token: str | None,
-    token_file: str | Path | None,
-    token_stdin_value: str | None,
-) -> tuple[str | None, str | None]:
-    sources = [bool(token), bool(token_file), token_stdin_value is not None]
-    if sum(1 for source in sources if source) > 1:
-        raise ProjectOnboardError("Project GitHub credential inputs are mutually exclusive")
-    if any(sources):
-        raise ProjectOnboardError(
-            "Project-supplied GitHub credentials are no longer supported; use a "
-            "GitHub App repo binding or backlog-only mode."
-        )
-    return None, None
 
 
 def ensure_new_checkout(root: Path) -> None:

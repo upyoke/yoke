@@ -14,6 +14,9 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.machine_config.capability_secrets import (
     is_machine_local_capability_secret,
 )
+from yoke_core.domain.project_github_capability_settings import (
+    reject_github_capability_secret_write,
+)
 
 
 class ProjectsCapabilitySecretSetRequest(BaseModel):
@@ -45,6 +48,18 @@ def handle_projects_capability_secret_set(
                 code="payload_invalid",
                 message=str(exc),
                 jsonpath="$.payload",
+            ),
+        )
+
+    try:
+        reject_github_capability_secret_write(parsed.cap_type)
+    except ValueError as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="github_binding_owned",
+                message=str(exc),
+                jsonpath="$.payload.cap_type",
             ),
         )
 

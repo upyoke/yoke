@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Optional
 
 from yoke_cli.config import machine_config
 from yoke_cli.transport import https as https_transport
+from yoke_cli.transport import local_github_dispatch
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -199,6 +200,7 @@ def _call_local(
     request: FunctionCallRequest,
     local_dispatch: Optional[LocalDispatch],
 ) -> FunctionCallResponse:
+    dispatch_module = None
     if local_dispatch is None:
         try:
             dispatch_module = importlib.import_module(
@@ -218,7 +220,11 @@ def _call_local(
                 ),
             )
         local_dispatch = dispatch_module.dispatch
-    return local_dispatch(request)
+    return local_github_dispatch.call_with_machine_github_authorization(
+        request,
+        local_dispatch,
+        core_available=dispatch_module is not None,
+    )
 
 
 def _enrich_https_function_drift(

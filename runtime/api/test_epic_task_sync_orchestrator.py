@@ -16,6 +16,9 @@ from unittest.mock import patch
 
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic_task_sync, github_rest
 from yoke_core.domain.project_github_auth import (
@@ -65,7 +68,6 @@ def _ok_auth(project: str, **kwargs):
         project=project,
         repo="org/buzz",
         token="ghs_test_token",
-        env={"GH_TOKEN": "ghs_test_token"},
     )
 
 
@@ -76,9 +78,6 @@ def _stub_project_github_auth():
     with patch(
         "yoke_core.domain.epic_task_sync_github_orchestrator."
         "resolve_project_github_auth",
-        side_effect=_ok_auth,
-    ), patch(
-        "yoke_core.domain.epic_task_sync.resolve_project_github_auth",
         side_effect=_ok_auth,
     ), patch(
         "yoke_core.domain.epic_task_sync_github.resolve_project_github_auth",
@@ -227,6 +226,7 @@ class TestSyncEpicTasks:
         stderr = io.StringIO()
 
         def _raise(project, **kwargs):
+            assert kwargs["required_permissions"] is GITHUB_ISSUES_WRITE_PERMISSION_LEVELS
             raise MissingCapability(project, "no github capability for tests")
 
         with patch(

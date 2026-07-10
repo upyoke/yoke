@@ -133,6 +133,63 @@ the provider marks the email verified. For providers that omit the
 `YOKE_OIDC_ALLOW_UNVERIFIED_EMAIL=true` (an explicit `false` from the
 provider is never trusted).
 
+## GitHub App server automation
+
+GitHub automation on a self-hosted control plane uses one GitHub App private
+key for the server. Project rows store only verified installation/repository
+bindings; the App private key is never stored in `capability_secrets` or any
+per-project setting.
+
+When the same App also serves engineer-machine authorization, enable **Device
+Flow** and **Expire user authorization tokens** in its registration before
+connecting any machine. The first enables browser device authorization; the
+second supplies the expiring access token, refresh token, and expiries that the
+local credential store requires. The baseline repository grant is Metadata
+read; Checks read; and Issues, Pull requests, Contents, Actions, Workflows,
+Secrets, and Variables write.
+
+Copy the downloaded App private key into the generated bundle as an owner-only
+file:
+
+```bash
+cp /secure/path/app-key.pem secrets/github-app-private-key.pem
+chmod 600 secrets/github-app-private-key.pem
+```
+
+Then set these non-secret/runtime bindings in `.env`:
+
+```text
+YOKE_GITHUB_APP_ISSUER=<numeric-app-id>
+YOKE_GITHUB_APP_API_URL=https://api.github.com
+YOKE_GITHUB_APP_PRIVATE_KEY_FILE=/run/secrets/yoke-github-app-private-key
+```
+
+Uncomment the `yoke-github-app-private-key` service mount and top-level secret
+definition in `docker-compose.yml`, then run `docker compose up -d`. The
+bundled GitHub App block is disabled until all three values and the mounted key
+are present. GitHub Enterprise Server uses its HTTPS API origin in
+`YOKE_GITHUB_APP_API_URL`; redirects to another origin are rejected.
+
+Hosted/stage deployments use the same runtime contract but source the key from
+AWS Secrets Manager. The deploy environment's `environments.settings` contains
+only this non-secret reference block:
+
+```json
+{
+  "github_app": {
+    "issuer": "<numeric-app-id>",
+    "api_url": "https://api.github.com",
+    "private_key_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>"
+  }
+}
+```
+
+Deployment resolves that ARN with the environment's `aws-admin` capability,
+sends the value over SSH stdin, writes `github-app-private-key.pem` as mode
+`0600`, and mounts it at `/run/secrets/yoke-github-app-private-key`. Secret
+values are not placed in Compose environment variables, command arguments, or
+project-engine databases.
+
 ## Upgrades
 
 The server image is versioned by tag; on every boot the entrypoint

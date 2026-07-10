@@ -26,7 +26,6 @@ _AUTH = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
     token="ghs_synthetic_for_tests",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_synthetic_for_tests"},
 )
 
 

@@ -176,7 +176,7 @@ def test_sync_task_body_compacts_oversized_body(monkeypatch, epic_conn):
     )
     monkeypatch.setattr(
         "yoke_core.domain.epic_task_sync_github._task_context",
-        lambda *a, **kw: ("#777", "yoke", "owner/repo", _OVER_BUDGET),
+        lambda *a, **kw: ("#777", "yoke", _OVER_BUDGET),
     )
 
     stdout = io.StringIO()

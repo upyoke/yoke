@@ -18,6 +18,7 @@ public export):
   role_permissions, actor_project_roles, organizations, actor_org_roles.
 - :mod:`schema_api_context_tables_qa` — qa_requirements, qa_runs.
 - :mod:`schema_api_context_tables_project` — projects, project_structure.
+- :mod:`schema_api_context_tables_github` — App installations and repo bindings.
 
 Pure data only — no I/O, no DB connections, no imports beyond stdlib.
 """
@@ -32,6 +33,9 @@ from yoke_core.domain.schema_api_context_tables_claims import (
 )
 from yoke_core.domain.schema_api_context_tables_core import (
     CORE_TABLES,
+)
+from yoke_core.domain.schema_api_context_tables_github import (
+    GITHUB_APP_TABLES,
 )
 from yoke_core.domain.schema_api_context_tables_project import (
     PROJECT_TABLES,
@@ -50,6 +54,7 @@ CANONICAL_TABLES: dict[str, dict] = {
     **AUTH_TABLES,
     **QA_TABLES,
     **PROJECT_TABLES,
+    **GITHUB_APP_TABLES,
     **PYTHON_HELPERS_TABLES,
 }
 

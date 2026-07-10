@@ -10,6 +10,9 @@ via the autouse ``_auth_resolver`` fixture so repair helpers calling
 real ``project_capabilities`` rows.
 """
 
+# Imported pytest fixtures intentionally share names with test parameters.
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 from unittest import mock
@@ -21,8 +24,8 @@ from yoke_core.engines.resync import DriftRecord, PairedItem
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
 from yoke_core.engines._resync_test_helpers import (
-    populated_db,
-    test_db,
+    populated_db,  # noqa: F401 — imported pytest fixture
+    test_db,  # noqa: F401 — imported pytest fixture
 )
 
 
@@ -31,7 +34,6 @@ def _fake_auth(token: str = "test-token", project: str = "yoke") -> ProjectGithu
         project=project,
         repo=f"org/{project}",
         token=token,
-        env={"GH_TOKEN": token},
     )
 
 
@@ -40,12 +42,11 @@ def _auth_resolver():
     """Stub the canonical resolver so ``_call_domain_sync`` and
     ``_repair_local_orphan_backlog`` succeed in unit tests.
 
-    Both ``resync_runtime`` and ``resync_repair`` import
-    ``resolve_project_github_auth`` at module load, so both call sites must be
-    patched. Individual tests may override by patching either path inside
-    their own ``with`` block — the inner patch wins.
+    Runtime and repair helpers resolve once before invoking domain sync helpers.
     """
-    resolver = lambda project, **_: _fake_auth(project=project or "yoke")
+    def resolver(project, **_):
+        return _fake_auth(project=project or "yoke")
+
     with mock.patch(
         "yoke_core.engines.resync_runtime.resolve_project_github_auth",
         side_effect=resolver,

@@ -142,7 +142,7 @@ def test_cli_resume_restores_saved_project_choices(
                 onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO
             ),
             "project_public_item_prefix": "WID",
-            "project_github_adoption": "skip",
+            "project_github_adoption": "backlog-only",
             "project_clone": clone,
         },
     )
@@ -163,7 +163,7 @@ def test_cli_resume_restores_saved_project_choices(
     )
     monkeypatch.setattr(
         onboard_adapter.github_user_tokens,
-        "refresh_from_machine_config",
+        "access_token_from_machine_config",
         lambda **_kwargs: _Refreshed(),
     )
 
@@ -179,9 +179,9 @@ def test_cli_resume_restores_saved_project_choices(
     assert captured
     kwargs = captured[0]
     assert kwargs["machine_github_choice"] == "connect"
-    assert kwargs["machine_github_token_file"] is None
-    assert kwargs["machine_github_token_source_kind"] == "github_app_user_access_token"
-    assert kwargs["machine_github_token"] == "resume-github-app-user-token"
+    assert "machine_github_token" not in kwargs
+    assert "machine_github_token_file" not in kwargs
+    assert "machine_github_token_source_kind" not in kwargs
     assert kwargs["project_default_branch_source"] == (
         onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO
     )

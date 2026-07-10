@@ -101,14 +101,23 @@ class CloneSourceFlow:
     def _probe_clone_remote(self: _Shell, url: str) -> Optional[str]:
         """Return the remote's default branch after confirming reachability."""
         from yoke_cli.config import project_git_transport
+        from yoke_cli.config.onboard_wizard_github_state import (
+            user_access_token,
+            web_url as connected_web_url,
+        )
 
-        token = self.result.machine_github_token
-        branch = project_git_transport.remote_default_branch(url, token=token)
+        token = user_access_token(self.result)
+        web_url = connected_web_url(self.result)
+        branch = project_git_transport.remote_default_branch(
+            url, token=token, github_web_url=web_url,
+        )
         if branch is not None:
             return branch
         # No symref came back: distinguish "repo exists but no parseable HEAD"
         # (accept, fall back to the plain default branch) from "can't reach it".
-        if project_git_transport.remote_is_reachable(url, token=token):
+        if project_git_transport.remote_is_reachable(
+            url, token=token, github_web_url=web_url,
+        ):
             return None
         raise RuntimeError(
             "Yoke couldn't reach that repo - check the URL"
@@ -278,7 +287,9 @@ class CloneSourceFlow:
         if choice == "retry":
             self._after_remote(value)
             return
-        if self.result.machine_github_token:
+        from yoke_cli.config.onboard_wizard import github_connected
+
+        if github_connected(self.result):
             self._goto_clone_visibility()
             return
         self._goto_project_mode()

@@ -12,7 +12,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from types import MappingProxyType
 from typing import Optional
+
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
+    GITHUB_SECRETS_READ_PERMISSION_LEVELS,
+)
 
 from yoke_core.domain import bootstrap_project_helpers as helpers
 from yoke_core.domain import gh_rest_transport
@@ -31,6 +38,13 @@ from yoke_core.domain.project_github_auth import (
     repair_command_hint,
     resolve_project_github_auth,
 )
+
+
+_VERIFY_PERMISSION_LEVELS = MappingProxyType({
+    **GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    **GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
+    **GITHUB_SECRETS_READ_PERMISSION_LEVELS,
+})
 
 
 def _run(*args, **kwargs):
@@ -55,7 +69,8 @@ def run_verify(
     verify_pass = 0
     verify_fail = 0
 
-    repo = github_repo or ""
+    requested_repo = str(github_repo or "").strip()
+    repo = ""
     ssh_user = ssh_user or ""
     ssh_host = ssh_host or ""
     ssh_key_path = ssh_key_path or ""
@@ -72,8 +87,22 @@ def run_verify(
         # Resolve canonical project GitHub auth once on the active backend
         # connection; every REST probe runs against the explicit token.
         try:
-            resolved = resolve_project_github_auth(project_slug, conn=conn)
+            resolved = resolve_project_github_auth(
+                project_slug,
+                conn=conn,
+                required_permissions=_VERIFY_PERMISSION_LEVELS,
+            )
             token = resolved.token
+            if (
+                requested_repo
+                and requested_repo.casefold() != resolved.repo.casefold()
+            ):
+                _warn(
+                    f"requested repository '{requested_repo}' does not match "
+                    f"project '{project_slug}' binding '{resolved.repo}'"
+                )
+                return 1
+            repo = resolved.repo
         except ProjectGithubAuthError as exc:
             _warn(
                 f"project '{project_slug}' github auth not resolvable: {exc}. "
@@ -81,10 +110,6 @@ def run_verify(
             )
 
         p = helpers._p(conn)
-        if not repo:
-            repo = _query_scalar(
-                conn, f"SELECT github_repo FROM projects WHERE id={p}", (ident.id,)
-            ) or ""
         if display_name == ctx.project:
             display_name = (
                 _query_scalar(conn, f"SELECT name FROM projects WHERE id={p}", (ident.id,))
@@ -171,7 +196,7 @@ def run_verify(
                     print(f"[FAIL] Workflow trigger: {wf_file} missing workflow_dispatch")
                     print()
                     print("  ACTION REQUIRED:")
-                    print(f"  The deploy workflow template should include workflow_dispatch.")
+                    print("  The deploy workflow template should include workflow_dispatch.")
                     print("  This is required for Yoke's deploy pipeline (yoke_core.domain.github_actions trigger).")
                     print()
             else:
@@ -221,9 +246,9 @@ def run_verify(
     else:
         _warn("SSH key fingerprint: key file or SSH info not available (skipping)")
 
+    envs_resp = _rest_get(f"/repos/{repo}/environments")
     env_names: list[str] = []
     production_has_reviewers = False
-    envs_resp = _rest_get(f"/repos/{repo}/environments")
     if envs_resp is not None and isinstance(envs_resp.body, dict):
         for entry in envs_resp.body.get("environments", []) or []:
             if isinstance(entry, dict):
@@ -246,8 +271,10 @@ def run_verify(
             verify_pass += 1
             print("[PASS] Environment: production has required reviewers")
         else:
-            verify_fail += 1
-            print("[FAIL] Environment: production missing required reviewers")
+            _warn(
+                "Environment: production has no required reviewers; configure "
+                "an approval gate in GitHub settings when required."
+            )
     else:
         verify_fail += 1
         print("[FAIL] Environment: production (not found)")

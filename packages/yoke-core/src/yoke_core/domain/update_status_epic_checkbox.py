@@ -21,6 +21,9 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.backlog_github_body_writer import (
     select_body_for_github_transform,
@@ -67,17 +70,25 @@ def _update_epic_checkbox(
         return
 
     try:
-        auth = resolve_project_github_auth(project)
+        auth = resolve_project_github_auth(
+            project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError:
         return
 
-    repo_string = ""
-    if len(repo_args) >= 2 and repo_args[0] == "-R":
-        repo_string = repo_args[1]
-    if not repo_string:
-        repo_string = auth.repo
+    # The legacy ``-R`` projection is compatibility-only. It may confirm the
+    # verified binding, but it cannot override it.
+    if repo_args and repo_args != ["-R", auth.repo]:
+        print(
+            f"Warning: skipping epic checkbox update because the projected "
+            f"repository does not match the verified binding for project "
+            f"'{project}'",
+            file=stderr,
+        )
+        return
     try:
-        owner, repo = split_repo(repo_string)
+        owner, repo = split_repo(auth.repo)
     except ValueError:
         return
 

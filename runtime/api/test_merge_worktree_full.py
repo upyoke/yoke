@@ -1,6 +1,6 @@
 """Shared infrastructure for merge-worktree tests.
 
-Subprocess-based black-box tests for ``python3 -m yoke_core.engines.merge_worktree``.
+Subprocess-based black-box tests for the merge-worktree engine.
 Test classes live in sibling modules; this module owns the fixture, helpers,
 dataclasses, mock gh scripts, and DB helpers used by those suites.
 
@@ -23,20 +23,20 @@ import pytest
 # Mock gh scripts and DB helpers live in support modules to keep this file small,
 # and are surfaced here as the shared fixture API for merge-worktree suites.
 from runtime.api.merge_worktree_test_mocks import (
-    MOCK_GH_DIRTY_SCRIPT,
-    MOCK_GH_NO_CHECKS_REPORTED,
-    MOCK_GH_PR_CREATE_EMPTY_URL,
-    MOCK_GH_PR_CREATE_HARD_FAIL,
-    MOCK_GH_PR_EXISTS_REUSE,
-    MOCK_GH_PR_EXISTS_UNRESOLVABLE,
-    MOCK_GH_PR_MERGE_FAIL,
+    MOCK_GH_DIRTY_SCRIPT as MOCK_GH_DIRTY_SCRIPT,
+    MOCK_GH_NO_CHECKS_REPORTED as MOCK_GH_NO_CHECKS_REPORTED,
+    MOCK_GH_PR_CREATE_EMPTY_URL as MOCK_GH_PR_CREATE_EMPTY_URL,
+    MOCK_GH_PR_CREATE_HARD_FAIL as MOCK_GH_PR_CREATE_HARD_FAIL,
+    MOCK_GH_PR_EXISTS_REUSE as MOCK_GH_PR_EXISTS_REUSE,
+    MOCK_GH_PR_EXISTS_UNRESOLVABLE as MOCK_GH_PR_EXISTS_UNRESOLVABLE,
+    MOCK_GH_PR_MERGE_FAIL as MOCK_GH_PR_MERGE_FAIL,
     MOCK_GH_SCRIPT,
-    MOCK_GH_TARGET_MOVED_DURING_CI,
+    MOCK_GH_TARGET_MOVED_DURING_CI as MOCK_GH_TARGET_MOVED_DURING_CI,
 )
 from runtime.api.merge_worktree_test_db import (
-    _create_epic_tasks_db,
-    _insert_canonical_integration_simulation,
-    _insert_plain_text_integration_simulation,
+    _create_epic_tasks_db as _create_epic_tasks_db,
+    _insert_canonical_integration_simulation as _insert_canonical_integration_simulation,
+    _insert_plain_text_integration_simulation as _insert_plain_text_integration_simulation,
 )
 from runtime.api.source_pythonpath_test_helpers import (
     REPO_ROOT as WORKTREE_ROOT,
@@ -48,7 +48,7 @@ from runtime.api.source_pythonpath_test_helpers import (
 # Constants
 # ---------------------------------------------------------------------------
 SCRIPTS_DIR = WORKTREE_ROOT / ".agents" / "skills" / "yoke" / "scripts"
-MERGE_MODULE = "yoke_core.engines.merge_worktree"
+MERGE_MODULE = "runtime.api.merge_worktree_test_entrypoint"
 TEST_ITEM_ID = 42
 TEST_BRANCH = f"YOK-{TEST_ITEM_ID}"
 TEST_GIT_TIMEOUT_SECONDS = "15"
@@ -282,12 +282,12 @@ def merge_env(tmp_path: Path, request) -> MergeEnv:
         }),
     )
 
-    # Seed yoke project + github GitHub App auth + items row via shared helper so
+    # Seed Yoke project + GitHub App auth + items row via the shared helper so
     # the REST precondition resolves for every merge subprocess test.
-    from runtime.api.merge_worktree_test_db import _seed_yoke_project_with_pat
+    from runtime.api.merge_worktree_test_db import _seed_yoke_project_with_github_app
     _seed_conn = db_backend.connect()
     try:
-        _seed_yoke_project_with_pat(
+        _seed_yoke_project_with_github_app(
             _seed_conn,
             repo_path=str(repo),
             item_id=TEST_ITEM_ID,

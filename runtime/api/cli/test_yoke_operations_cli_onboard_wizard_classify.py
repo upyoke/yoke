@@ -25,13 +25,11 @@ from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING 
 from yoke_cli.config.project_clone_support import ClonePlan  # noqa: E402
 from yoke_cli.config.project_publish_support import PublishRequest  # noqa: E402
 
-
 def _step_target(plan: dict, action: str) -> str:
     for step in plan["steps"]:
         if step["action"] == action:
             return step["target"]
     raise AssertionError(f"no {action} step in plan")
-
 
 def _repo_lines(plan: dict, project_mode: str) -> list[str]:
     """Friendly repo-bucket lines for a ``build_plan`` output.
@@ -77,7 +75,7 @@ def test_build_plan_skip_github_target_when_not_keeping_remote() -> None:
         "keep_existing_remote": False,
     }
     plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
-    assert _step_target(plan, "project-github-auth-choice") == "skip"
+    assert _step_target(plan, "project-github-auth-choice") == "backlog-only"
 
 
 def test_build_plan_clone_outcome_compound_source_target() -> None:
@@ -183,7 +181,7 @@ def test_build_plan_existing_project_missing_board_art_lists_art_step() -> None:
     project_inputs = {
         "mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
         "checkout": "/home/code/buzz",
-        "github_adoption": "skip",
+        "github_adoption": "backlog-only",
         "existing_project_id": 37,
         "clone": ClonePlan(outcome="just-clone"),
     }
@@ -213,7 +211,7 @@ def test_build_plan_existing_project_with_board_art_skips_art_step(
     project_inputs = {
         "mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
         "checkout": str(checkout),
-        "github_adoption": "skip",
+        "github_adoption": "backlog-only",
         "existing_project_id": 37,
         "clone": ClonePlan(outcome="just-clone"),
     }
@@ -232,7 +230,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
         "checkout": "/home/code/buzz",
         "slug": "buzz",
         "name": "Buzz",
-        "github_adoption": "skip",
+        "github_adoption": "backlog-only",
         "existing_project_id": 37,
         "github_repo": "owner/buzz",
         "default_branch": "trunk",
@@ -315,7 +313,7 @@ def test_reuse_feedback_names_detected_clone_values() -> None:
         "default_branch": "trunk",
         "default_branch_source": onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO,
         "public_item_prefix": "WID",
-        "github_adoption": "skip",
+        "github_adoption": "backlog-only",
         "clone": ClonePlan(outcome="fork"),
     }
     plan = onboard_report.build_plan(
@@ -363,17 +361,15 @@ def test_classify_plan_buckets_writes() -> None:
         "plan": {"steps": [
             {"action": "create-or-validate-dir", "target": "/home/.yoke"},
             {"action": "project-create-checkout", "target": "/home/code/demo"},
-            {
-                "action": "project-github-auth-choice",
-                "target": GITHUB_ADOPTION_APP_BINDING,
-            },
+            {"action": "project-github-auth-choice",
+             "target": GITHUB_ADOPTION_APP_BINDING},
         ]},
     }
     grouped = steps.classify_plan(plan)
     # Each step renders as plain human copy, not the raw action code.
     assert grouped["machine"] == ["Create your Yoke home folder at /home/.yoke"]
     assert grouped["repo"] == ["Create the project at /home/code/demo"]
-    assert grouped["core"] == [onboard_github_copy.PROJECT_TOKEN_REVIEW]
+    assert grouped["core"] == [onboard_github_copy.PROJECT_GITHUB_REVIEW]
 
 
 def test_classify_plan_source_dev_admin_bucket() -> None:
@@ -399,7 +395,7 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
         ("set-https-api-url", "https://api.test"): "Connect to https://api.test",
         ("store-token-reference", "prod.token"): "Save your API token (owner-only)",
         ("machine-github-connection", "connect"):
-            onboard_github_copy.MACHINE_TOKEN_REVIEW,
+            onboard_github_copy.MACHINE_GITHUB_REVIEW,
         ("machine-github-connection", "skip"): "Skip connecting GitHub for now",
         ("create-runtime-dir", "temp_root"): "Set up the scratch directory",
         ("create-runtime-dir", "cache_dir"): "Set up the cache directory",
@@ -425,7 +421,7 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
         ("project-source-dev-admin", "/src/yoke"):
             "Set up the Yoke source checkout at /src/yoke",
         ("project-github-auth-choice", GITHUB_ADOPTION_APP_BINDING):
-            onboard_github_copy.PROJECT_TOKEN_REVIEW,
+            onboard_github_copy.PROJECT_GITHUB_REVIEW,
         ("project-github-auth-choice", "skip"):
             "Don't set up Yoke with access to a GitHub remote",
         ("project-github-auth-choice", "keep-existing-remote"):

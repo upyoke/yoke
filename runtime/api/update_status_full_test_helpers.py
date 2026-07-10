@@ -20,6 +20,7 @@ from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.update_status_full_test_schema import _SCHEMA_DDL
+from runtime.api.update_status_github_auth_test_support import seed_github_app_auth
 
 
 def _p(conn) -> str:
@@ -59,7 +60,6 @@ _ITEM_UPSERT_SET = _upsert_set(
     "frozen", "created_at", "updated_at", "project_id", "project_sequence",
 )
 _PROJECT_UPSERT_SET = _upsert_set("slug", "name", "github_repo")
-_CAPABILITY_SECRET_UPSERT_SET = _upsert_set("source", "value")
 _HARNESS_SESSION_UPSERT_SET = _upsert_set(
     "executor", "provider", "model", "execution_lane", "capabilities",
     "workspace", "mode", "offered_at", "last_heartbeat",
@@ -184,21 +184,8 @@ class UpdateStatusEnv:
                 f" ON CONFLICT (id) DO UPDATE SET {_PROJECT_UPSERT_SET}",
                 row,
             )
-        for row in [(1,), (2,)]:
-            conn.execute(
-                "INSERT INTO project_capabilities"
-                f" (project_id, type, settings) VALUES ({p}, 'github', '{{}}')"
-                " ON CONFLICT (project_id, type) DO UPDATE SET settings = excluded.settings",
-                row,
-            )
-        for row in [(1, "ghs_yoke_test"), (2, "ghs_buzz_test")]:
-            conn.execute(
-                "INSERT INTO capability_secrets"
-                " (project_id, type, key, source, value)"
-                f" VALUES ({p}, 'github', 'token', 'literal', {p})"
-                f" ON CONFLICT (project_id, type, key) DO UPDATE SET {_CAPABILITY_SECRET_UPSERT_SET}",
-                row,
-            )
+        now = "2026-01-01T00:00:00Z"
+        seed_github_app_auth(conn, p, now)
         _ts = "2026-04-20T00:00:00Z"
         conn.execute(
             "INSERT INTO harness_sessions"
@@ -330,7 +317,7 @@ class UpdateStatusEnv:
     ) -> subprocess.CompletedProcess:
         env = {**self.env, **(extra_env or {})}
         return subprocess.run(
-            ["python3", "-m", "yoke_core.domain.update_status", *args],
+            ["python3", "-m", "runtime.api.update_status_test_entrypoint", *args],
             capture_output=True,
             text=True,
             env=env,

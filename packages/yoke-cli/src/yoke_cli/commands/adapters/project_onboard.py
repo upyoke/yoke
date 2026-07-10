@@ -22,7 +22,7 @@ from yoke_cli.config.project_github_adoption import (
 from yoke_cli.project_install.files import ProjectInstallError
 
 GITHUB_ADOPTION_FLAGS = (
-    "[--github-adoption app-binding|backlog-only|skip]"
+    "[--github-adoption app-binding|backlog-only]"
 )
 PROJECT_CREATE_USAGE = (
     "yoke project create CHECKOUT --slug SLUG --name NAME "
@@ -47,12 +47,20 @@ ONBOARD_PROJECT_USAGE = (
 def project_create(args: List[str]) -> int:
     parser = _project_parser("yoke project create", PROJECT_CREATE_USAGE)
     parser.add_argument("checkout")
-    parser.add_argument("github_token_value", nargs="?")
+    # Consume one obsolete positional value so argparse never reflects a
+    # possibly-secret value into stderr. It is rejected generically below and
+    # is never passed to onboarding.
+    parser.add_argument("_unexpected_positional", nargs="?")
     _add_github_adoption_args(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_CREATE_USAGE)
     if parsed is None:
         return 2
-    if _reject_project_github_token_args(parsed):
+    if parsed._unexpected_positional is not None:
+        print(
+            "error: unexpected positional argument after CHECKOUT; use the "
+            "GitHub App connection and --github-adoption instead",
+            file=sys.stderr,
+        )
         return 2
     try:
         report = project_onboard.create_project(
@@ -63,9 +71,6 @@ def project_create(args: List[str]) -> int:
             github_repo=parsed.github_repo,
             default_branch=parsed.default_branch,
             public_item_prefix=parsed.public_item_prefix,
-            github_token=None,
-            github_token_file=None,
-            github_token_stdin_value=None,
             github_adoption_choice=parsed.github_adoption,
             config_path=parsed.config_path,
             apply=parsed.apply,
@@ -85,8 +90,6 @@ def project_import(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, PROJECT_IMPORT_USAGE)
     if parsed is None:
         return 2
-    if _reject_project_github_token_args(parsed):
-        return 2
     try:
         report = project_onboard.import_project(
             remote_url=parsed.remote_url,
@@ -97,9 +100,6 @@ def project_import(args: List[str]) -> int:
             github_repo=parsed.github_repo,
             default_branch=parsed.default_branch,
             public_item_prefix=parsed.public_item_prefix,
-            github_token=None,
-            github_token_file=None,
-            github_token_stdin_value=None,
             github_adoption_choice=parsed.github_adoption,
             config_path=parsed.config_path,
             apply=parsed.apply,
@@ -118,8 +118,6 @@ def onboard_project(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, ONBOARD_PROJECT_USAGE)
     if parsed is None:
         return 2
-    if _reject_project_github_token_args(parsed):
-        return 2
     try:
         report = project_onboard.onboard_existing(
             checkout=parsed.checkout,
@@ -129,9 +127,6 @@ def onboard_project(args: List[str]) -> int:
             github_repo=parsed.github_repo,
             default_branch=parsed.default_branch,
             public_item_prefix=parsed.public_item_prefix,
-            github_token=None,
-            github_token_file=None,
-            github_token_stdin_value=None,
             github_adoption_choice=parsed.github_adoption,
             config_path=parsed.config_path,
             apply=parsed.apply,
@@ -173,30 +168,8 @@ def _add_github_adoption_args(parser: argparse.ArgumentParser) -> None:
         "--github-adoption",
         choices=GITHUB_ADOPTION_INPUT_CHOICES,
         default=None,
-        help=onboard_github_copy.PROJECT_TOKEN_ADOPTION_HELP,
+        help=onboard_github_copy.PROJECT_GITHUB_SETUP_HELP,
     )
-    parser.add_argument("--github-token", dest="github_token", default=None,
-                        help=argparse.SUPPRESS)
-    parser.add_argument("--github-token-file", dest="github_token_file", default=None,
-                        help=argparse.SUPPRESS)
-    parser.add_argument("--github-token-stdin", action="store_true",
-                        help=argparse.SUPPRESS)
-
-
-def _reject_project_github_token_args(parsed: argparse.Namespace) -> bool:
-    if not (
-        getattr(parsed, "github_token_value", None)
-        or getattr(parsed, "github_token", None)
-        or getattr(parsed, "github_token_file", None)
-        or getattr(parsed, "github_token_stdin", False)
-    ):
-        return False
-    print(
-        "error: project-supplied GitHub credentials are no longer supported; use "
-        "--github-adoption app-binding or --github-adoption backlog-only",
-        file=sys.stderr,
-    )
-    return True
 
 
 def _emit(report: dict, json_mode: bool) -> None:

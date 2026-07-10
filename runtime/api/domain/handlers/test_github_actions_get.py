@@ -11,6 +11,9 @@ from typing import Any, Dict, Optional
 
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain import github_variables_rest
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
@@ -32,7 +35,6 @@ _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
     token="ghs_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 
@@ -40,9 +42,13 @@ def _make_request(
     payload: Optional[Dict[str, Any]] = None,
     *,
     target_kind: str = "global",
+    include_project: bool = True,
 ) -> FunctionCallRequest:
     if payload is None:
         payload = {"repo": "upyoke/yoke", "name": "YOKE_PULUMI_CI_ENABLED"}
+    payload = dict(payload)
+    if include_project:
+        payload.setdefault("project", "yoke")
     return FunctionCallRequest(
         function="github_actions.variable.get",
         actor=ActorContext(session_id="test-session"),
@@ -53,14 +59,27 @@ def _make_request(
 
 @pytest.fixture(autouse=True)
 def _auth_resolved(monkeypatch):
+    calls = []
+
+    def _resolve(project, **kwargs):
+        calls.append((project, kwargs))
+        return _RESOLVED
+
     monkeypatch.setattr(
         "yoke_core.domain.project_github_auth.resolve_project_github_auth",
-        lambda project: _RESOLVED,
+        _resolve,
     )
+    return calls
 
 
 class TestHandleVariableGet:
-    def test_existing_variable_returns_value(self, monkeypatch):
+    def test_rejects_missing_project(self):
+        outcome = handle_variable_get(_make_request(include_project=False))
+        assert outcome.primary_success is False
+        assert outcome.error.code == "invalid_payload"
+        assert "project" in outcome.error.message
+
+    def test_existing_variable_returns_value(self, monkeypatch, _auth_resolved):
         monkeypatch.setattr(
             github_variables_rest, "get_repo_variable",
             lambda repo, name, *, token: "true",
@@ -73,6 +92,12 @@ class TestHandleVariableGet:
             "exists": True,
             "value": "true",
         }
+        assert _auth_resolved == [
+            (
+                "yoke",
+                {"required_permissions": GITHUB_VARIABLES_READ_PERMISSION_LEVELS},
+            )
+        ]
 
     def test_absent_variable_reports_exists_false(self, monkeypatch):
         monkeypatch.setattr(

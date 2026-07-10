@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import sys
 from typing import Any, Iterable, Optional, TextIO
@@ -34,7 +33,7 @@ _MUTATING_MODES = {
     "reopen-issue": ("reopen_issue", "reopen issue", 1),
     "sync-body": ("sync_body", "sync body", 1),
     "sync-title": ("sync_title", "sync title", 1),
-    "migrate-issue": ("migrate_issue_to_repo", "migrate issue", 5),
+    "migrate-issue": ("migrate_issue_to_repo", "migrate issue", 6),
 }
 
 
@@ -53,7 +52,7 @@ Modes:
   sync-body <item-id>
   sync-title <item-id>
   backfill-oversized-bodies
-  migrate-issue <item-id> <old-issue> <source-repo> <target-repo> <target-project>
+  migrate-issue <item-id> <old-issue> <source-repo> <source-project> <target-repo> <target-project>
 """
 
 
@@ -86,7 +85,8 @@ def check_ownership(
     session_id: Optional[str] = None,
 ) -> tuple[bool, str, str]:
     """Return ``(allow, reason, holder_session_id)`` for item mutation."""
-    if _dry_run(): return True, "dry-run", ""
+    if _dry_run():
+        return True, "dry-run", ""
 
     session_id = session_id if session_id is not None else _resolve_session_id()
 

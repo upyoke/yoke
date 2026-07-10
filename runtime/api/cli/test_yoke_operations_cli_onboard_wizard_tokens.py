@@ -205,39 +205,41 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_machine_github_connect_uses_app_unavailable_placeholder() -> None:
+def test_machine_github_connect_uses_browser_app_flow() -> None:
     app, _spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine github: connect
-            text = await _wait_for_body_text(
-                app, pilot, "GitHub App connection is not available here yet.",
-            )
-            assert "no longer accepts manual GitHub credentials" in text
-            assert "Use backlog only" in text
-            await pilot.press("enter")  # Use backlog only
+            await app.workers.wait_for_complete()
             await pilot.pause()
             assert app.query_one(Stepper).active == STEP_PROJECT
-            assert app.result.machine_github_choice == "skip"
-            assert app.result.machine_github_token is None
+            assert app.result.machine_github_choice == "connect"
+            assert app.result.machine_github_verification["ok"] is True
+            assert not hasattr(app.result, "machine_github_token")
 
     asyncio.run(scenario())
 
 
-def test_stored_machine_github_token_file_is_not_reused(tmp_path) -> None:
-    token_file = tmp_path / "github.token"
-    token_file.write_text("ghs_file_machine_token\n", encoding="utf-8")
+def test_stored_github_app_authorization_is_rechecked(tmp_path) -> None:
+    credential = tmp_path / "github-app-user.json"
+    credential.write_text("{}\n", encoding="utf-8")
     config = tmp_path / "config.json"
     config.write_text(
         json.dumps({
             "github": {
                 "api_url": "https://api.github.com",
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(token_file),
+                "web_url": "https://github.com",
+                "app_slug": "yoke-test",
+                "client_id": "Iv1.test",
+                "authorization": {
+                    "kind": "github_app_user_authorization",
+                    "status": "authorized",
+                    "refresh_credential_ref": str(credential),
                 },
+                "installations": [],
+                "repositories": [],
             },
         }),
         encoding="utf-8",
@@ -252,15 +254,11 @@ def test_stored_machine_github_token_file_is_not_reused(tmp_path) -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            text = await _wait_for_body_text(app, pilot, "Connect GitHub?")
-            assert "Connect GitHub" in text
-            assert "Use backlog only" in text
-            assert "Read token from a file" not in text
-            await pilot.press("down")  # Use backlog only
-            await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
             assert app.query_one(Stepper).active == STEP_PROJECT
-            assert app.result.machine_github_token is None
+            assert app.result.machine_github_verification["ok"] is True
+            assert not hasattr(app.result, "machine_github_token_file")
 
     asyncio.run(scenario())
 

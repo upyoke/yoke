@@ -39,17 +39,6 @@ def epic_db():
             "UPDATE projects SET github_repo = %s WHERE id = %s",
             ("org/buzz", SEED_PROJECT_IDS["buzz"]),
         )
-        conn.execute(
-            "INSERT INTO project_capabilities (project_id, type, settings) "
-            "VALUES (%s, 'github', '{}') "
-            "ON CONFLICT(project_id, type) DO NOTHING",
-            (SEED_PROJECT_IDS["buzz"],),
-        )
-        conn.execute(
-            "INSERT INTO capability_secrets (project_id, type, key, source, value) "
-            "VALUES (%s, 'github', 'token', 'literal', %s)",
-            (SEED_PROJECT_IDS["buzz"], "ghs_buzz_test"),
-        )
         conn.commit()
         yield conn
 
@@ -65,16 +54,17 @@ def _mock_yoke_root():
 
 @pytest.fixture(autouse=True)
 def _mock_project_github_auth():
+    """Stub the three live resolver boundaries used by epic issue sync.
+
+    The public ``epic_task_sync`` module is only a lazy wrapper; GitHub App
+    auth is resolved where an operation's exact permission scope is known.
+    """
     auth = ProjectGithubAuth(
         project="buzz",
         repo="org/buzz",
         token="ghs_buzz_test",
-        env={"GH_TOKEN": "ghs_buzz_test"},
     )
     with patch(
-        "yoke_core.domain.epic_task_sync.resolve_project_github_auth",
-        return_value=auth,
-    ), patch(
         "yoke_core.domain.epic_task_sync_github_orchestrator.resolve_project_github_auth",
         return_value=auth,
     ), patch(

@@ -69,7 +69,7 @@ MACHINE_GITHUB_ROWS = [
                  "Use backlog only", "connect later"),
 ]
 
-TOKEN_SOURCE_ROWS = [
+YOKE_TOKEN_SOURCE_ROWS = [
     SelectionRow("prompt", "Paste it now", "saved to ~/.yoke/secrets"),
     SelectionRow("file", "Read it from a file", "path on disk"),
 ]
@@ -78,7 +78,7 @@ VERIFY_OK_ROWS = [
     SelectionRow("continue", "Continue", ""),
 ]
 
-VERIFY_RETRY_ROWS = [
+YOKE_TOKEN_VERIFY_RETRY_ROWS = [
     SelectionRow("retry", "Try again", "paste a different token"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
@@ -93,31 +93,28 @@ GITHUB_APP_UNAVAILABLE_ROWS = [
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
+PROJECT_GITHUB_ACCESS_ROWS = [
+    SelectionRow("refresh", "Check access", "after updating the App in GitHub"),
+    SelectionRow("backlog", "Use backlog only", "continue without GitHub"),
+    SelectionRow("back", "Back", "choose a different option"),
+]
+
 PROJECT_GITHUB_ROWS = [
-    SelectionRow(PROJECT_GITHUB_REUSE_MACHINE,
-                 onboard_github_copy.PROJECT_GITHUB_REUSE_LABEL,
+    SelectionRow(PROJECT_GITHUB_REUSE_MACHINE, onboard_github_copy.PROJECT_GITHUB_REUSE_LABEL,
                  onboard_github_copy.PROJECT_GITHUB_REUSE_DESC),
-    SelectionRow(GITHUB_ADOPTION_APP_BINDING,
-                 onboard_github_copy.PROJECT_GITHUB_STORE_LABEL,
+    SelectionRow(GITHUB_ADOPTION_APP_BINDING, onboard_github_copy.PROJECT_GITHUB_STORE_LABEL,
                  onboard_github_copy.PROJECT_GITHUB_STORE_DESC),
-    SelectionRow("skip",
-                 onboard_github_copy.PROJECT_GITHUB_SKIP_LABEL,
+    SelectionRow("skip", onboard_github_copy.PROJECT_GITHUB_SKIP_LABEL,
                  onboard_github_copy.PROJECT_GITHUB_SKIP_DESC),
 ]
 
-# Same picker minus the connected-repo row, shown when no machine GitHub
-# authorization was connected.
 PROJECT_GITHUB_ROWS_NO_MACHINE = PROJECT_GITHUB_ROWS[1:]
-
 CONFIRM_ROWS = [
     SelectionRow("apply", "Apply", "writes everything above"),
     SelectionRow("cancel", "Cancel", "nothing is saved"),
 ]
 REVIEW_TITLE = f"Review what {BRAND} will save."
 REVIEW_SUBTITLE = "Nothing is written until you choose Apply."
-
-# Shown when the Review pre-flight found problems: Apply is withheld until they
-    # clear, so the only forward action is to step back and fix them (or quit).
 REVIEW_BLOCKED_ROWS = [
     SelectionRow("back", "Back to fix that", "step back and correct it"),
     SelectionRow("cancel", "Quit", "nothing is saved"),
@@ -295,7 +292,6 @@ def reset_project_fields(result: Any) -> None:
     result.existing_project_match_source = None
     result.existing_project_local_source = None
     result.project_github_adoption = None
-    result.project_github_token = None
     result.project_publish_to_github = False
     result.project_publish_owner = None
     result.project_publish_owner_login = None
@@ -333,6 +329,7 @@ __all__ = [
     "FINISH_EMPTY_ROWS",
     "GITHUB_APP_UNAVAILABLE_ROWS",
     "MACHINE_GITHUB_ROWS",
+    "PROJECT_GITHUB_ACCESS_ROWS",
     "MODE_ROWS",
     "PROJECT_GITHUB_ROWS",
     "PROJECT_GITHUB_ROWS_NO_MACHINE",
@@ -340,9 +337,9 @@ __all__ = [
     "REVIEW_BLOCKED_ROWS",
     "REVIEW_SUBTITLE",
     "REVIEW_TITLE",
-    "TOKEN_SOURCE_ROWS",
+    "YOKE_TOKEN_SOURCE_ROWS",
     "VERIFY_OK_ROWS",
-    "VERIFY_RETRY_ROWS",
+    "YOKE_TOKEN_VERIFY_RETRY_ROWS",
     "apply_failure_body",
     "apply_progress_body",
     "apply_start_over_body",

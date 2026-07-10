@@ -17,6 +17,7 @@ from yoke_core.engines.resync_detect_models import (
     _get_label_value,
     normalize_body_for_compare,
 )
+from yoke_core.engines.resync_detect_fetch import _project_unavailable
 
 
 def _row_to_dict(row) -> dict:
@@ -96,14 +97,12 @@ def stage2_compare(
 
     for item in paired:
         proj = item.project or "yoke"
+        if _project_unavailable(heavy_by_project.get(proj)):
+            # A partial GraphQL read cannot safely support drift repair. Keep
+            # the entire project out of comparison until the read succeeds.
+            continue
         proj_issues = gh_by_project.get(proj, {})
         gh_issue = proj_issues.get(item.gh_num)
-        if not gh_issue:
-            # Fallback: search all projects
-            for p_issues in gh_by_project.values():
-                if item.gh_num in p_issues:
-                    gh_issue = p_issues[item.gh_num]
-                    break
         if not gh_issue:
             continue
 

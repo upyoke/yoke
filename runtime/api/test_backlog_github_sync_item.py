@@ -27,7 +27,7 @@ from yoke_core.domain import (
     github_rest,
 )
 from yoke_core.domain.project_github_auth import (
-    MissingToken,
+    MissingRepoBinding,
     ProjectGithubAuth,
 )
 
@@ -40,14 +40,20 @@ def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "buzz")
     return ProjectGithubAuth(
         project=proj, repo="org/buzz", token="ghs_fake",
-        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
-def _fake_issue(number: int = 999, title: str = "title") -> github_rest.Issue:
+def _fake_issue(
+    number: int = 999,
+    title: str = "title",
+    html_url: str | None = None,
+) -> github_rest.Issue:
     return github_rest.Issue(
         number=number, title=title, state="OPEN",
-        html_url=f"https://github.com/org/buzz/issues/{number}",
+        html_url=(
+            f"https://github.com/org/buzz/issues/{number}"
+            if html_url is None else html_url
+        ),
     )
 
 
@@ -117,6 +123,37 @@ class TestSyncItem:
         gh_issue = db.execute("SELECT github_issue FROM items WHERE id = 20").fetchone()[0]
         assert gh_issue == "#999"
         assert "Synced: BUZ-20 → GitHub issue #999" in stdout.getvalue()
+        db.close()
+
+    def test_create_without_html_url_prints_host_neutral_reference(self):
+        db = _make_db()
+        insert_item(
+            db,
+            id=20,
+            type="issue",
+            status="idea",
+            project="buzz",
+            spec="Test body content",
+        )
+        stdout = io.StringIO()
+
+        with patch.object(
+            item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
+        ), patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
+            _DEDUP_PATCH, return_value=[],
+        ), patch(
+            _CREATE_PATCH,
+            return_value=_fake_issue(number=999, html_url=""),
+        ), patch(
+            "yoke_core.domain.backlog_github_item_create._regenerate_md",
+        ), patch(
+            "yoke_core.domain.backlog_github_item_create._ensure_label",
+        ):
+            rc = backlog_github_sync.sync_item("20", conn=db, stdout=stdout)
+        assert rc == 0
+        output = stdout.getvalue()
+        assert "\n#999\n" in output
+        assert "https://github.com/org/buzz/issues/999" not in output
         db.close()
 
     def test_creates_new_epic_issue_and_syncs_child_tasks(self):
@@ -296,17 +333,17 @@ class TestSyncItemCompactMirror:
         )
         stderr = io.StringIO()
 
-        def raise_missing_token(*a, **kw):
-            raise MissingToken("buzz", "no token")
+        def raise_missing_binding(*a, **kw):
+            raise MissingRepoBinding("buzz", "repository is not bound")
 
         with patch.object(
             item_create, "resolve_project_github_auth",
-            side_effect=raise_missing_token,
+            side_effect=raise_missing_binding,
         ), patch(_DEDUP_PATCH) as dedup, patch(_CREATE_PATCH) as create_issue:
             rc = backlog_github_sync.sync_item("32", conn=db, stderr=stderr)
 
         assert rc == 1
         dedup.assert_not_called()
         create_issue.assert_not_called()
-        assert "MissingToken" in stderr.getvalue()
+        assert "MissingRepoBinding" in stderr.getvalue()
         db.close()

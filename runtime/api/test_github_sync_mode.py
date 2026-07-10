@@ -186,7 +186,7 @@ class TestExplicitRefusal:
         stderr = io.StringIO()
 
         rc = backlog_github_sync.migrate_issue_to_repo(
-            "42", "9", "org/old", "org/buzz", "buzz",
+            "42", "9", "org/old", "old", "org/buzz", "buzz",
             conn=db, stdout=io.StringIO(), stderr=stderr,
         )
 

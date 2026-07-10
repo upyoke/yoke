@@ -5,7 +5,7 @@ harness-hook usher incident on 2026-04-10, and the REST migration in
 YOK-1839 (bearer-token REST instead of ``gh`` CLI). Each test seeds:
 
 - a ``yoke`` project with ``github_repo='anthropics/yoke'``
-- a ``github`` project capability + literal ``token`` secret
+- a verified GitHub App installation and project repo binding
 - ``items.project_id`` pointing at Yoke so the engine's auth precondition resolves
 - ``YOKE_REST_FAKE_DIR`` pointing at per-test canned response files
   produced by :mod:`runtime.api.merge_worktree_test_rest_fakes`
@@ -16,6 +16,9 @@ operations the engine performs against the origin repo (the post-merge
 satisfied by the fake-dir files.
 """
 
+# The shared pytest fixture intentionally shares its name with test parameters.
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import pytest
@@ -25,7 +28,7 @@ from runtime.api.test_merge_worktree_full import (
     MergeEnv,
     _git,
     _write_file,
-    merge_env,  # re-export so pytest recognises this fixture
+    merge_env as merge_env,
     run_merge,
 )
 
@@ -35,8 +38,8 @@ def rest_env(merge_env: MergeEnv):
     """Wrap ``merge_env`` and clear the shared fake-dir for per-test overrides.
 
     The shared ``merge_env`` fixture already seeds the ``yoke`` project,
-    its ``github`` capability + literal ``token`` secret, binds the
-    YOK-42 items row to ``project='yoke'``, and pre-populates the
+    GitHub App installation and repo binding, binds the YOK-42 items row to
+    ``project='yoke'``, and pre-populates the
     fake-dir with happy-path REST responses. Failfast tests need
     scenario-specific responses, so this fixture clears the fake-dir to
     a clean slate before each test.

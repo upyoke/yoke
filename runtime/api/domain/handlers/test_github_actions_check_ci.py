@@ -8,7 +8,6 @@ import pytest
 
 from yoke_core.domain.handlers import github_actions_check_ci
 from yoke_core.domain.handlers.github_actions_check_ci import (
-    CheckCiResponse,
     _classify,
     handle_check_ci,
 )
@@ -24,14 +23,17 @@ _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
     token="ghs_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 
 def _make_request(payload: Optional[Dict[str, Any]] = None,
-                  *, target_kind: str = "global") -> FunctionCallRequest:
+                  *, target_kind: str = "global",
+                  include_project: bool = True) -> FunctionCallRequest:
     if payload is None:
         payload = {"repo": "upyoke/yoke", "workflow": "ci.yml"}
+    payload = dict(payload)
+    if include_project:
+        payload.setdefault("project", "yoke")
     return FunctionCallRequest(
         function="github_actions.check_ci",
         actor=ActorContext(session_id="test-session"),
@@ -87,6 +89,12 @@ class TestClassify:
 
 
 class TestHandle:
+    def test_rejects_missing_project(self):
+        outcome = handle_check_ci(_make_request(include_project=False))
+        assert not outcome.primary_success
+        assert outcome.error and outcome.error.code == "invalid_payload"
+        assert "project" in outcome.error.message
+
     def test_rejects_non_global_target(self):
         outcome = handle_check_ci(_make_request(target_kind="item"))
         assert not outcome.primary_success
@@ -115,6 +123,29 @@ class TestHandle:
         assert outcome.result_payload["state"] == "passed"
         assert outcome.result_payload["run_id"] == 42
 
+    def test_rejects_repo_outside_project_binding(
+        self, monkeypatch, _resolver_ok,
+    ):
+        called = False
+
+        def latest(*args, **kwargs):
+            nonlocal called
+            called = True
+            return None
+
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_rest.latest_workflow_run",
+            latest,
+        )
+        outcome = handle_check_ci(_make_request({
+            "repo": "other/repository", "workflow": "ci.yml",
+        }))
+
+        assert not outcome.primary_success
+        assert outcome.error.code == "invalid_payload"
+        assert "project binding" in outcome.error.message
+        assert called is False
+
     def test_returns_failed_on_red(self, monkeypatch, _resolver_ok):
         run = {"id": 42, "status": "completed", "conclusion": "failure"}
         monkeypatch.setattr(
@@ -134,11 +165,11 @@ class TestHandle:
         assert outcome.primary_success
         assert outcome.result_payload["state"] == "no_runs"
 
-    def test_missing_token_surfaces_as_auth_error(self, monkeypatch):
-        from yoke_core.domain.project_github_auth import MissingToken
+    def test_missing_app_credentials_surface_as_auth_error(self, monkeypatch):
+        from yoke_core.domain.project_github_auth import MissingAppCredentials
 
         def _raise(project, **kw):
-            raise MissingToken(project, "token missing")
+            raise MissingAppCredentials(project, "App credentials missing")
 
         monkeypatch.setattr(
             "yoke_core.domain.project_github_auth.resolve_project_github_auth",
@@ -200,7 +231,7 @@ class TestSingleShot:
             "yoke_core.domain.github_actions_rest.latest_workflow_run", fake,
         )
         outcome = handle_check_ci(_make_request(
-            {"repo": "o/r", "workflow": "ci.yml", "wait": True,
+            {"repo": "upyoke/yoke", "workflow": "ci.yml", "wait": True,
              "timeout_sec": 600}
         ))
         assert outcome.primary_success

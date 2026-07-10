@@ -81,7 +81,6 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
         project="yoke",
         repo="upyoke/yoke",
         token="tok",
-        env={"GH_TOKEN": "tok"},
     )
 
     monkeypatch.setattr(comments, "_bgs", lambda: FakeBacklogGithubSync())

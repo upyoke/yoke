@@ -192,3 +192,19 @@ def test_normalize_github_repo_handles_common_clone_urls() -> None:
     assert existing_project_lookup.normalize_github_repo("Example-Org/Buzz") == (
         "example-org/buzz"
     )
+    assert existing_project_lookup.normalize_github_repo(
+        "https://ghe.example/Example-Org/Buzz.git"
+    ) == "example-org/buzz"
+    assert existing_project_lookup.normalize_github_repo(
+        "git@ghe.example:Example-Org/Buzz.git"
+    ) == "example-org/buzz"
+
+
+def test_normalize_github_repo_rejects_unrelated_or_malformed_paths() -> None:
+    assert existing_project_lookup.normalize_github_repo(
+        "https://example.test/docs/owner/repo"
+    ) == ""
+    assert existing_project_lookup.normalize_github_repo(
+        "https://ghe.example/owner/repo/extra"
+    ) == ""
+    assert existing_project_lookup.normalize_github_repo("owner") == ""

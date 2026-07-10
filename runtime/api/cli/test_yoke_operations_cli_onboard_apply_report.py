@@ -149,9 +149,6 @@ def test_noninteractive_failure_prints_report_summary(
         check_identity=True,
         machine_github_choice="skip",
         machine_github_api_url=None,
-        machine_github_token=None,
-        machine_github_token_file=None,
-        machine_github_token_source_kind=None,
         project_mode="machine-only",
         project_remote_url=None,
         project_checkout=None,
@@ -164,9 +161,6 @@ def test_noninteractive_failure_prints_report_summary(
         project_public_item_prefix=None,
         existing_project_id=None,
         project_github_adoption=None,
-        project_github_token=None,
-        project_github_token_file=None,
-        project_github_token_stdin_value=None,
     )
 
     assert report is None
@@ -349,10 +343,7 @@ def test_apply_report_carries_replay_safe_input_snapshot(
             "api_url": "https://api.stage.upyoke.com",
             "token": "yoke-secret",
             "token_source_kind": "argument",
-            "machine_github_choice": "store-token",
-            "machine_github_token": "machine-gh-secret",
-            "machine_github_token_source_kind": "file",
-            "machine_github_token_file": "/tmp/machine-gh-token",
+            "machine_github_choice": "connect",
             "project_mode": "clone-remote",
             "project_remote_url": "https://github.com/octo/source.git",
             "project_checkout": str(checkout),
@@ -362,8 +353,6 @@ def test_apply_report_carries_replay_safe_input_snapshot(
             "project_default_branch": "main",
             "project_public_item_prefix": "WIDG",
             "project_github_adoption": GITHUB_ADOPTION_APP_BINDING,
-            "project_github_token": None,
-            "project_github_token_file": None,
             "project_clone": clone,
         },
     )

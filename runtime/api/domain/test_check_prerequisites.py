@@ -215,7 +215,7 @@ def test_warns_when_canonical_resolver_missing_app_auth(tmp_path, monkeypatch, c
     monkeypatch.setattr(
         "yoke_core.domain.check_prerequisites.resolve_project_github_auth",
         lambda *_a, **_kw: (_ for _ in ()).throw(
-            pga.MissingToken("yoke", "no token in capability_secrets")
+            pga.MissingAppCredentials("yoke", "App credentials unavailable")
         ),
     )
 
@@ -223,13 +223,15 @@ def test_warns_when_canonical_resolver_missing_app_auth(tmp_path, monkeypatch, c
     out = capsys.readouterr().out
     assert rc == 0
     assert "All critical checks passed" in out
-    # Repair hint routes to canonical capability secret set, not host login.
-    assert "capability secret set" in out
+    # Repair hint routes to control-plane App configuration, not host login.
+    assert "control-plane App issuer" in out
     retired_hint = "gh " + "auth " + "login"
     assert retired_hint not in out
 
 
-def test_strict_promotes_missing_token_to_critical_fail(tmp_path, monkeypatch, capsys):
+def test_strict_promotes_missing_app_credentials_to_critical_fail(
+    tmp_path, monkeypatch, capsys,
+):
     """``--strict`` upgrades resolver WARN to FAIL so CI trips on the same gap."""
     _seed_repo(tmp_path)
 
@@ -258,7 +260,7 @@ def test_strict_promotes_missing_token_to_critical_fail(tmp_path, monkeypatch, c
     monkeypatch.setattr(
         "yoke_core.domain.check_prerequisites.resolve_project_github_auth",
         lambda *_a, **_kw: (_ for _ in ()).throw(
-            pga.MissingToken("yoke", "no token in capability_secrets")
+            pga.MissingAppCredentials("yoke", "App credentials unavailable")
         ),
     )
 
@@ -266,7 +268,7 @@ def test_strict_promotes_missing_token_to_critical_fail(tmp_path, monkeypatch, c
     out = capsys.readouterr().out
     assert rc == 1
     assert "Some critical checks failed" in out
-    assert "capability secret set" in out
+    assert "control-plane App issuer" in out
 
 
 def test_accepts_legacy_claude_md_compat_path(tmp_path, monkeypatch, capsys):

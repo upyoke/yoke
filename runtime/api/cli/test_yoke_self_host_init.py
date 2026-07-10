@@ -92,6 +92,24 @@ def test_init_ships_browser_sign_in_wiring_disabled(target):
     )
 
 
+def test_init_ships_github_app_secret_wiring_disabled(target):
+    assert commands.self_host_init(["--dir", str(target)]) == 0
+
+    compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "YOKE_GITHUB_APP_ISSUER: ${YOKE_GITHUB_APP_ISSUER:-}" in compose
+    assert "YOKE_GITHUB_APP_PRIVATE_KEY_FILE:" in compose
+    assert "#- yoke-github-app-private-key" in compose
+    assert "#yoke-github-app-private-key:" in compose
+
+    env_text = (target / ".env").read_text(encoding="utf-8")
+    assert "#YOKE_GITHUB_APP_ISSUER=" in env_text
+    assert "#YOKE_GITHUB_APP_API_URL=https://api.github.com" in env_text
+    assert "#YOKE_GITHUB_APP_PRIVATE_KEY_FILE=" in env_text
+    assert not any(
+        line.startswith("YOKE_GITHUB_APP_") for line in env_text.splitlines()
+    )
+
+
 def test_init_json_report_omits_secrets(target, capsys):
     assert commands.self_host_init(["--dir", str(target), "--json"]) == 0
     report = json.loads(capsys.readouterr().out)

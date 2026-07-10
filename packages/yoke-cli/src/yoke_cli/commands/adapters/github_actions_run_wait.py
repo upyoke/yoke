@@ -20,7 +20,7 @@ from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 
 GITHUB_ACTIONS_WAIT_RUN_USAGE = (
     "yoke github-actions wait-run <repo-slug> <run-id> "
-    "[--timeout SEC] [--project P] [--session-id S] [--json]"
+    "[--timeout SEC] --project P [--session-id S] [--json]"
 )
 RUN_WAIT_POLL_INTERVAL_SEC = 15
 
@@ -44,8 +44,8 @@ def github_actions_wait_run(args: List[str]) -> int:
         help="Wait budget in seconds (default: 1800).",
     )
     parser.add_argument(
-        "--project", default="yoke",
-        help="Project capability owning the GitHub App repo binding (default: yoke).",
+        "--project", required=True,
+        help="Project capability owning the GitHub App repo binding.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

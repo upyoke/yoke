@@ -32,8 +32,6 @@ pytest.importorskip("textual")
 from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     DIAGNOSIS_ALL_CLEAR,
     DIAGNOSIS_NEEDS_FIX,
-    GITHUB_FINE_GRAINED_MACHINE_VERIFICATION,
-    GITHUB_MACHINE_VERIFICATION,
     STARTUP,
     YOKE_TOKEN_VERIFICATION,
     VERIFIED_RESOLVED,
@@ -43,6 +41,7 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     render,
 )
 from yoke_cli.config import onboard_wizard_path  # noqa: E402
+from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config import path_doctor  # noqa: E402
 from yoke_cli.config.onboard_destinations import (  # noqa: E402
     DESTINATION_HOSTED,
@@ -50,6 +49,7 @@ from yoke_cli.config.onboard_destinations import (  # noqa: E402
     DESTINATION_SERVER,
 )
 from yoke_cli.config.onboard_wizard_app import OnboardWizardApp  # noqa: E402
+from yoke_cli.config.onboard_wizard_state import _View  # noqa: E402
 
 _BIN_DIR = "~/.local/bin"
 
@@ -233,34 +233,25 @@ def test_github_connect_account() -> None:
     assert_golden("github_connect_account", render(app, drive, title="yoke onboard · GitHub"))
 
 
-def test_github_app_connect_pending() -> None:
+def test_github_app_connect_pending(monkeypatch: pytest.MonkeyPatch) -> None:
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
+        def hold_checking_screen(**kwargs: Any) -> None:
+            a._checking = True
+            a._goto(_View(
+                kwargs["step"],
+                lambda: steps.checking_body(
+                    kwargs["title"],
+                    kwargs["message"],
+                    kwargs["detail_lines"],
+                ),
+            ))
+
+        monkeypatch.setattr(a, "_run_checking", hold_checking_screen)
         a._on_machine_github("connect")
 
     assert_golden("github_app_connect_pending", render(app, drive, title="yoke onboard · GitHub"))
-
-
-def test_github_scoped_token_verified() -> None:
-    app = make_app()
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_machine_github_success(GITHUB_MACHINE_VERIFICATION)
-
-    assert_golden("github_scoped_token_verified", render(app, drive, title="yoke onboard · GitHub"))
-
-
-def test_github_repository_token_verified() -> None:
-    app = make_app()
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_machine_github_success(GITHUB_FINE_GRAINED_MACHINE_VERIFICATION)
-
-    assert_golden(
-        "github_repository_token_verified",
-        render(app, drive, title="yoke onboard · GitHub"),
-    )
 
 
 def test_github_app_connect_error() -> None:

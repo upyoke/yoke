@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_github_snapshot
 
 _PROJECT_MODES_THAT_CREATE_CHECKOUTS = {
     onboard_project.PROJECT_MODE_CREATE_REPO,
@@ -36,7 +37,7 @@ def _machine_github(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "choice": _text(kwargs.get("machine_github_choice")),
         "api_url": _text(kwargs.get("machine_github_api_url")),
-        "authorization_source": _github_authorization_source(kwargs),
+        "authorization_source": onboard_github_snapshot.authorization_source(kwargs),
     }
 
 
@@ -60,7 +61,7 @@ def _project(kwargs: Mapping[str, Any], project_mode: str) -> dict[str, Any]:
             kwargs.get("existing_project_local_source")
         ),
         "github_adoption": _text(kwargs.get("project_github_adoption")),
-        "github_binding": _github_binding(kwargs),
+        "github_binding": onboard_github_snapshot.binding(kwargs),
         "keep_existing_remote": bool(kwargs.get("project_keep_existing_remote")),
         "publish": _publish(kwargs.get("project_publish")),
         "clone": _clone(kwargs.get("project_clone")),
@@ -74,36 +75,9 @@ def _credential_sources(kwargs: Mapping[str, Any]) -> dict[str, Any]:
             "path": _text(kwargs.get("token_file")),
         },
         "github_app": {
-            "machine": _github_authorization_source(kwargs),
-            "project": _github_binding(kwargs),
+            "machine": onboard_github_snapshot.authorization_source(kwargs),
+            "project": onboard_github_snapshot.binding(kwargs),
         },
-    }
-
-
-def _github_authorization_source(kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    choice = _text(kwargs.get("machine_github_choice"))
-    if choice == "connect":
-        return {"kind": "github_app_user_authorization"}
-    return {"kind": ""}
-
-
-def _github_binding(kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    adoption = _text(kwargs.get("project_github_adoption"))
-    repo = _text(kwargs.get("project_github_repo"))
-    status = _text(kwargs.get("project_github_binding_status"))
-    if not status:
-        if adoption in {"skip", "backlog-only"} or not repo:
-            status = "backlog_only"
-        else:
-            status = "pending_app_connection"
-    return {
-        "adoption": adoption,
-        "repo": repo,
-        "installation_id": _text(kwargs.get("project_github_installation_id")),
-        "repository_id": _text(kwargs.get("project_github_repository_id")),
-        "status": status,
-        "permission_status": _mapping(kwargs.get("project_github_permission_status")),
-        "automation": _mapping(kwargs.get("project_github_automation")),
     }
 
 
@@ -135,6 +109,7 @@ def _publish(value: Any) -> dict[str, Any] | None:
         "name": _text(getattr(value, "name", "")),
         "user_login": _text(getattr(value, "user_login", "")),
         "api_url": _text(getattr(value, "api_url", "")),
+        "web_url": _text(getattr(value, "web_url", "")),
         "private": bool(getattr(value, "private", True)),
     }
 
@@ -146,6 +121,7 @@ def _clone(value: Any) -> dict[str, Any] | None:
         "outcome": _text(getattr(value, "outcome", "")),
         "keep_upstream": bool(getattr(value, "keep_upstream", True)),
         "fork_api_url": _text(getattr(value, "fork_api_url", "")),
+        "fork_web_url": _text(getattr(value, "fork_web_url", "")),
         "publish": _publish(getattr(value, "publish", None)),
     }
 

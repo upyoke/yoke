@@ -49,9 +49,9 @@ def _make_http_error(status: int, body: bytes = b"") -> urllib.error.HTTPError:
 
 @pytest.fixture(autouse=True)
 def _reset_module(monkeypatch):
-    """Ensure each test gets a fresh urlopen + sleep + env var state."""
     monkeypatch.setattr(t, "sleep", lambda _s: None)
     monkeypatch.delenv(t._FAKE_DIR_ENV, raising=False)
+    monkeypatch.delenv(t.GITHUB_APP_API_URL_ENV, raising=False)
     yield
 
 

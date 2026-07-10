@@ -377,7 +377,6 @@ def test_board_print_content_keeps_rich_output_in_regular_terminal() -> None:
     rendered = board_print_content(
         "🏆 BOARD █ CONTENT └ done\n",
         {"scope": "2", "repo_root": "/repo", "board_path": "/repo/.yoke/BOARD.md"},
-        env={"TERM": "xterm-256color", "TERM_PROGRAM": "Apple_Terminal"},
     )
     assert "Yoke board terminal mode: plain" not in rendered
     assert "🏆 BOARD █ CONTENT └ done" in rendered
@@ -387,7 +386,6 @@ def test_board_print_content_explains_forced_plain_mode() -> None:
     rendered = board_print_content(
         "\x1b[32m🏆 BOARD █ CONTENT └ done\x1b[0m\n",
         {"scope": "2", "repo_root": "/repo", "board_path": "/repo/.yoke/BOARD.md"},
-        env={"TERM": "xterm-256color", "YOKE_BOARD_PLAIN": "1"},
     )
     assert "YOKE_BOARD_PLAIN is set" in rendered
     assert "\x1b[" not in rendered

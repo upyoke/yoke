@@ -151,6 +151,8 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "path_snapshots",
         "project_capabilities",
         "capability_secrets",
+        "github_app_installations",
+        "project_github_repo_bindings",
         "migration_audit",
     ),
 }

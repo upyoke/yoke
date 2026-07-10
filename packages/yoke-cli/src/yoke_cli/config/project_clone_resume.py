@@ -15,9 +15,13 @@ from __future__ import annotations
 
 import re
 import subprocess
+import urllib.parse
 from pathlib import Path
 
-_SSH_RE = re.compile(r"^git@github\.com:(?P<path>.+?)(?:\.git)?$")
+from yoke_contracts import github_origin
+
+
+_SCP_RE = re.compile(r"^git@(?P<host>[^:/\\]+):(?P<path>.+)$")
 
 
 def remote_url(root: Path, remote: str) -> str | None:
@@ -43,16 +47,19 @@ def remote_url(root: Path, remote: str) -> str | None:
     return url or None
 
 
-def _canonical(url: str) -> str:
-    """Normalize a github URL (SSH or HTTPS) to bare ``owner/repo`` for compare."""
+def _canonical(url: str) -> tuple[str, str]:
+    """Return ``(host, owner/repo)`` for a git URL, or a raw fallback."""
     cleaned = url.strip()
-    match = _SSH_RE.match(cleaned)
-    if match:
-        return match.group("path")
-    marker = "github.com/"
-    if marker in cleaned:
-        cleaned = cleaned.split(marker, 1)[1]
-    return cleaned.removesuffix(".git").strip("/")
+    try:
+        repository = github_origin.normalize_github_repository(cleaned)
+    except github_origin.GitHubApiOriginError:
+        return "", cleaned.removesuffix(".git").rstrip("/")
+    scp = _SCP_RE.fullmatch(cleaned)
+    if scp:
+        host = scp.group("host").casefold()
+    else:
+        host = str(urllib.parse.urlsplit(cleaned).hostname or "").casefold()
+    return host, repository
 
 
 def same_repo(a: str | None, b: str | None) -> bool:
@@ -65,7 +72,10 @@ def same_repo(a: str | None, b: str | None) -> bool:
     """
     if not a or not b:
         return False
-    return _canonical(a) == _canonical(b)
+    host_a, repo_a = _canonical(a)
+    host_b, repo_b = _canonical(b)
+    hosts_match = not host_a or not host_b or host_a == host_b
+    return repo_a == repo_b and hosts_match
 
 
 def existing_clone_matches(root: Path, source_url: str) -> bool:

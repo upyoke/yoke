@@ -16,14 +16,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, TextIO
 
-from yoke_cli.config import machine_config
+from yoke_contracts import github_origin
 from yoke_cli.config import onboard_destinations
+from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
+from yoke_cli.config import onboard_wizard_github_state as github_state
+from yoke_cli.config.project_github_adoption import (
+    GITHUB_ADOPTION_APP_BINDING,
+    GITHUB_ADOPTION_BACKLOG_ONLY,
+)
 
-# Project GitHub binding choice surfaced as a first-class wizard option.
 PROJECT_GITHUB_REUSE_MACHINE = "reuse-machine"
+github_connected = github_state.connected
 
 
 class WizardCancelled(RuntimeError):
@@ -78,9 +83,6 @@ class WizardResult:
     apply: bool = False
     machine_github_choice: str = onboard_machine_github.CHOICE_SKIP
     machine_github_api_url: str | None = None
-    machine_github_token: str | None = None
-    machine_github_token_file: str | None = None
-    machine_github_token_source_kind: str | None = None
     machine_github_verification: dict[str, Any] | None = None
     project_mode: str = onboard_project.PROJECT_MODE_MACHINE_ONLY
     project_remote_url: str | None = None
@@ -95,8 +97,6 @@ class WizardResult:
     existing_project_match_source: str | None = None
     existing_project_local_source: str | None = None
     project_github_adoption: str | None = None
-    project_github_token: str | None = None
-    project_github_token_file: str | None = None
     # "Also publish to GitHub?" answer. When the user publishes, the wizard
     # creates the repo at apply time under the chosen owner; the assembled
     # PublishRequest carries the inputs through build_report.
@@ -140,15 +140,18 @@ class WizardResult:
         """
         from yoke_cli.config.onboard_project import PublishRequest
 
-        if not (self.project_publish_owner and self.machine_github_token):
+        token = github_state.user_access_token(self)
+        if not (self.project_publish_owner and token):
             return None
         return PublishRequest(
             owner=self.project_publish_owner,
             name=(self.project_publish_repo_name or self.project_slug or "project"),
             user_login=(self.project_publish_owner_login or ""),
-            token=self.machine_github_token,
-            api_url=(self.machine_github_api_url or "https://api.github.com"),
+            token=token,
+            api_url=(self.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL),
+            web_url=github_state.web_url(self),
             private=self.project_publish_private,
+            administration_allowed=github_state.administration_allowed(self),
         )
 
     def build_publish_request(self) -> Any:
@@ -181,13 +184,15 @@ class WizardResult:
 
         if self.project_mode not in onboard_project.PROJECT_REMOTE_MODES:
             return None
+        token = github_state.user_access_token(self)
         if not self.project_clone_outcome:
-            if self.existing_project_id:
+            if self.existing_project_id or token:
                 return ClonePlan(
-                    fallback_token=self.machine_github_token,
+                    fallback_token=token,
                     fork_api_url=(
-                        self.machine_github_api_url or "https://api.github.com"
+                        self.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL
                     ),
+                    fork_web_url=github_state.web_url(self),
                 )
             return None
         publish = None
@@ -197,8 +202,9 @@ class WizardResult:
             outcome=self.project_clone_outcome,
             keep_upstream=self.project_clone_keep_upstream,
             publish=publish,
-            fallback_token=self.machine_github_token,
-            fork_api_url=(self.machine_github_api_url or "https://api.github.com"),
+            fallback_token=token,
+            fork_api_url=(self.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL),
+            fork_web_url=github_state.web_url(self),
         )
 
     def default_branch_source(self) -> str | None:
@@ -225,9 +231,6 @@ class WizardResult:
             "check_identity": check_identity,
             "machine_github_choice": self.machine_github_choice,
             "machine_github_api_url": self.machine_github_api_url,
-            "machine_github_token": self.machine_github_token,
-            "machine_github_token_file": self.machine_github_token_file,
-            "machine_github_token_source_kind": self.machine_github_token_source_kind,
             "project_mode": self.project_mode,
             "project_remote_url": self.project_remote_url,
             "project_checkout": self.project_checkout,
@@ -242,9 +245,6 @@ class WizardResult:
             "existing_project_match_source": self.existing_project_match_source,
             "existing_project_local_source": self.existing_project_local_source,
             "project_github_adoption": self.project_github_adoption,
-            "project_github_token": self.project_github_token,
-            "project_github_token_file": self.project_github_token_file,
-            "project_github_token_stdin_value": None,
             "project_publish": self.build_publish_request(),
             "project_clone": self.build_clone_plan(),
             "project_keep_existing_remote": self.project_keep_existing_remote,
@@ -324,6 +324,8 @@ def reuse_choice_to_adoption(choice: str) -> str:
     """Translate the wizard's connected-repo choice to an App binding value."""
     if choice == PROJECT_GITHUB_REUSE_MACHINE:
         return GITHUB_ADOPTION_APP_BINDING
+    if choice == "skip":
+        return GITHUB_ADOPTION_BACKLOG_ONLY
     return choice
 
 

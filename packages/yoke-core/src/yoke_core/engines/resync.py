@@ -14,7 +14,6 @@ from yoke_core.domain.project_github_auth import (  # noqa: F401
     InvalidToken,
     MissingCapability,
     MissingRepoMetadata,
-    MissingToken,
     ProjectGithubAuth,
     ProjectGithubAuthError,
     repair_command_hint,
@@ -23,7 +22,6 @@ from yoke_core.domain.project_github_auth import (  # noqa: F401
 from yoke_core.engines.resync_runtime import (  # noqa: F401
     _resolve_yoke_root,
     _is_dry_run,
-    _gh_env,
     _query_item_status,
     _call_domain_sync,
 )
@@ -37,6 +35,10 @@ from yoke_core.engines.resync_detect import (  # noqa: F401
 )
 from yoke_core.engines.resync_detect_fetch import (  # noqa: F401
     SYNC_DISABLED_KEY,
+    UNAVAILABLE_CODE_KEY,
+    UNAVAILABLE_HINT_KEY,
+    UNAVAILABLE_STAGE_KEY,
+    _project_unavailable,
     _project_sync_disabled,
 )
 from yoke_core.engines.resync_apply import (  # noqa: F401
@@ -96,9 +98,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    # Linkage. Yoke auth failures fail-closed at the engine
-    # boundary (control plane); per-project auth failures for other projects
-    # are caught inside _fetch_gh_issues_per_project and surface as warnings.
+    # Linkage. Yoke GitHub read failures fail-closed at the engine boundary;
+    # per-project failures for other projects become unavailable states.
     try:
         paired, local_orphans, gh_orphans, gh_by_project = stage1_linkage(
             db_path, yoke_root,
@@ -115,21 +116,27 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 2
 
-    # Surface per-project auth failures as warnings. The sentinel pattern
-    # (``_auth_error`` key on the per-project dict) is set by
-    # _fetch_gh_issues_per_project when a non-Yoke project's auth resolution
-    # fails; the engine continues with healthy projects but exits non-zero
-    # overall so callers can detect partial failure.
-    auth_failures: list[tuple[str, str, str]] = []
+    # Surface incomplete GitHub reads as warnings. The engine continues with
+    # healthy projects but exits non-zero overall. Unavailable projects are
+    # excluded from classification and repair.
+    github_failures: list[tuple[str, str, str, str]] = []
     for proj, value in list(gh_by_project.items()):
-        if isinstance(value, dict) and "_auth_error" in value:
-            auth_failures.append(
-                (proj, value.get("_auth_error", ""), value.get("_repair_hint", "")),
+        if _project_unavailable(value):
+            github_failures.append(
+                (
+                    proj,
+                    value.get(UNAVAILABLE_CODE_KEY, ""),
+                    value.get(UNAVAILABLE_STAGE_KEY, ""),
+                    value.get(UNAVAILABLE_HINT_KEY, ""),
+                ),
             )
-    if auth_failures and not doctor_format:
-        print("=== Auth Failures (per-project, non-Yoke) ===")
-        for proj, code, hint in auth_failures:
-            print(f"  WARN: project '{proj}' auth failed (code={code})")
+    if github_failures and not doctor_format:
+        print("=== GitHub Reads Unavailable (per-project) ===")
+        for proj, code, stage, hint in github_failures:
+            print(
+                f"  WARN: project '{proj}' GitHub {stage or 'state'} "
+                f"unavailable (code={code})"
+            )
             if hint:
                 print(f"    Repair: {hint}")
         print()
@@ -178,6 +185,26 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Stage 1.5: Heavy fetch
     heavy_by_project = stage1_5_heavy_fetch(paired, gh_by_project)
+    for proj, value in list(heavy_by_project.items()):
+        if not _project_unavailable(value):
+            continue
+        failure = (
+            proj,
+            value.get(UNAVAILABLE_CODE_KEY, ""),
+            value.get(UNAVAILABLE_STAGE_KEY, ""),
+            value.get(UNAVAILABLE_HINT_KEY, ""),
+        )
+        if failure not in github_failures:
+            github_failures.append(failure)
+        if not doctor_format:
+            _, code, stage, hint = failure
+            print(
+                f"WARN: project '{proj}' GitHub {stage or 'state'} "
+                f"unavailable (code={code}); drift comparison and repair skipped"
+            )
+            if hint:
+                print(f"  Repair: {hint}")
+            print()
 
     # Field comparison
     drifts = stage2_compare(paired, gh_by_project, heavy_by_project, db_path)
@@ -267,15 +294,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         f"{drift_count} drifts, {repaired} repaired, {failed} failed"
     )
 
-    # Exit code. Per-project auth failures force non-zero so callers can
-    # detect partial-failure runs even when no orphans/drifts were found in
-    # the healthy projects.
+    # Exit code. Per-project unavailable states force non-zero so callers can
+    # detect partial runs even when healthy projects had no drift.
     total_issues = local_orphan_count + gh_orphan_count + drift_count
     if mode == "fix":
-        if failed > 0 or auth_failures:
+        if failed > 0 or github_failures:
             return 1
         return 0
-    if total_issues > 0 or auth_failures:
+    if total_issues > 0 or github_failures:
         return 1
     return 0
 

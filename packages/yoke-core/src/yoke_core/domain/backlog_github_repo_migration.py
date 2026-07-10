@@ -16,14 +16,17 @@ from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import db_backend
 from yoke_core.domain import github_rest
 from yoke_core.domain.backlog_github_fetch import _close_if_owned, _open_conn, _p
-from yoke_core.domain.project_github_auth import resolve_project_github_auth
+from yoke_core.domain.project_github_auth import (
+    ProjectGithubAuthError,
+    resolve_project_github_auth,
+)
 
 
 def _list_issue_comments(*, project: str, number: int) -> list[dict]:
     """Fetch raw comment dicts for ``number`` in chronological order."""
     try:
         comments = github_rest.list_comments(project=project, number=number)
-    except github_rest.RestTransportError:
+    except (github_rest.RestTransportError, ProjectGithubAuthError):
         return []
     return [
         {
@@ -41,6 +44,7 @@ def migrate_issue_to_repo(
     item_id: str,
     old_issue_num: str,
     source_repo: str,
+    source_project: str,
     target_repo: str,
     target_project: str,
     *,
@@ -73,10 +77,33 @@ def migrate_issue_to_repo(
         target_project, "migrate-issue", conn=conn, out=stderr,
     ):
         return 1
-    if not _bgs()._github_auth_available(target_project):
+    try:
+        source_auth = resolve_project_github_auth(source_project, conn=conn)
+        target_auth = resolve_project_github_auth(target_project, conn=conn)
+    except ProjectGithubAuthError as exc:
         print(
-            f"Error: project '{target_project}' has no usable GitHub App auth "
-            "for migrate-issue",
+            f"Error: project '{exc.project}' has no usable GitHub App auth "
+            f"for migrate-issue: {exc}",
+            file=stderr,
+        )
+        return 1
+
+    # ``source_repo`` / ``target_repo`` are retained as an operator-facing
+    # migration projection. The verified GitHub App bindings own network
+    # targeting, so stale projections fail closed before either repo changes.
+    if source_repo != source_auth.repo:
+        print(
+            f"Error: source repo projection {source_repo!r} does not match "
+            f"the verified binding {source_auth.repo!r} for project "
+            f"'{source_project}'",
+            file=stderr,
+        )
+        return 1
+    if target_repo != target_auth.repo:
+        print(
+            f"Error: target repo projection {target_repo!r} does not match "
+            f"the verified binding {target_auth.repo!r} for project "
+            f"'{target_project}'",
             file=stderr,
         )
         return 1
@@ -91,8 +118,10 @@ def migrate_issue_to_repo(
 
     # 1. Fetch the full source issue (title + body + labels + state).
     try:
-        source_issue = github_rest.get_issue(project="yoke", number=old_number)
-    except github_rest.RestTransportError as exc:
+        source_issue = github_rest.get_issue(
+            project=source_project, number=old_number,
+        )
+    except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(
             f"[migrate] ERROR: could not fetch issue "
             f"#{old_issue_num} from {source_repo}: {exc}",
@@ -116,7 +145,7 @@ def migrate_issue_to_repo(
         created = github_rest.create_issue(
             project=target_project, title=title, body=body, labels=labels,
         )
-    except github_rest.RestTransportError as exc:
+    except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(
             f"[migrate] ERROR: failed to create issue in {target_repo}: {exc}",
             file=stderr,
@@ -132,7 +161,7 @@ def migrate_issue_to_repo(
     print(f"[migrate] Created #{new_issue_num} in {target_repo}", file=stdout)
 
     # 3. Copy comments in chronological order.
-    comments = _list_issue_comments(project="yoke", number=old_number)
+    comments = _list_issue_comments(project=source_project, number=old_number)
     for comment in comments:
         author = (comment.get("author") or {}).get("login", "unknown")
         body_text = comment.get("body", "")
@@ -145,7 +174,7 @@ def migrate_issue_to_repo(
             github_rest.post_comment(
                 project=target_project, number=new_issue_num, body=comment_text,
             )
-        except github_rest.RestTransportError as exc:
+        except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
             print(
                 f"[migrate] WARNING: failed to copy a comment: {exc}",
                 file=stderr,
@@ -164,7 +193,7 @@ def migrate_issue_to_repo(
                 f"[migrate] Closed #{new_issue_num} (matching source state)",
                 file=stdout,
             )
-        except github_rest.RestTransportError as exc:
+        except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
             print(
                 f"[migrate] WARNING: failed to close #{new_issue_num}: {exc}",
                 file=stderr,
@@ -198,9 +227,9 @@ def migrate_issue_to_repo(
     )
     try:
         github_rest.post_comment(
-            project="yoke", number=old_number, body=forward_msg,
+            project=source_project, number=old_number, body=forward_msg,
         )
-    except github_rest.RestTransportError as exc:
+    except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(
             f"[migrate] WARNING: failed to post forwarding comment: {exc}",
             file=stderr,
@@ -208,18 +237,18 @@ def migrate_issue_to_repo(
 
     try:
         github_rest.set_issue_state(
-            project="yoke", number=old_number, state="closed",
+            project=source_project, number=old_number, state="closed",
         )
-    except github_rest.RestTransportError as exc:
+    except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(f"[migrate] WARNING: failed to close source: {exc}", file=stderr)
 
     try:
-        github_rest.delete_issue(project="yoke", number=old_number)
+        github_rest.delete_issue(project=source_project, number=old_number)
         print(
             f"[migrate] Deleted #{old_issue_num} from {source_repo}",
             file=stdout,
         )
-    except github_rest.RestTransportError as exc:
+    except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(
             f"[migrate] WARNING: failed to delete source issue: {exc}",
             file=stderr,

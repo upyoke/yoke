@@ -276,9 +276,7 @@ def test_prepare_stored_state_profile_preloads_machine_config_without_secret_lea
         lambda _project, _region: {"AWS_ACCESS_KEY_ID": "AKIA_SECRET"},
     )
     yoke_token = tmp_path / "stage.token"
-    github_token = tmp_path / "github.token"
     yoke_token.write_text("yoke-secret-value\n", encoding="utf-8")
-    github_token.write_text("github-secret-value\n", encoding="utf-8")
     runner = FakeRunner()
 
     result = fleet.prepare_fleet(
@@ -290,25 +288,17 @@ def test_prepare_stored_state_profile_preloads_machine_config_without_secret_lea
         distro="ubuntu-24.04",
         key_dir=tmp_path / "keys",
         yoke_token_file=yoke_token,
-        github_token_file=github_token,
-        github_repo="example-org/buzz",
         runner=runner,
         public_ip_fetcher=lambda: "198.51.100.20",
     )
 
     rendered_ledger = json.dumps(result["ledger"])
     assert "yoke-secret-value" not in rendered_ledger
-    assert "github-secret-value" not in rendered_ledger
     host = result["ledger"]["hosts"][0]
     assert host["profile"] == "prepared-stored-state"
-    assert host["stored_state"] == {
-        "yoke_connection": True,
-        "github_connection": True,
-        "github_repo": "example-org/buzz",
-    }
+    assert host["stored_state"] == {"yoke_connection": True}
     scp_targets = [call[-1] for call, _env in runner.calls if call and call[0] == "scp"]
     assert "ubuntu@203.0.113.10:/tmp/yoke-api.token" in scp_targets
-    assert "ubuntu@203.0.113.10:/tmp/yoke-github.token" in scp_targets
     ssh_commands = [call[-1] for call, _env in runner.calls if call and call[0] == "ssh"]
     assert any(
         "apt-get install -y tmux git $curl_pkg" in command
@@ -317,12 +307,8 @@ def test_prepare_stored_state_profile_preloads_machine_config_without_secret_lea
     stored_state_command = ssh_commands[-1]
     assert "connection set stage --transport https" in stored_state_command
     assert "--token-file /tmp/yoke-api.token" in stored_state_command
-    assert "github connect --token-file /tmp/yoke-github.token" in stored_state_command
-    assert "--github-repo example-org/buzz" in stored_state_command
     assert "rm -f /tmp/yoke-api.token" in stored_state_command
-    assert "rm -f /tmp/yoke-github.token" in stored_state_command
     assert "yoke-secret-value" not in stored_state_command
-    assert "github-secret-value" not in stored_state_command
 
 
 def test_prepare_stored_state_profile_requires_yoke_token_file(tmp_path: Path) -> None:
@@ -655,19 +641,13 @@ def test_reset_fleet_host_rebuilds_prepared_no_git_profile(tmp_path: Path) -> No
 
 def test_reset_fleet_host_reseeds_prepared_stored_state(tmp_path: Path) -> None:
     yoke_token = tmp_path / "stage.token"
-    github_token = tmp_path / "github.token"
     yoke_token.write_text("yoke-secret-value\n", encoding="utf-8")
-    github_token.write_text("github-secret-value\n", encoding="utf-8")
     ledger_path = _write_reset_ledger(
         tmp_path,
         profile="prepared-stored-state",
         stale_metadata={
             "terminal_profile": "screen-256color",
-            "stored_state": {
-                "yoke_connection": True,
-                "github_connection": True,
-                "github_repo": "example-org/buzz",
-            },
+            "stored_state": {"yoke_connection": True},
         },
     )
     runner = FakeRunner()
@@ -677,7 +657,6 @@ def test_reset_fleet_host_reseeds_prepared_stored_state(tmp_path: Path) -> None:
         host_id="tui-linux-001",
         target_profile="prepared-stored-state",
         yoke_token_file=yoke_token,
-        github_token_file=github_token,
         runner=runner,
     )
 
@@ -688,31 +667,17 @@ def test_reset_fleet_host_reseeds_prepared_stored_state(tmp_path: Path) -> None:
         and "ubuntu@203.0.113.10:/tmp/yoke-api.token" in call
         for call in scp_calls
     )
-    assert any(
-        str(github_token) in call
-        and "ubuntu@203.0.113.10:/tmp/yoke-github.token" in call
-        for call in scp_calls
-    )
     ssh_commands = [call[-1] for call, _env in runner.calls if call and call[0] == "ssh"]
     assert any("dnf install -y tmux git" in command for command in ssh_commands)
     assert any("connection set stage --transport https" in command for command in ssh_commands)
     assert any("--token-file /tmp/yoke-api.token" in command for command in ssh_commands)
-    assert any(
-        "github connect --token-file /tmp/yoke-github.token" in command
-        for command in ssh_commands
-    )
     updated = json_helper.load_path(ledger_path)
     rendered = json.dumps(updated)
     host = updated["hosts"][0]
     assert host["profile"] == "prepared-stored-state"
-    assert host["stored_state"] == {
-        "yoke_connection": True,
-        "github_connection": True,
-        "github_repo": "example-org/buzz",
-    }
+    assert host["stored_state"] == {"yoke_connection": True}
     assert "terminal_profile" not in host
     assert "yoke-secret-value" not in rendered
-    assert "github-secret-value" not in rendered
 
 
 def test_reset_fleet_host_rejects_unrestorable_profiles(tmp_path: Path) -> None:

@@ -96,11 +96,11 @@ def test_unreachable_clone_url_shows_recovery_then_retry_advances(
     state = {"reachable": False}
     monkeypatch.setattr(
         project_git_transport, "remote_is_reachable",
-        lambda url, token=None: state["reachable"],
+        lambda url, token=None, github_web_url=None: state["reachable"],
     )
     monkeypatch.setattr(
         project_git_transport, "remote_default_branch",
-        lambda url, token=None: "main" if state["reachable"] else None,
+        lambda url, token=None, github_web_url=None: "main" if state["reachable"] else None,
     )
 
     async def scenario() -> None:
@@ -136,7 +136,7 @@ def test_clone_url_probe_paints_checking_before_it_finishes(monkeypatch) -> None
     started = threading.Event()
     release = threading.Event()
 
-    def _branch(url, token=None):
+    def _branch(url, token=None, *, github_web_url=None):
         started.set()
         assert release.wait(5), "test did not release clone URL probe"
         return "main"
@@ -144,7 +144,7 @@ def test_clone_url_probe_paints_checking_before_it_finishes(monkeypatch) -> None
     monkeypatch.setattr(project_git_transport, "remote_default_branch", _branch)
     monkeypatch.setattr(
         project_git_transport, "remote_is_reachable",
-        lambda url, token=None: True,
+        lambda url, token=None, github_web_url=None: True,
     )
 
     async def scenario() -> None:
@@ -174,11 +174,11 @@ def test_reachable_clone_url_caches_branch_without_a_second_probe(
     app, _spy = make_app()
     calls = {"branch": 0, "reachable": 0}
 
-    def _branch(url, token=None):
+    def _branch(url, token=None, *, github_web_url=None):
         calls["branch"] += 1
         return "trunk"
 
-    def _reachable(url, token=None):
+    def _reachable(url, token=None, *, github_web_url=None):
         calls["reachable"] += 1
         return True
 

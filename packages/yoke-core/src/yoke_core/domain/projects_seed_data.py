@@ -89,7 +89,8 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         '[{"key":"repo_owner","description":"GitHub repo owner","secret":false},'
         '{"key":"repo_name","description":"GitHub repo name","secret":false},'
         '{"key":"installation_id","description":"GitHub App installation id","secret":false},'
-        '{"key":"repository_id","description":"GitHub repository id","secret":false}]',
+        '{"key":"repository_id","description":"GitHub repository id","secret":false},'
+        '{"key":"ci_oidc_manage_provider","description":"Allow Yoke to manage the optional GitHub Actions OIDC provider","secret":false}]',
         "[]",
     ),
     (
@@ -100,8 +101,8 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         '[{"key":"repo","description":"GitHub repo slug owner/name","secret":false},'
         '{"key":"runner_labels","description":"Required runs-on labels","secret":false},'
         '{"key":"variable_name","description":"Actions variable holding the runs-on array","secret":false},'
-        '{"key":"desired_runner_count","description":"Normal parallel runner count","secret":false},'
-        '{"key":"max_runner_count","description":"Maximum parallel runner count","secret":false},'
+        '{"key":"desired_runner_count","description":"Isolated runner host count (v1 requires 1)","secret":false},'
+        '{"key":"max_runner_count","description":"Maximum isolated host count (v1 requires 1)","secret":false},'
         '{"key":"instance","description":"EC2 instance sizing settings","secret":false},'
         '{"key":"lifecycle","description":"Start and idle-shutdown settings","secret":false}]',
         '["github","aws-admin"]',

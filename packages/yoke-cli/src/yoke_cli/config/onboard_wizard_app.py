@@ -19,6 +19,7 @@ from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.widgets import Input, Rule, Static
 
+from yoke_contracts import github_origin
 from yoke_cli.config.onboard_terminal import (
     glyphs,
     plain_glyphs,
@@ -121,7 +122,6 @@ class OnboardWizardApp(
         self._stored_yoke_token_available = False
         self._stored_yoke_attempted = False
         self._stored_github_attempted = False
-        self._stored_machine_github_token_file: str | None = None
         self._stored_machine_github_api_url: str | None = None
         self._api_url_preset = bool(defaults.api_url)
         self._stored_project_attempted = False
@@ -252,7 +252,7 @@ class OnboardWizardApp(
         except (OSError, RuntimeError, ValueError):
             return
         self._stored_machine_github_api_url = str(
-            github.get("api_url") or "https://api.github.com"
+            github.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL
         ).strip()
 
     def _hydrate_stored_project_checkouts(self) -> None:

@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.config import github_publish
+from yoke_cli.config import github_publish_transport
 from yoke_cli.config import project_clone_support as clone
 from yoke_cli.config import project_onboard
 from yoke_cli.config import project_onboard_clone
@@ -104,7 +105,7 @@ def test_make_it_mine_rehomes_keeping_upstream(tmp_path: Path, monkeypatch) -> N
     # The new origin is built as a clean HTTPS URL by the production code; the
     # https_remote builder is redirected to the local bare repo so the real push
     # lands locally (no network, no SSH host-key prompt).
-    monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo: str(new_origin))
+    monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo, **_: str(new_origin))
 
     token = "ghs_make_it_mine_token"
     plan = clone.ClonePlan(
@@ -144,13 +145,14 @@ def test_make_it_mine_clean_copy_drops_upstream(tmp_path: Path, monkeypatch) -> 
         github_publish, "create_repo",
         lambda *a, **k: {"full_name": "octocat/widgets", "private": True},
     )
-    monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo: str(new_origin))
+    monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo, **_: str(new_origin))
 
     plan = clone.ClonePlan(
         outcome=clone.CLONE_OUTCOME_MAKE_IT_MINE,
         keep_upstream=False,
         publish=PublishRequest(
             owner="octocat", name="widgets", user_login="octocat", token="ghs_x",
+            administration_allowed=True,
         ),
     )
     outcome = project_onboard._apply_clone_outcome(
@@ -171,12 +173,12 @@ def test_fork_sets_origin_fork_and_upstream_source(tmp_path: Path, monkeypatch) 
 
     seen: dict = {}
 
-    def _fake_fork(api_url, token, *, owner, repo):
+    def _fake_fork(api_url, token, *, owner, repo, **_kwargs):
         seen.update(owner=owner, repo=repo)
         return {"full_name": "octocat/widgets", "private": False}
 
     monkeypatch.setattr(github_publish, "fork_repo", _fake_fork)
-    monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo: str(fork))
+    monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo, **_: str(fork))
 
     plan = clone.ClonePlan(
         outcome=clone.CLONE_OUTCOME_FORK, fallback_token="ghs_x",
@@ -251,14 +253,15 @@ def test_make_it_mine_resume_reuses_created_repo_and_repushes(
     target = _clone_into(tmp_path, source, "widgets")
 
     fake = _ResumeUrlopen()
-    monkeypatch.setattr(github_publish.urllib.request, "urlopen", fake)
-    monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo: str(new_origin))
+    monkeypatch.setattr(github_publish_transport, "_urlopen", fake)
+    monkeypatch.setattr(project_onboard_clone, "https_remote", lambda repo, **_: str(new_origin))
 
     plan = clone.ClonePlan(
         outcome=clone.CLONE_OUTCOME_MAKE_IT_MINE,
         keep_upstream=False,
         publish=PublishRequest(
             owner="octocat", name="widgets", user_login="octocat", token="ghs_x",
+            administration_allowed=True,
         ),
     )
     outcome = project_onboard._apply_clone_outcome(
@@ -278,3 +281,55 @@ def test_make_it_mine_resume_reuses_created_repo_and_repushes(
     # branch actually landed on it.
     assert _git(target, "remote", "get-url", "origin") == str(new_origin)
     assert "main" in _git(new_origin, "branch", "--list")
+
+
+@pytest.mark.parametrize("outcome_name", [
+    clone.CLONE_OUTCOME_MAKE_IT_MINE,
+    clone.CLONE_OUTCOME_FORK,
+])
+def test_import_refreshes_app_discovery_for_every_new_repo_outcome(
+    outcome_name: str,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    refreshed: list[str] = []
+    result = project_onboard_clone.CloneApplyResult(
+        github_repo="octocat/widgets",
+        branch="main",
+    )
+    monkeypatch.setattr(project_onboard.project_onboard_apply, "ensure_git_available", lambda: None)
+    monkeypatch.setattr(project_onboard, "_resumable_clone", lambda *_a, **_k: False)
+    monkeypatch.setattr(project_onboard, "_apply_clone_outcome", lambda *_a, **_k: result)
+    monkeypatch.setattr(
+        project_onboard.progress_steps,
+        "record_mutated_repository",
+        lambda _adoption, repo, _config: refreshed.append(repo),
+    )
+    monkeypatch.setattr(
+        project_onboard,
+        "dispatch",
+        lambda *_a, **_k: {"project": {"id": 9, "slug": "widgets"}},
+    )
+    monkeypatch.setattr(
+        project_onboard.project_onboard_apply,
+        "finish_after_dispatch",
+        lambda **_kwargs: {"applied": True},
+    )
+    monkeypatch.setattr(project_onboard, "_finish_github_binding", lambda *_a, **_k: None)
+
+    project_onboard.import_project(
+        remote_url="https://github.com/acme/widgets.git",
+        checkout=tmp_path / outcome_name,
+        slug="widgets",
+        name="Widgets",
+        org=None,
+        github_repo="octocat/widgets",
+        default_branch="main",
+        public_item_prefix="WID",
+        github_adoption_choice="app-binding",
+        config_path=None,
+        apply=True,
+        clone=clone.ClonePlan(outcome=outcome_name, fallback_token="ghu_short"),
+    )
+
+    assert refreshed == ["octocat/widgets"]

@@ -152,6 +152,19 @@ class TestDeployPipelineShim:
 
 
 class TestDeployPipelineProjectSettings:
+    def test_github_actions_subprocess_receives_explicit_project(self):
+        completed = _fake_cp(0, "success", "")
+        with mock.patch.object(
+            deploy_pipeline_reporting, "_run_cmd", return_value=completed,
+        ) as run_cmd:
+            result = deploy_pipeline_reporting._github_actions(
+                "poll", "owner/repo", "123", project="buzz",
+            )
+
+        assert result is completed
+        command = run_cmd.call_args.args[0]
+        assert command[-2:] == ["--project", "buzz"]
+
     def test_ephemeral_verify_reads_domain_from_ephemeral_policy(self):
         policy = mock.Mock(preview_domain="buzz.example.com")
         with mock.patch.object(
@@ -186,6 +199,7 @@ class TestDeployPipelineProjectSettings:
         assert rc == 0
         exec_verify.assert_called_once_with(
             "owner/repo", "feature", "ephemeral.yml", "buzz.example.com", "",
+            project="buzz",
         )
 
 
@@ -264,82 +278,3 @@ def _fake_cp(returncode: int, stdout: str = "", stderr: str = "") -> subprocess.
     return subprocess.CompletedProcess(
         args=["gh", "poll"], returncode=returncode, stdout=stdout, stderr=stderr
     )
-
-
-class TestPollGithubActionsTransient:
-    """Bounded-retry on transient/unexpected `gh` poll exit codes.
-
-    A queued GitHub Actions workflow that has not yet acquired a runner is a
-    normal cold-start state; a single unexpected returncode from the `gh` CLI
-    during that window must not collapse the stage to failed.
-    """
-
-    def test_transient_unknown_code_recovers_to_success(self):
-        # A single non-{0,1,2,3} returncode followed by success(0) must return
-        # success — bounded-retry must absorb the transient flake.
-        responses = [
-            _fake_cp(4, "", "gh: transient API error"),
-            _fake_cp(0, "completed: success", ""),
-        ]
-        with mock.patch.object(
-            deploy_pipeline_reporting, "_github_actions", side_effect=responses
-        ), mock.patch.object(deploy_pipeline_reporting.time, "sleep"):
-            code, output = deploy_pipeline_reporting._poll_github_actions(
-                "owner/repo", "12345", timeout_sec=300, stage_name="prod-deploy"
-            )
-        assert code == 0
-        assert "completed: success" in output
-
-    def test_sustained_unknown_code_eventually_fails_with_diagnostic(self):
-        # Exceeding POLL_TRANSIENT_RETRY_LIMIT consecutive unexpected codes
-        # surfaces a failure that names the retry count AND the stderr text
-        # so the operator can root-cause without log archaeology.
-        responses = [
-            _fake_cp(7, "", "gh: persistent flake")
-            for _ in range(deploy_pipeline_reporting.POLL_TRANSIENT_RETRY_LIMIT)
-        ]
-        with mock.patch.object(
-            deploy_pipeline_reporting, "_github_actions", side_effect=responses
-        ), mock.patch.object(deploy_pipeline_reporting.time, "sleep"):
-            code, output = deploy_pipeline_reporting._poll_github_actions(
-                "owner/repo", "12345", timeout_sec=300, stage_name="prod-deploy"
-            )
-        assert code == 1
-        assert "unexpected exit code 7" in output
-        assert "gh: persistent flake" in output
-        assert "retries" in output
-
-    def test_real_failure_includes_stderr_for_diagnostics(self):
-        # When gh poll reports a real failure (exit 1), the output the caller
-        # receives includes both stdout and stderr so the eventual
-        # DeploymentRunStageFailed payload can carry root cause.
-        responses = [
-            _fake_cp(1, "completed: failure", "step `deploy` failed: container exited 137"),
-        ]
-        with mock.patch.object(
-            deploy_pipeline_reporting, "_github_actions", side_effect=responses
-        ):
-            code, output = deploy_pipeline_reporting._poll_github_actions(
-                "owner/repo", "12345", timeout_sec=300, stage_name="prod-deploy"
-            )
-        assert code == 1
-        assert "completed: failure" in output
-        assert "container exited 137" in output
-
-    def test_queued_state_keeps_polling_then_succeeds(self):
-        # Returncode 2/3 means "queued / in_progress" — keep polling, do not
-        # collapse to failure. Guards against a regression that accidentally
-        # narrows the queued-state branch.
-        responses = [
-            _fake_cp(2, "queued", ""),
-            _fake_cp(3, "in_progress", ""),
-            _fake_cp(0, "completed: success", ""),
-        ]
-        with mock.patch.object(
-            deploy_pipeline_reporting, "_github_actions", side_effect=responses
-        ), mock.patch.object(deploy_pipeline_reporting.time, "sleep"):
-            code, output = deploy_pipeline_reporting._poll_github_actions(
-                "owner/repo", "12345", timeout_sec=300, stage_name="prod-deploy"
-            )
-        assert code == 0
-        assert "completed: success" in output

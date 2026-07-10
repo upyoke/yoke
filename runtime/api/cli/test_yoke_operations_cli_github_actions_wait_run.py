@@ -71,6 +71,7 @@ def test_registry_maps_wait_run_to_single_shot_read() -> None:
 def test_wait_run_dispatches_single_shot_reads_until_success() -> None:
     rc, sleeps, out, _err = _run_wait(
         "github-actions", "wait-run", "o/r", "123",
+        "--project", "yoke",
         states=[("waiting", "waiting"), ("running", "in_progress"),
                 ("success", "success")],
         clock=[0, 10, 20],
@@ -93,6 +94,7 @@ def test_wait_run_dispatches_single_shot_reads_until_success() -> None:
 def test_wait_run_failure_preserves_failure_exit_code() -> None:
     rc, sleeps, out, _err = _run_wait(
         "github-actions", "wait-run", "o/r", "123",
+        "--project", "yoke",
         states=[("failed", "failed:failure")],
     )
     assert rc == 1
@@ -103,7 +105,7 @@ def test_wait_run_failure_preserves_failure_exit_code() -> None:
 def test_wait_run_timeout_returns_three_and_json_state() -> None:
     rc, sleeps, out, _err = _run_wait(
         "github-actions", "wait-run", "o/r", "123",
-        "--timeout", "600", "--json",
+        "--timeout", "600", "--json", "--project", "yoke",
         states=[("running", "in_progress"), ("running", "in_progress")],
         clock=[0, 601],
     )
@@ -128,7 +130,10 @@ def test_wait_run_dispatch_error_stops_polling() -> None:
         with patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher), \
                 patch.object(wait_mod, "ensure_handlers_loaded"):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                rc = cli_main(["github-actions", "wait-run", "o/r", "123"])
+                rc = cli_main([
+                    "github-actions", "wait-run", "o/r", "123",
+                    "--project", "yoke",
+                ])
     assert rc == 1
     assert len(_CALLS) == 1
 
@@ -136,6 +141,7 @@ def test_wait_run_dispatch_error_stops_polling() -> None:
 def test_wait_run_repo_without_slash_returns_usage_error() -> None:
     rc, _sleeps, _out, _err = _run_wait(
         "github-actions", "wait-run", "no-slash", "123",
+        "--project", "yoke",
         states=[("success", "success")],
     )
     assert rc == 2

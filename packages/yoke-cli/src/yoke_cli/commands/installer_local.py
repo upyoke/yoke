@@ -25,6 +25,7 @@ from yoke_cli.commands.flag_adapters import (
     dev_path_snapshot_prewarm,
     dev_setup,
     github_connect,
+    github_disconnect,
     github_status,
     onboard,
     onboard_project,
@@ -35,6 +36,7 @@ from yoke_cli.commands.flag_adapters import (
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("aws", "exec"): aws_exec,
     ("github", "connect"): github_connect,
+    ("github", "disconnect"): github_disconnect,
     ("github", "status"): github_status,
     ("dev", "setup"): dev_setup,
     ("dev", "db-admin", "setup"): dev_db_admin_setup,
@@ -51,8 +53,9 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke aws exec": "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>",
-    "yoke github connect": "yoke github connect [--token … | --token-file PATH] [--github-repo OWNER/REPO]",
-    "yoke github status": "yoke github status [--github-repo OWNER/REPO] [--json]",
+    "yoke github connect": "yoke github connect [--client-id ID] [--app-slug SLUG] [--json]",
+    "yoke github disconnect": "yoke github disconnect [--config PATH] [--json]",
+    "yoke github status": "yoke github status [--offline] [--json]",
     "yoke dev setup": "yoke dev setup [CHECKOUT]",
     "yoke dev db-admin setup": "yoke dev db-admin setup <env> [--yes]",
     "yoke dev path-snapshot-prewarm": "yoke dev path-snapshot-prewarm",

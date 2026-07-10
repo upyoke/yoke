@@ -99,14 +99,14 @@ def _dispatch_github_actions_workflow(
         )
     elif head_sha:
         ga_run_id, already_complete = _find_existing_workflow_run(
-            github_repo, workflow, head_sha, sd=sd
+            github_repo, workflow, head_sha, project=project, sd=sd
         )
 
     if not ga_run_id and not already_complete:
         print("  No existing run found, triggering workflow_dispatch...")
         r = _github_actions(
             *_trigger_args(github_repo, workflow, workflow_ref, workflow_inputs),
-            sd=sd,
+            project=project, sd=sd,
         )
         ga_run_id = r.stdout.strip()
         if not ga_run_id or r.returncode != 0:
@@ -119,7 +119,10 @@ def _dispatch_github_actions_workflow(
                 )
             print("  Trigger failed, retrying find-run with backoff...")
             for attempt in range(1, 7):
-                r = _github_actions("find-run", github_repo, workflow, head_sha, sd=sd)
+                r = _github_actions(
+                    "find-run", github_repo, workflow, head_sha,
+                    project=project, sd=sd,
+                )
                 ga_run_id = r.stdout.strip()
                 if ga_run_id and ga_run_id != "not_found":
                     break
@@ -149,7 +152,8 @@ def _dispatch_github_actions_workflow(
     if ga_run_id and ga_run_id != "not_found":
         print(f"  Workflow run ID: {ga_run_id}")
         rc, output = _poll_github_actions(
-            github_repo, ga_run_id, timeout_sec, name, sd=sd
+            github_repo, ga_run_id, timeout_sec, name,
+            project=project, sd=sd,
         )
         # Carry the poll diagnostic only on failure — success output is noise.
         return rc, (output if rc != 0 else "")
@@ -260,21 +264,28 @@ def _find_existing_workflow_run(
     workflow: str,
     head_sha: str,
     *,
+    project: str,
     sd: Optional[str],
 ) -> tuple[str, bool]:
-    r = _github_actions("find-run", github_repo, workflow, head_sha, sd=sd)
+    r = _github_actions(
+        "find-run", github_repo, workflow, head_sha, project=project, sd=sd,
+    )
     ga_run_id = r.stdout.strip()
     if not ga_run_id or ga_run_id == "not_found":
         return "", False
 
     print(f"  Found existing run {ga_run_id} for {workflow} @ {head_sha[:8]}")
-    r2 = _github_actions("jobs-count", github_repo, ga_run_id, sd=sd)
+    r2 = _github_actions(
+        "jobs-count", github_repo, ga_run_id, project=project, sd=sd,
+    )
     job_count = r2.stdout.strip() or "0"
     if job_count == "0":
         print(f"  Existing run {ga_run_id} has zero jobs — triggering fresh run")
         return "", False
 
-    r3 = _github_actions("poll", github_repo, ga_run_id, sd=sd)
+    r3 = _github_actions(
+        "poll", github_repo, ga_run_id, project=project, sd=sd,
+    )
     status = r3.stdout.strip()
     if r3.returncode == 0 and status == "success":
         print("  Run already completed successfully — skipping deploy trigger")

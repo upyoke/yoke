@@ -16,7 +16,7 @@ github_sync_mode TEXT -- per-project GitHub sync switch: 'enabled' | 'backlog_on
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-**Per-project GitHub sync switch** — `github_sync_mode='backlog_only'` keeps the project's backlog DB-only: every backlog→GitHub issue sync surface skips the project (logged skip, not an auth failure), `yoke resync` excludes it from fetch/classification/repair, and explicit issue-creating operations refuse. Reader: `yoke_core.domain.projects_github_sync_mode`; flip via `yoke projects update ... --github-sync-mode <mode>`. Full semantics and the safe ordering for changing a project's `github_repo` live in [github-sync.md](../github-sync.md).
+**Per-project GitHub sync switch** — `github_sync_mode='backlog_only'` keeps the project's backlog DB-only: every backlog→GitHub issue sync surface skips the project (logged skip, not an auth failure), `yoke resync` excludes it from fetch/classification/repair, and explicit issue-creating operations refuse. Reader: `yoke_core.domain.projects_github_sync_mode`; flip via `yoke projects update ... --github-sync-mode <mode>`. The verified App binding is outbound repository authority; `github_repo` is its compatibility display projection. Full semantics and safe repository-rebinding order live in [github-sync.md](../github-sync.md).
 
 **Project-level test commands** — read the `quick`, `full`, `e2e`, and `smoke` scopes via `python3 -m yoke_core.domain.command_definitions get <project> <scope>` or, from Python, `yoke_core.domain.command_definitions.list_commands(project_id)`. Entries live in `project_structure` with `family='command_definitions'` and `attachment_value='project'`. An absent or empty entry means "no command defined" for that scope.
 
@@ -176,7 +176,7 @@ Seed data: 6 templates seeded by `python3 -m yoke_core.cli.db_router projects in
 - `ephemeral-env` -- Per-branch ephemeral environments (keys: web_base_port, api_base_port, compose_file, env_file, startup_timeout_s; requires: docker)
 - `aws-admin` -- AWS credentials with broad admin access (keys: access_key_id [secret], secret_access_key [secret], region)
 - `aws-route53` -- DNS management via Route53 (keys: hosted_zone_id; requires: aws-admin)
-- `github` -- GitHub App repo binding metadata for issue sync, PRs, Actions, and API access (keys: repo_owner, repo_name, installation_id, repository_id). GitHub App private-key and webhook secret material belongs to the control-plane secret store, not `capability_secrets`.
+- `github` -- GitHub App repo binding metadata for issue sync, PRs, Actions, and API access (keys: repo_owner, repo_name, installation_id, repository_id). The verified GitHub deployment API base is stored on `project_github_repo_bindings.api_url` and `github_app_installations.api_url`, not inferred from the repo slug. GitHub App private-key and webhook secret material belongs to the control-plane secret store, not `capability_secrets`.
 
 **Bootstrap config field:** The `github` capability may include an `ssh_key_path` secret pointing to the SSH private key used by the bootstrap script to configure GitHub Secrets for deployment workflows.
 

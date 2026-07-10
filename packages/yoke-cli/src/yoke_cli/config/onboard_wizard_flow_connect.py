@@ -109,7 +109,7 @@ class ConnectFlow:
         self._goto(self._selection_view(
             STEP_CONNECT, f"Provide your {BRAND} API token.",
             "How do you want to give Yoke your token?",
-            steps.TOKEN_SOURCE_ROWS, self._after_token_source,
+            steps.YOKE_TOKEN_SOURCE_ROWS, self._after_token_source,
         ))
 
     def _after_token_source(self: _Shell, choice: str) -> None:
@@ -237,7 +237,7 @@ class ConnectFlow:
                 message,
                 detail_lines
                 or ["Check the token value, environment, and network connection."],
-                steps.VERIFY_RETRY_ROWS,
+                steps.YOKE_TOKEN_VERIFY_RETRY_ROWS,
                 ok=False,
             ),
             lambda choice: self._on_yoke_verify_error(choice, retry_source),

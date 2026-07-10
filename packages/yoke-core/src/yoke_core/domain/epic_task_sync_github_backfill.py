@@ -10,6 +10,10 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
+
 import yoke_core.domain.epic_task_sync as _epic_task_sync_parent
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
@@ -18,7 +22,7 @@ from yoke_core.domain.github_constraints import clamp_label_name
 from yoke_core.domain.epic_task_sync import (
     _connect_db,
     _epic_parent_item_id,
-    _epic_project_repo,
+    _epic_project,
     _epic_ref_name,
     _placeholder,
     _backfill_title_has_task_num,
@@ -62,7 +66,7 @@ def backfill_task_titles(
 
         parent_item_id = _epic_parent_item_id(epic_name, conn=conn)
         backlog_ref = f"YOK-{parent_item_id}" if parent_item_id else ""
-        project, _repo = _epic_project_repo(epic_name, conn=conn)
+        project = _epic_project(epic_name, conn=conn)
         p = _placeholder(conn)
         rows = conn.execute(
             f"""
@@ -174,7 +178,7 @@ def backfill_task_labels(
         color_worktree = project_label_policy.get_color(
             "label_color_worktree", WORKTREE_LABEL_COLOR_DEFAULT,
         )
-        project, repo = _epic_project_repo(epic_name, conn=conn)
+        project = _epic_project(epic_name, conn=conn)
         p = _placeholder(conn)
         rows = conn.execute(
             f"""
@@ -198,11 +202,14 @@ def backfill_task_labels(
             )
             return 0
         try:
-            auth = resolve_project_github_auth(gh_project)
+            auth = resolve_project_github_auth(
+                gh_project,
+                required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"Warning: auth failed for backfill_task_labels: {exc}", file=stderr)
             return 1
-        target_repo = repo or auth.repo
+        target_repo = auth.repo
 
         for task_num, worktree, github_issue, task_status in rows:
             issue_num_str = str(github_issue or "").lstrip("#")

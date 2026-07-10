@@ -42,20 +42,28 @@ def finish_after_dispatch(
     config_path: str | Path | None,
     progress: onboard_apply_progress.ProgressCallback | None,
     github_auth_target: str,
-    token_value: str | None,
     scaffold_action: str,
     reuse_github_auth: bool,
     clone_outcome: Any | None = None,
     register_mapping: bool = False,
+    persist_sync_mode: bool = False,
 ) -> dict[str, Any]:
     project = project_from_result(result)
     project_id = int(project["id"])
-    secret_result = None if reuse_github_auth else (
+    binding_result = None if reuse_github_auth else (
         progress_steps.store_github_binding(
-            progress, github_auth_target, project, token_value, github_adoption,
-            config_path,
+            progress, github_auth_target, project, github_adoption,
+            config_path, persist_sync_mode=persist_sync_mode,
         )
     )
+    if binding_result and binding_result.get("binding"):
+        binding = dict(github_adoption.get("binding") or {})
+        binding["status"] = str(binding_result["binding"])
+        if binding_result.get("permission_status"):
+            binding["permission_status"] = dict(
+                binding_result["permission_status"]
+            )
+        github_adoption["binding"] = binding
     mapping_needed = project_mapping_needs_write(root, project_id, config_path)
     if register_mapping and mapping_needed:
         with onboard_apply_progress.step(
@@ -138,7 +146,7 @@ def finish_after_dispatch(
     return applied_report(
         operation, root, project, install, result, github_adoption,
         config_path=config_path,
-        secret_result=secret_result,
+        binding_result=binding_result,
         clone_outcome=clone_outcome,
     )
 
@@ -152,7 +160,6 @@ def install_existing_project(
     config_path: str | Path | None,
     progress: onboard_apply_progress.ProgressCallback | None,
     github_auth_target: str,
-    token_value: str | None,
     clone_outcome: Any | None = None,
     scaffold_action: str = "project-install-scaffold",
     reuse_github_auth: bool = False,
@@ -167,11 +174,11 @@ def install_existing_project(
             config_path=config_path,
             progress=progress,
             github_auth_target=github_auth_target,
-            token_value=token_value,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
             clone_outcome=clone_outcome,
             register_mapping=True,
+            persist_sync_mode=True,
         )
     finish_github_binding_if_needed(
         progress, github_auth_target, github_adoption, reuse_github_auth,

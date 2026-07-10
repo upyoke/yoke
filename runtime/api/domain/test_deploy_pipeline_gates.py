@@ -34,6 +34,7 @@ class TestCiGate:
         # The gate branch threads into the check-ci invocation.
         branch_flag_idx = github_actions.call_args.args.index("--branch")
         assert github_actions.call_args.args[branch_flag_idx + 1] == "main"
+        assert github_actions.call_args.kwargs["project"] == "buzz"
 
     def test_ci_gate_checks_declared_gate_branch(self):
         with mock.patch.object(
@@ -55,6 +56,47 @@ class TestCiGate:
         assert message == "  CI gate: stage CI passed"
         branch_flag_idx = github_actions.call_args.args.index("--branch")
         assert github_actions.call_args.args[branch_flag_idx + 1] == "stage"
+        assert github_actions.call_args.kwargs["project"] == "yoke"
+
+    def test_ci_gate_blocks_auth_exit(self):
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=4, stdout="", stderr="missing_app_credentials",
+            ),
+        ):
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "buzz", 30, branch="main",
+            )
+
+        assert passed is False
+        assert "exit code 4" in message
+        assert "missing_app_credentials" in message
+
+    def test_ci_gate_blocks_any_unexpected_nonzero_exit(self):
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=17, stdout="", stderr="synthetic failure",
+            ),
+        ):
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "buzz", 30, branch="main",
+            )
+
+        assert passed is False
+        assert "exit code 17" in message
+        assert "synthetic failure" in message
 
 
 class TestBranchVerification:

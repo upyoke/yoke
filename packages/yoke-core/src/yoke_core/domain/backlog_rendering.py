@@ -10,7 +10,10 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import TextIO
+from typing import TYPE_CHECKING, Optional, TextIO
+
+if TYPE_CHECKING:
+    from yoke_core.domain.backlog_github_body_budget import SyncMode
 
 from yoke_core.domain.backlog_queries import (
     _is_dry_run,
@@ -262,7 +265,6 @@ def _sync_body(
     the mode for telemetry.
     """
     from yoke_core.domain.backlog_github_body_budget import (  # local: avoid module-load cycle
-        SyncMode,
         body_exceeds_budget,
     )
 
@@ -320,14 +322,7 @@ def _render_body(item_id: int, out: TextIO = sys.stderr) -> bool:
 # ---------------------------------------------------------------------------
 
 def _resolve_project_github_repo(conn, project: str) -> str:
-    """Resolve the GitHub repo for a project from the project capability.
-
-    Reads ``projects.github_repo`` directly. The earlier ``gh repo view``
-    host fallback is retired in line with the no-gh-on-laptop invariant —
-    projects whose repo metadata is unset surface an empty string so the
-    caller can branch (and the auth resolver reports
-    ``MissingRepoMetadata`` with the canonical repair hint).
-    """
+    """Read the verified GitHub App binding repo for migration comparison."""
     from yoke_core.domain import db_backend
     from yoke_core.domain.project_identity import resolve_project_id
 
@@ -337,7 +332,8 @@ def _resolve_project_github_repo(conn, project: str) -> str:
     except LookupError:
         return ""
     row = conn.execute(
-        f"SELECT COALESCE(github_repo, '') FROM projects WHERE id = {p}",
+        "SELECT COALESCE(github_repo, '') "
+        f"FROM project_github_repo_bindings WHERE project_id = {p}",
         (project_id,),
     ).fetchone()
     if row and row[0]:

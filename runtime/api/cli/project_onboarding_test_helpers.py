@@ -10,20 +10,15 @@ from pathlib import Path
 from typing import Any
 
 from runtime.api.cli.project_onboarding_bundle_helpers import install_bundle
-
-EXPECTED_GITHUB_PREVIEW_CATEGORIES = {
-    "labels",
-    "issue_templates",
-    "pull_request_templates",
-    "actions_variables",
-    "actions_secrets",
-    "branch_protection",
-    "environment_protection",
-}
-
+from runtime.api.cli.project_onboarding_github_assertions import (
+    EXPECTED_GITHUB_PREVIEW_CATEGORIES as EXPECTED_GITHUB_PREVIEW_CATEGORIES,
+    assert_github_preview as assert_github_preview,
+)
 ALLOWED_FUNCTION_IDS = {
     "onboard.checklist.run",
     "projects.create",
+    "projects.update",
+    "projects.github_binding.bind",
     "projects.get",
     "projects.list",
     "projects.resolve_by_github_repo",
@@ -122,20 +117,6 @@ def tree_text(root: Path) -> str:
         if path.is_file():
             parts.append(path.read_text("utf-8"))
     return "\n".join(parts)
-
-
-def assert_github_preview(payload: dict[str, Any], *, enabled: bool) -> None:
-    preview = payload["automation_preview"]
-    assert preview["github"]["enabled"] is enabled
-    assert {
-        write["category"] for write in preview["github"]["writes"]
-    } == EXPECTED_GITHUB_PREVIEW_CATEGORIES
-    expected_status = (
-        "pending-app-installation" if enabled else "skipped-by-adoption-choice"
-    )
-    assert {
-        write["status"] for write in preview["github"]["writes"]
-    } == {expected_status}
 
 
 class ProjectOnboardApi:
@@ -298,6 +279,25 @@ class ProjectOnboardApi:
                         "result": {
                             "project": requested,
                             "row": owner.project,
+                        },
+                    }
+                    self._send_json(response)
+                    return
+                if function_id == "projects.github_binding.bind":
+                    payload = body.get("payload") or {}
+                    response = {
+                        "success": True,
+                        "function": function_id,
+                        "version": body.get("version", 1),
+                        "request_id": body.get("request_id", "test-request"),
+                        "result": {
+                            "project": owner.project,
+                            "binding": {
+                                "status": "active",
+                                "installation_id": payload.get("installation_id"),
+                                "repository_id": payload.get("repository_id"),
+                                "github_repo": payload.get("github_repo"),
+                            },
                         },
                     }
                     self._send_json(response)

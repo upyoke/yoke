@@ -12,13 +12,22 @@ from __future__ import annotations
 
 from typing import Optional
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import RestRequest, request_with_retry
 
 
-def _target_for(project: str, *, db_path: Optional[str] = None):
+def _target_for(
+    project: str, *, required_permissions, db_path: Optional[str] = None,
+):
     from yoke_core.domain.github_rest import resolve_target
 
-    return resolve_target(project, db_path=db_path)
+    return resolve_target(
+        project,
+        db_path=db_path,
+        required_permissions=required_permissions,
+    )
 
 
 def add_sub_issue(
@@ -32,7 +41,11 @@ def add_sub_issue(
     issue id (``sub_issue_id``), not the issue number, so the function
     GETs the child first to resolve it.
     """
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    )
     # Resolve the child's REST id (distinct from its issue number).
     child = request_with_retry(
         RestRequest(

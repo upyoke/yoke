@@ -5,6 +5,7 @@ from yoke_core.domain.actors import seed_canonical_actors
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
+from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.schema_common import _connect_raw
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
@@ -55,6 +56,7 @@ def converge_core_schema(conn) -> None:
     create_actor_path_claim_tables(conn)
     create_auth_tables(conn)
     create_external_identity_tables(conn)
+    create_github_app_tables(conn)
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant
     # the strategy domain owns.

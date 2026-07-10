@@ -21,7 +21,7 @@ _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _PROJECT_DIR not in sys.path:
     sys.path.insert(0, _PROJECT_DIR)
 
-import pulumi
+import pulumi  # noqa: E402 -- sibling path must be installed before this import
 
 
 def _infra_args_from_config(deploy_namespace: str):
@@ -210,6 +210,16 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
     return WebappRunnerFleetArgs(
         deploy_namespace=deploy_namespace,
         github_repo=config.require("github_repo"),
+        github_repo_owner=config.require("github_repo_owner"),
+        github_repo_name=config.require("github_repo_name"),
+        github_installation_id=config.require("github_installation_id"),
+        github_repository_id=config.require("github_repository_id"),
+        github_app_issuer=config.require("github_app_issuer"),
+        github_api_url=config.require("github_api_url"),
+        github_web_url=config.require("github_web_url"),
+        github_private_key_secret_arn=config.require(
+            "github_private_key_secret_arn"
+        ),
         runner_labels=[str(label) for label in labels],
         runner_count=config.require_int("runner_count"),
         max_runner_count=config.require_int("max_runner_count"),

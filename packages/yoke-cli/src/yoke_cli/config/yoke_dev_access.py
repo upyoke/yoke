@@ -17,7 +17,7 @@ from __future__ import annotations
 import uuid
 
 from yoke_cli.config import db_admin_setup
-from yoke_cli.config import github_machine_verify
+from yoke_cli.config import github_app_user_api
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.transport.https import HttpsConnection, relay_https
 from yoke_contracts.api.function_call import (
@@ -91,18 +91,20 @@ def yoke_project_reachable(api_url: str, token: str) -> bool:
 def github_can_reach_yoke_repo(api_url: str, token: str) -> bool:
     """True when the GitHub App auth can read Yoke's repo.
 
-    Reuses the read-only machine verifier: passing ``github_repo`` makes it hit
-    ``/repos/{owner}/{repo}``, which raises for a token that cannot reach the
-    repo. A reachable repo returns an ``access.requested_repo.ok`` summary.
+    Refreshes the App user's live installation repository snapshot and checks
+    that Yoke's repository is present.
     """
     try:
-        report = github_machine_verify.verify(
-            api_url, token, github_repo=YOKE_GITHUB_REPO,
+        report = github_app_user_api.discover_access(
+            api_url=api_url, access_token=token,
         )
-    except github_machine_verify.GitHubMachineVerificationError:
+    except github_app_user_api.GitHubAppUserApiError:
         return False
-    requested = report.get("access", {}).get("requested_repo")
-    return bool(isinstance(requested, dict) and requested.get("ok"))
+    return any(
+        item.get("full_name") == YOKE_GITHUB_REPO
+        for item in report.get("repositories") or []
+        if isinstance(item, dict)
+    )
 
 
 __all__ = [

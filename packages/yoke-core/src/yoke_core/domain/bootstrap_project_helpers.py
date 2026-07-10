@@ -41,7 +41,6 @@ class BootstrapContext:
 class SetupConfig:
     project: str
     display_name: str
-    github_repo: str
     repo_path: Path
     ssh_host: str
     ssh_user: str
@@ -225,9 +224,6 @@ def _load_setup_config(ctx: BootstrapContext) -> SetupConfig:
     try:
         ident = _resolve_project_identity(conn, ctx.project)
         p = _p(conn)
-        github_repo = _query_scalar(
-            conn, f"SELECT github_repo FROM projects WHERE id={p}", (ident.id,)
-        ) or ""
         checkout = checkout_for_project(conn, ident.slug)
         repo_path = str(checkout) if checkout is not None else ""
         display_name = _query_scalar(
@@ -242,7 +238,6 @@ def _load_setup_config(ctx: BootstrapContext) -> SetupConfig:
     return SetupConfig(
         project=ident.slug,
         display_name=display_name,
-        github_repo=github_repo,
         repo_path=Path(repo_path).expanduser() if repo_path else Path(),
         ssh_host=str(ssh_settings.get("host", "") or ""),
         ssh_user=str(ssh_settings.get("user", "") or ""),

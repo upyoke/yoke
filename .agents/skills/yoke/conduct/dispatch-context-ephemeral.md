@@ -54,11 +54,11 @@ Warning: could not resolve repo slug for project '${_project}' — skipping ephe
 ```
 
 <!-- python3 -m yoke_core.domain.github_actions call signatures (from):
- python3 -m yoke_core.domain.github_actions trigger <repo-slug> <workflow-file> --ref <branch>
+ python3 -m yoke_core.domain.github_actions trigger <repo-slug> <workflow-file> --ref <branch> --project <project>
  -> prints run ID on stdout, exit 0 on success, exit 4 on auth failure
- python3 -m yoke_core.domain.github_actions poll <repo-slug> <run-id>
+ python3 -m yoke_core.domain.github_actions poll <repo-slug> <run-id> --project <project>
  -> exit 0=success, 1=failed, 2=waiting, 3=in-progress
- python3 -m yoke_core.domain.github_actions find-run <repo-slug> <workflow-file> <commit-sha>
+ python3 -m yoke_core.domain.github_actions find-run <repo-slug> <workflow-file> <commit-sha> --project <project>
  -> prints run ID on stdout if found, exit 0=found, 1=not found
 -->
 
@@ -113,7 +113,7 @@ sleep 5
 
 # Find the workflow run for this commit
 _eph_workflow="${_project}-ephemeral.yml"
-_run_id=$(python3 -m yoke_core.domain.github_actions find-run "${_repo_slug}" "${_eph_workflow}" "${_head_sha}")
+_run_id=$(python3 -m yoke_core.domain.github_actions find-run "${_repo_slug}" "${_eph_workflow}" "${_head_sha}" --project "${_project}")
 _find_exit=$?
 ```
 
@@ -121,7 +121,7 @@ If `find-run` exits with 1 (not found), retry after a short delay (GitHub may ne
 ```bash
 if [ "$_find_exit" -ne 0 ]; then
  sleep 10
- _run_id=$(python3 -m yoke_core.domain.github_actions find-run "${_repo_slug}" "${_eph_workflow}" "${_head_sha}")
+ _run_id=$(python3 -m yoke_core.domain.github_actions find-run "${_repo_slug}" "${_eph_workflow}" "${_head_sha}" --project "${_project}")
  _find_exit=$?
 fi
 ```
@@ -146,7 +146,8 @@ yoke ephemeral-env update "${_env_id}" status "starting"
 Poll the workflow run until it completes or times out. Use the sanctioned GitHub Actions waiter with a 30-minute timeout:
 
 ```bash
-yoke github-actions wait-run "${_repo_slug}" "${_run_id}" --timeout 1800
+yoke github-actions wait-run "${_repo_slug}" "${_run_id}" --timeout 1800 \
+ --project "${_project}"
 _wait_exit=$?
 
 case "$_wait_exit" in

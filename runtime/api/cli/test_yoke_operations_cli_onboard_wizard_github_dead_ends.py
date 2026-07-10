@@ -71,6 +71,16 @@ async def _pick_mode(pilot, value: str) -> None:
     await pilot.press("enter")
 
 
+async def _wait_for_remote(app, pilot, expected: str) -> None:
+    for _ in range(10):
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        if app.result.project_remote_url == expected:
+            return
+    assert app.result.project_remote_url == expected
+
+
 def _adoption_call(result) -> dict:
     """Re-run the apply-time adoption gate on the collected fields.
 
@@ -80,8 +90,6 @@ def _adoption_call(result) -> dict:
     return github_adoption_report(
         choice=result.project_github_adoption,
         github_repo=result.project_github_repo,
-        token_value=result.project_github_token,
-        token_import_method="direct" if result.project_github_token else None,
         apply=True,
     )
 
@@ -105,9 +113,18 @@ def test_no_machine_token_drops_reuse_machine_row() -> None:
             await advance_past_path(pilot)
             await pilot.press("down")   # machine github: Skip for now (no GitHub App user token)
             await pilot.press("enter")
+            await pilot.pause()         # GitHub choice -> project mode
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+            await pilot.pause()         # clone mode -> focused remote URL input
+            from textual.widgets import Input
+            remote_input = app.query_one("#onboard-body Input", Input)
+            assert remote_input.has_focus
             await type_text(pilot, "https://github.com/acme/widgets.git")  # remote first
-            await pilot.press("enter")  # remote -> clone-folder input
+            assert remote_input.value == "https://github.com/acme/widgets.git"
+            await pilot.press("enter")  # start the remote reachability check
+            await _wait_for_remote(
+                app, pilot, "https://github.com/acme/widgets.git"
+            )
             await pilot.press("enter")  # accept default folder -> clone-outcome
             await pilot.press("enter")  # "Clone it" (default, first row)
             await pilot.press("enter")  # slug placeholder
@@ -122,8 +139,8 @@ def test_no_machine_token_drops_reuse_machine_row() -> None:
     asyncio.run(scenario())
 
 
-def test_forced_reuse_machine_without_token_degrades_to_skip() -> None:
-    """Defense in depth: a reuse-machine choice with no token becomes skip.
+def test_forced_reuse_machine_without_app_degrades_to_skip() -> None:
+    """Defense in depth: connected-repo choice without an App becomes skip.
 
     Driven at the handler inside a running app so a forced reuse-machine value
     (e.g. a future row regression) still cannot produce app-binding + no repo.
@@ -132,45 +149,37 @@ def test_forced_reuse_machine_without_token_degrades_to_skip() -> None:
 
     async def scenario() -> None:
         async with app.run_test():
-            app.result.machine_github_token = None
+            app.result.machine_github_verification = None
             app.result.project_github_repo = "acme/widgets"
-            app.result.project_github_token = None
             app._on_project_github(PROJECT_GITHUB_REUSE_MACHINE)
 
     asyncio.run(scenario())
 
-    assert app.result.project_github_adoption == "skip"
-    assert app.result.project_github_token is None
-    # The apply-time adoption gate accepts the degraded skip state.
+    assert app.result.project_github_adoption == GITHUB_ADOPTION_BACKLOG_ONLY
+    assert not hasattr(app.result, "project_github_token")
+    # The apply-time adoption gate accepts the degraded backlog-only state.
     assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY
 
 
 # --------------------------------------------------------------------------- #
-# Bug D — back-nav leaves a stale project token / adoption
+# Bug D — back-nav leaves a stale App-binding choice
 # --------------------------------------------------------------------------- #
 
 
-def test_skip_after_app_binding_clears_stale_project_token() -> None:
-    """Re-selecting backlog-only clears stale project GitHub credentials.
-
-    Carrying a token into a backlog-only adoption is no longer supported and
-    would raise at apply.
-    """
+def test_skip_after_app_binding_clears_stale_binding_choice() -> None:
+    """Re-selecting backlog-only clears stale App-binding state."""
     app, _spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test():
-            app.result.machine_github_token = "ghu_machine_token"
             app.result.project_github_repo = "acme/widgets"
-            # A prior visit left App-binding state plus a stale token.
+            # A prior visit left App-binding state.
             app.result.project_github_adoption = GITHUB_ADOPTION_APP_BINDING
-            app.result.project_github_token = "ghs_project_token"
             app._on_project_github("skip")
 
     asyncio.run(scenario())
 
-    assert app.result.project_github_token is None
-    assert app.result.project_github_adoption == "skip"
+    assert app.result.project_github_adoption == GITHUB_ADOPTION_BACKLOG_ONLY
     # The cleaned skip state no longer trips the apply-time gate.
     assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY
 
@@ -185,19 +194,16 @@ def test_declined_publish_clears_app_binding_adoption() -> None:
 
     async def scenario() -> None:
         async with app.run_test():
-            app.result.machine_github_token = "ghu_machine_token"
             # Prior connected-repo visit set adoption, then the user
             # back-navigated to the publish prompt and declined.
             app.result.project_github_repo = "acme/widgets"
             app.result.project_github_adoption = GITHUB_ADOPTION_APP_BINDING
-            app.result.project_github_token = "ghs_project_token"
             app._after_repo("")
 
     asyncio.run(scenario())
 
     assert app.result.project_github_repo is None
     assert app.result.project_github_adoption is None
-    assert app.result.project_github_token is None
-    # With no repo and no adoption/token, the gate normalizes to skip and
+    # With no repo and no adoption, the gate normalizes to backlog-only and
     # accepts it instead of raising.
     assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY

@@ -13,7 +13,6 @@ task 5 contract:
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from subprocess import CompletedProcess
 
@@ -163,7 +162,6 @@ def test_github_auth_only_resolver_pass_emits_canonical_label(
         project="yoke",
         repo="upyoke/yoke",
         token="ghs_fake",
-        env={"GH_TOKEN": "ghs_fake"},
     )
     monkeypatch.setattr(
         "yoke_core.domain.check_prerequisites.resolve_project_github_auth",
@@ -188,7 +186,7 @@ def test_github_auth_resolver_failure_warns_without_host_gh_messaging(
     monkeypatch.setattr(
         "yoke_core.domain.check_prerequisites.resolve_project_github_auth",
         lambda *_a, **_kw: (_ for _ in ()).throw(
-            pga.MissingToken("yoke", "no token in capability_secrets")
+            pga.MissingAppCredentials("yoke", "App credentials unavailable")
         ),
     )
 
@@ -196,7 +194,7 @@ def test_github_auth_resolver_failure_warns_without_host_gh_messaging(
     out = capsys.readouterr().out
     assert rc == 0
     assert "Project GitHub App auth configured" in out
-    assert "capability secret set" in out
+    assert "control-plane App issuer" in out
     _assert_no_gh_strings(out)
 
 
@@ -211,7 +209,7 @@ def test_github_auth_resolver_failure_strict_fails_critical(
     monkeypatch.setattr(
         "yoke_core.domain.check_prerequisites.resolve_project_github_auth",
         lambda *_a, **_kw: (_ for _ in ()).throw(
-            pga.MissingToken("yoke", "no token in capability_secrets")
+            pga.MissingAppCredentials("yoke", "App credentials unavailable")
         ),
     )
 

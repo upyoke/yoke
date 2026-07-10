@@ -147,6 +147,18 @@ def _env_text(*, image: str, publish_spec: str) -> str:
         "# then uncomment the yoke-oidc-client-secret blocks in\n"
         "# docker-compose.yml and this line:\n"
         "#YOKE_OIDC_CLIENT_SECRET_FILE=/run/secrets/yoke-oidc-client-secret\n"
+        "\n"
+        "# --- GitHub App server automation (optional) ------------------\n"
+        "# Configure one App for this control plane. The issuer and API URL\n"
+        "# are nonsecret; the App private key remains a mounted file.\n"
+        "#YOKE_GITHUB_APP_ISSUER=123456\n"
+        "#YOKE_GITHUB_APP_API_URL=https://api.github.com\n"
+        "#   cp /secure/path/app-key.pem secrets/github-app-private-key.pem\n"
+        "#   chmod 600 secrets/github-app-private-key.pem\n"
+        "# then uncomment the yoke-github-app-private-key blocks in\n"
+        "# docker-compose.yml and this line:\n"
+        "#YOKE_GITHUB_APP_PRIVATE_KEY_FILE="
+        "/run/secrets/yoke-github-app-private-key\n"
     )
 
 

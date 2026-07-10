@@ -19,7 +19,7 @@ from runtime.api.conftest import insert_item
 from yoke_core.domain import backlog_github_comments, backlog_github_sync
 from yoke_core.domain.project_github_auth import (
     MissingCapability,
-    MissingToken,
+    MissingRepoBinding,
 )
 
 
@@ -31,7 +31,7 @@ def db():
 
 
 class TestPostCommentAuthTranslation:
-    def test_translates_missing_token_to_sync_warning(self, db):
+    def test_translates_missing_binding_to_sync_warning(self, db):
         insert_item(db, id=30, type="issue", status="implementing", project="buzz", github_issue="#50")
         stderr = io.StringIO()
 
@@ -39,7 +39,9 @@ class TestPostCommentAuthTranslation:
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_comments, "resolve_project_github_auth",
-            side_effect=MissingToken("buzz", "no token row for project 'buzz'"),
+            side_effect=MissingRepoBinding(
+                "buzz", "project 'buzz' has no GitHub App repository binding",
+            ),
         ):
             rc = backlog_github_sync.post_comment(
                 "30", "idea", "implementing", conn=db, stderr=stderr,
@@ -47,10 +49,10 @@ class TestPostCommentAuthTranslation:
 
         assert rc == 1  # non-zero — no silent swallow
         text = stderr.getvalue()
-        assert "sync_warning=MissingToken" in text
+        assert "sync_warning=MissingRepoBinding" in text
         assert "post_comment skipped for BUZ-30" in text
         assert "Repair:" in text
-        assert "capability secret set" in text
+        assert "github-binding bind" in text
 
     def test_translates_missing_capability(self, db):
         insert_item(db, id=31, type="issue", status="implementing", project="buzz", github_issue="#51")

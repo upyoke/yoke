@@ -59,6 +59,7 @@ def test_registry_resolves_runner_status() -> None:
 def test_default_runner_status_payload() -> None:
     rc, _out, _err = _run(
         "github-actions", "runners", "status", "upyoke/yoke",
+        "--project", "yoke",
     )
 
     assert rc == 0
@@ -92,6 +93,7 @@ def test_runner_status_forces_local_dispatch_even_with_https_config() -> None:
                             redirect_stderr(io.StringIO()) as err:
                         rc = cli_main([
                             "github-actions", "runners", "status", "o/r",
+                            "--project", "yoke",
                         ])
 
     assert rc == 0
@@ -140,6 +142,7 @@ def test_repo_can_be_omitted_for_capability_config() -> None:
 def test_repo_without_slash_returns_two() -> None:
     rc, _out, _err = _run(
         "github-actions", "runners", "status", "no-slash",
+        "--project", "yoke",
     )
 
     assert rc == 2

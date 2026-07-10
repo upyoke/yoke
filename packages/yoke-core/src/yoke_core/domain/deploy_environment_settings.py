@@ -18,6 +18,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping
 
+from yoke_core.domain.github_app_deployment import (
+    GitHubAppDeploymentConfig,
+    GitHubAppDeploymentConfigError,
+    github_app_config_from_environment_settings,
+)
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     _first_mapping,
@@ -63,6 +68,7 @@ class DeployEnvironment:
     state_backend: str
     database_name: str
     otel_exporter_endpoint: str = ""
+    github_app: GitHubAppDeploymentConfig | None = None
     # Long-lived branch this env runs the HEAD of (environments.settings
     # .git.branch: main<->prod, stage<->stage). Empty = no declared branch;
     # the env takes worktree/SHA deploys (the ephemeral tier).
@@ -95,7 +101,6 @@ class DeployEnvironment:
     @property
     def ssh_target(self) -> str:
         return f"{self.ssh_user}@{self.origin_host}"
-
 
 def _require(value: Any, *, what: str, hint: str) -> Any:
     if value in (None, "", [], {}):
@@ -172,6 +177,12 @@ def deploy_environment_from_settings(
     database = _env_mapping(env.settings, "database")
     observability = _env_mapping(env.settings, "observability")
     git = _env_mapping(env.settings, "git")
+    try:
+        github_app = github_app_config_from_environment_settings(
+            env.settings, env_hint=env_hint
+        )
+    except GitHubAppDeploymentConfigError as exc:
+        raise DeployEnvironmentError(str(exc)) from exc
 
     ssh = _capability(settings, "ssh")
     ssh_user = ssh.get("user") or ssh.get("default_user") or ""
@@ -233,6 +244,7 @@ def deploy_environment_from_settings(
         otel_exporter_endpoint=str(
             observability.get("otel_exporter_endpoint") or ""
         ),
+        github_app=github_app,
         git_branch=str(git.get("branch") or ""),
     )
 

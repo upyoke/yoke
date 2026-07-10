@@ -22,6 +22,9 @@ from __future__ import annotations
 import json
 from typing import Optional, TextIO, Tuple
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain import project_label_policy
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
@@ -43,22 +46,24 @@ def _resolve_owner_repo(
 ) -> Optional[Tuple[str, str, str]]:
     """Resolve ``(owner, repo, token)`` for the call.
 
-    ``repo_args`` carries the legacy ``["-R", "owner/name"]`` shape from
-    upstream callers; when empty, defer to the project's configured repo.
-    Returns ``None`` when project auth fails -- the caller logs a warning.
+    ``repo_args`` carries the legacy ``["-R", "owner/name"]`` projection
+    from upstream callers. It never selects the network target: when present,
+    it must exactly match the repository in verified project auth. Empty args
+    defer to the verified binding. Returns ``None`` on auth or projection
+    failure so callers fail closed before issuing a REST request.
     """
     try:
-        auth = resolve_project_github_auth(project)
+        auth = resolve_project_github_auth(
+            project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError:
         return None
 
-    repo_string = ""
-    if len(repo_args) >= 2 and repo_args[0] == "-R":
-        repo_string = repo_args[1]
-    if not repo_string:
-        repo_string = auth.repo
+    if repo_args and repo_args != ["-R", auth.repo]:
+        return None
     try:
-        owner, name = split_repo(repo_string)
+        owner, name = split_repo(auth.repo)
     except ValueError:
         return None
     return owner, name, auth.token
@@ -81,7 +86,8 @@ def _github_label_sync(
     resolved = _resolve_owner_repo(repo_args, project)
     if resolved is None:
         print(
-            f"Warning: cannot resolve GitHub auth for project '{project}' on label-sync #{issue_num}",
+            f"Warning: cannot resolve verified GitHub target for project "
+            f"'{project}' on label-sync #{issue_num}",
             file=stderr,
         )
         return
@@ -179,7 +185,8 @@ def _github_comment_post(
     resolved = _resolve_owner_repo(repo_args, project)
     if resolved is None:
         print(
-            f"Warning: cannot resolve GitHub auth for project '{project}' on comment-post #{issue_num}",
+            f"Warning: cannot resolve verified GitHub target for project "
+            f"'{project}' on comment-post #{issue_num}",
             file=stderr,
         )
         return
@@ -225,7 +232,8 @@ def _github_close_on_terminal(
     resolved = _resolve_owner_repo(repo_args, project)
     if resolved is None:
         print(
-            f"Warning: cannot resolve GitHub auth for project '{project}' on close #{issue_num}",
+            f"Warning: cannot resolve verified GitHub target for project "
+            f"'{project}' on close #{issue_num}",
             file=stderr,
         )
         return

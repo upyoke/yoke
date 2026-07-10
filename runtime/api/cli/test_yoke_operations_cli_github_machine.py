@@ -4,23 +4,16 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from runtime.api.cli.github_machine_test_helpers import (
-    TOKEN,
-    github_server,
-    login,
-    owner_logins,
-    repo_full_names,
-    requested_repo,
-    scopes,
-)
-
 from yoke_cli import main as yoke_operations_cli
+from yoke_cli.config import github_git_credential_store
+from yoke_contracts import github_app_installation_permissions
+
+TOKEN = "manual-token-rejected-by-github-app-flow"
 
 
 def test_github_machine_help_and_registry(capsys) -> None:
-    # `yoke github connect` / `status` are machine-local GitHub credential
-    # commands (local token file) with no dispatcher function
-    # id, so they route via the tool-shaped table rather than
+    # Machine-local commands have no dispatcher function id, so they route
+    # through the tool-shaped table rather than
     # SUBCOMMAND_REGISTRY; HC-fallback-registry-coherence must not expect a
     # registered handler. See installer_local.TOOL_SHAPED_SUBCOMMANDS.
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
@@ -28,13 +21,19 @@ def test_github_machine_help_and_registry(capsys) -> None:
 
     assert ("github", "connect") not in SUBCOMMAND_REGISTRY
     assert ("github", "status") not in SUBCOMMAND_REGISTRY
+    assert ("github", "disconnect") not in SUBCOMMAND_REGISTRY
     assert ("github", "connect") in TOOL_SHAPED_SUBCOMMANDS
     assert ("github", "status") in TOOL_SHAPED_SUBCOMMANDS
+    assert ("github", "disconnect") in TOOL_SHAPED_SUBCOMMANDS
 
     assert yoke_operations_cli.main(["github", "connect", "--help"]) == 0
     connect_out = capsys.readouterr().out
     assert "yoke github connect" in connect_out
-    for flag in ("--api-url", "--config", "--json"):
+    for flag in (
+        "--client-id", "--app-slug", "--app-id", "--api-url", "--web-url",
+        "--add-installation",
+        "--config", "--json",
+    ):
         assert flag in connect_out
     for removed_flag in ("--token-file", "--token-stdin", "--github-repo"):
         assert removed_flag not in connect_out
@@ -42,12 +41,18 @@ def test_github_machine_help_and_registry(capsys) -> None:
     assert yoke_operations_cli.main(["github", "status", "--help"]) == 0
     status_out = capsys.readouterr().out
     assert "yoke github status" in status_out
-    for flag in ("--config", "--api-url", "--offline", "--json"):
+    for flag in ("--config", "--offline", "--json"):
         assert flag in status_out
+    assert "--api-url" not in status_out
     assert "--github-repo" not in status_out
 
+    assert yoke_operations_cli.main(["github", "disconnect", "--help"]) == 0
+    disconnect_out = capsys.readouterr().out
+    assert "yoke github disconnect" in disconnect_out
+    assert "--config" in disconnect_out
 
-def test_github_connect_reports_browser_flow_unavailable_without_manual_token(
+
+def test_github_connect_requires_public_app_metadata_before_network_access(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
@@ -63,12 +68,8 @@ def test_github_connect_reports_browser_flow_unavailable_without_manual_token(
 
     captured = capsys.readouterr()
     assert rc == 1
-    payload = json.loads(captured.out)
-    assert payload["ok"] is False
-    assert payload["operation"] == "github.connect"
-    assert payload["connection_model"] == "github_app"
-    assert payload["configured"] is False
-    assert payload["issues"][0]["code"] == "github_app_browser_flow_unavailable"
+    assert captured.out == ""
+    assert "client id is required" in captured.err
     assert not config.exists()
 
 
@@ -95,20 +96,66 @@ def test_github_connect_rejects_manual_token_flags(
     assert not config.exists()
 
 
+def test_github_connect_pending_installation_exits_zero(
+    monkeypatch, capsys,
+) -> None:
+    from yoke_cli.commands.adapters import github as github_adapter
+
+    monkeypatch.setattr(
+        github_adapter.github_machine,
+        "connect",
+        lambda **kwargs: {
+            "ok": True,
+            "ready": False,
+            "operation": "github.connect",
+            "state": "pending_installation",
+            "next_action": {
+                "code": "install_github_app",
+                "url": "https://github.com/apps/yoke/installations/new",
+            },
+            "issues": [{"severity": "warning", "code": "installation_required"}],
+        },
+    )
+
+    rc = yoke_operations_cli.main([
+        "github", "connect", "--client-id", "Iv1.local",
+        "--app-slug", "yoke", "--json",
+    ])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["ok"] is True
+    assert payload["ready"] is False
+    assert payload["state"] == "pending_installation"
+
+
 def test_github_status_reads_app_config_offline(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     config = tmp_path / "machine" / "config.json"
-    refresh_file = tmp_path / "github.refresh"
-    refresh_file.write_text("refresh-token\n", encoding="utf-8")
+    refresh_file = tmp_path / "github-app-user.json"
+    github_git_credential_store.write_credential_document(refresh_file, {
+        "schema_version": 1,
+        "access_token": "access-token",
+        "expires_at": "2027-07-09T17:00:00+00:00",
+        "refresh_token": "refresh-token",
+        "refresh_expires_at": "2027-12-09T17:00:00+00:00",
+        "scope": "",
+        "token_type": "bearer",
+    })
+    permissions = {
+        item.key: item.access
+        for item in github_app_installation_permissions.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSIONS
+    }
     config.parent.mkdir(parents=True)
     config.write_text(
         json.dumps(
             {
                 "schema_version": 1,
                 "github": {
-                    "api_url": "https://api.github.example",
+                    "api_url": "https://github.example/api/v3",
+                    "web_url": "https://github.example",
                     "app_slug": "yoke-local",
                     "client_id": "Iv1.local",
                     "installations": [
@@ -117,6 +164,7 @@ def test_github_status_reads_app_config_offline(
                             "account_login": "octo-org",
                             "account_type": "Organization",
                             "repository_selection": "selected",
+                            "permissions": permissions,
                         }
                     ],
                     "repositories": [
@@ -128,7 +176,6 @@ def test_github_status_reads_app_config_offline(
                         "login": "cached-user",
                         "github_user_id": 42,
                         "status": "authorized",
-                        "permissions": {"issues": "write", "contents": "read"},
                     },
                 },
             },
@@ -153,91 +200,25 @@ def test_github_status_reads_app_config_offline(
     assert payload["ok"] is True
     assert payload["operation"] == "github.status"
     assert payload["connection_model"] == "github_app"
-    assert payload["api_url"] == "https://api.github.example"
+    assert payload["api_url"] == "https://github.example/api/v3"
     assert payload["identity"]["checked"] is False
     assert payload["identity"]["login"] == "cached-user"
     assert payload["authorization"]["present"] is True
+    assert "kind" not in payload["authorization"]
+    assert "refresh_credential_ref" not in payload["authorization"]
+    assert str(refresh_file) not in captured.out
     assert payload["app"]["client_id"] == "Iv1.local"
     assert payload["access"]["owners"] == ["octo-org"]
     assert payload["access"]["repos"] == ["octo-org/app"]
     assert payload["permissions"]["ok"] is True
-    assert payload["permissions"]["mode"] == "github_app"
+    assert payload["permissions"]["mode"] == "github_app_installation"
+    assert payload["ready"] is True
+    assert payload["access"]["snapshot_source"] == "cached"
+    assert payload["access"]["repo_listing_ok"] is None
 
     written_text = config.read_text(encoding="utf-8")
     _assert_token_absent("refresh-token", captured.out, captured.err, written_text)
     _assert_no_project_runtime_auth(json.loads(written_text))
-
-
-def test_verify_scoped_token_result_carries_create_repos_capability() -> None:
-    """A scope-bearing token with the repo scope reports create=True on the result."""
-    from yoke_cli.config import github_machine_verify
-
-    with github_server(expected_token=TOKEN) as server:
-        result = github_machine_verify.verify(
-            server.url, TOKEN, github_repo="machine-user/private-tool"
-        )
-
-    create = result["permissions"]["create_repos"]
-    assert create["can_create"] is True
-    assert create["create_private"] is True
-
-
-def test_verify_scoped_token_no_repo_scope_reports_cannot_create() -> None:
-    """A scope-bearing token missing the repo scope still fails the scope contract.
-
-    The repo+workflow contract requires both, so a public_repo+workflow GitHub App user token is
-    rejected before create-capability matters; but a repo-less GitHub App user token that DID
-    satisfy the contract (repo present) is the only scoped_token case that reaches
-    the create_repos derivation, so the create-False path is exercised directly
-    through the classifier instead (see the contract suite). This test guards
-    the contract-rejection wiring the create classifier sits behind.
-    """
-    from yoke_cli.config.github_machine_verify import (
-        GitHubMachineVerificationError,
-    )
-
-    with github_server(
-        expected_token=TOKEN, oauth_scopes="public_repo, workflow"
-    ) as server:
-        from yoke_cli.config import github_machine_verify
-
-        try:
-            github_machine_verify.verify(
-                server.url, TOKEN, github_repo="machine-user/private-tool"
-            )
-        except GitHubMachineVerificationError as exc:
-            assert "workflow" not in str(exc)  # workflow IS present here
-            assert "repo" in str(exc)
-        else:
-            raise AssertionError("expected the missing-repo-scope contract error")
-
-
-def test_verify_repository_token_result_carries_unknown_create_repos(monkeypatch) -> None:
-    """A repository-scoped GitHub App user token reports create_repos.can_create is None (unknown)."""
-    from yoke_cli.config import github_machine_repository_token
-    from yoke_cli.config import github_machine_verify
-
-    def _fake_read_access(api_url, token, identity, repo_full_name, *, request_json):
-        return {
-            "ok": True,
-            "mode": "repository_token_non_mutating",
-            "repo": repo_full_name,
-            "summary": "non-mutating read checks passed",
-        }
-
-    monkeypatch.setattr(
-        github_machine_repository_token, "verify_read_access", _fake_read_access
-    )
-    # No X-OAuth-Scopes header forces the repository-scoped branch.
-    with github_server(expected_token=TOKEN, oauth_scopes="") as server:
-        result = github_machine_verify.verify(
-            server.url, TOKEN, github_repo="machine-user/private-tool"
-        )
-
-    create = result["permissions"]["create_repos"]
-    assert create["can_create"] is None
-    assert create["create_private"] is None
-    assert create["basis"] == "repository_token_undetectable"
 
 
 def _assert_token_absent(token: str, *texts: str) -> None:

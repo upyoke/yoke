@@ -38,7 +38,7 @@ def _auth(repo: str):
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
     return ProjectGithubAuth(
-        project="yoke", repo=repo, token="t", env={"GH_TOKEN": "t"},
+        project="yoke", repo=repo, token="t",
     )
 
 
@@ -54,7 +54,7 @@ def _set_backlog_only(conn, slug: str) -> None:
 class TestWrongRepoIssuesSyncMode:
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth(
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_backlog_only_project_rows_skipped_with_note(
@@ -77,7 +77,7 @@ class TestWrongRepoIssuesSyncMode:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth(
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_enabled_projects_still_scanned_alongside_backlog_only(
@@ -108,7 +108,7 @@ class TestWrongRepoIssuesSyncMode:
 class TestOrphanedGhIssuesSyncMode:
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth(f"example-org/{project}"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
     def test_backlog_only_repo_not_scanned(
         self, mock_rest, mock_resolve, mock_avail,
@@ -128,7 +128,7 @@ class TestOrphanedGhIssuesSyncMode:
 class TestGhOrphanDetectionSyncMode:
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth(f"example-org/{project}"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_backlog_only_repo_not_searched(
         self, mock_rest, mock_resolve, mock_avail,

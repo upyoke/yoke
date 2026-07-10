@@ -17,7 +17,9 @@ def _request(payload: dict) -> FunctionCallRequest:
     )
 
 
-def test_projects_capability_secret_set_forces_literal_source(monkeypatch) -> None:
+def test_projects_capability_secret_set_rejects_github_case_variants(
+    monkeypatch,
+) -> None:
     captured = {}
 
     def _set_secret(project, cap_type, key, *, value, source):
@@ -37,25 +39,42 @@ def test_projects_capability_secret_set_forces_literal_source(monkeypatch) -> No
     outcome = projects_capability_secret.handle_projects_capability_secret_set(
         _request({
             "project": "demo",
-            "cap_type": "github",
+            "cap_type": "GitHub",
             "key": "token",
             "value": "ghs_secret",
         })
     )
 
+    assert outcome.primary_success is False
+    assert outcome.error is not None
+    assert outcome.error.code == "github_binding_owned"
+    assert "stranded" in outcome.error.message
+    assert captured == {}
+
+
+def test_projects_capability_secret_set_forces_literal_source(monkeypatch) -> None:
+    captured = {}
+
+    def _set_secret(project, cap_type, key, *, value, source):
+        captured.update({"cap_type": cap_type, "value": value, "source": source})
+
+    monkeypatch.setattr(
+        "yoke_core.domain.projects_capabilities.cmd_capability_set_secret",
+        _set_secret,
+    )
+    outcome = projects_capability_secret.handle_projects_capability_secret_set(
+        _request({
+            "project": "demo",
+            "cap_type": "deploy",
+            "key": "token",
+            "value": "secret",
+        })
+    )
+
     assert outcome.primary_success is True
-    assert outcome.result_payload == {
-        "project": "demo",
-        "cap_type": "github",
-        "key": "token",
-        "source": "literal",
-        "stored": True,
-    }
     assert captured == {
-        "project": "demo",
-        "cap_type": "github",
-        "key": "token",
-        "value": "ghs_secret",
+        "cap_type": "deploy",
+        "value": "secret",
         "source": "literal",
     }
 
@@ -64,7 +83,7 @@ def test_projects_capability_secret_set_rejects_external_source() -> None:
     outcome = projects_capability_secret.handle_projects_capability_secret_set(
         _request({
             "project": "demo",
-            "cap_type": "github",
+            "cap_type": "deploy",
             "key": "token",
             "value": "/tmp/token",
             "source": "file",

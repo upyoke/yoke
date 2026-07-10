@@ -13,8 +13,11 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional, TextIO
+from typing import Iterable, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
     RestTransportError,
@@ -28,7 +31,6 @@ from yoke_core.domain.project_github_auth import (
 )
 from yoke_core.domain.validate_epic_context import (
     _ACTIVE_TASK_STATUSES,
-    ValidateContext,
     _connect,
     _int_scalar,
     _parse_timestamp,
@@ -70,11 +72,9 @@ def _issue_accessible_via_rest(
 
 
 def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) -> int:
-    ctx = ValidateContext(repo_root=repo_root)
-
     with _connect() as conn:
         try:
-            display_ref, canonical_epic_id, gh_repo = _resolve_epic(conn, epic_ref)
+            display_ref, canonical_epic_id = _resolve_epic(conn, epic_ref)
         except ValueError as exc:
             err.write(f"Error: {exc}\n")
             return 1
@@ -177,14 +177,18 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
         ).fetchone()
         project_id = str(project[0] or "yoke") if project else "yoke"
         try:
-            auth = resolve_project_github_auth(project_id, conn=conn)
+            auth = resolve_project_github_auth(
+                project_id,
+                conn=conn,
+                required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+            )
         except ProjectGithubAuthError as exc:
             _result(out, "🚨", f"GitHub checks: skipped ({exc.code})")
             warnings += 1
             check3_skipped = True
         else:
             rest_token = auth.token
-            gh_repo = auth.repo
+            verified_repo = auth.repo
         if not check3_skipped and rest_token:
             checked_gh = False
             gh_rows = conn.execute(
@@ -203,7 +207,9 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
                     continue
                 checked_gh = True
                 issue_num = gh_issue.lstrip("#")
-                if not _issue_accessible_via_rest(gh_repo, issue_num, token=rest_token):
+                if not _issue_accessible_via_rest(
+                    verified_repo, issue_num, token=rest_token,
+                ):
                     _result(out, "❌", f"GitHub issue {gh_issue} not found (task {row['task_num']})")
                     issues += 1
                     check3_ok = False

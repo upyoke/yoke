@@ -31,16 +31,8 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
         "--github-adoption",
         choices=GITHUB_ADOPTION_INPUT_CHOICES,
         default=None,
-        help=onboard_github_copy.PROJECT_TOKEN_ADOPTION_HELP,
+        help=onboard_github_copy.PROJECT_GITHUB_SETUP_HELP,
     )
-    parser.add_argument("--github-token", dest="github_token", default=None,
-                        help=argparse.SUPPRESS)
-    parser.add_argument("--github-token-file", dest="github_token_file", default=None,
-                        help=argparse.SUPPRESS)
-    parser.add_argument("--github-token-stdin", action="store_true",
-                        help=argparse.SUPPRESS)
-
-
 def project_prompt_missing(parsed: argparse.Namespace) -> bool:
     if parsed.project_mode == onboard_config.PROJECT_MODE_MACHINE_ONLY:
         return False

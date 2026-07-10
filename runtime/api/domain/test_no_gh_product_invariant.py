@@ -12,7 +12,7 @@ _FORBIDDEN = re.compile(
             r'\[\s*["\']gh["\']',
             r'shutil\.which\(\s*["\']gh["\']\s*\)',
             r"\bbrew\s+install\s+gh\b",
-            r"\bgh\s+(api|issue|pr|run|secret)\b",
+            r"\bgh\s+(api|issue|pr|repo|run|secret|workflow)\b",
         )
     )
 )
@@ -27,6 +27,7 @@ _SCAN_DIRS = (
     "runtime/harness",
     ".agents/skills/yoke",
     "docs",
+    "templates",
 )
 
 

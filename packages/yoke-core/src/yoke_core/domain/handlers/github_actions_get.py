@@ -17,6 +17,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.handlers.github_actions_set import (
     _transport_failed,
     _validate_and_resolve,
@@ -30,7 +33,10 @@ from yoke_contracts.api.function_call import (
 class VariableGetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     name: str = Field(..., min_length=1, description="Actions variable name.")
-    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
+    project: str = Field(
+        ..., min_length=1,
+        description="Project capability owning the GitHub App repo binding.",
+    )
 
 
 class VariableGetResponse(BaseModel):
@@ -42,7 +48,10 @@ class VariableGetResponse(BaseModel):
 
 def handle_variable_get(request: FunctionCallRequest) -> HandlerOutcome:
     payload, token, err = _validate_and_resolve(
-        request, VariableGetRequest, "github_actions.variable.get",
+        request,
+        VariableGetRequest,
+        "github_actions.variable.get",
+        required_permissions=GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
     )
     if err is not None:
         return err

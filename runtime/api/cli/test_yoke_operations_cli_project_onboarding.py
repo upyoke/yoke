@@ -5,6 +5,7 @@ import subprocess
 import urllib.error
 import urllib.request
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -28,6 +29,33 @@ def test_project_create_new_repo_binds_identity_and_installs(
 
     with ProjectOnboardApi() as api:
         config = write_https_config(tmp_path, "product-token", api.url)
+        config_payload = json.loads(config.read_text(encoding="utf-8"))
+        config_payload["github"] = {
+            "api_url": "https://api.github.com",
+            "app_slug": "yoke-test",
+            "app_id": 1234,
+            "client_id": "Iv1.test",
+            "authorization": {
+                "kind": "github_app_user_authorization",
+                "refresh_credential_ref": "secrets/github-user.json",
+                "status": "authorized",
+            },
+            "installations": [{
+                "installation_id": 123,
+                "account_login": "owner",
+                "repository_selection": "selected",
+            }],
+            "repositories": [{
+                "repository_id": 456,
+                "installation_id": 123,
+                "full_name": "owner/demo",
+            }],
+        }
+        config.write_text(json.dumps(config_payload), encoding="utf-8")
+        monkeypatch.setattr(
+            "yoke_cli.config.project_onboard_progress.github_user_tokens.access_token_from_machine_config",
+            lambda **_kwargs: SimpleNamespace(access_token="ghu_short_lived"),
+        )
         rc = yoke_operations_cli.main([
             "project", "create", str(checkout),
             "--slug", "demo",
@@ -67,17 +95,8 @@ def test_project_create_new_repo_binds_identity_and_installs(
         "github_repo": "owner/demo",
         "automation_enabled": True,
         "requires_explicit_choice": False,
-        "machine_github_credential_promoted": False,
-        "secret": {
-            "provided": False,
-            "import_method": None,
-            "stored": False,
-            "storage": None,
-            "persisted_source": None,
-            "required": False,
-        },
         "binding": {
-            "status": "pending_app_connection",
+            "status": "active",
             "repo": "owner/demo",
             "requires_app_installation": True,
         },
@@ -91,6 +110,16 @@ def test_project_create_new_repo_binds_identity_and_installs(
         "github_repo": "owner/demo",
         "default_branch": "main",
         "public_item_prefix": "DMO",
+        "github_sync_mode": "backlog_only",
+    }
+    bind_call = api.function_call("projects.github_binding.bind")
+    assert bind_call["payload"] == {
+        "project": "41",
+        "installation_id": 123,
+        "repository_id": 456,
+        "github_repo": "owner/demo",
+        "expected_api_url": "https://api.github.com",
+        "github_user_access_token": "ghu_short_lived",
     }
     assert api.function_calls("projects.capability_secret.set") == []
     assert api.requests_for("GET", "/v1/projects/41/install-bundle")
@@ -141,7 +170,7 @@ def test_onboard_create_project_permission_denied_is_friendly(
             "--github-repo", "owner/demo",
             "--default-branch", "main",
             "--public-item-prefix", "DMO",
-            "--github-adoption", "skip",
+            "--github-adoption", "backlog-only",
         ])
 
     assert rc == 1
@@ -177,7 +206,7 @@ def test_project_create_dry_run_rejects_positional_github_token(
     assert rc == 2
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "project-supplied GitHub credentials are no longer supported" in captured.err
+    assert "unexpected positional argument after CHECKOUT" in captured.err
     assert token not in captured.err
 
 
@@ -205,7 +234,7 @@ def test_project_create_apply_rejects_positional_github_token(
     assert rc == 2
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "project-supplied GitHub credentials are no longer supported" in captured.err
+    assert "unexpected positional argument after CHECKOUT" in captured.err
     assert token not in captured.err
     assert not checkout.exists()
     assert token not in config.read_text(encoding="utf-8")
@@ -236,7 +265,7 @@ def test_project_import_clones_existing_remote_binds_identity_and_installs(
             "--github-repo", "owner/imported",
             "--default-branch", "trunk",
             "--public-item-prefix", "IMP",
-            "--github-adoption", "skip",
+            "--github-adoption", "backlog-only",
             "--config", str(config),
             "--yes",
             "--json",
@@ -262,6 +291,7 @@ def test_project_import_clones_existing_remote_binds_identity_and_installs(
         "github_repo": "owner/imported",
         "default_branch": "trunk",
         "public_item_prefix": "IMP",
+        "github_sync_mode": "backlog_only",
     }
     assert (checkout / "README.md").read_text(encoding="utf-8") == (
         "# imported\n"
@@ -311,7 +341,7 @@ def test_onboard_existing_project_clone_uses_project_id_without_create(
             project_default_branch="trunk",
             project_public_item_prefix="BUZZ",
             existing_project_id=37,
-            project_github_adoption="skip",
+            project_github_adoption="backlog-only",
             project_clone=onboard_project.ClonePlan(),
         )
 
@@ -372,7 +402,7 @@ def test_onboard_existing_project_clone_accepts_versioned_api_url(
             project_default_branch="trunk",
             project_public_item_prefix="BUZZ",
             existing_project_id=37,
-            project_github_adoption="skip",
+            project_github_adoption="backlog-only",
             project_clone=onboard_project.ClonePlan(),
         )
 

@@ -12,9 +12,6 @@ No live ``gh`` calls are made.
 
 from __future__ import annotations
 
-import json
-import os
-from typing import Dict, List
 from unittest import mock
 
 import pytest
@@ -22,10 +19,7 @@ import pytest
 import yoke_core.engines.resync as resync_mod
 from yoke_core.engines.resync import PairedItem
 
-from yoke_core.engines._resync_test_helpers import (
-    populated_db,
-    test_db,
-)
+pytest_plugins = ("yoke_core.engines._resync_test_helpers",)
 
 
 class TestHelpers:
@@ -61,7 +55,6 @@ class TestHelpers:
         def fake_auth(project, *args, **kwargs):
             return ProjectGithubAuth(
                 project=project, repo=f"org/{project}", token="t",
-                env={"GH_TOKEN": "t"},
             )
 
         yoke_body = [{"number": 100, "title": "[YOK-42] Test", "labels": [],
@@ -79,9 +72,37 @@ class TestHelpers:
             "yoke_core.engines.resync_detect_fetch.request_with_retry",
             side_effect=responses,
         ):
-            result = resync_mod._fetch_gh_issues_per_project({"yoke": "", "buzz": "org/buzz"})
+            result = resync_mod._fetch_gh_issues_per_project({"yoke", "buzz"})
         assert result["yoke"][100]["title"] == "[YOK-42] Test"
         assert result["buzz"][5]["state"] == "CLOSED"
+
+    def test_fetch_uses_repo_from_same_resolution_as_token(self):
+        from yoke_core.domain.gh_rest_transport import RestResponse
+        from yoke_core.domain.project_github_auth import ProjectGithubAuth
+
+        auth = ProjectGithubAuth(
+            project="yoke", repo="bound/repository", token="bound-token",
+        )
+        calls = []
+
+        def fake_request(request, *, token):
+            calls.append((request, token))
+            return RestResponse(status=200, headers={}, body=[])
+
+        with mock.patch(
+            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+            return_value=auth,
+        ), mock.patch(
+            "yoke_core.engines.resync_detect_fetch.request_with_retry",
+            side_effect=fake_request,
+        ):
+            result = resync_mod._fetch_gh_issues_per_project(
+                {"yoke"},
+            )
+
+        assert result == {"yoke": {}}
+        assert calls[0][0].path == "/repos/bound/repository/issues"
+        assert calls[0][1] == "bound-token"
 
 class TestStage1:
     def test_stage1_linkage_builds_pairs_local_orphans_and_gh_orphans(self, populated_db, tmp_path):
@@ -110,31 +131,30 @@ class TestStage1:
         assert gh_orphans == [(999, "[YOK-999] Orphan", "OPEN", "yoke")]
         assert gh_by_project["yoke"][100]["title"] == "[YOK-42] Test item"
 
-    def test_stage1_5_heavy_fetch_batches_default_and_project_repos(self):
-        import subprocess as _sp
-
+    def test_stage1_5_heavy_fetch_uses_resolved_repo_and_token_together(self):
         paired = [
-            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", ""),
-            PairedItem("YOK-77", "/tmp/077.md", 7, "backlog", "buzz", "org/buzz"),
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "stale/yoke",
+            ),
+            PairedItem(
+                "YOK-77", "/tmp/077.md", 7, "backlog", "buzz", "stale/buzz",
+            ),
         ]
 
-        # On CI the yoke project's auth resolution returns empty so
-        # `_resolve_default_repo_nwo` returns "" and the yoke branch is
-        # skipped — mock both the default-repo resolver and the per-project
-        # subprocess call so the test exercises the batching logic
-        # regardless of laptop credentials. The graphql mock lives at the
-        # `resync._graphql_batch_fetch` re-export because the wrapper at
-        # `resync_wrappers.stage1_5_heavy_fetch` calls back into `resync`.
-        def fake_subprocess(args, **kwargs):
-            return _sp.CompletedProcess(args, 0, "org/buzz", "")
+        from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
+        auth_by_project = {
+            project: ProjectGithubAuth(
+                project=project,
+                repo=f"bound/{project}",
+                token=f"{project}-token",
+            )
+            for project in ("yoke", "buzz")
+        }
         with mock.patch(
-            "yoke_core.engines.resync_detect_linkage._resolve_default_repo_nwo",
-            return_value="upyoke/yoke",
-        ), mock.patch(
-            "yoke_core.engines.resync_detect_linkage.subprocess.run",
-            side_effect=fake_subprocess,
-        ), mock.patch(
+            "yoke_core.engines.resync_detect_linkage.resolve_project_github_auth",
+            side_effect=lambda project, **_kwargs: auth_by_project[project],
+        ) as auth_resolver, mock.patch(
             "yoke_core.engines.resync._graphql_batch_fetch",
             side_effect=[
                 {100: {"number": 100, "body": "a", "comments": []}},
@@ -146,6 +166,19 @@ class TestStage1:
         assert result["yoke"][100]["body"] == "a"
         assert result["buzz"][7]["body"] == "b"
         assert fetch.call_count == 2
+        from yoke_contracts.github_app_installation_permissions import (
+            GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+        )
+
+        assert [
+            call.kwargs["required_permissions"]
+            for call in auth_resolver.call_args_list
+        ] == [GITHUB_ISSUES_READ_PERMISSION_LEVELS] * 2
+        for call, project in zip(fetch.call_args_list, ("yoke", "buzz")):
+            assert call.kwargs["project"] == project
+            assert call.kwargs["auth"] is auth_by_project[project]
+            assert call.kwargs["auth"].repo == f"bound/{project}"
+            assert call.kwargs["auth"].token == f"{project}-token"
 
     def test_stage1_linkage_skips_marked_github_orphans(self, populated_db, tmp_path):
         yoke_root = tmp_path / "state"
@@ -170,9 +203,7 @@ class TestStage1:
 
 class TestGraphqlBatchFetch:
     def test_empty_inputs_return_empty_map(self):
-        assert resync_mod._graphql_batch_fetch([], "owner", "repo") == {}
-        assert resync_mod._graphql_batch_fetch([1], "", "repo") == {}
-        assert resync_mod._graphql_batch_fetch([1], "owner", "") == {}
+        assert resync_mod._graphql_batch_fetch([]) == {}
 
     def test_parses_graphql_payload(self):
         from yoke_core.domain.gh_rest_transport import RestResponse
@@ -195,26 +226,41 @@ class TestGraphqlBatchFetch:
                 }
             }
         }
-        auth = ProjectGithubAuth(project="yoke", repo="org/yoke", token="t", env={})
+        auth = ProjectGithubAuth(
+            project="yoke", repo="bound/repository", token="t",
+        )
+        requests = []
+
+        def fake_request(request, *, token):
+            requests.append((request, token))
+            return RestResponse(status=200, headers={}, body=payload)
+
         with mock.patch(
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
             return_value=auth,
         ), mock.patch(
             "yoke_core.engines.resync_detect_fetch.request_with_retry",
-            return_value=RestResponse(status=200, headers={}, body=payload),
+            side_effect=fake_request,
         ):
-            result = resync_mod._graphql_batch_fetch([1, 2, 3], "owner", "repo")
+            result = resync_mod._graphql_batch_fetch([1, 2, 3])
 
         assert result[1]["body"] == "Body 1"
         assert result[1]["comments"] == [{"body": "c1"}]
         assert result[2]["body"] == "Body 2"
         assert 3 not in result
+        assert requests[0][1] == "t"
+        assert 'repository(owner: "bound", name: "repository")' in (
+            requests[0][0].body["query"]
+        )
 
-    def test_invalid_response_is_skipped(self):
-        from yoke_core.domain.gh_rest_transport import RestResponse
+    def test_invalid_response_fails_closed(self):
+        from yoke_core.domain.gh_rest_transport import (
+            RestResponse,
+            RestTransportError,
+        )
         from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
-        auth = ProjectGithubAuth(project="yoke", repo="org/yoke", token="t", env={})
+        auth = ProjectGithubAuth(project="yoke", repo="org/yoke", token="t")
         with mock.patch(
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
             return_value=auth,
@@ -222,5 +268,36 @@ class TestGraphqlBatchFetch:
             "yoke_core.engines.resync_detect_fetch.request_with_retry",
             return_value=RestResponse(status=200, headers={}, body="not-a-dict"),
         ):
-            result = resync_mod._graphql_batch_fetch([1], "owner", "repo")
-        assert result == {}
+            with pytest.raises(RestTransportError, match="invalid payload"):
+                resync_mod._graphql_batch_fetch([1])
+
+    def test_incomplete_response_fails_closed(self):
+        from yoke_core.domain.gh_rest_transport import (
+            RestResponse,
+            RestTransportError,
+        )
+        from yoke_core.domain.project_github_auth import ProjectGithubAuth
+
+        auth = ProjectGithubAuth(
+            project="yoke", repo="org/yoke", token="t",
+        )
+        payload = {
+            "data": {
+                "repository": {
+                    "issue_1": {
+                        "number": 1,
+                        "body": "Body 1",
+                        "comments": {"nodes": []},
+                    },
+                },
+            },
+        }
+        with mock.patch(
+            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+            return_value=auth,
+        ), mock.patch(
+            "yoke_core.engines.resync_detect_fetch.request_with_retry",
+            return_value=RestResponse(status=200, headers={}, body=payload),
+        ):
+            with pytest.raises(RestTransportError, match="incomplete issue data"):
+                resync_mod._graphql_batch_fetch([1, 2])

@@ -1,29 +1,25 @@
 """Worktree health checks — GitHub orphan and delegated-sync HCs.
 
-Entry-point sibling for doctor's GitHub-cluster checks. Owns
-``hc_orphaned_gh_issues``, ``hc_gh_orphan_detection``, and
-``hc_delegated_sync`` directly, and re-exports the wrong-repo
-migration HC and the project-scoped HCs from their dedicated
-siblings so ``doctor.py`` keeps a single import surface for the
-cluster.
+Owns the orphan scans and delegated sync check, and re-exports the wrong-repo
+migration and project-scoped checks so doctor keeps one import surface.
+GitHub auth and repo resolution use the canonical project resolver.
 
-GitHub auth + repo resolution flows through the canonical
-:func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`
-surface. Test fixtures patch the canonical resolver directly.
-
-HC functions: HC-orphaned-gh-issues, HC-gh-orphan-detection,
-HC-delegated-sync (and re-exports of HC-wrong-repo-issues plus the
-project-scoped GitHub checks).
+HC functions: HC-orphaned-gh-issues, HC-gh-orphan-detection, and
+HC-delegated-sync, plus re-exported wrong-repo and project checks.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from typing import List
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_METADATA_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain import runtime_settings
+from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     repair_command_hint,
@@ -33,46 +29,36 @@ from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
 )
-
-
-DOCTOR_RESYNC_RECURSIVE_TIMEOUT_CONFIG = "doctor_resync_recursive_timeout_seconds"
-DEFAULT_DOCTOR_RESYNC_RECURSIVE_TIMEOUT_SECONDS = 120
-
-from yoke_core.domain.db_helpers import query_rows
-
 import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
-
 from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
-from yoke_core.engines.doctor_report import (
-    DoctorArgs,
-    RecordCollector,
-    _should_run_hc,
-)
 from yoke_core.engines.doctor_hc_worktrees import _DELEGATED_SYNC_HCS
-
-
-from yoke_core.engines.doctor_hc_worktrees_gh_rest import (
-    list_issues_by_labels_rest,
-    search_issues_by_query_rest,
-)
-
-# Re-export wrong-repo migration HC so doctor.py imports a single sibling.
-from yoke_core.engines.doctor_hc_worktrees_gh_repo import (  # noqa: F401
-    hc_wrong_repo_issues,
-)
-
-# Re-export project-scoped HCs so doctor.py imports a single sibling.
 from yoke_core.engines.doctor_hc_worktrees_gh_project import (  # noqa: F401
     hc_project_deploy_flows,
-    hc_project_gh_secrets,
     hc_project_gh_auth,
+    hc_project_gh_secrets,
     hc_project_health,
     hc_project_lookup,
     hc_project_repo_exists,
     hc_project_vps_reachable,
     hc_project_worktrees,
 )
+from yoke_core.engines.doctor_hc_worktrees_gh_repo import (  # noqa: F401
+    hc_wrong_repo_issues,
+)
+from yoke_core.engines.doctor_hc_worktrees_gh_rest import (
+    list_issues_by_labels_rest,
+    search_issues_by_query_rest,
+)
+from yoke_core.engines.doctor_report import (
+    DoctorArgs,
+    RecordCollector,
+    _should_run_hc,
+)
+
+
+DOCTOR_RESYNC_RECURSIVE_TIMEOUT_CONFIG = "doctor_resync_recursive_timeout_seconds"
+DEFAULT_DOCTOR_RESYNC_RECURSIVE_TIMEOUT_SECONDS = 120
 
 
 _DELEGATED_HC_LABELS = {
@@ -91,16 +77,7 @@ _DELEGATED_HC_LABELS = {
 
 
 def hc_orphaned_gh_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-orphaned-gh-issues: Orphaned GitHub issues (per-project).
-
-    Iterates every project with a configured ``github_repo`` and resolves
-    auth through the canonical resolver.  Per-project ``ProjectGithubAuthError``
-    is translated to a FAIL record with an operator-facing repair hint
-    keyed off the failure code.
-
-    When the host has no GitHub App auth configured for Yoke, SKIPs with the
-    canonical reason (no FAIL, no host-``gh`` probe).
-    """
+    """Find labeled repository issues not linked to backlog items."""
     if not _wt._github_auth_configured("yoke", db_path=args.db_path):
         rec.record(
             "HC-orphaned-gh-issues", "Orphaned GitHub issues", "SKIP",
@@ -142,7 +119,10 @@ def hc_orphaned_gh_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 ))
                 continue
             try:
-                auth = resolve_project_github_auth(project, db_path=args.db_path)
+                auth = resolve_project_github_auth(
+                    project, db_path=args.db_path,
+                    required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+                )
             except ProjectGithubAuthError as err:
                 auth_failures.append(
                     f"- project '{project}': {err}\n"
@@ -185,14 +165,7 @@ def hc_orphaned_gh_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
 
 def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-gh-orphan-detection: GitHub orphan detection (per-project).
-
-    Iterates every project with a configured ``github_repo`` and resolves
-    auth through the canonical resolver.  Per-project ``ProjectGithubAuthError``
-    is translated to a FAIL record with an operator-facing repair hint.
-
-    SKIPs with the canonical reason when no GitHub App auth is configured for Yoke.
-    """
+    """Find issue-search results not linked to items or epic tasks."""
     if not _wt._github_auth_configured("yoke", db_path=args.db_path):
         rec.record(
             "HC-gh-orphan-detection", "GitHub orphan detection", "SKIP",
@@ -229,6 +202,7 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
     # sync orphan (docs/github-sync.md, "Backlog-only semantics").
     all_gh_issues: List[dict] = []
     auth_failures: List[str] = []
+    search_failures: List[str] = []
     sync_disabled_notes: List[str] = []
 
     if _base._table_exists(conn, "projects"):
@@ -245,7 +219,10 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
                 ))
                 continue
             try:
-                auth = resolve_project_github_auth(project, db_path=args.db_path)
+                auth = resolve_project_github_auth(
+                    project, db_path=args.db_path,
+                    required_permissions=GITHUB_METADATA_READ_PERMISSION_LEVELS,
+                )
             except ProjectGithubAuthError as err:
                 auth_failures.append(
                     f"- project '{project}': {err}\n"
@@ -258,13 +235,21 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
             owner, name = parts
             r = search_issues_by_query_rest(
                 owner=owner, name=name, token=auth.token,
-                search="[YOK-", limit=500,
+                search="[YOK- is:issue", limit=500,
             )
-            if r.returncode == 0 and r.stdout.strip():
-                try:
-                    all_gh_issues.extend(json.loads(r.stdout))
-                except json.JSONDecodeError:
-                    pass
+            if r.returncode != 0:
+                search_failures.append(
+                    f"- GitHub orphan search failed for project '{project}'"
+                )
+                continue
+            if not r.stdout.strip():
+                continue
+            try:
+                all_gh_issues.extend(json.loads(r.stdout))
+            except json.JSONDecodeError:
+                search_failures.append(
+                    f"- GitHub orphan search returned invalid JSON for project '{project}'"
+                )
 
     if auth_failures:
         rec.record(
@@ -285,9 +270,8 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
         state = iss.get("state", "")
         issues.append(f"- #{num} ({state}): {title}")
 
-    notes_suffix = (
-        "\n" + "\n".join(sync_disabled_notes) if sync_disabled_notes else ""
-    )
+    scan_notes = search_failures + sync_disabled_notes
+    notes_suffix = "\n" + "\n".join(scan_notes) if scan_notes else ""
     if issues:
         count = len(issues)
         detail = (
@@ -296,6 +280,9 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
         )
         rec.record("HC-gh-orphan-detection", "GitHub orphan detection", "WARN",
                     detail + notes_suffix)
+    elif search_failures:
+        rec.record("HC-gh-orphan-detection", "GitHub orphan detection", "WARN",
+                   "\n".join(scan_notes))
     else:
         rec.record("HC-gh-orphan-detection", "GitHub orphan detection", "PASS",
                     notes_suffix.lstrip("\n"))

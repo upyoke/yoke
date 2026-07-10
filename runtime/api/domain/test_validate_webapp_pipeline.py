@@ -5,6 +5,13 @@ import json
 import subprocess
 from pathlib import Path
 
+from runtime.api.domain.validate_webapp_pipeline_test_support import (
+    VALIDATOR_SCHEMA_DDL as _SCHEMA,
+    install_rest_happy as _install_rest_happy,
+    make_repo,
+    make_script_dir as _make_script_dir,
+    placeholder as _p,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.validate_webapp_pipeline import (
@@ -12,48 +19,6 @@ from yoke_core.domain.validate_webapp_pipeline import (
     run_validation,
 )
 from runtime.api.fixtures.file_test_db import init_test_db
-from runtime.api.fixtures.machine_config_test import register_machine_checkout
-
-_SCHEMA = """
-CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL, github_repo TEXT,
-  default_branch TEXT, public_item_prefix TEXT NOT NULL DEFAULT 'YOK');
-CREATE TABLE project_capabilities (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
-  type TEXT NOT NULL, settings TEXT DEFAULT '{}', UNIQUE(project_id, type));
-CREATE TABLE capability_secrets (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
-  type TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
-  source TEXT NOT NULL DEFAULT 'literal' CHECK(source = 'literal'),
-  UNIQUE(project_id, type, key));
-CREATE TABLE github_app_installations (
-  id INTEGER PRIMARY KEY,
-  installation_id TEXT NOT NULL UNIQUE,
-  account_id TEXT NOT NULL,
-  account_login TEXT NOT NULL,
-  account_type TEXT NOT NULL,
-  repository_selection TEXT NOT NULL DEFAULT 'selected',
-  permissions TEXT NOT NULL DEFAULT '{}',
-  status TEXT NOT NULL DEFAULT 'active',
-  last_verified_at TEXT,
-  last_error TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL);
-CREATE TABLE project_github_repo_bindings (
-  id INTEGER PRIMARY KEY,
-  project_id INTEGER NOT NULL,
-  installation_id TEXT NOT NULL,
-  repository_id TEXT,
-  github_repo TEXT NOT NULL,
-  default_branch TEXT,
-  status TEXT NOT NULL DEFAULT 'active',
-  permissions TEXT NOT NULL DEFAULT '{}',
-  last_verified_at TEXT,
-  last_error TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  UNIQUE(project_id));
-CREATE TABLE deployment_flows (id TEXT PRIMARY KEY, project_id INTEGER NOT NULL,
-  name TEXT NOT NULL, stages TEXT NOT NULL);
-"""
 
 
 _APP_PERMISSIONS = {
@@ -62,61 +27,11 @@ _APP_PERMISSIONS = {
     "pull_requests": "write",
     "contents": "write",
     "actions": "write",
+    "checks": "read",
     "workflows": "write",
     "secrets": "write",
     "variables": "write",
 }
-
-
-class _RestResp:
-    def __init__(self, status: int, body: dict) -> None:
-        self.status = status
-        self.headers = {}
-        self._body = json.dumps(body).encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        return None
-
-    def read(self) -> bytes:
-        return self._body
-
-
-def _install_rest_happy(monkeypatch, *, secret_names: list[str] | None = None,
-                         env_names: list[str] | None = None) -> None:
-    secret_names = secret_names or [
-        "BUZZ_SSH_KEY", "BUZZ_SSH_HOST", "BUZZ_SSH_USER",
-    ]
-    env_names = env_names or ["production"]
-
-    def fake_urlopen(request, timeout):
-        url = request.full_url
-        if "/actions/secrets" in url:
-            return _RestResp(
-                200,
-                {"secrets": [{"name": n} for n in secret_names]},
-            )
-        if url.endswith("/environments") or "/environments?" in url:
-            return _RestResp(
-                200,
-                {"environments": [{"name": n} for n in env_names]},
-            )
-        return _RestResp(200, {})
-
-    monkeypatch.setattr(
-        "yoke_core.domain.gh_rest_transport.urlopen", fake_urlopen
-    )
-
-
-# ---------------------------------------------------------------------------
-# DB + filesystem scaffolding
-# ---------------------------------------------------------------------------
-
-
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def _seed_buzz(
@@ -143,19 +58,15 @@ def _seed_buzz(
             2,
             "github",
             json.dumps({
-                "auth_model": "github_app",
-                "app_issuer": "Iv1.validator",
-                "private_key_secret_key": "app_private_key",
+                "repo_owner": "example-org",
+                "repo_name": "buzz",
+                "installation_id": "12345",
+                "repository_id": "4567",
             }),
         ),
     )
     if include_app_auth:
         permissions_json = json.dumps(_APP_PERMISSIONS)
-        conn.execute(
-            "INSERT INTO capability_secrets (project_id, type, key, value) "
-            f"VALUES ({p}, {p}, {p}, {p})",
-            (2, "github", "app_private_key", "test-private-key"),
-        )
         conn.execute(
             "INSERT INTO github_app_installations "
             "(installation_id, account_id, account_login, account_type, "
@@ -261,29 +172,8 @@ def _init_db(
         yield Path(db_path)
 
 
-def _make_buzz_repo(root: Path, *, with_git: bool = True) -> Path:
-    repo = root / "fake-buzz"
-    repo.mkdir(parents=True, exist_ok=True)
-    register_machine_checkout(root / "machine-config", repo, 2)
-    if with_git:
-        (repo / ".git").mkdir(exist_ok=True)
-        workflows = repo / ".github" / "workflows"
-        workflows.mkdir(parents=True, exist_ok=True)
-        (workflows / "buzz-deploy.yml").write_text("name: deploy\n")
-        (workflows / "buzz-smoke.yml").write_text("name: smoke\n")
-        (workflows / "buzz-ephemeral.yml").write_text("name: eph\n")
-        (workflows / "buzz-ephemeral-teardown.yml").write_text("name: teardown\n")
-    return repo
-
-
-def _make_script_dir(root: Path) -> Path:
-    script_dir = root / "scripts"
-    script_dir.mkdir(parents=True, exist_ok=True)
-    return script_dir
-
-
 def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
-    _make_buzz_repo(tmp_path)
+    make_repo(tmp_path, optional_workflows=True)
     script_dir = _make_script_dir(tmp_path)
 
     def git_router(cmd, *, cwd=None, stdin=None, env=None):
@@ -312,7 +202,21 @@ def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
         lambda project, **_kwargs: type(
             "ResolvedGithubAppAuth",
             (),
-            {"project": project, "repo": "example-org/buzz", "token": "ghs_validator"},
+            {
+                "project": project,
+                "repo": "example-org/buzz",
+                "token": "ghs_validator",
+                "permissions": {"administration": "read"},
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.validate_webapp_pipeline_checks_db."
+        "load_github_app_control_plane_config",
+        lambda: type(
+            "ControlPlaneGitHubApp",
+            (),
+            {"endpoint": type("Endpoint", (), {"origin": "https://api.github.com"})()},
         )(),
     )
     _install_rest_happy(monkeypatch)
@@ -405,7 +309,7 @@ def test_run_validation_missing_project_and_token(tmp_path: Path, monkeypatch, c
 def test_run_validation_flags_missing_github_app_binding(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
-    _make_buzz_repo(tmp_path)
+    make_repo(tmp_path, optional_workflows=True)
     script_dir = _make_script_dir(tmp_path)
 
     _install_rest_happy(monkeypatch)

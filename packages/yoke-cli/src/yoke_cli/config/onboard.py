@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Mapping
+from typing import Any, Dict
 
 from yoke_contracts.machine_config import schema as machine_schema
 
@@ -49,9 +49,6 @@ def build_report(
     check_identity: bool,
     machine_github_choice: str = onboard_machine_github.CHOICE_SKIP,
     machine_github_api_url: str | None = None,
-    machine_github_token: str | None = None,
-    machine_github_token_file: str | Path | None = None,
-    machine_github_token_source_kind: str | None = None,
     project_mode: str = PROJECT_MODE_MACHINE_ONLY,
     project_remote_url: str | None = None,
     project_checkout: str | Path | None = None,
@@ -66,9 +63,6 @@ def build_report(
     existing_project_match_source: str | None = None,
     existing_project_local_source: str | None = None,
     project_github_adoption: str | None = None,
-    project_github_token: str | None = None,
-    project_github_token_file: str | Path | None = None,
-    project_github_token_stdin_value: str | None = None,
     project_publish: onboard_project.PublishRequest | None = None,
     project_clone: onboard_project.ClonePlan | None = None,
     project_keep_existing_remote: bool = False,
@@ -126,8 +120,6 @@ def build_report(
         error_cls=OnboardError,
         choice=machine_github_choice,
         api_url=machine_github_api_url,
-        token_file=str(machine_github_token_file) if machine_github_token_file else None,
-        token_source_kind=machine_github_token_source_kind,
     )
     reuse = onboard_reuse_state.detect(
         cfg_path=cfg_path,
@@ -138,6 +130,13 @@ def build_report(
         project_inputs=project_inputs,
         machine_github=machine_github,
     )
+    if reuse.get("machine_github"):
+        machine_github = {
+            **machine_github,
+            "writes_machine_secret": False,
+            "requires_browser_flow": False,
+            "reused": True,
+        }
     plan = onboard_report.build_plan(
         cfg_path, env_name, api_url, credential_source, source, mode,
         project_mode=normalized_project_mode, project_inputs=project_inputs,
@@ -165,9 +164,6 @@ def build_report(
             apply=False,
             project_inputs=project_inputs,
             reuse=reuse,
-            github_token=project_github_token,
-            github_token_file=project_github_token_file,
-            github_token_stdin_value=project_github_token_stdin_value,
         )
     if not apply:
         report["message"] = "write plan only; rerun with --yes to apply"
@@ -208,7 +204,6 @@ def build_report(
         onboard_apply_progress.emit_many(progress, runtime_steps, "done")
     if reuse.get("machine_github"):
         report["machine_github"] = dict(machine_github)
-        report["machine_github"]["reused"] = True
     else:
         onboard_apply_progress.emit(
             progress, "machine-github-connection", machine_github_choice, "running"
@@ -219,11 +214,6 @@ def build_report(
             choice=machine_github_choice,
             config_path=cfg_path,
             api_url=machine_github_api_url,
-            token=machine_github_token,
-            token_file=(
-                str(machine_github_token_file) if machine_github_token_file else None
-            ),
-            token_source_kind=machine_github_token_source_kind,
         )
         onboard_apply_progress.emit(
             progress, "machine-github-connection", machine_github_choice, "done"
@@ -244,9 +234,6 @@ def build_report(
             apply=True,
             project_inputs=project_inputs,
             reuse=reuse,
-            github_token=project_github_token,
-            github_token_file=project_github_token_file,
-            github_token_stdin_value=project_github_token_stdin_value,
             progress=progress,
         )
         report["message"] = "machine config and project handoff written"

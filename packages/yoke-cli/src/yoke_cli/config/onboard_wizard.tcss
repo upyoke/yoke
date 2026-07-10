@@ -73,7 +73,7 @@ Screen {
        right margin pulls the wrap column in from the edge so no glyph ever
        reaches the last cell, and overflow-x: hidden guarantees no horizontal
        bleed if a single unbreakable token still overruns. The warmer
-       GitHub-token copy routinely exceeds one row. */
+       GitHub App authorization copy routinely exceeds one row. */
     height: auto;
     width: 1fr;
     margin: 0 3 0 0;

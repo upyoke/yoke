@@ -24,11 +24,9 @@ from unittest import mock
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import update_status as us
 from yoke_core.domain.gh_rest_transport import (
-    RestNotFoundError,
     RestResponse,
 )
 from yoke_core.domain.project_github_auth import (
-    MissingCapability,
     ProjectGithubAuth,
 )
 
@@ -70,7 +68,7 @@ def _disposable_conn(*ddl: str) -> Any:
 
 def _auth(project: str = "yoke", repo: str = "org/yoke") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=repo, token="t", env={"GH_TOKEN": "t"},
+        project=project, repo=repo, token="t",
     )
 
 

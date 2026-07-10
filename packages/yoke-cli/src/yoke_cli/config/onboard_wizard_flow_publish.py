@@ -18,12 +18,19 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
+import webbrowser
 
+from yoke_contracts import github_origin
 from yoke_cli.config import onboard_input_validation as input_validation
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_wizard_flow
 from yoke_cli.config import onboard_wizard_project_screens as project_screens
 from yoke_cli.config import onboard_wizard_steps as steps
+from yoke_cli.config.onboard_wizard import github_connected
+from yoke_cli.config.onboard_wizard_github_state import (
+    endpoint_pair,
+    user_access_token,
+)
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.project_publish_support import has_remote
 
@@ -66,58 +73,32 @@ class PublishFlow:
     def _on_publish_choice(self: _Shell, choice: str) -> None:
         if choice != project_screens.PUBLISH_YES:
             self.result.project_publish_to_github = False
-            if getattr(self, "_publish_user_token_only", False):
-                self.result.machine_github_token = None
-                self.result.machine_github_api_url = None
-                self.result.machine_github_token_source_kind = None
-                self._publish_user_token_only = False
             self._after_repo("")
             return
         self.result.project_publish_to_github = True
-        self._goto_publish_unavailable()
-
-    def _goto_publish_unavailable(self: _Shell) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
-        def _select(choice: str) -> None:
-            if choice == "backlog":
-                self.result.project_publish_to_github = False
-                self._after_repo("")
-                return
-            self._goto_publish_prompt()
-
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "GitHub App publishing is not available here yet.",
-                (
-                    "This setup flow no longer accepts manual GitHub credentials. "
-                    "Keep the project local or connect GitHub after the App flow is available."
-                ),
-                [
-                    "No repository will be created on GitHub during this run.",
-                    "The project can still be set up locally.",
-                ],
-                steps.GITHUB_APP_UNAVAILABLE_ROWS,
-                ok=False,
-            ),
-            _select,
-        ))
+        if self._machine_can_publish():
+            self._goto_owner_picker()
+            return
+        try:
+            webbrowser.open(endpoint_pair(self.result).new_repository_url())
+        except Exception:
+            pass
+        self._goto_publish_cannot_create()
 
     def _machine_can_publish(self: _Shell) -> bool:
-        """True only when connected GitHub publish ability is confirmed True.
+        """Whether a connected installation grants optional Administration."""
+        if not github_connected(self.result):
+            return False
+        from yoke_cli.config import machine_config
 
-        Reads ``capability.can_publish`` (create AND push-to-a-new-repo)
-        recorded by verification. Anything other than a confirmed True is
-        treated as cannot-publish so the doomed create+push never runs.
-        """
-        verification = self.result.machine_github_verification
-        if not isinstance(verification, dict):
-            return False
-        capability = verification.get("capability")
-        if not isinstance(capability, dict):
-            return False
-        return capability.get("can_publish") is True
+        config = machine_config.github_config(self.result.config_path)
+        return any(
+            isinstance(raw, dict)
+            and not raw.get("suspended")
+            and isinstance(raw.get("permissions"), dict)
+            and raw["permissions"].get("administration") == "write"
+            for raw in config.get("installations") or []
+        )
 
     def _goto_publish_cannot_create(self: _Shell) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
@@ -140,50 +121,16 @@ class PublishFlow:
 
     def _cannot_publish_reason(self: _Shell) -> str:
         """Explain whether the block is a create gap or a push-to-new-repo gap."""
-        verification = self.result.machine_github_verification
-        capability = (
-            verification.get("capability") if isinstance(verification, dict) else None
-        )
-        can_create = capability.get("can_create") if isinstance(capability, dict) else None
         tail = (
-            " Create the repo on GitHub first and make sure GitHub authorization "
-            "has write access to it, and then re-run yoke onboard."
+            " GitHub's new-repository page was opened. Create the repo, grant the "
+            "Yoke GitHub App access to it, and then re-run yoke onboard."
         )
-        if can_create is True:
+        if github_connected(self.result):
             return (
-                "GitHub authorization is scoped to selected repositories, so it "
-                "can't publish a brand-new repo in one step." + tail
+                "No non-suspended Yoke GitHub App installation grants the optional "
+                "Administration permission needed for one-step repo creation." + tail
             )
-        return "GitHub authorization can't create a repo it can also push to." + tail
-
-    def _goto_publish_github_auth(self: _Shell) -> None:
-        self._goto_publish_unavailable()
-
-    def _after_publish_github_auth(self: _Shell, value: str) -> None:
-        self._goto_publish_unavailable()
-
-    def _goto_publish_github_auth_error(self: _Shell, message: str) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
-        def _retry(choice: str) -> None:
-            if choice == "retry":
-                self._goto_publish_github_auth()
-                return
-            # "Back": abandon publishing and keep the project local.
-            self.result.project_publish_to_github = False
-            self._after_repo("")
-
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "GitHub authorization could not be verified.",
-                message,
-                ["Check GitHub App access and network availability."],
-                steps.VERIFY_RETRY_ROWS,
-                ok=False,
-            ),
-            _retry,
-        ))
+        return "Connect the Yoke GitHub App before publishing." + tail
 
     def _goto_owner_picker(self: _Shell) -> None:
         self._run_checking(
@@ -197,10 +144,21 @@ class PublishFlow:
         )
 
     def _fetch_repo_owners(self: _Shell) -> list:
-        return onboard_wizard_flow.fetch_repo_owners(
-            self.result.machine_github_api_url or "https://api.github.com",
-            self.result.machine_github_token or "",
+        from yoke_cli.config import machine_config
+
+        owners = onboard_wizard_flow.fetch_repo_owners(
+            self.result.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL,
+            user_access_token(self.result) or "",
         )
+        config = machine_config.github_config(self.result.config_path)
+        allowed = {
+            str(row.get("account_login") or "").casefold()
+            for row in config.get("installations") or []
+            if isinstance(row, dict) and not row.get("suspended")
+            and isinstance(row.get("permissions"), dict)
+            and row["permissions"].get("administration") == "write"
+        }
+        return [owner for owner in owners if owner.login.casefold() in allowed]
 
     def _show_owner_picker(self: _Shell, owners: Any) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
@@ -256,12 +214,11 @@ class PublishFlow:
     def _after_repo(self: _Shell, value: str) -> None:
         self.result.project_github_repo = value or None
         if not value:
-            # No repo means no GitHub adoption. Clear any adoption + token a
+            # No repo means no GitHub adoption. Clear any adoption that a
             # prior back-nav visit set so declining publish can't leave a stale
             # App binding that raises "adoption requires --github-repo"
             # at apply.
             self.result.project_github_adoption = None
-            self.result.project_github_token = None
         # The default branch is a property of the source for any clone-of-existing
         # outcome (just-clone / make-it-mine / fork) — it is detected at the URL
         # step, not picked. Skip the prompt and carry the detected branch (or the

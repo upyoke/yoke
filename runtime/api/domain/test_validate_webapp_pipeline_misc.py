@@ -13,9 +13,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
-from runtime.api.domain.test_validate_webapp_pipeline import (
-    _RestResp,
-    _install_rest_happy,
+from runtime.api.domain.validate_webapp_pipeline_test_support import (
+    RestResponse as _RestResp,
 )
 from yoke_core.domain.validate_webapp_pipeline import (
     Counters,
@@ -89,7 +88,6 @@ def _apply_seed(
     conn,
     *,
     include_buzz: bool = True,
-    github_token: str = "gho_realtoken",
     ssh_settings: dict | None = None,
     docker_settings: dict | None = None,
     flow_stages: list | None = None,
@@ -112,12 +110,16 @@ def _apply_seed(
         conn.execute(
             "INSERT INTO project_capabilities (project_id, type, settings) "
             f"VALUES ({p}, {p}, {p})",
-            (2, "github", json.dumps({"repo": "example-org/buzz"})),
-        )
-        conn.execute(
-            "INSERT INTO capability_secrets (project_id, type, key, value) "
-            f"VALUES ({p}, {p}, {p}, {p})",
-            (2, "github", "token", github_token),
+            (
+                2,
+                "github",
+                json.dumps({
+                    "repo_owner": "example-org",
+                    "repo_name": "buzz",
+                    "installation_id": "12345",
+                    "repository_id": "4567",
+                }),
+            ),
         )
         if ssh_settings is not None:
             conn.execute(

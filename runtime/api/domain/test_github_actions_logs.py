@@ -24,7 +24,6 @@ from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestNotFoundError,
     RestServerError,
-    RestTransportError,
 )
 
 
@@ -85,6 +84,36 @@ def _install_urlopen(monkeypatch, responses: List[Any]) -> List[str]:
 
 
 class TestFetchFailedLogZip:
+    def test_cross_origin_redirect_strips_authorization(self):
+        handler = github_actions_logs._AuthorizationSafeRedirectHandler()
+        request = urllib.request.Request(
+            "https://api.github.com/repos/o/r/actions/runs/1/logs",
+            headers={"Authorization": "Bearer secret", "X-Test": "kept"},
+        )
+
+        redirected = handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://pipelines.actions.githubusercontent.com/archive.zip",
+        )
+
+        assert redirected is not None
+        headers = {key.lower(): value for key, value in redirected.header_items()}
+        assert "authorization" not in headers
+        assert headers["x-test"] == "kept"
+
+    def test_redirect_rejects_plain_http(self):
+        handler = github_actions_logs._AuthorizationSafeRedirectHandler()
+        request = urllib.request.Request("https://api.github.com/logs")
+
+        with pytest.raises(urllib.error.URLError, match="HTTPS"):
+            handler.redirect_request(
+                request, None, 302, "Found", {}, "http://archive.example/log"
+            )
+
     def test_returns_bytes_on_success(self, monkeypatch):
         zip_bytes = _build_zip({"1_build.txt": "step output"})
         _install_urlopen(monkeypatch, [zip_bytes])

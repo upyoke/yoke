@@ -9,6 +9,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_SECRETS_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain.bootstrap_project import (
     BootstrapContext,
     _load_setup_config,
@@ -39,7 +42,6 @@ def test_load_setup_config_prefers_env_key_path(tmp_path: Path, monkeypatch) -> 
         )
         cfg = _load_setup_config(ctx)
 
-    assert cfg.github_repo == "example-org/buzz"
     assert cfg.display_name == "Buzz"
     assert cfg.ssh_key_path == env_key
 
@@ -52,14 +54,17 @@ def test_run_setup_resolves_auth_with_active_connection(
     seen: dict[str, object] = {}
 
     class Resolved:
+        repo = "example-org/buzz"
         token = "ghs_fake_token_123"
         installation_id = "12345"
 
-    def fake_resolve(project, *, db_path=None, conn=None, base_env=None):
+    def fake_resolve(
+        project, *, db_path=None, conn=None, required_permissions=None,
+    ):
         seen["project"] = project
         seen["db_path"] = db_path
         seen["conn"] = conn
-        seen["base_env"] = base_env
+        seen["required_permissions"] = required_permissions
         return Resolved()
 
     monkeypatch.setattr(
@@ -81,6 +86,7 @@ def test_run_setup_resolves_auth_with_active_connection(
     assert seen["project"] == "buzz"
     assert seen["db_path"] is None
     assert seen["conn"] is not None
+    assert seen["required_permissions"] is GITHUB_SECRETS_WRITE_PERMISSION_LEVELS
 
 
 def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -136,13 +142,14 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
         output = capsys.readouterr().out
         assert "Step 2: Creating GitHub Secrets" in output
         assert "Push successful" in output
-        # bearer-token REST replaced the prior `gh api user` + `gh api PUT
-        # environments` shellouts.
+        # The installation token never calls the user-only endpoint, and the
+        # least-privilege default skips optional environment administration.
         methods_paths = {(m, p) for m, p in rest_calls}
-        assert ("GET", "/user") in methods_paths
-        assert any(
+        assert ("GET", "/user") not in methods_paths
+        assert not any(
             m == "PUT" and "/environments/production" in p for m, p in rest_calls
         )
+        assert "default Yoke GitHub App grant does not request Administration" in output
 
 
 def test_run_setup_prints_tls_instructions_when_missing(tmp_path: Path, monkeypatch, capsys) -> None:

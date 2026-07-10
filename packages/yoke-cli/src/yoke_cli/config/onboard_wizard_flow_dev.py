@@ -14,9 +14,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
+from yoke_contracts import github_origin
 from yoke_cli.config import onboard_wizard_steps as steps
+from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import yoke_dev_access as dev_access
 from yoke_cli.config import yoke_dev_detect as dev_detect
+from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_PROJECT,
     SelectionRow,
@@ -87,35 +90,36 @@ class DevFlow:
 
     def _goto_dev_github_check(self: _Shell) -> None:
         """Second grant: GitHub authorization that can read Yoke's repo."""
-        if self.result.machine_github_token:
-            self._run_dev_github_check(self.result.machine_github_token)
-            return
+        if github_connected(self.result):
+            token = github_state.user_access_token(self.result)
+            if token:
+                self._run_dev_github_check(token)
+                return
         self._goto_dev_error(
             "Developing Yoke requires GitHub App access to Yoke's repo. "
-            "Connect GitHub after the App browser flow is available, then rerun onboarding."
+            "Connect GitHub, grant the App access to the Yoke repo, then retry."
         )
 
-    def _after_dev_github_auth(self: _Shell, value: str) -> None:
-        self.result.machine_github_token = value
-        if not self.result.machine_github_api_url:
-            self.result.machine_github_api_url = "https://api.github.com"
-        self._run_dev_github_check(value)
-
-    def _run_dev_github_check(self: _Shell, github_token: str) -> None:
+    def _run_dev_github_check(self: _Shell, user_access_token: str) -> None:
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking Yoke GitHub access.",
             message="Verifying GitHub authorization can read Yoke's repo.",
-            work=lambda: self._check_dev_github_access(github_token),
+            work=lambda: self._check_dev_github_access(user_access_token),
             on_success=lambda _result: self._goto_dev_checkout(),
             on_error=lambda exc: self._goto_dev_error(str(exc)),
             group="onboard-dev-github",
         )
 
-    def _check_dev_github_access(self: _Shell, github_token: str) -> bool:
-        api_url = self.result.machine_github_api_url or "https://api.github.com"
+    def _check_dev_github_access(self: _Shell, user_access_token: str) -> bool:
+        api_url = (
+            self.result.machine_github_api_url
+            or github_origin.DEFAULT_GITHUB_API_URL
+        )
         try:
-            reachable = dev_access.github_can_reach_yoke_repo(api_url, github_token)
+            reachable = dev_access.github_can_reach_yoke_repo(
+                api_url, user_access_token,
+            )
         except dev_access.YokeDevAccessError as exc:
             raise RuntimeError(str(exc)) from exc
         if not reachable:

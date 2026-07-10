@@ -4,40 +4,27 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.github_origin import (
+    GitHubApiOriginError,
+    normalize_github_repository,
+)
+from yoke_contracts.github_app_installation_permissions import (
+    ACCESS_READ,
+    ACCESS_WRITE,
+    REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS,
+)
+
 from yoke_core.domain import json_helper
 
-
-REQUIRED_AUTOMATION_PERMISSIONS: Mapping[str, str] = {
-    "metadata": "read",
-    "issues": "write",
-    "pull_requests": "write",
-    "contents": "write",
-    "actions": "write",
-    "workflows": "write",
-    "secrets": "write",
-    "variables": "write",
-}
-
-_PERMISSION_LEVELS = {"none": 0, "read": 1, "write": 2, "admin": 3}
+_PERMISSION_LEVELS = {"none": 0, ACCESS_READ: 1, ACCESS_WRITE: 2}
 
 
 def normalize_github_repo(value: Any) -> str:
     """Return canonical ``owner/repo`` from a GitHub repo or clone URL."""
-    cleaned = str(value or "").strip()
-    if not cleaned:
+    try:
+        return normalize_github_repository(str(value or "")).casefold()
+    except GitHubApiOriginError:
         return ""
-    cleaned = cleaned.removesuffix(".git")
-    if cleaned.startswith("git@github.com:"):
-        cleaned = cleaned.split(":", 1)[1]
-    else:
-        marker = "github.com/"
-        if marker in cleaned:
-            cleaned = cleaned.split(marker, 1)[1]
-    cleaned = cleaned.strip("/")
-    parts = [part for part in cleaned.split("/") if part]
-    if len(parts) < 2:
-        return ""
-    return f"{parts[0]}/{parts[1]}".lower()
 
 
 def automation_status(
@@ -49,33 +36,64 @@ def automation_status(
         return {"available": False, "reason": "repo_not_bound"}
     if installation is None:
         return {"available": False, "reason": "installation_missing"}
+    if str(binding.get("api_url") or "") != str(
+        installation.get("api_url") or ""
+    ):
+        return {"available": False, "reason": "api_origin_mismatch"}
     if installation.get("status") != "active":
         return {
             "available": False,
             "reason": f"installation_{installation.get('status') or 'unavailable'}",
         }
+    if permission_status.get("status") != "satisfied":
+        if permission_status.get("status") == "unknown":
+            return {"available": False, "reason": "permissions_unverified"}
+        return {"available": False, "reason": "missing_permissions"}
     if binding.get("status") != "active":
         return {
             "available": False,
             "reason": f"binding_{binding.get('status') or 'unavailable'}",
         }
-    if permission_status.get("status") == "missing":
-        return {"available": False, "reason": "missing_permissions"}
     return {"available": True, "reason": "bound"}
 
 
-def permission_status(permissions: Mapping[str, Any]) -> dict[str, Any]:
+def permission_status(
+    permissions: Mapping[str, Any],
+    required_permissions: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     if not permissions:
-        return {"status": "unknown", "missing": []}
+        return {
+            "status": "unknown",
+            "missing": [],
+            "hint": (
+                "Reconnect the GitHub App so Yoke can verify its required "
+                "repository permissions."
+            ),
+        }
     missing: list[str] = []
-    for permission, required_level in REQUIRED_AUTOMATION_PERMISSIONS.items():
+    required = (
+        required_permissions
+        or REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
+    )
+    for permission, required_level in required.items():
         actual = _permission_level(permissions.get(permission))
-        required = _permission_level(required_level)
-        if actual < required:
+        normalized_required = str(required_level or "").strip().lower()
+        if normalized_required not in {ACCESS_READ, ACCESS_WRITE}:
+            raise ValueError(
+                "required GitHub permission levels must be exactly read or write"
+            )
+        required_value = _PERMISSION_LEVELS[normalized_required]
+        if actual < required_value:
             missing.append(permission)
+    if not missing:
+        return {"status": "satisfied", "missing": []}
     return {
-        "status": "satisfied" if not missing else "missing",
+        "status": "missing",
         "missing": missing,
+        "hint": (
+            "Grant the GitHub App the required permissions, then retry the "
+            f"binding: {', '.join(missing)}."
+        ),
     }
 
 
@@ -86,6 +104,7 @@ def binding_payload(row: Any) -> Optional[dict[str, Any]]:
         "project_id": int(row["project_id"]),
         "installation_id": str(row["installation_id"]),
         "repository_id": str(row["repository_id"] or ""),
+        "api_url": str(row["api_url"] or ""),
         "github_repo": str(row["github_repo"] or ""),
         "default_branch": str(row["default_branch"] or ""),
         "status": str(row["status"] or ""),
@@ -100,6 +119,7 @@ def installation_payload(row: Any) -> Optional[dict[str, Any]]:
         return None
     return {
         "installation_id": str(row["installation_id"]),
+        "api_url": str(row["api_url"] or ""),
         "account_id": str(row["account_id"] or ""),
         "account_login": str(row["account_login"] or ""),
         "account_type": str(row["account_type"] or ""),
@@ -137,7 +157,7 @@ def _permission_level(value: Any) -> int:
 
 
 __all__ = [
-    "REQUIRED_AUTOMATION_PERMISSIONS",
+    "REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS",
     "automation_status",
     "binding_payload",
     "installation_payload",

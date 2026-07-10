@@ -37,9 +37,9 @@ Covers merge Step 6: the per-branch sequential merge loop. For each branch, reso
  - Rebases onto the updated main
  - Auto-resolves generated files (lock files, compiled output)
  - Runs tests
- - Creates a PR via PAT-backed REST (`yoke_core.engines.merge_worktree_pr_rest`)
+ - Creates a PR through the project's verified App binding and a short-lived installation token (`yoke_core.engines.merge_worktree_pr_rest`)
  - Waits for CI to pass
- - Merges via PAT-backed REST
+ - Merges through the same App-bound REST authority
  - Removes the worktree
 
  **If merge succeeds:**

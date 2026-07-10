@@ -74,7 +74,6 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
         project.get("existing_project_local_source"),
     )
     _set_missing(parsed, "github_adoption", project.get("github_adoption"))
-    _set_missing(parsed, "github_token_file", project.get("github_token_file"))
     _set_bool_missing(
         parsed, "project_keep_existing_remote", project.get("keep_existing_remote"),
     )
@@ -85,15 +84,11 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
         parsed, "project_clone_keep_upstream", clone.get("keep_upstream"),
     )
     _set_missing(parsed, "project_clone_fork_api_url", clone.get("fork_api_url"))
+    _set_missing(parsed, "project_clone_fork_web_url", clone.get("fork_web_url"))
     _restore_publish_defaults(parsed, clone.get("publish"))
     machine_github = _mapping(snapshot.get("machine_github"))
     _set_missing(parsed, "machine_github_choice", machine_github.get("choice"))
     _set_missing(parsed, "machine_github_api_url", machine_github.get("api_url"))
-    _set_missing(parsed, "machine_github_token_file", machine_github.get("token_file"))
-    _set_missing(
-        parsed, "machine_github_token_source_kind",
-        machine_github.get("token_source_kind"),
-    )
     _restore_token_file(parsed, snapshot)
 
 
@@ -202,6 +197,7 @@ def _restore_publish_defaults(parsed: Any, value: Any) -> None:
     _set_missing(parsed, "project_publish_owner_login", publish.get("user_login"))
     _set_missing(parsed, "project_publish_repo_name", publish.get("name"))
     _set_missing(parsed, "project_publish_api_url", publish.get("api_url"))
+    _set_missing(parsed, "project_publish_web_url", publish.get("web_url"))
     _set_bool_missing(parsed, "project_publish_private", publish.get("private"))
 
 

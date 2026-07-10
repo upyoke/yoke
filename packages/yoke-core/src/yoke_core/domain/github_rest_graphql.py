@@ -16,14 +16,11 @@ from typing import Any, Mapping, Optional
 from yoke_core.domain.gh_rest_transport import RestRequest, request_with_retry
 
 
-def _target_for(project: str, *, db_path: Optional[str] = None):
-    from yoke_core.domain.github_rest import resolve_target
-
-    return resolve_target(project, db_path=db_path)
-
-
 def graphql_query(
-    *, project: str, query: str,
+    *,
+    project: str,
+    query: str,
+    required_permissions: Mapping[str, str],
     variables: Optional[Mapping[str, Any]] = None,
     db_path: Optional[str] = None,
 ) -> Any:
@@ -35,7 +32,13 @@ def graphql_query(
     the GraphQL ``errors`` field when the response is structurally
     valid but the query failed semantically.
     """
-    tgt = _target_for(project, db_path=db_path)
+    from yoke_core.domain.github_rest import resolve_target
+
+    tgt = resolve_target(
+        project,
+        db_path=db_path,
+        required_permissions=required_permissions,
+    )
     body: dict[str, Any] = {"query": query}
     if variables:
         body["variables"] = dict(variables)

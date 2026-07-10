@@ -16,6 +16,11 @@ from __future__ import annotations
 
 from typing import Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
+
 import yoke_core.domain.epic_task_sync as _epic_task_sync_parent
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
@@ -33,13 +38,16 @@ from yoke_core.domain.epic_task_sync_github_create import (
     _dedup_or_create_task_issue,
     _extract_issue_num,
     _resolve_or_create_epic_issue,
-    _task_id_from_epic,
+    _task_id_from_epic,  # noqa: F401 - retained patch/re-export surface
 )
 from yoke_core.domain.epic_task_sync_github_task_updates import (
     sync_task_body,
     sync_task_label,
 )
-from yoke_core.domain.project_github_auth import resolve_project_github_auth
+from yoke_core.domain.project_github_auth import (
+    ProjectGithubAuthError,
+    resolve_project_github_auth,
+)
 
 
 def _is_dry_run() -> bool:
@@ -73,26 +81,23 @@ def _ensure_label(
     label: str,
     *,
     project: str,
-    repo: str,
     description: str = "",
     color: str = LABEL_COLOR_DEFAULT,
     dry_run: bool = False,
 ) -> None:
-    """Idempotently ensure ``label`` exists in ``repo`` with the given
-    colour/description. ``repo`` is the canonical ``owner/name`` slug —
-    callers no longer pass an argv ``-R`` array. ``project`` resolves
-    GitHub App auth through the canonical auth surface.
-    """
+    """Idempotently ensure ``label`` exists in the project's bound repo."""
     if dry_run:
         return
     try:
-        auth = resolve_project_github_auth(project)
+        auth = resolve_project_github_auth(
+            project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
     except Exception:  # noqa: BLE001
         return
-    target_repo = repo or auth.repo
     try:
         _label_rest.ensure_label(
-            label, color, target_repo, token=auth.token,
+            label, color, auth.repo, token=auth.token,
             description=description,
         )
     except github_rest.RestTransportError:
@@ -105,14 +110,13 @@ def _ensure_label(
 def _validate_issue_in_repo(
     item_ref: str,
     issue_num: str,
-    repo: str,
     *,
     project: str,
     stderr: TextIO,
     timeout_seconds: Optional[float] = None,
     max_attempts: Optional[int] = None,
 ) -> bool:
-    """Verify ``issue_num`` exists in ``repo`` before any mutating REST call.
+    """Verify ``issue_num`` exists in the bound repo before mutation.
 
     Returns True only when the issue is confirmed present. Returns False
     with a typed-failure-class stderr line on every other outcome —
@@ -122,8 +126,17 @@ def _validate_issue_in_repo(
     mismatch detected" line when the real cause is a rate limit or a
     token scope issue. Callers' boolean contract is preserved.
     """
-    if not repo:
-        return True
+    try:
+        repo = resolve_project_github_auth(
+            project or "yoke",
+            required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+        ).repo
+    except ProjectGithubAuthError as exc:
+        print(
+            f"Error: GitHub auth failed for YOK-{item_ref}: {exc}. Mutation skipped.",
+            file=stderr,
+        )
+        return False
 
     try:
         issue = github_rest.get_issue(

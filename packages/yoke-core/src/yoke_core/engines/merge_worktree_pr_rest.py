@@ -1,16 +1,21 @@
 """Merge-engine PR REST helpers.
 
-Direct REST calls through :mod:`yoke_core.domain.gh_rest_transport`
-for the pull-request operations the merge engine drives. Token
-resolution flows through
-:func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`
-exactly once per helper invocation — no second secret-storage shape.
+Direct REST calls through :mod:`yoke_core.domain.gh_rest_transport` handle
+the merge engine's pull-request operations. Canonical auth resolves once per
+helper invocation; there is no second secret-storage shape.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Mapping, Optional, Tuple
+
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_CONTENTS_WRITE_PERMISSION_LEVELS as CONTENTS_WRITE,
+    GITHUB_METADATA_READ_PERMISSION_LEVELS as METADATA_READ,
+    GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
+    GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS as PR_WRITE,
+)
 
 from yoke_core.domain import gh_rest_transport
 from yoke_core.domain.gh_rest_transport import (
@@ -76,7 +81,9 @@ class AuthResolutionFailed(Exception):
         self.hint = hint
 
 
-def resolve_auth(ctx: MergeContext) -> ProjectGithubAuth:
+def resolve_auth(
+    ctx: MergeContext, *, required_permissions: Mapping[str, str]
+) -> ProjectGithubAuth:
     """Resolve the project's GitHub auth bundle for this merge.
 
     Raises :class:`AuthResolutionFailed` carrying a repair hint when the
@@ -88,7 +95,10 @@ def resolve_auth(ctx: MergeContext) -> ProjectGithubAuth:
             "merge context has no project; REST transport requires project auth"
         )
     try:
-        return resolve_project_github_auth(project)
+        return resolve_project_github_auth(
+            project,
+            required_permissions=required_permissions,
+        )
     except ProjectGithubAuthError as exc:
         hint = repair_command_hint(exc, project)
         raise AuthResolutionFailed(
@@ -105,7 +115,7 @@ def validate_github_auth_for_merge(ctx: MergeContext) -> Tuple[bool, Optional[st
     with one operator-actionable line.
     """
     try:
-        auth = resolve_auth(ctx)
+        auth = resolve_auth(ctx, required_permissions=METADATA_READ)
     except AuthResolutionFailed as exc:
         message = f"Error: {exc}"
         if exc.hint:
@@ -137,7 +147,7 @@ def create_pr(
     documented "A pull request already exists" message. Hard failures
     return with ``error_detail`` populated and ``pr_url``/``pr_num`` empty.
     """
-    auth = resolve_auth(ctx)
+    auth = resolve_auth(ctx, required_permissions=PR_WRITE)
     owner, repo = gh_rest_transport.split_repo(auth.repo)
     req = RestRequest(
         method="POST",
@@ -194,7 +204,7 @@ def find_existing_pr(
     PR exists or discovery itself fails.
     """
     try:
-        auth = resolve_auth(ctx)
+        auth = resolve_auth(ctx, required_permissions=PR_READ)
     except AuthResolutionFailed:
         return None, None
     owner, repo = gh_rest_transport.split_repo(auth.repo)
@@ -238,7 +248,7 @@ def get_pr_merge_state(
     forms.
     """
     try:
-        auth = resolve_auth(ctx)
+        auth = resolve_auth(ctx, required_permissions=PR_READ)
     except AuthResolutionFailed as exc:
         return None, f"auth resolution failed: {exc}"
     owner, repo = gh_rest_transport.split_repo(auth.repo)
@@ -278,7 +288,7 @@ def merge_pr(ctx: MergeContext, pr_num: str) -> PrMergeResult:
     ``success=False`` with ``error_detail`` for terminal failures.
     """
     try:
-        auth = resolve_auth(ctx)
+        auth = resolve_auth(ctx, required_permissions=CONTENTS_WRITE)
     except AuthResolutionFailed as exc:
         return PrMergeResult(
             success=False, error_detail=f"auth resolution failed: {exc}"

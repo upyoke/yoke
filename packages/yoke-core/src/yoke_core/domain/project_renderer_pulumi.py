@@ -20,6 +20,11 @@ from .project_renderer_pulumi_instances import (
     gather_pulumi_stack_instances,
     instance_template_values,
 )
+from .project_renderer_pulumi_files import (
+    ENVIRONMENT_PROGRAM_FILES,
+    RUNNER_FLEET_PROGRAM_FILES,
+    SHARED_PROGRAM_FILES,
+)
 from .project_renderer_pulumi_runner_fleet import runner_fleet_values
 from .project_renderer_pulumi_state import (  # noqa: F401
     _operator_state_lines_from_settings,
@@ -107,9 +112,11 @@ def gather_pulumi_values(
     values["manage_github_oidc_provider"] = _stringify(
         manage_default if manage_default is not None else True
     )
-
     values.update(
-        runner_fleet_values(settings, fallback_repo=values["github_repo_slug"])
+        runner_fleet_values(
+            settings, fallback_repo=values["github_repo_slug"],
+            enabled="runner-fleet" in (data.get("stacks") or []),
+        )
     )
 
     return values
@@ -157,27 +164,6 @@ def _copy_template_files(
         else:
             print(f"--- infra/{name} ---")
             print(src.read_text())
-
-
-# Program files copied verbatim into every project's infra/ regardless of the
-# declared stack set: the stack-name dispatcher and the Pulumi dep manifest.
-# Per-stack program modules (webapp_<type>_stack.py) are added on top of these
-# from _STACK_TYPE_SPECS for each declared stack.
-_SHARED_PROGRAM_FILES = (
-    "__main__.py",
-    "requirements.txt",
-)
-_ENVIRONMENT_PROGRAM_FILES = (
-    "webapp_vps_stack.py",
-    "webapp_database_stack.py",
-    "webapp_api_stack.py",
-    "webapp_distribution_stack.py",
-    "webapp_environment_stack.py",
-)
-_RUNNER_FLEET_PROGRAM_FILES = (
-    "webapp_runner_fleet_internals.py",
-    "webapp_runner_idle_reaper.py",
-)
 
 
 def render_pulumi_artifacts(
@@ -234,7 +220,7 @@ def render_pulumi_artifacts(
     values = dict(values)
     values.setdefault("domain_txt_records_json", _domain_txt_records_json(context))
     values.setdefault("domain_mx_records_json", _domain_mx_records_json(context))
-    program_files: List[str] = list(_SHARED_PROGRAM_FILES)
+    program_files: List[str] = list(SHARED_PROGRAM_FILES)
     stack_types = gather_pulumi_stacks(project, project_root, settings)
     domain_stack_owns_domain_records = "domain" in stack_types
     for stack_type in stack_types:
@@ -310,7 +296,7 @@ def render_pulumi_artifacts(
         if stack_type == "infra" and "webapp_distribution_stack.py" not in program_files:
             program_files.append("webapp_distribution_stack.py")
         if stack_type == "runner-fleet":
-            for program_file in _RUNNER_FLEET_PROGRAM_FILES:
+            for program_file in RUNNER_FLEET_PROGRAM_FILES:
                 if program_file not in program_files:
                     program_files.append(program_file)
 
@@ -339,7 +325,7 @@ def render_pulumi_artifacts(
             print(f"--- infra/{out_name} ---")
             print(final_content)
     if instances:
-        for program_file in _ENVIRONMENT_PROGRAM_FILES:
+        for program_file in ENVIRONMENT_PROGRAM_FILES:
             if program_file not in program_files:
                 program_files.append(program_file)
 

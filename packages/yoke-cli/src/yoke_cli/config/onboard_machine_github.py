@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts import github_origin
 from yoke_cli.config import github_machine
+from yoke_cli.config import machine_config
 
 CHOICE_CONNECT = "connect"
 CHOICE_SKIP = "skip"
@@ -21,18 +23,16 @@ def plan(
     *,
     choice: str,
     api_url: str | None,
-    token_file: str | None,
-    token_source_kind: str | None,
 ) -> dict[str, Any]:
     selected = normalize_choice(choice)
     return {
         "choice": selected,
         "applied": False,
-        "api_url": api_url or "https://api.github.com",
+        "api_url": api_url or github_origin.DEFAULT_GITHUB_API_URL,
         "authorization_source": {
             "kind": "github_app" if selected == CHOICE_CONNECT else "none",
         },
-        "writes_machine_secret": False,
+        "writes_machine_secret": selected == CHOICE_CONNECT,
         "requires_browser_flow": selected == CHOICE_CONNECT,
     }
 
@@ -42,26 +42,41 @@ def apply(
     choice: str,
     config_path: Path,
     api_url: str | None,
-    token: str | None,
-    token_file: str | None,
-    token_source_kind: str | None,
 ) -> dict[str, Any]:
     selected = normalize_choice(choice)
     if selected != CHOICE_CONNECT:
         return plan(
             choice=selected,
             api_url=api_url,
-            token_file=token_file,
-            token_source_kind=token_source_kind,
         )
     try:
-        report = github_machine.connect(
-            config_path=config_path,
-            token=token,
-            token_file=token_file,
-            token_source_kind=token_source_kind or "prompt",
-            api_url=api_url,
-        )
+        existing = machine_config.github_config(config_path)
+        if existing:
+            if api_url:
+                try:
+                    requested_endpoint = github_origin.validate_github_api_endpoint(
+                        api_url
+                    )
+                    existing_endpoint = github_origin.validate_github_api_endpoint(
+                        str(existing.get("api_url") or "")
+                    )
+                except github_origin.GitHubApiOriginError as exc:
+                    raise OnboardMachineGithubError(str(exc)) from exc
+                if requested_endpoint.base_url != existing_endpoint.base_url:
+                    raise OnboardMachineGithubError(
+                        "the existing machine GitHub connection uses a different "
+                        "API origin; disconnect and reconnect GitHub for the "
+                        "requested deployment"
+                    )
+            report = github_machine.status(
+                config_path=config_path,
+                check=True,
+            )
+        else:
+            report = github_machine.connect(
+                config_path=config_path,
+                api_url=api_url,
+            )
     except github_machine.GitHubMachineError as exc:
         raise OnboardMachineGithubError(str(exc)) from exc
     if not report.get("ok"):

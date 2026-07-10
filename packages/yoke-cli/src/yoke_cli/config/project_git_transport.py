@@ -7,16 +7,14 @@ module is the single home for that transport policy:
 
 * :func:`https_remote` builds the clean HTTPS ``origin`` URL — no embedded
   credential.
-* :func:`git_auth_header` encodes the connected token as a request-scoped HTTP
+* :func:`git_auth_header` encodes the connected token as a URL-scoped HTTP
   Basic header (``x-access-token:<TOKEN>``) — the single source of the encoding
   shared by the clone-side and push-side runners.
 * :func:`non_interactive_git_env` builds a git subprocess env that can never
   block on a prompt (``GIT_TERMINAL_PROMPT=0`` plus a ``BatchMode``/``accept-new``
   ``GIT_SSH_COMMAND`` for any residual SSH path).
-* :func:`run_git` runs a git command under that env, optionally injecting the
-  token as a single top-level ``-c http.extraheader=…`` option that is never
-  written to ``.git/config`` or the stored remote and is scrubbed from any
-  raised error.
+* :func:`run_git` injects ephemeral config through ``GIT_CONFIG_*`` environment
+  keys, never process argv, ``.git/config``, or the stored remote.
 """
 
 from __future__ import annotations
@@ -27,6 +25,7 @@ import subprocess
 from pathlib import Path
 from typing import Mapping
 
+from yoke_contracts import github_origin
 from yoke_cli.config import project_git_prerequisite
 from yoke_cli.config.project_onboard_support import ProjectOnboardError
 
@@ -36,22 +35,26 @@ from yoke_cli.config.project_onboard_support import ProjectOnboardError
 REDACTED_AUTH_HEADER = "AUTHORIZATION: basic [redacted]"
 
 
-def https_remote(github_repo: str) -> str:
+def https_remote(github_repo: str, *, web_url: str | None = None) -> str:
     """Return the clean HTTPS remote URL for ``owner/repo``.
 
     The returned URL is the stored ``origin`` — clean, with no embedded
-    credential; the connected token travels separately as a request-scoped
+    credential; the connected token travels separately as a URL-scoped
     ``http.extraheader`` (see :func:`git_auth_header`). HTTPS is used because the
     wizard owns the TTY and an SSH host-key prompt would deadlock onboarding.
     """
-    return f"https://github.com/{github_repo}.git"
+    endpoint = github_origin.validate_github_web_endpoint(web_url)
+    repo = github_origin.normalize_github_repository(
+        github_repo, web_url=endpoint.base_url,
+    )
+    return endpoint.url(f"/{repo}.git")
 
 
 def git_auth_header(token: str) -> str:
     """Build the ``http.extraheader`` value carrying the token as HTTP Basic.
 
     GitHub accepts ``x-access-token:<TOKEN>`` base64-encoded as Basic auth. The
-    value is consumed by a single ``-c http.extraheader=…`` top-level git option
+    value is consumed through ephemeral ``GIT_CONFIG_*`` subprocess variables
     and never persisted to ``.git/config`` or the stored remote. Single source of
     the encoding so the clone-side runner and the push-side runner agree.
     """
@@ -59,6 +62,21 @@ def git_auth_header(token: str) -> str:
         f"x-access-token:{token}".encode("utf-8")
     ).decode("ascii")
     return f"AUTHORIZATION: basic {encoded}"
+
+
+def git_auth_config(
+    token: str,
+    url: str,
+    *,
+    web_url: str | None = None,
+) -> str | None:
+    """Return auth scoped only to the validated configured GitHub origin."""
+    endpoint = github_origin.validate_github_web_endpoint(web_url)
+    try:
+        github_origin.normalize_github_repository(url, web_url=endpoint.base_url)
+    except github_origin.GitHubApiOriginError:
+        return None
+    return f"http.{endpoint.origin}/.extraheader={git_auth_header(token)}"
 
 
 def non_interactive_git_env(
@@ -75,6 +93,12 @@ def non_interactive_git_env(
     """
     env = dict(base if base is not None else os.environ)
     env["GIT_TERMINAL_PROMPT"] = "0"
+    # Git may include HTTP headers in trace output. Force redaction even when
+    # the caller's ambient environment explicitly disabled it.
+    env["GIT_TRACE_REDACT"] = "1"
+    # Installation/user tokens must never cross an unverified TLS connection.
+    # Keep custom CA configuration intact while refusing the global bypass.
+    env["GIT_SSL_NO_VERIFY"] = "0"
     env.setdefault(
         "GIT_SSH_COMMAND",
         "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new",
@@ -82,34 +106,64 @@ def non_interactive_git_env(
     return env
 
 
-def run_git(cwd: Path, *args: str, token: str | None = None) -> None:
+def git_config_env(
+    entries: tuple[str, ...],
+    *,
+    base: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Put ephemeral Git config in subprocess env, never process argv."""
+    env = non_interactive_git_env(base)
+    try:
+        offset = int(env.get("GIT_CONFIG_COUNT", "0"))
+    except ValueError:
+        offset = 0
+    for index, entry in enumerate(entries, start=offset):
+        key, separator, value = entry.partition("=")
+        if not separator or not key:
+            raise ProjectOnboardError(f"invalid ephemeral git config: {entry!r}")
+        env[f"GIT_CONFIG_KEY_{index}"] = key
+        env[f"GIT_CONFIG_VALUE_{index}"] = value
+    env["GIT_CONFIG_COUNT"] = str(offset + len(entries))
+    return env
+
+
+def run_git(
+    cwd: Path,
+    *args: str,
+    token: str | None = None,
+    github_web_url: str | None = None,
+) -> None:
     """Run a git command non-interactively, optionally with the ephemeral token.
 
     Always runs under :func:`non_interactive_git_env` so no git op can hang on a
     credential or host-key prompt while the wizard owns the terminal. When
-    ``token`` is given, it is injected as a single TOP-LEVEL
-    ``-c http.extraheader=…`` option (placed BEFORE the subcommand) so it scopes
-    to this one invocation and is never written into ``.git/config`` or the
-    stored remote; the header is scrubbed from any raised error so the encoded
-    token can never reach a log line.
+    ``token`` is given, its header is injected through ``GIT_CONFIG_*``
+    subprocess variables, so neither the token nor encoded header appears in
+    process argv, ``.git/config``, or the stored remote.
     """
     try:
         project_git_prerequisite.require_git_available()
     except project_git_prerequisite.MissingGitError as exc:
         raise ProjectOnboardError(str(exc)) from exc
-    top_level: list[str] = []
     header: str | None = None
+    entries: tuple[str, ...] = ()
     if token:
         header = git_auth_header(token)
-        top_level = ["-c", f"http.extraheader={header}"]
+        remote_url = _push_remote_url(cwd, args)
+        auth_config = git_auth_config(
+            token, remote_url or "", web_url=github_web_url,
+        )
+        entries = (
+            (auth_config, "http.followRedirects=false") if auth_config else ()
+        )
     result = subprocess.run(
-        ["git", *top_level, *args],
+        ["git", *args],
         cwd=cwd,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
-        env=non_interactive_git_env(),
+        env=git_config_env(entries),
     )
     if result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip()
@@ -120,13 +174,18 @@ def run_git(cwd: Path, *args: str, token: str | None = None) -> None:
         )
 
 
-def remote_default_branch(url: str, token: str | None = None) -> str | None:
+def remote_default_branch(
+    url: str,
+    token: str | None = None,
+    *,
+    github_web_url: str | None = None,
+) -> str | None:
     """Return the default branch of the remote ``url`` without cloning it.
 
     Runs ``git ls-remote --symref <url> HEAD`` non-interactively and parses the
     symref line (``ref: refs/heads/<branch>\\tHEAD``) so a clone of a ``master``
     (or any non-``main``) source records the source's real default branch instead
-    of a hardcoded guess. ``token`` is injected as the same request-scoped
+    of a hardcoded guess. ``token`` is injected as the same URL-scoped
     ``http.extraheader`` :func:`run_git` uses, so a private source is reachable
     without an interactive prompt. Returns ``None`` on any failure (network down,
     auth refused, unparseable output, no symref line) so the wizard can fall back
@@ -136,17 +195,18 @@ def remote_default_branch(url: str, token: str | None = None) -> str | None:
     if not cleaned:
         return None
     project_git_prerequisite.require_git_available()
-    top_level: list[str] = []
-    if token:
-        top_level = ["-c", f"http.extraheader={git_auth_header(token)}"]
+    auth_config = (
+        git_auth_config(token, cleaned, web_url=github_web_url) if token else None
+    )
+    entries = (auth_config, "http.followRedirects=false") if auth_config else ()
     try:
         result = subprocess.run(
-            ["git", *top_level, "ls-remote", "--symref", cleaned, "HEAD"],
+            ["git", "ls-remote", "--symref", cleaned, "HEAD"],
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
-            env=non_interactive_git_env(),
+            env=git_config_env(entries),
             timeout=30,
         )
     except (OSError, subprocess.SubprocessError):
@@ -167,7 +227,12 @@ def remote_default_branch(url: str, token: str | None = None) -> str | None:
     return None
 
 
-def remote_is_reachable(url: str, token: str | None = None) -> bool:
+def remote_is_reachable(
+    url: str,
+    token: str | None = None,
+    *,
+    github_web_url: str | None = None,
+) -> bool:
     """True when the remote ``url`` answers a metadata probe with the given auth.
 
     A thin wrapper over the same ``ls-remote`` probe :func:`remote_default_branch`
@@ -179,17 +244,18 @@ def remote_is_reachable(url: str, token: str | None = None) -> bool:
     if not cleaned:
         return False
     project_git_prerequisite.require_git_available()
-    top_level: list[str] = []
-    if token:
-        top_level = ["-c", f"http.extraheader={git_auth_header(token)}"]
+    auth_config = (
+        git_auth_config(token, cleaned, web_url=github_web_url) if token else None
+    )
+    entries = (auth_config, "http.followRedirects=false") if auth_config else ()
     try:
         result = subprocess.run(
-            ["git", *top_level, "ls-remote", cleaned, "HEAD"],
+            ["git", "ls-remote", cleaned, "HEAD"],
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
-            env=non_interactive_git_env(),
+            env=git_config_env(entries),
             timeout=30,
         )
     except (OSError, subprocess.SubprocessError):
@@ -230,10 +296,26 @@ def git_current_branch(cwd: Path) -> str:
     return branch
 
 
+def _push_remote_url(cwd: Path, args: tuple[str, ...]) -> str | None:
+    if not args or args[0] != "push":
+        return None
+    remote = next((item for item in args[1:] if not item.startswith("-")), None)
+    if not remote:
+        return None
+    result = subprocess.run(
+        ["git", "remote", "get-url", remote], cwd=cwd, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        env=non_interactive_git_env(),
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
 __all__ = [
     "REDACTED_AUTH_HEADER",
     "git_auth_header",
+    "git_auth_config",
     "git_current_branch",
+    "git_config_env",
     "https_remote",
     "non_interactive_git_env",
     "remote_default_branch",

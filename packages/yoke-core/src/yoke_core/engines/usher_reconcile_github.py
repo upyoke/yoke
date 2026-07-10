@@ -13,12 +13,16 @@ from yoke_core.domain.deploy_pipeline_reporting import (
     _emit_run_event,
     _flow_db,
     _github_actions,
-    _project_db,
     _run_cmd,
     _yoke_db,
 )
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.project_github_auth import (
+    ProjectGithubAuthError,
+    repair_command_hint,
+    resolve_project_github_auth,
+)
 
 
 EXIT_OK, EXIT_ERROR, EXIT_RUNNING, EXIT_USAGE = 0, 1, 2, 3
@@ -90,8 +94,12 @@ def _resolve_head_sha(project_repo_path: str) -> str:
     return (rc.stdout or "").strip() if rc.returncode == 0 else ""
 
 
-def _find_workflow_run(github_repo: str, workflow: str, head_sha: str) -> str:
-    r = _github_actions("find-run", github_repo, workflow, head_sha)
+def _find_workflow_run(
+    github_repo: str, workflow: str, head_sha: str, *, project: str,
+) -> str:
+    r = _github_actions(
+        "find-run", github_repo, workflow, head_sha, project=project,
+    )
     run_id = (r.stdout or "").strip()
     return "" if not run_id or run_id == "not_found" else run_id
 
@@ -185,10 +193,13 @@ def reconcile_item(
             "this stage may not use a github-actions executor."
         ))
 
-    github_repo = (_project_db("get", project, "github_repo") or "").strip()
-    if not github_repo:
-        return _error(item_id, deploy_stage,
-                      f"project '{project}' has no github_repo configured.")
+    try:
+        github_repo = resolve_project_github_auth(project).repo
+    except ProjectGithubAuthError as exc:
+        return _error(item_id, deploy_stage, (
+            f"GitHub App access for project '{project}' is unavailable: {exc}. "
+            f"Repair: {repair_command_hint(exc, project)}"
+        ))
 
     if workflow_run_id_override:
         workflow_run_id = workflow_run_id_override.strip()
@@ -202,7 +213,9 @@ def reconcile_item(
                 f"Could not resolve repo HEAD for project '{project}'. "
                 "Pass --workflow-run-id <id> with operator-provided evidence."
             ))
-        workflow_run_id = _find_workflow_run(github_repo, workflow, head_sha)
+        workflow_run_id = _find_workflow_run(
+            github_repo, workflow, head_sha, project=project,
+        )
 
     if not workflow_run_id:
         return _error(item_id, deploy_stage, (
@@ -211,7 +224,9 @@ def reconcile_item(
             "evidence to reconcile manually."
         ))
 
-    gh = _github_actions("poll", github_repo, workflow_run_id)
+    gh = _github_actions(
+        "poll", github_repo, workflow_run_id, project=project,
+    )
     rc, gh_message = gh.returncode, (gh.stdout or "").strip()
 
     if rc == 0 and gh_message == "success":

@@ -26,11 +26,13 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
+)
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
 )
 
 
@@ -41,7 +43,10 @@ class CheckCiRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     workflow: str = Field(..., min_length=1, description="Workflow file (e.g. ci.yml).")
     branch: str = Field("main", description="Branch to inspect (default: main).")
-    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
+    project: str = Field(
+        ..., min_length=1,
+        description="Project capability owning the GitHub App repo binding.",
+    )
 
 
 class CheckCiResponse(BaseModel):
@@ -136,11 +141,19 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     try:
-        resolved = resolve_project_github_auth(payload.project)
+        resolved = resolve_project_github_auth(
+            payload.project,
+            required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError as exc:
         return _auth_failed(
             f"{exc.code}: {exc}",
             repair_hint=repair_command_hint(exc, payload.project),
+        )
+    if payload.repo.casefold() != resolved.repo.casefold():
+        return _bad_request(
+            f"repo must match project binding {resolved.repo!r}",
+            jsonpath="$.payload.repo",
         )
 
     try:

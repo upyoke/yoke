@@ -70,6 +70,7 @@ def canonical_example_payload() -> dict[str, Any]:
         "cache_dir": _contract().DEFAULT_CACHE_ROOT,
         "github": {
             "api_url": _contract().DEFAULT_GITHUB_API_URL,
+            "web_url": _contract().DEFAULT_GITHUB_WEB_URL,
             "app_slug": "yoke",
             "app_id": 12345,
             "client_id": "Iv1.example",
@@ -81,7 +82,6 @@ def canonical_example_payload() -> dict[str, Any]:
                 "github_user_id": 1001,
                 "login": "example-user",
                 "status": "authorized",
-                "scopes": [],
             },
         },
         "projects": {

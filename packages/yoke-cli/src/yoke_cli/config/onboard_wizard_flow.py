@@ -28,16 +28,16 @@ from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard import (
-    PROJECT_GITHUB_REUSE_MACHINE,
-    reuse_choice_to_adoption,
+    github_connected,
 )
+from yoke_cli.config.onboard_wizard_project_github import ProjectGithubAccessFlow
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_FINISH,
     STEP_PROJECT,
     SelectionRow,
 )
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
 from yoke_cli.config.project_publish_support import is_existing_project_dir
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 from yoke_cli.project_install import source_dev
 
 # Modes that offer the "Also publish to GitHub?" follow-up. A clone always
@@ -117,7 +117,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _goto_board_art_intro(self) -> None: ...
 
 
-class WizardFlow:
+class WizardFlow(ProjectGithubAccessFlow):
     # ── Project step ────────────────────────────────────────
 
     def _goto_project_mode(self: _Shell) -> None:
@@ -405,8 +405,7 @@ class WizardFlow:
         self.result.project_github_repo = project.github_repo
         self.result.project_default_branch = project.default_branch
         self.result.project_public_item_prefix = project.public_item_prefix
-        self.result.project_github_adoption = "skip"
-        self.result.project_github_token = None
+        self.result.project_github_adoption = GITHUB_ADOPTION_BACKLOG_ONLY
         self.result.project_publish_to_github = False
         self.result.project_publish_owner = None
         self.result.project_publish_repo_name = None
@@ -529,7 +528,7 @@ class WizardFlow:
         # The connected-repo row only makes sense once the machine has a GitHub
         # App authorization. Without one, drop it so the picker never offers a
         # route that cannot bind a repository.
-        if self.result.machine_github_token:
+        if github_connected(self.result):
             rows = steps.PROJECT_GITHUB_ROWS
         else:
             rows = steps.PROJECT_GITHUB_ROWS_NO_MACHINE
@@ -539,48 +538,6 @@ class WizardFlow:
             onboard_github_copy.PROJECT_GITHUB_PROMPT_SUBTITLE,
             rows, self._on_project_github,
         ))
-
-    def _on_project_github(self: _Shell, choice: str) -> None:
-        if choice == PROJECT_GITHUB_REUSE_MACHINE and not self.result.machine_github_token:
-            choice = "skip"
-        if choice in (PROJECT_GITHUB_REUSE_MACHINE, GITHUB_ADOPTION_APP_BINDING):
-            self._goto_project_github_unavailable()
-            return
-        self.result.project_github_adoption = reuse_choice_to_adoption(choice)
-        if choice == "skip":
-            self.result.project_github_token = None
-            self._goto_board_art_intro()
-            return
-
-    def _goto_project_github_unavailable(self: _Shell) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "GitHub repo binding is not available here yet.",
-                onboard_github_copy.PROJECT_TOKEN_PASTE_SUBTITLE,
-                [
-                    "The project will stay backlog-only if you continue.",
-                    "Repo binding arrives through the GitHub App setup flow.",
-                ],
-                steps.GITHUB_APP_UNAVAILABLE_ROWS,
-                ok=False,
-            ),
-            self._on_project_github_unavailable,
-        ))
-
-    def _on_project_github_unavailable(self: _Shell, choice: str) -> None:
-        if choice == "backlog":
-            self.result.project_github_adoption = "skip"
-            self.result.project_github_token = None
-            self._goto_board_art_intro()
-            return
-        self._after_prefix(self.result.project_public_item_prefix or "")
-
-    def _after_project_token(self: _Shell, value: str) -> None:
-        self.result.project_github_token = value
-        self._goto_board_art_intro()
 
     # ── Finish step ─────────────────────────────────────────
 

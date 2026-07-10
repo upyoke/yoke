@@ -26,10 +26,6 @@ from typing import Any, Optional, TextIO
 
 from yoke_contracts.project_contract.label_policy import DEFAULT_LABEL_COLORS
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_github_auth import (
-    MissingRepoMetadata,
-    resolve_project_github_auth,
-)
 
 
 def _is_dry_run() -> bool:
@@ -84,33 +80,16 @@ def _yoke_root() -> Path:
         return _repo_root() / ".yoke"
 
 
-def _resolve_pat(project: str) -> str:
-    """Resolve project GitHub App auth via the canonical resolver. Fail-closed.
-
-    Missing project metadata and resolver failures propagate as
-    :class:`ProjectGithubAuthError` so sync callers fail closed before
-    any GitHub call is made.
-    """
-    if not project or project == "null":
-        raise MissingRepoMetadata(
-            project or "unknown",
-            "GitHub sync requires an explicit project id",
-        )
-    resolved = resolve_project_github_auth(project)
-    return resolved.token
-
-
 def _task_context(
     epic_id: str,
     task_num: int,
     *,
     conn: Optional[Any] = None,
-) -> Optional[tuple[str, str, str, str]]:
+) -> Optional[tuple[str, str, str]]:
     query = """
         SELECT
           COALESCE(t.github_issue, '') AS github_issue,
           COALESCE(p.slug, '') AS project,
-          COALESCE(p.github_repo, '') AS github_repo,
           COALESCE(t.body, '') AS body
         FROM epic_tasks t
         LEFT JOIN items i ON CAST(i.id AS TEXT) = CAST(t.epic_id AS TEXT)
@@ -138,7 +117,6 @@ def _task_context(
         str(row[0] or ""),
         str(row[1] or ""),
         str(row[2] or ""),
-        str(row[3] or ""),
     )
 
 
@@ -162,17 +140,15 @@ def _epic_ref_name(
     return epic_ref
 
 
-def _epic_project_repo(
+def _epic_project(
     epic_name: str,
     *,
     conn: Any,
-) -> tuple[str, str]:
+) -> str:
     try:
         row = conn.execute(
             f"""
-            SELECT
-              COALESCE(p.slug, '') AS project,
-              COALESCE(p.github_repo, '') AS github_repo
+            SELECT COALESCE(p.slug, '') AS project
             FROM items i
             LEFT JOIN projects p ON p.id = i.project_id
             WHERE CAST(i.id AS TEXT) = CAST({_placeholder(conn)} AS TEXT)
@@ -184,8 +160,8 @@ def _epic_project_repo(
         conn.rollback()
         row = None
     if row is None:
-        return "", ""
-    return str(row[0] or ""), str(row[1] or "")
+        return ""
+    return str(row[0] or "")
 
 
 def _epic_parent_item_id(epic_name: str, *, conn: Any) -> str:
@@ -222,13 +198,12 @@ def _backfill_title_has_task_num(current_title: str, task_num: str) -> bool:
 def _validate_issue_in_repo(
     item_ref: str,
     issue_num: str,
-    repo: str,
     *,
     project: str,
     stderr,
 ) -> bool:
     from yoke_core.domain.epic_task_sync_github import _validate_issue_in_repo as _impl
-    return _impl(item_ref, issue_num, repo, project=project, stderr=stderr)
+    return _impl(item_ref, issue_num, project=project, stderr=stderr)
 
 
 def backfill_task_titles(epic_ref: str, **kwargs) -> int:

@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from runtime.api.product_boundary_isolation import write_sitecustomize
 
 
@@ -193,3 +195,100 @@ print(json.dumps(response.model_dump(mode="json"), sort_keys=True))
     response = json.loads(result.stdout)
     assert response["success"] is True
     assert response["result"] == {"transport": "local-postgres"}
+
+
+def test_local_dispatch_binds_lazy_machine_github_authorization(
+    monkeypatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from yoke_cli.config import github_user_tokens, machine_config
+    from yoke_cli.transport.dispatcher import call_dispatcher
+    from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
+    from yoke_core.domain.github_app_dispatch_context import (
+        LOCAL_API_ENDPOINT,
+        LOCAL_USER_TOKEN_PROVIDER,
+    )
+
+    monkeypatch.setattr(
+        machine_config,
+        "github_config",
+        lambda: {"api_url": "https://github.example/api/v3"},
+    )
+    token_reads: list[bool] = []
+
+    def _token():
+        token_reads.append(True)
+        return SimpleNamespace(access_token="local-user-token")
+
+    monkeypatch.setattr(
+        github_user_tokens,
+        "access_token_from_machine_config",
+        _token,
+    )
+
+    def _local_dispatch(request):
+        endpoint = LOCAL_API_ENDPOINT.get()
+        provider = LOCAL_USER_TOKEN_PROVIDER.get()
+        assert endpoint is not None
+        assert endpoint.base_url == "https://github.example/api/v3"
+        assert provider is not None
+        assert token_reads == []
+        assert provider() == "local-user-token"
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={"bound": True},
+        )
+
+    response = call_dispatcher(
+        function_id="projects.github_binding.status",
+        target=TargetRef(kind="global"),
+        local_only=True,
+        _local_dispatch=_local_dispatch,
+    )
+
+    assert response.success is True
+    assert token_reads == [True]
+    assert LOCAL_API_ENDPOINT.get() is None
+    assert LOCAL_USER_TOKEN_PROVIDER.get() is None
+
+
+def test_invalid_machine_github_endpoint_does_not_block_unrelated_dispatch(
+    monkeypatch,
+) -> None:
+    from yoke_cli.config import machine_config
+    from yoke_cli.transport.dispatcher import call_dispatcher
+    from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
+    from yoke_core.domain.github_app_dispatch_context import LOCAL_USER_TOKEN_PROVIDER
+
+    monkeypatch.setattr(
+        machine_config,
+        "github_config",
+        lambda: {"api_url": "http://unsafe.example"},
+    )
+
+    def _local_dispatch(request):
+        provider = LOCAL_USER_TOKEN_PROVIDER.get()
+        assert provider is not None
+        with pytest.raises(RuntimeError, match="configuration is invalid"):
+            provider()
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={"unrelated": True},
+        )
+
+    response = call_dispatcher(
+        function_id="events.query.run",
+        target=TargetRef(kind="global"),
+        local_only=True,
+        _local_dispatch=_local_dispatch,
+    )
+
+    assert response.success is True
+    assert response.result == {"unrelated": True}

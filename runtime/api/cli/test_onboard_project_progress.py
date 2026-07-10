@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
@@ -12,6 +15,8 @@ from runtime.api.cli.project_onboarding_test_helpers import (
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard as onboard_config
+from yoke_cli.config import project_onboard
+from yoke_cli.config import project_onboard_progress
 from yoke_cli.config import writer as machine_writer
 
 
@@ -138,7 +143,7 @@ def test_project_apply_progress_updates_stale_checkout_mapping(tmp_path: Path) -
             project_github_repo="owner/local",
             project_default_branch="main",
             project_public_item_prefix="LOC",
-            project_github_adoption="skip",
+            project_github_adoption="backlog-only",
             progress=lambda action, target, status: events.append(
                 (action, target, status)
             ),
@@ -181,7 +186,7 @@ def test_clone_resume_progress_marks_checkout_step_skipped(
             project_github_repo="owner/clone",
             project_default_branch="trunk",
             project_public_item_prefix="CLN",
-            project_github_adoption="skip",
+            project_github_adoption="backlog-only",
             progress=lambda action, target, status: events.append(
                 (action, target, status)
             ),
@@ -193,6 +198,66 @@ def test_clone_resume_progress_marks_checkout_step_skipped(
     assert (
         "project-install-scaffold", "", "running",
     ) in events
+
+
+def test_new_app_binding_stages_sync_as_backlog_only(tmp_path: Path) -> None:
+    report = project_onboard.create_project(
+        checkout=tmp_path / "demo",
+        slug="demo",
+        name="Demo",
+        org=None,
+        github_repo="owner/demo",
+        default_branch="main",
+        public_item_prefix="DMO",
+        github_adoption_choice="app-binding",
+        config_path=tmp_path / "config.json",
+        apply=False,
+    )
+
+    assert report["project"]["github_sync_mode"] == "backlog_only"
+
+
+def test_existing_app_binding_failure_never_enables_sync(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    calls: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        project_onboard_progress.machine_config,
+        "github_config",
+        lambda _path: {
+            "api_url": "https://api.github.example",
+            "repositories": [{
+                "installation_id": 123,
+                "repository_id": 456,
+                "full_name": "owner/demo",
+            }],
+        },
+    )
+    monkeypatch.setattr(
+        project_onboard_progress.github_user_tokens,
+        "access_token_from_machine_config",
+        lambda **_kwargs: SimpleNamespace(access_token="ghu_short_lived"),
+    )
+
+    def fail_bind(function_id, payload, _config_path):
+        calls.append((function_id, payload))
+        raise RuntimeError("binding rejected")
+
+    monkeypatch.setattr(project_onboard_progress, "dispatch", fail_bind)
+    with pytest.raises(RuntimeError, match="binding rejected"):
+        project_onboard_progress.store_github_binding(
+            None,
+            "app-binding",
+            {"id": 41, "slug": "demo", "name": "Demo"},
+            {"choice": "app-binding", "github_repo": "owner/demo"},
+            tmp_path / "config.json",
+            persist_sync_mode=True,
+        )
+
+    assert [function_id for function_id, _payload in calls] == [
+        "projects.github_binding.bind"
+    ]
+    assert calls[0][1]["expected_api_url"] == "https://api.github.example"
 
 
 def _project_row(*, slug: str = "local") -> dict:

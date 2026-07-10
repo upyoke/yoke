@@ -13,10 +13,13 @@ PROJECT_ADAPTERS = [
         function_id="projects.github_binding.bind",
         cli_invocation=(
             "yoke projects github-binding bind --project NAME "
-            "--installation-id ID --account-id ID --account-login LOGIN "
-            "--account-type TYPE --github-repo OWNER/REPO"
+            "--installation-id ID --repository-id ID "
+            "--github-repo OWNER/REPO"
         ),
-        notes="binds a project to a GitHub App installation repository",
+        notes=(
+            "verifies and binds a project to a GitHub App installation "
+            "repository using the local App user authorization"
+        ),
     ),
     AdapterEntry(
         function_id="projects.github_binding.unbind",

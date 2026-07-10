@@ -166,10 +166,8 @@ def test_onboard_project_names_required_rows_and_phases():
 def test_onboard_project_teaches_explicit_github_adoption_preview():
     text = _read(ONBOARD_PROJECT)
     for choice in (
-        "temporary-only",
-        "store-token",
-        "different-token",
-        "skip",
+        "app-binding",
+        "backlog-only",
     ):
         assert choice in text
     for preview_target in (
@@ -182,12 +180,9 @@ def test_onboard_project_teaches_explicit_github_adoption_preview():
         assert preview_target in text
     assert "--github-adoption {choice}" in text
     assert "--dry-run --json" in text
-    assert (
-        "Machine credentials used to reach Yoke are not project runtime authority"
-        in text
-    )
-    assert "Direct, file, and stdin token inputs are import methods only" in text
-    assert "stored as Yoke-owned literal values" in text
+    assert "project onboarding never asks for, stores, or promotes a GitHub token" in text
+    assert "project App binding plus control-plane installation-token minting" in text
+    assert "keep the project in" in text and "backlog_only" in text
 
 
 def test_onboard_project_skill_avoids_forbidden_raw_surfaces():

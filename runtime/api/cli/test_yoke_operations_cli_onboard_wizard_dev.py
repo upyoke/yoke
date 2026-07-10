@@ -41,6 +41,9 @@ def _stub_path_doctor(monkeypatch):
 
 def _stub_access(monkeypatch, *, yoke_ok=True, github_ok=True):
     monkeypatch.setattr(
+        dev_flow.github_state, "user_access_token", lambda _result: "ghu_short_lived",
+    )
+    monkeypatch.setattr(
         dev_access, "yoke_project_reachable", lambda api_url, token: yoke_ok,
     )
     monkeypatch.setattr(
@@ -58,9 +61,8 @@ def _stub_detect(monkeypatch, checkouts):
 async def _pick_develop_yoke(pilot) -> None:
     await advance_past_path(pilot)
     await pilot.press("enter")  # machine github: Connect (default)
-    await type_text(pilot, "ghu_machine_token")
-    await pilot.press("enter")
-    await pilot.press("enter")  # GitHub verification success: Continue
+    await pilot.app.workers.wait_for_complete()
+    await pilot.pause()
     index = next(
         i for i, r in enumerate(steps.MODE_ROWS)
         if r.value == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
@@ -142,9 +144,8 @@ def test_stored_yoke_checkout_offers_direct_source_dev_path(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine github: Connect (default)
-            await type_text(pilot, "ghu_machine_token")
-            await pilot.press("enter")
-            await pilot.press("enter")  # GitHub verification success: Continue
+            await app.workers.wait_for_complete()
+            await pilot.pause()
             text = _error_text(app)
             assert "Use an existing project mapping?" in text
             assert "Develop Yoke itself" in text
@@ -191,9 +192,7 @@ def test_project_mode_default_forces_source_dev_checkout(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine github: Connect (default)
-            await type_text(pilot, "ghu_machine_token")
-            await pilot.press("enter")
-            await pilot.press("enter")  # GitHub verification success: Continue
+            await app.workers.wait_for_complete()
             await pilot.pause()
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -268,41 +267,32 @@ def test_no_github_repo_access_renders_you_need_both_error(monkeypatch) -> None:
     )
 
 
-def test_no_machine_github_auth_prompts_then_runs_github_check(monkeypatch) -> None:
-    """Without a connected GitHub App user token the dev flow prompts for one before the repo check."""
+def test_no_machine_github_app_access_blocks_source_dev(monkeypatch) -> None:
+    """Source development requires an already connected App authorization."""
     _stub_access(monkeypatch)
     _stub_detect(monkeypatch, [Path("/home/dev/yoke")])
-    app, spy = make_app()
+    app, _spy = make_app()
+    captured: dict[str, str] = {}
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now (no GitHub App user token)
+            await pilot.press("down")
             await pilot.press("enter")
             index = next(
-                i for i, r in enumerate(steps.MODE_ROWS)
-                if r.value == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
+                i for i, row in enumerate(steps.MODE_ROWS)
+                if row.value == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
             )
             for _ in range(index):
                 await pilot.press("down")
-            await pilot.press("enter")  # Develop Yoke itself
+            await pilot.press("enter")
             await pilot.pause()
-            # Yoke-project check passed; now the GitHub App user token input is showing.
-            from textual.widgets import Input
-            inputs = list(app.query("#onboard-body Input").results(Input))
-            assert inputs, "missing GitHub App user token prompt before the GitHub repo check"
-            await type_text(pilot, "ghs_dev_token")
-            await pilot.press("enter")  # runs github check -> detect -> finish
-            await pilot.pause()
-            await pilot.press("enter")  # finish: apply
-            await pilot.pause()
+            captured["text"] = _error_text(app)
 
     asyncio.run(scenario())
 
-    applied = spy.applied
-    assert applied is not None
-    assert app.result.machine_github_token == "ghs_dev_token"
-    assert applied["project_mode"] == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
+    assert "requires GitHub App access" in captured["text"]
+    assert not hasattr(app.result, "machine_github_token")
 
 
 def test_multiple_checkouts_render_picker_with_clone_option(monkeypatch) -> None:

@@ -6,6 +6,10 @@ from typing import Any, Dict, Optional
 
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+    GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain import github_actions_rest, github_variables_rest
 from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.handlers import github_actions_runners
@@ -24,7 +28,7 @@ _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
     token="ghs_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
+    permissions={"administration": "read", "variables": "read"},
 )
 
 
@@ -32,9 +36,13 @@ def _make_request(
     payload: Optional[Dict[str, Any]] = None,
     *,
     target_kind: str = "global",
+    include_project: bool = True,
 ) -> FunctionCallRequest:
     if payload is None:
         payload = {"repo": "upyoke/yoke"}
+    payload = dict(payload)
+    if include_project:
+        payload.setdefault("project", "yoke")
     return FunctionCallRequest(
         function="github_actions.runners.status",
         actor=ActorContext(session_id="test-session"),
@@ -45,10 +53,17 @@ def _make_request(
 
 @pytest.fixture(autouse=True)
 def _auth_resolved(monkeypatch):
+    calls = []
+
+    def _resolve(project, **kwargs):
+        calls.append((project, kwargs))
+        return _RESOLVED
+
     monkeypatch.setattr(
         "yoke_core.domain.project_github_auth.resolve_project_github_auth",
-        lambda project: _RESOLVED,
+        _resolve,
     )
+    return calls
 
 
 @pytest.fixture(autouse=True)
@@ -76,7 +91,44 @@ def _runner(
 
 
 class TestRunnersStatus:
-    def test_no_registered_matching_runner_reports_register_action(self, monkeypatch):
+    def test_rejects_missing_project(self):
+        outcome = handle_runners_status(_make_request(include_project=False))
+        assert outcome.primary_success is False
+        assert outcome.error.code == "invalid_payload"
+        assert "project" in outcome.error.message
+
+    def test_missing_optional_administration_permission_skips_request(
+        self, monkeypatch
+    ):
+        resolved = ProjectGithubAuth(
+            project="yoke",
+            repo="upyoke/yoke",
+            token="github-user-token",
+            permissions={"checks": "read"},
+        )
+        monkeypatch.setattr(
+            "yoke_core.domain.project_github_auth.resolve_project_github_auth",
+            lambda project, **kwargs: resolved,
+        )
+        called = False
+
+        def unexpected_request(*args, **kwargs):
+            nonlocal called
+            called = True
+            return {"runners": []}
+
+        monkeypatch.setattr(github_actions_rest, "rest_get", unexpected_request)
+
+        outcome = handle_runners_status(_make_request())
+
+        assert outcome.primary_success is False
+        assert outcome.error.code == "github_app_permission_required"
+        assert "Administration: Read" in outcome.error.message
+        assert called is False
+
+    def test_no_registered_matching_runner_reports_register_action(
+        self, monkeypatch, _auth_resolved,
+    ):
         monkeypatch.setattr(
             github_actions_rest, "rest_get",
             lambda *a, **kw: {"runners": []},
@@ -94,6 +146,17 @@ class TestRunnersStatus:
         assert outcome.result_payload["recommended_value"] == (
             '["self-hosted","Linux","ARM64","yoke-github-actions"]'
         )
+        assert _auth_resolved == [
+            (
+                "yoke",
+                {
+                    "required_permissions": {
+                        **GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+                        **GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
+                    }
+                },
+            )
+        ]
 
     def test_online_runner_without_variable_reports_set_variable(self, monkeypatch):
         monkeypatch.setattr(
@@ -181,7 +244,7 @@ class TestRunnersStatus:
         raw_settings = (
             '{"repo":"upyoke/yoke","runner_labels":["self-hosted",'
             '"Linux","X64","fast-ci"],"variable_name":"CUSTOM_RUNS_ON",'
-            '"desired_runner_count":6,"max_runner_count":12,'
+            '"desired_runner_count":1,"max_runner_count":1,'
             '"instance":{"instance_type":"c7i.8xlarge",'
             '"architecture":"x64","root_volume_gb":800}}'
         )
@@ -214,8 +277,8 @@ class TestRunnersStatus:
         assert outcome.result_payload["required_labels"] == [
             "self-hosted", "Linux", "X64", "fast-ci",
         ]
-        assert outcome.result_payload["desired_runner_count"] == 6
-        assert outcome.result_payload["max_runner_count"] == 12
+        assert outcome.result_payload["desired_runner_count"] == 1
+        assert outcome.result_payload["max_runner_count"] == 1
         assert outcome.result_payload["instance_type"] == "c7i.8xlarge"
         assert outcome.result_payload["root_volume_gb"] == 800
 

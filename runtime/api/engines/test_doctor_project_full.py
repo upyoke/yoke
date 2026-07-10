@@ -57,15 +57,6 @@ def _make_conn() -> Any:
             created_at TEXT
         );
 
-        CREATE TABLE capability_secrets (
-            project_id INTEGER,
-            type TEXT,
-            key TEXT,
-            value TEXT,
-            source TEXT,
-            PRIMARY KEY (project_id, type, key)
-        );
-
         CREATE TABLE deployment_flows (
             id TEXT PRIMARY KEY,
             project_id INTEGER,
@@ -112,20 +103,6 @@ def _seed_capability(
         "INSERT INTO project_capabilities (project_id, type, settings) "
         "VALUES (%s, %s, %s)",
         (_project_id(project), cap_type, settings),
-    )
-
-
-def _seed_github_auth(conn: Any, project: str) -> None:
-    """Insert the github capability + token rows so the resolver can find
-    them on a fixture connection — avoids silent fallback to canonical
-    YOKE_DB when the HC under test routes through
-    ``resolve_project_github_auth(..., conn=conn)``."""
-    _seed_capability(conn, project, "github", "{}")
-    conn.execute(
-        "INSERT INTO capability_secrets "
-        "(project_id, type, key, value, source) "
-        "VALUES (%s, 'github', 'token', 'ghs_test', 'literal')",
-        (_project_id(project),),
     )
 
 

@@ -1,34 +1,13 @@
-"""REST check-runs handling for auth that lacks check-runs read scope.
-
-The merge engine calls REST ``/check-runs`` directly; a 403 there returns
-``CheckRunsState(states=(), readable=False)`` so the
-local-verification substitute gate decides whether the merge proceeds.
-
-A 403 reading ``/check-runs`` returns ``CheckRunsState(states=(),
-readable=False)``, which the engine routes to ``SKIPPED_UNREADABLE``
-(reason ``checks_unreadable_403``) — distinct from the genuinely-absent
-``SKIPPED_NO_CHECKS`` so the substitute gate can tell unreadable checks
-apart from a no-CI repo.
-
-Transport-level coverage (auth errors, 403 handling, retry policy) lives
-in :mod:`runtime.api.domain.test_gh_rest_transport`; the merge-engine
-skip routing is covered in
-:mod:`runtime.api.test_merge_worktree_pr_checks_fresh_pr`.
-"""
+"""REST check-runs authorization fails closed for the required App grant."""
 
 from __future__ import annotations
 
 from runtime.api.test_merge_worktree_pr_checks_test_helpers import _stub_ctx
 
 
-def test_unreadable_check_runs_routes_to_skipped(monkeypatch) -> None:
-    """When the REST ``/check-runs`` endpoint reports the token cannot
-    read check-runs (403), the engine routes to SKIPPED with the distinct
-    ``checks_unreadable_403`` reason — still a skip, so the
-    local-verification substitute gate decides whether the merge proceeds."""
+def test_check_runs_authorization_error_routes_to_failed(monkeypatch) -> None:
     from yoke_core.engines import merge_worktree
     from yoke_core.engines import merge_worktree_ci
-    from yoke_core.engines.merge_worktree_ci_rest import CheckRunsState
 
     monkeypatch.setattr(
         merge_worktree, "_emit_merge_event", lambda *_a, **_kw: None
@@ -37,19 +16,15 @@ def test_unreadable_check_runs_routes_to_skipped(monkeypatch) -> None:
         merge_worktree_ci,
         "get_check_runs",
         lambda *_a, **_kw: (
-            CheckRunsState(states=(), readable=False),
-            None,
+            None, "check-runs REST authorization failed: HTTP 403",
         ),
     )
 
     outcome = merge_worktree._wait_for_ci("3309", _stub_ctx())
-    assert outcome.outcome == "skipped"
-    assert outcome.reason == "checks_unreadable_403"
+    assert outcome.outcome == "failed"
 
 
-def test_get_check_runs_returns_readable_false_on_403(monkeypatch) -> None:
-    """Direct REST-helper coverage: a 403 on /check-runs returns
-    ``readable=False`` so the caller routes to the no-checks branch."""
+def test_get_check_runs_returns_error_on_403(monkeypatch) -> None:
     from yoke_core.domain.gh_rest_transport import RestAuthError
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
     from yoke_core.engines import merge_worktree_ci_rest
@@ -74,16 +49,15 @@ def test_get_check_runs_returns_readable_false_on_403(monkeypatch) -> None:
         merge_worktree_ci_rest,
         "resolve_auth",
         lambda *_a, **_kw: ProjectGithubAuth(
-            project="yoke", repo="o/r", token="t", env={"GH_TOKEN": "t"}
+            project="yoke", repo="o/r", token="t"
         ),
     )
     monkeypatch.setattr(merge_worktree_ci_rest, "request_with_retry", _fake_request)
 
     state, err = merge_worktree_ci_rest.get_check_runs(_stub_ctx(), "3309")
-    assert err is None
-    assert state is not None
-    assert state.readable is False
-    assert state.states == ()
+    assert state is None
+    assert err is not None
+    assert "authorization failed" in err
 
 
 def test_get_check_runs_maps_run_states_to_canonical_vocabulary(monkeypatch) -> None:
@@ -120,7 +94,7 @@ def test_get_check_runs_maps_run_states_to_canonical_vocabulary(monkeypatch) -> 
         merge_worktree_ci_rest,
         "resolve_auth",
         lambda *_a, **_kw: ProjectGithubAuth(
-            project="yoke", repo="o/r", token="t", env={"GH_TOKEN": "t"}
+            project="yoke", repo="o/r", token="t"
         ),
     )
     monkeypatch.setattr(merge_worktree_ci_rest, "request_with_retry", _fake_request)
@@ -128,7 +102,6 @@ def test_get_check_runs_maps_run_states_to_canonical_vocabulary(monkeypatch) -> 
     state, err = merge_worktree_ci_rest.get_check_runs(_stub_ctx(), "3309")
     assert err is None
     assert state is not None
-    assert state.readable is True
     assert state.states == (
         "SUCCESS",
         "FAILURE",

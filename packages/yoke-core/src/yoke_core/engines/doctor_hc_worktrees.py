@@ -5,10 +5,9 @@ Worktree-health (uncommitted/stale entries) lives in doctor_hc_worktrees_health.
 Branch divergence and stale remote branches live in doctor_hc_worktrees_branches.py.
 
 GitHub auth + repo resolution is delegated to the canonical resolver
-:mod:`yoke_core.domain.project_github_auth`. Sibling HCs call
-``subprocess.run([...], env=resolve_project_github_auth(project).env)``
-directly and translate ``ProjectGithubAuthError`` to FAIL records with
-operator-facing repair hints.
+:mod:`yoke_core.domain.project_github_auth`. Sibling HCs pass its token
+directly to bearer-token REST calls and translate ``ProjectGithubAuthError``
+to FAIL records with operator-facing repair hints.
 
 HC functions hosted here: HC-main-checkout, HC-uncaptured-discoveries,
 HC-orphaned-stashes, HC-cross-project-commits.

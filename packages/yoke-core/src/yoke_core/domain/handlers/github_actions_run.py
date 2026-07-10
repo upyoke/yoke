@@ -13,6 +13,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.handlers.github_actions_set import (
     _transport_failed,
     _validate_and_resolve,
@@ -26,7 +29,10 @@ from yoke_contracts.api.function_call import (
 class RunGetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     run_id: str = Field(..., min_length=1, description="GitHub Actions run id.")
-    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
+    project: str = Field(
+        ..., min_length=1,
+        description="Project capability owning the GitHub App repo binding.",
+    )
 
 
 class RunGetResponse(BaseModel):
@@ -69,7 +75,10 @@ def _classify(payload: RunGetRequest, data: Dict[str, Any]) -> RunGetResponse:
 
 def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     payload, token, err = _validate_and_resolve(
-        request, RunGetRequest, "github_actions.wait_run",
+        request,
+        RunGetRequest,
+        "github_actions.wait_run",
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     )
     if err is not None:
         return err

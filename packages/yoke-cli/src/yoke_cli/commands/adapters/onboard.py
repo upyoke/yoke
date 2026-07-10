@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, List
+from typing import List
 
+from yoke_contracts import github_origin
 from yoke_cli.commands._helpers import (
     attach_field_note_footer,
     parse_or_usage_error,
@@ -43,7 +44,7 @@ ONBOARD_USAGE = (
     "local-checkout --checkout PATH [--remote-url URL] "
     "--project-slug SLUG --project-name NAME --default-branch BRANCH "
     "--public-item-prefix PREFIX [--github-repo OWNER/REPO] "
-    "[--github-adoption app-binding|backlog-only|skip]]"
+    "[--github-adoption app-binding|backlog-only]]"
 )
 
 
@@ -87,8 +88,6 @@ def onboard(args: List[str]) -> int:
             confirmed=parsed.apply,
             json_mode=parsed.json_mode,
         )
-    if _reject_project_github_token_args(parsed):
-        return 2
     parsed.resume_payload = None
     if parsed.resume_run_id:
         try:
@@ -154,16 +153,21 @@ def onboard(args: List[str]) -> int:
             return 2
     machine_github_choice = getattr(parsed, "machine_github_choice", None) or "skip"
     try:
-        needs_user_token = _project_needs_machine_github_token(parsed)
-        machine_github_token = _machine_github_user_token(
+        needs_user_token = _project_needs_github_user_access_token(parsed)
+        github_user_access_token = _github_user_access_token(
             parsed,
             required=needs_user_token,
         )
-        machine_github_token_file = None
-        project_publish = _project_publish(parsed, machine_github_token)
-        project_clone = _project_clone(parsed, machine_github_token, project_publish)
-    except github_user_tokens.GitHubUserTokenError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        project_publish = _project_publish(parsed, github_user_access_token)
+        project_clone = _project_clone(
+            parsed, github_user_access_token, project_publish,
+        )
+    except github_user_tokens.GitHubUserTokenError:
+        print(
+            "error: GitHub App user authorization is unavailable. Run `yoke "
+            "github connect` and retry, or continue backlog-only.",
+            file=sys.stderr,
+        )
         return 2
     # The legacy flag lane (--api-url without --local/--connect) reaches
     # here with no resolved destination; the URL itself names one. Deriving
@@ -187,12 +191,6 @@ def onboard(args: List[str]) -> int:
         check_identity=not parsed.skip_identity_check,
         machine_github_choice=machine_github_choice,
         machine_github_api_url=getattr(parsed, "machine_github_api_url", None),
-        machine_github_token=machine_github_token,
-        machine_github_token_file=machine_github_token_file,
-        machine_github_token_source_kind=(
-            getattr(parsed, "machine_github_token_source_kind", None)
-            or ("github_app_user_access_token" if machine_github_token else None)
-        ),
         project_mode=parsed.project_mode or onboard_config.PROJECT_MODE_MACHINE_ONLY,
         project_remote_url=parsed.project_remote_url,
         project_checkout=parsed.project_checkout,
@@ -224,9 +222,6 @@ def onboard(args: List[str]) -> int:
             None,
         ),
         project_github_adoption=parsed.github_adoption,
-        project_github_token=None,
-        project_github_token_file=None,
-        project_github_token_stdin_value=None,
         project_publish=project_publish,
         project_clone=project_clone,
         project_keep_existing_remote=bool(
@@ -390,9 +385,6 @@ def _build_report(
     check_identity: bool,
     machine_github_choice: str,
     machine_github_api_url: str | None,
-    machine_github_token: str | None,
-    machine_github_token_file: str | None,
-    machine_github_token_source_kind: str | None,
     project_mode: str,
     project_remote_url: str | None,
     project_checkout: str | None,
@@ -405,9 +397,6 @@ def _build_report(
     project_public_item_prefix: str | None,
     existing_project_id: int | None,
     project_github_adoption: str | None,
-    project_github_token: str | None,
-    project_github_token_file: str | None,
-    project_github_token_stdin_value: str | None,
     existing_project_match_source: str | None = None,
     existing_project_local_source: str | None = None,
     project_publish: PublishRequest | None = None,
@@ -430,9 +419,6 @@ def _build_report(
             "check_identity": check_identity,
             "machine_github_choice": machine_github_choice,
             "machine_github_api_url": machine_github_api_url,
-            "machine_github_token": machine_github_token,
-            "machine_github_token_file": machine_github_token_file,
-            "machine_github_token_source_kind": machine_github_token_source_kind,
             "project_mode": project_mode,
             "project_remote_url": project_remote_url,
             "project_checkout": project_checkout,
@@ -447,9 +433,6 @@ def _build_report(
             "existing_project_match_source": existing_project_match_source,
             "existing_project_local_source": existing_project_local_source,
             "project_github_adoption": project_github_adoption,
-            "project_github_token": project_github_token,
-            "project_github_token_file": project_github_token_file,
-            "project_github_token_stdin_value": project_github_token_stdin_value,
             "project_publish": project_publish,
             "project_clone": project_clone,
             "project_keep_existing_remote": project_keep_existing_remote,
@@ -479,14 +462,14 @@ _apply_with_durable_report = onboard_apply.apply_with_durable_report
 _print_failure_summary = onboard_apply.print_failure_summary
 
 
-def _machine_github_user_token(
+def _github_user_access_token(
     parsed: argparse.Namespace,
     *,
     required: bool,
 ) -> str | None:
     if not required:
         return None
-    refreshed = github_user_tokens.refresh_from_machine_config(
+    refreshed = github_user_tokens.access_token_from_machine_config(
         config_path=getattr(parsed, "config_path", None),
     )
     return refreshed.access_token
@@ -494,13 +477,13 @@ def _machine_github_user_token(
 
 def _project_publish(
     parsed: argparse.Namespace,
-    machine_github_token: str | None,
+    github_user_access_token: str | None,
 ) -> PublishRequest | None:
     owner = str(getattr(parsed, "project_publish_owner", "") or "").strip()
     name = str(getattr(parsed, "project_publish_repo_name", "") or "").strip()
     if not (owner and name):
         return None
-    if not machine_github_token:
+    if not github_user_access_token:
         raise github_user_tokens.GitHubUserTokenError(
             "GitHub App user authorization is required to create a GitHub repo. "
             "Run `yoke github connect` when browser authorization is available, "
@@ -510,26 +493,37 @@ def _project_publish(
         owner=owner,
         name=name,
         user_login=str(getattr(parsed, "project_publish_owner_login", "") or ""),
-        token=machine_github_token,
+        token=github_user_access_token,
         api_url=str(
             getattr(parsed, "project_publish_api_url", "")
             or getattr(parsed, "machine_github_api_url", "")
-            or "https://api.github.com"
+            or github_origin.DEFAULT_GITHUB_API_URL
         ),
         private=bool(getattr(parsed, "project_publish_private", True)),
+        administration_allowed=_github_administration_allowed(
+            getattr(parsed, "config_path", None), owner,
+        ),
+        web_url=_github_web_url(getattr(parsed, "config_path", None)),
     )
 
 
 def _project_clone(
     parsed: argparse.Namespace,
-    machine_github_token: str | None,
+    github_user_access_token: str | None,
     project_publish: PublishRequest | None,
 ) -> ClonePlan | None:
     outcome = str(getattr(parsed, "project_clone_outcome", "") or "").strip()
     if not outcome:
+        if github_user_access_token and str(
+            getattr(parsed, "project_mode", "") or ""
+        ) in ("clone-remote", "import-remote"):
+            return ClonePlan(
+                fallback_token=github_user_access_token,
+                fork_web_url=_github_web_url(getattr(parsed, "config_path", None)),
+            )
         return None
     if outcome in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE):
-        if not machine_github_token:
+        if not github_user_access_token:
             raise github_user_tokens.GitHubUserTokenError(
                 "GitHub App user authorization is required for the saved clone "
                 "outcome. Run `yoke github connect` when browser authorization "
@@ -539,38 +533,47 @@ def _project_clone(
         outcome=outcome,
         keep_upstream=bool(getattr(parsed, "project_clone_keep_upstream", True)),
         publish=project_publish if outcome == CLONE_OUTCOME_MAKE_IT_MINE else None,
-        fallback_token=machine_github_token,
+        fallback_token=github_user_access_token,
         fork_api_url=str(
             getattr(parsed, "project_clone_fork_api_url", "")
             or getattr(parsed, "machine_github_api_url", "")
-            or "https://api.github.com"
+            or github_origin.DEFAULT_GITHUB_API_URL
         ),
+        fork_web_url=_github_web_url(getattr(parsed, "config_path", None)),
     )
 
 
-def _project_needs_machine_github_token(parsed: argparse.Namespace) -> bool:
+def _project_needs_github_user_access_token(parsed: argparse.Namespace) -> bool:
     outcome = str(getattr(parsed, "project_clone_outcome", "") or "").strip()
     if outcome in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE):
         return True
+    if str(getattr(parsed, "project_mode", "") or "") in (
+        "clone-remote", "import-remote",
+    ):
+        return bool(machine_config.github_config(getattr(parsed, "config_path", None)))
     return bool(
         str(getattr(parsed, "project_publish_owner", "") or "").strip()
         and str(getattr(parsed, "project_publish_repo_name", "") or "").strip()
     )
 
 
-def _reject_project_github_token_args(parsed: argparse.Namespace) -> bool:
-    if not (
-        getattr(parsed, "github_token", None)
-        or getattr(parsed, "github_token_file", None)
-        or getattr(parsed, "github_token_stdin", False)
-    ):
-        return False
-    print(
-        "error: project-supplied GitHub credentials are no longer supported; use "
-        "--github-adoption app-binding or --github-adoption backlog-only",
-        file=sys.stderr,
+def _github_administration_allowed(config_path: str | None, owner: str) -> bool:
+    github = machine_config.github_config(config_path)
+    return any(
+        isinstance(installation, dict)
+        and isinstance(installation.get("permissions"), dict)
+        and str(installation.get("account_login") or "").casefold() == owner.casefold()
+        and not installation.get("suspended")
+        and installation["permissions"].get("administration") == "write"
+        for installation in github.get("installations") or []
     )
-    return True
+
+
+def _github_web_url(config_path: str | None) -> str:
+    github = machine_config.github_config(config_path)
+    return github_origin.validate_github_web_endpoint(
+        str(github.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL)
+    ).base_url
 
 
 __all__ = ["ONBOARD_USAGE", "onboard"]

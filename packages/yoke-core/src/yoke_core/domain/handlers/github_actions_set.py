@@ -20,7 +20,7 @@ never reflects a rejected input value back to the caller.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Type
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -28,6 +28,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
+)
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_SECRETS_WRITE_PERMISSION_LEVELS,
+    GITHUB_VARIABLES_WRITE_PERMISSION_LEVELS,
 )
 
 
@@ -38,7 +42,11 @@ class SecretSetRequest(BaseModel):
         ..., min_length=1,
         description="Secret value; never logged, never echoed in responses.",
     )
-    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
+    project: str = Field(
+        ...,
+        min_length=1,
+        description="Project capability owning the GitHub App repo binding.",
+    )
 
 
 class SecretSetResponse(BaseModel):
@@ -51,7 +59,11 @@ class VariableSetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     name: str = Field(..., min_length=1, description="Actions variable name.")
     value: str = Field(..., description="Variable value (non-secret plaintext).")
-    project: str = Field("yoke", description="Project capability owning the GitHub App repo binding.")
+    project: str = Field(
+        ...,
+        min_length=1,
+        description="Project capability owning the GitHub App repo binding.",
+    )
 
 
 class VariableSetResponse(BaseModel):
@@ -100,6 +112,8 @@ def _validate_and_resolve(
     request: FunctionCallRequest,
     model: Type[BaseModel],
     function_id: str,
+    *,
+    required_permissions: Mapping[str, str],
 ) -> Tuple[Optional[Any], Optional[str], Optional[HandlerOutcome]]:
     """Shared envelope/payload/auth gate for both set handlers.
 
@@ -107,6 +121,27 @@ def _validate_and_resolve(
     ``payload``/``error_outcome`` is set; ``token`` accompanies a
     successful payload.
     """
+    payload, resolved, error = _validate_and_resolve_auth(
+        request,
+        model,
+        function_id,
+        required_permissions=required_permissions,
+    )
+    if error is not None:
+        return None, None, error
+    assert resolved is not None
+    return payload, resolved.token, None
+
+
+def _validate_and_resolve_auth(
+    request: FunctionCallRequest,
+    model: Type[BaseModel],
+    function_id: str,
+    *,
+    required_permissions: Mapping[str, str],
+    missing_permission_error: HandlerOutcome | None = None,
+) -> Tuple[Optional[Any], Optional[Any], Optional[HandlerOutcome]]:
+    """Validate a GitHub handler request and retain resolved auth metadata."""
     if request.target.kind != "global":
         return None, None, _bad_request(
             f"target.kind must be 'global' ({function_id} has no item binding)",
@@ -126,24 +161,43 @@ def _validate_and_resolve(
         )
 
     from yoke_core.domain.project_github_auth import (
+        MissingPermission,
         ProjectGithubAuthError,
         repair_command_hint,
         resolve_project_github_auth,
     )
 
     try:
-        resolved = resolve_project_github_auth(payload.project)
+        resolved = resolve_project_github_auth(
+            payload.project,
+            required_permissions=required_permissions,
+        )
+    except MissingPermission as exc:
+        if missing_permission_error is not None:
+            return None, None, missing_permission_error
+        return None, None, _auth_failed(
+            f"{exc.code}: {exc}",
+            repair_hint=repair_command_hint(exc, payload.project),
+        )
     except ProjectGithubAuthError as exc:
         return None, None, _auth_failed(
             f"{exc.code}: {exc}",
             repair_hint=repair_command_hint(exc, payload.project),
         )
-    return payload, resolved.token, None
+    if repo is not None and repo.casefold() != resolved.repo.casefold():
+        return None, None, _bad_request(
+            f"repo must match project binding {resolved.repo!r}",
+            jsonpath="$.payload.repo",
+        )
+    return payload, resolved, None
 
 
 def handle_secret_set(request: FunctionCallRequest) -> HandlerOutcome:
     payload, token, err = _validate_and_resolve(
-        request, SecretSetRequest, "github_actions.secret.set",
+        request,
+        SecretSetRequest,
+        "github_actions.secret.set",
+        required_permissions=GITHUB_SECRETS_WRITE_PERMISSION_LEVELS,
     )
     if err is not None:
         return err
@@ -167,7 +221,10 @@ def handle_secret_set(request: FunctionCallRequest) -> HandlerOutcome:
 
 def handle_variable_set(request: FunctionCallRequest) -> HandlerOutcome:
     payload, token, err = _validate_and_resolve(
-        request, VariableSetRequest, "github_actions.variable.set",
+        request,
+        VariableSetRequest,
+        "github_actions.variable.set",
+        required_permissions=GITHUB_VARIABLES_WRITE_PERMISSION_LEVELS,
     )
     if err is not None:
         return err

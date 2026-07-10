@@ -52,7 +52,7 @@ __all__ = [
 
 GITHUB_ACTIONS_CHECK_CI_USAGE = (
     "yoke github-actions check-ci <repo-slug> <workflow-file> "
-    "[--branch BRANCH] [--wait] [--timeout SEC] [--project P] "
+    "[--branch BRANCH] [--wait] [--timeout SEC] --project P "
     "[--session-id S] [--json]"
 )
 
@@ -92,8 +92,8 @@ def github_actions_check_ci(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--project", default="yoke",
-        help="Project capability owning the GitHub App repo binding (default: yoke).",
+        "--project", required=True,
+        help="Project capability owning the GitHub App repo binding.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -136,7 +136,7 @@ def _default_timeout_seconds() -> int:
 GITHUB_ACTIONS_SECRET_SET_USAGE = (
     "yoke github-actions secret set <repo-slug> <secret-name> "
     "[VALUE | --value-file PATH | --value-stdin] "
-    "[--project P] [--session-id S] [--json]"
+    "--project P [--session-id S] [--json]"
 )
 
 
@@ -146,8 +146,8 @@ def _add_repo_name_project(
     parser.add_argument("repo", help="GitHub repo slug, e.g. upyoke/yoke.")
     parser.add_argument("name", help=f"Actions {noun} name, e.g. {example}.")
     parser.add_argument(
-        "--project", default="yoke",
-        help="Project capability owning the GitHub App repo binding (default: yoke).",
+        "--project", required=True,
+        help="Project capability owning the GitHub App repo binding.",
     )
 
 
@@ -240,7 +240,7 @@ def _read_actions_secret_file(path: str) -> str:
 
 GITHUB_ACTIONS_VARIABLE_SET_USAGE = (
     "yoke github-actions variable set <repo-slug> <variable-name> "
-    "--value VALUE [--project P] [--session-id S] [--json]"
+    "--value VALUE --project P [--session-id S] [--json]"
 )
 
 
@@ -289,7 +289,7 @@ def github_actions_variable_set(args: List[str]) -> int:
 
 GITHUB_ACTIONS_VARIABLE_GET_USAGE = (
     "yoke github-actions variable get <repo-slug> <variable-name> "
-    "[--project P] [--session-id S] [--json]"
+    "--project P [--session-id S] [--json]"
 )
 
 

@@ -87,7 +87,7 @@ def _run_hc(fn, conn=None, **kw):
 
 def _auth(project: str = "yoke", repo: str = "upyoke/yoke") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=repo, token="t", env={"GH_TOKEN": "t"},
+        project=project, repo=repo, token="t",
     )
 
 

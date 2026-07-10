@@ -14,6 +14,10 @@ from typing import Any, Dict, List, Optional
 from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_rows
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.project_github_capability_settings import (
+    normalize_github_capability_type,
+)
+from yoke_core.domain.project_github_auth_models import GITHUB_CAPABILITY_TYPE
 from yoke_core.domain.projects_restart_schema import _INIT_TABLES_SQL
 from yoke_core.domain.projects_seed_data import seed_all
 from yoke_core.domain.retired_schema_registry import guard_add_column
@@ -100,6 +104,8 @@ def _migrate_config_split(conn) -> None:
 
     for row in rows:
         proj, ctype, config_str = row["project_id"], row["type"], row["settings"]
+        if normalize_github_capability_type(str(ctype)) == GITHUB_CAPABILITY_TYPE:
+            continue
         try:
             config = json.loads(config_str)
         except json.JSONDecodeError:

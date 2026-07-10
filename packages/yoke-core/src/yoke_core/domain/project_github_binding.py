@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional
+from typing import Any, Callable, Optional
+
+from yoke_contracts.github_origin import (
+    GitHubApiOriginError,
+    validate_github_api_endpoint,
+)
 
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+from yoke_core.domain.github_app_user_verification import (
+    VerifiedProjectGitHubBinding,
+    verify_project_github_binding,
+)
 from yoke_core.domain.project_github_binding_payload import (
-    REQUIRED_AUTOMATION_PERMISSIONS,
     automation_status,
     binding_payload,
     installation_payload,
@@ -15,31 +23,32 @@ from yoke_core.domain.project_github_binding_payload import (
     permission_status,
     permissions_text,
 )
-from yoke_core.domain.project_identity import resolve_project
-
-
-BINDING_ACTIVE = "active"
-BINDING_PENDING = "pending"
-BINDING_UNAVAILABLE = "unavailable"
-BINDING_STATUS_VALUES = frozenset({
+from yoke_core.domain.project_github_binding_persistence import (
+    InstallationOriginConflict,
+    ProjectGithubBindingError,
+    RepositoryBindingConflict,
+    clean_optional,
+    clean_required,
+    persist_project_binding,
+    persist_verified_installation,
+)
+from yoke_core.domain.project_github_binding_state import (
     BINDING_ACTIVE,
     BINDING_PENDING,
+    BINDING_STATUS_VALUES,
     BINDING_UNAVAILABLE,
-})
-
-INSTALLATION_ACTIVE = "active"
-INSTALLATION_PENDING = "pending"
-INSTALLATION_SUSPENDED = "suspended"
-INSTALLATION_DELETED = "deleted"
-INSTALLATION_STATUS_VALUES = frozenset({
     INSTALLATION_ACTIVE,
-    INSTALLATION_PENDING,
-    INSTALLATION_SUSPENDED,
     INSTALLATION_DELETED,
-})
-
-class ProjectGithubBindingError(ValueError):
-    """Raised when GitHub App binding state cannot be read or written."""
+    INSTALLATION_PENDING,
+    INSTALLATION_STATUS_VALUES,
+    INSTALLATION_SUSPENDED,
+    binding_persistence_state,
+    refresh_attached_project_bindings,
+)
+from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.project_github_capability_settings import (
+    build_github_capability_settings,
+)
 
 
 def _p(conn: Any) -> str:
@@ -50,41 +59,43 @@ def cmd_bind_project_repo(
     project: str,
     *,
     installation_id: str,
-    account_id: str,
-    account_login: str,
-    account_type: str,
+    repository_id: str,
     github_repo: str,
-    repository_id: Optional[str] = None,
-    default_branch: Optional[str] = None,
-    repository_selection: str = "selected",
-    permissions: Optional[Mapping[str, Any]] = None,
-    installation_status: str = INSTALLATION_ACTIVE,
-    binding_status: str = BINDING_ACTIVE,
-    last_verified_at: Optional[str] = None,
-    last_error: Optional[str] = None,
+    expected_api_url: str,
+    github_user_access_token: str,
+    db_path: Optional[str] = None,
+    conn: Optional[Any] = None,
+    verifier: Callable[..., VerifiedProjectGitHubBinding] | None = None,
+) -> dict[str, Any]:
+    """Verify user-authorized GitHub metadata, then persist the binding."""
+    selected_verifier = verifier or verify_project_github_binding
+    verified = selected_verifier(
+        installation_id=installation_id,
+        repository_id=repository_id,
+        expected_github_repo=github_repo,
+        expected_api_url=expected_api_url,
+        github_user_access_token=github_user_access_token,
+    )
+    return _store_verified_project_repo_binding(
+        project,
+        verified=verified,
+        db_path=db_path,
+        conn=conn,
+    )
+
+
+def _store_verified_project_repo_binding(
+    project: str,
+    *,
+    verified: VerifiedProjectGitHubBinding,
     db_path: Optional[str] = None,
     conn: Optional[Any] = None,
 ) -> dict[str, Any]:
-    """Bind a Yoke project to a GitHub App installation repository."""
-    installation_key = _clean_required(installation_id, "installation_id")
-    account_id_clean = _clean_required(account_id, "account_id")
-    account_login_clean = _clean_required(account_login, "account_login")
-    account_type_clean = _clean_required(account_type, "account_type")
-    repo = normalize_github_repo(github_repo)
-    if not repo:
-        raise ProjectGithubBindingError(
-            "github_repo must be a GitHub owner/repo or clone URL"
-        )
-    installation_status = _validate_value(
-        installation_status,
-        "installation_status",
-        INSTALLATION_STATUS_VALUES,
-    )
-    binding_status = _validate_value(
-        binding_status,
-        "binding_status",
-        BINDING_STATUS_VALUES,
-    )
+    """Persist metadata produced by ``verify_project_github_binding`` only."""
+    installation_key = clean_required(verified.installation_id, "installation_id")
+    repo = str(verified.github_repo or "").strip().strip("/")
+    if not normalize_github_repo(repo):
+        raise ProjectGithubBindingError("verified GitHub repository is invalid")
     owns_conn = conn is None
     if owns_conn:
         conn = connect(db_path)
@@ -94,73 +105,98 @@ def cmd_bind_project_repo(
         assert ident is not None
         now = iso8601_now()
         p = _p(conn)
-        selected_permissions = permissions_text(permissions)
-        conn.execute(
-            "INSERT INTO github_app_installations "
-            "(installation_id, account_id, account_login, account_type, "
-            "repository_selection, permissions, status, last_verified_at, "
-            "last_error, created_at, updated_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-            "ON CONFLICT(installation_id) DO UPDATE SET "
-            "account_id=EXCLUDED.account_id, "
-            "account_login=EXCLUDED.account_login, "
-            "account_type=EXCLUDED.account_type, "
-            "repository_selection=EXCLUDED.repository_selection, "
-            "permissions=EXCLUDED.permissions, "
-            "status=EXCLUDED.status, "
-            "last_verified_at=EXCLUDED.last_verified_at, "
-            "last_error=EXCLUDED.last_error, "
-            "updated_at=EXCLUDED.updated_at",
-            (
-                installation_key,
-                account_id_clean,
-                account_login_clean,
-                account_type_clean,
-                _clean_optional(repository_selection) or "selected",
-                selected_permissions,
-                installation_status,
-                _clean_optional(last_verified_at),
-                _clean_optional(last_error),
-                now,
-                now,
-            ),
+        selected_permissions = permissions_text(verified.permissions)
+        installation_status = clean_required(
+            verified.installation_status, "installation_status",
         )
-        conn.execute(
-            "INSERT INTO project_github_repo_bindings "
-            "(project_id, installation_id, repository_id, github_repo, "
-            "default_branch, status, permissions, last_verified_at, last_error, "
-            "created_at, updated_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-            "ON CONFLICT(project_id) DO UPDATE SET "
-            "installation_id=EXCLUDED.installation_id, "
-            "repository_id=EXCLUDED.repository_id, "
-            "github_repo=EXCLUDED.github_repo, "
-            "default_branch=EXCLUDED.default_branch, "
-            "status=EXCLUDED.status, "
-            "permissions=EXCLUDED.permissions, "
-            "last_verified_at=EXCLUDED.last_verified_at, "
-            "last_error=EXCLUDED.last_error, "
-            "updated_at=EXCLUDED.updated_at",
-            (
-                ident.id,
-                installation_key,
-                _clean_optional(repository_id),
-                repo,
-                _clean_optional(default_branch),
-                binding_status,
-                selected_permissions,
-                _clean_optional(last_verified_at),
-                _clean_optional(last_error),
-                now,
-                now,
-            ),
+        if installation_status not in INSTALLATION_STATUS_VALUES:
+            raise ProjectGithubBindingError(
+                f"invalid verified installation status: {installation_status}"
+            )
+        permissions_info = permission_status(verified.permissions)
+        persistence = binding_persistence_state(
+            installation_status, str(permissions_info.get("status") or "unknown"),
         )
+        repository_key = clean_required(verified.repository_id, "repository_id")
+        try:
+            api_url = validate_github_api_endpoint(verified.api_url).base_url
+        except GitHubApiOriginError as exc:
+            raise ProjectGithubBindingError(
+                "verified GitHub API URL is invalid"
+            ) from exc
+        capability_settings = build_github_capability_settings(
+            conn,
+            ident.id,
+            github_repo=repo,
+            installation_id=installation_key,
+            repository_id=repository_key,
+            api_url=api_url,
+            permissions=verified.permissions,
+        )
+        try:
+            persist_verified_installation(
+                conn,
+                placeholder=p,
+                installation_id=installation_key,
+                api_url=api_url,
+                account_id=clean_required(verified.account_id, "account_id"),
+                account_login=clean_required(
+                    verified.account_login, "account_login",
+                ),
+                account_type=clean_required(
+                    verified.account_type, "account_type",
+                ),
+                repository_selection=(
+                    clean_optional(verified.repository_selection) or "selected"
+                ),
+                permissions=selected_permissions,
+                status=installation_status,
+                verified_at=now,
+                last_error=persistence.installation_error,
+            )
+        except InstallationOriginConflict as exc:
+            raise ProjectGithubBindingError(
+                "GitHub App installation is already registered for a different "
+                "GitHub API origin; use the matching control plane or reconnect "
+                "the installation"
+            ) from exc
+        refresh_attached_project_bindings(
+            conn,
+            installation_id=installation_key,
+            permissions=selected_permissions,
+            persistence=persistence,
+            verified_at=now,
+        )
+        try:
+            persist_project_binding(
+                conn,
+                placeholder=p,
+                project_id=ident.id,
+                installation_id=installation_key,
+                repository_id=repository_key,
+                api_url=api_url,
+                github_repo=repo,
+                default_branch=clean_optional(verified.default_branch),
+                status=persistence.binding_status,
+                permissions=selected_permissions,
+                verified_at=now,
+                last_error=persistence.binding_error,
+            )
+        except RepositoryBindingConflict as exc:
+            raise ProjectGithubBindingError(
+                "GitHub App repository is already bound to another project; "
+                "unbind it there before retrying"
+            ) from exc
         conn.execute(
             f"UPDATE projects SET github_repo={p}, "
-            f"default_branch=COALESCE({p}, default_branch) WHERE id={p}",
-            (repo, _clean_optional(default_branch), ident.id),
+            f"default_branch=COALESCE({p}, default_branch), "
+            f"github_sync_mode={p} "
+            f"WHERE id={p}",
+            (
+                repo, clean_optional(verified.default_branch),
+                persistence.sync_mode, ident.id,
+            ),
         )
-        capability_settings = _merged_github_capability_settings(conn, ident.id)
         conn.execute(
             "INSERT INTO project_capabilities "
             "(project_id, type, settings, created_at) "
@@ -256,7 +292,7 @@ def cmd_project_github_binding_status(
         binding_info = binding_payload(binding)
         installation_info = installation_payload(installation)
         permissions_info = permission_status(
-            binding_info.get("permissions", {}) if binding_info else {}
+            installation_info.get("permissions", {}) if installation_info else {}
         )
         automation_info = automation_status(
             binding_info,
@@ -286,51 +322,6 @@ def cmd_project_github_binding_status(
             conn.close()
 
 
-def _clean_required(value: Any, label: str) -> str:
-    cleaned = str(value or "").strip()
-    if not cleaned:
-        raise ProjectGithubBindingError(f"{label} is required")
-    return cleaned
-
-
-def _clean_optional(value: Any) -> Optional[str]:
-    if value is None:
-        return None
-    cleaned = str(value).strip()
-    return cleaned if cleaned else None
-
-
-def _validate_value(value: Any, label: str, accepted: frozenset[str]) -> str:
-    cleaned = _clean_required(value, label)
-    if cleaned not in accepted:
-        raise ProjectGithubBindingError(
-            f"{label} must be one of {sorted(accepted)}, got {value!r}"
-        )
-    return cleaned
-
-
-def _merged_github_capability_settings(conn: Any, project_id: int) -> dict[str, Any]:
-    row = query_one(
-        conn,
-        f"SELECT COALESCE(settings, '{{}}') AS settings "
-        f"FROM project_capabilities WHERE project_id={_p(conn)} AND type={_p(conn)}",
-        (project_id, "github"),
-    )
-    settings: dict[str, Any] = {}
-    if row is not None:
-        try:
-            loaded = json_helper.loads_text(str(row["settings"] or "{}"))
-        except Exception:
-            loaded = {}
-        if isinstance(loaded, dict):
-            settings.update({str(key): value for key, value in loaded.items()})
-    settings.update({
-        "auth_model": "github_app",
-        "binding_table": "project_github_repo_bindings",
-    })
-    return settings
-
-
 __all__ = [
     "BINDING_ACTIVE",
     "BINDING_PENDING",
@@ -342,7 +333,6 @@ __all__ = [
     "INSTALLATION_STATUS_VALUES",
     "INSTALLATION_SUSPENDED",
     "ProjectGithubBindingError",
-    "REQUIRED_AUTOMATION_PERMISSIONS",
     "cmd_bind_project_repo",
     "cmd_project_github_binding_status",
     "cmd_unbind_project_repo",

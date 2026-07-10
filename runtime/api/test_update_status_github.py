@@ -23,6 +23,9 @@ from __future__ import annotations
 import io
 from unittest import mock
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import update_status
 from yoke_core.domain.gh_rest_transport import RestResponse
@@ -31,7 +34,7 @@ from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
 def _auth(project: str = "yoke", repo: str = "org/yoke") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=repo, token="t", env={"GH_TOKEN": "t"},
+        project=project, repo=repo, token="t",
     )
 
 
@@ -66,7 +69,7 @@ class TestGitHubLabelSync:
         with mock.patch(
             "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
             return_value=_auth(),
-        ), mock.patch(
+        ) as resolve_auth, mock.patch(
             "yoke_core.domain.update_status_github_sync.request_with_retry",
             side_effect=fake_req,
         ):
@@ -77,6 +80,10 @@ class TestGitHubLabelSync:
         # Label sync reads existing labels (GET) and creates / mutates (POST).
         assert "GET" in methods
         assert "POST" in methods
+        resolve_auth.assert_called_once_with(
+            "yoke",
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
 
 
 class TestGitHubCommentPost:
@@ -112,6 +119,22 @@ class TestGitHubCommentPost:
             c[0] == "POST" and c[1].endswith("/issues/123/comments")
             for c in calls
         )
+
+    def test_legacy_repo_projection_cannot_override_verified_binding(self):
+        err = io.StringIO()
+        with mock.patch(
+            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+            return_value=_auth(repo="org/verified"),
+        ), mock.patch(
+            "yoke_core.domain.update_status_github_sync.request_with_retry",
+        ) as request:
+            update_status._github_comment_post(
+                "123", "planned", "implementing", "",
+                ["-R", "org/stale"], "yoke", stderr=err,
+            )
+
+        request.assert_not_called()
+        assert "cannot resolve verified GitHub target" in err.getvalue()
 
 
 class TestGitHubClose:
@@ -245,6 +268,24 @@ class TestEpicCheckbox:
         assert "DRY-RUN" in out.getvalue()
         # Dry-run must not dispatch any REST call.
         assert not called
+
+    def test_checkbox_rejects_mismatched_repo_projection(self, test_db):
+        insert_item(test_db, id=42, title="Epic", type="epic", github_issue="#100")
+        err = io.StringIO()
+
+        with mock.patch(
+            "yoke_core.domain.update_status_epic_checkbox.resolve_project_github_auth",
+            return_value=_auth(repo="org/verified"),
+        ), mock.patch(
+            "yoke_core.domain.update_status_epic_checkbox.request_with_retry",
+        ) as request:
+            update_status._update_epic_checkbox(
+                test_db, "42", "1", "reviewed-implementation", "#200",
+                ["-R", "org/stale"], "yoke", stderr=err,
+            )
+
+        request.assert_not_called()
+        assert "does not match the verified binding" in err.getvalue()
 
 
 # ---------------------------------------------------------------------------

@@ -33,10 +33,8 @@ from yoke_core.domain import (
     connected_env_readiness,
     db_backend,
     gh_rest_transport,
-    projects,
     yoke_connected_env,
 )
-from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from yoke_core.domain.cloud_db_secret_dsn import DB_SECRET_ARN_ENV
 from yoke_core.domain.render_body import build_body
 from yoke_contracts.machine_config import runtime as machine_runtime
@@ -46,13 +44,16 @@ from yoke_cli.config.local_universe_setup import LOCAL_ENV
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_schema
+from runtime.api.engines.resync_local_mode_test_support import (
+    PROJECT_REPO,
+    local_user_authorization,
+    read_github_issue,
+    seed_project_github_binding,
+)
 
 # The user's own GitHub App auth token for the local universe — a request
 # authenticated with it proves resolution came from that universe.
 UNIVERSE_ONLY_TOKEN = "ghs_local_universe_only_token"
-
-# Repo the fixture schema seeds on the yoke project row.
-PROJECT_REPO = "upyoke/yoke"
 
 # Issue number the fake GitHub "creates" during repair.
 CREATED_ISSUE_NUMBER = 555
@@ -128,8 +129,8 @@ def local_universe(tmp_path, monkeypatch):
     """A disposable Postgres universe reached only via machine config.
 
     Seeds the universe the way local mode holds it — full fixture schema,
-    a ``github`` capability row, and the user's own token as a
-    ``capability_secrets`` row — then removes every ambient DSN binding so
+    a verified GitHub App repository binding, but no repository credential.
+    It then removes every ambient DSN binding so
     the ONLY route to the universe is the machine config's ``local``
     connection (transport ``local-postgres``, dsn_file credential).
     """
@@ -148,20 +149,10 @@ def local_universe(tmp_path, monkeypatch):
             conn.execute(
                 "UPDATE projects SET github_repo = '' WHERE slug <> 'yoke'"
             )
+            seed_project_github_binding(conn, UNIVERSE_ONLY_TOKEN)
             conn.commit()
         finally:
             conn.close()
-
-        # The github capability + the user's own token, written through the
-        # canonical capability surfaces into the universe DB.
-        base = projects.cmd_capability_get_settings("yoke", "github")
-        projects.cmd_capability_set_settings(
-            "yoke", "github", "{}",
-            base_settings_json=base, create=base is None,
-        )
-        projects.cmd_capability_set_secret(
-            "yoke", "github", "token", UNIVERSE_ONLY_TOKEN, source="literal",
-        )
 
         # Machine config: ONLY the local connection, authored through the
         # same writer `yoke init --local` uses. Point the config-file env at
@@ -182,7 +173,6 @@ def local_universe(tmp_path, monkeypatch):
         monkeypatch.delenv(db_backend.PG_DSN_ENV, raising=False)
         monkeypatch.delenv(db_backend.PG_DSN_FILE_ENV, raising=False)
         monkeypatch.delenv(DB_SECRET_ARN_ENV, raising=False)
-        monkeypatch.delenv("GH_TOKEN", raising=False)
         monkeypatch.delenv(yoke_connected_env.DISABLE_ENV, raising=False)
         monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
         connected_env_readiness.reset_cache()
@@ -223,47 +213,6 @@ def _seed_item(universe, item_id: int, github_issue) -> str:
     return body
 
 
-def _read_github_issue(universe, item_id: int):
-    conn = pg_testdb.connect_test_database(universe.db_name)
-    try:
-        row = conn.execute(
-            "SELECT github_issue FROM items WHERE id = %s", (item_id,),
-        ).fetchone()
-    finally:
-        conn.close()
-    return row[0] if row is not None else None
-
-
-def _patch_project_github_auth(monkeypatch, universe) -> None:
-    def _resolve(project: str, **_kwargs) -> ProjectGithubAuth:
-        return ProjectGithubAuth(
-            project=project,
-            repo=PROJECT_REPO,
-            token=universe.token,
-            env={"GH_TOKEN": universe.token},
-            installation_id="12345",
-            token_source="github_app_installation",
-        )
-
-    for target in (
-        "yoke_core.engines.resync.resolve_project_github_auth",
-        "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-        "yoke_core.engines.resync_detect_linkage.resolve_project_github_auth",
-        "yoke_core.engines.resync_repair.resolve_project_github_auth",
-        "yoke_core.engines.resync_runtime.resolve_project_github_auth",
-        "yoke_core.domain.github_rest.resolve_project_github_auth",
-        "yoke_core.domain.backlog_github_body_title_sync.resolve_project_github_auth",
-        "yoke_core.domain.backlog_github_comments.resolve_project_github_auth",
-        "yoke_core.domain.backlog_github_done_sync.resolve_project_github_auth",
-        "yoke_core.domain.backlog_github_fetch.resolve_project_github_auth",
-        "yoke_core.domain.backlog_github_item_create.resolve_project_github_auth",
-        "yoke_core.domain.backlog_github_label_sync.resolve_project_github_auth",
-        "yoke_core.domain.backlog_github_state_sync.resolve_project_github_auth",
-        "yoke_core.domain.backlog_github_transport.resolve_project_github_auth",
-    ):
-        monkeypatch.setattr(target, _resolve)
-
-
 class TestLocalConnectionShape:
     def test_machine_config_holds_only_the_local_connection(
         self, local_universe,
@@ -279,22 +228,26 @@ class TestLocalConnectionShape:
         assert source["kind"] == machine_contract.CREDENTIAL_KIND_DSN_FILE
         assert "api_url" not in entry
 
-    def test_github_token_lives_only_in_the_universe_db(self, local_universe):
-        """The GitHub App auth is a capability_secrets row, never machine-config state."""
+    def test_binding_has_no_stored_repository_credential(self, local_universe):
         assert local_universe.token not in json.dumps(local_universe.config)
         conn = pg_testdb.connect_test_database(local_universe.db_name)
         try:
             row = conn.execute(
-                "SELECT value, source FROM capability_secrets cs "
-                "JOIN projects p ON p.id = cs.project_id "
-                "WHERE p.slug = 'yoke' AND cs.type = 'github' "
-                "AND cs.key = 'token'"
+                "SELECT b.github_repo, b.status, pc.settings, "
+                "(SELECT COUNT(*) FROM capability_secrets cs "
+                "WHERE cs.project_id = p.id AND cs.type = 'github') "
+                "FROM project_github_repo_bindings b "
+                "JOIN projects p ON p.id = b.project_id "
+                "JOIN project_capabilities pc ON pc.project_id = p.id "
+                "AND pc.type = 'github' WHERE p.slug = 'yoke'"
             ).fetchone()
         finally:
             conn.close()
         assert row is not None
-        assert row[0] == local_universe.token
-        assert row[1] == "literal"
+        assert row[0] == PROJECT_REPO
+        assert row[1] == "active"
+        assert local_universe.token not in row[2]
+        assert row[3] == 0
 
 
 class TestDetectUnderLocalDispatch:
@@ -305,7 +258,7 @@ class TestDetectUnderLocalDispatch:
 
         Zero drift end state: linkage pairs the seeded item against the
         mirrored GitHub issue, and every GitHub request carries the token
-        that exists only in the universe's capability_secrets row.
+        supplied only by the local dispatch authorization context.
         """
         item_id = 4501
         body = _seed_item(local_universe, item_id, "#100")
@@ -325,9 +278,8 @@ class TestDetectUnderLocalDispatch:
             issues=[gh_issue], graphql_bodies={100: body},
         )
         monkeypatch.setattr(gh_rest_transport, "urlopen", api)
-        _patch_project_github_auth(monkeypatch, local_universe)
-
-        rc = resync_mod.main(["--detect-only"])
+        with local_user_authorization(local_universe):
+            rc = resync_mod.main(["--detect-only"])
         out = capsys.readouterr().out
 
         assert rc == 0, out
@@ -358,15 +310,14 @@ class TestRepairUnderLocalDispatch:
         _seed_item(local_universe, item_id, None)
         api = _RecordingGithubApi()
         monkeypatch.setattr(gh_rest_transport, "urlopen", api)
-        _patch_project_github_auth(monkeypatch, local_universe)
-
-        rc = resync_mod.main(["--fix"])
+        with local_user_authorization(local_universe):
+            rc = resync_mod.main(["--fix"])
         out = capsys.readouterr().out
 
         assert rc == 0, out
         assert f"FIXED: YOK-{item_id}" in out
         assert (
-            _read_github_issue(local_universe, item_id)
+            read_github_issue(local_universe, item_id)
             == f"#{CREATED_ISSUE_NUMBER}"
         )
 

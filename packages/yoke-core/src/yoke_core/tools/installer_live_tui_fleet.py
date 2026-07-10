@@ -84,9 +84,7 @@ DISTRO_SSH_USERS = {
     "ubuntu-24.04": "ubuntu",
 }
 REMOTE_YOKE_TOKEN_PATH = "/tmp/yoke-api.token"
-REMOTE_GITHUB_TOKEN_PATH = "/tmp/yoke-github.token"
 LOCAL_TOKEN_STAGING_ROOT = Path("/tmp")
-LOCAL_GITHUB_TOKEN_PATH = LOCAL_TOKEN_STAGING_ROOT / "yoke-github.token"
 
 
 @dataclass(frozen=True)
@@ -99,8 +97,6 @@ class CommandResult:
 @dataclass(frozen=True)
 class StoredStateProfile:
     yoke_token_file: Path
-    github_token_file: Path | None = None
-    github_repo: str | None = None
 
 
 class CommandRunner:
@@ -182,8 +178,6 @@ def prepare_fleet(
     ssh_cidr: str | None = None,
     key_dir: Path | None = None,
     yoke_token_file: Path | None = None,
-    github_token_file: Path | None = None,
-    github_repo: str | None = None,
     runner: CommandRunner | None = None,
     public_ip_fetcher: Callable[[], str] | None = None,
 ) -> dict[str, object]:
@@ -191,8 +185,6 @@ def prepare_fleet(
     stored_state = _stored_state_profile(
         profile,
         yoke_token_file=yoke_token_file,
-        github_token_file=github_token_file,
-        github_repo=github_repo,
     )
     plan = build_fleet_plan(
         campaign_id=campaign_id,
@@ -483,8 +475,6 @@ def reset_fleet_host(
     target_profile: str,
     host_id: str | None = None,
     yoke_token_file: Path | None = None,
-    github_token_file: Path | None = None,
-    github_repo: str | None = None,
     runner: CommandRunner | None = None,
 ) -> dict[str, object]:
     selected_runner = runner or CommandRunner()
@@ -506,8 +496,6 @@ def reset_fleet_host(
         host=host,
         endpoint=endpoint,
         yoke_token_file=yoke_token_file,
-        github_token_file=github_token_file,
-        github_repo=github_repo,
     )
     _run_ssh(
         selected_runner,
@@ -577,8 +565,6 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--project", default=DEFAULT_PROJECT)
     prepare.add_argument("--key-dir", type=Path)
     prepare.add_argument("--yoke-token-file", type=Path)
-    prepare.add_argument("--github-token-file", type=Path)
-    prepare.add_argument("--github-repo")
     prepare.add_argument("--execute", action="store_true")
     prepare.add_argument("--json", action="store_true")
 
@@ -595,8 +581,6 @@ def build_parser() -> argparse.ArgumentParser:
     reset.add_argument("--host-id")
     reset.add_argument("--target-profile", default="bare-no-uv")
     reset.add_argument("--yoke-token-file", type=Path)
-    reset.add_argument("--github-token-file", type=Path)
-    reset.add_argument("--github-repo")
     reset.add_argument("--execute", action="store_true")
     reset.add_argument("--json", action="store_true")
     return parser
@@ -626,12 +610,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     if args.yoke_token_file
                     else None
                 ),
-                github_token_file=(
-                    args.github_token_file.expanduser()
-                    if args.github_token_file
-                    else None
-                ),
-                github_repo=args.github_repo,
             )
             return _emit(payload, args.json, f"Prepared fleet: {payload['ledger_path']}")
         if args.command == "fleet-cleanup":
@@ -672,12 +650,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     if args.yoke_token_file
                     else None
                 ),
-                github_token_file=(
-                    args.github_token_file.expanduser()
-                    if args.github_token_file
-                    else None
-                ),
-                github_repo=args.github_repo,
             )
             return _emit(payload, args.json, "Reset fleet host")
     except (OSError, RuntimeError, ValueError) as exc:
@@ -832,15 +804,6 @@ def _bootstrap_host(
             REMOTE_YOKE_TOKEN_PATH,
             ssh_user=ssh_user,
         )
-        if stored_state.github_token_file is not None:
-            _copy_file_to_remote(
-                runner,
-                key_path,
-                public_ip,
-                stored_state.github_token_file,
-                REMOTE_GITHUB_TOKEN_PATH,
-                ssh_user=ssh_user,
-            )
         _run_ssh(
             runner,
             key_path,
@@ -848,8 +811,6 @@ def _bootstrap_host(
             _stored_state_profile_command(
                 base_url=base_url,
                 endpoint=endpoint,
-                has_github_token=stored_state.github_token_file is not None,
-                github_repo=stored_state.github_repo,
             ),
             ssh_user=ssh_user,
             timeout=900,
@@ -904,11 +865,9 @@ def _stored_state_profile(
     profile: str,
     *,
     yoke_token_file: Path | None,
-    github_token_file: Path | None,
-    github_repo: str | None,
 ) -> StoredStateProfile | None:
     if profile != "prepared-stored-state":
-        if yoke_token_file is not None or github_token_file is not None or github_repo:
+        if yoke_token_file is not None:
             raise ValueError(
                 "stored-state token inputs require profile prepared-stored-state"
             )
@@ -918,16 +877,7 @@ def _stored_state_profile(
     resolved_yoke_token = yoke_token_file.expanduser()
     if not resolved_yoke_token.is_file():
         raise ValueError(f"yoke token file not found: {resolved_yoke_token}")
-    resolved_github_token = github_token_file.expanduser() if github_token_file else None
-    if resolved_github_token is not None and not resolved_github_token.is_file():
-        raise ValueError(f"github credential file not found: {resolved_github_token}")
-    if github_repo and resolved_github_token is None:
-        raise ValueError("--github-repo requires --github-token-file")
-    return StoredStateProfile(
-        yoke_token_file=resolved_yoke_token,
-        github_token_file=resolved_github_token,
-        github_repo=github_repo,
-    )
+    return StoredStateProfile(yoke_token_file=resolved_yoke_token)
 
 
 def _stored_state_profile_for_reset(
@@ -936,31 +886,16 @@ def _stored_state_profile_for_reset(
     host: Mapping[str, object],
     endpoint: str,
     yoke_token_file: Path | None,
-    github_token_file: Path | None,
-    github_repo: str | None,
 ) -> StoredStateProfile | None:
     if profile != "prepared-stored-state":
         return _stored_state_profile(
             profile,
             yoke_token_file=yoke_token_file,
-            github_token_file=github_token_file,
-            github_repo=github_repo,
         )
-    raw_stored_state = host.get("stored_state")
-    stored_state = raw_stored_state if isinstance(raw_stored_state, Mapping) else {}
-    wants_github = bool(stored_state.get("github_connection")) or (
-        github_token_file is not None
-    )
     resolved_yoke_token = yoke_token_file or _default_yoke_token_file(endpoint)
-    resolved_github_token = github_token_file
-    if resolved_github_token is None and wants_github:
-        resolved_github_token = LOCAL_GITHUB_TOKEN_PATH
-    resolved_github_repo = github_repo or str(stored_state.get("github_repo") or "")
     return _stored_state_profile(
         profile,
         yoke_token_file=resolved_yoke_token,
-        github_token_file=resolved_github_token,
-        github_repo=resolved_github_repo or None,
     )
 
 
@@ -976,13 +911,7 @@ def _host_metadata(
     if profile == "prepared-screen-term":
         return {"terminal_profile": "screen-256color"}
     if profile == "prepared-stored-state" and stored_state is not None:
-        stored_state_metadata: dict[str, object] = {
-            "yoke_connection": True,
-            "github_connection": stored_state.github_token_file is not None,
-        }
-        if stored_state.github_repo:
-            stored_state_metadata["github_repo"] = stored_state.github_repo
-        return {"stored_state": stored_state_metadata}
+        return {"stored_state": {"yoke_connection": True}}
     if profile == "prepared-no-git":
         return {"package_install": {"git": "missing", "sudo": "available"}}
     if profile == "prepared-no-git-no-sudo":
@@ -996,8 +925,6 @@ def _stored_state_profile_command(
     *,
     base_url: str,
     endpoint: str,
-    has_github_token: bool,
-    github_repo: str | None,
 ) -> str:
     yoke_bin = "\"$HOME/.local/bin/yoke\""
     config_path = "\"$HOME/.yoke/config.json\""
@@ -1016,23 +943,6 @@ def _stored_state_profile_command(
         "test -s \"$HOME/.yoke/config.json\"",
         f"test -f \"$HOME/.yoke/secrets/{endpoint}.token\"",
     ]
-    if has_github_token:
-        github_repo_arg = (
-            f" --github-repo {shlex.quote(github_repo)}" if github_repo else ""
-        )
-        parts.extend(
-            [
-                f"chmod 600 {REMOTE_GITHUB_TOKEN_PATH}",
-                (
-                    f"{yoke_bin} github connect --token-file "
-                    f"{REMOTE_GITHUB_TOKEN_PATH}{github_repo_arg} "
-                    f"--config {config_path} --json "
-                    ">/tmp/yoke-stored-state-github.json"
-                ),
-                f"rm -f {REMOTE_GITHUB_TOKEN_PATH}",
-                "test -f \"$HOME/.yoke/secrets/github.token\"",
-            ]
-        )
     return "; ".join(parts)
 
 

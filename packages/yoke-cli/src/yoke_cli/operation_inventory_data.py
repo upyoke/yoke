@@ -13,7 +13,6 @@ from yoke_cli.operation_inventory_model import (
     REASON_WRAPPED_BY_YOKE_CLI,
     WRAPPED,
     _p,
-    _q,
     _Row,
     _w,
 )
@@ -125,9 +124,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects capability has", "projects.capability"),
     _w("yoke projects capability-secret set", "projects.capability"),
     _w("yoke projects capability secret set", "projects.capability"),
-    _w("yoke projects github-binding bind", "projects.github_binding"),
-    _w("yoke projects github-binding unbind", "projects.github_binding"),
-    _w("yoke projects github-binding status", "projects.github_binding"),
+    _w("yoke projects github-binding bind", "projects.github_binding"), _w("yoke projects github-binding unbind", "projects.github_binding"), _w("yoke projects github-binding status", "projects.github_binding"),
     # checkout→project identity for the strategize/feed preambles — works over
     # https and from any cwd.
     _w("yoke projects checkout-context", "projects"),
@@ -277,7 +274,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # check does not expect a registered handler.
     _p("yoke aws exec", "aws", REASON_TOOL_SHAPED),
     _p("yoke github connect", "github", REASON_TOOL_SHAPED),
-    _p("yoke github status", "github", REASON_TOOL_SHAPED),
+    _p("yoke github disconnect", "github", REASON_TOOL_SHAPED), _p("yoke github status", "github", REASON_TOOL_SHAPED),
     _p("yoke dev setup", "dev", REASON_TOOL_SHAPED),
     _p("yoke dev db-admin setup", "dev", REASON_TOOL_SHAPED),
     _p("yoke dev path-snapshot-prewarm", "dev", REASON_TOOL_SHAPED),

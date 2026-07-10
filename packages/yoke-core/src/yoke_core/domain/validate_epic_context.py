@@ -68,13 +68,12 @@ def _normalize_item_id(epic_ref: str) -> str:
 
 def _resolve_epic(
     conn: Any, epic_ref: str
-) -> tuple[str, str, str]:
-    """Return (display_ref, canonical_epic_id, github_repo)."""
+) -> tuple[str, str]:
+    """Return ``(display_ref, canonical_epic_id)``."""
 
     display_ref = epic_ref
-    gh_repo = ""
     if not _is_numeric_ref(epic_ref):
-        return display_ref, epic_ref, gh_repo
+        return display_ref, epic_ref
 
     item_id = _normalize_item_id(epic_ref)
     resolved = _query_scalar(
@@ -85,20 +84,7 @@ def _resolve_epic(
     if not resolved:
         raise ValueError(f"Item {epic_ref} does not exist")
 
-    project = _query_scalar(
-        conn,
-        "SELECT p.slug FROM items i "
-        "LEFT JOIN projects p ON p.id = i.project_id "
-        f"WHERE i.id={_p(conn)} LIMIT 1",
-        (item_id,),
-    )
-    if project:
-        gh_repo = _query_scalar(
-            conn,
-            f"SELECT github_repo FROM projects WHERE slug={_p(conn)} LIMIT 1",
-            (project,),
-        ) or ""
-    return display_ref, resolved, gh_repo
+    return display_ref, resolved
 
 
 def _parse_timestamp(value: str) -> Optional[datetime]:

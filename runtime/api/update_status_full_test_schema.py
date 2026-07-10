@@ -9,6 +9,7 @@ limit.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.schema_ddl_github_app import _GITHUB_APP_DDL
 from yoke_core.domain.sql_json import json_get
 
 
@@ -225,6 +226,6 @@ CREATE TABLE IF NOT EXISTS deployment_flows (
     id TEXT PRIMARY KEY,
     project_id INTEGER
 );
-"""
+""" + _GITHUB_APP_DDL
 
 __all__ = ("_SCHEMA_DDL",)

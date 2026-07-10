@@ -11,6 +11,10 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.engines._doctor_hc_git_test_helpers import (
     _completed,
     _insert_item,
@@ -20,7 +24,6 @@ from yoke_core.engines._doctor_hc_git_test_helpers import (
     _seed_project,
 )
 from yoke_core.engines.doctor import (
-    RecordCollector,
     hc_orphaned_active_items,
     hc_wrong_repo_issues,
 )
@@ -38,7 +41,7 @@ class TestWrongRepoIssues:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth(
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_correct_repo(self, mock_gh_run, mock_resolve, mock_avail):
@@ -53,7 +56,7 @@ class TestWrongRepoIssues:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth(
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_wrong_repo(self, mock_gh_run, mock_resolve, mock_avail):
@@ -74,7 +77,7 @@ class TestWrongRepoIssues:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth("upyoke/yoke"))
+           side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_yoke_only_items_skipped(self, mock_gh_run, mock_resolve, mock_avail):
         """T5: Same-repo Yoke rows are filtered before any REST call.
@@ -94,7 +97,7 @@ class TestWrongRepoIssues:
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth(
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_auth_resolved_once_per_distinct_project(self, mock_gh_run, mock_resolve, mock_avail):
@@ -127,12 +130,17 @@ class TestWrongRepoIssues:
         resolved_projects = [c.args[0] for c in mock_resolve.call_args_list]
         assert resolved_projects.count("yoke") == 1
         assert resolved_projects.count("buzz") == 1
+        assert all(
+            call.kwargs["required_permissions"]
+            is GITHUB_ISSUES_READ_PERMISSION_LEVELS
+            for call in mock_resolve.call_args_list
+        )
         # Only the 4 buzz rows reach the REST call — yoke rows skip.
         assert mock_gh_run.call_count == 4
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None: _auth(
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(
                "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_per_project_iteration(self, mock_gh_run, mock_resolve, mock_avail):
@@ -148,11 +156,51 @@ class TestWrongRepoIssues:
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
 
+    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+           side_effect=lambda project, db_path=None, **_kwargs: _auth(
+               "upyoke/yoke" if project == "yoke" else "verified-org/buzz"))
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    def test_verified_binding_overrides_stale_project_projection(
+        self, mock_issue, mock_resolve, mock_available,
+    ):
+        conn = _make_conn()
+        _seed_project(conn, "buzz", github_repo="stale-org/stale-repo")
+        _insert_item(
+            conn, 701, "Buzz item", project="buzz", type="issue",
+            status="implementing", github_issue="#91",
+        )
+        mock_issue.return_value = _completed(stdout="OPEN\n")
+
+        rec = _run_hc(hc_wrong_repo_issues, conn)
+
+        assert _result(rec).result == "PASS"
+        assert mock_issue.call_args.kwargs["repo"] == "verified-org/buzz"
+
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        return_value=None,
+    )
+    def test_fix_mode_requests_issues_write(self, mock_resolve, mock_available):
+        mock_resolve.return_value = _auth("upyoke/yoke")
+
+        rec = _run_hc(hc_wrong_repo_issues, fix=True)
+
+        assert _result(rec).result == "PASS"
+        assert (
+            mock_resolve.call_args.kwargs["required_permissions"]
+            is GITHUB_ISSUES_WRITE_PERMISSION_LEVELS
+        )
+
 
 def _auth(repo: str):
     """Build a ProjectGithubAuth stub for resolver patches."""
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
-    return ProjectGithubAuth(project="yoke", repo=repo, token="t", env={"GH_TOKEN": "t"})
+    return ProjectGithubAuth(project="yoke", repo=repo, token="t")
 
 
 class TestOrphanedActiveItems:

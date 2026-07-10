@@ -19,12 +19,9 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from yoke_core.domain import db_backend, gh_retry
-from yoke_core.domain.db_helpers import query_one, query_scalar
 from yoke_core.domain.project_github_auth import (
     InvalidToken,
-    MissingRepoMetadata,
     ProjectGithubAuthError,
-    resolve_project_github_auth,
 )
 
 # ---------------------------------------------------------------------------
@@ -93,22 +90,6 @@ def _is_dry_run() -> bool:
 # ---------------------------------------------------------------------------
 # GitHub auth / project resolution
 # ---------------------------------------------------------------------------
-
-
-def _gh_env(project: str) -> dict[str, str]:
-    """Resolve project's GH env via the canonical resolver.
-
-    Missing project metadata and resolver failures propagate as
-    ``ProjectGithubAuthError`` so status-sync callers fail closed before any
-    GitHub call is invoked with stale credentials.
-    """
-    if not project or project == "null":
-        raise MissingRepoMetadata(
-            project or "unknown",
-            "GitHub status sync requires an explicit project id",
-        )
-    resolved = resolve_project_github_auth(project)
-    return dict(resolved.env)
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +274,6 @@ __all__ = [
     "RETRY_DELAYS",
     "RETRY_MARKERS",
     "_emit_event",
-    "_gh_env",
     "_history_insert",
     "_is_dry_run",
     "_now_iso",

@@ -26,6 +26,7 @@ def _http_error(status: int, body: bytes) -> urllib.error.HTTPError:
 def _reset_env(monkeypatch):
     monkeypatch.setattr(t, "sleep", lambda _s: None)
     monkeypatch.delenv(fakes.FAKE_DIR_ENV, raising=False)
+    monkeypatch.delenv(t.GITHUB_APP_API_URL_ENV, raising=False)
     yield
 
 
@@ -55,6 +56,34 @@ def test_build_url_relative():
 def test_build_url_absolute_passthrough():
     req = t.RestRequest(method="GET", path="https://api.github.com/y")
     assert t._build_url(req) == "https://api.github.com/y"
+
+
+def test_build_url_rejects_absolute_cross_origin():
+    req = t.RestRequest(method="GET", path="https://attacker.example/y")
+    with pytest.raises(t.RestTransportError, match="crossed"):
+        t._build_url(req)
+
+
+def test_build_url_uses_context_bound_ghes_api():
+    from yoke_core.domain.project_github_auth import (
+        bind_local_github_user_token_provider,
+    )
+
+    with bind_local_github_user_token_provider(
+        lambda: "unused",
+        api_url="https://github.example/api/v3",
+    ):
+        assert t._build_url(t.RestRequest(method="GET", path="/user")) == (
+            "https://github.example/api/v3/user"
+        )
+        assert t._build_url(t.RestRequest(method="POST", path="/graphql")) == (
+            "https://github.example/api/graphql"
+        )
+        with pytest.raises(t.RestTransportError, match="crossed"):
+            t._build_url(t.RestRequest(
+                method="GET",
+                path="https://api.github.com/user",
+            ))
 
 
 def test_build_url_with_query():
@@ -149,3 +178,32 @@ def test_max_attempts_one_disables_retry(monkeypatch):
         )
 
     assert calls["n"] == 1
+
+
+def test_injected_transport_rejects_cross_origin_final_url(monkeypatch):
+    class RedirectedResponse:
+        status = 200
+        headers = {}
+
+        def geturl(self):
+            return "https://attacker.example/archive"
+
+        def read(self):
+            return b"{}"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+    def fake_urlopen(_request, timeout=None):
+        return RedirectedResponse()
+
+    monkeypatch.setattr(t, "urlopen", fake_urlopen)
+    with pytest.raises(t.RestTransportError, match="crossed"):
+        t.request_with_retry(
+            t.RestRequest(method="GET", path="/x"),
+            token="github-app-token",
+            max_attempts=1,
+        )

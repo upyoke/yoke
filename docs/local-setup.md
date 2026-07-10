@@ -32,8 +32,7 @@ on consent when missing). Everything else is deferred until it is needed:
 - `git`: needed only at the `yoke onboard` project step, and only for a
   create, clone, import, or local-checkout mode. Machine-only onboarding needs
   no git.
-- Optional: a Yoke GitHub App connection if this machine should run GitHub
-  product commands.
+- Optional: a Yoke GitHub App connection for GitHub product commands.
 
 Python is uv-provisioned, not a user prerequisite. Node.js, npm, and the
 Playwright browser runtime are deferred to first `yoke qa browser` use — see
@@ -83,13 +82,12 @@ reports; a conflicting existing `local` connection is only replaced with
 
 GitHub sync needs no server in any mode: sync executes wherever the
 engine dispatches. In local mode the engine dispatches in-process and
-authenticates through the Yoke GitHub App once a project is bound to an
-installed App repository.
+authenticates through the Yoke GitHub App once a project is bound to an installed App repository.
 
 The repo connection is optional per project: set
 `github_sync_mode=backlog_only` on a project row and its backlog stays
-DB-only — every issue-sync surface skips it and no GitHub App token is
-resolved. Full semantics, the flip commands, and the safe ordering for changing a
+DB-only — every issue-sync surface skips it and no GitHub App token is resolved.
+Full semantics, the flip commands, and the safe ordering for changing a
 project's `github_repo` live in [github-sync.md](github-sync.md).
 
 Manage the embedded server directly when needed:
@@ -173,13 +171,17 @@ Connect the Yoke GitHub App only when this machine should run GitHub product
 commands such as repository checks or product onboarding previews.
 
 ```bash
-yoke github connect
+yoke github connect --client-id <client-id> --app-slug <app-slug>
 yoke github status
 ```
+
+Before the first connection, register the GitHub App with **Device Flow** and **Expire user authorization tokens** enabled. Both switches are required: Yoke uses browser device authorization and stores one owner-only refreshable credential, not a pasted personal token. Configure Metadata and Checks read; and Issues, Pull requests, Contents, Actions, Workflows, Secrets, and Variables write. Installations must approve permission changes before status becomes ready.
 
 The machine connection records GitHub App authorization metadata.
 Project runtime authority comes from a project repository binding to an
 installed App repository.
+
+Administration is intentionally outside the baseline App grant. Repository creation, environment configuration, branch protection, and runner administration are skipped with an actionable GitHub settings link; enable any additional permission in the App registration and approve it on each affected installation before retrying that operation.
 
 ### 5. Set Up a Project
 
@@ -196,7 +198,7 @@ yoke project create ~/work/my-app \
   --github-repo owner/my-app \
   --default-branch main \
   --public-item-prefix APP \
-  --github-adoption skip \
+  --github-adoption backlog-only \
   --config ~/.yoke/config.json \
   --yes
 ```
@@ -210,7 +212,7 @@ yoke project import git@github.com:owner/my-app.git ~/work/my-app \
   --github-repo owner/my-app \
   --default-branch main \
   --public-item-prefix APP \
-  --github-adoption skip \
+  --github-adoption backlog-only \
   --config ~/.yoke/config.json \
   --yes
 ```
@@ -224,7 +226,7 @@ yoke onboard project ~/work/my-app \
   --github-repo owner/my-app \
   --default-branch main \
   --public-item-prefix APP \
-  --github-adoption skip \
+  --github-adoption backlog-only \
   --config ~/.yoke/config.json \
   --dry-run \
   --json
@@ -248,9 +250,11 @@ when the project already exists in the active env.
 ### 6. Project GitHub Adoption Choices
 
 When `--github-repo` is present, Yoke records the repository identity for
-code delivery. GitHub issue automation is enabled by binding the project to
-an installed Yoke GitHub App repository; use `--github-adoption skip` for
-backlog-only setup until that binding is available.
+code delivery. `--github-adoption app-binding` requires the repository to be
+present in the connected App authorization, verifies its installation and
+repository ids, stores the binding, and sets `github_sync_mode=enabled`.
+Use `--github-adoption backlog-only` to explicitly set `github_sync_mode=backlog_only`
+until a binding is available.
 
 Dry runs and JSON output include an `automation_preview` covering project
 writes plus GitHub labels, issue templates, pull request templates, Actions

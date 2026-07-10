@@ -112,13 +112,15 @@ def test_project_report_clones_yoke_repo_for_source_dev(
     tmp_path: Path, monkeypatch
 ) -> None:
     # F1: source-dev onboarding passes Yoke's own repo as the clone target + the
-    # machine GitHub credential, so a fresh folder is cloned (not git-init'd empty).
+    # short-lived GitHub App user access, so a fresh folder is cloned (not git-init'd empty).
     captured: dict = {}
     monkeypatch.setattr(
         onboard_project.project_onboard, "onboard_existing",
         lambda **kw: captured.update(kw) or {"ok": True},
     )
-    monkeypatch.setattr(onboard_project, "_machine_github_token", lambda cfg: "gh-tok")
+    monkeypatch.setattr(
+        onboard_project, "_github_user_access_token", lambda cfg: "gh-tok",
+    )
 
     onboard_project._project_report(
         config_path=tmp_path / "config.json",
@@ -131,9 +133,6 @@ def test_project_report_clones_yoke_repo_for_source_dev(
             "default_branch": "main",
             "public_item_prefix": "YOK",
         },
-        github_token=None,
-        github_token_file=None,
-        github_token_stdin_value=None,
         reuse=None,
         progress=None,
     )

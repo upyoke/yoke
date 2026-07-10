@@ -138,8 +138,6 @@ yoke/ # All Yoke state directories
 │ │ └── __main__.py # CLI: python3 -m yoke_core.board preview
 │ ├── requirements.txt # Pinned Python dependencies
 │ └── test_api.py # API test suite (pytest)
-├── tokens/ # Legacy machine token cache (gitignored)
-│ └── {project}.token # Retained only for pre-App local installs
 
 # .claude/ — Claude adapter compatibility files
 .claude/

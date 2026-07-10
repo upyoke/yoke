@@ -15,6 +15,9 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
@@ -88,7 +91,12 @@ def post_comment(
         if _bgs()._github_sync_skip(gh_project, "post-comment", conn=conn, out=stdout):
             return 0
         if not _bgs()._github_auth_available(gh_project):
-            return 0
+            print(
+                f"Error: project '{gh_project}' has no usable GitHub App auth "
+                "for post-comment",
+                file=stderr,
+            )
+            return 1
         colors = _label_colors()
 
         if not _bgs()._validate_issue_in_repo(
@@ -103,7 +111,10 @@ def post_comment(
             print(f"Warning: post_comment skipped for {item_ref} — repo mismatch", file=stderr)
             return 0
 
-        auth = resolve_project_github_auth(gh_project)
+        auth = resolve_project_github_auth(
+            gh_project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
 
         # Post comment
         github_rest.post_comment(

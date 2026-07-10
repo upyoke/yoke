@@ -15,7 +15,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         function_id="github_actions.check_ci",
         cli_invocation=(
             "yoke github-actions check-ci <owner/repo> "
-            "<workflow-file> --branch main"
+            "<workflow-file> --branch main --project <project>"
         ),
         notes=(
             "bearer-token main-branch CI advisory via gh_rest_transport; "
@@ -27,7 +27,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         function_id="github_actions.wait_run",
         cli_invocation=(
             "yoke github-actions wait-run <owner/repo> <run-id> "
-            "--timeout SEC"
+            "--timeout SEC --project <project>"
         ),
         notes=(
             "bearer-token workflow-run polling wrapper. The registered "
@@ -40,7 +40,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "YOKE_ENV=prod-db-admin yoke github-actions runners status "
             "<owner/repo> --required-label self-hosted --required-label "
             "Linux --required-label ARM64 --required-label "
-            "yoke-github-actions"
+            "yoke-github-actions --project <project>"
         ),
         notes=(
             "Read-only repo self-hosted-runner status and "
@@ -50,7 +50,10 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
     ),
     AdapterEntry(
         function_id="github_actions.secret.set",
-        cli_invocation="yoke github-actions secret set <owner/repo> <secret-name> VALUE",
+        cli_invocation=(
+            "yoke github-actions secret set <owner/repo> <secret-name> "
+            "VALUE --project <project>"
+        ),
         notes=(
             "Sealed-box repo-secret create-or-update via "
             "github_secrets_rest; direct VALUE is the default."
@@ -58,7 +61,10 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
     ),
     AdapterEntry(
         function_id="github_actions.variable.get",
-        cli_invocation="yoke github-actions variable get <owner/repo> <variable-name>",
+        cli_invocation=(
+            "yoke github-actions variable get <owner/repo> <variable-name> "
+            "--project <project>"
+        ),
         notes=(
             "Read-only repo-variable probe via github_variables_rest; "
             "exists=false when absent."
@@ -68,7 +74,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         function_id="github_actions.variable.set",
         cli_invocation=(
             "yoke github-actions variable set <owner/repo> "
-            "<variable-name> --value VALUE"
+            "<variable-name> --value VALUE --project <project>"
         ),
         notes="bearer-token repo-variable upsert via github_variables_rest.",
     ),

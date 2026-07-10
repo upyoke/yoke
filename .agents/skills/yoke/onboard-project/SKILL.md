@@ -86,14 +86,19 @@ yoke onboard checklist --run-id {run_id} \
 
 Ask only for unknowns the repo survey and install report cannot answer: product purpose, canonical project name/prefix, deployment environments, owned domains, required third-party credentials, compliance constraints, QA expectations, and first lifecycle target.
 
-For GitHub automation, ask for and record an explicit adoption choice before any project or GitHub write:
+For GitHub automation, ask for and record one explicit project mode before any
+project or GitHub write:
 
-- `temporary-only` — use the provided project GitHub token only for this adoption run; do not store it as project runtime authority.
-- `store-token` — adopt the provided token as an independently materialized project capability secret.
-- `different-token` — use a separate project GitHub token rather than any machine credential.
-- `skip` — do not configure GitHub automation during this adoption pass.
+- `app-binding` — bind the exact repository selected from the machine's GitHub
+  App installation access.
+- `backlog-only` — keep GitHub automation disabled until an App installation
+  can see the repository with the required permissions.
 
-Machine credentials used to reach Yoke are not project runtime authority and must never be promoted into the project's GitHub capability without the operator choosing `store-token` or `different-token`. Direct, file, and stdin token inputs are import methods only; project capability secrets are stored as Yoke-owned literal values.
+The operator authorizes the machine through `yoke github connect`; project onboarding never asks for, stores, or promotes a GitHub token. An App binding is active only when the selected repository belongs to a non-suspended
+installation and that installation has all required repository permissions.
+Otherwise preserve the verified binding as pending and keep the project in
+`backlog_only`. Administration permission is optional and only unlocks
+owner-scoped repository creation and other documented administrative setup.
 
 If answers are complete:
 
@@ -155,7 +160,7 @@ yoke onboard checklist --run-id {run_id} \
 
 Capabilities and secrets:
 
-Preview the project/GitHub automation write plan before applying any mutation. The preview must cover project writes plus GitHub labels, issue/PR templates, Actions variables/secrets, branch protection, and environment protection. Record the adoption choice and a redacted preview summary in checklist evidence.
+Preview the project/GitHub automation write plan before applying any mutation. The preview must cover project writes plus GitHub labels, issue/PR templates, Actions variables/secrets, branch protection, and environment protection. Record the binding mode, selected repository, installation, permission result, and a redacted preview summary in checklist evidence.
 
 ```bash
 yoke onboard project {project_root} --slug {project} --name "{project_name}" \
@@ -164,16 +169,18 @@ yoke onboard project {project_root} --slug {project} --name "{project_name}" \
   --config {config_path} --dry-run --json
 ```
 
-For `store-token` or `different-token`, import the project token through the project secret surface or the product onboarding command; do not describe file/stdin/direct as persisted source modes:
+Verify the machine App connection and project capabilities. GitHub authority is
+the project App binding plus control-plane installation-token minting; it is not
+a project capability secret:
 
 ```bash
-yoke projects capability has --project {project} --cap-type github --json
-yoke projects capability-secret set --project {project} --cap-type github --key token --value-stdin
+yoke github status --json
+yoke projects capability has --project {project} --cap-type aws-admin --json
 yoke projects capability-secret set --project {project} --cap-type aws-admin --key access_key_id --value-stdin
 yoke projects capability-secret set --project {project} --cap-type aws-admin --key secret_access_key --value-stdin
 yoke onboard checklist --run-id {run_id} \
   --row-status capability-setup=configured \
-  --evidence capability-setup="required capabilities checked; secrets imported by Yoke-owned secret surface"
+  --evidence capability-setup="GitHub App binding and required capabilities checked; non-GitHub secrets imported by Yoke-owned secret surface"
 ```
 
 Never print raw secret values. Record redacted evidence only.
@@ -210,7 +217,7 @@ Reread the checklist and verify configured rows are not merely assumed:
 ```bash
 yoke onboard checklist --run-id {run_id} --json
 yoke strategy doc list --project {project} --json
-yoke projects capability has --project {project} --cap-type github --json
+yoke github status --json
 yoke events emit --name ProjectOnboardingVerificationCompleted \
   --kind lifecycle --type project_onboarding --source-type agent \
   --project {project} --context '{"run_id":"{run_id}"}'

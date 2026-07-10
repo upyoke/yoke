@@ -4,6 +4,9 @@ Streaming primitive tests live in test_merge_worktree_post_streaming.py.
 Shared fixtures and helpers live in test_merge_worktree_full.py.
 """
 
+# The shared pytest fixture intentionally shares its name with test parameters.
+# ruff: noqa: F811
+
 import subprocess
 import sys
 import textwrap
@@ -16,7 +19,7 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.test_merge_worktree_full import (
     MergeEnv,
     SOURCE_PYTHONPATH,
-    merge_env,  # re-export so pytest recognises this fixture in the child module  # noqa: F401
+    merge_env as merge_env,
 )
 
 
@@ -33,7 +36,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _seed_project(conn, slug: str, repo_path: str) -> None:
+def _seed_project(conn, slug: str, checkout: Path, config_root: Path) -> None:
     p = _p(conn)
     conn.execute(
         "INSERT INTO projects (id, slug, name, created_at) "
@@ -45,8 +48,8 @@ def _seed_project(conn, slug: str, repo_path: str) -> None:
         (TEST_PROJECT_IDS[slug], slug, slug, NOW),
     )
     register_machine_checkout(
-        Path(repo_path) / ".yoke-test-config",
-        Path(repo_path),
+        config_root,
+        checkout,
         TEST_PROJECT_IDS[slug],
         create_checkout=False,
     )
@@ -66,7 +69,12 @@ class TestRunTestsStreaming:
         phase banner.
         """
         conn = connect_test_db(str(merge_env.db_path))
-        _seed_project(conn, "testproj", "/tmp/testproj")
+        _seed_project(
+            conn,
+            "testproj",
+            merge_env.tmpdir / "project-checkouts" / "testproj",
+            merge_env.tmpdir / "machine-config",
+        )
         conn.commit()
         conn.close()
 
@@ -130,7 +138,12 @@ class TestRunTestsStreaming:
         log line and runs nothing.
         """
         conn = connect_test_db(str(merge_env.db_path))
-        _seed_project(conn, "fullonly", "/tmp/fullonly")
+        _seed_project(
+            conn,
+            "fullonly",
+            merge_env.tmpdir / "project-checkouts" / "fullonly",
+            merge_env.tmpdir / "machine-config",
+        )
         conn.commit()
         conn.close()
 

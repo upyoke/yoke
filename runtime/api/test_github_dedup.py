@@ -49,17 +49,6 @@ def _make_db() -> Any:
         "UPDATE projects SET github_repo = %s WHERE id = %s",
         ("org/buzz", SEED_PROJECT_IDS["buzz"]),
     )
-    conn.execute(
-        "INSERT INTO project_capabilities (project_id, type, settings) "
-        "VALUES (%s, 'github', '{}') "
-        "ON CONFLICT(project_id, type) DO NOTHING",
-        (SEED_PROJECT_IDS["buzz"],),
-    )
-    conn.execute(
-        "INSERT INTO capability_secrets (project_id, type, key, source, value) "
-        "VALUES (%s, 'github', 'token', 'literal', %s)",
-        (SEED_PROJECT_IDS["buzz"], "ghs_buzz_test"),
-    )
     conn.commit()
     return pg_testdb.drop_database_on_close(conn, name)
 

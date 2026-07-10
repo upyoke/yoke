@@ -5,9 +5,9 @@ Companion to ``test_bootstrap_project.py`` /
 
 - Preflight PASSes with GitHub App auth only — no host ``gh`` probe anywhere in
   the run.
-- ``run_setup`` succeeds against the bearer-token REST transport (the
-  ``GET /user`` and ``PUT /environments/production`` calls) and
-  ``gh secret set`` remains the only ``gh`` shell-out.
+- ``run_setup`` succeeds against the bearer-token REST transport without
+  calling a user-only endpoint from an installation token. Environment writes
+  are skipped by default and require the optional Administration grant.
 - ``run_setup`` surfaces typed REST failure modes (missing GitHub App auth, 401,
   403 elevated scope) without inheriting host credentials.
 """
@@ -30,17 +30,20 @@ from yoke_core.domain.bootstrap_project_test_helpers import (
     setup_validation_ctx,
     write_fake_rendered_workflows,
 )
-from yoke_core.domain.project_github_auth import ProjectGithubAuth
+from yoke_core.domain.project_github_auth import MissingPermission, ProjectGithubAuth
 
 
-def _resolved_auth(project: str = "buzz") -> ProjectGithubAuth:
+def _resolved_auth(
+    project: str = "buzz", *, administration: bool = False,
+) -> ProjectGithubAuth:
+    token = "ghs_admin_token" if administration else "ghs_baseline_token"
     return ProjectGithubAuth(
         project=project,
         repo="example-org/buzz",
-        token="ghs_installation_token",
-        env={"GH_TOKEN": "ghs_installation_token"},
+        token=token,
         installation_id="12345",
         token_source="github_app_installation",
+        permissions={"administration": "write"} if administration else {},
     )
 
 
@@ -51,10 +54,21 @@ def _patch_preflight_auth(monkeypatch) -> None:
     )
 
 
-def _patch_setup_auth(monkeypatch) -> None:
+def _patch_setup_auth(monkeypatch, *, administration: bool = False) -> None:
+    def fake_resolve(project, **kwargs):
+        required = dict(kwargs.get("required_permissions") or {})
+        if required == {"secrets": "write"}:
+            return _resolved_auth(project)
+        if required:
+            assert required == {"administration": "write"}
+            if not administration:
+                raise MissingPermission(project, "Administration: write not granted")
+            return _resolved_auth(project, administration=True)
+        return _resolved_auth(project)
+
     monkeypatch.setattr(
         "yoke_core.domain.bootstrap_project_setup.resolve_project_github_auth",
-        lambda project, **_kw: _resolved_auth(project),
+        fake_resolve,
     )
 
 
@@ -84,9 +98,11 @@ def _fake_repo_public_key_b64() -> str:
     return base64.b64encode(bytes(private.public_key)).decode("ascii")
 
 
-def _install_setup_rest(monkeypatch) -> list[tuple[str, str]]:
-    """REST fake covering the canonical setup happy path: /user, public-key,
-    PUT secret, PUT environment."""
+def _install_setup_rest(
+    monkeypatch,
+    authorizations: list[tuple[str, str | None]] | None = None,
+) -> list[tuple[str, str]]:
+    """REST fake covering public-key, secret, and optional environment calls."""
     seen: list[tuple[str, str]] = []
     public_key_b64 = _fake_repo_public_key_b64()
 
@@ -94,8 +110,8 @@ def _install_setup_rest(monkeypatch) -> list[tuple[str, str]]:
         method = (getattr(request, "method", None) or request.get_method()).upper()
         path = request.full_url.split("api.github.com", 1)[-1]
         seen.append((method, path))
-        if method == "GET" and path == "/user":
-            return _FakeRestResponse(200, {"login": "tester", "id": 42})
+        if authorizations is not None:
+            authorizations.append((path, request.get_header("Authorization")))
         if method == "GET" and path.endswith("/actions/secrets/public-key"):
             return _FakeRestResponse(200, {"key_id": "kid-1", "key": public_key_b64})
         if method == "PUT" and "/actions/secrets/" in path:
@@ -150,10 +166,10 @@ def test_preflight_github_app_auth_only_success_no_host_gh_probe(
         assert "github auth resolved (canonical)" in out
 
 
-def test_setup_uses_github_app_auth_rest_for_user_and_env(
+def test_setup_skips_optional_environment_without_administration(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
-    """run_setup hits /user + PUT environments through gh_rest_transport."""
+    """Default App permissions avoid user-only and Administration endpoints."""
     with setup_validation_ctx(tmp_path) as (ctx, _, _):
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
@@ -163,14 +179,44 @@ def test_setup_uses_github_app_auth_rest_for_user_and_env(
 
         assert run_setup(ctx) == 0
         methods_paths = set(rest_calls)
-        assert ("GET", "/user") in methods_paths
-        assert any(
+        assert ("GET", "/user") not in methods_paths
+        assert not any(
             method == "PUT" and "/environments/production" in path
             for method, path in rest_calls
         )
         out = capsys.readouterr().out
-        assert "GitHub user: tester" in out
-        assert "Creating production environment... done" in out
+        assert "default Yoke GitHub App grant does not request Administration" in out
+        assert "Settings → Environments" in out
+
+
+def test_setup_creates_environment_with_optional_administration(
+    tmp_path: Path, monkeypatch, capsys,
+) -> None:
+    """An explicit Administration grant enables the environment mutation."""
+    with setup_validation_ctx(tmp_path) as (ctx, _, _):
+        monkeypatch.setattr(
+            "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
+        )
+        _patch_setup_auth(monkeypatch, administration=True)
+        authorizations: list[tuple[str, str | None]] = []
+        rest_calls = _install_setup_rest(monkeypatch, authorizations)
+
+        assert run_setup(ctx) == 0
+        assert ("GET", "/user") not in set(rest_calls)
+        assert any(
+            method == "PUT" and "/environments/production" in path
+            for method, path in rest_calls
+        )
+        assert all(
+            auth == "Bearer ghs_baseline_token"
+            for path, auth in authorizations
+            if "/actions/secrets" in path
+        )
+        assert [
+            auth for path, auth in authorizations
+            if "/environments/production" in path
+        ] == ["Bearer ghs_admin_token"]
+        assert "Creating production environment... done" in capsys.readouterr().out
 
 
 def test_setup_surfaces_401_when_github_auth_invalid(
@@ -181,7 +227,7 @@ def test_setup_surfaces_401_when_github_auth_invalid(
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
         )
-        _patch_setup_auth(monkeypatch)
+        _patch_setup_auth(monkeypatch, administration=True)
 
         def fake_urlopen(request, timeout):
             raise urllib.error.HTTPError(
@@ -212,17 +258,15 @@ def test_setup_surfaces_403_elevated_scope(
         monkeypatch.setattr(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
         )
-        _patch_setup_auth(monkeypatch)
+        _patch_setup_auth(monkeypatch, administration=True)
         public_key_b64 = _fake_repo_public_key_b64()
 
         def fake_urlopen(request, timeout):
-            # Secret operations succeed; /user succeeds; the environment write trips 403.
+            # Secret operations succeed; the optional environment write trips 403.
             if request.full_url.endswith("/actions/secrets/public-key"):
                 return _FakeRestResponse(200, {"key_id": "kid-1", "key": public_key_b64})
             if "/actions/secrets/" in request.full_url and request.get_method() == "PUT":
                 return _FakeRestResponse(204, b"")
-            if request.full_url.endswith("/user"):
-                return _FakeRestResponse(200, {"login": "tester", "id": 7})
             raise urllib.error.HTTPError(
                 url=request.full_url,
                 code=403,

@@ -13,6 +13,9 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
@@ -108,7 +111,10 @@ def close_issue(
             print(f"Warning: close_issue skipped for {item_ref} — repo mismatch", file=stderr)
             return 1
 
-        auth = resolve_project_github_auth(gh_project)
+        auth = resolve_project_github_auth(
+            gh_project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
 
         # Ensure status label is correct
         fields = _item_fields(item_pk, ["status"], conn=conn)
@@ -280,7 +286,12 @@ def _sync_flag_label(
         ):
             return 0
         if not _bgs()._github_auth_available(gh_project):
-            return 0
+            print(
+                f"Error: project '{gh_project}' has no usable GitHub App auth "
+                f"for sync-{log_name}-label",
+                file=stderr,
+            )
+            return 1
         if not _bgs()._validate_issue_in_repo(
             item_ref, str(issue_num), repo, project=gh_project, stderr=stderr,
         ):
@@ -290,7 +301,10 @@ def _sync_flag_label(
             )
             return 0
 
-        auth = resolve_project_github_auth(gh_project)
+        auth = resolve_project_github_auth(
+            gh_project,
+            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        )
         _label_rest.ensure_label(
             label, color, auth.repo, token=auth.token, description=description,
         )

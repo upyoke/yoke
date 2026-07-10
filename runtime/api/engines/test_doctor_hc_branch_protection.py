@@ -11,6 +11,9 @@ from typing import Any, Dict, List
 
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+)
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
@@ -19,8 +22,8 @@ from yoke_core.domain.gh_rest_transport import (
 )
 from yoke_core.domain.project_github_auth import (
     MissingCapability,
+    MissingRepoBinding,
     MissingRepoMetadata,
-    MissingToken,
     ProjectGithubAuth,
 )
 from yoke_core.engines import doctor_hc_branch_protection as mod
@@ -35,7 +38,6 @@ _AUTH = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
     token="ghs_synthetic_for_tests",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_synthetic_for_tests"},
 )
 
 
@@ -75,8 +77,15 @@ def _record(conn, *, project: str = "yoke") -> RecordCollector:
 
 
 def _patch_auth_ok(monkeypatch, auth: ProjectGithubAuth = _AUTH):
+    def _resolve(project, **kwargs):
+        assert (
+            kwargs["required_permissions"]
+            is GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS
+        )
+        return auth
+
     monkeypatch.setattr(
-        mod, "resolve_project_github_auth", lambda project, **kw: auth,
+        mod, "resolve_project_github_auth", _resolve,
     )
 
 
@@ -109,7 +118,7 @@ def _patch_rest_raises(monkeypatch, exc: Exception):
 
 @pytest.mark.parametrize(
     "error_cls",
-    [MissingCapability, MissingToken, MissingRepoMetadata],
+    [MissingCapability, MissingRepoBinding, MissingRepoMetadata],
 )
 def test_skip_on_missing_auth(monkeypatch, conn, events_sink, error_cls):
     _patch_auth_raises(monkeypatch, error_cls)

@@ -185,10 +185,10 @@ class TestUpdate:
 class TestHasCapability:
     def test_present_returns_true(self, initialized_db: str):
         projects.cmd_capability_set_settings(
-            "buzz", "github", "{}",
+            "buzz", "deploy", "{}",
             base_settings_json=None, create=True, db_path=initialized_db,
         )
-        assert projects.cmd_has_capability("buzz", "github", db_path=initialized_db) is True
+        assert projects.cmd_has_capability("buzz", "deploy", db_path=initialized_db) is True
 
     def test_absent_returns_false(self, initialized_db: str):
         assert projects.cmd_has_capability("yoke", "nonexistent-cap", db_path=initialized_db) is False

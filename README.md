@@ -143,20 +143,20 @@ you want to script a single mode:
 yoke project create ~/work/my-app \
   --slug my-app --name "My App" --github-repo owner/my-app \
   --default-branch main --public-item-prefix APP \
-  --github-adoption skip \
+  --github-adoption backlog-only \
   --config ~/.yoke/config.json --yes
 
 # Existing remote
 yoke project import git@github.com:owner/my-app.git ~/work/my-app \
   --slug my-app --name "My App" --github-repo owner/my-app \
   --default-branch main --public-item-prefix APP \
-  --github-adoption skip --config ~/.yoke/config.json --yes
+  --github-adoption backlog-only --config ~/.yoke/config.json --yes
 
 # Existing local checkout
 yoke onboard project ~/work/my-app \
   --slug my-app --name "My App" --github-repo owner/my-app \
   --default-branch main --public-item-prefix APP \
-  --github-adoption skip --config ~/.yoke/config.json --yes
+  --github-adoption backlog-only --config ~/.yoke/config.json --yes
 ```
 
 `git` is needed only when a project mode creates, clones, imports, or registers

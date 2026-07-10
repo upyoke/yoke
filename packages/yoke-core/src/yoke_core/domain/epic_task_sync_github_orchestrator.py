@@ -1,12 +1,8 @@
 """Orchestrator for epic-task GitHub sync.
 
-Drives create/link/dedup for an epic's tasks: resolves or creates the
-parent epic issue, iterates tasks, writes back github_issue/branch/
-worktree_path, and triggers dispatch-chain generation. Helpers remain in
-``epic_task_sync_github`` and resolve through ``_etsg.*`` so test
-patches reach them. The fallback parent-body edit (when gh-sub-issue is
-unavailable) lives in ``epic_task_sync_github_orchestrator_body`` and
-routes through the shared budget-guarded writer.
+Drives parent/child issue creation, linkage, task writeback, and dispatch-chain
+generation. Helpers resolve through ``epic_task_sync_github`` so test patches
+reach them; the fallback parent-body edit uses the shared budget guard.
 """
 
 from __future__ import annotations
@@ -14,20 +10,25 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
+
 import yoke_core.domain.epic_task_sync_github as _etsg
-from yoke_core.domain import db_backend, github_rest, project_label_policy
+from yoke_core.domain import db_backend, github_rest
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.github_constraints import clamp_label_name, is_real_issue_num
+from yoke_core.domain.github_constraints import is_real_issue_num
 from yoke_core.domain.epic_task_sync import (
     _connect_db,
     _epic_parent_item_id,
-    _epic_project_repo,
+    _epic_project,
     _epic_ref_name,
     _placeholder,
     _repo_root,
-    LABEL_COLOR_DEFAULT,
-    TYPE_LABEL_COLOR_DEFAULT,
-    WORKTREE_LABEL_COLOR_DEFAULT,
+)
+from yoke_core.domain.epic_task_sync_github_label_setup import (
+    labels_for_task,
+    prepare_required_labels,
 )
 from yoke_core.domain.epic_task_sync_local import _generate_dispatch_chains
 from yoke_core.domain.project_github_auth import (
@@ -73,7 +74,7 @@ def sync_epic_tasks(
         if epic_name is None:
             return 1
 
-        project, repo = _epic_project_repo(epic_name, conn=conn)
+        project = _epic_project(epic_name, conn=conn)
         gh_project = project or "yoke"
 
         # Backlog-only projects never mirror epic tasks to GitHub issues.
@@ -84,11 +85,13 @@ def sync_epic_tasks(
             )
             return 0
 
-        # Canonical-resolver precondition: fail closed with typed code and
-        # concrete repair hint.
+        # Canonical-resolver precondition: fail closed with a repair hint.
         if not dry_run:
             try:
-                resolve_project_github_auth(gh_project)
+                resolve_project_github_auth(
+                    gh_project,
+                    required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+                )
             except ProjectGithubAuthError as exc:
                 print(f"Error: {exc.code}: {exc}", file=stderr)
                 print(f"  Repair: {repair_command_hint(exc, gh_project)}", file=stderr)
@@ -114,18 +117,9 @@ def sync_epic_tasks(
             if gh_val and gh_val != "null":
                 backlog_github_issue = gh_val.lstrip("#")
 
-        # Ensure required labels
-        color_epic = project_label_policy.get_color("label_color_type_epic", "5319E7")
-        color_task = project_label_policy.get_color("label_color_type_task", TYPE_LABEL_COLOR_DEFAULT)
-        color_status = project_label_policy.get_color("label_color_status", LABEL_COLOR_DEFAULT)
-        color_worktree = project_label_policy.get_color("label_color_worktree", WORKTREE_LABEL_COLOR_DEFAULT)
-
-        _etsg._ensure_label("type:epic", project=gh_project, repo=repo,
-                             description="Epic (parent issue)", color=color_epic, dry_run=dry_run)
-        _etsg._ensure_label("type:task", project=gh_project, repo=repo,
-                             description="Task (child of epic)", color=color_task, dry_run=dry_run)
-        _etsg._ensure_label("status:implementing", project=gh_project, repo=repo,
-                             description="Task in implementation", color=color_status, dry_run=dry_run)
+        status_color, worktree_color = prepare_required_labels(
+            gh_project, dry_run=dry_run,
+        )
 
         # Sub-issue link is the modern REST endpoint
         # (``/repos/.../issues/<n>/sub_issues``). Failures fall through to
@@ -215,14 +209,11 @@ def sync_epic_tasks(
             task_status = str(db_stat or "").strip()
             if not task_status or task_status == "null":
                 task_status = "planned"
-            _etsg._ensure_label(f"status:{task_status}", project=gh_project, repo=repo,
-                                 description=f"Task status: {task_status}", color=color_status, dry_run=dry_run)
-            labels = ["type:task", f"status:{task_status}"]
-            if task_worktree:
-                wt_label = clamp_label_name(f"worktree:{task_worktree.replace('/', '-')}")
-                _etsg._ensure_label(wt_label, project=gh_project, repo=repo,
-                                     description=f"Worktree: {task_worktree}", color=color_worktree, dry_run=dry_run)
-                labels.append(wt_label)
+            labels = labels_for_task(
+                gh_project, task_status, task_worktree,
+                status_color=status_color, worktree_color=worktree_color,
+                dry_run=dry_run,
+            )
 
             # Read task body
             body_row = conn.execute(
@@ -349,7 +340,6 @@ def sync_epic_tasks(
                 conn=conn,
                 stdout=stdout,
             )
-
         print("", file=stdout)
         summary = f"Sync complete: epic #{epic_issue_num} — {created} created, {skipped} skipped"
         if failed_tasks:

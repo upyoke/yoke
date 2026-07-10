@@ -28,7 +28,6 @@ _BINDING = RuntimeDatabaseBinding(
     region="us-east-1",
 )
 
-
 def _env(**overrides) -> DeployEnvironment:
     values = dict(
         project="yoke",
@@ -137,7 +136,6 @@ class TestRenderServiceFiles:
             _BINDING,
         )
         assert "OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.example" in env_file
-
 
 _PRIOR_IMAGE = (
     "123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:prior123"

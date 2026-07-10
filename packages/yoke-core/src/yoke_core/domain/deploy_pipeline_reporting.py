@@ -23,13 +23,24 @@ def _run_cmd(cmd: List[str], timeout: int = 60) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
-def _github_actions(*args: str, sd: Optional[str] = None, timeout: int = 60) -> subprocess.CompletedProcess:
-    # github-actions.sh has been eliminated. Call the Python
-    # module directly so the `sd` arg is ignored (kept for call-site
-    # compatibility with the rest of the shell helpers in this module).
+def _github_actions(
+    *args: str,
+    project: str,
+    sd: Optional[str] = None,
+    timeout: int = 60,
+) -> subprocess.CompletedProcess:
+    # Call the retained Python command boundary directly. The `sd` arg is
+    # ignored and kept only for compatibility with sibling subprocess helpers.
     del sd
     return _run_cmd(
-        [sys.executable, "-m", "yoke_core.domain.github_actions", *args],
+        [
+            sys.executable,
+            "-m",
+            "yoke_core.domain.github_actions",
+            *args,
+            "--project",
+            project,
+        ],
         timeout=timeout,
     )
 
@@ -157,7 +168,7 @@ def _set_deploy_stage(
 # ---------------------------------------------------------------------------
 
 # A queued GitHub Actions workflow has not yet acquired a runner; a transient
-# `gh` CLI flake during that window can return an exit code not in {0,1,2,3}.
+# transport or subprocess failure can return an exit code not in {0,1,2,3}.
 # A single such response is not proof the workflow failed — bounded-retry
 # before declaring stage failure so the configured timeout budget is used for
 # what it was budgeted for.
@@ -170,6 +181,7 @@ def _poll_github_actions(
     timeout_sec: int,
     stage_name: str = "",
     *,
+    project: str,
     sd: Optional[str] = None,
 ) -> Tuple[int, str]:
     """Poll a GitHub Actions run to completion.
@@ -192,7 +204,9 @@ def _poll_github_actions(
         if elapsed >= timeout_sec:
             return 1, f"Error: GitHub Actions poll timed out after {timeout_sec}s"
 
-        r = _github_actions("poll", github_repo, run_id, sd=sd)
+        r = _github_actions(
+            "poll", github_repo, run_id, project=project, sd=sd,
+        )
         output = r.stdout.strip()
         stderr = (r.stderr or "").strip()
 

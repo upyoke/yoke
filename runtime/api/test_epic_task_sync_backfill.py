@@ -18,6 +18,9 @@ from unittest.mock import patch
 
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic_task_sync, github_rest
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
@@ -72,17 +75,13 @@ def _stub_project_github_auth():
     def _ok(project, **kwargs):
         return ProjectGithubAuth(
             project=project, repo="org/buzz", token="ghs_test",
-            env={"GH_TOKEN": "ghs_test"},
         )
 
     with patch(
-        "yoke_core.domain.epic_task_sync.resolve_project_github_auth",
-        side_effect=_ok,
-    ), patch(
         "yoke_core.domain.epic_task_sync_github_backfill.resolve_project_github_auth",
         side_effect=_ok,
-    ):
-        yield
+    ) as resolver:
+        yield resolver
 
 
 class TestBackfillTaskTitles:
@@ -183,7 +182,9 @@ class TestBackfillTaskTitles:
 
 
 class TestBackfillTaskLabels:
-    def test_backfill_labels_uses_db_status_and_worktree_label(self, db):
+    def test_backfill_labels_uses_db_status_and_worktree_label(
+        self, db, _stub_project_github_auth,
+    ):
         insert_item(db, id=1246, type="epic", status="implementing", project="buzz")
         insert_epic_task(
             db, epic_id=1246, task_num=1, title="Task 1",
@@ -191,6 +192,11 @@ class TestBackfillTaskLabels:
             worktree="feature/test-epic",
             github_issue="#401",
         )
+        db.execute(
+            "UPDATE projects SET github_repo=%s WHERE slug=%s",
+            ("stale-owner/stale-repo", "buzz"),
+        )
+        db.commit()
         stdout = io.StringIO()
 
         with patch(
@@ -198,7 +204,7 @@ class TestBackfillTaskLabels:
         ), patch(
             f"{_LABEL_REST}.fetch_issue_labels",
             return_value=["status:planning"],
-        ), patch(f"{_LABEL_REST}.ensure_label"), patch(
+        ), patch(f"{_LABEL_REST}.ensure_label") as ensure_label, patch(
             f"{_LABEL_REST}.add_labels",
         ) as add_labels, patch(
             f"{_LABEL_REST}.remove_label",
@@ -219,8 +225,13 @@ class TestBackfillTaskLabels:
         assert "type:task" in added_flat
         assert "status:reviewed-implementation" in added_flat
         assert "worktree:feature-test-epic" in added_flat
+        assert (
+            _stub_project_github_auth.call_args.kwargs["required_permissions"]
+            is GITHUB_ISSUES_WRITE_PERMISSION_LEVELS
+        )
         removed_labels = {call.args[2] for call in remove_label.call_args_list}
         assert "status:planning" in removed_labels
+        assert {call.args[2] for call in ensure_label.call_args_list} == {"org/buzz"}
 
 
 class TestResolveDeps:

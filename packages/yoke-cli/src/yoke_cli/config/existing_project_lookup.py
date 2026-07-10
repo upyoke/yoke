@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts import github_origin
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
 
 _TIMEOUT_S = 20.0
@@ -169,22 +170,12 @@ def find_by_github_repo(
 
 
 def normalize_github_repo(value: Any) -> str:
-    """Normalize a GitHub URL or ``owner/repo`` into lowercase ``owner/repo``."""
-    cleaned = str(value or "").strip()
-    if not cleaned:
+    """Normalize a GitHub or GHES reference into lowercase ``owner/repo``."""
+    try:
+        normalized = github_origin.normalize_github_repository(str(value or ""))
+    except github_origin.GitHubApiOriginError:
         return ""
-    cleaned = cleaned.removesuffix(".git")
-    if cleaned.startswith("git@github.com:"):
-        cleaned = cleaned.split(":", 1)[1]
-    else:
-        marker = "github.com/"
-        if marker in cleaned:
-            cleaned = cleaned.split(marker, 1)[1]
-    cleaned = cleaned.strip("/")
-    parts = [part for part in cleaned.split("/") if part]
-    if len(parts) < 2:
-        return ""
-    return f"{parts[0]}/{parts[1]}".lower()
+    return normalized.casefold()
 
 
 def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:

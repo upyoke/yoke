@@ -13,6 +13,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_cli.config import onboard_apply_snapshot
+from yoke_cli.config import onboard_github_snapshot
 from yoke_cli.config import onboard_checklist
 from yoke_cli.config.onboard_plan_labels import friendly_line
 
@@ -353,40 +354,10 @@ def _credential_sources(kwargs: Mapping[str, Any]) -> dict[str, Any]:
             "path": str(kwargs.get("token_file") or ""),
         },
         "github_app": {
-            "machine": _github_authorization_source(kwargs),
-            "project": _github_binding(kwargs),
+            "machine": onboard_github_snapshot.authorization_source(kwargs),
+            "project": onboard_github_snapshot.binding(kwargs),
         },
     }
-
-
-def _github_authorization_source(kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    if str(kwargs.get("machine_github_choice") or "") == "connect":
-        return {"kind": "github_app_user_authorization"}
-    return {"kind": ""}
-
-
-def _github_binding(kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    adoption = str(kwargs.get("project_github_adoption") or "")
-    repo = str(kwargs.get("project_github_repo") or "")
-    status = str(kwargs.get("project_github_binding_status") or "")
-    if not status:
-        if adoption in {"skip", "backlog-only"} or not repo:
-            status = "backlog_only"
-        else:
-            status = "pending_app_connection"
-    return {
-        "adoption": adoption,
-        "repo": repo,
-        "installation_id": str(kwargs.get("project_github_installation_id") or ""),
-        "repository_id": str(kwargs.get("project_github_repository_id") or ""),
-        "status": status,
-        "permission_status": _mapping(kwargs.get("project_github_permission_status")),
-        "automation": _mapping(kwargs.get("project_github_automation")),
-    }
-
-
-def _mapping(value: Any) -> dict[str, Any]:
-    return dict(value) if isinstance(value, Mapping) else {}
 
 
 __all__ = [

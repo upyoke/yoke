@@ -10,12 +10,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_core.domain.github_app_control_plane import (
+    GITHUB_APP_ISSUER_ENV,
+    GITHUB_APP_PRIVATE_KEY_FILE_ENV,
+    GitHubAppControlPlaneConfigError,
+    load_github_app_control_plane_config,
+)
+from yoke_core.domain.github_app_dispatch_context import LOCAL_USER_TOKEN_PROVIDER
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 
 from .validate_webapp_pipeline_helpers import (
     Counters,
     ValidateContext,
-    _capability_secret,
     _capability_settings,
     _check_fail,
     _check_pass,
@@ -142,9 +148,6 @@ def _check_database_prerequisites(
         # 1d. GitHub App binding and control-plane credentials
         github_settings = _capability_settings(conn, project_key, "github")
         if github_settings:
-            app_private_key_name = str(
-                github_settings.get("private_key_secret_key") or "app_private_key"
-            )
             if _table_exists(conn, "project_github_repo_bindings"):
                 binding_count_raw = _query_scalar(
                     conn,
@@ -158,9 +161,6 @@ def _check_database_prerequisites(
                 binding_count = int(binding_count_raw or 0)
             except (TypeError, ValueError):
                 binding_count = 0
-            app_private_key = _capability_secret(
-                conn, project_key, "github", app_private_key_name,
-            )
             if binding_count > 0:
                 _check_pass(counters, "GitHub App repo binding configured")
             else:
@@ -170,15 +170,26 @@ def _check_database_prerequisites(
                     "Bind via: yoke projects github-binding bind "
                     f"--project {project_slug} ...",
                 )
-            if app_private_key:
-                _check_pass(counters, "GitHub App private key configured")
+            try:
+                app_config = load_github_app_control_plane_config()
+            except GitHubAppControlPlaneConfigError as exc:
+                if LOCAL_USER_TOKEN_PROVIDER.get() is not None:
+                    _check_pass(
+                        counters,
+                        "Local GitHub App user authorization is available",
+                    )
+                else:
+                    _check_fail(
+                        counters,
+                        f"GitHub App control-plane credentials unavailable: {exc}",
+                        f"Set {GITHUB_APP_ISSUER_ENV} and mount an owner-only key "
+                        f"file at {GITHUB_APP_PRIVATE_KEY_FILE_ENV}",
+                    )
             else:
-                _check_fail(
+                _check_pass(
                     counters,
-                    "GitHub App private key not configured",
-                    "Store via: yoke projects capability secret set "
-                    f"--project {project_slug} --cap-type github "
-                    f"--key {app_private_key_name} --value-stdin",
+                    "GitHub App control-plane credentials configured "
+                    f"for {app_config.endpoint.origin}",
                 )
         else:
             _check_fail(

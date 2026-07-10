@@ -26,6 +26,9 @@ from yoke_core.domain.db_helpers import (
     query_rows,
 )
 from yoke_core.domain.project_identity import resolve_project, resolve_project_id
+from yoke_core.domain.project_github_capability_settings import (
+    reject_github_capability_secret_write,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -91,9 +94,10 @@ def cmd_capability_get_secret(
     """Retrieve a capability secret value.
 
     ``aws-admin`` secrets are machine-local under
-    ``~/.yoke/secrets/capability-secrets``. Other capability secrets,
-    including the GitHub App auth, live in :data:`capability_secrets` with
-    ``source='literal'``.
+    ``~/.yoke/secrets/capability-secrets``. Other active capability secrets
+    may live in :data:`capability_secrets` with ``source='literal'``. Existing
+    GitHub rows are stranded legacy data: generic admin reads remain available,
+    but GitHub authentication never reads them and new writes are refused.
 
     When ``conn`` is supplied the read happens against the caller's
     connection and it is left open. Without ``conn`` the function opens a
@@ -174,6 +178,7 @@ def cmd_capability_set_secret(
     db_path: Optional[str] = None,
 ) -> str:
     """Upsert a secret for a capability."""
+    reject_github_capability_secret_write(cap_type)
     if source != "literal":
         raise ValueError(
             "Error: capability secrets must be imported into Yoke's "

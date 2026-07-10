@@ -81,11 +81,16 @@ git add -A
 git commit -m "Initial scaffold from Yoke webapp template"
 ```
 
-Create a GitHub repo and push:
+Publish the folder through Yoke's connected GitHub App:
 
 ```bash
-gh repo create your-org/acme --private --source=. --push
+yoke onboard
 ```
+
+Choose **Existing folder on my machine**, select this folder, then choose
+**Yes — publish to GitHub**. Yoke creates the repository, pushes through the
+short-lived App user authorization, and keeps the stored git remote
+credential-free.
 
 ### Step 4: Install backend dependencies
 
@@ -253,6 +258,19 @@ Run `--preflight-only` first to check readiness without making changes:
 ```bash
 yoke onboard checklist --run-id <run-id>
 ```
+
+If the project enables its runner fleet, configure one manual GitHub webhook in
+the same rollout as the Pulumi apply:
+
+1. Read the `runnerFleetWebhookUrl`, `runnerFleetWebhookSecretParameter`, and
+   `runnerFleetWebhookEvent` outputs.
+2. Resolve the SSM secret through Yoke's `aws-admin` capability without logging
+   it, then create an active JSON `workflow_job` webhook with SSL verification.
+This stays manual so the App needs no webhook-write permission. Update GitHub
+whenever that secret rotates; queued jobs cannot scale up until it matches.
+Runner-fleet v1 runs one ephemeral runner on one isolated, unpeered EC2 host
+with DNS and HTTP(S) egress only. Parallel capacity requires a multi-host fleet,
+never multiple root-capable jobs sharing that machine.
 
 ### Step 13: Docker build and run
 

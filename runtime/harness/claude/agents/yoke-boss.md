@@ -219,7 +219,7 @@ yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for 
 - _Branch / commit / CI inspection (read-only)_
   - `git -C $(git rev-parse --show-toplevel) status --short --branch
 git -C $(git rev-parse --show-toplevel) log --oneline -20
-yoke github-actions check-ci $(yoke projects get --project yoke --field github_repo) ci.yml --branch main
+yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N status --porcelain
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N rev-parse HEAD`
   - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport (bearer-token REST). For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.

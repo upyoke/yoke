@@ -249,7 +249,7 @@ yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for 
 - _Branch / commit / CI inspection (read-only)_
   - `git -C $(git rev-parse --show-toplevel) status --short --branch
 git -C $(git rev-parse --show-toplevel) log --oneline -20
-yoke github-actions check-ci $(yoke projects get --project yoke --field github_repo) ci.yml --branch main
+yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N status --porcelain
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N rev-parse HEAD`
   - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport (bearer-token REST). For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
@@ -515,7 +515,7 @@ The Tester verifies each task against its own spec. You verify that tasks *work 
       ```
       Safe alternatives: `_result=$(cmd 2>&1) || true`, or `if _result=$(cmd 2>&1); then ... else ... fi`, or `set +e; _result=$(cmd 2>&1); _exit=$?; set -e`.
 
-   2. **Subprocess calls without env propagation** — A script calls a registered `yoke ...` command or project-provided command, but the subprocess needs environment variables (`$YOKE_DB`, `$PROJECT_ROOT`, `$GH_TOKEN`) that the caller has but does not export. The subprocess silently gets empty values and may fail or write to wrong paths.
+   2. **Subprocess calls without env propagation** — A script calls a registered `yoke ...` command or project-provided command, but the subprocess needs environment variables (`$YOKE_DB`, `$PROJECT_ROOT`, `$AWS_REGION`) that the caller has but does not export. The subprocess silently gets empty values and may fail or write to wrong paths.
 
    3. **`|| true` removal changing error guarantees** — Old code had `_run_optional_sync "$num" 2>/dev/null || true` (best-effort sync failure is non-fatal). New code removes the `|| true` or restructures the call so failure is now fatal. Under `set -e`, this turns a cosmetic sync failure into a script-aborting crash. Always check: did the old code's error tolerance survive the refactor?
 

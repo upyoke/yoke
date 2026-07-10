@@ -3,21 +3,27 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
 import pulumi
 from pulumi import dynamic
 import pulumi_aws as aws
+import pulumi_random as random
 
 from webapp_runner_fleet_internals import (
     _ami_arch,
-    _assume_role_policy,
-    _inline_policy,
     _user_data,
     _webhook_lambda_code,
 )
+from webapp_runner_fleet_iam import (
+    create_instance_identity,
+    create_webhook_identity,
+    grant_instance_runtime,
+    grant_webhook_runtime,
+)
+from webapp_runner_fleet_network import create_runner_network
+from webapp_runner_github_broker_stack import create_runner_github_broker
 
 
 @dataclass
@@ -26,6 +32,14 @@ class WebappRunnerFleetArgs:
 
     deploy_namespace: str
     github_repo: str
+    github_repo_owner: str
+    github_repo_name: str
+    github_installation_id: str
+    github_repository_id: str
+    github_app_issuer: str
+    github_api_url: str
+    github_web_url: str
+    github_private_key_secret_arn: str
     runner_labels: Sequence[str]
     runner_count: int
     max_runner_count: int
@@ -36,10 +50,7 @@ class WebappRunnerFleetArgs:
     shutdown_mode: str
 
 
-# The Function-URL provider and the helpers it references stay in this module on
-# purpose: Pulumi serializes the dynamic provider into state by its defining
-# module path, so relocating it would rewrite ``__provider`` and force a no-op
-# resource update on every deploy.
+# Keep this provider's module path stable because Pulumi serializes it in state.
 def _lambda_error_code(exc: Exception) -> str:
     response = getattr(exc, "response", {}) or {}
     error = response.get("Error", {}) if isinstance(response, dict) else {}
@@ -100,11 +111,8 @@ class _FunctionUrlInvokePermission(dynamic.Resource):
         super().__init__(
             _FunctionUrlInvokePermissionProvider(),
             name,
-            {
-                "function_name": function_name,
-                "region": region,
-                "statement_id": "FunctionURLAllowPublicInvokeOnly",
-            },
+            {"function_name": function_name, "region": region,
+             "statement_id": "FunctionURLAllowPublicInvokeOnly"},
             opts,
         )
 
@@ -121,87 +129,54 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
         super().__init__("webapp:infra:WebappRunnerFleetStack", name, None, opts)
         if args.shutdown_mode != "terminate":
             raise ValueError("runner fleet v1 supports shutdown_mode=terminate")
+        if args.runner_count != 1 or args.max_runner_count != 1:
+            raise ValueError(
+                "runner fleet v1 requires one ephemeral runner per host"
+            )
 
         region = aws.get_region().name
         tags = {"project": args.deploy_namespace, "component": "github-actions"}
         child_opts = pulumi.ResourceOptions(parent=self)
         prefix = f"/{args.deploy_namespace}/github-actions-runner-fleet"
         asg_name = f"{args.deploy_namespace}-github-actions-runner-fleet"
-        github_token_parameter_name = f"{prefix}/github-token"
         webhook_secret_parameter_name = f"{prefix}/webhook-secret"
 
-        self.github_token_parameter = aws.ssm.Parameter(
-            "runnerFleetGithubToken",
-            name=github_token_parameter_name,
-            type="SecureString",
-            value="pending-runner-fleet-secret-bootstrap",
-            tags=tags,
-            opts=pulumi.ResourceOptions.merge(
-                child_opts,
-                pulumi.ResourceOptions(ignore_changes=["value"]),
-            ),
+        self.webhook_secret = random.RandomPassword(
+            "runnerFleetWebhookSecretValue",
+            length=64,
+            special=False,
+            opts=child_opts,
         )
         self.webhook_secret_parameter = aws.ssm.Parameter(
             "runnerFleetWebhookSecret",
             name=webhook_secret_parameter_name,
             type="SecureString",
-            value="pending-runner-fleet-secret-bootstrap",
+            value=self.webhook_secret.result,
             tags=tags,
-            opts=pulumi.ResourceOptions.merge(
-                child_opts,
-                pulumi.ResourceOptions(ignore_changes=["value"]),
-            ),
+            opts=child_opts,
+        )
+        github_broker = create_runner_github_broker(
+            args,
+            region=region,
+            asg_name=asg_name,
+            parameter_prefix=prefix,
+            tags=tags,
+            child_opts=child_opts,
+        )
+        self.github_broker_function = github_broker.bootstrap_function
+        self.queue_activity_parameter = github_broker.queue_activity_parameter
+        self.runner_progress_parameter = github_broker.runner_progress_parameter
+        self.runner_completion_parameter = (
+            github_broker.runner_completion_parameter
         )
 
-        default_vpc = aws.ec2.get_vpc(default=True)
-        subnets = aws.ec2.get_subnets(filters=[
-            aws.ec2.GetSubnetsFilterArgs(name="vpc-id", values=[default_vpc.id]),
-        ])
-        self.security_group = aws.ec2.SecurityGroup(
-            "runnerFleetSecurityGroup",
-            vpc_id=default_vpc.id,
-            description="Yoke GitHub Actions runners - outbound only",
-            ingress=[],
-            egress=[aws.ec2.SecurityGroupEgressArgs(
-                description="Allow all outbound traffic",
-                protocol="-1",
-                from_port=0,
-                to_port=0,
-                cidr_blocks=["0.0.0.0/0"],
-            )],
-            tags=tags,
-            opts=child_opts,
-        )
+        network = create_runner_network(tags=tags, child_opts=child_opts)
+        self.vpc = network.vpc
+        self.subnet = network.subnet
+        self.security_group = network.security_group
 
-        self.instance_role = aws.iam.Role(
-            "runnerFleetInstanceRole",
-            assume_role_policy=_assume_role_policy("ec2.amazonaws.com"),
-            tags=tags,
-            opts=child_opts,
-        )
-        aws.iam.RolePolicyAttachment(
-            "runnerFleetSsmManagedInstanceCore",
-            role=self.instance_role.name,
-            policy_arn=(
-                "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-            ),
-            opts=child_opts,
-        )
-        aws.iam.RolePolicy(
-            "runnerFleetInstancePolicy",
-            role=self.instance_role.id,
-            policy=_inline_policy([
-                "ssm:GetParameter",
-                "autoscaling:DescribeAutoScalingGroups",
-                "autoscaling:SetDesiredCapacity",
-            ]),
-            opts=child_opts,
-        )
-        self.instance_profile = aws.iam.InstanceProfile(
-            "runnerFleetInstanceProfile",
-            role=self.instance_role.name,
-            tags=tags,
-            opts=child_opts,
+        self.instance_role, self.instance_profile = create_instance_identity(
+            tags=tags, child_opts=child_opts,
         )
 
         ami_param = aws.ssm.get_parameter(
@@ -214,19 +189,18 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             "runnerFleetLaunchTemplate",
             image_id=ami_param.value,
             instance_type=args.instance_type,
-            # New template versions become the default automatically, so the ASG's
-            # $Latest and the default version never diverge — prevents a stale
-            # (e.g. pre-rename) default version bootstrapping a broken runner.
+            # Make every new template version the ASG's default.
             update_default_version=True,
             iam_instance_profile=aws.ec2.LaunchTemplateIamInstanceProfileArgs(
                 name=self.instance_profile.name,
             ),
             vpc_security_group_ids=[self.security_group.id],
-            user_data=_user_data(
-                args=args,
-                region=region,
-                asg_name=asg_name,
-                github_token_parameter=github_token_parameter_name,
+            user_data=self.github_broker_function.name.apply(
+                lambda function_name: _user_data(
+                    args=args,
+                    region=region,
+                    github_broker_function=function_name,
+                )
             ),
             block_device_mappings=[
                 aws.ec2.LaunchTemplateBlockDeviceMappingArgs(
@@ -257,7 +231,7 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             name=asg_name,
             min_size=0,
             max_size=1,
-            vpc_zone_identifiers=subnets.ids,
+            vpc_zone_identifiers=[self.subnet.id],
             launch_template=aws.autoscaling.GroupLaunchTemplateArgs(
                 id=self.launch_template.id,
                 version="$Latest",
@@ -273,30 +247,23 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
                 pulumi.ResourceOptions(ignore_changes=["desiredCapacity"]),
             ),
         )
+        grant_instance_runtime(
+            self.instance_role,
+            broker_arn=self.github_broker_function.arn,
+            child_opts=child_opts,
+        )
 
-        self.webhook_role = aws.iam.Role(
-            "runnerFleetWebhookRole",
-            assume_role_policy=_assume_role_policy("lambda.amazonaws.com"),
-            tags=tags,
-            opts=child_opts,
+        self.webhook_role = create_webhook_identity(
+            tags=tags, child_opts=child_opts,
         )
-        aws.iam.RolePolicyAttachment(
-            "runnerFleetWebhookLogs",
-            role=self.webhook_role.name,
-            policy_arn=(
-                "arn:aws:iam::aws:policy/service-role/"
-                "AWSLambdaBasicExecutionRole"
-            ),
-            opts=child_opts,
-        )
-        aws.iam.RolePolicy(
-            "runnerFleetWebhookPolicy",
-            role=self.webhook_role.id,
-            policy=_inline_policy([
-                "ssm:GetParameter",
-                "autoscaling:SetDesiredCapacity",
-            ]),
-            opts=child_opts,
+        webhook_runtime = grant_webhook_runtime(
+            self.webhook_role,
+            parameter_arn=self.webhook_secret_parameter.arn,
+            queue_activity_arn=self.queue_activity_parameter.arn,
+            runner_progress_arn=self.runner_progress_parameter.arn,
+            runner_completion_arn=self.runner_completion_parameter.arn,
+            asg_arn=self.asg.arn,
+            child_opts=child_opts,
         )
         self.webhook_function = aws.lambda_.Function(
             "runnerFleetWebhook",
@@ -304,6 +271,7 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             runtime="python3.12",
             handler="index.handler",
             timeout=10,
+            reserved_concurrent_executions=5,
             code=pulumi.AssetArchive({
                 "index.py": pulumi.StringAsset(_webhook_lambda_code()),
             }),
@@ -311,11 +279,31 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
                 variables={
                     "ASG_NAME": asg_name,
                     "WEBHOOK_SECRET_PARAMETER": webhook_secret_parameter_name,
+                    "QUEUE_ACTIVITY_PARAMETER": (
+                        self.queue_activity_parameter.name
+                    ),
+                    "RUNNER_PROGRESS_PARAMETER": (
+                        self.runner_progress_parameter.name
+                    ),
+                    "RUNNER_COMPLETION_PARAMETER": (
+                        self.runner_completion_parameter.name
+                    ),
+                    "EXPECTED_REPOSITORY_ID": args.github_repository_id,
+                    "EXPECTED_REPOSITORY": args.github_repo,
+                    "RUNNER_PREFIX": f"{args.deploy_namespace}-github-actions-",
+                    # Forces fresh Lambda runtimes when SSM rotates the HMAC;
+                    # the value is parameter metadata, never secret material.
+                    "WEBHOOK_SECRET_VERSION": (
+                        self.webhook_secret_parameter.version.apply(str)
+                    ),
                     "REQUIRED_LABELS": ",".join(args.runner_labels),
                 },
             ),
             tags=tags,
-            opts=child_opts,
+            opts=pulumi.ResourceOptions.merge(
+                child_opts,
+                pulumi.ResourceOptions(depends_on=[webhook_runtime]),
+            ),
         )
         self.webhook_url = aws.lambda_.FunctionUrl(
             "runnerFleetWebhookUrl",
@@ -340,50 +328,11 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             ),
         )
 
-        # Manage the GitHub repo webhook that drives ASG scaling as IaC, so a
-        # fleet repoint (github_repo change + apply) moves the subscription
-        # automatically instead of an out-of-band hand edit. Opt-in via a
-        # dedicated RUNNER_FLEET_WEBHOOK_TOKEN (a token with `Webhooks: write`):
-        # when absent the fleet keeps its prior out-of-band webhook (backward
-        # compatible, and the automatic CI GITHUB_TOKEN never triggers this
-        # path). The signing secret is read from the same SSM parameter the
-        # scaling Lambda validates against, so GitHub's delivery signature and
-        # the Lambda's check can never diverge.
-        github_token = os.environ.get("RUNNER_FLEET_WEBHOOK_TOKEN")
-        if github_token and "/" in args.github_repo:
-            import pulumi_github as github
-
-            gh_owner, _, gh_repo = args.github_repo.partition("/")
-            github_provider = github.Provider(
-                "runnerFleetGithubProvider",
-                owner=gh_owner,
-                token=github_token,
-                opts=child_opts,
-            )
-            webhook_secret_value = aws.ssm.get_parameter(
-                name=webhook_secret_parameter_name,
-                with_decryption=True,
-            ).value
-            self.github_webhook = github.RepositoryWebhook(
-                "runnerFleetGithubWebhook",
-                repository=gh_repo,
-                events=["workflow_job"],
-                active=True,
-                configuration={
-                    "url": self.webhook_url.function_url,
-                    "content_type": "json",
-                    "insecure_ssl": False,
-                    "secret": webhook_secret_value,
-                },
-                opts=pulumi.ResourceOptions.merge(
-                    child_opts,
-                    pulumi.ResourceOptions(provider=github_provider),
-                ),
-            )
-
         outputs = {
             "runnerFleetAsgName": self.asg.name,
             "runnerFleetWebhookUrl": self.webhook_url.function_url,
+            "runnerFleetWebhookSecretParameter": self.webhook_secret_parameter.name,
+            "runnerFleetWebhookEvent": "workflow_job",
             "runnerFleetLabels": list(args.runner_labels),
         }
         for key, value in outputs.items():

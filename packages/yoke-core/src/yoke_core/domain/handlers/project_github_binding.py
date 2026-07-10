@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -14,20 +14,14 @@ from yoke_contracts.api.function_call import (
 
 
 class ProjectGithubBindingBindRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     project: str
     installation_id: str
-    account_id: str
-    account_login: str
-    account_type: str
+    repository_id: str
     github_repo: str
-    repository_id: Optional[str] = None
-    default_branch: Optional[str] = None
-    repository_selection: str = "selected"
-    permissions: Dict[str, Any] = Field(default_factory=dict)
-    installation_status: str = "active"
-    binding_status: str = "active"
-    last_verified_at: Optional[str] = None
-    last_error: Optional[str] = None
+    expected_api_url: str
+    github_user_access_token: SecretStr
 
 
 class ProjectGithubBindingUnbindRequest(BaseModel):
@@ -64,7 +58,16 @@ def handle_project_github_binding_bind(
     )
 
     try:
-        result = cmd_bind_project_repo(**parsed.model_dump())
+        result = cmd_bind_project_repo(
+            project=parsed.project,
+            installation_id=parsed.installation_id,
+            repository_id=parsed.repository_id,
+            github_repo=parsed.github_repo,
+            expected_api_url=parsed.expected_api_url,
+            github_user_access_token=(
+                parsed.github_user_access_token.get_secret_value()
+            ),
+        )
     except (LookupError, ProjectGithubBindingError, ValueError) as exc:
         return HandlerOutcome(
             primary_success=False,
@@ -128,11 +131,15 @@ def handle_project_github_binding_status(
 
 
 def _payload_invalid(exc: ValidationError) -> HandlerOutcome:
+    details = []
+    for error in exc.errors(include_url=False, include_input=False):
+        location = ".".join(str(part) for part in error.get("loc", ())) or "$"
+        details.append(f"{location}: {error.get('msg', 'invalid')}")
     return HandlerOutcome(
         primary_success=False,
         error=FunctionError(
             code="payload_invalid",
-            message=str(exc),
+            message="payload invalid: " + "; ".join(details),
             jsonpath="$.payload",
         ),
     )

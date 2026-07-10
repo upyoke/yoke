@@ -17,26 +17,38 @@ class TestCli:
     def test_poll_args(self):
         with mock.patch.object(github_actions, "cmd_poll") as m:
             try:
-                github_actions.main(["poll", "o/r", "123"])
+                github_actions.main([
+                    "poll", "o/r", "123", "--project", "buzz",
+                ])
             except SystemExit:
                 pass
-            m.assert_called_once_with("o/r", "123")
+            m.assert_called_once_with("o/r", "123", project="buzz")
 
     def test_find_run_args(self):
         with mock.patch.object(github_actions, "cmd_find_run") as m:
             try:
-                github_actions.main(["find-run", "o/r", "ci.yml", "abc"])
+                github_actions.main([
+                    "find-run", "o/r", "ci.yml", "abc",
+                    "--project", "buzz",
+                ])
             except SystemExit:
                 pass
-            m.assert_called_once_with("o/r", "ci.yml", "abc")
+            m.assert_called_once_with(
+                "o/r", "ci.yml", "abc", project="buzz",
+            )
 
     def test_wait_run_args(self):
         with mock.patch.object(github_actions, "cmd_wait_run") as m:
             try:
-                github_actions.main(["wait-run", "o/r", "123", "--timeout", "42"])
+                github_actions.main([
+                    "wait-run", "o/r", "123", "--timeout", "42",
+                    "--project", "buzz",
+                ])
             except SystemExit:
                 pass
-            m.assert_called_once_with("o/r", "123", timeout_sec=42)
+            m.assert_called_once_with(
+                "o/r", "123", timeout_sec=42, project="buzz",
+            )
 
     def test_trigger_with_inputs(self):
         with mock.patch.object(github_actions, "cmd_trigger") as m:
@@ -46,6 +58,7 @@ class TestCli:
                     "--ref", "dev",
                     "--input", "env=staging",
                     "--input", "tag=v1",
+                    "--project", "buzz",
                 ])
             except SystemExit:
                 pass
@@ -53,23 +66,38 @@ class TestCli:
                 "o/r", "deploy.yml",
                 ref="dev",
                 inputs={"env": "staging", "tag": "v1"},
+                project="buzz",
             )
 
     def test_failed_log_args(self):
         with mock.patch.object(github_actions, "cmd_failed_log") as m:
             try:
-                github_actions.main(["failed-log", "o/r", "555", "--tail-lines", "25"])
+                github_actions.main([
+                    "failed-log", "o/r", "555", "--tail-lines", "25",
+                    "--project", "buzz",
+                ])
             except SystemExit:
                 pass
-            m.assert_called_once_with("o/r", "555", tail_lines=25)
+            m.assert_called_once_with(
+                "o/r", "555", tail_lines=25, project="buzz",
+            )
 
     def test_failed_log_default_tail(self):
         with mock.patch.object(github_actions, "cmd_failed_log") as m:
             try:
-                github_actions.main(["failed-log", "o/r", "555"])
+                github_actions.main([
+                    "failed-log", "o/r", "555", "--project", "buzz",
+                ])
             except SystemExit:
                 pass
-            m.assert_called_once_with("o/r", "555", tail_lines=50)
+            m.assert_called_once_with(
+                "o/r", "555", tail_lines=50, project="buzz",
+            )
+
+    def test_project_is_required(self):
+        with pytest.raises(SystemExit) as exc_info:
+            github_actions.main(["poll", "o/r", "123"])
+        assert exc_info.value.code == 2
 
     def test_no_subcmd_exits_1(self):
         with pytest.raises(SystemExit) as exc_info:

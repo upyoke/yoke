@@ -28,13 +28,6 @@ def wired(monkeypatch):
             return "run-X|yoke|yoke-prod-release|prod|abc|failed|prod-deploy|2026-05-19T00:00:00Z"
         return ""
 
-    def fake_project_db(*args, sd=None):
-        del sd
-        if args[:2] == ("get", "yoke"):
-            field = args[2] if len(args) > 2 else ""
-            return {"github_repo": "anthropics/yoke"}.get(field, "")
-        return ""
-
     def fake_flow_db(*args, sd=None):
         del sd
         if args[0] == "stages":
@@ -49,8 +42,9 @@ def wired(monkeypatch):
         del timeout
         return _proc(0, "deadbeef1234567890\n")
 
-    def fake_github_actions(*args, sd=None, timeout=60):
+    def fake_github_actions(*args, project, sd=None, timeout=60):
         del sd, timeout
+        assert project == "yoke"
         if args[0] == "find-run":
             return _proc(0, "987654321\n")
         if args[0] == "poll":
@@ -71,7 +65,11 @@ def wired(monkeypatch):
         return SimpleNamespace(success=True)
 
     monkeypatch.setattr(mod, "_yoke_db", fake_yoke_db)
-    monkeypatch.setattr(mod, "_project_db", fake_project_db)
+    monkeypatch.setattr(
+        mod,
+        "resolve_project_github_auth",
+        lambda project: SimpleNamespace(project=project, repo="anthropics/yoke"),
+    )
     monkeypatch.setattr(mod, "_flow_db", fake_flow_db)
     monkeypatch.setattr(mod, "_run_cmd", fake_run_cmd)
     monkeypatch.setattr(mod, "_github_actions", fake_github_actions)
@@ -119,8 +117,9 @@ def test_ac2_alignment_emits_event_and_clears_deploy_stage(wired):
 
 @pytest.mark.parametrize("gh_stdout", ["failed:failure", "failed:cancelled", "failed:timed_out"])
 def test_ac3_gh_failure_does_not_mutate(wired, monkeypatch, gh_stdout):
-    def gh(*args, sd=None, timeout=60):
+    def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
+        assert project == "yoke"
         if args[0] == "find-run":
             return _proc(0, "987654321\n")
         if args[0] == "poll":
@@ -138,8 +137,9 @@ def test_ac3_gh_failure_does_not_mutate(wired, monkeypatch, gh_stdout):
 
 @pytest.mark.parametrize("rc, status", [(2, "waiting"), (3, "in_progress")])
 def test_ac4_gh_running_does_not_mutate(wired, monkeypatch, rc, status):
-    def gh(*args, sd=None, timeout=60):
+    def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
+        assert project == "yoke"
         if args[0] == "find-run":
             return _proc(0, "987654321\n")
         if args[0] == "poll":
@@ -156,8 +156,9 @@ def test_ac4_gh_running_does_not_mutate(wired, monkeypatch, rc, status):
     assert wired.item_state["deploy_stage"] == "prod-deploy-failed"
 
 def test_ac5_unresolved_run_id_errors_without_mutating(wired, monkeypatch):
-    def gh(*args, sd=None, timeout=60):
+    def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
+        assert project == "yoke"
         return _proc(1, "not_found\n") if args[0] == "find-run" else _proc(1, "")
     monkeypatch.setattr(mod, "_github_actions", gh)
 
@@ -181,6 +182,25 @@ def test_ac5_missing_deployment_run_errors(wired, monkeypatch):
     assert "deployment_run_items" in result.message
     assert wired.dispatched == []
 
+
+def test_missing_verified_binding_errors_before_actions(wired, monkeypatch):
+    from yoke_core.domain.project_github_auth import MissingRepoBinding
+
+    monkeypatch.setattr(
+        mod,
+        "resolve_project_github_auth",
+        lambda project: (_ for _ in ()).throw(
+            MissingRepoBinding(project, "not bound")
+        ),
+    )
+
+    result = mod.reconcile_item(42)
+
+    assert result.outcome == "error"
+    assert "GitHub App access" in result.message
+    assert wired.emitted_events == []
+    assert wired.dispatched == []
+
 def test_ac6_alignment_message_names_resume_command(wired):
     result = mod.reconcile_item(42)
     assert result.outcome == "aligned"
@@ -192,8 +212,9 @@ def test_ac6_alignment_message_names_resume_command(wired):
 def test_ac11_operator_override_skips_find_run(wired, monkeypatch):
     poll_calls = []
 
-    def gh(*args, sd=None, timeout=60):
+    def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
+        assert project == "yoke"
         if args[0] == "find-run":
             raise AssertionError("find-run must not be called when --workflow-run-id is supplied")
         if args[0] == "poll":
@@ -264,8 +285,9 @@ def test_main_returns_zero_on_alignment(wired, capsys):
 
 
 def test_main_returns_running_code_when_gh_in_progress(wired, monkeypatch, capsys):
-    def gh(*args, sd=None, timeout=60):
+    def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
+        assert project == "yoke"
         if args[0] == "find-run":
             return _proc(0, "987654321\n")
         if args[0] == "poll":

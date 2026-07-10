@@ -19,6 +19,10 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS as ISSUES_READ,
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS as ISSUES_WRITE,
+)
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import backlog_github_label_sync_rest as _rest
 from yoke_core.domain.actors import actor_label_or_passthrough
@@ -44,28 +48,34 @@ from yoke_core.domain.project_github_auth import (
 
 
 def _get_issue_labels(issue_num: str, repo: str, project: str) -> list[str]:
-    """Fetch current label names for a GitHub issue."""
+    """Fetch labels from the verified project repository.
+
+    ``repo`` is a retained DB projection used by older callers; it cannot
+    override the repository bound by :class:`ProjectGithubAuth`.
+    """
     try:
-        auth = resolve_project_github_auth(project)
+        auth = resolve_project_github_auth(
+            project, required_permissions=ISSUES_READ,
+        )
     except ProjectGithubAuthError:
         return []
-    target_repo = repo or auth.repo
-    return _rest.fetch_issue_labels(target_repo, int(issue_num), token=auth.token)
+    return _rest.fetch_issue_labels(auth.repo, int(issue_num), token=auth.token)
 
 
 def _get_issue_state(issue_num: str, repo: str, project: str) -> str:
-    """Get the state (OPEN/CLOSED) of a GitHub issue."""
+    """Get issue state from the verified project repository."""
     try:
-        auth = resolve_project_github_auth(project)
+        auth = resolve_project_github_auth(
+            project, required_permissions=ISSUES_READ,
+        )
     except ProjectGithubAuthError:
         return "UNKNOWN"
-    target_repo = repo or auth.repo
-    return _rest.fetch_issue_state(target_repo, int(issue_num), token=auth.token)
+    return _rest.fetch_issue_state(auth.repo, int(issue_num), token=auth.token)
 
 
 def _repo_labels(project: str) -> dict[str, str]:
     """Fetch current repo label colors keyed by label name."""
-    auth = resolve_project_github_auth(project)
+    auth = resolve_project_github_auth(project, required_permissions=ISSUES_READ)
     return _rest.fetch_repo_labels(auth.repo, token=auth.token)
 
 
@@ -75,13 +85,12 @@ def _ensure_label(
     timeout_seconds: Optional[float] = None,
     max_attempts: Optional[int] = None,
 ) -> None:
-    """Create a label if it doesn't exist (idempotent)."""
-    auth = resolve_project_github_auth(project)
-    target_repo = repo or auth.repo
+    """Create a label in the verified project repository (idempotent)."""
+    auth = resolve_project_github_auth(project, required_permissions=ISSUES_WRITE)
     _rest.ensure_label(
         name,
         color,
-        target_repo,
+        auth.repo,
         token=auth.token,
         description=description,
         timeout_seconds=timeout_seconds,
@@ -93,9 +102,8 @@ def _reconcile_category(
     prefix: str, want: str, existing: list[str], issue_num: str,
     repo: str, project: str, color: str,
 ) -> None:
-    """Remove stale labels for a category and add the correct one."""
-    auth = resolve_project_github_auth(project)
-    target_repo = repo or auth.repo
+    """Reconcile a category in the verified project repository."""
+    auth = resolve_project_github_auth(project, required_permissions=ISSUES_WRITE)
     has_correct = False
     for label in existing:
         if not label.startswith(prefix):
@@ -103,10 +111,10 @@ def _reconcile_category(
         if want and label == want:
             has_correct = True
         else:
-            _rest.remove_label(target_repo, int(issue_num), label, token=auth.token)
+            _rest.remove_label(auth.repo, int(issue_num), label, token=auth.token)
     if not has_correct and want:
-        _rest.ensure_label(want, color, target_repo, token=auth.token)
-        _rest.add_labels(target_repo, int(issue_num), [want], token=auth.token)
+        _rest.ensure_label(want, color, auth.repo, token=auth.token)
+        _rest.add_labels(auth.repo, int(issue_num), [want], token=auth.token)
 
 
 def update_repo_labels(
@@ -128,7 +136,9 @@ def update_repo_labels(
         )
         return 1
     try:
-        auth = resolve_project_github_auth(project)
+        auth = resolve_project_github_auth(
+            project, required_permissions=ISSUES_WRITE,
+        )
         existing = _bgs()._repo_labels(project)
         for label_name, config_key, default_color, description in REPO_LABEL_DEFINITIONS:
             desired = project_label_policy.get_color(config_key, default_color)
@@ -183,7 +193,7 @@ def sync_labels(
 ) -> int:
     """Compare and update all GitHub labels for a backlog item.
 
-    Idempotent. No-op if github_issue is null or GitHub App auth is unavailable.
+    Idempotent. No-op if github_issue is null or GitHub sync is backlog-only.
     """
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
@@ -213,7 +223,12 @@ def sync_labels(
         if _bgs()._github_sync_skip(gh_project, "sync-labels", conn=conn, out=stdout):
             return 0
         if not _bgs()._github_auth_available(gh_project):
-            return 0
+            print(
+                f"Error: project '{gh_project}' has no usable GitHub App auth "
+                "for sync-labels",
+                file=stderr,
+            )
+            return 1
         if not _bgs()._validate_issue_in_repo(
             item_ref, str(issue_num), repo, project=gh_project, stderr=stderr,
         ):
@@ -228,8 +243,10 @@ def sync_labels(
         if fields is None:
             return 0
 
-        auth = resolve_project_github_auth(gh_project)
-        target_repo = repo or auth.repo
+        auth = resolve_project_github_auth(
+            gh_project, required_permissions=ISSUES_WRITE,
+        )
+        target_repo = auth.repo
         colors = _label_colors()
         status, priority, item_type = fields["status"], fields["priority"], fields["type"]
         source_label = actor_label_or_passthrough(conn, fields["source"])

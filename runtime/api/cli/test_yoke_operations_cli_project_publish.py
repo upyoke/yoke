@@ -104,7 +104,7 @@ def test_create_and_publish_inits_commits_and_pushes(tmp_path: Path, monkeypatch
         github_publish, "create_repo",
         lambda *a, **k: {"full_name": "octocat/widget", "private": True},
     )
-    monkeypatch.setattr(pub, "https_remote", lambda repo: str(bare))
+    monkeypatch.setattr(pub, "https_remote", lambda repo, **_: str(bare))
     # git identity for the auto-created commit (CI envs may lack a global one).
     monkeypatch.setenv("GIT_AUTHOR_NAME", "Test")
     monkeypatch.setenv("GIT_AUTHOR_EMAIL", "t@example.com")
@@ -218,11 +218,14 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
     _git(checkout, "commit", "-m", "Initial")
     _git(checkout, "remote", "add", "origin", str(bare))
 
+    create_calls = {"count": 0}
     monkeypatch.setattr(
         github_publish, "create_repo",
-        lambda *a, **k: {"full_name": "octocat/widget", "private": True},
+        lambda *a, **k: create_calls.__setitem__(
+            "count", create_calls["count"] + 1,
+        ),
     )
-    monkeypatch.setattr(pub, "https_remote", lambda repo: str(bare))
+    monkeypatch.setattr(pub, "https_remote", lambda repo, **_: str(bare))
 
     request = pub.PublishRequest(
         owner="octocat", name="widget", user_login="octocat", token="ghs_x",
@@ -230,6 +233,8 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
     created = pub.create_and_publish(checkout, request, default_branch="main")
 
     assert created["full_name"] == "octocat/widget"
+    assert created["reused"] is True
+    assert create_calls["count"] == 0
     branches = subprocess.run(
         ["git", "branch", "--list"], cwd=bare,
         stdout=subprocess.PIPE, text=True, check=True,
@@ -251,7 +256,7 @@ def test_create_repo_call_uses_request_private_flag(tmp_path: Path, monkeypatch)
                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     checkout = tmp_path / "code"
     checkout.mkdir()
-    monkeypatch.setattr(pub, "https_remote", lambda repo: str(bare))
+    monkeypatch.setattr(pub, "https_remote", lambda repo, **_: str(bare))
     monkeypatch.setenv("GIT_AUTHOR_NAME", "Test")
     monkeypatch.setenv("GIT_AUTHOR_EMAIL", "t@example.com")
     monkeypatch.setenv("GIT_COMMITTER_NAME", "Test")

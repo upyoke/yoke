@@ -192,16 +192,7 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 
 ### Wave 5: Machine GitHub App Connection
 
-| ID | Profile | Flow | Assertions |
-| --- | --- | --- | --- |
-| `GITHUB-001` | `prepared-yoke` | Skip GitHub | Project step reachable; machine config has no GitHub App connection |
-| `GITHUB-002` | `prepared-yoke` | Connect GitHub App | Browser-flow placeholder renders without asking for a token |
-| `GITHUB-003` | `prepared-yoke` | Connect unavailable | User can continue backlog-only; no machine secret is written |
-| `GITHUB-004` | `prepared-yoke` | Stored App authorization | Identity and installation summary render; no credential value leaks |
-| `GITHUB-005` | `prepared-yoke` | Revoked App authorization | Friendly reconnect guidance; no crash |
-| `GITHUB-006` | `prepared-yoke` | App sees many repos | Repo list truncates consistently and does not overflow |
-| `GITHUB-007` | `prepared-yoke` | App cannot create repo | Later publish paths block before Apply |
-| `GITHUB-008` | `prepared-stored-state` | Stored App authorization reuse | Offered and verified, not blindly trusted |
+See [Installer GitHub App live testing](installer-github-app-testing.md) for the automation boundary and the `GITHUB-*` scenario catalog.
 
 ### Wave 6: Project Source Picker
 
@@ -212,7 +203,7 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 | `PROJECT-SOURCE-003` | `prepared-git` | Existing local checkout | Local path accepted; project metadata flow appears |
 | `PROJECT-SOURCE-004` | `prepared-git` | Create-new points at existing code | Redirect screen says existing project setup instead |
 | `PROJECT-SOURCE-005` | `prepared-git` | Clone public repo URL | Source reachable; default branch detected |
-| `PROJECT-SOURCE-006` | `prepared-git` | Clone private repo with machine token | Token fallback/reachability works |
+| `PROJECT-SOURCE-006` | `prepared-git` | Clone private repo with connected App | Refreshed App user access authenticates the clone without persisting in git config |
 | `PROJECT-SOURCE-007` | `prepared-git` | Clone URL unreachable | Friendly reachability error, not traceback |
 | `PROJECT-SOURCE-008` | `prepared-git` | Clone source default branch `master` | Branch source recorded as source repo |
 | `PROJECT-SOURCE-009` | `prepared-git` | Clone destination already non-empty conflict | Inline/path error before Apply |
@@ -255,7 +246,7 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 | `PUBLISH-006` | `prepared-git` | App cannot create private repo | Block before Apply |
 | `PUBLISH-007` | `prepared-git` | App can create but cannot push | Block before orphaning empty repo |
 | `PUBLISH-008` | `fault-injection` | Repo created then push fails | Failure report names repo, start-over cleanup, and retry resumes push |
-| `PUBLISH-009` | `prepared-git` | Project GitHub adoption skip | Capability not stored |
+| `PUBLISH-009` | `prepared-git` | Project uses backlog-only mode | No binding stored |
 | `PUBLISH-010` | `prepared-git` | Project GitHub App binding | Project records the selected App installation/repository |
 | `PUBLISH-011` | `prepared-git` | Project GitHub App binding unavailable | Project remains backlog-only; no credential secret is stored |
 | `PUBLISH-012` | `prepared-git` | Project GitHub App binding reuse | Project binding traces to the installed App repository |
@@ -865,7 +856,7 @@ yoke onboard project "$HOME/code/my-project" \
   --name "My Project" \
   --default-branch main \
   --public-item-prefix MYPR \
-  --github-adoption skip \
+  --github-adoption backlog-only \
   --config "$HOME/.yoke/config.json" \
   --yes \
   --json

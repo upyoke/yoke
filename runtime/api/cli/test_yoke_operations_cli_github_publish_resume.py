@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from yoke_cli.config import github_publish
+from yoke_cli.config import github_publish_transport
 
 
 class _FakeResponse(io.BytesIO):
@@ -85,7 +86,7 @@ class _Recorder:
 
 
 def _install(monkeypatch, recorder: _Recorder) -> None:
-    monkeypatch.setattr(github_publish.urllib.request, "urlopen", recorder)
+    monkeypatch.setattr(github_publish_transport, "_urlopen", recorder)
 
 
 def test_create_repo_reuses_empty_repo_on_name_exists(monkeypatch) -> None:
@@ -112,6 +113,7 @@ def test_create_repo_reuses_empty_repo_on_name_exists(monkeypatch) -> None:
     reused = github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
+        administration_allowed=True,
     )
 
     assert reused == {
@@ -150,6 +152,7 @@ def test_create_repo_fresh_create_is_not_flagged_reused(monkeypatch) -> None:
     created = github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
+        administration_allowed=True,
     )
 
     assert created["full_name"] == "octocat/widget"
@@ -177,6 +180,7 @@ def test_create_repo_reuses_empty_repo_when_commits_list_empty(monkeypatch) -> N
     reused = github_publish.create_repo(
         "https://api.github.com", "ghs_x",
         owner="octocat", name="widget", user_login="octocat",
+        administration_allowed=True,
     )
 
     assert reused["full_name"] == "octocat/widget"
@@ -203,6 +207,7 @@ def test_create_repo_refuses_populated_repo_on_name_exists(monkeypatch) -> None:
         github_publish.create_repo(
             "https://api.github.com", "ghs_x",
             owner="octocat", name="widget", user_login="octocat",
+            administration_allowed=True,
         )
 
     assert "already exists and has content" in str(caught.value)
@@ -221,6 +226,7 @@ def test_create_repo_propagates_non_422_create_error(monkeypatch) -> None:
         github_publish.create_repo(
             "https://api.github.com", "ghs_x",
             owner="octocat", name="widget", user_login="octocat",
+            administration_allowed=True,
         )
 
     assert caught.value.status == 403

@@ -11,6 +11,9 @@ from __future__ import annotations
 import io
 from unittest.mock import patch
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from runtime.api.backlog_github_sync_test_helpers import (
     GH_PATCH,
     make_db as _make_db,
@@ -36,7 +39,6 @@ def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "buzz")
     return ProjectGithubAuth(
         project=proj, repo="org/buzz", token="ghs_fake",
-        env={"GH_TOKEN": "ghs_fake"},
     )
 
 
@@ -70,7 +72,7 @@ def test_sync_done_item_batches_body_labels_and_close():
     ), patch.object(
         backlog_github_done_sync, "resolve_project_github_auth",
         side_effect=_ok_resolver,
-    ), patch(
+    ) as resolve_auth, patch(
         f"{_DONE_GH_REST}.get_issue",
         return_value=_existing_issue(700, labels=existing_labels),
     ), patch(
@@ -88,6 +90,9 @@ def test_sync_done_item_batches_body_labels_and_close():
         )
 
     assert rc == 0
+    assert resolve_auth.call_args_list[-1].kwargs == {
+        "required_permissions": GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    }
     assert "Done sync: BUZ-70" in stdout.getvalue()
     update_body.assert_called_once()
     # Status label moves release → done.
@@ -311,7 +316,7 @@ def test_validate_issue_in_repo_no_false_mismatch_on_project_repo():
 
     from yoke_core.domain import epic_task_sync_github
     from yoke_core.domain.github_rest import Target
-    from yoke_core.domain.github_rest_issues import _parse_issue
+    from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
     item_ref = "1"
     issue_num = "1"
@@ -322,8 +327,12 @@ def test_validate_issue_in_repo_no_false_mismatch_on_project_repo():
         project="yoke", owner="owner-x", repo="name-y",
         token="pat", repo_slug=project_repo,
     )
+    project_auth = ProjectGithubAuth(project="yoke", repo=project_repo, token="pat")
 
     with _patch(
+        "yoke_core.domain.epic_task_sync_github.resolve_project_github_auth",
+        return_value=project_auth,
+    ), _patch(
         "yoke_core.domain.github_rest_issues._target_for", return_value=_target,
     ), _patch(
         "yoke_core.domain.github_rest_issues.request_with_retry",
@@ -331,7 +340,7 @@ def test_validate_issue_in_repo_no_false_mismatch_on_project_repo():
                                               "state": "open"}})(),
     ):
         ok = epic_task_sync_github._validate_issue_in_repo(
-            item_ref, issue_num, project_repo, project="yoke", stderr=stderr,
+            item_ref, issue_num, project="yoke", stderr=stderr,
         )
 
     assert ok is True

@@ -23,7 +23,7 @@ from typing import Any, Optional, TextIO
 from yoke_core.domain import github_rest
 from yoke_core.domain.epic_task_sync import (
     _connect_db,
-    _epic_project_repo,
+    _epic_project,
     _epic_ref_name,
     _placeholder,
 )
@@ -81,7 +81,7 @@ def sync_progress_notes(
         if not rows:
             return 0
 
-        project, _repo = _epic_project_repo(epic_name, conn=conn)
+        project = _epic_project(epic_name, conn=conn)
         gh_project = project or "yoke"
         if not github_sync_enabled(gh_project, conn=conn):
             print(

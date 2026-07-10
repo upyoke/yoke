@@ -117,7 +117,7 @@ class TestCheckCi:
 
     def test_default_payload_is_point_in_time_no_wait_keys(self) -> None:
         rc, _out, _err = _run(
-            "github-actions", "check-ci", "upyoke/yoke", "ci.yml"
+            "github-actions", "check-ci", "upyoke/yoke", "ci.yml", "--project", "yoke",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -136,7 +136,7 @@ class TestCheckCi:
         )
 
         rc, sleeps, _out = self._run_wait(
-            "github-actions", "check-ci", "o/r", "ci.yml", "--wait",
+            "github-actions", "check-ci", "o/r", "ci.yml", "--wait", "--project", "yoke",
             stub=self._stub_states(["running", "running", "passed"]),
             clock=[0, 10, 20],
         )
@@ -152,6 +152,7 @@ class TestCheckCi:
         rc, sleeps, out = self._run_wait(
             "github-actions", "check-ci", "o/r", "ci.yml",
             "--wait", "--timeout", "600", "--json",
+            "--project", "yoke",
             stub=self._stub_states(["running", "running"]),
             clock=[0, 601],
         )
@@ -172,6 +173,7 @@ class TestCheckCi:
 
         rc, sleeps, out = self._run_wait(
             "github-actions", "check-ci", "o/r", "ci.yml", "--wait", "--json",
+            "--project", "yoke",
             stub=stub,
         )
         assert rc == 0
@@ -189,7 +191,7 @@ class TestCheckCi:
             )
 
         rc, sleeps, _out = self._run_wait(
-            "github-actions", "check-ci", "o/r", "ci.yml", "--wait",
+            "github-actions", "check-ci", "o/r", "ci.yml", "--wait", "--project", "yoke",
             stub=stub,
         )
         assert rc == 1
@@ -198,7 +200,8 @@ class TestCheckCi:
 
     def test_repo_without_slash_returns_two(self) -> None:
         rc, _out, _err = _run(
-            "github-actions", "check-ci", "no-slash", "ci.yml", "--wait"
+            "github-actions", "check-ci", "no-slash", "ci.yml", "--wait",
+            "--project", "yoke",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -210,7 +213,7 @@ class TestSecretSet:
 
         rc, out, err = _run(
             "github-actions", "secret", "set",
-            "upyoke/yoke", "YOKE_CI_TEST", secret,
+            "upyoke/yoke", "YOKE_CI_TEST", secret, "--project", "yoke",
         )
 
         assert rc == 0
@@ -230,6 +233,7 @@ class TestSecretSet:
         rc, _out, _err = _run(
             "github-actions", "secret", "set",
             "upyoke/yoke", "YOKE_CI_TEST", "--value-stdin",
+            "--project", "yoke",
             stdin_text="sekret-value\n",
         )
         assert rc == 0
@@ -246,7 +250,7 @@ class TestSecretSet:
     def test_multiline_value_preserved_minus_trailing_newline(self) -> None:
         rc, _out, _err = _run(
             "github-actions", "secret", "set",
-            "o/r", "SSH_KEY", "--value-stdin",
+            "o/r", "SSH_KEY", "--value-stdin", "--project", "yoke",
             stdin_text="line-one\nline-two\n",
         )
         assert rc == 0
@@ -258,7 +262,7 @@ class TestSecretSet:
 
         rc, out, err = _run(
             "github-actions", "secret", "set",
-            "o/r", "FILE_SECRET", "--value-file", str(secret_file),
+            "o/r", "FILE_SECRET", "--value-file", str(secret_file), "--project", "yoke",
         )
 
         assert rc == 0
@@ -269,6 +273,7 @@ class TestSecretSet:
     def test_missing_value_source_returns_two(self) -> None:
         rc, _out, _err = _run(
             "github-actions", "secret", "set", "o/r", "NAME",
+            "--project", "yoke",
             stdin_text="value",
         )
         assert rc == 2
@@ -277,6 +282,7 @@ class TestSecretSet:
     def test_empty_stdin_returns_two(self) -> None:
         rc, _out, _err = _run(
             "github-actions", "secret", "set", "o/r", "NAME", "--value-stdin",
+            "--project", "yoke",
             stdin_text="",
         )
         assert rc == 2
@@ -285,7 +291,7 @@ class TestSecretSet:
     def test_repo_without_slash_returns_two(self) -> None:
         rc, _out, _err = _run(
             "github-actions", "secret", "set", "no-slash", "NAME",
-            "--value-stdin", stdin_text="v",
+            "--value-stdin", "--project", "yoke", stdin_text="v",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -293,7 +299,8 @@ class TestSecretSet:
     def test_value_sources_are_mutually_exclusive(self) -> None:
         rc, _out, _err = _run(
             "github-actions", "secret", "set", "o/r", "NAME",
-            "direct", "--value-stdin", stdin_text="stdin",
+            "direct", "--value-stdin", "--project", "yoke",
+            stdin_text="stdin",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -304,6 +311,7 @@ class TestVariableSet:
         rc, _out, _err = _run(
             "github-actions", "variable", "set",
             "upyoke/yoke", "YOKE_PULUMI_CI_ENABLED", "--value", "false",
+            "--project", "yoke",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -326,7 +334,8 @@ class TestVariableSet:
 
     def test_missing_value_returns_two(self) -> None:
         rc, _out, _err = _run(
-            "github-actions", "variable", "set", "o/r", "GATE"
+            "github-actions", "variable", "set", "o/r", "GATE",
+            "--project", "yoke",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -334,7 +343,7 @@ class TestVariableSet:
     def test_repo_without_slash_returns_two(self) -> None:
         rc, _out, _err = _run(
             "github-actions", "variable", "set", "no-slash", "GATE",
-            "--value", "x",
+            "--value", "x", "--project", "yoke",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []

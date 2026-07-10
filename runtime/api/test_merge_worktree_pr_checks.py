@@ -124,7 +124,7 @@ class TestRestCheckRunsBranches:
             merge_worktree_ci,
             "get_check_runs",
             lambda *_a, **_kw: (
-                merge_worktree_ci_rest.CheckRunsState(states=(), readable=True),
+                merge_worktree_ci_rest.CheckRunsState(states=()),
                 None,
             ),
         )
@@ -134,10 +134,9 @@ class TestRestCheckRunsBranches:
         assert outcome.reason == "no_checks_configured"
         assert not [name for (name, _) in emitted if name == "MergePullRequestCiFailed"]
 
-    def test_unreadable_check_runs_skips_cleanly(self, monkeypatch) -> None:
-        """Token lacking check-runs read scope routes to SKIPPED (not FAILED)."""
+    def test_check_runs_authorization_failure_fails_closed(self, monkeypatch) -> None:
+        """Token lacking required Checks read permission blocks the merge."""
         from yoke_core.engines import merge_worktree
-        from yoke_core.engines import merge_worktree_ci_rest
 
         monkeypatch.setattr(
             merge_worktree,
@@ -149,15 +148,12 @@ class TestRestCheckRunsBranches:
             merge_worktree_ci,
             "get_check_runs",
             lambda *_a, **_kw: (
-                merge_worktree_ci_rest.CheckRunsState(states=(), readable=False),
-                None,
+                None, "check-runs REST authorization failed: HTTP 403",
             ),
         )
 
         outcome = merge_worktree._wait_for_ci("3309", _stub_ctx())
-        assert outcome.outcome == "skipped"
-        # A 403-unreadable token is distinguished from genuinely-absent.
-        assert outcome.reason == "checks_unreadable_403"
+        assert outcome.outcome == "failed"
 
     def test_all_success_states_pass(self, monkeypatch) -> None:
         from yoke_core.engines import merge_worktree
@@ -174,7 +170,7 @@ class TestRestCheckRunsBranches:
             "get_check_runs",
             lambda *_a, **_kw: (
                 merge_worktree_ci_rest.CheckRunsState(
-                    states=("SUCCESS", "SUCCESS"), readable=True
+                    states=("SUCCESS", "SUCCESS")
                 ),
                 None,
             ),

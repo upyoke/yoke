@@ -76,17 +76,11 @@ def project_report(
     apply: bool,
     project_inputs: dict[str, Any],
     reuse: Mapping[str, Any],
-    github_token: str | None,
-    github_token_file: str | Path | None,
-    github_token_stdin_value: str | None,
     progress: onboard_apply_progress.ProgressCallback | None = None,
 ) -> dict[str, Any]:
     try:
         return onboard_project.project_report(
             inputs=project_inputs,
-            github_token=github_token,
-            github_token_file=github_token_file,
-            github_token_stdin_value=github_token_stdin_value,
             config_path=config_path,
             apply=apply,
             reuse=reuse,

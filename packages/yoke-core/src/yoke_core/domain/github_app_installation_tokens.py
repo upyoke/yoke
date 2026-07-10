@@ -12,7 +12,11 @@ import urllib.request
 from yoke_contracts import github_app_tokens as token_contract
 
 from yoke_core.domain import gh_rest_transport
-from yoke_core.domain.gh_rest_transport_test_guard import block_live_test_call
+from yoke_contracts.github_origin import (
+    GitHubApiOriginError,
+    validate_github_api_endpoint,
+)
+from yoke_core.domain.github_api_transport import open_same_origin
 from yoke_core.domain.github_app_jwt import generate_app_jwt
 from yoke_core.domain.github_app_token_models import (
     GitHubAppTokenError,
@@ -23,9 +27,6 @@ from yoke_core.domain.github_app_token_models import (
     require_nonempty_string,
     utc_now,
 )
-
-urlopen = urllib.request.urlopen
-
 
 @dataclass(frozen=True)
 class InstallationTokenCacheKey:
@@ -149,8 +150,9 @@ def _issue_token_request(
     opener: Callable[..., Any] | None,
     timeout_seconds: float,
 ) -> dict[str, Any]:
+    endpoint = _validated_endpoint(api_url)
     selected_url = (
-        f"{_clean_api_url(api_url)}/app/installations/"
+        f"{endpoint.base_url}/app/installations/"
         f"{installation_id}/access_tokens"
     )
     request = urllib.request.Request(
@@ -165,11 +167,13 @@ def _issue_token_request(
         },
         method="POST",
     )
-    selected_opener = opener or urlopen
-    if opener is None:
-        block_live_test_call(urlopen, urllib.request.urlopen)
     try:
-        with selected_opener(request, timeout=timeout_seconds) as response:
+        with open_same_origin(
+            request,
+            endpoint=endpoint,
+            timeout_seconds=timeout_seconds,
+            opener=opener,
+        ) as response:
             return parse_json_object(response.read(), "GitHub installation token")
     except urllib.error.HTTPError as exc:
         body_text = _read_error_body(exc)
@@ -182,6 +186,8 @@ def _issue_token_request(
         raise GitHubAppTokenError(
             f"GitHub installation token request failed: {exc.reason}"
         ) from exc
+    except GitHubApiOriginError as exc:
+        raise GitHubAppTokenError(str(exc)) from exc
 
 
 def _parse_installation_token(payload: Mapping[str, Any]) -> InstallationToken:
@@ -256,6 +262,10 @@ def _normalize_repositories(values: Iterable[str] | None) -> tuple[str, ...]:
         text = str(value or "").strip()
         if not text:
             raise GitHubAppTokenError("repositories must contain non-empty names")
+        if "/" in text:
+            raise GitHubAppTokenError(
+                "repositories must contain bare repository names, not owner/name"
+            )
         normalized.append(text)
     if not normalized:
         return ()
@@ -305,10 +315,14 @@ def _cache_key(
 
 
 def _clean_api_url(api_url: str) -> str:
-    raw = str(api_url or gh_rest_transport.GITHUB_API_BASE).strip().rstrip("/")
-    if not raw:
-        raise GitHubAppTokenError("GitHub API URL is required")
-    return raw
+    return _validated_endpoint(api_url).base_url
+
+
+def _validated_endpoint(api_url: str):
+    try:
+        return validate_github_api_endpoint(api_url)
+    except GitHubApiOriginError as exc:
+        raise GitHubAppTokenError(str(exc)) from exc
 
 
 def _read_error_body(exc: urllib.error.HTTPError) -> str:
@@ -322,5 +336,4 @@ __all__ = [
     "InstallationTokenCache",
     "InstallationTokenCacheKey",
     "mint_installation_token",
-    "urlopen",
 ]

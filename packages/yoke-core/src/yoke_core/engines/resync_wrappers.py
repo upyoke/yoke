@@ -16,16 +16,16 @@ def _parent():
     from yoke_core.engines import resync as _resync
     return _resync
 
-def _fetch_gh_issues_per_project(project_map):
+def _fetch_gh_issues_per_project(projects):
     """Wrapper: fetch GitHub issues via REST."""
     from yoke_core.engines.resync_detect import _fetch_gh_issues_per_project as _fn
-    return _fn(project_map)
+    return _fn(projects)
 
 
-def _graphql_batch_fetch(nums, owner, repo, project="yoke", batch_size=50):
+def _graphql_batch_fetch(nums, project="yoke", batch_size=50, *, auth=None):
     """Wrapper: GraphQL batch fetch via REST."""
     from yoke_core.engines.resync_detect import _graphql_batch_fetch as _fn
-    return _fn(nums, owner, repo, project=project, batch_size=batch_size)
+    return _fn(nums, project=project, batch_size=batch_size, auth=auth)
 
 
 def stage1_linkage(
@@ -38,8 +38,8 @@ def stage1_linkage(
 
     # Pass a fetch_fn that routes through resync._fetch_gh_issues_per_project
     # so that test patches of resync._fetch_gh_issues_per_project are honoured.
-    def _fetch_fn(project_map):
-        return _self._fetch_gh_issues_per_project(project_map)
+    def _fetch_fn(projects):
+        return _self._fetch_gh_issues_per_project(projects)
 
     return _stage1(db_path, yoke_root, fetch_fn=_fetch_fn)
 
@@ -50,8 +50,8 @@ def stage1_5_heavy_fetch(paired, gh_by_project):
     import yoke_core.engines.resync as _self
 
     # Pass graphql_fn so that test patches of resync._graphql_batch_fetch are honoured.
-    def _graphql_fn(nums, owner, repo, project="yoke"):
-        return _self._graphql_batch_fetch(nums, owner, repo, project=project)
+    def _graphql_fn(nums, project="yoke", *, auth=None):
+        return _self._graphql_batch_fetch(nums, project=project, auth=auth)
 
     return _stage1_5(paired, gh_by_project, graphql_fn=_graphql_fn)
 

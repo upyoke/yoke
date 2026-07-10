@@ -73,7 +73,7 @@ def stub_board_art(monkeypatch) -> None:
 
 
 def stub_token_verifiers(monkeypatch) -> None:
-    """Keep wizard token confirmation screens deterministic and offline."""
+    """Keep wizard authorization confirmation screens deterministic and offline."""
     from yoke_cli.config import existing_project_lookup
     from yoke_cli.config import onboard_wizard_flow_connect
     from yoke_cli.config import onboard_wizard_flow_github
@@ -90,41 +90,29 @@ def stub_token_verifiers(monkeypatch) -> None:
             "actor": {"label": "test-actor"},
         },
     )
-    monkeypatch.setattr(
-        onboard_wizard_flow_github,
-        "verify_machine_github_token",
-        lambda api_url, token: {
-            "identity": {"checked": True, "ok": True, "login": "machine-user"},
-            "access": {
-                "owners": ["machine-user", "octo-org"],
-                "repos": ["machine-user/private-tool", "octo-org/app"],
-                "repo_count": 2,
-            },
-            "scopes": ["repo", "workflow"],
-            "permissions": {
-                "ok": True,
-                "mode": "scoped_token",
-                "create_repos": {
-                    "can_create": True,
-                    "create_private": True,
-                    "basis": "scope:repo",
-                },
-                "summary": "scope-bearing token scopes include repo, workflow",
-            },
-            "capability": {
-                "kind": "scoped_token",
-                "can_create": True,
-                "create_private": True,
-                "can_push_new": True,
-                "can_publish": True,
-                "writable": ["machine-user/private-tool", "octo-org/app"],
-                "readonly": [],
-                "see_private": 2,
-                "see_public": 0,
-                "write_probed_count": 0,
-                "write_probe_total": 0,
-            },
+    github_report = {
+        "ok": True,
+        "configured": True,
+        "state": "connected",
+        "api_url": "https://api.github.com",
+        "identity": {"checked": True, "ok": True, "login": "machine-user"},
+        "access": {
+            "owners": ["machine-user", "octo-org"],
+            "repos": ["machine-user/private-tool", "octo-org/app"],
+            "repo_count": 2,
         },
+        "permissions": {"ok": True, "mode": "github_app_installation"},
+        "issues": [],
+    }
+    monkeypatch.setattr(
+        onboard_wizard_flow_github.github_machine,
+        "connect",
+        lambda **_kwargs: dict(github_report),
+    )
+    monkeypatch.setattr(
+        onboard_wizard_flow_github.github_machine,
+        "status",
+        lambda **_kwargs: dict(github_report),
     )
     monkeypatch.setattr(
         existing_project_lookup,
@@ -181,11 +169,11 @@ def stub_source_branch(
 
     monkeypatch.setattr(
         project_git_transport, "remote_default_branch",
-        lambda url, token=None: branch,
+        lambda url, token=None, github_web_url=None: branch,
     )
     monkeypatch.setattr(
         project_git_transport, "remote_is_reachable",
-        lambda url, token=None: reachable,
+        lambda url, token=None, github_web_url=None: reachable,
     )
 
 

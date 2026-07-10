@@ -13,6 +13,9 @@ import json
 from pathlib import Path
 from typing import List
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_SECRETS_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
@@ -29,7 +32,6 @@ from yoke_core.domain.project_github_auth import (
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 
-import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
 
 from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
@@ -94,7 +96,7 @@ def hc_project_gh_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "HC-project-gh-auth",
         f"GitHub App auth ({proj_id})",
         "PASS",
-        f"Resolved GitHub App auth via project repo binding",
+        "Resolved GitHub App auth via project repo binding",
     )
 
 def hc_project_worktrees(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -201,16 +203,18 @@ def hc_project_gh_secrets(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     slug = "HC-project-gh-secrets"
     if not _base._table_exists(conn, "projects"):
         return
-    row = query_rows(conn, "SELECT github_repo FROM projects WHERE slug=%s", (args.project,))
-    if not row or not row[0]["github_repo"]:
-        return
-    gh_repo = row[0]["github_repo"]
     try:
-        auth = resolve_project_github_auth(args.project, db_path=args.db_path, conn=conn)
+        auth = resolve_project_github_auth(
+            args.project,
+            db_path=args.db_path,
+            conn=conn,
+            required_permissions=GITHUB_SECRETS_READ_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError:
         rec.record(slug, name_label, "SKIP",
                    GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=args.project))
         return
+    gh_repo = auth.repo
     parts = gh_repo.split("/", 1)
     if len(parts) != 2:
         rec.record(slug, name_label, "WARN", f"malformed github_repo '{gh_repo}'")

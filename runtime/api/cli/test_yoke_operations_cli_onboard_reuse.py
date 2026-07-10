@@ -84,7 +84,6 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
                     "github_user_id": 1001,
                     "login": "machine-user",
                     "status": "authorized",
-                    "scopes": [],
                 },
             },
             "temp_root": str(temp_root),
@@ -112,7 +111,7 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
             project_default_branch="main",
             project_public_item_prefix="LOC",
             existing_project_id=44,
-            project_github_adoption="skip",
+            project_github_adoption="backlog-only",
             progress=lambda action, target, status: events.append(
                 (action, target, status)
             ),
@@ -128,6 +127,10 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     ]
     assert report["plan"]["reuse"]["project_checkout"] is True
     assert report["plan"]["reuse"]["project_scaffold"] is True
+    assert report["plan"]["machine_github_mutation"] is False
+    assert report["machine_github"]["writes_machine_secret"] is False
+    assert report["machine_github"]["requires_browser_flow"] is False
+    assert report["machine_github"]["reused"] is True
     assert report["project_onboarding"]["install"]["operation"] == "refresh"
     assert json.loads(config.read_text(encoding="utf-8")) == before_config
 
@@ -162,7 +165,7 @@ def test_onboard_preview_detects_matching_clone_reuse(tmp_path: Path) -> None:
             onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO
         ),
         project_public_item_prefix="CLN",
-        project_github_adoption="skip",
+        project_github_adoption="backlog-only",
     )
 
     assert report["plan"]["reuse"]["project_clone_checkout"] is True

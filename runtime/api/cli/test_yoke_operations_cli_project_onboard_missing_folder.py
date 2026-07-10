@@ -32,10 +32,7 @@ def _base_kwargs(checkout: Path) -> dict:
         "github_repo": None,
         "default_branch": "main",
         "public_item_prefix": "WIDG",
-        "github_token": None,
-        "github_token_file": None,
-        "github_token_stdin_value": None,
-        "github_adoption_choice": "skip",
+        "github_adoption_choice": "backlog-only",
         "config_path": None,
     }
 

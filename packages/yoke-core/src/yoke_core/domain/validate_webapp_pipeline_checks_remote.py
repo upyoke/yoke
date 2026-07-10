@@ -14,6 +14,12 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+from types import MappingProxyType
+
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_SECRETS_READ_PERMISSION_LEVELS,
+)
 
 from yoke_core.domain import gh_rest_transport
 from yoke_core.domain.project_github_auth import (
@@ -35,6 +41,12 @@ from .validate_webapp_pipeline_helpers import (
     _run,  # noqa: F401  # retained for test monkeypatch surface compatibility
     _which,  # noqa: F401  # retained for test monkeypatch surface compatibility
 )
+
+
+_REMOTE_GITHUB_READ_PERMISSION_LEVELS = MappingProxyType({
+    **GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    **GITHUB_SECRETS_READ_PERMISSION_LEVELS,
+})
 
 
 def _module_available(module_name: str) -> bool:
@@ -78,8 +90,23 @@ def _check_github_actions_infrastructure(
         try:
             resolved = resolve_project_github_auth(
                 project_key, db_path=str(ctx.control_plane_marker),
+                required_permissions=_REMOTE_GITHUB_READ_PERMISSION_LEVELS,
             )
+            projected_repo = str(github_repo or "").strip()
+            if (
+                projected_repo
+                and projected_repo.casefold() != resolved.repo.casefold()
+            ):
+                _check_fail(
+                    counters,
+                    f"{project_slug} github_repo projection does not match "
+                    f"verified App binding {resolved.repo}",
+                    "Rebind the repository through `yoke projects "
+                    "github-binding bind` before running remote checks.",
+                )
+                return
             token = resolved.token
+            github_repo = resolved.repo
             _check_pass(
                 counters, f"{project_slug} github auth resolved (canonical)"
             )

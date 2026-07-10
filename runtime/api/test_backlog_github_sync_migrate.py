@@ -15,9 +15,27 @@ from runtime.api.backlog_github_sync_test_helpers import (
 )
 from runtime.api.conftest import insert_item
 from yoke_core.domain import backlog_github_sync, github_rest
+from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
 
 _REPO_MIG = "yoke_core.domain.backlog_github_repo_migration.github_rest"
+_AUTH = (
+    "yoke_core.domain.backlog_github_repo_migration."
+    "resolve_project_github_auth"
+)
+
+
+def _resolve_auth(project: str, **_kwargs) -> ProjectGithubAuth:
+    repos = {
+        "archive": "org/archive",
+        "buzz": "org/buzz",
+        "yoke": "org/yoke",
+    }
+    return ProjectGithubAuth(
+        project=project,
+        repo=repos[project],
+        token=f"token-{project}",
+    )
 
 
 def _source_issue(
@@ -50,17 +68,17 @@ class TestMigrateIssueToRepo:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
+        with patch(_AUTH, side_effect=_resolve_auth), patch(
             f"{_REPO_MIG}.get_issue",
             return_value=_source_issue(
                 200, title="[YOK-90] My issue title", body="Issue body content",
                 labels=("status:idea", "priority:high"),
             ),
-        ), patch(
+        ) as get_issue, patch(
             f"{_REPO_MIG}.create_issue", return_value=_created_issue(555),
         ) as create, patch(
             f"{_REPO_MIG}.list_comments", return_value=[],
-        ), patch(
+        ) as list_comments, patch(
             f"{_REPO_MIG}.post_comment",
         ) as post_comment, patch(
             f"{_REPO_MIG}.set_issue_state",
@@ -68,7 +86,7 @@ class TestMigrateIssueToRepo:
             f"{_REPO_MIG}.delete_issue",
         ) as delete_issue, patch("yoke_core.domain.events.emit_event"):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "90", "200", "org/yoke", "org/buzz", "buzz",
+                "90", "200", "org/archive", "archive", "org/buzz", "buzz",
                 conn=db, stdout=stdout,
             )
 
@@ -76,7 +94,7 @@ class TestMigrateIssueToRepo:
         output = stdout.getvalue()
         assert "[migrate] Created #555 in org/buzz" in output
         assert "[migrate] Updated DB: YOK-90 github_issue = #555" in output
-        assert "[migrate] Deleted #200 from org/yoke" in output
+        assert "[migrate] Deleted #200 from org/archive" in output
         assert "[migrate] YOK-90: migration complete" in output
 
         gh_issue = db.execute(
@@ -86,6 +104,8 @@ class TestMigrateIssueToRepo:
 
         create.assert_called_once()
         assert create.call_args.kwargs["project"] == "buzz"
+        assert get_issue.call_args.kwargs["project"] == "archive"
+        assert list_comments.call_args.kwargs["project"] == "archive"
         # Source open → new state stays open (no close-after-create call);
         # only the close-source step closes the source issue.
         close_calls = [
@@ -93,11 +113,12 @@ class TestMigrateIssueToRepo:
             if c.kwargs.get("state") == "closed"
         ]
         assert len(close_calls) == 1
-        assert close_calls[0].kwargs["project"] == "yoke"
+        assert close_calls[0].kwargs["project"] == "archive"
         delete_issue.assert_called_once()
+        assert delete_issue.call_args.kwargs["project"] == "archive"
         # Forward comment on source.
         assert any(
-            c.kwargs.get("project") == "yoke" and "Migrated to" in c.kwargs.get("body", "")
+            c.kwargs.get("project") == "archive" and "Migrated to" in c.kwargs.get("body", "")
             for c in post_comment.call_args_list
         )
         db.close()
@@ -115,7 +136,7 @@ class TestMigrateIssueToRepo:
             github_rest.Comment(id=2, body="Second comment", user_login="bob"),
         ]
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
+        with patch(_AUTH, side_effect=_resolve_auth), patch(
             f"{_REPO_MIG}.get_issue", return_value=_source_issue(201),
         ), patch(
             f"{_REPO_MIG}.create_issue", return_value=_created_issue(556),
@@ -129,7 +150,7 @@ class TestMigrateIssueToRepo:
             f"{_REPO_MIG}.delete_issue",
         ), patch("yoke_core.domain.events.emit_event"):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "91", "201", "org/yoke", "org/buzz", "buzz",
+                "91", "201", "org/yoke", "yoke", "org/buzz", "buzz",
                 conn=db, stdout=stdout,
             )
 
@@ -145,7 +166,7 @@ class TestMigrateIssueToRepo:
         )
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
+        with patch(_AUTH, side_effect=_resolve_auth), patch(
             f"{_REPO_MIG}.get_issue",
             return_value=_source_issue(202, state="CLOSED"),
         ), patch(
@@ -160,7 +181,7 @@ class TestMigrateIssueToRepo:
             f"{_REPO_MIG}.delete_issue",
         ), patch("yoke_core.domain.events.emit_event"):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "92", "202", "org/yoke", "org/buzz", "buzz",
+                "92", "202", "org/yoke", "yoke", "org/buzz", "buzz",
                 conn=db, stdout=stdout,
             )
 
@@ -178,7 +199,7 @@ class TestMigrateIssueToRepo:
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "99", "300", "org/yoke", "org/buzz", "buzz",
+                "99", "300", "org/yoke", "yoke", "org/buzz", "buzz",
                 stdout=stdout,
             )
         assert rc == 0
@@ -186,12 +207,12 @@ class TestMigrateIssueToRepo:
 
     def test_fetch_title_failure_returns_error(self):
         stderr = io.StringIO()
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
+        with patch(_AUTH, side_effect=_resolve_auth), patch(
             f"{_REPO_MIG}.get_issue",
             side_effect=github_rest.RestTransportError("boom", status=500),
         ):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "99", "300", "org/yoke", "org/buzz", "buzz",
+                "99", "300", "org/yoke", "yoke", "org/buzz", "buzz",
                 stderr=stderr,
             )
         assert rc == 1
@@ -199,14 +220,14 @@ class TestMigrateIssueToRepo:
 
     def test_create_failure_returns_error(self):
         stderr = io.StringIO()
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
+        with patch(_AUTH, side_effect=_resolve_auth), patch(
             f"{_REPO_MIG}.get_issue", return_value=_source_issue(300),
         ), patch(
             f"{_REPO_MIG}.create_issue",
             side_effect=github_rest.RestTransportError("permission denied", status=403),
         ):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "99", "300", "org/yoke", "org/buzz", "buzz",
+                "99", "300", "org/yoke", "yoke", "org/buzz", "buzz",
                 stderr=stderr,
             )
         assert rc == 1
@@ -215,7 +236,26 @@ class TestMigrateIssueToRepo:
     def test_cli_dispatch(self):
         with patch(f"{GH_PATCH}.migrate_issue_to_repo", return_value=0) as mock:
             rc = backlog_github_sync.main(
-                ["migrate-issue", "42", "100", "org/yoke", "org/buzz", "buzz"]
+                [
+                    "migrate-issue", "42", "100", "org/yoke", "yoke",
+                    "org/buzz", "buzz",
+                ]
             )
         assert rc == 0
-        mock.assert_called_once_with("42", "100", "org/yoke", "org/buzz", "buzz")
+        mock.assert_called_once_with(
+            "42", "100", "org/yoke", "yoke", "org/buzz", "buzz",
+        )
+
+    def test_repo_projection_mismatch_fails_before_github_io(self):
+        stderr = io.StringIO()
+        with patch(_AUTH, side_effect=_resolve_auth), patch(
+            f"{_REPO_MIG}.get_issue",
+        ) as get_issue:
+            rc = backlog_github_sync.migrate_issue_to_repo(
+                "99", "300", "org/stale", "yoke", "org/buzz", "buzz",
+                stderr=stderr,
+            )
+
+        assert rc == 1
+        assert "does not match the verified binding" in stderr.getvalue()
+        get_issue.assert_not_called()

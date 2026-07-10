@@ -127,10 +127,9 @@ def build_plan(
         "project_mutation": project_mode != PROJECT_MODE_MACHINE_ONLY,
         "machine_github_mutation": bool(
             machine_github.get("writes_machine_secret")
-        ),
+        ) and not bool(reuse.get("machine_github")),
         "github_mutation": bool(
-            project_inputs.get("github_adoption")
-            not in (None, "skip", "backlog-only")
+            project_inputs.get("github_adoption") not in (None, "backlog-only")
         ),
         "reuse": reuse,
         "project": _public_project_inputs(project_inputs) if project_inputs else None,

@@ -27,7 +27,7 @@ from yoke_core.domain import (
     backlog_github_sync_cli as cli,
 )
 from yoke_core.domain.project_github_auth import (
-    MissingToken,
+    MissingRepoBinding,
     ProjectGithubAuth,
 )
 
@@ -36,7 +36,6 @@ _OK_AUTH = ProjectGithubAuth(
     project="buzz",
     repo="org/buzz",
     token="ghs_fake",
-    env={"GH_TOKEN": "ghs_fake"},
 )
 
 
@@ -155,17 +154,17 @@ class TestSkipsOnAuthFailure:
             github_issue="#82", spec=_huge_spec(),
         )
 
-        def raise_missing_token_for_61(project, *args, **kwargs):
+        def raise_missing_binding_for_61(project, *args, **kwargs):
             # First-call lookup is project-keyed: both items share project=buzz,
             # so use a stateful counter so the *first* call raises and the
             # second succeeds.
-            calls = raise_missing_token_for_61._calls + 1
-            raise_missing_token_for_61._calls = calls
+            calls = raise_missing_binding_for_61._calls + 1
+            raise_missing_binding_for_61._calls = calls
             if calls == 1:
-                raise MissingToken("buzz", "no token configured for buzz")
+                raise MissingRepoBinding("buzz", "repository is not bound")
             return _OK_AUTH
 
-        raise_missing_token_for_61._calls = 0
+        raise_missing_binding_for_61._calls = 0
 
         stdout = io.StringIO()
         stderr = io.StringIO()
@@ -177,7 +176,7 @@ class TestSkipsOnAuthFailure:
 
         with patch.object(_bgs, "sync_body", side_effect=fake_sync_body), patch.object(
             cli, "resolve_project_github_auth",
-            side_effect=raise_missing_token_for_61,
+            side_effect=raise_missing_binding_for_61,
         ):
             rc = cli.backfill_oversized_bodies(
                 conn=db, stdout=stdout, stderr=stderr,
@@ -190,7 +189,7 @@ class TestSkipsOnAuthFailure:
         # The skipped item is logged with the typed class name to stderr.
         skipped = stderr.getvalue()
         assert "BUZ-61" in skipped
-        assert "MissingToken" in skipped
+        assert "MissingRepoBinding" in skipped
         # The summary names the auth failure count.
         out = stdout.getvalue()
         assert "auth failures 1" in out

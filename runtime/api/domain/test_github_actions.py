@@ -12,9 +12,7 @@ import pytest
 from yoke_core.domain import github_actions, github_actions_rest
 from yoke_core.domain.gh_rest_transport import RestAuthError
 from yoke_core.domain.project_github_auth import (
-    MissingCapability,
-    MissingToken,
-    ProjectGithubAuth,
+    MissingAppCredentials,
 )
 from runtime.api.domain.test_github_actions_rest import (
     _RESOLVED,
@@ -38,7 +36,7 @@ class TestPoll:
             [{"status": "completed", "conclusion": "success"}],
         ):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_poll("o/r", "123")
+                github_actions.cmd_poll("o/r", "123", project="yoke")
             assert exc_info.value.code == 0
 
     def test_failed(self, _resolver_ok, monkeypatch):
@@ -47,7 +45,7 @@ class TestPoll:
             [{"status": "completed", "conclusion": "failure"}],
         ):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_poll("o/r", "123")
+                github_actions.cmd_poll("o/r", "123", project="yoke")
             assert exc_info.value.code == 1
 
     def test_waiting(self, _resolver_ok, monkeypatch):
@@ -56,7 +54,7 @@ class TestPoll:
             [{"status": "queued", "conclusion": None}],
         ):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_poll("o/r", "123")
+                github_actions.cmd_poll("o/r", "123", project="yoke")
             assert exc_info.value.code == 2
 
     def test_in_progress(self, _resolver_ok, monkeypatch):
@@ -65,18 +63,18 @@ class TestPoll:
             [{"status": "in_progress", "conclusion": None}],
         ):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_poll("o/r", "123")
+                github_actions.cmd_poll("o/r", "123", project="yoke")
             assert exc_info.value.code == 3
 
-    def test_resolver_error_exits_4(self, monkeypatch, capsys):
+    def test_missing_app_credentials_exit_4(self, monkeypatch, capsys):
         monkeypatch.setattr(
             github_actions_rest, "resolve_project_github_auth",
-            _raise_error(MissingToken),
+            _raise_error(MissingAppCredentials),
         )
         with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_poll("o/r", "123")
+            github_actions.cmd_poll("o/r", "123", project="yoke")
         assert exc_info.value.code == 4
-        assert "missing_token" in capsys.readouterr().err
+        assert "missing_app_credentials" in capsys.readouterr().err
 
 
 class TestWaitRun:
@@ -93,7 +91,9 @@ class TestWaitRun:
 
         with _fake_urls(monkeypatch, responses):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_wait_run("o/r", "123", timeout_sec=1800)
+                github_actions.cmd_wait_run(
+                    "o/r", "123", timeout_sec=1800, project="yoke",
+                )
             assert exc_info.value.code == 0
 
         assert sleeps == [5, 10]
@@ -104,7 +104,9 @@ class TestWaitRun:
             [{"status": "completed", "conclusion": "failure"}],
         ):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_wait_run("o/r", "123", timeout_sec=1800)
+                github_actions.cmd_wait_run(
+                    "o/r", "123", timeout_sec=1800, project="yoke",
+                )
             assert exc_info.value.code == 1
 
     def test_timeout_exits_3(self, monkeypatch, _resolver_ok):
@@ -119,7 +121,9 @@ class TestWaitRun:
 
         with _fake_urls(monkeypatch, responses):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_wait_run("o/r", "123", timeout_sec=5)
+                github_actions.cmd_wait_run(
+                    "o/r", "123", timeout_sec=5, project="yoke",
+                )
             assert exc_info.value.code == 3
 
         assert sleeps == [5]
@@ -129,13 +133,17 @@ class TestFindRun:
     def test_found(self, _resolver_ok, monkeypatch):
         with _fake_urls(monkeypatch, [{"workflow_runs": [{"id": 999}]}]):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_find_run("o/r", "ci.yml", "abc123")
+                github_actions.cmd_find_run(
+                    "o/r", "ci.yml", "abc123", project="yoke",
+                )
             assert exc_info.value.code == 0
 
     def test_not_found(self, _resolver_ok, monkeypatch):
         with _fake_urls(monkeypatch, [{"workflow_runs": []}]):
             with pytest.raises(SystemExit) as exc_info:
-                github_actions.cmd_find_run("o/r", "ci.yml", "abc123")
+                github_actions.cmd_find_run(
+                    "o/r", "ci.yml", "abc123", project="yoke",
+                )
             assert exc_info.value.code == 1
 
 
@@ -158,7 +166,7 @@ class TestFailedLog:
         self._stub_fetch(monkeypatch, {"build": log_text})
 
         with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_failed_log("o/r", "123")
+            github_actions.cmd_failed_log("o/r", "123", project="yoke")
         assert exc_info.value.code == 0
         assert "line 9" in capsys.readouterr().out
 
@@ -167,7 +175,9 @@ class TestFailedLog:
         self._stub_fetch(monkeypatch, {"build": log_text})
 
         with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_failed_log("o/r", "456", tail_lines=10)
+            github_actions.cmd_failed_log(
+                "o/r", "456", tail_lines=10, project="yoke",
+            )
         assert exc_info.value.code == 0
         out = capsys.readouterr().out
         assert "showing last 10 lines" in out
@@ -181,7 +191,7 @@ class TestFailedLog:
         self._stub_fetch(monkeypatch, RestNotFoundError("run 999 not found", status=404))
 
         with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_failed_log("o/r", "999")
+            github_actions.cmd_failed_log("o/r", "999", project="yoke")
         assert exc_info.value.code == 1
         assert "failed to fetch" in capsys.readouterr().err
 
@@ -189,7 +199,7 @@ class TestFailedLog:
         self._stub_fetch(monkeypatch, RestAuthError("HTTP 401: bad token", status=401))
 
         with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_failed_log("o/r", "111")
+            github_actions.cmd_failed_log("o/r", "111", project="yoke")
         assert exc_info.value.code == 1
         assert "GitHub auth failure" in capsys.readouterr().err
 
@@ -197,7 +207,7 @@ class TestFailedLog:
         self._stub_fetch(monkeypatch, {})
 
         with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_failed_log("o/r", "789")
+            github_actions.cmd_failed_log("o/r", "789", project="yoke")
         assert exc_info.value.code == 1
         assert "no failed-step" in capsys.readouterr().err
 
@@ -208,7 +218,7 @@ class TestFailedLog:
         )
 
         with pytest.raises(SystemExit) as exc_info:
-            github_actions.cmd_failed_log("o/r", "555")
+            github_actions.cmd_failed_log("o/r", "555", project="yoke")
         assert exc_info.value.code == 0
         out = capsys.readouterr().out
         # Jobs ordered alphabetically; both present.

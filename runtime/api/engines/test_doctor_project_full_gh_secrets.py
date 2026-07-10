@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_SECRETS_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestResponse,
-    RestTransportError,
 )
 from yoke_core.domain.project_github_auth import (
     MissingCapability,
@@ -22,14 +24,13 @@ from yoke_core.engines.doctor import hc_project_gh_secrets
 from runtime.api.engines.test_doctor_project_full import (
     _make_conn,
     _run_hc,
-    _seed_github_auth,
     _seed_project,
 )
 
 
 def _auth(project: str = "buzz", repo: str = "org/buzz") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=repo, token="t", env={"GH_TOKEN": "t"},
+        project=project, repo=repo, token="t",
     )
 
 
@@ -49,11 +50,10 @@ class TestProjectGhSecrets:
     def test_passes_when_secrets_found(self):
         conn = _make_conn()
         _seed_project(conn, "buzz", github_repo="org/buzz")
-        _seed_github_auth(conn, "buzz")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
             return_value=_auth("buzz", "org/buzz"),
-        ), patch(
+        ) as resolver, patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
             return_value=RestResponse(
                 status=200, headers={},
@@ -63,11 +63,14 @@ class TestProjectGhSecrets:
             rec = _run_hc(hc_project_gh_secrets, conn)
         assert rec.results[0].result == "PASS"
         assert "2 secrets" in rec.results[0].detail
+        assert (
+            resolver.call_args.kwargs["required_permissions"]
+            is GITHUB_SECRETS_READ_PERMISSION_LEVELS
+        )
 
     def test_warns_when_no_secrets_found(self):
         conn = _make_conn()
         _seed_project(conn, "buzz", github_repo="org/buzz")
-        _seed_github_auth(conn, "buzz")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
             return_value=_auth("buzz", "org/buzz"),
@@ -84,7 +87,6 @@ class TestProjectGhSecrets:
         """REST 401/403 -> SKIP with canonical reason (operator UX parity)."""
         conn = _make_conn()
         _seed_project(conn, "buzz", github_repo="org/buzz")
-        _seed_github_auth(conn, "buzz")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
             return_value=_auth("buzz", "org/buzz"),
@@ -100,7 +102,6 @@ class TestProjectGhSecrets:
         """Yoke is a first-class GitHub project; secrets HC runs as normal."""
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
-        _seed_github_auth(conn, "yoke")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
             return_value=_auth("yoke", "upyoke/yoke"),
@@ -114,3 +115,23 @@ class TestProjectGhSecrets:
             rec = _run_hc(hc_project_gh_secrets, conn, project="yoke")
         assert rec.results[0].result == "PASS"
         assert "upyoke/yoke" in rec.results[0].detail
+
+    def test_uses_verified_binding_repo_not_project_projection(self):
+        conn = _make_conn()
+        _seed_project(conn, "buzz", github_repo="stale-owner/stale-repo")
+        with patch(
+            "yoke_core.engines.doctor_hc_worktrees_gh_project."
+            "resolve_project_github_auth",
+            return_value=_auth("buzz", "verified-owner/verified-repo"),
+        ), patch(
+            "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
+            return_value=RestResponse(
+                status=200, headers={}, body={"total_count": 1, "secrets": []},
+            ),
+        ) as request:
+            rec = _run_hc(hc_project_gh_secrets, conn)
+
+        assert rec.results[0].result == "PASS"
+        assert request.call_args.args[0].path == (
+            "/repos/verified-owner/verified-repo/actions/secrets"
+        )

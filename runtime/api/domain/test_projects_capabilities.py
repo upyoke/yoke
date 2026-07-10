@@ -11,13 +11,16 @@ Pure-resolver coverage of the GitHub auth bundle lives in
 covered by ``test_projects_capabilities_settings.py``.
 """
 
+# The shared pytest fixture intentionally shares its name with test parameters.
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import pytest
 
 from yoke_core.domain import projects_capabilities as pc
 from yoke_core.domain import projects_capabilities_settings as pcs
-from runtime.api.domain.projects_capabilities_test_helpers import cap_db
+from runtime.api.domain.projects_capabilities_test_helpers import cap_db as cap_db
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
@@ -100,11 +103,11 @@ class TestIdentityGeneration:
 class TestCapabilitySecrets:
     def test_set_then_get_literal(self, cap_db: str) -> None:
         pc.cmd_capability_set_secret(
-            "yoke", "github", "token", "ghs_secret", db_path=cap_db
+            "yoke", "deploy", "token", "deploy_secret", db_path=cap_db
         )
         assert pc.cmd_capability_get_secret(
-            "yoke", "github", "token", db_path=cap_db
-        ) == "ghs_secret"
+            "yoke", "deploy", "token", db_path=cap_db
+        ) == "deploy_secret"
 
     def test_get_missing_returns_none(self, cap_db: str) -> None:
         assert pc.cmd_capability_get_secret(
@@ -117,7 +120,7 @@ class TestCapabilitySecrets:
         conn = _fake_secret_row(monkeypatch, "file")
         with pytest.raises(ValueError, match="unsupported source='file'"):
             pc.cmd_capability_get_secret(
-                "yoke", "github", "token", conn=conn
+                "yoke", "deploy", "token", conn=conn
             )
 
     def test_get_secret_rejects_env_source(
@@ -127,7 +130,7 @@ class TestCapabilitySecrets:
         conn = _fake_secret_row(monkeypatch, "env")
         with pytest.raises(ValueError, match="unsupported source='env'"):
             pc.cmd_capability_get_secret(
-                "yoke", "github", "token", conn=conn
+                "yoke", "deploy", "token", conn=conn
             )
 
     def test_get_secret_rejects_missing_file_source(
@@ -136,29 +139,29 @@ class TestCapabilitySecrets:
         conn = _fake_secret_row(monkeypatch, "file")
         with pytest.raises(ValueError, match="unsupported source='file'"):
             pc.cmd_capability_get_secret(
-                "yoke", "github", "token", conn=conn
+                "yoke", "deploy", "token", conn=conn
             )
 
     def test_set_secret_invalid_source_raises(self, cap_db: str) -> None:
         with pytest.raises(ValueError, match="source='literal'"):
             pc.cmd_capability_set_secret(
-                "yoke", "github", "token", "x",
+                "yoke", "deploy", "token", "x",
                 source="file", db_path=cap_db,
             )
 
     def test_set_secret_upsert_updates_in_place(self, cap_db: str) -> None:
         # ON CONFLICT(project, type, key) DO UPDATE — single row, new value.
         pc.cmd_capability_set_secret(
-            "yoke", "github", "token", "old", db_path=cap_db
+            "yoke", "deploy", "token", "old", db_path=cap_db
         )
         pc.cmd_capability_set_secret(
-            "yoke", "github", "token", "new", db_path=cap_db
+            "yoke", "deploy", "token", "new", db_path=cap_db
         )
         assert pc.cmd_capability_get_secret(
-            "yoke", "github", "token", db_path=cap_db
+            "yoke", "deploy", "token", db_path=cap_db
         ) == "new"
         assert pc.cmd_capability_list_secrets(
-            "yoke", "github", db_path=cap_db
+            "yoke", "deploy", db_path=cap_db
         ) == "token"
 
     def test_get_secret_uses_supplied_connection_left_open(
@@ -167,12 +170,12 @@ class TestCapabilitySecrets:
         # When ``conn`` is supplied the read runs on the caller's connection and
         # the helper leaves it open (own_conn=False).
         pc.cmd_capability_set_secret(
-            "yoke", "github", "token", "shared", db_path=cap_db
+            "yoke", "deploy", "token", "shared", db_path=cap_db
         )
         conn = connect_test_db(cap_db)
         try:
             assert pc.cmd_capability_get_secret(
-                "yoke", "github", "token", conn=conn
+                "yoke", "deploy", "token", conn=conn
             ) == "shared"
             # Still usable — the helper did not close the borrowed connection.
             assert conn.execute("SELECT 1").fetchone()[0] == 1

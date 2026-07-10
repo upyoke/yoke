@@ -54,12 +54,11 @@ def _stub_owners(monkeypatch):
     )
 
 
-async def _connect_machine_github_auth(pilot) -> None:
+async def _connect_machine_github_auth(app, pilot) -> None:
     await advance_past_path(pilot)
     await pilot.press("enter")  # machine github: connect account default
-    await type_text(pilot, "ghu_machine_token")
-    await pilot.press("enter")
-    await pilot.press("enter")  # GitHub verification success: Continue
+    await app.workers.wait_for_complete()
+    await pilot.pause()
 
 
 async def _pick_mode(pilot, value: str) -> None:
@@ -94,6 +93,22 @@ def test_clone_outcome_rows_keep_fork_for_github_remote() -> None:
     assert clone.CLONE_OUTCOME_FORK in values
     assert clone.CLONE_OUTCOME_JUST_CLONE in values
     assert clone.CLONE_OUTCOME_MAKE_IT_MINE in values
+
+
+def test_clone_outcome_rows_use_configured_ghes_origin() -> None:
+    rows = screens.clone_outcome_rows(
+        "git@ghe.example:acme/widgets.git",
+        web_url="https://ghe.example",
+    )
+    assert clone.CLONE_OUTCOME_FORK in [row.value for row in rows]
+    assert screens.default_repo(
+        "https://ghe.example/acme/widgets.git",
+        web_url="https://ghe.example",
+    ) == "acme/widgets"
+    assert screens.default_repo(
+        "https://other.example/acme/widgets.git",
+        web_url="https://ghe.example",
+    ) is None
 
 
 def test_writable_variant_is_two_rows_clone_default() -> None:
@@ -170,7 +185,7 @@ def test_clone_outcome_screen_writable_variant_drops_fork(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_github_auth(pilot)
+            await _connect_machine_github_auth(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")
@@ -221,7 +236,7 @@ def test_empty_private_repo_picker_falls_back_to_paste_url(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_github_auth(pilot)
+            await _connect_machine_github_auth(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("down")   # visibility: move to Private
             await pilot.press("enter")  # -> empty picker -> paste-URL fallback
@@ -241,7 +256,7 @@ def test_clone_outcome_screen_drops_fork_row_for_non_github_remote() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_github_auth(pilot)
+            await _connect_machine_github_auth(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://gitlab.com/acme/widgets.git")
@@ -275,7 +290,7 @@ def test_prior_partial_clone_offers_resume_then_continues(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_github_auth(pilot)
+            await _connect_machine_github_auth(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")

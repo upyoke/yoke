@@ -17,14 +17,12 @@ from __future__ import annotations
 from io import StringIO
 from unittest import mock
 
-import pytest
-
 import yoke_core.engines.resync as resync_mod
 from yoke_core.domain import db_backend
 from yoke_core.domain.gh_rest_transport import RestResponse
 from yoke_core.domain.project_github_auth import (
     MissingCapability,
-    MissingToken,
+    MissingRepoBinding,
     ProjectGithubAuth,
 )
 from runtime.api.fixtures.file_test_db import init_test_db
@@ -32,7 +30,7 @@ from runtime.api.fixtures.file_test_db import init_test_db
 
 def _fake_auth(project: str = "yoke", repo: str = "org/yoke") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=repo, token="t", env={"GH_TOKEN": "t"},
+        project=project, repo=repo, token="t",
     )
 
 
@@ -71,7 +69,7 @@ class TestFetchUsesRestDirectly:
             "yoke_core.engines.resync_detect_fetch.request_with_retry",
             return_value=RestResponse(status=200, headers={}, body=body),
         ):
-            result = resync_mod._fetch_gh_issues_per_project({"yoke": ""})
+            result = resync_mod._fetch_gh_issues_per_project({"yoke"})
         assert result["yoke"][1]["title"] == "[YOK-1] ok"
 
     def test_per_project_auth_failure_sentinel(self, monkeypatch):
@@ -80,7 +78,7 @@ class TestFetchUsesRestDirectly:
         def fake_resolve(project, *args, **kwargs):
             if project == "yoke":
                 return _fake_auth()
-            raise MissingToken(project, "no token")
+            raise MissingRepoBinding(project, "repository is not bound")
 
         yoke_body = [{"number": 1, "title": "[YOK-1] ok", "labels": [],
                         "state": "OPEN", "body": ""}]
@@ -92,10 +90,11 @@ class TestFetchUsesRestDirectly:
             return_value=RestResponse(status=200, headers={}, body=yoke_body),
         ):
             result = resync_mod._fetch_gh_issues_per_project(
-                {"yoke": "", "buzz": "org/buzz"},
+                {"yoke", "buzz"},
             )
         assert result["yoke"][1]["title"] == "[YOK-1] ok"
-        assert result["buzz"]["_auth_error"] == "missing_token"
+        assert result["buzz"]["_github_unavailable"] == "true"
+        assert result["buzz"]["_unavailable_code"] == "missing_repo_binding"
 
 
 class TestMainFailsClosedWithoutGh:
@@ -105,7 +104,7 @@ class TestMainFailsClosedWithoutGh:
 
     def test_detect_no_github_auth_returns_exit_2(self, monkeypatch, tmp_path):
         _mask_path(monkeypatch)
-        with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema) as db_path:
+        with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema):
             yoke_root = str(tmp_path)
             with mock.patch(
                 "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
@@ -120,7 +119,7 @@ class TestMainFailsClosedWithoutGh:
     def test_no_legacy_skip_print_on_no_github_auth(self, monkeypatch, tmp_path, capsys):
         """The legacy ``gh CLI not available. Skipping`` print is gone."""
         _mask_path(monkeypatch)
-        with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema) as db_path:
+        with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema):
             yoke_root = str(tmp_path)
             with mock.patch(
                 "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",

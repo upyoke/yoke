@@ -71,6 +71,7 @@ class TestPrCreate:
         rc = _run(
             "github", "pr", "create",
             "--title", "cli sweep: function-call fixes", "--head", "cli-sweep-fixes",
+            "--project", "yoke",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -103,6 +104,7 @@ class TestPrCreate:
         rc = _run(
             "github", "pr", "create",
             "--title", "T", "--head", "h", "--body-stdin",
+            "--project", "yoke",
             stdin_text="## Summary\n\nDetails.\n",
         )
         assert rc == 0
@@ -112,7 +114,8 @@ class TestPrCreate:
         rc = _run(
             "github", "pr", "create",
             "--title", "T", "--head", "h",
-            "--body", "x", "--body-stdin", stdin_text="y",
+            "--body", "x", "--body-stdin", "--project", "yoke",
+            stdin_text="y",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -121,17 +124,31 @@ class TestPrCreate:
         rc = _run(
             "github", "pr", "create",
             "--title", "T", "--head", "h", "--body-stdin",
+            "--project", "yoke",
             stdin_text="  \n",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_missing_title_returns_two(self) -> None:
-        rc = _run("github", "pr", "create", "--head", "h")
+        rc = _run(
+            "github", "pr", "create", "--head", "h",
+            "--project", "yoke",
+        )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_missing_head_returns_two(self) -> None:
-        rc = _run("github", "pr", "create", "--title", "T")
+        rc = _run(
+            "github", "pr", "create", "--title", "T",
+            "--project", "yoke",
+        )
+        assert rc == 2
+        assert _CAPTURED_REQUESTS == []
+
+    def test_missing_project_returns_two(self) -> None:
+        rc = _run(
+            "github", "pr", "create", "--title", "T", "--head", "h",
+        )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []

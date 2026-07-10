@@ -26,7 +26,6 @@ _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
     token="ghs_test_token",
-    env={"PATH": "/usr/bin", "GH_TOKEN": "ghs_test_token"},
 )
 
 
@@ -34,9 +33,13 @@ def _make_request(
     payload: Optional[Dict[str, Any]] = None,
     *,
     target_kind: str = "global",
+    include_project: bool = True,
 ) -> FunctionCallRequest:
     if payload is None:
         payload = {"title": "cli sweep: function-call fixes", "head": "cli-sweep-fixes"}
+    payload = dict(payload)
+    if include_project:
+        payload.setdefault("project", "yoke")
     return FunctionCallRequest(
         function="github.pr.create",
         actor=ActorContext(session_id="test-session"),
@@ -71,6 +74,12 @@ def _rest_recorder(monkeypatch):
 
 
 class TestValidation:
+    def test_rejects_missing_project(self):
+        outcome = handle_pr_create(_make_request(include_project=False))
+        assert not outcome.primary_success
+        assert outcome.error and outcome.error.code == "invalid_payload"
+        assert "project" in outcome.error.message
+
     def test_rejects_non_global_target(self):
         outcome = handle_pr_create(_make_request(target_kind="item"))
         assert not outcome.primary_success
@@ -149,11 +158,11 @@ class TestCreate:
         assert outcome.error.code == "rest_transport_error"
         assert "already exists" in outcome.error.message
 
-    def test_missing_token_surfaces_as_auth_error(self, monkeypatch):
-        from yoke_core.domain.project_github_auth import MissingToken
+    def test_missing_app_credentials_surface_as_auth_error(self, monkeypatch):
+        from yoke_core.domain.project_github_auth import MissingAppCredentials
 
         def _raise(project, **kw):
-            raise MissingToken(project, "token missing")
+            raise MissingAppCredentials(project, "App credentials missing")
 
         monkeypatch.setattr(
             "yoke_core.domain.project_github_auth.resolve_project_github_auth",

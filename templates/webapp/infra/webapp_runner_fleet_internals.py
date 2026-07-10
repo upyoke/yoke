@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import base64
 import json
+import shlex
 import textwrap
-from pathlib import Path
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from webapp_runner_fleet_stack import WebappRunnerFleetArgs
@@ -35,17 +35,6 @@ def _assume_role_policy(service: str) -> str:
     })
 
 
-def _inline_policy(actions: Sequence[str]) -> str:
-    return json.dumps({
-        "Version": "2012-10-17",
-        "Statement": [{
-            "Effect": "Allow",
-            "Action": list(actions),
-            "Resource": "*",
-        }],
-    })
-
-
 def _ami_arch(architecture: str) -> str:
     return "arm64" if architecture.lower() == "arm64" else "amd64"
 
@@ -58,27 +47,41 @@ def _user_data(
     *,
     args: WebappRunnerFleetArgs,
     region: str,
-    asg_name: str,
-    github_token_parameter: str,
+    github_broker_function: str,
 ) -> str:
     labels_csv = ",".join(args.runner_labels)
     runner_arch = _runner_arch(args.architecture)
-    idle_reaper_script = (
-        Path(__file__).with_name("webapp_runner_idle_reaper.py").read_text()
-    )
     script = f"""#!/bin/bash
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-PROJECT={json.dumps(args.deploy_namespace)}
-REGION={json.dumps(region)}
-GITHUB_REPO={json.dumps(args.github_repo)}
-RUNNER_LABELS={json.dumps(labels_csv)}
-RUNNER_COUNT={int(args.runner_count)}
-IDLE_MINUTES={int(args.idle_shutdown_minutes)}
-ASG_NAME={json.dumps(asg_name)}
-GITHUB_TOKEN_PARAMETER={json.dumps(github_token_parameter)}
-RUNNER_ARCH={json.dumps(runner_arch)}
+PROJECT={shlex.quote(args.deploy_namespace)}
+REGION={shlex.quote(region)}
+GITHUB_REPO={shlex.quote(args.github_repo)}
+GITHUB_WEB_URL={shlex.quote(args.github_web_url)}
+RUNNER_LABELS={shlex.quote(labels_csv)}
+GITHUB_BROKER_FUNCTION={shlex.quote(github_broker_function)}
+RUNNER_ARCH={shlex.quote(runner_arch)}
 PREFIX="${{PROJECT}}-github-actions"
+BOOTSTRAP_FILE=""
+
+cleanup_bootstrap() {{
+  if [ -n "${{BOOTSTRAP_FILE}}" ]; then
+    rm -f "${{BOOTSTRAP_FILE}}"
+    BOOTSTRAP_FILE=""
+  fi
+}}
+
+bootstrap_failed() {{
+  local rc=$?
+  trap - ERR
+  cleanup_bootstrap
+  if [ -n "${{INSTANCE_ID:-}}" ] && command -v aws >/dev/null 2>&1; then
+    github_broker "{{\"action\":\"failed\",\"instance_id\":\"${{INSTANCE_ID}}\"}}" \
+      >/dev/null 2>&1 || true
+  fi
+  exit "${{rc}}"
+}}
+trap bootstrap_failed ERR
 
 apt-get update
 # python3-venv: nested venv + ensurepip (test_pep503 / installer venv tests);
@@ -113,93 +116,61 @@ INSTANCE_ID="$(curl -fsS -H "X-aws-ec2-metadata-token: ${{IMDS_TOKEN}}" \
   http://169.254.169.254/latest/meta-data/instance-id)"
 HOST_PREFIX="${{PREFIX}}-${{INSTANCE_ID}}"
 
-github_token() {{
-  aws ssm get-parameter --with-decryption \
-    --name "${{GITHUB_TOKEN_PARAMETER}}" \
-    --query Parameter.Value --output text --region "${{REGION}}"
+github_broker() {{
+  local payload="$1"
+  local response_file
+  local function_error
+  response_file="$(mktemp /tmp/yoke-runner-broker.XXXXXX)"
+  if ! function_error="$(aws lambda invoke \
+      --function-name "${{GITHUB_BROKER_FUNCTION}}" \
+      --cli-binary-format raw-in-base64-out \
+      --payload "${{payload}}" \
+      --query FunctionError --output text --region "${{REGION}}" \
+      "${{response_file}}")"; then
+    rm -f "${{response_file}}"
+    return 1
+  fi
+  if [ "${{function_error}}" != "None" ]; then
+    cat "${{response_file}}" >&2
+    rm -f "${{response_file}}"
+    return 1
+  fi
+  cat "${{response_file}}"
+  rm -f "${{response_file}}"
 }}
 
-github_api() {{
-  curl -fsS -H "Authorization: Bearer ${{GITHUB_TOKEN}}" \
-    -H "Accept: application/vnd.github+json" \
-    -H "X-GitHub-Api-Version: 2022-11-28" "$@"
-}}
-
-GITHUB_TOKEN="$(github_token)"
-RUNNER_ASSET_PREFIX="actions-runner-linux-${{RUNNER_ARCH}}-"
-RUNNER_DOWNLOAD_URL="$(github_api \
-  "https://api.github.com/repos/actions/runner/releases/latest" \
-  | jq -r --arg prefix "${{RUNNER_ASSET_PREFIX}}" \
-      '.assets[] | select(.name | startswith($prefix) and endswith(".tar.gz")) |
-       .browser_download_url' | head -n 1)"
+BOOTSTRAP_FILE="$(mktemp /run/yoke-runner-bootstrap.XXXXXX)"
+chmod 600 "${{BOOTSTRAP_FILE}}"
+github_broker "{{\"action\":\"bootstrap\",\"instance_id\":\"${{INSTANCE_ID}}\"}}" \
+  >"${{BOOTSTRAP_FILE}}"
+RUNNER_DOWNLOAD_URL="$(jq -r '.download_url // empty' "${{BOOTSTRAP_FILE}}")"
 if [ -z "${{RUNNER_DOWNLOAD_URL}}" ] || [ "${{RUNNER_DOWNLOAD_URL}}" = "null" ]; then
   echo "Could not resolve actions runner download URL" >&2
   exit 1
 fi
-github_api "https://api.github.com/repos/${{GITHUB_REPO}}/actions/runners?per_page=100" \
-  | jq -r --arg prefix "${{PREFIX}}-" \
-      '.runners[] | select(.name | startswith($prefix)) |
-       select(.status == "offline") | .id' \
-  | while read -r runner_id; do
-      [ -n "${{runner_id}}" ] || continue
-      github_api -X DELETE \
-        "https://api.github.com/repos/${{GITHUB_REPO}}/actions/runners/${{runner_id}}" \
-        >/dev/null || true
-    done
-
-for i in $(seq 1 "${{RUNNER_COUNT}}"); do
-  dir="/opt/actions-runner/runner-${{i}}"
-  mkdir -p "${{dir}}"
-  chown -R actions:actions "${{dir}}"
-  if [ ! -x "${{dir}}/config.sh" ]; then
-    sudo -u actions bash -lc \
-      "cd '${{dir}}' && curl -fsSL -o actions-runner.tar.gz \
-       '${{RUNNER_DOWNLOAD_URL}}' \
-       && tar xzf actions-runner.tar.gz && rm actions-runner.tar.gz"
-  fi
-  reg_token="$(github_api -X POST \
-    "https://api.github.com/repos/${{GITHUB_REPO}}/actions/runners/registration-token" \
-    | jq -r .token)"
-  sudo -u actions bash -lc \
-    "cd '${{dir}}' && ./config.sh --unattended --replace \
-     --url 'https://github.com/${{GITHUB_REPO}}' --token '${{reg_token}}' \
-     --name '${{HOST_PREFIX}}-${{i}}' --labels '${{RUNNER_LABELS}}' --work _work"
-  (cd "${{dir}}" && ./svc.sh install actions && ./svc.sh start)
-done
-
-cat >/usr/local/bin/yoke-runner-idle-reaper <<'PY'
-{idle_reaper_script}
-PY
-chmod +x /usr/local/bin/yoke-runner-idle-reaper
-cat >/etc/systemd/system/yoke-runner-idle-reaper.service <<EOF
-[Unit]
-Description=Yoke GitHub Actions runner idle reaper
-
-[Service]
-Type=oneshot
-Environment=REGION=${{REGION}}
-Environment=GITHUB_REPO=${{GITHUB_REPO}}
-Environment=GITHUB_TOKEN_PARAMETER=${{GITHUB_TOKEN_PARAMETER}}
-Environment=ASG_NAME=${{ASG_NAME}}
-Environment=HOST_PREFIX=${{HOST_PREFIX}}
-Environment=IDLE_MINUTES=${{IDLE_MINUTES}}
-Environment=RUNNER_LABELS=${{RUNNER_LABELS}}
-ExecStart=/usr/local/bin/yoke-runner-idle-reaper
-EOF
-cat >/etc/systemd/system/yoke-runner-idle-reaper.timer <<EOF
-[Unit]
-Description=Run Yoke GitHub Actions runner idle reaper
-
-[Timer]
-OnBootSec=5min
-OnUnitActiveSec=60s
-Unit=yoke-runner-idle-reaper.service
-
-[Install]
-WantedBy=timers.target
-EOF
-systemctl daemon-reload
-systemctl enable --now yoke-runner-idle-reaper.timer
+dir="/opt/actions-runner/runner"
+mkdir -p "${{dir}}"
+chown -R actions:actions "${{dir}}"
+sudo -u actions bash -c \
+  'cd "$1" && curl -fsSL -o actions-runner.tar.gz "$2" \
+   && tar xzf actions-runner.tar.gz && rm actions-runner.tar.gz' \
+  _ "${{dir}}" "${{RUNNER_DOWNLOAD_URL}}"
+reg_token="$(jq -r '.registration_token // empty' "${{BOOTSTRAP_FILE}}")"
+if [ -z "${{reg_token}}" ]; then
+  echo "Runner bootstrap omitted its registration token" >&2
+  exit 1
+fi
+sudo -u actions bash -c \
+  'cd "$1" && ./config.sh --unattended --replace --ephemeral \
+   --url "$2" --token "$3" --name "$4" --labels "$5" --work _work' \
+  _ "${{dir}}" "${{GITHUB_WEB_URL}}/${{GITHUB_REPO}}" "${{reg_token}}" \
+  "${{HOST_PREFIX}}" "${{RUNNER_LABELS}}"
+unset reg_token
+cleanup_bootstrap
+github_broker "{{\"action\":\"ready\",\"instance_id\":\"${{INSTANCE_ID}}\"}}" \
+  >/dev/null
+(cd "${{dir}}" && ./svc.sh install actions && ./svc.sh start)
+trap - ERR
 """
     return base64.b64encode(script.encode("utf-8")).decode("ascii")
 
@@ -207,10 +178,20 @@ systemctl enable --now yoke-runner-idle-reaper.timer
 def _webhook_lambda_code() -> str:
     return textwrap.dedent(
         r'''
-        import base64, boto3, hmac, hashlib, json, os
+        import base64, boto3, hmac, hashlib, json, os, time
 
         autoscaling = boto3.client("autoscaling")
         ssm = boto3.client("ssm")
+        _webhook_secret_cache = None
+
+        def _webhook_secret():
+            global _webhook_secret_cache
+            if _webhook_secret_cache is None:
+                _webhook_secret_cache = ssm.get_parameter(
+                    Name=os.environ["WEBHOOK_SECRET_PARAMETER"],
+                    WithDecryption=True,
+                )["Parameter"]["Value"].encode("utf-8")
+            return _webhook_secret_cache
 
         def _response(status, body):
             return {"statusCode": status, "body": json.dumps(body)}
@@ -231,12 +212,8 @@ def _webhook_lambda_code() -> str:
         def handler(event, _context):
             body = _body(event)
             headers = event.get("headers") or {}
-            secret = ssm.get_parameter(
-                Name=os.environ["WEBHOOK_SECRET_PARAMETER"],
-                WithDecryption=True,
-            )["Parameter"]["Value"].encode("utf-8")
             expected = "sha256=" + hmac.new(
-                secret, body, hashlib.sha256,
+                _webhook_secret(), body, hashlib.sha256,
             ).hexdigest()
             signature = _header(headers, "X-Hub-Signature-256")
             if not hmac.compare_digest(signature, expected):
@@ -247,8 +224,15 @@ def _webhook_lambda_code() -> str:
             if event_name != "workflow_job":
                 return _response(200, {"ok": True, "action": "ignored"})
             payload = json.loads(body.decode("utf-8"))
-            if payload.get("action") != "queued":
-                return _response(200, {"ok": True, "action": "ignored"})
+            repository = payload.get("repository") or {}
+            if (
+                str(repository.get("id") or "")
+                != os.environ["EXPECTED_REPOSITORY_ID"]
+                or str(repository.get("full_name") or "").casefold()
+                != os.environ["EXPECTED_REPOSITORY"].casefold()
+            ):
+                return _response(200, {"ok": True, "action": "wrong_repository"})
+            action = str(payload.get("action") or "")
             job = payload.get("workflow_job") or {}
             labels = {str(label).lower() for label in job.get("labels") or []}
             required = {
@@ -258,6 +242,43 @@ def _webhook_lambda_code() -> str:
             }
             if not required.issubset(labels):
                 return _response(200, {"ok": True, "action": "ignored"})
+            if action in {"in_progress", "completed"}:
+                runner_name = str(job.get("runner_name") or "")
+                prefix = os.environ["RUNNER_PREFIX"]
+                instance_id = runner_name.removeprefix(prefix)
+                if (
+                    not runner_name.startswith(prefix)
+                    or not instance_id.startswith("i-")
+                    or not all(c in "0123456789abcdef" for c in instance_id[2:])
+                    or len(instance_id) not in {10, 19}
+                ):
+                    return _response(200, {"ok": True, "action": "ignored"})
+                parameter_name = (
+                    os.environ["RUNNER_COMPLETION_PARAMETER"]
+                    if action == "completed"
+                    else os.environ["RUNNER_PROGRESS_PARAMETER"]
+                )
+                ssm.put_parameter(
+                    Name=parameter_name,
+                    Type="String",
+                    Value=json.dumps({
+                        "action": action,
+                        "runner_name": runner_name,
+                        "job_id": str(job.get("id") or ""),
+                        "at": int(time.time()),
+                    }, separators=(",", ":")),
+                    Overwrite=True,
+                )
+                return _response(202, {"ok": True, "action": "recorded"})
+            if action != "queued":
+                return _response(200, {"ok": True, "action": "ignored"})
+            delivery = _header(headers, "X-GitHub-Delivery") or "unknown"
+            ssm.put_parameter(
+                Name=os.environ["QUEUE_ACTIVITY_PARAMETER"],
+                Type="String",
+                Value=f"{time.time_ns()}:{delivery}",
+                Overwrite=True,
+            )
             autoscaling.set_desired_capacity(
                 AutoScalingGroupName=os.environ["ASG_NAME"],
                 DesiredCapacity=1,

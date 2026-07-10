@@ -38,7 +38,7 @@ STEP_CONNECT_LABEL = "Account"
 # account (or the local universe, per the destination picker), Review = the
 # write-plan review. PATH setup folds into Install (its screens highlight the
 # Install segment) so the installer hand-off and onboarding read as one
-# continuous app; GitHub precedes Project so the machine token is connected
+# continuous app; GitHub precedes Project so App authorization is connected
 # before the project step that reuses it.
 STEPPER_ORDER = (
     (STEP_INSTALL, "Install"),

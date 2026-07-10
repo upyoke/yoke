@@ -19,7 +19,13 @@ from yoke_core.domain.schema_init_columns import apply_idempotent_migrations
 
 # Recent additive tables a universe born before them would be missing — the
 # exact drift observed on the live control plane before this fix.
-_RECENT_ADDITIVE_TABLES = ("actor_external_identities", "actor_invites", "web_sessions")
+_RECENT_ADDITIVE_TABLES = (
+    "actor_external_identities",
+    "actor_invites",
+    "web_sessions",
+    "github_app_installations",
+    "project_github_repo_bindings",
+)
 
 
 def _regress_to_pre_additive(conn) -> None:
@@ -27,7 +33,7 @@ def _regress_to_pre_additive(conn) -> None:
     universe whose last full ``cmd_init`` predates it."""
     conn.execute("ALTER TABLE projects DROP COLUMN IF EXISTS github_sync_mode")
     conn.execute("ALTER TABLE organizations DROP COLUMN IF EXISTS auto_join_domain")
-    for tbl in _RECENT_ADDITIVE_TABLES:
+    for tbl in reversed(_RECENT_ADDITIVE_TABLES):
         conn.execute(f"DROP TABLE IF EXISTS {tbl}")
     conn.commit()
 
@@ -48,6 +54,8 @@ def test_converge_adds_missing_columns_and_tables(tmp_path: Path) -> None:
             _regress_to_pre_additive(conn)
             assert _column_exists(conn, "projects", "github_sync_mode") is False
             assert _table_exists(conn, "actor_external_identities") is False
+            assert _table_exists(conn, "github_app_installations") is False
+            assert _table_exists(conn, "project_github_repo_bindings") is False
 
             converge_core_schema(conn)
 
@@ -106,5 +114,92 @@ def test_converge_is_idempotent(tmp_path: Path) -> None:
             converge_core_schema(conn)
             converge_core_schema(conn)
             assert _column_exists(conn, "projects", "github_sync_mode") is True
+        finally:
+            conn.close()
+
+
+def test_converge_restores_github_repository_identity_index(
+    tmp_path: Path,
+) -> None:
+    """Boot convergence restores immutable repository-identity uniqueness."""
+    index_name = "uq_project_github_repo_bindings_installation_repository_id"
+    with init_test_db(tmp_path) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            conn.execute(f"DROP INDEX IF EXISTS {index_name}")
+            conn.commit()
+
+            converge_core_schema(conn)
+
+            row = conn.execute(
+                "SELECT indexname FROM pg_indexes WHERE indexname=%s",
+                (index_name,),
+            ).fetchone()
+            assert row is not None
+        finally:
+            conn.close()
+
+
+def test_converge_adds_verified_github_api_origin_columns(
+    tmp_path: Path,
+) -> None:
+    """Existing App-binding tables gain the origin needed for safe auth."""
+    with init_test_db(tmp_path) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            conn.execute(
+                "ALTER TABLE project_github_repo_bindings DROP COLUMN api_url"
+            )
+            conn.execute(
+                "ALTER TABLE github_app_installations DROP COLUMN api_url"
+            )
+            conn.commit()
+
+            converge_core_schema(conn)
+
+            assert _column_exists(conn, "github_app_installations", "api_url")
+            assert _column_exists(
+                conn, "project_github_repo_bindings", "api_url"
+            )
+        finally:
+            conn.close()
+
+
+def test_converged_github_app_schema_accepts_id_free_postgres_inserts(
+    tmp_path: Path,
+) -> None:
+    """Natural keys keep App binding writes portable to native Postgres."""
+    with init_test_db(tmp_path) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            _regress_to_pre_additive(conn)
+            converge_core_schema(conn)
+            now = "2026-07-09T12:00:00Z"
+            conn.execute(
+                "INSERT INTO github_app_installations "
+                "(installation_id, account_id, account_login, account_type, "
+                "permissions, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                ("12345", "9988", "example-org", "Organization", "{}", now, now),
+            )
+            conn.execute(
+                "INSERT INTO project_github_repo_bindings "
+                "(project_id, installation_id, repository_id, github_repo, "
+                "permissions, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (1, "12345", "4567", "example-org/yoke", "{}", now, now),
+            )
+            conn.commit()
+
+            row = conn.execute(
+                "SELECT project_id, installation_id, repository_id "
+                "FROM project_github_repo_bindings WHERE project_id=%s",
+                (1,),
+            ).fetchone()
+            assert row == {
+                "project_id": 1,
+                "installation_id": "12345",
+                "repository_id": "4567",
+            }
         finally:
             conn.close()

@@ -221,7 +221,7 @@ def sync_item(
             create_labels.append(wt_label)
 
         # Select full body or compact mirror via the in-memory selector —
-        # the typed REST surface accepts the body string directly, no
+        # The typed REST surface accepts the body string directly, no
         # temp-file dance required.
         body_item_fields = {
             "title": title,
@@ -264,7 +264,10 @@ def sync_item(
             print(f"Error: created issue has no number: {created!r}", file=stderr)
             return 1
 
-        issue_url = created.html_url or f"https://github.com/{repo}/issues/{issue_num}" if repo else f"#{issue_num}"
+        # GitHub normally returns ``html_url``.  A host-neutral reference is
+        # safer than inventing a github.com URL when an enterprise response is
+        # incomplete.
+        issue_url = created.html_url or f"#{issue_num}"
 
         # Validate repo (created.html_url is authoritative when present)
         if repo and created.html_url:

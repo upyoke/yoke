@@ -22,7 +22,7 @@ from yoke_contracts.api.function_call import TargetRef
 GITHUB_ACTIONS_RUNNERS_STATUS_USAGE = (
     "yoke github-actions runners status [repo-slug] "
     "[--required-label LABEL ...] [--variable-name NAME] "
-    "[--runner-capability TYPE] [--project P] [--session-id S] [--json]"
+    "[--runner-capability TYPE] --project P [--session-id S] [--json]"
 )
 
 
@@ -73,8 +73,8 @@ def github_actions_runners_status(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--project", default="yoke",
-        help="Project capability owning the GitHub App repo binding (default: yoke).",
+        "--project", required=True,
+        help="Project capability owning the GitHub App repo binding.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

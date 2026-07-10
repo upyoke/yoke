@@ -19,8 +19,8 @@ list_labels, ...``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Tuple
+from dataclasses import dataclass
+from typing import Mapping
 
 from yoke_core.domain import gh_rest_transport as _transport
 from yoke_core.domain.gh_rest_transport import (
@@ -100,7 +100,8 @@ class Target:
 
 
 def resolve_target(
-    project: str, *, db_path: str | None = None,
+    project: str, *, required_permissions: Mapping[str, str],
+    db_path: str | None = None,
 ) -> Target:
     """Resolve the typed REST target for a project (auth + owner/repo split).
 
@@ -111,7 +112,11 @@ def resolve_target(
     failure (Yoke-control-plane fail-closed; non-Yoke projects
     fail-soft in the resync sweep layer).
     """
-    auth = resolve_project_github_auth(project, db_path=db_path)
+    auth = resolve_project_github_auth(
+        project,
+        db_path=db_path,
+        required_permissions=required_permissions,
+    )
     return Target.from_auth(auth)
 
 

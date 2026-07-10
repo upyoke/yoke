@@ -39,7 +39,6 @@ def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "buzz")
     return ProjectGithubAuth(
         project=proj, repo="org/buzz", token="ghs_fake",
-        env={"GH_TOKEN": "ghs_fake"},
     )
 
 

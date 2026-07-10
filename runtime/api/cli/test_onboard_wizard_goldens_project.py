@@ -41,7 +41,7 @@ def _stub_source_branch(monkeypatch):
     # fictional acme/widgets URL.
     monkeypatch.setattr(
         project_git_transport, "remote_default_branch",
-        lambda url, token=None: "main",
+        lambda url, token=None, github_web_url=None: "main",
     )
 
 
@@ -87,7 +87,6 @@ def test_project_publish_prompt() -> None:
         a.result.project_checkout = "~/code/my-project"
         a.result.project_slug = "my-project"
         a.result.project_name = "My Project"
-        a.result.machine_github_token = "machine-pat"
         a._goto_publish_prompt()
 
     assert_golden("project_publish_prompt", render(app, drive, title="yoke onboard · Project"))
@@ -98,9 +97,8 @@ def test_project_owner_picker(monkeypatch: pytest.MonkeyPatch) -> None:
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a.result.machine_github_token = "machine-pat"
         a.result.project_publish_to_github = True
-        a._goto_owner_picker()
+        a._show_owner_picker(OWNERS)
 
     assert_golden("project_owner_picker", render(app, drive, title="yoke onboard · Project"))
 
@@ -137,10 +135,8 @@ def test_project_github_auth() -> None:
         a.result.project_slug = "my-project"
         a.result.project_github_repo = "acme-inc/my-project"
         a.result.project_public_item_prefix = "PROJ"
-        # A connected machine token renders the full 3-row picker (reuse-machine
-        # included). The no-token variant — which drops the reuse-machine row —
-        # is covered by the flow regression suite.
-        a.result.machine_github_token = "ghs_machine_token"
+        # A verified machine App connection renders the connected-repo row.
+        a.result.machine_github_verification = {"ok": True}
         a._after_prefix("PROJ")
 
     assert_golden("project_github_auth", render(app, drive, title="yoke onboard · Project"))

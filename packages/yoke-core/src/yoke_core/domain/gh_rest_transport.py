@@ -1,4 +1,4 @@
-"""bearer-token GitHub REST transport for the merge engine.
+"""GitHub App bearer-token REST transport for project-scoped operations.
 
 Stdlib-only HTTP client for resolved project GitHub auth, applying the
 shared transient-failure retry policy from :mod:`yoke_core.domain.gh_retry`.
@@ -27,17 +27,16 @@ from yoke_core.domain.gh_rest_transport_fakes import (
     load_fake_response as _load_fake_response,
 )
 from yoke_core.domain.gh_rest_transport_test_guard import block_live_test_call
+from yoke_core.domain import github_api_urls
+from yoke_core.domain.github_api_transport import open_same_origin
+from yoke_contracts.github_app_tokens import GITHUB_API_VERSION
+from yoke_contracts.github_origin import DEFAULT_GITHUB_API_URL, GitHubApiOriginError
 
 
-GITHUB_API_BASE = "https://api.github.com"
-GITHUB_API_VERSION = "2022-11-28"
+GITHUB_API_BASE = DEFAULT_GITHUB_API_URL
+GITHUB_APP_API_URL_ENV = github_api_urls.GITHUB_APP_API_URL_ENV
 
 _RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
-
-
-# ---------------------------------------------------------------------------
-# Typed diagnostics
-# ---------------------------------------------------------------------------
 
 
 class RestTransportError(Exception):
@@ -97,11 +96,6 @@ _RATE_LIMIT_BODY_MARKERS: Tuple[str, ...] = (
 def _is_rate_limit_body(body_text: str) -> bool:
     """True when ``body_text`` matches a canonical rate-limit marker."""
     return bool(body_text) and any(m in body_text for m in _RATE_LIMIT_BODY_MARKERS)
-
-
-# ---------------------------------------------------------------------------
-# Request / response shapes
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -189,11 +183,6 @@ def request_with_retry(
     raise RestTransportError("rest transport retry loop exited without result")
 
 
-# ---------------------------------------------------------------------------
-# Internals
-# ---------------------------------------------------------------------------
-
-
 def _issue_once(
     req: RestRequest,
     *,
@@ -209,7 +198,7 @@ def _issue_once(
         "Authorization": f"Bearer {token}",
         "Accept": req.accept,
         "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        "User-Agent": "yoke-merge-engine",
+        "User-Agent": "yoke-github-app-client",
     }
     if encoded_body is not None:
         headers["Content-Type"] = "application/json"
@@ -219,7 +208,16 @@ def _issue_once(
     )
 
     try:
-        with urlopen(raw_request, timeout=timeout_seconds) as response:
+        endpoint = github_api_urls.active_api_endpoint(GITHUB_API_BASE)
+        injected_opener = (
+            None if urlopen is urllib.request.urlopen else urlopen
+        )
+        with open_same_origin(
+            raw_request,
+            endpoint=endpoint,
+            timeout_seconds=timeout_seconds,
+            opener=injected_opener,
+        ) as response:
             status = int(getattr(response, "status", 200) or 200)
             response_headers = _normalise_headers(response.headers)
             try:
@@ -237,6 +235,8 @@ def _issue_once(
         raise _classify_http_error(status, body_text, response_headers) from exc
     except urllib.error.URLError as exc:
         raise RestNetworkError(f"network failure: {exc.reason}") from exc
+    except GitHubApiOriginError as exc:
+        raise RestTransportError(str(exc)) from exc
 
     body_text = body_bytes.decode("utf-8", errors="replace")
     parsed = _decode_json(body_text)
@@ -296,20 +296,17 @@ def _classify_http_error(
 
 
 def _build_url(req: RestRequest) -> str:
-    if req.path.startswith("http://") or req.path.startswith("https://"):
-        base = req.path
-    else:
-        path = req.path if req.path.startswith("/") else f"/{req.path}"
-        base = f"{GITHUB_API_BASE}{path}"
-    if not req.query:
-        return base
-    encoded = "&".join(
-        f"{urllib.request.quote(str(k), safe='')}="
-        f"{urllib.request.quote(str(v), safe='')}"
-        for k, v in req.query.items()
-    )
-    sep = "&" if "?" in base else "?"
-    return f"{base}{sep}{encoded}"
+    try:
+        return github_api_urls.build_url(
+            req.path, req.query, default_base=GITHUB_API_BASE
+        )
+    except GitHubApiOriginError as exc:
+        raise RestTransportError(str(exc)) from exc
+
+
+def github_api_base() -> str:
+    """Return the exact API base active for this dispatch context."""
+    return github_api_urls.active_api_endpoint(GITHUB_API_BASE).base_url
 
 
 def _normalise_headers(raw: Any) -> Mapping[str, str]:
@@ -345,5 +342,5 @@ def split_repo(repo: str) -> Tuple[str, str]:
 
 # Backwards-compatible aliases for the public test surface.
 from yoke_core.domain.gh_rest_transport_fakes import (  # noqa: E402
-    fake_response_filename as _fake_response_filename,
+    fake_response_filename as _fake_response_filename,  # noqa: F401
 )

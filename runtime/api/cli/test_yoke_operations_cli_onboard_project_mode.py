@@ -40,7 +40,7 @@ def test_onboard_local_checkout_dry_run_previews_project_handoff(
         "--github-repo", "owner/local",
         "--default-branch", "main",
         "--public-item-prefix", "LOC",
-        "--github-adoption", "skip",
+        "--github-adoption", "backlog-only",
         "--json",
     ])
 
@@ -89,7 +89,7 @@ def test_onboard_create_repo_dry_run_uses_project_create_branch(
         "--github-repo", "owner/created",
         "--default-branch", "main",
         "--public-item-prefix", "NEW",
-        "--github-adoption", "skip",
+        "--github-adoption", "backlog-only",
         "--json",
     ])
 
@@ -133,7 +133,7 @@ def test_onboard_clone_remote_dry_run_uses_project_import_branch(
         "--github-repo", "owner/imported",
         "--default-branch", "main",
         "--public-item-prefix", "IMP",
-        "--github-adoption", "skip",
+        "--github-adoption", "backlog-only",
         "--json",
     ])
 
@@ -182,7 +182,7 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
             "--github-repo", "owner/local",
             "--default-branch", "main",
             "--public-item-prefix", "LOC",
-            "--github-adoption", "skip",
+            "--github-adoption", "backlog-only",
             "--yes",
             "--json",
         ])
@@ -214,41 +214,3 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     assert (checkout / ".yoke/install-manifest.json").is_file()
     assert "actor-token" not in out
     assert "actor-token" not in config.read_text(encoding="utf-8")
-
-
-def test_legacy_project_github_adoption_rejected_before_machine_write(
-    tmp_path: Path, monkeypatch, capsys,
-) -> None:
-    home = tmp_path / "home"
-    config = home / "config.json"
-    checkout = tmp_path / "local-checkout"
-    checkout.mkdir()
-    run_git(checkout, "init")
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-
-    rc = yoke_operations_cli.main([
-        "onboard",
-        "actor-token",
-        "--non-interactive",
-        "--quick",
-        "--config", str(config),
-        "--env", "prod",
-        "--api-url", "http://127.0.0.1:1",
-        "--skip-identity-check",
-        "--project-mode", "local-checkout",
-        "--checkout", str(checkout),
-        "--project-slug", "local",
-        "--project-name", "Local",
-        "--github-repo", "owner/local",
-        "--default-branch", "main",
-        "--public-item-prefix", "LOC",
-        "--github-adoption", "different-token",
-        "--yes",
-        "--json",
-    ])
-
-    assert rc == 1
-    assert "--github-adoption different-token is no longer supported" in (
-        capsys.readouterr().err
-    )
-    assert not config.exists()

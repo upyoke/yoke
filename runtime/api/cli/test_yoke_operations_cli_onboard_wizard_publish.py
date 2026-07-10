@@ -2,9 +2,9 @@
 
 The publish prompt is shown for the existing-folder (local-checkout) and
 create-new paths and routes a Yes through the owner picker and repo-name input.
-With a connected machine token Yes goes straight to the owner picker; without
-one Yes collects a GitHub App user token first and reuses it as the publish credential, so the
-offer is never silently suppressed. The owner list is fetched behind a seam
+With a connected GitHub App, Yes goes straight to the owner picker. Without
+one, the user can keep the project local; no credential is collected by the
+wizard. The owner list is fetched behind a seam
 patched here so no scenario hits GitHub; ``build_report`` is spied at the
 wizard boundary.
 """
@@ -31,6 +31,11 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_github_app_test_support import (  # noqa: E402
+    connect_github_app,
+    select_connected_repository,
+    stub_github_app_access,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +44,7 @@ def _stub_path_doctor(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _stub_owners(monkeypatch):
+def _stub_github_app(monkeypatch, _stub_path_doctor):
     monkeypatch.setattr(
         onboard_wizard_flow, "fetch_repo_owners",
         lambda api_url, token: [
@@ -47,14 +52,12 @@ def _stub_owners(monkeypatch):
             github_publish.RepoOwner("acme-inc", "organization"),
         ],
     )
-
-
-async def _connect_machine_pat(pilot) -> None:
-    await advance_past_path(pilot)
-    await pilot.press("enter")  # machine github: Connect a token (GitHub App user token) (default)
-    await type_text(pilot, "ghu_machine_token")
-    await pilot.press("enter")
-    await pilot.press("enter")  # GitHub verification success: Continue
+    stub_github_app_access(
+        monkeypatch,
+        owners=("octocat", "acme-inc"),
+        repositories=("octocat/widget", "acme-inc/thing"),
+        user_access_token="short-lived-publish-access",
+    )
 
 
 async def _pick_mode(pilot, value: str) -> None:
@@ -69,7 +72,7 @@ def test_local_checkout_offers_publish_and_creates_request(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await connect_github_app(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")  # checkout
             await pilot.press("enter")
@@ -80,14 +83,7 @@ def test_local_checkout_offers_publish_and_creates_request(monkeypatch) -> None:
             await pilot.press("enter")  # repo name placeholder -> widget
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            # reuse-machine project github auth then finish
-            reuse_index = next(
-                i for i, r in enumerate(steps.PROJECT_GITHUB_ROWS)
-                if r.value == "reuse-machine"
-            )
-            for _ in range(reuse_index):
-                await pilot.press("down")
-            await pilot.press("enter")
+            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -110,7 +106,7 @@ def test_publish_no_keeps_it_local(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await connect_github_app(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
@@ -137,7 +133,7 @@ def test_owner_picker_routes_org_with_user_login() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await connect_github_app(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CREATE_REPO)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
@@ -150,7 +146,7 @@ def test_owner_picker_routes_org_with_user_login() -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            await pilot.press("enter")  # project github: reuse machine (default)
+            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -182,7 +178,7 @@ def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_pat(pilot)
+            await connect_github_app(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
@@ -201,15 +197,15 @@ def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
     assert applied["project_publish"] is None
 
 
-def test_no_machine_token_publish_no_keeps_it_local() -> None:
-    """Without a machine token the publish prompt is still shown; No stays local."""
+def test_no_app_connection_publish_no_keeps_it_local() -> None:
+    """Without an App connection the publish prompt is still shown; No stays local."""
     app, spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("down")   # machine github: Skip for now
-            await pilot.press("enter")  # (no token)
+            await pilot.press("enter")  # continue without GitHub
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
@@ -228,58 +224,4 @@ def test_no_machine_token_publish_no_keeps_it_local() -> None:
     applied = spy.applied
     assert applied is not None
     assert applied["project_publish"] is None
-    assert applied["machine_github_token"] is None
-
-
-def test_no_machine_token_publish_yes_prompts_for_github_auth_and_publishes() -> None:
-    """Without a machine token, Yes collects a GitHub App user token first, then publishes with it.
-
-    The prompted GitHub App user token is reused as the publish credential: the owner picker can
-    list owners and the assembled PublishRequest carries the token, so create-new
-    always has a way to set up GitHub even when the machine step was skipped.
-    """
-    app, spy = make_app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
-            await pilot.press("enter")  # (no token)
-            await _pick_mode(pilot, onboard_project.PROJECT_MODE_CREATE_REPO)
-            await type_text(pilot, "/home/code/widget")  # new folder path
-            await pilot.press("enter")
-            await pilot.press("enter")  # slug placeholder -> widget
-            await pilot.press("enter")  # name placeholder
-            await pilot.press("enter")  # publish: Yes (preselected)
-            await type_text(pilot, "ghu_publish_token")  # GitHub App user token prompt (no machine token)
-            await pilot.press("enter")
-            await pilot.press("enter")  # owner picker: octocat (first row)
-            await pilot.press("enter")  # repo name placeholder -> widget
-            await pilot.press("enter")  # default branch main
-            await pilot.press("enter")  # prefix placeholder
-            reuse_index = next(
-                i for i, r in enumerate(steps.PROJECT_GITHUB_ROWS)
-                if r.value == onboard_wizard_flow.PROJECT_GITHUB_REUSE_MACHINE
-            )
-            for _ in range(reuse_index):
-                await pilot.press("down")
-            await pilot.press("enter")  # project github: reuse the prompted GitHub App user token
-            await complete_board_art(pilot)  # board art -> Finish
-            await pilot.press("enter")  # finish: apply
-            await pilot.pause()
-
-    asyncio.run(scenario())
-
-    applied = spy.applied
-    assert applied is not None
-    # The prompted GitHub App user token is held on the machine-token field (used to publish, but
-    # machine_github_choice stays skip, so it is not saved as a connection).
-    assert applied["machine_github_token"] == "ghu_publish_token"
-    assert applied["machine_github_choice"] == "skip"
-    assert applied["project_github_repo"] == "octocat/widget"
-    publish = applied["project_publish"]
-    assert publish is not None
-    assert publish.owner == "octocat"
-    assert publish.name == "widget"
-    assert publish.token == "ghu_publish_token"
-    assert publish.private is True
+    assert "machine_github_token" not in applied

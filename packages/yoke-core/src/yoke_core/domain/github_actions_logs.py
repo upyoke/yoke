@@ -23,19 +23,20 @@ from __future__ import annotations
 
 import io
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import gh_retry
 from yoke_core.domain.gh_rest_transport import (
-    GITHUB_API_BASE,
     GITHUB_API_VERSION,
     RestAuthError,
     RestNetworkError,
     RestNotFoundError,
     RestServerError,
     RestTransportError,
+    github_api_base,
 )
 from yoke_core.domain.github_actions_rest import rest_get
 
@@ -43,9 +44,31 @@ from yoke_core.domain.github_actions_rest import rest_get
 _RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
-# Module-level test seams; tests monkeypatch these to inject a fake
-# urlopen / sleep without rebuilding HTTPS.
-urlopen = urllib.request.urlopen
+class _AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Follow HTTPS archive redirects without forwarding GitHub auth."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target = urllib.parse.urlsplit(newurl)
+        if target.scheme.lower() != "https":
+            raise urllib.error.URLError(
+                "GitHub Actions log redirect must remain on HTTPS"
+            )
+        redirected = super().redirect_request(
+            req, fp, code, msg, headers, newurl
+        )
+        if redirected is None:
+            return None
+        source = urllib.parse.urlsplit(req.full_url)
+        if (source.scheme, source.netloc) != (target.scheme, target.netloc):
+            redirected.remove_header("Authorization")
+            redirected.unredirected_hdrs.pop("Authorization", None)
+        return redirected
+
+
+# Module-level test seam; tests replace this callable directly.
+urlopen = urllib.request.build_opener(
+    _AuthorizationSafeRedirectHandler()
+).open
 
 
 def _sleep(seconds: float) -> None:  # pragma: no cover - thin alias
@@ -76,7 +99,7 @@ def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
     if not token:
         raise RestAuthError("GitHub bearer token is empty")
 
-    url = f"{GITHUB_API_BASE}/repos/{repo}/actions/runs/{run_id}/logs"
+    url = f"{github_api_base()}/repos/{repo}/actions/runs/{run_id}/logs"
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
@@ -271,7 +294,7 @@ def _per_job_fallback(
         if job_id in (None, ""):
             continue
         job_name = str(job.get("name") or f"job-{job_id}")
-        url = f"{GITHUB_API_BASE}/repos/{repo}/actions/jobs/{job_id}/logs"
+        url = f"{github_api_base()}/repos/{repo}/actions/jobs/{job_id}/logs"
         try:
             body_bytes = _fetch_once(url, headers=headers)
         except RestNotFoundError:

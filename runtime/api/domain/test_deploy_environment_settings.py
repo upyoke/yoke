@@ -92,6 +92,56 @@ class TestDeployEnvironmentResolution:
         assert env.state_backend == "s3://yoke-pulumi-state?region=us-east-1"
         assert env.database_name == "yoke_prod"
         assert env.otel_exporter_endpoint == ""
+        assert env.github_app is None
+
+    def test_resolves_environment_scoped_github_app_secret_reference(self):
+        env = deploy_environment_from_settings(
+            _settings(
+                environments=[_prod_env(github_app={
+                    "issuer": "123456",
+                    "api_url": "https://api.github.com/",
+                    "private_key_secret_arn": (
+                        "arn:aws:secretsmanager:us-east-1:123456789012:"
+                        "secret:yoke-github-app"
+                    ),
+                })],
+                capabilities=_full_capabilities(),
+            ),
+            "prod",
+        )
+        assert env.github_app is not None
+        assert env.github_app.issuer == "123456"
+        assert env.github_app.api_url == "https://api.github.com"
+
+    @pytest.mark.parametrize(
+        "github_app, expected",
+        [
+            ({"issuer": "123"}, "missing api_url, private_key_secret_arn"),
+            ({
+                "issuer": "123",
+                "api_url": "http://api.github.com",
+                "private_key_secret_arn": (
+                    "arn:aws:secretsmanager:us-east-1:123:secret:key"
+                ),
+            }, "must use https"),
+            ({
+                "issuer": "123",
+                "api_url": "https://api.github.com",
+                "private_key_secret_arn": "plain-text-is-not-a-reference",
+            }, "AWS Secrets Manager ARN"),
+        ],
+    )
+    def test_rejects_incomplete_or_unsafe_github_app_settings(
+        self, github_app, expected,
+    ):
+        with pytest.raises(DeployEnvironmentError, match=expected):
+            deploy_environment_from_settings(
+                _settings(
+                    environments=[_prod_env(github_app=github_app)],
+                    capabilities=_full_capabilities(),
+                ),
+                "prod",
+            )
 
     def test_non_default_origin_port_lands_in_health_url(self):
         env = deploy_environment_from_settings(

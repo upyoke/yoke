@@ -12,10 +12,13 @@ from __future__ import annotations
 
 from typing import Any, Optional, Sequence
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
     RestRequest,
-    RestUnprocessableError,
     quote_path_segment,
     request_with_retry,
 )
@@ -34,10 +37,16 @@ def _parse_label(payload: Any):
     )
 
 
-def _target_for(project: str, *, db_path: Optional[str] = None):
+def _target_for(
+    project: str, *, required_permissions, db_path: Optional[str] = None,
+):
     from yoke_core.domain.github_rest import resolve_target
 
-    return resolve_target(project, db_path=db_path)
+    return resolve_target(
+        project,
+        db_path=db_path,
+        required_permissions=required_permissions,
+    )
 
 
 def list_labels(
@@ -45,7 +54,11 @@ def list_labels(
     db_path: Optional[str] = None,
 ) -> list:
     """GET /repos/{owner}/{repo}/labels. Returns list of Label."""
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    )
     items: list[Any] = []
     page = 1
     per_page = min(100, max(1, limit))
@@ -76,10 +89,14 @@ def create_label(
     """POST /repos/{owner}/{repo}/labels. Returns the typed Label.
 
     Idempotent in spirit: GitHub returns 422 (already exists) when the
-    label is already present, which :class:`RestUnprocessableError`
+    label is already present, which the transport's unprocessable error
     surfaces typed for the caller to ignore or rewrite.
     """
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    )
     payload: dict[str, Any] = {"name": name, "color": color}
     if description:
         payload["description"] = description
@@ -105,7 +122,11 @@ def add_labels(
     """
     if not labels:
         return []
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    )
     resp = request_with_retry(
         RestRequest(
             method="POST",
@@ -129,7 +150,11 @@ def remove_labels(
     """
     if not labels:
         return _current_label_names(project=project, number=number, db_path=db_path)
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+    )
     for label in labels:
         try:
             request_with_retry(
@@ -150,7 +175,11 @@ def remove_labels(
 def _current_label_names(
     *, project: str, number: int, db_path: Optional[str] = None,
 ) -> list[str]:
-    tgt = _target_for(project, db_path=db_path)
+    tgt = _target_for(
+        project,
+        db_path=db_path,
+        required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+    )
     resp = request_with_retry(
         RestRequest(
             method="GET",

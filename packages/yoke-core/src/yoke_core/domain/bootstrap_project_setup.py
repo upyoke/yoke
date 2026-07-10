@@ -14,6 +14,10 @@ from __future__ import annotations
 
 import sys
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ENVIRONMENT_WRITE_PERMISSION_LEVELS,
+    GITHUB_SECRETS_WRITE_PERMISSION_LEVELS,
+)
 from yoke_core.domain import bootstrap_project_helpers as helpers
 from yoke_core.domain import gh_rest_transport, github_secrets_rest, project_scratch_dir
 from yoke_core.domain.bootstrap_project_helpers import (
@@ -27,6 +31,7 @@ from yoke_core.domain.bootstrap_project_helpers import (
 from yoke_core.domain.project_renderer import default_render_output_dir
 from yoke_core.domain.project_renderer_settings import project_primary_domain_name
 from yoke_core.domain.project_github_auth import (
+    MissingPermission,
     ProjectGithubAuthError,
     repair_command_hint,
     resolve_project_github_auth,
@@ -59,26 +64,28 @@ def run_setup(ctx: BootstrapContext) -> int:
     conn = helpers._connect()
     try:
         try:
-            resolved = resolve_project_github_auth(project_slug, conn=conn)
+            resolved = resolve_project_github_auth(
+                project_slug,
+                conn=conn,
+                required_permissions=GITHUB_SECRETS_WRITE_PERMISSION_LEVELS,
+            )
         except ProjectGithubAuthError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             print(repair_command_hint(exc, project_slug), file=sys.stderr)
             return 2
     finally:
         conn.close()
+    repo = resolved.repo
 
     print("\n--- Step 1: Reading config from DB ---")
     print(f"  Project:     {cfg.display_name} ({project_slug})")
-    print(f"  GitHub repo: {cfg.github_repo}")
+    print(f"  GitHub repo: {repo}")
     print(f"  Local path:  {cfg.repo_path}")
     print(f"  SSH host:    {cfg.ssh_host}")
     print(f"  SSH user:    {cfg.ssh_user}")
     print(f"  SSH key:     {cfg.ssh_key_path}")
     print(f"  GitHub App:  installation {resolved.installation_id or '[resolved]'}")
 
-    if not cfg.github_repo:
-        print("Error: Missing github_repo for project", file=sys.stderr)
-        return 2
     if not cfg.repo_path.is_dir():
         print(f"Error: Project repo not found at {cfg.repo_path}", file=sys.stderr)
         return 2
@@ -98,7 +105,7 @@ def run_setup(ctx: BootstrapContext) -> int:
         print(f"Error: SSH probe to {cfg.ssh_user}@{cfg.ssh_host} with {cfg.ssh_key_path} failed: {probe_msg}", file=sys.stderr)
         return 2
 
-    print(f"\n--- Step 2: Creating GitHub Secrets in {cfg.github_repo} ---")
+    print(f"\n--- Step 2: Creating GitHub Secrets in {repo} ---")
     ssh_key_content = cfg.ssh_key_path.read_text()
     for name, value in (
         (f"{project_upper}_SSH_KEY", ssh_key_content),
@@ -108,7 +115,7 @@ def run_setup(ctx: BootstrapContext) -> int:
         print(f"  Setting {name}...", end="")
         try:
             github_secrets_rest.set_repo_secret(
-                cfg.github_repo, name, value, token=resolved.token,
+                repo, name, value, token=resolved.token,
             )
         except gh_rest_transport.RestTransportError as exc:
             print(" FAILED", file=sys.stderr)
@@ -119,57 +126,48 @@ def run_setup(ctx: BootstrapContext) -> int:
     _persist_resolved_ssh_key_path(ctx, cfg.ssh_key_path)
     print(f"  Recorded resolved key_path in project_capabilities.ssh: {cfg.ssh_key_path}")
 
-    print("\n--- Step 3: Configuring production environment ---")
+    print("\n--- Step 3: Configuring production environment (optional) ---")
+    admin_resolved = None
+    conn = helpers._connect()
     try:
-        user_resp = gh_rest_transport.request_with_retry(
-            gh_rest_transport.RestRequest(method="GET", path="/user"),
-            token=resolved.token,
+        try:
+            admin_resolved = resolve_project_github_auth(
+                project_slug,
+                conn=conn,
+                required_permissions=GITHUB_ENVIRONMENT_WRITE_PERMISSION_LEVELS,
+            )
+        except MissingPermission:
+            pass
+        except ProjectGithubAuthError as exc:
+            print(f"Error: optional environment auth failed: {exc}", file=sys.stderr)
+            print(repair_command_hint(exc, project_slug), file=sys.stderr)
+            return 2
+    finally:
+        conn.close()
+    if admin_resolved is None:
+        print("  Skipped: the default Yoke GitHub App grant does not request Administration.")
+        print(
+            "  To let Yoke create GitHub environments, reconnect the App with "
+            "Administration: write, then rerun setup."
         )
-    except gh_rest_transport.RestTransportError as exc:
-        print(f"Error: GitHub user lookup failed: {exc}", file=sys.stderr)
-        return 2
-    user_body = user_resp.body if isinstance(user_resp.body, dict) else {}
-    login = str(user_body.get("login") or "").strip()
-    raw_user_id = user_body.get("id")
-    if not login:
-        print("Error: Could not determine GitHub username via /user", file=sys.stderr)
-        return 2
-    if not isinstance(raw_user_id, int):
-        print("Error: Could not determine GitHub user ID", file=sys.stderr)
-        return 2
-    print(f"  GitHub user: {login}")
-
-    env_path = f"/repos/{cfg.github_repo}/environments/production"
-    env_payload_full = {
-        "wait_timer": 0,
-        "prevent_self_review": False,
-        "reviewers": [{"type": "User", "id": int(raw_user_id)}],
-        "deployment_branch_policy": {
-            "protected_branches": True,
-            "custom_branch_policies": False,
-        },
-    }
-    try:
-        gh_rest_transport.request_with_retry(
-            gh_rest_transport.RestRequest(
-                method="PUT", path=env_path, body=env_payload_full,
-            ),
-            token=resolved.token,
+        print(
+            "  Or create the production environment under the repository's "
+            "Settings → Environments page."
         )
-        print("  Creating production environment... done (with required reviewer)")
-    except gh_rest_transport.RestTransportError:
+    else:
+        env_path = f"/repos/{admin_resolved.repo}/environments/production"
         try:
             gh_rest_transport.request_with_retry(
                 gh_rest_transport.RestRequest(
                     method="PUT", path=env_path, body={},
                 ),
-                token=resolved.token,
+                token=admin_resolved.token,
             )
+            print("  Creating production environment... done")
             print(
-                "  Creating production environment... done (without reviewer gate — plan does not support protection rules)"
+                "  Configure required reviewers in GitHub settings if this "
+                "deployment needs a human approval gate."
             )
-            print("  NOTE: Required reviewers need GitHub Enterprise Cloud for private repos.")
-            print("  Deployments will auto-run on push to main with no approval pause.")
         except gh_rest_transport.RestTransportError as exc:
             print("  Creating production environment... FAILED", file=sys.stderr)
             print(f"Error: Failed to create production environment: {exc}", file=sys.stderr)
@@ -236,13 +234,13 @@ def run_setup(ctx: BootstrapContext) -> int:
         if commit.returncode != 0:
             print("Error: Failed to commit workflow files", file=sys.stderr)
             return 2
-        print(f"  Pushing to {cfg.github_repo} main...")
+        print(f"  Pushing to {repo} main...")
         push = _run(["git", "push", "origin", "main"], cwd=cfg.repo_path)
         if push.returncode == 0:
             print("  Push successful")
         else:
             print("  Push FAILED", file=sys.stderr)
-            print(f"Error: Failed to push workflow files to {cfg.github_repo}", file=sys.stderr)
+            print(f"Error: Failed to push workflow files to {repo}", file=sys.stderr)
             return 2
     else:
         print("  No changes to commit (workflow files already up to date)")

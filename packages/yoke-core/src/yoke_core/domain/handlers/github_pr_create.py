@@ -6,9 +6,8 @@ surfaces, not Actions surfaces, so this deliberately does not overload
 :mod:`yoke_core.domain.gh_rest_transport`, which would push agents back
 to the host ``gh`` binary Yoke is otherwise free of.
 
-Owner/repo resolve from the project's GitHub capability
-(``resolve_project_github_auth`` — ``projects.github_repo`` + the
-GitHub App repo binding), the same resolver the ``github_actions.*``
+Owner/repo resolve from the project's verified GitHub App repo binding through
+``resolve_project_github_auth``, the same resolver the ``github_actions.*``
 handlers use; the payload never carries a repo slug. The POST routes
 through :func:`yoke_core.domain.github_pr_rest.create_pull_request`.
 """
@@ -29,6 +28,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
 )
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS,
+)
 
 
 class PrCreateRequest(BaseModel):
@@ -47,7 +49,8 @@ class PrCreateRequest(BaseModel):
     )
     draft: bool = Field(False, description="Open the PR as a draft.")
     project: str = Field(
-        "yoke",
+        ...,
+        min_length=1,
         description="Project capability owning the GitHub repo binding.",
     )
 
@@ -76,7 +79,10 @@ def handle_pr_create(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     try:
-        resolved = resolve_project_github_auth(payload.project)
+        resolved = resolve_project_github_auth(
+            payload.project,
+            required_permissions=GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError as exc:
         return _auth_failed(
             f"{exc.code}: {exc}",
