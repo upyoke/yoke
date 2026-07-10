@@ -2,20 +2,20 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-07T03:48:14Z_
+_Audit generated_at: 2026-07-10T12:57:15Z_
 
 ## 1. Summary
 
-- Function ids registered: **182**
-- `yoke` CLI subcommands: **177** (177 carry usable `--help`)
-- Operation tracker: **177 wrapped**, 65 permanent, 0 pending
-- Skill-body recipes: 216 total (180 template-skipped, 0 failing)
+- Function ids registered: **188**
+- `yoke` CLI subcommands: **183** (183 carry usable `--help`)
+- Operation tracker: **183 wrapped**, 67 permanent, 0 pending
+- Skill-body recipes: 217 total (179 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **177** (operation tracker confirms 177 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **183** (operation tracker confirms 183 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -41,6 +41,7 @@ Wrapped `yoke <subcommand>` adapters: **177** (operation tracker confirms 177 wr
 | conduct | `yoke conduct epic proceed-triage-handoff` | `conduct.epic.proceed_triage_handoff` | ok |
 | conduct | `yoke conduct epic-task update-status` | `conduct.epic_task.update_status` | ok |
 | config | `yoke config example` | `config.example.run` | ok |
+| config | `yoke config stamp-project-env` | `config.stamp_project_env.run` | ok |
 | connection | `yoke connection set` | `connection.set.run` | ok |
 | db | `yoke db read` | `db.read.run` | ok |
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
@@ -118,6 +119,9 @@ Wrapped `yoke <subcommand>` adapters: **177** (operation tracker confirms 177 wr
 | projects | `yoke projects checkout-context` | `projects.checkout_context.run` | ok |
 | projects | `yoke projects create` | `projects.create` | ok |
 | projects | `yoke projects get` | `projects.get` | ok |
+| projects | `yoke projects github-binding bind` | `projects.github_binding.bind` | ok |
+| projects | `yoke projects github-binding status` | `projects.github_binding.status` | ok |
+| projects | `yoke projects github-binding unbind` | `projects.github_binding.unbind` | ok |
 | projects | `yoke projects list` | `projects.list` | ok |
 | projects | `yoke projects resolve-by-github-repo` | `projects.resolve_by_github_repo` | ok |
 | projects | `yoke projects update` | `projects.update` | ok |
@@ -162,10 +166,12 @@ Wrapped `yoke <subcommand>` adapters: **177** (operation tracker confirms 177 wr
 | strategy | `yoke strategy carry summary` | `strategy.carry.summary` | ok |
 | strategy | `yoke strategy checkpoint latest` | `strategy.checkpoint.latest` | ok |
 | strategy | `yoke strategy checkpoint record` | `strategy.checkpoint.record` | ok |
+| strategy | `yoke strategy doc archive` | `strategy.doc.archive` | ok |
 | strategy | `yoke strategy doc create` | `strategy.doc.create` | ok |
 | strategy | `yoke strategy doc get` | `strategy.doc.get` | ok |
 | strategy | `yoke strategy doc list` | `strategy.doc.list` | ok |
 | strategy | `yoke strategy doc replace` | `strategy.doc.replace` | ok |
+| strategy | `yoke strategy doc unarchive` | `strategy.doc.unarchive` | ok |
 | strategy | `yoke strategy ingest` | `strategy.ingest.run` | ok |
 | strategy | `yoke strategy master-plan-check` | `strategy.master_plan_check.run` | ok |
 | strategy | `yoke strategy render` | `strategy.render.run` | ok |
@@ -231,6 +237,7 @@ Wrapped `yoke <subcommand>` adapters: **177** (operation tracker confirms 177 wr
 | git | `yoke git post-commit` | tool_shaped |
 | git | `yoke git pre-commit` | tool_shaped |
 | github | `yoke github connect` | tool_shaped |
+| github | `yoke github disconnect` | tool_shaped |
 | github | `yoke github status` | tool_shaped |
 | local_universe | `yoke init` | tool_shaped |
 | local_universe.export | `yoke universe export` | tool_shaped |
@@ -249,6 +256,7 @@ Wrapped `yoke <subcommand>` adapters: **177** (operation tracker confirms 177 wr
 | qa.browser | `yoke qa browser status` | tool_shaped |
 | raw.sql | `python3 -m yoke_core.cli.db_router query` | operator_break_glass |
 | resync | `yoke resync` | tool_shaped |
+| schema | `yoke schema converge` | tool_shaped |
 | self_host | `yoke self-host init` | tool_shaped |
 | self_host.connect | `yoke connect` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped |
@@ -276,7 +284,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 123 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 21 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 22 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |

@@ -88,6 +88,20 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.engines.resync",
     ): ("source_dev_admin", "sanctioned resync source-dev/admin command"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/schema_converge.py",
+        "yoke_core.api.server_entrypoint",
+    ): (
+        "source_dev_admin",
+        "sanctioned additive schema convergence source-dev/admin command",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/schema_converge.py",
+        "yoke_core.domain.cloud_db_secret_dsn",
+    ): (
+        "source_dev_admin",
+        "schema convergence authority-conflict guard",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/merge_audit.py",
         "yoke_core.engines.merge_audit",
     ): ("source_dev_admin", "sanctioned merge audit source-dev/admin command"),

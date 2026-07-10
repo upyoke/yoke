@@ -266,7 +266,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke ui", "local_universe.ui", REASON_TOOL_SHAPED),
     _p("yoke check file-line", "checks.file_line", REASON_TOOL_SHAPED),
     _p("yoke board art variant create", "board.art", REASON_TOOL_SHAPED),
-    _p("yoke resync", "resync", REASON_TOOL_SHAPED),
+    _p("yoke resync", "resync", REASON_TOOL_SHAPED), _p("yoke schema converge", "schema", REASON_TOOL_SHAPED),
     # Client-local installer / onboarding flows — routed as CLI tokens by
     # yoke_cli.main (machine config, git, dev setup, project source creation),
     # deliberately NOT dispatcher function ids like the git-hook bodies above.

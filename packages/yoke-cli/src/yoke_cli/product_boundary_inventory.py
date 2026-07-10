@@ -35,7 +35,7 @@ def _commands(text: str) -> frozenset[str]:
 
 _PRODUCT = _commands("auth set|config example|connect|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host init|status|templates fetch|templates list|ui|universe export")
 _PROJECT_INSTALL = _commands("project install|project refresh|project snapshot sync|project uninstall")
-_SOURCE_DEV = _commands("agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets check|packets render|resync|scratch dispatch-inputs|usher reconcile-github")
+_SOURCE_DEV = _commands("agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets check|packets render|resync|schema converge|scratch dispatch-inputs|usher reconcile-github")
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
 @dataclass(frozen=True)
 class ImportEdge:
