@@ -183,7 +183,7 @@ def patch_executor_boundaries(monkeypatch, env):
         lambda project, env_name: env,
     )
     monkeypatch.setattr(
-        deploy_core_container,
+        deploy_core_container.github_app_deploy,
         "aws_capability_env",
         lambda project, region: {"AWS_REGION": region},
     )
@@ -257,7 +257,7 @@ class TestExecCoreContainerDeploy:
         env_pushes = [
             c for c in runner.calls
             if c["argv"][0] == "ssh"
-            and "install -m 600 /dev/stdin /opt/yoke-core/.env" in c["argv"][-1]
+            and c["argv"][-1].endswith(" /opt/yoke-core/.env 600")
         ]
         assert len(env_pushes) == 1
         assert "YOKE_DB_SECRET_ARN=" in env_pushes[0]["input_text"]
@@ -265,7 +265,7 @@ class TestExecCoreContainerDeploy:
         dsn_pushes = [
             c for c in runner.calls
             if c["argv"][0] == "ssh"
-            and "install -m 444 /dev/stdin /opt/yoke-core/dsn" in c["argv"][-1]
+            and c["argv"][-1].endswith(" /opt/yoke-core/dsn 444")
         ]
         assert dsn_pushes == []
         assert "chmod 700 /opt/yoke-core" in joined

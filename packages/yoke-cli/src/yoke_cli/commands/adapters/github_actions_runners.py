@@ -22,7 +22,7 @@ from yoke_contracts.api.function_call import TargetRef
 GITHUB_ACTIONS_RUNNERS_STATUS_USAGE = (
     "yoke github-actions runners status [repo-slug] "
     "[--required-label LABEL ...] [--variable-name NAME] "
-    "[--runner-capability TYPE] --project P [--session-id S] [--json]"
+    "--project P [--session-id S] [--json]"
 )
 
 
@@ -31,8 +31,9 @@ def github_actions_runners_status(args: List[str]) -> int:
         prog="yoke github-actions runners status",
         description=(
             "Read registered repository self-hosted runners and the "
-            "runner-routing repo variable. Distinguishes an online-ready "
-            "runner from armed scale-to-zero routing with no registration. "
+            "Pulumi-owned runner-routing repo variable. Reports the "
+            "capability's routing_enabled intent separately from actual "
+            "scale-to-zero routing and online runner state. "
             "Read-only; does not mint runner registration tokens and "
             "does not mutate GitHub repo variables."
         ),
@@ -66,14 +67,6 @@ def github_actions_runners_status(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--runner-capability",
-        default=RUNNER_FLEET_CAPABILITY_TYPE,
-        help=(
-            "Project capability type holding runner fleet settings "
-            f"(default: {RUNNER_FLEET_CAPABILITY_TYPE})."
-        ),
-    )
-    parser.add_argument(
         "--project", required=True,
         help="Project capability owning the GitHub App repo binding.",
     )
@@ -94,7 +87,7 @@ def github_actions_runners_status(args: List[str]) -> int:
         "required_labels": labels,
         "variable_name": parsed.variable_name,
         "project": parsed.project,
-        "runner_capability": parsed.runner_capability,
+        "runner_capability": RUNNER_FLEET_CAPABILITY_TYPE,
     }
     return dispatch_and_emit(
         function_id="github_actions.runners.status",

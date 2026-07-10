@@ -67,15 +67,19 @@ def test_runner_fleet_keys_from_capability(tmp_path):
         "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
-            "administration": "write", "repository_hooks": "write",
+            "administration": "write",
+            "actions_variables": "write",
+            "repository_hooks": "write",
         },
     }
     capabilities["github-actions-runner-fleet"] = {
         "repo": "acme-org/buzz",
+        "github_capability": "github",
         "github_app_environment": base.primary_environment.id,
         "runner_labels": [
             "self-hosted", "Linux", "ARM64", "yoke-github-actions",
         ],
+        "routing_enabled": True,
         "desired_runner_count": 1,
         "max_runner_count": 1,
         "instance": {
@@ -97,6 +101,8 @@ def test_runner_fleet_keys_from_capability(tmp_path):
     )
 
     assert result["runner_fleet_repo"] == "acme-org/buzz"
+    assert result["runner_fleet_aws_capability"] == "aws-admin"
+    assert result["runner_fleet_aws_region"] == "us-east-1"
     assert result["runner_fleet_github_installation_id"] == "123456"
     assert result["runner_fleet_github_repository_id"] == "789012"
     assert result["runner_fleet_github_api_url"] == "https://api.github.com"
@@ -104,19 +110,21 @@ def test_runner_fleet_keys_from_capability(tmp_path):
     assert result["runner_fleet_labels_json"] == (
         '["self-hosted","Linux","ARM64","yoke-github-actions"]'
     )
+    assert result["runner_fleet_variable_name"] == "YOKE_LINUX_RUNS_ON"
+    assert result["runner_fleet_routing_enabled"] == "true"
     assert result["runner_fleet_instance_type"] == "m7g.2xlarge"
     assert result["runner_fleet_root_volume_gb"] == "100"
     assert result["runner_fleet_idle_shutdown_minutes"] == "15"
     assert result["runner_fleet_shutdown_mode"] == "terminate"
 
 
-def test_enabled_runner_fleet_requires_verified_binding(tmp_path):
+def test_enabled_runner_fleet_requires_explicit_github_capability(tmp_path):
     base = _settings_from_context(
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
     )
     root = _make_project_root(tmp_path, "buzz")
 
-    with pytest.raises(ValueError, match="verified GitHub App repository binding"):
+    with pytest.raises(ValueError, match="requires explicit github_capability"):
         project_renderer_pulumi.gather_pulumi_values("buzz", root, base)
 
 
@@ -132,11 +140,14 @@ def test_enabled_runner_fleet_requires_environment_app_config(tmp_path):
         "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
-            "administration": "write", "repository_hooks": "write",
+            "administration": "write",
+            "actions_variables": "write",
+            "repository_hooks": "write",
         },
     }
     assert base.primary_environment is not None
     capabilities["github-actions-runner-fleet"] = {
+        "github_capability": "github",
         "github_app_environment": base.primary_environment.id,
     }
     root = _make_project_root(tmp_path, "buzz")
@@ -165,10 +176,13 @@ def test_enabled_runner_fleet_rejects_unsafe_secret_arn(tmp_path):
         "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
-            "administration": "write", "repository_hooks": "write",
+            "administration": "write",
+            "actions_variables": "write",
+            "repository_hooks": "write",
         },
     }
     capabilities["github-actions-runner-fleet"] = {
+        "github_capability": "github",
         "github_app_environment": base.primary_environment.id,
     }
     root = _make_project_root(tmp_path, "buzz")
@@ -198,11 +212,14 @@ def test_enabled_runner_fleet_rejects_repo_override(tmp_path):
         "installation_id": "123456", "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
-            "administration": "write", "repository_hooks": "write",
+            "administration": "write",
+            "actions_variables": "write",
+            "repository_hooks": "write",
         },
     }
     capabilities["github-actions-runner-fleet"] = {
         "repo": "other/repo",
+        "github_capability": "github",
         "github_app_environment": base.primary_environment.id,
     }
     root = _make_project_root(tmp_path, "buzz")
@@ -232,10 +249,13 @@ def test_enabled_runner_fleet_rejects_environment_origin_mismatch(tmp_path):
         "installation_id": "123456", "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
-            "administration": "write", "repository_hooks": "write",
+            "administration": "write",
+            "actions_variables": "write",
+            "repository_hooks": "write",
         },
     }
     capabilities["github-actions-runner-fleet"] = {
+        "github_capability": "github",
         "github_app_environment": base.primary_environment.id,
     }
 
@@ -264,10 +284,13 @@ def test_enabled_runner_fleet_requires_administration_write(tmp_path):
         "installation_id": "123456", "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
-            "administration": "read", "repository_hooks": "write",
+            "administration": "read",
+            "actions_variables": "write",
+            "repository_hooks": "write",
         },
     }
     capabilities["github-actions-runner-fleet"] = {
+        "github_capability": "github",
         "github_app_environment": base.primary_environment.id,
     }
 

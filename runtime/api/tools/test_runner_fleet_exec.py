@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 from io import StringIO
+import json
 from types import SimpleNamespace
 import subprocess
 
@@ -20,7 +22,10 @@ from runtime.api.tools.runner_fleet_exec_test_support import (
 def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     tmp_path, monkeypatch,
 ):
-    snapshot = _write_snapshot(tmp_path / "stack-config.json")
+    snapshot = _write_snapshot(
+        tmp_path / "stack-config.json",
+        stack_name="buzz-ci-runners",
+    )
     value_calls: list[dict[str, object]] = []
     secret_calls: list[dict[str, object]] = []
     mint_calls: list[dict[str, object]] = []
@@ -87,7 +92,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
             "GITHUB_ORGANIZATION": "ambient-org",
             "GITHUB_OWNER": "ambient-owner",
             "GITHUB_TOKEN": "inherited-broad-token",
-            "RUNNER_FLEET_WEBHOOK_TOKEN": "inherited-webhook-token",
+            "RUNNER_FLEET_GITHUB_TOKEN": "inherited-github-token",
         },
         secret_loader=fake_secret_loader,
         token_minter=fake_token_minter,
@@ -117,7 +122,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
             "GITHUB_ORGANIZATION": "ambient-org",
             "GITHUB_OWNER": "ambient-owner",
             "GITHUB_TOKEN": "inherited-broad-token",
-            "RUNNER_FLEET_WEBHOOK_TOKEN": "inherited-webhook-token",
+            "RUNNER_FLEET_GITHUB_TOKEN": "inherited-github-token",
         },
     }]
     assert mint_calls == [{
@@ -126,7 +131,10 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         "installation_id": 123456,
         "api_url": "https://api.github.com",
         "repository_ids": [789012],
-        "permissions": {"repository_hooks": "write"},
+        "permissions": {
+            "actions_variables": "write",
+            "repository_hooks": "write",
+        },
     }]
     assert len(child_calls) == 1
     child = child_calls[0]
@@ -142,13 +150,53 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     assert "errors" not in child
     child_env = child["env"]
     assert isinstance(child_env, dict)
-    assert child_env["RUNNER_FLEET_WEBHOOK_TOKEN"] == _TOKEN
+    assert child_env["RUNNER_FLEET_GITHUB_TOKEN"] == _TOKEN
     assert child_env["GITHUB_TOKEN"] == _TOKEN
     assert (
-        child_env["RUNNER_FLEET_WEBHOOK_TOKEN"]
+        child_env["RUNNER_FLEET_GITHUB_TOKEN"]
         == child_env["GITHUB_TOKEN"]
     )
     assert _PRIVATE_KEY not in child_env.values()
+    intent = json.loads(
+        child_env[runner_fleet_exec.RUNNER_FLEET_AUTHORITY_INTENT_ENV]
+    )
+    assert intent["schema"] == 1
+    assert intent["authority"] == {
+        "project": "buzz",
+        "deploy_namespace": "buzz",
+        "stack_name": "buzz-ci-runners",
+        "aws_capability": "aws-admin",
+        "aws_region": "us-east-1",
+        "github_capability": "github",
+        "github_app_environment": "buzz-api-stage",
+        "repo": "upyoke/yoke",
+        "repo_owner": "upyoke",
+        "repo_name": "yoke",
+        "installation_id": "123456",
+        "repository_id": "789012",
+        "app_issuer": "Iv1.runner-fleet",
+        "api_url": "https://api.github.com",
+        "web_url": "https://github.com",
+        "private_key_secret_arn": _SECRET_ARN,
+        "runner_labels": [
+            "self-hosted", "Linux", "ARM64", "yoke-github-actions",
+        ],
+        "runner_variable_name": "YOKE_LINUX_RUNS_ON",
+        "routing_enabled": True,
+        "runner_count": 1,
+        "max_runner_count": 1,
+        "instance_type": "m7g.2xlarge",
+        "architecture": "arm64",
+        "root_volume_gb": 200,
+        "idle_shutdown_minutes": 30,
+        "shutdown_mode": "terminate",
+    }
+    canonical = json.dumps(
+        intent["authority"], sort_keys=True, separators=(",", ":"),
+    )
+    assert intent["sha256"] == hashlib.sha256(
+        canonical.encode("utf-8")
+    ).hexdigest()
     for name in (
         "GH_TOKEN",
         "GH_ENTERPRISE_TOKEN",

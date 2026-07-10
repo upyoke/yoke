@@ -15,7 +15,8 @@ curl -fsSL https://api.upyoke.com/install | bash
 
 # 2. Materialize the compose bundle. Writes docker-compose.yml, .env,
 #    and generated database credentials as owner-only secret files —
-#    the generated password is never printed.
+#    the generated password is never printed. A marked block in
+#    .gitignore protects .env and secrets/ without replacing your rules.
 yoke self-host init
 
 # 3. Start the server.
@@ -39,6 +40,24 @@ the defaults come from one place (`yoke_contracts.server_image`, today
 published image. Knobs live in the bundle's `.env`; generated
 credentials ride mounted secret files under `secrets/` — never `.env`,
 whose values compose `$`-interpolates.
+
+Bundles created before the managed ignore block can be protected in place,
+idempotently, without rewriting `.env`, Compose configuration, or database
+credentials:
+
+```bash
+yoke self-host init --dir /path/to/yoke-server --protect-existing
+```
+
+The command preserves every operator-authored `.gitignore` rule outside its
+marked Yoke-owned block and reports explicitly that database credentials were
+not regenerated. The bundle and `secrets/` must be real directories owned by
+the operator; `secrets/` must have mode `0700`. Run
+`chmod 700 /path/to/yoke-server/secrets` if needed. It refuses symlinked secret
+paths and also refuses if Git already tracks `.env` or a file under `secrets/`:
+ignore rules cannot remove an indexed secret. Remove the reported paths from
+the Git index, rotate any credential that entered history, then retry the
+protection command.
 
 By default the API publishes on loopback only (`127.0.0.1:8765`). To
 serve your network, edit `YOKE_API_PUBLISH` in `.env` (for example
@@ -140,21 +159,33 @@ key for the server. Project rows store only verified installation/repository
 bindings; the App private key is never stored in `capability_secrets` or any
 per-project setting.
 
+Registration, least-privilege installation scope, hosted secret ownership,
+dual-key rotation, and incident response are defined in
+[GitHub App Operations](github-app-operations.md). Use that runbook before
+creating the runtime file below.
+
 When the same App also serves engineer-machine authorization, enable **Device
 Flow** and **Expire user authorization tokens** in its registration before
 connecting any machine. The first enables browser device authorization; the
 second supplies the expiring access token, refresh token, and expiries that the
-local credential store requires. The baseline repository grant is Metadata
-read; Checks read; and Issues, Pull requests, Contents, Actions, Workflows,
-Secrets, and Variables write.
+local credential store requires. Use the baseline repository grant in the
+operations runbook.
 
-Copy the downloaded App private key into the generated bundle as an owner-only
-file:
+Install the downloaded App private key through Yoke's owner-only ingress. From
+outside the bundle, run:
 
 ```bash
-cp /secure/path/app-key.pem secrets/github-app-private-key.pem
-chmod 600 secrets/github-app-private-key.pem
+chmod 600 /secure/path/app-key.pem
+yoke self-host init --dir /path/to/yoke-server --protect-existing \
+  --github-app-private-key /secure/path/app-key.pem
 ```
+
+The source must be a real, single-link regular file owned by the current user
+with no group/world access. The command opens it once without following
+symlinks, validates a nonempty private-key-shaped PEM, writes a mode `0600`
+temporary file in the bundle's `secrets/` directory, fsyncs it, atomically
+replaces `github-app-private-key.pem`, and fsyncs the directory. Rotation never
+publishes a partial key and never regenerates the bundle's database credentials.
 
 Then set these non-secret/runtime bindings in `.env`:
 

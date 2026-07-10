@@ -15,7 +15,9 @@ import pytest
 
 from yoke_cli.commands import self_host as commands
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
+from yoke_cli.self_host import atomic_file
 from yoke_cli.self_host import bundle
+from yoke_cli.self_host import protection
 from yoke_contracts.server_image import (
     DEFAULT_SERVER_IMAGE,
     PUBLISHED_SERVER_IMAGE_REPOSITORY,
@@ -32,9 +34,7 @@ def _mode(path: Path) -> int:
 
 
 def _password(target: Path) -> str:
-    return (target / "secrets" / "db-password").read_text(
-        encoding="utf-8"
-    ).strip()
+    return (target / "secrets" / "db-password").read_text(encoding="utf-8").strip()
 
 
 def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
@@ -51,6 +51,21 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert f"YOKE_SERVER_IMAGE={DEFAULT_SERVER_IMAGE}" in env_text
     assert "YOKE_API_PUBLISH=127.0.0.1:8765" in env_text
 
+    gitignore = (target / ".gitignore").read_text(encoding="utf-8")
+    assert gitignore.splitlines() == [
+        protection.GITIGNORE_MANAGED_BEGIN,
+        "# Managed by Yoke; operator rules outside this block are preserved.",
+        "/.env",
+        "/secrets/",
+        "/..env.lock",
+        "/..env.*.tmp",
+        "/.docker-compose.yml.lock",
+        "/.docker-compose.yml.*.tmp",
+        "/..gitignore.lock",
+        "/..gitignore.*.tmp",
+        protection.GITIGNORE_MANAGED_END,
+    ]
+
     secrets_dir = target / "secrets"
     assert _mode(secrets_dir) == 0o700
     password = _password(target)
@@ -60,6 +75,15 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert _mode(secrets_dir / "dsn") == 0o600
     assert "host=db" in dsn
     assert password in dsn
+    assert list(secrets_dir.glob(".*.tmp")) == []
+    for protected_path in (
+        target / ".gitignore",
+        target / "docker-compose.yml",
+        target / ".env",
+        secrets_dir / "db-password",
+        secrets_dir / "dsn",
+    ):
+        assert _mode(atomic_file.target_lock_path(protected_path)) == 0o600
 
     out = capsys.readouterr()
     assert password not in out.out
@@ -87,9 +111,7 @@ def test_init_ships_browser_sign_in_wiring_disabled(target):
     assert "#YOKE_OIDC_ISSUER=" in env_text
     assert "#YOKE_OIDC_CLIENT_SECRET_FILE=" in env_text
     # No active (uncommented) OIDC assignment ships by default.
-    assert not any(
-        line.startswith("YOKE_OIDC_") for line in env_text.splitlines()
-    )
+    assert not any(line.startswith("YOKE_OIDC_") for line in env_text.splitlines())
 
 
 def test_init_ships_github_app_secret_wiring_disabled(target):
@@ -108,6 +130,9 @@ def test_init_ships_github_app_secret_wiring_disabled(target):
     assert not any(
         line.startswith("YOKE_GITHUB_APP_") for line in env_text.splitlines()
     )
+    assert "cp /secure/path" not in env_text
+    assert "--protect-existing" in env_text
+    assert "--github-app-private-key" in env_text
 
 
 def test_init_json_report_omits_secrets(target, capsys):
@@ -115,14 +140,24 @@ def test_init_json_report_omits_secrets(target, capsys):
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True
     assert report["image"] == DEFAULT_SERVER_IMAGE
+    assert str(target / ".gitignore") in report["files"]
     assert _password(target) not in json.dumps(report)
 
 
 def test_init_port_and_image_overrides(target):
-    assert commands.self_host_init([
-        "--dir", str(target), "--port", "9000",
-        "--image", "example.test/yoke-server:pinned",
-    ]) == 0
+    assert (
+        commands.self_host_init(
+            [
+                "--dir",
+                str(target),
+                "--port",
+                "9000",
+                "--image",
+                "example.test/yoke-server:pinned",
+            ]
+        )
+        == 0
+    )
     env_text = (target / ".env").read_text(encoding="utf-8")
     assert "YOKE_API_PUBLISH=127.0.0.1:9000" in env_text
     assert "YOKE_SERVER_IMAGE=example.test/yoke-server:pinned" in env_text
@@ -146,9 +181,7 @@ def test_init_refuses_clobber_without_force(target, capsys):
 def test_default_directory_lands_under_cwd(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     report = bundle.write_bundle()
-    assert report["directory"] == str(
-        (tmp_path / bundle.DEFAULT_BUNDLE_DIR).resolve()
-    )
+    assert report["directory"] == str((tmp_path / bundle.DEFAULT_BUNDLE_DIR).resolve())
 
 
 def test_published_image_constant_shape():

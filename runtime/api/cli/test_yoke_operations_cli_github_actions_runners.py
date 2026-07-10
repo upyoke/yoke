@@ -115,7 +115,6 @@ def test_custom_labels_and_project_payload() -> None:
         "--required-label", "linux",
         "--required-label", "gpu",
         "--variable-name", "CUSTOM_RUNS_ON",
-        "--runner-capability", "custom-runner-fleet",
         "--project", "buzz",
     )
 
@@ -125,8 +124,20 @@ def test_custom_labels_and_project_payload() -> None:
         "required_labels": ["self-hosted", "linux", "gpu"],
         "variable_name": "CUSTOM_RUNS_ON",
         "project": "buzz",
-        "runner_capability": "custom-runner-fleet",
+        "runner_capability": "github-actions-runner-fleet",
     }
+
+
+def test_runner_capability_override_is_not_a_supported_cli_option() -> None:
+    rc, _out, err = _run(
+        "github-actions", "runners", "status", "o/r",
+        "--runner-capability", "custom-runner-fleet",
+        "--project", "buzz",
+    )
+
+    assert rc == 2
+    assert "unrecognized arguments" in err
+    assert _CAPTURED_REQUESTS == []
 
 
 def test_repo_can_be_omitted_for_capability_config() -> None:

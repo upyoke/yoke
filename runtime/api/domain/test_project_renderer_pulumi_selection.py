@@ -64,7 +64,7 @@ def test_full_or_runner_fleet_render_keeps_binding_validation(
     root, output, settings = _runner_fleet_project(tmp_path)
 
     with pytest.raises(
-        ValueError, match="verified GitHub App repository binding",
+        ValueError, match="requires explicit github_capability",
     ):
         project_renderer.render_project(
             "platform",

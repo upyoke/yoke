@@ -21,7 +21,7 @@ import textwrap
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from webapp_runner_fleet_stack import WebappRunnerFleetArgs
+    from webapp_runner_fleet_config import WebappRunnerFleetArgs
 
 
 def _assume_role_policy(service: str) -> str:

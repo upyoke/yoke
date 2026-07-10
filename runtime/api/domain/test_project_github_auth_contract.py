@@ -65,6 +65,7 @@ def test_installation_contract_and_token_scope_are_separate() -> None:
     assert installation == dict(REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS)
     assert installation["issues"] == "write"
     assert token == {"metadata": "read", "issues": "read"}
+    assert set(token).isdisjoint({"administration", "repository_hooks"})
 
 
 def test_core_permission_consumers_reject_fictitious_admin_level() -> None:

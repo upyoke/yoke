@@ -259,17 +259,12 @@ Run `--preflight-only` first to check readiness without making changes:
 yoke onboard checklist --run-id <run-id>
 ```
 
-The runner fleet is optional and privileged. Its capability must select the
-exact `github_app_environment`; there is no primary, prod, or stage fallback.
-That environment must declare `settings.github_app` on the binding's API origin,
-and the installation must grant `administration: write` plus
-`repository_hooks: write`. Pulumi receives the same short-lived installation
-token as `RUNNER_FLEET_WEBHOOK_TOKEN` (Yoke's intent marker) and `GITHUB_TOKEN`
-(pulumi-github's ambient input). The stack requires an exact match and passes no
-token resource input, keeping it out of state, outputs, logs, hosts, and Lambdas.
-Pulumi keeps `runnerFleetGithubProvider` and `runnerFleetGithubWebhook` stable
-while updating the URL and managed HMAC together; their outputs are verification
-surfaces. V1 runs one ephemeral host with DNS and HTTP(S) egress only.
+The optional runner fleet requires explicit canonical GitHub binding and App
+environment selectors plus `administration: write`, `repository_hooks: write`,
+and `actions_variables: write`. Its short-lived token, digested authority
+envelope, ingress ordering, existing-variable adoption, fail-safe routing, and
+stable `runnerFleetRoutingVariable` ownership are specified in
+[RUNNER-FLEET.md](RUNNER-FLEET.md); direct variable writes are drift.
 
 ### Step 13: Docker build and run
 

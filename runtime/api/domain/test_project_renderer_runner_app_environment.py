@@ -37,6 +37,7 @@ def _github(permissions: dict[str, str] | None = None) -> dict[str, object]:
         "api_url": "https://api.github.com",
         "permissions": permissions or {
             "administration": "write",
+            "actions_variables": "write",
             "repository_hooks": "write",
         },
     }
@@ -57,10 +58,13 @@ def _settings(
     )
     capabilities = dict(base.capabilities)
     capabilities["github"] = _github()
+    runner = {
+        "github_capability": "github",
+        "routing_enabled": True,
+    }
     if selector is not None:
-        capabilities["github-actions-runner-fleet"] = {
-            "github_app_environment": selector,
-        }
+        runner["github_app_environment"] = selector
+    capabilities["github-actions-runner-fleet"] = runner
     return replace(
         base,
         environments=(base.primary_environment, stage),
@@ -112,7 +116,10 @@ def test_runner_fleet_rejects_ambiguous_app_environment(tmp_path):
 def test_enabled_runner_fleet_requires_repository_hooks_write(tmp_path):
     settings = _settings(selector="stage", stage_app=_app())
     capabilities = dict(settings.capabilities)
-    capabilities["github"] = _github({"administration": "write"})
+    capabilities["github"] = _github({
+        "administration": "write",
+        "actions_variables": "write",
+    })
     settings = replace(settings, capabilities=capabilities)
 
     with pytest.raises(ValueError, match=r"Webhooks: write \(repository_hooks\)"):
@@ -121,7 +128,24 @@ def test_enabled_runner_fleet_requires_repository_hooks_write(tmp_path):
         )
 
 
-def test_runner_fleet_uses_selected_github_capability(tmp_path):
+def test_enabled_runner_fleet_requires_actions_variables_write(tmp_path):
+    settings = _settings(selector="stage", stage_app=_app())
+    capabilities = dict(settings.capabilities)
+    capabilities["github"] = _github({
+        "administration": "write",
+        "repository_hooks": "write",
+    })
+    settings = replace(settings, capabilities=capabilities)
+
+    with pytest.raises(
+        ValueError, match=r"Variables: write \(actions_variables\)",
+    ):
+        project_renderer_pulumi.gather_pulumi_values(
+            "buzz", tmp_path, settings,
+        )
+
+
+def test_runner_fleet_refuses_noncanonical_github_capability(tmp_path):
     settings = _settings(selector="stage", stage_app=_app())
     capabilities = dict(settings.capabilities)
     custom_github = _github()
@@ -132,25 +156,31 @@ def test_runner_fleet_uses_selected_github_capability(tmp_path):
     capabilities["github-actions-runner-fleet"] = runner
     settings = replace(settings, capabilities=capabilities)
 
-    values = project_renderer_pulumi.gather_pulumi_values(
-        "buzz", tmp_path, settings,
-    )
+    with pytest.raises(
+        ValueError,
+        match="(?s)github_capability.*must be 'github'",
+    ):
+        project_renderer_pulumi.gather_pulumi_values(
+            "buzz", tmp_path, settings,
+        )
 
-    assert values["runner_fleet_repo"] == "other-org/runners"
-    assert values["runner_fleet_github_repo_owner"] == "other-org"
 
-
-def test_runner_fleet_reports_missing_selected_github_capability(tmp_path):
+def test_disabled_routing_still_requires_permission_to_delete_variable(
+    tmp_path,
+):
     settings = _settings(selector="stage", stage_app=_app())
     capabilities = dict(settings.capabilities)
+    capabilities["github"] = _github({
+        "administration": "write",
+        "repository_hooks": "write",
+    })
     runner = dict(capabilities["github-actions-runner-fleet"])
-    runner["github_capability"] = "github-automation"
+    runner["routing_enabled"] = False
     capabilities["github-actions-runner-fleet"] = runner
     settings = replace(settings, capabilities=capabilities)
 
     with pytest.raises(
-        ValueError,
-        match="selected 'github-automation' capability is missing settings",
+        ValueError, match=r"Variables: write \(actions_variables\)",
     ):
         project_renderer_pulumi.gather_pulumi_values(
             "buzz", tmp_path, settings,

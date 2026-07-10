@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -11,6 +12,7 @@ from yoke_contracts.github_actions_runner_fleet import (
     DEFAULT_RUNNER_LABELS,
     DEFAULT_RUNS_ON_VARIABLE,
 )
+from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 
 
 DEFAULT_PROVIDER = "aws-ec2"
@@ -19,7 +21,6 @@ DEFAULT_ARCHITECTURE = "arm64"
 DEFAULT_DESIRED_RUNNER_COUNT = 1
 DEFAULT_MAX_RUNNER_COUNT = 1
 DEFAULT_ROOT_VOLUME_GB = 200
-DEFAULT_GITHUB_CAPABILITY = "github"
 DEFAULT_AWS_CAPABILITY = "aws-admin"
 DEFAULT_START_MODE = "autoscaled"
 DEFAULT_SHUTDOWN_MODE = "terminate"
@@ -80,10 +81,11 @@ class RunnerFleetSettings(BaseModel):
         default_factory=lambda: list(DEFAULT_RUNNER_LABELS)
     )
     variable_name: str = DEFAULT_RUNS_ON_VARIABLE
+    routing_enabled: bool = False
     provider: str = DEFAULT_PROVIDER
     desired_runner_count: int = Field(DEFAULT_DESIRED_RUNNER_COUNT, ge=1)
     max_runner_count: int = Field(DEFAULT_MAX_RUNNER_COUNT, ge=1)
-    github_capability: str = DEFAULT_GITHUB_CAPABILITY
+    github_capability: Optional[str] = None
     github_app_environment: Optional[str] = None
     aws_capability: str = DEFAULT_AWS_CAPABILITY
     instance: RunnerFleetInstanceSettings = Field(
@@ -117,14 +119,42 @@ class RunnerFleetSettings(BaseModel):
             raise ValueError("must contain at least one label")
         return cleaned
 
-    @field_validator(
-        "variable_name", "provider", "github_capability", "aws_capability"
-    )
+    @field_validator("provider", "aws_capability")
     @classmethod
     def _clean_required_text(cls, value: str) -> str:
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("must be non-empty")
+        return cleaned
+
+    @field_validator("variable_name")
+    @classmethod
+    def _github_variable_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", cleaned) is None:
+            raise ValueError(
+                "must start with a letter or underscore and contain only "
+                "letters, numbers, and underscores"
+            )
+        if cleaned.upper().startswith("GITHUB_"):
+            raise ValueError("must not start with the reserved GITHUB_ prefix")
+        return cleaned
+
+    @field_validator("github_capability")
+    @classmethod
+    def _clean_github_capability(
+        cls, value: Optional[str],
+    ) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("must be non-empty when provided")
+        if cleaned != GITHUB_CAPABILITY_TYPE:
+            raise ValueError(
+                f"must be {GITHUB_CAPABILITY_TYPE!r}; runner fleets require "
+                "the binding-owned GitHub capability"
+            )
         return cleaned
 
     @field_validator("github_app_environment")
@@ -221,7 +251,6 @@ __all__ = [
     "DEFAULT_ARCHITECTURE",
     "DEFAULT_AWS_CAPABILITY",
     "DEFAULT_DESIRED_RUNNER_COUNT",
-    "DEFAULT_GITHUB_CAPABILITY",
     "DEFAULT_INSTANCE_TYPE",
     "DEFAULT_MAX_RUNNER_COUNT",
     "DEFAULT_PROVIDER",

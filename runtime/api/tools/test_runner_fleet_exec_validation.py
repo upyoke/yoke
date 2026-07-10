@@ -35,6 +35,25 @@ def test_project_mismatch_refuses_before_runner_validation(
         )
 
 
+def test_repository_token_can_create_or_delete_routing_variable():
+    expected = {
+        "actions_variables": "write",
+        "repository_hooks": "write",
+    }
+    for routing_enabled in (False, True):
+        assert runner_fleet_exec._repository_automation_permissions(
+            _runner_values(routing_enabled=routing_enabled)
+        ) == expected
+
+
+def test_repository_provider_token_never_includes_administration():
+    for routing_enabled in (False, True):
+        permissions = runner_fleet_exec._repository_automation_permissions(
+            _runner_values(routing_enabled=routing_enabled)
+        )
+        assert "administration" not in permissions
+
+
 def test_envelope_project_must_match_renderer_snapshot(tmp_path):
     snapshot = _write_snapshot(
         tmp_path / "stack-config.json",

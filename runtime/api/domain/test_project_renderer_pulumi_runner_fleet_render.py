@@ -14,7 +14,11 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     )
     (infra / "Pulumi.runner-fleet-stack.yaml.tmpl").write_text(
         "config:\n"
+        "  aws:region: {{runner_fleet_aws_region}}\n"
         "  webapp-infra:project_name: {{project_name}}\n"
+        "  webapp-infra:aws_capability: {{runner_fleet_aws_capability}}\n"
+        "  webapp-infra:github_capability: {{runner_fleet_github_capability}}\n"
+        "  webapp-infra:github_app_environment: {{runner_fleet_github_app_environment}}\n"
         "  webapp-infra:github_repo: {{runner_fleet_repo}}\n"
         "  webapp-infra:github_repo_owner: {{runner_fleet_github_repo_owner}}\n"
         "  webapp-infra:github_repo_name: {{runner_fleet_github_repo_name}}\n"
@@ -25,11 +29,15 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "  webapp-infra:github_web_url: {{runner_fleet_github_web_url}}\n"
         "  webapp-infra:github_private_key_secret_arn: {{runner_fleet_github_private_key_secret_arn}}\n"
         "  webapp-infra:runner_labels: '{{runner_fleet_labels_json}}'\n"
+        "  webapp-infra:runner_variable_name: {{runner_fleet_variable_name}}\n"
+        "  webapp-infra:routing_enabled: \"{{runner_fleet_routing_enabled}}\"\n"
         "  webapp-infra:instance_type: {{runner_fleet_instance_type}}\n"
         "  webapp-infra:root_volume_gb: \"{{runner_fleet_root_volume_gb}}\"\n"
     )
     (infra / "__main__.py").write_text("# pulumi entrypoint\n")
     (infra / "webapp_runner_fleet_stack.py").write_text("# runners\n")
+    (infra / "webapp_runner_authority_intent.py").write_text("# intent\n")
+    (infra / "webapp_runner_fleet_config.py").write_text("# config\n")
     (infra / "webapp_runner_fleet_internals.py").write_text("# internals\n")
     (infra / "webapp_runner_fleet_iam.py").write_text("# iam\n")
     (infra / "webapp_runner_fleet_network.py").write_text("# network\n")
@@ -56,7 +64,11 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     values = {
         "project_name": "buzz",
         "pulumi_runner_fleet_stack_name": "buzz-runner-fleet",
+        "runner_fleet_aws_capability": "aws-admin",
+        "runner_fleet_aws_region": "us-east-1",
         "runner_fleet_repo": "upyoke/yoke",
+        "runner_fleet_github_capability": "github",
+        "runner_fleet_github_app_environment": "buzz-api-stage",
         "runner_fleet_github_repo_owner": "upyoke",
         "runner_fleet_github_repo_name": "yoke",
         "runner_fleet_github_installation_id": "123456",
@@ -71,6 +83,8 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "runner_fleet_labels_json": (
             '["self-hosted","Linux","ARM64","yoke-github-actions"]'
         ),
+        "runner_fleet_variable_name": "YOKE_LINUX_RUNS_ON",
+        "runner_fleet_routing_enabled": "true",
         "runner_fleet_instance_type": "m7g.2xlarge",
         "runner_fleet_root_volume_gb": "200",
     }
@@ -85,6 +99,8 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "Pulumi.buzz-runner-fleet.yaml",
         "__main__.py",
         "webapp_runner_fleet_stack.py",
+        "webapp_runner_authority_intent.py",
+        "webapp_runner_fleet_config.py",
         "webapp_runner_fleet_internals.py",
         "webapp_runner_fleet_iam.py",
         "webapp_runner_fleet_network.py",
@@ -99,8 +115,13 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     }
     rendered = (infra_dst / "Pulumi.buzz-runner-fleet.yaml").read_text()
     assert "webapp-infra:github_repo: upyoke/yoke" in rendered
+    assert "aws:region: us-east-1" in rendered
+    assert "webapp-infra:aws_capability: aws-admin" in rendered
+    assert "webapp-infra:github_capability: github" in rendered
     assert "webapp-infra:instance_type: m7g.2xlarge" in rendered
     assert "webapp-infra:github_repository_id: 789012" in rendered
     assert "webapp-infra:github_web_url: https://github.com" in rendered
+    assert "webapp-infra:runner_variable_name: YOKE_LINUX_RUNS_ON" in rendered
+    assert 'webapp-infra:routing_enabled: "true"' in rendered
     assert 'webapp-infra:root_volume_gb: "200"' in rendered
     assert "{{" not in rendered

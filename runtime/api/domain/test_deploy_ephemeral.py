@@ -303,7 +303,8 @@ class TestRemoteHelpers:
         dsn = next(
             c for c in runner.calls if "/dsn" in c["argv"][-1]
         )["argv"][-1]
-        assert "install -m 444" in dsn
+        assert "os.replace" in dsn
+        assert dsn.endswith("/dsn 444")
 
     def test_password_hex_guard_rejects_garbage(self):
         runner = FakeRunner([CommandResult(0, "not hex!\n", "")])

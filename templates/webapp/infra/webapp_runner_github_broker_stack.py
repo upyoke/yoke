@@ -17,7 +17,7 @@ from webapp_runner_github_state import create_runner_github_state
 RUNNER_GITHUB_LAMBDA_RUNTIME = "nodejs22.x"
 
 if TYPE_CHECKING:
-    from webapp_runner_fleet_stack import WebappRunnerFleetArgs
+    from webapp_runner_fleet_config import WebappRunnerFleetArgs
 
 
 @dataclass(frozen=True)

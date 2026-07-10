@@ -2,7 +2,10 @@
 
 from pathlib import Path
 
-from runtime.api.domain.test_webapp_runner_fleet_stack import _runner_stack
+import pytest
+
+from runtime.api.domain.test_webapp_registry_stack import _Recorder
+from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
 
 
 def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
@@ -27,6 +30,8 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
         "webapp_runner_termination.mjs"
     ].kwargs["text"]
     assert 'permissions":{"administration":"write"}' in api_source
+    assert "repository_hooks" not in api_source
+    assert "actions_variables" not in api_source
     assert "repository_ids" in api_source
     assert 'brokerMode === "bootstrap"' in source
     assert 'brokerMode === "reaper"' in source
@@ -95,7 +100,7 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     assert stack.registered_outputs["runnerFleetWebhookEvent"] == "workflow_job"
 
 
-def test_runner_fleet_has_only_short_lived_webhook_credential_input():
+def test_runner_fleet_has_only_short_lived_repository_credential_input():
     root = Path(__file__).resolve().parents[3] / "templates" / "webapp" / "infra"
     stack_source = (root / "webapp_runner_fleet_stack.py").read_text()
     webhook_source = (root / "webapp_runner_github_webhook.py").read_text()
@@ -111,19 +116,144 @@ def test_runner_fleet_has_only_short_lived_webhook_credential_input():
     readme = root.parent / "README.md"
     readme_text = readme.read_text()
 
-    assert "require_webhook_token_environment" in stack_source
-    assert "RUNNER_FLEET_WEBHOOK_TOKEN" in webhook_source
+    assert "require_repository_token_environment" in stack_source
+    assert "RUNNER_FLEET_GITHUB_TOKEN" in webhook_source
     assert 'os.environ.get("GITHUB_TOKEN"' in webhook_source
     assert "hmac.compare_digest(token, provider_token)" in webhook_source
     assert 'os.environ.pop("GITHUB_TOKEN")' in webhook_source
     assert 'os.environ["GITHUB_TOKEN"] = provider_token' in webhook_source
     assert "token=provider_token" not in webhook_source
-    assert "RUNNER_FLEET_WEBHOOK_TOKEN" not in runtime_sources
+    assert "RUNNER_FLEET_GITHUB_TOKEN" not in runtime_sources
     sources = stack_source + webhook_source + runtime_sources
     assert "GITHUB_TOKEN_PARAMETER" not in sources
     assert "/github-token" not in sources
     assert "pulumi-github" in requirements
     assert "pulumi-random" in requirements
     assert "repository_hooks: write" in readme_text
-    assert "Pulumi keeps" in readme_text
+    assert "actions_variables: write" in readme_text
+    assert "runnerFleetRoutingVariable" in readme_text
+    assert "direct variable" in readme_text
+    assert "writes are drift" in readme_text
     assert "configure one manual GitHub webhook" not in readme_text
+
+
+@pytest.mark.parametrize(
+    ("config_overrides", "authority_overrides", "field"),
+    [
+        (
+            {"github_api_url": "http://github.internal.example/api/v3"},
+            {"api_url": "https://github.internal.example/api/v3"},
+            "api_url",
+        ),
+        (
+            {"github_api_url": "https://attacker.example/api/v3"},
+            {"api_url": "https://api.github.com"},
+            "api_url",
+        ),
+        (
+            {
+                "github_app_issuer": "Iv1.other",
+                "github_installation_id": "999",
+                "github_repository_id": "998",
+            },
+            {
+                "app_issuer": "Iv1.runner-fleet",
+                "installation_id": "123456",
+                "repository_id": "789012",
+            },
+            "app_issuer",
+        ),
+        (
+            {
+                "github_capability": "other",
+                "github_app_environment": "other-stage",
+                "github_repo_owner": "other-org",
+                "github_repo_name": "other-repo",
+                "github_private_key_secret_arn": (
+                    "arn:aws:secretsmanager:us-east-1:123456789012:"
+                    "secret:other-app"
+                ),
+            },
+            {
+                "github_capability": "github",
+                "github_app_environment": "yoke-api-stage",
+                "repo_owner": "upyoke",
+                "repo_name": "yoke",
+                "private_key_secret_arn": (
+                    "arn:aws:secretsmanager:us-east-1:123456789012:"
+                    "secret:yoke-github-app-AbCdEf"
+                ),
+            },
+            "github_capability",
+        ),
+        (
+            {
+                "runner_variable_name": "OTHER_ROUTE",
+                "runner_labels": ["self-hosted", "Linux", "X64"],
+                "routing_enabled": False,
+            },
+            {
+                "runner_variable_name": "YOKE_LINUX_RUNS_ON",
+                "runner_labels": [
+                    "self-hosted", "Linux", "ARM64",
+                    "yoke-github-actions",
+                ],
+                "routing_enabled": True,
+            },
+            "runner_labels",
+        ),
+        (
+            {
+                "aws_capability": "other-admin",
+                "aws_region": "us-west-2",
+                "instance_type": "c7i.16xlarge",
+                "architecture": "x64",
+                "root_volume_gb": 1000,
+                "runner_count": 2,
+                "max_runner_count": 2,
+                "idle_shutdown_minutes": 5,
+                "shutdown_mode": "stop",
+            },
+            {
+                "aws_capability": "aws-admin",
+                "aws_region": "us-east-1",
+                "instance_type": "m7g.2xlarge",
+                "architecture": "arm64",
+                "root_volume_gb": 100,
+                "runner_count": 1,
+                "max_runner_count": 1,
+                "idle_shutdown_minutes": 30,
+                "shutdown_mode": "terminate",
+            },
+            "aws_region",
+        ),
+    ],
+)
+def test_authority_drift_refuses_before_github_provider_construction(
+    monkeypatch, config_overrides, authority_overrides, field,
+):
+    recorder = _Recorder()
+
+    with pytest.raises(RuntimeError, match=field):
+        _runner_stack(
+            monkeypatch,
+            config_overrides=config_overrides,
+            authority_overrides=authority_overrides,
+            recorder=recorder,
+        )
+
+    assert recorder.resources == []
+
+
+def test_wrong_pulumi_stack_refuses_before_resource_construction(monkeypatch):
+    recorder = _Recorder()
+
+    with pytest.raises(RuntimeError, match="stack_name"):
+        _runner_stack(
+            monkeypatch,
+            stack_name="wrong-runner-state",
+            authority_overrides={"stack_name": "yoke-runner-fleet"},
+            recorder=recorder,
+        )
+
+    assert recorder.resources == []

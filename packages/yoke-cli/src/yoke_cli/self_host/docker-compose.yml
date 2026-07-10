@@ -45,8 +45,9 @@ services:
       # Uncomment after writing ./secrets/oidc-client-secret (0600) and
       # setting YOKE_OIDC_CLIENT_SECRET_FILE in .env:
       #- yoke-oidc-client-secret
-      # Uncomment after writing ./secrets/github-app-private-key.pem (0600)
-      # and setting the GitHub App values in .env:
+      # Uncomment after installing the key with `yoke self-host init
+      # --dir . --protect-existing --github-app-private-key PATH` and
+      # setting the GitHub App values in .env:
       #- yoke-github-app-private-key
     ports:
       - "${YOKE_API_PUBLISH:-127.0.0.1:8765}:8765"

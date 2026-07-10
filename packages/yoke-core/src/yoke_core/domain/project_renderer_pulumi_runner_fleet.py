@@ -16,6 +16,7 @@ from yoke_contracts.github_origin import (
 )
 from yoke_contracts.github_app_installation_permissions import (
     ACCESS_WRITE,
+    ACTIONS_VARIABLES_PERMISSION,
     ADMINISTRATION_PERMISSION,
     REPOSITORY_HOOKS_PERMISSION,
 )
@@ -39,6 +40,13 @@ def runner_fleet_values(
 ) -> Dict[str, str]:
     """Return Pulumi template values for the runner-fleet stack."""
     runner_fleet = _runner_fleet_settings(settings)
+    runner_aws = settings.capabilities.get(runner_fleet.aws_capability, {})
+    runner_aws_region = _stringify(runner_aws.get("region"))
+    if enabled and not runner_aws_region:
+        raise ValueError(
+            "runner-fleet selected AWS capability "
+            f"{runner_fleet.aws_capability!r} but it declares no region"
+        )
     github = _github_binding(
         settings,
         capability_selector=runner_fleet.github_capability,
@@ -71,10 +79,11 @@ def runner_fleet_values(
                 "match the verified repository binding"
             )
         permissions = github.get("permissions")
-        required_permissions = (
+        required_permissions = [
             (ADMINISTRATION_PERMISSION, "Administration"),
             (REPOSITORY_HOOKS_PERMISSION, "Webhooks"),
-        )
+            (ACTIONS_VARIABLES_PERMISSION, "Variables"),
+        ]
         missing_permissions = [
             f"{label}: {ACCESS_WRITE} ({key})"
             for key, label in required_permissions
@@ -89,6 +98,12 @@ def runner_fleet_values(
     api_url = bound_api_url if enabled else (app.api_url if app is not None else "")
     web_url = _web_url_from_api(api_url) if api_url else ""
     values = {
+        "runner_fleet_aws_capability": runner_fleet.aws_capability,
+        "runner_fleet_aws_region": runner_aws_region,
+        "runner_fleet_github_capability": runner_fleet.github_capability or "",
+        "runner_fleet_github_app_environment": (
+            runner_fleet.github_app_environment or ""
+        ),
         "runner_fleet_repo": bound_repo or _stringify(
             runner_fleet.repo, fallback_repo,
         ),
@@ -108,6 +123,10 @@ def runner_fleet_values(
         ),
         "runner_fleet_labels_json": json_helper.dumps_compact(
             runner_fleet.runner_labels
+        ),
+        "runner_fleet_variable_name": runner_fleet.variable_name,
+        "runner_fleet_routing_enabled": (
+            "true" if runner_fleet.routing_enabled else "false"
         ),
         "runner_fleet_instance_type": runner_fleet.instance.instance_type,
         "runner_fleet_architecture": runner_fleet.instance.architecture,
@@ -130,6 +149,17 @@ def runner_fleet_values(
     return values
 
 
+def runner_fleet_stack_name(settings: ProjectRendererSettings) -> str:
+    """Return the exact declared Pulumi state name for the runner stack."""
+    pulumi_settings = settings.site_settings.get("pulumi", {})
+    configured = (
+        _stringify(pulumi_settings.get("pulumiRunnerFleetStackName"))
+        if isinstance(pulumi_settings, Mapping)
+        else ""
+    )
+    return configured or f"{settings.deploy_namespace}-runner-fleet"
+
+
 def _runner_fleet_settings(
     settings: ProjectRendererSettings,
 ) -> RunnerFleetSettings:
@@ -142,9 +172,16 @@ def _runner_fleet_settings(
 def _github_binding(
     settings: ProjectRendererSettings,
     *,
-    capability_selector: str,
+    capability_selector: str | None,
     required: bool,
 ) -> Dict[str, object]:
+    if not capability_selector:
+        if required:
+            raise ValueError(
+                "runner-fleet stack requires explicit github_capability in "
+                "the github-actions-runner-fleet capability settings"
+            )
+        return {}
     github = settings.capabilities.get(capability_selector, {})
     missing = [
         key for key in (

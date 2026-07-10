@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Optional
 
 import pulumi
 from pulumi import dynamic
@@ -16,6 +15,10 @@ from webapp_runner_fleet_internals import (
     _user_data,
     _webhook_lambda_code,
 )
+from webapp_runner_fleet_config import (
+    WebappRunnerFleetArgs,
+    validate_runner_fleet_configuration,
+)
 from webapp_runner_fleet_iam import (
     create_instance_identity,
     create_webhook_identity,
@@ -23,33 +26,9 @@ from webapp_runner_fleet_iam import (
     grant_webhook_runtime,
 )
 from webapp_runner_fleet_network import create_runner_network
+from webapp_runner_authority_intent import require_matching_authority_intent
 from webapp_runner_github_broker_stack import create_runner_github_broker
 import webapp_runner_github_webhook as runner_webhook
-
-
-@dataclass
-class WebappRunnerFleetArgs:
-    """Inputs for ``WebappRunnerFleetStack``."""
-
-    deploy_namespace: str
-    github_repo: str
-    github_repo_owner: str
-    github_repo_name: str
-    github_installation_id: str
-    github_repository_id: str
-    github_app_issuer: str
-    github_api_url: str
-    github_web_url: str
-    github_private_key_secret_arn: str
-    runner_labels: Sequence[str]
-    runner_count: int
-    max_runner_count: int
-    instance_type: str
-    architecture: str
-    root_volume_gb: int
-    idle_shutdown_minutes: int
-    shutdown_mode: str
-
 
 # Keep this provider's module path stable because Pulumi serializes it in state.
 def _lambda_error_code(exc: Exception) -> str:
@@ -127,12 +106,12 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
         args: WebappRunnerFleetArgs,
         opts: Optional[pulumi.ResourceOptions] = None,
     ) -> None:
+        require_matching_authority_intent(
+            args, stack_name=pulumi.get_stack(),
+        )
         super().__init__("webapp:infra:WebappRunnerFleetStack", name, None, opts)
-        if args.shutdown_mode != "terminate":
-            raise ValueError("runner fleet v1 supports shutdown_mode=terminate")
-        if args.runner_count != 1 or args.max_runner_count != 1:
-            raise ValueError("runner fleet v1 requires one ephemeral runner per host")
-        runner_webhook.require_webhook_token_environment()
+        validate_runner_fleet_configuration(args)
+        runner_webhook.require_repository_token_environment()
         region = aws.get_region().name
         tags = {"project": args.deploy_namespace, "component": "github-actions"}
         child_opts = pulumi.ResourceOptions(parent=self)
@@ -309,7 +288,7 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             function=self.webhook_function.name, principal="*",
             function_url_auth_type="NONE", opts=child_opts,
         )
-        _FunctionUrlInvokePermission(
+        url_invoke_permission = _FunctionUrlInvokePermission(
             "runnerFleetWebhookUrlInvokePermission",
             function_name=self.webhook_function.name,
             region=region,
@@ -321,12 +300,19 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             ),
         )
 
-        self.github_webhook = runner_webhook.create_repository_webhook(
+        (
+            self.github_webhook,
+            self.github_actions_variable,
+        ) = runner_webhook.create_repository_automation(
             owner=args.github_repo_owner,
             repository=args.github_repo_name,
             api_url=args.github_api_url,
             webhook_url=self.webhook_url.function_url,
             webhook_secret=self.webhook_secret.result,
+            variable_name=args.runner_variable_name,
+            runner_labels=args.runner_labels,
+            routing_enabled=args.routing_enabled,
+            ingress_ready=[url_permission, url_invoke_permission],
             child_opts=child_opts,
         )
 
@@ -336,6 +322,8 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             "runnerFleetWebhookSecretParameter": self.webhook_secret_parameter.name,
             "runnerFleetWebhookEvent": "workflow_job",
             "runnerFleetLabels": list(args.runner_labels),
+            "runnerFleetRoutingEnabled": args.routing_enabled,
+            "runnerFleetRoutingVariableName": args.runner_variable_name,
         }
         for key, value in outputs.items():
             pulumi.export(key, value)

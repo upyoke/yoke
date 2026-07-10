@@ -84,7 +84,7 @@ class TestCaptureRunningImageRef:
         command = runner.calls[0]["argv"][-1]
         assert "{{.Config.Image}}" in command
         assert "yoke-core" in command
-        assert any("pre-swap running image recorded" in l for l in lines)
+        assert any("pre-swap running image recorded" in line for line in lines)
 
     def test_returns_empty_on_probe_failure(self):
         runner = FakeRunner(
@@ -93,7 +93,7 @@ class TestCaptureRunningImageRef:
         lines = []
         ref = capture_running_image_ref(runner, _env(), lines.append)
         assert ref == ""
-        assert any("rollback unavailable" in l for l in lines)
+        assert any("rollback unavailable" in line for line in lines)
 
     def test_returns_empty_on_blank_stdout(self):
         runner = FakeRunner([CommandResult(0, "\n", "")])
@@ -114,7 +114,7 @@ class TestAttemptRollback:
         assert ok is False
         assert runner.calls == []
         assert _events == []
-        assert any("no pre-swap image was recorded" in l for l in lines)
+        assert any("no pre-swap image was recorded" in line for line in lines)
 
     def test_same_image_skips_as_noop(self, _events):
         runner = _PatternRunner()
@@ -126,7 +126,7 @@ class TestAttemptRollback:
         assert ok is False
         assert runner.calls == []
         assert _events == []
-        assert any("no-op" in l for l in lines)
+        assert any("no-op" in line for line in lines)
 
     def test_successful_rollback_repoints_compose_and_reports(self, _events):
         runner = _PatternRunner(health_status="healthy")
@@ -138,8 +138,9 @@ class TestAttemptRollback:
         assert ok is True
         compose_pushes = [
             c for c in runner.calls
-            if "install -m 644 /dev/stdin /opt/yoke-core/docker-compose.yml"
-            in c["argv"][-1]
+            if c["argv"][-1].endswith(
+                " /opt/yoke-core/docker-compose.yml 644"
+            )
         ]
         assert len(compose_pushes) == 1
         assert _PRIOR in compose_pushes[0]["input_text"]
@@ -152,7 +153,7 @@ class TestAttemptRollback:
         assert _events == [
             {"prior": _PRIOR, "failed": _FAILED, "healthy": True}
         ]
-        assert any("still FAILED" in l for l in lines)
+        assert any("still FAILED" in line for line in lines)
 
     def test_unhealthy_rollback_returns_false_never_raises(self, _events):
         runner = _PatternRunner(health_status="unhealthy")
@@ -165,7 +166,7 @@ class TestAttemptRollback:
         assert _events == [
             {"prior": _PRIOR, "failed": _FAILED, "healthy": False}
         ]
-        assert any("did not converge" in l for l in lines)
+        assert any("did not converge" in line for line in lines)
 
     def test_compose_push_failure_returns_false_with_event(
         self, _events, monkeypatch,
@@ -185,7 +186,7 @@ class TestAttemptRollback:
         assert _events == [
             {"prior": _PRIOR, "failed": _FAILED, "healthy": False}
         ]
-        assert any("rollback compose write failed" in l for l in lines)
+        assert any("rollback compose write failed" in line for line in lines)
 
 
 class TestExecutorRollbackIntegration:

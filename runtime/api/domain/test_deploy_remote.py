@@ -11,7 +11,6 @@ from yoke_core.domain.deploy_remote import (
     CommandResult,
     aws_capability_region,
     aws_capability_env,
-    push_remote_file,
     ssh_argv,
 )
 
@@ -74,101 +73,6 @@ class TestSshArgv:
         argv = ssh_argv(_env(), "true", connect_timeout=30)
         assert "ConnectTimeout=30" in argv
         assert "ConnectTimeout=10" not in argv
-
-
-class TestPushRemoteFile:
-    def test_secret_payload_travels_via_stdin_only(self):
-        runner = FakeRunner()
-        push_remote_file(
-            runner,
-            _env(),
-            content="SECRET=value\n",
-            remote_path="/opt/yoke-core/.env",
-            mode="600",
-            sudo=False,
-        )
-        call = runner.calls[0]
-        assert call["input_text"] == "SECRET=value\n"
-        joined = " ".join(call["argv"])
-        assert "SECRET" not in joined
-        assert "install -m 600 /dev/stdin /opt/yoke-core/.env" in joined
-        assert "sudo" not in joined
-
-    def test_sudo_prefix_when_requested(self):
-        runner = FakeRunner()
-        push_remote_file(
-            runner,
-            _env(),
-            content="server {}\n",
-            remote_path="/etc/nginx/sites-available/yoke-core.conf",
-            mode="644",
-            sudo=True,
-        )
-        assert runner.calls[0]["argv"][-1].startswith("sudo install -m 644 ")
-
-    def test_quotes_remote_path_before_sending_secret_stdin(self):
-        runner = FakeRunner()
-        push_remote_file(
-            runner,
-            _env(),
-            content="PRIVATE KEY\n",
-            remote_path="/opt/yoke/$(cat >&2)/private key.pem",
-            mode="600",
-            sudo=False,
-        )
-
-        remote_command = runner.calls[0]["argv"][-1]
-        assert remote_command == (
-            "install -m 600 /dev/stdin '/opt/yoke/$(cat >&2)/private key.pem'"
-        )
-        assert runner.calls[0]["input_text"] == "PRIVATE KEY\n"
-
-    def test_home_relative_path_expands_without_exposing_suffix(self):
-        runner = FakeRunner()
-        push_remote_file(
-            runner,
-            _env(),
-            content="{}\n",
-            remote_path="~/.docker/config.json",
-            mode="600",
-            sudo=False,
-        )
-
-        remote_command = runner.calls[0]["argv"][-1]
-        assert remote_command == (
-            'install -m 600 /dev/stdin "$HOME"/.docker/config.json'
-        )
-
-    def test_home_relative_suffix_remains_shell_quoted(self):
-        runner = FakeRunner()
-        push_remote_file(
-            runner,
-            _env(),
-            content="{}\n",
-            remote_path="~/.docker/$(cat >&2)/config file",
-            mode="600",
-            sudo=False,
-        )
-
-        remote_command = runner.calls[0]["argv"][-1]
-        assert remote_command == (
-            'install -m 600 /dev/stdin "$HOME"/'
-            "'.docker/$(cat >&2)/config file'"
-        )
-
-    def test_rejects_non_octal_mode_before_running_ssh(self):
-        runner = FakeRunner()
-
-        with pytest.raises(ValueError, match="octal"):
-            push_remote_file(
-                runner,
-                _env(),
-                content="PRIVATE KEY\n",
-                remote_path="/opt/yoke/private-key.pem",
-                mode="600; cat /dev/stdin",
-            )
-
-        assert runner.calls == []
 
 
 class TestAwsCapabilityEnv:

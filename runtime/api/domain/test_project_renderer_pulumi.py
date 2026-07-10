@@ -38,7 +38,11 @@ _PULUMI_KEYS = {
 }
 _CI_KEYS = {"github_repo_slug", "manage_github_oidc_provider"}
 _RUNNER_FLEET_KEYS = {
+    "runner_fleet_aws_capability", "runner_fleet_aws_region",
+    "runner_fleet_github_capability",
+    "runner_fleet_github_app_environment",
     "runner_fleet_repo", "runner_fleet_labels_json",
+    "runner_fleet_variable_name", "runner_fleet_routing_enabled",
     "runner_fleet_github_repo_owner", "runner_fleet_github_repo_name",
     "runner_fleet_github_installation_id", "runner_fleet_github_repository_id",
     "runner_fleet_github_app_issuer", "runner_fleet_github_api_url",
@@ -109,7 +113,9 @@ def _settings_from_context(
     }
     capabilities = {
         "aws-admin": {
-            "region": base.get("aws_region", context.get("awsRegion", "")),
+            "region": base.get(
+                "aws_region", context.get("awsRegion", "us-east-1")
+            ),
             "account_id": base.get(
                 "aws_account_id", context.get("awsAccountId", ""),
             ),
@@ -197,7 +203,7 @@ class TestGatherPulumiValues:
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert len(result) == 57
+        assert len(result) == 63
         assert result["origin_id"] == "buzzinfraDistributionOrigin18BAD744B"
         assert result["distribution_bucket_name"] == "buzz-distribution-prod"
         assert result["domain_txt_records_json"] == "[]"

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from yoke_contracts import github_app_installation_permissions as contract
+
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_required_repository_permissions_match_onboarding_copy() -> None:
@@ -17,6 +22,24 @@ def test_required_repository_permissions_match_onboarding_copy() -> None:
         "Variables: write",
         "Workflows: write",
     )
+
+
+def test_product_baseline_excludes_runner_control_permissions() -> None:
+    baseline = set(contract.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS)
+
+    assert baseline.isdisjoint({
+        contract.ADMINISTRATION_PERMISSION,
+        contract.REPOSITORY_HOOKS_PERMISSION,
+    })
+
+
+def test_operations_runbook_tracks_the_permission_contract() -> None:
+    text = (ROOT / "docs" / "github-app-operations.md").read_text(
+        encoding="utf-8"
+    )
+    for line in contract.required_repository_permission_lines():
+        assert f"- {line}" in text
+    assert "Administration and Webhooks (`repository_hooks`) write" in text
 
 
 def test_installation_permission_evaluator_accepts_write_for_read() -> None:

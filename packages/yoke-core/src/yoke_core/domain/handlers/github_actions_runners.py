@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_core.domain import github_actions_runner_status_readiness as readiness
 from yoke_core.domain import json_helper
 from yoke_core.domain.github_actions_runner_routing import (
     classify_runner_route,
@@ -74,10 +75,9 @@ class RunnersStatusRequest(BaseModel):
         min_length=1,
         description="Project capability owning the GitHub App repo binding.",
     )
-    runner_capability: str = Field(
+    runner_capability: Literal[RUNNER_FLEET_CAPABILITY_TYPE] = Field(
         RUNNER_FLEET_CAPABILITY_TYPE,
-        min_length=1,
-        description="Project capability type holding runner fleet settings.",
+        description="Canonical project capability holding runner fleet settings.",
     )
 
 
@@ -96,6 +96,10 @@ class RunnersStatusResponse(BaseModel):
     variable_name: str
     runner_capability: str
     capability_configured: bool
+    capability_render_ready: bool
+    configuration_error: Optional[str] = None
+    github_capability: Optional[str] = None
+    github_app_environment: Optional[str] = None
     provider: str
     desired_runner_count: int
     max_runner_count: int
@@ -107,6 +111,7 @@ class RunnersStatusResponse(BaseModel):
     matching_count: int
     online_matching_count: int
     idle_matching_count: int
+    routing_enabled: bool
     routing_armed: bool
     ready: bool
     action: str
@@ -158,6 +163,17 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
         )
     variable_name = (payload.variable_name or settings.variable_name).strip()
     required = _clean_labels(payload.required_labels or settings.runner_labels)
+    selectors_configured = bool(
+        settings.github_capability and settings.github_app_environment
+    )
+    configuration_error = None
+    if capability_configured and selectors_configured:
+        configuration_error = readiness.runner_fleet_render_error(payload.project)
+    capability_render_ready = bool(
+        capability_configured
+        and selectors_configured
+        and configuration_error is None
+    )
 
     from yoke_core.domain import github_variables_rest
     from yoke_core.domain.gh_rest_transport import RestTransportError
@@ -184,13 +200,18 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
     action, message = classify_runner_route(
         matching_count=len(matching),
         online_count=len(online),
+        variable_exists=variable_value is not None,
         routing_armed=routing_armed,
+        routing_enabled=settings.routing_enabled,
+        capability_configured=capability_render_ready,
         autoscaled_ephemeral=(
             capability_configured
             and settings.lifecycle.start_mode == "autoscaled"
             and settings.lifecycle.ephemeral_runners
         ),
     )
+    if configuration_error:
+        message += f" Renderer preflight: {configuration_error}"
     response = RunnersStatusResponse(
         repo=repo,
         required_labels=required,
@@ -198,6 +219,10 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
         variable_name=variable_name,
         runner_capability=payload.runner_capability,
         capability_configured=capability_configured,
+        capability_render_ready=capability_render_ready,
+        configuration_error=configuration_error,
+        github_capability=settings.github_capability,
+        github_app_environment=settings.github_app_environment,
         provider=settings.provider,
         desired_runner_count=settings.desired_runner_count,
         max_runner_count=settings.max_runner_count,
@@ -209,8 +234,14 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
         matching_count=len(matching),
         online_matching_count=len(online),
         idle_matching_count=len(idle),
+        routing_enabled=settings.routing_enabled,
         routing_armed=routing_armed,
-        ready=bool(online and routing_armed),
+        ready=bool(
+            online
+            and routing_armed
+            and settings.routing_enabled
+            and capability_render_ready
+        ),
         action=action,
         message=message,
         runners=runners,
@@ -224,11 +255,6 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
 def _resolve_runner_fleet_settings(
     payload: RunnersStatusRequest,
 ) -> tuple[RunnerFleetSettings, bool, Optional[HandlerOutcome]]:
-    needs_settings = (
-        not payload.repo or not payload.required_labels or not payload.variable_name
-    )
-    if not needs_settings:
-        return RunnerFleetSettings(), False, None
     try:
         raw = cmd_capability_get_settings(payload.project, payload.runner_capability)
         return load_json_string(raw), raw is not None, None

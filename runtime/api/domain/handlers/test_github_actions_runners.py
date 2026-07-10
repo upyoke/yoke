@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+import json
 
 import pytest
 
@@ -11,83 +11,24 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_VARIABLES_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain import github_actions_rest, github_variables_rest
+from yoke_core.domain import github_actions_runner_status_readiness
 from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.handlers import github_actions_runners
 from yoke_core.domain.handlers.github_actions_runners import (
     handle_runners_status,
 )
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
+from runtime.api.domain.handlers.github_actions_runners_test_support import (
+    _auth_resolved,
+    _configure_runner_capability,
+    _make_request,
+    _renderer_settings,
+    _runner,
+    _runner_capability_absent,
 )
 
-
-_RESOLVED = ProjectGithubAuth(
-    project="yoke",
-    repo="upyoke/yoke",
-    token="ghs_test_token",
-    permissions={"administration": "read", "actions_variables": "read"},
-)
-
-
-def _make_request(
-    payload: Optional[Dict[str, Any]] = None,
-    *,
-    target_kind: str = "global",
-    include_project: bool = True,
-) -> FunctionCallRequest:
-    if payload is None:
-        payload = {"repo": "upyoke/yoke"}
-    payload = dict(payload)
-    if include_project:
-        payload.setdefault("project", "yoke")
-    return FunctionCallRequest(
-        function="github_actions.runners.status",
-        actor=ActorContext(session_id="test-session"),
-        target=TargetRef(kind=target_kind),
-        payload=payload,
-    )
-
-
-@pytest.fixture(autouse=True)
-def _auth_resolved(monkeypatch):
-    calls = []
-
-    def _resolve(project, **kwargs):
-        calls.append((project, kwargs))
-        return _RESOLVED
-
-    monkeypatch.setattr(
-        "yoke_core.domain.project_github_auth.resolve_project_github_auth",
-        _resolve,
-    )
-    return calls
-
-
-@pytest.fixture(autouse=True)
-def _runner_capability_absent(monkeypatch):
-    monkeypatch.setattr(
-        github_actions_runners,
-        "cmd_capability_get_settings",
-        lambda project, cap_type: None,
-    )
-
-
-def _runner(
-    *,
-    labels=("self-hosted", "Linux", "ARM64", "yoke-github-actions"),
-    status="online",
-    busy=False,
-) -> Dict[str, Any]:
-    return {
-        "id": 7,
-        "name": "yoke-github-actions-1",
-        "status": status,
-        "busy": busy,
-        "labels": [{"name": label} for label in labels],
-    }
+# Imported autouse fixtures must remain module globals for pytest discovery.
+_FIXTURES = (_auth_resolved, _runner_capability_absent)
 
 
 class TestRunnersStatus:
@@ -96,6 +37,16 @@ class TestRunnersStatus:
         assert outcome.primary_success is False
         assert outcome.error.code == "invalid_payload"
         assert "project" in outcome.error.message
+
+    def test_rejects_noncanonical_runner_capability(self):
+        outcome = handle_runners_status(_make_request({
+            "repo": "upyoke/yoke",
+            "runner_capability": "custom-runner-fleet",
+        }))
+
+        assert outcome.primary_success is False
+        assert outcome.error.code == "invalid_payload"
+        assert "runner_capability" in outcome.error.message
 
     def test_missing_optional_administration_permission_skips_request(
         self, monkeypatch
@@ -126,7 +77,7 @@ class TestRunnersStatus:
         assert "Administration: Read" in outcome.error.message
         assert called is False
 
-    def test_no_registered_matching_runner_reports_register_action(
+    def test_absent_capability_reports_configuration_action(
         self, monkeypatch, _auth_resolved,
     ):
         monkeypatch.setattr(
@@ -141,7 +92,9 @@ class TestRunnersStatus:
         outcome = handle_runners_status(_make_request())
 
         assert outcome.primary_success is True
-        assert outcome.result_payload["action"] == "register_runner"
+        assert outcome.result_payload["action"] == "configure_runner_fleet"
+        assert outcome.result_payload["github_capability"] is None
+        assert outcome.result_payload["routing_enabled"] is False
         assert outcome.result_payload["routing_armed"] is False
         assert outcome.result_payload["ready"] is False
         assert outcome.result_payload["recommended_value"] == (
@@ -159,7 +112,8 @@ class TestRunnersStatus:
             )
         ]
 
-    def test_online_runner_without_variable_reports_set_variable(self, monkeypatch):
+    def test_enabled_route_without_variable_reports_apply(self, monkeypatch):
+        _configure_runner_capability(monkeypatch)
         monkeypatch.setattr(
             github_actions_rest, "rest_get",
             lambda *a, **kw: {"runners": [_runner()]},
@@ -172,151 +126,127 @@ class TestRunnersStatus:
         outcome = handle_runners_status(_make_request())
 
         assert outcome.primary_success is True
-        assert outcome.result_payload["action"] == "set_variable"
+        assert outcome.result_payload["action"] == "apply_runner_fleet"
+        assert "apply the runner-fleet Pulumi stack" in (
+            outcome.result_payload["message"]
+        )
+        assert outcome.result_payload["routing_enabled"] is True
+        assert outcome.result_payload["github_capability"] == "github"
         assert outcome.result_payload["matching_count"] == 1
         assert outcome.result_payload["online_matching_count"] == 1
         assert outcome.result_payload["idle_matching_count"] == 1
         assert outcome.result_payload["routing_armed"] is False
         assert outcome.result_payload["ready"] is False
 
-    def test_online_runner_with_variable_reports_ready(self, monkeypatch):
-        value = '["self-hosted","Linux","ARM64","yoke-github-actions"]'
+    def test_configured_route_requires_explicit_github_selector(
+        self, monkeypatch,
+    ):
         monkeypatch.setattr(
-            github_actions_rest, "rest_get",
-            lambda *a, **kw: {"runners": [_runner(busy=True)]},
-        )
-        monkeypatch.setattr(
-            github_variables_rest, "get_repo_variable",
-            lambda *a, **kw: value,
-        )
-
-        outcome = handle_runners_status(_make_request())
-
-        assert outcome.primary_success is True
-        assert outcome.result_payload["action"] == "ready"
-        assert outcome.result_payload["routing_armed"] is True
-        assert outcome.result_payload["ready"] is True
-        assert outcome.result_payload["idle_matching_count"] == 0
-        assert outcome.result_payload["runners"][0]["labels"] == [
-            "self-hosted", "Linux", "ARM64", "yoke-github-actions",
-        ]
-
-    def test_matching_offline_runner_reports_start_action(self, monkeypatch):
-        monkeypatch.setattr(
-            github_actions_rest, "rest_get",
-            lambda *a, **kw: {"runners": [_runner(status="offline")]},
-        )
-        monkeypatch.setattr(
-            github_variables_rest, "get_repo_variable",
-            lambda *a, **kw: (
-                '["self-hosted","Linux","ARM64",'
-                '"yoke-github-actions"]'
+            github_actions_runners,
+            "cmd_capability_get_settings",
+            lambda project, cap_type: (
+                '{"repo":"upyoke/yoke","routing_enabled":true}'
             ),
-        )
-
-        outcome = handle_runners_status(_make_request())
-
-        assert outcome.primary_success is True
-        assert outcome.result_payload["action"] == "start_runner"
-        assert outcome.result_payload["ready"] is False
-
-    def test_label_matching_is_case_insensitive(self, monkeypatch):
-        monkeypatch.setattr(
-            github_actions_rest, "rest_get",
-            lambda *a, **kw: {"runners": [_runner()]},
-        )
-        monkeypatch.setattr(
-            github_variables_rest, "get_repo_variable",
-            lambda *a, **kw: None,
-        )
-
-        outcome = handle_runners_status(_make_request({
-            "repo": "upyoke/yoke",
-            "required_labels": [
-                "self-hosted", "linux", "arm64", "yoke-github-actions",
-            ],
-        }))
-
-        assert outcome.primary_success is True
-        assert outcome.result_payload["action"] == "set_variable"
-        assert outcome.result_payload["matching_count"] == 1
-
-    def test_capability_settings_supply_route_when_repo_omitted(
-        self, monkeypatch
-    ):
-        raw_settings = (
-            '{"repo":"upyoke/yoke","runner_labels":["self-hosted",'
-            '"Linux","X64","fast-ci"],"variable_name":"CUSTOM_RUNS_ON",'
-            '"desired_runner_count":1,"max_runner_count":1,'
-            '"instance":{"instance_type":"c7i.8xlarge",'
-            '"architecture":"x64","root_volume_gb":800}}'
-        )
-        monkeypatch.setattr(
-            github_actions_runners,
-            "cmd_capability_get_settings",
-            lambda project, cap_type: raw_settings,
-        )
-        monkeypatch.setattr(
-            github_actions_rest, "rest_get",
-            lambda *a, **kw: {"runners": [_runner(labels=(
-                "self-hosted", "Linux", "X64", "fast-ci",
-            ))]},
-        )
-
-        def variable(repo, name, *, token):
-            assert repo == "upyoke/yoke"
-            assert name == "CUSTOM_RUNS_ON"
-            return '["self-hosted","Linux","X64","fast-ci"]'
-
-        monkeypatch.setattr(
-            github_variables_rest, "get_repo_variable", variable,
-        )
-
-        outcome = handle_runners_status(_make_request({"project": "yoke"}))
-
-        assert outcome.primary_success is True
-        assert outcome.result_payload["capability_configured"] is True
-        assert outcome.result_payload["ready"] is True
-        assert outcome.result_payload["required_labels"] == [
-            "self-hosted", "Linux", "X64", "fast-ci",
-        ]
-        assert outcome.result_payload["desired_runner_count"] == 1
-        assert outcome.result_payload["max_runner_count"] == 1
-        assert outcome.result_payload["instance_type"] == "c7i.8xlarge"
-        assert outcome.result_payload["root_volume_gb"] == 800
-
-    def test_autoscaled_fleet_reports_routing_armed_without_runners(
-        self, monkeypatch
-    ):
-        monkeypatch.setattr(
-            github_actions_runners,
-            "cmd_capability_get_settings",
-            lambda project, cap_type: '{"repo":"upyoke/yoke"}',
         )
         monkeypatch.setattr(
             github_actions_rest, "rest_get", lambda *a, **kw: {"runners": []},
         )
         monkeypatch.setattr(
-            github_variables_rest,
-            "get_repo_variable",
-            lambda *a, **kw: (
-                '["ARM64", "self-hosted", "yoke-github-actions", "linux"]'
-            ),
+            github_variables_rest, "get_repo_variable", lambda *a, **kw: None,
         )
 
-        outcome = handle_runners_status(_make_request({"project": "yoke"}))
+        outcome = handle_runners_status(_make_request())
 
         assert outcome.primary_success is True
         assert outcome.result_payload["capability_configured"] is True
-        assert outcome.result_payload["routing_armed"] is True
-        assert outcome.result_payload["ready"] is False
-        assert outcome.result_payload["action"] == "routing_armed_idle"
-        assert "autoscaling is configured" in outcome.result_payload["message"]
-        assert "no matching runner is currently registered" in (
+        assert outcome.result_payload["github_capability"] is None
+        assert outcome.result_payload["action"] == "configure_runner_fleet"
+        assert "github-actions-runner-fleet capability" in (
             outcome.result_payload["message"]
         )
-        assert "healthy" not in outcome.result_payload["message"]
-        assert "will start" not in outcome.result_payload["message"]
+
+    def test_configured_route_requires_explicit_app_environment(
+        self, monkeypatch,
+    ):
+        monkeypatch.setattr(
+            github_actions_runners,
+            "cmd_capability_get_settings",
+            lambda project, cap_type: (
+                '{"repo":"upyoke/yoke","github_capability":"github",'
+                '"routing_enabled":true}'
+            ),
+        )
+        monkeypatch.setattr(
+            github_actions_rest, "rest_get", lambda *a, **kw: {"runners": []},
+        )
+        monkeypatch.setattr(
+            github_variables_rest, "get_repo_variable", lambda *a, **kw: None,
+        )
+
+        outcome = handle_runners_status(_make_request())
+
+        assert outcome.primary_success is True
+        assert outcome.result_payload["github_capability"] == "github"
+        assert outcome.result_payload["github_app_environment"] is None
+        assert outcome.result_payload["action"] == "configure_runner_fleet"
+        assert "github_app_environment" in outcome.result_payload["message"]
+
+    @pytest.mark.parametrize(
+        ("renderer_settings", "expected_error"),
+        [
+            (
+                _renderer_settings(runner_settings={
+                    "repo": "upyoke/yoke",
+                    "github_capability": "github",
+                    "github_app_environment": "missing",
+                    "routing_enabled": True,
+                }),
+                "did not match an environment",
+            ),
+            (
+                _renderer_settings(environment_settings={}),
+                "selected environment's settings.github_app",
+            ),
+            (
+                _renderer_settings(github_permissions={
+                    "administration": "write",
+                    "repository_hooks": "write",
+                }),
+                "Variables: write",
+            ),
+        ],
+    )
+    def test_renderer_preflight_blocks_guaranteed_apply_failure(
+        self, monkeypatch, renderer_settings, expected_error,
+    ):
+        runner = renderer_settings.capabilities[
+            "github-actions-runner-fleet"
+        ]
+        monkeypatch.setattr(
+            github_actions_runners,
+            "cmd_capability_get_settings",
+            lambda project, cap_type: json.dumps(runner),
+        )
+        monkeypatch.setattr(
+            github_actions_runner_status_readiness,
+            "load_project_renderer_settings",
+            lambda project: renderer_settings,
+        )
+        monkeypatch.setattr(
+            github_actions_rest, "rest_get", lambda *a, **kw: {"runners": []},
+        )
+        monkeypatch.setattr(
+            github_variables_rest, "get_repo_variable", lambda *a, **kw: None,
+        )
+
+        outcome = handle_runners_status(_make_request())
+
+        assert outcome.primary_success is True
+        assert outcome.result_payload["capability_configured"] is True
+        assert outcome.result_payload["capability_render_ready"] is False
+        assert expected_error in outcome.result_payload["configuration_error"]
+        assert outcome.result_payload["action"] == "configure_runner_fleet"
+        assert outcome.result_payload["ready"] is False
 
     def test_repo_required_when_no_capability_supplies_it(self):
         outcome = handle_runners_status(_make_request({"project": "yoke"}))

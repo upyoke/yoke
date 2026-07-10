@@ -170,16 +170,16 @@ diagnostic to run after setup or when a project command cannot resolve context.
 Connect the Yoke GitHub App only when this machine should run GitHub product
 commands such as repository checks or product onboarding previews.
 
+First follow [GitHub App Operations](github-app-operations.md) for registration,
+installation scope, secret bootstrap, rotation, and incident response.
+
 ```bash
 yoke github connect --client-id <client-id> --app-slug <app-slug>
 yoke github status
 ```
 
-Before the first connection, register the GitHub App with **Device Flow** and **Expire user authorization tokens** enabled. Both switches are required: Yoke uses browser device authorization and stores one owner-only refreshable credential, not a pasted personal token. Configure Metadata and Checks read; and Issues, Pull requests, Contents, Actions, Workflows, Secrets, and Variables write. Installations must approve permission changes before status becomes ready.
-
-The machine connection records GitHub App authorization metadata.
-Project runtime authority comes from a project repository binding to an
-installed App repository.
+The commands store owner-only App user-authorization metadata, never a private
+key. Runtime authority comes from a verified installed-App repository binding.
 
 Administration is intentionally outside the baseline App grant. Repository creation, environment configuration, branch protection, and runner administration are skipped with an actionable GitHub settings link; enable any additional permission in the App registration and approve it on each affected installation before retrying that operation.
 

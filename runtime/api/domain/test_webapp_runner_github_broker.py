@@ -122,9 +122,15 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
     ]
     assert len(token_calls) == 2
     for call in token_calls:
-        assert json.loads(call["body"]) == {
+        body = json.loads(call["body"])
+        permissions = body["permissions"]
+        assert permissions == {"administration": "write"}
+        assert set(permissions).isdisjoint({
+            "actions_variables", "repository_hooks",
+        })
+        assert body == {
             "repository_ids": [789012],
-            "permissions": {"administration": "write"},
+            "permissions": permissions,
         }
 
 

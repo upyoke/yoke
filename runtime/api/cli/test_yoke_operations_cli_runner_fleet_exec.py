@@ -78,7 +78,9 @@ def test_adapter_does_not_echo_sensitive_executor_failure(
 ):
     executor = SimpleNamespace(
         execute_runner_fleet_command=lambda *args: (_ for _ in ()).throw(
-            RuntimeError("repository-hook installation token could not be minted")
+            RuntimeError(
+                "repository automation installation token could not be minted"
+            )
         )
     )
     monkeypatch.setattr(

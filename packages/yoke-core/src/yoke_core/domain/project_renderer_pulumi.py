@@ -26,7 +26,10 @@ from .project_renderer_pulumi_files import (
     RUNNER_FLEET_PROGRAM_FILES,
     SHARED_PROGRAM_FILES,
 )
-from .project_renderer_pulumi_runner_fleet import runner_fleet_values
+from .project_renderer_pulumi_runner_fleet import (
+    runner_fleet_stack_name,
+    runner_fleet_values,
+)
 from .project_renderer_pulumi_state import (  # noqa: F401
     _operator_state_lines_from_settings,
     _parse_config_values,
@@ -97,9 +100,7 @@ def gather_pulumi_values(
     values["pulumi_vps_stack_name"] = _stringify(
         data.get("pulumiVpsStackName"), f"{ns}-vps"
     )
-    values["pulumi_runner_fleet_stack_name"] = _stringify(
-        data.get("pulumiRunnerFleetStackName"), f"{ns}-runner-fleet"
-    )
+    values["pulumi_runner_fleet_stack_name"] = runner_fleet_stack_name(settings)
 
     # GitHub CI OIDC keys (registry stack template). The repo slug comes
     # from the project's `github` capability; empty renders the registry

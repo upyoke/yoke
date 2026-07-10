@@ -43,9 +43,10 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "yoke-github-actions --project <project>"
         ),
         notes=(
-            "Read-only repo self-hosted-runner status and "
-            "YOKE_LINUX_RUNS_ON arming probe via gh_rest_transport; "
-            "source-dev/admin CI-capacity setup surface."
+            "Read-only repo self-hosted-runner status plus capability "
+            "routing_enabled and Pulumi-owned YOKE_LINUX_RUNS_ON drift "
+            "probe via gh_rest_transport; source-dev/admin CI-capacity "
+            "setup surface."
         ),
     ),
     AdapterEntry(

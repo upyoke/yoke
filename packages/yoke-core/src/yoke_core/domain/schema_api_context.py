@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from typing import Optional
 
 from yoke_core.domain import schema_api_context_seed as seed
@@ -192,15 +193,16 @@ def _running_under_pytest() -> bool:
 
 
 def _try_help(module: str) -> Optional[str]:
-    """Return ``python3 -m <module> --help`` stdout or None on failure.
+    """Return ``<current-python> -m <module> --help`` output or None.
 
     Some Yoke CLIs (notably :mod:`runtime.harness.harness_sessions`)
-    print a custom usage banner and exit non-zero; we accept any output
-    that mentions a command surface rather than gating on returncode.
+    print a custom usage banner and exit non-zero. Accept those banners,
+    but reject interpreter/bootstrap errors instead of treating stderr as
+    a live command surface.
     """
     try:
         result = subprocess.run(
-            ["python3", "-m", module, "--help"],
+            [sys.executable, "-m", module, "--help"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -209,6 +211,8 @@ def _try_help(module: str) -> Optional[str]:
         return None
     combined = (result.stdout or "") + (result.stderr or "")
     if not combined.strip():
+        return None
+    if result.returncode != 0 and "usage:" not in combined.casefold():
         return None
     return combined
 

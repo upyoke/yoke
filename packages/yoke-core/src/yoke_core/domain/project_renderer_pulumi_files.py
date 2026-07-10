@@ -12,6 +12,8 @@ ENVIRONMENT_PROGRAM_FILES = (
     "webapp_environment_stack.py",
 )
 RUNNER_FLEET_PROGRAM_FILES = (
+    "webapp_runner_authority_intent.py",
+    "webapp_runner_fleet_config.py",
     "webapp_runner_fleet_internals.py",
     "webapp_runner_fleet_iam.py",
     "webapp_runner_fleet_network.py",

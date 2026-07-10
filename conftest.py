@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
+import shlex
+import sys
 
 import pytest
 
@@ -13,6 +14,53 @@ from yoke_core.tools import build_release
 
 REPO_ROOT = Path(__file__).resolve().parent
 PRODUCT_WHEELHOUSE_PACKAGES = build_release.PRODUCT_PACKAGE_NAMES
+
+
+@pytest.fixture(autouse=True)
+def _forbid_real_browser_launches(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Require every browser-opening test path to provide an explicit fake.
+
+    The in-process guard turns a missing stub into a test failure before the
+    platform browser launcher can run.  ``BROWSER`` protects child Python
+    processes as well: its command accepts the URL and exits successfully, so
+    :mod:`webbrowser` never falls through to the operator's default browser.
+    """
+    import webbrowser
+
+    attempts: list[object] = []
+    child_attempt = tmp_path / "unexpected-browser-launch"
+
+    def _fail(*args, **_kwargs):
+        attempts.append(args[0] if args else None)
+        pytest.fail(
+            "Automated tests may not launch a real browser; inject a browser "
+            "opener and assert the requested URL instead."
+        )
+
+    monkeypatch.setattr(webbrowser, "open", _fail)
+    monkeypatch.setattr(webbrowser, "open_new", _fail)
+    monkeypatch.setattr(webbrowser, "open_new_tab", _fail)
+    monkeypatch.setenv(
+        "BROWSER",
+        shlex.join(
+            [
+                sys.executable,
+                "-c",
+                "from pathlib import Path; import sys; Path(sys.argv[1]).touch()",
+                str(child_attempt),
+                "%s",
+            ]
+        ),
+    )
+    yield
+    if attempts or child_attempt.exists():
+        pytest.fail(
+            "An automated test attempted to launch a browser without an "
+            "explicit fake opener."
+        )
 
 
 @pytest.fixture(autouse=True)

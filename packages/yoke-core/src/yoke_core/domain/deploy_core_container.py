@@ -65,8 +65,8 @@ from yoke_core.domain.deploy_environment_settings import (
     DeployEnvironmentError,
     resolve_deploy_environment,
 )
-from yoke_core.domain.deploy_remote import CommandRunner, aws_capability_env
-from yoke_core.domain import github_app_deployment
+from yoke_core.domain.deploy_remote import CommandRunner
+from yoke_core.domain import deploy_core_github_app as github_app_deploy
 from yoke_core.domain.yoke_cloud_db_authority import (
     DEFAULT_POSTGRES_PORT,
     PostgresAuthorityLocation,
@@ -232,7 +232,7 @@ def render_service_files(
         "origin_host": env.origin_host,
         "origin_port": str(env.origin_port),
     }
-    values.update(github_app_deployment.github_app_render_values(env))
+    values.update(github_app_deploy.github_app_render_values(env))
     compose_yaml = _render_service_template("docker-compose.yml.tmpl", values)
     nginx_site = _render_service_template("nginx-site.conf.tmpl", values)
     env_lines = [
@@ -247,7 +247,7 @@ def render_service_files(
         env_lines.append(
             f"OTEL_EXPORTER_OTLP_ENDPOINT={env.otel_exporter_endpoint}"
         )
-    env_lines.extend(github_app_deployment.github_app_env_lines(env))
+    env_lines.extend(github_app_deploy.github_app_env_lines(env))
     return compose_yaml, nginx_site, "\n".join(env_lines) + "\n"
 
 
@@ -275,7 +275,7 @@ def exec_core_container_deploy(
             f"({env.origin_host}, stack {env.stack_name})"
         )
 
-        aws_env = aws_capability_env(env.project, env.aws_region)
+        aws_env, github_app_private_key = github_app_deploy.preflight(runner, env)
         tag = resolve_image_tag(
             runner, repo_path, image_tag, declared_branch=env.git_branch
         )
@@ -304,7 +304,7 @@ def exec_core_container_deploy(
         ensure_ecr_credential_helper(runner, env, emit)
         ensure_nginx_site(runner, env, nginx_site, emit)
         ensure_compose_project(runner, env, compose_yaml, env_file, emit)
-        github_app_deployment.converge_github_app_private_key(runner, env, aws_env)
+        github_app_deploy.converge(runner, env, github_app_private_key)
         compose_pull(runner, env, emit)
         verify_runtime_database_secret_access(runner, env, emit)
         prior_image_ref = capture_running_image_ref(runner, env, emit)

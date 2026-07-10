@@ -204,11 +204,17 @@ def _registry_args_from_config(deploy_namespace: str):
 
 
 def _runner_fleet_args_from_config(deploy_namespace: str):
-    from webapp_runner_fleet_stack import WebappRunnerFleetArgs
+    from webapp_runner_fleet_config import WebappRunnerFleetArgs
     config = pulumi.Config()
+    aws_config = pulumi.Config("aws")
     labels = json.loads(config.require("runner_labels"))
     return WebappRunnerFleetArgs(
+        project=config.require("project_name"),
         deploy_namespace=deploy_namespace,
+        aws_capability=config.require("aws_capability"),
+        aws_region=aws_config.require("region"),
+        github_capability=config.require("github_capability"),
+        github_app_environment=config.require("github_app_environment"),
         github_repo=config.require("github_repo"),
         github_repo_owner=config.require("github_repo_owner"),
         github_repo_name=config.require("github_repo_name"),
@@ -221,6 +227,8 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
             "github_private_key_secret_arn"
         ),
         runner_labels=[str(label) for label in labels],
+        runner_variable_name=config.require("runner_variable_name"),
+        routing_enabled=config.require_bool("routing_enabled"),
         runner_count=config.require_int("runner_count"),
         max_runner_count=config.require_int("max_runner_count"),
         instance_type=config.require("instance_type"),

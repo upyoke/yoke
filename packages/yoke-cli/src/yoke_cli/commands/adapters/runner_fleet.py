@@ -22,7 +22,7 @@ def runner_fleet_exec(args: List[str]) -> int:
         prog="yoke runner-fleet exec",
         description=(
             "Run a runner-fleet admin command with AWS capability authority "
-            "and an ephemeral repository-hook installation token."
+            "and an ephemeral repository-automation installation token."
         ),
     )
     parser.add_argument(

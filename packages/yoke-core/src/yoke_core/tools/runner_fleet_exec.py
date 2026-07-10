@@ -10,6 +10,7 @@ from typing import Any, TextIO
 
 from yoke_contracts.github_app_installation_permissions import (
     ACCESS_WRITE,
+    ACTIONS_VARIABLES_PERMISSION,
     REPOSITORY_HOOKS_PERMISSION,
 )
 
@@ -31,14 +32,18 @@ from yoke_core.domain.project_renderer_settings_snapshot import (
     settings_from_stack_config,
 )
 from yoke_core.domain.yoke_cloud_db_authority import load_secret_string
+from yoke_core.tools.runner_fleet_authority_intent import (
+    authority_intent_envelope,
+)
 from yoke_core.tools.runner_fleet_redacted_process import (
     RedactedProcessError,
     run_redacted_child,
 )
 
 
-RUNNER_FLEET_WEBHOOK_TOKEN_ENV = "RUNNER_FLEET_WEBHOOK_TOKEN"
+RUNNER_FLEET_GITHUB_TOKEN_ENV = "RUNNER_FLEET_GITHUB_TOKEN"
 GITHUB_TOKEN_ENV = "GITHUB_TOKEN"
+RUNNER_FLEET_AUTHORITY_INTENT_ENV = "YOKE_RUNNER_FLEET_AUTHORITY_INTENT"
 _UNINTENDED_GITHUB_AUTH_ENV = frozenset({
     "GH_ENTERPRISE_TOKEN",
     "GH_TOKEN",
@@ -89,6 +94,17 @@ def execute_runner_fleet_command(
     )
     values = _enabled_runner_fleet_values(settings)
     aws_capability, region = _runner_aws_authority(settings)
+    try:
+        authority_intent = authority_intent_envelope(
+            settings,
+            values,
+            aws_capability=aws_capability,
+            aws_region=region,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RunnerFleetExecError(
+            "runner-fleet authority intent could not be constructed"
+        ) from exc
 
     try:
         aws_env = dict(aws_env_loader(
@@ -108,7 +124,7 @@ def execute_runner_fleet_command(
         aws_env=aws_env,
         secret_loader=secret_loader,
     )
-    token = _mint_webhook_token(
+    token = _mint_repository_automation_token(
         values,
         private_key_pem=private_key_pem,
         token_minter=token_minter,
@@ -120,7 +136,8 @@ def execute_runner_fleet_command(
     # selecting broader ambient authority.
     for name in _UNINTENDED_GITHUB_AUTH_ENV:
         child_env.pop(name, None)
-    child_env[RUNNER_FLEET_WEBHOOK_TOKEN_ENV] = token
+    child_env[RUNNER_FLEET_AUTHORITY_INTENT_ENV] = authority_intent
+    child_env[RUNNER_FLEET_GITHUB_TOKEN_ENV] = token
     child_env[GITHUB_TOKEN_ENV] = token
     redaction_terms = _redaction_terms(private_key_pem, token)
     try:
@@ -226,7 +243,7 @@ def _load_private_key(
     return private_key_pem
 
 
-def _mint_webhook_token(
+def _mint_repository_automation_token(
     values: Mapping[str, str],
     *,
     private_key_pem: str,
@@ -243,18 +260,28 @@ def _mint_webhook_token(
             repository_ids=[
                 int(values["runner_fleet_github_repository_id"])
             ],
-            permissions={REPOSITORY_HOOKS_PERMISSION: ACCESS_WRITE},
+            permissions=_repository_automation_permissions(values),
         )
         token = str(getattr(minted, "token", "") or "").strip()
     except Exception as exc:
         raise RunnerFleetExecError(
-            "repository-hook installation token could not be minted"
+            "repository automation installation token could not be minted"
         ) from exc
     if not token:
         raise RunnerFleetExecError(
-            "repository-hook installation token could not be minted"
+            "repository automation installation token could not be minted"
         )
     return token
+
+
+def _repository_automation_permissions(
+    values: Mapping[str, str],
+) -> dict[str, str]:
+    del values
+    return {
+        ACTIONS_VARIABLES_PERMISSION: ACCESS_WRITE,
+        REPOSITORY_HOOKS_PERMISSION: ACCESS_WRITE,
+    }
 
 
 def _redaction_terms(private_key_pem: str, token: str) -> tuple[str, ...]:
@@ -269,7 +296,8 @@ def _redaction_terms(private_key_pem: str, token: str) -> tuple[str, ...]:
 
 __all__ = [
     "GITHUB_TOKEN_ENV",
-    "RUNNER_FLEET_WEBHOOK_TOKEN_ENV",
+    "RUNNER_FLEET_AUTHORITY_INTENT_ENV",
+    "RUNNER_FLEET_GITHUB_TOKEN_ENV",
     "RunnerFleetExecError",
     "execute_runner_fleet_command",
 ]

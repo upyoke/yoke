@@ -11,13 +11,20 @@ pytest.importorskip("textual")
 from yoke_contracts import github_origin  # noqa: E402
 from yoke_cli.config import github_publish  # noqa: E402
 from yoke_cli.config import machine_config  # noqa: E402
+from yoke_cli.config import onboard_machine_github  # noqa: E402
+from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow  # noqa: E402
+from yoke_cli.config import onboard_wizard_flow_github  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_publish as publish_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_project_screens as screens  # noqa: E402
+from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
+    advance_past_path,
+    complete_board_art,
     make_app,
     stub_path_doctor,
+    type_text,
 )
 
 
@@ -49,6 +56,60 @@ def _body_text(app) -> str:
         str(widget.render())
         for widget in app.query("#onboard-body Static").results(Static)
     )
+
+
+def test_unavailable_app_publish_opens_github_and_keeps_project_local(
+    monkeypatch,
+) -> None:
+    opened: list[str] = []
+    monkeypatch.setattr(
+        onboard_wizard_flow_github.github_machine,
+        "connect",
+        lambda **_: {
+            "ok": False,
+            "issues": [{"message": "GitHub App configuration is unavailable."}],
+        },
+    )
+    monkeypatch.setattr(publish_flow.webbrowser, "open", opened.append)
+    app, spy = make_app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            await pilot.press("enter")  # machine GitHub: connect (default)
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            await pilot.press("enter")  # App flow unavailable: backlog-only
+            mode_index = next(
+                i for i, row in enumerate(steps.MODE_ROWS)
+                if row.value == onboard_project.PROJECT_MODE_CREATE_REPO
+            )
+            for _ in range(mode_index):
+                await pilot.press("down")
+            await pilot.press("enter")  # project mode: create-repo
+            await type_text(pilot, "/home/code/demo")
+            await pilot.press("enter")
+            await pilot.press("enter")  # slug placeholder -> demo
+            await pilot.press("enter")  # name placeholder
+            await pilot.press("enter")  # publish: Yes (preselected)
+            await pilot.press("enter")  # App publishing unavailable: backlog-only
+            await pilot.press("enter")  # default branch main
+            await pilot.press("enter")  # prefix placeholder
+            await complete_board_art(pilot)
+            await pilot.press("enter")  # finish: apply
+            await pilot.pause()
+
+    asyncio.run(scenario())
+
+    applied = spy.applied
+    assert applied is not None
+    assert applied["machine_github_choice"] == onboard_machine_github.CHOICE_SKIP
+    assert "machine_github_token" not in applied
+    assert "project_github_token" not in applied
+    assert applied["project_github_adoption"] is None
+    assert applied["project_github_repo"] is None
+    assert applied["project_publish"] is None
+    assert opened == [f"{github_origin.DEFAULT_GITHUB_WEB_URL}/new"]
 
 
 def test_default_app_grant_opens_github_and_keeps_project_local(monkeypatch) -> None:

@@ -151,6 +151,8 @@ class TestCapabilitySettings:
             "self-hosted", "Linux", "ARM64", "yoke-github-actions",
         ]
         assert stored["variable_name"] == "YOKE_LINUX_RUNS_ON"
+        assert stored["routing_enabled"] is False
+        assert "github_capability" not in stored
         assert stored["desired_runner_count"] == 1
         assert stored["max_runner_count"] == 1
         assert stored["lifecycle"]["ephemeral_runners"] is True
@@ -180,6 +182,19 @@ class TestCapabilitySettings:
                 '{"repo":"no-slash"}', create=True, db_path=cap_db,
             )
 
+    @pytest.mark.parametrize("variable_name", ["9_ROUTE", "BAD-NAME", "GITHUB_ROUTE"])
+    def test_runner_fleet_rejects_invalid_variable_name(
+        self, cap_db: str, variable_name: str,
+    ) -> None:
+        with pytest.raises(ValueError, match="variable_name"):
+            pcs.cmd_capability_set_settings(
+                "yoke",
+                "github-actions-runner-fleet",
+                json.dumps({"variable_name": variable_name}),
+                create=True,
+                db_path=cap_db,
+            )
+
     def test_runner_fleet_rejects_empty_app_environment(
         self, cap_db: str,
     ) -> None:
@@ -187,6 +202,18 @@ class TestCapabilitySettings:
             pcs.cmd_capability_set_settings(
                 "yoke", "github-actions-runner-fleet",
                 '{"github_app_environment":"  "}', create=True, db_path=cap_db,
+            )
+
+    def test_runner_fleet_rejects_empty_github_capability(
+        self, cap_db: str,
+    ) -> None:
+        with pytest.raises(ValueError, match="non-empty when provided"):
+            pcs.cmd_capability_set_settings(
+                "yoke",
+                "github-actions-runner-fleet",
+                '{"github_capability":"  "}',
+                create=True,
+                db_path=cap_db,
             )
 
 

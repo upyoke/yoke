@@ -19,14 +19,16 @@ secret; callers that need evidence log redacted forms.
 from __future__ import annotations
 
 import os
-import re
-import shlex
 import subprocess
 from dataclasses import dataclass
 from typing import List, Mapping, Optional, Sequence
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
+from yoke_core.domain.deploy_remote_atomic_file import (
+    push_remote_file as push_remote_file,
+    remove_remote_file as remove_remote_file,
+)
 from yoke_core.domain.projects_capabilities import cmd_capability_get_secret
 from yoke_core.domain.projects_capabilities_settings import (
     cmd_capability_get_settings,
@@ -211,42 +213,6 @@ def run_remote(
         ssh_argv(env, remote_command),
         input_text=input_text,
         timeout=timeout,
-    )
-
-
-def push_remote_file(
-    runner: CommandRunner,
-    env: DeployEnvironment,
-    *,
-    content: str,
-    remote_path: str,
-    mode: str,
-    sudo: bool = True,
-    timeout: int = 120,
-) -> CommandResult:
-    """Write *content* to *remote_path* via SSH stdin (never via argv).
-
-    Uses ``install -m`` so ownership/permissions land atomically with the
-    write; secret-bearing payloads (env files) therefore never appear in
-    process listings or shell history on either side.
-    """
-    if re.fullmatch(r"[0-7]{3,4}", str(mode)) is None:
-        raise ValueError("remote file mode must be a three- or four-digit octal value")
-    prefix = "sudo " if sudo else ""
-    path_text = str(remote_path)
-    if path_text.startswith("~/"):
-        # Quoting the whole path would suppress the remote shell's tilde
-        # expansion. Expand only the trusted HOME token and independently
-        # shell-quote the caller-provided suffix.
-        remote_path_arg = '"$HOME"/' + shlex.quote(path_text[2:])
-    else:
-        remote_path_arg = shlex.quote(path_text)
-    remote = (
-        f"{prefix}install -m {shlex.quote(str(mode))} /dev/stdin "
-        f"{remote_path_arg}"
-    )
-    return run_remote(
-        runner, env, remote, input_text=content, timeout=timeout
     )
 
 
