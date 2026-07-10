@@ -10,13 +10,20 @@ hold no static import authority over the engine and dispatch is
 connection-gated.
 """
 from __future__ import annotations
-import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Iterable, Sequence
 from yoke_cli import operation_inventory as ops
 from yoke_cli.commands.registry import SUBCOMMAND_ALIAS_REGISTRY, SUBCOMMAND_REGISTRY
 from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS
+from yoke_cli.product_boundary_import_scan import (
+    ImportEdge,
+    load_boundary_facts,
+    module_name_from_source,
+    module_source,
+    repo_root_from_package,
+    scan_import_edges,
+)
 from yoke_cli.product_boundary_teaching import TeachingAudit, generate_teaching_audit
 from yoke_cli.product_boundary_teaching_render import render_teaching_audit_markdown
 PRODUCT_CLIENT = "product-client"
@@ -27,20 +34,13 @@ HOOK_LOCAL_SUBSET = "hook-local subset"
 OPERATOR_DEBUG_PERMANENT = "operator-debug permanent"
 LEGACY_DELETE = "legacy/delete"
 DISPOSITIONS = (PRODUCT_CLIENT, HTTPS_RELAY, CLIENT_LOCAL_HELPER, HOOK_LOCAL_SUBSET, SOURCE_DEV_ADMIN, OPERATOR_DEBUG_PERMANENT, LEGACY_DELETE)
-_ENGINE_IMPORT_BOUNDARY_ROOTS = frozenset(
-    {"psycopg", "psycopg2", "runtime", "yoke_core"}
-)
 def _commands(text: str) -> frozenset[str]:
     return frozenset(f"yoke {line}" for line in text.split("|") if line)
 
 _PRODUCT = _commands("auth set|config example|connect|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host init|status|templates fetch|templates list|ui|universe export")
 _PROJECT_INSTALL = _commands("project install|project refresh|project snapshot sync|project uninstall")
-_SOURCE_DEV = _commands("agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets check|packets render|resync|schema converge|scratch dispatch-inputs|usher reconcile-github")
+_SOURCE_DEV = _commands("agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets check|packets render|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|usher reconcile-github")
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
-@dataclass(frozen=True)
-class ImportEdge:
-    source: str; target: str; kind: str; classification: str = ""; rationale: str = ""  # noqa: E702
-
 @dataclass(frozen=True)
 class InventoryRow:
     command_helper: str; function_id: str | None; import_edges: tuple[ImportEdge, ...]  # noqa: E702
@@ -51,9 +51,9 @@ class InventoryRow:
 def generate_inventory(*, repo_root: Path | str | None = None, package_root: Path | str | None = None) -> tuple[InventoryRow, ...]:
     """Return deterministic product-boundary rows for this CLI build."""
     pkg = Path(package_root).resolve() if package_root else Path(__file__).resolve().parent
-    root = Path(repo_root).resolve() if repo_root else _repo_root_from(pkg)
-    boundary_roots, allowlist = _boundary_facts(root)
-    edges = _scan_edges(pkg, root, boundary_roots, allowlist)
+    root = Path(repo_root).resolve() if repo_root else repo_root_from_package(pkg)
+    boundary_roots, allowlist = load_boundary_facts(root)
+    edges = scan_import_edges(pkg, root, boundary_roots, allowlist)
     op_by_shell = ops.by_shell_form()
     rows: list[InventoryRow] = []
     represented: set[str] = set()
@@ -61,14 +61,14 @@ def generate_inventory(*, repo_root: Path | str | None = None, package_root: Pat
     registry_items = [*SUBCOMMAND_REGISTRY.items(), *SUBCOMMAND_ALIAS_REGISTRY.items()]
     for tokens, (function_id, adapter) in sorted(registry_items, key=lambda i: (" ".join(i[0]), i[1][0])):
         shell = _shell(tokens)
-        source = _module_source(adapter.__module__, pkg, root)
+        source = module_source(adapter.__module__, pkg, root)
         represented.add(source)
         op = op_by_shell.get(shell)
         rows.append(_make_row(shell, function_id, edges.get(source, ()), op, _owner(shell, op, adapter.__module__)))
         seen.add(shell)
     for tokens, adapter in sorted(TOOL_SHAPED_SUBCOMMANDS.items(), key=lambda i: " ".join(i[0])):
         shell = _shell(tokens)
-        source = _module_source(adapter.__module__, pkg, root)
+        source = module_source(adapter.__module__, pkg, root)
         represented.add(source)
         op = op_by_shell.get(shell)
         rows.append(_make_row(shell, None, edges.get(source, ()), op, _owner(shell, op, adapter.__module__)))
@@ -79,7 +79,7 @@ def generate_inventory(*, repo_root: Path | str | None = None, package_root: Pat
             seen.add(entry.shell_form)
     for source, source_edges in sorted(edges.items()):
         if source not in represented:
-            module = _module_from_source(source)
+            module = module_name_from_source(source)
             rows.append(_make_row(f"helper {module}", None, source_edges, None, module))
     order = {name: index for index, name in enumerate(DISPOSITIONS)}
     return tuple(sorted(rows, key=lambda r: (order.get(r.disposition, len(order)), r.command_helper, r.function_id or "")))
@@ -165,6 +165,9 @@ def _config(command: str, disposition: str) -> str:
         "yoke dev setup": "Yoke source checkout; optional local-postgres DSN inputs",
         "yoke dev db-admin setup": "project/env deploy settings plus capability-owned AWS credentials",
         "yoke aws exec": "project aws-admin capability settings plus local AWS CLI",
+        "yoke runner-fleet exec": (
+            "versioned project stack-config snapshot plus child command"
+        ),
     }
     if command in _PROJECT_INSTALL:
         return "machine config HTTPS env plus project id or checkout mapping"
@@ -184,6 +187,7 @@ def _capability(command: str, disposition: str) -> str:
     if command == "yoke dev setup": return "yoke-core source package for apply/source-link repair"  # noqa: E701
     if command == "yoke dev db-admin setup": return "project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
     if command == "yoke aws exec": return "project aws-admin capability credentials"  # noqa: E701
+    if command == "yoke runner-fleet exec": return "project aws-admin plus repository-bound GitHub App authority"  # noqa: E701
     if disposition == HTTPS_RELAY:
         return "server-registered function id"
     if disposition == OPERATOR_DEBUG_PERMANENT:
@@ -219,133 +223,11 @@ def _refusal(command: str, disposition: str, operation: ops.OperationEntry | Non
         return "no clean product behavior; migrate or remove"
     return "argparse or helper-specific product error"
 
-def _boundary_facts(root: Path | None) -> tuple[frozenset[str], dict[tuple[str, str], tuple[str, str]]]:
-    if root is None:
-        return _ENGINE_IMPORT_BOUNDARY_ROOTS, {}
-    path = root / "runtime" / "api" / "test_installer_package_boundaries.py"
-    if not path.is_file():
-        return _ENGINE_IMPORT_BOUNDARY_ROOTS, {}
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    except (OSError, SyntaxError, UnicodeDecodeError):
-        return _ENGINE_IMPORT_BOUNDARY_ROOTS, {}
-    boundary_roots = _ENGINE_IMPORT_BOUNDARY_ROOTS
-    dynamic: dict[tuple[str, str], tuple[str, str]] = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign):
-            continue
-        names = {t.id for t in node.targets if isinstance(t, ast.Name)}
-        try:
-            value = ast.literal_eval(node.value)
-        except (TypeError, ValueError):
-            continue
-        if "ENGINE_IMPORT_BOUNDARY_ROOTS" in names:
-            boundary_roots = frozenset(str(item) for item in value)
-        if "ALLOWED_DYNAMIC_AUTHORITY_IMPORTS" in names:
-            dynamic = {(str(rel), str(mod)): (str(kind), str(why)) for (rel, mod), (kind, why) in value.items()}
-    return boundary_roots, dynamic
-
-def _scan_edges(
-    package_root: Path,
-    repo_root: Path | None,
-    boundary_roots: frozenset[str],
-    allowlist: Mapping[tuple[str, str], tuple[str, str]],
-) -> dict[str, tuple[ImportEdge, ...]]:
-    out: dict[str, list[ImportEdge]] = {}
-    for path in sorted(package_root.rglob("*.py")):
-        rel = _rel(path, repo_root, package_root)
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        except (OSError, SyntaxError, UnicodeDecodeError):
-            continue
-        for node in ast.walk(tree):
-            found = _edges_from_node(node, rel, boundary_roots, allowlist)
-            if found:
-                out.setdefault(rel, []).extend(found)
-    return {source: tuple(sorted(items, key=lambda e: (e.kind, e.target, e.classification, e.rationale))) for source, items in out.items()}
-
-def _edges_from_node(
-    node: ast.AST,
-    rel: str,
-    boundary_roots: frozenset[str],
-    allowlist: Mapping[tuple[str, str], tuple[str, str]],
-) -> tuple[ImportEdge, ...]:
-    if isinstance(node, ast.Import):
-        return tuple(ImportEdge(rel, a.name, "static", "static_authority_import", "direct authority import") for a in node.names if _root(a.name) in boundary_roots)
-    if isinstance(node, ast.ImportFrom):
-        module = node.module or ""
-        return (ImportEdge(rel, module, "static", "static_authority_import", "direct authority import"),) if _root(module) in boundary_roots else ()
-    if isinstance(node, ast.Call) and _call_name(node) in {"__import__", "import_module", "importlib.import_module"}:
-        module = _literal_module_arg(node)
-        if module and _root(module) in boundary_roots:
-            kind, why = allowlist.get((rel, module), ("unclassified_dynamic_authority_import", ""))
-            return (ImportEdge(rel, module, "dynamic", kind, why),)
-    return ()
-
-def _repo_root_from(package_root: Path) -> Path | None:
-    for parent in package_root.parents:
-        if (parent / "packages" / "yoke-cli" / "src" / "yoke_cli").is_dir():
-            return parent
-    return None
-
-def _module_source(module: str, package_root: Path, repo_root: Path | None) -> str:
-    if not module.startswith("yoke_cli."):
-        return module
-    path = package_root.joinpath(*module.split(".")[1:]).with_suffix(".py")
-    if not path.is_file():
-        path = package_root.joinpath(*module.split(".")[1:], "__init__.py")
-    return _rel(path, repo_root, package_root)
-
-def _module_from_source(source: str) -> str:
-    marker = "packages/yoke-cli/src/"
-    if source.startswith(marker):
-        source = source[len(marker):]
-    if source.endswith("/__init__.py"):
-        source = source[:-12]
-    elif source.endswith(".py"):
-        source = source[:-3]
-    return source.replace("/", ".")
-
-def _rel(path: Path, repo_root: Path | None, package_root: Path) -> str:
-    if repo_root:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            pass
-    try:
-        return path.relative_to(package_root.parent).as_posix()
-    except ValueError:
-        return path.as_posix()
-
 def _owner(shell_form: str, operation: ops.OperationEntry | None, module: str) -> str:
     return operation.family if operation else module if shell_form.startswith("yoke ") else "source-dev/admin"
 
 def _shell(tokens: Sequence[str]) -> str:
     return "yoke " + " ".join(tokens)
-
-def _root(module: str) -> str:
-    return module.split(".", 1)[0]
-
-def _call_name(node: ast.Call) -> str:
-    func = node.func
-    if isinstance(func, ast.Name):
-        return func.id
-    if not isinstance(func, ast.Attribute):
-        return ""
-    parts = [func.attr]
-    cur = func.value
-    while isinstance(cur, ast.Attribute):
-        parts.append(cur.attr)
-        cur = cur.value
-    if isinstance(cur, ast.Name):
-        parts.append(cur.id)
-    return ".".join(reversed(parts))
-
-def _literal_module_arg(node: ast.Call) -> str | None:
-    if not node.args:
-        return None
-    first = node.args[0]
-    return first.value if isinstance(first, ast.Constant) and isinstance(first.value, str) else None
 
 def _edge_text(edges: Sequence[ImportEdge]) -> str:
     return "none" if not edges else "<br>".join(f"{e.kind}:{e.source}->{e.target} [{e.classification}]" for e in edges)

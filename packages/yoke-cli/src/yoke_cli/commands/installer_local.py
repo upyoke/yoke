@@ -19,6 +19,7 @@ from yoke_cli.commands.adapters.path_doctor import (
     path_group,
     path_verify,
 )
+from yoke_cli.commands.adapters.runner_fleet import runner_fleet_exec
 from yoke_cli.commands.git_hook import AdapterFn
 from yoke_cli.commands.flag_adapters import (
     dev_db_admin_setup,
@@ -49,6 +50,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("path", "verify"): path_verify,
     ("project", "create"): project_create,
     ("project", "import"): project_import,
+    ("runner-fleet", "exec"): runner_fleet_exec,
 }
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
@@ -67,6 +69,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke path verify": "yoke path verify [--json]",
     "yoke project create": "yoke project create --slug SLUG --name NAME [--org ORG] [--github-repo OWNER/REPO]",
     "yoke project import": "yoke project import --repo OWNER/REPO --slug SLUG [--checkout PATH]",
+    "yoke runner-fleet exec": (
+        "yoke runner-fleet exec --project PROJECT "
+        "--settings-file STACK_CONFIG_JSON -- <command...>"
+    ),
 }
 
 __all__ = ["TOOL_SHAPED_SUBCOMMANDS", "TOOL_SHAPED_USAGE"]

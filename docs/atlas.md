@@ -2,13 +2,13 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-10T12:57:15Z_
+_Audit generated_at: 2026-07-10T14:17:20Z_
 
 ## 1. Summary
 
 - Function ids registered: **188**
 - `yoke` CLI subcommands: **183** (183 carry usable `--help`)
-- Operation tracker: **183 wrapped**, 67 permanent, 0 pending
+- Operation tracker: **183 wrapped**, 68 permanent, 0 pending
 - Skill-body recipes: 217 total (179 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
@@ -256,6 +256,7 @@ Wrapped `yoke <subcommand>` adapters: **183** (operation tracker confirms 183 wr
 | qa.browser | `yoke qa browser status` | tool_shaped |
 | raw.sql | `python3 -m yoke_core.cli.db_router query` | operator_break_glass |
 | resync | `yoke resync` | tool_shaped |
+| runner_fleet | `yoke runner-fleet exec` | tool_shaped |
 | schema | `yoke schema converge` | tool_shaped |
 | self_host | `yoke self-host init` | tool_shaped |
 | self_host.connect | `yoke connect` | tool_shaped |
@@ -297,7 +298,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| 2 | 50 |
+| 2 | 41 |
+| agent | 9 |
 
 ## 7. Contradictions
 

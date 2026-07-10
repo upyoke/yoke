@@ -35,6 +35,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     (infra / "webapp_runner_fleet_network.py").write_text("# network\n")
     (infra / "webapp_runner_github_broker_stack.py").write_text("# broker\n")
     (infra / "webapp_runner_github_state.py").write_text("# state\n")
+    (infra / "webapp_runner_github_webhook.py").write_text("# webhook\n")
     (infra / "webapp_runner_aws_state.mjs").write_text("// aws state\n")
     (infra / "webapp_runner_github_api.mjs").write_text("// github api\n")
     (infra / "webapp_runner_github_broker.mjs").write_text("// broker\n")
@@ -89,6 +90,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "webapp_runner_fleet_network.py",
         "webapp_runner_github_broker_stack.py",
         "webapp_runner_github_state.py",
+        "webapp_runner_github_webhook.py",
         "webapp_runner_aws_state.mjs",
         "webapp_runner_github_api.mjs",
         "webapp_runner_github_broker.mjs",

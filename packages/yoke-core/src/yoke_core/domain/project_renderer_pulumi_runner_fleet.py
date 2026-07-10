@@ -14,6 +14,11 @@ from yoke_contracts.github_origin import (
     validate_github_api_endpoint,
     validate_github_endpoint_pair,
 )
+from yoke_contracts.github_app_installation_permissions import (
+    ACCESS_WRITE,
+    ADMINISTRATION_PERMISSION,
+    REPOSITORY_HOOKS_PERMISSION,
+)
 
 from . import json_helper
 from .github_app_deployment import (
@@ -34,8 +39,16 @@ def runner_fleet_values(
 ) -> Dict[str, str]:
     """Return Pulumi template values for the runner-fleet stack."""
     runner_fleet = _runner_fleet_settings(settings)
-    github = _github_binding(settings, required=enabled)
-    app = _github_app(settings, required=enabled)
+    github = _github_binding(
+        settings,
+        capability_selector=runner_fleet.github_capability,
+        required=enabled,
+    )
+    app = _github_app(
+        settings,
+        environment_selector=runner_fleet.github_app_environment,
+        required=enabled,
+    )
     bound_repo = _bound_repo(github)
     if enabled and runner_fleet.repo and runner_fleet.repo != bound_repo:
         raise ValueError(
@@ -54,17 +67,24 @@ def runner_fleet_values(
             ) from exc
         if app is None or app.api_url != bound_api_url:
             raise ValueError(
-                "runner-fleet primary environment GitHub App API URL must "
+                "runner-fleet selected environment GitHub App API URL must "
                 "match the verified repository binding"
             )
         permissions = github.get("permissions")
-        if (
-            not isinstance(permissions, Mapping)
-            or str(permissions.get("administration") or "").lower() != "write"
-        ):
+        required_permissions = (
+            (ADMINISTRATION_PERMISSION, "Administration"),
+            (REPOSITORY_HOOKS_PERMISSION, "Webhooks"),
+        )
+        missing_permissions = [
+            f"{label}: {ACCESS_WRITE} ({key})"
+            for key, label in required_permissions
+            if not isinstance(permissions, Mapping)
+            or str(permissions.get(key) or "").lower() != ACCESS_WRITE
+        ]
+        if missing_permissions:
             raise ValueError(
-                "runner-fleet stack requires verified GitHub App "
-                "administration: write permission"
+                "runner-fleet stack requires verified GitHub App permissions: "
+                + ", ".join(missing_permissions)
             )
     api_url = bound_api_url if enabled else (app.api_url if app is not None else "")
     web_url = _web_url_from_api(api_url) if api_url else ""
@@ -120,9 +140,12 @@ def _runner_fleet_settings(
 
 
 def _github_binding(
-    settings: ProjectRendererSettings, *, required: bool,
+    settings: ProjectRendererSettings,
+    *,
+    capability_selector: str,
+    required: bool,
 ) -> Dict[str, object]:
-    github = settings.capabilities.get("github", {})
+    github = settings.capabilities.get(capability_selector, {})
     missing = [
         key for key in (
             "repo_owner", "repo_name", "installation_id", "repository_id",
@@ -133,34 +156,54 @@ def _github_binding(
     if required and missing:
         raise ValueError(
             "runner-fleet stack requires a verified GitHub App repository "
-            "binding; missing github capability settings: " + ", ".join(missing)
+            f"binding; selected {capability_selector!r} capability is missing "
+            "settings: " + ", ".join(missing)
         )
     return github
 
 
 def _github_app(
-    settings: ProjectRendererSettings, *, required: bool,
+    settings: ProjectRendererSettings,
+    *,
+    environment_selector: str | None,
+    required: bool,
 ) -> GitHubAppDeploymentConfig | None:
-    environment = settings.primary_environment
-    if environment is None:
-        if required:
-            raise ValueError(
-                "runner-fleet stack requires a primary environment with "
-                "settings.github_app"
-            )
+    if not required:
         return None
+    if not environment_selector:
+        raise ValueError(
+            "runner-fleet stack requires github_app_environment in the "
+            "github-actions-runner-fleet capability settings"
+        )
+    environments = [
+        environment
+        for environment in settings.environments
+        if environment_selector in {environment.id, environment.name}
+    ]
+    if not environments:
+        raise ValueError(
+            "runner-fleet github_app_environment did not match an environment "
+            f"id or name: {environment_selector!r}"
+        )
+    if len(environments) != 1:
+        raise ValueError(
+            "runner-fleet github_app_environment must match exactly one "
+            f"environment id or name; {environment_selector!r} matched "
+            f"{len(environments)}"
+        )
+    environment = environments[0]
     try:
         app = github_app_config_from_environment_settings(
             environment.settings,
-            env_hint=f"environment {environment.name!r}",
+            env_hint=(
+                f"environment {environment.name!r} ({environment.id!r})"
+            ),
         )
     except GitHubAppDeploymentConfigError as exc:
-        if not required:
-            return None
         raise ValueError(f"runner-fleet GitHub App configuration is invalid: {exc}") from exc
-    if required and app is None:
+    if app is None:
         raise ValueError(
-            "runner-fleet stack requires primary environment "
+            "runner-fleet stack requires the selected environment's "
             "settings.github_app with issuer, api_url, and "
             "private_key_secret_arn"
         )
@@ -213,6 +256,6 @@ def _validate_enabled_values(values: Dict[str, str]) -> None:
         secret_arn,
     ) is None:
         raise ValueError(
-            "runner-fleet primary environment github_app."
+            "runner-fleet selected environment github_app."
             "private_key_secret_arn must be a complete AWS Secrets Manager ARN"
         )

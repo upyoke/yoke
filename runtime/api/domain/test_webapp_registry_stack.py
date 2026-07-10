@@ -45,13 +45,14 @@ class _FakeComponentResource:
 class _FakeResourceOptions:
     def __init__(
         self, parent=None, ignore_changes=None, aliases=None, import_=None,
-        depends_on=None,
+        depends_on=None, provider=None,
     ):
         self.parent = parent
         self.ignore_changes = ignore_changes
         self.aliases = aliases
         self.import_ = import_
         self.depends_on = depends_on
+        self.provider = provider
 
     @staticmethod
     def merge(first, second):
@@ -73,6 +74,8 @@ class _FakeResourceOptions:
                 merged.depends_on = list(merged.depends_on or []) + list(
                     source.depends_on
                 )
+            if source.provider is not None:
+                merged.provider = source.provider
         return merged
 
 

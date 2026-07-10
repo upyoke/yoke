@@ -18,9 +18,9 @@ from yoke_cli.operation_inventory_model import (
 )
 from yoke_cli.operation_inventory_ephemeral_env import WRAPPED_ROWS as EPHEMERAL_ENV_WRAPPED_ROWS
 from yoke_cli.operation_inventory_epic_ops import WRAPPED_ROWS as EPIC_OPS_WRAPPED_ROWS
+from yoke_cli.operation_inventory_installer_local import PERMANENT_ROWS as INSTALLER_LOCAL_PERMANENT_ROWS
 from yoke_cli.operation_inventory_shepherd_qa_writes import WRAPPED_ROWS as SHEPHERD_QA_WRITE_ROWS
 from yoke_cli.operation_inventory_strategy_event import PERMANENT_ROWS as STRATEGY_EVENT_PERMANENT_ROWS, WRAPPED_ROWS as STRATEGY_EVENT_WRAPPED_ROWS
-
 WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Baseline wrapped item and claim operations.
     _w("yoke items get", "items.read"),
@@ -267,21 +267,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke check file-line", "checks.file_line", REASON_TOOL_SHAPED),
     _p("yoke board art variant create", "board.art", REASON_TOOL_SHAPED),
     _p("yoke resync", "resync", REASON_TOOL_SHAPED), _p("yoke schema converge", "schema", REASON_TOOL_SHAPED),
-    # Client-local installer / onboarding flows — routed as CLI tokens by
-    # yoke_cli.main (machine config, git, dev setup, project source creation),
-    # deliberately NOT dispatcher function ids like the git-hook bodies above.
-    # They run on the caller's own machine, so the fallback-registry coherence
-    # check does not expect a registered handler.
-    _p("yoke aws exec", "aws", REASON_TOOL_SHAPED),
-    _p("yoke github connect", "github", REASON_TOOL_SHAPED),
-    _p("yoke github disconnect", "github", REASON_TOOL_SHAPED), _p("yoke github status", "github", REASON_TOOL_SHAPED),
-    _p("yoke dev setup", "dev", REASON_TOOL_SHAPED),
-    _p("yoke dev db-admin setup", "dev", REASON_TOOL_SHAPED),
-    _p("yoke dev path-snapshot-prewarm", "dev", REASON_TOOL_SHAPED),
-    _p("yoke onboard", "onboard", REASON_TOOL_SHAPED),
-    _p("yoke onboard project", "onboard", REASON_TOOL_SHAPED),
-    _p("yoke project create", "project", REASON_TOOL_SHAPED),
-    _p("yoke project import", "project", REASON_TOOL_SHAPED),
+    *INSTALLER_LOCAL_PERMANENT_ROWS,
     # Tool-shaped — agent executes via harness; no function id.
     _p("python3 -m yoke_core.tools.module_source_path",
        "tools.module_source_path", REASON_TOOL_SHAPED),

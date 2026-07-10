@@ -133,7 +133,9 @@ class TestCapabilitySettings:
     def test_runner_fleet_settings_are_canonicalized(self, cap_db: str) -> None:
         pcs.cmd_capability_set_settings(
             "yoke", "github-actions-runner-fleet",
-            '{"repo":"upyoke/yoke","desired_runner_count":1,'
+            '{"repo":"upyoke/yoke",'
+            '"github_app_environment":" yoke-api-prod ",'
+            '"desired_runner_count":1,'
             '"max_runner_count":1}',
             create=True, db_path=cap_db,
         )
@@ -144,6 +146,7 @@ class TestCapabilitySettings:
             )
         )
         assert stored["repo"] == "upyoke/yoke"
+        assert stored["github_app_environment"] == "yoke-api-prod"
         assert stored["runner_labels"] == [
             "self-hosted", "Linux", "ARM64", "yoke-github-actions",
         ]
@@ -175,6 +178,15 @@ class TestCapabilitySettings:
             pcs.cmd_capability_set_settings(
                 "yoke", "github-actions-runner-fleet",
                 '{"repo":"no-slash"}', create=True, db_path=cap_db,
+            )
+
+    def test_runner_fleet_rejects_empty_app_environment(
+        self, cap_db: str,
+    ) -> None:
+        with pytest.raises(ValueError, match="non-empty when provided"):
+            pcs.cmd_capability_set_settings(
+                "yoke", "github-actions-runner-fleet",
+                '{"github_app_environment":"  "}', create=True, db_path=cap_db,
             )
 
 

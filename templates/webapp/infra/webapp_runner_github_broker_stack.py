@@ -13,6 +13,9 @@ import pulumi_aws as aws
 
 from webapp_runner_github_state import create_runner_github_state
 
+
+RUNNER_GITHUB_LAMBDA_RUNTIME = "nodejs22.x"
+
 if TYPE_CHECKING:
     from webapp_runner_fleet_stack import WebappRunnerFleetArgs
 
@@ -193,7 +196,7 @@ def create_runner_github_broker(
     bootstrap_function = aws.lambda_.Function(
         "runnerFleetGithubBroker",
         role=bootstrap_role.arn,
-        runtime="nodejs24.x",
+        runtime=RUNNER_GITHUB_LAMBDA_RUNTIME,
         handler="index.handler",
         timeout=60,
         reserved_concurrent_executions=2,
@@ -269,7 +272,7 @@ def create_runner_github_broker(
     reaper_function = aws.lambda_.Function(
         "runnerFleetGithubReaper",
         role=reaper_role.arn,
-        runtime="nodejs24.x",
+        runtime=RUNNER_GITHUB_LAMBDA_RUNTIME,
         handler="index.handler",
         timeout=60,
         reserved_concurrent_executions=1,

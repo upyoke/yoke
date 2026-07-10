@@ -7,9 +7,9 @@ environment-activate executors:
   without touching subprocess, SSH, Docker, or AWS;
 - ``ssh``/argv builders bound to a :class:`DeployEnvironment`'s declared
   ssh capability (key path, user, origin host);
-- AWS credential materialization from the project's ``aws-admin``
-  capability into a subprocess environment (never printed, never written
-  to disk), per the capability-owned-credentials rule.
+- AWS credential materialization from a selected project capability
+  (``aws-admin`` by default) into a subprocess environment (never printed,
+  never written to disk), per the capability-owned-credentials rule.
 
 Secret-bearing values only ever travel through ``input=`` stdin payloads
 or subprocess ``env`` mappings. Nothing here logs argv containing a
@@ -52,6 +52,7 @@ AWS_AMBIENT_AUTH_ENV_VARS: Sequence[str] = (
     "AWS_SHARED_CREDENTIALS_FILE",
     "AWS_WEB_IDENTITY_TOKEN_FILE",
 )
+DEFAULT_AWS_CAPABILITY_TYPE = "aws-admin"
 
 
 @dataclass
@@ -93,22 +94,32 @@ class CommandRunner:
         )
 
 
-def aws_capability_region(project: str) -> str | None:
-    """Return the ``aws-admin`` region setting, if configured."""
-    settings_text = cmd_capability_get_settings(project, "aws-admin")
+def aws_capability_region(
+    project: str,
+    *,
+    capability_type: str = DEFAULT_AWS_CAPABILITY_TYPE,
+) -> str | None:
+    """Return the selected AWS capability's region, if configured."""
+    settings_text = cmd_capability_get_settings(project, capability_type)
     if not settings_text:
         return None
     parsed = json_helper.loads_text(settings_text)
     if not isinstance(parsed, dict):
         raise RuntimeError(
-            f"project '{project}' aws-admin capability settings must be a JSON object"
+            f"project '{project}' {capability_type} capability settings "
+            "must be a JSON object"
         )
     region = str(parsed.get("region") or "").strip()
     return region or None
 
 
-def aws_capability_env(project: str, region: str) -> dict[str, str]:
-    """Materialize ``aws-admin`` credentials into a subprocess env.
+def aws_capability_env(
+    project: str,
+    region: str,
+    *,
+    capability_type: str = DEFAULT_AWS_CAPABILITY_TYPE,
+) -> dict[str, str]:
+    """Materialize selected AWS capability credentials into a child env.
 
     Returns a copy of ``os.environ`` extended with the capability-owned
     access key pair and default region so ``aws``/``pulumi``/``docker``
@@ -119,11 +130,15 @@ def aws_capability_env(project: str, region: str) -> dict[str, str]:
     OIDC role); otherwise raises — a naked unauthenticated ``aws`` call is
     never the fallback.
     """
-    access_key = cmd_capability_get_secret(project, "aws-admin", "access_key_id")
-    secret_key = cmd_capability_get_secret(
-        project, "aws-admin", "secret_access_key"
+    access_key = cmd_capability_get_secret(
+        project, capability_type, "access_key_id"
     )
-    session_token = cmd_capability_get_secret(project, "aws-admin", "session_token")
+    secret_key = cmd_capability_get_secret(
+        project, capability_type, "secret_access_key"
+    )
+    session_token = cmd_capability_get_secret(
+        project, capability_type, "session_token"
+    )
     if not access_key or not secret_key:
         # No capability-store creds for this project on this machine — e.g. an
         # ephemeral CI runner with no ~/.yoke/secrets. Fall back to ambient
@@ -140,11 +155,13 @@ def aws_capability_env(project: str, region: str) -> dict[str, str]:
             env["AWS_PAGER"] = ""
             return env
         raise RuntimeError(
-            f"project '{project}' aws-admin capability secrets are missing "
+            f"project '{project}' {capability_type} capability secrets are "
+            "missing "
             "(need access_key_id + secret_access_key) and no ambient AWS "
             "credentials are present; store them locally via "
             "`yoke projects capability secret set --project "
-            f"{project} --cap-type aws-admin --key access_key_id VALUE` "
+            f"{project} --cap-type {capability_type} "
+            "--key access_key_id VALUE` "
             "and `--key secret_access_key VALUE`"
         )
     env = dict(os.environ)

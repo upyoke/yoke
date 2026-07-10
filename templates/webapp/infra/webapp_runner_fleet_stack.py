@@ -24,6 +24,7 @@ from webapp_runner_fleet_iam import (
 )
 from webapp_runner_fleet_network import create_runner_network
 from webapp_runner_github_broker_stack import create_runner_github_broker
+import webapp_runner_github_webhook as runner_webhook
 
 
 @dataclass
@@ -130,10 +131,8 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
         if args.shutdown_mode != "terminate":
             raise ValueError("runner fleet v1 supports shutdown_mode=terminate")
         if args.runner_count != 1 or args.max_runner_count != 1:
-            raise ValueError(
-                "runner fleet v1 requires one ephemeral runner per host"
-            )
-
+            raise ValueError("runner fleet v1 requires one ephemeral runner per host")
+        runner_webhook.require_webhook_token_environment()
         region = aws.get_region().name
         tags = {"project": args.deploy_namespace, "component": "github-actions"}
         child_opts = pulumi.ResourceOptions(parent=self)
@@ -166,9 +165,7 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
         self.github_broker_function = github_broker.bootstrap_function
         self.queue_activity_parameter = github_broker.queue_activity_parameter
         self.runner_progress_parameter = github_broker.runner_progress_parameter
-        self.runner_completion_parameter = (
-            github_broker.runner_completion_parameter
-        )
+        self.runner_completion_parameter = github_broker.runner_completion_parameter
 
         network = create_runner_network(tags=tags, child_opts=child_opts)
         self.vpc = network.vpc
@@ -279,12 +276,8 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
                 variables={
                     "ASG_NAME": asg_name,
                     "WEBHOOK_SECRET_PARAMETER": webhook_secret_parameter_name,
-                    "QUEUE_ACTIVITY_PARAMETER": (
-                        self.queue_activity_parameter.name
-                    ),
-                    "RUNNER_PROGRESS_PARAMETER": (
-                        self.runner_progress_parameter.name
-                    ),
+                    "QUEUE_ACTIVITY_PARAMETER": (self.queue_activity_parameter.name),
+                    "RUNNER_PROGRESS_PARAMETER": (self.runner_progress_parameter.name),
                     "RUNNER_COMPLETION_PARAMETER": (
                         self.runner_completion_parameter.name
                     ),
@@ -326,6 +319,15 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
                     self.webhook_url, url_permission,
                 ]),
             ),
+        )
+
+        self.github_webhook = runner_webhook.create_repository_webhook(
+            owner=args.github_repo_owner,
+            repository=args.github_repo_name,
+            api_url=args.github_api_url,
+            webhook_url=self.webhook_url.function_url,
+            webhook_secret=self.webhook_secret.result,
+            child_opts=child_opts,
         )
 
         outputs = {

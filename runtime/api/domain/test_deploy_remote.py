@@ -227,6 +227,43 @@ class TestAwsCapabilityEnv:
         )
         assert aws_capability_region("yoke") == "us-west-2"
 
+    def test_custom_capability_selects_settings_and_secrets(self, monkeypatch):
+        settings_calls = []
+        secret_calls = []
+
+        def fake_settings(project, cap_type):
+            settings_calls.append((project, cap_type))
+            return '{"region":"eu-west-1"}'
+
+        def fake_secret(project, cap_type, key):
+            secret_calls.append((project, cap_type, key))
+            return {
+                "access_key_id": "AKIACUSTOM",
+                "secret_access_key": "custom-secret",
+                "session_token": "custom-session",
+            }[key]
+
+        monkeypatch.setattr(
+            deploy_remote, "cmd_capability_get_settings", fake_settings,
+        )
+        monkeypatch.setattr(
+            deploy_remote, "cmd_capability_get_secret", fake_secret,
+        )
+
+        region = aws_capability_region(
+            "buzz", capability_type="runner-aws",
+        )
+        env = aws_capability_env(
+            "buzz", region or "", capability_type="runner-aws",
+        )
+
+        assert region == "eu-west-1"
+        assert settings_calls == [("buzz", "runner-aws")]
+        assert {call[1] for call in secret_calls} == {"runner-aws"}
+        assert env["AWS_ACCESS_KEY_ID"] == "AKIACUSTOM"
+        assert env["AWS_SECRET_ACCESS_KEY"] == "custom-secret"
+        assert env["AWS_SESSION_TOKEN"] == "custom-session"
+
     def test_missing_secret_fails_with_seed_recipe(self, monkeypatch):
         monkeypatch.setattr(
             deploy_remote, "cmd_capability_get_secret", lambda *a: None

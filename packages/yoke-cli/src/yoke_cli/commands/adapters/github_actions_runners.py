@@ -31,7 +31,8 @@ def github_actions_runners_status(args: List[str]) -> int:
         prog="yoke github-actions runners status",
         description=(
             "Read registered repository self-hosted runners and the "
-            "runner-routing repo variable before arming workflows. "
+            "runner-routing repo variable. Distinguishes an online-ready "
+            "runner from armed scale-to-zero routing with no registration. "
             "Read-only; does not mint runner registration tokens and "
             "does not mutate GitHub repo variables."
         ),

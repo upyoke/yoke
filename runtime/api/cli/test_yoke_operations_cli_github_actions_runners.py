@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 from contextlib import redirect_stderr, redirect_stdout
 from typing import List
 from unittest.mock import patch
@@ -26,7 +27,12 @@ def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
         function=request.function,
         version=request.version,
         request_id=request.request_id,
-        result={"echo": True},
+        result={
+            "echo": True,
+            "ready": False,
+            "routing_armed": True,
+            "action": "routing_armed_idle",
+        },
     )
 
 
@@ -147,3 +153,17 @@ def test_repo_without_slash_returns_two() -> None:
 
     assert rc == 2
     assert _CAPTURED_REQUESTS == []
+
+
+def test_json_output_preserves_routing_armed_idle_state() -> None:
+    rc, out, err = _run(
+        "github-actions", "runners", "status", "upyoke/yoke",
+        "--project", "yoke", "--json",
+    )
+
+    assert rc == 0
+    assert err == ""
+    payload = json.loads(out)
+    assert payload["result"]["ready"] is False
+    assert payload["result"]["routing_armed"] is True
+    assert payload["result"]["action"] == "routing_armed_idle"

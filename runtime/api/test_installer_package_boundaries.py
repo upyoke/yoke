@@ -172,6 +172,13 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.deploy_remote",
     ): ("source_dev_admin", "explicit aws-admin capability subprocess helper"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/runner_fleet.py",
+        "yoke_core.tools.runner_fleet_exec",
+    ): (
+        "source_dev_admin",
+        "explicit runner-fleet credential-scoped child-process helper",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/project_install/source_dev.py",
         "yoke_core.domain.project_install_source_link",
     ): ("source_dev_admin", "explicit source-link setup branch only"),

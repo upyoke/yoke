@@ -9,7 +9,7 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     recorder, stack = _runner_stack(monkeypatch)
 
     broker = recorder.single("runnerFleetGithubBroker")
-    assert broker.kwargs["runtime"] == "nodejs24.x"
+    assert broker.kwargs["runtime"] == "nodejs22.x"
     assert broker.kwargs["handler"] == "index.handler"
     variables = broker.kwargs["environment"].kwargs["variables"]
     assert variables["GITHUB_INSTALLATION_ID"] == "123456"
@@ -40,6 +40,7 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     assert "SecretString" in api_source
     assert variables["BROKER_MODE"] == "bootstrap"
     reaper = recorder.single("runnerFleetGithubReaper")
+    assert reaper.kwargs["runtime"] == "nodejs22.x"
     assert reaper.kwargs["environment"].kwargs["variables"]["BROKER_MODE"] == (
         "reaper"
     )
@@ -94,15 +95,35 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     assert stack.registered_outputs["runnerFleetWebhookEvent"] == "workflow_job"
 
 
-def test_runner_fleet_has_no_long_lived_github_credential_inputs():
+def test_runner_fleet_has_only_short_lived_webhook_credential_input():
     root = Path(__file__).resolve().parents[3] / "templates" / "webapp" / "infra"
-    sources = "\n".join(
-        path.read_text() for path in root.glob("webapp_runner_*")
+    stack_source = (root / "webapp_runner_fleet_stack.py").read_text()
+    webhook_source = (root / "webapp_runner_github_webhook.py").read_text()
+    runtime_sources = "\n".join(
+        path.read_text()
+        for path in root.glob("webapp_runner_*")
+        if path.name not in {
+            "webapp_runner_fleet_stack.py",
+            "webapp_runner_github_webhook.py",
+        }
     )
     requirements = (root / "requirements.txt").read_text()
+    readme = root.parent / "README.md"
+    readme_text = readme.read_text()
 
-    assert "RUNNER_FLEET_WEBHOOK_TOKEN" not in sources
+    assert "require_webhook_token_environment" in stack_source
+    assert "RUNNER_FLEET_WEBHOOK_TOKEN" in webhook_source
+    assert 'os.environ.get("GITHUB_TOKEN"' in webhook_source
+    assert "hmac.compare_digest(token, provider_token)" in webhook_source
+    assert 'os.environ.pop("GITHUB_TOKEN")' in webhook_source
+    assert 'os.environ["GITHUB_TOKEN"] = provider_token' in webhook_source
+    assert "token=provider_token" not in webhook_source
+    assert "RUNNER_FLEET_WEBHOOK_TOKEN" not in runtime_sources
+    sources = stack_source + webhook_source + runtime_sources
     assert "GITHUB_TOKEN_PARAMETER" not in sources
     assert "/github-token" not in sources
-    assert "pulumi-github" not in requirements
+    assert "pulumi-github" in requirements
     assert "pulumi-random" in requirements
+    assert "repository_hooks: write" in readme_text
+    assert "Pulumi keeps" in readme_text
+    assert "configure one manual GitHub webhook" not in readme_text

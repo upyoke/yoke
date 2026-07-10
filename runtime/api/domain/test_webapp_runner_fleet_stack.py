@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import subprocess
 import types
 
@@ -14,11 +15,25 @@ from runtime.api.domain.test_webapp_registry_stack import (
     _make_resource_class,
 )
 
+_WEBHOOK_TOKEN = "github_pat_short_lived_webhook_test"
+
 
 def _runner_stack(
     monkeypatch, *, shutdown_mode="terminate", runner_count=1, max_count=1,
+    webhook_token=_WEBHOOK_TOKEN,
+    github_provider_token=_WEBHOOK_TOKEN,
+    github_api_url="https://api.github.com",
+    github_web_url="https://github.com",
 ):
     recorder = _Recorder()
+    if webhook_token is None:
+        monkeypatch.delenv("RUNNER_FLEET_WEBHOOK_TOKEN", raising=False)
+    else:
+        monkeypatch.setenv("RUNNER_FLEET_WEBHOOK_TOKEN", webhook_token)
+    if github_provider_token is None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    else:
+        monkeypatch.setenv("GITHUB_TOKEN", github_provider_token)
     # The stack module imports its internals sibling at top level; the
     # template infra dir is not on sys.path under file-location loading, so
     # load the internals module against the same recorder and inject it under
@@ -44,6 +59,27 @@ def _runner_stack(
     pulumi_random.RandomPassword = _make_resource_class(
         recorder, "random:index:RandomPassword",
     )
+    pulumi_github = types.ModuleType("pulumi_github")
+    provider_class = _make_resource_class(
+        recorder, "pulumi:providers:github",
+    )
+
+    class _EnvReadingProvider(provider_class):
+        def __init__(self, resource_name, opts=None, **kwargs):
+            ambient_token = os.environ.get("GITHUB_TOKEN")
+            if ambient_token is not None:
+                kwargs["token"] = ambient_token
+            super().__init__(resource_name, opts=opts, **kwargs)
+            self.constructor_github_token = ambient_token
+
+    pulumi_github.Provider = _EnvReadingProvider
+    pulumi_github.RepositoryWebhook = _make_resource_class(
+        recorder, "github:index/repositoryWebhook:RepositoryWebhook",
+    )
+    github_webhook = _load_template_module(
+        monkeypatch, recorder, "webapp_runner_github_webhook.py",
+        extra_modules={"pulumi_github": pulumi_github},
+    )
     module = _load_template_module(
         monkeypatch, recorder, "webapp_runner_fleet_stack.py",
         extra_modules={
@@ -51,6 +87,7 @@ def _runner_stack(
             "webapp_runner_fleet_iam": iam,
             "webapp_runner_fleet_network": network,
             "webapp_runner_github_broker_stack": broker_stack,
+            "webapp_runner_github_webhook": github_webhook,
             "pulumi_random": pulumi_random,
         },
     )
@@ -64,8 +101,8 @@ def _runner_stack(
             github_installation_id="123456",
             github_repository_id="789012",
             github_app_issuer="Iv1.runner-fleet",
-            github_api_url="https://api.github.com",
-            github_web_url="https://github.com",
+            github_api_url=github_api_url,
+            github_web_url=github_web_url,
             github_private_key_secret_arn=(
                 "arn:aws:secretsmanager:us-east-1:123456789012:"
                 "secret:yoke-github-app-AbCdEf"

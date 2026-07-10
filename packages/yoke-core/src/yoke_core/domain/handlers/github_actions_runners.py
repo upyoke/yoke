@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from yoke_core.domain import json_helper
+from yoke_core.domain.github_actions_runner_routing import (
+    classify_runner_route,
+    routing_matches,
+)
 from yoke_core.domain.github_actions_runner_fleet_capability import (
     CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
     DEFAULT_RUNNER_LABELS,
@@ -103,6 +107,7 @@ class RunnersStatusResponse(BaseModel):
     matching_count: int
     online_matching_count: int
     idle_matching_count: int
+    routing_armed: bool
     ready: bool
     action: str
     message: str
@@ -172,14 +177,19 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
 
     runners = _runner_summaries(data)
     recommended = _runs_on_value(required)
+    routing_armed = routing_matches(variable_value, required)
     matching = [runner for runner in runners if _has_labels(runner, required)]
     online = [runner for runner in matching if runner.status == "online"]
     idle = [runner for runner in online if not runner.busy]
-    action, message = _classify(
+    action, message = classify_runner_route(
         matching_count=len(matching),
         online_count=len(online),
-        variable_value=variable_value,
-        recommended_value=recommended,
+        routing_armed=routing_armed,
+        autoscaled_ephemeral=(
+            capability_configured
+            and settings.lifecycle.start_mode == "autoscaled"
+            and settings.lifecycle.ephemeral_runners
+        ),
     )
     response = RunnersStatusResponse(
         repo=repo,
@@ -199,7 +209,8 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
         matching_count=len(matching),
         online_matching_count=len(online),
         idle_matching_count=len(idle),
-        ready=bool(online and variable_value == recommended),
+        routing_armed=routing_armed,
+        ready=bool(online and routing_armed),
         action=action,
         message=message,
         runners=runners,
@@ -282,22 +293,6 @@ def _permission_at_least_read(value: Any) -> bool:
 
 def _runs_on_value(labels: List[str]) -> str:
     return json_helper.dumps_compact(labels)
-
-
-def _classify(
-    *,
-    matching_count: int,
-    online_count: int,
-    variable_value: Optional[str],
-    recommended_value: str,
-) -> tuple[str, str]:
-    if matching_count == 0:
-        return "register_runner", "No registered runner has all required labels."
-    if online_count == 0:
-        return "start_runner", "Matching runners exist, but none are online."
-    if variable_value != recommended_value:
-        return "set_variable", "Matching online runner exists; set the runner variable."
-    return "ready", "Matching online runner exists and the runner variable is armed."
 
 
 REGISTRATIONS: List[Dict[str, Any]] = [

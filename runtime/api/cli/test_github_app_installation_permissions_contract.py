@@ -77,6 +77,13 @@ def test_operation_permission_maps_are_immutable_and_exact() -> None:
     assert dict(contract.GITHUB_ACTIONS_READ_PERMISSION_LEVELS) == {
         "actions": "read",
     }
+    assert dict(contract.GITHUB_REPOSITORY_HOOKS_WRITE_PERMISSION_LEVELS) == {
+        "repository_hooks": "write",
+    }
+    assert (
+        "repository_hooks"
+        not in contract.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
+    )
     assert (
         contract.GITHUB_ENVIRONMENT_WRITE_PERMISSION_LEVELS
         is contract.GITHUB_ADMINISTRATION_WRITE_PERMISSION_LEVELS

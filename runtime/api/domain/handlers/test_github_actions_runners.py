@@ -142,6 +142,7 @@ class TestRunnersStatus:
 
         assert outcome.primary_success is True
         assert outcome.result_payload["action"] == "register_runner"
+        assert outcome.result_payload["routing_armed"] is False
         assert outcome.result_payload["ready"] is False
         assert outcome.result_payload["recommended_value"] == (
             '["self-hosted","Linux","ARM64","yoke-github-actions"]'
@@ -175,6 +176,7 @@ class TestRunnersStatus:
         assert outcome.result_payload["matching_count"] == 1
         assert outcome.result_payload["online_matching_count"] == 1
         assert outcome.result_payload["idle_matching_count"] == 1
+        assert outcome.result_payload["routing_armed"] is False
         assert outcome.result_payload["ready"] is False
 
     def test_online_runner_with_variable_reports_ready(self, monkeypatch):
@@ -192,6 +194,7 @@ class TestRunnersStatus:
 
         assert outcome.primary_success is True
         assert outcome.result_payload["action"] == "ready"
+        assert outcome.result_payload["routing_armed"] is True
         assert outcome.result_payload["ready"] is True
         assert outcome.result_payload["idle_matching_count"] == 0
         assert outcome.result_payload["runners"][0]["labels"] == [
@@ -281,6 +284,39 @@ class TestRunnersStatus:
         assert outcome.result_payload["max_runner_count"] == 1
         assert outcome.result_payload["instance_type"] == "c7i.8xlarge"
         assert outcome.result_payload["root_volume_gb"] == 800
+
+    def test_autoscaled_fleet_reports_routing_armed_without_runners(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(
+            github_actions_runners,
+            "cmd_capability_get_settings",
+            lambda project, cap_type: '{"repo":"upyoke/yoke"}',
+        )
+        monkeypatch.setattr(
+            github_actions_rest, "rest_get", lambda *a, **kw: {"runners": []},
+        )
+        monkeypatch.setattr(
+            github_variables_rest,
+            "get_repo_variable",
+            lambda *a, **kw: (
+                '["ARM64", "self-hosted", "yoke-github-actions", "linux"]'
+            ),
+        )
+
+        outcome = handle_runners_status(_make_request({"project": "yoke"}))
+
+        assert outcome.primary_success is True
+        assert outcome.result_payload["capability_configured"] is True
+        assert outcome.result_payload["routing_armed"] is True
+        assert outcome.result_payload["ready"] is False
+        assert outcome.result_payload["action"] == "routing_armed_idle"
+        assert "autoscaling is configured" in outcome.result_payload["message"]
+        assert "no matching runner is currently registered" in (
+            outcome.result_payload["message"]
+        )
+        assert "healthy" not in outcome.result_payload["message"]
+        assert "will start" not in outcome.result_payload["message"]
 
     def test_repo_required_when_no_capability_supplies_it(self):
         outcome = handle_runners_status(_make_request({"project": "yoke"}))

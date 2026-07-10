@@ -84,6 +84,7 @@ class RunnerFleetSettings(BaseModel):
     desired_runner_count: int = Field(DEFAULT_DESIRED_RUNNER_COUNT, ge=1)
     max_runner_count: int = Field(DEFAULT_MAX_RUNNER_COUNT, ge=1)
     github_capability: str = DEFAULT_GITHUB_CAPABILITY
+    github_app_environment: Optional[str] = None
     aws_capability: str = DEFAULT_AWS_CAPABILITY
     instance: RunnerFleetInstanceSettings = Field(
         default_factory=RunnerFleetInstanceSettings
@@ -124,6 +125,18 @@ class RunnerFleetSettings(BaseModel):
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("must be non-empty")
+        return cleaned
+
+    @field_validator("github_app_environment")
+    @classmethod
+    def _clean_github_app_environment(
+        cls, value: Optional[str],
+    ) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("must be non-empty when provided")
         return cleaned
 
     @field_validator("provider")
