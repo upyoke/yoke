@@ -46,22 +46,38 @@ HOSTED_UBUNTU_DISPOSABLE_PATHS = (
     Path("/usr/lib/firefox"),
     Path("/usr/lib/google-cloud-sdk"),
     Path("/usr/lib/jvm"),
+    Path("/usr/lib/R"),
     Path("/usr/local/.ghcup"),
+    Path("/usr/local/aws-sam-cli"),
+    Path("/usr/local/cuda"),
     Path("/usr/local/lib/android"),
     Path("/usr/local/lib/node_modules"),
+    Path("/usr/local/lib/R"),
     Path("/usr/local/share/boost"),
     Path("/usr/local/share/chromium"),
     Path("/usr/local/share/powershell"),
     Path("/usr/local/share/vcpkg"),
     Path("/usr/share/dotnet"),
+    Path("/usr/share/doc"),
+    Path("/usr/share/info"),
+    Path("/usr/share/man"),
     Path("/usr/share/miniconda"),
+    Path("/usr/share/R"),
     Path("/usr/share/swift"),
 )
 
 # Preserve the cache root itself so later setup-* actions can repopulate it
 # without needing to recreate a root-owned directory.
-HOSTED_UBUNTU_DISPOSABLE_CONTENT_ROOTS = (Path("/opt/hostedtoolcache"),)
-HOSTED_UBUNTU_DISPOSABLE_PREFIXES = ((Path("/usr/local"), "julia"),)
+HOSTED_UBUNTU_DISPOSABLE_CONTENT_ROOTS = (
+    Path("/opt/hostedtoolcache"),
+    Path("/var/cache/apt/archives"),
+    Path("/var/lib/apt/lists"),
+)
+HOSTED_UBUNTU_DISPOSABLE_PREFIXES = (
+    (Path("/usr/lib"), "llvm-"),
+    (Path("/usr/local"), "cuda-"),
+    (Path("/usr/local"), "julia"),
+)
 
 
 class HostedRunnerCleanupRefused(RuntimeError):
