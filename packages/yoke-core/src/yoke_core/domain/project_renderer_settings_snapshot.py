@@ -20,6 +20,7 @@ from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     RendererEnvironmentSettings,
     _load_project_renderer_settings,
+    select_primary_environment,
 )
 
 # Version tag for the stack-config payload (request and response).
@@ -79,7 +80,7 @@ def settings_from_snapshot(snapshot: Mapping[str, Any]) -> ProjectRendererSettin
         display_name=str(snapshot.get("display_name") or project),
         site_id=str(snapshot.get("site_id") or ""),
         site_settings=dict(site_settings) if isinstance(site_settings, Mapping) else {},
-        primary_environment=environments[0] if environments else None,
+        primary_environment=select_primary_environment(environments),
         environments=environments,
         capabilities=(
             {str(k): dict(v) for k, v in capabilities.items() if isinstance(v, Mapping)}

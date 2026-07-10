@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from typing import Any, Dict, Iterable, Mapping
+from typing import Any, Dict, Iterable, Mapping, Sequence
 
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.project_identity import resolve_project
@@ -176,6 +176,24 @@ def _capability_settings(conn: Any, project_id: int) -> Dict[str, Dict[str, Any]
     }
 
 
+def select_primary_environment(
+    environments: Sequence[RendererEnvironmentSettings],
+) -> RendererEnvironmentSettings | None:
+    """Select the renderer's primary environment.
+
+    ``settings.renderer_primary: true`` pins the primary environment
+    explicitly (the first flagged row wins). Without a flag the first
+    row — the legacy id-ordering fallback — is selected, so an
+    environment row whose id merely sorts earlier can repoint the
+    primary; flag the intended row to avoid that. Empty input yields
+    ``None``.
+    """
+    for env in environments:
+        if env.settings.get("renderer_primary"):
+            return env
+    return environments[0] if environments else None
+
+
 def load_project_renderer_settings(project: str) -> ProjectRendererSettings:
     """Load the DB-backed renderer settings snapshot for *project*."""
     conn = db_helpers.connect()
@@ -226,7 +244,7 @@ def _load_project_renderer_settings(
             key=_environment_sort_key,
         )
     )
-    primary_environment = environments[0] if environments else None
+    primary_environment = select_primary_environment(environments)
 
     return ProjectRendererSettings(
         project=ident.slug,

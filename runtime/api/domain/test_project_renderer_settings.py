@@ -7,7 +7,9 @@ import json
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
+    RendererEnvironmentSettings,
     _load_project_renderer_settings,
+    select_primary_environment,
 )
 from yoke_core.domain.project_renderer_values import _values_from_settings
 
@@ -107,6 +109,108 @@ class TestProjectRendererSettingsLoader:
             assert values["api_port_base"] == "9000"
         finally:
             conn.close()
+
+    def test_renderer_primary_flag_pins_primary_over_id_order(self):
+        """A flagged row stays primary when a settings-home row sorts first.
+
+        Without the flag, the settings-home row (id sorts earlier, no
+        hosts/servers) would become primary and origin values would
+        render empty.
+        """
+        db_name = pg_testdb.create_test_database()
+        conn = pg_testdb.drop_database_on_close(
+            pg_testdb.connect_test_database(db_name), db_name,
+        )
+        try:
+            conn.execute(
+                "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE, "
+                "name TEXT, public_item_prefix TEXT DEFAULT 'YOK')"
+            )
+            conn.execute(
+                "CREATE TABLE sites (id TEXT PRIMARY KEY, project_id INTEGER, "
+                "name TEXT, settings TEXT)"
+            )
+            conn.execute(
+                "CREATE TABLE environments (id TEXT PRIMARY KEY, site TEXT, "
+                "name TEXT, settings TEXT)"
+            )
+            conn.execute(
+                "INSERT INTO projects (id, slug, name) VALUES (%s, %s, %s)",
+                (2, "buzz", "Buzz"),
+            )
+            conn.execute(
+                "INSERT INTO sites (id, project_id, name, settings) "
+                "VALUES (%s, %s, %s, %s)",
+                ("buzz-web", 2, "Buzz Web", json.dumps({"domains": [
+                    {"domain_name": "buzzabuzz.com"},
+                ]})),
+            )
+            conn.execute(
+                "INSERT INTO environments (id, site, name, settings) "
+                "VALUES (%s, %s, %s, %s)",
+                (
+                    "buzz-web-a-home",
+                    "buzz-web",
+                    "settings-home",
+                    json.dumps({"integrations": {"mail": "smtp.example.com"}}),
+                ),
+            )
+            conn.execute(
+                "INSERT INTO environments (id, site, name, settings) "
+                "VALUES (%s, %s, %s, %s)",
+                (
+                    "buzz-web-live",
+                    "buzz-web",
+                    "live",
+                    json.dumps({
+                        "renderer_primary": True,
+                        "hosts": {"origin": "origin.buzz.example.com"},
+                        "servers": [{"host": "203.0.113.50"}],
+                    }),
+                ),
+            )
+
+            settings = _load_project_renderer_settings(conn, "buzz")
+            values = _values_from_settings("buzz", settings)
+
+            assert settings.primary_environment is not None
+            assert settings.primary_environment.id == "buzz-web-live"
+            assert values["origin_host"] == "origin.buzz.example.com"
+            assert values["origin_ip"] == "203.0.113.50"
+        finally:
+            conn.close()
+
+
+def _env(env_id: str, name: str = "", **settings) -> RendererEnvironmentSettings:
+    return RendererEnvironmentSettings(id=env_id, name=name, settings=settings)
+
+
+class TestSelectPrimaryEnvironment:
+    def test_no_flag_selects_first_row(self):
+        first = _env("api-alpha")
+        second = _env("api-beta")
+        assert select_primary_environment((first, second)) is first
+
+    def test_falsy_flag_is_not_a_pin(self):
+        first = _env("api-alpha", renderer_primary=False)
+        assert select_primary_environment((first, _env("api-beta"))) is first
+
+    def test_flag_on_later_sorting_row_wins(self):
+        settings_home = _env("api-a-home")
+        live = _env("api-live", renderer_primary=True)
+        assert select_primary_environment((settings_home, live)) is live
+
+    def test_first_flagged_row_wins_when_multiple_flagged(self):
+        unflagged = _env("api-a")
+        flagged_first = _env("api-b", renderer_primary=True)
+        flagged_second = _env("api-c", renderer_primary=True)
+        selected = select_primary_environment(
+            (unflagged, flagged_first, flagged_second),
+        )
+        assert selected is flagged_first
+
+    def test_empty_environments_yield_none(self):
+        assert select_primary_environment(()) is None
 
 
 def _settings_with_ephemeral(ephemeral: dict) -> ProjectRendererSettings:

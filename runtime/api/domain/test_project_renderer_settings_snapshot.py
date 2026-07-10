@@ -132,6 +132,31 @@ class TestSnapshotRoundTrip:
         with pytest.raises(ValueError, match="environments"):
             settings_from_snapshot({"project": "acme", "environments": {}})
 
+    def test_unflagged_snapshot_keeps_first_environment_primary(self):
+        settings = settings_from_snapshot({
+            "project": "acme",
+            "environments": [
+                {"id": "acme-api-a-home", "name": "settings-home",
+                 "settings": {}},
+                {"id": "acme-api-live", "name": "live", "settings": {}},
+            ],
+        })
+        assert settings.primary_environment is not None
+        assert settings.primary_environment.id == "acme-api-a-home"
+
+    def test_renderer_primary_flag_pins_hydrated_primary(self):
+        settings = settings_from_snapshot({
+            "project": "acme",
+            "environments": [
+                {"id": "acme-api-a-home", "name": "settings-home",
+                 "settings": {}},
+                {"id": "acme-api-live", "name": "live",
+                 "settings": {"renderer_primary": True}},
+            ],
+        })
+        assert settings.primary_environment is not None
+        assert settings.primary_environment.id == "acme-api-live"
+
 
 class TestBuildStackConfig:
     def test_envelope_shape_and_determinism(self):
