@@ -196,6 +196,13 @@ def _render_connect_progress(event: Mapping[str, Any]) -> None:
             file=sys.stderr,
             flush=True,
         )
+    elif phase == "github_access_propagation_retry":
+        print(
+            "GitHub is finishing authorization; retrying the access check in "
+            f"{event.get('retry_in_seconds'):g}s...",
+            file=sys.stderr,
+            flush=True,
+        )
     elif phase == "app_installation":
         prefix = "Opened" if event.get("browser_opened") else "Open"
         print(

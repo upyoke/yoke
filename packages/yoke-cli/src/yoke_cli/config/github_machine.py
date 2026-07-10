@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from http import HTTPStatus
 import json
 from pathlib import Path
+import time
 from typing import Any, Callable, Mapping
 import uuid
 
@@ -18,6 +20,9 @@ from yoke_contracts.machine_config import schema as contract
 
 class GitHubMachineError(RuntimeError):
     """The machine GitHub App connection cannot be used."""
+
+
+_ACCESS_DISCOVERY_RETRY_DELAYS_SECONDS = (1.0, 2.0, 4.0)
 
 
 def connect(
@@ -88,10 +93,12 @@ def connect(
     snapshot: dict[str, Any] | None = None
     discovery_error: github_app_user_api.GitHubAppUserApiError | None = None
     try:
-        snapshot = github_app_user_api.discover_access(
+        snapshot = _discover_access_with_unauthorized_retry(
             api_url=metadata["api_url"],
             access_token=str(device.token_response["access_token"]),
             opener=api_opener,
+            sleep=sleep or time.sleep,
+            notify=record,
         )
         authorization.update({
             "github_user_id": snapshot["user"]["id"],
@@ -154,6 +161,7 @@ def status(
     check: bool = True,
     api_opener: Callable[..., Any] | None = None,
     token_opener: Callable[..., Any] | None = None,
+    sleep: Callable[[float], None] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     try:
@@ -176,9 +184,10 @@ def status(
                 "machine GitHub App authorization changed while status was "
                 "running; retry against the current connection"
             )
-        snapshot = github_app_user_api.discover_access(
+        snapshot = _discover_access_with_unauthorized_retry(
             api_url=str(github["api_url"]), access_token=token.access_token,
             opener=api_opener,
+            sleep=sleep or time.sleep,
         )
     except github_user_tokens.GitHubUserTokenError:
         return state.connected_report(
@@ -190,7 +199,7 @@ def status(
         )
     except github_app_user_api.GitHubAppUserApiError as exc:
         persistence_error = None
-        if exc.status == 401:
+        if exc.status == HTTPStatus.UNAUTHORIZED:
             persistence_error = state.mark_revoked(github, config_path=config_path)
         report = state.connected_report(
             config_path=config_path, github=github, progress=[], checked=True,
@@ -260,6 +269,37 @@ def dumps_json(report: Mapping[str, Any]) -> str:
 
 
 render_human = reports.render_human
+
+
+def _discover_access_with_unauthorized_retry(
+    *,
+    api_url: str,
+    access_token: str,
+    opener: Callable[..., Any] | None,
+    sleep: Callable[[float], None],
+    notify: Callable[[Mapping[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Retry transient unauthorized responses before classifying access."""
+    attempts = 1
+    for delay_seconds in (*_ACCESS_DISCOVERY_RETRY_DELAYS_SECONDS, None):
+        try:
+            return github_app_user_api.discover_access(
+                api_url=api_url,
+                access_token=access_token,
+                opener=opener,
+            )
+        except github_app_user_api.GitHubAppUserApiError as exc:
+            if exc.status != HTTPStatus.UNAUTHORIZED or delay_seconds is None:
+                raise
+            attempts += 1
+            if notify is not None:
+                notify({
+                    "phase": "github_access_propagation_retry",
+                    "attempt": attempts,
+                    "retry_in_seconds": delay_seconds,
+                })
+            sleep(delay_seconds)
+    raise AssertionError("GitHub access retry loop ended unexpectedly")
 
 
 def _open_install_page(

@@ -17,7 +17,7 @@ _ISSUES_PERMISSION = "issues"
 _METADATA_PERMISSION = "metadata"
 _PULL_REQUESTS_PERMISSION = "pull_requests"
 _SECRETS_PERMISSION = "secrets"
-_VARIABLES_PERMISSION = "variables"
+_VARIABLES_PERMISSION = "actions_variables"
 _WORKFLOWS_PERMISSION = "workflows"
 
 

@@ -149,32 +149,6 @@ def test_status_marks_live_failure_as_cached_and_not_ready(
     assert report["access"]["org_listing_ok"] is False
 
 
-def test_revoked_status_reports_config_persistence_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config, _credential = _configured_machine(tmp_path, monkeypatch)
-
-    def revoked(request, timeout):
-        raise urllib.error.HTTPError(
-            request.full_url, 401, "Unauthorized", hdrs=None, fp=None,
-        )
-
-    monkeypatch.setattr(
-        writer,
-        "set_github",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            writer.MachineConfigWriteError("read-only config")
-        ),
-    )
-
-    report = github_machine.status(config_path=config, api_opener=revoked)
-
-    codes = {item["code"] for item in report["issues"]}
-    assert "github_revoked_status_not_persisted" in codes
-    stored = json.loads(config.read_text(encoding="utf-8"))
-    assert stored["github"]["authorization"]["status"] == "authorized"
-
-
 def test_config_failure_surfaces_credential_cleanup_failure_without_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -129,6 +129,20 @@ def test_github_connect_pending_installation_exits_zero(
     assert payload["state"] == "pending_installation"
 
 
+def test_github_connect_retry_progress_explains_authorization_wait(capsys) -> None:
+    from yoke_cli.commands.adapters import github as github_adapter
+
+    github_adapter._render_connect_progress({
+        "phase": "github_access_propagation_retry",
+        "attempt": 2,
+        "retry_in_seconds": 1.0,
+    })
+
+    assert capsys.readouterr().err == (
+        "GitHub is finishing authorization; retrying the access check in 1s...\n"
+    )
+
+
 def test_github_status_reads_app_config_offline(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:

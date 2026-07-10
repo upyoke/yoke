@@ -123,7 +123,7 @@ def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
                     "metadata": "read",
                     "pull_requests": "write",
                     "secrets": "write",
-                    "variables": "write",
+                    "actions_variables": "write",
                     "workflows": "write",
                 },
             }],

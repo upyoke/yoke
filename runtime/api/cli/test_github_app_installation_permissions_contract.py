@@ -28,6 +28,31 @@ def test_installation_permission_evaluator_accepts_write_for_read() -> None:
     assert evaluation["ok"] is True
 
 
+def test_variables_permission_uses_github_installation_payload_key() -> None:
+    assert dict(contract.GITHUB_VARIABLES_READ_PERMISSION_LEVELS) == {
+        "actions_variables": "read",
+    }
+    assert dict(contract.GITHUB_VARIABLES_WRITE_PERMISSION_LEVELS) == {
+        "actions_variables": "write",
+    }
+    assert (
+        "variables"
+        not in contract.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
+    )
+    granted = dict(contract.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS)
+    granted["variables"] = granted.pop("actions_variables")
+
+    evaluation = contract.evaluate_installation_repository_permissions(granted)
+
+    assert evaluation["ok"] is False
+    assert evaluation["missing"] == [{
+        "key": "actions_variables",
+        "label": "Variables",
+        "required": "write",
+        "granted": None,
+    }]
+
+
 def test_permission_level_mapping_is_derived_from_labeled_contract() -> None:
     expected = {
         permission.key: permission.access

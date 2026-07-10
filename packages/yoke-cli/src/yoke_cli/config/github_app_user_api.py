@@ -119,6 +119,7 @@ def _request_json(
     opener: Callable[..., Any] | None,
     timeout_seconds: float,
 ) -> dict[str, Any]:
+    endpoint = urllib.parse.urlsplit(url).path or "/"
     request = urllib.request.Request(
         url,
         headers={
@@ -133,8 +134,11 @@ def _request_json(
         with (opener or _urlopen)(request, timeout=timeout_seconds) as response:
             raw = response.read()
     except urllib.error.HTTPError as exc:
+        detail = _http_error_detail(exc, secret=token)
         raise GitHubAppUserApiError(
-            f"GitHub user API failed with HTTP {exc.code}", status=exc.code
+            f"GitHub user API request to {endpoint} failed with HTTP "
+            f"{exc.code}{detail}",
+            status=exc.code,
         ) from exc
     except urllib.error.URLError as exc:
         raise GitHubAppUserApiError(
@@ -147,6 +151,27 @@ def _request_json(
     if not isinstance(payload, dict):
         raise GitHubAppUserApiError("GitHub user API response must be an object")
     return payload
+
+
+def _http_error_detail(
+    exc: urllib.error.HTTPError, *, secret: str,
+) -> str:
+    parts = []
+    request_id = " ".join(str(
+        (exc.headers or {}).get("X-GitHub-Request-Id") or ""
+    ).split())
+    if request_id:
+        parts.append(f"request_id={request_id[:100]}")
+    try:
+        payload = json.loads(exc.read().decode("utf-8") or "{}")
+    except (AttributeError, OSError, UnicodeDecodeError, ValueError):
+        payload = {}
+    if isinstance(payload, Mapping):
+        message = " ".join(str(payload.get("message") or "").split())
+        if message:
+            message = message.replace(secret, "<redacted>")
+            parts.append(f"message={message[:200]}")
+    return f" ({'; '.join(parts)})" if parts else ""
 
 
 def _installation(item: Mapping[str, Any]) -> dict[str, Any]:

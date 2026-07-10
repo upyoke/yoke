@@ -28,7 +28,7 @@ _RESOLVED = ProjectGithubAuth(
     project="yoke",
     repo="upyoke/yoke",
     token="ghs_test_token",
-    permissions={"administration": "read", "variables": "read"},
+    permissions={"administration": "read", "actions_variables": "read"},
 )
 
 

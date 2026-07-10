@@ -20,7 +20,7 @@ _PERMISSIONS = {
     "checks": "read",
     "workflows": "write",
     "secrets": "write",
-    "variables": "write",
+    "actions_variables": "write",
 }
 
 

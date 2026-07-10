@@ -48,7 +48,7 @@ def _verified(
             "checks": "read",
             "workflows": "write",
             "secrets": "write",
-            "variables": "write",
+            "actions_variables": "write",
         },
         repository_id=repository_id,
         github_repo=github_repo,
