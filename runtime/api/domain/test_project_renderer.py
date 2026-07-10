@@ -6,7 +6,6 @@ Value gathering is tested with mocked subprocess calls.
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -153,7 +152,7 @@ class TestRenderProject:
         monkeypatch.setattr(
             project_renderer,
             "gather_pulumi_values",
-            lambda _project, _root, _settings=None: {
+            lambda _project, _root, _settings=None, *, pulumi_stack=None: {
                 "pulumi_infra_stack_name": "testproj-infra",
                 "state_bucket": "testproj-state",
             },
@@ -274,7 +273,7 @@ class TestCli:
             project_renderer.main(["buzz", "--write", "--only", "workflows"])
             m.assert_called_once_with(
                 "buzz", write=True, only="workflows", output_dir=None,
-                settings=None,
+                settings=None, pulumi_stack=None,
             )
 
     def test_output_dir_parsed(self, tmp_path):
@@ -288,5 +287,26 @@ class TestCli:
             ])
             m.assert_called_once_with(
                 "buzz", write=True, only="workflows", output_dir=output_dir,
-                settings=None,
+                settings=None, pulumi_stack=None,
             )
+
+    def test_pulumi_stack_selector_is_forwarded(self):
+        with mock.patch.object(project_renderer, "render_project") as render:
+            project_renderer.main([
+                "platform", "--write", "--only", "pulumi",
+                "--pulumi-stack", "yoke-stage",
+            ])
+
+        render.assert_called_once_with(
+            "platform", write=True, only="pulumi", output_dir=None,
+            settings=None, pulumi_stack="yoke-stage",
+        )
+
+    def test_pulumi_stack_selector_rejects_other_artifact_families(self):
+        with pytest.raises(SystemExit) as exc_info:
+            project_renderer.main([
+                "platform", "--only", "ops",
+                "--pulumi-stack", "yoke-stage",
+            ])
+
+        assert exc_info.value.code == 2

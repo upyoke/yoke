@@ -20,6 +20,7 @@ from .project_renderer_pulumi_instances import (
     gather_pulumi_stack_instances,
     instance_template_values,
 )
+from .project_renderer_pulumi_selection import select_pulumi_targets
 from .project_renderer_pulumi_files import (
     ENVIRONMENT_PROGRAM_FILES,
     RUNNER_FLEET_PROGRAM_FILES,
@@ -35,6 +36,7 @@ from .project_renderer_pulumi_state import (  # noqa: F401
 from .project_renderer_pulumi_stack_types import (
     STACK_TYPE_SPECS,
     gather_pulumi_stacks,
+    pulumi_stack_name,
 )
 from .project_renderer_settings import (
     ProjectRendererSettings,
@@ -48,6 +50,8 @@ def gather_pulumi_values(
     project: str,
     project_root: Path,
     settings: ProjectRendererSettings | None = None,
+    *,
+    pulumi_stack: str | None = None,
 ) -> Dict[str, str]:
     """Return the Pulumi value dict: inherited keys + VPS + Pulumi + CI keys."""
     del project_root
@@ -112,12 +116,15 @@ def gather_pulumi_values(
     values["manage_github_oidc_provider"] = _stringify(
         manage_default if manage_default is not None else True
     )
-    values.update(
-        runner_fleet_values(
+    runner_fleet_enabled = "runner-fleet" in (data.get("stacks") or [])
+    if (
+        pulumi_stack is None
+        or pulumi_stack == values["pulumi_runner_fleet_stack_name"]
+    ):
+        values.update(runner_fleet_values(
             settings, fallback_repo=values["github_repo_slug"],
-            enabled="runner-fleet" in (data.get("stacks") or []),
-        )
-    )
+            enabled=runner_fleet_enabled,
+        ))
 
     return values
 
@@ -173,6 +180,8 @@ def render_pulumi_artifacts(
     proj_dir: Path,
     write: bool,
     settings: ProjectRendererSettings | None = None,
+    *,
+    pulumi_stack: str | None = None,
 ) -> None:
     """Render ``Pulumi.yaml`` + one stack YAML per declared stack type, and
     copy the shared + per-stack program modules under ``<proj_dir>/infra/``.
@@ -187,6 +196,17 @@ def render_pulumi_artifacts(
 
     if not infra_src.is_dir():
         return
+
+    if settings is None:
+        settings = load_project_renderer_settings(project)
+    declared_stack_types = gather_pulumi_stacks(
+        project, project_root, settings
+    )
+    instances = gather_pulumi_stack_instances(project, project_root, settings)
+    stack_types, instances = select_pulumi_targets(
+        pulumi_stack, declared_stack_types, instances,
+        settings=settings, values=values,
+    )
 
     # Pulumi.yaml — rendered with substitution (no-op today; source has no
     # placeholders, but we still route through render_template so the source
@@ -214,24 +234,15 @@ def render_pulumi_artifacts(
     # template — but a direct hand-edit of a config value (rather than via
     # DB-backed renderer settings) is loudly warned about before it is
     # overwritten (_warn_on_config_divergence).
-    if settings is None:
-        settings = load_project_renderer_settings(project)
     context = _pulumi_context_from_settings(settings)
     values = dict(values)
     values.setdefault("domain_txt_records_json", _domain_txt_records_json(context))
     values.setdefault("domain_mx_records_json", _domain_mx_records_json(context))
     program_files: List[str] = list(SHARED_PROGRAM_FILES)
-    stack_types = gather_pulumi_stacks(project, project_root, settings)
-    domain_stack_owns_domain_records = "domain" in stack_types
+    domain_stack_owns_domain_records = "domain" in declared_stack_types
     for stack_type in stack_types:
         program_file, config_tmpl_name = STACK_TYPE_SPECS[stack_type]
-        # Honor an explicit per-stack name override (infra/vps carry one in the
-        # values dict for backward compat); otherwise compose <project>-<type>.
-        stack_key = stack_type.replace("-", "_")
-        stack_name = (
-            values.get(f"pulumi_{stack_key}_stack_name")
-            or f"{settings.deploy_namespace}-{stack_type}"
-        )
+        stack_name = pulumi_stack_name(stack_type, settings, values)
         stack_template = infra_src / config_tmpl_name
         if stack_template.is_file():
             # The domain config template substitutes {{manage_registration}},
@@ -301,7 +312,6 @@ def render_pulumi_artifacts(
                     program_files.append(program_file)
 
     instance_template = infra_src / "Pulumi.environment-stack.yaml.tmpl"
-    instances = gather_pulumi_stack_instances(project, project_root, settings)
     for instance in instances:
         if not instance_template.is_file():
             raise FileNotFoundError(

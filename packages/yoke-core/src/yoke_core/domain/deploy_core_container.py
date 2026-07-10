@@ -125,7 +125,7 @@ def _load_environment_stack_binding(
         [
             sys.executable, "-m", "yoke_core.tools.render_project",
             env.project, "--write", "--only", "pulumi",
-            "--output-dir", str(out_dir),
+            "--pulumi-stack", env.stack_name, "--output-dir", str(out_dir),
         ],
         timeout=300,
     )

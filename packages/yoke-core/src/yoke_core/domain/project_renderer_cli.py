@@ -32,6 +32,10 @@ def _build_parser() -> argparse.ArgumentParser:
                         choices=["all", "DEPLOY.md", "DEPLOY-checklist.md", "RECOVERY.md", "workflows", "scaffold", "ops", "pulumi"],
                         help="Filter artifact types to render")
     parser.add_argument(
+        "--pulumi-stack",
+        help="Render one exact declared stack name with --only pulumi",
+    )
+    parser.add_argument(
         "--settings-file",
         help=(
             "Render from a pulumi-stack-config payload (the body of "
@@ -59,6 +63,8 @@ def _load_settings_file(path: Path, project: str):
 def main(argv: Optional[List[str]] = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.pulumi_stack and args.only != "pulumi":
+        parser.error("--pulumi-stack requires --only pulumi")
     settings = (
         _load_settings_file(Path(args.settings_file).expanduser(), args.project)
         if args.settings_file
@@ -72,6 +78,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         only=args.only,
         output_dir=Path(args.output_dir) if args.output_dir else None,
         settings=settings,
+        pulumi_stack=args.pulumi_stack,
     )
 
 

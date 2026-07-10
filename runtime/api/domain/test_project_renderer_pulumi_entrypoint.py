@@ -20,4 +20,5 @@ def test_environment_entrypoint_imports_stack_modules_inside_dispatch():
         "webapp_api_stack",
         "webapp_database_stack",
         "webapp_environment_stack",
+        "webapp_runner_fleet_stack",
     } & top_level_imports

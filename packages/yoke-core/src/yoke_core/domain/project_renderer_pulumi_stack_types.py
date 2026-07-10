@@ -47,3 +47,16 @@ def gather_pulumi_stacks(
             f"{', '.join(unknown)}. Expected one or more of: {valid}."
         )
     return stack_types
+
+
+def pulumi_stack_name(
+    stack_type: str,
+    settings: ProjectRendererSettings,
+    values: Dict[str, str],
+) -> str:
+    """Return the rendered stack name for one declared legacy stack type."""
+    stack_key = stack_type.replace("-", "_")
+    return (
+        values.get(f"pulumi_{stack_key}_stack_name")
+        or f"{settings.deploy_namespace}-{stack_type}"
+    )

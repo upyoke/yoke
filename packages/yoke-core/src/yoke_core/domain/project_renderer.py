@@ -279,6 +279,7 @@ def render_project(
     project_root: Optional[Path] = None,
     output_dir: Optional[Path] = None,
     settings: Optional[ProjectRendererSettings] = None,
+    pulumi_stack: Optional[str] = None,
 ) -> None:
     """Main entry: gather values and render requested artifact types.
 
@@ -298,7 +299,11 @@ def render_project(
     else:
         proj_dir = default_render_output_dir(project, create=False)
 
-    values = gather_pulumi_values(project, project_root, settings)
+    if pulumi_stack is not None and only != "pulumi":
+        raise ValueError("pulumi_stack requires only='pulumi'")
+    values = gather_pulumi_values(
+        project, project_root, settings, pulumi_stack=pulumi_stack,
+    )
 
     if only in ("all", "DEPLOY.md"):
         render_deploy_md(project, values, project_root, proj_dir, write)
@@ -315,6 +320,7 @@ def render_project(
     if only in ("all", "pulumi"):
         render_pulumi_artifacts(
             project, values, project_root, proj_dir, write, settings,
+            pulumi_stack=pulumi_stack,
         )
 
 

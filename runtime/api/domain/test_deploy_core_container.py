@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from yoke_core.domain import deploy_core_container
@@ -66,7 +68,6 @@ class TestResolveEnvironmentDsn:
         )
 
         captured = {}
-
         def fake_outputs(infra_dir, location, env):
             captured["infra_dir"] = infra_dir
             return {"databaseClusterEndpoint": "ep", "databaseSecretArn": "arn"}
@@ -87,8 +88,7 @@ class TestResolveEnvironmentDsn:
         )
         argv = runner.calls[0]["argv"]
         assert "--output-dir" in argv
-        from pathlib import Path
-
+        assert argv[argv.index("--pulumi-stack") + 1] == "yoke-prod"
         out_dir = Path(argv[argv.index("--output-dir") + 1])
         assert captured["infra_dir"] == out_dir / "infra"
         assert "host=ep" in dsn and "dbname=yoke_prod" in dsn
