@@ -25,14 +25,14 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.hook_ordering import matchers_for
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.chain_registry import chain_for
-from runtime.harness.hook_runner.deadline import (
+from yoke_core.domain.hook_runner_deadline import (
     HookDeadline,
     resolve_module_timeout_ms,
     start_hook_deadline,
 )
+from runtime.harness.hook_runner.adapter_capability import AdapterCapability
 from runtime.harness.hook_runner import mode_gate as _mode_gate
 from runtime.harness.hook_runner.remote_policy import RunControls
 # The telemetry patch seam: the flush itself happens in run_tail, but the

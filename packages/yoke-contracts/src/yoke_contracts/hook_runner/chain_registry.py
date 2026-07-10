@@ -7,8 +7,15 @@ the universal ordering source of truth shared across harnesses. For
 harness-lifecycle events that have no policy chain today (`SessionStart`,
 `UserPromptSubmit`, `SessionEnd`, `Stop`, `SubagentStop`, `PreCompact`,
 `Notification`) the registry returns the same single dispatch entry the
-existing `harness_hook_ordering` table records — so cycle 1 callers see one
-list shape regardless of event family.
+existing `harness_hook_ordering` table records — so callers see one list
+shape regardless of event family.
+
+Wheel-shipped home next to the ordering table it wraps: server-side
+consumers (the doctor health checks) must resolve the chain on a
+wheels-only install, where the repo-tree hook runner is absent. The
+returned module ids are data — some (e.g. the lifecycle dispatch entry)
+name repo-tree modules that only import inside a source checkout; the
+runner's dynamic dispatch fails open per module where they are absent.
 
 Returned lists are fresh copies; mutating them does not leak back into the
 underlying `HOOK_ORDERING` mapping.

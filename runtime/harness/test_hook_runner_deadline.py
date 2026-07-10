@@ -36,7 +36,7 @@ def _patch_modules(monkeypatch: pytest.MonkeyPatch, mapping: dict[str, Any]) -> 
 def _patch_budgets(monkeypatch: pytest.MonkeyPatch, *, total_ms: int) -> None:
     monkeypatch.setattr(runner_module, "_resolve_timeout_ms", lambda: 10_000)
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.deadline.resolve_total_timeout_ms",
+        "yoke_core.domain.hook_runner_deadline.resolve_total_timeout_ms",
         lambda: total_ms,
     )
 

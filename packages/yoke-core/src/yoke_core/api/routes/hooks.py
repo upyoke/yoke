@@ -22,8 +22,20 @@ from pydantic import BaseModel, Field
 
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.api.observability import record_counter, record_histogram
-from runtime.harness.hook_runner.deadline import resolve_total_timeout_ms
-from runtime.harness.hook_runner.remote_entry import evaluate_remote
+from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
+
+# The evaluator's import closure spans the whole repo-tree hook runner
+# (runner, typed dispatch, telemetry, capability resolve, ...), which no
+# wheel ships — relocating it wholesale is a hook-runner packaging project,
+# not a route concern. A wheels-only install therefore serves this route as
+# a clean 501 (see the handler) instead of failing app import; every other
+# route stays servable. Relay clients already degrade any non-200 fail-open
+# to the event's no-op success, so hooks on such an install reduce to the
+# client-evaluated local subset.
+try:
+    from runtime.harness.hook_runner.remote_entry import evaluate_remote
+except ModuleNotFoundError:  # wheels-only install: no repo tree on sys.path
+    evaluate_remote = None  # type: ignore[assignment]
 
 
 router = APIRouter()
@@ -66,6 +78,23 @@ def post_hooks_evaluate(
     http_request: Request, request: HookEvaluateRequest,
 ) -> JSONResponse:
     """Evaluate one hook event server-side and relay the rendered decision."""
+    if evaluate_remote is None:
+        # Wheels-only install (see the guarded import above). The client
+        # treats any non-200 as fail-open no-op, which is the safe
+        # degradation — its local-subset verdict still applies.
+        return JSONResponse(
+            status_code=501,
+            content={
+                "error": {
+                    "code": "HOOK_EVALUATION_UNAVAILABLE",
+                    "message": (
+                        "server-side hook evaluation requires the repo-tree "
+                        "hook runner, which this wheels-only install does "
+                        "not ship"
+                    ),
+                }
+            },
+        )
     if request.hook_schema != HOOK_WIRE_SCHEMA:
         # An unknown schema must not be half-interpreted; the client treats
         # any non-200 as fail-open no-op, which is the safe degradation.

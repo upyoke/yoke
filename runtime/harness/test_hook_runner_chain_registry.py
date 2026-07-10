@@ -1,19 +1,18 @@
-"""Tests for ``runtime.harness.hook_runner.chain_registry``.
+"""Tests for ``yoke_contracts.hook_runner.chain_registry``.
 
-Covers AC-3 (PreToolUse Bash chain matches the universal ordering source)
-and AC-4 (apply_patch chain matches the universal ordering source), plus
-the harness-lifecycle slot the registry surfaces inline so the runner can
-treat every event family uniformly.
+Covers the tool-shaped chains (PreToolUse Bash and apply_patch match the
+universal ordering source) plus the harness-lifecycle slot the registry
+surfaces inline so the runner can treat every event family uniformly.
 """
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
-from runtime.harness.hook_runner.chain_registry import chain_for
 
 
 def test_chain_for_pretooluse_bash_matches_universal_ordering() -> None:
-    """AC-3: PreToolUse Bash chain is byte-equivalent to the universal source."""
+    """PreToolUse Bash chain is byte-equivalent to the universal source."""
     actual = chain_for("PreToolUse", "Bash")
     expected = list(ordered_pipeline_for("PreToolUse", "Bash"))
     assert actual == expected
@@ -23,7 +22,7 @@ def test_chain_for_pretooluse_bash_matches_universal_ordering() -> None:
 
 
 def test_chain_for_apply_patch_matches_universal_ordering() -> None:
-    """AC-4: apply_patch chain mirrors the universal ordering source."""
+    """apply_patch chain mirrors the universal ordering source."""
     actual = chain_for("apply_patch", None)
     # apply_patch is registered under PreToolUse[apply_patch] in the
     # universal table; the registry currently treats unknown event names

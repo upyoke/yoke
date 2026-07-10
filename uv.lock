@@ -2082,6 +2082,7 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
     { name = "yoke-cli" },
     { name = "yoke-contracts" },
+    { name = "yoke-harness" },
 ]
 
 [package.optional-dependencies]
@@ -2113,6 +2114,7 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = "==0.39.0" },
     { name = "yoke-cli", editable = "packages/yoke-cli" },
     { name = "yoke-contracts", editable = "packages/yoke-contracts" },
+    { name = "yoke-harness", editable = "packages/yoke-harness" },
 ]
 provides-extras = ["test"]
 
