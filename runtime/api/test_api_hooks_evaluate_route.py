@@ -341,3 +341,23 @@ def test_hooks_evaluate_session_start_reaps_stale_actives(client, hooks_db) -> N
         )
     finally:
         conn.close()
+
+
+def test_hooks_evaluate_returns_501_when_evaluator_unavailable(
+    client, monkeypatch,
+) -> None:
+    """Wheels-only installs (no repo-tree hook runner) serve a clean 501.
+
+    The route module import-guards ``evaluate_remote``; when the repo tree
+    is absent the handler must answer 501 rather than crash, and the relay
+    client degrades any non-200 fail-open to the event's no-op success.
+    """
+    from yoke_core.api.routes import hooks as hooks_route
+
+    monkeypatch.setattr(hooks_route, "evaluate_remote", None)
+
+    response = client.post("/v1/hooks/evaluate", json=_request_body())
+
+    assert response.status_code == 501
+    payload = response.json()
+    assert payload["error"]["code"] == "HOOK_EVALUATION_UNAVAILABLE"
