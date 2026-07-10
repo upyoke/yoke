@@ -99,7 +99,9 @@ packages/
 
 Dependency DAG (arrows = "may import"): `contracts → stdlib/pydantic`;
 `cli → contracts + transport`; `harness → contracts + transport (+ cli substrate)`;
-`core → contracts`. Every other edge is forbidden and import-graph-tested.
+`core → contracts + cli + harness` (the server reuses the client substrate and the
+client-neutral harness-identity helpers; the reverse edges stay forbidden). Every
+other edge is forbidden and import-graph-tested.
 
 ## Dev bootstrap (REQUIRED before running the test suite)
 
