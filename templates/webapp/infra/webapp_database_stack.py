@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 import pulumi
 import pulumi_aws as aws
@@ -29,6 +29,7 @@ _ZERO_ACU_GUIDANCE = (
 )
 _ENGINE_VERSION_RE = re.compile(r"(\d+)\.(\d+)")
 _IDENTIFIER_CLEANUP_RE = re.compile(r"[^a-z0-9-]+")
+_DATABASE_INGRESS_DESCRIPTION = "PostgreSQL from caller-provided origin security groups"
 
 
 @dataclass
@@ -68,7 +69,7 @@ def _supports_zero_acu(engine_version: str) -> bool:
 def _validate_args(args: WebappDatabaseArgs) -> None:
     if not args.subnet_ids:
         raise pulumi.RunError("WebappDatabaseStack requires at least one subnet_id.")
-    if not args.allowed_security_group_ids:
+    if not _deduplicated_security_group_ids(args.allowed_security_group_ids):
         raise pulumi.RunError(
             "WebappDatabaseStack requires at least one allowed_security_group_id."
         )
@@ -112,6 +113,32 @@ def _master_user_secret_arn(secrets: Any) -> str:
     if isinstance(first, dict):
         return first.get("secret_arn") or first.get("secretArn") or ""
     return getattr(first, "secret_arn", "")
+
+
+def _deduplicated_security_group_ids(values: Sequence[Any]) -> list[Any]:
+    """Return stable, unique peer ids without resolving Pulumi inputs."""
+    strings = sorted(
+        {value.strip() for value in values if isinstance(value, str) and value.strip()}
+    )
+    opaque: list[Any] = []
+    for value in values:
+        if not isinstance(value, str) and all(value is not peer for peer in opaque):
+            opaque.append(value)
+    return [*opaque, *strings]
+
+
+def _database_ingress_rules(security_group_ids: Sequence[Any]) -> list[Any]:
+    """Declare one inline ingress permission per approved peer group."""
+    return [
+        aws.ec2.SecurityGroupIngressArgs(
+            description=_DATABASE_INGRESS_DESCRIPTION,
+            protocol="tcp",
+            from_port=_POSTGRES_PORT,
+            to_port=_POSTGRES_PORT,
+            security_groups=[security_group_id],
+        )
+        for security_group_id in _deduplicated_security_group_ids(security_group_ids)
+    ]
 
 
 class _MasterSecretRotationDisabledProvider(dynamic.ResourceProvider):
@@ -207,7 +234,9 @@ class WebappDatabaseStack(pulumi.ComponentResource):
             "environment": args.environment,
         }
         child_opts = pulumi.ResourceOptions(parent=self)
-        cluster_identifier = _aws_identifier(args.deploy_namespace, args.environment, "aurora")
+        cluster_identifier = _aws_identifier(
+            args.deploy_namespace, args.environment, "aurora"
+        )
         subnet_group_name = _aws_identifier(
             args.deploy_namespace,
             args.environment,
@@ -235,15 +264,7 @@ class WebappDatabaseStack(pulumi.ComponentResource):
             "databaseSecurityGroup",
             vpc_id=args.vpc_id,
             description=f"{args.deploy_namespace} {args.environment} Aurora PostgreSQL",
-            ingress=[
-                aws.ec2.SecurityGroupIngressArgs(
-                    description="PostgreSQL from caller-provided origin security groups",
-                    protocol="tcp",
-                    from_port=_POSTGRES_PORT,
-                    to_port=_POSTGRES_PORT,
-                    security_groups=args.allowed_security_group_ids,
-                ),
-            ],
+            ingress=_database_ingress_rules(args.allowed_security_group_ids),
             egress=[
                 aws.ec2.SecurityGroupEgressArgs(
                     description="Allow database egress for AWS-managed maintenance",
