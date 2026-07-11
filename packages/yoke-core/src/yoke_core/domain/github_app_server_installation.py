@@ -192,6 +192,10 @@ def fetch_server_app_installation(
         raise GitHubServerInstallationVerificationError(
             "server GitHub App installation verification was unavailable"
         ) from exc
+    except OSError as exc:
+        raise GitHubServerInstallationVerificationError(
+            "server GitHub App installation verification was unavailable"
+        ) from exc
     except GitHubApiOriginError as exc:
         raise GitHubServerInstallationVerificationError(str(exc)) from exc
     except GitHubAppVerificationResponseError as exc:

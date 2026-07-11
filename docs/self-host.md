@@ -122,6 +122,21 @@ blocks in `docker-compose.yml`, and `docker compose up -d`. Setting
 some vars but not all fails loudly: the door answers 409 naming what is
 missing.
 
+The Compose service mounts the owner-only source secret as root, copies it
+into a container-private tmpfs as mode `0600` owned by the image's `yoke`
+user, rewrites the file binding, seals the original mount directory as
+root-only, clears supplementary groups, and drops to that user before starting
+the server. Every source must be a read-only mount; this also handles Compose
+implementations that normalize the in-container source-file mode. The same
+bootstrap protects the core database DSN and optional GitHub App key; host
+copies remain owner-only.
+Compose drops every ambient container capability, grants only the three needed
+for this handoff (`CHOWN`, `SETGID`, and `SETUID`), enables
+`no-new-privileges`, and the bootstrap refuses to start the server if any
+effective Linux capability remains after the drop. The Compose healthcheck
+uses the same immediate drop, so the service-level root override does not leave
+periodic root healthcheck processes running beside the server.
+
 **3. Decide who gets in.** Visiting `https://yoke.internal/` offers
 "Sign in"; after the provider round-trip the server admits the verified
 identity by the first matching rule:
@@ -206,11 +221,16 @@ definition in `docker-compose.yml`, then run `docker compose up -d`. The
 bundled GitHub App block is disabled until all three values and the mounted key
 are present. GitHub Enterprise Server uses its HTTPS API origin in
 `YOKE_GITHUB_APP_API_URL`; redirects to another origin are rejected.
+The key stays mode `0600` in the host bundle. The self-host bootstrap copies it
+to the core service's private tmpfs with runtime-user ownership before dropping
+root; it never weakens the host file to make a bind mount readable.
 The public profile is all-or-none. Whenever private App configuration is
 present, startup performs one bounded, no-redirect App identity check—even
 when the public profile is omitted. Missing, partial, unreadable, or identity-
 mismatched public configuration remains a detail-free `available: false` in
-health, so onboarding offers backlog-only. Health never performs a network
+health, so onboarding offers backlog-only. Partial or invalid public settings
+also emit a value-free startup warning that tells the operator to set every
+public field consistently or unset all of them. Health never performs a network
 request. After repairing a key or identity mismatch, restart the core service
 so startup can attest the repaired authority before it is advertised.
 

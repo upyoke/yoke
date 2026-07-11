@@ -26,6 +26,7 @@ def _patch_group_mount(
         st_uid=1000,
         st_gid=4321,
         st_mode=stat.S_IFREG | mode,
+        st_size=len("test-private-key"),
     )
     monkeypatch.setattr(control_plane.os, "fstat", lambda descriptor: mounted_stat)
     monkeypatch.setattr(

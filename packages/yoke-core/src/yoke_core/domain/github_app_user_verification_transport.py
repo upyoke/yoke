@@ -132,6 +132,10 @@ def _get_json(
         raise GitHubUserVerificationError(
             "GitHub user authorization verification timed out"
         ) from exc
+    except OSError as exc:
+        raise GitHubUserVerificationError(
+            "GitHub user authorization verification was unavailable"
+        ) from exc
     except GitHubApiOriginError as exc:
         raise GitHubUserVerificationError(str(exc)) from exc
     except GitHubAppVerificationResponseError as exc:
