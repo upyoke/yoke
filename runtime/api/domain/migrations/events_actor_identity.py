@@ -14,6 +14,9 @@ from yoke_core.domain.schema_common import (
 EVENTS_TABLE = "events"
 RETIRED_COLUMN = "user_id"
 RETIRED_INDEX = "idx_events_user_id"
+_JSONB_SAFE_ENVELOPE = (
+    "REPLACE(envelope, CHR(92) || 'u0000', CHR(92) || 'u0001')::jsonb"
+)
 
 
 def apply(conn: Any) -> None:
@@ -91,9 +94,9 @@ def _nonempty_value_count(conn: Any) -> int:
 def _nonnull_envelope_identity_count(conn: Any) -> int:
     row = conn.execute(
         f"SELECT COUNT(*) FROM {EVENTS_TABLE} "
-        "WHERE jsonb_typeof(envelope::jsonb) = 'object' "
-        f"AND envelope::jsonb ? '{RETIRED_COLUMN}' "
-        f"AND envelope::jsonb -> '{RETIRED_COLUMN}' "
+        f"WHERE jsonb_typeof({_JSONB_SAFE_ENVELOPE}) = 'object' "
+        f"AND {_JSONB_SAFE_ENVELOPE} ? '{RETIRED_COLUMN}' "
+        f"AND {_JSONB_SAFE_ENVELOPE} -> '{RETIRED_COLUMN}' "
         "IS DISTINCT FROM 'null'::jsonb"
     ).fetchone()
     return int(row[0]) if row is not None else 0

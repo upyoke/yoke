@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+import json
 from typing import Any
 
 import pytest
@@ -81,6 +82,101 @@ def test_apply_preserves_rows_and_historical_null_envelopes(
     )
     assert migration.RETIRED_INDEX not in set(
         _get_indexes(old_events_conn, migration.EVENTS_TABLE)
+    )
+
+
+def test_apply_preserves_envelopes_with_escaped_nul_payloads(
+    old_events_conn: Any,
+) -> None:
+    envelope = json.dumps(
+        {
+            "user_id": None,
+            "event_name": "BinaryToolOutput",
+            "context": {"output": "prefix" + chr(0) + "suffix"},
+        },
+        separators=(",", ":"),
+    )
+    old_events_conn.execute(
+        f"UPDATE {migration.EVENTS_TABLE} SET envelope = %s WHERE event_id = %s",
+        (envelope, "event-null"),
+    )
+
+    migration.apply(old_events_conn)
+    old_events_conn.commit()
+    migration.invariants(old_events_conn)
+
+    preserved = old_events_conn.execute(
+        f"SELECT envelope FROM {migration.EVENTS_TABLE} WHERE event_id = %s",
+        ("event-null",),
+    ).fetchone()[0]
+    assert preserved == envelope
+
+
+def test_apply_still_refuses_envelope_identity_alongside_escaped_nul(
+    old_events_conn: Any,
+) -> None:
+    envelope = json.dumps(
+        {
+            "user_id": "platform-user-1",
+            "context": {"output": "prefix" + chr(0) + "suffix"},
+        },
+        separators=(",", ":"),
+    )
+    old_events_conn.execute(
+        f"UPDATE {migration.EVENTS_TABLE} SET envelope = %s WHERE event_id = %s",
+        (envelope, "event-null"),
+    )
+
+    with pytest.raises(AssertionError, match="envelope has 1 non-null"):
+        migration.apply(old_events_conn)
+
+    assert _column_exists(old_events_conn, migration.EVENTS_TABLE, migration.RETIRED_COLUMN)
+
+
+def test_apply_refuses_escaped_top_level_identity_key_with_escaped_nul(
+    old_events_conn: Any,
+) -> None:
+    envelope = json.dumps(
+        {
+            "user_id": "platform-user-1",
+            "context": {"output": "prefix" + chr(0) + "suffix"},
+        },
+        separators=(",", ":"),
+    ).replace('"user_id"', '"' + chr(92) + 'u0075ser_id"')
+    old_events_conn.execute(
+        f"UPDATE {migration.EVENTS_TABLE} SET envelope = %s WHERE event_id = %s",
+        (envelope, "event-null"),
+    )
+
+    with pytest.raises(AssertionError, match="envelope has 1 non-null"):
+        migration.apply(old_events_conn)
+
+    assert _column_exists(
+        old_events_conn, migration.EVENTS_TABLE, migration.RETIRED_COLUMN
+    )
+
+
+def test_apply_refuses_malformed_envelope_with_escaped_nul(
+    old_events_conn: Any,
+) -> None:
+    import psycopg
+
+    envelope = json.dumps(
+        {"context": {"output": "prefix" + chr(0) + "suffix"}},
+        separators=(",", ":"),
+    )
+    malformed = envelope[:-1] + ",}"
+    old_events_conn.execute(
+        f"UPDATE {migration.EVENTS_TABLE} SET envelope = %s WHERE event_id = %s",
+        (malformed, "event-null"),
+    )
+
+    with pytest.raises(psycopg.errors.InvalidTextRepresentation):
+        migration.apply(old_events_conn)
+    old_events_conn.rollback()
+
+    assert _column_exists(
+        old_events_conn, migration.EVENTS_TABLE, migration.RETIRED_COLUMN
     )
 
 
