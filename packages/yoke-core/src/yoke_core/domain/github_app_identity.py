@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_contracts.github_app_public import GitHubAppPublicProfile
+
 
 class GitHubAppIdentityVerificationError(RuntimeError):
     """The configured issuer does not identify the authenticated App."""
@@ -49,8 +51,28 @@ def validate_identity_payload(
     return GitHubAppIdentity(app_id=app_id, client_id=client_id, slug=slug)
 
 
+def validate_public_profile(
+    identity: GitHubAppIdentity,
+    profile: GitHubAppPublicProfile,
+) -> None:
+    """Require authenticated App identity to match every advertised field."""
+    if identity.app_id != profile.app_id:
+        raise GitHubAppIdentityVerificationError(
+            "GitHub App identity does not match the configured public app id"
+        )
+    if identity.client_id != profile.client_id:
+        raise GitHubAppIdentityVerificationError(
+            "GitHub App identity does not match the configured public client id"
+        )
+    if identity.slug != profile.app_slug:
+        raise GitHubAppIdentityVerificationError(
+            "GitHub App identity does not match the configured public slug"
+        )
+
+
 __all__ = [
     "GitHubAppIdentity",
     "GitHubAppIdentityVerificationError",
     "validate_identity_payload",
+    "validate_public_profile",
 ]

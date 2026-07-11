@@ -47,8 +47,8 @@ class _Response:
     def geturl(self) -> str:
         return self._url
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, size: int = -1) -> bytes:
+        return self._body if size < 0 else self._body[:size]
 
 
 def _verification_opener(seen):

@@ -2,54 +2,29 @@
 
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
 import sys
-import urllib.request
 
 from yoke_core.domain.github_app_control_plane import (
-    GITHUB_APP_API_URL_ENV,
-    GITHUB_APP_ISSUER_ENV,
-    GITHUB_APP_PRIVATE_KEY_FILE_ENV,
+    load_github_app_control_plane_config,
+    load_github_app_public_profile,
 )
-from yoke_core.domain.github_app_jwt import generate_app_jwt
-from yoke_core.domain.github_app_identity import validate_identity_payload
-from yoke_contracts.github_origin import validate_github_api_endpoint
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, request, file_pointer, code, message, headers, url):
-        del request, file_pointer, code, message, headers, url
-        return None
+from yoke_core.domain.github_app_identity import validate_public_profile
+from yoke_core.domain.github_app_identity_verification import (
+    fetch_authenticated_app_identity,
+)
 
 
 def verify_mounted_identity() -> None:
     """Sign and call ``GET /app`` using only container-mounted authority."""
-    issuer = os.environ[GITHUB_APP_ISSUER_ENV].strip()
-    api_url = os.environ[GITHUB_APP_API_URL_ENV].strip()
-    key_path = Path(os.environ[GITHUB_APP_PRIVATE_KEY_FILE_ENV])
-    private_key = key_path.read_text(encoding="utf-8")
-    token = generate_app_jwt(issuer=issuer, private_key_pem=private_key)
-    endpoint = validate_github_api_endpoint(api_url)
-    url = endpoint.url("/app")
-    request = urllib.request.Request(
-        url,
-        method="GET",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "yoke-github-app",
-        },
+    profile = load_github_app_public_profile(os.environ, strict_partial=True)
+    config = load_github_app_control_plane_config()
+    identity = fetch_authenticated_app_identity(
+        config,
+        timeout_seconds=30.0,
     )
-    with urllib.request.build_opener(_NoRedirect()).open(
-        request, timeout=30,
-    ) as response:
-        if response.geturl() != url:
-            raise ValueError("unexpected response origin")
-        payload = json.load(response)
-    validate_identity_payload(issuer, payload)
+    if profile is not None:
+        validate_public_profile(identity, profile)
 
 
 def main() -> int:

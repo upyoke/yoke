@@ -11,6 +11,9 @@ from fastapi.routing import APIRouter
 import yoke_core.api.main as _main
 from yoke_contracts.api_urls import API_VERSION_PREFIX
 from yoke_contracts.engine_version import advertised_engine_version
+from yoke_core.domain.github_app_public_runtime import (
+    current_github_app_public_advertisement,
+)
 from yoke_core.domain.schema_readiness import missing_readiness_tables
 
 router = APIRouter()
@@ -44,6 +47,7 @@ def health() -> _main.HealthResponse:
         build=build,
         schema_ready=schema_ready,
         schema_missing_tables=missing,
+        github_app=current_github_app_public_advertisement(),
     )
 
 

@@ -5,6 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from yoke_contracts.github_app_public import (
+    GITHUB_APP_CLIENT_ID_ENV,
+    GITHUB_APP_ID_ENV,
+    GITHUB_APP_SLUG_ENV,
+    GITHUB_APP_WEB_URL_ENV,
+    GitHubAppPublicProfile,
+    parse_github_app_advertisement,
+)
 from yoke_contracts.github_origin import (
     GitHubApiOriginError,
     validate_github_api_endpoint,
@@ -33,6 +41,7 @@ class GitHubAppDeploymentConfig:
     api_url: str
     private_key_secret_arn: str
     kms_key_arn: str = ""
+    public_profile: GitHubAppPublicProfile | None = None
 
 
 def github_app_config_from_environment_settings(
@@ -84,12 +93,66 @@ def github_app_config_from_environment_settings(
             "environments.settings.github_app.kms_key_arn must be an AWS "
             f"KMS key ARN when set; {env_hint}"
         )
+    public_profile = _public_profile_from_settings(
+        raw.get("public"),
+        issuer=selected["issuer"],
+        api_url=api_url,
+        env_hint=env_hint,
+    )
     return GitHubAppDeploymentConfig(
         issuer=selected["issuer"],
         api_url=api_url,
         private_key_secret_arn=secret_arn,
         kms_key_arn=kms_key_arn,
+        public_profile=public_profile,
     )
+
+
+def _public_profile_from_settings(
+    raw: Any,
+    *,
+    issuer: str,
+    api_url: str,
+    env_hint: str,
+) -> GitHubAppPublicProfile | None:
+    """Parse the optional product-facing profile inside private App config."""
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise GitHubAppDeploymentConfigError(
+            f"environments.settings.github_app.public must be an object; {env_hint}"
+        )
+    unexpected = sorted(set(raw) - {"client_id", "app_slug", "app_id", "web_url"})
+    if unexpected:
+        raise GitHubAppDeploymentConfigError(
+            "environments.settings.github_app.public has unsupported keys: "
+            f"{', '.join(str(key) for key in unexpected)}; {env_hint}"
+        )
+    try:
+        parsed = parse_github_app_advertisement(
+            {
+                "available": True,
+                "client_id": raw.get("client_id"),
+                "app_slug": raw.get("app_slug"),
+                "app_id": raw.get("app_id"),
+                "api_url": api_url,
+                "web_url": raw.get("web_url"),
+            }
+        )
+    except ValueError as exc:
+        raise GitHubAppDeploymentConfigError(
+            "environments.settings.github_app.public is incomplete or invalid; "
+            f"{env_hint}"
+        ) from exc
+    if not isinstance(parsed, GitHubAppPublicProfile):
+        raise GitHubAppDeploymentConfigError(
+            f"environments.settings.github_app.public is unavailable; {env_hint}"
+        )
+    if issuer not in {parsed.client_id, str(parsed.app_id)}:
+        raise GitHubAppDeploymentConfigError(
+            f"environments.settings.github_app.public does not match issuer; {env_hint}"
+        )
+    return parsed
 
 
 def github_app_render_values(env: Any) -> dict[str, str]:
@@ -130,11 +193,22 @@ def github_app_env_lines(env: Any) -> list[str]:
         GITHUB_APP_PRIVATE_KEY_FILE_ENV,
     )
 
-    return [
+    lines = [
         f"{GITHUB_APP_ISSUER_ENV}={env.github_app.issuer}",
         f"{GITHUB_APP_API_URL_ENV}={env.github_app.api_url}",
         f"{GITHUB_APP_PRIVATE_KEY_FILE_ENV}={GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH}",
     ]
+    profile = env.github_app.public_profile
+    if profile is not None:
+        lines.extend(
+            [
+                f"{GITHUB_APP_CLIENT_ID_ENV}={profile.client_id}",
+                f"{GITHUB_APP_SLUG_ENV}={profile.app_slug}",
+                f"{GITHUB_APP_ID_ENV}={profile.app_id}",
+                f"{GITHUB_APP_WEB_URL_ENV}={profile.web_url}",
+            ]
+        )
+    return lines
 
 
 __all__ = [

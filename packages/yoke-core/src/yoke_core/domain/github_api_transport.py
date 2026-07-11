@@ -23,12 +23,19 @@ class _ExactOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+class _RejectRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        del req, fp, code, msg, headers, newurl
+        return None
+
+
 def open_same_origin(
     request: urllib.request.Request,
     *,
     endpoint: GitHubApiEndpoint,
     timeout_seconds: float,
     opener: Callable[..., Any] | None = None,
+    reject_redirects: bool = False,
 ) -> Any:
     """Open ``request`` while refusing cross-origin redirects."""
     require_same_github_origin(request.full_url, endpoint)
@@ -38,7 +45,12 @@ def open_same_origin(
         require_same_github_origin(str(final_url), endpoint)
         return response
     block_live_test_call(urllib.request.urlopen, urllib.request.urlopen)
-    safe_opener = urllib.request.build_opener(_ExactOriginRedirectHandler(endpoint))
+    redirect_handler = (
+        _RejectRedirectHandler()
+        if reject_redirects
+        else _ExactOriginRedirectHandler(endpoint)
+    )
+    safe_opener = urllib.request.build_opener(redirect_handler)
     return safe_opener.open(request, timeout=timeout_seconds)
 
 
