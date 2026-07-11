@@ -76,8 +76,7 @@ bootstrap_failed() {{
   trap - ERR
   cleanup_bootstrap
   if [ -n "${{INSTANCE_ID:-}}" ] && command -v aws >/dev/null 2>&1; then
-    github_broker "{{\"action\":\"failed\",\"instance_id\":\"${{INSTANCE_ID}}\"}}" \
-      >/dev/null 2>&1 || true
+    github_broker failed >/dev/null 2>&1 || true
   fi
   exit "${{rc}}"
 }}
@@ -117,9 +116,14 @@ INSTANCE_ID="$(curl -fsS -H "X-aws-ec2-metadata-token: ${{IMDS_TOKEN}}" \
 HOST_PREFIX="${{PREFIX}}-${{INSTANCE_ID}}"
 
 github_broker() {{
-  local payload="$1"
+  local action="$1"
+  local payload
   local response_file
   local function_error
+  payload="$(jq -cn \
+    --arg action "${{action}}" \
+    --arg instance_id "${{INSTANCE_ID}}" \
+    '{{action:$action,instance_id:$instance_id}}')"
   response_file="$(mktemp /tmp/yoke-runner-broker.XXXXXX)"
   if ! function_error="$(aws lambda invoke \
       --function-name "${{GITHUB_BROKER_FUNCTION}}" \
@@ -141,8 +145,7 @@ github_broker() {{
 
 BOOTSTRAP_FILE="$(mktemp /run/yoke-runner-bootstrap.XXXXXX)"
 chmod 600 "${{BOOTSTRAP_FILE}}"
-github_broker "{{\"action\":\"bootstrap\",\"instance_id\":\"${{INSTANCE_ID}}\"}}" \
-  >"${{BOOTSTRAP_FILE}}"
+github_broker bootstrap >"${{BOOTSTRAP_FILE}}"
 RUNNER_DOWNLOAD_URL="$(jq -r '.download_url // empty' "${{BOOTSTRAP_FILE}}")"
 if [ -z "${{RUNNER_DOWNLOAD_URL}}" ] || [ "${{RUNNER_DOWNLOAD_URL}}" = "null" ]; then
   echo "Could not resolve actions runner download URL" >&2
@@ -167,8 +170,7 @@ sudo -u actions bash -c \
   "${{HOST_PREFIX}}" "${{RUNNER_LABELS}}"
 unset reg_token
 cleanup_bootstrap
-github_broker "{{\"action\":\"ready\",\"instance_id\":\"${{INSTANCE_ID}}\"}}" \
-  >/dev/null
+github_broker ready >/dev/null
 (cd "${{dir}}" && ./svc.sh install actions && ./svc.sh start)
 trap - ERR
 """

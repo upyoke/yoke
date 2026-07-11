@@ -38,6 +38,7 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     assert "runnerDownloadUrl()" in source
     assert "runner bootstrap was already consumed" in source
     assert "currentAsgInstanceIds" in aws_state_source
+    assert "MaxRecords: 50" in aws_state_source
     assert "termination_acknowledged" in termination_source
     assert "redirect: \"error\"" in api_source
     assert "validatedApiBase" in api_source

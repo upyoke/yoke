@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import json
+import os
 import subprocess
 import types
 
@@ -37,10 +39,11 @@ def test_launch_template_uses_selected_size_and_disposable_root(monkeypatch):
     assert "awscli-exe-linux-${AWSCLI_ARCH}.zip" in user_data
     assert "AWSCLI_ARCH=\"aarch64\"" in user_data
     assert "actions/runners/downloads" not in user_data
-    assert '\"action\":\"bootstrap\"' in user_data
-    assert user_data.count('"action":"bootstrap"') == 1
-    assert user_data.count('"action":"ready"') == 1
-    assert user_data.count('"action":"failed"') == 1
+    assert "github_broker bootstrap" in user_data
+    assert "github_broker ready" in user_data
+    assert "github_broker failed" in user_data
+    assert "jq -cn" in user_data
+    assert "{action:$action,instance_id:$instance_id}" in user_data
     assert '"action":"reap"' not in user_data
     assert ".registration_token // empty" in user_data
     assert "releases/latest" not in user_data
@@ -65,6 +68,62 @@ def test_launch_template_uses_selected_size_and_disposable_root(monkeypatch):
     assert "aws lambda invoke" in user_data
     assert "GITHUB_TOKEN" not in user_data
     assert "ssm get-parameter" not in user_data
+
+
+def test_user_data_serializes_broker_actions_as_json(monkeypatch, tmp_path):
+    recorder, _stack = _runner_stack(monkeypatch)
+    launch_template = recorder.single("runnerFleetLaunchTemplate")
+    user_data = base64.b64decode(
+        launch_template.kwargs["user_data"],
+    ).decode()
+    function = user_data.split("github_broker() {", 1)[1].split(
+        "\n\nBOOTSTRAP_FILE=", 1,
+    )[0]
+    aws_path = tmp_path / "aws"
+    aws_path.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, pathlib, sys\n"
+        "args = sys.argv[1:]\n"
+        "payload = args[args.index('--payload') + 1]\n"
+        "pathlib.Path(os.environ['PAYLOAD_PATH']).write_text(payload)\n"
+        "pathlib.Path(os.environ['ARGS_PATH']).write_text(json.dumps(args))\n"
+        "pathlib.Path(args[-1]).write_text('{}')\n"
+        "print('None')\n"
+    )
+    aws_path.chmod(0o755)
+    observed = []
+    for action in ("bootstrap", "ready", "failed"):
+        payload_path = tmp_path / f"{action}-payload.json"
+        args_path = tmp_path / f"{action}-args.json"
+        env = dict(os.environ)
+        env["PATH"] = f"{tmp_path}:{env['PATH']}"
+        env["PAYLOAD_PATH"] = str(payload_path)
+        env["ARGS_PATH"] = str(args_path)
+        subprocess.run(
+            ["bash"],
+            input=(
+                "set -euo pipefail\n"
+                "GITHUB_BROKER_FUNCTION=broker\n"
+                "REGION=us-east-1\n"
+                "INSTANCE_ID=i-0123456789abcdef0\n"
+                f"github_broker() {{{function}\n"
+                f"github_broker {action} >/dev/null\n"
+            ),
+            text=True,
+            check=True,
+            capture_output=True,
+            env=env,
+        )
+        observed.append(json.loads(payload_path.read_text()))
+        argv = json.loads(args_path.read_text())
+        assert argv[argv.index("--cli-binary-format") + 1] == (
+            "raw-in-base64-out"
+        )
+
+    assert observed == [
+        {"action": action, "instance_id": "i-0123456789abcdef0"}
+        for action in ("bootstrap", "ready", "failed")
+    ]
 
 
 def test_runner_network_is_dedicated_and_egress_limited(monkeypatch):

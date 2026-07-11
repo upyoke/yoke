@@ -50,7 +50,7 @@ export async function currentAsgInstanceIds() {
   let nextToken;
   do {
     const page = await autoscaling.send(new DescribeAutoScalingInstancesCommand({
-      MaxRecords: 100, NextToken: nextToken,
+      MaxRecords: 50, NextToken: nextToken,
     }));
     for (const item of page.AutoScalingInstances || []) {
       if (item.AutoScalingGroupName === asgName && item.InstanceId &&

@@ -44,6 +44,9 @@ def _write_node_fixture(tmp_path: Path) -> None:
         export class AutoScalingClient {
           async send(command) {
             if (command instanceof DescribeAutoScalingInstancesCommand) {
+              if ((command.input.MaxRecords || 50) > 50) {
+                throw new Error("DescribeAutoScalingInstances MaxRecords exceeds API limit");
+              }
               const active = globalThis.__activeInstances === false ? [] : [{
                 InstanceId: "i-0123456789abcdef0",
                 AutoScalingGroupName: process.env.RUNNER_ASG_NAME,
