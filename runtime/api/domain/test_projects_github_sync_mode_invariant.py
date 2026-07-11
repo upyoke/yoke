@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from runtime.api.fixtures import pg_testdb
@@ -14,6 +16,9 @@ from yoke_core.domain.project_github_binding import cmd_bind_project_repo
 from yoke_core.domain.projects_crud import cmd_create, cmd_get, cmd_update
 from yoke_core.domain.projects_github_sync_mode import GithubSyncModeError
 from yoke_core.domain.projects_github_sync_mode_repair import (
+    REPAIR_ACTION_CLEAR_REPO_PROJECTION,
+    REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION,
+    REPAIR_ACTION_SET_BACKLOG_ONLY,
     cmd_repair_unbound_enabled_sync_modes,
 )
 from yoke_core.domain.projects_upsert import cmd_upsert
@@ -72,6 +77,23 @@ def _bind_buzz() -> None:
         expected_api_url="https://api.github.com",
         github_user_access_token="short-lived-user-token",
         verifier=lambda **_kwargs: _verified(),
+    )
+
+
+def _bind_yoke() -> None:
+    verified = replace(
+        _verified(),
+        repository_id="7702",
+        github_repo="Example/Yoke",
+    )
+    cmd_bind_project_repo(
+        "yoke",
+        installation_id=verified.installation_id,
+        repository_id=verified.repository_id,
+        github_repo=verified.github_repo,
+        expected_api_url="https://api.github.com",
+        github_user_access_token="short-lived-user-token",
+        verifier=lambda **_kwargs: verified,
     )
 
 
@@ -201,3 +223,139 @@ def test_repair_can_target_one_project(project_db):
     assert report["normalized"] == 1
     assert [row["slug"] for row in report["projects"]] == ["yoke"]
     assert cmd_get("yoke", "github_sync_mode") == "backlog_only"
+
+
+def test_repair_converges_buzz_shaped_unbound_projections_idempotently(
+    project_db,
+):
+    _bind_yoke()
+    conn = pg_testdb.connect_test_database(project_db)
+    try:
+        conn.execute(
+            "UPDATE projects SET github_repo=%s, github_sync_mode=NULL "
+            "WHERE slug='buzz'",
+            ("beebauman/buzz",),
+        )
+        conn.execute(
+            "INSERT INTO project_capabilities (project_id, type, settings) "
+            "VALUES (2, 'github', %s)",
+            ('{"repo_owner":"beebauman","repo_name":"buzz"}',),
+        )
+        conn.execute(
+            "INSERT INTO capability_secrets "
+            "(project_id, type, key, value, source) "
+            "VALUES (2, 'github', 'token', 'stranded-token', 'literal')"
+        )
+        conn.commit()
+
+        preview = cmd_repair_unbound_enabled_sync_modes(
+            project="buzz",
+            conn=conn,
+        )
+
+        assert preview == {
+            "applied": False,
+            "matched": 1,
+            "normalized": 0,
+            "projects": [
+                {
+                    "id": 2,
+                    "slug": "buzz",
+                    "stored_mode": None,
+                    "effective_mode": "enabled",
+                    "bound": False,
+                    "active_verified_binding": False,
+                    "actions": [
+                        {
+                            "action": REPAIR_ACTION_SET_BACKLOG_ONLY,
+                            "column": "github_sync_mode",
+                            "from": None,
+                            "to": "backlog_only",
+                        },
+                        {
+                            "action": REPAIR_ACTION_CLEAR_REPO_PROJECTION,
+                            "column": "github_repo",
+                            "from": "beebauman/buzz",
+                            "to": None,
+                        },
+                        {
+                            "action": REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION,
+                            "table": "project_capabilities",
+                            "type": "github",
+                        },
+                    ],
+                }
+            ],
+        }
+        before_apply = conn.execute(
+            "SELECT github_repo, github_sync_mode FROM projects WHERE id=2"
+        ).fetchone()
+        assert dict(before_apply) == {
+            "github_repo": "beebauman/buzz",
+            "github_sync_mode": None,
+        }
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM project_capabilities "
+                "WHERE project_id=2 AND type='github'"
+            ).fetchone()[0]
+            == 1
+        )
+
+        repaired = cmd_repair_unbound_enabled_sync_modes(
+            project="buzz",
+            apply=True,
+            conn=conn,
+        )
+
+        assert repaired["matched"] == 1
+        assert repaired["normalized"] == 1
+        repaired_project = conn.execute(
+            "SELECT github_repo, github_sync_mode FROM projects WHERE id=2"
+        ).fetchone()
+        assert dict(repaired_project) == {
+            "github_repo": None,
+            "github_sync_mode": "backlog_only",
+        }
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM project_capabilities "
+                "WHERE project_id=2 AND type='github'"
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            conn.execute(
+                "SELECT value FROM capability_secrets "
+                "WHERE project_id=2 AND type='github' AND key='token'"
+            ).fetchone()[0]
+            == "stranded-token"
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM github_app_installations "
+                "WHERE installation_id='8801'"
+            ).fetchone()[0]
+            == 1
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM project_github_repo_bindings "
+                "WHERE project_id=1 AND installation_id='8801'"
+            ).fetchone()[0]
+            == 1
+        )
+
+        repeated = cmd_repair_unbound_enabled_sync_modes(
+            project="buzz",
+            apply=True,
+            conn=conn,
+        )
+        assert repeated == {
+            "applied": True,
+            "matched": 0,
+            "normalized": 0,
+            "projects": [],
+        }
+    finally:
+        conn.close()

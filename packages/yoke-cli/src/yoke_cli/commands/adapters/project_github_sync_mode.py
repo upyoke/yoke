@@ -25,7 +25,9 @@ def projects_github_sync_mode_repair(args: List[str]) -> int:
         prog="yoke projects github-sync-mode repair",
         description=(
             "Find enabled (including legacy NULL) projects without an active, "
-            "verified GitHub App binding. Dry-run unless --apply is supplied."
+            "verified GitHub App binding, plus unbound projects with stale "
+            "repository/capability projections. Dry-run unless --apply is "
+            "supplied."
         ),
     )
     parser.add_argument("--project", default=None)

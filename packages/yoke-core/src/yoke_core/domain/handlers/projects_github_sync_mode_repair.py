@@ -1,4 +1,4 @@
-"""Handler for explicit repair of unsafe legacy GitHub sync modes."""
+"""Handler for unsafe sync-mode and unbound-projection repair."""
 
 from __future__ import annotations
 
