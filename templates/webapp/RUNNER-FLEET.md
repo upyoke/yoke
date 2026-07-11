@@ -86,13 +86,15 @@ variable writes are drift. V1 runs one ephemeral host with DNS and web egress.
 Deployment workflows must explicitly list every environment they reach over
 SSH in `network.deployment_ssh_environments`. The renderer resolves each
 selected active environment to its Pulumi stack, and the runner stack consumes
-that stack's `originElasticIpAddress` output as one exact `/32` TCP/22 egress
-rule. Standalone deployment stacks that have no environment row belong in
-`network.deployment_ssh_stack_names`; entries must be Pulumi stack names or
-qualified `org/project/stack` references. The renderer appends those explicit
-names after environment-derived stacks and removes overlap without widening
-the rule. Both lists default empty. Literal addresses and CIDRs are not
-configuration: every target is resolved through a `Pulumi.StackReference`,
-and unrestricted SSH egress is never inferred.
+that stack's established `originElasticIpAddress` output as one exact `/32`
+TCP/22 egress rule. Standalone VPS stacks that have no environment row belong
+in `network.deployment_ssh_stack_names`; entries must be Pulumi stack names or
+qualified `org/project/stack` references, and bind to the standalone stack's
+established `vpsElasticIpAddress` output. The renderer carries this provenance
+as an exact stack-to-output contract, appends standalone stacks after
+environment-derived stacks, and removes overlap without widening the rule.
+Both lists default empty. Literal addresses and CIDRs are not configuration:
+every target and exact output are resolved through a `Pulumi.StackReference`,
+and missing outputs or unrestricted SSH egress are never inferred.
 
 See the [Pulumi ActionsVariable import contract](https://www.pulumi.com/registry/packages/github/api-docs/actionsvariable/#import).

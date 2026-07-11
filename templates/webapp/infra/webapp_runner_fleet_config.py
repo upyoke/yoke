@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Mapping, Sequence
 
 
 @dataclass
@@ -36,7 +36,7 @@ class WebappRunnerFleetArgs:
     root_volume_gb: int
     idle_shutdown_minutes: int
     shutdown_mode: str
-    deployment_ssh_stack_names: Sequence[str]
+    deployment_ssh_stack_outputs: Mapping[str, str]
 
 
 def validate_runner_fleet_configuration(args: WebappRunnerFleetArgs) -> None:

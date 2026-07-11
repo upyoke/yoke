@@ -162,8 +162,8 @@ def test_runner_network_is_dedicated_and_egress_limited(monkeypatch):
 def test_runner_network_omits_ssh_without_deployment_stacks(monkeypatch):
     recorder, _stack = _runner_stack(
         monkeypatch,
-        config_overrides={"deployment_ssh_stack_names": []},
-        authority_overrides={"deployment_ssh_stack_names": []},
+        config_overrides={"deployment_ssh_stack_outputs": {}},
+        authority_overrides={"deployment_ssh_stack_outputs": {}},
     )
     egress = recorder.single("runnerFleetSecurityGroup").kwargs["egress"]
 
@@ -175,7 +175,7 @@ def test_runner_network_rejects_non_ipv4_stack_output(monkeypatch):
     with pytest.raises(RuntimeError, match="must use an IPv4 Elastic IP"):
         _runner_stack(
             monkeypatch,
-            deployment_ssh_stack_outputs={
+            stack_reference_outputs={
                 "yoke-prod": {"originElasticIpAddress": "2001:db8::1"},
                 "yoke-stage": {"originElasticIpAddress": "203.0.113.11"},
             },

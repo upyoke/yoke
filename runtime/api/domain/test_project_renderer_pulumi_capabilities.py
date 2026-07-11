@@ -150,8 +150,8 @@ def test_runner_fleet_keys_from_capability(tmp_path):
     assert result["runner_fleet_root_volume_gb"] == "100"
     assert result["runner_fleet_idle_shutdown_minutes"] == "15"
     assert result["runner_fleet_shutdown_mode"] == "terminate"
-    assert result["runner_fleet_deployment_ssh_stack_names_json"] == (
-        '["buzz-prod"]'
+    assert result["runner_fleet_deployment_ssh_stack_outputs_json"] == (
+        '{"buzz-prod":"originElasticIpAddress"}'
     )
 
 

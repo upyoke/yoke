@@ -33,7 +33,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "  webapp-infra:routing_enabled: \"{{runner_fleet_routing_enabled}}\"\n"
         "  webapp-infra:instance_type: {{runner_fleet_instance_type}}\n"
         "  webapp-infra:root_volume_gb: \"{{runner_fleet_root_volume_gb}}\"\n"
-        "  webapp-infra:deployment_ssh_stack_names: '{{runner_fleet_deployment_ssh_stack_names_json}}'\n"
+        "  webapp-infra:deployment_ssh_stack_outputs: '{{runner_fleet_deployment_ssh_stack_outputs_json}}'\n"
     )
     (infra / "__main__.py").write_text("# pulumi entrypoint\n")
     (infra / "webapp_runner_fleet_stack.py").write_text("# runners\n")
@@ -91,8 +91,10 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "runner_fleet_routing_enabled": "true",
         "runner_fleet_instance_type": "m7g.2xlarge",
         "runner_fleet_root_volume_gb": "200",
-        "runner_fleet_deployment_ssh_stack_names_json": (
-            '["buzz-prod","buzz-stage","yoke-platform-vps"]'
+        "runner_fleet_deployment_ssh_stack_outputs_json": (
+            '{"buzz-prod":"originElasticIpAddress",'
+            '"buzz-stage":"originElasticIpAddress",'
+            '"yoke-platform-vps":"vpsElasticIpAddress"}'
         ),
     }
 
@@ -133,7 +135,9 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     assert 'webapp-infra:routing_enabled: "true"' in rendered
     assert 'webapp-infra:root_volume_gb: "200"' in rendered
     assert (
-        "webapp-infra:deployment_ssh_stack_names: "
-        "'[\"buzz-prod\",\"buzz-stage\",\"yoke-platform-vps\"]'"
+        "webapp-infra:deployment_ssh_stack_outputs: "
+        "'{\"buzz-prod\":\"originElasticIpAddress\","
+        "\"buzz-stage\":\"originElasticIpAddress\","
+        "\"yoke-platform-vps\":\"vpsElasticIpAddress\"}'"
     ) in rendered
     assert "{{" not in rendered
