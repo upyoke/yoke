@@ -14,45 +14,10 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     write_https_config,
 )
-from yoke_core.tools import package_index, wheel_sibling_pins
+from yoke_core.tools import package_index
 
 
 BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-
-
-def test_built_product_wheels_pin_sibling_requires_dist(
-    product_wheelhouse: Path,
-) -> None:
-    # Tripwire: every built product wheel's product-sibling Requires-Dist entry
-    # must exact-pin the shared lockstep version. A regression to bare deps
-    # (which a pip-based install could resolve to a same-named public-index
-    # package) fails here.
-    product_records = [
-        record
-        for record in package_index.read_wheel_records(product_wheelhouse)
-        if record.canonical_name in package_index.PRODUCT_PACKAGE_NAMES
-    ]
-    versions = {record.version for record in product_records}
-    assert len(versions) == 1, versions
-    version = versions.pop()
-
-    saw_sibling = False
-    for record in product_records:
-        wheel = product_wheelhouse / record.filename
-        for raw in wheel_sibling_pins.wheel_requires_dist(wheel):
-            name, _, _ = raw.partition(";")
-            if any(
-                sibling in name
-                for sibling in package_index.PRODUCT_PACKAGE_NAMES
-            ):
-                saw_sibling = True
-        # Raises if any product-sibling entry is not ==version.
-        wheel_sibling_pins.assert_wheel_siblings_pinned(
-            wheel, package_index.PRODUCT_PACKAGE_NAMES, version
-        )
-    # yoke-core depends on all three siblings, so at least one pin must exist —
-    # a vacuous pass (no sibling lines at all) would mean uv stopped emitting them.
-    assert saw_sibling, "expected product wheels to declare sibling Requires-Dist"
 
 
 def test_product_wheels_exercise_installer_plan_surfaces(

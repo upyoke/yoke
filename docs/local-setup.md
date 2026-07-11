@@ -430,10 +430,8 @@ nothing.
 
 Source-dev/admin-only work includes:
 
-- Building or publishing release artifacts with
-  `uv run python -m yoke_core.tools.build_release`. Built product wheels carry
-  exact lockstep-pinned sibling `Requires-Dist` (channel integrity: pip-based
-  installs cannot resolve a same-named public-index package).
+- Building or publishing with `uv run python -m yoke_core.tools.build_release`;
+  product wheels exact-pin sibling `Requires-Dist` to prevent substitution.
 - Updating install bundles and rendered agent packets.
 - Minting actor tokens and granting roles for a deployed env.
 - Creating or repairing server-side project rows, capabilities, and deployment

@@ -24,8 +24,20 @@ from pathlib import Path
 from typing import Iterable, Sequence
 from urllib.parse import quote
 
+from packaging.utils import (
+    canonicalize_name as canonicalize_package_name,
+    parse_wheel_filename,
+)
+from packaging.version import Version
 
-PRODUCT_PACKAGE_NAMES = ("yoke-contracts", "yoke-cli", "yoke-harness", "yoke-core")
+
+PRODUCT_SIBLING_DEPENDENCIES = {
+    "yoke-contracts": (),
+    "yoke-cli": ("yoke-contracts",),
+    "yoke-harness": ("yoke-contracts", "yoke-cli"),
+    "yoke-core": ("yoke-contracts", "yoke-cli", "yoke-harness"),
+}
+PRODUCT_PACKAGE_NAMES = tuple(PRODUCT_SIBLING_DEPENDENCIES)
 ROOT_INDEX_FILENAME = "index.html"
 
 _NAME_NORMALIZE = re.compile(r"[-_.]+")
@@ -199,11 +211,17 @@ def _write_project_index(
 
 
 def _read_wheel_record(path: Path) -> WheelRecord:
-    metadata = _wheel_metadata(path)
+    metadata, metadata_arcname = _wheel_metadata(path)
     name = metadata.get("Name")
     version = metadata.get("Version")
     if not name or not version:
         raise ValueError(f"wheel metadata missing Name/Version: {path}")
+    _validate_wheel_identity(
+        path=path,
+        metadata_arcname=metadata_arcname,
+        name=name,
+        version=version,
+    )
     data = path.read_bytes()
     return WheelRecord(
         name=canonical_name(name),
@@ -215,7 +233,7 @@ def _read_wheel_record(path: Path) -> WheelRecord:
     )
 
 
-def _wheel_metadata(path: Path) -> dict[str, str]:
+def _wheel_metadata(path: Path) -> tuple[dict[str, str], str]:
     with zipfile.ZipFile(path) as wheel:
         metadata_files = [
             name for name in wheel.namelist()
@@ -226,7 +244,34 @@ def _wheel_metadata(path: Path) -> dict[str, str]:
         message = Parser().parsestr(
             wheel.read(metadata_files[0]).decode("utf-8")
         )
-    return {key: value for key, value in message.items()}
+    return (
+        {key: value for key, value in message.items()},
+        metadata_files[0],
+    )
+
+
+def _validate_wheel_identity(
+    *,
+    path: Path,
+    metadata_arcname: str,
+    name: str,
+    version: str,
+) -> None:
+    filename_name, filename_version, _, _ = parse_wheel_filename(path.name)
+    metadata_name = canonicalize_package_name(name)
+    metadata_version = Version(version)
+    if metadata_name != filename_name or metadata_version != filename_version:
+        raise ValueError(
+            f"wheel filename identity does not match METADATA: {path}"
+        )
+    dist_info_name = str(metadata_name).replace("-", "_")
+    expected_metadata_arcname = (
+        f"{dist_info_name}-{metadata_version}.dist-info/METADATA"
+    )
+    if metadata_arcname != expected_metadata_arcname:
+        raise ValueError(
+            f"wheel dist-info identity does not match METADATA: {path}"
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:

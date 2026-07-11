@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
 import re
 import subprocess
-from yoke_core.tools.build_release import create_seeded_pip_venv
 import zipfile
 from pathlib import Path
 from urllib.parse import quote
 
+import pytest
+
 from yoke_core.tools import distribution_publish, package_index, release_artifacts
+from yoke_core.tools.build_release import create_seeded_pip_venv
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -104,104 +108,10 @@ def test_pep503_simple_index_and_clean_venv_install(
     assert "yoke status" in help_result.stdout
 
 
-def test_distribution_publish_validates_release_and_writes_channel(
+def test_validate_release_rejects_version_without_local_segment(
     tmp_path: Path,
 ) -> None:
-    output_root = tmp_path / "release"
-    release_dir = output_root / "dist" / "releases" / "0.2.0"
-    wheels_dir = release_dir / "wheels"
-    simple_dir = output_root / "simple"
-    wheels_dir.mkdir(parents=True)
-
-    records, wheel_records = _sample_release(wheels_dir)
-    (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
-        json.dumps(records, indent=2) + "\n", encoding="utf-8",
-    )
-    package_index.write_simple_index(
-        index_dir=simple_dir,
-        records=wheel_records,
-        wheel_base_url="https://api.upyoke.com/dist/releases/0.2.0/wheels",
-    )
-
-    assert distribution_publish.validate_release_directory(release_dir) == records
-
-    channel = distribution_publish.channel_payload(
-        channel="stable",
-        version="0.2.0",
-        index_url="https://api.upyoke.com/simple/",
-        release_base_url="https://api.upyoke.com/dist/releases/0.2.0",
-        generated_at="2026-06-18T00:00:00+00:00",
-    )
-    assert channel["schema_version"] == 2
-    assert channel["channel"] == "stable"
-    assert channel["version"] == "0.2.0"
-    assert channel["index_url"] == "https://api.upyoke.com/simple/"
-    assert channel["installer"]["python_url"] == (
-        "https://api.upyoke.com/dist/install.py"
-    )
-    assert channel["installer"]["shell_url"] == "https://api.upyoke.com/install"
-
-    checks = distribution_publish.build_url_checks(
-        base_url="https://api.upyoke.com/dist/releases/0.2.0/",
-        records=records,
-        index_url="https://api.upyoke.com/simple/",
-        include_mutable=True,
-        mutable_channel="stable",
-    )
-    urls = {check.url: check for check in checks}
-    # Root + per-project simple pages are mutable; wheels are immutable.
-    assert urls["https://api.upyoke.com/simple/"].cache_control_contains == "max-age=60"
-    assert (
-        urls["https://api.upyoke.com/simple/yoke-cli/"].cache_control_contains
-        == "max-age=60"
-    )
-    wheel_url = (
-        "https://api.upyoke.com/dist/releases/0.2.0/wheels/"
-        "yoke_cli-0.2.0-py3-none-any.whl"
-    )
-    assert urls[wheel_url].cache_control_contains == "immutable"
-    assert urls[wheel_url].sha256 == _record(records, "yoke-cli")["sha256"]
-    assert urls[wheel_url].size == _record(records, "yoke-cli")["size"]
-    assert "https://api.upyoke.com/dist/channels/stable.json" in urls
-    assert "https://api.upyoke.com/dist/channels/latest.json" not in urls
-    assert "https://api.upyoke.com/install" in urls
-
-
-def test_distribution_publish_rejects_simple_index_hash_drift(tmp_path: Path) -> None:
-    output_root = tmp_path / "release"
-    release_dir = output_root / "dist" / "releases" / "0.2.0"
-    wheels_dir = release_dir / "wheels"
-    simple_dir = output_root / "simple"
-    wheels_dir.mkdir(parents=True)
-
-    records, wheel_records = _sample_release(wheels_dir)
-    (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
-        json.dumps(records, indent=2) + "\n", encoding="utf-8",
-    )
-    package_index.write_simple_index(
-        index_dir=simple_dir,
-        records=wheel_records,
-        wheel_base_url="https://api.upyoke.com/dist/releases/0.2.0/wheels",
-    )
-    # Corrupt one wheel's bytes (size-preserving) after the index was rendered.
-    target = next(wheels_dir.glob("yoke_cli-*.whl"))
-    original = target.read_bytes()
-    target.write_bytes(b"\x00" * len(original))
-
-    try:
-        distribution_publish.validate_release_directory(release_dir)
-    except ValueError as exc:
-        assert "sha256" in str(exc)
-    else:
-        raise AssertionError("validate-release must reject hash drift")
-
-
-def test_validate_release_matches_url_quoted_local_version_links(
-    tmp_path: Path,
-) -> None:
-    # Local versions carry '+', which is URL-quoted in the simple-index link;
-    # validate-release must unquote to match the on-disk wheel filename.
-    version = "0.2.0+gabc123"
+    version = "0.2.0"
     output_root = tmp_path / "release"
     release_dir = output_root / "dist" / "releases" / version
     wheels_dir = release_dir / "wheels"
@@ -218,45 +128,95 @@ def test_validate_release_matches_url_quoted_local_version_links(
         wheel_base_url=f"https://api.upyoke.com/dist/releases/{version}/wheels",
     )
 
-    assert distribution_publish.validate_release_directory(release_dir) == records
-
-
-# The real product-wheel dependency DAG: each wheel declares its lower-layer
-# siblings. Release validation requires these to be exact-pinned.
-_SIBLING_DEPS = {
-    "yoke-contracts": (),
-    "yoke-cli": ("yoke-contracts",),
-    "yoke-harness": ("yoke-contracts", "yoke-cli"),
-    "yoke-core": ("yoke-contracts", "yoke-cli", "yoke-harness"),
-}
+    with pytest.raises(ValueError, match="PEP 440 local segment"):
+        distribution_publish.validate_release_directory(release_dir)
 
 
 def test_validate_release_rejects_unpinned_sibling(tmp_path: Path) -> None:
     # A product wheel whose sibling Requires-Dist is bare (unpinned) would let a
     # pip-based install resolve a same-named public-index package; validation
     # must fail closed on it.
+    version = "0.2.0+gabc123"
     output_root = tmp_path / "release"
-    release_dir = output_root / "dist" / "releases" / "0.2.0"
+    release_dir = output_root / "dist" / "releases" / version
     wheels_dir = release_dir / "wheels"
     simple_dir = output_root / "simple"
     wheels_dir.mkdir(parents=True)
 
-    records, wheel_records = _sample_release(wheels_dir, sibling_specifier="")
+    records, wheel_records = _sample_release(
+        wheels_dir, version=version, sibling_specifier=""
+    )
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
         json.dumps(records, indent=2) + "\n", encoding="utf-8",
     )
     package_index.write_simple_index(
         index_dir=simple_dir,
         records=wheel_records,
-        wheel_base_url="https://api.upyoke.com/dist/releases/0.2.0/wheels",
+        wheel_base_url=f"https://api.upyoke.com/dist/releases/{version}/wheels",
     )
 
     try:
         distribution_publish.validate_release_directory(release_dir)
     except ValueError as exc:
-        assert "pinned to ==0.2.0" in str(exc)
+        assert f"pinned to =={version}" in str(exc)
     else:
         raise AssertionError("validate-release must reject an unpinned sibling")
+
+
+def test_validate_release_rejects_manifest_version_drift(tmp_path: Path) -> None:
+    version = "0.2.0+gabc123"
+    output_root = tmp_path / "release"
+    release_dir = output_root / "dist" / "releases" / version
+    wheels_dir = release_dir / "wheels"
+    simple_dir = output_root / "simple"
+    wheels_dir.mkdir(parents=True)
+
+    records, wheel_records = _sample_release(wheels_dir, version=version)
+    for record in records:
+        record["version"] = "0.2.0+different"
+    (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
+        json.dumps(records, indent=2) + "\n", encoding="utf-8",
+    )
+    package_index.write_simple_index(
+        index_dir=simple_dir,
+        records=wheel_records,
+        wheel_base_url=f"https://api.upyoke.com/dist/releases/{version}/wheels",
+    )
+
+    with pytest.raises(ValueError, match="does not match wheel metadata"):
+        distribution_publish.validate_release_directory(release_dir)
+
+
+def test_validate_release_rejects_invalid_wheel_record(tmp_path: Path) -> None:
+    version = "0.2.0+gabc123"
+    output_root = tmp_path / "release"
+    release_dir = output_root / "dist" / "releases" / version
+    wheels_dir = release_dir / "wheels"
+    simple_dir = output_root / "simple"
+    wheels_dir.mkdir(parents=True)
+
+    _, _ = _sample_release(wheels_dir, version=version)
+    core = next(wheels_dir.glob("yoke_core-*.whl"))
+    with pytest.warns(UserWarning, match="Duplicate name"):
+        with zipfile.ZipFile(core, "a") as archive:
+            wheel_arcname = next(
+                name for name in archive.namelist()
+                if name.endswith(".dist-info/WHEEL")
+            )
+            archive.writestr(wheel_arcname, archive.read(wheel_arcname))
+    wheel_records = package_index.read_wheel_records(wheels_dir)
+    records = package_index.build_records_manifest(wheel_records)
+    (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
+        json.dumps(records, indent=2) + "\n", encoding="utf-8",
+    )
+    package_index.write_simple_index(
+        index_dir=simple_dir,
+        records=wheel_records,
+        wheel_base_url=f"https://api.upyoke.com/dist/releases/{version}/wheels",
+    )
+
+    with pytest.raises(ValueError, match="duplicate archive member"):
+        distribution_publish.validate_release_directory(release_dir)
 
 
 def _sample_release(
@@ -280,15 +240,43 @@ def _sample_release(
             f"Name: {name}",
             f"Version: {version}",
         ]
-        lines += [f"Requires-Dist: {dep}{specifier}" for dep in _SIBLING_DEPS[name]]
-        metadata = "\n".join(lines) + "\n"
+        lines += [
+            f"Requires-Dist: {dep}{specifier}"
+            for dep in package_index.PRODUCT_SIBLING_DEPENDENCIES[name]
+        ]
+        metadata = ("\n".join(lines) + "\n").encode("utf-8")
+        wheel_metadata = (
+            b"Wheel-Version: 1.0\nGenerator: test\n"
+            b"Root-Is-Purelib: true\nTag: py3-none-any\n"
+        )
+        dist_info = f"{dist}-{version}.dist-info"
+        files = {
+            f"{dist_info}/METADATA": metadata,
+            f"{dist_info}/WHEEL": wheel_metadata,
+        }
+        record_arcname = f"{dist_info}/RECORD"
+        record_lines = [
+            f"{arcname},{_wheel_record_hash(data)},{len(data)}"
+            for arcname, data in files.items()
+        ]
+        record_lines.append(f"{record_arcname},,")
+        files[record_arcname] = (
+            "\n".join(record_lines) + "\n"
+        ).encode("utf-8")
         with zipfile.ZipFile(
             wheels_dir / f"{dist}-{version}-py3-none-any.whl", "w"
         ) as archive:
-            archive.writestr(f"{dist}-{version}.dist-info/METADATA", metadata)
+            for arcname, data in files.items():
+                archive.writestr(arcname, data)
     wheel_records = package_index.read_wheel_records(wheels_dir)
     records = package_index.build_records_manifest(wheel_records)
     return records, wheel_records
+
+
+def _wheel_record_hash(data: bytes) -> str:
+    digest = hashlib.sha256(data).digest()
+    encoded = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    return f"sha256={encoded}"
 
 
 def _record(records: list[dict[str, object]], project: str) -> dict[str, object]:

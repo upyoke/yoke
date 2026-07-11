@@ -11,10 +11,12 @@ would be pulled in ahead of the real lockstep sibling.
 
 This rewriter closes that gap at wheelhouse-build time: it reads each product
 wheel's own version, asserts every product wheel shares one version (the
-earliest lockstep guard), and rewrites each product-sibling ``Requires-Dist``
-entry from its bare form to ``<name>==<shared version>`` while preserving any
-environment markers or extras. The built wheels then declare exact pins so a
-pip-based install can only ever resolve the real siblings from the same channel.
+earliest lockstep guard), requires the exact unconditional product dependency
+graph, and rewrites each product-sibling ``Requires-Dist`` entry from its bare
+form to ``<name>==<shared version>``. The built wheels then declare exact pins
+so a pip-based install can only resolve the real siblings from the same channel.
+Release validation additionally requires the shared version to carry a PEP 440
+local segment, which cannot be reproduced by a package on the public index.
 
 Editing wheel metadata means the wheel's ``RECORD`` (which carries a
 ``sha256=...,<size>`` row per file) must be updated for the rewritten
@@ -27,7 +29,9 @@ byte-reproducible under an exported ``SOURCE_DATE_EPOCH``.
 from __future__ import annotations
 
 import base64
+import csv
 import hashlib
+import io
 import zipfile
 from email.parser import Parser
 from pathlib import Path
@@ -37,9 +41,13 @@ from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
-
-class WheelSiblingPinError(ValueError):
-    """Raised when product wheels cannot be pinned to one shared version."""
+from yoke_core.tools import package_index, wheel_record_validation
+from yoke_core.tools.wheel_sibling_contract import (
+    WheelSiblingPinError,
+    assert_wheel_sibling_contract as _assert_wheel_sibling_contract,
+    assert_wheel_siblings_pinned,
+    wheel_requires_dist as wheel_requires_dist,
+)
 
 
 def pin_wheelhouse_product_siblings(
@@ -56,13 +64,29 @@ def pin_wheelhouse_product_siblings(
     """
 
     product_canonical = _canonical_set(product_names)
+    wheels_by_name: dict[str, list[Path]] = {}
+    for record in package_index.read_wheel_records(wheelhouse):
+        if record.canonical_name in product_canonical:
+            wheels_by_name.setdefault(record.canonical_name, []).append(
+                record.source
+            )
+    missing = sorted(product_canonical - set(wheels_by_name))
+    duplicates = sorted(
+        name for name, wheels in wheels_by_name.items() if len(wheels) != 1
+    )
+    if missing or duplicates:
+        details = []
+        if missing:
+            details.append("missing " + ", ".join(missing))
+        if duplicates:
+            details.append("multiple wheels for " + ", ".join(duplicates))
+        raise WheelSiblingPinError(
+            "wheelhouse must contain exactly one wheel per product: "
+            + "; ".join(details)
+        )
     product_wheels = [
-        wheel
-        for wheel in sorted(wheelhouse.glob("*.whl"))
-        if _wheel_name(wheel) in product_canonical
+        wheels_by_name[name][0] for name in sorted(product_canonical)
     ]
-    if not product_wheels:
-        raise WheelSiblingPinError(f"no product wheels found in {wheelhouse}")
 
     versions = {_wheel_version(wheel) for wheel in product_wheels}
     if len(versions) != 1:
@@ -71,47 +95,49 @@ def pin_wheelhouse_product_siblings(
         )
     version = versions.pop()
     for wheel in product_wheels:
-        _pin_one_wheel(wheel, product_canonical, version)
+        wheel_record_validation.assert_wheel_record_valid(wheel)
+        _assert_wheel_unsigned(wheel)
+        _assert_wheel_sibling_contract(
+            wheel,
+            product_canonical,
+            version,
+            require_pins=False,
+        )
+    staged: list[tuple[Path, Path]] = []
+    try:
+        for wheel in product_wheels:
+            candidate = _stage_one_wheel(wheel, product_canonical, version)
+            if candidate is not None:
+                staged.append((candidate, wheel))
+            else:
+                candidate = wheel
+            wheel_record_validation.assert_wheel_record_valid(candidate)
+            assert_wheel_siblings_pinned(
+                candidate, product_canonical, version
+            )
+        for candidate, wheel in staged:
+            candidate.replace(wheel)
+    finally:
+        for candidate, _ in staged:
+            candidate.unlink(missing_ok=True)
     return version
 
 
-def assert_wheel_siblings_pinned(
-    wheel: Path, product_names: Iterable[str], expected_version: str
-) -> None:
-    """Fail unless every product-sibling ``Requires-Dist`` pins ``expected_version``.
-
-    Non-product requirements are ignored. A product sibling whose specifier is
-    not exactly ``=={expected_version}`` (bare, or pinned to another version)
-    raises :class:`WheelSiblingPinError`.
-    """
-
-    product_canonical = _canonical_set(product_names)
-    target = {f"=={expected_version}"}
-    for raw in wheel_requires_dist(wheel):
-        requirement = Requirement(raw)
-        if canonicalize_name(requirement.name) not in product_canonical:
-            continue
-        if {str(spec) for spec in requirement.specifier} != target:
+def _assert_wheel_unsigned(wheel: Path) -> None:
+    with zipfile.ZipFile(wheel) as archive:
+        metadata_arcname = _single_metadata_arcname(archive, wheel)
+        record_arcname = _dist_info_dir(metadata_arcname) + "/RECORD"
+        if wheel_record_validation.has_record_signature(
+            archive.namelist(), record_arcname
+        ):
             raise WheelSiblingPinError(
-                f"{wheel.name}: product sibling '{requirement.name}' must be "
-                f"pinned to =={expected_version}, found '{raw.strip()}'"
+                f"{wheel.name}: signed product wheels are not supported"
             )
 
 
-def wheel_requires_dist(wheel: Path) -> list[str]:
-    """Return a wheel's ``Requires-Dist`` values from its ``dist-info`` METADATA."""
-
-    with zipfile.ZipFile(wheel) as archive:
-        metadata_arcname = _single_metadata_arcname(archive, wheel)
-        message = Parser().parsestr(
-            archive.read(metadata_arcname).decode("utf-8")
-        )
-    return list(message.get_all("Requires-Dist") or [])
-
-
-def _pin_one_wheel(
+def _stage_one_wheel(
     wheel: Path, product_canonical: set[str], version: str
-) -> None:
+) -> Path | None:
     with zipfile.ZipFile(wheel) as archive:
         metadata_arcname = _single_metadata_arcname(archive, wheel)
         metadata_raw = archive.read(metadata_arcname)
@@ -121,11 +147,18 @@ def _pin_one_wheel(
         if not changed:
             # Nothing to pin (no siblings, or already pinned): leave the wheel
             # byte-identical and never touch its RECORD.
-            return
+            return None
         record_arcname = _dist_info_dir(metadata_arcname) + "/RECORD"
+        if wheel_record_validation.has_record_signature(
+            archive.namelist(), record_arcname
+        ):
+            raise WheelSiblingPinError(
+                f"{wheel.name}: cannot rewrite a signed wheel"
+            )
         record_raw = archive.read(record_arcname)
         infos = archive.infolist()
         payloads = {info.filename: archive.read(info.filename) for info in infos}
+        comment = archive.comment
 
     new_record = _rewrite_record(
         record_raw,
@@ -135,7 +168,7 @@ def _pin_one_wheel(
     )
     payloads[metadata_arcname] = new_metadata
     payloads[record_arcname] = new_record
-    _repack(wheel, infos, payloads)
+    return _repack(wheel, infos, payloads, comment)
 
 
 def _rewrite_metadata(
@@ -148,25 +181,36 @@ def _rewrite_metadata(
     touched. Line endings are preserved so the payload stays byte-stable.
     """
 
-    lines = raw.decode("utf-8").splitlines(keepends=True)
+    text = raw.decode("utf-8")
+    lines = text.splitlines(keepends=True)
+    line_ending = "\r\n" if "\r\n" in text else "\n"
     out: list[str] = []
     changed = False
-    in_headers = True
-    for line in lines:
-        stripped = line.rstrip("\r\n")
-        newline = line[len(stripped):]
-        if in_headers and stripped == "":
-            in_headers = False
-            out.append(line)
-            continue
-        if in_headers and stripped.lower().startswith("requires-dist:"):
-            value = stripped.partition(":")[2].strip()
+    index = 0
+    while index < len(lines):
+        first = lines[index].rstrip("\r\n")
+        if first == "":
+            out.extend(lines[index:])
+            break
+        field_lines = [lines[index]]
+        index += 1
+        while index < len(lines) and lines[index].startswith((" ", "\t")):
+            field_lines.append(lines[index])
+            index += 1
+        if first.lower().startswith("requires-dist:"):
+            parsed = Parser().parsestr("".join(field_lines))
+            values = parsed.get_all("Requires-Dist") or []
+            if len(values) != 1:
+                raise WheelSiblingPinError(
+                    "Requires-Dist header could not be parsed"
+                )
+            value = " ".join(str(values[0]).splitlines()).strip()
             pinned = _maybe_pin_requirement(value, product_canonical, version)
             if pinned is not None and pinned != value:
-                out.append(f"Requires-Dist: {pinned}{newline}")
+                out.append(f"Requires-Dist: {pinned}{line_ending}")
                 changed = True
                 continue
-        out.append(line)
+        out.extend(field_lines)
     return "".join(out).encode("utf-8"), changed
 
 
@@ -183,6 +227,10 @@ def _maybe_pin_requirement(
     requirement = Requirement(value)
     if canonicalize_name(requirement.name) not in product_canonical:
         return None
+    if requirement.url is not None:
+        raise WheelSiblingPinError(
+            f"product sibling '{requirement.name}' must not use a direct URL"
+        )
     existing = {str(spec) for spec in requirement.specifier}
     target = f"=={version}"
     if existing == {target}:
@@ -201,34 +249,37 @@ def _rewrite_record(
 ) -> bytes:
     """Update the ``METADATA`` row (hash + size) of a wheel ``RECORD``."""
 
-    lines = raw.decode("utf-8").splitlines(keepends=True)
-    out: list[str] = []
+    text = raw.decode("utf-8")
+    rows = list(csv.reader(io.StringIO(text, newline="")))
     found = False
-    for line in lines:
-        stripped = line.rstrip("\r\n")
-        newline = line[len(stripped):]
-        if stripped.startswith(metadata_arcname + ","):
-            out.append(f"{metadata_arcname},{new_hash},{new_size}{newline}")
+    for row in rows:
+        if len(row) == 3 and row[0] == metadata_arcname:
+            row[1:] = [new_hash, str(new_size)]
             found = True
-        else:
-            out.append(line)
     if not found:
         raise WheelSiblingPinError(
             f"RECORD is missing a METADATA row for {metadata_arcname}"
         )
-    return "".join(out).encode("utf-8")
+    line_ending = "\r\n" if "\r\n" in text else "\n"
+    output = io.StringIO(newline="")
+    csv.writer(output, lineterminator=line_ending).writerows(rows)
+    return output.getvalue().encode("utf-8")
 
 
 def _repack(
-    wheel: Path, infos: list[zipfile.ZipInfo], payloads: dict[str, bytes]
-) -> None:
-    """Rewrite the wheel zip, reusing each original ``ZipInfo`` for reproducibility."""
+    wheel: Path,
+    infos: list[zipfile.ZipInfo],
+    payloads: dict[str, bytes],
+    comment: bytes,
+) -> Path:
+    """Rewrite the wheel zip while preserving entry and archive metadata."""
 
     tmp = wheel.with_name(wheel.name + ".pin.tmp")
     with zipfile.ZipFile(tmp, "w") as archive:
+        archive.comment = comment
         for info in infos:
             archive.writestr(info, payloads[info.filename])
-    tmp.replace(wheel)
+    return tmp
 
 
 def _record_hash(data: bytes) -> str:
@@ -254,10 +305,6 @@ def _dist_info_dir(metadata_arcname: str) -> str:
 
 def _canonical_set(names: Iterable[str]) -> set[str]:
     return {canonicalize_name(name) for name in names}
-
-
-def _wheel_name(wheel: Path) -> str:
-    return canonicalize_name(_wheel_metadata(wheel)["Name"])
 
 
 def _wheel_version(wheel: Path) -> str:

@@ -13,17 +13,19 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 from yoke_core.domain import json_helper
-from yoke_core.tools import package_index, release_artifacts, wheel_sibling_pins
+from yoke_core.tools import (
+    distribution_release_validation,
+    release_artifacts,
+)
 
 
 CHANNELS = ("stable", "latest")
@@ -31,14 +33,6 @@ MUTABLE_COMMON_PATHS = (
     "/install",
     "/dist/install.py",
 )
-
-# Wheel links in a PEP 503 page: href="<url>#sha256=<hex>" (single or double
-# quotes), with the trailing >filename</a> text node.
-_LINK_RE = re.compile(
-    r'<a\s+href=(?P<q>["\'])(?P<href>.*?)(?P=q)\s*>(?P<text>[^<]*)</a>',
-    re.IGNORECASE,
-)
-
 
 @dataclass(frozen=True)
 class UrlCheck:
@@ -58,7 +52,7 @@ def validate_release_directory(release_dir: Path) -> list[dict[str, object]]:
     records = _load_release_records(
         release_dir / release_artifacts.RELEASE_RECORDS_FILENAME
     )
-    _validate_records(records)
+    distribution_release_validation.validate_product_release_records(records)
     wheels_dir = release_dir / release_artifacts.WHEELS_DIR
     by_filename: dict[str, dict[str, object]] = {}
     missing: list[str] = []
@@ -74,65 +68,14 @@ def validate_release_directory(release_dir: Path) -> list[dict[str, object]]:
             raise ValueError(f"{filename} sha256 does not match release record")
     if missing:
         raise ValueError("release directory is missing: " + ", ".join(missing))
-    _validate_sibling_pins(records, wheels_dir)
-    _validate_simple_index(
+    distribution_release_validation.validate_wheel_records_match(
+        records, wheels_dir
+    )
+    distribution_release_validation.validate_sibling_pins(records, wheels_dir)
+    distribution_release_validation.validate_simple_index(
         release_dir.parents[2] / release_artifacts.SIMPLE_DIR, by_filename
     )
     return records
-
-
-def _validate_sibling_pins(
-    records: Sequence[Mapping[str, object]], wheels_dir: Path
-) -> None:
-    """Fail unless every product wheel exact-pins its product-sibling deps.
-
-    Release records list only the product wheels, which share one lockstep
-    version; each product wheel's product-sibling ``Requires-Dist`` entries must
-    read ``==<that version>`` so a pip-based install cannot resolve a same-named
-    public-index package.
-    """
-
-    versions = {str(record["version"]) for record in records}
-    if len(versions) != 1:
-        raise ValueError(
-            "release records span multiple versions: " + ", ".join(sorted(versions))
-        )
-    expected_version = versions.pop()
-    for record in records:
-        wheel_sibling_pins.assert_wheel_siblings_pinned(
-            wheels_dir / str(record["filename"]),
-            package_index.PRODUCT_PACKAGE_NAMES,
-            expected_version,
-        )
-
-
-def _validate_simple_index(
-    simple_dir: Path,
-    by_filename: Mapping[str, dict[str, object]],
-) -> None:
-    root_index = simple_dir / package_index.ROOT_INDEX_FILENAME
-    if not root_index.is_file():
-        raise ValueError(f"simple index is missing: {root_index}")
-    root_html = root_index.read_text(encoding="utf-8")
-    projects = {str(record["project"]) for record in by_filename.values()}
-    linked: dict[str, str] = {}
-    for project in projects:
-        if f'href="{project}/"' not in root_html:
-            raise ValueError(f"simple root index missing project link: {project}")
-        project_index = simple_dir / project / package_index.ROOT_INDEX_FILENAME
-        if not project_index.is_file():
-            raise ValueError(f"simple project index is missing: {project_index}")
-        for match in _LINK_RE.finditer(project_index.read_text(encoding="utf-8")):
-            url, _, fragment = match.group("href").partition("#sha256=")
-            if not fragment:
-                raise ValueError(f"simple index wheel link missing sha256: {url}")
-            linked[unquote(url.rstrip("/").rsplit("/", 1)[-1])] = fragment
-    for filename, record in by_filename.items():
-        sha = linked.get(filename)
-        if sha is None:
-            raise ValueError(f"simple index does not list wheel: {filename}")
-        if sha != str(record["sha256"]):
-            raise ValueError(f"simple index sha256 mismatch for {filename}")
 
 
 def channel_payload(
@@ -250,22 +193,6 @@ def _load_release_records(path: Path) -> list[dict[str, object]]:
     ):
         raise ValueError(f"release records must be an array of objects: {path}")
     return list(payload)
-
-
-def _validate_records(records: Sequence[Mapping[str, object]]) -> None:
-    package_index.validate_records(
-        [
-            package_index.WheelRecord(
-                name=str(record["name"]),
-                version=str(record["version"]),
-                filename=str(record["filename"]),
-                sha256=str(record["sha256"]),
-                size=int(record["size"]),
-                source=Path(str(record["filename"])),
-            )
-            for record in records
-        ]
-    )
 
 
 def _optional_int(record: Mapping[str, object], key: str) -> int | None:
