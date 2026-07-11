@@ -16,7 +16,7 @@ from typing import Iterable, Sequence
 
 from yoke_contracts.api_urls import HOSTED_PROD_URL
 
-from yoke_core.tools import package_index
+from yoke_core.tools import package_index, wheel_sibling_pins
 from yoke_core.tools.release_artifacts import (
     INSTALLER_ASSET_DIR,
     ReleaseBuild,
@@ -119,6 +119,13 @@ def build_product_wheelhouse(
             ],
             cwd=repo_root,
         )
+    # Pin product-sibling Requires-Dist to the shared lockstep version before the
+    # third-party closure step reads the wheels from disk. Bare siblings would let
+    # a pip-based install resolve a same-named public-index package; exact pins
+    # constrain resolution to the real channel wheels.
+    wheel_sibling_pins.pin_wheelhouse_product_siblings(
+        wheelhouse, PRODUCT_PACKAGE_NAMES
+    )
     requirements = [
         f"{record.name}=={record.version}"
         for record in package_index.read_wheel_records(wheelhouse)

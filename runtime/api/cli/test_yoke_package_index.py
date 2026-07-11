@@ -221,14 +221,67 @@ def test_validate_release_matches_url_quoted_local_version_links(
     assert distribution_publish.validate_release_directory(release_dir) == records
 
 
+# The real product-wheel dependency DAG: each wheel declares its lower-layer
+# siblings. Release validation requires these to be exact-pinned.
+_SIBLING_DEPS = {
+    "yoke-contracts": (),
+    "yoke-cli": ("yoke-contracts",),
+    "yoke-harness": ("yoke-contracts", "yoke-cli"),
+    "yoke-core": ("yoke-contracts", "yoke-cli", "yoke-harness"),
+}
+
+
+def test_validate_release_rejects_unpinned_sibling(tmp_path: Path) -> None:
+    # A product wheel whose sibling Requires-Dist is bare (unpinned) would let a
+    # pip-based install resolve a same-named public-index package; validation
+    # must fail closed on it.
+    output_root = tmp_path / "release"
+    release_dir = output_root / "dist" / "releases" / "0.2.0"
+    wheels_dir = release_dir / "wheels"
+    simple_dir = output_root / "simple"
+    wheels_dir.mkdir(parents=True)
+
+    records, wheel_records = _sample_release(wheels_dir, sibling_specifier="")
+    (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
+        json.dumps(records, indent=2) + "\n", encoding="utf-8",
+    )
+    package_index.write_simple_index(
+        index_dir=simple_dir,
+        records=wheel_records,
+        wheel_base_url="https://api.upyoke.com/dist/releases/0.2.0/wheels",
+    )
+
+    try:
+        distribution_publish.validate_release_directory(release_dir)
+    except ValueError as exc:
+        assert "pinned to ==0.2.0" in str(exc)
+    else:
+        raise AssertionError("validate-release must reject an unpinned sibling")
+
+
 def _sample_release(
     wheels_dir: Path,
     *,
     version: str = "0.2.0",
+    sibling_specifier: str | None = None,
 ) -> tuple[list[dict[str, object]], list[package_index.WheelRecord]]:
+    """Write the four product wheels with exact-pinned sibling Requires-Dist.
+
+    ``sibling_specifier`` overrides the ``==<version>`` pin for every sibling
+    line (e.g. ``""`` for a bare, unpinned entry) so the failure path can be
+    exercised.
+    """
+
+    specifier = f"=={version}" if sibling_specifier is None else sibling_specifier
     for name in package_index.PRODUCT_PACKAGE_NAMES:
         dist = name.replace("-", "_")
-        metadata = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+        lines = [
+            "Metadata-Version: 2.1",
+            f"Name: {name}",
+            f"Version: {version}",
+        ]
+        lines += [f"Requires-Dist: {dep}{specifier}" for dep in _SIBLING_DEPS[name]]
+        metadata = "\n".join(lines) + "\n"
         with zipfile.ZipFile(
             wheels_dir / f"{dist}-{version}-py3-none-any.whl", "w"
         ) as archive:

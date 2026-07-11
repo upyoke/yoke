@@ -23,7 +23,7 @@ from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 from yoke_core.domain import json_helper
-from yoke_core.tools import package_index, release_artifacts
+from yoke_core.tools import package_index, release_artifacts, wheel_sibling_pins
 
 
 CHANNELS = ("stable", "latest")
@@ -74,10 +74,36 @@ def validate_release_directory(release_dir: Path) -> list[dict[str, object]]:
             raise ValueError(f"{filename} sha256 does not match release record")
     if missing:
         raise ValueError("release directory is missing: " + ", ".join(missing))
+    _validate_sibling_pins(records, wheels_dir)
     _validate_simple_index(
         release_dir.parents[2] / release_artifacts.SIMPLE_DIR, by_filename
     )
     return records
+
+
+def _validate_sibling_pins(
+    records: Sequence[Mapping[str, object]], wheels_dir: Path
+) -> None:
+    """Fail unless every product wheel exact-pins its product-sibling deps.
+
+    Release records list only the product wheels, which share one lockstep
+    version; each product wheel's product-sibling ``Requires-Dist`` entries must
+    read ``==<that version>`` so a pip-based install cannot resolve a same-named
+    public-index package.
+    """
+
+    versions = {str(record["version"]) for record in records}
+    if len(versions) != 1:
+        raise ValueError(
+            "release records span multiple versions: " + ", ".join(sorted(versions))
+        )
+    expected_version = versions.pop()
+    for record in records:
+        wheel_sibling_pins.assert_wheel_siblings_pinned(
+            wheels_dir / str(record["filename"]),
+            package_index.PRODUCT_PACKAGE_NAMES,
+            expected_version,
+        )
 
 
 def _validate_simple_index(
