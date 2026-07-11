@@ -1333,16 +1333,14 @@ def _known_recipe_template(
             "command": _install_command(base_url, piped_answer="y"),
             "execution_mode": "ssh-command",
             "actions": [{"step": "000-after-install"}],
-            "expected_text": [
-                "Yoke's only prerequisite",
-                "Starting Yoke onboard",
-                "Yoke onboard did not finish",
+            "expected_text": ["Yoke's only prerequisite", "Run yoke onboard"],
+            "expected_return_codes": [0],
+            "post_checks": [
+                "secret_free", "no_text:/dev/tty", "no_text:Starting Yoke onboard",
             ],
-            "expected_return_codes": [1],
-            "post_checks": ["secret_free", "no_text:/dev/tty"],
             "start_delay": 45.0,
             "step_delay": 0.5,
-            "notes": "Grounded from public installer script-file piped-consent behavior.",
+            "notes": "Grounded from noninteractive public installer handoff behavior.",
         }
     if scenario_id == "INSTALL-UV-006":
         return {

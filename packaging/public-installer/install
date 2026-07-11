@@ -244,6 +244,29 @@ onboard_disabled() {
   truthy "$no_onboard"
 }
 
+print_onboard_next() {
+  printf '%sRun yoke onboard to finish setting up your machine & projects.\n' "$(gutter)"
+}
+
+onboard_terminal_ready() {
+  # Explicit prompt endpoints are the installer test/automation seam that
+  # stands in for a controlling terminal. Ordinary installs require both the
+  # visible output and the selected prompt input to be real terminals before
+  # launching the interactive Textual wizard.
+  if [ "$prompt_in_default" -eq 0 ] && [ "$prompt_out_default" -eq 0 ]; then
+    return 0
+  fi
+  [ -t 1 ] || return 1
+  if [ "$prompt_in" = "-" ]; then
+    [ -t 0 ]
+    return $?
+  fi
+  (
+    exec 3< "$prompt_in" || exit 1
+    [ -t 3 ]
+  )
+}
+
 startup_file_for_current_shell() {
   shell_name="${SHELL##*/}"
   home_dir="${HOME:-~}"
@@ -303,11 +326,15 @@ offer_onboard() {
   [ -n "$dry_run" ] && return 0
   onboard_disabled && return 0
   if ! need_command yoke; then
-    printf '%sRun yoke onboard to finish setting up your machine & projects.\n' "$(gutter)"
+    print_onboard_next
     return 0
   fi
   if is_yes; then
-    printf '%sRun yoke onboard to finish setting up your machine & projects.\n' "$(gutter)"
+    print_onboard_next
+    return 0
+  fi
+  if ! onboard_terminal_ready; then
+    print_onboard_next
     return 0
   fi
   yoke_bin=$(command -v yoke)

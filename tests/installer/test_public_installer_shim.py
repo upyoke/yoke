@@ -3,26 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from public_installer_helpers import (
+    FAKE_INSTALL_PY,
     INSTALL_SHIM_PATH,
+    linux_stub_bin,
     run_shim,
     write_executable,
     write_uv_stub,
 )
 
 
-# A minimal install.py body the fake uv serves so the handoff exits cleanly and
-# leaves a marker we can assert on. It ignores all flags.
-FAKE_INSTALL_PY = (
-    "import sys\n"
-    "print('FAKE_INSTALL_RAN ' + ' '.join(sys.argv[1:]))\n"
-)
-
-
-def _bin(tmp_path: Path) -> Path:
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    write_executable(bin_dir / "uname", "#!/bin/sh\nprintf Linux\n")
-    return bin_dir
+_bin = linux_stub_bin
 
 
 def test_native_windows_is_unsupported(tmp_path: Path) -> None:

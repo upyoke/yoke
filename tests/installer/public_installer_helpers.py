@@ -14,6 +14,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALLER_PATH = REPO_ROOT / "packaging" / "public-installer" / "install.py"
 INSTALL_SHIM_PATH = REPO_ROOT / "packaging" / "public-installer" / "install"
+FAKE_INSTALL_PY = "import sys\nprint('FAKE_INSTALL_RAN ' + ' '.join(sys.argv[1:]))\n"
 RunResult = subprocess.CompletedProcess[str]
 
 
@@ -120,6 +121,14 @@ def run_shim(
 def write_executable(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
     path.chmod(0o755)
+
+
+def linux_stub_bin(tmp_path: Path) -> Path:
+    """Create the minimal executable directory expected by shim tests."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    write_executable(bin_dir / "uname", "#!/bin/sh\nprintf Linux\n")
+    return bin_dir
 
 
 def write_uv_stub(bin_dir: Path, *, install_py_body: str | None = None) -> Path:

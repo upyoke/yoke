@@ -325,9 +325,9 @@ def test_seed_known_recipes_uses_ssh_command_for_fast_installer_recipes(
     assert decline["expected_return_codes"] == [1]
     piped_yes = json_helper.load_path(recipe_dir / "INSTALL-UV-005.json")
     assert isinstance(piped_yes, dict)
-    assert piped_yes["expected_return_codes"] == [1]
-    assert "Starting Yoke onboard" in piped_yes["expected_text"]
-    assert "Yoke onboard did not finish" in piped_yes["expected_text"]
+    assert piped_yes["expected_return_codes"] == [0]
+    assert "Run yoke onboard" in piped_yes["expected_text"]
+    assert "no_text:Starting Yoke onboard" in piped_yes["post_checks"]
 
 
 def test_seed_known_recipes_uses_token_file_for_machine_only_stage(
