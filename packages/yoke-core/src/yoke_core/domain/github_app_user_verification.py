@@ -11,6 +11,10 @@ from yoke_contracts.github_origin import (
     validate_github_api_endpoint,
 )
 from yoke_core.domain.github_app_control_plane import GitHubAppControlPlaneConfig
+from yoke_core.domain.github_app_binding_verification_budget import (
+    GitHubBindingVerificationBudget,
+    GitHubBindingVerificationBudgetError,
+)
 from yoke_core.domain.github_app_server_installation import (
     GitHubServerInstallationVerificationError,
     ServerInstallationFetcher,
@@ -53,6 +57,7 @@ def verify_project_github_binding(
     server_installation_opener: Callable[..., Any] | None = None,
     server_installation_fetcher: ServerInstallationFetcher | None = None,
     timeout_seconds: float = 30.0,
+    verification_budget: GitHubBindingVerificationBudget | None = None,
 ) -> VerifiedProjectGitHubBinding:
     """Canonicalize a binding using GitHub responses, never caller metadata."""
     selected_installation_id = _positive_id(installation_id, "installation_id")
@@ -65,6 +70,12 @@ def verify_project_github_binding(
     access_token = str(github_user_access_token or "").strip()
     if not access_token:
         raise GitHubUserVerificationError("github_user_access_token is required")
+    try:
+        budget = verification_budget or GitHubBindingVerificationBudget.for_operation(
+            timeout_seconds
+        )
+    except GitHubBindingVerificationBudgetError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
     try:
         selected_endpoint, server_config = resolve_binding_verification_authority(
             endpoint=endpoint,
@@ -91,6 +102,7 @@ def verify_project_github_binding(
         token=access_token,
         opener=opener,
         timeout_seconds=timeout_seconds,
+        budget=budget,
     )
     _required_id(user.get("id"), "authenticated GitHub user id")
     _required_text(user.get("login"), "authenticated GitHub user login")
@@ -103,6 +115,7 @@ def verify_project_github_binding(
         token=access_token,
         opener=opener,
         timeout_seconds=timeout_seconds,
+        budget=budget,
     )
     if installation is None:
         raise GitHubUserVerificationError(
@@ -150,6 +163,7 @@ def verify_project_github_binding(
                 opener=server_installation_opener,
                 fetcher=server_installation_fetcher,
                 timeout_seconds=timeout_seconds,
+                budget=budget,
             )
         except GitHubServerInstallationVerificationError as exc:
             raise GitHubUserVerificationError(str(exc)) from exc
@@ -162,6 +176,7 @@ def verify_project_github_binding(
         token=access_token,
         opener=opener,
         timeout_seconds=timeout_seconds,
+        budget=budget,
     )
     if repository is None:
         raise GitHubUserVerificationError(
@@ -184,6 +199,10 @@ def verify_project_github_binding(
                 "repository owner does not match the App installation account"
             )
 
+    try:
+        budget.checkpoint()
+    except GitHubBindingVerificationBudgetError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
     return VerifiedProjectGitHubBinding(
         installation_id=str(selected_installation_id),
         account_id=str(account_id),

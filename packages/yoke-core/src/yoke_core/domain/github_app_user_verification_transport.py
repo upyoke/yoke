@@ -13,6 +13,10 @@ from yoke_contracts.github_origin import GitHubApiEndpoint, GitHubApiOriginError
 
 from yoke_core.domain import gh_rest_transport
 from yoke_core.domain.github_api_transport import open_same_origin
+from yoke_core.domain.github_app_binding_verification_budget import (
+    GitHubBindingVerificationBudget,
+    GitHubBindingVerificationBudgetError,
+)
 from yoke_core.domain.github_app_verification_response import (
     GITHUB_APP_COLLECTION_RESPONSE_LIMIT_BYTES,
     GITHUB_APP_VERIFICATION_RESPONSE_LIMIT_BYTES,
@@ -35,7 +39,11 @@ def _find_paginated(
     token: str,
     opener: Callable[..., Any] | None,
     timeout_seconds: float,
+    budget: GitHubBindingVerificationBudget | None = None,
 ) -> Mapping[str, Any] | None:
+    selected_budget = _resolve_user_verification_budget(
+        budget, timeout_seconds=timeout_seconds
+    )
     per_page = 100
     for page in range(1, 101):
         query = urllib.parse.urlencode({"per_page": per_page, "page": page})
@@ -46,12 +54,17 @@ def _find_paginated(
             opener=opener,
             timeout_seconds=timeout_seconds,
             response_limit_bytes=GITHUB_APP_COLLECTION_RESPONSE_LIMIT_BYTES,
+            budget=selected_budget,
         )
         raw_items = payload.get(collection_key)
         if not isinstance(raw_items, list):
             raise GitHubUserVerificationError(
                 f"GitHub response omitted {collection_key}"
             )
+        try:
+            selected_budget.consume_rows(len(raw_items))
+        except GitHubBindingVerificationBudgetError as exc:
+            raise GitHubUserVerificationError(str(exc)) from exc
         items = [item for item in raw_items if isinstance(item, Mapping)]
         for item in items:
             try:
@@ -75,7 +88,11 @@ def _get_json(
     opener: Callable[..., Any] | None,
     timeout_seconds: float,
     response_limit_bytes: int = GITHUB_APP_VERIFICATION_RESPONSE_LIMIT_BYTES,
+    budget: GitHubBindingVerificationBudget | None = None,
 ) -> dict[str, Any]:
+    selected_budget = _resolve_user_verification_budget(
+        budget, timeout_seconds=timeout_seconds
+    )
     request = urllib.request.Request(
         endpoint.url(path),
         headers={
@@ -87,10 +104,11 @@ def _get_json(
         method="GET",
     )
     try:
+        request_timeout = selected_budget.begin_request()
         with open_same_origin(
             request,
             endpoint=endpoint,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=request_timeout,
             opener=opener,
             reject_redirects=True,
         ) as response:
@@ -101,13 +119,14 @@ def _get_json(
                 response,
                 limit_bytes=response_limit_bytes,
             )
+            selected_budget.consume_response_bytes(len(raw))
     except urllib.error.HTTPError as exc:
         raise GitHubUserVerificationError(
             f"GitHub user authorization verification failed with HTTP {exc.code}"
         ) from exc
     except urllib.error.URLError as exc:
         raise GitHubUserVerificationError(
-            f"GitHub user authorization verification failed: {exc.reason}"
+            "GitHub user authorization verification was unavailable"
         ) from exc
     except TimeoutError as exc:
         raise GitHubUserVerificationError(
@@ -116,6 +135,8 @@ def _get_json(
     except GitHubApiOriginError as exc:
         raise GitHubUserVerificationError(str(exc)) from exc
     except GitHubAppVerificationResponseError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
+    except GitHubBindingVerificationBudgetError as exc:
         raise GitHubUserVerificationError(str(exc)) from exc
     try:
         parsed = json.loads(raw.decode("utf-8"))
@@ -127,7 +148,24 @@ def _get_json(
         raise GitHubUserVerificationError(
             "GitHub user authorization response must be a JSON object"
         )
+    try:
+        selected_budget.checkpoint()
+    except GitHubBindingVerificationBudgetError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
     return parsed
+
+
+def _resolve_user_verification_budget(
+    budget: GitHubBindingVerificationBudget | None,
+    *,
+    timeout_seconds: float,
+) -> GitHubBindingVerificationBudget:
+    if budget is not None:
+        return budget
+    try:
+        return GitHubBindingVerificationBudget.for_operation(timeout_seconds)
+    except GitHubBindingVerificationBudgetError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
 
 
 __all__ = ["GitHubUserVerificationError"]

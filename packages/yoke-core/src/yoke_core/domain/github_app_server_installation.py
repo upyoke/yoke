@@ -13,6 +13,10 @@ from yoke_contracts.github_origin import GitHubApiEndpoint, GitHubApiOriginError
 
 from yoke_core.domain import gh_rest_transport
 from yoke_core.domain.github_api_transport import open_same_origin
+from yoke_core.domain.github_app_binding_verification_budget import (
+    GitHubBindingVerificationBudget,
+    GitHubBindingVerificationBudgetError,
+)
 from yoke_core.domain.github_app_control_plane import (
     GitHubAppControlPlaneConfig,
     GitHubAppControlPlaneConfigError,
@@ -111,6 +115,7 @@ def verify_user_installation_against_server(
     opener: Callable[..., Any] | None,
     fetcher: ServerInstallationFetcher | None,
     timeout_seconds: float,
+    budget: GitHubBindingVerificationBudget,
 ) -> None:
     """Fetch the server view and require exact user/server agreement."""
     server = (fetcher or fetch_server_app_installation)(
@@ -118,6 +123,7 @@ def verify_user_installation_against_server(
         installation_id=installation_id,
         opener=opener,
         timeout_seconds=timeout_seconds,
+        budget=budget,
     )
     require_matching_user_installation(
         server,
@@ -138,8 +144,16 @@ def fetch_server_app_installation(
     opener: Callable[..., Any] | None = None,
     jwt_factory: Callable[..., str] | None = None,
     timeout_seconds: float = 30.0,
+    budget: GitHubBindingVerificationBudget | None = None,
 ) -> ServerVerifiedInstallation:
     """Fetch canonical installation metadata using the server App JWT."""
+    try:
+        selected_budget = budget or GitHubBindingVerificationBudget.for_operation(
+            timeout_seconds
+        )
+        selected_budget.checkpoint()
+    except GitHubBindingVerificationBudgetError as exc:
+        raise GitHubServerInstallationVerificationError(str(exc)) from exc
     selected_id = _positive_id(installation_id, "installation_id")
     signer = jwt_factory or generate_app_jwt
     app_jwt = signer(
@@ -157,10 +171,11 @@ def fetch_server_app_installation(
         method="GET",
     )
     try:
+        request_timeout = selected_budget.begin_request()
         with open_same_origin(
             request,
             endpoint=config.endpoint,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=request_timeout,
             opener=opener,
             reject_redirects=True,
         ) as response:
@@ -168,6 +183,7 @@ def fetch_server_app_installation(
                 response, expected_url=request.full_url
             )
             raw = read_bounded_verification_response(response)
+            selected_budget.consume_response_bytes(len(raw))
     except urllib.error.HTTPError as exc:
         raise GitHubServerInstallationVerificationError(
             "the configured GitHub App cannot access the selected installation"
@@ -180,6 +196,8 @@ def fetch_server_app_installation(
         raise GitHubServerInstallationVerificationError(str(exc)) from exc
     except GitHubAppVerificationResponseError as exc:
         raise GitHubServerInstallationVerificationError(str(exc)) from exc
+    except GitHubBindingVerificationBudgetError as exc:
+        raise GitHubServerInstallationVerificationError(str(exc)) from exc
     try:
         payload = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as exc:
@@ -190,6 +208,10 @@ def fetch_server_app_installation(
         raise GitHubServerInstallationVerificationError(
             "server GitHub App installation response must be an object"
         )
+    try:
+        selected_budget.checkpoint()
+    except GitHubBindingVerificationBudgetError as exc:
+        raise GitHubServerInstallationVerificationError(str(exc)) from exc
     response_id = _positive_id(payload.get("id"), "installation response id")
     if response_id != selected_id:
         raise GitHubServerInstallationVerificationError(
