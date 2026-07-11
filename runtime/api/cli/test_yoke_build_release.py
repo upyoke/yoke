@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import zipfile
 from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import build_release
+from yoke_core.tools import build_release, package_index
 
 
 def test_build_release_renders_pep503_simple_index(
@@ -190,7 +192,9 @@ def test_build_product_wheelhouse_includes_bootstrap_pip(
         commands.append(list(command))
         if "--package" in command:
             package = command[command.index("--package") + 1]
-            _write_wheel(wheelhouse, name=package, version="0.2.0")
+            _write_wheel(
+                wheelhouse, name=package, version="0.2.0+gtest"
+            )
         elif "wheel" in command:
             _write_wheel(wheelhouse, name="pip", version="25.3")
 
@@ -208,16 +212,74 @@ def test_build_product_wheelhouse_includes_bootstrap_pip(
     assert (wheelhouse / "pip-25.3-py3-none-any.whl").is_file()
 
 
+def test_build_product_wheelhouse_rejects_public_version_before_pip(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wheelhouse = tmp_path / "wheelhouse"
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], **_: object) -> None:
+        commands.append(list(command))
+        package = command[command.index("--package") + 1]
+        _write_wheel(wheelhouse, name=package, version="0.2.0")
+
+    monkeypatch.setattr(build_release, "_uv_executable", lambda _: "uv")
+    monkeypatch.setattr(build_release, "_run", fake_run)
+    monkeypatch.setattr(
+        build_release,
+        "_pip_python",
+        lambda _: pytest.fail("pip closure started before version validation"),
+    )
+
+    with pytest.raises(ValueError, match="PEP 440 local segment"):
+        build_release.build_product_wheelhouse(
+            repo_root=tmp_path,
+            wheelhouse=wheelhouse,
+        )
+
+    assert len(commands) == len(build_release.PRODUCT_PACKAGE_NAMES)
+    assert all("--package" in command for command in commands)
+
+
 def _write_wheel(wheelhouse: Path, *, name: str, version: str) -> None:
     dist = name.replace("-", "_")
     filename = f"{dist}-{version}-py3-none-any.whl"
-    metadata = (
+    metadata_text = (
         "Metadata-Version: 2.1\n"
         f"Name: {name}\n"
         f"Version: {version}\n"
     )
+    for sibling in package_index.PRODUCT_SIBLING_DEPENDENCIES.get(name, ()):
+        metadata_text += f"Requires-Dist: {sibling}\n"
+    metadata = metadata_text.encode("utf-8")
+    wheel_metadata = (
+        b"Wheel-Version: 1.0\nGenerator: test\n"
+        b"Root-Is-Purelib: true\nTag: py3-none-any\n"
+    )
+    dist_info = f"{dist}-{version}.dist-info"
+    files = {
+        f"{dist_info}/METADATA": metadata,
+        f"{dist_info}/WHEEL": wheel_metadata,
+    }
+    record_arcname = f"{dist_info}/RECORD"
+    record_lines = [
+        f"{arcname},{_record_hash(data)},{len(data)}"
+        for arcname, data in files.items()
+    ]
+    record_lines.append(f"{record_arcname},,")
+    files[record_arcname] = (
+        "\n".join(record_lines) + "\n"
+    ).encode("utf-8")
     with zipfile.ZipFile(wheelhouse / filename, "w") as archive:
-        archive.writestr(f"{dist}-{version}.dist-info/METADATA", metadata)
+        for arcname, data in files.items():
+            archive.writestr(arcname, data)
+
+
+def _record_hash(data: bytes) -> str:
+    digest = hashlib.sha256(data).digest()
+    encoded = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    return f"sha256={encoded}"
 
 
 class _FixedPython:

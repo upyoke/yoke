@@ -16,7 +16,11 @@ from typing import Iterable, Sequence
 
 from yoke_contracts.api_urls import HOSTED_PROD_URL
 
-from yoke_core.tools import package_index
+from yoke_core.tools import (
+    package_index,
+    product_release_version,
+    wheel_sibling_pins,
+)
 from yoke_core.tools.release_artifacts import (
     INSTALLER_ASSET_DIR,
     ReleaseBuild,
@@ -119,6 +123,16 @@ def build_product_wheelhouse(
             ],
             cwd=repo_root,
         )
+    # Pin product-sibling Requires-Dist to the shared lockstep version before the
+    # third-party closure step reads the wheels from disk. Bare siblings would let
+    # a pip-based install resolve a same-named public-index package; exact pins
+    # constrain resolution to the real channel wheels.
+    version = wheel_sibling_pins.pin_wheelhouse_product_siblings(
+        wheelhouse, PRODUCT_PACKAGE_NAMES
+    )
+    # Fail before pip consults the public index. Without a local segment, a
+    # same-version public wheel can outrank the channel wheel by build tag.
+    product_release_version.assert_public_index_unforgeable(version)
     requirements = [
         f"{record.name}=={record.version}"
         for record in package_index.read_wheel_records(wheelhouse)
