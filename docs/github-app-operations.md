@@ -255,11 +255,11 @@ Each hosted environment stores only this non-secret reference:
 The secret ARN's region and account must match deployment authority. When the
 secret uses a customer-managed KMS key, declare its exact key ARN so the origin
 role receives only `kms:Decrypt`/`DescribeKey` on that key. Deployment instructs
-the origin to fetch a pending owner-only file through its instance role, pulls
-the candidate core image, and verifies authenticated `/app` identity with the
-pending file mounted only inside the probe. Success atomically promotes it;
-failure removes pending and preserves the prior durable file. CI never receives
-the PEM or transports it through SSH stdin.
+the origin to fetch a pending file through its instance role, assigns it to a
+dedicated host secrets group with mode `0640`, and grants its numeric ID only to
+the non-root probe and core container. The candidate image verifies `/app`
+identity before atomic promotion. Failure preserves the prior key; CI never
+receives the PEM or transports it through SSH stdin.
 
 This pre-delivery check proves the issuer and PEM belong to the same live App.
 It does not prove that a particular installation still covers a project's

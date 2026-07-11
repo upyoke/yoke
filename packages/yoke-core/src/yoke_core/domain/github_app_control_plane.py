@@ -47,7 +47,7 @@ def load_github_app_endpoint(
 def load_github_app_control_plane_config(
     env: Mapping[str, str] | None = None,
 ) -> GitHubAppControlPlaneConfig:
-    """Resolve the global issuer and owner-only mounted private-key file."""
+    """Resolve the global issuer and access-restricted private-key mount."""
     source = os.environ if env is None else env
     issuer = validate_github_app_issuer(source.get(GITHUB_APP_ISSUER_ENV))
     raw_path = str(source.get(GITHUB_APP_PRIVATE_KEY_FILE_ENV) or "").strip()
@@ -56,7 +56,7 @@ def load_github_app_control_plane_config(
             f"{GITHUB_APP_PRIVATE_KEY_FILE_ENV} is required"
         )
     key_path = Path(raw_path).expanduser()
-    private_key = _read_owner_only_secret(key_path)
+    private_key = _read_restricted_secret(key_path)
     return GitHubAppControlPlaneConfig(
         issuer=issuer,
         private_key_pem=private_key,
@@ -65,7 +65,7 @@ def load_github_app_control_plane_config(
     )
 
 
-def _read_owner_only_secret(path: Path) -> str:
+def _read_restricted_secret(path: Path) -> str:
     nofollow = getattr(os, "O_NOFOLLOW", 0)
     if not nofollow:
         raise GitHubAppControlPlaneConfigError(
@@ -95,10 +95,20 @@ def _read_owner_only_secret(path: Path) -> str:
             and _is_under_runtime_secrets(resolved_path)
             and not (mode & 0o022)
         )
-        if not service_owned_safe and not root_mount_safe:
+        effective_groups = {os.getegid(), *os.getgroups()}
+        group_read_mount_safe = (
+            getattr(file_stat, "st_gid", -1) in effective_groups
+            and _is_under_runtime_secrets(resolved_path)
+            and bool(mode & 0o040)
+            and not (mode & 0o027)
+        )
+        if not (
+            service_owned_safe or root_mount_safe or group_read_mount_safe
+        ):
             raise GitHubAppControlPlaneConfigError(
                 "GitHub App private-key file must be owner-only for the service "
-                "user, or a root-owned read-only mount under /run/secrets"
+                "user, root-owned read-only, or group-read-only for the service "
+                "group under /run/secrets"
             )
         with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
             descriptor = -1

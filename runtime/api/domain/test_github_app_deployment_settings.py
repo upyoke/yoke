@@ -43,6 +43,8 @@ def test_github_app_config_mounts_owner_only_key_reference():
     )
 
     assert "secrets:\n      - yoke-github-app-private-key" in compose
+    assert "group_add:" in compose
+    assert "YOKE_GITHUB_APP_SECRET_GID is required" in compose
     assert "file: ./github-app-private-key.pem" in compose
     assert "YOKE_GITHUB_APP_ISSUER=123456" in env_file
     assert "YOKE_GITHUB_APP_API_URL=https://api.github.com" in env_file

@@ -49,10 +49,12 @@ trusted. The deny covers every configured App-key ARN plus the account's
 
 Each origin instance role alone may read its exact environment App-key ARN and,
 when declared, decrypt it with one exact KMS key ARN. Deployment fetches a
-pending owner-only file, verifies it inside the pulled core image, and promotes
-it atomically only after success; a failed rotation deletes pending and keeps
-the prior durable key. The PEM never crosses GitHub Actions, SSH stdin, Pulumi
-state, the control-plane database, or the hosted broker response.
+pending file owned by the deploy user and a dedicated secrets group, grants
+only that numeric supplemental group to the non-root core container, verifies
+the key inside the pulled image, and promotes it atomically only after success.
+A failed rotation deletes pending and keeps the prior durable key. The PEM
+never crosses GitHub Actions, SSH stdin, Pulumi state, the control-plane
+database, or the hosted broker response.
 
 The delivery allow matrix is limited to:
 

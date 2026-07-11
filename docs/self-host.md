@@ -215,11 +215,13 @@ only this non-secret reference block:
 }
 ```
 
-Deployment resolves that ARN with the environment's `aws-admin` capability,
-sends the value over SSH stdin, writes `github-app-private-key.pem` as mode
-`0600`, and mounts it at `/run/secrets/yoke-github-app-private-key`. Secret
-values are not placed in Compose environment variables, command arguments, or
-project-engine databases.
+The origin instance role resolves that ARN locally. Deployment writes
+`github-app-private-key.pem` as mode `0640`, owned by the deploy user and a
+dedicated host secrets group, and grants only that numeric supplemental group
+to the non-root container that mounts it at
+`/run/secrets/yoke-github-app-private-key`. Secret values never cross SSH and
+are not placed in Compose environment variables, command arguments, Pulumi
+state, or project-engine databases.
 
 ## Upgrades
 

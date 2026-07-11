@@ -17,6 +17,7 @@ from yoke_core.domain.github_app_origin_key import (
     GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH,
     GITHUB_APP_PRIVATE_KEY_FILE_NAME,
     GITHUB_APP_PRIVATE_KEY_SECRET_NAME,
+    GITHUB_APP_SECRET_GID_ENV,
 )
 
 
@@ -95,10 +96,19 @@ def github_app_render_values(env: Any) -> dict[str, str]:
     """Return the optional Compose mount fragment for ``env``."""
     if env.github_app is None:
         return {
+            "github_app_secret_group": "",
             "github_app_secret_mount": "",
             "github_app_secret_definition": "",
         }
     return {
+        "github_app_secret_group": (
+            "    group_add:\n"
+            '      - "${'
+            + GITHUB_APP_SECRET_GID_ENV
+            + ":?"
+            + GITHUB_APP_SECRET_GID_ENV
+            + ' is required}"'
+        ),
         "github_app_secret_mount": (
             f"    secrets:\n      - {GITHUB_APP_PRIVATE_KEY_SECRET_NAME}"
         ),

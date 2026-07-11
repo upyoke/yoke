@@ -10,6 +10,8 @@ GITHUB_APP_PRIVATE_KEY_PENDING_FILE_NAME = (
     f".{GITHUB_APP_PRIVATE_KEY_FILE_NAME}.pending"
 )
 GITHUB_APP_PRIVATE_KEY_SECRET_NAME = "yoke-github-app-private-key"
+GITHUB_APP_SECRET_GROUP_NAME = "yoke-core-secrets"
+GITHUB_APP_SECRET_GID_ENV = "YOKE_GITHUB_APP_SECRET_GID"
 GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH = (
     f"/run/secrets/{GITHUB_APP_PRIVATE_KEY_SECRET_NAME}"
 )
@@ -43,22 +45,32 @@ def converge_from_instance_role(runner: Any, env: Any) -> None:
         return
 
     directory = shlex.quote(env.compose_dir)
+    env_file = shlex.quote(f"{env.compose_dir}/.env")
     pending = shlex.quote(pending_path)
     template = shlex.quote(
         f"{env.compose_dir}/.{GITHUB_APP_PRIVATE_KEY_FILE_NAME}.XXXXXX"
     )
     secret_arn = shlex.quote(env.github_app.private_key_secret_arn)
     region = shlex.quote(env.aws_region)
+    secret_group = shlex.quote(GITHUB_APP_SECRET_GROUP_NAME)
     command = (
         "set -eu; umask 077; "
         f"mkdir -p {directory}; "
+        f"if ! getent group {secret_group} >/dev/null 2>&1; then "
+        f"sudo groupadd --system {secret_group}; fi; "
+        f"secret_gid=$(getent group {secret_group} | cut -d: -f3); "
+        'test -n "$secret_gid"; '
+        f"sed -i '/^{GITHUB_APP_SECRET_GID_ENV}=/d' {env_file}; "
+        f"printf '{GITHUB_APP_SECRET_GID_ENV}=%s\\n' \"$secret_gid\" >>{env_file}; "
+        f"chmod 600 {env_file}; "
         f"tmp=$(mktemp {template}); "
         "trap 'rm -f \"$tmp\"' EXIT HUP INT TERM; "
         "aws secretsmanager get-secret-value --no-cli-pager "
         f"--region {region} --secret-id {secret_arn} "
-        "--query SecretString --output text >\"$tmp\"; "
-        "test -s \"$tmp\"; chmod 600 \"$tmp\"; "
-        f"mv -f \"$tmp\" {pending}; trap - EXIT HUP INT TERM"
+        '--query SecretString --output text >"$tmp"; '
+        'test -s "$tmp"; sudo chgrp "$secret_gid" "$tmp"; '
+        'chmod 640 "$tmp"; '
+        f'mv -f "$tmp" {pending}; trap - EXIT HUP INT TERM'
     )
     result = run_remote(runner, env, command, timeout=60)
     if not result.ok:
@@ -81,16 +93,20 @@ def verification_and_promotion_command(env: Any, image_ref: str) -> str:
     image = shlex.quote(image_ref)
     issuer = shlex.quote(env.github_app.issuer)
     api_url = shlex.quote(env.github_app.api_url)
+    secret_group = shlex.quote(GITHUB_APP_SECRET_GROUP_NAME)
     probe_path = "/run/yoke/github-app-private-key-pending.pem"
     return (
         f"cd {directory} && "
-        f"if docker pull {image} >/dev/null && docker run --rm "
+        f"if secret_gid=$(getent group {secret_group} | cut -d: -f3) "
+        '&& test -n "$secret_gid" '
+        f"&& docker pull {image} >/dev/null && docker run --rm "
+        '--group-add "$secret_gid" '
         f"-e YOKE_GITHUB_APP_ISSUER={issuer} "
         f"-e YOKE_GITHUB_APP_API_URL={api_url} "
         f"-e YOKE_GITHUB_APP_PRIVATE_KEY_FILE={probe_path} "
         f"-v {pending}:{probe_path}:ro "
         f"--entrypoint python {image} -m yoke_core.tools.github_app_identity_probe; "
-        f"then chmod 600 {pending} && mv -f {pending} {final}; "
+        f"then chmod 640 {pending} && mv -f {pending} {final}; "
         f"else rm -f {pending}; exit 1; fi"
     )
 
@@ -124,6 +140,8 @@ __all__ = [
     "GITHUB_APP_PRIVATE_KEY_FILE_NAME",
     "GITHUB_APP_PRIVATE_KEY_PENDING_FILE_NAME",
     "GITHUB_APP_PRIVATE_KEY_SECRET_NAME",
+    "GITHUB_APP_SECRET_GID_ENV",
+    "GITHUB_APP_SECRET_GROUP_NAME",
     "converge_from_instance_role",
     "verification_and_promotion_command",
     "verify_and_promote_in_core_image",
