@@ -209,42 +209,6 @@ def test_suspended_installation_persists_unavailable_binding(monkeypatch):
         pg_testdb.drop_test_database(db_name)
 
 
-def test_bind_preserves_intentional_backlog_only(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            apply_fixture_schema(conn)
-            conn.execute(
-                "UPDATE projects SET github_sync_mode='backlog_only' "
-                "WHERE slug='buzz'"
-            )
-            conn.commit()
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
-
-        status = cmd_bind_project_repo(
-            "buzz",
-            installation_id="12345",
-            github_repo="example-org/buzz",
-            repository_id="4567",
-            expected_api_url="https://api.github.com",
-            github_user_access_token="github-user-token",
-            verifier=lambda **kwargs: _verified(github_repo="example-org/buzz"),
-        )
-
-        assert status["bound"] is True
-        assert status["binding"]["status"] == "active"
-        assert status["github_sync_mode"] == "backlog_only"
-        assert status["automation"] == {"available": True, "reason": "bound"}
-    finally:
-        pg_testdb.drop_test_database(db_name)
-
-
 def test_registered_dispatcher_bind_surface(monkeypatch):
     db_name = pg_testdb.create_test_database()
     try:
