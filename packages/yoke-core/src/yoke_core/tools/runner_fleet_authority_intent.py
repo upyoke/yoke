@@ -31,6 +31,16 @@ def authority_intent_envelope(
         not isinstance(label, str) for label in labels
     ):
         raise ValueError("runner-fleet labels must be a JSON string array")
+    deployment_ssh_stack_names = json_helper.loads_text(
+        values["runner_fleet_deployment_ssh_stack_names_json"]
+    )
+    if not isinstance(deployment_ssh_stack_names, list) or any(
+        not isinstance(stack_name, str)
+        for stack_name in deployment_ssh_stack_names
+    ):
+        raise ValueError(
+            "runner-fleet deployment SSH stacks must be a JSON string array"
+        )
     routing_text = values["runner_fleet_routing_enabled"]
     if routing_text not in {"false", "true"}:
         raise ValueError("runner-fleet routing intent must be true or false")
@@ -61,6 +71,7 @@ def authority_intent_envelope(
         "root_volume_gb": int(values["runner_fleet_root_volume_gb"]),
         "idle_shutdown_minutes": int(values["runner_fleet_idle_shutdown_minutes"]),
         "shutdown_mode": values["runner_fleet_shutdown_mode"],
+        "deployment_ssh_stack_names": deployment_ssh_stack_names,
     }
     canonical = json_helper.dumps_compact(dict(sorted(authority.items())))
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()

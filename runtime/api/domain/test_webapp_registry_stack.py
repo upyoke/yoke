@@ -126,6 +126,23 @@ def _build_fake_pulumi(recorder):
     fake.AssetArchive = lambda assets: _FakeArgs(assets=assets)
     fake.StringAsset = lambda text: _FakeArgs(text=text)
     fake.export = lambda key, value: recorder.exports.__setitem__(key, value)
+
+    class _StackReference:
+        def __init__(self, name, stack_name=None, opts=None):
+            self.name = stack_name or name
+            recorder.stack_references = [
+                *getattr(recorder, "stack_references", []), self.name,
+            ]
+
+        def require_output(self, key):
+            recorder.stack_reference_outputs = [
+                *getattr(recorder, "stack_reference_outputs", []),
+                (self.name, key),
+            ]
+            outputs = getattr(recorder, "stack_outputs", {})
+            return _FakeOutput(outputs[self.name][key])
+
+    fake.StackReference = _StackReference
     fake.dynamic = _make_dynamic_module(recorder)
     return fake
 

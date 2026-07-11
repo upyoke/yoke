@@ -146,7 +146,11 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
         self.runner_progress_parameter = github_broker.runner_progress_parameter
         self.runner_completion_parameter = github_broker.runner_completion_parameter
 
-        network = create_runner_network(tags=tags, child_opts=child_opts)
+        network = create_runner_network(
+            tags=tags,
+            deployment_ssh_stack_names=args.deployment_ssh_stack_names,
+            child_opts=child_opts,
+        )
         self.vpc = network.vpc
         self.subnet = network.subnet
         self.security_group = network.security_group

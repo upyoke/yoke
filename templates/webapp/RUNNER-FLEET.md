@@ -82,6 +82,11 @@ variable is the only clean hosted-fallback state. If status returns
 rename the nonmatching variable, or follow the base-apply and adoption sequence
 above before any apply that declares the variable.
 Arm and disarm only through the capability plus runner-fleet apply; direct
-variable writes are drift. V1 runs one ephemeral host with DNS and HTTPS egress.
+variable writes are drift. V1 runs one ephemeral host with DNS and web egress.
+Deployment workflows must explicitly list every environment they reach over
+SSH in `network.deployment_ssh_environments`. The renderer resolves each
+selected active environment to its Pulumi stack, and the runner stack consumes
+that stack's `originElasticIpAddress` output as one exact `/32` TCP/22 egress
+rule. The default list is empty; unrestricted SSH egress is never inferred.
 
 See the [Pulumi ActionsVariable import contract](https://www.pulumi.com/registry/packages/github/api-docs/actionsvariable/#import).

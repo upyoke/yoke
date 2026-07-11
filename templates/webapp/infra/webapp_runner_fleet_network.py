@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+import ipaddress
+from typing import Mapping, Sequence
 
 import pulumi
 import pulumi_aws as aws
@@ -20,9 +21,12 @@ class RunnerFleetNetwork:
 
 
 def create_runner_network(
-    *, tags: Mapping[str, str], child_opts: pulumi.ResourceOptions,
+    *,
+    tags: Mapping[str, str],
+    deployment_ssh_stack_names: Sequence[str],
+    child_opts: pulumi.ResourceOptions,
 ) -> RunnerFleetNetwork:
-    """Provision an unpeered public VPC with only DNS and web egress."""
+    """Provision an isolated public VPC with explicit workflow egress."""
     vpc = aws.ec2.Vpc(
         "runnerFleetVpc",
         cidr_block="10.253.0.0/24",
@@ -67,17 +71,27 @@ def create_runner_network(
             pulumi.ResourceOptions(depends_on=[route]),
         ),
     )
+    egress = [
+        _egress("HTTPS package and GitHub access", "tcp", 443, "0.0.0.0/0"),
+        _egress("HTTP package repositories", "tcp", 80, "0.0.0.0/0"),
+        _egress("VPC DNS over UDP", "udp", 53, "10.253.0.2/32"),
+        _egress("VPC DNS over TCP", "tcp", 53, "10.253.0.2/32"),
+    ]
+    for stack_name in deployment_ssh_stack_names:
+        egress.append(
+            _egress(
+                f"SSH to deployment environment stack {stack_name}",
+                "tcp",
+                22,
+                _deployment_ssh_cidr(stack_name),
+            )
+        )
     security_group = aws.ec2.SecurityGroup(
         "runnerFleetSecurityGroup",
         vpc_id=vpc.id,
         description="Isolated GitHub Actions runner egress",
         ingress=[],
-        egress=[
-            _egress("HTTPS package and GitHub access", "tcp", 443, "0.0.0.0/0"),
-            _egress("HTTP package repositories", "tcp", 80, "0.0.0.0/0"),
-            _egress("VPC DNS over UDP", "udp", 53, "10.253.0.2/32"),
-            _egress("VPC DNS over TCP", "tcp", 53, "10.253.0.2/32"),
-        ],
+        egress=egress,
         tags=dict(tags),
         opts=child_opts,
     )
@@ -86,8 +100,29 @@ def create_runner_network(
     )
 
 
+def _deployment_ssh_cidr(stack_name: str) -> pulumi.Output[str]:
+    reference = pulumi.StackReference(stack_name)
+    return reference.require_output("originElasticIpAddress").apply(
+        _exact_ipv4_cidr
+    )
+
+
+def _exact_ipv4_cidr(raw_address: object) -> str:
+    try:
+        address = ipaddress.ip_address(str(raw_address))
+    except ValueError as exc:
+        raise pulumi.RunError(
+            "runner-fleet deployment bastion Elastic IP is invalid"
+        ) from exc
+    if address.version != 4:
+        raise pulumi.RunError(
+            "runner-fleet deployment bastion must use an IPv4 Elastic IP"
+        )
+    return f"{address}/32"
+
+
 def _egress(
-    description: str, protocol: str, port: int, cidr: str,
+    description: str, protocol: str, port: int, cidr: pulumi.Input[str],
 ) -> aws.ec2.SecurityGroupEgressArgs:
     return aws.ec2.SecurityGroupEgressArgs(
         description=description,

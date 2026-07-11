@@ -211,6 +211,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         "root_volume_gb": 200,
         "idle_shutdown_minutes": 30,
         "shutdown_mode": "terminate",
+        "deployment_ssh_stack_names": [],
     }
     canonical = json.dumps(
         intent["authority"],

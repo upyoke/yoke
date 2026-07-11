@@ -240,6 +240,9 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
         root_volume_gb=config.require_int("root_volume_gb"),
         idle_shutdown_minutes=config.require_int("idle_shutdown_minutes"),
         shutdown_mode=config.require("shutdown_mode"),
+        deployment_ssh_stack_names=_config_string_list(
+            config, "deployment_ssh_stack_names"
+        ),
     )
 
 

@@ -141,8 +141,45 @@ def test_runner_network_is_dedicated_and_egress_limited(monkeypatch):
     egress = security_group.kwargs["egress"]
     assert {(rule.kwargs["protocol"], rule.kwargs["from_port"]) for rule in egress} == {
         ("tcp", 443), ("tcp", 80), ("udp", 53), ("tcp", 53),
+        ("tcp", 22),
     }
     assert all(rule.kwargs["protocol"] != "-1" for rule in egress)
+    ssh_rules = [rule for rule in egress if rule.kwargs["from_port"] == 22]
+    assert [rule.kwargs["cidr_blocks"] for rule in ssh_rules] == [
+        ["203.0.113.10/32"], ["203.0.113.11/32"],
+    ]
+    assert all(
+        rule.kwargs["cidr_blocks"] != ["0.0.0.0/0"]
+        for rule in ssh_rules
+    )
+    assert recorder.stack_references == ["yoke-prod", "yoke-stage"]
+    assert recorder.stack_reference_outputs == [
+        ("yoke-prod", "originElasticIpAddress"),
+        ("yoke-stage", "originElasticIpAddress"),
+    ]
+
+
+def test_runner_network_omits_ssh_without_deployment_stacks(monkeypatch):
+    recorder, _stack = _runner_stack(
+        monkeypatch,
+        config_overrides={"deployment_ssh_stack_names": []},
+        authority_overrides={"deployment_ssh_stack_names": []},
+    )
+    egress = recorder.single("runnerFleetSecurityGroup").kwargs["egress"]
+
+    assert all(rule.kwargs["from_port"] != 22 for rule in egress)
+    assert not hasattr(recorder, "stack_references")
+
+
+def test_runner_network_rejects_non_ipv4_stack_output(monkeypatch):
+    with pytest.raises(RuntimeError, match="must use an IPv4 Elastic IP"):
+        _runner_stack(
+            monkeypatch,
+            deployment_ssh_stack_outputs={
+                "yoke-prod": {"originElasticIpAddress": "2001:db8::1"},
+                "yoke-stage": {"originElasticIpAddress": "203.0.113.11"},
+            },
+        )
 
 
 def test_idle_reaper_runs_outside_the_workflow_host(monkeypatch):

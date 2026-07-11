@@ -239,6 +239,15 @@ def test_runner_variable_adoption_docs_preserve_generated_pulumi_identity():
             "runner_labels",
         ),
         (
+            {"deployment_ssh_stack_names": ["attacker-prod"]},
+            {
+                "deployment_ssh_stack_names": [
+                    "yoke-prod", "yoke-stage",
+                ],
+            },
+            "deployment_ssh_stack_names",
+        ),
+        (
             {
                 "aws_capability": "other-admin",
                 "aws_region": "us-west-2",

@@ -135,6 +135,8 @@ class TestCapabilitySettings:
             "yoke", "github-actions-runner-fleet",
             '{"repo":"upyoke/yoke",'
             '"github_app_environment":" yoke-api-prod ",'
+            '"network":{"deployment_ssh_environments":'
+            '[" prod ","stage","prod"]},'
             '"desired_runner_count":1,'
             '"max_runner_count":1}',
             create=True, db_path=cap_db,
@@ -156,6 +158,9 @@ class TestCapabilitySettings:
         assert stored["desired_runner_count"] == 1
         assert stored["max_runner_count"] == 1
         assert stored["lifecycle"]["ephemeral_runners"] is True
+        assert stored["network"]["deployment_ssh_environments"] == [
+            "prod", "stage",
+        ]
 
     def test_runner_fleet_rejects_shared_host_parallelism(
         self, cap_db: str,
@@ -202,6 +207,18 @@ class TestCapabilitySettings:
             pcs.cmd_capability_set_settings(
                 "yoke", "github-actions-runner-fleet",
                 '{"github_app_environment":"  "}', create=True, db_path=cap_db,
+            )
+
+    def test_runner_fleet_rejects_empty_deployment_ssh_environment(
+        self, cap_db: str,
+    ) -> None:
+        with pytest.raises(ValueError, match="non-empty environment names"):
+            pcs.cmd_capability_set_settings(
+                "yoke",
+                "github-actions-runner-fleet",
+                '{"network":{"deployment_ssh_environments":["prod"," "]}}',
+                create=True,
+                db_path=cap_db,
             )
 
     def test_runner_fleet_rejects_empty_github_capability(

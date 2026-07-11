@@ -73,6 +73,26 @@ class RunnerFleetLifecycleSettings(BaseModel):
         return cleaned
 
 
+class RunnerFleetNetworkSettings(BaseModel):
+    """Optional network destinations required by deployment workflows."""
+
+    deployment_ssh_environments: List[str] = Field(default_factory=list)
+
+    @field_validator("deployment_ssh_environments")
+    @classmethod
+    def _clean_deployment_ssh_environments(
+        cls, environments: List[str],
+    ) -> List[str]:
+        cleaned: List[str] = []
+        for environment in environments:
+            value = str(environment).strip()
+            if not value:
+                raise ValueError("must contain only non-empty environment names")
+            if value not in cleaned:
+                cleaned.append(value)
+        return cleaned
+
+
 class RunnerFleetSettings(BaseModel):
     """Non-secret project capability settings for a CI runner fleet."""
 
@@ -94,6 +114,7 @@ class RunnerFleetSettings(BaseModel):
     lifecycle: RunnerFleetLifecycleSettings = Field(
         default_factory=RunnerFleetLifecycleSettings
     )
+    network: Optional[RunnerFleetNetworkSettings] = None
 
     @field_validator("repo")
     @classmethod
@@ -259,6 +280,7 @@ __all__ = [
     "DEFAULT_RUNS_ON_VARIABLE",
     "DEFAULT_SHUTDOWN_MODE",
     "DEFAULT_START_MODE",
+    "RunnerFleetNetworkSettings",
     "RunnerFleetSettings",
     "RunnerFleetSettingsError",
     "canonical_json",

@@ -85,6 +85,11 @@ def test_runner_fleet_keys_from_capability(tmp_path):
             "secret:yoke-github-app-AbCdEf"
         ),
     }
+    base.primary_environment.settings["capabilities"] = ["vps"]
+    base.primary_environment.settings["pulumi"] = {
+        "activation_state": "active",
+        "stack_name": "buzz-prod",
+    }
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org",
@@ -119,6 +124,9 @@ def test_runner_fleet_keys_from_capability(tmp_path):
             "ephemeral_runners": True,
             "shutdown_mode": "terminate",
         },
+        "network": {
+            "deployment_ssh_environments": [base.primary_environment.id],
+        },
     }
     root = _make_project_root(tmp_path, "buzz")
 
@@ -142,6 +150,9 @@ def test_runner_fleet_keys_from_capability(tmp_path):
     assert result["runner_fleet_root_volume_gb"] == "100"
     assert result["runner_fleet_idle_shutdown_minutes"] == "15"
     assert result["runner_fleet_shutdown_mode"] == "terminate"
+    assert result["runner_fleet_deployment_ssh_stack_names_json"] == (
+        '["buzz-prod"]'
+    )
 
 
 def test_enabled_runner_fleet_requires_explicit_github_capability(tmp_path):

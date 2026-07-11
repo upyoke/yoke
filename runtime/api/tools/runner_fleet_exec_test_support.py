@@ -116,6 +116,7 @@ def _runner_values(*, routing_enabled: bool = True) -> dict[str, str]:
         "runner_fleet_root_volume_gb": "200",
         "runner_fleet_idle_shutdown_minutes": "30",
         "runner_fleet_shutdown_mode": "terminate",
+        "runner_fleet_deployment_ssh_stack_names_json": "[]",
     }
 
 

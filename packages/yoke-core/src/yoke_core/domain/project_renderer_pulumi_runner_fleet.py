@@ -33,6 +33,9 @@ from .github_actions_runner_fleet_capability import (
     validate as validate_runner_fleet_settings,
 )
 from .project_renderer_settings import ProjectRendererSettings, _stringify
+from .project_renderer_runner_deployment_network import (
+    deployment_ssh_stack_names,
+)
 
 
 def runner_fleet_values(
@@ -97,6 +100,9 @@ def runner_fleet_values(
             )
     api_url = bound_api_url if enabled else (app.api_url if app is not None else "")
     web_url = _web_url_from_api(api_url) if api_url else ""
+    resolved_deployment_ssh_stacks = (
+        deployment_ssh_stack_names(settings, runner_fleet) if enabled else []
+    )
     values = {
         "runner_fleet_aws_capability": runner_fleet.aws_capability,
         "runner_fleet_aws_region": runner_aws_region,
@@ -143,6 +149,9 @@ def runner_fleet_values(
             runner_fleet.lifecycle.idle_shutdown_minutes
         ),
         "runner_fleet_shutdown_mode": runner_fleet.lifecycle.shutdown_mode,
+        "runner_fleet_deployment_ssh_stack_names_json": (
+            json_helper.dumps_compact(resolved_deployment_ssh_stacks)
+        ),
     }
     if enabled:
         _validate_enabled_values(values)

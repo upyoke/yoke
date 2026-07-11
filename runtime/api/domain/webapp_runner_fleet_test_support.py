@@ -48,9 +48,14 @@ def _runner_stack(
     routing_enabled=True,
     authority_overrides=None,
     config_overrides=None,
+    deployment_ssh_stack_outputs=None,
     recorder=None,
 ):
     recorder = recorder or _Recorder()
+    recorder.stack_outputs = deployment_ssh_stack_outputs or {
+        "yoke-prod": {"originElasticIpAddress": "203.0.113.10"},
+        "yoke-stage": {"originElasticIpAddress": "203.0.113.11"},
+    }
     if repository_token is None:
         monkeypatch.delenv("RUNNER_FLEET_GITHUB_TOKEN", raising=False)
     else:
@@ -186,6 +191,7 @@ def _runner_stack(
         root_volume_gb=100,
         idle_shutdown_minutes=30,
         shutdown_mode=shutdown_mode,
+        deployment_ssh_stack_names=["yoke-prod", "yoke-stage"],
     )
     for key, value in (config_overrides or {}).items():
         setattr(args, key, value)
@@ -216,6 +222,7 @@ def _runner_stack(
         "root_volume_gb": args.root_volume_gb,
         "idle_shutdown_minutes": args.idle_shutdown_minutes,
         "shutdown_mode": args.shutdown_mode,
+        "deployment_ssh_stack_names": list(args.deployment_ssh_stack_names),
     }
     authority.update(authority_overrides or {})
     monkeypatch.setenv(

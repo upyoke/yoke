@@ -36,6 +36,7 @@ class WebappRunnerFleetArgs:
     root_volume_gb: int
     idle_shutdown_minutes: int
     shutdown_mode: str
+    deployment_ssh_stack_names: Sequence[str]
 
 
 def validate_runner_fleet_configuration(args: WebappRunnerFleetArgs) -> None:
