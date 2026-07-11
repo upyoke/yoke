@@ -19,6 +19,10 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.project_github_sync_mode import (
+    PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
+    projects_github_sync_mode_repair,
+)
 
 
 PROJECTS_GITHUB_BINDING_BIND_USAGE = (
@@ -162,7 +166,9 @@ __all__ = [
     "PROJECTS_GITHUB_BINDING_BIND_USAGE",
     "PROJECTS_GITHUB_BINDING_STATUS_USAGE",
     "PROJECTS_GITHUB_BINDING_UNBIND_USAGE",
+    "PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE",
     "projects_github_binding_bind",
     "projects_github_binding_status",
     "projects_github_binding_unbind",
+    "projects_github_sync_mode_repair",
 ]

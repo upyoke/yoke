@@ -170,7 +170,7 @@ from yoke_cli.commands.adapters.projects_secret import (
     projects_capability_secret_set,
 )
 from yoke_cli.commands.adapters.project_github_binding import (
-    projects_github_binding_bind, projects_github_binding_status, projects_github_binding_unbind,
+    projects_github_binding_bind, projects_github_binding_status, projects_github_binding_unbind, projects_github_sync_mode_repair,
 )
 from yoke_cli.commands.adapters.github import (
     github_connect, github_disconnect, github_pr_create, github_status,
@@ -328,7 +328,7 @@ __all__ = [
     "projects_resolve_by_github_repo", "projects_create", "projects_update",
     "projects_capability_has", "projects_capability_secret_set",
     "projects_checkout_context", "projects_github_binding_bind", "projects_github_binding_status", "projects_github_binding_unbind",
-    "organizations_get",
+    "projects_github_sync_mode_repair", "organizations_get",
     "identity_invite_create", "identity_invite_list",
     "identity_invite_revoke", "identity_link_set", "identity_autojoin_set",
     "project_structure_patch_apply",

@@ -158,6 +158,9 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "github-binding", "status"):
         ("projects.github_binding.status",
          _adapters.projects_github_binding_status),
+    ("projects", "github-sync-mode", "repair"):
+        ("projects.github_sync_mode.repair",
+         _adapters.projects_github_sync_mode_repair),
     ("organizations", "get"): ("organizations.get", _adapters.organizations_get),
     ("events", "query"): ("events.query.run", _adapters.events_query),
     ("events", "tail"): ("events.tail.run", _adapters.events_tail),

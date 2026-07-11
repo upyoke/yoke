@@ -260,8 +260,23 @@ def test_existing_app_binding_failure_never_enables_sync(
     assert calls[0][1]["expected_api_url"] == "https://api.github.example"
 
 
-def test_successful_app_binding_enables_issue_sync_after_verification(
-    tmp_path: Path, monkeypatch,
+@pytest.mark.parametrize(
+    ("binding_status", "expected_functions", "expected_mode"),
+    [
+        (
+            "active",
+            ["projects.github_binding.bind", "projects.update"],
+            "enabled",
+        ),
+        ("pending", ["projects.github_binding.bind"], "backlog_only"),
+    ],
+)
+def test_app_binding_enables_issue_sync_only_after_active_verification(
+    tmp_path: Path,
+    monkeypatch,
+    binding_status: str,
+    expected_functions: list[str],
+    expected_mode: str,
 ) -> None:
     calls: list[tuple[str, dict]] = []
     monkeypatch.setattr(
@@ -285,7 +300,7 @@ def test_successful_app_binding_enables_issue_sync_after_verification(
     def dispatch(function_id, payload, _config_path):
         calls.append((function_id, payload))
         if function_id == "projects.github_binding.bind":
-            return {"binding": {"status": "active"}}
+            return {"binding": {"status": binding_status}}
         return {"project": payload}
 
     monkeypatch.setattr(project_onboard_progress, "dispatch", dispatch)
@@ -298,17 +313,15 @@ def test_successful_app_binding_enables_issue_sync_after_verification(
         tmp_path / "config.json",
     )
 
-    assert [function_id for function_id, _payload in calls] == [
-        "projects.github_binding.bind",
-        "projects.update",
-    ]
-    assert calls[1][1] == {
-        "project_id": 41,
-        "slug": "demo",
-        "name": "Demo",
-        "github_sync_mode": "enabled",
-    }
-    assert report["mode"] == "enabled"
+    assert [function_id for function_id, _payload in calls] == expected_functions
+    if binding_status == "active":
+        assert calls[1][1] == {
+            "project_id": 41,
+            "slug": "demo",
+            "name": "Demo",
+            "github_sync_mode": "enabled",
+        }
+    assert report["mode"] == expected_mode
 
 
 def _project_row(*, slug: str = "local") -> dict:

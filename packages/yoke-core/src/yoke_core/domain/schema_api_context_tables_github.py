@@ -52,7 +52,8 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             "The wrong guessed table name `project_github_bindings` does not "
             "exist; use this `_repo_` table. Registered functions are "
             "`projects.github_binding.bind`, `projects.github_binding.status`, "
-            "and `projects.github_binding.unbind`."
+            "and `projects.github_binding.unbind`; sync-mode drift is repaired "
+            "through `projects.github_sync_mode.repair`."
         ),
     },
 }

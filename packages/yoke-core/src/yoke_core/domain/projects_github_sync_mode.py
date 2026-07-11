@@ -5,8 +5,9 @@ mirrors to GitHub issues at all.
 
 Allowed values::
 
-    enabled       = default; backlog items/epic tasks mirror to GitHub
-                    issues through the sync helper family
+    enabled       = backlog items/epic tasks mirror to GitHub issues through
+                    the sync helper family; setting it requires an active,
+                    verified GitHub App repository binding
     backlog_only  = the backlog lives ONLY in the Yoke DB; every GitHub
                     issue sync surface (create/update/close/comment/label,
                     resync detect+repair) skips or refuses for the project
@@ -19,10 +20,10 @@ switch to ``backlog_only`` when the backlog is not meant to appear in
 the new repo — otherwise the first sync after the flip would mass-create
 the backlog as issues there (see ``docs/github-sync.md``).
 
-The column is added by the idempotent schema-init migrations. This
-reader tolerates a pre-migration schema (column absent) and NULL/empty
-values — both resolve to ``enabled``, preserving prior behavior for
-every existing project.
+New projects default to ``backlog_only``. The column is added by the
+idempotent schema-init migrations. This reader tolerates a pre-migration
+schema (column absent) and legacy NULL/empty values — both resolve to
+``enabled`` until the explicit sync-mode repair normalizes unbound rows.
 """
 
 from __future__ import annotations
@@ -55,6 +56,29 @@ def validate_github_sync_mode(value: Any) -> str:
             f"{sorted(VALID_GITHUB_SYNC_MODES)}, got {value!r}"
         )
     return cleaned
+
+
+def validate_github_sync_mode_update(
+    value: Any,
+    *,
+    conn: Any,
+    project_id: int,
+) -> str:
+    """Validate a mode write and reject enabling unusable GitHub state."""
+    selected = validate_github_sync_mode(value)
+    if selected != GITHUB_SYNC_ENABLED:
+        return selected
+    from yoke_core.domain.project_github_binding_active import (
+        project_has_active_verified_github_binding,
+    )
+
+    if not project_has_active_verified_github_binding(conn, project_id):
+        raise GithubSyncModeError(
+            "github_sync_mode=enabled requires an active, verified GitHub App "
+            "repository binding; bind the repository successfully before "
+            "enabling issue sync"
+        )
+    return selected
 
 
 def resolve_github_sync_mode(project: str, *, conn: Optional[Any] = None) -> str:
@@ -137,4 +161,5 @@ __all__ = [
     "github_sync_enabled",
     "resolve_github_sync_mode",
     "validate_github_sync_mode",
+    "validate_github_sync_mode_update",
 ]

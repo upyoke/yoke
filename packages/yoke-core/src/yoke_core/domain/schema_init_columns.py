@@ -99,9 +99,8 @@ def apply_additive_schema(conn: Any) -> None:
     _add_column_if_not_exists(conn, "epic_tasks", "last_activity_at", "TEXT")
     conn.commit()
 
-    # Per-project GitHub sync switch. NULL resolves to 'enabled' through
-    # yoke_core.domain.projects_github_sync_mode; 'backlog_only' turns off
-    # every backlog->GitHub issue sync surface for the project.
+    # Per-project GitHub sync switch. Authoritative creators write
+    # 'backlog_only'; legacy NULL resolves to 'enabled' until explicit repair.
     _add_column_if_not_exists(conn, "projects", "github_sync_mode", "TEXT DEFAULT NULL")
     conn.commit()
 

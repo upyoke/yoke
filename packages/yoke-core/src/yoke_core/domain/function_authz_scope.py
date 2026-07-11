@@ -90,6 +90,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     "organizations.get": AuthzSpec(ACTOR_SESSION, None),
     # Registering a NEW project in the org is an org-admin act.
     "projects.create": AuthzSpec(ORG, PERM_PROJECT_CREATE),
+    "projects.github_sync_mode.repair": AuthzSpec(
+        CONTROL_PLANE,
+        PERM_DB_READ_RAW,
+    ),
     # Editing an EXISTING project is scoped to that project's admin (the target
     # project resolves from the payload slug/id).
     "projects.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

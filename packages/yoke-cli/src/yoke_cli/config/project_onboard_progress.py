@@ -97,26 +97,29 @@ def store_github_binding(
         },
         config_path,
     )
-    dispatch(
-        "projects.update",
-        {
-            "project_id": int(project["id"]),
-            "slug": str(project["slug"]),
-            "name": str(project.get("name") or project["slug"]),
-            "github_sync_mode": GITHUB_SYNC_ENABLED,
-        },
-        config_path,
-    )
     binding = result.get("binding") if isinstance(result, Mapping) else None
     binding = binding if isinstance(binding, Mapping) else {}
     binding_status = str(binding.get("status") or "pending_permission")
+    applied_mode = sync_mode
+    if binding_status == "active":
+        dispatch(
+            "projects.update",
+            {
+                "project_id": int(project["id"]),
+                "slug": str(project["slug"]),
+                "name": str(project.get("name") or project["slug"]),
+                "github_sync_mode": GITHUB_SYNC_ENABLED,
+            },
+            config_path,
+        )
+        applied_mode = GITHUB_SYNC_ENABLED
     permission_status = result.get("permission_status")
     permission_status = (
         dict(permission_status) if isinstance(permission_status, Mapping) else {}
     )
     return {
         "cap_type": "github",
-        "mode": GITHUB_SYNC_ENABLED,
+        "mode": applied_mode,
         "binding": binding_status,
         "permission_status": permission_status,
         "result": dict(result),
