@@ -51,7 +51,17 @@ _RUNTIME_PROBE = (
 _RUNTIME_INSTALL = (
     "sudo env DEBIAN_FRONTEND=noninteractive apt-get update -q"
     " && sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -q"
-    " docker.io docker-compose-v2 amazon-ecr-credential-helper awscli nginx"
+    " ca-certificates curl unzip docker.io docker-compose-v2"
+    " amazon-ecr-credential-helper nginx"
+    " && AWSCLI_ARCH=aarch64"
+    ' && if [ "$(dpkg --print-architecture)" = "amd64" ]; then'
+    " AWSCLI_ARCH=x86_64; fi"
+    " && rm -rf /tmp/aws /tmp/awscliv2.zip"
+    ' && curl -fsSL "https://awscli.amazonaws.com/'
+    'awscli-exe-linux-${AWSCLI_ARCH}.zip" -o /tmp/awscliv2.zip'
+    " && unzip -q /tmp/awscliv2.zip -d /tmp"
+    " && sudo /tmp/aws/install --update"
+    " && rm -rf /tmp/aws /tmp/awscliv2.zip"
 )
 
 # IMDSv2-compatible probe that works on IMDSv1-permissive instances too.
