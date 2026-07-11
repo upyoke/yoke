@@ -203,6 +203,7 @@ def ensure_label(
         request_with_retry(
             RestRequest(
                 method="PATCH",
+                replay_safe=True,
                 path=f"/repos/{owner}/{repo_name}/labels/{quote_path_segment(name)}",
                 body={"color": color, "description": description},
             ),

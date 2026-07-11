@@ -158,6 +158,7 @@ def _update_epic_checkbox(
         request_with_retry(
             RestRequest(
                 method="PATCH",
+                replay_safe=True,
                 path=f"/repos/{owner}/{repo}/issues/{parent_num}",
                 body={"body": final_body},
             ),

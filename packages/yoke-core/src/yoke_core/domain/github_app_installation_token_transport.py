@@ -7,11 +7,12 @@ from typing import Any, Callable, Mapping
 import urllib.error
 import urllib.request
 
+from yoke_cli.transport.response_deadline_open import ResponseOpenDeadlineError
 from yoke_contracts import github_app_tokens as token_contract
 from yoke_contracts.github_origin import GitHubApiEndpoint, GitHubApiOriginError
 
-from yoke_core.domain import gh_rest_transport
-from yoke_core.domain.github_api_transport import open_same_origin
+from yoke_core.domain import gh_rest_transport, github_response_safety
+from yoke_core.domain.github_api_transport import open_same_origin_deadline
 from yoke_core.domain.github_app_token_models import (
     GitHubAppTokenError,
     GitHubAppTokenResponseDecodeError,
@@ -21,7 +22,9 @@ from yoke_core.domain.github_app_token_models import (
 from yoke_core.domain.github_response_safety import (
     GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
     GitHubResponseDecodeError,
+    GitHubResponseDeadlineError,
     GitHubResponseTooLargeError,
+    deadline_after,
     decode_utf8_response,
     read_bounded_response,
     redact_exact_secrets,
@@ -54,24 +57,38 @@ def issue_installation_token_request(
         method="POST",
     )
     try:
-        with open_same_origin(
+        deadline = deadline_after(timeout_seconds)
+    except ValueError:
+        raise GitHubAppTokenError(
+            "GitHub installation token timeout must be positive and finite"
+        ) from None
+    try:
+        with open_same_origin_deadline(
             request,
             endpoint=endpoint,
-            timeout_seconds=timeout_seconds,
+            deadline=deadline,
+            replay_safe=False,
             opener=opener,
+            reject_redirects=True,
+            clock=github_response_safety.monotonic,
         ) as response:
             raw = read_bounded_response(
                 response,
                 limit_bytes=GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
                 label="GitHub installation token response",
+                deadline=deadline,
                 check_content_length=True,
             )
     except urllib.error.HTTPError as exc:
-        body_text = _read_error_body(exc, secret=app_jwt)
+        body_text = _read_error_body(exc, secret=app_jwt, deadline=deadline)
         raise GitHubAppTokenResponseError(
             "GitHub installation token request failed",
             status=exc.code,
             body=body_text,
+        ) from None
+    except ResponseOpenDeadlineError:
+        raise GitHubAppTokenError(
+            "GitHub installation token response exceeded the time limit"
         ) from None
     except urllib.error.URLError:
         raise GitHubAppTokenError(
@@ -83,6 +100,10 @@ def issue_installation_token_request(
         ) from None
     except GitHubResponseTooLargeError as exc:
         raise GitHubAppTokenResponseSizeError(str(exc)) from None
+    except GitHubResponseDeadlineError:
+        raise GitHubAppTokenError(
+            "GitHub installation token response exceeded the time limit"
+        ) from None
     except GitHubApiOriginError as exc:
         raise GitHubAppTokenError(redact_exact_secrets(str(exc), (app_jwt,))) from None
     except Exception:
@@ -111,12 +132,18 @@ def issue_installation_token_request(
     return payload
 
 
-def _read_error_body(exc: urllib.error.HTTPError, *, secret: str) -> str:
+def _read_error_body(
+    exc: urllib.error.HTTPError,
+    *,
+    secret: str,
+    deadline: float,
+) -> str:
     try:
         raw = read_bounded_response(
             exc,
             limit_bytes=GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
             label="GitHub installation token error response",
+            deadline=deadline,
         )
         text = decode_utf8_response(
             raw, label="GitHub installation token error response"

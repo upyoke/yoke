@@ -7,6 +7,11 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Iterable
 
+from yoke_cli.transport.response_deadline_read import (
+    ResponseReadDeadlineError,
+    ResponseReadError,
+    read_response_body,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -54,20 +59,30 @@ class HttpsResponsePolicyError(ValueError):
 def read_bounded_response(
     response: Any,
     *,
+    deadline: float,
     limit_bytes: int = FUNCTION_RESPONSE_LIMIT_BYTES,
 ) -> bytes:
-    """Read one body with a Content-Length preflight and overflow sentinel."""
+    """Read one body with size preflight, deadline, and overflow sentinel."""
 
     declared_length = _content_length(response)
     if declared_length is not None and declared_length > limit_bytes:
         raise HttpsResponsePolicyError(
             "HTTPS function relay response exceeded the size limit"
         )
-    raw = response.read(limit_bytes + 1)
-    if not isinstance(raw, (bytes, bytearray)):
+    try:
+        raw = read_response_body(
+            response,
+            limit_bytes=limit_bytes,
+            deadline=deadline,
+        )
+    except ResponseReadDeadlineError:
+        raise HttpsResponsePolicyError(
+            "HTTPS function relay response exceeded the time limit"
+        ) from None
+    except ResponseReadError:
         raise HttpsResponsePolicyError(
             "HTTPS function relay returned a malformed response"
-        )
+        ) from None
     if len(raw) > limit_bytes:
         raise HttpsResponsePolicyError(
             "HTTPS function relay response exceeded the size limit"

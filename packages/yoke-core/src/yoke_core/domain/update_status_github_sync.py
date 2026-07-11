@@ -244,6 +244,7 @@ def _github_close_on_terminal(
         request_with_retry(
             RestRequest(
                 method="PATCH",
+                replay_safe=True,
                 path=f"/repos/{owner}/{repo}/issues/{issue_num}",
                 body={"state": "closed"},
             ),

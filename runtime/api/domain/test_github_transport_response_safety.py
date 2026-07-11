@@ -11,7 +11,10 @@ from yoke_core.domain.github_app_verification_response import (
     GitHubAppVerificationResponseError,
     read_bounded_verification_response,
 )
-from yoke_core.domain.github_response_safety import redact_exact_secrets
+from yoke_core.domain.github_response_safety import (
+    deadline_after,
+    redact_exact_secrets,
+)
 
 
 class _RecordingReader:
@@ -238,7 +241,10 @@ def test_verification_reader_exception_is_detail_free() -> None:
             raise RuntimeError(secret)
 
     with pytest.raises(GitHubAppVerificationResponseError) as exc_info:
-        read_bounded_verification_response(_BrokenVerificationReader())
+        read_bounded_verification_response(
+            _BrokenVerificationReader(),
+            deadline=deadline_after(1.0),
+        )
 
     assert secret not in str(exc_info.value)
     assert exc_info.value.__cause__ is None

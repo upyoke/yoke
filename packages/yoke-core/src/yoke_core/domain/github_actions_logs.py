@@ -26,7 +26,9 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
 
+from yoke_cli.transport.response_deadline_open import open_replay_safe
 from yoke_core.domain import gh_retry
+from yoke_core.domain import github_response_safety
 from yoke_core.domain.github_actions_log_archive import (
     ActionsLogArchiveError,
     GITHUB_ACTIONS_LOG_ARCHIVE_LIMIT_BYTES,
@@ -46,12 +48,14 @@ from yoke_core.domain.github_actions_rest import rest_get
 from yoke_core.domain.github_response_safety import (
     GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
     GitHubResponseTooLargeError,
+    deadline_after,
     read_bounded_response,
     redact_exact_secrets,
 )
 
 
 _RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
+_FETCH_TIMEOUT_SECONDS = 60.0
 
 
 class _AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -144,13 +148,21 @@ def _fetch_once(
     response_limit_bytes: int,
 ) -> bytes:
     request = urllib.request.Request(url, headers=headers, method="GET")
+    deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
     try:
-        with urlopen(request, timeout=60.0) as response:
+        opened = open_replay_safe(
+            request,
+            opener=urlopen,
+            deadline=deadline,
+            clock=github_response_safety.monotonic,
+        )
+        with opened as response:
             try:
                 return read_bounded_response(
                     response,
                     limit_bytes=response_limit_bytes,
                     label="GitHub Actions log response",
+                    deadline=deadline,
                     check_content_length=True,
                 )
             except GitHubResponseTooLargeError as exc:
@@ -161,7 +173,7 @@ def _fetch_once(
                 ) from None
     except urllib.error.HTTPError as exc:
         status = int(exc.code)
-        snippet = _error_snippet(exc, token=token)
+        snippet = _error_snippet(exc, token=token, deadline=deadline)
         if status in (401, 403):
             raise RestAuthError(
                 f"HTTP {status}: {snippet}", status=status, body=snippet
@@ -187,12 +199,18 @@ def _fetch_once(
         raise RestNetworkError("GitHub Actions log network request failed") from None
 
 
-def _error_snippet(exc: urllib.error.HTTPError, *, token: str) -> str:
+def _error_snippet(
+    exc: urllib.error.HTTPError,
+    *,
+    token: str,
+    deadline: float,
+) -> str:
     try:
         raw = read_bounded_response(
             exc,
             limit_bytes=GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
             label="GitHub Actions log error response",
+            deadline=deadline,
         )
         text = raw.decode("utf-8", errors="replace")
     except GitHubResponseTooLargeError:

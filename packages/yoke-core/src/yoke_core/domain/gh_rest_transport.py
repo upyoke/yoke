@@ -5,8 +5,9 @@ shared transient-failure retry policy from :mod:`yoke_core.domain.gh_retry`.
 Tests substitute ``gh_rest_transport.urlopen`` for in-process monkeypatching;
 subprocess tests use :envvar:`YOKE_REST_FAKE_DIR`.
 
-Retry semantics: 429 / 5xx + network failures retry; retryable HTTP 200
-and 422 bodies use the shared :func:`gh_retry.is_retryable_text` matcher.
+Retry semantics: transient failures replay only operations registered as
+safe. HTTP-idempotent methods are safe by default; PATCH and POST require
+an explicit ``replay_safe=True`` operation declaration.
 """
 
 from __future__ import annotations
@@ -20,30 +21,40 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Tuple
 
-from yoke_core.domain import gh_retry
+from yoke_core.domain import gh_retry, github_response_safety
 from yoke_core.domain.gh_rest_transport_fakes import (
     FAKE_DIR_ENV as _FAKE_DIR_ENV,
     load_fake_response as _load_fake_response,
 )
+from yoke_core.domain.gh_rest_http_errors import (
+    classify_http_error as _classify_http_error,
+    is_rate_limit_body as _is_rate_limit_body,  # noqa: F401 - test seam
+)
 from yoke_core.domain.gh_rest_transport_errors import (
-    RateLimitedError,
+    RateLimitedError as RateLimitedError,
     RestAuthError,
     RestNetworkError,
-    RestNotFoundError,
+    RestNotFoundError as RestNotFoundError,
     RestResponseDecodeError,
     RestResponseTooLargeError,
-    RestServerError,
+    RestServerError as RestServerError,
     RestTransportError,
     RestUnprocessableError,
 )
+from yoke_core.domain.gh_rest_retry_policy import (
+    is_retryable_error as _is_retryable_error,
+    request_replay_is_safe as _request_replay_is_safe,
+)
 from yoke_core.domain.gh_rest_transport_test_guard import block_live_test_call
 from yoke_core.domain import github_api_urls
-from yoke_core.domain.github_api_transport import open_same_origin
+from yoke_core.domain.github_api_transport import open_same_origin_deadline
 from yoke_core.domain.github_response_safety import (
     GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES,
     GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
     GitHubResponseDecodeError,
+    GitHubResponseDeadlineError,
     GitHubResponseTooLargeError,
+    deadline_after,
     decode_utf8_response,
     read_bounded_response,
     redact_exact_secrets,
@@ -55,21 +66,6 @@ from yoke_contracts.github_origin import DEFAULT_GITHUB_API_URL, GitHubApiOrigin
 GITHUB_API_BASE = DEFAULT_GITHUB_API_URL
 GITHUB_APP_API_URL_ENV = github_api_urls.GITHUB_APP_API_URL_ENV
 
-_RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
-
-
-# Body markers GitHub uses on the secondary 403-shaped rate-limit.
-_RATE_LIMIT_BODY_MARKERS: Tuple[str, ...] = (
-    "API rate limit exceeded",
-    "secondary rate limit",
-    "abuse detection mechanism",
-)
-
-
-def _is_rate_limit_body(body_text: str) -> bool:
-    """True when ``body_text`` matches a canonical rate-limit marker."""
-    return bool(body_text) and any(m in body_text for m in _RATE_LIMIT_BODY_MARKERS)
-
 
 @dataclass(frozen=True)
 class RestRequest:
@@ -80,7 +76,9 @@ class RestRequest:
     :data:`GITHUB_API_BASE` when relative. ``method`` is uppercase HTTP
     verb. ``query`` is appended as a querystring. ``body`` is encoded as
     JSON when present. ``accept`` overrides the default ``application/vnd
-    .github+json`` accept header.
+    .github+json`` accept header. ``replay_safe`` explicitly registers an
+    operation as safe or unsafe to retry after an ambiguous failure; when
+    omitted, only HTTP-idempotent methods are replayed.
     """
 
     method: str
@@ -88,6 +86,7 @@ class RestRequest:
     query: Mapping[str, str] = field(default_factory=dict)
     body: Optional[Mapping[str, Any]] = None
     accept: str = "application/vnd.github+json"
+    replay_safe: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -132,12 +131,25 @@ def request_with_retry(
 
     last_exc: Optional[RestTransportError] = None
     attempt_limit = max(1, max_attempts or gh_retry.MAX_RETRIES)
+    replay_safe = _request_replay_is_safe(
+        method=req.method,
+        replay_safe=req.replay_safe,
+    )
     for attempt in range(1, attempt_limit + 1):
         try:
-            response = _issue_once(req, token=token, timeout_seconds=timeout_seconds)
+            response = _issue_once(
+                req,
+                token=token,
+                timeout_seconds=timeout_seconds,
+                replay_safe=replay_safe,
+            )
             return response
         except RestTransportError as exc:
-            if not _is_retryable_error(exc) or attempt >= attempt_limit:
+            if (
+                not replay_safe
+                or not _is_retryable_error(exc)
+                or attempt >= attempt_limit
+            ):
                 raise
             last_exc = exc
         wait = gh_retry.BACKOFF_SECONDS[
@@ -161,6 +173,7 @@ def _issue_once(
     *,
     token: str,
     timeout_seconds: float,
+    replay_safe: bool,
 ) -> RestResponse:
     try:
         url = _build_url(req)
@@ -182,15 +195,24 @@ def _issue_once(
     raw_request = urllib.request.Request(
         url, data=encoded_body, headers=headers, method=req.method.upper()
     )
+    try:
+        deadline = deadline_after(timeout_seconds)
+    except ValueError:
+        raise RestTransportError(
+            "GitHub REST timeout must be positive and finite"
+        ) from None
 
     try:
         endpoint = github_api_urls.active_api_endpoint(GITHUB_API_BASE)
         injected_opener = None if urlopen is urllib.request.urlopen else urlopen
-        with open_same_origin(
+        with open_same_origin_deadline(
             raw_request,
             endpoint=endpoint,
-            timeout_seconds=timeout_seconds,
+            deadline=deadline,
+            replay_safe=replay_safe,
             opener=injected_opener,
+            reject_redirects=not replay_safe,
+            clock=github_response_safety.monotonic,
         ) as response:
             status = int(getattr(response, "status", 200) or 200)
             response_headers = _normalise_headers(response.headers)
@@ -199,10 +221,15 @@ def _issue_once(
                     response,
                     limit_bytes=GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES,
                     label="GitHub REST response",
+                    deadline=deadline,
                     check_content_length=True,
                 )
             except GitHubResponseTooLargeError as exc:
                 raise RestResponseTooLargeError(str(exc), status=status) from None
+            except GitHubResponseDeadlineError:
+                raise RestNetworkError(
+                    "GitHub REST response exceeded the time limit"
+                ) from None
             except Exception:
                 raise RestNetworkError("GitHub REST response read failed") from None
     except urllib.error.HTTPError as exc:
@@ -213,6 +240,7 @@ def _issue_once(
                 exc,
                 limit_bytes=GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
                 label="GitHub REST error response",
+                deadline=deadline,
             )
         except GitHubResponseTooLargeError:
             body_text = "GitHub REST error response exceeded the response size limit"
@@ -258,45 +286,6 @@ def _issue_once(
             )
 
     return RestResponse(status=status, headers=response_headers, body=parsed)
-
-
-def _is_retryable_error(exc: RestTransportError) -> bool:
-    if isinstance(exc, (RestNetworkError, RateLimitedError)):
-        return True
-    # 200 responses can still raise RestUnprocessableError when GitHub
-    # surfaces a retryable propagation race in the JSON body
-    # ("Base branch was modified"). Treat any RestUnprocessableError whose
-    # carried body matches the canonical matcher as retryable, regardless
-    # of which HTTP status fronted it. Auth / not-found / unrecognized
-    # error classes still fall through to terminal.
-    if isinstance(exc, RestUnprocessableError):
-        text = (exc.body or "") + " " + (str(exc) or "")
-        return gh_retry.is_retryable_text(text)
-    if exc.status is None:
-        return False
-    if exc.status in _RETRYABLE_HTTP_STATUSES:
-        return True
-    return False
-
-
-def _classify_http_error(
-    status: int, body_text: str, headers: Mapping[str, str]
-) -> RestTransportError:
-    snippet = body_text.strip()[:240]
-    body_arg: dict = {"status": status, "body": body_text}
-    # 429 + 403-with-rate-limit-body both retry under gh_retry backoff;
-    # never mistaken for missing tokens or absent resources.
-    if status == 429 or (status == 403 and _is_rate_limit_body(body_text)):
-        return RateLimitedError(f"HTTP {status} rate limit: {snippet}", **body_arg)
-    if status in (401, 403):
-        return RestAuthError(f"HTTP {status}: {snippet}", **body_arg)
-    if status == 404:
-        return RestNotFoundError(f"HTTP {status}: {snippet}", **body_arg)
-    if status == 422:
-        return RestUnprocessableError(f"HTTP {status}: {snippet}", **body_arg)
-    if 500 <= status < 600:
-        return RestServerError(f"HTTP {status}: {snippet}", **body_arg)
-    return RestTransportError(f"HTTP {status}: {snippet}", **body_arg)
 
 
 def _build_url(req: RestRequest) -> str:

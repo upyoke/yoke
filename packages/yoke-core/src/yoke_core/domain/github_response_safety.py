@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from typing import Any, Iterable
+
+from yoke_cli.transport import response_deadline_read
 
 
 GITHUB_SMALL_RESPONSE_LIMIT_BYTES = 64 * 1024
 GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES = 4 * 1024 * 1024
 REDACTED_SECRET = "[REDACTED]"
+monotonic = time.monotonic
 
 
 class GitHubResponseSafetyError(ValueError):
@@ -22,14 +27,31 @@ class GitHubResponseDecodeError(GitHubResponseSafetyError):
     """A GitHub response was not valid UTF-8."""
 
 
+class GitHubResponseDeadlineError(GitHubResponseSafetyError):
+    """A GitHub response body exceeded its absolute deadline."""
+
+
+def deadline_after(timeout_seconds: float) -> float:
+    """Return an absolute monotonic deadline for a positive finite timeout."""
+    try:
+        return response_deadline_read.deadline_after(
+            timeout_seconds,
+            clock=monotonic,
+        )
+    except ValueError as exc:
+        raise ValueError("GitHub response timeout must be positive and finite") from exc
+
+
 def read_bounded_response(
     response: Any,
     *,
     limit_bytes: int,
     label: str,
+    deadline: float,
+    clock: Callable[[], float] | None = None,
     check_content_length: bool = False,
 ) -> bytes:
-    """Read at most one overflow sentinel beyond ``limit_bytes``."""
+    """Read through one overflow byte without crossing an absolute deadline."""
     if limit_bytes <= 0:
         raise ValueError("GitHub response byte limit must be positive")
     if check_content_length:
@@ -38,12 +60,22 @@ def read_bounded_response(
             raise GitHubResponseTooLargeError(
                 f"{label} exceeded the response size limit"
             )
-    raw = response.read(limit_bytes + 1)
-    if not isinstance(raw, (bytes, bytearray, memoryview)):
-        raise GitHubResponseSafetyError(f"{label} did not return bytes")
+    try:
+        raw = response_deadline_read.read_response_body(
+            response,
+            limit_bytes=limit_bytes,
+            deadline=deadline,
+            clock=clock or monotonic,
+        )
+    except response_deadline_read.ResponseReadDeadlineError:
+        raise GitHubResponseDeadlineError(
+            f"{label} exceeded the response time limit"
+        ) from None
+    except response_deadline_read.ResponseReadError:
+        raise GitHubResponseSafetyError(f"{label} did not return bytes") from None
     if len(raw) > limit_bytes:
         raise GitHubResponseTooLargeError(f"{label} exceeded the response size limit")
-    return bytes(raw)
+    return raw
 
 
 def decode_utf8_response(raw: bytes, *, label: str) -> str:
@@ -88,9 +120,11 @@ __all__ = [
     "GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES",
     "GITHUB_SMALL_RESPONSE_LIMIT_BYTES",
     "GitHubResponseDecodeError",
+    "GitHubResponseDeadlineError",
     "GitHubResponseSafetyError",
     "GitHubResponseTooLargeError",
     "REDACTED_SECRET",
+    "deadline_after",
     "decode_utf8_response",
     "read_bounded_response",
     "redact_exact_secrets",

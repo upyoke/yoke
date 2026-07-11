@@ -22,7 +22,12 @@ from yoke_cli.transport.https_response_policy import (
     redact_text,
     safe_excerpt,
 )
-from yoke_cli.transport.https_urlopen import open_no_redirect
+from yoke_cli.transport.https_urlopen import NoRedirect, open_no_redirect
+from yoke_cli.transport.response_deadline_open import (
+    ResponseOpenDeadlineError,
+    open_https_caller_owned,
+)
+from yoke_cli.transport.response_deadline_read import deadline_after
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -45,6 +50,7 @@ _NETWORK_ERRORS = (
     OSError,
     http.client.HTTPException,
 )
+_DEFAULT_OPEN_NO_REDIRECT = open_no_redirect
 
 # Process-wide latch: the engine-version skew warning prints at most once.
 _skew_warned = False
@@ -131,6 +137,15 @@ def relay_https(
     sensitive_values = collect_request_secrets(
         request, transport_token=connection.token
     )
+    try:
+        deadline = deadline_after(timeout_s)
+    except ValueError:
+        return _transport_error_response(
+            request,
+            connection,
+            "HTTPS function relay timeout must be positive and finite",
+            sensitive_values=sensitive_values,
+        )
     body = json.dumps(payload).encode("utf-8")
     http_request = urllib.request.Request(
         connection.functions_url,
@@ -142,16 +157,22 @@ def relay_https(
         },
     )
     try:
-        with open_no_redirect(http_request, timeout=timeout_s) as resp:
+        opened = _open_function_relay(
+            http_request,
+            deadline=deadline,
+            timeout_s=timeout_s,
+        )
+        with opened as resp:
             _warn_on_engine_version_skew(
                 getattr(resp, "headers", None), sensitive_values
             )
-            raw = read_bounded_response(resp)
+            raw = read_bounded_response(resp, deadline=deadline)
     except urllib.error.HTTPError as exc:
         return _http_error_response(
             request,
             connection,
             exc,
+            deadline=deadline,
             sensitive_values=sensitive_values,
         )
     except HttpsResponsePolicyError as exc:
@@ -159,6 +180,13 @@ def relay_https(
             request,
             connection,
             str(exc),
+            sensitive_values=sensitive_values,
+        )
+    except ResponseOpenDeadlineError:
+        return _transport_error_response(
+            request,
+            connection,
+            "HTTPS function relay response exceeded the time limit",
             sensitive_values=sensitive_values,
         )
     except _NETWORK_ERRORS:
@@ -176,16 +204,32 @@ def relay_https(
         )
 
 
+def _open_function_relay(
+    request: urllib.request.Request,
+    *,
+    deadline: float,
+    timeout_s: float,
+):
+    if open_no_redirect is not _DEFAULT_OPEN_NO_REDIRECT:
+        return open_no_redirect(request, timeout=timeout_s)
+    return open_https_caller_owned(
+        request,
+        deadline=deadline,
+        handlers=(NoRedirect(),),
+    )
+
+
 def _http_error_response(
     request: FunctionCallRequest,
     connection: HttpsConnection,
     exc: urllib.error.HTTPError,
     *,
+    deadline: float,
     sensitive_values: tuple[str, ...],
 ) -> FunctionCallResponse:
     _warn_on_engine_version_skew(getattr(exc, "headers", None), sensitive_values)
     try:
-        raw = read_bounded_response(exc)
+        raw = read_bounded_response(exc, deadline=deadline)
     except HttpsResponsePolicyError as read_error:
         return _transport_error_response(
             request,

@@ -5,6 +5,12 @@ from __future__ import annotations
 from typing import Any, Callable
 import urllib.request
 
+from yoke_cli.transport import response_deadline_read
+from yoke_cli.transport.response_deadline_open import (
+    ResponseOpenDeadlineError,
+    open_https_caller_owned,
+    open_replay_safe,
+)
 from yoke_contracts.github_origin import (
     GitHubApiEndpoint,
     require_same_github_origin,
@@ -54,4 +60,75 @@ def open_same_origin(
     return safe_opener.open(request, timeout=timeout_seconds)
 
 
-__all__ = ["open_same_origin"]
+def open_same_origin_deadline(
+    request: urllib.request.Request,
+    *,
+    endpoint: GitHubApiEndpoint,
+    deadline: float,
+    replay_safe: bool,
+    opener: Callable[..., Any] | None = None,
+    reject_redirects: bool = False,
+    clock: Callable[[], float] | None = None,
+) -> Any:
+    """Open one GitHub request under its whole-operation deadline."""
+    selected_clock = clock or response_deadline_read.monotonic
+    require_same_github_origin(request.full_url, endpoint)
+
+    if opener is not None:
+        if replay_safe:
+            return open_replay_safe(
+                request,
+                opener=lambda selected, timeout: open_same_origin(
+                    selected,
+                    endpoint=endpoint,
+                    timeout_seconds=timeout,
+                    opener=opener,
+                    reject_redirects=reject_redirects,
+                ),
+                deadline=deadline,
+                clock=selected_clock,
+            )
+        remaining = deadline - selected_clock()
+        if remaining <= 0:
+            raise ResponseOpenDeadlineError(
+                "GitHub request open exceeded the time limit"
+            )
+        response = open_same_origin(
+            request,
+            endpoint=endpoint,
+            timeout_seconds=remaining,
+            opener=opener,
+            reject_redirects=reject_redirects,
+        )
+        if selected_clock() >= deadline:
+            close = getattr(response, "close", None)
+            if callable(close):
+                close()
+            raise ResponseOpenDeadlineError(
+                "GitHub request open exceeded the time limit"
+            )
+        return response
+
+    block_live_test_call(urllib.request.urlopen, urllib.request.urlopen)
+    redirect_handler = (
+        _RejectRedirectHandler()
+        if reject_redirects
+        else _ExactOriginRedirectHandler(endpoint)
+    )
+    if replay_safe:
+        safe_opener = urllib.request.build_opener(redirect_handler)
+        return open_replay_safe(
+            request,
+            opener=safe_opener.open,
+            deadline=deadline,
+            clock=selected_clock,
+        )
+    return open_https_caller_owned(
+        request,
+        deadline=deadline,
+        handlers=(redirect_handler,),
+        clock=selected_clock,
+    )
+
+
+__all__ = ["open_same_origin", "open_same_origin_deadline"]
