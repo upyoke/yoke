@@ -259,7 +259,7 @@ jobs:
             if ! docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" build; then
               echo "Ephemeral build failed — pruning all Docker cache and retrying with --no-cache..."
               docker builder prune -af
-              docker image prune -af
+              docker image prune -f
               docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" build --no-cache
             fi
             docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" up -d

@@ -174,52 +174,18 @@ def _wait_for_prewarmed_image(
     )
 
 
-def ensure_image_in_registry(
+def _build_and_push_image(
     runner: CommandRunner,
     env: DeployEnvironment,
     aws_env: Mapping[str, str],
     *,
     repo_path: str,
     tag: str,
+    image_ref: str,
+    build_dir: Path,
     emit: Callable[[str], None],
-    build_dir: Optional[Path] = None,
-    wait_budget_s: int = _WAIT_BUDGET_S,
-    wait_poll_interval_s: float = _WAIT_POLL_INTERVAL_S,
-    sleeper: Callable[[float], None] = time.sleep,
 ) -> str:
-    """Ensure ``<registry>/<repo>:<tag>`` exists; acquire it when absent.
-
-    Acquisition mode is explicit: with ``YOKE_DEPLOY_IMAGE_WAIT=1`` in
-    the process env (set by the CI deploy workflow), wait for the
-    prewarmed image with a bounded poll and never build; otherwise build
-    from the exact committed tree of the tag and push (operator-machine
-    default).
-    """
-    image_ref = env.image_ref(tag)
-    if _describe_image(runner, env, aws_env, tag).ok:
-        emit(f"  [core-deploy] image already in registry: {image_ref}")
-        return image_ref
-
-    if os.environ.get(IMAGE_WAIT_ENV_VAR, "0") == "1":
-        return _wait_for_prewarmed_image(
-            runner, env, aws_env, tag=tag, emit=emit,
-            budget_s=wait_budget_s, poll_interval_s=wait_poll_interval_s,
-            sleeper=sleeper,
-        )
-
-    emit(f"  [core-deploy] image absent; building {image_ref} from {tag}")
-    if not repo_path:
-        raise CoreDeployError(
-            "[core-deploy] image is not in the registry and no project repo "
-            "path is available to build it"
-        )
-
-    if build_dir is None:
-        from yoke_core.domain.project_scratch_dir import storage_dir
-
-        build_dir = storage_dir(
-            "core-image-build", env.env_name, tag, project=env.project
-        )
+    """Build and publish one image from an already-selected workspace."""
     build_dir.mkdir(parents=True, exist_ok=True)
 
     # Build from the exact committed tree of the tag, never the working tree.
@@ -291,3 +257,69 @@ def ensure_image_in_registry(
         )
     emit(f"  [core-deploy] image pushed: {image_ref}")
     return image_ref
+
+
+def ensure_image_in_registry(
+    runner: CommandRunner,
+    env: DeployEnvironment,
+    aws_env: Mapping[str, str],
+    *,
+    repo_path: str,
+    tag: str,
+    emit: Callable[[str], None],
+    build_dir: Optional[Path] = None,
+    wait_budget_s: int = _WAIT_BUDGET_S,
+    wait_poll_interval_s: float = _WAIT_POLL_INTERVAL_S,
+    sleeper: Callable[[float], None] = time.sleep,
+) -> str:
+    """Ensure ``<registry>/<repo>:<tag>`` exists; acquire it when absent.
+
+    Acquisition mode is explicit: with ``YOKE_DEPLOY_IMAGE_WAIT=1`` in
+    the process env (set by the CI deploy workflow), wait for the
+    prewarmed image with a bounded poll and never build; otherwise build
+    from the exact committed tree of the tag and push (operator-machine
+    default).
+    """
+    image_ref = env.image_ref(tag)
+    if _describe_image(runner, env, aws_env, tag).ok:
+        emit(f"  [core-deploy] image already in registry: {image_ref}")
+        return image_ref
+
+    if os.environ.get(IMAGE_WAIT_ENV_VAR, "0") == "1":
+        return _wait_for_prewarmed_image(
+            runner, env, aws_env, tag=tag, emit=emit,
+            budget_s=wait_budget_s, poll_interval_s=wait_poll_interval_s,
+            sleeper=sleeper,
+        )
+
+    emit(f"  [core-deploy] image absent; building {image_ref} from {tag}")
+    if not repo_path:
+        raise CoreDeployError(
+            "[core-deploy] image is not in the registry and no project repo "
+            "path is available to build it"
+        )
+
+    owns_build_dir = build_dir is None
+    if owns_build_dir:
+        from yoke_core.domain.project_scratch_dir import storage_dir
+
+        build_dir = storage_dir(
+            "core-image-build", env.env_name, tag, project=env.project
+        )
+    assert build_dir is not None
+    try:
+        return _build_and_push_image(
+            runner,
+            env,
+            aws_env,
+            repo_path=repo_path,
+            tag=tag,
+            image_ref=image_ref,
+            build_dir=build_dir,
+            emit=emit,
+        )
+    finally:
+        # Only remove the helper-owned workspace. An explicit build_dir is an
+        # operator/test-owned diagnostic surface and must remain untouched.
+        if owns_build_dir:
+            shutil.rmtree(build_dir, ignore_errors=True)

@@ -214,6 +214,9 @@ def _include_routes(application: FastAPI) -> FastAPI:
     from yoke_core.api.routes.pulumi_stack_config import (
         router as pulumi_stack_config_router,
     )
+    from yoke_core.api.routes.runner_fleet_token import (
+        router as runner_fleet_token_router,
+    )
     from yoke_core.api.routes.templates import router as templates_router
     from yoke_core.api.routes.hooks import router as hooks_router
     from yoke_core.api.routes.web_sign_in import (
@@ -230,6 +233,7 @@ def _include_routes(application: FastAPI) -> FastAPI:
     v1_router.include_router(functions_router)
     v1_router.include_router(install_router)
     v1_router.include_router(pulumi_stack_config_router)
+    v1_router.include_router(runner_fleet_token_router)
     v1_router.include_router(templates_router)
     v1_router.include_router(hooks_router)
     v1_router.include_router(web_sign_in_router)

@@ -197,3 +197,32 @@ class TestAwsCapabilityEnv:
         assert env["AWS_SESSION_TOKEN"] == "oidc-session-token"
         assert env["AWS_DEFAULT_REGION"] == "us-east-1"
         assert env["AWS_REGION"] == "us-east-1"
+
+    def test_actions_oidc_precedes_unreachable_capability_store(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ASIA_ACTIONS")
+        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "actions-secret")
+        monkeypatch.setenv("AWS_SESSION_TOKEN", "actions-session")
+        monkeypatch.setattr(
+            deploy_remote,
+            "cmd_capability_get_secret",
+            lambda *args: pytest.fail("consulted capability store in Actions"),
+        )
+
+        env = aws_capability_env("yoke", "us-east-1")
+
+        assert env["AWS_ACCESS_KEY_ID"] == "ASIA_ACTIONS"
+        assert env["AWS_SESSION_TOKEN"] == "actions-session"
+
+    def test_actions_without_oidc_credentials_fails_before_lookup(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+        monkeypatch.setattr(
+            deploy_remote,
+            "cmd_capability_get_secret",
+            lambda *args: pytest.fail("consulted capability store in Actions"),
+        )
+
+        with pytest.raises(RuntimeError, match="configure-aws-credentials"):
+            aws_capability_env("yoke", "us-east-1")

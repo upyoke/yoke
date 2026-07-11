@@ -12,9 +12,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-from .project_renderer_pulumi_context import (
-    _pulumi_context_from_settings,
-)
+from .project_renderer_pulumi_context import _pulumi_context_from_settings
+from .project_renderer_pulumi_ci import delivery_ci_values
 from . import json_helper
 from .project_renderer_pulumi_instances import (
     gather_pulumi_stack_instances,
@@ -23,6 +22,7 @@ from .project_renderer_pulumi_instances import (
 from .project_renderer_pulumi_selection import select_pulumi_targets
 from .project_renderer_pulumi_files import (
     ENVIRONMENT_PROGRAM_FILES,
+    REGISTRY_PROGRAM_FILES,
     RUNNER_FLEET_PROGRAM_FILES,
     SHARED_PROGRAM_FILES,
 )
@@ -117,6 +117,7 @@ def gather_pulumi_values(
     values["manage_github_oidc_provider"] = _stringify(
         manage_default if manage_default is not None else True
     )
+    values.update(delivery_ci_values(settings))
     runner_fleet_enabled = "runner-fleet" in (data.get("stacks") or [])
     if (
         pulumi_stack is None
@@ -309,6 +310,10 @@ def render_pulumi_artifacts(
             program_files.append("webapp_distribution_stack.py")
         if stack_type == "runner-fleet":
             for program_file in RUNNER_FLEET_PROGRAM_FILES:
+                if program_file not in program_files:
+                    program_files.append(program_file)
+        if stack_type == "registry":
+            for program_file in REGISTRY_PROGRAM_FILES:
                 if program_file not in program_files:
                     program_files.append(program_file)
 

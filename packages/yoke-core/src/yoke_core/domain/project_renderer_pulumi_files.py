@@ -3,6 +3,7 @@
 SHARED_PROGRAM_FILES = (
     "__main__.py",
     "requirements.txt",
+    "webapp_github_repository_provider.py",
 )
 ENVIRONMENT_PROGRAM_FILES = (
     "webapp_vps_stack.py",
@@ -10,6 +11,12 @@ ENVIRONMENT_PROGRAM_FILES = (
     "webapp_api_stack.py",
     "webapp_distribution_stack.py",
     "webapp_environment_stack.py",
+    "webapp_environment_origin_policy.py",
+)
+REGISTRY_PROGRAM_FILES = (
+    "webapp_registry_ci_metadata_policy.py",
+    "webapp_registry_ci_policy.py",
+    "webapp_registry_github_variables.py",
 )
 RUNNER_FLEET_PROGRAM_FILES = (
     "webapp_runner_authority_intent.py",
@@ -29,6 +36,7 @@ RUNNER_FLEET_PROGRAM_FILES = (
 
 __all__ = [
     "ENVIRONMENT_PROGRAM_FILES",
+    "REGISTRY_PROGRAM_FILES",
     "RUNNER_FLEET_PROGRAM_FILES",
     "SHARED_PROGRAM_FILES",
 ]

@@ -123,10 +123,14 @@ deploy_owner_project=<deploy-owner-project>
 git -C "$source_checkout" fetch origin "$target_branch"
 deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
 YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
-YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
+YOKE_ENV=<control-plane-env>-db-admin YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env> python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
 ```
 
 The deploy-owner project may differ from the product project after environment/flow re-parenting. Every retry or `--from-stage` resume of the item-less run must repeat the same `--product-src` and `--image-tag` arguments.
+
+Normal deploys must select the hosted relay explicitly. The only local-App
+exception is an attended first deploy that introduces or repairs the relay,
+using `YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1` instead of the relay selector.
 
 ## Table: deployment_run_qa
 

@@ -66,7 +66,7 @@ test -z "$(git -C "$wt" status --porcelain --ignored=matching --untracked-files=
 python3 -m runtime.harness.harness_sessions who-claims 0
 git -C "$repo" merge-base --is-ancestor "$branch" "$base_ref"
 git -C "$repo" worktree remove "$wt"
-git -C "$repo" branch -D "$branch"
+git -C "$repo" branch -d "$branch"
 ```
 
 Replace `0` in the claim lookup with the item id for item worktrees, or inspect
@@ -74,11 +74,35 @@ the active work claim rows before deleting non-item source-dev worktrees.
 
 `git branch -d` is not the right safety check when the intended base is not the
 current `HEAD`; it checks merge status relative to the current checkout. Use
-`merge-base --is-ancestor "$branch" "$base_ref"` as the guard, then delete the
-local branch only after that guard passes.
+`merge-base --is-ancestor "$branch" "$base_ref"` as the guard, then use normal
+`branch -d` only after that guard passes. If normal deletion refuses because
+the main checkout is not on the intended base, preserve the ref or switch the
+main checkout to that base and repeat the complete audit. Do not substitute
+`branch -D`.
 
 Avoid `git worktree remove --force` for cleanup. If normal removal refuses,
 inspect the worktree state and preserve or commit the work before retrying.
+
+## Automatic Cleanup Contract
+
+Merge preflight automatically prunes only worktrees registered beneath the
+repository's managed `.worktrees/` or `.claude/worktrees/` roots. A candidate
+must have one exact terminal DB owner, no active work claim or harness session,
+a clean status including ignored and untracked files, and a branch tip that is
+an ancestor of the freshly fetched target. Removal uses normal `git worktree
+remove`, followed by normal `git branch -d` only after worktree removal
+succeeds.
+
+Done-transition uses the same fail-closed evidence for its current item lane.
+It also proves an exact remote ref is an ancestor of the refreshed target
+before deleting that remote ref. If worktree, local-ref, or remote-ref cleanup
+is refused, the item's worktree metadata remains intact so ownership is not
+lost and a later safe sweep can retry.
+
+Unregistered directories, ambiguous owners, dirty or ignored content,
+unavailable claim/DB state, non-ancestor branches, and removal refusals are
+preserved and reported. Automatic cleanup never uses filesystem `rm -rf`,
+forced worktree removal, or forced branch deletion.
 
 ## Keep Non-Ancestor Evidence Branches
 

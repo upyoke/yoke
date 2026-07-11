@@ -17,20 +17,14 @@ from unittest.mock import patch
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.engines._project_identity_test_helpers import (
-    _insert_item,
-    _seed_project,
-)
 from yoke_core.engines.doctor import (
     DoctorArgs,
     RecordCollector,
     hc_epic_task_worktree_backfill,
     hc_orphaned_temp_files,
     hc_path_confabulation,
-    hc_stale_remote_branches,
     hc_worktree_health,
 )
-from yoke_core.domain import project_scratch_dir as scratch
 
 
 def _make_conn():
@@ -94,6 +88,31 @@ def _make_conn():
             created_at TEXT,
             reviewed_at TEXT,
             archived_at TEXT
+        );
+
+        CREATE TABLE harness_sessions (
+            session_id TEXT PRIMARY KEY,
+            ended_at TEXT
+        );
+        INSERT INTO harness_sessions (session_id, ended_at)
+        VALUES ('past', '2026-01-01T00:00:00Z');
+
+        CREATE TABLE work_claims (
+            id INTEGER PRIMARY KEY,
+            session_id TEXT,
+            target_kind TEXT,
+            item_id INTEGER,
+            epic_id INTEGER,
+            task_num INTEGER,
+            released_at TEXT
+        );
+
+        CREATE TABLE path_claims (
+            id INTEGER PRIMARY KEY,
+            state TEXT,
+            owner_kind TEXT,
+            owner_item_id INTEGER,
+            item_id INTEGER
         );
     """))
     return conn
@@ -235,10 +254,9 @@ class TestHcPathConfabulation:
 class TestHcOrphanedTempFiles:
     """Tests for hc_orphaned_temp_files.
 
-    The scanner enumerates the helper-resolved scratch root's
-    sub-directories (one per kind in
-    ``doctor_hc_filesystem.ORPHAN_AGE_THRESHOLDS_S``). Each test
-    isolates the scratch root via ``YOKE_SCRATCH_ROOT``.
+    The scanner enumerates known kind directories across the global
+    project/session/run tree. Each test isolates that tree via
+    ``YOKE_SCRATCH_ROOT``.
     """
 
     @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
@@ -252,8 +270,11 @@ class TestHcOrphanedTempFiles:
         # Preserves the legacy 300s (ephemeral residue) threshold: a
         # stale watcher-captures file older than 300s warns.
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-        captures_dir = scratch.scratch_root() / "watcher-captures"
-        captures_dir.mkdir()
+        captures_dir = (
+            tmp_path / "other" / "sessions" / "past" / "runs" / "old"
+            / "watcher-captures"
+        )
+        captures_dir.mkdir(parents=True)
         stale_file = captures_dir / "yoke-pytest.raw.abc.log"
         stale_file.write_text("")
         old_epoch = int(time.time()) - 3600
@@ -265,11 +286,16 @@ class TestHcOrphanedTempFiles:
         assert "kind=watcher-captures" in rec.results[0].detail
 
     @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    def test_stale_durable_storage_warns(self, mock_root, tmp_path, monkeypatch):
-        # Preserves the legacy 600s (durable scratch storage) threshold:
-        # a stale storage file older than 600s warns.
+    def test_unknown_durable_storage_is_preserved(
+        self, mock_root, tmp_path, monkeypatch
+    ):
+        # Durable storage is not one generic disposable bucket. Unknown helper
+        # state stays intact until its owner has an explicit cleanup contract.
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-        storage_dir = scratch.scratch_root() / "storage" / "db_error_hook"
+        storage_dir = (
+            tmp_path / "other" / "sessions" / "past" / "runs" / "old"
+            / "storage" / "db_error_hook"
+        )
         storage_dir.mkdir(parents=True)
         stale_file = storage_dir / "collapse-state-stale.json"
         stale_file.write_text("{}")
@@ -278,48 +304,21 @@ class TestHcOrphanedTempFiles:
         os.utime(storage_dir, (old_epoch, old_epoch))
 
         rec = _run_hc(hc_orphaned_temp_files)
-        assert rec.results[0].result == "WARN"
-        assert "kind=storage" in rec.results[0].detail
+        assert rec.results[0].result == "PASS"
+        assert stale_file.read_text(encoding="utf-8") == "{}"
 
     @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
     def test_fresh_residue_passes(self, mock_root, tmp_path, monkeypatch):
         # An ephemeral residue file under the 300s threshold should not
         # warn — the scanner respects the per-sub-directory threshold.
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-        captures_dir = scratch.scratch_root() / "watcher-captures"
-        captures_dir.mkdir()
+        captures_dir = (
+            tmp_path / "other" / "sessions" / "past" / "runs" / "old"
+            / "watcher-captures"
+        )
+        captures_dir.mkdir(parents=True)
         fresh_file = captures_dir / "yoke-pytest.raw.fresh.log"
         fresh_file.write_text("")
         # mtime ~now() means age < 300s — under the ephemeral threshold.
         rec = _run_hc(hc_orphaned_temp_files)
         assert rec.results[0].result == "PASS"
-
-
-class TestHcStaleRemoteBranches:
-    """Tests for hc_stale_remote_branches."""
-
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_no_stale_branches_passes(self, mock_run, mock_root):
-        conn = _make_conn()
-        _seed_project(conn, "yoke")
-        mock_run.side_effect = [
-            _make_completed(stdout=""),
-            _make_completed(stdout=""),
-        ]
-        rec = _run_hc(hc_stale_remote_branches, conn)
-        assert rec.results[0].result == "PASS"
-
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_stale_branch_warns(self, mock_run, mock_root):
-        conn = _make_conn()
-        _seed_project(conn, "yoke")
-        _insert_item(conn, 42, "Done item", type="issue", status="done")
-        mock_run.side_effect = [
-            _make_completed(stdout="abc123\trefs/heads/YOK-42\n"),
-            _make_completed(stdout="abc123\trefs/heads/YOK-42\n"),
-        ]
-        rec = _run_hc(hc_stale_remote_branches, conn)
-        assert rec.results[0].result == "WARN"
-        assert "YOK-42" in rec.results[0].detail

@@ -195,8 +195,12 @@ _EXPECTED_SCHEMA_STR = (
     "|strategy_checkpoints:id/INTEGER,project_id/INTEGER,kind/TEXT,created_at/TEXT"
     "|strategy_docs:id/INTEGER,slug/TEXT,content/TEXT,updated_at/TEXT,"
     "updated_by_actor_id/INTEGER"
-    "|function_call_ledger:request_id/TEXT,function_id/TEXT,result/TEXT,"
-    "created_at/TEXT"
+    "|function_call_ledger:request_id/TEXT,function_id/TEXT,actor_id/TEXT,"
+    "authorization_scope/TEXT,payload_checksum/TEXT,result/TEXT,created_at/TEXT"
+    "|github_workflow_dispatch_intents:request_id/TEXT,attempt/INTEGER,"
+    "actor_id/TEXT,authorization_scope/TEXT,payload_checksum/TEXT,repo/TEXT,"
+    "workflow/TEXT,workflow_ref/TEXT,inputs/TEXT,correlation_id/TEXT,state/TEXT,"
+    "workflow_run_id/TEXT,run_url/TEXT,html_url/TEXT,created_at/TEXT,updated_at/TEXT"
 )
 
 

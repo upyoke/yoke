@@ -25,13 +25,20 @@ def test_reclaim_preserves_runner_work_dirs_and_removes_stale_files(
     (action_cache / "action.yml").write_text("name: cached action\n", encoding="utf-8")
     diag = runner_root / "runner-1" / "_diag"
     diag.mkdir()
-    (diag / "Worker_old.log").write_text("old log\n", encoding="utf-8")
+    stale_log = diag / "Worker_old.log"
+    stale_log.write_text("old log\n", encoding="utf-8")
+    fresh_log = diag / "Worker_current.log"
+    fresh_log.write_text("current log\n", encoding="utf-8")
     tmp_root = tmp_path / "tmp"
     tmp_root.mkdir()
     stale_tmp = tmp_root / "pip-unpack-old"
     stale_tmp.mkdir()
     stale_mtime = time.time() - reclaim.STALE_TMP_MIN_AGE_SECONDS - 60
     os.utime(stale_tmp, (stale_mtime, stale_mtime))
+    stale_log_mtime = (
+        time.time() - reclaim.STALE_RUNNER_LOG_MIN_AGE_SECONDS - 60
+    )
+    os.utime(stale_log, (stale_log_mtime, stale_log_mtime))
 
     calls: list[list[str]] = []
     monkeypatch.setattr(
@@ -45,14 +52,29 @@ def test_reclaim_preserves_runner_work_dirs_and_removes_stale_files(
     assert (current_workspace / "kept.txt").is_file()
     assert (action_cache / "action.yml").is_file()
     assert (stale_work / "old.txt").is_file()
-    assert (diag / "Worker_old.log").read_text(encoding="utf-8") == ""
-    assert not (tmp_root / "pip-unpack-old").exists()
-    assert ["docker", "buildx", "rm", "-f", "yoke-core-builder"] in calls
-    assert ["docker", "system", "prune", "-af", "--volumes"] in calls
+    assert stale_log.read_text(encoding="utf-8") == ""
+    assert fresh_log.read_text(encoding="utf-8") == "current log\n"
+    # Generic temp prefixes are not ownership evidence on a persistent
+    # multi-runner host, regardless of age.
+    assert (tmp_root / "pip-unpack-old").is_dir()
+    assert [
+        "docker", "buildx", "prune", "-f", "--filter", "until=24h",
+    ] in calls
+    assert [
+        "docker", "builder", "prune", "-f", "--filter", "until=24h",
+    ] in calls
+    assert ["docker", "image", "prune", "-f"] in calls
+    assert not any(call[:3] == ["docker", "system", "prune"] for call in calls)
+    assert not any(call[:3] == ["docker", "volume", "prune"] for call in calls)
+    assert not any(
+        call[:4] == ["docker", "image", "prune", "-af"] for call in calls
+    )
     assert not any(call[:2] == ["sudo", "rm"] for call in calls)
 
 
-def test_tmp_cleanup_preserves_active_temp_dirs(tmp_path: Path) -> None:
+def test_ephemeral_hosted_tmp_cleanup_preserves_recent_temp_dirs(
+    tmp_path: Path,
+) -> None:
     active_pip = tmp_path / "pip-build-tracker-active"
     active_buildkit = tmp_path / "buildkit-live"
     stale_pip = tmp_path / "pip-unpack-stale"
@@ -62,12 +84,42 @@ def test_tmp_cleanup_preserves_active_temp_dirs(tmp_path: Path) -> None:
     stale_mtime = time.time() - 120
     os.utime(stale_pip, (stale_mtime, stale_mtime))
 
-    reclaim._remove_stale_tmp_files(tmp_path, min_age_seconds=60)
+    reclaim._remove_ephemeral_hosted_tmp_files(
+        tmp_path,
+        min_age_seconds=60,
+    )
 
     assert active_pip.is_dir()
     assert active_buildkit.is_dir()
     assert not stale_pip.exists()
     assert unrelated.is_dir()
+
+
+def test_persistent_runner_preserves_old_generic_temp_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    tmp_root = tmp_path / "tmp"
+    tmp_root.mkdir()
+    generic_paths = [
+        tmp_root / "pip-old",
+        tmp_root / "buildkit-old",
+        tmp_root / "buildx-old",
+        tmp_root / "docker-old",
+    ]
+    stale_mtime = time.time() - reclaim.STALE_TMP_MIN_AGE_SECONDS - 60
+    for path in generic_paths:
+        path.mkdir()
+        os.utime(path, (stale_mtime, stale_mtime))
+    monkeypatch.setattr(reclaim.subprocess, "run", lambda *_args, **_kwargs: None)
+
+    reclaim.reclaim_runner_disk(
+        runner_root=tmp_path / "runner",
+        tmp_root=tmp_root,
+        runner_environment=reclaim.SELF_HOSTED,
+    )
+
+    assert all(path.is_dir() for path in generic_paths)
 
 
 @pytest.mark.parametrize(
@@ -225,6 +277,8 @@ def test_hosted_cleanup_removes_explicit_payloads_and_preserves_cache_root(
     ] in privileged_removals
     assert ["sudo", "-n", "rm", "-rf", "--", str(tool_cache)] not in calls
     assert not any(str(unrelated) in call for call in calls)
+    assert ["docker", "system", "prune", "-af", "--volumes"] in calls
+    assert ["docker", "volume", "prune", "-f"] in calls
 
 
 @pytest.mark.parametrize(
@@ -263,6 +317,9 @@ def test_privileged_cleanup_requires_hosted_runner_and_explicit_build_profile(
     )
 
     assert not any(call[:3] == ["sudo", "-n", "rm"] for call in calls)
+    assert not any(call[:3] == ["docker", "system", "prune"] for call in calls)
+    assert not any(call[:3] == ["docker", "volume", "prune"] for call in calls)
+    assert ["docker", "image", "prune", "-f"] in calls
 
 
 def test_invalid_runner_environment_is_rejected_before_any_cleanup(

@@ -18,6 +18,7 @@ from yoke_cli.operation_inventory_model import (
 )
 from yoke_cli.operation_inventory_ephemeral_env import WRAPPED_ROWS as EPHEMERAL_ENV_WRAPPED_ROWS
 from yoke_cli.operation_inventory_epic_ops import WRAPPED_ROWS as EPIC_OPS_WRAPPED_ROWS
+from yoke_cli.operation_inventory_github_actions import WRAPPED_ROWS as GITHUB_ACTIONS_WRAPPED_ROWS
 from yoke_cli.operation_inventory_installer_local import PERMANENT_ROWS as INSTALLER_LOCAL_PERMANENT_ROWS
 from yoke_cli.operation_inventory_shepherd_qa_writes import WRAPPED_ROWS as SHEPHERD_QA_WRITE_ROWS
 from yoke_cli.operation_inventory_strategy_event import PERMANENT_ROWS as STRATEGY_EVENT_PERMANENT_ROWS, WRAPPED_ROWS as STRATEGY_EVENT_WRAPPED_ROWS
@@ -139,15 +140,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke project-structure command-definitions get", "project_structure.command_definitions"),
     _w("yoke project-structure command-definitions list", "project_structure.command_definitions"),
     _w("yoke project-structure deploy-defaults get", "project_structure.deploy_defaults"),
-    # bearer-token GitHub Actions advisory checks.
-    _w("yoke github-actions check-ci", "github_actions"),
-    _w("yoke github-actions wait-run", "github_actions"),
-    _w("yoke github-actions runners status", "github_actions"),
-    # repo secret/variable writer: bearer-token repo secret/variable writers — CI arming +
-    # rotation recipes with no host GitHub CLI.
-    _w("yoke github-actions secret set", "github_actions"),
-    _w("yoke github-actions variable get", "github_actions"),
-    _w("yoke github-actions variable set", "github_actions"),
+    *GITHUB_ACTIONS_WRAPPED_ROWS,
     # Per-project DB-authoritative strategy docs; each project's
     # .yoke/strategy/ is a gitignored local rendered view written only by
     # `yoke strategy render`, with operator edits written back via

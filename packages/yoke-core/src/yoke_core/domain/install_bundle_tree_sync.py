@@ -38,6 +38,9 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
+from yoke_contracts.project_contract.install_manifest import (
+    PACKAGED_INSTALL_BUNDLE_TREE_REL,
+)
 from yoke_core.domain.install_bundle import INSTALL_BUNDLE_SOURCE_DIRS
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
@@ -47,9 +50,7 @@ from yoke_core.domain.workspace_authority import (
 # The packaged snapshot's path relative to the repo root. Mirrors the
 # pyproject ``[tool.setuptools.package-data] "yoke_core.install_bundle_tree"``
 # location so the tracked tree and the wheel package-data resolve one place.
-PACKAGED_TREE_REL = Path(
-    "packages/yoke-core/src/yoke_core/install_bundle_tree"
-)
+PACKAGED_TREE_REL = Path(PACKAGED_INSTALL_BUNDLE_TREE_REL)
 
 
 class InstallBundleTreeError(RuntimeError):

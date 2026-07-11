@@ -13,6 +13,8 @@ from yoke_core.domain import db_backend
 ROLE_OWNER = "owner"
 ROLE_OPERATOR = "operator"
 ROLE_VIEWER = "viewer"
+ROLE_DEPLOYMENT_CI = "deployment_ci"
+ROLE_INFRASTRUCTURE_CI = "infrastructure_ci"
 # Org-scoped role (grantable via ``actor_org_roles``). Renamed from "system":
 # the all-access role belongs at org/instance scope, not on a project.
 ROLE_ADMIN = "admin"
@@ -27,10 +29,15 @@ PERM_EVENTS_WRITE = "events.write"
 PERM_HOOKS_EVALUATE = "hooks.evaluate"
 PERM_BOARD_REBUILD = "board.rebuild"
 PERM_PROJECT_INSTALL = "project.install"
+PERM_PROJECT_RENDER_READ = "project.render.read"
 PERM_PROJECT_ADMIN = "project.admin"
 PERM_DB_READ_RAW = "db.read.raw"
+PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH = "github_actions.workflow.dispatch"
+PERM_GITHUB_ACTIONS_RUN_READ = "github_actions.run.read"
+PERM_GITHUB_ACTIONS_VARIABLE_READ = "github_actions.variable.read"
+PERM_RUNNER_FLEET_TOKEN_ISSUE = "runner_fleet.token.issue"
 # Org-scoped permissions (never carried by a project role).
-PERM_ORG_ADMIN = "org.admin"          # renamed from "system.admin"
+PERM_ORG_ADMIN = "org.admin"  # renamed from "system.admin"
 PERM_PROJECT_CREATE = "project.create"
 
 # Permissions that may only be granted at org scope.
@@ -38,13 +45,23 @@ ORG_SCOPED_PERMISSIONS = (PERM_ORG_ADMIN, PERM_PROJECT_CREATE)
 
 # Roles grantable at each scope.
 ORG_ROLES = (ROLE_ADMIN, ROLE_VIEWER)
-PROJECT_ROLES = (ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER)
+PROJECT_ROLES = (
+    ROLE_OWNER,
+    ROLE_OPERATOR,
+    ROLE_VIEWER,
+    ROLE_DEPLOYMENT_CI,
+    ROLE_INFRASTRUCTURE_CI,
+)
 
 
 ROLE_DESCRIPTIONS = {
     ROLE_OWNER: "Project admin and normal operator work.",
     ROLE_OPERATOR: "Normal Yoke operations for a project.",
     ROLE_VIEWER: "Read-only access.",
+    ROLE_DEPLOYMENT_CI: "Trigger deployment workflows and read their status.",
+    ROLE_INFRASTRUCTURE_CI: (
+        "Read infrastructure settings and mint read-only runner preview tokens."
+    ),
     ROLE_ADMIN: "Org-wide administration across all of the org's projects.",
 }
 
@@ -58,8 +75,23 @@ PERMISSION_DESCRIPTIONS = {
     PERM_HOOKS_EVALUATE: "Evaluate installed harness hooks.",
     PERM_BOARD_REBUILD: "Render or rebuild board views.",
     PERM_PROJECT_INSTALL: "Install or refresh project-local Yoke files.",
+    PERM_PROJECT_RENDER_READ: (
+        "Read secret-free project settings used to render deployment infrastructure."
+    ),
     PERM_PROJECT_ADMIN: "Administer project settings and grants.",
     PERM_DB_READ_RAW: "Run bounded raw diagnostic DB reads.",
+    PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH: (
+        "Dispatch a GitHub Actions workflow for the project repository."
+    ),
+    PERM_GITHUB_ACTIONS_RUN_READ: (
+        "Read GitHub Actions workflow and run status for deployment reporting."
+    ),
+    PERM_GITHUB_ACTIONS_VARIABLE_READ: (
+        "Read GitHub Actions variables used to route project deployments."
+    ),
+    PERM_RUNNER_FLEET_TOKEN_ISSUE: (
+        "Mint a short-lived, repository-scoped runner-fleet preview token."
+    ),
     PERM_ORG_ADMIN: "Administer the org and all of its projects.",
     PERM_PROJECT_CREATE: "Create new projects in the org.",
 }
@@ -75,8 +107,13 @@ _PROJECT_OWNER_PERMS = (
     PERM_HOOKS_EVALUATE,
     PERM_BOARD_REBUILD,
     PERM_PROJECT_INSTALL,
+    PERM_PROJECT_RENDER_READ,
     PERM_PROJECT_ADMIN,
     PERM_DB_READ_RAW,
+    PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
+    PERM_GITHUB_ACTIONS_RUN_READ,
+    PERM_GITHUB_ACTIONS_VARIABLE_READ,
+    PERM_RUNNER_FLEET_TOKEN_ISSUE,
 )
 
 ROLE_PERMISSION_KEYS = {
@@ -93,9 +130,15 @@ ROLE_PERMISSION_KEYS = {
         PERM_BOARD_REBUILD,
         PERM_PROJECT_INSTALL,
     ),
-    ROLE_VIEWER: (
-        PERM_ITEMS_READ,
-        PERM_EVENTS_READ,
+    ROLE_VIEWER: (PERM_ITEMS_READ, PERM_EVENTS_READ),
+    ROLE_DEPLOYMENT_CI: (
+        PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
+        PERM_GITHUB_ACTIONS_RUN_READ,
+        PERM_GITHUB_ACTIONS_VARIABLE_READ,
+    ),
+    ROLE_INFRASTRUCTURE_CI: (
+        PERM_PROJECT_RENDER_READ,
+        PERM_RUNNER_FLEET_TOKEN_ISSUE,
     ),
     # Org role — every permission, incl. org-scoped ones.
     ROLE_ADMIN: tuple(PERMISSION_DESCRIPTIONS),
@@ -143,6 +186,15 @@ def seed_roles_and_permissions(conn: Any) -> None:
         )
     for role_name, permission_keys in ROLE_PERMISSION_KEYS.items():
         role_id = role_id_by_name(conn, role_name)
+        permission_ids = tuple(
+            permission_id_by_key(conn, key) for key in permission_keys
+        )
+        placeholders = ", ".join(p for _ in permission_ids)
+        conn.execute(
+            "DELETE FROM role_permissions "
+            f"WHERE role_id = {p} AND permission_id NOT IN ({placeholders})",
+            (role_id, *permission_ids),
+        )
         for permission_key in permission_keys:
             permission_id = permission_id_by_key(conn, permission_key)
             conn.execute(
@@ -197,6 +249,29 @@ def grant_actor_project_role(
     conn.commit()
 
 
+def revoke_actor_project_role(
+    conn: Any,
+    *,
+    actor_id: int,
+    project_id: int,
+    role_name: str,
+) -> bool:
+    """Remove one project role grant, returning whether a row existed.
+
+    Absence is success: operators may safely repeat a least-privilege cutover
+    after losing the previous command result.
+    """
+    role_id = role_id_by_name(conn, role_name)
+    p = _p(conn)
+    cursor = conn.execute(
+        "DELETE FROM actor_project_roles "
+        f"WHERE actor_id = {p} AND project_id = {p} AND role_id = {p}",
+        (actor_id, project_id, role_id),
+    )
+    conn.commit()
+    return bool(cursor.rowcount)
+
+
 def grant_actor_org_role(
     conn: Any,
     *,
@@ -237,6 +312,8 @@ __all__ = [
     "ROLE_OWNER",
     "ROLE_OPERATOR",
     "ROLE_VIEWER",
+    "ROLE_DEPLOYMENT_CI",
+    "ROLE_INFRASTRUCTURE_CI",
     "ROLE_ADMIN",
     "ORG_ROLES",
     "PROJECT_ROLES",
@@ -250,12 +327,18 @@ __all__ = [
     "PERM_HOOKS_EVALUATE",
     "PERM_BOARD_REBUILD",
     "PERM_PROJECT_INSTALL",
+    "PERM_PROJECT_RENDER_READ",
     "PERM_PROJECT_ADMIN",
     "PERM_DB_READ_RAW",
+    "PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH",
+    "PERM_GITHUB_ACTIONS_RUN_READ",
+    "PERM_GITHUB_ACTIONS_VARIABLE_READ",
+    "PERM_RUNNER_FLEET_TOKEN_ISSUE",
     "PERM_ORG_ADMIN",
     "PERM_PROJECT_CREATE",
     "grant_actor_org_role",
     "grant_actor_project_role",
+    "revoke_actor_project_role",
     "org_permission_decision",
     "permission_decision",
     "permission_id_by_key",

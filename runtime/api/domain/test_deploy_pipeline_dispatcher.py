@@ -13,7 +13,11 @@ from unittest import mock
 from yoke_core.domain import deploy_pipeline_github_workflow
 
 
-_STAGE_CONFIG = {"workflow": "deploy.yml", "timeout_min": 30}
+_STAGE_CONFIG = {
+    "workflow": "deploy.yml",
+    "timeout_min": 30,
+    "dispatch_correlation_input": "yoke_dispatch_id",
+}
 
 
 class TestExecutorDiagnosticPropagation:
@@ -33,7 +37,7 @@ class TestExecutorDiagnosticPropagation:
             return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="abc1234\n"),
         ), mock.patch.object(
             deploy_pipeline_github_workflow, "_find_existing_workflow_run",
-            return_value=("", False),
+            return_value=("", False, ""),
         ), mock.patch.object(
             deploy_pipeline_github_workflow, "_github_actions",
             return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="999\n"),
@@ -104,7 +108,7 @@ class TestReconcileFromTruth:
             return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="abc1234\n"),
         ), mock.patch.object(
             deploy_pipeline_github_workflow, "_find_existing_workflow_run",
-            return_value=(prior_run_id, True),
+            return_value=(prior_run_id, True, ""),
         ), mock.patch.object(
             deploy_pipeline_github_workflow, "_github_actions", side_effect=_fake_gh,
         ), mock.patch.object(
@@ -166,7 +170,7 @@ class TestReconcileFromTruth:
 
         def _record_find_existing(*args, **kwargs):
             find_existing_called.append(args)
-            return ("ignored", True)
+            return ("ignored", True, "")
 
         with mock.patch.object(
             deploy_pipeline_github_workflow, "_check_ci_gate", return_value=(True, ""),
@@ -183,6 +187,10 @@ class TestReconcileFromTruth:
             return_value=(0, "completed: success"),
         ) as poll_actions, mock.patch.object(
             deploy_pipeline_github_workflow, "_emit_run_event",
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow.uuid,
+            "uuid4",
+            return_value=mock.Mock(hex="explicit-retrigger"),
         ):
             rc, _diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
                 _STAGE_CONFIG,
@@ -203,6 +211,11 @@ class TestReconcileFromTruth:
         # Workflow trigger DID fire.
         trigger_calls = [c for c in gh_calls if c and c[0] == "trigger"]
         assert len(trigger_calls) == 1
+        trigger = trigger_calls[0]
+        assert trigger[trigger.index("--request-id") + 1] == (
+            "deploy:buzz:run-test:prod-deploy:fresh:explicit-retrigger"
+        )
+        assert trigger[-2:] == ("--correlation-input", "yoke_dispatch_id")
         assert gh_projects == ["buzz"]
         assert poll_actions.call_args.kwargs["project"] == "buzz"
         # Polled the fresh run and returned its rc (0 from the mock).

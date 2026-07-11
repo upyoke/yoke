@@ -44,6 +44,9 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     (infra / "webapp_runner_github_broker_stack.py").write_text("# broker\n")
     (infra / "webapp_runner_github_state.py").write_text("# state\n")
     (infra / "webapp_runner_github_webhook.py").write_text("# webhook\n")
+    (infra / "webapp_github_repository_provider.py").write_text(
+        "# github provider\n"
+    )
     (infra / "webapp_runner_aws_state.mjs").write_text("// aws state\n")
     (infra / "webapp_runner_github_api.mjs").write_text("// github api\n")
     (infra / "webapp_runner_github_broker.mjs").write_text("// broker\n")
@@ -112,6 +115,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "webapp_runner_github_broker.mjs",
         "webapp_runner_termination.mjs",
         "requirements.txt",
+        "webapp_github_repository_provider.py",
     }
     rendered = (infra_dst / "Pulumi.buzz-runner-fleet.yaml").read_text()
     assert "webapp-infra:github_repo: upyoke/yoke" in rendered

@@ -182,6 +182,21 @@ Yoke does not prescribe how a harness resolves these fields. The harness may:
 
 The only requirement is that the values are truthful. Yoke uses these fields to decide what work to route and what to fall back on. False identity leads to failed routing.
 
+### Session scratch cleanup
+
+The stale-session lifecycle sweep also runs a machine-throttled scratch
+janitor. It removes only known scratch artifact kinds whose ownership is
+positively dead: a registered harness session must have a recorded end time,
+while a non-harness `session-unknown` run must use a `pid-N` run id whose
+process is no longer alive. Current, DB-active, unknown UUID, live-PID, and
+unverifiable owners are preserved. PID liveness is checked again immediately
+before deletion, and a machine lock prevents concurrent sweepers.
+
+`/yoke doctor --fix` uses the same proof rules for operator-attended repair.
+If the session registry is unavailable, automatic mutation fails closed; the
+doctor reports the problem without treating filesystem age alone as ownership
+proof.
+
 For supported harnesses such as Claude Code and Codex, `session_id` should come from the harness runtime's stable conversation identifier (`CLAUDE_SESSION_ID`, `CODEX_THREAD_ID`, or a hook payload `session_id` when the env var is unavailable). Do not invent a second ID format for those harnesses.
 
 ### Path support and fallback

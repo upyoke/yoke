@@ -77,6 +77,15 @@ def apply_additive_schema(conn: Any) -> None:
     rows at ADD time). A column that needs a follow-up data backfill to be valid
     belongs in :func:`apply_legacy_data_migrations`, not here.
     """
+    # Scope-bound replay metadata. Empty defaults make legacy rows explicitly
+    # unverifiable; the dispatcher denies them instead of replaying across a
+    # newly-authenticated actor or authorization scope.
+    for column in ("actor_id", "authorization_scope", "payload_checksum"):
+        _add_column_if_not_exists(
+            conn, "function_call_ledger", column, "TEXT NOT NULL DEFAULT ''",
+        )
+    conn.commit()
+
     # Idempotent ADD COLUMN migrations for epic_tasks
     _add_column_if_not_exists(conn, "epic_tasks", "body", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "github_issue", "TEXT")

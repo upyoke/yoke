@@ -152,7 +152,11 @@ class TestDeployPipelineShim:
 
 
 class TestDeployPipelineProjectSettings:
-    def test_github_actions_subprocess_receives_explicit_project(self):
+    def test_github_actions_subprocess_receives_explicit_project(self, monkeypatch):
+        monkeypatch.setenv(
+            deploy_pipeline_reporting.GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV,
+            "1",
+        )
         completed = _fake_cp(0, "success", "")
         with mock.patch.object(
             deploy_pipeline_reporting, "_run_cmd", return_value=completed,
@@ -208,7 +212,8 @@ class TestParseStages:
     def test_basic_parse(self):
         stages_json = json.dumps([
             {"name": "deploy", "executor": "auto"},
-            {"name": "smoke", "executor": "github-actions-workflow", "workflow": "smoke.yml"},
+            {"name": "smoke", "executor": "github-actions-workflow",
+             "workflow": "smoke.yml", "dispatch_correlation_input": "yoke_dispatch_id"},
         ])
         result = deploy_pipeline._parse_stages(stages_json)
         assert len(result) == 2

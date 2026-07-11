@@ -11,7 +11,6 @@ surface without the Pulumi engine. The fakes are shared by
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 import types
 from pathlib import Path
@@ -137,6 +136,11 @@ def _build_fake_aws(recorder):
         lambda: types.SimpleNamespace(account_id="123456789012")
     )
     aws.get_region = lambda: types.SimpleNamespace(name="us-east-1")
+    aws.kms = types.SimpleNamespace(
+        get_alias=lambda name: types.SimpleNamespace(
+            target_key_arn="arn:aws:kms:us-east-1:123456789012:key/state-key"
+        )
+    )
     aws.ec2 = types.SimpleNamespace(
         get_vpc=lambda default=True: types.SimpleNamespace(id="vpc-fake"),
         get_subnets=lambda filters=None: types.SimpleNamespace(
@@ -202,6 +206,9 @@ def _build_fake_aws(recorder):
         DistributionRestrictionsGeoRestrictionArgs=_FakeArgs,
     )
     aws.iam = types.SimpleNamespace(
+        OpenIdConnectProvider=_make_resource_class(
+            recorder, "aws:iam:OpenIdConnectProvider",
+        ),
         Role=_make_resource_class(recorder, "aws:iam:Role"),
         RolePolicy=_make_resource_class(recorder, "aws:iam:RolePolicy"),
         RolePolicyAttachment=_make_resource_class(
@@ -258,6 +265,7 @@ def _load_template_module(monkeypatch, recorder, filename, extra_modules=None):
         monkeypatch.setitem(sys.modules, name, module)
     repo_root = Path(__file__).resolve().parents[3]
     path = repo_root / "templates" / "webapp" / "infra" / filename
+    monkeypatch.syspath_prepend(str(path.parent))
     module_name = f"_{filename[:-3]}_under_test"
     spec = importlib.util.spec_from_file_location(module_name, path)
     module = importlib.util.module_from_spec(spec)
@@ -267,54 +275,55 @@ def _load_template_module(monkeypatch, recorder, filename, extra_modules=None):
     return module
 
 
-def _registry_stack(monkeypatch, repository_name="yoke-core"):
+def _registry_stack(
+    monkeypatch,
+    repository_name="yoke-core",
+    *,
+    github_repo="",
+    **arg_overrides,
+):
     recorder = _Recorder()
+    extra_modules = {}
+    if github_repo:
+        monkeypatch.setenv(
+            "RUNNER_FLEET_GITHUB_TOKEN", "repository-token"
+        )
+        monkeypatch.setenv("GITHUB_TOKEN", "repository-token")
+        pulumi_github = types.ModuleType("pulumi_github")
+        pulumi_github.Provider = _make_resource_class(
+            recorder, "pulumi:providers:github"
+        )
+        pulumi_github.ActionsVariable = _make_resource_class(
+            recorder, "github:index/actionsVariable:ActionsVariable"
+        )
+        provider = _load_template_module(
+            monkeypatch,
+            recorder,
+            "webapp_github_repository_provider.py",
+            extra_modules={"pulumi_github": pulumi_github},
+        )
+        variables = _load_template_module(
+            monkeypatch,
+            recorder,
+            "webapp_registry_github_variables.py",
+            extra_modules={
+                "pulumi_github": pulumi_github,
+                "webapp_github_repository_provider": provider,
+            },
+        )
+        extra_modules["webapp_registry_github_variables"] = variables
     module = _load_template_module(
-        monkeypatch, recorder, "webapp_registry_stack.py",
+        monkeypatch, recorder, "webapp_registry_stack.py", extra_modules,
     )
     stack = module.WebappRegistryStack(
         "yoke-registry",
         module.WebappRegistryArgs(
-            deploy_namespace="yoke", repository_name=repository_name,
+            deploy_namespace="yoke",
+            repository_name=repository_name,
+            github_repo=github_repo,
+            state_bucket="yoke-pulumi-state",
+            kms_key_alias="alias/yoke-pulumi-state",
+            **arg_overrides,
         ),
     )
     return recorder, stack
-
-
-def test_repository_declares_scan_push_mutability_and_force_delete(monkeypatch):
-    recorder, _stack = _registry_stack(monkeypatch)
-    repo = recorder.single("containerRepository")
-    assert repo.kwargs["name"] == "yoke-core"
-    assert repo.kwargs["image_tag_mutability"] == "MUTABLE"
-    assert repo.kwargs["force_delete"] is True
-    scanning = repo.kwargs["image_scanning_configuration"]
-    assert scanning.kwargs == {"scan_on_push": True}
-    assert repo.kwargs["tags"] == {"project": "yoke"}
-
-
-def test_lifecycle_policy_expires_untagged_and_caps_tagged_history(monkeypatch):
-    recorder, _stack = _registry_stack(monkeypatch)
-    lifecycle = recorder.single("containerRepositoryLifecycle")
-    assert lifecycle.kwargs["repository"] == "yoke-core"
-    rules = json.loads(lifecycle.kwargs["policy"])["rules"]
-    assert [rule["rulePriority"] for rule in rules] == [1, 2]
-    untagged, tagged = rules
-    assert untagged["selection"]["tagStatus"] == "untagged"
-    assert untagged["action"] == {"type": "expire"}
-    assert tagged["selection"]["tagStatus"] == "tagged"
-    assert tagged["selection"]["countType"] == "imageCountMoreThan"
-    assert tagged["selection"]["countNumber"] == 20
-    assert tagged["action"] == {"type": "expire"}
-
-
-def test_outputs_exported_and_registered(monkeypatch):
-    recorder, stack = _registry_stack(monkeypatch)
-    expected = {
-        "containerRepositoryUrl",
-        "containerRepositoryName",
-        "containerRegistryId",
-    }
-    assert set(recorder.exports) == expected
-    assert set(stack.registered_outputs) == expected
-    assert recorder.exports["containerRepositoryName"] == "yoke-core"
-    assert stack.component_type == "webapp:infra:WebappRegistryStack"

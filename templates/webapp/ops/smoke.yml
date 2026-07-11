@@ -11,10 +11,16 @@
 #   {{web_smoke_paths}}    — Comma-separated additional smoke paths (e.g., /forgot-password,/login)
 
 name: {{project_display_name}} Smoke Test
+run-name: "{{project_display_name}} smoke [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]"
 
 on:
   workflow_dispatch:
     inputs:
+      yoke_dispatch_id:
+        description: 'Opaque Yoke dispatch correlation token (leave blank for manual runs)'
+        required: false
+        type: string
+        default: ''
       commit_sha:
         description: 'Expected commit SHA to verify against deployed version'
         required: false

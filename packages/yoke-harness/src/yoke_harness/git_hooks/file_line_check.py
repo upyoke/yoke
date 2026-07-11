@@ -20,7 +20,7 @@ from yoke_contracts.project_contract.file_line_policy import (
     resolve_file_line_policy,
 )
 from yoke_contracts.project_contract.install_manifest import (
-    installer_managed_paths,
+    is_install_bundle_generated_path,
 )
 from yoke_contracts.project_contract.strategy_docs_header import (
     StrategyHeaderError,
@@ -151,7 +151,7 @@ def _classify_path_with_policy(
     # un-splittable in the receiving repo — classify GENERATED so a project
     # refresh commit does not hard-fail the authored-file line gate (and need
     # --no-verify) on rendered agent adapters like .claude/agents/yoke-*.md.
-    if posix_path in installer_managed_paths(repo_root):
+    if is_install_bundle_generated_path(posix_path, repo_root):
         return Classification.GENERATED
     for pattern in policy.exception_globs:
         if fnmatch.fnmatchcase(posix_path, pattern):

@@ -64,16 +64,9 @@ from yoke_cli.commands.adapters.events import (
 from yoke_cli.commands.adapters.github import (
     GITHUB_CONNECT_USAGE, GITHUB_DISCONNECT_USAGE, GITHUB_PR_CREATE_USAGE, GITHUB_STATUS_USAGE,
 )
-from yoke_cli.commands.adapters.github_actions import (
-    GITHUB_ACTIONS_CHECK_CI_USAGE,
-    GITHUB_ACTIONS_SECRET_SET_USAGE,
-    GITHUB_ACTIONS_VARIABLE_GET_USAGE,
-    GITHUB_ACTIONS_VARIABLE_SET_USAGE,
+from yoke_cli.commands.adapters.usage_github_actions import (
+    USAGE_BY_FUNCTION_ID as GITHUB_ACTIONS_USAGE_BY_ID,
 )
-from yoke_cli.commands.adapters.github_actions_runners import (
-    GITHUB_ACTIONS_RUNNERS_STATUS_USAGE,
-)
-from yoke_cli.commands.adapters.github_actions_run_wait import GITHUB_ACTIONS_WAIT_RUN_USAGE
 from yoke_cli.commands.adapters.hooks import HOOK_EVALUATE_USAGE
 from yoke_cli.commands.adapters.install import (
     PROJECT_INSTALL_USAGE,
@@ -313,12 +306,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "ouroboros.field_note.get": OUROBOROS_FIELD_NOTE_GET_USAGE,
     "ouroboros.entry.list": OUROBOROS_ENTRY_LIST_USAGE,
     "ouroboros.entry.get": OUROBOROS_ENTRY_GET_USAGE,
-    "github_actions.check_ci": GITHUB_ACTIONS_CHECK_CI_USAGE,
-    "github_actions.wait_run": GITHUB_ACTIONS_WAIT_RUN_USAGE,
-    "github_actions.runners.status": GITHUB_ACTIONS_RUNNERS_STATUS_USAGE,
-    "github_actions.secret.set": GITHUB_ACTIONS_SECRET_SET_USAGE,
-    "github_actions.variable.get": GITHUB_ACTIONS_VARIABLE_GET_USAGE,
-    "github_actions.variable.set": GITHUB_ACTIONS_VARIABLE_SET_USAGE,
+    **GITHUB_ACTIONS_USAGE_BY_ID,
     "strategy.doc.list": STRATEGY_DOC_LIST_USAGE,
     "strategy.doc.get": STRATEGY_DOC_GET_USAGE,
     "strategy.doc.create": STRATEGY_DOC_CREATE_USAGE,

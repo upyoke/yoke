@@ -34,6 +34,9 @@ from yoke_core.domain.schema_api_context_tables_claims import (
 from yoke_core.domain.schema_api_context_tables_core import (
     CORE_TABLES,
 )
+from yoke_core.domain.schema_api_context_tables_dispatch import (
+    DISPATCH_TABLES,
+)
 from yoke_core.domain.schema_api_context_tables_github import (
     GITHUB_APP_TABLES,
 )
@@ -50,6 +53,7 @@ from yoke_core.domain.schema_api_context_tables_qa import (
 
 CANONICAL_TABLES: dict[str, dict] = {
     **CORE_TABLES,
+    **DISPATCH_TABLES,
     **CLAIMS_TABLES,
     **AUTH_TABLES,
     **QA_TABLES,

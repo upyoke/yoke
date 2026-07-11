@@ -8,6 +8,9 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import (
     _chdir_out_of_doomed_worktree,
 )
+from yoke_core.engines.remote_branch_cleanup import (
+    delete_remote_branch_if_merged,
+)
 
 
 def _parent():
@@ -87,13 +90,64 @@ def _post_merge_cleanup(
             # Truthful success output -- only after verification passes.
             _print(f"Successfully merged {ctx.args.branch} \u2192 {ctx.args.target}")
 
-    # Worktree and local branch cleanup
-    if ctx.worktree_path != ctx.repo_root:
-        _chdir_out_of_doomed_worktree(ctx)
-        wt_remove = _run_git(
-            ["worktree", "remove", "--force", ctx.worktree_path], cwd=ctx.repo_root, capture=True
+    # Prove and delete the remote branch before discarding the local retry
+    # lane. An ambiguous, concurrently updated, unmerged, or refused remote
+    # delete leaves the worktree and local branch in place for inspection and
+    # a later safe retry.
+    local_cleanup_safe = True
+    if ctx.args.keep_remote:
+        _print(f"Skipping remote branch deletion (--keep-remote): {ctx.args.branch}")
+    else:
+        remote_result = delete_remote_branch_if_merged(
+            run_git=lambda command: _run_git(
+                command,
+                cwd=ctx.repo_root,
+                capture=True,
+            ),
+            branch=ctx.args.branch,
+            target_branch=ctx.args.target,
         )
-        if wt_remove.returncode == 0:
+        local_cleanup_safe = remote_result.cleanup_complete
+        if remote_result.status == "deleted":
+            _print(f"Deleted remote branch: {ctx.args.branch}")
+        elif remote_result.status == "preserved":
+            _print(
+                f"WARNING: Preserving remote branch {ctx.args.branch}: "
+                f"{remote_result.reason}",
+                err=True,
+            )
+
+    # Worktree and local branch cleanup
+    if not local_cleanup_safe:
+        _print(
+            "WARNING: Preserving local worktree and branch so remote cleanup "
+            "can be retried safely.",
+            err=True,
+        )
+    elif ctx.worktree_path != ctx.repo_root:
+        _chdir_out_of_doomed_worktree(ctx)
+        from yoke_core.engines.merge_worktree_cleanliness import (
+            clean_after_disposable_cache_removal,
+        )
+
+        worktree_clean = clean_after_disposable_cache_removal(
+            _run_git, ctx.worktree_path
+        )
+        worktree_removed = False
+        if not worktree_clean:
+            _print(
+                f"WARNING: Preserving dirty or unverifiable worktree: "
+                f"{ctx.worktree_path}",
+                err=True,
+            )
+        else:
+            wt_remove = _run_git(
+                ["worktree", "remove", ctx.worktree_path],
+                cwd=ctx.repo_root,
+                capture=True,
+            )
+            worktree_removed = wt_remove.returncode == 0
+        if worktree_removed:
             _print(f"Cleaned up worktree: {ctx.worktree_path}")
             # Clean empty parent
             parent = str(Path(ctx.worktree_path).parent)
@@ -103,23 +157,17 @@ def _post_merge_cleanup(
                         Path(parent).rmdir()
                 except OSError:
                     pass
-        _run_git(["branch", "-d", ctx.args.branch], cwd=ctx.repo_root, capture=True)
-
-    # Remote branch delete
-    if ctx.args.keep_remote:
-        _print(f"Skipping remote branch deletion (--keep-remote): {ctx.args.branch}")
-    else:
-        ls_remote = _run_git(
-            ["ls-remote", "--heads", "origin", ctx.args.branch], cwd=ctx.repo_root, capture=True
-        )
-        if ls_remote.returncode == 0 and ctx.args.branch in (ls_remote.stdout or ""):
-            del_result = _run_git(
-                ["push", "origin", "--delete", ctx.args.branch], cwd=ctx.repo_root, capture=True
+            _run_git(
+                ["branch", "-d", ctx.args.branch],
+                cwd=ctx.repo_root,
+                capture=True,
             )
-            if del_result.returncode == 0:
-                _print(f"Deleted remote branch: {ctx.args.branch}")
-            else:
-                _print(f"WARNING: Failed to delete remote branch {ctx.args.branch}", err=True)
+        elif worktree_clean:
+            _print(
+                f"WARNING: Worktree removal refused; preserving branch "
+                f"{ctx.args.branch}",
+                err=True,
+            )
 
     # Sync local target with origin (failure -> exit 5)
     sync_ok = _sync_local_target(ctx)

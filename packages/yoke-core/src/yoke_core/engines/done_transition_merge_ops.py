@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Optional, Tuple
@@ -20,7 +19,7 @@ def _cross_project_commit_guard(
     """Advisory cross-project commit guard (scans the Yoke repo)."""
     if item_project == "yoke":
         return
-    print(f"\n=== Step 5c: Cross-project commit guard ===")
+    print("\n=== Step 5c: Cross-project commit guard ===")
     from yoke_core.domain import project_settings
 
     base_br = project_settings.get_project_str(repo_root, "base_branch")
@@ -91,7 +90,7 @@ def _pre_merge_commit(repo_root: Path) -> None:
         if diff.returncode != 0:
             _parent()._run_git(
                 ["commit", "-m",
-                 f"chore: auto-commit Yoke bookkeeping before merge"],
+                 "chore: auto-commit Yoke bookkeeping before merge"],
                 cwd=repo_root,
             )
             print("Pre-merge commit: Yoke-managed files committed.")
@@ -116,7 +115,7 @@ def _do_merge(
             print(f"Warning: branch mismatch for YOK-{item_id}", file=sys.stderr)
             print(f"  Stored:  {worktree_field}", file=sys.stderr)
             print(f"  Actual:  {actual}", file=sys.stderr)
-            print(f"  Using actual branch for merge.", file=sys.stderr)
+            print("  Using actual branch for merge.", file=sys.stderr)
             actual_branch = actual
 
     print(f"\n--- Merging branch: {actual_branch} -> {base_branch} ---")
@@ -150,101 +149,13 @@ def _do_merge(
     return rc, captured.getvalue(), rc == 0
 
 
-def _cleanup_stale_branches(
-    item_id: int,
-    worktree_field: str,
-    project_repo: Path,
-) -> None:
-    """Clean up stale worktree directories and branches (step 4a)."""
-    print(f"\n=== Step 4a: Stale worktree/branch cleanup ===")
-    pattern = f"YOK-{item_id}"
-    wt_dir = project_repo / ".worktrees" / pattern
-    if wt_dir.is_dir():
-        print(f"  Removing stale worktree: {wt_dir}")
-        _parent()._run_git(["-C", str(project_repo), "worktree", "remove", "--force",
-                   str(wt_dir)], capture=True)
-        # Filesystem fallback
-        if wt_dir.is_dir():
-            import shutil
-            shutil.rmtree(str(wt_dir), ignore_errors=True)
-            if not wt_dir.exists():
-                print(f"  Fallback rm: {wt_dir}")
-    # Delete local branch
-    verify = _parent()._run_git(["-C", str(project_repo), "rev-parse", "--verify", pattern],
-                       capture=True)
-    if verify.returncode == 0:
-        print(f"  Deleting local branch: {pattern}")
-        _parent()._run_git(["-C", str(project_repo), "branch", "-d", pattern], capture=True)
-        # Force delete if soft delete fails
-        _parent()._run_git(["-C", str(project_repo), "branch", "-D", pattern], capture=True)
-    # Delete remote branch
-    ls = _parent()._run_git(["-C", str(project_repo), "ls-remote", "--heads", "origin", pattern],
-                   capture=True)
-    if ls.stdout and pattern in ls.stdout:
-        print(f"  Deleting remote branch: {pattern}")
-        dr = _parent()._run_git(["-C", str(project_repo), "push", "origin", "--delete", pattern],
-                       capture=True)
-        if dr.returncode != 0:
-            print(f"  WARNING: Failed to delete remote branch {pattern} "
-                  "-- manual cleanup needed", file=sys.stderr)
-    # Also clean up worktree field path
-    if worktree_field:
-        wt_check = project_repo / ".worktrees" / f"YOK-{item_id}"
-        if wt_check.is_dir():
-            print(f"  Removing stale worktree (worktree field): {wt_check}")
-            _parent()._run_git(["-C", str(project_repo), "worktree", "remove", "--force",
-                       str(wt_check)], capture=True)
-            if wt_check.is_dir():
-                import shutil
-                shutil.rmtree(str(wt_check), ignore_errors=True)
-    if worktree_field.startswith("trial/"):
-        _cleanup_trial_branches(project_repo, item_id=item_id)
-    print("Stale cleanup complete.")
-
-
-def _cleanup_trial_branches(project_repo: Path, item_id: int | None = None) -> None:
-    """Clean up orphaned trial/* branches."""
-    pattern = f"trial/YOK-{item_id}" if item_id is not None else "trial/*"
-    br = _parent()._run_git(["-C", str(project_repo), "branch", "--list", pattern],
-                   capture=True)
-    if not br.stdout or not br.stdout.strip():
-        return
-    print("Checking for orphaned trial/ branches...")
-    for line in br.stdout.strip().split("\n"):
-        ref = line.strip().lstrip("* ")
-        if not ref:
-            continue
-        base = ref.replace("trial/", "", 1)
-        # Check if base is a YOK-N pattern
-        m = re.match(r"^YOK-(\d+)$", base)
-        if m:
-            item_num = int(m.group(1))
-            status = _parent()._query_item_field(item_num, "status")
-            if status == "done":
-                print(f"  Deleting orphaned trial branch: {ref} "
-                      f"(YOK-{item_num} is done)")
-                _parent()._run_git(["-C", str(project_repo), "branch", "-D", ref],
-                          capture=True)
-        else:
-            # Non-item trial branch — clean up if base branch gone
-            verify = _parent()._run_git(
-                ["-C", str(project_repo), "rev-parse", "--verify", base],
-                capture=True,
-            )
-            if verify.returncode != 0:
-                print(f"  Deleting orphaned trial branch: {ref} "
-                      f"(base branch '{base}' not found)")
-                _parent()._run_git(["-C", str(project_repo), "branch", "-D", ref],
-                          capture=True)
-
-
 def _verify_cwd_after_merge(
     merge_ran: bool, merge_output: str, project_repo: Path
 ) -> Optional[Path]:
     """Re-verify CWD after merge (step 5). Returns updated repo root or None on error."""
     from yoke_core.engines.done_transition_gates import _resolve_repo_root
 
-    print(f"\n=== Step 5: Re-verify CWD ===")
+    print("\n=== Step 5: Re-verify CWD ===")
     if merge_ran:
         # Parse YOKE_REPO_ROOT from merge output
         for line in (merge_output or "").split("\n"):
@@ -302,7 +213,7 @@ def _schema_gate(*, merge_ran: bool = True, project_repo: Path | None = None) ->
     """Post-merge schema refresh (step 5a)."""
     from yoke_core.domain import schema as _schema_domain, shepherd as _shepherd_domain
 
-    print(f"\n=== Step 5a: Schema gate ===")
+    print("\n=== Step 5a: Schema gate ===")
     if not _schema_gate_needed(merge_ran, project_repo):
         print("[schema-gate] schema current - skipping refresh.")
         return

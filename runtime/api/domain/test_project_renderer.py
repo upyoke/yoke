@@ -105,6 +105,17 @@ class TestRenderProject:
         ops_firewall = ops / "update-firewall.sh.tmpl"
         ops_firewall.write_text("#!/usr/bin/env sh\necho firewall update\n")
 
+        # Explicit Python ops programs render even when they have no project
+        # placeholders; the source filename is the ownership marker.
+        docker_cleanup = ops / "docker_image_cleanup.py"
+        docker_cleanup.write_text(
+            "#!/usr/bin/env python3\nprint('--repository')\n"
+        )
+        maintenance = ops / "docker_maintenance_converge.py"
+        maintenance.write_text(
+            "#!/usr/bin/env python3\nprint('docker maintenance')\n"
+        )
+
         # A .conf source WITH placeholders (rendered normally)
         conf_tmpl = ops / "nginx-ephemeral.conf"
         conf_tmpl.write_text("server_name {{domain_name}};\n")
@@ -205,6 +216,11 @@ class TestRenderProject:
         # Must render BOTH the parameterized and unparameterized .sh.tmpl
         # sources.
         assert rendered_sh == ["ephemeral-cleanup.sh", "update-firewall.sh"]
+        rendered_py = sorted(p.name for p in ops_dir.glob("*.py"))
+        assert rendered_py == [
+            "docker_image_cleanup.py",
+            "docker_maintenance_converge.py",
+        ]
         # No stray .tmpl file should land in the rendered output directory.
         assert list(ops_dir.glob("*.tmpl")) == []
 
@@ -226,11 +242,20 @@ class TestRenderProject:
         assert "update-firewall.sh.tmpl" in firewall
         assert "echo firewall update" in firewall
 
+        docker_cleanup = (ops_dir / "docker_image_cleanup.py").read_text()
+        assert docker_cleanup.startswith("#!/usr/bin/env python3\n# AUTO-GENERATED")
+        assert "docker_image_cleanup.py" in docker_cleanup
+        assert "--repository" in docker_cleanup
+
+        maintenance = (ops_dir / "docker_maintenance_converge.py").read_text()
+        assert maintenance.startswith("#!/usr/bin/env python3\n# AUTO-GENERATED")
+        assert "docker_maintenance_converge.py" in maintenance
+
         # Output must have executable bit set (operator scp-to-VPS flow).
         import stat
-        for sh_file in ops_dir.glob("*.sh"):
-            mode = sh_file.stat().st_mode
-            assert mode & stat.S_IXUSR, f"{sh_file.name} must be executable"
+        for program in (*ops_dir.glob("*.sh"), *ops_dir.glob("*.py")):
+            mode = program.stat().st_mode
+            assert mode & stat.S_IXUSR, f"{program.name} must be executable"
 
         # .conf with placeholders is rendered; .conf without placeholders is skipped.
         rendered_conf = sorted(p.name for p in ops_dir.glob("*.conf"))

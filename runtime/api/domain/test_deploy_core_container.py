@@ -4,20 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from yoke_core.domain import deploy_core_container
 from yoke_core.domain import deploy_core_container_image
 from yoke_core.domain.deploy_core_container import (
     exec_core_container_deploy,
     render_service_files,
     RuntimeDatabaseBinding,
-)
-from yoke_core.domain.deploy_core_container_remote import (
-    RemoteConvergenceError,
-    prune_superseded_images,
-    verify_runtime_database_secret_access,
-    verify_origin_health,
 )
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
@@ -29,6 +21,7 @@ _BINDING = RuntimeDatabaseBinding(
     secret_arn="arn:aws:secretsmanager:us-east-1:123:secret:yoke-db",
     region="us-east-1",
 )
+
 
 def _env(**overrides) -> DeployEnvironment:
     values = dict(
@@ -68,24 +61,19 @@ class TestResolveEnvironmentDsn:
         )
 
         captured = {}
+
         def fake_outputs(infra_dir, location, env):
             captured["infra_dir"] = infra_dir
             return {"databaseClusterEndpoint": "ep", "databaseSecretArn": "arn"}
 
-        monkeypatch.setattr(
-            deploy_core_container, "load_stack_outputs", fake_outputs
-        )
+        monkeypatch.setattr(deploy_core_container, "load_stack_outputs", fake_outputs)
         monkeypatch.setattr(
             deploy_core_container,
             "load_secret_string",
-            lambda arn, region, env: (
-                '{"username": "u", "password": "p", "port": 5432}'
-            ),
+            lambda arn, region, env: '{"username": "u", "password": "p", "port": 5432}',
         )
         runner = FakeRunner([CommandResult(0, "", "")])
-        dsn, outputs = resolve_environment_dsn(
-            runner, _env(), {}, emit=lambda _l: None
-        )
+        dsn, outputs = resolve_environment_dsn(runner, _env(), {}, emit=lambda _l: None)
         argv = runner.calls[0]["argv"]
         assert "--output-dir" in argv
         assert argv[argv.index("--pulumi-stack") + 1] == "yoke-prod"
@@ -100,7 +88,10 @@ class TestRenderServiceFiles:
         compose, nginx, env_file = render_service_files(
             _env(), _env().image_ref("abc123def456"), _BINDING
         )
-        assert "image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:abc123def456" in compose
+        assert (
+            "image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:abc123def456"
+            in compose
+        )
         assert '"127.0.0.1:8765:8765"' in compose
         assert "driver: awslogs" in compose
         assert 'awslogs-group: "/yoke/prod/core"' in compose
@@ -137,9 +128,8 @@ class TestRenderServiceFiles:
         )
         assert "OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.example" in env_file
 
-_PRIOR_IMAGE = (
-    "123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:prior123"
-)
+
+_PRIOR_IMAGE = "123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:prior123"
 
 
 class _HappyRemoteRunner(FakeRunner):
@@ -158,7 +148,7 @@ class _HappyRemoteRunner(FakeRunner):
         if "docker inspect" in command:
             return CommandResult(0, "healthy\n", "")
         if "curl -fsS" in command:
-            req_id = command.split('x-request-id: ')[1].split('"')[0]
+            req_id = command.split("x-request-id: ")[1].split('"')[0]
             return CommandResult(
                 0,
                 "HTTP/1.1 200 OK\n"
@@ -198,7 +188,8 @@ def patch_executor_boundaries(monkeypatch, env):
         lambda runner, repo, tag="", declared_branch="": "abc123def456",
     )
     monkeypatch.setattr(
-        deploy_core_container, "resolve_image_tag",
+        deploy_core_container,
+        "resolve_image_tag",
         lambda runner, repo, tag="", declared_branch="": "abc123def456",
     )
     monkeypatch.setattr(
@@ -226,18 +217,20 @@ class TestExecCoreContainerDeploy:
         events = self._patch_boundaries(monkeypatch, env)
         runner = _HappyRemoteRunner()
         rc = exec_core_container_deploy(
-            "yoke", "prod", repo_path="/repo", runner=runner,
+            "yoke",
+            "prod",
+            repo_path="/repo",
+            runner=runner,
             emit=lambda _line: None,
         )
         assert rc == 0
         assert events and events[0][0] == "prod"
 
-        remote_commands = [
-            c["argv"][-1] for c in runner.calls if c["argv"][0] == "ssh"
-        ]
+        remote_commands = [c["argv"][-1] for c in runner.calls if c["argv"][0] == "ssh"]
         joined = "\n".join(remote_commands)
         assert "apt-get install" not in joined or "docker.io" in joined
         assert "awscli" not in joined
+        assert "command -v aws" in joined
         assert "systemctl enable --now docker nginx" in joined
         assert "usermod -aG docker ubuntu" in joined
         assert "/etc/nginx/sites-available/yoke-core.conf" in joined
@@ -255,7 +248,8 @@ class TestExecCoreContainerDeploy:
         assert "topsecret" not in all_argv
         assert "topsecret" not in all_stdin
         env_pushes = [
-            c for c in runner.calls
+            c
+            for c in runner.calls
             if c["argv"][0] == "ssh"
             and c["argv"][-1].endswith(" /opt/yoke-core/.env 600")
         ]
@@ -263,7 +257,8 @@ class TestExecCoreContainerDeploy:
         assert "YOKE_DB_SECRET_ARN=" in env_pushes[0]["input_text"]
         assert "YOKE_DB_HOST=db.internal" in env_pushes[0]["input_text"]
         dsn_pushes = [
-            c for c in runner.calls
+            c
+            for c in runner.calls
             if c["argv"][0] == "ssh"
             and c["argv"][-1].endswith(" /opt/yoke-core/dsn 444")
         ]
@@ -281,11 +276,12 @@ class TestExecCoreContainerDeploy:
             seen["declared_branch"] = declared_branch
             return "abc123def456"
 
-        monkeypatch.setattr(
-            deploy_core_container, "resolve_image_tag", fake_resolve
-        )
+        monkeypatch.setattr(deploy_core_container, "resolve_image_tag", fake_resolve)
         rc = exec_core_container_deploy(
-            "yoke", "prod", repo_path="/repo", runner=_HappyRemoteRunner(),
+            "yoke",
+            "prod",
+            repo_path="/repo",
+            runner=_HappyRemoteRunner(),
             emit=lambda _line: None,
         )
         assert rc == 0
@@ -295,7 +291,10 @@ class TestExecCoreContainerDeploy:
         env = _env(activation_state="render_only")
         self._patch_boundaries(monkeypatch, env)
         rc = exec_core_container_deploy(
-            "yoke", "stage", repo_path="/repo", runner=FakeRunner(),
+            "yoke",
+            "stage",
+            repo_path="/repo",
+            runner=FakeRunner(),
             emit=lambda _line: None,
         )
         assert rc == 1
@@ -309,101 +308,22 @@ class TestExecCoreContainerDeploy:
         self._patch_boundaries(monkeypatch, env)
         runner = _HappyRemoteRunner()
         rc = exec_core_container_deploy(
-            "yoke", "prod", repo_path="/repo", runner=runner,
+            "yoke",
+            "prod",
+            repo_path="/repo",
+            runner=runner,
             emit=lambda _line: None,
         )
         assert rc == 0
-        remote = [
-            c["argv"][-1] for c in runner.calls if c["argv"][0] == "ssh"
-        ]
+        remote = [c["argv"][-1] for c in runner.calls if c["argv"][0] == "ssh"]
         prune_idx = next(
-            i for i, c in enumerate(remote)
-            if c == "docker image prune --all --force"
+            i for i, c in enumerate(remote) if c.startswith("python3 - --repository")
         )
-        up_idx = next(
-            i for i, c in enumerate(remote) if "docker compose up -d" in c
-        )
+        up_idx = next(i for i, c in enumerate(remote) if "docker compose up -d" in c)
         assert prune_idx > up_idx
+        assert f"--keep {env.image_ref('abc123def456')}" in remote[prune_idx]
+        assert not any("docker image prune --all" in command for command in remote)
 
     # Health-gate failure + rollback integration tests live in
     # test_deploy_core_container_rollback.py (TestExecutorRollbackIntegration),
     # which imports patch_executor_boundaries and _HappyRemoteRunner from here.
-
-
-class TestOriginHealthGate:
-    def test_requires_schema_ready_payload(self):
-        env = _env()
-        request_id = "rid-123"
-        runner = FakeRunner([
-            CommandResult(
-                0,
-                "HTTP/1.1 200 OK\n"
-                f"x-request-id: {request_id}\n\n"
-                '{"status":"ok","schema_ready":false,'
-                '"schema_missing_tables":["items"]}',
-                "",
-            )
-        ])
-
-        with pytest.raises(RemoteConvergenceError) as exc:
-            verify_origin_health(runner, env, request_id, lambda _line: None)
-
-        assert "schema_ready=true" in str(exc.value)
-        assert "items" in str(exc.value)
-
-
-class TestRuntimeDatabaseSecretPreflight:
-    def test_rejects_runtime_without_database_secret_access(self):
-        runner = FakeRunner([
-            CommandResult(254, "", "AccessDeniedException"),
-        ])
-
-        with pytest.raises(RemoteConvergenceError) as exc:
-            verify_runtime_database_secret_access(
-                runner,
-                _env(),
-                lambda _line: None,
-            )
-
-        assert "database secret access preflight" in str(exc.value)
-        assert "secretsmanager:GetSecretValue" in str(exc.value)
-
-
-class TestPruneSupersededImages:
-    """The post-success prune bounds on-box image accumulation (real 2026-07-03
-    stage outage: 29 unpruned 1.45GB images filled the 40GB root volume and
-    ``docker compose pull`` failed with ``no space left on device``)."""
-
-    def test_runs_docker_image_prune_without_sudo(self):
-        runner = FakeRunner(
-            [CommandResult(0, "deleted: sha256:x\nTotal reclaimed space: 1.2GB\n", "")]
-        )
-        lines: list[str] = []
-        prune_superseded_images(runner, _env(), lines.append)
-        command = runner.calls[0]["argv"][-1]
-        # No sudo — the deploy user is in the docker group (matches
-        # compose_pull_up), and prune stays consistent with it.
-        assert command == "docker image prune --all --force"
-        assert any("pruned superseded images" in line for line in lines)
-        assert any("Total reclaimed space: 1.2GB" in line for line in lines)
-
-    def test_failure_is_best_effort_and_never_raises(self):
-        # The deploy already succeeded + reported healthy by the time prune
-        # runs; a docker/SSH error is logged and swallowed, never raised.
-        runner = FakeRunner(
-            [CommandResult(1, "", "Cannot connect to the Docker daemon")]
-        )
-        lines: list[str] = []
-        prune_superseded_images(runner, _env(), lines.append)
-        assert any("image prune skipped" in line and "rc=1" in line for line in lines)
-
-    def test_swallows_runner_exception(self):
-        class Boom(FakeRunner):
-            def run(self, argv, *, input_text=None, env=None, timeout=600):
-                raise RuntimeError("ssh blew up")
-
-        lines: list[str] = []
-        # Must not propagate — an unhandled exception here would fail an
-        # already-successful deploy.
-        prune_superseded_images(Boom(), _env(), lines.append)
-        assert any("image prune skipped" in line for line in lines)

@@ -192,7 +192,7 @@ def run(args: MergeArgs) -> int:
             return exit_code
 
         # Prune agent worktrees
-        prune_agent_worktrees(ctx.repo_root)
+        prune_agent_worktrees(ctx.repo_root, ctx.args.target)
 
         # Extract generated files
         ctx.generated_files = extract_generated_files(ctx)

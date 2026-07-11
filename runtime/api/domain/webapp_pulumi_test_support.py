@@ -15,6 +15,10 @@ class _FakeOutput:
         return fn(self.value)
 
     @staticmethod
+    def from_input(value):
+        return value if isinstance(value, _FakeOutput) else _FakeOutput(value)
+
+    @staticmethod
     def concat(*parts):
         return "".join(
             str(part.value if isinstance(part, _FakeOutput) else part)

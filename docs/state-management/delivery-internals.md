@@ -25,6 +25,7 @@ source_checkout=<source-checkout>
 deploy_owner_project=<deploy-owner-project>
 export YOKE_ENV="${release_control_plane_env}-db-admin"
 export YOKE_RELEASE_CONTROL_PLANE_ENV="$release_control_plane_env"
+export YOKE_GITHUB_ACTIONS_RELAY_ENV="$release_control_plane_env"
 git -C "$source_checkout" fetch origin "$target_branch"
 deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
 python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
@@ -32,6 +33,11 @@ python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run
 ```
 
 These runs leave `deployment_run_items` empty by design. The pipeline skips item branch/status writes but still advances `deployment_runs.current_stage` / `status` and emits run-level deployment events.
+
+GitHub Actions authority is never ambient. The normal recipe selects the
+hosted HTTPS relay above. Only an attended first deploy that introduces or
+repairs that relay may replace the relay export with
+`YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1`; setting both or neither fails closed.
 
 Do not use `YOKE_ENV=<env>-db-admin` as a routine retry hint when a product read, `yoke db read`, or domain-specific wrapper fails. That direct authority is only for the sanctioned admin deploy/runbook path above or the break-glass procedures in [break-glass.md](../admin/break-glass.md).
 

@@ -85,12 +85,43 @@ def do_local_merge(ctx: MergeContext) -> int:
     # on fresh clones where the operator has not yet installed the hook).
     _ensure_snapshot_for_project(ctx)
 
-    # Clean up worktree and branch
+    # Clean up only when the worktree contains no tracked, untracked, or
+    # ignored material.  A local merge proves the branch commits are retained
+    # by the target, but it does not prove that filesystem-only work is safe to
+    # discard.
     if ctx.worktree_path != ctx.repo_root:
         _chdir_out_of_doomed_worktree(ctx)
-        _run_git(["worktree", "remove", "--force", ctx.worktree_path], cwd=ctx.repo_root, capture=True)
-        _print(f"Cleaned up worktree: {ctx.worktree_path}")
-        _run_git(["branch", "-d", ctx.args.branch], cwd=ctx.repo_root, capture=True)
+        from yoke_core.engines.merge_worktree_cleanliness import (
+            clean_after_disposable_cache_removal,
+        )
+
+        if not clean_after_disposable_cache_removal(
+            _run_git, ctx.worktree_path
+        ):
+            _print(
+                f"WARNING: Preserving dirty or unverifiable worktree: "
+                f"{ctx.worktree_path}",
+                err=True,
+            )
+        else:
+            removed = _run_git(
+                ["worktree", "remove", ctx.worktree_path],
+                cwd=ctx.repo_root,
+                capture=True,
+            )
+            if removed.returncode == 0:
+                _print(f"Cleaned up worktree: {ctx.worktree_path}")
+                _run_git(
+                    ["branch", "-d", ctx.args.branch],
+                    cwd=ctx.repo_root,
+                    capture=True,
+                )
+            else:
+                _print(
+                    f"WARNING: Worktree removal refused; preserving branch "
+                    f"{ctx.args.branch}",
+                    err=True,
+                )
 
     # Schema refresh
     _schema_refresh(ctx)

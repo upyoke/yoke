@@ -13,17 +13,10 @@ from yoke_core.domain.github_app_control_plane import (
     GitHubAppControlPlaneConfigError,
     validate_github_app_issuer,
 )
-from yoke_core.domain.github_app_remote_identity import (
-    GitHubAppIdentity,
-    GitHubAppIdentityVerificationError,
-    verify_github_app_identity,
-)
-
-
-GITHUB_APP_PRIVATE_KEY_FILE_NAME = "github-app-private-key.pem"
-GITHUB_APP_PRIVATE_KEY_SECRET_NAME = "yoke-github-app-private-key"
-GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH = (
-    f"/run/secrets/{GITHUB_APP_PRIVATE_KEY_SECRET_NAME}"
+from yoke_core.domain.github_app_origin_key import (
+    GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH,
+    GITHUB_APP_PRIVATE_KEY_FILE_NAME,
+    GITHUB_APP_PRIVATE_KEY_SECRET_NAME,
 )
 
 
@@ -38,6 +31,7 @@ class GitHubAppDeploymentConfig:
     issuer: str
     api_url: str
     private_key_secret_arn: str
+    kms_key_arn: str = ""
 
 
 def github_app_config_from_environment_settings(
@@ -83,10 +77,17 @@ def github_app_config_from_environment_settings(
             "environments.settings.github_app.private_key_secret_arn must be "
             f"an AWS Secrets Manager ARN; {env_hint}"
         )
+    kms_key_arn = str(raw.get("kms_key_arn") or "").strip()
+    if kms_key_arn and not kms_key_arn.startswith("arn:aws:kms:"):
+        raise GitHubAppDeploymentConfigError(
+            "environments.settings.github_app.kms_key_arn must be an AWS "
+            f"KMS key ARN when set; {env_hint}"
+        )
     return GitHubAppDeploymentConfig(
         issuer=selected["issuer"],
         api_url=api_url,
         private_key_secret_arn=secret_arn,
+        kms_key_arn=kms_key_arn,
     )
 
 
@@ -126,123 +127,13 @@ def github_app_env_lines(env: Any) -> list[str]:
     ]
 
 
-def preflight_github_app_private_key(
-    runner: Any,
-    env: Any,
-    aws_env: Mapping[str, str],
-    *,
-    secret_loader: Any = None,
-    identity_verifier: Any = None,
-) -> str | None:
-    """Load and verify the configured App key without mutating the host."""
-    from yoke_core.domain.deploy_core_container_remote import (
-        RemoteConvergenceError,
-    )
-
-    if env.github_app is None:
-        return None
-    if secret_loader is None:
-        from yoke_core.domain.yoke_cloud_db_authority import load_secret_string
-
-        secret_loader = load_secret_string
-    if identity_verifier is None:
-        identity_verifier = verify_github_app_identity
-
-    try:
-        private_key = secret_loader(
-            env.github_app.private_key_secret_arn,
-            region=env.aws_region,
-            env=aws_env,
-        ).strip()
-    except Exception as exc:
-        raise RemoteConvergenceError(
-            "[core-deploy] GitHub App private-key secret resolution failed for "
-            f"{env.env_name}: {exc}"
-        ) from exc
-    if not private_key:
-        raise RemoteConvergenceError(
-            "[core-deploy] GitHub App private-key secret resolved empty for "
-            f"{env.env_name}"
-        )
-    try:
-        identity_verifier(
-            runner=runner,
-            env=env,
-            issuer=env.github_app.issuer,
-            private_key_pem=private_key,
-            api_url=env.github_app.api_url,
-        )
-    except Exception as exc:
-        raise RemoteConvergenceError(
-            "[core-deploy] GitHub App issuer/private-key verification failed "
-            f"for {env.env_name}"
-        ) from exc
-    return private_key
-
-
-def converge_github_app_private_key(
-    runner: Any,
-    env: Any,
-    *,
-    private_key_pem: str | None,
-    file_pusher: Any = None,
-) -> None:
-    """Atomically deliver a preflight-verified key through SSH stdin."""
-    from yoke_core.domain.deploy_core_container_remote import (
-        RemoteConvergenceError,
-    )
-    from yoke_core.domain.deploy_remote import remove_remote_file
-
-    remote_path = f"{env.compose_dir}/{GITHUB_APP_PRIVATE_KEY_FILE_NAME}"
-    if env.github_app is None:
-        removed = remove_remote_file(
-            runner,
-            env,
-            remote_path=remote_path,
-            sudo=False,
-            timeout=30,
-        )
-        if not removed.ok:
-            raise RemoteConvergenceError(
-                "[core-deploy] stale GitHub App private-key cleanup failed "
-                f"(rc={removed.returncode})"
-            )
-        return
-    if not private_key_pem:
-        raise RemoteConvergenceError(
-            "[core-deploy] GitHub App private key was not prepared by preflight"
-        )
-    if file_pusher is None:
-        from yoke_core.domain.deploy_remote import push_remote_file
-
-        file_pusher = push_remote_file
-    pushed = file_pusher(
-        runner,
-        env,
-        content=private_key_pem,
-        remote_path=remote_path,
-        mode="600",
-        sudo=False,
-    )
-    if not pushed.ok:
-        raise RemoteConvergenceError(
-            "[core-deploy] GitHub App private-key file write failed "
-            f"(rc={pushed.returncode})"
-        )
-
-
 __all__ = [
     "GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH",
     "GITHUB_APP_PRIVATE_KEY_FILE_NAME",
     "GITHUB_APP_PRIVATE_KEY_SECRET_NAME",
     "GitHubAppDeploymentConfig",
     "GitHubAppDeploymentConfigError",
-    "GitHubAppIdentity",
-    "GitHubAppIdentityVerificationError",
-    "converge_github_app_private_key",
     "github_app_config_from_environment_settings",
     "github_app_env_lines",
     "github_app_render_values",
-    "preflight_github_app_private_key",
-    "verify_github_app_identity",
 ]

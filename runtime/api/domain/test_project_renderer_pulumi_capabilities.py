@@ -43,7 +43,33 @@ def test_github_ci_keys_from_capability(tmp_path):
     )
 
     assert result["github_repo_slug"] == "acme-org/buzz"
+    assert result["github_api_url"] == "https://api.github.com"
     assert result["manage_github_oidc_provider"] == "false"
+
+
+def test_delivery_ci_resources_come_from_environment_authority(tmp_path):
+    base = _settings_from_context("buzz", {"projectName": "buzz"})
+    assert base.primary_environment is not None
+    base.primary_environment.settings["distribution"] = {
+        "bucket_name": "acme-distribution-prod"
+    }
+    base.primary_environment.settings["github_app"] = {
+        "private_key_secret_arn": (
+            "arn:aws:secretsmanager:us-east-1:123456789012:"
+            "secret:acme/prod/github-app-private-key-AbCdEf"
+        )
+    }
+
+    result = project_renderer_pulumi.gather_pulumi_values(
+        "buzz", _make_project_root(tmp_path, "buzz"), base,
+    )
+
+    assert result["delivery_distribution_bucket_names_json"] == (
+        '["acme-distribution-prod"]'
+    )
+    assert "github-app-private-key-AbCdEf" in (
+        result["github_app_private_key_secret_arns_json"]
+    )
 
 
 def test_runner_fleet_keys_from_capability(tmp_path):

@@ -1,15 +1,7 @@
-# deploy.yml — Production deploy (manual dispatch only)
-#
-# Triggers on manual dispatch only. Push-to-main auto-deploy disabled
-# to allow batching merges before deploying via /yoke usher.
-# Deploys via rsync + docker compose rebuild on the VPS.
-# Requires a "production" GitHub environment with optional reviewer gate.
-#
 # Readiness-gated fast-path rebuild. When production containers
 # are already running and healthy, skips aggressive cache prune and
 # --no-cache to allow Docker layer reuse. Falls back to full cold-start
 # path when readiness fails or force_rebuild is set.
-#
 # Template variables:
 #   {{PROJECT_NAME_UPPER}} — uppercase project name (e.g., ACME) for secret names
 #   {{project_name}}       — lowercase project name (e.g., acme) for paths
@@ -23,10 +15,16 @@
 #   {{project_name}}-app   — production compose project name
 
 name: {{project_display_name}} Deploy
+run-name: "{{project_display_name}} deploy [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]"
 
 on:
   workflow_dispatch:
     inputs:
+      yoke_dispatch_id:
+        description: 'Opaque Yoke dispatch correlation token (leave blank for manual runs)'
+        required: false
+        type: string
+        default: ''
       force_rebuild:
         description: 'Force full clean rebuild (skip fast-path even if production is healthy)'
         required: false
@@ -53,6 +51,19 @@ jobs:
         run: |
           echo "${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+      - name: Ship Docker maintenance convergence helper
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            ops/docker_maintenance_converge.py \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}:~/docker_maintenance_converge.py
+
+      - name: Converge safe host Docker maintenance
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'python3 "$HOME/docker_maintenance_converge.py" && \
+             sudo -n python3 "$HOME/docker_maintenance_converge.py" --remove-only'
 
       - name: Check production readiness
         id: readiness
@@ -140,12 +151,12 @@ jobs:
              fi && \
              docker compose -p {{project_name}}-app up -d'
 
-      - name: Prune Docker build cache and unused images (cold-start)
+      - name: Prune Docker build cache and dangling images (cold-start)
         if: steps.readiness.outputs.fast_path != 'true'
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
-            'docker builder prune -af && docker image prune -af'
+            'docker builder prune -af && docker image prune -f'
 
       - name: Stop existing containers and rebuild (cold-start)
         if: steps.readiness.outputs.fast_path != 'true'
@@ -206,6 +217,23 @@ jobs:
               "curl -sf -o /dev/null -w \"%{http_code}\" http://localhost:{{web_port}}${path} | grep -qE \"^(200|307)$\""
             echo "Smoke path $path passed"
           done
+
+      - name: Reclaim superseded production images
+        # Post-health, idempotent, and fail-visible after bounded retries.
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'for attempt in 1 2 3; do
+               if docker image prune --force; then
+                 echo "Post-deploy image cleanup complete"
+                 exit 0
+               fi
+               if [ "$attempt" -lt 3 ]; then
+                 echo "Image cleanup attempt $attempt/3 failed; retrying" >&2
+               fi
+             done
+             echo "Image cleanup failed after 3 attempts" >&2
+             exit 1'
 
       - name: Fetch active branch slugs
         # Fetch all remote branches and slugify them using the same algorithm

@@ -88,7 +88,7 @@ def run(
     item_type = str(row["type"] or "issue")
     epic_name = str(item_id) if item_type == "epic" else ""
     item_project = str(row["project"] or "yoke") if row["project"] else "yoke"
-    result.old_status = old_status; result.new_status = old_status
+    result.old_status = result.new_status = old_status
     if worktree_field in ("null", ""):
         worktree_field = ""
     if worktree_field.startswith(("issue/YOK-", "epic/YOK-")):
@@ -122,7 +122,8 @@ def run(
         if sim_exit is not None:
             return result.fail(result_file, sim_exit, "2a")
     result.add_step("2a")
-    if (b := mw._check_blocked_flag(item_id)) is not None: return result.fail(result_file, b, "2a-blocked")
+    if (blocked_exit := mw._check_blocked_flag(item_id)) is not None:
+        return result.fail(result_file, blocked_exit, "2a-blocked")
 
     branch_already_merged = _check_merge_guard(worktree_field, project_repo, base_branch)
     result.add_step("2b")
@@ -164,14 +165,6 @@ def run(
             )
             if merge_exit == 0:
                 merge_ran = True
-                # Clear worktree field
-                _update_item_direct(
-                    item_id,
-                    "worktree",
-                    "null",
-                    rebuild_board=False,
-                    suppress_output=True,
-                )
             elif merge_exit in (1, 3, 4):
                 if merge_exit == 1:
                     print(f"\nError: Merge of branch '{worktree_field}' failed.",
@@ -195,13 +188,6 @@ def run(
                 return result.fail(result_file, merge_exit)
         elif branch_already_merged:
             print("Branch already merged — skipping merge step.")
-            _update_item_direct(
-                item_id,
-                "worktree",
-                "null",
-                rebuild_board=False,
-                suppress_output=True,
-            )
         else:
             if resume_from_step6:
                 print("Merge already completed in prior run — continuing "
@@ -234,7 +220,20 @@ def run(
     if merge_ran:
         result.merge_ran = True
 
-    _cleanup_stale_branches(item_id, worktree_field, project_repo)
+    cleanup_complete = _cleanup_stale_branches(
+        item_id,
+        worktree_field,
+        project_repo,
+        base_branch,
+    )
+    if worktree_field and cleanup_complete:
+        _update_item_direct(
+            item_id,
+            "worktree",
+            "null",
+            rebuild_board=False,
+            suppress_output=True,
+        )
     result.add_step("4a")
 
     cwd = _verify_cwd_after_merge(merge_ran, merge_output, project_repo)
@@ -263,7 +262,7 @@ def run(
         print(f"RESULT_FILE={result_file}")
         return result.fail(result_file, 7, "5d-preconditions")
     result.add_step("5d")
-    print(f"\n=== Step 6: Update status to done ===")
+    print("\n=== Step 6: Update status to done ===")
     _populate_merged_at(item_id)
 
     success = _update_status_to_done(item_id, skip_qa)
@@ -291,17 +290,17 @@ def run(
         _cascade_epic_tasks_to_done(item_id, epic_name)
     for _s in ("6b", "6d", "7"):
         result.add_step(_s)
-    print(f"\n=== Step 8: Sync done state to GitHub ===")
+    print("\n=== Step 8: Sync done state to GitHub ===")
     from yoke_core.engines.done_transition_github_sync import apply_step_8
     apply_step_8(item_id, old_status, result)
     _apply_discovery_scan(item_id, result)
     for _s in ("9", "10"):
         result.add_step(_s)
-    print(f"\n=== Step 11: Rebuild board ===")
+    print("\n=== Step 11: Rebuild board ===")
     _rebuild_board_direct()
     result.add_step("11")
 
-    print(f"\n=== Step 12: Commit ===")
+    print("\n=== Step 12: Commit ===")
     commit_ran = False
     diff = _run_git(["diff", "--cached", "--quiet"], capture=True)
     if diff.returncode != 0:
@@ -314,7 +313,7 @@ def run(
             ensure_snapshot_for_item(item_id)
     result.add_step("12")
 
-    print(f"\n=== Step 13: Push ===")
+    print("\n=== Step 13: Push ===")
     if commit_ran or merge_ran:
         # Step 12's commit lands in the Yoke control-plane repo.
         push_branch = _get_base_branch("", repo_root)
@@ -330,7 +329,7 @@ def run(
         print("No merge commit or done-transition commit produced - skipping push.")
     result.add_step("13")
 
-    print(f"\n=== Step 14: Report ===")
+    print("\n=== Step 14: Report ===")
     print("==========================================")
     print(f"YOK-{item_id} ({title}): {old_status} -> done")
     print("==========================================\n")

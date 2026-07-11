@@ -22,6 +22,7 @@ DEFAULT_RUNNER_ROOT = Path("/opt/actions-runner")
 DEFAULT_TMP_ROOT = Path("/tmp")
 IMAGE_BUILDX_BUILDER = "yoke-core-builder"
 STALE_TMP_MIN_AGE_SECONDS = 6 * 60 * 60
+STALE_RUNNER_LOG_MIN_AGE_SECONDS = 24 * 60 * 60
 GITHUB_HOSTED = "github-hosted"
 SELF_HOSTED = "self-hosted"
 
@@ -113,18 +114,39 @@ def _path_age_seconds(path: Path, now: float) -> float | None:
         return None
 
 
-def _remove_stale_runner_files(runner_root: Path) -> None:
+def _remove_stale_runner_files(
+    runner_root: Path,
+    *,
+    min_age_seconds: int = STALE_RUNNER_LOG_MIN_AGE_SECONDS,
+) -> None:
+    """Truncate only old, runner-owned diagnostics.
+
+    A persistent host can run several workers at once. Directory ownership is
+    not evidence that a log is inactive, so fresh/current diagnostics remain
+    intact and only files whose mtime has crossed the explicit retention
+    threshold are reclaimed.
+    """
     if not runner_root.is_dir():
         return
+    now = time.time()
     for log in runner_root.glob("runner-*/_diag/*.log"):
+        age_seconds = _path_age_seconds(log, now)
+        if age_seconds is None or age_seconds < min_age_seconds:
+            continue
         _truncate_file(log)
 
 
-def _remove_stale_tmp_files(
+def _remove_ephemeral_hosted_tmp_files(
     tmp_root: Path,
     *,
     min_age_seconds: int = STALE_TMP_MIN_AGE_SECONDS,
 ) -> None:
+    """Remove generic build temp paths only on a verified ephemeral VM.
+
+    Callers must first pass ``_assert_hosted_ubuntu_cleanup_authority``. These
+    prefixes are not ownership evidence on a persistent multi-runner host,
+    where even an old path may belong to another active or paused job.
+    """
     if not tmp_root.is_dir():
         return
     now = time.time()
@@ -143,14 +165,27 @@ def _run_best_effort(args: Sequence[str]) -> None:
         return
 
 
-def _prune_docker() -> None:
-    for args in (
-        ["docker", "buildx", "rm", "-f", IMAGE_BUILDX_BUILDER],
-        ["docker", "buildx", "prune", "-af"],
-        ["docker", "builder", "prune", "-af"],
-        ["docker", "system", "prune", "-af", "--volumes"],
-        ["docker", "volume", "prune", "-f"],
-    ):
+def _prune_docker(*, aggressive_hosted: bool) -> None:
+    """Reclaim Docker state without crossing persistent-host boundaries."""
+    if aggressive_hosted:
+        commands = (
+            ["docker", "buildx", "rm", "-f", IMAGE_BUILDX_BUILDER],
+            ["docker", "buildx", "prune", "-af"],
+            ["docker", "builder", "prune", "-af"],
+            ["docker", "system", "prune", "-af", "--volumes"],
+            ["docker", "volume", "prune", "-f"],
+        )
+    else:
+        # Persistent runners may hold tagged prewarmed images and unrelated
+        # volumes between jobs. Limit recurring cleanup to old builder cache
+        # and dangling images; neither operation removes tagged image refs,
+        # container-owned images, or named volumes.
+        commands = (
+            ["docker", "buildx", "prune", "-f", "--filter", "until=24h"],
+            ["docker", "builder", "prune", "-f", "--filter", "until=24h"],
+            ["docker", "image", "prune", "-f"],
+        )
+    for args in commands:
         _run_best_effort(args)
 
 
@@ -244,14 +279,17 @@ def reclaim_runner_disk(
     """Reclaim disposable runner disk without deleting the current checkout."""
     if runner_environment not in (GITHUB_HOSTED, SELF_HOSTED):
         raise ValueError("runner_environment must be 'github-hosted' or 'self-hosted'")
-    if hosted_image_build_cleanup and runner_environment == GITHUB_HOSTED:
+    aggressive_hosted = (
+        hosted_image_build_cleanup and runner_environment == GITHUB_HOSTED
+    )
+    if aggressive_hosted:
         _reclaim_hosted_ubuntu_payloads(
             runner_os=runner_os,
             environ=os.environ if environ is None else environ,
         )
+        _remove_ephemeral_hosted_tmp_files(tmp_root)
     _remove_stale_runner_files(runner_root)
-    _remove_stale_tmp_files(tmp_root)
-    _prune_docker()
+    _prune_docker(aggressive_hosted=aggressive_hosted)
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

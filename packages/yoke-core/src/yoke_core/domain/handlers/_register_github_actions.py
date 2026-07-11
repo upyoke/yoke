@@ -16,6 +16,7 @@ from yoke_core.domain.handlers import (
     github_actions_runners,
     github_actions_run,
     github_actions_set,
+    github_actions_workflow,
 )
 
 
@@ -27,5 +28,6 @@ def register(registry) -> None:
         *github_actions_runners.REGISTRATIONS,
         *github_actions_run.REGISTRATIONS,
         *github_actions_set.REGISTRATIONS,
+        *github_actions_workflow.REGISTRATIONS,
     ):
         registry.register(**entry)

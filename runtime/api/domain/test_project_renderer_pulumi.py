@@ -18,8 +18,6 @@ from yoke_core.domain.project_renderer_settings import (
     RendererEnvironmentSettings,
 )
 
-
-# 26 keys returned by gather_values() (asserted via key-set comparison).
 _GATHER_VALUES_KEYS = {
     "project_display_name", "PROJECT_NAME_UPPER", "project_description",
     "project_name", "deploy_namespace", "cloudfront_domain", "cloudfront_id",
@@ -36,7 +34,11 @@ _PULUMI_KEYS = {
     "pulumi_runner_fleet_stack_name", "domain_txt_records_json",
     "domain_mx_records_json",
 }
-_CI_KEYS = {"github_repo_slug", "manage_github_oidc_provider"}
+_CI_KEYS = {
+    "delivery_distribution_bucket_names_json",
+    "github_api_url", "github_app_private_key_secret_arns_json",
+    "github_repo_slug", "manage_github_oidc_provider",
+}
 _RUNNER_FLEET_KEYS = {
     "runner_fleet_aws_capability", "runner_fleet_aws_region",
     "runner_fleet_github_capability",
@@ -203,13 +205,14 @@ class TestGatherPulumiValues:
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert len(result) == 63
+        assert len(result) == 66
         assert result["origin_id"] == "buzzinfraDistributionOrigin18BAD744B"
         assert result["distribution_bucket_name"] == "buzz-distribution-prod"
         assert result["domain_txt_records_json"] == "[]"
         assert result["domain_mx_records_json"] == "[]"
         # No `github` capability in this context -> CI federation renders off.
         assert result["github_repo_slug"] == ""
+        assert result["github_api_url"] == "https://api.github.com"
         assert result["manage_github_oidc_provider"] == "true"
         assert result["runner_fleet_instance_type"] == "m7g.2xlarge"
         assert result["runner_fleet_root_volume_gb"] == "200"

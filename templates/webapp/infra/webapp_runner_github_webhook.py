@@ -3,30 +3,27 @@
 
 from __future__ import annotations
 
-import hmac
 import json
-import os
 from typing import Sequence
 
 import pulumi
 import pulumi_github as github
 
+from webapp_github_repository_provider import (
+    create_repository_provider,
+    require_repository_token_environment as require_repository_token,
+)
+
 
 def require_repository_token_environment() -> None:
     """Verify the intent marker matches pulumi-github's ambient token."""
-    token = os.environ.get("RUNNER_FLEET_GITHUB_TOKEN", "")
-    provider_token = os.environ.get("GITHUB_TOKEN", "")
-    if not token.strip():
-        raise pulumi.RunError(
-            "runner-fleet stack requires RUNNER_FLEET_GITHUB_TOKEN "
-            "with required permissions: repository_hooks: write, "
-            "actions_variables: write"
-        )
-    if not provider_token or not hmac.compare_digest(token, provider_token):
-        raise pulumi.RunError(
-            "runner-fleet stack requires GITHUB_TOKEN to match "
-            "RUNNER_FLEET_GITHUB_TOKEN for process-only provider auth"
-        )
+    require_repository_token(
+        (
+            "repository_hooks: write",
+            "actions_variables: write",
+        ),
+        authority_name="runner-fleet stack",
+    )
 
 
 def create_repository_automation(
@@ -43,19 +40,17 @@ def create_repository_automation(
     child_opts: pulumi.ResourceOptions,
 ) -> tuple[github.RepositoryWebhook, github.ActionsVariable | None]:
     """Reconcile the repository webhook and workflow runner route."""
-    require_repository_token_environment()
-    provider_token = os.environ.pop("GITHUB_TOKEN")
-    try:
-        provider = github.Provider(
-            "runnerFleetGithubProvider",
-            owner=owner,
-            # pulumi-github's canonical provider input ends in `/`; preserve
-            # that form so explicit origin pinning does not create URL churn.
-            base_url=api_url.rstrip("/") + "/",
-            opts=child_opts,
-        )
-    finally:
-        os.environ["GITHUB_TOKEN"] = provider_token
+    provider = create_repository_provider(
+        "runnerFleetGithubProvider",
+        owner=owner,
+        api_url=api_url,
+        required_permissions=(
+            "repository_hooks: write",
+            "actions_variables: write",
+        ),
+        authority_name="runner-fleet stack",
+        opts=child_opts,
+    )
     webhook = github.RepositoryWebhook(
         "runnerFleetGithubWebhook",
         repository=repository,

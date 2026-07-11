@@ -104,6 +104,9 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     root = Path(__file__).resolve().parents[3] / "templates" / "webapp" / "infra"
     stack_source = (root / "webapp_runner_fleet_stack.py").read_text()
     webhook_source = (root / "webapp_runner_github_webhook.py").read_text()
+    provider_source = (
+        root / "webapp_github_repository_provider.py"
+    ).read_text()
     runtime_sources = "\n".join(
         path.read_text()
         for path in root.glob("webapp_runner_*")
@@ -117,14 +120,15 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     readme_text = readme.read_text()
 
     assert "require_repository_token_environment" in stack_source
-    assert "RUNNER_FLEET_GITHUB_TOKEN" in webhook_source
-    assert 'os.environ.get("GITHUB_TOKEN"' in webhook_source
-    assert "hmac.compare_digest(token, provider_token)" in webhook_source
-    assert 'os.environ.pop("GITHUB_TOKEN")' in webhook_source
-    assert 'os.environ["GITHUB_TOKEN"] = provider_token' in webhook_source
-    assert "token=provider_token" not in webhook_source
+    assert "RUNNER_FLEET_GITHUB_TOKEN" in provider_source
+    assert "create_repository_provider" in webhook_source
+    assert 'os.environ.get(GITHUB_TOKEN_ENV' in provider_source
+    assert "hmac.compare_digest(token, provider_token)" in provider_source
+    assert "os.environ.pop(GITHUB_TOKEN_ENV)" in provider_source
+    assert "os.environ[GITHUB_TOKEN_ENV] = provider_token" in provider_source
+    assert "token=provider_token" not in provider_source
     assert "RUNNER_FLEET_GITHUB_TOKEN" not in runtime_sources
-    sources = stack_source + webhook_source + runtime_sources
+    sources = stack_source + webhook_source + provider_source + runtime_sources
     assert "GITHUB_TOKEN_PARAMETER" not in sources
     assert "/github-token" not in sources
     assert "pulumi-github" in requirements
@@ -135,6 +139,22 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     assert "direct variable" in readme_text
     assert "writes are drift" in readme_text
     assert "configure one manual GitHub webhook" not in readme_text
+
+
+def test_runner_variable_adoption_docs_preserve_generated_pulumi_identity():
+    root = Path(__file__).resolve().parents[3]
+    documents = (
+        (root / "docs" / "github-app-operations.md").read_text(),
+        (root / "templates" / "webapp" / "RUNNER-FLEET.md").read_text(),
+    )
+
+    for document in documents:
+        assert "--import-file <preview-import-file.json>" in document
+        assert "--file <runner-variable-import-file.json>" in document
+        assert "preserve its generated `parent`" in document
+        assert "`provider` fields unchanged" in document
+        assert "positional" in document
+        assert "final zero-change refresh" in document
 
 
 @pytest.mark.parametrize(

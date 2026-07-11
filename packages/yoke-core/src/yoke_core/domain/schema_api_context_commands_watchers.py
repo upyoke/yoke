@@ -122,7 +122,9 @@ WATCHERS_COMMANDS: list[dict] = [
             "git -C \"$source_checkout\" fetch origin \"$target_branch\" && "
             "deploy_image_tag=\"$(git -C \"$source_checkout\" rev-parse "
             "--short=12 FETCH_HEAD)\"\n"
-            "YOKE_ENV=<control-plane-env>-db-admin python3 -m "
+            "YOKE_ENV=<control-plane-env>-db-admin "
+            "YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env> "
+            "python3 -m "
             "yoke_core.tools.watch_deploy --product-src \"$source_checkout\" "
             "-- {run-id} --image-tag \"$deploy_image_tag\""
         ),
@@ -148,6 +150,11 @@ WATCHERS_COMMANDS: list[dict] = [
             "the product project), resolve the target branch SHA from the "
             "explicit product checkout, then execute the printed run id "
             "through this watcher with `--product-src` and `--image-tag`."
+            " Normal attended deploys select the hosted GitHub Actions relay. "
+            "Only the first control-plane bootstrap that introduces or repairs "
+            "that relay may replace `YOKE_GITHUB_ACTIONS_RELAY_ENV=...` with "
+            "`YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1`; never leave authority "
+            "selection implicit."
         ),
     },
     {

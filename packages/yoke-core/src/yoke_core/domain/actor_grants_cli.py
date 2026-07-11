@@ -9,6 +9,8 @@ the canonical agent shape wraps these as ``yoke`` subcommands.
       --actor 2 --org default --role admin
   python3 -m yoke_core.domain.actor_grants_cli grant-project \
       --actor 2 --project yoke --role owner
+  python3 -m yoke_core.domain.actor_grants_cli revoke-project \
+      --actor 2 --project yoke --role owner
   python3 -m yoke_core.domain.actor_grants_cli list --actor 2
 """
 
@@ -23,6 +25,7 @@ from yoke_core.domain.actor_permissions import (
     PROJECT_ROLES,
     grant_actor_org_role,
     grant_actor_project_role,
+    revoke_actor_project_role,
 )
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.org_schema import org_id_by_slug
@@ -55,9 +58,7 @@ def _is_pg(conn: Any) -> bool:
 
 def _assert_actor_exists(conn: Any, actor_id: int) -> None:
     ph = "%s" if _is_pg(conn) else "?"
-    row = conn.execute(
-        f"SELECT 1 FROM actors WHERE id = {ph}", (actor_id,)
-    ).fetchone()
+    row = conn.execute(f"SELECT 1 FROM actors WHERE id = {ph}", (actor_id,)).fetchone()
     if row is None:
         raise LookupError(f"actor id {actor_id} not found")
 
@@ -114,6 +115,35 @@ def cmd_grant_project(args: argparse.Namespace) -> int:
         conn.close()
 
 
+def cmd_revoke_project(args: argparse.Namespace) -> int:
+    """Idempotently remove one project-scoped role grant."""
+    if args.role not in PROJECT_ROLES:
+        print(
+            f"Error: {args.role!r} is not a project role. "
+            f"Valid: {', '.join(PROJECT_ROLES)}",
+            file=sys.stderr,
+        )
+        return 2
+    conn = connect()
+    try:
+        _assert_actor_exists(conn, args.actor)
+        project_id = resolve_project_id(conn, args.project)
+        removed = revoke_actor_project_role(
+            conn,
+            actor_id=args.actor,
+            project_id=project_id,
+            role_name=args.role,
+        )
+        verb = "Revoked" if removed else "Already absent"
+        print(
+            f"{verb}: project role {args.role} for actor {args.actor} "
+            f"on project {project_id}"
+        )
+        return 0
+    finally:
+        conn.close()
+
+
 def cmd_list(args: argparse.Namespace) -> int:
     conn = connect()
     try:
@@ -163,6 +193,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     g_proj.add_argument("--granted-by", dest="granted_by", type=int, default=None)
     g_proj.set_defaults(func=cmd_grant_project)
+
+    r_proj = sub.add_parser(
+        "revoke-project", help="Idempotently revoke a project role from an actor"
+    )
+    r_proj.add_argument("--actor", type=int, required=True)
+    r_proj.add_argument("--project", required=True, help="project slug or id")
+    r_proj.add_argument(
+        "--role", required=True, help=f"one of: {', '.join(PROJECT_ROLES)}"
+    )
+    r_proj.set_defaults(func=cmd_revoke_project)
 
     g_list = sub.add_parser("list", help="List an actor's grants")
     g_list.add_argument("--actor", type=int, required=True)

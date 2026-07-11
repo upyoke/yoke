@@ -6,8 +6,10 @@ import os
 from unittest import mock
 
 from yoke_core.engines import merge_worktree
+from yoke_core.engines import merge_worktree_cleanup
 from yoke_core.engines import merge_worktree_post_helpers
 from yoke_core.engines.merge_worktree import MergeArgs, MergeContext
+from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
 
 
 def _cleanup_ctx(tmp_path):
@@ -96,6 +98,52 @@ class TestPostMergeCleanupLocalSyncFailure:
         )
         assert "git fetch origin main" in recovery_text
         assert "git merge --ff-only origin/main" in recovery_text
+
+
+class TestPostMergeRemoteCleanupSafety:
+    def test_remote_cleanup_refusal_preserves_local_retry_lane(
+        self, tmp_path, monkeypatch
+    ):
+        ctx = _cleanup_ctx(tmp_path)
+        worktree = tmp_path / ".worktrees" / "YOK-9999"
+        worktree.mkdir(parents=True)
+        ctx.worktree_path = str(worktree)
+        commands: list[list[str]] = []
+
+        monkeypatch.setattr(merge_worktree, "_sync_local_target", lambda _ctx: True)
+        monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
+        monkeypatch.setattr(
+            merge_worktree, "_regenerate_views_or_exit5", lambda _ctx: 0
+        )
+        monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
+        monkeypatch.setattr(
+            merge_worktree, "_emit_merge_event", lambda *args, **kwargs: None
+        )
+        monkeypatch.setattr(merge_worktree, "_print", lambda *args, **kwargs: None)
+
+        def run_git(command, cwd=None, capture=False):
+            commands.append(command)
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(merge_worktree, "_run_git", run_git)
+        monkeypatch.setattr(
+            merge_worktree_cleanup,
+            "delete_remote_branch_if_merged",
+            lambda **kwargs: RemoteBranchDeleteResult(
+                "preserved",
+                "leased remote delete was refused",
+            ),
+        )
+
+        exit_code = merge_worktree._post_merge_cleanup(
+            ctx,
+            no_changes=True,
+        )
+
+        assert exit_code == 0
+        assert worktree.is_dir()
+        assert not any(command[:2] == ["worktree", "remove"] for command in commands)
+        assert not any(command[:2] == ["branch", "-d"] for command in commands)
 
 
 class TestRegenerateViewsSubprocessIsolation:

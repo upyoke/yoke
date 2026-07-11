@@ -63,7 +63,17 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
         # Check for dirty worktree
         if Path(wt_path).is_dir():
-            dr = _base._run(["git", "-C", wt_path, "status", "--porcelain"])
+            dr = _base._run(
+                [
+                    "git",
+                    "-C",
+                    wt_path,
+                    "status",
+                    "--porcelain",
+                    "--ignored=matching",
+                    "--untracked-files=all",
+                ]
+            )
             if dr.returncode == 0 and dr.stdout.strip():
                 issues.append(
                     f"- Worktree {branch} at {wt_path} has uncommitted changes "
@@ -85,7 +95,8 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 issues.append(
                     f"- Stale worktree: {branch} at {wt_path} "
                     f"— YOK-{yok_id} is {status} "
-                    f"(git worktree remove {wt_path} && git branch -D {branch})"
+                    "(safe cleanup requires exact DB ownership, no active "
+                    "claim, a clean tree, and target ancestry)"
                 )
 
     # Check configured worktrees_dir for extra directories
@@ -113,7 +124,7 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                         issues.append(
                             f"- Stale worktree directory: {child_str} "
                             f"— YOK-{yok_id} is {status} "
-                            f"(rm -rf {child_str})"
+                            "(unregistered directory preserved for inspection)"
                         )
 
     # Detect stale local branches for done/cancelled items
@@ -128,7 +139,8 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             issues.append(
                 f"- Stale local branch: YOK-{did} "
                 f"— YOK-{did} is done/cancelled "
-                f"(git branch -D YOK-{did})"
+                "(safe pruning requires DB ownership, no active claim, and "
+                "target ancestry)"
             )
 
     # Detect non-null worktree DB field on done/cancelled items
@@ -142,7 +154,7 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         issues.append(
             f"- Non-null worktree DB field on done item: YOK-{row['id']} "
             f"has worktree='{row['worktree']}' "
-            f"(python3 -m yoke_core.cli.db_router items update {row['id']} worktree '')"
+            "(preserve this ownership record until safe cleanup completes)"
         )
 
     if issues:

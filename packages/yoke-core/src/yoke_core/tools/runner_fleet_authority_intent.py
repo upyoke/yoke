@@ -8,6 +8,12 @@ from typing import Mapping
 from yoke_core.domain import json_helper
 from yoke_core.domain.project_renderer_pulumi_runner_fleet import (
     runner_fleet_stack_name,
+    runner_fleet_values,
+)
+from yoke_core.domain.github_actions_runner_fleet_capability import (
+    CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
+    RunnerFleetSettings,
+    validate as validate_runner_fleet_settings,
 )
 from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 
@@ -67,4 +73,32 @@ def authority_intent_envelope(
     )
 
 
-__all__ = ["authority_intent_envelope"]
+def authority_intent_from_settings(
+    settings: ProjectRendererSettings,
+) -> tuple[str, dict[str, str], str, str]:
+    """Build the canonical intent and selected AWS authority from settings."""
+    values = runner_fleet_values(settings, fallback_repo="", enabled=True)
+    raw_runner = settings.capabilities.get(RUNNER_FLEET_CAPABILITY_TYPE)
+    selected = (
+        validate_runner_fleet_settings(raw_runner)
+        if raw_runner
+        else RunnerFleetSettings()
+    )
+    aws_capability = selected.aws_capability
+    raw_aws = settings.capabilities.get(aws_capability)
+    aws_region = str(raw_aws.get("region") or "").strip() if raw_aws else ""
+    if not aws_region:
+        raise ValueError(
+            "runner-fleet settings snapshot selected AWS capability "
+            f"{aws_capability!r} but it declares no region"
+        )
+    envelope = authority_intent_envelope(
+        settings,
+        values,
+        aws_capability=aws_capability,
+        aws_region=aws_region,
+    )
+    return envelope, values, aws_capability, aws_region
+
+
+__all__ = ["authority_intent_envelope", "authority_intent_from_settings"]

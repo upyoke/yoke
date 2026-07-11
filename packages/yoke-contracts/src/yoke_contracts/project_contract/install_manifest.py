@@ -21,6 +21,9 @@ import pathlib
 
 
 INSTALL_MANIFEST_REL = ".yoke/install-manifest.json"
+PACKAGED_INSTALL_BUNDLE_TREE_REL = (
+    "packages/yoke-core/src/yoke_core/install_bundle_tree"
+)
 
 
 @functools.lru_cache(maxsize=64)
@@ -50,4 +53,22 @@ def installer_managed_paths(repo_root: pathlib.Path) -> frozenset[str]:
     return _read_installer_managed(str(repo_root), mtime)
 
 
-__all__ = ["INSTALL_MANIFEST_REL", "installer_managed_paths"]
+def is_install_bundle_generated_path(
+    path: str, repo_root: pathlib.Path
+) -> bool:
+    """Whether ``path`` is rendered by install or mirrors bundle sources."""
+    posix_path = path.replace("\\", "/")
+    packaged_prefix = PACKAGED_INSTALL_BUNDLE_TREE_REL + "/"
+    return (
+        posix_path in installer_managed_paths(repo_root)
+        or posix_path == PACKAGED_INSTALL_BUNDLE_TREE_REL
+        or posix_path.startswith(packaged_prefix)
+    )
+
+
+__all__ = [
+    "INSTALL_MANIFEST_REL",
+    "PACKAGED_INSTALL_BUNDLE_TREE_REL",
+    "installer_managed_paths",
+    "is_install_bundle_generated_path",
+]

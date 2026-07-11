@@ -53,6 +53,7 @@ class TestPublishShaFromDeployedRef:
             rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
                 {
                     "workflow": "yoke-distribution-publish.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
                     "inputs": {"source_sha": "{head_sha}"},
                     "ref": "main",
                     "reconcile_by_head_sha": False,
@@ -92,6 +93,7 @@ class TestPublishShaFromDeployedRef:
             rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
                 {
                     "workflow": "yoke-distribution-publish.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
                     "inputs": {"source_sha": "{head_sha}"},
                     "ref": "stage",
                     "reconcile_by_head_sha": False,
@@ -140,6 +142,7 @@ class TestPublishShaFromDeployedRef:
             rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
                 {
                     "workflow": "yoke-distribution-publish.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
                     "inputs": {"source_sha": "{head_sha}"},
                     "ref": "main", "reconcile_by_head_sha": False,
                 },

@@ -22,11 +22,11 @@ Provisions the per-PROJECT container image registry:
   (``manage_github_oidc_provider=True``); any other project declares False
   and the role references the provider by its well-known ARN.
 
-The CI role carries ``AdministratorAccess``: Pulumi preview/apply over
-stacks that manage VPC/EC2/RDS/Route53/CloudFront/ACM/ECR/KMS/S3 IS
-infrastructure administration, so the hardening axis here is credential
-lifetime + trust boundary (per-run tokens, single-repo trust), not policy
-itemization. Scoping the policy below admin is a named tightening point.
+OIDC authority is split into two roles. The infrastructure role is preview-
+only: ViewOnlyAccess plus exact state reads and immutable privilege/secret
+denies. All applies remain operator-attended through local ``aws-admin``
+authority, so repository code cannot rewrite its own custody boundary. The
+delivery role has an inline action/resource policy for release operations.
 
 ``force_delete=True`` is the founder posture: a ``pulumi destroy`` of the
 registry stack must not wedge on leftover images — the repository deletes
@@ -36,7 +36,7 @@ along with whatever it still holds.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import pulumi
@@ -54,12 +54,17 @@ class WebappRegistryArgs:
     # GitHub repository slug (``owner/name``) trusted to assume the CI role.
     # Empty = render the registry without CI federation resources.
     github_repo: str = ""
+    github_api_url: str = "https://api.github.com"
     # Create the account-level GitHub OIDC provider (exactly one project per
     # AWS account may manage it; others reference it by ARN).
     manage_github_oidc_provider: bool = True
     # Required to compose the provider ARN when the provider is referenced
     # rather than created.
     aws_account_id: str = ""
+    state_bucket: str = ""
+    kms_key_alias: str = ""
+    distribution_bucket_names: list[str] = field(default_factory=list)
+    github_app_private_key_secret_arns: list[str] = field(default_factory=list)
 
 
 # GitHub Actions OIDC issuer. The trust-policy condition keys derive from
@@ -75,8 +80,16 @@ _GITHUB_OIDC_THUMBPRINTS = [
 ]
 
 
-def _github_trust_policy_json(provider_arn: str, github_repo: str) -> str:
-    """Trust policy: only *github_repo*'s workflow runs may assume the role."""
+def _github_trust_policy_json(
+    provider_arn: str,
+    github_repo: str,
+    allowed_branches: tuple[str, ...],
+) -> str:
+    """Trust only exact branch-ref subjects from the configured repository."""
+    subjects = [
+        f"repo:{github_repo}:ref:refs/heads/{branch}"
+        for branch in allowed_branches
+    ]
     return json.dumps(
         {
             "Version": "2012-10-17",
@@ -88,9 +101,7 @@ def _github_trust_policy_json(provider_arn: str, github_repo: str) -> str:
                     "Condition": {
                         "StringEquals": {
                             f"{_GITHUB_OIDC_HOST}:aud": "sts.amazonaws.com",
-                        },
-                        "StringLike": {
-                            f"{_GITHUB_OIDC_HOST}:sub": f"repo:{github_repo}:*",
+                            f"{_GITHUB_OIDC_HOST}:sub": subjects,
                         },
                     },
                 }
@@ -200,6 +211,10 @@ class WebappRegistryStack(pulumi.ComponentResource):
         child_opts: pulumi.ResourceOptions,
     ) -> None:
         """Provision the OIDC provider (or reference it) + the CI role."""
+        if not args.state_bucket or not args.kms_key_alias:
+            raise ValueError(
+                "GitHub CI roles require state_bucket and kms_key_alias"
+            )
         if args.manage_github_oidc_provider:
             self.github_oidc_provider = aws.iam.OpenIdConnectProvider(
                 "githubOidcProvider",
@@ -221,23 +236,100 @@ class WebappRegistryStack(pulumi.ComponentResource):
                 f"oidc-provider/{_GITHUB_OIDC_HOST}"
             )
 
-        self.ci_role = aws.iam.Role(
+        self.infrastructure_role = aws.iam.Role(
             "githubActionsCiRole",
             name=f"{args.deploy_namespace}-ci-github",
             description=(
-                f"GitHub Actions CI for {args.github_repo} "
-                "(Pulumi preview/apply + ECR push; short-lived OIDC sessions)"
+                f"GitHub Actions infrastructure preview for {args.github_repo} "
+                "(non-mutating Pulumi refresh/preview; short-lived OIDC sessions)"
             ),
             assume_role_policy=pulumi.Output.from_input(provider_arn).apply(
-                lambda arn: _github_trust_policy_json(arn, args.github_repo)
+                lambda arn: _github_trust_policy_json(
+                    arn, args.github_repo, ("main",)
+                )
             ),
             tags=tags,
             opts=child_opts,
         )
         aws.iam.RolePolicyAttachment(
-            "githubActionsCiAdmin",
-            role=self.ci_role.name,
-            policy_arn="arn:aws:iam::aws:policy/AdministratorAccess",
+            "githubActionsInfrastructureViewOnly",
+            role=self.infrastructure_role.name,
+            policy_arn=(
+                "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"
+            ),
             opts=child_opts,
         )
-        pulumi.export("githubActionsCiRoleArn", self.ci_role.arn)
+        self.delivery_role = aws.iam.Role(
+            "githubActionsDeliveryRole",
+            name=f"{args.deploy_namespace}-delivery-ci-github",
+            description=(
+                f"GitHub Actions delivery for {args.github_repo} "
+                "(no infrastructure or GitHub App key authority)"
+            ),
+            assume_role_policy=pulumi.Output.from_input(provider_arn).apply(
+                lambda arn: _github_trust_policy_json(
+                    arn, args.github_repo, ("main", "stage")
+                )
+            ),
+            tags=tags,
+            opts=child_opts,
+        )
+        from webapp_registry_ci_policy import (
+            delivery_policy_json,
+            infrastructure_preview_policy_json,
+        )
+
+        caller = aws.get_caller_identity()
+        region = aws.get_region()
+        state_key = aws.kms.get_alias(name=args.kms_key_alias)
+        aws.iam.RolePolicy(
+            "githubActionsInfrastructureBoundary",
+            role=self.infrastructure_role.id,
+            policy=infrastructure_preview_policy_json(
+                region=region.name,
+                account_id=caller.account_id,
+                state_bucket=args.state_bucket,
+                kms_key_arn=state_key.target_key_arn,
+                deploy_namespace=args.deploy_namespace,
+                distribution_bucket_names=args.distribution_bucket_names,
+                github_app_private_key_secret_arns=(
+                    args.github_app_private_key_secret_arns
+                ),
+            ),
+            opts=child_opts,
+        )
+        aws.iam.RolePolicy(
+            "githubActionsDeliveryPolicy",
+            role=self.delivery_role.id,
+            policy=delivery_policy_json(
+                region=region.name,
+                account_id=caller.account_id,
+                deploy_namespace=args.deploy_namespace,
+                state_bucket=args.state_bucket,
+                kms_key_arn=state_key.target_key_arn,
+                distribution_bucket_names=args.distribution_bucket_names,
+                github_app_private_key_secret_arns=(
+                    args.github_app_private_key_secret_arns
+                ),
+            ),
+            opts=child_opts,
+        )
+        pulumi.export(
+            "githubActionsInfrastructureRoleArn", self.infrastructure_role.arn
+        )
+        pulumi.export("githubActionsDeliveryRoleArn", self.delivery_role.arn)
+        from webapp_registry_github_variables import create_ci_role_variables
+
+        (
+            self.infrastructure_role_variable,
+            self.delivery_role_variable,
+        ) = create_ci_role_variables(
+            github_repo=args.github_repo,
+            github_api_url=args.github_api_url,
+            infrastructure_role_arn=self.infrastructure_role.arn,
+            delivery_role_arn=self.delivery_role.arn,
+            child_opts=child_opts,
+        )
+        # Retained during the additive rollout so the existing role is never
+        # replaced before repository variables point at the two new outputs.
+        pulumi.export("githubActionsCiRoleArn", self.infrastructure_role.arn)

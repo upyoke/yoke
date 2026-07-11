@@ -141,6 +141,9 @@ def test_core_topic_pins_itemless_deploy_to_product_checkout() -> None:
     assert fetch in body
     assert resolve in body
     assert watched in body
+    assert "YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env>" in body
+    assert "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1" in body
+    assert "never leave authority selection implicit" in body
     assert body.index(fetch) < body.index(resolve) < body.index(watched)
 
 

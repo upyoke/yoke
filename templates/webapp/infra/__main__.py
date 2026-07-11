@@ -183,6 +183,15 @@ def _domain_mx_records_from_config(config):
     return tuple(parsed)
 
 
+def _config_string_list(config, name: str) -> list[str]:
+    values = config.get_object(name) or []
+    if not isinstance(values, list) or any(
+        not isinstance(value, str) or not value.strip() for value in values
+    ):
+        raise pulumi.RunError(f"{name} must be a JSON string array")
+    return [value.strip() for value in values]
+
+
 def _registry_args_from_config(deploy_namespace: str):
     from webapp_registry_stack import WebappRegistryArgs
     config = pulumi.Config()
@@ -194,12 +203,21 @@ def _registry_args_from_config(deploy_namespace: str):
         repository_name=config.get("repository_name") or f"{deploy_namespace}-core",
         # Optional: empty renders the registry without GitHub CI federation.
         github_repo=config.get("github_repo") or "",
+        github_api_url=config.get("github_api_url") or "https://api.github.com",
         # Optional: exactly one project per AWS account creates the
         # account-singleton GitHub OIDC provider; the rest reference it.
         manage_github_oidc_provider=(
             True if manage_provider is None else manage_provider
         ),
         aws_account_id=config.get("aws_account_id") or "",
+        state_bucket=config.get("state_bucket") or "",
+        kms_key_alias=config.get("kms_key_alias") or "",
+        distribution_bucket_names=_config_string_list(
+            config, "distribution_bucket_names"
+        ),
+        github_app_private_key_secret_arns=_config_string_list(
+            config, "github_app_private_key_secret_arns"
+        ),
     )
 
 
@@ -273,6 +291,10 @@ def _environment_args_from_config(deploy_namespace: str, stack_name: str):
         ),
         container_repository_name=config.get("container_repository_name") or "",
         ephemeral_preview_domain=config.get("ephemeral_preview_domain") or "",
+        github_app_private_key_secret_arn=(
+            config.get("github_app_private_key_secret_arn") or ""
+        ),
+        github_app_kms_key_arn=config.get("github_app_kms_key_arn") or "",
     )
 
 

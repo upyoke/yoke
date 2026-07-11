@@ -9,27 +9,25 @@ Pytest fixture (dt_db) shared via _done_transition_test_helpers (private module)
 from __future__ import annotations
 
 import json
-import os
-import sys
 from pathlib import Path
 from unittest import mock
 
 from yoke_core.engines import done_transition
 from yoke_core.engines import done_transition_cascade
-from runtime.api.test_backlog import (
-    _item_field,
-    _patch_externals,
-    _seed_claim,
-    _seed_item,
-    _seed_session,
-    tmp_db,  # noqa: F401 — fixture re-export
-)
 
-from yoke_core.engines._done_transition_test_helpers import (
-    _insert_item,
-    connect_dt_db,
-    dt_db,
-)
+pytest_plugins = ("yoke_core.engines._done_transition_test_helpers",)
+
+
+def _insert_item(*args, **kwargs):
+    from yoke_core.engines._done_transition_test_helpers import _insert_item as insert
+
+    return insert(*args, **kwargs)
+
+
+def connect_dt_db(db_path):
+    from yoke_core.engines._done_transition_test_helpers import connect_dt_db as connect
+
+    return connect(db_path)
 
 
 class TestPopulateMergedAt:
@@ -112,100 +110,6 @@ class TestCascadeEpicTasksToDone:
         # Only the task-list owner was called — no update writes.
         assert mock_task_list.call_count == 1
         mock_task_direct.assert_not_called()
-
-
-class TestCleanupStaleBranches:
-    """Stale worktree and trial branch cleanup."""
-
-    def test_removes_worktree_directory_via_fallback(self, dt_db, tmp_path):
-        """If git worktree remove leaves the dir behind, shutil.rmtree removes it."""
-        project_repo = tmp_path / "repo"
-        wt_dir = project_repo / ".worktrees" / "YOK-42"
-        wt_dir.mkdir(parents=True)
-        (wt_dir / "leftover.txt").write_text("stale content")
-
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            # First call is `git worktree remove --force` — simulate failure
-            # so the fallback rmtree path runs. Subsequent calls (rev-parse,
-            # ls-remote) also return a nonzero so no branch deletion fires.
-            mock_git.return_value = mock.Mock(returncode=1, stdout="")
-            done_transition._cleanup_stale_branches(42, "YOK-42", project_repo)
-
-        assert not wt_dir.exists(), "fallback rmtree should remove worktree dir"
-
-    def test_deletes_local_branch_when_present(self, dt_db, tmp_path):
-        project_repo = tmp_path / "repo"
-        project_repo.mkdir()
-
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            # No worktree dir to remove.
-            # rev-parse succeeds → triggers branch -d / -D
-            # ls-remote returns empty → no remote branch.
-            mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout="abc\n"),   # rev-parse --verify
-                mock.Mock(returncode=0, stdout=""),        # branch -d
-                mock.Mock(returncode=0, stdout=""),        # branch -D
-                mock.Mock(returncode=0, stdout=""),        # ls-remote
-            ]
-            done_transition._cleanup_stale_branches(42, "", project_repo)
-
-        commands = [" ".join(c.args[0]) for c in mock_git.call_args_list]
-        assert any("branch -d YOK-42" in cmd for cmd in commands)
-        assert any("branch -D YOK-42" in cmd for cmd in commands)
-        assert not any("branch --list trial/" in cmd for cmd in commands)
-
-
-class TestCleanupTrialBranches:
-    """orphaned trial/* branch cleanup."""
-
-    def test_deletes_orphaned_sun_trial_for_done_item(self, dt_db, tmp_path):
-        db_path, _ = dt_db
-        _insert_item(db_path, 99, status="done")
-
-        project_repo = tmp_path / "repo"
-        project_repo.mkdir()
-
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout="  trial/YOK-99\n"),  # branch --list
-                mock.Mock(returncode=0, stdout=""),  # branch -D
-            ]
-            done_transition._cleanup_trial_branches(project_repo)
-
-        commands = [" ".join(c.args[0]) for c in mock_git.call_args_list]
-        assert any("branch -D trial/YOK-99" in cmd for cmd in commands)
-
-    def test_preserves_trial_branch_for_active_item(self, dt_db, tmp_path):
-        db_path, _ = dt_db
-        _insert_item(db_path, 100, status="implementing")
-
-        project_repo = tmp_path / "repo"
-        project_repo.mkdir()
-
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            mock_git.return_value = mock.Mock(returncode=0, stdout="  trial/YOK-100\n")
-            # Only branch --list should be called; no delete.
-            done_transition._cleanup_trial_branches(project_repo)
-
-        commands = [" ".join(c.args[0]) for c in mock_git.call_args_list]
-        assert not any("branch -D" in cmd for cmd in commands), (
-            f"expected no branch -D; got {commands}"
-        )
-
-    def test_deletes_trial_with_missing_base_branch(self, dt_db, tmp_path):
-        project_repo = tmp_path / "repo"
-        project_repo.mkdir()
-
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout="  trial/abandoned-feature\n"),
-                mock.Mock(returncode=1, stdout=""),  # rev-parse fails → base missing
-                mock.Mock(returncode=0, stdout=""),  # branch -D
-            ]
-            done_transition._cleanup_trial_branches(project_repo)
-
-        commands = [" ".join(c.args[0]) for c in mock_git.call_args_list]
-        assert any("branch -D trial/abandoned-feature" in cmd for cmd in commands)
 
 
 class TestSchemaGate:

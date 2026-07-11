@@ -83,6 +83,7 @@ class TestCmdInit:
             "harness_sessions",
             "work_claims",
             "function_call_ledger",
+            "github_workflow_dispatch_intents",
             "path_claim_overrides",
         }
         assert expected_tables.issubset(tables), (
@@ -108,6 +109,7 @@ class TestCmdInit:
             "idx_work_claims_item",
             "idx_work_claims_heartbeat",
             "idx_function_call_ledger_created",
+            "idx_github_workflow_dispatch_intents_created",
             "idx_path_claim_overrides_pair",
         }
         assert expected_indexes.issubset(indexes), (

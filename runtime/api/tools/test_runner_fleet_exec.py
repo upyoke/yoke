@@ -8,6 +8,8 @@ import json
 from types import SimpleNamespace
 import subprocess
 
+import pytest
+
 from yoke_core.tools import runner_fleet_exec
 from runtime.api.tools.runner_fleet_exec_test_support import (
     _PRIVATE_KEY,
@@ -218,3 +220,67 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     assert "stdout-after" in out.getvalue()
     assert "stderr-before" in err.getvalue()
     assert "stderr-after" in err.getvalue()
+
+
+def test_github_actions_uses_hosted_token_without_loading_app_key(
+    tmp_path, monkeypatch,
+):
+    snapshot = _write_snapshot(tmp_path / "stack-config.json")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(
+        runner_fleet_exec,
+        "runner_fleet_values",
+        lambda *args, **kwargs: _runner_values(),
+    )
+    hosted_calls = []
+    child_calls = []
+
+    def hosted_token(project, authority_intent):
+        hosted_calls.append((project, json.loads(authority_intent)))
+        return _TOKEN
+
+    rc = runner_fleet_exec.execute_runner_fleet_command(
+        "buzz",
+        snapshot,
+        ["pulumi", "preview"],
+        aws_env_loader=lambda *args, **kwargs: {"AWS_REGION": "us-east-1"},
+        secret_loader=lambda *args, **kwargs: pytest.fail("loaded App PEM"),
+        token_minter=lambda **kwargs: pytest.fail("minted token locally"),
+        hosted_token_loader=hosted_token,
+        child_factory=lambda argv, **kwargs: (
+            child_calls.append((argv, kwargs)) or _Process()
+        ),
+    )
+
+    assert rc == 0
+    assert hosted_calls[0][0] == "buzz"
+    assert hosted_calls[0][1]["authority"]["repo"] == "upyoke/yoke"
+    child_env = child_calls[0][1]["env"]
+    assert child_env["GITHUB_TOKEN"] == _TOKEN
+    assert _PRIVATE_KEY not in child_env.values()
+
+
+def test_github_actions_fails_closed_without_hosted_token_connection(
+    tmp_path, monkeypatch,
+):
+    snapshot = _write_snapshot(tmp_path / "stack-config.json")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(
+        runner_fleet_exec,
+        "runner_fleet_values",
+        lambda *args, **kwargs: _runner_values(),
+    )
+
+    with pytest.raises(
+        runner_fleet_exec.RunnerFleetExecError,
+        match="HTTPS infrastructure-ci connection",
+    ):
+        runner_fleet_exec.execute_runner_fleet_command(
+            "buzz",
+            snapshot,
+            ["pulumi", "preview"],
+            aws_env_loader=lambda *args, **kwargs: {
+                "AWS_REGION": "us-east-1"
+            },
+            secret_loader=lambda *args, **kwargs: pytest.fail("loaded App PEM"),
+        )

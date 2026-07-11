@@ -188,7 +188,7 @@ def render_ops(
     proj_dir: Path,
     write: bool,
 ) -> None:
-    """Render ops scripts (.sh.tmpl, .conf, .js) that contain ``{{placeholders}}``.
+    """Render ops programs (.sh.tmpl, .py, .conf, .js).
 
     Shell templates are stored as ``*.sh.tmpl`` (zero-shell cutover:
     no ``.sh`` file is tracked as a template source). The rendered output
@@ -197,15 +197,16 @@ def render_ops(
     """
     ops_dir = project_root / "templates" / "webapp" / "ops"
 
-    # (glob pattern, is_shell_template): .sh.tmpl sources render to .sh outputs;
-    # .conf / .js sources render to matching output extensions.
+    # Explicit program templates render even without project placeholders;
+    # .conf / .js retain the established placeholder-only heuristic.
     patterns = (
         ("*.sh.tmpl", True),
+        ("*.py", True),
         ("*.conf", False),
         ("*.js", False),
     )
 
-    for pattern, is_shell_tmpl in patterns:
+    for pattern, is_explicit_template in patterns:
         for ops_template in sorted(ops_dir.glob(pattern)):
             template_name = ops_template.name
 
@@ -216,7 +217,7 @@ def render_ops(
             # the renderer. For .conf / .js we keep the established
             # heuristic of only rendering files that actually use
             # placeholders, since those glob patterns pick up unowned files.
-            if not is_shell_tmpl and "{{" not in content:
+            if not is_explicit_template and "{{" not in content:
                 continue
 
             rendered = render_template(content, values)
@@ -224,7 +225,7 @@ def render_ops(
             rendered = re.sub(r'^# Template variables:.*?(?=\n\n|\Z)', '', rendered,
                               flags=re.MULTILINE | re.DOTALL)
 
-            if is_shell_tmpl:
+            if template_name.endswith(".sh.tmpl"):
                 # e.g. ephemeral-cleanup.sh.tmpl -> ephemeral-cleanup.sh
                 out_basename = template_name[:-len(".tmpl")]
                 out_ext = "sh"
@@ -238,7 +239,7 @@ def render_ops(
                                   f"templates/webapp/ops/{template_name}",
                                   project, "ops")
 
-            if out_ext == "sh":
+            if out_ext in ("sh", "py"):
                 # Insert header after shebang
                 lines = rendered.split("\n", 1)
                 if len(lines) > 1:

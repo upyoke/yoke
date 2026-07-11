@@ -1,25 +1,9 @@
-"""core-container-deploy executor — deploy the Yoke core container to an env.
+"""Deploy a DB-declared Yoke core-service environment.
 
-Deployment-flow stage executor (``executor: "core-container-deploy"``) that
-takes one project environment from DB-declared authority to a running,
-healthy core-service container:
-
-1. resolve the environment + capabilities (:mod:`deploy_environment_settings`);
-2. ensure the image for the requested tag exists in the project container
-   registry (:mod:`deploy_core_container_image`);
-3. resolve the env's Postgres DSN from Pulumi stack outputs + the
-   RDS-managed secret (reusing :mod:`yoke_cloud_db_authority`);
-4. converge the origin host idempotently (docker/nginx/ECR helper/compose
-   project — :mod:`deploy_core_container_remote`);
-5. pull + start the container, then gate on container health, then the
-   origin nginx health endpoint with x-request-id echo (request-id propagation contract).
-   A health-gate failure after the swap triggers one bounded rollback to
-   the pre-swap image (:mod:`deploy_core_container_rollback`); the stage
-   still fails — rollback restores service, never success.
-
-Secrets only ever travel via subprocess env or SSH stdin; every emitted
-line is redaction-safe. The executor prints ``[core-deploy]``-prefixed
-progress lines (with ERROR markers on failure) for stream filters.
+The executor resolves infrastructure and image authority, converges the origin
+host, swaps the container, gates on container and nginx health, and performs a
+bounded rollback after a failed health gate. Secrets travel only through
+subprocess environments or SSH stdin; emitted progress is redaction-safe.
 """
 
 from __future__ import annotations
@@ -36,6 +20,9 @@ from yoke_core.domain.cloud_db_secret_dsn import (
     DB_SECRET_NAME_ENV,
     DB_SECRET_PORT_ENV,
     DB_SECRET_REGION_ENV,
+)
+from yoke_core.domain.deploy_core_container_events import (
+    emit_deploy_event as _emit_deploy_event,
 )
 from yoke_core.domain.deploy_core_container_image import (
     CoreDeployError,
@@ -76,6 +63,8 @@ from yoke_core.domain.yoke_cloud_db_authority import (
     load_secret_string,
     load_stack_outputs,
 )
+
+
 def _emit(line: str) -> None:
     print(line, flush=True)
 
@@ -85,13 +74,10 @@ def _render_service_template(name: str, values: dict) -> str:
     from yoke_core.api.repo_root import find_repo_root
 
     template = (
-        find_repo_root(Path(__file__))
-        / "templates" / "webapp" / "core-service" / name
+        find_repo_root(Path(__file__)) / "templates" / "webapp" / "core-service" / name
     )
     if not template.is_file():
-        raise CoreDeployError(
-            f"[core-deploy] service template missing: {template}"
-        )
+        raise CoreDeployError(f"[core-deploy] service template missing: {template}")
     return render_template(template.read_text(), values)
 
 
@@ -123,9 +109,17 @@ def _load_environment_stack_binding(
     out_dir = default_render_output_dir(env.project)
     render = runner.run(
         [
-            sys.executable, "-m", "yoke_core.tools.render_project",
-            env.project, "--write", "--only", "pulumi",
-            "--pulumi-stack", env.stack_name, "--output-dir", str(out_dir),
+            sys.executable,
+            "-m",
+            "yoke_core.tools.render_project",
+            env.project,
+            "--write",
+            "--only",
+            "pulumi",
+            "--pulumi-stack",
+            env.stack_name,
+            "--output-dir",
+            str(out_dir),
         ],
         timeout=300,
     )
@@ -185,19 +179,14 @@ def resolve_environment_dsn(
     Also returns the full (non-secret) stack outputs mapping so callers can
     reuse facts like the instance id without a second Pulumi roundtrip.
     """
-    binding, outputs = _load_environment_stack_binding(
-        runner, env, aws_env, emit=emit
-    )
+    binding, outputs = _load_environment_stack_binding(runner, env, aws_env, emit=emit)
     try:
         secret = PostgresSecret.from_json(
-            load_secret_string(
-                binding.secret_arn, region=binding.region, env=aws_env
-            )
+            load_secret_string(binding.secret_arn, region=binding.region, env=aws_env)
         )
     except Exception as exc:
         raise CoreDeployError(
-            f"[core-deploy] env DSN resolution failed for stack "
-            f"{env.stack_name}: {exc}"
+            f"[core-deploy] env DSN resolution failed for stack {env.stack_name}: {exc}"
         ) from exc
     dsn = build_libpq_dsn(
         host=binding.host,
@@ -244,9 +233,7 @@ def render_service_files(
         f"YOKE_ENVIRONMENT={env.env_name}",
     ]
     if env.otel_exporter_endpoint:
-        env_lines.append(
-            f"OTEL_EXPORTER_OTLP_ENDPOINT={env.otel_exporter_endpoint}"
-        )
+        env_lines.append(f"OTEL_EXPORTER_OTLP_ENDPOINT={env.otel_exporter_endpoint}")
     env_lines.extend(github_app_deploy.github_app_env_lines(env))
     return compose_yaml, nginx_site, "\n".join(env_lines) + "\n"
 
@@ -275,21 +262,16 @@ def exec_core_container_deploy(
             f"({env.origin_host}, stack {env.stack_name})"
         )
 
-        aws_env, github_app_private_key = github_app_deploy.preflight(runner, env)
+        aws_env = github_app_deploy.preflight(runner, env)
         tag = resolve_image_tag(
             runner, repo_path, image_tag, declared_branch=env.git_branch
         )
         if image_tag:
             emit(f"  [core-deploy] explicit image tag: {tag}")
         elif env.git_branch:
-            emit(
-                f"  [core-deploy] declared branch '{env.git_branch}' "
-                f"pinned to {tag}"
-            )
+            emit(f"  [core-deploy] declared branch '{env.git_branch}' pinned to {tag}")
         else:
-            emit(
-                f"  [core-deploy] no declared branch; deploying repo HEAD {tag}"
-            )
+            emit(f"  [core-deploy] no declared branch; deploying repo HEAD {tag}")
         image_ref = ensure_image_in_registry(
             runner, env, aws_env, repo_path=repo_path, tag=tag, emit=emit
         )
@@ -304,7 +286,8 @@ def exec_core_container_deploy(
         ensure_ecr_credential_helper(runner, env, emit)
         ensure_nginx_site(runner, env, nginx_site, emit)
         ensure_compose_project(runner, env, compose_yaml, env_file, emit)
-        github_app_deploy.converge(runner, env, github_app_private_key)
+        github_app_deploy.converge(runner, env)
+        github_app_deploy.verify(runner, env, image_ref)
         compose_pull(runner, env, emit)
         verify_runtime_database_secret_access(runner, env, emit)
         prior_image_ref = capture_running_image_ref(runner, env, emit)
@@ -322,51 +305,21 @@ def exec_core_container_deploy(
                 env,
                 prior_image_ref=prior_image_ref,
                 failed_image_ref=image_ref,
-                render_compose=lambda ref: render_service_files(
-                    env, ref, database
-                )[0],
+                render_compose=lambda ref: render_service_files(env, ref, database)[0],
                 emit=emit,
             )
             raise
         _emit_deploy_event(env, image_ref, request_id)
-        emit(
-            f"  [core-deploy] {env.project}/{env.env_name} now running "
-            f"{image_ref}"
+        emit(f"  [core-deploy] {env.project}/{env.env_name} now running {image_ref}")
+        # Post-health cleanup is fail-visible but does not roll back the
+        # healthy container; rerunning the full deployment is idempotent.
+        prune_superseded_images(
+            runner,
+            env,
+            emit,
+            keep_image_ref=image_ref,
         )
-        # New image is live + health-verified: reclaim disk from superseded
-        # images so the origin box's small root volume never fills across
-        # repeated auto-deploys. Best-effort — never fails a live deploy.
-        prune_superseded_images(runner, env, emit)
         return 0
     except (CoreDeployError, DeployEnvironmentError, RemoteConvergenceError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr, flush=True)
         return 1
-
-def _emit_deploy_event(
-    env: DeployEnvironment, image_ref: str, request_id: str
-) -> None:
-    """Record the deploy through the canonical emitter (best-effort)."""
-    try:
-        from yoke_core.domain.events import emit_event
-
-        emit_event(
-            "DeploymentCoreContainerDeployed",
-            event_kind="lifecycle",
-            event_type="deployment_run",
-            source_type="system",
-            severity="STATUS",
-            project=env.project,
-            outcome="completed",
-            environment=env.env_name,
-            request_id=request_id,
-            context={
-                "image_ref": image_ref,
-                "origin_host": env.origin_host,
-                "log_group": env.log_group,
-            },
-        )
-    except Exception as exc:  # pragma: no cover - telemetry is best-effort
-        print(
-            f"  [core-deploy] warning: deploy event emission failed: {exc}",
-            file=sys.stderr,
-        )

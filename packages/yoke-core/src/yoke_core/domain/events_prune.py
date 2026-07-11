@@ -12,7 +12,11 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.domain.db_helpers import connect, query_scalar
-from yoke_core.domain import db_backend, function_call_ledger
+from yoke_core.domain import (
+    db_backend,
+    function_call_ledger,
+    github_workflow_dispatch_intents,
+)
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.time_sql import now_sql
 
@@ -35,19 +39,28 @@ def _ledger_count(conn) -> int:
     )
 
 
+def _intent_count(conn) -> int:
+    table = github_workflow_dispatch_intents.INTENT_TABLE
+    if not _table_exists(conn, table):
+        return 0
+    return int(query_scalar(conn, f"SELECT COUNT(*) FROM {table}") or 0)
+
+
 def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
     """Per-severity retention pruning (+ rolling-state TTLs).
 
     bounded retention-only destructive maintenance. Not wrapped
     in ``GovernedMigration`` because the operation has non-zero expected
     delta by design (DEBUG > 1d, INFO > 30d, WARN > 90d; STATUS never
-    pruned; ``function_call_ledger`` rows past their replay TTL;
+    pruned; ``function_call_ledger`` rows past their replay TTL; terminal
+    ``github_workflow_dispatch_intents`` rows past their retention TTL (pending
+    ambiguity is never age-pruned);
     ``session_tool_calls`` rows past their rolling-state retention).
     Instead, a ``migration_audit`` fingerprint is emitted after
     a real (non-dry-run) prune so the destructive-maintenance doctor HC
     can surface the operation.  The fingerprint carries:
 
-    - pre/post row counts for ``events``, ``function_call_ledger``, and
+    - pre/post row counts for events, both idempotency state tables, and
       ``session_tool_calls``
     - pruned counts by severity, recorded in ``description``
     - an ``exception_note`` explaining why this path is a documented
@@ -76,6 +89,7 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                 conn, "SELECT COUNT(*) FROM events WHERE severity='STATUS'"
             )
             ledger_count = function_call_ledger.count_expired(conn)
+            intent_count = github_workflow_dispatch_intents.count_expired(conn)
             tool_call_count = query_scalar(
                 conn,
                 "SELECT COUNT(*) FROM session_tool_calls "
@@ -86,6 +100,10 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                 f"(STATUS={status_count} events retained indefinitely)",
                 f"function_call_ledger: {ledger_count} rows past "
                 f"{function_call_ledger.LEDGER_TTL_DAYS}d replay TTL",
+                f"github_workflow_dispatch_intents: {intent_count} terminal "
+                "row(s) past "
+                f"{github_workflow_dispatch_intents.INTENT_TTL_DAYS}d TTL "
+                "(pending retained indefinitely)",
                 f"session_tool_calls: {tool_call_count} row(s) older than "
                 f"{SESSION_TOOL_CALLS_RETENTION_DAYS}d",
             ]
@@ -96,6 +114,7 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                 query_scalar(conn, "SELECT COUNT(*) FROM events") or 0
             )
             pre_ledger = _ledger_count(conn)
+            pre_intents = _intent_count(conn)
             pre_tool_calls = int(
                 query_scalar(
                     conn, "SELECT COUNT(*) FROM session_tool_calls"
@@ -115,6 +134,7 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                 f"AND created_at < {now_sql(offset_days=-90)}"
             ).rowcount
             ledger_pruned = function_call_ledger.prune_expired(conn)
+            intents_pruned = github_workflow_dispatch_intents.prune_expired(conn)
             # session_tool_calls is a short-retention rolling state table:
             # the orphan sweep closes rows at session end and the lint
             # guardrails look back minutes, so anything older than the
@@ -129,6 +149,7 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
             lines = [
                 f"Pruned: DEBUG={debug_pruned}, INFO={info_pruned}, "
                 f"WARN={warn_pruned}, function_call_ledger={ledger_pruned}, "
+                f"github_workflow_dispatch_intents={intents_pruned}, "
                 f"session_tool_calls={tool_calls_pruned}"
             ]
 
@@ -145,6 +166,7 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                 query_scalar(conn, "SELECT COUNT(*) FROM events") or 0
             )
             post_ledger = _ledger_count(conn)
+            post_intents = _intent_count(conn)
             post_tool_calls = int(
                 query_scalar(
                     conn, "SELECT COUNT(*) FROM session_tool_calls"
@@ -163,6 +185,10 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                     f"(STATUS never pruned); function_call_ledger="
                     f"{ledger_pruned} past the "
                     f"{function_call_ledger.LEDGER_TTL_DAYS}d replay TTL; "
+                    "github_workflow_dispatch_intents="
+                    f"{intents_pruned} terminal rows past the "
+                    f"{github_workflow_dispatch_intents.INTENT_TTL_DAYS}d TTL "
+                    "(pending never age-pruned); "
                     f"session_tool_calls rows older than "
                     f"{SESSION_TOOL_CALLS_RETENTION_DAYS}d="
                     f"{tool_calls_pruned}."
@@ -170,22 +196,27 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                 tables=[
                     "events",
                     function_call_ledger.LEDGER_TABLE,
+                    github_workflow_dispatch_intents.INTENT_TABLE,
                     "session_tool_calls",
                 ],
                 pre_counts={
                     "events": pre_count,
                     function_call_ledger.LEDGER_TABLE: pre_ledger,
+                    github_workflow_dispatch_intents.INTENT_TABLE: pre_intents,
                     "session_tool_calls": pre_tool_calls,
                 },
                 post_counts={
                     "events": post_count,
                     function_call_ledger.LEDGER_TABLE: post_ledger,
+                    github_workflow_dispatch_intents.INTENT_TABLE: post_intents,
                     "session_tool_calls": post_tool_calls,
                 },
                 exception_reason=(
                     "Bounded retention exception: expected non-zero "
                     "delta by severity/age (DEBUG>1d, INFO>30d, WARN>90d; "
                     "idempotency-ledger rows past their replay TTL; "
+                    "terminal workflow-dispatch intents past their TTL, while "
+                    "pending ambiguous intents are preserved indefinitely; "
                     "session_tool_calls rows past rolling-state retention). "
                     "STATUS rows are preserved indefinitely. "
                     "GovernedMigration wrap is incompatible with the "

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pathlib
+
 from yoke_contracts.project_contract import file_line_policy as contract
 from yoke_core.domain import file_line_check as core_gate
 from yoke_harness.git_hooks import file_line_check as harness_gate
@@ -20,3 +22,17 @@ def test_default_exceptions_are_project_contract_wide_not_yoke_specific() -> Non
     # .yoke/file-line-exceptions.
     assert core_gate.TEMPORARY_EXCEPTIONS == ()
     assert "packaging/public-installer/install" not in core_gate.TEMPORARY_EXCEPTIONS
+
+
+def test_packaged_install_bundle_mirrors_are_generated(
+    tmp_path: pathlib.Path,
+) -> None:
+    rel = (
+        "packages/yoke-core/src/yoke_core/install_bundle_tree/"
+        "runtime/harness/claude/agents/yoke-architect.md"
+    )
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True)
+    target.write_text("generated\n", encoding="utf-8")
+    assert core_gate.classify_path(rel, repo_root=tmp_path).value == "generated"
+    assert harness_gate.classify_path(rel, repo_root=tmp_path).value == "generated"

@@ -8,22 +8,21 @@ run_tests integration tests → test_merge_worktree_post_runtests.py
 Shared fixtures and helpers live in test_merge_worktree_full.py.
 """
 
-import sys
 import subprocess
+import sys
 import textwrap
 
 from runtime.api.test_merge_worktree_full import (
     TEST_BRANCH,
     MergeEnv,
-    MergeResult,
     MERGE_MODULE,
     WORKTREE_ROOT,
     _git,
     _write_file,
-    _write_mock_gh,
-    merge_env,  # re-export so pytest recognises this fixture in the child module  # noqa: F401
     run_merge,
 )
+
+pytest_plugins = ("runtime.api.test_merge_worktree_full",)
 
 
 # ===========================================================================
@@ -106,8 +105,8 @@ class TestPostMergeOps:
         assert result.exit_code == 0
         assert "Syncing local" in result.stdout
 
-    def test_yok443_agent_worktree_pruning(self, merge_env: MergeEnv) -> None:
-        """Stale agent worktrees pruned before merge."""
+    def test_unowned_agent_residue_is_preserved(self, merge_env: MergeEnv) -> None:
+        """Filesystem naming alone never authorizes destructive cleanup."""
         repo = merge_env.repo
 
         # Create stale agent worktree directory
@@ -121,15 +120,14 @@ class TestPostMergeOps:
         result = run_merge(merge_env)
         assert result.exit_code == 0
 
-        # Stale directory removed
-        assert not stale_dir.exists()
+        # No terminal DB owner, clean-status proof, or active-claim proof exists.
+        assert stale_dir.exists()
 
-        # Stale branch deleted
         branch_list = _git(repo, "branch", "--list", "worktree-agent-stale-12345", check=False)
-        assert "worktree-agent-stale-12345" not in branch_list.stdout.strip()
+        assert "worktree-agent-stale-12345" in branch_list.stdout.strip()
 
-        assert "Pruning stale agent worktree" in result.stdout
-        assert "Deleting orphaned agent branch" in result.stdout
+        assert "Pruning stale agent worktree" not in result.stdout
+        assert "Deleting orphaned agent branch" not in result.stdout
 
     def test_yok443_agent_worktree_excluded(self, merge_env: MergeEnv) -> None:
         """Non-agent worktrees excluded from dirty check."""
@@ -214,14 +212,14 @@ class TestCleanupTrap:
 
         env_overrides = merge_env.env(extra={"PATH": git_mock_test_path})
         env_overrides.setdefault("PYTHONPATH", str(WORKTREE_ROOT))
-        r = subprocess.run(
+        subprocess.run(
             [sys.executable, "-m", MERGE_MODULE, TEST_BRANCH, "main"],
             cwd=str(repo),
             capture_output=True,
             text=True,
             env=env_overrides,
+            check=False,
         )
-        result = MergeResult(exit_code=r.returncode, stdout=r.stdout, stderr=r.stderr)
 
         # Python engine may succeed where shell failed; verify no trial branch remains
         branch_list = subprocess.run(

@@ -1,23 +1,16 @@
-"""Filesystem health checks — entry-point cluster.
-
-HC functions for path confabulation, orphaned temp files, config validation,
-size bloat, and test-command validity.
-
-Drift detection HCs (stray project files, template drift, architectural
-consistency) live in ``doctor_hc_filesystem_drift``.
-"""
+"""Filesystem checks for paths, scratch, config, size, and test commands."""
 
 from __future__ import annotations
 
-from yoke_core.domain.strategy_docs_paths import strategy_view_path
-
 import re
-import time
 from pathlib import Path
 from typing import List
 
-from yoke_core.domain import machine_config, project_scratch_dir
+from yoke_core.domain.strategy_docs_paths import strategy_view_path
+
+from yoke_core.domain import machine_config
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.scratch_auto_prune import prune_stale_scratch
 
 import yoke_core.engines.doctor_report as _base
 
@@ -25,25 +18,6 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
-
-
-# Per-sub-directory age thresholds for the orphan scanner.
-#
-# Preserves the legacy semantics from the pre-helper scanner: ephemeral
-# residue (capture pairs, mktemp scratch dirs, transient payloads) ages
-# out at 300s (the prior in-repo ``.agents/skills/yoke/scripts`` /
-# ``.tmp.`` threshold); durable scratch surfaces that hold persistent
-# hook + cache + storage state age out at 600s (the prior OS-tmp
-# ``rebuild-board.*`` / ``sync-to-github.*`` threshold).
-ORPHAN_AGE_THRESHOLDS_S: dict[str, int] = {
-    "watcher-captures": 300,
-    "payloads": 300,
-    "scratch-dirs": 300,
-    "hook-markers": 600,
-    "harness-runtime-cache": 600,
-    "storage": 600,
-    "dispatch-inputs": 600,
-}
 
 
 def hc_path_confabulation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -106,62 +80,21 @@ def hc_path_confabulation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
 
 def hc_orphaned_temp_files(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-orphaned-temp-files: Orphaned temp files.
-
-    Scans the helper-resolved scratch root (``project_scratch_dir
-    .scratch_root()``) and enumerates the known sub-directories listed
-    in :data:`ORPHAN_AGE_THRESHOLDS_S`. Each sub-directory carries its
-    own age threshold preserving the legacy 300s (ephemeral residue) /
-    600s (durable scratch storage) split.
-
-    The legacy ``.agents/skills/yoke/scripts/*.tmp.*`` scan area is
-    retired: planning-time grep of that path and of ``runtime`` for any
-    writer that creates ``.tmp.`` files under that dir returned zero
-    hits, so the scan area is dead code with no live writers.
-    """
-    issues: List[str] = []
-    count = 0
-    now_epoch = int(time.time())
-
-    try:
-        scratch_root = project_scratch_dir.scratch_root()
-    except project_scratch_dir.ScratchRootResolutionError:
-        rec.record("HC-orphaned-temp-files", "Orphaned temp files", "PASS", "")
-        return
-
-    for kind, threshold in ORPHAN_AGE_THRESHOLDS_S.items():
-        sub_dir = scratch_root / kind
-        if not sub_dir.is_dir():
-            continue
-        for entry in sub_dir.iterdir():
-            try:
-                mtime = int(entry.stat().st_mtime)
-            except OSError:
-                continue
-            age = now_epoch - mtime
-            if age <= threshold:
-                continue
-            count += 1
-            age_min = age // 60
-            issues.append(f"- {entry} ({age_min}m old, kind={kind})")
-            if not args.fix:
-                continue
-            try:
-                if entry.is_file() or entry.is_symlink():
-                    entry.unlink()
-                else:
-                    import shutil
-
-                    shutil.rmtree(str(entry))
-                issues.append("  -> removed")
-            except OSError:
-                pass
-
-    if count > 0:
-        rec.record("HC-orphaned-temp-files", "Orphaned temp files", "WARN", "\n".join(issues))
-    else:
-        rec.record("HC-orphaned-temp-files", "Orphaned temp files", "PASS", "")
-
+    """Scan global scratch while protecting current and active sessions."""
+    outcome = prune_stale_scratch(conn, fix=args.fix)
+    result = (
+        "FAIL"
+        if outcome.failure_count
+        else "WARN"
+        if outcome.stale_count
+        else "PASS"
+    )
+    rec.record(
+        "HC-orphaned-temp-files",
+        "Orphaned temp files",
+        result,
+        "\n".join(outcome.issues),
+    )
 
 
 def hc_config_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:

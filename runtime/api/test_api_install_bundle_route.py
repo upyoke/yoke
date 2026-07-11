@@ -13,6 +13,13 @@ from runtime.api.api_items_test_helpers import (
     _client_for_db,
     make_test_db_fixture,
 )
+from runtime.api.fixtures.file_test_db import connect_test_db
+from yoke_core.domain.actor_permissions import (
+    ROLE_DEPLOYMENT_CI,
+    grant_actor_project_role,
+)
+from yoke_core.domain.actors import seed_human_actor
+from yoke_core.domain.api_tokens import mint_token
 
 
 @pytest.fixture()
@@ -24,6 +31,24 @@ def bundle_db():
 def client(bundle_db):
     with _client_for_db(bundle_db["db_path"]) as authed:
         yield authed
+
+
+def _deployment_ci_token_headers(db_path: str) -> dict[str, str]:
+    conn = connect_test_db(db_path)
+    try:
+        actor_id = seed_human_actor(conn)
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=1,
+            role_name=ROLE_DEPLOYMENT_CI,
+            granted_by_actor_id=actor_id,
+        )
+        token = mint_token(conn, actor_id=actor_id, name="bundle-test-deployment-ci")
+        conn.commit()
+    finally:
+        conn.close()
+    return {"Authorization": f"Bearer {token.raw_token}"}
 
 
 def test_install_bundle_serves_files_and_hooks(client) -> None:
@@ -53,9 +78,7 @@ def test_install_bundle_serves_files_and_hooks(client) -> None:
     assert all(p.startswith(".yoke/") for p in contract_paths)
     assert ".yoke/board.json" in contract_paths
     assert ".yoke/lint-config" in contract_paths
-    assert all(
-        entry["install_policy"] == "seed_if_missing" for entry in contract
-    )
+    assert all(entry["install_policy"] == "seed_if_missing" for entry in contract)
 
 
 def test_install_bundle_unknown_project_is_typed_404(client) -> None:
@@ -91,3 +114,28 @@ def test_install_bundle_requires_auth(client) -> None:
     )
 
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize("project_id", [1, 2])
+def test_deployment_ci_cannot_build_same_or_cross_project_install_bundle(
+    client,
+    bundle_db,
+    monkeypatch,
+    project_id,
+) -> None:
+    from yoke_core.api.routes import install as route
+
+    monkeypatch.setattr(
+        route,
+        "build_bundle",
+        lambda *_args, **_kwargs: pytest.fail("install bundle built before auth"),
+    )
+    headers = _deployment_ci_token_headers(bundle_db["db_path"])
+
+    response = client.get(
+        f"/v1/projects/{project_id}/install-bundle",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"

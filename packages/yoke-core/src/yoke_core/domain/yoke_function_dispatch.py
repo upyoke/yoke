@@ -27,7 +27,7 @@ Sibling modules:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from pydantic import ValidationError
 
@@ -38,7 +38,6 @@ from yoke_core.domain.yoke_function_dispatch_claims import verify_claim
 from yoke_core.domain.yoke_function_dispatch_events import (
     emit_called,
     emit_downstream_degraded,
-    emit_idempotency_replay,
     emit_permission_denied,
     identity_event_context,
     serialize_payload,
@@ -46,8 +45,15 @@ from yoke_core.domain.yoke_function_dispatch_events import (
 from yoke_core.domain.yoke_function_dispatch_observability import (
     dispatch_observation,
 )
+from yoke_core.domain.yoke_function_dispatch_idempotency import (
+    handle_idempotency,
+)
 from yoke_core.domain.yoke_function_dispatch_target import (
     resolve_target_item_ref,
+)
+from yoke_core.domain.yoke_function_idempotency_scope import (
+    authorization_scope_key,
+    idempotency_payload_checksum,
 )
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -128,66 +134,6 @@ def _coerce_request(
         return None, _error_response(
             None, function_id, version, "envelope_invalid", str(exc),
         )
-
-
-def _idempotency_lookup(
-    function_id: str, request_id: str
-) -> Optional[Tuple[Dict[str, Any], str]]:
-    """Return ``(stored_result, stored_function_id)`` for a prior request.
-
-    Returns ``None`` when no prior call recorded that ``request_id``.
-    Exact-match read of ``function_call_ledger`` (rows are written by
-    ``emit_called`` alongside the ``YokeFunctionCalled`` emission and
-    TTL-pruned by the retention surface). Non-fatal: lookup errors read
-    as "no prior call" so dispatch proceeds fresh.
-    """
-    if not request_id:
-        return None
-    try:
-        from yoke_core.domain.function_call_ledger import lookup_call
-    except Exception:
-        return None
-    return lookup_call(request_id)
-
-
-def _handle_idempotency(
-    entry: RegistryEntry,
-    request: FunctionCallRequest,
-    *,
-    identity_context: Optional[Dict[str, Any]] = None,
-    permission_key: Optional[str] = None,
-    project: Optional[str] = None,
-) -> Optional[FunctionCallResponse]:
-    """Return a replay/collision response, or None when no prior call exists."""
-    if not request.request_id:
-        return None
-    replay = _idempotency_lookup(entry.function_id, request.request_id)
-    if replay is None:
-        return None
-    stored_result, stored_function = replay
-    if stored_function and stored_function != entry.function_id:
-        return _error_response(
-            request, entry.function_id, entry.version,
-            "idempotency_key_collision",
-            f"request_id reused across functions "
-            f"({stored_function!r} -> {entry.function_id!r})",
-        )
-    emit_idempotency_replay(
-        request, entry,
-        identity_context=identity_context,
-        permission_key=permission_key,
-        project=project,
-    )
-    return FunctionCallResponse(
-        success=True,
-        function=entry.function_id,
-        version=entry.version,
-        request_id=request.request_id,
-        result=dict(stored_result),
-        warnings=[],
-        error=None,
-        event_ids=[],
-    )
 
 
 def _build_response(
@@ -281,11 +227,22 @@ def _dispatch_impl(
             options["authorized_project_id"] = int(permission.project_id)
         typed_request = typed_request.model_copy(update={"options": options})
 
-    idem = _handle_idempotency(
+    payload_bytes, payload_hash = serialize_payload(typed_request.payload)
+    idempotency_checksum = idempotency_payload_checksum(typed_request)
+    authorization_scope = authorization_scope_key(
+        permission_key=permission.permission_key,
+        project_id=permission.project_id,
+        project_slug=permission.project_slug,
+        visible_project_ids=permission.visible_project_ids,
+    )
+
+    idem = handle_idempotency(
         entry, typed_request,
         identity_context=identity_context,
         permission_key=permission.permission_key,
         project=permission.project_slug,
+        authorization_scope=authorization_scope,
+        payload_checksum=idempotency_checksum,
     )
     if idem is not None:
         return idem
@@ -315,12 +272,13 @@ def _dispatch_impl(
             permission_key=permission.permission_key,
             project=permission.project_slug,
         )
-    payload_bytes, payload_hash = serialize_payload(typed_request.payload)
     emit_called(
         typed_request, entry, outcome, response, payload_bytes, payload_hash,
         identity_context=identity_context,
         permission_key=permission.permission_key,
         project=permission.project_slug,
+        authorization_scope=authorization_scope,
+        idempotency_payload_checksum=idempotency_checksum,
     )
     return response
 

@@ -18,6 +18,10 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+from yoke_core.engines import merge_worktree_safe_prune as _safe_prune
+from yoke_core.engines.remote_branch_cleanup import (
+    delete_remote_branch_if_merged,
+)
 
 
 def hc_branch_divergence(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -64,7 +68,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
     """HC-stale-remote-branches: Stale remote branches."""
     issues: List[str] = []
     fixed = 0
-    fix_failed = 0
+    preserved = 0
 
     # Get project repos
     projects: List[dict] = []
@@ -74,15 +78,20 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
                 "id": row["id"],
                 "slug": row["slug"],
                 "checkout": checkout_for_project_id(int(row["id"])),
+                "default_branch": str(row["default_branch"] or "main"),
             }
-            for row in query_rows(conn, "SELECT id, slug FROM projects ORDER BY id")
+            for row in query_rows(
+                conn,
+                "SELECT id, slug, default_branch FROM projects ORDER BY id",
+            )
         ]
 
     repo_root = _base._resolve_repo_root()
-    yoke_root = str(Path(repo_root) / "data") if repo_root else ""
 
-    # Cache remote branches for each project
-    remote_caches: Dict[str, set] = {}
+    # Cache each successfully inspected project's branches with the exact
+    # checkout and integration target. A missing project checkout must never
+    # fall back to a different repository merely because both use YOK-N refs.
+    remote_caches: Dict[str, tuple[set[str], str, str]] = {}
     for proj in projects:
         pid = proj["slug"]
         rpath = proj["checkout"]
@@ -97,7 +106,11 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
                     ref = parts[1]
                     if ref.startswith("refs/heads/"):
                         branches.add(ref[len("refs/heads/"):])
-        remote_caches[pid] = branches
+            remote_caches[pid] = (
+                branches,
+                str(rpath),
+                proj["default_branch"],
+            )
 
     # Default repo cache
     default_branches: set = set()
@@ -110,6 +123,19 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
                     ref = parts[1]
                     if ref.startswith("refs/heads/"):
                         default_branches.add(ref[len("refs/heads/"):])
+            yoke_target = next(
+                (
+                    proj["default_branch"]
+                    for proj in projects
+                    if proj["slug"] == "yoke"
+                ),
+                "main",
+            )
+            remote_caches["yoke"] = (
+                default_branches,
+                str(repo_root),
+                yoke_target,
+            )
 
     # Check done/cancelled items
     done_rows = query_rows(
@@ -123,17 +149,13 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
         proj = row["project"]
         pattern = f"YOK-{did}"
 
-        # Resolve cache and repo
-        cache = default_branches
-        target_repo = repo_root or ""
-        if proj and proj != "null" and proj in remote_caches:
-            cache = remote_caches[proj]
-            for p in projects:
-                if p["slug"] == proj:
-                    rp = p["checkout"]
-                    if rp and Path(rp).is_dir():
-                        target_repo = str(rp)
-                    break
+        # Resolve only the owning project's inspected checkout. Never use the
+        # current/default repository for a different project's item.
+        project_slug = proj if proj and proj != "null" else "yoke"
+        context = remote_caches.get(project_slug)
+        if context is None:
+            continue
+        cache, target_repo, target_branch = context
 
         if pattern not in cache:
             continue
@@ -141,33 +163,52 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
         proj_label = f" [{proj}]" if proj and proj != "null" and proj != "yoke" else ""
 
         if args.fix:
-            dr = _base._run(["git", "-C", target_repo, "push", "origin", "--delete", pattern],
-                       timeout=15)
-            if dr.returncode == 0:
-                fixed += 1
+            if _safe_prune.item_cleanup_authority_blocks_prune(conn, int(did)):
+                preserved += 1
                 issues.append(
-                    f"- Fixed: deleted stale remote branch {pattern}{proj_label} "
-                    f"-- YOK-{did} is done/cancelled"
+                    f"- PRESERVED stale remote branch {pattern}{proj_label}: "
+                    "cleanup authority is active or could not be proven idle"
                 )
+                continue
+
+            result = delete_remote_branch_if_merged(
+                run_git=lambda command: _base._run(
+                    ["git", "-C", target_repo, *command],
+                    timeout=15,
+                ),
+                branch=pattern,
+                target_branch=target_branch,
+            )
+            if result.cleanup_complete:
+                fixed += 1
+                if result.status == "deleted":
+                    issues.append(
+                        f"- Fixed: deleted stale remote branch "
+                        f"{pattern}{proj_label} -- YOK-{did} is done/cancelled"
+                    )
+                else:
+                    issues.append(
+                        f"- Fixed: stale remote branch {pattern}{proj_label} "
+                        "was already absent"
+                    )
             else:
-                fix_failed += 1
+                preserved += 1
                 issues.append(
-                    f"- FAILED to delete stale remote branch {pattern}{proj_label} "
-                    f"-- YOK-{did} is done/cancelled "
-                    f"(git -C {target_repo} push origin --delete {pattern})"
+                    f"- PRESERVED stale remote branch {pattern}{proj_label}: "
+                    f"{result.reason}"
                 )
         else:
             issues.append(
                 f"- Stale remote branch: {pattern}{proj_label} "
                 f"-- YOK-{did} is done/cancelled "
-                f"(git push origin --delete {pattern})"
+                "(rerun this check with --fix for proof-gated cleanup)"
             )
 
     if issues:
         if args.fix:
             summary = f"- --fix: deleted {fixed} stale remote branch(es)"
-            if fix_failed > 0:
-                summary += f", {fix_failed} failed"
+            if preserved > 0:
+                summary += f", {preserved} preserved"
                 rec.record("HC-stale-remote-branches", "Stale remote branches", "WARN",
                             summary + "\n" + "\n".join(issues))
             else:

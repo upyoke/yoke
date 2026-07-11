@@ -41,8 +41,15 @@ def test_grant_org_rejects_project_role(grantdb):
 def test_grant_project_rejects_org_role(grantdb):
     _, actor_id = grantdb
     rc = actor_grants_cli.main(
-        ["grant-project", "--actor", str(actor_id), "--project", "yoke",
-         "--role", "admin"]
+        [
+            "grant-project",
+            "--actor",
+            str(actor_id),
+            "--project",
+            "yoke",
+            "--role",
+            "admin",
+        ]
     )
     assert rc == 2
 
@@ -66,8 +73,15 @@ def test_grant_project_and_list(grantdb, capsys):
     _, actor_id = grantdb
     assert (
         actor_grants_cli.main(
-            ["grant-project", "--actor", str(actor_id), "--project", "yoke",
-             "--role", "owner"]
+            [
+                "grant-project",
+                "--actor",
+                str(actor_id),
+                "--project",
+                "yoke",
+                "--role",
+                "owner",
+            ]
         )
         == 0
     )
@@ -75,6 +89,59 @@ def test_grant_project_and_list(grantdb, capsys):
     assert actor_grants_cli.main(["list", "--actor", str(actor_id)]) == 0
     out = capsys.readouterr().out
     assert "project/yoke: owner" in out
+
+
+def test_revoke_project_is_idempotent(grantdb, capsys):
+    conn, actor_id = grantdb
+    grant = [
+        "grant-project",
+        "--actor",
+        str(actor_id),
+        "--project",
+        "yoke",
+        "--role",
+        "deployment_ci",
+    ]
+    revoke = [
+        "revoke-project",
+        "--actor",
+        str(actor_id),
+        "--project",
+        "yoke",
+        "--role",
+        "deployment_ci",
+    ]
+    assert actor_grants_cli.main(grant) == 0
+    capsys.readouterr()
+
+    assert actor_grants_cli.main(revoke) == 0
+    assert "Revoked: project role deployment_ci" in capsys.readouterr().out
+    remaining = conn.execute(
+        "SELECT 1 FROM actor_project_roles apr "
+        "JOIN roles r ON r.id = apr.role_id "
+        "WHERE apr.actor_id = %s AND r.name = 'deployment_ci'",
+        (actor_id,),
+    ).fetchone()
+    assert remaining is None
+
+    assert actor_grants_cli.main(revoke) == 0
+    assert "Already absent: project role deployment_ci" in capsys.readouterr().out
+
+
+def test_revoke_project_rejects_org_role(grantdb):
+    _, actor_id = grantdb
+    rc = actor_grants_cli.main(
+        [
+            "revoke-project",
+            "--actor",
+            str(actor_id),
+            "--project",
+            "yoke",
+            "--role",
+            "admin",
+        ]
+    )
+    assert rc == 2
 
 
 def test_grant_unknown_actor_errors(grantdb):

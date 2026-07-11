@@ -57,6 +57,7 @@ JSONB_COLUMNS: Mapping[str, Tuple[str, ...]] = {
     "migration_audit": ("baseline_verify_result", "author_verify_result"),
     "path_context_values": ("value",),
     "function_call_ledger": ("result",),
+    "github_workflow_dispatch_intents": ("inputs",),
 }
 
 

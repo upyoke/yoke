@@ -3,16 +3,16 @@
 ``function_call_ledger`` is the application-state owner for function-call
 idempotency: the ``events`` table is telemetry-only, so replay/collision
 decisions read this table instead of scanning ``YokeFunctionCalled``
-envelopes. One row per first dispatch of a ``request_id``; the dispatcher
-writes the row alongside the ``YokeFunctionCalled`` emission
+envelopes. One row per first successful side-effecting dispatch of a
+``request_id``; the dispatcher writes the row alongside the ``YokeFunctionCalled`` emission
 (:func:`record_call` from ``yoke_function_dispatch_events.emit_called``)
 and reads it back on reuse (:func:`lookup_call` from
 ``yoke_function_dispatch._idempotency_lookup``).
 
-First write wins (``ON CONFLICT (request_id) DO NOTHING``); the
-cross-function ``idempotency_key_collision`` decision stays in the
-dispatcher, which compares the stored ``function_id`` against the
-incoming call. Rows older than :data:`LEDGER_TTL_DAYS` are pruned by the
+First write wins (``ON CONFLICT (request_id) DO NOTHING``). Replay is bound
+to the stored function, authenticated actor, authorization scope, and
+canonical payload checksum; any mismatch is an idempotency-key collision.
+Rows older than :data:`LEDGER_TTL_DAYS` are pruned by the
 retention surface (``events_prune.cmd_prune``); after the TTL a reused
 ``request_id`` dispatches fresh instead of replaying.
 """
@@ -33,6 +33,9 @@ FUNCTION_CALL_LEDGER_CREATE_SQL = f"""
 CREATE TABLE IF NOT EXISTS {LEDGER_TABLE} (
   request_id TEXT PRIMARY KEY,
   function_id TEXT NOT NULL,
+  actor_id TEXT NOT NULL DEFAULT '',
+  authorization_scope TEXT NOT NULL DEFAULT '',
+  payload_checksum TEXT NOT NULL DEFAULT '',
   result TEXT, -- → JSONB on Postgres
   created_at TEXT NOT NULL
 );
@@ -61,6 +64,9 @@ def record_call(
     function_id: str,
     result: Dict[str, Any],
     *,
+    actor_id: str,
+    authorization_scope: str,
+    payload_checksum: str,
     created_at: Optional[str] = None,
     conn: Optional[Any] = None,
 ) -> bool:
@@ -81,11 +87,20 @@ def record_call(
     stamp = created_at or db_helpers.iso8601_now()
     sql = (
         f"INSERT INTO {LEDGER_TABLE} "
-        "(request_id, function_id, result, created_at) "
-        "VALUES (%s, %s, %s, %s) "
+        "(request_id, function_id, actor_id, authorization_scope, "
+        "payload_checksum, result, created_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s) "
         "ON CONFLICT (request_id) DO NOTHING"
     )
-    params = (request_id, function_id, serialize_result(result), stamp)
+    params = (
+        request_id,
+        function_id,
+        actor_id,
+        authorization_scope,
+        payload_checksum,
+        serialize_result(result),
+        stamp,
+    )
     if conn is not None:
         return conn.execute(sql, params).rowcount > 0
     # Broad on purpose: connection RESOLUTION failures (e.g. the
@@ -106,8 +121,8 @@ def record_call(
 
 def lookup_call(
     request_id: Optional[str],
-) -> Optional[Tuple[Dict[str, Any], str]]:
-    """Return ``(stored_result, stored_function_id)`` or ``None``.
+) -> Optional[Tuple[Dict[str, Any], str, str, str, str]]:
+    """Return result, function, actor, scope, and payload checksum.
 
     Exact ``request_id`` match. Non-fatal: any database error (including
     a missing table on a not-yet-migrated environment) reads as "no
@@ -125,7 +140,8 @@ def lookup_call(
     try:
         with db_helpers.connect() as conn:
             row = conn.execute(
-                f"SELECT result, function_id FROM {LEDGER_TABLE} "
+                "SELECT result, function_id, actor_id, authorization_scope, "
+                f"payload_checksum FROM {LEDGER_TABLE} "
                 "WHERE request_id = %s",
                 (request_id,),
             ).fetchone()
@@ -133,14 +149,20 @@ def lookup_call(
         return None
     if row is None:
         return None
-    raw, function_id = row[0], row[1]
+    raw, function_id, actor_id, authorization_scope, payload_checksum = row
     try:
         stored = json.loads(raw) if raw else {}
     except (TypeError, ValueError):
         stored = {}
     if not isinstance(stored, dict):
         stored = {}
-    return stored, str(function_id or "")
+    return (
+        stored,
+        str(function_id or ""),
+        str(actor_id or ""),
+        str(authorization_scope or ""),
+        str(payload_checksum or ""),
+    )
 
 
 def count_expired(conn: Any) -> int:

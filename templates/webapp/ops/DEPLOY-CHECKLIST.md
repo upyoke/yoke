@@ -241,12 +241,15 @@ Stateless — routing survives VPS reboots; no per-deploy config files.
 yoke templates fetch webapp --dest scratch/webapp-template --only ops/ --force
 scp <render-output>/ops/setup-vps-maintenance.sh {{ssh_user}}@{{origin_ip}}:~/
 scp <render-output>/ops/ephemeral-cleanup.sh {{ssh_user}}@{{origin_ip}}:~/
+scp <render-output>/ops/docker_maintenance_converge.py {{ssh_user}}@{{origin_ip}}:~/
 ssh {{ssh_user}}@{{origin_ip}} 'chmod +x ~/ephemeral-cleanup.sh && sh ~/setup-vps-maintenance.sh'
 ```
 
 Installs three cron entries:
 - Daily (4:00 UTC): `docker builder prune -f --filter "until=48h"`
-- Weekly (Yoke 4:30 UTC): aggressive image/cache prune
+- Weekly (Yoke 4:30 UTC): aggressive build-cache prune plus dangling-image
+  prune. Tagged-image cleanup stays deploy-owned and repository-scoped so a
+  shared host never loses an intentionally cached next-release image.
 - Every 6 hours: `ephemeral-cleanup.sh` (removes stale envs older than {{ephemeral_ttl_hours}}h)
 
 **Verify:**
@@ -258,7 +261,10 @@ ssh {{ssh_user}}@{{origin_ip}} 'crontab -l'
 **Manual emergency cleanup:**
 
 ```sh
-ssh {{ssh_user}}@{{origin_ip}} 'docker system prune -af --volumes'
+ssh {{ssh_user}}@{{origin_ip}} \
+  'docker builder prune -af && docker image prune -f'
 ```
 
-Warning: removes ALL unused images, containers, networks, volumes.
+This removes build cache and dangling images only. Do not substitute a global
+`docker system prune --volumes` or `docker image prune -a` on a shared host;
+tagged release images and volumes require an owner-scoped cleanup decision.

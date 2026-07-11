@@ -16,9 +16,11 @@ from yoke_core.engines.done_transition_merge_ops import (  # noqa: F401
     _cross_project_commit_guard,
     _pre_merge_commit,
     _do_merge,
-    _cleanup_stale_branches,
-    _cleanup_trial_branches,
     _verify_cwd_after_merge,
     _schema_gate,
     _handle_already_done,
+)
+from yoke_core.engines.done_transition_cleanup import (  # noqa: F401
+    _cleanup_stale_branches,
+    _cleanup_trial_branches,
 )

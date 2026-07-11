@@ -209,7 +209,9 @@ class TestRunnerStaleLockRetry:
         monkeypatch.setattr(merge_worktree, "_emit_merge_event", lambda *a, **kw: None)
         monkeypatch.setattr(merge_worktree, "preflight_checks", lambda c: None)
         monkeypatch.setattr(merge_worktree, "check_and_clean_root_dirty_state", lambda c: None)
-        monkeypatch.setattr(merge_worktree, "prune_agent_worktrees", lambda r: None)
+        monkeypatch.setattr(
+            merge_worktree, "prune_agent_worktrees", lambda *args: None
+        )
         monkeypatch.setattr(merge_worktree, "extract_generated_files", lambda c: [])
         monkeypatch.setattr(merge_worktree, "_pre_merge_integration", lambda c: None)
         monkeypatch.setattr(merge_worktree, "_ensure_target_pushed", lambda c: None)

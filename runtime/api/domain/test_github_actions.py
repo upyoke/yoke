@@ -146,6 +146,47 @@ class TestFindRun:
                 )
             assert exc_info.value.code == 1
 
+    @pytest.mark.parametrize(
+        "payload",
+        [None, {}, {"workflow_runs": {}}, {"workflow_runs": [{}]}],
+    )
+    def test_malformed_response_fails_instead_of_reporting_not_found(
+        self, payload, _resolver_ok, monkeypatch, capsys
+    ):
+        with _fake_urls(monkeypatch, [payload]):
+            with pytest.raises(SystemExit) as exc_info:
+                github_actions.cmd_find_run(
+                    "o/r", "ci.yml", "abc123", project="yoke",
+                )
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "Error:" in captured.err
+
+
+class TestJobsCount:
+    def test_count(self, _resolver_ok, monkeypatch, capsys):
+        with _fake_urls(monkeypatch, [{"total_count": 3}]):
+            with pytest.raises(SystemExit) as exc_info:
+                github_actions.cmd_jobs_count("o/r", "123", project="yoke")
+        assert exc_info.value.code == 0
+        assert capsys.readouterr().out == "3\n"
+
+    @pytest.mark.parametrize(
+        "payload",
+        [None, {}, {"total_count": "3"}, {"total_count": True}, {"total_count": -1}],
+    )
+    def test_malformed_count_fails_instead_of_reporting_zero(
+        self, payload, _resolver_ok, monkeypatch, capsys
+    ):
+        with _fake_urls(monkeypatch, [payload]):
+            with pytest.raises(SystemExit) as exc_info:
+                github_actions.cmd_jobs_count("o/r", "123", project="yoke")
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "Error:" in captured.err
+
 
 class TestFailedLog:
     """``failed-log`` dispatches through the ZIP REST path."""

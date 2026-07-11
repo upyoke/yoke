@@ -36,6 +36,9 @@ from yoke_core.domain.actor_permissions import (
     PERM_DB_READ_RAW,
     PERM_EVENTS_READ,
     PERM_EVENTS_WRITE,
+    PERM_GITHUB_ACTIONS_RUN_READ,
+    PERM_GITHUB_ACTIONS_VARIABLE_READ,
+    PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
     PERM_HOOKS_EVALUATE,
     PERM_ITEMS_READ,
     PERM_ITEMS_WRITE,
@@ -105,6 +108,37 @@ _BY_ID: dict[str, AuthzSpec] = {
     "project_structure.command_definitions.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "github.pr.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    # Hosted deploy runners may trigger and observe the project's deployment
+    # workflows without receiving project administration. Every other
+    # github_actions.* function keeps the project-admin prefix default below.
+    "github_actions.workflow.dispatch": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
+    ),
+    "github_actions.workflow.dispatch_once": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
+    ),
+    "github_actions.workflow.find_run": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_RUN_READ,
+    ),
+    "github_actions.run.jobs_count": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_RUN_READ,
+    ),
+    "github_actions.wait_run": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_RUN_READ,
+    ),
+    "github_actions.check_ci": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_RUN_READ,
+    ),
+    "github_actions.variable.get": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_VARIABLE_READ,
+    ),
     "conduct.epic_task.update_status": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "conduct.epic.proceed_triage_handoff": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "onboard.checklist.init": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),

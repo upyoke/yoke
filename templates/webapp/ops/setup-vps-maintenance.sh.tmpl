@@ -4,7 +4,7 @@
 # Manages the full maintenance setup with reconciliation.
 # Installs three cron entries for the deploy user:
 #   1. Daily build cache prune (layers older than 48h) at 4:00 UTC
-#   2. Weekly aggressive cleanup — all build cache + all unused images (Yokes 4:30 UTC)
+#   2. Weekly cleanup — all build cache + dangling images (Yokes 4:30 UTC)
 #   3. Ephemeral environment cleanup every 6 hours
 #
 # All log to files under the deploy user's home directory.
@@ -47,13 +47,18 @@ if ! command -v crontab >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v python3 >/dev/null 2>&1; then
+  log "ERROR: python3 not found in PATH"
+  exit 1
+fi
+
 # ─────────────────────────────────────────
 # Define canonical cron entries
 # ─────────────────────────────────────────
 
 DAILY_ENTRY="0 4 * * * docker builder prune -f --filter \"until=48h\" >> $PRUNE_LOG 2>&1"
-WEEKLY_ENTRY="30 4 * * 0 (docker builder prune -af && docker image prune -af) >> $PRUNE_LOG 2>&1"
 CLEANUP_ENTRY="0 */6 * * * $HOME/ephemeral-cleanup.sh >> $CLEANUP_LOG 2>&1"
+MAINTENANCE_HELPER="$HOME/docker_maintenance_converge.py"
 
 # ─────────────────────────────────────────
 # Reconcile cron entries
@@ -99,11 +104,6 @@ reconcile_entry \
   "$DAILY_ENTRY"
 
 reconcile_entry \
-  "Weekly aggressive cleanup (Yoke 4:30 UTC)" \
-  "docker image prune" \
-  "$WEEKLY_ENTRY"
-
-reconcile_entry \
   "Ephemeral environment cleanup (every 6h)" \
   "ephemeral-cleanup" \
   "$CLEANUP_ENTRY"
@@ -118,6 +118,19 @@ if [ "$CHANGES" -eq 1 ]; then
 else
   log "No changes needed — all entries already canonical"
 fi
+
+# The Python helper is the single authority for the weekly Docker image
+# policy. It removes legacy global `image prune -a` entries, installs the
+# dangling-only canonical entry, verifies the write, and fails visibly.
+if [ ! -f "$MAINTENANCE_HELPER" ]; then
+  log "ERROR: $MAINTENANCE_HELPER not found"
+  log "  Copy the rendered helper before running this setup program"
+  exit 1
+fi
+python3 "$MAINTENANCE_HELPER" || {
+  log "ERROR: safe weekly Docker maintenance did not converge"
+  exit 1
+}
 
 # ─────────────────────────────────────────
 # Verify ephemeral-cleanup.sh exists

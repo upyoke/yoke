@@ -2,20 +2,20 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-10T14:17:20Z_
+_Audit generated_at: 2026-07-11T01:06:48Z_
 
 ## 1. Summary
 
-- Function ids registered: **188**
-- `yoke` CLI subcommands: **183** (183 carry usable `--help`)
-- Operation tracker: **183 wrapped**, 68 permanent, 0 pending
+- Function ids registered: **192**
+- `yoke` CLI subcommands: **192** (192 carry usable `--help`)
+- Operation tracker: **192 wrapped**, 68 permanent, 0 pending
 - Skill-body recipes: 217 total (179 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **183** (operation tracker confirms 183 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **192** (operation tracker confirms 192 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -62,11 +62,20 @@ Wrapped `yoke <subcommand>` adapters: **183** (operation tracker confirms 183 wr
 | events | `yoke events tail` | `events.tail.run` | ok |
 | github | `yoke github pr create` | `github.pr.create` | ok |
 | github_actions | `yoke github-actions check-ci` | `github_actions.check_ci` | ok |
+| github_actions | `yoke github-actions run jobs-count` | `github_actions.run.jobs_count` | ok |
+| github_actions | `yoke github-actions jobs-count` | `github_actions.run.jobs_count` | ok |
 | github_actions | `yoke github-actions runners status` | `github_actions.runners.status` | ok |
 | github_actions | `yoke github-actions secret set` | `github_actions.secret.set` | ok |
 | github_actions | `yoke github-actions variable get` | `github_actions.variable.get` | ok |
 | github_actions | `yoke github-actions variable set` | `github_actions.variable.set` | ok |
 | github_actions | `yoke github-actions wait-run` | `github_actions.wait_run` | ok |
+| github_actions | `yoke github-actions poll` | `github_actions.wait_run` | ok |
+| github_actions | `yoke github-actions workflow dispatch` | `github_actions.workflow.dispatch` | ok |
+| github_actions | `yoke github-actions trigger` | `github_actions.workflow.dispatch` | ok |
+| github_actions | `yoke github-actions workflow dispatch-once` | `github_actions.workflow.dispatch_once` | ok |
+| github_actions | `yoke github-actions trigger-once` | `github_actions.workflow.dispatch_once` | ok |
+| github_actions | `yoke github-actions workflow find-run` | `github_actions.workflow.find_run` | ok |
+| github_actions | `yoke github-actions find-run` | `github_actions.workflow.find_run` | ok |
 | hook | `yoke hook evaluate` | `hook.evaluate.run` | ok |
 | identity | `yoke identity autojoin set` | `identity.autojoin.set` | ok |
 | identity | `yoke identity invite create` | `identity.invite.create` | ok |
@@ -285,7 +294,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 123 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 22 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 23 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |
@@ -298,8 +307,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| 2 | 41 |
-| agent | 9 |
+| 2 | 50 |
 
 ## 7. Contradictions
 

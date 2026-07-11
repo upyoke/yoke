@@ -262,6 +262,14 @@ class TestSetupVpsMaintenanceTemplate:
         lines = [ln for ln in maint_tmpl.splitlines() if re.match(r"^\s*local\s", ln)]
         assert not lines, f"found ``local`` declarations in setup-vps-maintenance template: {lines}"
 
+    def test_global_image_maintenance_is_dangling_only(
+        self, maint_tmpl: str
+    ) -> None:
+        assert 'MAINTENANCE_HELPER="$HOME/docker_maintenance_converge.py"' in maint_tmpl
+        assert 'python3 "$MAINTENANCE_HELPER"' in maint_tmpl
+        assert "WEEKLY_ENTRY=" not in maint_tmpl
+        assert "docker image prune -af" not in maint_tmpl
+
 
 class TestProvisionEc2Template:
     def test_configures_persistent_swapfile(self, provision_tmpl: str) -> None:
@@ -276,6 +284,12 @@ class TestProvisionEc2Template:
         assert "Using existing inactive swapfile" in provision_tmpl
         assert "NR > 1" in provision_tmpl
         assert 'grep -Eq "^${SWAPFILE}' in provision_tmpl
+
+    def test_maintenance_setup_runs_as_deploy_user(
+        self, provision_tmpl: str
+    ) -> None:
+        assert "sh setup-vps-maintenance.sh" in provision_tmpl
+        assert "sudo sh setup-vps-maintenance.sh" not in provision_tmpl
 
 
 # ---------------------------------------------------------------------------
@@ -297,6 +311,7 @@ class TestDeployWorkflowCleanupStep:
         """deploy workflow cleanup step uses ``--volumes``."""
         assert "--volumes" in deploy_wf
 
-    def test_uses_aggressive_image_prune(self, deploy_wf: str) -> None:
-        """deploy workflow uses ``docker image prune -af``."""
-        assert "docker image prune -af" in deploy_wf
+    def test_uses_dangling_only_image_prune(self, deploy_wf: str) -> None:
+        """deploy workflow never globally removes tagged cached images."""
+        assert "docker image prune -f" in deploy_wf
+        assert "docker image prune -af" not in deploy_wf

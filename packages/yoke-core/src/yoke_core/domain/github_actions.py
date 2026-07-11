@@ -28,7 +28,6 @@ from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.github_actions_cli import build_parser as _build_parser
 from yoke_core.domain.github_actions_rest import (
     adaptive_wait_interval,
-    latest_run_id,
     latest_workflow_run,
     resolve_token,
     rest_get,
@@ -55,16 +54,15 @@ def cmd_trigger(
         repo,
         required_permissions=GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
     )
-    pre_run_id = latest_run_id(repo, workflow, branch=ref, token=token)
-
-    payload: Dict[str, Any] = {"ref": ref}
+    payload: Dict[str, Any] = {"ref": ref, "return_run_details": True}
     if inputs:
         payload["inputs"] = dict(inputs)
     try:
-        rest_post(
+        result = rest_post(
             f"/repos/{repo}/actions/workflows/{workflow}/dispatches",
             body=payload,
             token=token,
+            max_attempts=1,
         )
     except RestTransportError as exc:
         print(
@@ -73,31 +71,14 @@ def cmd_trigger(
         )
         sys.exit(1)
 
-    max_attempts = 10
-    sleep_sec = 2
-    for attempt in range(max_attempts):
-        run_id = latest_run_id(
-            repo,
-            workflow,
-            branch=ref,
-            event="workflow_dispatch",
-            token=token,
-        )
-        if run_id and run_id != pre_run_id:
-            print(run_id)
-            sys.exit(0)
-        if attempt < max_attempts - 1:
-            time.sleep(sleep_sec)
-            sleep_sec = min(sleep_sec + 2, 10)
-
-    if pre_run_id:
+    if not isinstance(result, dict) or not result.get("workflow_run_id"):
         print(
-            f"Error: new run did not appear after dispatch (last seen: {pre_run_id})",
+            "Error: workflow dispatch response omitted workflow_run_id",
             file=sys.stderr,
         )
-    else:
-        print("Error: could not find run ID after dispatch", file=sys.stderr)
-    sys.exit(1)
+        sys.exit(1)
+    print(str(result["workflow_run_id"]))
+    sys.exit(0)
 
 
 def cmd_poll(repo: str, run_id: str, *, project: str) -> None:
@@ -132,16 +113,21 @@ def cmd_jobs_count(
     except RestTransportError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
-    count = 0
-    if isinstance(data, dict):
-        raw = data.get("total_count")
-        if isinstance(raw, int):
-            count = raw
-        elif isinstance(raw, str) and raw.isdigit():
-            count = int(raw)
+    if not isinstance(data, dict) or "total_count" not in data:
+        print(
+            "Error: workflow jobs response omitted total_count",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    count = data.get("total_count")
+    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+        print(
+            "Error: workflow jobs total_count must be a non-negative integer",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     print(count)
     sys.exit(0)
-
 
 def cmd_wait_run(
     repo: str,
@@ -207,15 +193,29 @@ def cmd_find_run(
             file=sys.stderr,
         )
         sys.exit(1)
-    if isinstance(data, dict):
-        runs = data.get("workflow_runs")
-        if isinstance(runs, list) and runs:
-            first = runs[0]
-            if isinstance(first, dict):
-                rid = first.get("id")
-                if rid not in (None, ""):
-                    print(str(rid))
-                    sys.exit(0)
+    if not isinstance(data, dict):
+        print(
+            "Error: workflow-runs response must be an object",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    runs = data.get("workflow_runs")
+    if not isinstance(runs, list):
+        print(
+            "Error: workflow-runs response omitted workflow_runs",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if runs:
+        first = runs[0]
+        if not isinstance(first, dict) or first.get("id") in (None, ""):
+            print(
+                "Error: workflow-runs response contained a malformed run",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(str(first["id"]))
+        sys.exit(0)
     print("not_found")
     sys.exit(1)
 

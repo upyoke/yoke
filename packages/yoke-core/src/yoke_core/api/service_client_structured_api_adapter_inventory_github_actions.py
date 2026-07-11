@@ -11,6 +11,44 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 
 GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
+    AdapterEntry(
+        function_id="github_actions.workflow.dispatch",
+        cli_invocation=(
+            "yoke github-actions trigger <owner/repo> <workflow-file> "
+            "--ref main --project <project>"
+        ),
+        notes=(
+            "Exact-id workflow_dispatch through hosted GitHub App authority; "
+            "the GitHub POST is intentionally not retried."
+        ),
+    ),
+    AdapterEntry(
+        function_id="github_actions.workflow.dispatch_once",
+        cli_invocation=(
+            "yoke github-actions trigger-once <owner/repo> <workflow-file> "
+            "--ref main --project <project>"
+        ),
+        notes=(
+            "Explicit one-shot workflow_dispatch for correlation-unaware "
+            "rollout compatibility; response loss is never retried."
+        ),
+    ),
+    _read_entry(
+        function_id="github_actions.workflow.find_run",
+        cli_invocation=(
+            "yoke github-actions find-run <owner/repo> <workflow-file> "
+            "<commit-sha> --project <project>"
+        ),
+        notes="Point-in-time workflow-run reconciliation by commit SHA.",
+    ),
+    _read_entry(
+        function_id="github_actions.run.jobs_count",
+        cli_invocation=(
+            "yoke github-actions jobs-count <owner/repo> <run-id> "
+            "--project <project>"
+        ),
+        notes="Point-in-time workflow-run attempt job count.",
+    ),
     _read_entry(
         function_id="github_actions.check_ci",
         cli_invocation=(

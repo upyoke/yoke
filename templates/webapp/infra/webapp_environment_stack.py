@@ -30,90 +30,9 @@ from webapp_database_stack import (
     WebappDatabaseStack,
 )
 from webapp_vps_stack import WebappVpsArgs, WebappVpsStack
+from webapp_environment_origin_policy import apply_input, origin_role_policy_json
 
 _SSM_MANAGED_INSTANCE_CORE_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-
-
-def _apply_input(value, fn):
-    apply = getattr(value, "apply", None)
-    if callable(apply):
-        return apply(fn)
-    return fn(value)
-
-
-def _origin_role_policy_json(
-    *,
-    log_group_arn: str,
-    repository_arn: str,
-    database_secret_arn: str,
-    artifacts_bucket_name: str,
-    hosted_zone_id: str,
-    include_preview_dns: bool,
-) -> str:
-    statements = [
-        {
-            "Effect": "Allow",
-            "Action": ["ecr:GetAuthorizationToken"],
-            "Resource": "*",
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "ecr:BatchGetImage",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:BatchCheckLayerAvailability",
-            ],
-            "Resource": repository_arn,
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-                "logs:DescribeLogStreams",
-            ],
-            "Resource": [
-                log_group_arn,
-                f"{log_group_arn}:*",
-            ],
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "secretsmanager:DescribeSecret",
-                "secretsmanager:GetSecretValue",
-            ],
-            "Resource": database_secret_arn,
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "s3:PutObject",
-                "s3:GetObject",
-            ],
-            "Resource": f"arn:aws:s3:::{artifacts_bucket_name}/*",
-        },
-    ]
-    if include_preview_dns:
-        statements += [
-            {
-                "Effect": "Allow",
-                "Action": [
-                    "route53:ListHostedZones",
-                    "route53:GetChange",
-                ],
-                "Resource": "*",
-            },
-            {
-                "Effect": "Allow",
-                "Action": [
-                    "route53:ChangeResourceRecordSets",
-                    "route53:ListResourceRecordSets",
-                ],
-                "Resource": f"arn:aws:route53:::hostedzone/{hosted_zone_id}",
-            },
-        ]
-    return json.dumps({"Version": "2012-10-17", "Statement": statements})
 
 
 @dataclass
@@ -146,6 +65,8 @@ class WebappEnvironmentArgs:
     # environment's origin box. Empty (default) skips the wildcard DNS
     # record and the DNS-01 certificate-issuance role grants.
     ephemeral_preview_domain: str = ""
+    github_app_private_key_secret_arn: str = ""
+    github_app_kms_key_arn: str = ""
 
 
 class WebappEnvironmentStack(pulumi.ComponentResource):
@@ -167,6 +88,13 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
         opts: Optional[pulumi.ResourceOptions] = None,
     ) -> None:
         super().__init__("webapp:infra:WebappEnvironmentStack", name, None, opts)
+        if (
+            args.github_app_kms_key_arn
+            and not args.github_app_private_key_secret_arn
+        ):
+            raise ValueError(
+                "github_app_kms_key_arn requires a GitHub App secret ARN"
+            )
 
         # Cost-allocation tags: project + environment on every env-bound
         # resource (the shared registry stack stays project-only).
@@ -307,12 +235,16 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
             "originRolePolicy",
             role=self.origin_role.id,
             policy=self.core_log_group.arn.apply(
-                lambda log_group_arn: _apply_input(
+                lambda log_group_arn: apply_input(
                     self.database.master_secret_arn,
-                    lambda database_secret_arn: _origin_role_policy_json(
+                    lambda database_secret_arn: origin_role_policy_json(
                         log_group_arn=log_group_arn,
                         repository_arn=repository_arn,
                         database_secret_arn=database_secret_arn,
+                        github_app_private_key_secret_arn=(
+                            args.github_app_private_key_secret_arn
+                        ),
+                        github_app_kms_key_arn=args.github_app_kms_key_arn,
                         artifacts_bucket_name=artifacts_bucket_name,
                         hosted_zone_id=args.hosted_zone_id,
                         include_preview_dns=bool(args.ephemeral_preview_domain),

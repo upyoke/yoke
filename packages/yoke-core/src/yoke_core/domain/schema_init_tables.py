@@ -10,11 +10,16 @@ from yoke_core.domain.schema_checks import (
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.schema_init_path_integrity_tables import (
-    create_path_integrity_tables,
+    create_path_integrity_tables,  # noqa: F401 - compatibility re-export
 )
-from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
+from yoke_core.domain.schema_init_path_tables import (
+    create_path_registry_tables,  # noqa: F401 - compatibility re-export
+)
 from yoke_core.domain.schema_init_tables_sessions import create_session_tables
 from yoke_core.domain.function_call_ledger import FUNCTION_CALL_LEDGER_CREATE_SQL
+from yoke_core.domain.github_workflow_dispatch_intents import (
+    GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL,
+)
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
 from yoke_core.domain.projects_restart_schema import _projects_table_sql
 from yoke_core.domain.strategy_docs import STRATEGY_DOCS_CREATE_TABLE_SQL
@@ -128,6 +133,8 @@ def create_core_tables(conn: Any) -> None:
         {STRATEGY_DOCS_CREATE_TABLE_SQL};
         -- dispatcher idempotency dedup store (function_call_ledger.py DDL).
         {FUNCTION_CALL_LEDGER_CREATE_SQL};
+        -- pre-POST GitHub workflow dispatch intent and exact run identity.
+        {GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL};
         CREATE TABLE IF NOT EXISTS release_entries (
           id INTEGER PRIMARY KEY,
           item_id INTEGER NOT NULL,

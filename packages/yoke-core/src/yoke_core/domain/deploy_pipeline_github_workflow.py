@@ -9,9 +9,26 @@ from __future__ import annotations
 
 import sys
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.deploy_pipeline_gates import _check_ci_gate
+from yoke_core.domain.deploy_pipeline_github_workflow_reconciliation import (
+    _WorkflowReconciliationError,
+    _dispatch_correlation_input,
+    _find_existing_workflow_run as _reconcile_existing_workflow_run,
+    _found_run_id,
+    _trigger_args,
+)
+from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
+    trigger_with_recovery_retries,
+)
+from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
+    config_bool as _config_bool,
+    resolve_workflow_inputs as _resolve_workflow_inputs,
+    workflow_dispatch_request_id as _workflow_dispatch_request_id,
+    workflow_inputs as _workflow_inputs,
+)
 from yoke_core.domain.deploy_pipeline_reporting import (
     _emit_run_event,
     _github_actions,
@@ -51,6 +68,22 @@ def _dispatch_github_actions_workflow(
             file=sys.stderr,
         )
         return 1, ""
+    declared_correlation_input = str(
+        config.get("dispatch_correlation_input") or ""
+    ).strip()
+    correlation_input = _dispatch_correlation_input(config)
+    if declared_correlation_input and not correlation_input:
+        diagnostic = (
+            "github-actions-workflow stage declares unsupported dispatch "
+            "correlation input"
+        )
+        print(f"Error: {diagnostic}", file=sys.stderr)
+        return 1, diagnostic
+    if not correlation_input:
+        print(
+            "  Legacy workflow stage has no dispatch correlation input; "
+            "using one-shot dispatch without durable response-loss recovery"
+        )
     raw_workflow_inputs = _workflow_inputs(config)
     # The ref names which branch of the DEPLOY repo (github_repo) to run the
     # workflow file from — not a product branch. When the deploy repo and the
@@ -91,11 +124,16 @@ def _dispatch_github_actions_workflow(
 
     ga_run_id = ""
     already_complete = False
+    retrigger_scope = ""
     reconcile_by_head_sha = _config_bool(
         config.get("reconcile_by_head_sha", True)
     )
     if fresh:
         print("  --fresh: skipping existing-run search, will trigger new run")
+        # One explicit --fresh invocation is one intentional retrigger. Keep
+        # the scope stable for every transport retry inside this invocation,
+        # while a later --fresh invocation gets a genuinely new dispatch.
+        retrigger_scope = f"fresh:{uuid.uuid4().hex}"
     elif not reconcile_by_head_sha:
         print("  reconcile_by_head_sha=false: skipping existing-run search")
     elif workflow_inputs:
@@ -104,16 +142,37 @@ def _dispatch_github_actions_workflow(
             "will trigger workflow_dispatch"
         )
     elif head_sha:
-        ga_run_id, already_complete = _find_existing_workflow_run(
-            github_repo, workflow, head_sha, project=project, sd=sd
-        )
+        try:
+            ga_run_id, already_complete, retrigger_scope = (
+                _find_existing_workflow_run(
+                    github_repo, workflow, head_sha, project=project, sd=sd
+                )
+            )
+        except _WorkflowReconciliationError as exc:
+            diagnostic = str(exc)
+            print(f"Error: {diagnostic}", file=sys.stderr)
+            return 1, diagnostic
 
     if not ga_run_id and not already_complete:
         print("  No existing run found, triggering workflow_dispatch...")
-        r = _github_actions(
-            *_trigger_args(github_repo, workflow, workflow_ref, workflow_inputs),
-            project=project, sd=sd,
+        trigger_args = _trigger_args(
+            github_repo, workflow, workflow_ref, workflow_inputs,
+            request_id=(
+                _workflow_dispatch_request_id(
+                    project, run_id, name, retrigger_scope=retrigger_scope,
+                )
+                if correlation_input
+                else ""
+            ),
+            correlation_input=correlation_input,
         )
+        if correlation_input:
+            r = trigger_with_recovery_retries(
+                trigger_args, github_actions=_github_actions, project=project,
+                sd=sd, timeout_sec=timeout_sec,
+            )
+        else:
+            r = _github_actions(*trigger_args, project=project, sd=sd)
         ga_run_id = r.stdout.strip()
         if not ga_run_id or r.returncode != 0:
             if not reconcile_by_head_sha or not head_sha or workflow_inputs:
@@ -124,16 +183,37 @@ def _dispatch_github_actions_workflow(
                     or f"could not trigger workflow run for '{workflow}'",
                 )
             print("  Trigger failed, retrying find-run with backoff...")
+            reconciliation_errors: list[str] = []
             for attempt in range(1, 7):
                 r = _github_actions(
                     "find-run", github_repo, workflow, head_sha,
                     project=project, sd=sd,
                 )
-                ga_run_id = r.stdout.strip()
-                if ga_run_id and ga_run_id != "not_found":
+                try:
+                    ga_run_id = _found_run_id(
+                        r,
+                        workflow=workflow,
+                        head_sha=head_sha,
+                    )
+                except _WorkflowReconciliationError as exc:
+                    reconciliation_errors.append(str(exc))
+                    print(
+                        "  Workflow run lookup failed while reconciling the "
+                        f"dispatch (attempt {attempt}/6): {exc}",
+                        file=sys.stderr,
+                    )
+                    ga_run_id = ""
+                if ga_run_id:
                     break
                 print(f"  Waiting for workflow run to appear... (attempt {attempt}/6)")
                 time.sleep(5)
+            if not ga_run_id and reconciliation_errors:
+                diagnostic = (r.stderr or r.stdout or "").strip()
+                return 1, (
+                    diagnostic
+                    or reconciliation_errors[-1]
+                    or f"could not reconcile workflow run for '{workflow}'"
+                )
 
     if already_complete:
         # Reconcile-from-truth: a prior workflow run for the same head_sha
@@ -166,42 +246,6 @@ def _dispatch_github_actions_workflow(
 
     print(f"Error: could not trigger or find workflow run for '{workflow}'", file=sys.stderr)
     return 1, f"could not trigger or find workflow run for '{workflow}'"
-
-
-def _workflow_inputs(config: Dict[str, Any]) -> Dict[str, str]:
-    raw = config.get("inputs", {})
-    if not raw:
-        return {}
-    if isinstance(raw, dict):
-        return {
-            str(key): str(value)
-            for key, value in raw.items()
-            if value is not None
-        }
-    if isinstance(raw, list):
-        result: Dict[str, str] = {}
-        for item in raw:
-            key, sep, value = str(item).partition("=")
-            if sep and key:
-                result[key] = value
-        return result
-    return {}
-
-
-def _resolve_workflow_inputs(
-    workflow_inputs: Dict[str, str],
-    *,
-    head_sha: str,
-) -> Dict[str, str]:
-    replacements = {
-        "{head_sha}": head_sha,
-        "$head_sha": head_sha,
-        "${head_sha}": head_sha,
-    }
-    return {
-        key: replacements.get(value, value)
-        for key, value in workflow_inputs.items()
-    }
 
 
 def _resolve_publish_sha(
@@ -247,24 +291,6 @@ def _resolve_publish_sha(
     return sha, ""
 
 
-def _config_bool(value: Any) -> bool:
-    if isinstance(value, str):
-        return value.strip().lower() not in {"", "0", "false", "no", "off"}
-    return bool(value)
-
-
-def _trigger_args(
-    github_repo: str,
-    workflow: str,
-    workflow_ref: str,
-    workflow_inputs: Dict[str, str],
-) -> list[str]:
-    args = ["trigger", github_repo, workflow, "--ref", workflow_ref]
-    for key in sorted(workflow_inputs):
-        args.extend(["--input", f"{key}={workflow_inputs[key]}"])
-    return args
-
-
 def _find_existing_workflow_run(
     github_repo: str,
     workflow: str,
@@ -272,33 +298,12 @@ def _find_existing_workflow_run(
     *,
     project: str,
     sd: Optional[str],
-) -> tuple[str, bool]:
-    r = _github_actions(
-        "find-run", github_repo, workflow, head_sha, project=project, sd=sd,
+) -> tuple[str, bool, str]:
+    return _reconcile_existing_workflow_run(
+        github_repo,
+        workflow,
+        head_sha,
+        project=project,
+        sd=sd,
+        github_actions=_github_actions,
     )
-    ga_run_id = r.stdout.strip()
-    if not ga_run_id or ga_run_id == "not_found":
-        return "", False
-
-    print(f"  Found existing run {ga_run_id} for {workflow} @ {head_sha[:8]}")
-    r2 = _github_actions(
-        "jobs-count", github_repo, ga_run_id, project=project, sd=sd,
-    )
-    job_count = r2.stdout.strip() or "0"
-    if job_count == "0":
-        print(f"  Existing run {ga_run_id} has zero jobs — triggering fresh run")
-        return "", False
-
-    r3 = _github_actions(
-        "poll", github_repo, ga_run_id, project=project, sd=sd,
-    )
-    status = r3.stdout.strip()
-    if r3.returncode == 0 and status == "success":
-        print("  Run already completed successfully — skipping deploy trigger")
-        return ga_run_id, True
-    if status.startswith("failed:"):
-        print(f"  Existing run {ga_run_id} failed — treating as stale, auto-triggering fresh run")
-        return "", False
-
-    print(f"  Existing run status: {status} — attaching to it")
-    return ga_run_id, False

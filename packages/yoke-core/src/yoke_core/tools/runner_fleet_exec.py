@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -44,6 +45,7 @@ from yoke_core.tools.runner_fleet_redacted_process import (
 RUNNER_FLEET_GITHUB_TOKEN_ENV = "RUNNER_FLEET_GITHUB_TOKEN"
 GITHUB_TOKEN_ENV = "GITHUB_TOKEN"
 RUNNER_FLEET_AUTHORITY_INTENT_ENV = "YOKE_RUNNER_FLEET_AUTHORITY_INTENT"
+RUNNER_FLEET_TOKEN_SOURCE_ENV = "YOKE_RUNNER_FLEET_TOKEN_SOURCE"
 _UNINTENDED_GITHUB_AUTH_ENV = frozenset({
     "GH_ENTERPRISE_TOKEN",
     "GH_TOKEN",
@@ -71,6 +73,7 @@ def execute_runner_fleet_command(
     ),
     secret_loader: Callable[..., str] = load_secret_string,
     token_minter: Callable[..., Any] = mint_installation_token,
+    hosted_token_loader: Callable[[str, str], str] | None = None,
     child_factory: Callable[..., Any] = subprocess.Popen,
     out: TextIO | None = None,
     err: TextIO | None = None,
@@ -78,9 +81,9 @@ def execute_runner_fleet_command(
     """Run *command* with one repository-scoped installation token.
 
     The versioned renderer snapshot is the sole configuration input. The
-    GitHub App private key and installation token remain in memory: neither is
-    added to argv nor written to disk. Child output is streamed concurrently
-    through redaction before it reaches the caller's streams.
+    GitHub Actions must acquire its token from the hosted control plane, where
+    App key material stays server-side. Local operator runs may use the direct
+    AWS secret path. Tokens remain in memory and child output is redacted.
     """
     selected_project = str(project or "").strip()
     selected_command = tuple(str(part) for part in command)
@@ -118,17 +121,37 @@ def execute_runner_fleet_command(
             "materialized"
         ) from exc
 
-    private_key_pem = _load_private_key(
-        values["runner_fleet_github_private_key_secret_arn"],
-        region=region,
-        aws_env=aws_env,
-        secret_loader=secret_loader,
-    )
-    token = _mint_repository_automation_token(
-        values,
-        private_key_pem=private_key_pem,
-        token_minter=token_minter,
-    )
+    private_key_pem = ""
+    if _hosted_token_required():
+        if hosted_token_loader is None:
+            raise RunnerFleetExecError(
+                "hosted runner-fleet token authority is required; configure "
+                "an HTTPS infrastructure-ci connection"
+            )
+        try:
+            token = str(
+                hosted_token_loader(selected_project, authority_intent) or ""
+            ).strip()
+        except Exception as exc:
+            raise RunnerFleetExecError(
+                "hosted runner-fleet token authority is unavailable"
+            ) from exc
+        if not token:
+            raise RunnerFleetExecError(
+                "hosted runner-fleet token authority returned an empty token"
+            )
+    else:
+        private_key_pem = _load_private_key(
+            values["runner_fleet_github_private_key_secret_arn"],
+            region=region,
+            aws_env=aws_env,
+            secret_loader=secret_loader,
+        )
+        token = _mint_repository_automation_token(
+            values,
+            private_key_pem=private_key_pem,
+            token_minter=token_minter,
+        )
 
     child_env = dict(aws_env)
     # Remove alternative GitHub CLI/App credentials, then overwrite the two
@@ -284,6 +307,21 @@ def _repository_automation_permissions(
     }
 
 
+def _hosted_token_required() -> bool:
+    selected = os.environ.get(RUNNER_FLEET_TOKEN_SOURCE_ENV, "").strip().lower()
+    if selected and selected not in {"hosted", "local"}:
+        raise RunnerFleetExecError(
+            f"{RUNNER_FLEET_TOKEN_SOURCE_ENV} must be 'hosted' or 'local'"
+        )
+    if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
+        if selected == "local":
+            raise RunnerFleetExecError(
+                "GitHub Actions cannot select local App private-key authority"
+            )
+        return True
+    return selected == "hosted"
+
+
 def _redaction_terms(private_key_pem: str, token: str) -> tuple[str, ...]:
     terms = {token}
     terms.update(
@@ -298,6 +336,7 @@ __all__ = [
     "GITHUB_TOKEN_ENV",
     "RUNNER_FLEET_AUTHORITY_INTENT_ENV",
     "RUNNER_FLEET_GITHUB_TOKEN_ENV",
+    "RUNNER_FLEET_TOKEN_SOURCE_ENV",
     "RunnerFleetExecError",
     "execute_runner_fleet_command",
 ]

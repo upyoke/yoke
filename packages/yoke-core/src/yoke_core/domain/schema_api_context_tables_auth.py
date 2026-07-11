@@ -19,10 +19,14 @@ AUTH_TABLES: dict[str, dict] = {
             ("created_at", "TEXT"),
         ],
         "notes": (
-            "Role catalog. Project roles: owner, operator, viewer (granted via "
-            "actor_project_roles). Org roles: admin, viewer (granted via "
-            "actor_org_roles). The all-access role is admin (renamed from the "
-            "retired 'system'); it lives at org scope, never on a project."
+            "Role catalog. Project roles: owner, operator, viewer, deployment_ci, "
+            "and infrastructure_ci (granted via actor_project_roles). The deploy "
+            "role can dispatch workflows and read their run/routing state only; "
+            "the infrastructure role carries project.render.read plus narrow "
+            "runner-token issuance. Neither carries project.install. Org roles: admin, "
+            "viewer (granted via actor_org_roles). The all-access role is admin "
+            "(renamed from the retired 'system'); it lives at org scope, never "
+            "on a project."
         ),
     },
     "permissions": {
@@ -34,7 +38,10 @@ AUTH_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Permission catalog keyed by dotted key (items.read, claims.acquire, "
-            "...). Org-scoped permissions org.admin (renamed from the retired "
+            "...). project.render.read and runner_fleet.token.issue belong to "
+            "infrastructure_ci; the three github_actions.* relay permissions "
+            "belong to deployment_ci. Org-scoped permissions org.admin "
+            "(renamed from the retired "
             "'system.admin') and project.create are never carried by a project "
             "role — only the org admin role holds them."
         ),

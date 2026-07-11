@@ -8,11 +8,16 @@ gate, CI gate) lives in :mod:`yoke_core.domain.deploy_pipeline_gates`.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+
+GITHUB_ACTIONS_RELAY_ENV = "YOKE_GITHUB_ACTIONS_RELAY_ENV"
+GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV = "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY"
 
 
 # ---------------------------------------------------------------------------
@@ -29,14 +34,100 @@ def _github_actions(
     sd: Optional[str] = None,
     timeout: int = 60,
 ) -> subprocess.CompletedProcess:
-    # Call the retained Python command boundary directly. The `sd` arg is
-    # ignored and kept only for compatibility with sibling subprocess helpers.
+    # HTTPS deploy clients relay through the typed Yoke function boundary so
+    # GitHub App private-key authority remains inside the control plane. Local
+    # source-dev/operator bootstraps use the same typed adapter with a narrow
+    # local-only dispatcher, preserving intent/idempotency semantics while the
+    # hosted relay is being introduced or repaired.
     del sd
+    explicit_relay_env = os.environ.get(GITHUB_ACTIONS_RELAY_ENV, "").strip()
+    local_authority = os.environ.get(
+        GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV, ""
+    ).strip()
+    if explicit_relay_env and local_authority:
+        return subprocess.CompletedProcess(
+            args=list(args),
+            returncode=4,
+            stdout="",
+            stderr=(
+                "Error: GitHub Actions authority is ambiguous; set either "
+                f"{GITHUB_ACTIONS_RELAY_ENV} or "
+                f"{GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV}=1, not both\n"
+            ),
+        )
+    if local_authority not in ("", "1"):
+        return subprocess.CompletedProcess(
+            args=list(args),
+            returncode=4,
+            stdout="",
+            stderr=(
+                f"Error: {GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV} must be 1 when "
+                "selecting the attended local App authority\n"
+            ),
+        )
+    https = None
+    if explicit_relay_env:
+        try:
+            from yoke_cli.transport.https import (
+                TransportError,
+                resolve_https_connection,
+            )
+
+            https = resolve_https_connection(explicit_env=explicit_relay_env)
+        except TransportError as exc:
+            return subprocess.CompletedProcess(
+                args=list(args),
+                returncode=4,
+                stdout="",
+                stderr=(
+                    "Error: https GitHub Actions relay is misconfigured: "
+                    f"{exc}\n"
+                ),
+            )
+    if explicit_relay_env and https is None:
+        return subprocess.CompletedProcess(
+            args=list(args),
+            returncode=4,
+            stdout="",
+            stderr=(
+                f"Error: {GITHUB_ACTIONS_RELAY_ENV} selects "
+                f"{explicit_relay_env!r}, but that connection is not HTTPS; "
+                "refusing local GitHub credential fallback\n"
+            ),
+        )
+    if https is not None:
+        return _run_cmd(
+            [
+                sys.executable,
+                "-m",
+                "yoke_cli.main",
+                "--env",
+                explicit_relay_env,
+                "github-actions",
+                *args,
+                "--project",
+                project,
+            ],
+            timeout=timeout,
+        )
+    if not local_authority:
+        return subprocess.CompletedProcess(
+            args=list(args),
+            returncode=4,
+            stdout="",
+            stderr=(
+                "Error: no GitHub Actions authority selected; set "
+                f"{GITHUB_ACTIONS_RELAY_ENV}=<https-env> for normal deploys "
+                f"or {GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV}=1 for an attended "
+                "control-plane bootstrap\n"
+            ),
+        )
     return _run_cmd(
         [
             sys.executable,
             "-m",
-            "yoke_core.domain.github_actions",
+            "yoke_cli.main",
+            "github-actions",
             *args,
             "--project",
             project,

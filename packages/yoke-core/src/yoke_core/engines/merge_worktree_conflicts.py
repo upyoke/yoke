@@ -204,23 +204,32 @@ def auto_resolve_conflicts(ctx: MergeContext) -> Tuple[int, list[ConflictInfo]]:
 
 
 def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
-    """Run a trial merge on a temp branch. Returns (3, infos) if non-auto conflicts, None if clean."""
+    """Run a trial merge on detached HEAD without creating or deleting refs."""
     mw = _parent()
     _print = mw._print
     _run_git = mw._run_git
 
     _print("")
     _print("Running trial merge...")
-    trial_branch = f"trial/{ctx.args.branch}".replace("//", "/")
     cwd = ctx.worktree_path
 
-    # Create trial branch
-    _run_git(["branch", "-D", trial_branch], cwd=cwd, capture=True)
-    _run_git(["checkout", "-b", trial_branch], cwd=cwd, capture=True)
+    detached = _run_git(
+        ["checkout", "--detach", ctx.args.branch], cwd=cwd, capture=True
+    )
+    if detached.returncode != 0:
+        _print("Error: could not enter detached trial-merge state.", err=True)
+        return (1, [])
 
     # Attempt merge
     merge_result = _run_git(
-        ["merge", f"origin/{ctx.args.target}", "--no-edit"], cwd=cwd, capture=True
+        [
+            "merge",
+            "--no-commit",
+            "--no-ff",
+            f"origin/{ctx.args.target}",
+        ],
+        cwd=cwd,
+        capture=True,
     )
 
     if merge_result.returncode != 0:
@@ -233,10 +242,16 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
             non_auto = [i for i in infos if not i.auto_resolvable]
 
             if non_auto:
-                # Abort trial, restore branch
-                _run_git(["merge", "--abort"], cwd=cwd, capture=True)
-                _run_git(["checkout", ctx.args.branch], cwd=cwd, capture=True)
-                _run_git(["branch", "-D", trial_branch], cwd=cwd, capture=True)
+                aborted = _run_git(["merge", "--abort"], cwd=cwd, capture=True)
+                restored = _run_git(
+                    ["checkout", ctx.args.branch], cwd=cwd, capture=True
+                )
+                if aborted.returncode != 0 or restored.returncode != 0:
+                    _print(
+                        "Error: trial merge could not restore the real branch.",
+                        err=True,
+                    )
+                    return (1, infos)
 
                 # Emit structured output
                 _print("", err=True)
@@ -256,12 +271,61 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
 
                 return (3, infos)
 
-        # All auto-resolvable or no conflicts -- abort trial
-        _run_git(["merge", "--abort"], cwd=cwd, capture=True)
+        # Abort the detached trial before restoring the real branch.
+        aborted = _run_git(["merge", "--abort"], cwd=cwd, capture=True)
+        restored = _run_git(["checkout", ctx.args.branch], cwd=cwd, capture=True)
+        if restored.returncode != 0:
+            _print(
+                "Error: trial merge failed and the real branch was not "
+                "restored.",
+                err=True,
+            )
+            return (1, infos if conflict_files else [])
+        if not conflict_files:
+            detail = (merge_result.stderr or "").strip()
+            _print(
+                "Error: trial merge failed without merge conflicts"
+                + (f": {detail}" if detail else ".")
+                + (" Merge abort also failed." if aborted.returncode else ""),
+                err=True,
+            )
+            return (1, [])
+        if aborted.returncode != 0:
+            _print("Error: trial merge abort failed.", err=True)
+            return (1, infos)
+        _print("Trial merge clean — proceeding with real merge.")
+        return None
 
-    # Cleanup trial
-    _run_git(["checkout", ctx.args.branch], cwd=cwd, capture=True)
-    _run_git(["branch", "-D", trial_branch], cwd=cwd, capture=True)
+    merge_head = _run_git(
+        ["rev-parse", "-q", "--verify", "MERGE_HEAD"],
+        cwd=cwd,
+        capture=True,
+    )
+    if merge_head.returncode == 0:
+        aborted = _run_git(["merge", "--abort"], cwd=cwd, capture=True)
+        if aborted.returncode != 0:
+            restored = _run_git(
+                ["checkout", ctx.args.branch], cwd=cwd, capture=True
+            )
+            _print(
+                "Error: successful trial merge could not be aborted"
+                + (" or restore the real branch." if restored.returncode else "."),
+                err=True,
+            )
+            return (1, [])
+    elif merge_head.returncode != 1:
+        restored = _run_git(["checkout", ctx.args.branch], cwd=cwd, capture=True)
+        _print(
+            "Error: trial merge state could not be verified"
+            + (" and the real branch was not restored." if restored.returncode else "."),
+            err=True,
+        )
+        return (1, [])
+
+    restored = _run_git(["checkout", ctx.args.branch], cwd=cwd, capture=True)
+    if restored.returncode != 0:
+        _print("Error: trial merge could not restore the real branch.", err=True)
+        return (1, [])
 
     _print("Trial merge clean \u2014 proceeding with real merge.")
     return None

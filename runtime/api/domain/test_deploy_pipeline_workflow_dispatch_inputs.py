@@ -41,6 +41,7 @@ class TestInputBearingWorkflowDispatch:
             rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
                 {
                     "workflow": "yoke-distribution-publish.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
                     "inputs": {
                         "channel": "stable",
                         "target_env": "prod",
@@ -76,6 +77,10 @@ class TestInputBearingWorkflowDispatch:
                 "source_sha=abc1234",
                 "--input",
                 "target_env=prod",
+                "--request-id",
+                "deploy:yoke:run-test:distribution-publish",
+                "--correlation-input",
+                "yoke_dispatch_id",
             )
         ]
 
@@ -108,6 +113,7 @@ class TestInputBearingWorkflowDispatch:
             rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
                 {
                     "workflow": "yoke-distribution-publish.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
                     "inputs": {
                         "channel": "stable",
                         "target_env": "prod",
@@ -144,6 +150,10 @@ class TestInputBearingWorkflowDispatch:
                 "source_sha=abc1234",
                 "--input",
                 "target_env=prod",
+                "--request-id",
+                "deploy:yoke:run-test:distribution-publish",
+                "--correlation-input",
+                "yoke_dispatch_id",
             )
         ]
 
@@ -181,6 +191,7 @@ class TestInputBearingWorkflowDispatch:
             rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
                 {
                     "workflow": "yoke-distribution-publish.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
                     "inputs": {"channel": "stable"},
                     "ref": "main",
                 },
@@ -229,6 +240,7 @@ class TestInputBearingWorkflowDispatch:
             rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
                 {
                     "workflow": "yoke-distribution-publish.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
                     "inputs": {
                         "channel": "latest",
                         "target_env": "stage",
@@ -263,5 +275,9 @@ class TestInputBearingWorkflowDispatch:
                 "source_sha=abc1234",
                 "--input",
                 "target_env=stage",
+                "--request-id",
+                "deploy:yoke:run-test:distribution-publish",
+                "--correlation-input",
+                "yoke_dispatch_id",
             )
         ]

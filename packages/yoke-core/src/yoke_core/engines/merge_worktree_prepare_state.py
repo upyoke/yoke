@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_core.domain.classify_dirty_files import (
@@ -53,59 +51,13 @@ def check_and_clean_root_dirty_state(ctx: MergeContext) -> Optional[Tuple[int, s
     return None
 
 
-def prune_agent_worktrees(repo_root: str) -> None:
-    """Prune stale agent worktrees and orphaned branches."""
-    mw = _parent()
-    _print = mw._print
-    _run_git = mw._run_git
+def prune_agent_worktrees(repo_root: str, target: str = "main") -> None:
+    """Prune only DB-owned terminal work proven merged into ``target``."""
+    from yoke_core.engines.merge_worktree_safe_prune import (
+        prune_managed_worktrees,
+    )
 
-    _run_git(["worktree", "prune"], cwd=repo_root, capture=True)
-
-    agent_wt_dir = Path(repo_root) / ".claude" / "worktrees"
-    if not agent_wt_dir.is_dir():
-        return
-
-    # Get valid worktree paths
-    result = _run_git(["worktree", "list", "--porcelain"], cwd=repo_root, capture=True)
-    valid_paths = set()
-    if result.returncode == 0:
-        for line in result.stdout.splitlines():
-            if line.startswith("worktree "):
-                try:
-                    valid_paths.add(str(Path(line[len("worktree "):]).resolve()))
-                except (ValueError, OSError):
-                    pass
-
-    # Remove orphaned agent-* directories
-    for entry in agent_wt_dir.iterdir():
-        if not entry.name.startswith("agent-"):
-            continue
-        try:
-            real_path = str(entry.resolve())
-        except OSError:
-            real_path = str(entry)
-        if real_path not in valid_paths:
-            _print(f"Pruning stale agent worktree: {entry}")
-            shutil.rmtree(str(entry), ignore_errors=True)
-
-    # Delete orphaned worktree-agent-* branches
-    result = _run_git(["branch", "--list", "worktree-agent-*"], cwd=repo_root, capture=True)
-    if result.returncode != 0 or not result.stdout.strip():
-        return
-
-    # Get checked-out branches
-    wt_result = _run_git(["worktree", "list", "--porcelain"], cwd=repo_root, capture=True)
-    checked_out = set()
-    if wt_result.returncode == 0:
-        for line in wt_result.stdout.splitlines():
-            if line.startswith("branch refs/heads/"):
-                checked_out.add(line[len("branch refs/heads/"):])
-
-    for line in result.stdout.splitlines():
-        branch = line.strip().lstrip("* ")
-        if branch and branch not in checked_out:
-            _print(f"Deleting orphaned agent branch: {branch}")
-            _run_git(["branch", "-D", branch], cwd=repo_root, capture=True)
+    prune_managed_worktrees(parent=_parent(), repo_root=repo_root, target=target)
 
 
 def extract_generated_files(ctx: MergeContext) -> list[str]:

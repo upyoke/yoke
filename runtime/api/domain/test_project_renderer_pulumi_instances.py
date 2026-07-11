@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from yoke_core.domain import project_renderer_pulumi
 from yoke_core.domain import project_renderer_pulumi_instances
 from yoke_core.domain.project_renderer_pulumi_instances import (
     PulumiStackInstance,
     gather_pulumi_stack_instances,
     instance_template_values,
-    pulumi_stack_instances_from_settings,
 )
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
@@ -65,6 +62,9 @@ def _make_project_tree(tmp_path, project: str):
         '  webapp-infra:database_seconds_until_auto_pause: "{{database_seconds_until_auto_pause}}"\n'
         '  webapp-infra:database_backup_retention_days: "{{database_backup_retention_days}}"\n'
         "  webapp-infra:ephemeral_preview_domain: {{ephemeral_preview_domain}}\n"
+        "  webapp-infra:github_app_private_key_secret_arn: "
+        "{{github_app_private_key_secret_arn}}\n"
+        "  webapp-infra:github_app_kms_key_arn: {{github_app_kms_key_arn}}\n"
         '  webapp-infra:render_only: "{{render_only}}"\n'
     )
     (infra / "__main__.py").write_text("# pulumi entrypoint\n")
@@ -196,6 +196,8 @@ class TestGatherPulumiStackInstances:
                     "distribution_bucket_name": "",
                     "distribution_origin_id": "",
                     "ephemeral_preview_domain": "",
+                    "github_app_private_key_secret_arn": "",
+                    "github_app_kms_key_arn": "",
                 },
                 render_only=True,
             )
@@ -309,70 +311,3 @@ class TestRenderPulumiStackInstances:
         assert "webapp-infra:api_host" not in domain_yaml
         assert "webapp-infra:database_engine_version" not in domain_yaml
         assert "{{" not in prod_yaml + stage_yaml + domain_yaml
-
-    def test_preserves_operator_state_and_warns_on_config_divergence(
-        self, tmp_path, monkeypatch, capsys,
-    ):
-        root, proj = _make_project_tree(tmp_path, "yoke")
-        settings = _settings_with_environments(
-            "yoke",
-            ["infra"],
-            [_environment_settings("yoke-prod", "prod")],
-        )
-        _stub_settings(monkeypatch, settings)
-        values = {
-            "aws_region": "us-east-1",
-            "domain_name": "example.com",
-            "project_name": "yoke",
-        }
-        project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", values, root, proj, write=True,
-        )
-        stack_path = proj / "infra" / "Pulumi.yoke-prod.yaml"
-        operator_state = (
-            "secretsprovider: awskms://alias/yoke-pulumi-state?region=us-east-1\n"
-            "encryptedkey: AAABAJxOPAQUE_OPERATOR_KEY==\n"
-        )
-        stack_path.write_text(
-            operator_state + stack_path.read_text().replace('"0"', '"1"')
-        )
-        capsys.readouterr()
-
-        project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", values, root, proj, write=True,
-        )
-        text = stack_path.read_text()
-        err = capsys.readouterr().err
-
-        assert text.count("secretsprovider:") == 1
-        assert text.count("encryptedkey:") == 1
-        assert '"1"' not in text
-        assert '"0"' in text
-        assert "WARNING" in err
-        assert "webapp-infra:database_min_capacity_acu" in err
-        assert "DB-backed site/environment/capability settings" in err
-
-
-def test_default_distribution_origin_id_uses_deploy_namespace_not_project():
-    """A re-parented deploy (project != deploy_namespace) keeps the default
-    distribution origin id on the stable deploy_namespace, so moving the
-    control-plane project never renames the live CloudFront origin."""
-    env = _environment_settings("yoke-stage", "stage")
-    # A distribution bucket with no explicit origin id triggers the default.
-    env.settings["distribution"] = {"bucket_name": "yoke-stage-artifacts"}
-    settings = ProjectRendererSettings(
-        project="platform",
-        deploy_namespace="yoke",
-        display_name="Platform",
-        site_id="yoke-api",
-        site_settings={},
-        primary_environment=env,
-        environments=(env,),
-        capabilities={},
-    )
-
-    instances = pulumi_stack_instances_from_settings(settings)
-
-    assert instances[0].config["distribution_origin_id"] == (
-        "yoke-stage-distribution-static"
-    )

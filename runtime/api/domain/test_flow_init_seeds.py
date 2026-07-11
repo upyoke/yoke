@@ -162,5 +162,58 @@ class TestSeedFlowsRequireProjects:
                 for flow in _SEED_FLOWS:
                     expected = 41 if flow["project"] == "yoke" else 42
                     assert by_id[str(flow["id"])] == expected
+                buzz_stages = json.loads(conn.execute(
+                    "SELECT stages FROM deployment_flows "
+                    "WHERE id = 'buzz-prod-release'"
+                ).fetchone()[0])
+                assert all(
+                    "dispatch_correlation_input" not in stage
+                    for stage in buzz_stages
+                )
+            finally:
+                conn.close()
+
+    def test_existing_buzz_seed_is_backfilled_to_trigger_once(self, tmp_path):
+        from yoke_core.domain import db_backend
+        from runtime.api.fixtures.file_test_db import init_test_db
+
+        def _apply() -> None:
+            conn = db_backend.connect()
+            try:
+                self._init_min_schema(conn)
+                conn.execute("INSERT INTO projects (id, slug) VALUES (42, 'buzz')")
+                conn.commit()
+            finally:
+                conn.close()
+
+        with init_test_db(tmp_path, apply_schema=_apply):
+            conn = db_backend.connect()
+            try:
+                flow_cmd_init(conn)
+                row = conn.execute(
+                    "SELECT stages FROM deployment_flows "
+                    "WHERE id = 'buzz-prod-release'"
+                ).fetchone()
+                stages = json.loads(row[0])
+                for stage in stages:
+                    if stage.get("executor") == "github-actions-workflow":
+                        stage["dispatch_correlation_input"] = "yoke_dispatch_id"
+                conn.execute(
+                    "UPDATE deployment_flows SET stages = %s "
+                    "WHERE id = 'buzz-prod-release'",
+                    (json.dumps(stages),),
+                )
+                conn.commit()
+
+                flow_cmd_init(conn)
+                converged = json.loads(conn.execute(
+                    "SELECT stages FROM deployment_flows "
+                    "WHERE id = 'buzz-prod-release'"
+                ).fetchone()[0])
+                assert all(
+                    "dispatch_correlation_input" not in stage
+                    for stage in converged
+                    if stage.get("executor") == "github-actions-workflow"
+                )
             finally:
                 conn.close()

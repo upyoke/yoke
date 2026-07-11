@@ -20,9 +20,11 @@ from yoke_core.domain.schema_init_columns import (
 from yoke_core.domain.schema_init_tables import (
     create_core_tables,
     create_governed_tables,
-    create_path_integrity_tables,
-    create_path_registry_tables,
 )
+from yoke_core.domain.schema_init_path_integrity_tables import (
+    create_path_integrity_tables,
+)
+from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.schema_init_work_claim_indexes import (
     create_work_claim_active_uniques,
 )

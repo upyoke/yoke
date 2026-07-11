@@ -15,9 +15,9 @@ names route through :func:`yoke_core.domain.events.emit_event`:
 The three event names are seeded into ``event_registry`` by
 :mod:`event_registry_seed_yoke_function_call`.
 
-:func:`emit_called` also writes the ``function_call_ledger`` row for the
-call (the idempotency dedup state the dispatcher replays from) — events
-stay telemetry; the ledger owns the replay decision.
+:func:`emit_called` also writes the ``function_call_ledger`` row for a
+successful side-effecting call (the idempotency dedup state the dispatcher
+replays from) — events stay telemetry; the ledger owns the replay decision.
 """
 
 from __future__ import annotations
@@ -88,6 +88,8 @@ def emit_called(
     identity_context: Optional[Dict[str, Any]] = None,
     permission_key: Optional[str] = None,
     project: Optional[str] = None,
+    authorization_scope: str,
+    idempotency_payload_checksum: str,
 ) -> None:
     """Emit the canonical ``YokeFunctionCalled`` event for one call.
 
@@ -142,10 +144,20 @@ def emit_called(
     # the ledger row is what `_idempotency_lookup` replays on request_id
     # reuse. First write wins; calls without a request_id skip, and
     # side-effect-free entries are never ledgered — reads are naturally
-    # idempotent and their results (e.g. board.data.get) can be large.
-    if entry.side_effects:
+    # idempotent and their results (e.g. board.data.get) can be large. Failed
+    # outcomes are also never ledgered: the ledger stores only a result dict,
+    # not the failure envelope, so replaying one would incorrectly turn it
+    # into success and permanently suppress a safe retry.
+    if (
+        entry.side_effects
+        and response.success
+        and "handler_managed_idempotency" not in entry.guardrails
+    ):
         record_call(
             request.request_id, entry.function_id, dict(response.result),
+            actor_id=str(request.actor.actor_id or ""),
+            authorization_scope=authorization_scope,
+            payload_checksum=idempotency_payload_checksum,
         )
 
 

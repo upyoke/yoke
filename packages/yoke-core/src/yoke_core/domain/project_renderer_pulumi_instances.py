@@ -66,6 +66,7 @@ def _raw_stack_instance_from_environment(
     server = _first_mapping(env.settings.get("servers"))
     database = _first_mapping(env.settings.get("database"))
     distribution = _first_mapping(env.settings.get("distribution"))
+    github_app = _first_mapping(env.settings.get("github_app"))
     domain = primary_domain(settings)
     activation_state = str(pulumi.get("activation_state", "") or "")
     render_only = bool(pulumi.get("render_only")) or activation_state == "render_only"
@@ -99,6 +100,10 @@ def _raw_stack_instance_from_environment(
         "distribution_bucket_name": distribution_bucket_name,
         "distribution_origin_id": distribution_origin_id,
         "ephemeral_preview_domain": _ephemeral_preview_domain(settings, env),
+        "github_app_private_key_secret_arn": github_app.get(
+            "private_key_secret_arn", ""
+        ),
+        "github_app_kms_key_arn": github_app.get("kms_key_arn", ""),
     }
     capabilities = env.settings.get("capabilities", [])
     if not isinstance(capabilities, list):

@@ -35,6 +35,10 @@ def resolve_project_context(
     """Resolve the real target project for a PROJECT-scoped op (or None)."""
     if entry.function_id == "ephemeral_env.update":
         return _resolve_ephemeral_env_project_context(conn, request)
+    if entry.function_id.startswith("github_actions."):
+        return _resolve_github_actions_project_context(
+            conn, request, visible_project_ids=visible_project_ids,
+        )
     if entry.function_id in _PAYLOAD_NAMED_PROJECT_FUNCTIONS:
         return _resolve_named_project_context(
             conn, request, visible_project_ids=visible_project_ids,
@@ -82,6 +86,37 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
     "board.data.get",
     "board.rebuild.run",
 })
+
+
+def _resolve_github_actions_project_context(
+    conn: Any,
+    request: FunctionCallRequest,
+    *,
+    visible_project_ids: Collection[int] | None = None,
+) -> tuple[int, str] | None:
+    """Resolve GitHub Actions authority from the handler's project payload.
+
+    GitHub Actions handlers use ``payload.project`` to select both the GitHub
+    App installation and repository binding. Authorization must therefore use
+    that same project. A target hint is optional, but when supplied it must
+    resolve to the identical project rather than selecting a different scope
+    for the permission check.
+    """
+    payload_ref = str(request.payload.get("project") or "").strip()
+    if not payload_ref:
+        return None
+    try:
+        project_id = _resolve_authorized_project_id(
+            conn, payload_ref, visible_project_ids,
+        )
+        target_ref = str(request.target.project_id or "").strip()
+        if target_ref and resolve_project_id(conn, target_ref) != project_id:
+            return None
+    except AmbiguousProjectRefError:
+        raise
+    except LookupError:
+        return None
+    return project_id, _slug_for_project_id(conn, project_id)
 
 
 def _resolve_named_project_context(

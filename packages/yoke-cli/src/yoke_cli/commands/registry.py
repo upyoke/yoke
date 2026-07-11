@@ -10,10 +10,13 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
-from yoke_cli.commands.adapters.github_actions_runners import github_actions_runners_status
 from yoke_cli.commands.registry_deployment import DEPLOYMENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_ephemeral_env import EPHEMERAL_ENV_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_epic_ops import EPIC_OPS_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_github_actions import (
+    GITHUB_ACTIONS_SUBCOMMAND_ALIAS_REGISTRY,
+    GITHUB_ACTIONS_SUBCOMMAND_REGISTRY,
+)
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_project_structure import PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
@@ -175,18 +178,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("ouroboros.entry.list", _adapters.ouroboros_entry_list),
     ("ouroboros", "entry", "get"):
         ("ouroboros.entry.get", _adapters.ouroboros_entry_get),
-    ("github-actions", "check-ci"):
-        ("github_actions.check_ci", _adapters.github_actions_check_ci),
-    ("github-actions", "wait-run"):
-        ("github_actions.wait_run", _adapters.github_actions_wait_run),
-    ("github-actions", "runners", "status"):
-        ("github_actions.runners.status", github_actions_runners_status),
-    ("github-actions", "secret", "set"):
-        ("github_actions.secret.set", _adapters.github_actions_secret_set),
-    ("github-actions", "variable", "get"):
-        ("github_actions.variable.get", _adapters.github_actions_variable_get),
-    ("github-actions", "variable", "set"):
-        ("github_actions.variable.set", _adapters.github_actions_variable_set),
     ("strategy", "doc", "list"):
         ("strategy.doc.list", _adapters.strategy_doc_list),
     ("strategy", "doc", "get"):
@@ -245,6 +236,7 @@ SUBCOMMAND_REGISTRY.update(EPHEMERAL_ENV_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(READINESS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(STRATEGY_EVENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(IDENTITY_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_REGISTRY)
 
 
 _TOKEN_LENGTHS: Tuple[int, ...] = (4, 3, 2, 1)
@@ -270,6 +262,7 @@ SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("claims", "work", "status"):
         ("claims.work.holder_get", _adapters.claims_work_current),
 }
+SUBCOMMAND_ALIAS_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_ALIAS_REGISTRY)
 
 
 def resolve(argv_head: List[str]) -> Tuple[

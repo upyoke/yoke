@@ -118,7 +118,10 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
  **If `--fix` was specified:** Most repair happens **inside** the engine — `python3 -m yoke_core.tools.watch_doctor -- --fix` already applied fixes during step 1. The engine handles:
 
 - **Bidirectional GitHub sync** (orphan reconciliation; title, body, label, state, and frozen drift) via internal delegation to the resync engine in doctor format. Pushes local truth to GitHub and creates/closes/migrates issues as needed.
- - **Stale remote branches** of done or cancelled items (`git push origin --delete`).
+ - **Stale remote branches** of done or cancelled items, after proving the
+   owning item has no active cleanup authority, refreshing the exact branch and
+   target refs, proving ancestry, and using a leased delete. Ambiguous or
+   concurrently updated refs are preserved for a later retry.
  - **Stale local worktree/branch warnings** are reported with remediation text, but manual cleanup must still prove the worktree is clean and the branch tip is an ancestor of the intended base. Use `docs/source-dev-worktree-cleanup.md`; `git branch -d` checks the current checkout's `HEAD`, not an arbitrary stage/main base.
  - **Wrong-repo GitHub issues** (migrates issues between repos when the project's `github_repo` capability has moved).
  - **Orphaned temp files / scratch directories** (`rebuild-board.*`, `sync-to-github.*`).

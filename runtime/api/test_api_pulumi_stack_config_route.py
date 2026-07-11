@@ -1,7 +1,7 @@
 """Route tests for ``GET /v1/projects/{project}/pulumi-stack-config``.
 
 Real minted bearer tokens through the real FastAPI app: 200 with a
-``project.install`` grant, 401 without authentication, 403 for an
+``project.render.read`` grant, 401 without authentication, 403 for an
 authenticated actor lacking the grant, 404 for an unknown project, and
 payload determinism (the CI consumer renders from this byte-for-byte).
 """
@@ -21,6 +21,9 @@ from runtime.api.api_items_test_helpers import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permissions import (
+    ROLE_DEPLOYMENT_CI,
+    ROLE_INFRASTRUCTURE_CI,
+    ROLE_OPERATOR,
     ROLE_VIEWER,
     grant_actor_project_role,
 )
@@ -89,6 +92,67 @@ def _viewer_token_headers(db_path: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token.raw_token}"}
 
 
+def _infrastructure_ci_token_headers(
+    db_path: str,
+    *,
+    project_id: int = 1,
+) -> dict[str, str]:
+    """Mint the exact service role used by the Platform render workflow."""
+    conn = connect_test_db(db_path)
+    try:
+        actor_id = seed_human_actor(conn)
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=project_id,
+            role_name=ROLE_INFRASTRUCTURE_CI,
+            granted_by_actor_id=actor_id,
+        )
+        token = mint_token(conn, actor_id=actor_id, name="ci-test-infrastructure")
+        conn.commit()
+    finally:
+        conn.close()
+    return {"Authorization": f"Bearer {token.raw_token}"}
+
+
+def _deployment_ci_token_headers(db_path: str) -> dict[str, str]:
+    """Mint the separate workflow-dispatch identity, which cannot render."""
+    conn = connect_test_db(db_path)
+    try:
+        actor_id = seed_human_actor(conn)
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=1,
+            role_name=ROLE_DEPLOYMENT_CI,
+            granted_by_actor_id=actor_id,
+        )
+        token = mint_token(conn, actor_id=actor_id, name="ci-test-deployment")
+        conn.commit()
+    finally:
+        conn.close()
+    return {"Authorization": f"Bearer {token.raw_token}"}
+
+
+def _operator_token_headers(db_path: str) -> dict[str, str]:
+    """Mint project.install without the dedicated render-read permission."""
+    conn = connect_test_db(db_path)
+    try:
+        actor_id = seed_human_actor(conn)
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=1,
+            role_name=ROLE_OPERATOR,
+            granted_by_actor_id=actor_id,
+        )
+        token = mint_token(conn, actor_id=actor_id, name="ci-test-operator")
+        conn.commit()
+    finally:
+        conn.close()
+    return {"Authorization": f"Bearer {token.raw_token}"}
+
+
 def test_stack_config_serves_deterministic_snapshot(client) -> None:
     first = client.get("/v1/projects/yoke/pulumi-stack-config")
     second = client.get("/v1/projects/yoke/pulumi-stack-config")
@@ -122,11 +186,23 @@ def test_stack_config_requires_auth(client) -> None:
     assert response.status_code == 401
 
 
-def test_stack_config_denies_actor_without_grant(client, config_db) -> None:
+def test_stack_config_denies_actor_without_grant(
+    client,
+    config_db,
+    monkeypatch,
+) -> None:
+    from yoke_core.api.routes import pulumi_stack_config as route
+
+    monkeypatch.setattr(
+        route,
+        "build_pulumi_stack_config",
+        lambda *_args, **_kwargs: pytest.fail("render snapshot built before auth"),
+    )
     headers = _bare_token_headers(config_db["db_path"])
 
     response = client.get(
-        "/v1/projects/yoke/pulumi-stack-config", headers=headers,
+        "/v1/projects/yoke/pulumi-stack-config",
+        headers=headers,
     )
 
     assert response.status_code == 403
@@ -134,14 +210,69 @@ def test_stack_config_denies_actor_without_grant(client, config_db) -> None:
 
 
 def test_stack_config_denies_viewer_role(client, config_db) -> None:
-    """Viewer carries items.read but NOT project.install."""
+    """Viewer carries items.read but not secret-free render authority."""
     headers = _viewer_token_headers(config_db["db_path"])
 
     response = client.get(
-        "/v1/projects/yoke/pulumi-stack-config", headers=headers,
+        "/v1/projects/yoke/pulumi-stack-config",
+        headers=headers,
     )
 
     assert response.status_code == 403
+
+
+def test_stack_config_denies_project_install_without_render_read(
+    client,
+    config_db,
+) -> None:
+    headers = _operator_token_headers(config_db["db_path"])
+
+    response = client.get(
+        "/v1/projects/yoke/pulumi-stack-config",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"
+
+
+def test_stack_config_allows_infrastructure_ci_role(client, config_db) -> None:
+    headers = _infrastructure_ci_token_headers(config_db["db_path"])
+
+    response = client.get(
+        "/v1/projects/yoke/pulumi-stack-config",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["project_slug"] == "yoke"
+
+
+def test_stack_config_denies_deployment_ci_role(client, config_db) -> None:
+    headers = _deployment_ci_token_headers(config_db["db_path"])
+
+    response = client.get(
+        "/v1/projects/yoke/pulumi-stack-config",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"
+
+
+def test_stack_config_denies_infrastructure_ci_on_other_project(
+    client,
+    config_db,
+) -> None:
+    headers = _infrastructure_ci_token_headers(config_db["db_path"], project_id=1)
+
+    response = client.get(
+        "/v1/projects/buzz/pulumi-stack-config",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"
 
 
 def test_stack_config_unknown_project_is_typed_404(client) -> None:

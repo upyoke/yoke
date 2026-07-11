@@ -188,6 +188,35 @@ yoke templates fetch webapp --dest scratch/webapp-template --only ops/ --force
 sh <render-output>/ops/verify-deployment.sh {{domain_name}} {{origin_ip}}
 ```
 
+### Image lifecycle
+
+Production and hotfix workflows reclaim dangling build generations only after
+the API, web, and smoke health gates pass. Cleanup retries three times and then
+fails the run: a healthy application plus failed disk reclamation is not a
+green deployment. Re-running is safe because Docker never prunes an image
+referenced by a container.
+
+On a shared host, never use global `docker image prune -a` as routine
+maintenance: it also deletes tagged images intentionally cached for a future
+roll. Use the rendered repository-scoped helper instead and explicitly keep
+any not-yet-running pin:
+
+```sh
+python3 <render-output>/ops/docker_image_cleanup.py \
+  --repository registry.example.com/{{project_name}} \
+  --keep registry.example.com/{{project_name}}:<next-release-tag>
+```
+
+The helper protects images referenced by running or stopped containers,
+validates every `--keep` reference before deleting anything, retries transient
+Docker failures, and exits nonzero if cleanup cannot converge.
+
+The rendered `docker_maintenance_converge.py` is the single authority for the
+weekly cron entry. `setup-vps-maintenance.sh` invokes it during initial setup;
+the rendered production and hotfix lanes upload and invoke it again before any
+service mutation, so older hosts automatically replace legacy global
+`image prune -a` jobs without operator repair.
+
 ### Update VPS firewall (restrict to CloudFront IPs)
 
 ```sh

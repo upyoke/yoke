@@ -310,38 +310,3 @@ class TestEphemeralPreviewSubstrate:
         assert len(statements) == 5
         assert "route53" not in policy.kwargs["policy"]
         assert recorder.exports["ephemeralPreviewDomain"] == ""
-
-
-def _vps_stack(monkeypatch, **arg_overrides):
-    recorder = _Recorder()
-    module = _load_template_module(monkeypatch, recorder, "webapp_vps_stack.py")
-    kwargs = dict(
-        deploy_namespace="buzz",
-        instance_type="t4g.medium",
-        root_volume_gb=40,
-        ssh_key_name="buzz-key",
-        stack_name="buzz-vps",
-    )
-    kwargs.update(arg_overrides)
-    stack = module.WebappVpsStack("buzz-vps", module.WebappVpsArgs(**kwargs))
-    return recorder, stack
-
-
-class TestVpsInstanceProfileAndAmiDrift:
-    def test_default_keeps_instance_profile_absent(self, monkeypatch):
-        recorder, _stack = _vps_stack(monkeypatch)
-        instance = recorder.single("vpsInstance")
-        assert instance.kwargs["iam_instance_profile"] is None
-
-    def test_provided_profile_lands_on_instance(self, monkeypatch):
-        recorder, _stack = _vps_stack(
-            monkeypatch, iam_instance_profile_name="origin-profile",
-        )
-        instance = recorder.single("vpsInstance")
-        assert instance.kwargs["iam_instance_profile"] == "origin-profile"
-
-    def test_instance_ignores_ami_drift(self, monkeypatch):
-        recorder, stack = _vps_stack(monkeypatch)
-        instance = recorder.single("vpsInstance")
-        assert instance.opts.ignore_changes == ["ami"]
-        assert instance.opts.parent is stack

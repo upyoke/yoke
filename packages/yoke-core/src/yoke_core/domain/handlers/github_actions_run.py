@@ -20,6 +20,7 @@ from yoke_core.domain.handlers.github_actions_set import (
     _transport_failed,
     _validate_and_resolve,
 )
+from yoke_core.domain.github_actions_identifiers import WorkflowRunId
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
@@ -28,7 +29,7 @@ from yoke_contracts.api.function_call import (
 
 class RunGetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
-    run_id: str = Field(..., min_length=1, description="GitHub Actions run id.")
+    run_id: WorkflowRunId = Field(..., description="GitHub Actions run id.")
     project: str = Field(
         ..., min_length=1,
         description="Project capability owning the GitHub App repo binding.",

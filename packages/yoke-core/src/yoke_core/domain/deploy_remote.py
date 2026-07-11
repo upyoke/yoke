@@ -132,6 +132,21 @@ def aws_capability_env(
     OIDC role); otherwise raises — a naked unauthenticated ``aws`` call is
     never the fallback.
     """
+    ambient_access = os.environ.get("AWS_ACCESS_KEY_ID", "").strip()
+    ambient_secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "").strip()
+    if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
+        if not ambient_access or not ambient_secret:
+            raise RuntimeError(
+                "GitHub Actions selected ambient OIDC authority, but "
+                "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are absent; "
+                "run aws-actions/configure-aws-credentials first"
+            )
+        env = dict(os.environ)
+        env["AWS_DEFAULT_REGION"] = region
+        env["AWS_REGION"] = region
+        env["AWS_PAGER"] = ""
+        return env
+
     access_key = cmd_capability_get_secret(
         project, capability_type, "access_key_id"
     )
@@ -148,8 +163,6 @@ def aws_capability_env(
         # job's GitHub-OIDC role exports AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
         # [+ AWS_SESSION_TOKEN]); keep that set intact and only pin the region.
         # A naked unauthenticated aws call is still never the fallback.
-        ambient_access = os.environ.get("AWS_ACCESS_KEY_ID", "").strip()
-        ambient_secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "").strip()
         if ambient_access and ambient_secret:
             env = dict(os.environ)
             env["AWS_DEFAULT_REGION"] = region

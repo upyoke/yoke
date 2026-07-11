@@ -1,9 +1,8 @@
 # GitHub App Operations
 
-This runbook owns the operator boundary around Yoke's GitHub App: registration,
-installation scope, private-key custody, hosted and self-hosted bootstrap,
-rotation, verification, and incident response. Product flows never ask an end
-user to paste a GitHub credential.
+This runbook owns Yoke's GitHub App registration, installation scope,
+private-key custody, hosted and self-hosted bootstrap,
+rotation, verification, and incident response. Product flows never ask users to paste a GitHub credential.
 
 ## Ownership Boundary
 
@@ -22,6 +21,61 @@ The GitHub App private-key secret container and its value are external
 bootstrap authority. Pulumi does not create or own them and must receive only a
 Secrets Manager ARN. This keeps the PEM out of source, Pulumi config/state,
 command arguments, logs, project databases, and machine config.
+
+## Hosted Deploy Relay
+
+Deployment runners are clients of the credential-bearing control plane; they are
+not GitHub App hosts. A CI job may receive a project-scoped Yoke API token,
+write it through `yoke connection set <relay-env> --transport https
+--token-stdin` under a run-scoped `YOKE_MACHINE_HOME`, and select that
+connection with `YOKE_GITHUB_ACTIONS_RELAY_ENV`. The deploy pipeline relays
+typed workflow dispatch, run lookup, job count, CI check, and run-status calls
+through `/v1/functions/call`. The hosted handler resolves a short-lived,
+repository-scoped installation token internally.
+
+The deploy actor must hold `deployment_ci` on the project named in the request.
+It can dispatch workflows and read the routing variable and run state needed
+for deployment reporting. It cannot read the infrastructure render snapshot,
+fetch install bundles, sync snapshots, mutate onboarding/backlog/project
+settings, write repository configuration, administer runners/webhooks, or
+access another project. A separate `infrastructure_ci` actor owns secret-free
+render and runner-token authority; never reuse its token for deploy relay.
+Owners and org admins retain their permission wildcards.
+
+Workflow dispatch asks GitHub for the exact run id and disables retries on the
+non-idempotent POST. Its idempotency key reuses the stage key for resumes,
+scopes retriggers to the failed/empty predecessor, and gives `--fresh` a new
+scope, so transport replay cannot suppress a deliberately new run.
+
+To narrow a deploy actor that temporarily holds `owner`, deploy/restart so the
+catalog removes stale role permissions. Grant the role, verify the relay
+preflight, then revoke `owner`:
+
+```bash
+YOKE_ENV=prod-db-admin python3 -m yoke_core.domain.actor_grants_cli grant-project \
+  --actor <service-actor-id> --project <project> --role deployment_ci
+# Run the relay preflight with the existing service token.
+YOKE_ENV=prod-db-admin python3 -m yoke_core.domain.actor_grants_cli revoke-project \
+  --actor <service-actor-id> --project <project> --role owner
+```
+
+Both commands are idempotent. Revoke only after the same token succeeds against
+the newly deployed control plane.
+
+`YOKE_GITHUB_ACTIONS_RELAY_ENV` selects HTTPS GitHub authority independently of
+`YOKE_ENV`, which may select deployment metadata authority. Missing, malformed,
+or non-HTTPS relay selection fails closed. App keys and installation tokens do
+not belong in repo secrets, CI environments, runner disks, or workflow logs.
+
+Normal CI and manual deploys set `YOKE_GITHUB_ACTIONS_RELAY_ENV=<https-env>`.
+An attended release introducing/repairing the relay may instead set
+`YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1` and use sanctioned local App authority.
+Both selectors, an invalid local value, or neither selector fail pre-dispatch.
+
+## CI Credential Custody
+
+See [GitHub App CI custody](github-app-ci-custody.md) for the runner-token
+broker, OIDC role split, explicit App-key denies, and origin-owned key retrieval.
 
 ## Registration Checklist
 
@@ -108,23 +162,50 @@ run `yoke github-actions runners status --project <project>`. An
 Pulumi must adopt it before changing its value; applying first fails loudly on
 the GitHub name collision.
 
+The imported resource is a child of the runner-fleet component and uses its
+explicit GitHub provider. Both must already exist in stack state. For a new
+runner-fleet stack, leave `routing_enabled=false`, render and apply the base
+stack once, and confirm a zero-change preview. That base apply creates the
+component, provider, webhook, and fleet without managing or changing the
+pre-existing variable. Then set `routing_enabled=true` and render again.
+
 From the rendered `infra/` directory, use the same validated settings envelope
-and short-lived repository authority as every other runner operation:
+and short-lived repository authority as every other runner operation. First
+have Pulumi generate the import record from the exact rendered program so the
+record carries the correct parent and provider references:
 
 ```bash
 yoke runner-fleet exec --project <project> \
   --settings-file <stack-config.json> -- \
+  pulumi preview --stack <runner-fleet-stack> --refresh \
+  --import-file <preview-import-file.json> --non-interactive
+
+yoke runner-fleet exec --project <project> \
+  --settings-file <stack-config.json> -- \
   pulumi import --stack <runner-fleet-stack> \
-  github:index/actionsVariable:ActionsVariable \
-  runnerFleetRoutingVariable <repository-name>:<variable-name>
+  --file <runner-variable-import-file.json> \
+  --protect=false --generate-code=false --yes --non-interactive
 ```
 
-Preview immediately afterward and verify the planned compact label array. The
-import id is repository name plus variable name separated by `:`. If routing is
-disabled and status reports `resolve_runner_routing_variable`, review ownership
-and deliberately delete/rename the nonmatching variable, or enable routing and
-adopt it before apply. Absence is the only clean disabled state. Never repair
-this path with a direct variable write.
+The generated preview import file must contain exactly one create after the
+base stack is converged: type
+`github:index/actionsVariable:ActionsVariable`, name
+`runnerFleetRoutingVariable`. Copy only that complete record to
+`<runner-variable-import-file.json>`, preserve its generated `parent` and
+`provider` fields unchanged, and set its `id` to
+`<repository-name>:<variable-name>`. Stop if the candidate is missing, is not
+unique, lacks either relationship, or the preview contains a replacement or
+delete. Do not use a positional `pulumi import` without `--parent` and
+`--provider`; it creates the wrong Pulumi identity for this child resource.
+
+Preview immediately after import and verify the only planned change is the
+compact label array, then apply and require a final zero-change refresh
+preview. If routing is disabled and status reports
+`resolve_runner_routing_variable`, review ownership and deliberately
+delete/rename the nonmatching variable, or follow the base-apply and adoption
+sequence above before any apply that declares the variable. Absence is the
+only clean disabled state. Never repair this path with a direct variable
+write.
 
 ## Hosted Secret Bootstrap
 
@@ -165,18 +246,20 @@ Each hosted environment stores only this non-secret reference:
   "github_app": {
     "issuer": "<app-client-id-or-numeric-id>",
     "api_url": "https://api.github.com",
-    "private_key_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>"
+    "private_key_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>",
+    "kms_key_arn": "arn:aws:kms:<region>:<account>:key/<optional-customer-key-id>"
   }
 }
 ```
 
-The ARN's region and account must match the selected deployment authority.
-Deployment retrieves the current secret version, signs an App JWT, and calls
-the configured API origin's authenticated `/app` endpoint before any host
-write. The deploy stops when GitHub does not accept the key or the returned App
-does not match the configured issuer. After that identity check, deployment
-sends the key over SSH stdin, atomically replaces an owner-only host file, and
-mounts that file read-only at `/run/secrets/yoke-github-app-private-key`.
+The secret ARN's region and account must match deployment authority. When the
+secret uses a customer-managed KMS key, declare its exact key ARN so the origin
+role receives only `kms:Decrypt`/`DescribeKey` on that key. Deployment instructs
+the origin to fetch a pending owner-only file through its instance role, pulls
+the candidate core image, and verifies authenticated `/app` identity with the
+pending file mounted only inside the probe. Success atomically promotes it;
+failure removes pending and preserves the prior durable file. CI never receives
+the PEM or transports it through SSH stdin.
 
 This pre-delivery check proves the issuer and PEM belong to the same live App.
 It does not prove that a particular installation still covers a project's

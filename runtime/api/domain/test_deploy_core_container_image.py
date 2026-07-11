@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_core.domain import project_scratch_dir
 from yoke_core.domain.deploy_core_container_image import (
     IMAGE_WAIT_ENV_VAR,
     CoreDeployError,
@@ -130,6 +131,93 @@ class TestEnsureImageInRegistry:
                 build_dir=tmp_path,
             )
         assert "docker build failed" in str(exc.value)
+
+    def test_helper_owned_build_workspace_is_removed_after_success(
+        self, tmp_path, monkeypatch
+    ):
+        owned = tmp_path / "helper-owned"
+        monkeypatch.setattr(
+            project_scratch_dir,
+            "storage_dir",
+            lambda *_args, **_kwargs: owned,
+        )
+        runner = FakeRunner(
+            [
+                _ABSENT,
+                CommandResult(0, "", ""),
+                CommandResult(0, "", ""),
+                CommandResult(0, "", ""),
+                CommandResult(0, "ecr-token\n", ""),
+                CommandResult(0, "", ""),
+                CommandResult(0, "", ""),
+            ]
+        )
+
+        ensure_image_in_registry(
+            runner,
+            _env(),
+            {"AWS_REGION": "us-east-1"},
+            repo_path="/repo",
+            tag="abc123",
+            emit=lambda _line: None,
+        )
+
+        assert not owned.exists()
+
+    def test_helper_owned_build_workspace_is_removed_after_failure(
+        self, tmp_path, monkeypatch
+    ):
+        owned = tmp_path / "helper-owned"
+        monkeypatch.setattr(
+            project_scratch_dir,
+            "storage_dir",
+            lambda *_args, **_kwargs: owned,
+        )
+        runner = FakeRunner(
+            [
+                _ABSENT,
+                CommandResult(0, "", ""),
+                CommandResult(0, "", ""),
+                CommandResult(1, "", "Dockerfile syntax error"),
+            ]
+        )
+
+        with pytest.raises(CoreDeployError, match="docker build failed"):
+            ensure_image_in_registry(
+                runner,
+                _env(),
+                {},
+                repo_path="/repo",
+                tag="abc123",
+                emit=lambda _line: None,
+            )
+
+        assert not owned.exists()
+
+    def test_explicit_diagnostic_build_workspace_is_preserved(self, tmp_path):
+        diagnostic = tmp_path / "diagnostic"
+        runner = FakeRunner(
+            [
+                _ABSENT,
+                CommandResult(0, "", ""),
+                CommandResult(0, "", ""),
+                CommandResult(1, "", "Dockerfile syntax error"),
+            ]
+        )
+
+        with pytest.raises(CoreDeployError, match="docker build failed"):
+            ensure_image_in_registry(
+                runner,
+                _env(),
+                {},
+                repo_path="/repo",
+                tag="abc123",
+                emit=lambda _line: None,
+                build_dir=diagnostic,
+            )
+
+        assert diagnostic.is_dir()
+        assert (diagnostic / "src").is_dir()
 
 
 class TestEnsureImageWaitMode:

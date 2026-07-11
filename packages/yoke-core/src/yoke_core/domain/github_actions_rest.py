@@ -78,10 +78,20 @@ def rest_get(
     return resp.body
 
 
-def rest_post(path: str, *, body: Mapping[str, Any], token: str) -> Any:
+def rest_post(
+    path: str,
+    *,
+    body: Mapping[str, Any],
+    token: str,
+    max_attempts: Optional[int] = None,
+) -> Any:
     """POST to a GitHub REST endpoint; return parsed JSON body (or ``""``)."""
     req = RestRequest(method="POST", path=path, body=dict(body))
-    resp = request_with_retry(req, token=token)
+    resp = request_with_retry(
+        req,
+        token=token,
+        max_attempts=max_attempts,
+    )
     return resp.body
 
 

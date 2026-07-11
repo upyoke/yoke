@@ -31,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_trigger.add_argument("workflow")
     p_trigger.add_argument("--ref", default="main")
     p_trigger.add_argument("--input", action="append", dest="inputs", default=[])
+    p_trigger.add_argument("--request-id", default=None)
     _add_project_argument(p_trigger)
 
     p_poll = sub.add_parser("poll")

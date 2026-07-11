@@ -23,6 +23,7 @@ from .sessions_analytics import (
 )
 from .sessions_queries import _now_iso
 from .sessions_render import _resolve_effective_ttl, reclaim_stale_session
+from .scratch_auto_prune import ScratchPruneResult, auto_prune_stale_scratch
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 from yoke_harness.hooks.identity import is_codex
 
@@ -270,6 +271,18 @@ def clean_stale_harness_sessions(
             },
         )
 
+    # The stale-session sweep is the bounded lifecycle janitor for scratch too.
+    # The pruner requires positive ended-session or dead-PID proof and carries
+    # its own machine-wide throttle, so validation DBs and concurrent sessions
+    # cannot authorize deletion merely by omitting another session's row.
+    try:
+        scratch_cleanup = auto_prune_stale_scratch(conn)
+    except Exception as exc:  # noqa: BLE001 - report janitor boundary failures
+        scratch_cleanup = ScratchPruneResult(
+            failure_count=1,
+            issues=[f"automatic scratch cleanup failed: {exc}"],
+        )
+
     # Emit sweep-level event even when zero sessions reclaimed
     _sweep_duration_ms = int((_time.monotonic() - _sweep_start) * 1000)
     # Use a stable session_id for sweep-level events (not tied to any session)
@@ -284,6 +297,7 @@ def clean_stale_harness_sessions(
             "heartbeat_stale_count": len(heartbeat_stale),
             "progress_stale_count": len(progress_stale),
             "skipped_between_turns_count": len(skipped_between_turns),
+            "scratch_cleanup": scratch_cleanup.as_dict(),
         },
     )
 
@@ -293,6 +307,7 @@ def clean_stale_harness_sessions(
         "progress_stale": progress_stale,
         "skipped_between_turns": skipped_between_turns,
         "total_reclaimed": total_reclaimed,
+        "scratch_cleanup": scratch_cleanup.as_dict(),
     }
 
 

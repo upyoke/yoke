@@ -9,117 +9,17 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.github_workflow_dispatch import (
+    WORKFLOW_DISPATCH_CORRELATION_INPUT,
+)
+
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _table_exists,
 )
 from yoke_core.domain.deployment_flow_seed_stage import ensure_seed_metadata, ensure_seed_stage
-
-# Seed flows
-_SEED_FLOWS = [
-    {
-        "id": "yoke-internal", "project": "yoke", "name": "Internal",
-        "description": "Script/doc changes, no deployment needed",
-        "stages": json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": None,
-        "done_description": "Merged to main",
-    },
-    {
-        "id": "yoke-prod-release", "project": "yoke", "name": "Prod Release",
-        "description": "Deploy Yoke core and public installer distribution to prod",
-        "stages": json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
-            {"name": "env-activate", "executor": "environment-activate"},
-            {"name": "core-deploy", "executor": "core-container-deploy"},
-            {"name": "health-check", "executor": "health-check"},
-            {"name": "distribution-publish",
-             "executor": "github-actions-workflow",
-             "workflow": "yoke-distribution-publish.yml",
-             "ref": "main",
-             "inputs": {"channel": "stable", "target_env": "prod", "source_sha": "{head_sha}"},
-             "reconcile_by_head_sha": False,
-             "qa_kind": "distribution_publish"},
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": "prod",
-        "done_description": "Yoke core deployed to prod, health check passed, and installer distribution published",
-    },
-    {
-        "id": "yoke-stage-release", "project": "yoke", "name": "Stage Release",
-        "description": "Deploy Yoke core and public installer distribution to stage (stage data is throwaway; no governed migration stage)",
-        "stages": json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "env-activate", "executor": "environment-activate"},
-            {"name": "core-deploy", "executor": "core-container-deploy"},
-            {"name": "health-check", "executor": "health-check"},
-            {"name": "distribution-publish",
-             "executor": "github-actions-workflow",
-             "workflow": "yoke-distribution-publish.yml",
-             "ref": "stage",
-             "inputs": {"channel": "latest", "target_env": "stage", "source_sha": "{head_sha}"},
-             "reconcile_by_head_sha": False,
-             "qa_kind": "distribution_publish"},
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": "stage",
-        "done_description": "Yoke core deployed to stage, health check passed, and stage installer distribution published",
-    },
-    {
-        "id": "yoke-ephemeral-deploy", "project": "yoke", "name": "Ephemeral Deploy",
-        "description": "Deploy a branch/SHA Yoke core preview environment through the shared ephemeral substrate (unmerged worktree branches; no merged gate)",
-        "stages": json.dumps([
-            {"name": "ephemeral-deploy", "executor": "ephemeral-deploy"},
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": "ephemeral",
-        "done_description": "Yoke core preview environment deployed",
-    },
-    {
-        "id": "buzz-prod-release", "project": "buzz", "name": "Prod Release",
-        "description": "Push-to-main triggers prod deploy via GitHub Actions with environment protection gate, then smoke test",
-        "stages": json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
-            {"name": "prod-deploy", "executor": "github-actions-workflow", "workflow": "buzz-deploy.yml"},
-            {"name": "smoke", "executor": "github-actions-workflow", "workflow": "buzz-smoke.yml"},
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": "production",
-        "done_description": "Deployed to production and smoke checks passed",
-    },
-    {
-        "id": "buzz-prod-hotfix", "project": "buzz", "name": "Prod Hotfix",
-        "description": "Manual dispatch of hotfix workflow for direct-to-prod deploy",
-        "stages": json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
-            {"name": "production-deploy", "executor": "github-actions-workflow",
-             "workflow": "buzz-hotfix.yml", "watch_for": "completed", "on_failure": "halt"},
-        ]),
-        "on_failure": "halt", "target_env": "production",
-        "done_description": "Hotfix deployed to production",
-    },
-    {
-        "id": "buzz-internal", "project": "buzz", "name": "Internal",
-        "description": "Doc or config change, no deployment",
-        "stages": json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": None,
-        "done_description": "Merged to main",
-    },
-]
+from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS as _SEED_FLOWS
 
 
 def cmd_init(conn) -> str:
@@ -262,6 +162,7 @@ def cmd_init(conn) -> str:
         seed_flows=_SEED_FLOWS,
         flow_ids=("yoke-prod-release", "yoke-stage-release"),
     )
+    _remove_buzz_dispatch_correlation(conn)
 
     conn.commit()
 
@@ -269,6 +170,39 @@ def cmd_init(conn) -> str:
     create_or_replace_item_progress_view(conn)
 
     return "Deployment flows initialized"
+
+
+def _remove_buzz_dispatch_correlation(conn) -> None:
+    """Restore trigger-once semantics until Buzz workflows ship the input."""
+    for flow_id in ("buzz-prod-release", "buzz-prod-hotfix"):
+        row = conn.execute(
+            "SELECT stages FROM deployment_flows WHERE id = %s",
+            (flow_id,),
+        ).fetchone()
+        if row is None:
+            continue
+        raw = row[0] if not hasattr(row, "keys") else row["stages"]
+        try:
+            stages = json.loads(raw) if raw else []
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(stages, list):
+            continue
+        changed = False
+        for stage in stages:
+            if (
+                isinstance(stage, dict)
+                and stage.get("executor") == "github-actions-workflow"
+                and stage.get("dispatch_correlation_input")
+                == WORKFLOW_DISPATCH_CORRELATION_INPUT
+            ):
+                stage.pop("dispatch_correlation_input")
+                changed = True
+        if changed:
+            conn.execute(
+                "UPDATE deployment_flows SET stages = %s WHERE id = %s",
+                (json.dumps(stages), flow_id),
+            )
 
 
 def create_or_replace_item_progress_view(conn) -> None:

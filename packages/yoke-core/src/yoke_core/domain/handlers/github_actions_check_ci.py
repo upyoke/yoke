@@ -34,6 +34,7 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
 )
+from yoke_core.domain.github_actions_identifiers import WorkflowIdentifier
 
 
 _RUNNING_STATUSES = frozenset({"queued", "in_progress", "pending", "waiting"})
@@ -41,7 +42,9 @@ _RUNNING_STATUSES = frozenset({"queued", "in_progress", "pending", "waiting"})
 
 class CheckCiRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
-    workflow: str = Field(..., min_length=1, description="Workflow file (e.g. ci.yml).")
+    workflow: WorkflowIdentifier = Field(
+        ..., description="Workflow file (e.g. ci.yml)."
+    )
     branch: str = Field("main", description="Branch to inspect (default: main).")
     project: str = Field(
         ..., min_length=1,

@@ -114,11 +114,20 @@ def _runner_stack(
         recorder,
         "github:index/actionsVariable:ActionsVariable",
     )
+    github_provider = _load_template_module(
+        monkeypatch,
+        recorder,
+        "webapp_github_repository_provider.py",
+        extra_modules={"pulumi_github": pulumi_github},
+    )
     github_webhook = _load_template_module(
         monkeypatch,
         recorder,
         "webapp_runner_github_webhook.py",
-        extra_modules={"pulumi_github": pulumi_github},
+        extra_modules={
+            "pulumi_github": pulumi_github,
+            "webapp_github_repository_provider": github_provider,
+        },
     )
     authority_intent = _load_template_module(
         monkeypatch,

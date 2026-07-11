@@ -224,7 +224,11 @@ deploy_owner_project=<deploy-owner-project>
 git -C "$source_checkout" fetch origin "$target_branch"
 deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
 YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
-YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
+YOKE_ENV=<control-plane-env>-db-admin YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env> python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
 ```
 
 Do not turn the `YOKE_ENV=<env>-db-admin` shape into a normal retry hint after a product read or domain wrapper fails. Use the domain wrapper/HTTPS path for normal access, and reserve direct local-Postgres authority for the admin redeploy path above or the break-glass runbook. Every retry or `--from-stage` resume of an item-less run must repeat the same `--product-src` and `--image-tag` arguments.
+
+The hosted relay selector is mandatory for normal deploys. Only the attended
+bootstrap that introduces or repairs the relay may replace it with
+`YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1`.

@@ -6,6 +6,10 @@ from typing import Any, Mapping
 
 from yoke_core.domain import github_app_deployment
 from yoke_core.domain.deploy_remote import aws_capability_env
+from yoke_core.domain.github_app_origin_key import (
+    converge_from_instance_role,
+    verify_and_promote_in_core_image,
+)
 
 github_app_env_lines = github_app_deployment.github_app_env_lines
 github_app_render_values = github_app_deployment.github_app_render_values
@@ -14,24 +18,20 @@ github_app_render_values = github_app_deployment.github_app_render_values
 def preflight(
     runner: Any,
     env: Any,
-) -> tuple[Mapping[str, str], str | None]:
-    """Resolve AWS authority, then verify the App key without host writes."""
-    aws_env = aws_capability_env(env.project, env.aws_region)
-    private_key = github_app_deployment.preflight_github_app_private_key(
-        runner,
-        env,
-        aws_env,
-    )
-    return aws_env, private_key
+) -> Mapping[str, str]:
+    """Resolve deploy AWS authority without reading App private-key material."""
+    del runner
+    return aws_capability_env(env.project, env.aws_region)
 
 
-def converge(runner: Any, env: Any, private_key: str | None) -> None:
-    """Deliver or remove the App key after read-only preflight succeeds."""
-    github_app_deployment.converge_github_app_private_key(
-        runner,
-        env,
-        private_key_pem=private_key,
-    )
+def converge(runner: Any, env: Any) -> None:
+    """Let the origin instance role retrieve or remove its own App key."""
+    converge_from_instance_role(runner, env)
+
+
+def verify(runner: Any, env: Any, image_ref: str) -> None:
+    """Verify the fetched key inside the newly pulled core image."""
+    verify_and_promote_in_core_image(runner, env, image_ref)
 
 
 __all__ = [
@@ -39,4 +39,5 @@ __all__ = [
     "github_app_env_lines",
     "github_app_render_values",
     "preflight",
+    "verify",
 ]

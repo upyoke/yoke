@@ -139,7 +139,7 @@ yoke items get YOK-N spec`
   - Multi-field returns one value per line in field order. Valid fields: architecture_impact, blocked, blocked_reason, body, browser_qa_metadata, created_at, db_compatibility_attestation, db_mutation_profile, deploy_log, deploy_stage, deployed_to, deployment_flow, design_spec, flow, frozen, github_issue, id, merged_at, priority, project, rework_count, shepherd_caveats, shepherd_log, source, spec, status, technical_plan, test_results, title, type, updated_at, worktree, worktree_plan. For body-section filtering, use `yoke items get YOK-N body --section "## File Budget"`.
 - _Inspect a Yoke item's rendered body (GitHub issue surrogate)_
   - `yoke items get YOK-N body`
-  - The rendered body is the source of truth for ticket content and is auto-synced to the GitHub issue via bearer-token REST. items.github_issue stores '#NNNN' format and is for outbound linking only — Yoke automation never shells out to ``gh`` to read or write the issue; the function-call surface and ``project_github_auth.resolve_project_github_auth`` handle every GitHub mutation through REST/GraphQL.
+  - The rendered body is the source of truth for ticket content and is auto-synced to the GitHub issue via PAT-backed REST. items.github_issue stores '#NNNN' format and is for outbound linking only — Yoke automation never shells out to ``gh`` to read or write the issue; the function-call surface and ``project_github_auth.resolve_project_github_auth`` handle every GitHub mutation through REST/GraphQL.
 - _Inspect open work via registered reads + diagnostic SQL_
   - `# Recent item scan:
 yoke items list --project all --fields "id,status,title" --limit 20
@@ -156,10 +156,12 @@ yoke events query --item YOK-N --limit 20`
 yoke items structured-field replace YOK-N --field test_results --stdin < PATH`
   - Dispatches items.structured_field.replace, runs render-body and GitHub sync. Use a prewritten PATH for multiline content; avoid shell read/merge/write choreography.
 - _Apply additive structured-field transform_
-  - `# Other additive transforms:
+  - `# Progress Log append (canonical agent shape):
+yoke items progress-log append YOK-N --headline "verified tests" --content-file PATH
+# Other additive transforms:
 yoke items structured-field append-addendum YOK-N --field spec --heading "Implementation Notes" --content-file PATH --json
 yoke items structured-field section-upsert YOK-N --section "Acceptance Criteria" --content-file PATH --json`
-  - Progress Log append has its own claimed, atomic recipe in this packet. These additive variants route through registered ``yoke items structured-field ...`` adapters.
+  - Progress Log append routes through ``items.progress_log.append`` and is the agent-facing shape through the registered progress-log append surface. Other additive variants route through registered ``yoke items structured-field ...`` adapters.
 - _List item dependencies (both directions)_
   - `yoke shepherd dependency-list YOK-N`
   - Canonical agent shape (function id ``shepherd.dependency_list.run``); works over https. Typed rows around item_dependencies — use over raw SQL; guessed columns are not the canonical schema. Operator-debug fallback: `python3 -m yoke_core.cli.db_router shepherd dependency-list YOK-N`.
@@ -243,10 +245,10 @@ yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for 
 - _Branch / commit / CI inspection (read-only)_
   - `git -C $(git rev-parse --show-toplevel) status --short --branch
 git -C $(git rev-parse --show-toplevel) log --oneline -20
-yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke
+yoke github-actions check-ci $(yoke projects get --project yoke --field github_repo) ci.yml --branch main
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N status --porcelain
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N rev-parse HEAD`
-  - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport (bearer-token REST). For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
+  - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport (PAT-backed REST). For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths'
 yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim widen examples omit --item' --correlation-id polish-run-2026-05-20`
@@ -288,11 +290,11 @@ PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_cli.main 
   - `python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-worktree -- YOK-N
 # Subcommands: done-transition <args>, merge-worktree <args>`
   - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
-- _Run item-less deployment pipeline with pinned product source (admin/source-dev)_
-  - `source_checkout=<source-checkout> target_branch=<main-or-stage>
-git -C "$source_checkout" fetch origin "$target_branch" && deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
-YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"`
-  - watch_deploy supplies the `python3 -m yoke_core.domain.deploy_pipeline` prefix itself. `--product-src` is a watcher option and must precede `--`; pass only bare deploy_pipeline args after `--` (`run-...`, optional `--from-stage`, and the required `--image-tag`). The product checkout pins the executing code, build context, and product release SHA; use the same checkout and image tag on every retry or resume. Claude adds `--print-streaming-pair` immediately before `--`; Codex/native shells run the shown command. This local-Postgres control-plane recipe is for source-dev/admin or audited break-glass operation only; routine access stays on `/yoke usher`, domain-specific `yoke ...` wrappers, or `yoke db read` over the selected HTTPS/API authority. Do not use `YOKE_ENV=<env>-db-admin` as a normal retry after a product read fails. Item-less environment deploys are valid only as operator-attended admin runs: create the run with `db_router runs create-run` under the project that owns the deployment environment and flow (which may differ from the product project), resolve the target branch SHA from the explicit product checkout, then execute the printed run id through this watcher with `--product-src` and `--image-tag`.
+- _Run deployment pipeline with watcher (admin/source-dev)_
+  - `YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy --print-streaming-pair -- {run-id} [--image-tag <git-short-sha-for-itemless-env>]
+# Codex/native shell can run foreground instead:
+YOKE_ENV=<control-plane-env>-db-admin python3 -m yoke_core.tools.watch_deploy -- {run-id} [--image-tag <git-short-sha-for-itemless-env>]`
+  - watch_deploy supplies the `python3 -m yoke_core.domain.deploy_pipeline` prefix itself; pass only bare deploy_pipeline args after `--` (`run-...`, optional `--from-stage`, and for item-less prod/stage environment deploys a required `--image-tag` resolved from the target branch). This local-Postgres control-plane recipe is for source-dev/admin or audited break-glass operation only; routine access stays on `/yoke usher`, domain-specific `yoke ...` wrappers, or `yoke db read` over the selected HTTPS/API authority. Do not use `YOKE_ENV=<env>-db-admin` as a normal retry after a product read fails. Item-less environment deploys are valid only as operator-attended admin runs: create the run with `db_router runs create-run`, resolve the target branch SHA from an explicit source checkout, then execute the printed run id through this watcher with `--image-tag`.
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
   - `python3 -m yoke_core.tools.watch_pytest --raw-capture <PATH> -- runtime/api/test_my_module.py -q
 tail -80 <PATH>`
