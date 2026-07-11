@@ -152,10 +152,11 @@ def create_runner_github_broker(
         child_opts=child_opts,
     )
     account_id = aws.get_caller_identity().account_id
-    bootstrap_arn = (
+    bootstrap_parent_arn = (
         f"arn:aws:ssm:{region}:{account_id}:"
-        f"parameter{bootstrap_prefix}/*"
+        f"parameter{bootstrap_prefix}"
     )
+    bootstrap_child_arn = f"{bootstrap_parent_arn}/*"
     asg_arn = (
         f"arn:aws:autoscaling:{region}:{account_id}:autoScalingGroup:*:"
         f"autoScalingGroupName/{asg_name}"
@@ -174,7 +175,7 @@ def create_runner_github_broker(
             {
                 "Effect": "Allow",
                 "Action": ["ssm:GetParameter", "ssm:PutParameter"],
-                "Resource": bootstrap_arn,
+                "Resource": bootstrap_child_arn,
             },
             {
                 "Effect": "Allow",
@@ -241,10 +242,13 @@ def create_runner_github_broker(
                 },
                 {
                     "Effect": "Allow",
-                    "Action": [
-                        "ssm:GetParametersByPath", "ssm:DeleteParameter",
-                    ],
-                    "Resource": bootstrap_arn,
+                    "Action": "ssm:GetParametersByPath",
+                    "Resource": bootstrap_parent_arn,
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": "ssm:DeleteParameter",
+                    "Resource": bootstrap_child_arn,
                 },
                 {
                     "Effect": "Allow",

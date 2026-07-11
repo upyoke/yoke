@@ -1,5 +1,6 @@
 """Security boundaries for the rendered GitHub Actions runner fleet."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -63,11 +64,22 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     assert "ssm:GetParametersByPath" not in bootstrap_policy.kwargs["policy"]
     assert "/bootstrap/*" in bootstrap_policy.kwargs["policy"]
     reaper_policy = recorder.single("runnerFleetGithubReaperRuntime")
+    reaper_document = json.loads(reaper_policy.kwargs["policy"])
     assert "autoscaling:SetDesiredCapacity" in reaper_policy.kwargs["policy"]
     assert "autoscaling:TerminateInstanceInAutoScalingGroup" in (
         reaper_policy.kwargs["policy"]
     )
     assert "ec2:DescribeInstances" in reaper_policy.kwargs["policy"]
+    path_read = next(
+        statement for statement in reaper_document["Statement"]
+        if statement["Action"] == "ssm:GetParametersByPath"
+    )
+    marker_delete = next(
+        statement for statement in reaper_document["Statement"]
+        if statement["Action"] == "ssm:DeleteParameter"
+    )
+    assert path_read["Resource"].endswith("/bootstrap")
+    assert marker_delete["Resource"].endswith("/bootstrap/*")
     for resource_name in (
         "runnerFleetLifecycleState.arn",
         "runnerFleetQueueActivity.arn",
