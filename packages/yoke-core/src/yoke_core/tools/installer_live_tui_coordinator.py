@@ -44,6 +44,9 @@ PATH_HEALTH_CONNECT_EXPECTED_TEXT = (
     "This machine",
     "upyoke.com",
 )
+GITHUB_APP_SCENARIO_ID_STOP = 48
+
+
 KNOWN_RECIPE_IDS = {
     "INSTALL-SMOKE-001",
     "INSTALL-SMOKE-002",
@@ -81,7 +84,10 @@ KNOWN_RECIPE_IDS = {
     "AUTH-009",
     "AUTH-010",
     "AUTH-011",
-    *(f"GITHUB-{number:03d}" for number in range(1, 42)),
+    *(
+        f"GITHUB-{number:03d}"
+        for number in range(1, GITHUB_APP_SCENARIO_ID_STOP)
+    ),
     "PROJECT-SOURCE-001",
     "PROJECT-SOURCE-002",
     "PROJECT-SOURCE-003",
@@ -160,7 +166,10 @@ KNOWN_RECIPE_IDS = {
     "STATE-009",
 }
 MANUAL_GITHUB_APP_RECIPE_IDS = {
-    *(f"GITHUB-{number:03d}" for number in range(2, 42)),
+    *(
+        f"GITHUB-{number:03d}"
+        for number in range(2, GITHUB_APP_SCENARIO_ID_STOP)
+    ),
     "PROJECT-SOURCE-006",
     "PROJECT-META-008",
     *(f"PUBLISH-{number:03d}" for number in range(2, 14)),
