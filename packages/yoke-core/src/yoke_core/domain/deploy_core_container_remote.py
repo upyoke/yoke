@@ -25,6 +25,9 @@ from yoke_core.domain.deploy_core_container_remote_health import (
     verify_origin_health,
     wait_container_healthy,
 )
+from yoke_core.domain.deploy_core_container_runtime_packages import (
+    ensure_runtime_packages as ensure_runtime_packages,
+)
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import (
     CommandRunner,
@@ -40,30 +43,6 @@ __all__ = [
 ]
 
 
-_RUNTIME_PROBE = (
-    "command -v docker >/dev/null 2>&1"
-    " && docker compose version >/dev/null 2>&1"
-    " && command -v nginx >/dev/null 2>&1"
-    " && command -v docker-credential-ecr-login >/dev/null 2>&1"
-    " && command -v aws >/dev/null 2>&1"
-)
-
-_RUNTIME_INSTALL = (
-    "sudo env DEBIAN_FRONTEND=noninteractive apt-get update -q"
-    " && sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -q"
-    " ca-certificates curl unzip docker.io docker-compose-v2"
-    " amazon-ecr-credential-helper nginx"
-    " && AWSCLI_ARCH=aarch64"
-    ' && if [ "$(dpkg --print-architecture)" = "amd64" ]; then'
-    " AWSCLI_ARCH=x86_64; fi"
-    " && rm -rf /tmp/aws /tmp/awscliv2.zip"
-    ' && curl -fsSL "https://awscli.amazonaws.com/'
-    'awscli-exe-linux-${AWSCLI_ARCH}.zip" -o /tmp/awscliv2.zip'
-    " && unzip -q /tmp/awscliv2.zip -d /tmp"
-    " && sudo /tmp/aws/install --update"
-    " && rm -rf /tmp/aws /tmp/awscliv2.zip"
-)
-
 # IMDSv2-compatible probe that works on IMDSv1-permissive instances too.
 _INSTANCE_PROFILE_PROBE = (
     'TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token"'
@@ -71,32 +50,6 @@ _INSTANCE_PROFILE_PROBE = (
     ' curl -s -m 2 -H "X-aws-ec2-metadata-token: $TOKEN"'
     " http://169.254.169.254/latest/meta-data/iam/info"
 )
-
-
-def ensure_runtime_packages(
-    runner: CommandRunner, env: DeployEnvironment, emit: Callable[[str], None]
-) -> None:
-    """Install docker + compose + ECR credential helper + nginx when absent."""
-    probe = run_remote(runner, env, _RUNTIME_PROBE, timeout=30)
-    if probe.ok:
-        emit("  [core-deploy] runtime packages present")
-    else:
-        emit(
-            "  [core-deploy] installing runtime packages (docker/compose/nginx/ecr-login)"
-        )
-        install = run_remote(runner, env, _RUNTIME_INSTALL, timeout=600)
-        if not install.ok:
-            _fail("runtime package install", install)
-
-    enable = run_remote(
-        runner,
-        env,
-        "sudo systemctl enable --now docker nginx"
-        f" && sudo usermod -aG docker {env.ssh_user}",
-        timeout=60,
-    )
-    if not enable.ok:
-        _fail("docker/nginx service enablement", enable)
 
 
 def ensure_instance_profile(

@@ -15,7 +15,9 @@ def fail_remote_step(
     remediation: str = "",
 ) -> None:
     """Raise a consistently formatted remote convergence failure."""
-    detail = (result.stderr or result.stdout).strip()
+    detail = "\n".join(
+        part for part in (result.stdout.strip(), result.stderr.strip()) if part
+    )
     message = f"[core-deploy] {step} failed (rc={result.returncode})"
     if detail:
         message += f": {detail[-800:]}"

@@ -139,9 +139,9 @@ fi
 
 systemctl enable --now docker >/dev/null
 
-# ECR credential helper — lets Docker pull images from ECR, and satisfies the
-# core-deploy runtime probe so it does NOT try to apt-install docker.io (which
-# conflicts with the docker-ce installed above and breaks the deploy).
+# ECR credential helper lets Docker pull images from ECR. Core deploy probes
+# each remaining tool independently and preserves this Docker CE provider when
+# it repairs an unrelated missing dependency such as the AWS CLI.
 if ! command -v docker-credential-ecr-login >/dev/null 2>&1; then
   log "Installing amazon-ecr-credential-helper"
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq amazon-ecr-credential-helper
