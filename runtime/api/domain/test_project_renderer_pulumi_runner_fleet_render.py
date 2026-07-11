@@ -92,7 +92,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "runner_fleet_instance_type": "m7g.2xlarge",
         "runner_fleet_root_volume_gb": "200",
         "runner_fleet_deployment_ssh_stack_names_json": (
-            '["buzz-prod","buzz-stage"]'
+            '["buzz-prod","buzz-stage","yoke-platform-vps"]'
         ),
     }
 
@@ -134,6 +134,6 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     assert 'webapp-infra:root_volume_gb: "200"' in rendered
     assert (
         "webapp-infra:deployment_ssh_stack_names: "
-        "'[\"buzz-prod\",\"buzz-stage\"]'"
+        "'[\"buzz-prod\",\"buzz-stage\",\"yoke-platform-vps\"]'"
     ) in rendered
     assert "{{" not in rendered

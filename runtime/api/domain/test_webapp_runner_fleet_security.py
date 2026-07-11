@@ -134,6 +134,7 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     requirements = (root / "requirements.txt").read_text()
     readme = root.parent / "README.md"
     readme_text = readme.read_text()
+    runner_fleet_readme_text = (root.parent / "RUNNER-FLEET.md").read_text()
 
     assert "require_repository_token_environment" in stack_source
     assert "RUNNER_FLEET_GITHUB_TOKEN" in provider_source
@@ -154,6 +155,9 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     assert "runnerFleetRoutingVariable" in readme_text
     assert "direct variable" in readme_text
     assert "writes are drift" in readme_text
+    assert "network.deployment_ssh_stack_names" in runner_fleet_readme_text
+    assert "Literal addresses and CIDRs are not" in runner_fleet_readme_text
+    assert "Pulumi.StackReference" in runner_fleet_readme_text
     assert "configure one manual GitHub webhook" not in readme_text
 
 
@@ -171,6 +175,32 @@ def test_runner_variable_adoption_docs_preserve_generated_pulumi_identity():
         assert "`provider` fields unchanged" in document
         assert "positional" in document
         assert "final zero-change refresh" in document
+
+
+def test_runner_network_derives_standalone_ssh_target_from_stack_output(
+    monkeypatch,
+):
+    stack_names = ["yoke-platform-vps"]
+    recorder, _stack = _runner_stack(
+        monkeypatch,
+        config_overrides={"deployment_ssh_stack_names": stack_names},
+        authority_overrides={"deployment_ssh_stack_names": stack_names},
+        deployment_ssh_stack_outputs={
+            "yoke-platform-vps": {
+                "originElasticIpAddress": "198.51.100.42",
+            },
+        },
+    )
+    egress = recorder.single("runnerFleetSecurityGroup").kwargs["egress"]
+    ssh_rules = [rule for rule in egress if rule.kwargs["from_port"] == 22]
+
+    assert [rule.kwargs["cidr_blocks"] for rule in ssh_rules] == [
+        ["198.51.100.42/32"],
+    ]
+    assert recorder.stack_references == ["yoke-platform-vps"]
+    assert recorder.stack_reference_outputs == [
+        ("yoke-platform-vps", "originElasticIpAddress"),
+    ]
 
 
 @pytest.mark.parametrize(

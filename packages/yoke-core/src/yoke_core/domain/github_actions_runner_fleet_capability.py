@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
 from typing import Any, Dict, List, Optional
@@ -77,6 +78,7 @@ class RunnerFleetNetworkSettings(BaseModel):
     """Optional network destinations required by deployment workflows."""
 
     deployment_ssh_environments: List[str] = Field(default_factory=list)
+    deployment_ssh_stack_names: List[str] = Field(default_factory=list)
 
     @field_validator("deployment_ssh_environments")
     @classmethod
@@ -88,6 +90,39 @@ class RunnerFleetNetworkSettings(BaseModel):
             value = str(environment).strip()
             if not value:
                 raise ValueError("must contain only non-empty environment names")
+            if value not in cleaned:
+                cleaned.append(value)
+        return cleaned
+
+    @field_validator("deployment_ssh_stack_names")
+    @classmethod
+    def _clean_deployment_ssh_stack_names(
+        cls, stack_names: List[str],
+    ) -> List[str]:
+        cleaned: List[str] = []
+        for stack_name in stack_names:
+            value = str(stack_name).strip()
+            if not value:
+                raise ValueError(
+                    "must contain only non-empty Pulumi stack names"
+                )
+            if any(marker in value for marker in (".", ":", "/")):
+                try:
+                    ipaddress.ip_network(value, strict=False)
+                except ValueError:
+                    pass
+                else:
+                    raise ValueError(
+                        "must contain Pulumi stack names, not literal IP "
+                        "addresses or CIDRs"
+                    )
+            if re.fullmatch(
+                r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+){0,2}", value,
+            ) is None:
+                raise ValueError(
+                    "must contain only Pulumi stack names or qualified "
+                    "org/project/stack references"
+                )
             if value not in cleaned:
                 cleaned.append(value)
         return cleaned
