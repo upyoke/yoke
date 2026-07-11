@@ -279,13 +279,13 @@ async function reapFleet() {
   const runner = current[0];
   const wasOnline = state.online_instance_id === instanceId;
   if (!runner || runner.status !== "online") {
-    if (now - marker.at < readyGrace) {
-      await writeLifecycleState({ ...state, idle_since: 0 });
-      return { action: "kept", reason: "runner_startup_window" };
-    }
     const { progress, completed } = await readRunnerEvents();
     const completionMatches = completed.action === "completed" &&
       completed.runner_name === expectedName;
+    if (!completionMatches && now - marker.at < readyGrace) {
+      await writeLifecycleState({ ...state, idle_since: 0 });
+      return { action: "kept", reason: "runner_startup_window" };
+    }
     const progressMatches = progress.action === "in_progress" &&
       progress.runner_name === expectedName;
     if (!completionMatches && progressMatches &&

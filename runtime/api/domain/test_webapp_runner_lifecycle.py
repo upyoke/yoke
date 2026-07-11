@@ -26,6 +26,7 @@ def _parameters(
     online_instance_id: str = "",
     queue_activity: str = "initial",
     marker_state: str | None = "ready",
+    marker_age_seconds: int = 600,
     progress_event: dict | None = None,
     completion_event: dict | None = None,
 ) -> str:
@@ -47,7 +48,7 @@ def _parameters(
     if marker_state is not None:
         values[f"/fleet/bootstrap/{INSTANCE_ID}"] = json.dumps({
             "state": marker_state,
-            "at": int(time.time()) - 600,
+            "at": int(time.time()) - marker_age_seconds,
         })
     return json.dumps(values)
 
@@ -214,11 +215,17 @@ def test_signed_in_progress_event_prevents_transient_offline_recycle(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
-def test_completion_wins_over_delayed_in_progress_delivery(tmp_path):
+@pytest.mark.parametrize(
+    "marker_age_seconds", [30, 600], ids=["startup-grace", "steady-state"],
+)
+def test_completion_wins_over_delayed_in_progress_delivery(
+    tmp_path, marker_age_seconds,
+):
     _write_node_fixture(tmp_path)
     now = int(time.time())
     parameters = _parameters(
         online_instance_id=INSTANCE_ID,
+        marker_age_seconds=marker_age_seconds,
         progress_event={
             "action": "in_progress",
             "runner_name": RUNNER_NAME,
