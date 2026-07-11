@@ -193,6 +193,12 @@ Then set these non-secret/runtime bindings in `.env`:
 YOKE_GITHUB_APP_ISSUER=<numeric-app-id>
 YOKE_GITHUB_APP_API_URL=https://api.github.com
 YOKE_GITHUB_APP_PRIVATE_KEY_FILE=/run/secrets/yoke-github-app-private-key
+
+# Optional product-facing Connect GitHub profile; set all four or none.
+YOKE_GITHUB_APP_WEB_URL=https://github.com
+YOKE_GITHUB_APP_ID=<numeric-app-id>
+YOKE_GITHUB_APP_CLIENT_ID=<public-client-id>
+YOKE_GITHUB_APP_SLUG=<app-slug>
 ```
 
 Uncomment the `yoke-github-app-private-key` service mount and top-level secret
@@ -200,6 +206,13 @@ definition in `docker-compose.yml`, then run `docker compose up -d`. The
 bundled GitHub App block is disabled until all three values and the mounted key
 are present. GitHub Enterprise Server uses its HTTPS API origin in
 `YOKE_GITHUB_APP_API_URL`; redirects to another origin are rejected.
+The public profile is all-or-none. Whenever private App configuration is
+present, startup performs one bounded, no-redirect App identity check—even
+when the public profile is omitted. Missing, partial, unreadable, or identity-
+mismatched public configuration remains a detail-free `available: false` in
+health, so onboarding offers backlog-only. Health never performs a network
+request. After repairing a key or identity mismatch, restart the core service
+so startup can attest the repaired authority before it is advertised.
 
 Hosted/stage deployments use the same runtime contract but source the key from
 AWS Secrets Manager. The deploy environment's `environments.settings` contains
@@ -210,10 +223,20 @@ only this non-secret reference block:
   "github_app": {
     "issuer": "<numeric-app-id>",
     "api_url": "https://api.github.com",
-    "private_key_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>"
+    "private_key_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>",
+    "public": {
+      "client_id": "<public-client-id>",
+      "app_slug": "<app-slug>",
+      "app_id": 123456,
+      "web_url": "https://github.com"
+    }
   }
 }
 ```
+
+Omit `public` for a private/operator-only App that must never become the
+default machine Connect profile. If `public` is present it must be complete;
+the outer `api_url` is its single API-origin authority.
 
 The origin instance role resolves that ARN locally. Deployment writes
 `github-app-private-key.pem` as mode `0640`, owned by the deploy user and a

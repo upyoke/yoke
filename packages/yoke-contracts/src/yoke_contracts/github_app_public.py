@@ -48,8 +48,7 @@ class GitHubAppPublicProfile(BaseModel):
     def _safe_client_id(cls, value: str) -> str:
         selected = str(value or "").strip()
         if not selected or any(
-            character.isspace() or ord(character) < 0x20
-            for character in selected
+            character.isspace() or ord(character) < 0x20 for character in selected
         ):
             raise ValueError("client_id must be a nonempty public identifier")
         return selected
