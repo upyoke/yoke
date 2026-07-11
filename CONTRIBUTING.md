@@ -90,6 +90,9 @@ curl installer.
    future contributions — returning contributors are recognized automatically
    and never asked again.
 
+Maintainers cut tagged releases through the authored-note and provenance
+contract in [docs/releases/README.md](docs/releases/README.md).
+
 ## License
 
 Yoke is Fair Source, source-available under the

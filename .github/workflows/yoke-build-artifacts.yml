@@ -12,9 +12,12 @@ name: yoke-build-artifacts
 # operation surface owned by the operator's private ops repo posture (see
 # the yoke-distribution-publish.yml header).
 #
-# Fork-PR safety: no step reads a repository secret; the token is pinned
-# read-only; runs-on is hard-pinned to GitHub-hosted so a stranger pull
-# request can never reach operator infrastructure through this lane.
+# Fork-PR safety: no step reads a repository secret; repository contents stay
+# read-only; runs-on is hard-pinned to GitHub-hosted so a stranger pull request
+# can never reach operator infrastructure through this lane. The narrow
+# attestation write scopes are used only for trusted push/dispatch callers,
+# because fork pull requests do not receive the write token or OIDC identity
+# needed to sign.
 
 on:
   pull_request:
@@ -34,17 +37,32 @@ on:
       - "pyproject.toml"
       - "uv.lock"
   workflow_dispatch:
+  workflow_call:
+    outputs:
+      release_version:
+        description: Validated shared product-wheel version.
+        value: ${{ jobs.build.outputs.release_version }}
+      artifact_name:
+        description: Workflow artifact containing the validated release tree.
+        value: ${{ jobs.build.outputs.artifact_name }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # A called workflow inherits the caller's github.workflow name. A literal
+  # namespace keeps this group distinct from yoke-release's caller group.
+  group: yoke-build-artifacts-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
+  attestations: write
+  id-token: write
 
 jobs:
   build:
     name: build
+    outputs:
+      release_version: ${{ steps.release.outputs.release_version }}
+      artifact_name: ${{ steps.release.outputs.artifact_name }}
     # Deliberately NOT vars.YOKE_LINUX_RUNS_ON: factory builds carry no
     # operator state, so there is nothing a hosted runner cannot do, and
     # hard-pinning keeps fork pull requests off self-hosted fleets even
@@ -75,11 +93,13 @@ jobs:
         run: uv sync --all-packages --all-groups --locked
 
       - name: Build and validate the release artifact contract
+        id: release
         run: |
           release_root="$RUNNER_TEMP/yoke-release"
           release_json="$RUNNER_TEMP/yoke-release.json"
           release_generated_at="$(git show -s --format=%cI HEAD)"
-          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          source_date_epoch="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH="$source_date_epoch"
           uv run python -m yoke_core.tools.build_release \
             --repo-root "$GITHUB_WORKSPACE" \
             --output-root "$release_root" \
@@ -89,12 +109,28 @@ jobs:
           release_dir="$(uv run python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["release_dir"])' "$release_json")"
           uv run python -m yoke_core.tools.distribution_publish \
             validate-release "$release_dir"
+          release_version="$(uv run python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' "$release_json")"
           echo "RELEASE_DIR=$release_dir" >> "$GITHUB_ENV"
+          {
+            echo "release_version=$release_version"
+            echo "artifact_name=yoke-release-${GITHUB_SHA}"
+            echo "wheels_glob=$release_dir/wheels/*.whl"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Attest the validated product wheels
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: actions/attest@v4
+        with:
+          # validate-release has already checked this exact product-wheel set,
+          # including the manifest hashes, wheel ZIP/RECORD integrity, shared
+          # version, and sibling pins. The glob excludes installer/index files.
+          subject-path: ${{ steps.release.outputs.wheels_glob }}
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: yoke-release-${{ github.sha }}
+          name: ${{ steps.release.outputs.artifact_name }}
           path: ${{ env.RELEASE_DIR }}
           retention-days: 14
           if-no-files-found: error
+          overwrite: true

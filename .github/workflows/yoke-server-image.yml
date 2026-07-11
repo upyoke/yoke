@@ -11,11 +11,12 @@ name: yoke-server-image
 #
 # Fork safety: never runs for a stranger's pull request (push-to-main and
 # manual dispatch only); no step reads a repository secret beyond the
-# workflow's own GITHUB_TOKEN, which the permissions block scopes to
-# package publishing; runs-on is hard-pinned to GitHub-hosted so this
-# lane can never reach operator infrastructure. No cloud credentials, no
-# operator registry — the private registry prewarm lane is a separate
-# OPERATION workflow (yoke-core-image.yml).
+# workflow's own GITHUB_TOKEN. The token can publish packages and
+# attestations, while a short-lived GitHub OIDC identity signs the exact
+# pushed image digest. runs-on is hard-pinned to GitHub-hosted so this lane
+# can never reach operator infrastructure. No cloud credentials, no operator
+# registry — the private registry prewarm lane is a separate OPERATION
+# workflow (yoke-core-image.yml).
 
 on:
   push:
@@ -33,6 +34,8 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  attestations: write
+  id-token: write
 
 jobs:
   build-push:
@@ -51,17 +54,29 @@ jobs:
           # carry .git into the image.
           fetch-depth: 0
 
-      - name: Resolve image reference (sha12 tag, lowercase owner)
+      - name: Resolve image references (sha12 and main-only latest)
+        id: image
         run: |
           owner="${{ github.repository_owner }}"
-          echo "IMAGE_REPOSITORY=ghcr.io/${owner,,}/yoke-server" >> "$GITHUB_ENV"
-          echo "IMAGE_TAG=${GITHUB_SHA:0:12}" >> "$GITHUB_ENV"
+          repository="ghcr.io/${owner,,}/yoke-server"
+          sha_tag="${GITHUB_SHA:0:12}"
+          {
+            echo "repository=$repository"
+            echo "sha_tag=$sha_tag"
+            echo "tags<<EOF"
+            echo "$repository:$sha_tag"
+            if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+              echo "$repository:latest"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Resolve package version
+        id: version
         run: |
           python -m pip install "setuptools-scm[toml]"
           version="$(python -m setuptools_scm --root "$GITHUB_WORKSPACE")"
-          echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR
         run: |
@@ -69,21 +84,27 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" \
             | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Build the server image
+      - name: Build and push the server image
+        id: push
         # YOKE_BUILD_SHA bakes the source sha into the image; /v1/health
         # serves it as `build` so self-hosters can confirm WHICH code is
-        # answering after an upgrade.
-        run: |
-          docker build \
-            --build-arg "YOKE_BUILD_SHA=$IMAGE_TAG" \
-            --build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION" \
-            -t "$IMAGE_REPOSITORY:$IMAGE_TAG" .
+        # answering after an upgrade. One build pushes both names so latest
+        # and the immutable sha12 tag resolve to the attested digest.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image.outputs.tags }}
+          build-args: |
+            YOKE_BUILD_SHA=${{ steps.image.outputs.sha_tag }}
+            YOKE_ENGINE_VERSION=${{ steps.version.outputs.value }}
 
-      - name: Push the sha tag
-        run: docker push "$IMAGE_REPOSITORY:$IMAGE_TAG"
-
-      - name: Push latest (main only)
-        if: github.ref == 'refs/heads/main'
-        run: |
-          docker tag "$IMAGE_REPOSITORY:$IMAGE_TAG" "$IMAGE_REPOSITORY:latest"
-          docker push "$IMAGE_REPOSITORY:latest"
+      - name: Attest the immutable image digest
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.image.outputs.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+          # The registry attachment plus GitHub attestation record are the
+          # release contract; no broader organization artifact write is needed.
+          create-storage-record: false

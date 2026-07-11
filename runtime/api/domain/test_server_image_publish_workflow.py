@@ -3,9 +3,11 @@
 The workflow is a FACTORY lane: it must stay reachable only from trusted
 refs (push to main, manual dispatch), stay dormant until the publish
 repository variable is flipped, run only on GitHub-hosted runners, and
-touch no operator secret or registry. A regression on any of these
-properties would let a stranger's pull request reach publishing
-credentials or operator infrastructure once the repo is public.
+touch no operator secret or registry. The sha12 and latest names must come
+from one image build, and the authenticated provenance statement must bind
+that build's exact registry digest. A regression on any of these properties
+would either expose publishing authority or leave consumers unable to prove
+which source and workflow produced the bytes they pulled.
 """
 
 from __future__ import annotations
@@ -36,8 +38,11 @@ def test_permissions_are_minimal():
     text = _text()
     assert "contents: read" in text
     assert "packages: write" in text
-    # No cloud-role assumption in this lane.
-    assert "id-token" not in text
+    assert "attestations: write" in text
+    assert "id-token: write" in text
+    # The attestation action is explicitly kept off the broader organization
+    # artifact-metadata surface; no cloud-role assumption exists in this lane.
+    assert "artifact-metadata" not in text
 
 
 def test_hosted_runner_hard_pin():
@@ -57,18 +62,34 @@ def test_no_operator_secrets_or_registry():
         assert needle not in text, f"operator surface leaked in: {needle}"
 
 
-def test_builds_repo_dockerfile_with_build_sha_and_ghcr_tags():
+def test_one_build_pushes_sha12_and_main_only_latest_tags():
     text = _text()
     assert "fetch-depth: 0" in text
     assert "python -m setuptools_scm --root" in text
-    assert 'YOKE_BUILD_SHA=$IMAGE_TAG' in text
-    assert 'YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION' in text
+    assert "uses: docker/build-push-action@v6" in text
+    assert text.count("uses: docker/build-push-action@v6") == 1
+    assert "push: true" in text
+    assert "YOKE_BUILD_SHA=${{ steps.image.outputs.sha_tag }}" in text
+    assert "YOKE_ENGINE_VERSION=${{ steps.version.outputs.value }}" in text
     assert "ghcr.io/${owner,,}/yoke-server" in text
-    assert 'IMAGE_TAG=${GITHUB_SHA:0:12}' in text
+    assert 'sha_tag="${GITHUB_SHA:0:12}"' in text
+    assert 'echo "$repository:$sha_tag"' in text
     # latest only advances from main; dispatch on another ref publishes
     # the sha tag alone.
-    assert "github.ref == 'refs/heads/main'" in text
-    assert ":latest" in text
+    assert 'if [[ "$GITHUB_REF" == "refs/heads/main" ]]' in text
+    assert 'echo "$repository:latest"' in text
+
+
+def test_attestation_binds_build_output_digest_and_registry_subject():
+    text = _text()
+    build_index = text.index("uses: docker/build-push-action@v6")
+    attest_index = text.index("uses: actions/attest@v4")
+    assert build_index < attest_index
+    assert "id: push" in text[:build_index]
+    assert "subject-name: ${{ steps.image.outputs.repository }}" in text
+    assert "subject-digest: ${{ steps.push.outputs.digest }}" in text
+    assert "push-to-registry: true" in text
+    assert "create-storage-record: false" in text
 
 
 def test_login_pipe_preserves_failure_status():

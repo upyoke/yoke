@@ -1,0 +1,145 @@
+name: yoke-release
+
+# Classification: FACTORY. A vX.Y.Z+local.N tag on a commit already reachable
+# from main is the sole release trigger. The PEP 440 local segment is required
+# by the product's public-index confusion defense. The tagged tree must carry
+# its own nonempty docs/releases/<tag>.md; the workflow then invokes the
+# reusable wheel factory, checks that setuptools-scm resolved the exact same
+# version, and creates the GitHub Release from those validated artifacts.
+#
+# Fork safety: pull requests and branch pushes cannot reach this workflow.
+# The validation and build jobs have no release-write permission. Only the
+# final GitHub-hosted job receives contents:write, and it uses github.token —
+# no repository secret, cloud credential, or operator runner is involved.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  validate-tag:
+    name: validate-release-tag-and-notes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the tagged tree
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require an unforgeable release tag on main with authored notes
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\+[a-z0-9]+(\.[a-z0-9]+)*$ ]]; then
+            echo "release tags must match vX.Y.Z+local.N: $TAG_NAME" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "release commit is not reachable from origin/main: $GITHUB_SHA" >&2
+            exit 1
+          fi
+          notes_path="docs/releases/$TAG_NAME.md"
+          if [[ ! -f "$notes_path" || -L "$notes_path" || ! -s "$notes_path" ]]; then
+            echo "release notes must be a nonempty regular file: $notes_path" >&2
+            exit 1
+          fi
+          IFS= read -r heading < "$notes_path"
+          expected_heading="# Yoke ${TAG_NAME#v}"
+          if [[ "$heading" != "$expected_heading" ]]; then
+            echo "release notes must start with: $expected_heading" >&2
+            exit 1
+          fi
+
+  build:
+    name: build-validate-and-attest
+    needs: validate-tag
+    uses: ./.github/workflows/yoke-build-artifacts.yml
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+
+  release:
+    name: publish-github-release
+    needs: [validate-tag, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the tagged release notes
+        uses: actions/checkout@v4
+
+      - name: Download the validated release tree
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: ${{ runner.temp }}/yoke-release-artifact
+
+      - name: Verify tag, manifest, and transferred wheel bytes
+        env:
+          ARTIFACT_DIR: ${{ runner.temp }}/yoke-release-artifact
+          RELEASE_VERSION: ${{ needs.build.outputs.release_version }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$TAG_NAME" != "v$RELEASE_VERSION" ]]; then
+            echo "tag $TAG_NAME does not match built version $RELEASE_VERSION" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["ARTIFACT_DIR"])
+          records_path = root / "release-records.json"
+          records = json.loads(records_path.read_text(encoding="utf-8"))
+          if not isinstance(records, list) or not records:
+              raise SystemExit("release-records.json must contain wheel records")
+          wheels_dir = root / "wheels"
+          expected = {str(record["filename"]) for record in records}
+          actual = {path.name for path in wheels_dir.glob("*.whl")}
+          if actual != expected:
+              raise SystemExit(
+                  f"downloaded wheel set differs from manifest: "
+                  f"expected={sorted(expected)!r} actual={sorted(actual)!r}"
+              )
+          for record in records:
+              path = wheels_dir / str(record["filename"])
+              body = path.read_bytes()
+              if len(body) != int(record["size"]):
+                  raise SystemExit(f"wheel size differs from manifest: {path.name}")
+              if hashlib.sha256(body).hexdigest() != str(record["sha256"]):
+                  raise SystemExit(f"wheel digest differs from manifest: {path.name}")
+          PY
+
+      - name: Create the GitHub Release entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_DIR: ${{ runner.temp }}/yoke-release-artifact
+          RELEASE_VERSION: ${{ needs.build.outputs.release_version }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          shopt -s nullglob
+          wheels=("$ARTIFACT_DIR"/wheels/*.whl)
+          if (( ${#wheels[@]} == 0 )); then
+            echo "validated release artifact contains no wheels" >&2
+            exit 1
+          fi
+          gh release create "$TAG_NAME" \
+            "${wheels[@]}" \
+            "$ARTIFACT_DIR/release-records.json" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Yoke $RELEASE_VERSION" \
+            --notes-file "docs/releases/$TAG_NAME.md"
