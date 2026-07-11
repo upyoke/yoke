@@ -257,10 +257,10 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "--product-src",
         type=Path,
         default=None,
-        help="Path to a product checkout at the deployed pin/image sha. "
-        "Uses that checkout for both Python source and deploy build context. "
-        "Required for item-less environment deploys carrying --image-tag; "
-        "other invocations may omit it to warn and run this checkout's code.",
+        help="Path to the product checkout that authorizes deployed code, "
+        "build context, and the canonical image tag derived from its HEAD. "
+        "Required for operator item-less environment deploys; other "
+        "invocations may omit it to warn and run this checkout's code.",
     )
     parser.add_argument(
         "passthrough",

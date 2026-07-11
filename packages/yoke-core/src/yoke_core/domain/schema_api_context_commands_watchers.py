@@ -118,8 +118,6 @@ WATCHERS_COMMANDS: list[dict] = [
             "source_checkout=<source-checkout>; target_branch=<main-or-stage>; "
             'git -C "$source_checkout" fetch origin "$target_branch" && '
             'git -C "$source_checkout" checkout --detach FETCH_HEAD && '
-            'deploy_image_tag="$(git -C "$source_checkout" rev-parse '
-            '--short=12 HEAD)" && '
             'PYTHONPATH="$source_checkout/packages/yoke-contracts/src:'
             "$source_checkout/packages/yoke-cli/src:"
             "$source_checkout/packages/yoke-core/src:"
@@ -129,18 +127,21 @@ WATCHERS_COMMANDS: list[dict] = [
             "YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env> "
             "python3 -m "
             'yoke_core.tools.watch_deploy --product-src "$source_checkout" '
-            '-- {run-id} --image-tag "$deploy_image_tag"'
+            "-- {run-id}"
         ),
         "notes": (
             "watch_deploy supplies the `python3 -m "
             "yoke_core.domain.deploy_pipeline` prefix itself. `--product-src` "
             "is a watcher option and must precede `--`; pass only bare "
             "deploy_pipeline args after `--` (`run-...`, optional "
-            "`--from-stage`, and the required `--image-tag`). The product "
+            "`--from-stage`, and other pipeline options). The product "
             "checkout pins the executing code, build context, and product "
-            "release SHA; use the same checkout and image tag on every retry "
-            "or resume. Fetching alone does not move the checkout; detach it "
-            "at `FETCH_HEAD` before resolving the tag. The explicit "
+            "release SHA; use the same checkout on every retry or resume. "
+            "The watcher validates its exact HEAD and injects the canonical "
+            "12-character registry tag. A legacy explicit `--image-tag` is "
+            "accepted only when it resolves to the same HEAD and is "
+            "canonicalized before dispatch. Fetching alone does not move "
+            "the checkout; detach it at `FETCH_HEAD`. The explicit "
             "worktree-source `PYTHONPATH` prevents an installed older Yoke "
             "from running the outer watcher. Claude adds "
             "`--print-streaming-pair` immediately "

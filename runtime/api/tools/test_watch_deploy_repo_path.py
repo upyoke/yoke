@@ -53,6 +53,39 @@ def test_product_src_becomes_deploy_repo_path(monkeypatch, tmp_path) -> None:
     assert argv[-2:] == ["--product-repo-path", str(product_root)]
 
 
+def test_product_src_injects_canonical_image_tag(monkeypatch, tmp_path) -> None:
+    argv, _product_root = _run(monkeypatch, tmp_path, ["run-1"])
+
+    image_tag_index = argv.index("--image-tag")
+    assert argv[image_tag_index + 1] == "a" * 12
+
+
+@pytest.mark.parametrize(
+    "image_tag_args, expected_arg",
+    (
+        (["--image-tag", "a" * 11], "a" * 12),
+        ([f"--image-tag={'a' * 11}"], f"--image-tag={'a' * 12}"),
+    ),
+)
+def test_product_src_canonicalizes_legacy_image_tag(
+    monkeypatch,
+    tmp_path,
+    image_tag_args: list[str],
+    expected_arg: str,
+) -> None:
+    argv, _product_root = _run(
+        monkeypatch,
+        tmp_path,
+        ["run-1", *image_tag_args],
+    )
+
+    if expected_arg.startswith("--image-tag="):
+        assert expected_arg in argv
+    else:
+        image_tag_index = argv.index("--image-tag")
+        assert argv[image_tag_index + 1] == expected_arg
+
+
 def test_explicit_repo_path_is_not_duplicated(monkeypatch, tmp_path) -> None:
     argv, product_root = _run(
         monkeypatch, tmp_path, ["run-1", "--image-tag=abc123"],
@@ -93,3 +126,4 @@ def test_streaming_pair_preserves_product_source(monkeypatch, tmp_path, capsys) 
     background = capsys.readouterr().out
     assert f"--product-src {product_root.resolve()}" in background
     assert f"--product-repo-path {product_root.resolve()}" in background
+    assert "--image-tag aaaaaaaaaaaa" in background

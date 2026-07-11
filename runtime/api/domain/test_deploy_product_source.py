@@ -44,6 +44,25 @@ def test_clean_linked_worktree_accepts_short_head_pin(tmp_path: Path) -> None:
 
     assert source.repo_path == str(linked.resolve())
     assert source.commit == head
+    assert source.image_tag == head[:12]
+
+
+def test_eleven_character_pin_canonicalizes_to_twelve(tmp_path: Path) -> None:
+    repo, _first, head = _repository(tmp_path)
+
+    source = deploy_product_source.validate_product_source(repo, head[:11])
+
+    assert source.commit == head
+    assert source.image_tag == head[:12]
+
+
+def test_product_source_without_explicit_pin_derives_head(tmp_path: Path) -> None:
+    repo, _first, head = _repository(tmp_path)
+
+    source = deploy_product_source.validate_product_source(repo)
+
+    assert source.commit == head
+    assert source.image_tag == head[:12]
 
 
 def test_product_source_rejects_dirty_checkout(tmp_path: Path) -> None:

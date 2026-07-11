@@ -174,7 +174,7 @@ def run_pipeline(
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
     product_repo_path = product_source.repo_path if product_source else ""
-
+    image_tag = product_source.image_tag if product_source else image_tag
     try:
         _converge_seeded_flow_config(flow_id)
     except Exception as exc:

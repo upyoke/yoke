@@ -132,24 +132,18 @@ def test_core_topic_pins_itemless_deploy_to_product_checkout() -> None:
     body = sac.render_topic_packet("core")
     fetch = 'git -C "$source_checkout" fetch origin "$target_branch"'
     detach = 'git -C "$source_checkout" checkout --detach FETCH_HEAD'
-    resolve = "rev-parse --short=12 HEAD"
-    watched = (
-        'watch_deploy --product-src "$source_checkout" -- {run-id} '
-        '--image-tag "$deploy_image_tag"'
-    )
+    watched = 'watch_deploy --product-src "$source_checkout" -- {run-id}'
     assert fetch in body
     assert detach in body
-    assert resolve in body
+    assert "rev-parse --short" not in body
     assert "$source_checkout/packages/yoke-core/src" in body
     assert watched in body
+    assert "canonical 12-character registry tag" in body
     assert "YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env>" in body
     assert "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1" in body
     assert "never leave authority selection implicit" in body
     assert (
-        body.index(fetch)
-        < body.index(detach)
-        < body.index(resolve)
-        < body.index(watched)
+        body.index(fetch) < body.index(detach) < body.index(watched)
     )
 
 

@@ -28,9 +28,8 @@ from pathlib import Path
 from typing import Callable, Mapping, Optional
 
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
+from yoke_core.domain.deploy_image_tag import canonical_image_tag
 from yoke_core.domain.deploy_remote import CommandResult, CommandRunner
-
-_IMAGE_TAG_LENGTH = 12
 
 # Explicit mode selector: the invoking workflow sets this; operator
 # machines never do. Value contract mirrors the codebase env-flag idiom
@@ -85,7 +84,7 @@ def resolve_image_tag(
                 f"declared branch '{declared_branch}': "
                 f"{resolved.stderr.strip()}"
             )
-        return resolved.stdout.strip()[:_IMAGE_TAG_LENGTH]
+        return canonical_image_tag(resolved.stdout)
     result = runner.run(
         ["git", "-C", repo_path, "rev-parse", "HEAD"], timeout=30
     )
@@ -94,7 +93,7 @@ def resolve_image_tag(
             f"[core-deploy] could not resolve HEAD of {repo_path}: "
             f"{result.stderr.strip()}"
         )
-    return result.stdout.strip()[:_IMAGE_TAG_LENGTH]
+    return canonical_image_tag(result.stdout)
 
 
 def _describe_image(
@@ -163,14 +162,15 @@ def _wait_for_prewarmed_image(
         "this deploy via the yoke-env-deploy workflow_dispatch lane (no "
         "new commit — an empty commit mints a NEW sha the prewarm never "
         "built). Deterministic operator fallback (builds locally): run "
-        "git -C <source-checkout> fetch origin <target-branch>, resolve "
-        "<git-short-sha> from FETCH_HEAD, then YOKE_ENV=<control-plane-env>"
+        "git -C <source-checkout> fetch origin <target-branch>, detach the "
+        "clean checkout at FETCH_HEAD, then YOKE_ENV=<control-plane-env>"
         "-db-admin python3 -m yoke_core.cli.db_router runs create-run "
         f"{env.project} {env.deploy_namespace}-{env.env_name}-release "
         "--created-by operator. Execute the printed run id with "
         "YOKE_ENV=<control-plane-env>-db-admin python3 -m "
         "yoke_core.tools.watch_deploy --product-src <source-checkout> -- "
-        "<run-id> --image-tag <git-short-sha>."
+        "<run-id>. The watcher derives the canonical image tag from the "
+        "validated checkout HEAD."
     )
 
 

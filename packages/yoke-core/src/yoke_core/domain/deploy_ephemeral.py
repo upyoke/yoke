@@ -72,6 +72,7 @@ from yoke_core.domain.deploy_ephemeral_remote import (
     teardown_slug_project,
     verify_slug_health,
 )
+from yoke_core.domain.deploy_image_tag import canonical_image_tag
 from yoke_core.domain.deploy_remote import CommandRunner, aws_capability_env
 from yoke_core.domain.ephemeral_substrate import (
     EphemeralPolicyError,
@@ -81,8 +82,6 @@ from yoke_core.domain.ephemeral_substrate import (
     preview_url,
     slugify_branch,
 )
-
-_IMAGE_TAG_LENGTH = 12
 
 _FAILURE_CLASSES = (
     EphemeralDeployError, EphemeralPolicyError, DeployEnvironmentError,
@@ -152,7 +151,7 @@ def exec_ephemeral_deploy(
         )
 
         sha = _resolve_branch_sha(runner, repo_path, branch)
-        tag = image_tag or sha[:_IMAGE_TAG_LENGTH]
+        tag = image_tag or canonical_image_tag(sha)
         aws_env = aws_capability_env(policy.project, env.aws_region)
         ensure_instance_running(runner, env, aws_env, emit)
         wait_ssh_reachable(runner, env, emit)

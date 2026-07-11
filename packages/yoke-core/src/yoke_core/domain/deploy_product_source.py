@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 from typing import Sequence
 
+from yoke_core.domain.deploy_image_tag import canonical_image_tag
+
 
 class DeployProductSourceError(ValueError):
     """A deployment product checkout or pin is unsafe to use."""
@@ -16,6 +18,11 @@ class DeployProductSourceError(ValueError):
 class DeployProductSource:
     repo_path: str
     commit: str
+
+    @property
+    def image_tag(self) -> str:
+        """Fixed-width registry tag derived from the validated commit."""
+        return canonical_image_tag(self.commit)
 
 
 def validate_itemless_product_source(
@@ -34,8 +41,11 @@ def validate_itemless_product_source(
     return validate_product_source(selected, image_tag)
 
 
-def validate_product_source(repo_path: str | Path, image_tag: str) -> DeployProductSource:
-    """Require a clean Git top-level whose HEAD is the explicit image pin."""
+def validate_product_source(
+    repo_path: str | Path,
+    image_tag: str = "",
+) -> DeployProductSource:
+    """Require a clean Git top-level and validate any legacy explicit pin."""
     path = Path(repo_path).expanduser().resolve(strict=True)
     if not path.is_dir():
         raise DeployProductSourceError(f"product repo path is not a directory: {path}")
@@ -49,8 +59,9 @@ def validate_product_source(repo_path: str | Path, image_tag: str) -> DeployProd
         raise DeployProductSourceError(
             "product repo checkout must be clean before a pinned deploy"
         )
-    commit = resolve_product_commit(path, image_tag)
     head = _git(path, "rev-parse", "--verify", "HEAD^{commit}")
+    selected_tag = str(image_tag or "").strip()
+    commit = resolve_product_commit(path, selected_tag) if selected_tag else head
     if commit != head:
         raise DeployProductSourceError(
             f"image tag resolves to {commit}, but product checkout HEAD is {head}"

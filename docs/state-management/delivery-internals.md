@@ -27,10 +27,15 @@ export YOKE_ENV="${release_control_plane_env}-db-admin"
 export YOKE_RELEASE_CONTROL_PLANE_ENV="$release_control_plane_env"
 export YOKE_GITHUB_ACTIONS_RELAY_ENV="$release_control_plane_env"
 git -C "$source_checkout" fetch origin "$target_branch"
-deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
+git -C "$source_checkout" checkout --detach FETCH_HEAD
 python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
-python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
+python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id}
 ```
+
+The watcher validates the clean checkout and derives the registry's canonical
+12-character image tag from its exact `HEAD`. A legacy explicit `--image-tag`
+is accepted only when it resolves to that same commit and is canonicalized
+before dispatch.
 
 These runs leave `deployment_run_items` empty by design. The pipeline skips item branch/status writes but still advances `deployment_runs.current_stage` / `status` and emits run-level deployment events.
 
@@ -63,7 +68,7 @@ When an executor encounters a missing capability, it follows the capability self
 2. Usher records the capability need as an event via `yoke_core.domain.events.emit_event`
 3. If the template is novel (`TEMPLATE = 'NEW'`), Usher saves it to `capability_templates`
 4. Usher halts the deployment run and exits (items stay at `release`)
-5. Operator configures the capability (adds row to `project_capabilities`) and re-runs `/yoke usher YOK-N` for item-bound delivery, or re-runs `watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"` for an item-less environment deploy; every retry or `--from-stage` resume must preserve the same product checkout and image tag
+5. Operator configures the capability (adds row to `project_capabilities`) and re-runs `/yoke usher YOK-N` for item-bound delivery, or re-runs `watch_deploy --product-src "$source_checkout" -- {run-id}` for an item-less environment deploy; every retry or `--from-stage` resume must preserve the same product checkout
 
 ## Human Approval Gate
 

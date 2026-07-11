@@ -276,9 +276,9 @@ class TestEnsureImageWaitMode:
         assert "runs create-run yoke yoke-stage-release" in message
         assert "git -C <source-checkout> fetch origin <target-branch>" in message
         assert (
-            "watch_deploy --product-src <source-checkout> -- <run-id> "
-            "--image-tag <git-short-sha>"
+            "watch_deploy --product-src <source-checkout> -- <run-id>"
         ) in message
+        assert "canonical image tag" in message
         # The runner-build path is unreachable: probes only, no docker.
         assert len(runner.calls) == 4
         for call in runner.calls:

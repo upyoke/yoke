@@ -55,6 +55,7 @@ class TestItemLessRun:
             dispatched.append((
                 stage["name"], kwargs["project_repo_path"],
                 kwargs["product_repo_path"],
+                kwargs["image_tag"],
             ))
             return 0, ""
 
@@ -64,7 +65,10 @@ class TestItemLessRun:
             deploy_pipeline, "resolve_flow_gate_branch", return_value="stage",
         ), mock.patch.object(
             deploy_pipeline, "validate_itemless_product_source",
-            return_value=mock.Mock(repo_path="/pinned/product"),
+            return_value=mock.Mock(
+                repo_path="/pinned/product",
+                image_tag="abc123def456",
+            ),
         ), mock.patch.object(
             deploy_pipeline, "_yoke_db", side_effect=fake_yoke_db,
         ), mock.patch.object(
@@ -115,8 +119,8 @@ class TestItemLessRun:
         # run row's current_stage is written per stage plus the final
         # marker, and status moves executing -> succeeded.
         assert dispatched == [
-            ("merged", "/repo", "/pinned/product"),
-            ("complete", "/repo", "/pinned/product"),
+            ("merged", "/repo", "/pinned/product", "abc123def456"),
+            ("complete", "/repo", "/pinned/product", "abc123def456"),
         ]
         checkout_lookup.assert_called_once()
         stage_updates = [
