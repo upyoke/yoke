@@ -247,7 +247,7 @@ def create_runner_github_broker(
                 },
                 {
                     "Effect": "Allow",
-                    "Action": "ssm:DeleteParameter",
+                    "Action": ["ssm:PutParameter", "ssm:DeleteParameter"],
                     "Resource": bootstrap_child_arn,
                 },
                 {

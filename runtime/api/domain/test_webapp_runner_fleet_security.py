@@ -76,9 +76,12 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     )
     marker_delete = next(
         statement for statement in reaper_document["Statement"]
-        if statement["Action"] == "ssm:DeleteParameter"
+        if "ssm:DeleteParameter" in statement["Action"]
     )
     assert path_read["Resource"].endswith("/bootstrap")
+    assert set(marker_delete["Action"]) == {
+        "ssm:PutParameter", "ssm:DeleteParameter",
+    }
     assert marker_delete["Resource"].endswith("/bootstrap/*")
     for resource_name in (
         "runnerFleetLifecycleState.arn",
