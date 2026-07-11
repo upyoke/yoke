@@ -21,14 +21,18 @@ hierarchy. No host ``gh`` binary required.
 
 from __future__ import annotations
 
-import io
 import urllib.error
 import urllib.parse
 import urllib.request
-import zipfile
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import gh_retry
+from yoke_core.domain.github_actions_log_archive import (
+    ActionsLogArchiveError,
+    GITHUB_ACTIONS_LOG_ARCHIVE_LIMIT_BYTES,
+    GITHUB_ACTIONS_LOG_ENTRY_LIMIT_BYTES,
+    parse_failed_log_zip,
+)
 from yoke_core.domain.gh_rest_transport import (
     GITHUB_API_VERSION,
     RestAuthError,
@@ -39,6 +43,12 @@ from yoke_core.domain.gh_rest_transport import (
     github_api_base,
 )
 from yoke_core.domain.github_actions_rest import rest_get
+from yoke_core.domain.github_response_safety import (
+    GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
+    GitHubResponseTooLargeError,
+    read_bounded_response,
+    redact_exact_secrets,
+)
 
 
 _RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
@@ -53,9 +63,7 @@ class _AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
             raise urllib.error.URLError(
                 "GitHub Actions log redirect must remain on HTTPS"
             )
-        redirected = super().redirect_request(
-            req, fp, code, msg, headers, newurl
-        )
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
         if redirected is None:
             return None
         source = urllib.parse.urlsplit(req.full_url)
@@ -66,9 +74,7 @@ class _AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 # Module-level test seam; tests replace this callable directly.
-urlopen = urllib.request.build_opener(
-    _AuthorizationSafeRedirectHandler()
-).open
+urlopen = urllib.request.build_opener(_AuthorizationSafeRedirectHandler()).open
 
 
 def _sleep(seconds: float) -> None:  # pragma: no cover - thin alias
@@ -110,7 +116,12 @@ def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
     last_exc: Optional[RestTransportError] = None
     for attempt in range(1, gh_retry.MAX_RETRIES + 1):
         try:
-            return _fetch_once(url, headers=headers)
+            return _fetch_once(
+                url,
+                headers=headers,
+                token=token,
+                response_limit_bytes=GITHUB_ACTIONS_LOG_ARCHIVE_LIMIT_BYTES,
+            )
         except RestTransportError as exc:
             if not _is_retryable(exc) or attempt >= gh_retry.MAX_RETRIES:
                 raise
@@ -125,35 +136,70 @@ def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
     raise RestTransportError("log fetch retry loop exited without result")
 
 
-def _fetch_once(url: str, *, headers: Dict[str, str]) -> bytes:
+def _fetch_once(
+    url: str,
+    *,
+    headers: Dict[str, str],
+    token: str,
+    response_limit_bytes: int,
+) -> bytes:
     request = urllib.request.Request(url, headers=headers, method="GET")
     try:
         with urlopen(request, timeout=60.0) as response:
-            return response.read() or b""
+            try:
+                return read_bounded_response(
+                    response,
+                    limit_bytes=response_limit_bytes,
+                    label="GitHub Actions log response",
+                    check_content_length=True,
+                )
+            except GitHubResponseTooLargeError as exc:
+                raise ActionsLogArchiveError(str(exc)) from None
+            except Exception:
+                raise RestNetworkError(
+                    "GitHub Actions log response could not be read"
+                ) from None
     except urllib.error.HTTPError as exc:
         status = int(exc.code)
-        snippet = ""
-        try:
-            snippet = (exc.read() or b"").decode("utf-8", errors="replace")[:240]
-        except Exception:
-            pass
+        snippet = _error_snippet(exc, token=token)
         if status in (401, 403):
             raise RestAuthError(
                 f"HTTP {status}: {snippet}", status=status, body=snippet
-            ) from exc
+            ) from None
         if status == 404:
             raise RestNotFoundError(
                 f"HTTP {status}: {snippet}", status=status, body=snippet
-            ) from exc
+            ) from None
         if 500 <= status < 600 or status == 429:
             raise RestServerError(
                 f"HTTP {status}: {snippet}", status=status, body=snippet
-            ) from exc
+            ) from None
         raise RestTransportError(
             f"HTTP {status}: {snippet}", status=status, body=snippet
-        ) from exc
-    except urllib.error.URLError as exc:
-        raise RestNetworkError(f"network failure: {exc.reason}") from exc
+        ) from None
+    except urllib.error.URLError:
+        raise RestNetworkError("GitHub Actions log network request failed") from None
+    except (TimeoutError, OSError):
+        raise RestNetworkError("GitHub Actions log network request failed") from None
+    except RestTransportError:
+        raise
+    except Exception:
+        raise RestNetworkError("GitHub Actions log network request failed") from None
+
+
+def _error_snippet(exc: urllib.error.HTTPError, *, token: str) -> str:
+    try:
+        raw = read_bounded_response(
+            exc,
+            limit_bytes=GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
+            label="GitHub Actions log error response",
+        )
+        text = raw.decode("utf-8", errors="replace")
+    except GitHubResponseTooLargeError:
+        text = "GitHub Actions log error response exceeded the size limit"
+    except Exception:
+        text = "GitHub Actions log error response could not be read"
+    return redact_exact_secrets(text, (token,)).strip()[:240]
 
 
 def _is_retryable(exc: RestTransportError) -> bool:
@@ -164,61 +210,7 @@ def _is_retryable(exc: RestTransportError) -> bool:
     return exc.status in _RETRYABLE_HTTP_STATUSES
 
 
-def parse_failed_log_zip(zip_bytes: bytes) -> Dict[str, str]:
-    """Extract per-job log text from a workflow-run logs ZIP.
-
-    The archive's top-level entries are named ``<job_number>_<job_name>.txt``
-    (e.g. ``1_build.txt``). Per-step entries live under
-    ``<job_name>/<step_number>_<step_name>.txt``. We keep the top-level
-    file as the canonical per-job log because each top-level entry
-    already carries step-prefixed lines for every step the job ran.
-
-    Returns ``{job_name: log_text}`` keyed by the job name extracted from
-    the entry filename. Empty archive yields an empty dict.
-    """
-    if not zip_bytes:
-        return {}
-
-    result: Dict[str, str] = {}
-    try:
-        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
-            for info in archive.infolist():
-                name = info.filename
-                if info.is_dir():
-                    continue
-                # Top-level per-job files only (no embedded slash).
-                if "/" in name:
-                    continue
-                if not name.endswith(".txt"):
-                    continue
-                job_name = _job_name_from_entry(name)
-                if not job_name:
-                    continue
-                try:
-                    body = archive.read(info).decode("utf-8", errors="replace")
-                except Exception:
-                    body = ""
-                result[job_name] = body
-    except zipfile.BadZipFile:
-        return {}
-    return result
-
-
-def _job_name_from_entry(filename: str) -> str:
-    """``"1_build.txt"`` → ``"build"``; tolerate missing leading number."""
-    stem = filename
-    if stem.endswith(".txt"):
-        stem = stem[: -len(".txt")]
-    # Strip optional leading ``<number>_`` prefix.
-    head, sep, tail = stem.partition("_")
-    if sep and head.isdigit():
-        return tail
-    return stem
-
-
-def fetch_failed_log(
-    repo: str, run_id: int | str, *, token: str
-) -> Dict[str, str]:
+def fetch_failed_log(repo: str, run_id: int | str, *, token: str) -> Dict[str, str]:
     """Fetch + parse failed-job logs with per-job fallback on ZIP 404.
 
     Returns ``{job_name: log_text}`` for failed jobs only. The run-log ZIP
@@ -233,12 +225,11 @@ def fetch_failed_log(
         zip_bytes = fetch_failed_log_zip(repo, run_id, token=token)
     except RestNotFoundError:
         return _per_job_fallback(repo, run_id, token=token)
-    logs = parse_failed_log_zip(zip_bytes)
-    return {
-        name: body
-        for name, body in logs.items()
-        if name in failed_names
+    logs = {
+        name: redact_exact_secrets(body, (token,))
+        for name, body in parse_failed_log_zip(zip_bytes).items()
     }
+    return {name: body for name, body in logs.items() if name in failed_names}
 
 
 def _run_jobs(repo: str, run_id: int | str, *, token: str) -> List[Dict[str, Any]]:
@@ -257,7 +248,8 @@ def _run_jobs(repo: str, run_id: int | str, *, token: str) -> List[Dict[str, Any
 
 def _failed_job_names(repo: str, run_id: int | str, *, token: str) -> set[str]:
     failed = [
-        j for j in _run_jobs(repo, run_id, token=token)
+        j
+        for j in _run_jobs(repo, run_id, token=token)
         if str(j.get("conclusion") or "") == "failure"
     ]
     names: set[str] = set()
@@ -268,9 +260,7 @@ def _failed_job_names(repo: str, run_id: int | str, *, token: str) -> set[str]:
     return names
 
 
-def _per_job_fallback(
-    repo: str, run_id: int | str, *, token: str
-) -> Dict[str, str]:
+def _per_job_fallback(repo: str, run_id: int | str, *, token: str) -> Dict[str, str]:
     """Fetch each failed job's log individually when the ZIP 404s.
 
     Lists jobs via :func:`github_actions_rest.rest_get`, filters to those
@@ -296,8 +286,15 @@ def _per_job_fallback(
         job_name = str(job.get("name") or f"job-{job_id}")
         url = f"{github_api_base()}/repos/{repo}/actions/jobs/{job_id}/logs"
         try:
-            body_bytes = _fetch_once(url, headers=headers)
+            body_bytes = _fetch_once(
+                url,
+                headers=headers,
+                token=token,
+                response_limit_bytes=GITHUB_ACTIONS_LOG_ENTRY_LIMIT_BYTES,
+            )
         except RestNotFoundError:
             continue
-        result[job_name] = body_bytes.decode("utf-8", errors="replace")
+        result[job_name] = redact_exact_secrets(
+            body_bytes.decode("utf-8", errors="replace"), (token,)
+        )
     return result

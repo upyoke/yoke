@@ -67,7 +67,7 @@ class _FakeHttpResponse:
         self.status = 200
         self.headers: dict[str, str] = {}
 
-    def read(self) -> bytes:
+    def read(self, _size: int = -1) -> bytes:
         return json.dumps(self._payload).encode("utf-8")
 
     def __enter__(self) -> "_FakeHttpResponse":
@@ -93,10 +93,13 @@ class _RecordingGithubApi:
     def __call__(self, request, timeout=None):
         url = request.full_url
         method = request.get_method()
-        self.requests.append(SimpleNamespace(
-            method=method, url=url,
-            authorization=request.get_header("Authorization"),
-        ))
+        self.requests.append(
+            SimpleNamespace(
+                method=method,
+                url=url,
+                authorization=request.get_header("Authorization"),
+            )
+        )
         assert url.startswith(gh_rest_transport.GITHUB_API_BASE), url
         api_path = urllib.parse.urlsplit(url).path
         if method == "GET" and api_path == "/search/issues":
@@ -106,7 +109,9 @@ class _RecordingGithubApi:
         if method == "POST" and api_path == "/graphql":
             repository = {
                 f"issue_{num}": {
-                    "number": num, "body": body, "comments": {"nodes": []},
+                    "number": num,
+                    "body": body,
+                    "comments": {"nodes": []},
                 }
                 for num, body in self._graphql_bodies.items()
             }
@@ -114,13 +119,15 @@ class _RecordingGithubApi:
         if method == "POST" and api_path.endswith("/labels"):
             return _FakeHttpResponse({"name": "label", "color": "ededed"})
         if method == "POST" and api_path.endswith("/issues"):
-            return _FakeHttpResponse({
-                "number": CREATED_ISSUE_NUMBER,
-                "html_url": (
-                    f"https://github.com/{PROJECT_REPO}"
-                    f"/issues/{CREATED_ISSUE_NUMBER}"
-                ),
-            })
+            return _FakeHttpResponse(
+                {
+                    "number": CREATED_ISSUE_NUMBER,
+                    "html_url": (
+                        f"https://github.com/{PROJECT_REPO}"
+                        f"/issues/{CREATED_ISSUE_NUMBER}"
+                    ),
+                }
+            )
         return _FakeHttpResponse({})
 
 
@@ -146,9 +153,7 @@ def local_universe(tmp_path, monkeypatch):
             # A local universe holds only the user's own projects; blank
             # the second seeded project's repo so the multi-project fetch
             # loop skips it.
-            conn.execute(
-                "UPDATE projects SET github_repo = '' WHERE slug <> 'yoke'"
-            )
+            conn.execute("UPDATE projects SET github_repo = '' WHERE slug <> 'yoke'")
             seed_project_github_binding(conn, UNIVERSE_ONLY_TOKEN)
             conn.commit()
         finally:
@@ -165,7 +170,9 @@ def local_universe(tmp_path, monkeypatch):
         machine_config_writer.set_connection(
             LOCAL_ENV,
             transport=machine_contract.DEFAULT_TRANSPORT,
-            dsn=dsn, prod=False, replace=True,
+            dsn=dsn,
+            prod=False,
+            replace=True,
         )
 
         # Engine-run phase: drop every ambient authority binding. From here
@@ -181,12 +188,12 @@ def local_universe(tmp_path, monkeypatch):
         (state_root / "backlog").mkdir(parents=True)
         monkeypatch.setenv("YOKE_ROOT", str(state_root))
 
-        config = json.loads(
-            machine_runtime.config_path().read_text(encoding="utf-8")
-        )
+        config = json.loads(machine_runtime.config_path().read_text(encoding="utf-8"))
         yield SimpleNamespace(
-            db_name=db_name, dsn=dsn,
-            token=UNIVERSE_ONLY_TOKEN, config=config,
+            db_name=db_name,
+            dsn=dsn,
+            token=UNIVERSE_ONLY_TOKEN,
+            config=config,
         )
     finally:
         connected_env_readiness.reset_cache()
@@ -215,7 +222,8 @@ def _seed_item(universe, item_id: int, github_issue) -> str:
 
 class TestLocalConnectionShape:
     def test_machine_config_holds_only_the_local_connection(
-        self, local_universe,
+        self,
+        local_universe,
     ):
         """The scratch config has no https/hosted entry to consult."""
         config = local_universe.config
@@ -252,7 +260,10 @@ class TestLocalConnectionShape:
 
 class TestDetectUnderLocalDispatch:
     def test_detect_pairs_items_with_the_universe_db_token(
-        self, local_universe, monkeypatch, capsys,
+        self,
+        local_universe,
+        monkeypatch,
+        capsys,
     ):
         """Detect resolves the universe DB through the local connection.
 
@@ -275,7 +286,8 @@ class TestDetectUnderLocalDispatch:
             "body": body,
         }
         api = _RecordingGithubApi(
-            issues=[gh_issue], graphql_bodies={100: body},
+            issues=[gh_issue],
+            graphql_bodies={100: body},
         )
         monkeypatch.setattr(gh_rest_transport, "urlopen", api)
         with local_user_authorization(local_universe):
@@ -297,7 +309,10 @@ class TestDetectUnderLocalDispatch:
 
 class TestRepairUnderLocalDispatch:
     def test_fix_creates_issue_and_writes_linkage_into_universe(
-        self, local_universe, monkeypatch, capsys,
+        self,
+        local_universe,
+        monkeypatch,
+        capsys,
     ):
         """Repair round-trips through the machine-config-resolved universe.
 
@@ -316,13 +331,11 @@ class TestRepairUnderLocalDispatch:
 
         assert rc == 0, out
         assert f"FIXED: YOK-{item_id}" in out
-        assert (
-            read_github_issue(local_universe, item_id)
-            == f"#{CREATED_ISSUE_NUMBER}"
-        )
+        assert read_github_issue(local_universe, item_id) == f"#{CREATED_ISSUE_NUMBER}"
 
         creates = [
-            req for req in api.requests
+            req
+            for req in api.requests
             if req.method == "POST"
             and urllib.parse.urlsplit(req.url).path.endswith("/issues")
         ]

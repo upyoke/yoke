@@ -4,29 +4,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-import json
 from typing import Any, Callable, Iterable, Mapping
-import urllib.error
-import urllib.request
-
-from yoke_contracts import github_app_tokens as token_contract
 
 from yoke_core.domain import gh_rest_transport
 from yoke_contracts.github_origin import (
     GitHubApiOriginError,
     validate_github_api_endpoint,
 )
-from yoke_core.domain.github_api_transport import open_same_origin
+from yoke_core.domain.github_app_installation_token_transport import (
+    issue_installation_token_request,
+)
 from yoke_core.domain.github_app_jwt import generate_app_jwt
 from yoke_core.domain.github_app_token_models import (
     GitHubAppTokenError,
-    GitHubAppTokenResponseError,
     InstallationToken,
     parse_github_datetime,
-    parse_json_object,
     require_nonempty_string,
     utc_now,
 )
+
 
 @dataclass(frozen=True)
 class InstallationTokenCacheKey:
@@ -130,8 +126,8 @@ def mint_installation_token(
         body["repositories"] = list(normalized.repositories)
     if normalized.permissions:
         body["permissions"] = dict(normalized.permissions)
-    payload = _issue_token_request(
-        api_url=api_url,
+    payload = issue_installation_token_request(
+        endpoint=_validated_endpoint(api_url),
         installation_id=selected_installation_id,
         app_jwt=app_jwt,
         body=body,
@@ -139,55 +135,6 @@ def mint_installation_token(
         timeout_seconds=timeout_seconds,
     )
     return _parse_installation_token(payload)
-
-
-def _issue_token_request(
-    *,
-    api_url: str,
-    installation_id: int,
-    app_jwt: str,
-    body: Mapping[str, Any],
-    opener: Callable[..., Any] | None,
-    timeout_seconds: float,
-) -> dict[str, Any]:
-    endpoint = _validated_endpoint(api_url)
-    selected_url = (
-        f"{endpoint.base_url}/app/installations/"
-        f"{installation_id}/access_tokens"
-    )
-    request = urllib.request.Request(
-        selected_url,
-        data=json.dumps(dict(body)).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {app_jwt}",
-            "Accept": token_contract.GITHUB_APP_ACCEPT,
-            "Content-Type": "application/json",
-            "X-GitHub-Api-Version": gh_rest_transport.GITHUB_API_VERSION,
-            "User-Agent": token_contract.GITHUB_APP_USER_AGENT,
-        },
-        method="POST",
-    )
-    try:
-        with open_same_origin(
-            request,
-            endpoint=endpoint,
-            timeout_seconds=timeout_seconds,
-            opener=opener,
-        ) as response:
-            return parse_json_object(response.read(), "GitHub installation token")
-    except urllib.error.HTTPError as exc:
-        body_text = _read_error_body(exc)
-        raise GitHubAppTokenResponseError(
-            "GitHub installation token request failed",
-            status=exc.code,
-            body=body_text,
-        ) from exc
-    except urllib.error.URLError as exc:
-        raise GitHubAppTokenError(
-            f"GitHub installation token request failed: {exc.reason}"
-        ) from exc
-    except GitHubApiOriginError as exc:
-        raise GitHubAppTokenError(str(exc)) from exc
 
 
 def _parse_installation_token(payload: Mapping[str, Any]) -> InstallationToken:
@@ -323,13 +270,6 @@ def _validated_endpoint(api_url: str):
         return validate_github_api_endpoint(api_url)
     except GitHubApiOriginError as exc:
         raise GitHubAppTokenError(str(exc)) from exc
-
-
-def _read_error_body(exc: urllib.error.HTTPError) -> str:
-    try:
-        return exc.read().decode("utf-8", errors="replace")
-    except Exception:
-        return ""
 
 
 __all__ = [

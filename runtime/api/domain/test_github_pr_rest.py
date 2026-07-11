@@ -24,10 +24,12 @@ from yoke_core.domain.gh_rest_transport import (
 class _FakeResponse:
     def __init__(self, status: int, body: Any):
         self.status = status
-        self._body = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        self._body = (
+            body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        )
         self.headers = {"X-RateLimit-Remaining": "5000"}
 
-    def read(self):
+    def read(self, _size: int = -1):
         return self._body
 
     def getcode(self):
@@ -55,11 +57,13 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
     received: list[dict] = []
 
     def fake(req, timeout=None):
-        received.append({
-            "method": req.get_method(),
-            "url": req.full_url,
-            "body": req.data,
-        })
+        received.append(
+            {
+                "method": req.get_method(),
+                "url": req.full_url,
+                "body": req.data,
+            }
+        )
         if not responses:
             raise AssertionError("fake urlopen exhausted")
         nxt = responses.pop(0)
@@ -68,6 +72,7 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
         return nxt
 
     from yoke_core.domain import gh_rest_transport
+
     monkeypatch.setattr(gh_rest_transport, "urlopen", fake)
     return received
 
@@ -75,14 +80,23 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
 def test_create_pull_request_posts_minimal_payload(monkeypatch):
     received = _install_fake_urlopen(
         monkeypatch,
-        [_FakeResponse(201, {
-            "number": 7,
-            "html_url": "https://github.com/owner/repo/pull/7",
-        })],
+        [
+            _FakeResponse(
+                201,
+                {
+                    "number": 7,
+                    "html_url": "https://github.com/owner/repo/pull/7",
+                },
+            )
+        ],
     )
 
     outcome = mod.create_pull_request(
-        "owner/repo", title="T", head="feature-x", base="main", token="t",
+        "owner/repo",
+        title="T",
+        head="feature-x",
+        base="main",
+        token="ghs_pull_request_test",
     )
 
     assert outcome == {
@@ -94,8 +108,7 @@ def test_create_pull_request_posts_minimal_payload(monkeypatch):
     assert received[0]["url"].endswith("/repos/owner/repo/pulls")
     body = json.loads(received[0]["body"].decode("utf-8"))
     # body key omitted when no description given.
-    assert body == {"title": "T", "head": "feature-x", "base": "main",
-                    "draft": False}
+    assert body == {"title": "T", "head": "feature-x", "base": "main", "draft": False}
 
 
 def test_create_pull_request_includes_body_and_draft(monkeypatch):
@@ -105,14 +118,22 @@ def test_create_pull_request_includes_body_and_draft(monkeypatch):
     )
 
     mod.create_pull_request(
-        "owner/repo", title="T", head="h", base="stage",
-        body="## Summary\n\nDetails.", draft=True, token="t",
+        "owner/repo",
+        title="T",
+        head="h",
+        base="stage",
+        body="## Summary\n\nDetails.",
+        draft=True,
+        token="ghs_pull_request_test",
     )
 
     body = json.loads(received[0]["body"].decode("utf-8"))
     assert body == {
-        "title": "T", "head": "h", "base": "stage",
-        "draft": True, "body": "## Summary\n\nDetails.",
+        "title": "T",
+        "head": "h",
+        "base": "stage",
+        "draft": True,
+        "body": "## Summary\n\nDetails.",
     }
 
 
@@ -121,19 +142,28 @@ def test_create_pull_request_propagates_auth_error(monkeypatch):
 
     with pytest.raises(RestAuthError):
         mod.create_pull_request(
-            "owner/repo", title="T", head="h", base="main", token="t",
+            "owner/repo",
+            title="T",
+            head="h",
+            base="main",
+            token="ghs_pull_request_test",
         )
 
 
 def test_create_pull_request_propagates_unprocessable(monkeypatch):
     # GitHub 422s when a PR for head->base already exists.
     _install_fake_urlopen(
-        monkeypatch, [_http_error(422, "A pull request already exists")],
+        monkeypatch,
+        [_http_error(422, "A pull request already exists")],
     )
 
     with pytest.raises(RestUnprocessableError):
         mod.create_pull_request(
-            "owner/repo", title="T", head="h", base="main", token="t",
+            "owner/repo",
+            title="T",
+            head="h",
+            base="main",
+            token="ghs_pull_request_test",
         )
 
 
@@ -145,5 +175,9 @@ def test_create_pull_request_missing_number_raises(monkeypatch):
 
     with pytest.raises(RestTransportError, match="missing pull-request number"):
         mod.create_pull_request(
-            "owner/repo", title="T", head="h", base="main", token="t",
+            "owner/repo",
+            title="T",
+            head="h",
+            base="main",
+            token="ghs_pull_request_test",
         )

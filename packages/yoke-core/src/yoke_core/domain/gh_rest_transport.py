@@ -5,9 +5,8 @@ shared transient-failure retry policy from :mod:`yoke_core.domain.gh_retry`.
 Tests substitute ``gh_rest_transport.urlopen`` for in-process monkeypatching;
 subprocess tests use :envvar:`YOKE_REST_FAKE_DIR`.
 
-Retry semantics: 429 / 5xx + network failures retry; HTTP 200
-with a retryable error envelope and 422 with retryable body use the
-shared :func:`gh_retry.is_retryable_text` matcher.
+Retry semantics: 429 / 5xx + network failures retry; retryable HTTP 200
+and 422 bodies use the shared :func:`gh_retry.is_retryable_text` matcher.
 """
 
 from __future__ import annotations
@@ -26,9 +25,29 @@ from yoke_core.domain.gh_rest_transport_fakes import (
     FAKE_DIR_ENV as _FAKE_DIR_ENV,
     load_fake_response as _load_fake_response,
 )
+from yoke_core.domain.gh_rest_transport_errors import (
+    RateLimitedError,
+    RestAuthError,
+    RestNetworkError,
+    RestNotFoundError,
+    RestResponseDecodeError,
+    RestResponseTooLargeError,
+    RestServerError,
+    RestTransportError,
+    RestUnprocessableError,
+)
 from yoke_core.domain.gh_rest_transport_test_guard import block_live_test_call
 from yoke_core.domain import github_api_urls
 from yoke_core.domain.github_api_transport import open_same_origin
+from yoke_core.domain.github_response_safety import (
+    GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES,
+    GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
+    GitHubResponseDecodeError,
+    GitHubResponseTooLargeError,
+    decode_utf8_response,
+    read_bounded_response,
+    redact_exact_secrets,
+)
 from yoke_contracts.github_app_tokens import GITHUB_API_VERSION
 from yoke_contracts.github_origin import DEFAULT_GITHUB_API_URL, GitHubApiOriginError
 
@@ -39,57 +58,11 @@ GITHUB_APP_API_URL_ENV = github_api_urls.GITHUB_APP_API_URL_ENV
 _RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
-class RestTransportError(Exception):
-    """Base class for terminal REST transport failures."""
-
-    code: str = "rest_transport_error"
-
-    def __init__(self, message: str, *, status: Optional[int] = None,
-                 body: Optional[str] = None) -> None:
-        super().__init__(message)
-        self.status = status
-        self.body = body
-
-
-class RestAuthError(RestTransportError):
-    """HTTP 401 / 403 — token is missing, invalid, or lacks scope."""
-
-    code = "rest_auth_error"
-
-
-class RestNotFoundError(RestTransportError):
-    """HTTP 404 — resource does not exist."""
-
-    code = "rest_not_found"
-
-
-class RestUnprocessableError(RestTransportError):
-    """HTTP 422 — semantic validation failure (e.g. 'already exists')."""
-
-    code = "rest_unprocessable"
-
-
-class RestServerError(RestTransportError):
-    """HTTP 5xx that survived the retry budget."""
-
-    code = "rest_server_error"
-
-
-class RestNetworkError(RestTransportError):
-    """Network / transport failure that survived the retry budget."""
-
-    code = "rest_network_error"
-
-
-class RateLimitedError(RestTransportError):
-    """GitHub rate-limit (canonical 429 or secondary-limit 403)."""
-
-    code = "rest_rate_limited"
-
-
 # Body markers GitHub uses on the secondary 403-shaped rate-limit.
 _RATE_LIMIT_BODY_MARKERS: Tuple[str, ...] = (
-    "API rate limit exceeded", "secondary rate limit", "abuse detection mechanism",
+    "API rate limit exceeded",
+    "secondary rate limit",
+    "abuse detection mechanism",
 )
 
 
@@ -172,7 +145,7 @@ def request_with_retry(
         ]
         print(
             f"GitHub REST retry {attempt}/{gh_retry.MAX_RETRIES} "
-            f"after {last_exc}; sleeping {wait}s",
+            f"after {redact_exact_secrets(str(last_exc), (token,))}; sleeping {wait}s",
             file=sys.stderr,
         )
         sleep(wait)
@@ -189,7 +162,10 @@ def _issue_once(
     token: str,
     timeout_seconds: float,
 ) -> RestResponse:
-    url = _build_url(req)
+    try:
+        url = _build_url(req)
+    except RestTransportError as exc:
+        raise RestTransportError(redact_exact_secrets(str(exc), (token,))) from None
     encoded_body: Optional[bytes] = None
     if req.body is not None:
         encoded_body = _json.dumps(req.body).encode("utf-8")
@@ -209,9 +185,7 @@ def _issue_once(
 
     try:
         endpoint = github_api_urls.active_api_endpoint(GITHUB_API_BASE)
-        injected_opener = (
-            None if urlopen is urllib.request.urlopen else urlopen
-        )
+        injected_opener = None if urlopen is urllib.request.urlopen else urlopen
         with open_same_origin(
             raw_request,
             endpoint=endpoint,
@@ -221,24 +195,54 @@ def _issue_once(
             status = int(getattr(response, "status", 200) or 200)
             response_headers = _normalise_headers(response.headers)
             try:
-                body_bytes = response.read() or b""
-            except Exception as exc:
-                raise RestNetworkError(f"network read failure: {exc}") from exc
+                body_bytes = read_bounded_response(
+                    response,
+                    limit_bytes=GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES,
+                    label="GitHub REST response",
+                    check_content_length=True,
+                )
+            except GitHubResponseTooLargeError as exc:
+                raise RestResponseTooLargeError(str(exc), status=status) from None
+            except Exception:
+                raise RestNetworkError("GitHub REST response read failed") from None
     except urllib.error.HTTPError as exc:
         status = int(exc.code)
         response_headers = _normalise_headers(getattr(exc, "headers", None))
         try:
-            body_bytes = exc.read() or b""
+            body_bytes = read_bounded_response(
+                exc,
+                limit_bytes=GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
+                label="GitHub REST error response",
+            )
+        except GitHubResponseTooLargeError:
+            body_text = "GitHub REST error response exceeded the response size limit"
         except Exception:
-            body_bytes = b""
-        body_text = body_bytes.decode("utf-8", errors="replace")
-        raise _classify_http_error(status, body_text, response_headers) from exc
-    except urllib.error.URLError as exc:
-        raise RestNetworkError(f"network failure: {exc.reason}") from exc
+            body_text = "GitHub REST error response could not be read"
+        else:
+            try:
+                body_text = decode_utf8_response(
+                    body_bytes, label="GitHub REST error response"
+                )
+            except GitHubResponseDecodeError:
+                body_text = "GitHub REST error response was not valid UTF-8"
+        body_text = redact_exact_secrets(body_text, (token,))
+        raise _classify_http_error(status, body_text, response_headers) from None
+    except urllib.error.URLError:
+        raise RestNetworkError("GitHub REST network request failed") from None
+    except (TimeoutError, OSError):
+        raise RestNetworkError("GitHub REST network request failed") from None
     except GitHubApiOriginError as exc:
-        raise RestTransportError(str(exc)) from exc
+        raise RestTransportError(redact_exact_secrets(str(exc), (token,))) from None
+    except RestTransportError:
+        raise
+    except Exception:
+        raise RestNetworkError("GitHub REST network request failed") from None
 
-    body_text = body_bytes.decode("utf-8", errors="replace")
+    try:
+        body_text = decode_utf8_response(body_bytes, label="GitHub REST response")
+    except GitHubResponseDecodeError as exc:
+        raise RestResponseDecodeError(str(exc), status=status) from None
+    body_text = redact_exact_secrets(body_text, (token,))
     parsed = _decode_json(body_text)
 
     # Some GitHub mutation paths return 200 with an error envelope. Detect
