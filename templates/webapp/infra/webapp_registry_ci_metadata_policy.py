@@ -37,6 +37,7 @@ def metadata_read_statements(
                 "ec2:Describe*", "events:DescribeRule",
                 "events:ListTagsForResource", "events:ListTargetsByRule",
                 "iam:GetOpenIDConnectProvider", "iam:ListOpenIDConnectProviders",
+                "kms:ListAliases",
                 "logs:DescribeLogGroups", "logs:ListTagsForResource",
                 "rds:Describe*", "rds:ListTagsForResource",
                 "route53:GetHostedZone", "route53:ListHostedZonesByName",

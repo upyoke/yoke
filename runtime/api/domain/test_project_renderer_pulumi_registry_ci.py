@@ -47,6 +47,7 @@ class TestRegistryProgramShape:
             "iam:GetRole",
             "iam:GetRolePolicy",
             "iam:GetOpenIDConnectProvider",
+            "kms:ListAliases",
             "s3:GetBucketPolicy",
             "cloudfront:GetDistribution",
             "lambda:GetFunction",
@@ -149,6 +150,15 @@ class TestRegistryProgramShape:
             "Action": ["kms:Decrypt", "kms:DescribeKey"],
             "Resource": "arn:aws:kms:us-east-1:123456789012:key/state-key",
         }
+        assert all(
+            "kms:ListAliases"
+            not in (
+                statement["Action"]
+                if isinstance(statement["Action"], list)
+                else [statement["Action"]]
+            )
+            for statement in policy["Statement"]
+        )
         assert by_sid["PublishDistributionArtifacts"]["Resource"] == [
             "arn:aws:s3:::upyoke-distribution-prod/*"
         ]
