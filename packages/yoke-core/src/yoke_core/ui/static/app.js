@@ -1,68 +1,65 @@
-// Read-only universe view. Hand-authored vanilla JS: no build step, no
-// framework, no external requests — everything ships inside the yoke-core
-// wheel and talks only to the loopback server that served it.
+// Read-only universe view. Hand-authored vanilla JS: no build step and no
+// framework. Everything ships inside the yoke-core wheel.
 //
-// Mount contract: `mountUniverseApp(rootNode)` is the single entry point.
-// It renders the whole view into the provided DOM node; the caller owns
-// the node, decides when to mount, and may wrap this app in any outer
-// shell that provides a node. All server communication rides the session
-// cookie set by the app-shell response — no tokens in page state.
+// Mount contract: `mountUniverseApp(rootNode, options?)` renders into a
+// host-owned node. The default options preserve `yoke ui`: same-origin
+// cookie-authenticated calls to /api/functions/call and no outer slots.
+// Another same-realm host may inject its own function client, opaque generic
+// capabilities/actions, and named slot nodes without forking this app.
 //
 // Two views, hash-routed: `#/items` and `#/strategy`, each carrying the
 // selected project as `?project=<id>` so a shared link restores both the
 // view and the scope. The left nav is data-driven (see NAV) — adding a
 // route is one more array entry, with no per-view branching in the markup.
 
-const CALL_ENDPOINT = "/api/functions/call";
+import {
+  UNIVERSE_APP_CONTRACT_VERSION,
+  createHttpFunctionClient,
+} from "./contract.js";
+import {
+  appendSlot, attachMountRootClass,
+  createUnmountHandle, detachMountedSlots, materializeSlots,
+  renderCapabilityActions,
+  validateMountRoot,
+} from "./mount-options.js";
 
-async function callFunction(functionId, payload, target) {
-  const request = { function: functionId, payload: payload || {} };
-  // Back-compat: omit `target` unless a view supplies one, so
-  // organizations.get / items.list.run keep their global-target default.
-  if (target) request.target = target;
-  const response = await fetch(CALL_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  });
-  // Read text first: an error body may not be JSON (proxy/server failure
-  // pages), and an unconditional response.json() would throw and strand
-  // the panel at "loading…".
-  const text = await response.text();
-  let envelope;
-  try {
-    envelope = JSON.parse(text);
-  } catch (parseError) {
-    envelope = {
-      success: false,
-      error: { message: text.trim().slice(0, 200) || "empty non-JSON response" },
-    };
-  }
-  return { status: response.status, envelope };
-}
+export {
+  UNIVERSE_APP_CONTRACT_VERSION,
+  createHttpFunctionClient,
+} from "./contract.js";
 
-function el(tag, className, text) {
-  const node = document.createElement(tag);
+const WORDMARK_ASSET_URL = new URL("./yoke-wordmark.svg", import.meta.url);
+
+function el(documentNode, tag, className, text) {
+  const node = documentNode.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
 }
 
+function callFunction(client, functionId, payload, target) {
+  const request = { function: functionId, payload: payload || {} };
+  // Preserve the local proxy envelope: omit target unless a view supplies
+  // one, so global-target reads keep their server-side default.
+  if (target) request.target = target;
+  return client.call(request);
+}
+
 // One titled section with a raw-JSON toggle showing the exact function-call
 // response envelope the section rendered from.
-function section(title) {
-  const wrap = el("section", "panel");
-  const header = el("div", "panel-header");
-  header.appendChild(el("h2", null, title));
-  const toggle = el("button", "raw-toggle", "raw JSON");
+function section(documentNode, title) {
+  const wrap = el(documentNode, "section", "panel");
+  const header = el(documentNode, "div", "panel-header");
+  header.appendChild(el(documentNode, "h2", null, title));
+  const toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
   toggle.type = "button";
   header.appendChild(toggle);
   wrap.appendChild(header);
 
-  const body = el("div", "panel-body", "loading…");
+  const body = el(documentNode, "div", "panel-body", "loading…");
   wrap.appendChild(body);
 
-  const raw = el("pre", "raw-json");
+  const raw = el(documentNode, "pre", "raw-json");
   raw.hidden = true;
   wrap.appendChild(raw);
   toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
@@ -80,35 +77,45 @@ function renderError(body, callResult) {
   const detail = (envelope.error && envelope.error.message) ||
     "request failed";
   body.appendChild(el(
-    "p", "error", `read failed (HTTP ${callResult.status}): ${detail}`,
+    body.ownerDocument, "p", "error",
+    `read failed (HTTP ${callResult.status}): ${detail}`,
   ));
 }
 
 // Render `rows` as a table whose `columns` each name a header label and a
 // per-row cell accessor. Empty rows render the view's own empty message.
 function renderTable(body, rows, columns, emptyText) {
+  const documentNode = body.ownerDocument;
   if (rows.length === 0) {
-    body.appendChild(el("p", "empty", emptyText));
+    body.appendChild(el(documentNode, "p", "empty", emptyText));
     return;
   }
-  const table = el("table", "items");
-  const head = el("tr");
-  for (const column of columns) head.appendChild(el("th", null, column.label));
+  const table = el(documentNode, "table", "items");
+  const head = el(documentNode, "tr");
+  for (const column of columns) {
+    head.appendChild(el(documentNode, "th", null, column.label));
+  }
   table.appendChild(head);
   for (const row of rows) {
-    const tr = el("tr");
+    const tr = el(documentNode, "tr");
     for (const column of columns) {
-      tr.appendChild(el("td", null, String(column.value(row) ?? "")));
+      tr.appendChild(el(
+        documentNode, "td", null, String(column.value(row) ?? ""),
+      ));
     }
     table.appendChild(tr);
   }
   body.appendChild(table);
 }
 
-async function loadSection(panel, functionId, payload, renderBody, target) {
+async function loadSection(
+  context, panel, functionId, payload, renderBody, target,
+) {
   let callResult;
   try {
-    callResult = await callFunction(functionId, payload, target);
+    callResult = await callFunction(
+      context.client, functionId, payload, target,
+    );
   } catch (fetchError) {
     // Network-level failure (server gone, connection refused): status 0
     // marks "no HTTP response" and the panel shows the failure instead
@@ -118,15 +125,16 @@ async function loadSection(panel, functionId, payload, renderBody, target) {
       envelope: { success: false, error: { message: String(fetchError) } },
     };
   }
+  if (!context.isMounted()) return;
   const ok = callResult.status === 200 && callResult.envelope.success;
   panel.renderEnvelope(callResult, ok ? renderBody : renderError);
 }
 
-function renderItemsView(main, projectId) {
-  const panel = section("Items");
+function renderItemsView(context, main, projectId) {
+  const panel = section(context.document, "Items");
   main.replaceChildren(panel);
   loadSection(
-    panel,
+    context, panel,
     "items.list.run",
     { fields: ["id", "title", "status"], project: String(projectId) },
     (body, callResult) => {
@@ -140,11 +148,11 @@ function renderItemsView(main, projectId) {
   );
 }
 
-function renderStrategyView(main, projectId) {
-  const panel = section("Strategy");
+function renderStrategyView(context, main, projectId) {
+  const panel = section(context.document, "Strategy");
   main.replaceChildren(panel);
   loadSection(
-    panel,
+    context, panel,
     "strategy.doc.list",
     {},
     (body, callResult) => {
@@ -167,9 +175,9 @@ const NAV = [
   { id: "strategy", label: "Strategy", render: renderStrategyView },
 ];
 
-function parseHash() {
+export function parseUniverseRoute(hash) {
   // "#/items?project=3" -> { view: "items", project: "3" }.
-  const raw = window.location.hash.replace(/^#\/?/, "");
+  const raw = String(hash || "").replace(/^#\/?/, "");
   const [viewPart, queryPart] = raw.split("?");
   const view = NAV.some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
@@ -177,64 +185,104 @@ function parseHash() {
   return { view, project };
 }
 
-function buildHash(view, project) {
+export function buildUniverseRoute(view, project) {
+  const resolvedView = NAV.some((entry) => entry.id === view)
+    ? view : NAV[0].id;
   const query = project ? `?project=${encodeURIComponent(project)}` : "";
-  return `#/${view}${query}`;
+  return `#/${resolvedView}${query}`;
 }
 
-function emptyUniversePanel() {
-  const panel = section("Universe");
+function emptyUniversePanel(documentNode) {
+  const panel = section(documentNode, "Universe");
   panel.renderEnvelope(
     { status: 200, envelope: { success: true, result: {} } },
-    (body) => { body.appendChild(el("p", "empty", "no projects yet")); },
+    (body) => {
+      body.appendChild(el(
+        documentNode, "p", "empty", "no projects yet",
+      ));
+    },
   );
   return panel;
 }
 
-export function mountUniverseApp(rootNode) {
-  const brand = el("div", "brand");
+export function mountUniverseApp(rootNode, options = {}) {
+  validateMountRoot(rootNode);
+  const documentNode = rootNode.ownerDocument;
+  const windowNode = documentNode && documentNode.defaultView;
+  if (!documentNode || !windowNode) {
+    throw new TypeError("mountUniverseApp root must belong to a window");
+  }
+  const client = options.client || createHttpFunctionClient();
+  if (!client || typeof client.call !== "function") {
+    throw new TypeError("mountUniverseApp client must expose call(request)");
+  }
+  const capabilities = options.capabilities || {};
+  const slots = options.slots || {};
+  const resolvedSlots = materializeSlots(slots, rootNode);
+  const mountedSlotNodes = [];
+  let mounted = true;
+  const context = {
+    client,
+    document: documentNode,
+    isMounted: () => mounted,
+  };
+
+  const brand = el(documentNode, "div", "brand");
   brand.style.color = "var(--yoke-ink)";
-  const chooser = el("select", "project-chooser");
-  const orgContext = el("span", "org-context", "…");
-  const contextSide = el("div", "context-side");
+  const chooser = el(documentNode, "select", "project-chooser");
+  const orgContext = el(documentNode, "span", "org-context", "…");
+  const contextSide = el(documentNode, "div", "context-side");
+  const capabilityActions = renderCapabilityActions(
+    documentNode, capabilities,
+  );
+  if (capabilityActions) contextSide.appendChild(capabilityActions);
   contextSide.appendChild(chooser);
   contextSide.appendChild(orgContext);
-  const header = el("header", "topbar");
+  const header = el(documentNode, "header", "topbar");
+  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(brand);
   header.appendChild(contextSide);
+  appendSlot(header, resolvedSlots.topbarEnd, mountedSlotNodes);
 
-  const navEl = el("nav", "sidenav");
-  const main = el("main", "content");
-  const shell = el("div", "shell");
+  const navEl = el(documentNode, "nav", "sidenav");
+  const main = el(documentNode, "main", "content");
+  const shell = el(documentNode, "div", "shell");
+  appendSlot(navEl, resolvedSlots.navigationStart, mountedSlotNodes);
   shell.appendChild(navEl);
+  appendSlot(shell, resolvedSlots.contentBefore, mountedSlotNodes);
   shell.appendChild(main);
+  appendSlot(shell, resolvedSlots.contentAfter, mountedSlotNodes);
+
+  const navLinks = new Map();
+  for (const entry of NAV) {
+    const link = el(documentNode, "a", "nav-link", entry.label);
+    navLinks.set(entry.id, link);
+    navEl.appendChild(link);
+  }
+  appendSlot(navEl, resolvedSlots.navigationEnd, mountedSlotNodes);
+
+  const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
 
   // The mark uses currentColor, so it must live in the DOM (an <img src>
   // would not inherit color); the brand container's ink flips in dark mode.
-  fetch("/assets/yoke-wordmark.svg")
+  Promise.resolve().then(() => globalThis.fetch(WORDMARK_ASSET_URL))
     .then((response) => response.text())
-    .then((svg) => { brand.innerHTML = svg; })
-    .catch(() => { brand.textContent = "Yoke"; });
+    .then((svg) => { if (mounted) brand.innerHTML = svg; })
+    .catch(() => { if (mounted) brand.textContent = "Yoke"; });
 
-  callFunction("organizations.get", {})
+  Promise.resolve().then(() => callFunction(client, "organizations.get", {}))
     .then((callResult) => {
+      if (!mounted) return;
       const org = (callResult.envelope && callResult.envelope.result) || {};
       orgContext.textContent = org.name || "(unnamed org)";
     })
-    .catch(() => { orgContext.textContent = ""; });
-
-  const navLinks = new Map();
-  for (const entry of NAV) {
-    const link = el("a", "nav-link", entry.label);
-    navLinks.set(entry.id, link);
-    navEl.appendChild(link);
-  }
+    .catch(() => { if (mounted) orgContext.textContent = ""; });
 
   let projects = [];
 
   function resolveRoute() {
-    const { view, project } = parseHash();
+    const { view, project } = parseUniverseRoute(windowNode.location.hash);
     const known = projects.some((row) => String(row.id) === String(project));
     const resolved = known
       ? project
@@ -247,34 +295,55 @@ export function mountUniverseApp(rootNode) {
     if (chooser.value !== (project || "")) chooser.value = project || "";
     for (const entry of NAV) {
       const link = navLinks.get(entry.id);
-      link.href = buildHash(entry.id, project);
+      link.href = buildUniverseRoute(entry.id, project);
       link.classList.toggle("active", entry.id === view);
     }
     if (project === null) {
-      main.replaceChildren(emptyUniversePanel());
+      main.replaceChildren(emptyUniversePanel(documentNode));
       return;
     }
-    (NAV.find((entry) => entry.id === view) || NAV[0]).render(main, project);
+    (NAV.find((entry) => entry.id === view) || NAV[0]).render(
+      context, main, project,
+    );
   }
 
   chooser.addEventListener("change", () => {
-    window.location.hash = buildHash(parseHash().view, chooser.value);
+    const route = parseUniverseRoute(windowNode.location.hash);
+    windowNode.location.hash = buildUniverseRoute(route.view, chooser.value);
   });
-  window.addEventListener("hashchange", renderRoute);
+  windowNode.addEventListener("hashchange", renderRoute);
 
-  callFunction("projects.list", { fields: ["id", "slug", "name"] })
+  Promise.resolve().then(() => callFunction(
+    client, "projects.list", { fields: ["id", "slug", "name"] },
+  ))
     .then((callResult) => {
+      if (!mounted) return;
       const result = (callResult.envelope && callResult.envelope.result) || {};
       projects = result.rows || [];
       chooser.replaceChildren();
       chooser.disabled = projects.length === 0;
       for (const project of projects) {
-        const option = el("option", null, project.name || project.slug ||
-          String(project.id));
+        const option = el(
+          documentNode, "option", null,
+          project.name || project.slug || String(project.id),
+        );
         option.value = String(project.id);
         chooser.appendChild(option);
       }
       renderRoute();
     })
-    .catch(() => { projects = []; chooser.disabled = true; renderRoute(); });
+    .catch(() => {
+      if (!mounted) return;
+      projects = [];
+      chooser.disabled = true;
+      renderRoute();
+    });
+
+  return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
+    mounted = false;
+    windowNode.removeEventListener("hashchange", renderRoute);
+    detachMountedSlots(rootNode, mountedSlotNodes);
+    rootNode.replaceChildren();
+    detachRootClass();
+  });
 }

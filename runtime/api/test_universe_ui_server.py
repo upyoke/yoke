@@ -8,6 +8,7 @@ assets resolve from the packaged ``yoke_core.ui`` static resources.
 
 from __future__ import annotations
 
+import re
 from importlib.resources import files
 
 import pytest
@@ -85,6 +86,16 @@ class TestAssets:
             assert response.status_code == 200, asset_name
             assert response.headers["content-type"] == content_type
 
+    def test_javascript_module_graph_is_in_closed_asset_roster(self):
+        static_root = files("yoke_core.ui").joinpath("static")
+        for module_name in ("app.js", "contract.js"):
+            source = static_root.joinpath(module_name).read_text(
+                encoding="utf-8"
+            )
+            imports = re.findall(r'from "\./([^\"]+\.js)"', source)
+            assert imports
+            assert set(imports) <= set(ui_server.ASSET_CONTENT_TYPES)
+
     def test_unknown_asset_is_404(self, ui_client):
         response = ui_client.get(f"/assets/nope.txt?token={_TOKEN}")
         assert response.status_code == 404
@@ -99,7 +110,64 @@ class TestAssets:
             files("yoke_core.ui").joinpath("static", "app.js")
             .read_text(encoding="utf-8")
         )
-        assert "export function mountUniverseApp" in page_module
+        assert (
+            "export function mountUniverseApp(rootNode, options = {})"
+            in page_module
+        )
+        assert "options.client || createHttpFunctionClient()" in page_module
+        assert 'new URL("./yoke-wordmark.svg", import.meta.url)' in page_module
+        assert 'fetch("/assets/' not in page_module
+
+    def test_shell_static_references_are_host_prefix_safe(self):
+        shell = (
+            files("yoke_core.ui").joinpath("static", "index.html")
+            .read_text(encoding="utf-8")
+        )
+        assert 'class="local-universe-page"' in shell
+        assert '="/assets/' not in shell
+        for asset_name in ("app.js", "app.css", "theme.css", "favicon.svg"):
+            assert f"./assets/{asset_name}" in shell
+
+    def test_typed_mount_contract_and_declaration_emit_ship(self):
+        ui_root = files("yoke_core.ui")
+        contract_root = ui_root.joinpath("contracts")
+        source = contract_root.joinpath("universe-app.ts").read_text(
+            encoding="utf-8"
+        )
+        declaration = contract_root.joinpath("universe-app.d.ts").read_text(
+            encoding="utf-8"
+        )
+        runtime_version = ui_root.joinpath(
+            "static", "contract-version.js"
+        ).read_text(encoding="utf-8")
+        assert contract_root.joinpath("tsconfig.json").is_file()
+        for reference in (
+            "UniverseFunctionClient",
+            "UniverseCapabilities",
+            "UniverseAction",
+            "UniverseAppSlots",
+            "UniverseAppMount",
+            "mountUniverseApp",
+        ):
+            assert reference in source
+            assert reference in declaration
+        source_value = re.search(
+            r"UNIVERSE_APP_CONTRACT_VERSION = (\d+) as const", source
+        )
+        declaration_value = re.search(
+            r"UNIVERSE_APP_CONTRACT_VERSION: (\d+)", declaration
+        )
+        runtime_value = re.search(
+            r"UNIVERSE_APP_CONTRACT_VERSION = (\d+)", runtime_version
+        )
+        assert source_value is not None
+        assert declaration_value is not None
+        assert runtime_value is not None
+        assert {
+            source_value.group(1),
+            declaration_value.group(1),
+            runtime_value.group(1),
+        } == {"1"}
 
     def test_page_module_wires_the_two_view_shell(self):
         # Structural pin on the app shell: the mount contract still holds,
