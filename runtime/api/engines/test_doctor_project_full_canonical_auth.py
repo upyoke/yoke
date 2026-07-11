@@ -165,6 +165,58 @@ class TestProjectGhAuthCanonical:
         assert "GitHub App capability row" in rec.results[0].detail
         assert "projects github-binding bind" in rec.results[0].detail
 
+    def test_backlog_only_without_github_capability_is_a_healthy_skip(
+        self, db_path: str,
+    ):
+        from yoke_core.domain.db_helpers import connect
+
+        conn = connect(db_path)
+        try:
+            conn.execute(
+                "DELETE FROM project_capabilities "
+                "WHERE project_id=(SELECT id FROM projects WHERE slug='buzz') "
+                "AND type='github'"
+            )
+            conn.execute(
+                "UPDATE projects SET github_sync_mode='backlog_only' "
+                "WHERE slug='buzz'"
+            )
+            conn.commit()
+
+            rec = _run_hc(
+                hc_project_gh_auth, conn,
+                project="buzz", db_path=db_path,
+            )
+        finally:
+            conn.close()
+
+        assert rec.results[0].result == "SKIP"
+        assert "github_sync_mode=backlog_only" in rec.results[0].detail
+        assert "project auth check skipped" in rec.results[0].detail
+
+    def test_backlog_only_with_resolved_binding_still_checks_auth(
+        self, db_path: str, monkeypatch: pytest.MonkeyPatch,
+    ):
+        from yoke_core.domain.db_helpers import connect
+
+        _patch_resolved_auth(monkeypatch)
+        conn = connect(db_path)
+        try:
+            conn.execute(
+                "UPDATE projects SET github_sync_mode='backlog_only' "
+                "WHERE slug='buzz'"
+            )
+            conn.commit()
+            rec = _run_hc(
+                hc_project_gh_auth, conn,
+                project="buzz", db_path=db_path,
+            )
+        finally:
+            conn.close()
+
+        assert rec.results[0].result == "PASS"
+        assert "project repo binding" in rec.results[0].detail
+
     def test_no_global_auth_fallback_string(self, db_path: str):
         """The obsolete global-auth WARN string is gone."""
         from yoke_core.domain.db_helpers import connect
