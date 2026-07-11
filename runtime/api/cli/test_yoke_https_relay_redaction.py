@@ -24,6 +24,29 @@ from yoke_cli.transport.https_response_policy import (
     REDACTED,
     collect_request_secrets,
 )
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
+
+
+_NON_OBVIOUS_ACTIONS_SECRET = "postgres://relay-user:relay-password@db.example/app"
+
+
+def _actions_secret_request() -> FunctionCallRequest:
+    return FunctionCallRequest(
+        function="github_actions.secret.set",
+        actor=ActorContext(session_id="actions-secret-relay-test"),
+        target=TargetRef(kind="global"),
+        request_id="actions-secret-relay-request",
+        payload={
+            "repo": "example/project",
+            "name": "DATABASE_URL",
+            "value": _NON_OBVIOUS_ACTIONS_SECRET,
+            "project": "example",
+        },
+    )
 
 
 def _all_secrets() -> tuple[str, ...]:
@@ -46,6 +69,58 @@ def test_nested_sensitive_keys_and_named_value_are_classified() -> None:
     )
 
     assert set(_all_secrets()) <= set(secrets)
+
+
+def test_actions_secret_value_is_classified_by_function_request_shape() -> None:
+    secrets = collect_request_secrets(
+        _actions_secret_request(), transport_token=TRANSPORT_TOKEN
+    )
+
+    assert _NON_OBVIOUS_ACTIONS_SECRET in secrets
+
+
+def test_typed_actions_secret_echo_is_scrubbed_for_non_obvious_name(
+    monkeypatch,
+) -> None:
+    body = envelope(
+        function="github_actions.secret.set",
+        result={"hostile_echo": _NON_OBVIOUS_ACTIONS_SECRET},
+    )
+    monkeypatch.setattr(
+        relay_module,
+        "open_no_redirect",
+        lambda request, timeout=None: FakeResponse(body),
+    )
+
+    response = relay_https(_actions_secret_request(), CONNECTION)
+
+    assert response.success is True
+    assert _NON_OBVIOUS_ACTIONS_SECRET not in serialized_response(response)
+    assert REDACTED in serialized_response(response)
+
+
+def test_non_envelope_actions_secret_echo_is_scrubbed_for_non_obvious_name(
+    monkeypatch,
+) -> None:
+    body = f"gateway echoed {_NON_OBVIOUS_ACTIONS_SECRET}".encode("utf-8")
+
+    def reject(request, timeout=None):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            502,
+            "Bad Gateway",
+            {},
+            io.BytesIO(body),
+        )
+
+    monkeypatch.setattr(relay_module, "open_no_redirect", reject)
+
+    response = relay_https(_actions_secret_request(), CONNECTION)
+
+    assert response.error is not None
+    assert "non-envelope body" in response.error.message
+    assert _NON_OBVIOUS_ACTIONS_SECRET not in serialized_response(response)
+    assert REDACTED in response.error.message
 
 
 def test_typed_success_scrubs_results_keys_warnings_and_client_output(

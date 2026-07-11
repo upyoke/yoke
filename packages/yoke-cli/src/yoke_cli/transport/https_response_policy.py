@@ -36,6 +36,16 @@ _CONTEXT_NAME_KEYS = frozenset({"field", "key", "name"})
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _NON_WORD = re.compile(r"[^a-z0-9]+")
 
+# Some registered request schemas deliberately use a generic field name for
+# sensitive material.  Key-name heuristics cannot classify these values: an
+# Actions secret called ``DATABASE_URL`` still travels in ``payload.value``.
+# Keep those exceptions bound to the exact function id and payload path so a
+# similarly shaped non-secret operation (for example, an Actions variable)
+# remains visible in ordinary responses.
+_SENSITIVE_PAYLOAD_PATHS_BY_FUNCTION: Mapping[str, tuple[tuple[str, ...], ...]] = {
+    "github_actions.secret.set": (("value",),),
+}
+
 
 class HttpsResponsePolicyError(ValueError):
     """One remote response cannot safely become a typed envelope."""
@@ -78,6 +88,7 @@ def collect_request_secrets(
         found,
         inherited_sensitive=False,
     )
+    _collect_declared_payload_secrets(request.function, request.payload, found)
     if transport_token:
         found.add(transport_token)
     return tuple(sorted(found, key=lambda value: (-len(value), value)))
@@ -243,6 +254,24 @@ def _collect_nested(
                 found,
                 inherited_sensitive=inherited_sensitive,
             )
+
+
+def _collect_declared_payload_secrets(
+    function_id: str,
+    payload: Mapping[str, Any],
+    found: set[str],
+) -> None:
+    """Collect secrets declared by one registered function's request shape."""
+
+    for path in _SENSITIVE_PAYLOAD_PATHS_BY_FUNCTION.get(function_id, ()):
+        value: Any = payload
+        for segment in path:
+            if not isinstance(value, Mapping) or segment not in value:
+                break
+            value = value[segment]
+        else:
+            if isinstance(value, str) and value:
+                found.add(value)
 
 
 def _mapping_names_sensitive_value(value: Mapping[Any, Any]) -> bool:

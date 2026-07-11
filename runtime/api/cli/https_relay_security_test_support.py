@@ -45,6 +45,7 @@ def sensitive_request() -> FunctionCallRequest:
 
 def envelope(
     *,
+    function: str = "projects.github_binding.bind",
     success: bool = True,
     result: dict[str, Any] | None = None,
     error: dict[str, Any] | None = None,
@@ -53,7 +54,7 @@ def envelope(
     return json.dumps(
         {
             "success": success,
-            "function": "projects.github_binding.bind",
+            "function": function,
             "version": "v1",
             "request_id": "sensitive-relay-request",
             "result": result or {},
