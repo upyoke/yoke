@@ -61,11 +61,11 @@ def create_app() -> FastAPI:
             register_all_handlers,
         )
         from yoke_core.domain.github_app_public_runtime import (
-            attest_github_app_runtime_identity,
+            attest_github_app_runtime_identity_with_hard_deadline,
         )
 
         register_all_handlers()
-        attest_github_app_runtime_identity(timeout_seconds=5.0)
+        await attest_github_app_runtime_identity_with_hard_deadline()
         yield
 
     application = FastAPI(

@@ -205,3 +205,36 @@ def test_verification_timeouts_are_typed_and_sanitized():
             control_plane_config=github_app_control_plane_config(),
         )
     assert "provider detail" not in str(user_error.value)
+
+
+def test_direct_os_errors_are_typed_and_sanitized():
+    secret = "provider-os-detail-must-not-escape"
+
+    def unavailable(request, timeout):
+        del request, timeout
+        raise OSError(secret)
+
+    with pytest.raises(
+        GitHubServerInstallationVerificationError, match="was unavailable"
+    ) as installation_error:
+        fetch_server_app_installation(
+            config=github_app_control_plane_config(),
+            installation_id="12345",
+            opener=unavailable,
+            jwt_factory=lambda **kwargs: "server-app-jwt",
+        )
+    assert secret not in str(installation_error.value)
+
+    with pytest.raises(
+        GitHubUserVerificationError, match="was unavailable"
+    ) as user_error:
+        verify_project_github_binding(
+            installation_id="12345",
+            repository_id="4567",
+            expected_github_repo="example-org/buzz",
+            expected_api_url="https://api.github.com",
+            github_user_access_token="yoke-app-user-token",
+            opener=unavailable,
+            control_plane_config=github_app_control_plane_config(),
+        )
+    assert secret not in str(user_error.value)

@@ -30,6 +30,7 @@ from yoke_contracts.github_origin import (
 
 GITHUB_APP_ISSUER_ENV = "YOKE_GITHUB_APP_ISSUER"
 GITHUB_APP_PRIVATE_KEY_FILE_ENV = "YOKE_GITHUB_APP_PRIVATE_KEY_FILE"
+GITHUB_APP_PRIVATE_KEY_MAX_BYTES = 1024 * 1024
 
 _PUBLIC_IDENTITY_ENV_NAMES = (
     GITHUB_APP_CLIENT_ID_ENV,
@@ -164,8 +165,7 @@ def has_github_app_runtime_configuration(
     """Return whether any private or public GitHub App runtime knob is set."""
     source = os.environ if env is None else env
     return any(
-        str(source.get(name) or "").strip()
-        for name in _RUNTIME_CONFIGURATION_ENV_NAMES
+        str(source.get(name) or "").strip() for name in _RUNTIME_CONFIGURATION_ENV_NAMES
     )
 
 
@@ -187,6 +187,10 @@ def _read_restricted_secret(path: Path) -> str:
         if not stat.S_ISREG(file_stat.st_mode):
             raise GitHubAppControlPlaneConfigError(
                 "GitHub App private-key path must be a regular file"
+            )
+        if file_stat.st_size > GITHUB_APP_PRIVATE_KEY_MAX_BYTES:
+            raise GitHubAppControlPlaneConfigError(
+                "GitHub App private-key file exceeds the size limit"
             )
         resolved_path = _resolved_open_file_path(descriptor, path)
         effective_uid = os.geteuid()
@@ -210,9 +214,14 @@ def _read_restricted_secret(path: Path) -> str:
                 "user, root-owned read-only, or group-read-only for the service "
                 "group under /run/secrets"
             )
-        with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
+        with os.fdopen(descriptor, "rb") as handle:
             descriptor = -1
-            value = handle.read().strip()
+            raw_value = handle.read(GITHUB_APP_PRIVATE_KEY_MAX_BYTES + 1)
+        if len(raw_value) > GITHUB_APP_PRIVATE_KEY_MAX_BYTES:
+            raise GitHubAppControlPlaneConfigError(
+                "GitHub App private-key file exceeds the size limit"
+            )
+        value = raw_value.decode("utf-8").strip()
     except (OSError, UnicodeDecodeError) as exc:
         raise GitHubAppControlPlaneConfigError(
             f"GitHub App private-key file cannot be read as UTF-8: {path}"
@@ -263,6 +272,7 @@ __all__ = [
     "GITHUB_APP_ID_ENV",
     "GITHUB_APP_ISSUER_ENV",
     "GITHUB_APP_PRIVATE_KEY_FILE_ENV",
+    "GITHUB_APP_PRIVATE_KEY_MAX_BYTES",
     "GITHUB_APP_SLUG_ENV",
     "GITHUB_APP_WEB_URL_ENV",
     "GitHubAppControlPlaneConfig",

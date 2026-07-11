@@ -8,8 +8,10 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from runtime.api.domain.github_app_public_profile_test_support import (
+    complete_github_app_env as _complete_env,
+)
 from yoke_contracts.github_app_public import (
-    GITHUB_APP_API_URL_ENV,
     GITHUB_APP_CLIENT_ID_ENV,
     GITHUB_APP_ID_ENV,
     GITHUB_APP_SLUG_ENV,
@@ -20,10 +22,10 @@ from yoke_contracts.github_app_public import (
 import yoke_core.api.main as _api_main  # noqa: F401
 from yoke_core.api.routes import items_health
 from yoke_core.domain.github_app_control_plane import (
-    GITHUB_APP_ISSUER_ENV,
-    GITHUB_APP_PRIVATE_KEY_FILE_ENV,
+    GITHUB_APP_PRIVATE_KEY_MAX_BYTES,
     GitHubAppControlPlaneConfigError,
     github_app_public_advertisement,
+    load_github_app_control_plane_config,
     load_github_app_public_profile,
 )
 from yoke_core.domain.github_app_identity import GitHubAppIdentity
@@ -39,24 +41,6 @@ def _reset_attestation():
     reset_github_app_public_attestation_for_tests()
     yield
     reset_github_app_public_attestation_for_tests()
-
-
-def _complete_env(tmp_path: Path) -> tuple[dict[str, str], Path]:
-    key = tmp_path / "github-app.pem"
-    key.write_text("test-private-key", encoding="utf-8")
-    key.chmod(0o600)
-    return (
-        {
-            GITHUB_APP_ISSUER_ENV: "123456",
-            GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(key),
-            GITHUB_APP_API_URL_ENV: "https://api.github.com",
-            GITHUB_APP_WEB_URL_ENV: "https://github.com",
-            GITHUB_APP_ID_ENV: "123456",
-            GITHUB_APP_CLIENT_ID_ENV: "Iv23public",
-            GITHUB_APP_SLUG_ENV: "yoke-development",
-        },
-        key,
-    )
 
 
 def _private_only_env(tmp_path: Path) -> tuple[dict[str, str], Path]:
@@ -112,6 +96,38 @@ def test_partial_self_host_profile_is_detail_free_unavailable(tmp_path: Path):
         load_github_app_public_profile(env, strict_partial=True)
 
 
+@pytest.mark.parametrize("profile_break", ["partial", "invalid"])
+def test_partial_or_invalid_profile_warns_without_values(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    profile_break: str,
+):
+    env, _key = _complete_env(tmp_path)
+    if profile_break == "partial":
+        env.pop(GITHUB_APP_SLUG_ENV)
+    else:
+        env[GITHUB_APP_WEB_URL_ENV] = "https://unrelated.example"
+    identity = GitHubAppIdentity(
+        app_id=123456,
+        client_id="Iv23public",
+        slug="yoke-development",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="yoke.api.startup"):
+        assert attest_github_app_runtime_identity(
+            env,
+            identity_fetcher=lambda *args, **kwargs: identity,
+        )
+
+    assert "set every public profile field" in caplog.text
+    assert "Iv23public" not in caplog.text
+    assert "unrelated.example" not in caplog.text
+    assert "test-private-key" not in caplog.text
+    assert current_github_app_public_advertisement(env).model_dump() == {
+        "available": False,
+    }
+
+
 def test_unreadable_key_cannot_advertise_available(tmp_path: Path):
     env, key = _complete_env(tmp_path)
     key.chmod(0o644)
@@ -119,6 +135,32 @@ def test_unreadable_key_cannot_advertise_available(tmp_path: Path):
     assert github_app_public_advertisement(env).model_dump() == {
         "available": False,
     }
+
+
+def test_partial_profile_warning_survives_private_key_failure(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+):
+    env, key = _complete_env(tmp_path)
+    env.pop(GITHUB_APP_SLUG_ENV)
+    key.chmod(0o644)
+
+    with caplog.at_level(logging.WARNING, logger="yoke.api.startup"):
+        assert not attest_github_app_runtime_identity(env)
+
+    assert "set every public profile field" in caplog.text
+    assert "startup continued without verified App authority" in caplog.text
+    assert "Iv23public" not in caplog.text
+    assert "test-private-key" not in caplog.text
+
+
+def test_control_plane_private_key_read_is_size_bounded(tmp_path: Path):
+    env, key = _complete_env(tmp_path)
+    key.write_bytes(b"x" * (GITHUB_APP_PRIVATE_KEY_MAX_BYTES + 1))
+    key.chmod(0o600)
+
+    with pytest.raises(GitHubAppControlPlaneConfigError, match="size limit"):
+        load_github_app_control_plane_config(env)
 
 
 def test_startup_attestation_binds_health_to_identity_and_key(tmp_path: Path):

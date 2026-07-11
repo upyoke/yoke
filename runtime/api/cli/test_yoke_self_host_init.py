@@ -143,6 +143,27 @@ def test_init_ships_github_app_secret_wiring_disabled(target):
     assert "--github-app-private-key" in env_text
 
 
+def test_init_uses_self_host_only_root_bootstrap_for_core_secrets(target):
+    assert commands.self_host_init(["--dir", str(target)]) == 0
+
+    compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
+    assert 'user: "0:0"' in compose
+    assert (
+        'entrypoint: ["python", "-m", '
+        '"yoke_core.tools.self_host_server_bootstrap"]' in compose
+    )
+    assert "command: []" in compose
+    assert "cap_drop:\n      - ALL" in compose
+    assert "cap_add:\n      - CHOWN\n      - SETGID\n      - SETUID" in compose
+    assert "security_opt:\n      - no-new-privileges:true" in compose
+    assert (
+        "- yoke_core.tools.self_host_server_bootstrap\n        - --healthcheck"
+        in compose
+    )
+    assert "YOKE_PG_DSN_FILE: /run/secrets/yoke-db-dsn" in compose
+    assert "- /run/yoke-runtime-secrets:mode=0700" in compose
+
+
 def test_init_json_report_omits_secrets(target, capsys):
     assert commands.self_host_init(["--dir", str(target), "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
