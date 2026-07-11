@@ -121,6 +121,13 @@ def test_project_create_new_repo_binds_identity_and_installs(
         "expected_api_url": "https://api.github.com",
         "github_user_access_token": "ghu_short_lived",
     }
+    sync_mode_call = api.function_call("projects.update")
+    assert sync_mode_call["payload"] == {
+        "project_id": 41,
+        "slug": "demo",
+        "name": "Demo",
+        "github_sync_mode": "enabled",
+    }
     assert api.function_calls("projects.capability_secret.set") == []
     assert api.requests_for("GET", "/v1/projects/41/install-bundle")
 

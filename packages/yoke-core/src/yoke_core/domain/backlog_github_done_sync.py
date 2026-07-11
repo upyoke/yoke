@@ -98,7 +98,7 @@ def sync_done_item(
             )
             return 1
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), repo, project=gh_project, stderr=stderr
+            item_ref, str(issue_num), project=gh_project, stderr=stderr
         ):
             print(f"Error: sync_done_item skipped for {item_ref}", file=stderr)
             return 1

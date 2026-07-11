@@ -260,6 +260,57 @@ def test_existing_app_binding_failure_never_enables_sync(
     assert calls[0][1]["expected_api_url"] == "https://api.github.example"
 
 
+def test_successful_app_binding_enables_issue_sync_after_verification(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    calls: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        project_onboard_progress.machine_config,
+        "github_config",
+        lambda _path: {
+            "api_url": "https://api.github.example",
+            "repositories": [{
+                "installation_id": 123,
+                "repository_id": 456,
+                "full_name": "owner/demo",
+            }],
+        },
+    )
+    monkeypatch.setattr(
+        project_onboard_progress.github_user_tokens,
+        "access_token_from_machine_config",
+        lambda **_kwargs: SimpleNamespace(access_token="ghu_short_lived"),
+    )
+
+    def dispatch(function_id, payload, _config_path):
+        calls.append((function_id, payload))
+        if function_id == "projects.github_binding.bind":
+            return {"binding": {"status": "active"}}
+        return {"project": payload}
+
+    monkeypatch.setattr(project_onboard_progress, "dispatch", dispatch)
+
+    report = project_onboard_progress.store_github_binding(
+        None,
+        "app-binding",
+        {"id": 41, "slug": "demo", "name": "Demo"},
+        {"choice": "app-binding", "github_repo": "owner/demo"},
+        tmp_path / "config.json",
+    )
+
+    assert [function_id for function_id, _payload in calls] == [
+        "projects.github_binding.bind",
+        "projects.update",
+    ]
+    assert calls[1][1] == {
+        "project_id": 41,
+        "slug": "demo",
+        "name": "Demo",
+        "github_sync_mode": "enabled",
+    }
+    assert report["mode"] == "enabled"
+
+
 def _project_row(*, slug: str = "local") -> dict:
     return {
         "id": 44,

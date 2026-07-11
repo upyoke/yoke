@@ -102,14 +102,17 @@ def post_comment(
         if not _bgs()._validate_issue_in_repo(
             item_ref,
             str(issue_num),
-            repo,
             project=gh_project,
             stderr=stderr,
             timeout_seconds=github_timeout_seconds,
             max_attempts=github_max_attempts,
         ):
-            print(f"Warning: post_comment skipped for {item_ref} — repo mismatch", file=stderr)
-            return 0
+            print(
+                f"Warning: post_comment skipped for {item_ref} — "
+                "issue validation failed",
+                file=stderr,
+            )
+            return 1
 
         auth = resolve_project_github_auth(
             gh_project,

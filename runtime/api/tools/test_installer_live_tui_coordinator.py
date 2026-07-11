@@ -742,8 +742,19 @@ def test_seed_known_recipes_adds_github_wave_recipes(
     recipe_dir = campaign_root / "recipe-stubs"
     recipe_dir.mkdir(parents=True)
     profiles = {
-        **{f"GITHUB-{number:03d}": "prepared-yoke" for number in range(1, 10)},
-        "GITHUB-010": "prepared-stored-state",
+        **{f"GITHUB-{number:03d}": "prepared-yoke" for number in range(1, 25)},
+        **{
+            f"GITHUB-{number:03d}": "prepared-stored-state"
+            for number in (5, 6, 9, 10, 15, 23, 24)
+        },
+        **{
+            f"GITHUB-{number:03d}": "fault-injection"
+            for number in (3, 10, 14, 21, 22)
+        },
+        **{
+            f"GITHUB-{number:03d}": "prepared-git"
+            for number in range(16, 20)
+        },
     }
     for scenario_id, profile in profiles.items():
         json_helper.dump_path(
@@ -761,10 +772,10 @@ def test_seed_known_recipes_adds_github_wave_recipes(
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
     assert result["seeded_count"] == 1
-    assert result["unseeded_count"] == 9
+    assert result["unseeded_count"] == 23
     assert [item["scenario_id"] for item in result["seeded"]] == ["GITHUB-001"]
     assert {item["scenario_id"] for item in result["unseeded"]} == {
-        f"GITHUB-{number:03d}" for number in range(2, 11)
+        f"GITHUB-{number:03d}" for number in range(2, 25)
     }
     assert all(
         "HTTPS device-flow and installation fixture" in item["reason"]

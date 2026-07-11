@@ -118,15 +118,18 @@ def test_fresh_create_refreshes_app_access_before_binding(
         return {"ok": True}
 
     def _binding_dispatch(function_id, payload, _config_path):
-        assert function_id == "projects.github_binding.bind"
-        events.append("bind")
-        assert payload["repository_id"] == 88
-        assert payload["installation_id"] == 7
-        return {
-            "binding": {"status": "active"},
-            "permission_status": {"ok": True},
-            "github_sync_mode": "enabled",
-        }
+        if function_id == "projects.github_binding.bind":
+            events.append("bind")
+            assert payload["repository_id"] == 88
+            assert payload["installation_id"] == 7
+            return {
+                "binding": {"status": "active"},
+                "permission_status": {"ok": True},
+            }
+        assert function_id == "projects.update"
+        events.append("sync-policy")
+        assert payload["github_sync_mode"] == "enabled"
+        return {"project": payload}
 
     monkeypatch.setattr(project_onboard, "create_and_publish", _create)
     monkeypatch.setattr(
@@ -153,7 +156,7 @@ def test_fresh_create_refreshes_app_access_before_binding(
 
     project_onboard.create_project(publish=_publish(), **kwargs)
 
-    assert events == ["publish", "refresh", "bind"]
+    assert events == ["publish", "refresh", "bind", "sync-policy"]
 
 
 def test_create_project_no_publish_does_not_create_repo(tmp_path, monkeypatch, _stub_backend):

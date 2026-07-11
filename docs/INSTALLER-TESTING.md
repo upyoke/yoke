@@ -192,7 +192,36 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 
 ### Wave 5: Machine GitHub App Connection
 
-See [Installer GitHub App live testing](installer-github-app-testing.md) for the automation boundary and the `GITHUB-*` scenario catalog.
+The table below is the canonical `GITHUB-*` campaign catalog. See
+[Installer GitHub App live testing](installer-github-app-testing.md) for the
+operator-attended boundary and retained-evidence requirements.
+
+| ID | Profile | Flow | Assertions |
+| --- | --- | --- | --- |
+| `GITHUB-001` | `prepared-yoke` | Skip GitHub | Project step reachable; machine config has no GitHub App connection |
+| `GITHUB-002` | `prepared-yoke` | Connect GitHub App | Device page opens; one-time code renders; no credential paste field appears |
+| `GITHUB-003` | `fault-injection` | Device authorization pending then succeeds | Poll interval is honored; identity, installations, and repositories refresh before Project |
+| `GITHUB-004` | `prepared-yoke` | Device authorization expires or is denied | Friendly retry/backlog-only guidance; no partial machine credential is written |
+| `GITHUB-005` | `prepared-stored-state` | Stored App authorization | Live refresh succeeds; identity and installation summary render; no credential value leaks |
+| `GITHUB-006` | `prepared-stored-state` | Revoked App authorization | Friendly reconnect guidance; no crash; stale cached access is not accepted |
+| `GITHUB-007` | `prepared-yoke` | App sees many repos | Repository list truncates consistently and does not overflow |
+| `GITHUB-008` | `prepared-yoke` | Default App grant lacks Administration | New-repo/environment/runner mutations are skipped with a GitHub settings link |
+| `GITHUB-009` | `prepared-stored-state` | Stored App authorization reuse | Refresh is serialized and verified, not blindly trusted |
+| `GITHUB-010` | `fault-injection` | Concurrent refresh-token use | One refresh request rotates the credential atomically; both callers receive a usable access token |
+| `GITHUB-011` | `prepared-yoke` | Select local, hosted, and team-server destinations | Each destination resolves its own public App metadata; client id, slug, and GitHub origin never bleed across destinations |
+| `GITHUB-012` | `prepared-yoke` | User authorization succeeds before App installation | Pending-install screen remains on GitHub; Check access refreshes live state and advances only after a usable installation is visible |
+| `GITHUB-013` | `prepared-yoke` | Choose Back from a GitHub connection error | Returns to Connect GitHub / Use backlog only without launching another browser or worker |
+| `GITHUB-014` | `fault-injection` | Destination metadata and stored App identity disagree | Connection is refused with reconnect guidance; cached repositories from the other App are not accepted |
+| `GITHUB-015` | `prepared-stored-state` | Disconnect then reconnect machine GitHub authorization | Local credential and config reference are removed, App installation/project bindings remain, and reconnect writes one fresh credential |
+| `GITHUB-016` | `prepared-git` | Bind an App-visible repository to a project | Verified installation/repository ids and repo binding persist; explicit issue-sync policy is preserved |
+| `GITHUB-017` | `prepared-git` | Create, update, comment, label, close, and reopen an issue | Every mutation succeeds through resolved App auth; validation failures are nonzero and never reported as repo mismatch without evidence |
+| `GITHUB-018` | `prepared-git` | Create a pull request for the bound project | PR targets the verified bound repo and succeeds through short-lived App auth |
+| `GITHUB-019` | `prepared-git` | Read and mutate GitHub Actions state | Workflow, run, variable, and secret operations target the verified bound repo and use short-lived App auth |
+| `GITHUB-020` | `prepared-yoke` | Team server publishes a complete GitHub App public profile | Engineer-machine connect uses that server's client id, slug, and origins; authorization, install, repo discovery, and binding complete |
+| `GITHUB-021` | `fault-injection` | Team server has no or partial GitHub App public profile | Wizard explains the operator-owned missing fields and offers backlog-only; no official-hosted or cached App fallback is used |
+| `GITHUB-022` | `fault-injection` | Bind repository metadata discovered through a different App | Server rejects the foreign App/installation identity and preserves the prior binding and sync policy |
+| `GITHUB-023` | `prepared-stored-state` | Inspect disk after connect and refresh | Owner-only storage contains only the refresh credential; access tokens remain process-memory/transient and secret scans stay green |
+| `GITHUB-024` | `prepared-stored-state` | Revoked saved authorization with backlog-only and a public clone | Backlog-only/public clone completes without refreshing GitHub authorization; connected-repo/private operations still require reconnect |
 
 ### Wave 6: Project Source Picker
 

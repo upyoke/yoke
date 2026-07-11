@@ -72,7 +72,9 @@ class TestSyncFrozenLabel:
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
+            f"{GH_PATCH}._validate_issue_in_repo",
+            autospec=True,
+            return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
             side_effect=_ok_resolver,
@@ -115,6 +117,30 @@ class TestSyncFrozenLabel:
             "org/buzz", 42, "frozen", token="ghs_fake",
         )
         assert "Frozen label removed: BUZ-7 → #42" in stdout.getvalue()
+        db.close()
+
+    def test_issue_validation_failure_is_nonzero(self):
+        db = _make_db()
+        insert_item(
+            db, id=8, type="issue", status="implementing",
+            project="buzz", github_issue="#43",
+        )
+        stderr = io.StringIO()
+
+        with patch(
+            f"{GH_PATCH}._github_auth_available", return_value=True,
+        ), patch(
+            f"{GH_PATCH}._validate_issue_in_repo",
+            autospec=True,
+            return_value=False,
+        ):
+            rc = backlog_github_sync.sync_frozen_label(
+                "8", "true", conn=db, stderr=stderr,
+            )
+
+        assert rc == 1
+        assert "issue validation failed" in stderr.getvalue()
+        assert "repo mismatch" not in stderr.getvalue()
         db.close()
 
 
@@ -194,16 +220,19 @@ class TestSyncLabels:
         assert "priority:low" in removed_labels
         db.close()
 
-    def test_repo_mismatch_skips(self):
+    def test_issue_validation_failure_is_not_green(self):
         db = _make_db()
         insert_item(db, id=10, type="issue", status="idea", project="buzz", github_issue="#5")
         stderr = io.StringIO()
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=False,
+            f"{GH_PATCH}._validate_issue_in_repo",
+            autospec=True,
+            return_value=False,
         ):
             rc = backlog_github_sync.sync_labels("10", conn=db, stderr=stderr)
-        assert rc == 0
-        assert "repo mismatch" in stderr.getvalue()
+        assert rc == 1
+        assert "issue validation failed" in stderr.getvalue()
+        assert "repo mismatch" not in stderr.getvalue()
         db.close()
 
     def test_label_helpers_ignore_stale_repo_projection(self):

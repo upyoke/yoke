@@ -189,12 +189,10 @@ def _store_verified_project_repo_binding(
             ) from exc
         conn.execute(
             f"UPDATE projects SET github_repo={p}, "
-            f"default_branch=COALESCE({p}, default_branch), "
-            f"github_sync_mode={p} "
+            f"default_branch=COALESCE({p}, default_branch) "
             f"WHERE id={p}",
             (
-                repo, clean_optional(verified.default_branch),
-                persistence.sync_mode, ident.id,
+                repo, clean_optional(verified.default_branch), ident.id,
             ),
         )
         conn.execute(

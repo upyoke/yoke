@@ -14,6 +14,7 @@ from yoke_cli.config.project_github_adoption import (
     ProjectGithubAdoptionError,
     github_sync_mode,
 )
+from yoke_contracts.project_contract.github_sync_mode import GITHUB_SYNC_ENABLED
 from yoke_cli.config.project_onboard_support import dispatch
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
@@ -96,6 +97,16 @@ def store_github_binding(
         },
         config_path,
     )
+    dispatch(
+        "projects.update",
+        {
+            "project_id": int(project["id"]),
+            "slug": str(project["slug"]),
+            "name": str(project.get("name") or project["slug"]),
+            "github_sync_mode": GITHUB_SYNC_ENABLED,
+        },
+        config_path,
+    )
     binding = result.get("binding") if isinstance(result, Mapping) else None
     binding = binding if isinstance(binding, Mapping) else {}
     binding_status = str(binding.get("status") or "pending_permission")
@@ -105,7 +116,7 @@ def store_github_binding(
     )
     return {
         "cap_type": "github",
-        "mode": str(result.get("github_sync_mode") or sync_mode),
+        "mode": GITHUB_SYNC_ENABLED,
         "binding": binding_status,
         "permission_status": permission_status,
         "result": dict(result),

@@ -68,7 +68,9 @@ def test_sync_done_item_batches_body_labels_and_close():
     )
 
     with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-        f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
+        f"{GH_PATCH}._validate_issue_in_repo",
+        autospec=True,
+        return_value=True,
     ), patch.object(
         backlog_github_done_sync, "resolve_project_github_auth",
         side_effect=_ok_resolver,
