@@ -43,7 +43,6 @@ CANONICAL_LOG_FIELDS = (
     "org_id",
     "project",
     "project_id",
-    "user_id",
     "actor_id",
     "session_id",
     "request_id",

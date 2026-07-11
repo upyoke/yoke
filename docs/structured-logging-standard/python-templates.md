@@ -101,7 +101,7 @@ Usage:
  event_type="order",
  outcome="completed",
  duration_ms=89,
- user_id="usr_a1b2c3d4",
+ actor_id=17,
  org_id="org_x1y2z3",
  context={"order_id": "ord_p6q7r8s9", "total_cents": 4999}
  )
@@ -137,17 +137,13 @@ def get_request_props(
  "parent_id": parent_id,
  }
 
-def get_user_props(
- user_id: Optional[str] = None,
- user_email: Optional[str] = None,
- user_name: Optional[str] = None,
+def get_actor_props(
+ actor_id: Optional[int] = None,
  is_anonymous: bool = False,
 ) -> dict:
- """Build user properties."""
+ """Build engine actor properties."""
  return {
- "user_id": user_id,
- "user_email": user_email,
- "user_name": user_name,
+ "actor_id": actor_id,
  "is_anonymous": is_anonymous,
  }
 

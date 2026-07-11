@@ -126,7 +126,6 @@ class TestInsert:
             db_path,
             event_id="opt-fields",
             event_outcome="completed",
-            user_id="u1",
             agent="engineer",
             tool_name="Bash",
             duration_ms=150,
@@ -145,7 +144,7 @@ class TestQueries:
         result = ec.cmd_list(db_path)
         assert "|" in result
         parts = result.split("|")
-        assert len(parts) == 25  # 25 columns in _EVT_SELECT_COLS
+        assert len(parts) == 24  # 24 columns in _EVT_SELECT_COLS
 
     def test_list_filters(self, db_path: str) -> None:
         _insert_event(db_path, event_id="f-agent", source_type="agent")

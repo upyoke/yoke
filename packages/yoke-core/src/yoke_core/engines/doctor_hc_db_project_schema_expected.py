@@ -86,7 +86,7 @@ _EXPECTED_SCHEMA_STR = (
     "status/TEXT,started_at/TEXT,stopped_at/TEXT,health_check_url/TEXT,"
     "created_at/TEXT,deployed_sha/TEXT"
     "|events:id/INTEGER,event_id/TEXT,source_type/TEXT,session_id/TEXT,severity/TEXT,"
-    "event_kind/TEXT,event_type/TEXT,event_name/TEXT,event_outcome/TEXT,user_id/TEXT,"
+    "event_kind/TEXT,event_type/TEXT,event_name/TEXT,event_outcome/TEXT,"
     "org_id/TEXT,actor_id/INTEGER,environment/TEXT,service/TEXT,project_id/INTEGER,item_id/TEXT,"
     "task_num/INTEGER,agent/TEXT,tool_name/TEXT,duration_ms/INTEGER,exit_code/INTEGER,"
     "trace_id/TEXT,parent_id/TEXT,anomaly_flags/TEXT,tool_use_id/TEXT,turn_id/TEXT,"

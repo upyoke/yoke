@@ -54,7 +54,6 @@ _EVENTS_TABLE_FOR_CLAIM_RACE = """
         session_id TEXT,
         severity TEXT DEFAULT 'INFO',
         event_outcome TEXT,
-        user_id TEXT,
         org_id TEXT,
         environment TEXT,
         service TEXT,

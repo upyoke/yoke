@@ -99,7 +99,7 @@ For query performance, the following fields are promoted from `context` to root-
 - `agent` (TEXT) -- the agent that emitted the event
 - `item_id` (TEXT) -- backlog item ID (canonical bare-numeric text; display may render `YOK-N`)
 - `task_num` (INTEGER) -- epic task number
-- `user_id` (TEXT) -- user identifier
+- `actor_id` (INTEGER) -- authenticated engine actor
 - `org_id` (TEXT) -- organization identifier
 - `tool_use_id` (TEXT) -- harness-provided tool call ID (dedup key, indexed)
 - `turn_id` (TEXT) -- conversation turn within the harness session
@@ -126,7 +126,6 @@ Request body:
  "source_type": "frontend",
  "duration_ms": null,
  "session_id": "client-session-uuid",
- "user_id": "user-uuid-or-null",
  "org_id": "org-uuid-or-null",
  "context": {}
  }
@@ -184,7 +183,7 @@ Both fields remain nullable -- frontend events will have `tool_name = NULL` and 
 
 Section A above defines the canonical envelope. The rest of the standard is split into focused sub-pages:
 
-- [Property Group Definitions](structured-logging-standard/property-groups.md) -- field-by-field schemas for `event_props`, `system_props`, `user_props`, `org_props`, `session_props`, `request_props`, `error_props`, `agent_props`, `page_props`, `device_props`, and `marketing_attribution_props`.
+- [Property Group Definitions](structured-logging-standard/property-groups.md) -- field-by-field schemas for `event_props`, `system_props`, `actor_props`, `org_props`, `session_props`, `request_props`, `error_props`, `agent_props`, `page_props`, `device_props`, and `marketing_attribution_props`.
 - [Full Envelope Composition Per Source Type](structured-logging-standard/source-type-composition.md) -- which property groups are required for `agent`, `backend`, `frontend`, and `system` events.
 - [Python Implementation Templates](structured-logging-standard/python-templates.md) -- the `yoke_core.domain.events.emit_event` reference and the standalone `events.py` template.
 - [JS/TS Implementation Template](structured-logging-standard/js-ts-template.md) -- the frontend `events.ts` reference module with batching and attribution.

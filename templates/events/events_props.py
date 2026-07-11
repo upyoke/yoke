@@ -53,17 +53,13 @@ def get_request_props(
     }
 
 
-def get_user_props(
-    user_id: Optional[str] = None,
-    user_email: Optional[str] = None,
-    user_name: Optional[str] = None,
+def get_actor_props(
+    actor_id: Optional[int] = None,
     is_anonymous: bool = False,
 ) -> dict:
-    """Build user identity properties."""
+    """Build engine actor identity properties."""
     return {
-        "user_id": user_id,
-        "user_email": user_email,
-        "user_name": user_name,
+        "actor_id": actor_id,
         "is_anonymous": is_anonymous,
     }
 

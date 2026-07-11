@@ -93,7 +93,7 @@ class ModuleAttemptResult:
 
 @dataclass
 class RehearseResult:
-    item_id: int
+    item_id: Optional[int]
     model_name: str
     validation_db_path: str
     source_fingerprint: Optional[str]
@@ -107,7 +107,7 @@ class RehearseResult:
 
 @dataclass
 class LiveApplyResult:
-    item_id: int
+    item_id: Optional[int]
     model_name: str
     authoritative_db_path: str
     lease_id: Optional[int]

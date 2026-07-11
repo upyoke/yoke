@@ -60,6 +60,15 @@ def test_cmd_init_creates_stop_cleanup_index(fresh_db: Path) -> None:
         conn.close()
 
 
+def test_fresh_schema_uses_actor_only_identity(fresh_db: Path) -> None:
+    conn = _open(fresh_db)
+    try:
+        assert not _column_exists(conn, "events", "user_id")
+        assert "idx_events_user_id" not in _index_names(conn)
+    finally:
+        conn.close()
+
+
 def test_stop_cleanup_index_is_partial_and_session_first(fresh_db: Path) -> None:
     """The index must be the (session_id, event_name, tool_use_id) shape.
 
@@ -124,7 +133,6 @@ def test_existing_events_table_does_not_gain_actor_id_outside_migration(
                 event_kind TEXT NOT NULL,
                 event_type TEXT NOT NULL,
                 event_name TEXT NOT NULL,
-                user_id TEXT,
                 org_id TEXT,
                 created_at TEXT NOT NULL
             )

@@ -27,14 +27,12 @@ Property groups are named, reusable sets of fields. Every implementation (shell,
 | `service_version` | TEXT | No | Semver or commit hash. |
 | `project` | TEXT | Yes | Project slug. E.g., `yoke`, `buzz`. |
 
-### user_props
+### actor_props
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `user_id` | TEXT (UUID) | Conditional | User identifier. Required when user is known. |
-| `user_email` | TEXT | No | User email. PII -- handle per retention policy. |
-| `user_name` | TEXT | No | Display name. |
-| `is_anonymous` | BOOLEAN | No | True if user is not authenticated. |
+| `actor_id` | INTEGER | Conditional | Authenticated engine actor. Resolved by the trusted receiver, never claimed by a browser client. |
+| `is_anonymous` | BOOLEAN | No | True when no actor is authenticated. |
 
 ### org_props
 
@@ -126,7 +124,7 @@ Included on acquisition events and optionally on all frontend events for attribu
 |---|---|---|---|---|
 | event_props | **Required** | **Required** | **Required** | **Required** |
 | system_props | **Required** | **Required** | **Required** | **Required** |
-| user_props | -- | **Required** | **Required** | -- |
+| actor_props | -- | **Required** | Receiver-stamped | -- |
 | org_props | -- | Conditional | Conditional | -- |
 | session_props | **Required** | **Required** | **Required** | **Required** |
 | request_props | **Required** | **Required** | Optional | Optional |

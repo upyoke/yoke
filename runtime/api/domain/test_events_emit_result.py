@@ -87,7 +87,6 @@ def test_emit_event_persists_canonical_context_fields() -> None:
             source_type="backend",
             severity="INFO",
             session_id="sess-canonical",
-            user_id="user-1",
             org_id="org-1",
             environment="stage",
             request_id="req-123",
@@ -96,16 +95,15 @@ def test_emit_event_persists_canonical_context_fields() -> None:
 
         assert result.ok is True
         row = conn.execute(
-            "SELECT user_id, org_id, environment, envelope "
+            "SELECT org_id, environment, envelope "
             "FROM events WHERE event_id=%s",
             (result.event_id,),
         ).fetchone()
-        assert row["user_id"] == "user-1"
         assert row["org_id"] == "org-1"
         assert row["environment"] == "stage"
         envelope = json.loads(row["envelope"])
         assert envelope["session_id"] == "sess-canonical"
-        assert envelope["user_id"] == "user-1"
+        assert "user_id" not in envelope
         assert envelope["org_id"] == "org-1"
         assert envelope["environment"] == "stage"
         assert envelope["request_id"] == "req-123"

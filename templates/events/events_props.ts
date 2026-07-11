@@ -45,20 +45,13 @@ export function getSessionProps(): Record<string, unknown> {
 }
 
 /**
- * Build user identity and organization properties.
- *
- * Email and user_name are intentionally null on the client -- PII should be
- * resolved server-side from the user_id to avoid leaking sensitive data.
+ * Build organization properties. Authenticated receivers stamp actor_id
+ * server-side; a browser event never claims engine identity for itself.
  */
-export function getUserProps(
-  userId?: string,
+export function getOrgProps(
   orgId?: string
 ): Record<string, unknown> {
   return {
-    user_id: userId ?? null,
-    user_email: null, // Never send PII from client -- resolve server-side
-    user_name: null,
-    is_anonymous: !userId,
     org_id: orgId ?? null,
     org_name: null,
     org_plan: null,

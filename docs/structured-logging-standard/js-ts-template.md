@@ -48,7 +48,6 @@ interface EmitOptions {
  severity?: Severity;
  durationMs?: number;
  context?: Record<string, unknown>;
- userId?: string;
  orgId?: string;
 }
 
@@ -75,15 +74,10 @@ function getSessionProps(): Record<string, unknown> {
  };
 }
 
-function getUserProps(
- userId?: string,
+function getOrgProps(
  orgId?: string,
 ): Record<string, unknown> {
  return {
- user_id: userId ?? null,
- user_email: null, // Never send PII from client -- resolve server-side
- user_name: null,
- is_anonymous: !userId,
  org_id: orgId ?? null,
  org_name: null,
  org_plan: null,
@@ -144,8 +138,8 @@ function buildEvent(options: EmitOptions): EventEnvelope {
  // session_props
  ...getSessionProps(),
 
- // user_props + org_props
- ...getUserProps(options.userId, options.orgId),
+ // org_props; authenticated receivers stamp actor_id server-side
+ ...getOrgProps(options.orgId),
 
  // page_props
  ...getPageProps(),
@@ -271,7 +265,7 @@ export {
  flushEvents,
  getSystemProps,
  getSessionProps,
- getUserProps,
+ getOrgProps,
  getPageProps,
  getDeviceProps,
  getAttributionProps,
@@ -284,4 +278,3 @@ export {
 ```
 
 ---
-

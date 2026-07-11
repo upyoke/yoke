@@ -124,7 +124,7 @@ _REST_DDL = """
         CREATE TABLE events (
             id INTEGER PRIMARY KEY, event_id TEXT, source_type TEXT,
             session_id TEXT, severity TEXT, event_kind TEXT, event_type TEXT,
-            event_name TEXT, event_outcome TEXT, user_id TEXT, org_id TEXT,
+            event_name TEXT, event_outcome TEXT, org_id TEXT,
             actor_id INTEGER, environment TEXT, service TEXT, project_id INTEGER,
             item_id TEXT, task_num INTEGER, agent TEXT, tool_name TEXT,
             duration_ms INTEGER, exit_code INTEGER, trace_id TEXT,

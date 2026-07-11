@@ -76,7 +76,7 @@ The `context` object holds event-specific payload data -- the details unique to 
 | `tool_name` | Root | Universal query dimension for agent events |
 | `command` | Context | Specific to Bash tool calls |
 | `file_path` | Context | Specific to Read/Write/Edit tool calls |
-| `user_id` | Root | Universal query dimension across source types |
+| `actor_id` | Root | Authenticated engine identity resolved by the trusted receiver |
 | `order_id` | Context | Specific to order events |
 
 ### Backward Compatibility Principle

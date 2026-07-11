@@ -29,7 +29,6 @@ _COLUMN_FLAGS: dict[str, str] = {
     "--event-name": "event_name",
     "--agent": "agent",
     "--service": "service",
-    "--user-id": "user_id",
     "--actor-id": "actor_id",
     "--trace-id": "trace_id",
     "--project": "project_id",

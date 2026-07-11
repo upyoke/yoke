@@ -40,7 +40,6 @@ export interface EmitOptions {
   severity?: Severity;
   durationMs?: number;
   context?: Record<string, unknown>;
-  userId?: string;
   orgId?: string;
 }
 

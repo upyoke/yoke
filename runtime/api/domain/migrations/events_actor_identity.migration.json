@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "events_actor_identity"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "hard_cutover",
+    "schema_kinds": [
+      "destructive"
+    ],
+    "data_kinds": [
+      "drop"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "events",
+        "columns": [
+          "user_id"
+        ]
+      }
+    ],
+    "count_preserving": false
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/events_schema.py",
+        "symbol": "ensure_event_schema",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/events.py",
+        "symbol": "emit_event",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/events_writes.py",
+        "symbol": "cmd_insert",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/events_queries.py",
+        "symbol": "_build_where",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "The events row count is unchanged by the column drop.",
+      "No non-empty retired-column value or non-null envelope identity passes the preflight.",
+      "The retired column and its index are absent after apply."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_events_actor_identity.py runtime/api/test_events_emitter.py runtime/api/test_emit_event.py runtime/api/domain/test_events_emit_result.py -q"
+    ],
+    "residual_risk_notes": "The migration takes an exclusive events-table lock before its count and identity scans and holds it through DDL; any non-empty column identity, non-null envelope identity, malformed envelope JSON, or unexpected pre-cutover index shape refuses before destructive SQL."
+  }
+}

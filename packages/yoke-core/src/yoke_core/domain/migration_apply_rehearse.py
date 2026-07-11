@@ -12,10 +12,7 @@ from yoke_core.domain.db_compatibility_attestation import (
 )
 from yoke_core.domain.db_mutation_gate_strategy import evaluate_strategy_matrix
 from yoke_core.domain.migration_model_capability_defaults import resolve_model
-from yoke_core.domain.projects_breakage_policy import (
-    BreakagePolicyError,
-    resolve_breakage_policy,
-)
+from yoke_core.domain.projects_breakage_policy import BreakagePolicyError, resolve_breakage_policy
 from yoke_core.domain.schema_fingerprint import (
     UnsupportedFingerprintKindError,
 )
@@ -34,18 +31,18 @@ from yoke_core.domain.migration_apply_contract import (
     ModuleContractError, ModuleResolutionError, RehearseResult, _now,
 )
 from yoke_core.domain.migration_apply_resolve import (
-    ModuleOverrideResolution, _load_item, _resolve_capability_settings,
-    _resolve_profile_or_raise, _resolve_repo_path, control_conn_db_path,
+    ModuleOverrideResolution, _resolve_capability_settings,
+    _resolve_repo_path, control_conn_db_path,
     default_worktree_path,
 )
+from yoke_core.domain.migration_apply_manifest import MigrationApplySubject, resolve_runner_input
+from yoke_core.domain.migration_apply_manifest import assert_manifest_subject_current
 from yoke_core.domain.migration_apply_runners import dispatch_handle
 from yoke_core.domain.migration_apply_verify import (
     _append_rehearsal_outcomes, _row_count_map, _run_baseline_verify,
     _run_module_invariants, _run_rehearsal_commands,
 )
-from yoke_core.domain.migration_harness_checks import (
-    pg_insert_migration_audit_row, pg_update_migration_audit_state,
-)
+from yoke_core.domain.migration_harness_checks import pg_insert_migration_audit_row, pg_update_migration_audit_state
 
 def rehearse(
     item_id: int,
@@ -81,19 +78,22 @@ def rehearse(
 def _rehearse_inner(
     control_conn: Any,
     *,
-    item_id: int,
+    item_id: Optional[int],
     session_id: Optional[str],
     worktree_path: Path,
     module_override: Optional[ModuleOverrideResolution] = None,
+    subject: Optional[MigrationApplySubject] = None,
 ) -> RehearseResult:
-    item = _load_item(control_conn, item_id)
-    profile = _resolve_profile_or_raise(item)
-    project = str(item.get("project") or "")
+    resolved = resolve_runner_input(
+        control_conn, item_id=item_id, subject=subject
+    )
+    profile = resolved.profile
+    project = resolved.project
+    project_id = resolved.project_id
     if not project:
         raise MigrationApplyError(
-            f"Item YOK-{item_id} has no project; cannot resolve model"
+            "governed migration subject has no project; cannot resolve model"
         )
-    project_id = int(item["project_id"])
     try:
         breakage_policy = resolve_breakage_policy(control_conn, project)
     except BreakagePolicyError as exc:
@@ -103,7 +103,7 @@ def _rehearse_inner(
     )
     if matrix_errors:
         raise CompatibilityClassError(
-            f"Item YOK-{item_id} fails the governed-runner gate matrix on "
+            f"Migration subject fails the governed-runner gate matrix on "
             f"breakage_policy={breakage_policy!r}: {'; '.join(matrix_errors)}"
         )
 
@@ -135,7 +135,7 @@ def _rehearse_inner(
     count_preserving = bool(profile.get("count_preserving", True))
 
     attestation = _safe_parse_attestation(
-        item.get("db_compatibility_attestation")
+        resolved.attestation_raw
     ) or {}
     rehearsal_commands = list(attestation.get("rehearsal_commands") or [])
 
@@ -184,7 +184,7 @@ def _rehearse_inner(
                 module_override is not None
                 and module_override.slug == identifier
             )
-            audit_description = (
+            audit_description = subject.audit_description if subject else (
                 describe_override(module_override)
                 if override_matches and module_override is not None
                 else None
@@ -215,12 +215,14 @@ def _rehearse_inner(
 
                 # test_applied: import + apply module against validation DB.
                 try:
+                    if subject is not None:
+                        assert_manifest_subject_current(control_conn, subject=subject, worktree_path=worktree_path)
                     handle = dispatch_handle(
                         model=model, repo_path=worktree_path,
                         identifier=identifier, override=module_override,
                         project=project, model_name=profile["model_name"],
                     )
-                except (ModuleResolutionError, ModuleContractError) as exc:
+                except (MigrationApplyError, ModuleResolutionError, ModuleContractError) as exc:
                     update_audit_state(
                         attempt.audit_id, FAIL_TEST_APPLY,
                         extra={"failure_reason": str(exc)},

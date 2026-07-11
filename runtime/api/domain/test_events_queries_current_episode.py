@@ -50,7 +50,6 @@ CREATE TABLE events (
     context TEXT,
     outcome TEXT,
     severity TEXT,
-    user_id TEXT,
     org_id TEXT,
     agent TEXT,
     service TEXT,

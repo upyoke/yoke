@@ -22,14 +22,14 @@ Usage:
         event_type="order",
         outcome="completed",
         duration_ms=89,
-        user_id="usr_a1b2c3d4",
+        actor_id=17,
         org_id="org_x1y2z3",
         context={"order_id": "ord_p6q7r8s9", "total_cents": 4999}
     )
 
     # Composable style -- build prop groups, then assemble
     system = get_system_props(service="api", project="myproject")
-    user = get_user_props(user_id="usr_a1b2c3d4", user_email="alice@example.com")
+    actor = get_actor_props(actor_id=17)
     org = get_org_props(org_id="org_x1y2z3", org_name="Acme Corp", org_plan="pro")
     request = get_request_props(request_id="req_h8i9j0k1")
 
@@ -39,7 +39,7 @@ Usage:
         event_type="auth",
         outcome="completed",
         context={"login_method": "oauth", "provider": "google"},
-        **system, **user, **org, **request,
+        **system, **actor, **org, **request,
     )
     emit_event_obj(event)
 """
@@ -68,7 +68,7 @@ from events_props import (
     get_request_props,
     get_session_props,
     get_system_props,
-    get_user_props,
+    get_actor_props,
 )
 
 
@@ -234,11 +234,7 @@ def _emit(event: dict, destination: str) -> None:
 if __name__ == "__main__":
     # Compose all property groups explicitly
     system = get_system_props(service="api", project="myproject")
-    user = get_user_props(
-        user_id="usr_a1b2c3d4",
-        user_email="alice@example.com",
-        user_name="Alice",
-    )
+    actor = get_actor_props(actor_id=17)
     org = get_org_props(
         org_id="org_x1y2z3",
         org_name="Acme Corp",
@@ -268,7 +264,7 @@ if __name__ == "__main__":
             "user_agent": "Mozilla/5.0",
         },
         **system,
-        **user,
+        **actor,
         **org,
         **session,
         **request,

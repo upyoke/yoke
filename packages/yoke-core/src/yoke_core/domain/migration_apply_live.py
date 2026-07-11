@@ -13,9 +13,8 @@ from yoke_core.domain.migration_model_capability_defaults import resolve_model
 from yoke_core.domain.projects_breakage_policy import BreakagePolicyError, resolve_breakage_policy
 from yoke_core.domain.schema_fingerprint import FRESHNESS_WINDOW_MINUTES, freshness_expired
 from yoke_core.domain.migration_apply_targets import (
-    connect_db_target, create_rollback_backup,
-    ensure_migration_audit_table_for_target, fingerprint_db_target,
-    resolve_authoritative_db_target,
+    connect_db_target, create_rollback_backup, ensure_migration_audit_table_for_target,
+    fingerprint_db_target, resolve_authoritative_db_target,
 )
 from yoke_core.domain.migration_apply_audit import (
     _latest_rehearsed_row, _update_audit_state,
@@ -31,18 +30,18 @@ from yoke_core.domain.migration_apply_contract import (
     RehearsalStaleError, _now,
 )
 from yoke_core.domain.migration_apply_resolve import (
-    ModuleOverrideResolution, _load_item, _resolve_capability_settings,
-    _resolve_profile_or_raise, _resolve_repo_path, default_worktree_path,
+    ModuleOverrideResolution, _resolve_capability_settings,
+    _resolve_repo_path, default_worktree_path,
 )
+from yoke_core.domain.migration_apply_manifest import MigrationApplySubject, resolve_runner_input
+from yoke_core.domain.migration_apply_manifest import assert_manifest_subject_current
+from yoke_core.domain.migration_apply_manifest import assert_rehearsal_subject_consistent
 from yoke_core.domain.migration_apply_runners import dispatch_handle
 from yoke_core.domain.migration_apply_verify import _row_count_map, _run_baseline_verify, _run_module_invariants
 from yoke_core.domain.migration_auto_retire import auto_retire_after_live_apply
-from yoke_core.domain.migration_harness_checks import (
-    pg_latest_rehearsed_migration_audit_row as pg_latest,
-    pg_set_migration_audit_provenance as pg_set_provenance,
-    pg_update_migration_audit_state as pg_update_state,
-)
-
+from yoke_core.domain.migration_harness_checks import pg_latest_rehearsed_migration_audit_row as pg_latest
+from yoke_core.domain.migration_harness_checks import pg_set_migration_audit_provenance as pg_set_provenance
+from yoke_core.domain.migration_harness_checks import pg_update_migration_audit_state as pg_update_state
 def live_apply(
     item_id: int,
     *,
@@ -56,8 +55,8 @@ def live_apply(
     Requires a successful, fresh rehearsal.  Acquires
     ``LIVE_DB_MIGRATION:<model_name>`` for the duration of the live
     unit; releases it on success or failure with a structured reason.
-    *module_override*, when supplied, must match the override recorded
-    by rehearse — otherwise live-apply refuses rather than falling back
+    *module_override* must match the override recorded by rehearse — otherwise
+    live-apply refuses rather than falling back
     to main.
     """
     control_conn = db_helpers.connect(control_db_path)
@@ -76,19 +75,22 @@ def live_apply(
 def _live_apply_inner(
     control_conn: Any,
     *,
-    item_id: int,
+    item_id: Optional[int],
     session_id: str,
     worktree_path: Path,
     module_override: Optional[ModuleOverrideResolution] = None,
+    subject: Optional[MigrationApplySubject] = None,
 ) -> LiveApplyResult:
-    item = _load_item(control_conn, item_id)
-    profile = _resolve_profile_or_raise(item)
-    project = str(item.get("project") or "")
+    resolved = resolve_runner_input(
+        control_conn, item_id=item_id, subject=subject
+    )
+    profile = resolved.profile
+    project = resolved.project
+    project_id = resolved.project_id
     if not project:
         raise MigrationApplyError(
-            f"Item YOK-{item_id} has no project; cannot resolve model"
+            "governed migration subject has no project; cannot resolve model"
         )
-    project_id = int(item["project_id"])
     try:
         breakage_policy = resolve_breakage_policy(control_conn, project)
     except BreakagePolicyError as exc:
@@ -98,7 +100,7 @@ def _live_apply_inner(
     )
     if matrix_errors:
         raise CompatibilityClassError(
-            f"Item YOK-{item_id} fails the governed-runner gate matrix on "
+            f"Migration subject fails the governed-runner gate matrix on "
             f"breakage_policy={breakage_policy!r}: {'; '.join(matrix_errors)}"
         )
 
@@ -135,7 +137,6 @@ def _live_apply_inner(
             )
             set_audit_provenance_for_target = lambda *a: set_audit_provenance(audit_conn, *a)
             update_audit_state = lambda *a, **kw: _update_audit_state(audit_conn, *a, **kw)
-        # Step 1: freshness/fingerprint gate BEFORE lease acquisition.
         current_fingerprint = fingerprint_db_target(authoritative_db)
         rehearsed_rows = []
         for identifier in profile["migration_modules"]:
@@ -155,6 +156,11 @@ def _live_apply_inner(
                     f"module '{identifier}': rehearsal older than "
                     f"{FRESHNESS_WINDOW_MINUTES}m window — re-rehearse"
                 )
+            assert_rehearsal_subject_consistent(
+                identifier=identifier,
+                audit_description=row.get("description"),
+                subject=subject,
+            )
             assert_live_apply_override_consistent(
                 identifier=identifier,
                 audit_description=row.get("description"),
@@ -230,12 +236,14 @@ def _live_apply_inner(
 
                 # live_applied — apply module to authoritative DB.
                 try:
+                    if subject is not None:
+                        assert_manifest_subject_current(control_conn, subject=subject, worktree_path=worktree_path)
                     handle = dispatch_handle(
                         model=model, repo_path=worktree_path,
                         identifier=identifier, override=module_override,
                         project=project, model_name=profile["model_name"],
                     )
-                except (ModuleResolutionError, ModuleContractError) as exc:
+                except (MigrationApplyError, ModuleResolutionError, ModuleContractError) as exc:
                     update_audit_state(
                         audit_id, FAIL_LIVE_APPLY,
                         extra={"failure_reason": str(exc)},
@@ -319,7 +327,9 @@ def _live_apply_inner(
             # Re-read the lease row so the caller sees the final state.
             result.lease_id = get_lease(control_conn, lease.id).id
 
-        if all(m.state == STATE_COMPLETED for m in result.modules):
+        if subject is None and all(
+            m.state == STATE_COMPLETED for m in result.modules
+        ):
             modules_dir_rel = Path(
                 str(model.get("runner", {}).get("config", {})
                     .get("modules_dir") or "")

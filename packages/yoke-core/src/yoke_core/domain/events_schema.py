@@ -62,7 +62,6 @@ def _create_events_table(
                 event_type TEXT NOT NULL,
                 event_name TEXT NOT NULL,
                 event_outcome TEXT,
-                user_id TEXT,
                 org_id TEXT,
                 actor_id INTEGER REFERENCES actors(id),
                 environment TEXT,
@@ -99,7 +98,6 @@ def _ensure_project_dependency(conn: Any) -> None:
 
 _EVENT_COLUMNS = (
     ("event_outcome", "TEXT"),
-    ("user_id", "TEXT"),
     ("org_id", "TEXT"),
     ("environment", "TEXT"),
     ("service", "TEXT NOT NULL DEFAULT 'cli'"),
@@ -164,7 +162,6 @@ def ensure_event_schema(conn: Any) -> None:
         "CREATE INDEX IF NOT EXISTS idx_events_session_id ON events(session_id)",
         "CREATE INDEX IF NOT EXISTS idx_events_event_name ON events(event_name)",
         "CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at)",
-        "CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id)",
         *_actor_id_index_sql(conn),
         "CREATE INDEX IF NOT EXISTS idx_events_trace_id ON events(trace_id)",
         "CREATE INDEX IF NOT EXISTS idx_events_project_id ON events(project_id)",
@@ -207,7 +204,6 @@ def ensure_event_schema(conn: Any) -> None:
             CREATE INDEX IF NOT EXISTS idx_events_session_id ON events(session_id);
             CREATE INDEX IF NOT EXISTS idx_events_event_name ON events(event_name);
             CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
-            CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
 """ + actor_id_index_sqlite + """
             CREATE INDEX IF NOT EXISTS idx_events_trace_id ON events(trace_id);
             CREATE INDEX IF NOT EXISTS idx_events_project_id ON events(project_id);

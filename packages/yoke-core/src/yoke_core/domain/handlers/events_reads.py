@@ -34,7 +34,6 @@ _EQUALITY_FILTER_FLAGS: Dict[str, str] = {
     "event_kind": "--event-kind",
     "agent": "--agent",
     "service": "--service",
-    "user_id": "--user-id",
     "actor_id": "--actor-id",
     "trace_id": "--trace-id",
     "project": "--project",
@@ -57,7 +56,6 @@ class EventsFilterRequest(BaseModel):
     event_kind: Optional[str] = None
     agent: Optional[str] = None
     service: Optional[str] = None
-    user_id: Optional[str] = None
     actor_id: Optional[int] = None
     trace_id: Optional[str] = None
     project: Optional[str] = None
@@ -194,7 +192,7 @@ def _where_from_payload(
 def _select_rows(
     where: str, params: List[Any], limit: int
 ) -> List[Dict[str, Any]]:
-    """Newest-first typed projection over the canonical 25-column set."""
+    """Newest-first typed projection over the canonical 24-column set."""
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.events_select import (
         _EVT_SELECT_COLS,

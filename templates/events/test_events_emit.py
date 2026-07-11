@@ -25,7 +25,7 @@ from events import (
     get_request_props,
     get_session_props,
     get_system_props,
-    get_user_props,
+    get_actor_props,
 )
 
 
@@ -102,11 +102,7 @@ def test_complete_user_logged_in_example():
         os.environ.pop(var, None)
 
     system = get_system_props(service="api", project="buzz")
-    user = get_user_props(
-        user_id="usr_a1b2c3d4",
-        user_email="alice@example.com",
-        user_name="Alice",
-    )
+    actor = get_actor_props(actor_id=17)
     org = get_org_props(
         org_id="org_x1y2z3", org_name="Acme Corp", org_plan="pro"
     )
@@ -132,7 +128,7 @@ def test_complete_user_logged_in_example():
             "ip_address": "203.0.113.42",
         },
         **system,
-        **user,
+        **actor,
         **org,
         **session,
         **request,
@@ -154,10 +150,9 @@ def test_complete_user_logged_in_example():
     assert event["service"] == "api"
     assert event["project"] == "buzz"
 
-    # user_props
-    assert event["user_id"] == "usr_a1b2c3d4"
-    assert event["user_email"] == "alice@example.com"
-    assert event["user_name"] == "Alice"
+    # actor_props
+    assert event["actor_id"] == 17
+    assert "user_id" not in event
     assert event["is_anonymous"] is False
 
     # org_props

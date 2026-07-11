@@ -6,7 +6,7 @@ from __future__ import annotations
 _INSERT_SQL = """
 INSERT INTO events (
     event_id, event_name, event_kind, event_type, source_type,
-    session_id, severity, event_outcome, user_id, org_id, environment,
+    session_id, severity, event_outcome, org_id, environment,
     service, project_id,
     actor_id, item_id, task_num, agent, tool_name, duration_ms, exit_code,
     trace_id, parent_id, anomaly_flags, tool_use_id,
@@ -14,7 +14,7 @@ INSERT INTO events (
     envelope, created_at
 ) VALUES (
     %s, %s, %s, %s, %s,
-    %s, %s, %s, %s, %s, %s,
+    %s, %s, %s, %s, %s,
     %s, %s,
     %s, %s, %s, %s, %s, %s, %s,
     %s, %s, %s, %s,

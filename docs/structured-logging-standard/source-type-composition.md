@@ -48,9 +48,9 @@ Emission pattern: Hook-emitted (PostToolUse/PostToolUseFailure) or explicit `yok
 
 ## Source Type: backend
 
-Envelope composition: event_props + system_props + user_props + org_props + session_props + request_props + error_props (on error) + context
+Envelope composition: event_props + system_props + actor_props + org_props + session_props + request_props + error_props (on error) + context
 
-Required groups: event_props, system_props, user_props, session_props, request_props
+Required groups: event_props, system_props, actor_props, session_props, request_props
 Conditional groups: org_props (when org context exists), error_props (on failure)
 Emission pattern: Explicit calls from application code via events.py module
 
@@ -71,9 +71,7 @@ Emission pattern: Explicit calls from application code via events.py module
  "service_version": "2.1.0",
  "project": "buzz",
 
- "user_id": "usr_a1b2c3d4",
- "user_email": "alice@example.com",
- "user_name": "Alice",
+ "actor_id": 17,
  "is_anonymous": false,
 
  "org_id": "org_x1y2z3",
@@ -98,9 +96,9 @@ Emission pattern: Explicit calls from application code via events.py module
 
 ## Source Type: frontend
 
-Envelope composition: event_props + system_props + user_props + org_props + session_props + page_props + device_props + marketing_attribution_props (on acquisition) + context
+Envelope composition: event_props + system_props + org_props + session_props + page_props + device_props + marketing_attribution_props (on acquisition) + context; the authenticated receiver stamps actor_props
 
-Required groups: event_props, system_props, user_props, session_props, page_props, device_props
+Required groups: event_props, system_props, session_props, page_props, device_props
 Conditional groups: org_props (when org context exists), marketing_attribution_props (on acquisition events)
 Emission pattern: Client-side SDK calls, batched to /api/events endpoint
 
@@ -120,11 +118,6 @@ Emission pattern: Client-side SDK calls, batched to /api/events endpoint
  "service": "web",
  "service_version": "3.0.1",
  "project": "buzz",
-
- "user_id": "usr_a1b2c3d4",
- "user_email": null,
- "user_name": "Alice",
- "is_anonymous": false,
 
  "org_id": "org_x1y2z3",
  "org_name": "Acme Corp",
@@ -194,4 +187,3 @@ Emission pattern: Explicit `yoke_core.domain.events.emit_event` calls from Pytho
 ```
 
 ---
-

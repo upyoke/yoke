@@ -23,7 +23,7 @@ from events import (
     get_request_props,
     get_session_props,
     get_system_props,
-    get_user_props,
+    get_actor_props,
 )
 
 
@@ -91,22 +91,18 @@ def test_get_request_props_auto_id():
     uuid.UUID(props["request_id"])
 
 
-def test_get_user_props():
-    """User props carry identity fields."""
-    props = get_user_props(
-        user_id="usr_abc", user_email="a@b.com", user_name="Alice"
-    )
-    assert props["user_id"] == "usr_abc"
-    assert props["user_email"] == "a@b.com"
-    assert props["user_name"] == "Alice"
+def test_get_actor_props():
+    """Actor props carry engine identity."""
+    props = get_actor_props(actor_id=17)
+    assert props["actor_id"] == 17
     assert props["is_anonymous"] is False
 
 
-def test_get_user_props_anonymous():
-    """Anonymous user flag."""
-    props = get_user_props(is_anonymous=True)
+def test_get_actor_props_anonymous():
+    """Anonymous actor flag."""
+    props = get_actor_props(is_anonymous=True)
     assert props["is_anonymous"] is True
-    assert props["user_id"] is None
+    assert props["actor_id"] is None
 
 
 def test_get_org_props():
@@ -209,12 +205,12 @@ def test_build_event_canonical_fields():
 
 def test_build_event_extra_props_merge():
     """Extra kwargs merge into envelope root."""
-    user = get_user_props(user_id="usr_1", user_email="a@b.com")
+    actor = get_actor_props(actor_id=17)
     event = build_event(
-        name="Test", kind="audit", event_type="test", **user
+        name="Test", kind="audit", event_type="test", **actor
     )
-    assert event["user_id"] == "usr_1"
-    assert event["user_email"] == "a@b.com"
+    assert event["actor_id"] == 17
+    assert "user_id" not in event
 
 
 def test_build_event_extra_props_override_system():

@@ -52,7 +52,6 @@ def build_parser() -> EmitEventArgumentParser:
     parser.add_argument("--outcome", default="")
     parser.add_argument("--session-id", default="")
     parser.add_argument("--event-id", default="")
-    parser.add_argument("--user-id", default="")
     parser.add_argument("--org-id", default="")
     parser.add_argument("--request-id", default="")
     parser.add_argument("--actor-id", type=int)

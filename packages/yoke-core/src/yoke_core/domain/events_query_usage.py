@@ -6,7 +6,7 @@ Usage: events list [filter flags...] [--limit N]
 
 Filter flags (combine with AND across distinct columns):
   --source-type, --session-id (or --session), --event-kind, --event-name,
-  --agent, --service, --user-id, --actor-id, --trace-id, --project,
+  --agent, --service, --actor-id, --trace-id, --project,
   --item-id (or --item), --tool-use-id, --turn-id, --hook-event-name VALUE
   --min-severity DEBUG|INFO|STATUS|WARN|ERROR|FATAL
   --since VALUE
