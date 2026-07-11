@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import zipfile
 from email.parser import Parser
 from pathlib import Path
@@ -15,6 +16,21 @@ from yoke_core.tools import package_index
 
 class WheelSiblingPinError(ValueError):
     """Raised when product wheels cannot use one safe dependency contract."""
+
+
+_REQUIRES_DIST_FOLD = re.compile(r"\r?\n(?=[ \t])")
+
+
+def normalize_requires_dist(value: str) -> str:
+    """Unfold one requirement header consistently across Python versions.
+
+    Core Metadata uses email-style header folding.  Supported Python email
+    parsers disagree about retaining a leading fold, so remove only a newline
+    followed by continuation whitespace and trim horizontal field-boundary
+    whitespace.  Internal whitespace, including quoted marker text, is kept.
+    """
+
+    return _REQUIRES_DIST_FOLD.sub("", str(value)).strip(" \t")
 
 
 def assert_wheel_siblings_pinned(
@@ -104,7 +120,10 @@ def wheel_requires_dist(wheel: Path) -> list[str]:
         message = Parser().parsestr(
             archive.read(metadata_files[0]).decode("utf-8")
         )
-    return list(message.get_all("Requires-Dist") or [])
+    return [
+        normalize_requires_dist(value)
+        for value in message.get_all("Requires-Dist") or []
+    ]
 
 
 def _wheel_name(wheel: Path) -> str:

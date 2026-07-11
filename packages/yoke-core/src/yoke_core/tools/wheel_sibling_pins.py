@@ -46,6 +46,7 @@ from yoke_core.tools.wheel_sibling_contract import (
     WheelSiblingPinError,
     assert_wheel_sibling_contract as _assert_wheel_sibling_contract,
     assert_wheel_siblings_pinned,
+    normalize_requires_dist,
     wheel_requires_dist as wheel_requires_dist,
 )
 
@@ -204,7 +205,7 @@ def _rewrite_metadata(
                 raise WheelSiblingPinError(
                     "Requires-Dist header could not be parsed"
                 )
-            value = " ".join(str(values[0]).splitlines()).strip()
+            value = normalize_requires_dist(values[0])
             pinned = _maybe_pin_requirement(value, product_canonical, version)
             if pinned is not None and pinned != value:
                 out.append(f"Requires-Dist: {pinned}{line_ending}")

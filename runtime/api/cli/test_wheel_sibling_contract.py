@@ -16,7 +16,28 @@ from runtime.api.cli.test_wheel_sibling_pins import (
     _requires_dist,
     _wheel,
 )
-from yoke_core.tools import package_index, wheel_sibling_pins
+from yoke_core.tools import (
+    package_index,
+    wheel_sibling_contract,
+    wheel_sibling_pins,
+)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("\n yoke-contracts", "yoke-contracts"),
+        ("\r\n\tyoke-cli==0.2.0", "yoke-cli==0.2.0"),
+        (
+            'demo; implementation_name == "cpython\n  debug"',
+            'demo; implementation_name == "cpython  debug"',
+        ),
+    ],
+)
+def test_requires_dist_unfolding_is_version_stable(
+    raw: str, expected: str
+) -> None:
+    assert wheel_sibling_contract.normalize_requires_dist(raw) == expected
 
 
 @pytest.mark.parametrize(
@@ -41,6 +62,50 @@ def test_qualified_required_sibling_fails(
         wheel_sibling_pins.WheelSiblingPinError,
         match="unconditional and have no extras",
     ):
+        wheel_sibling_pins.pin_wheelhouse_product_siblings(
+            wheelhouse, package_index.PRODUCT_PACKAGE_NAMES
+        )
+
+
+@pytest.mark.parametrize(
+    ("core_requires", "message"),
+    [
+        (
+            (
+                "yoke-contracts",
+                "\n yoke-cli",
+                "\n yoke-cli",
+                "yoke-harness",
+            ),
+            "duplicate product sibling",
+        ),
+        (
+            (
+                "yoke-contracts",
+                "\n yoke-cli @ https://example.invalid/yoke-cli.whl",
+                "yoke-harness",
+            ),
+            "direct URL",
+        ),
+        (
+            (
+                "yoke-contracts",
+                '\n yoke-cli; python_version < "3"',
+                "yoke-harness",
+            ),
+            "unconditional and have no extras",
+        ),
+    ],
+)
+def test_folded_product_dependency_guards_fail_closed(
+    tmp_path: Path,
+    core_requires: tuple[str, ...],
+    message: str,
+) -> None:
+    wheelhouse = tmp_path / "wheelhouse"
+    _build_wheelhouse(wheelhouse, core_requires=core_requires)
+
+    with pytest.raises(wheel_sibling_pins.WheelSiblingPinError, match=message):
         wheel_sibling_pins.pin_wheelhouse_product_siblings(
             wheelhouse, package_index.PRODUCT_PACKAGE_NAMES
         )
