@@ -31,6 +31,7 @@ from typing import Any, Optional, Tuple
 
 from pydantic import ValidationError
 
+from yoke_core.domain import yoke_function_dispatch_idempotency as idempotency_module
 from yoke_core.domain.yoke_function_actor_identity import (
     bind_actor_identity,
 )
@@ -46,6 +47,7 @@ from yoke_core.domain.yoke_function_dispatch_observability import (
     dispatch_observation,
 )
 from yoke_core.domain.yoke_function_dispatch_idempotency import (
+    IdempotencyReplay,
     handle_idempotency,
 )
 from yoke_core.domain.yoke_function_dispatch_target import (
@@ -71,6 +73,11 @@ from yoke_core.domain.yoke_function_registry import (
 _HANDLERS_REGISTERED = False
 
 
+def _idempotency_lookup(request_id: str) -> Optional[IdempotencyReplay]:
+    """Compatibility seam that forwards to the idempotency domain owner."""
+    return idempotency_module._idempotency_lookup(request_id)
+
+
 def _ensure_handlers_registered() -> None:
     """Lazily register every Yoke function handler on first dispatch.
 
@@ -85,6 +92,7 @@ def _ensure_handlers_registered() -> None:
     from yoke_core.domain.handlers.__init_register__ import (
         register_all_handlers,
     )
+
     register_all_handlers()
     _HANDLERS_REGISTERED = True
 
@@ -132,7 +140,11 @@ def _coerce_request(
             function_id = str(request.get("function") or "")
             version = str(request.get("version") or "v1")
         return None, _error_response(
-            None, function_id, version, "envelope_invalid", str(exc),
+            None,
+            function_id,
+            version,
+            "envelope_invalid",
+            str(exc),
         )
 
 
@@ -184,13 +196,17 @@ def _dispatch_impl(
     entry = lookup(typed_request.function)
     if entry is None:
         return _error_response(
-            typed_request, typed_request.function, typed_request.version,
+            typed_request,
+            typed_request.function,
+            typed_request.version,
             "function_not_registered",
             f"function id {typed_request.function!r} is not registered",
         )
 
     bound = bind_actor_identity(
-        entry, typed_request, ambient_session_id=ambient_session_id,
+        entry,
+        typed_request,
+        ambient_session_id=ambient_session_id,
     )
     if bound.error is not None:
         return bound.error
@@ -237,12 +253,14 @@ def _dispatch_impl(
     )
 
     idem = handle_idempotency(
-        entry, typed_request,
+        entry,
+        typed_request,
         identity_context=identity_context,
         permission_key=permission.permission_key,
         project=permission.project_slug,
         authorization_scope=authorization_scope,
         payload_checksum=idempotency_checksum,
+        lookup=_idempotency_lookup,
     )
     if idem is not None:
         return idem
@@ -259,7 +277,9 @@ def _dispatch_impl(
         outcome = entry.handler(typed_request)
     if not isinstance(outcome, HandlerOutcome):
         return _error_response(
-            typed_request, entry.function_id, entry.version,
+            typed_request,
+            entry.function_id,
+            entry.version,
             "handler_contract",
             f"handler for {entry.function_id!r} did not return HandlerOutcome",
         )
@@ -267,13 +287,20 @@ def _dispatch_impl(
     response = _build_response(entry, typed_request, outcome)
     if response.warnings:
         emit_downstream_degraded(
-            typed_request, entry, response.warnings,
+            typed_request,
+            entry,
+            response.warnings,
             identity_context=identity_context,
             permission_key=permission.permission_key,
             project=permission.project_slug,
         )
     emit_called(
-        typed_request, entry, outcome, response, payload_bytes, payload_hash,
+        typed_request,
+        entry,
+        outcome,
+        response,
+        payload_bytes,
+        payload_hash,
         identity_context=identity_context,
         permission_key=permission.permission_key,
         project=permission.project_slug,

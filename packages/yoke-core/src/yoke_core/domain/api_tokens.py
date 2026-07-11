@@ -3,28 +3,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import secrets
 import string
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.actor_permissions import (
-    ROLE_ADMIN,
-    ROLE_OWNER,
-    grant_actor_org_role,
-    grant_actor_project_role,
-    seed_roles_and_permissions,
-)
-from yoke_core.domain.actors import (
-    resolve_actor_by_label,
-    seed_human_actor,
-    set_actor_label,
-)
-from yoke_core.domain.org_schema import seed_default_org
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain import db_backend, json_helper
 
 
 TOKEN_PREFIX = "yoke_v1_"
@@ -101,7 +86,8 @@ def generate_token() -> str:
 def _metadata_json(metadata: dict[str, Any] | None) -> str | None:
     if not metadata:
         return None
-    return json.dumps(metadata, sort_keys=True, separators=(",", ":"))
+    ordered = {key: metadata[key] for key in sorted(metadata)}
+    return json_helper.dumps_compact(ordered)
 
 
 def mint_token(
@@ -279,38 +265,37 @@ def bootstrap_admin_token(
     project: str | None = None,
     token_name: str = INITIAL_ADMIN_TOKEN_NAME,
 ) -> CreatedToken:
-    """Create or resolve the admin actor, grant authority, and mint one token.
+    """Compatibility surface for the admin token bootstrap owner."""
+    from yoke_core.domain.api_token_bootstrap import bootstrap_admin_token as run
 
-    The default shape (``project=None``) grants the org ``admin`` role on
-    the default org — the all-access root identity, and the only grant
-    possible on a fresh universe, whose ``projects`` table is empty until
-    onboarding. Passing a ``project`` slug grants that project's ``owner``
-    role instead: the narrower operator shape for an established universe.
-    """
-    seed_roles_and_permissions(conn)
-    actor_id = resolve_actor_by_label(conn, actor_label)
-    if actor_id is None:
-        actor_id = seed_human_actor(conn)
-        set_actor_label(conn, actor_id, actor_label)
-    if project is None:
-        org_id = seed_default_org(conn)
-        grant_actor_org_role(
-            conn,
-            actor_id=actor_id,
-            org_id=org_id,
-            role_name=ROLE_ADMIN,
-            granted_by_actor_id=actor_id,
-        )
-    else:
-        project_id = resolve_project_id(conn, project)
-        grant_actor_project_role(
-            conn,
-            actor_id=actor_id,
-            project_id=project_id,
-            role_name=ROLE_OWNER,
-            granted_by_actor_id=actor_id,
-        )
-    return mint_token(conn, actor_id=actor_id, name=token_name)
+    return run(
+        conn,
+        actor_label=actor_label,
+        project=project,
+        token_name=token_name,
+    )
+
+
+def bootstrap_project_service_token(
+    conn: Any,
+    *,
+    system_component: str,
+    project: str | int,
+    role_name: str,
+    token_name: str,
+) -> CreatedToken:
+    """Compatibility surface for project service-identity bootstrap."""
+    from yoke_core.domain.api_token_bootstrap import (
+        bootstrap_project_service_token as run,
+    )
+
+    return run(
+        conn,
+        system_component=system_component,
+        project=project,
+        role_name=role_name,
+        token_name=token_name,
+    )
 
 
 __all__ = [
@@ -326,6 +311,7 @@ __all__ = [
     "TokenRevoked",
     "VerifiedToken",
     "bootstrap_admin_token",
+    "bootstrap_project_service_token",
     "generate_token",
     "hash_token",
     "mint_token",

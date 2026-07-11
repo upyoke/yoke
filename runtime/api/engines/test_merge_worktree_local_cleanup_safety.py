@@ -9,13 +9,17 @@ from yoke_core.engines import merge_worktree
 from yoke_core.engines import merge_worktree_post_local
 
 
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
+
 def _ctx(tmp_path):
     repo = tmp_path / "repo"
-    worktree = repo / ".worktrees" / "YOK-42"
+    worktree = repo / ".worktrees" / TEST_ITEM_REF
     worktree.mkdir(parents=True)
     return merge_worktree.MergeContext(
         args=merge_worktree.MergeArgs(
-            branch="YOK-42", target="main", local_merge=True
+            branch=TEST_ITEM_REF, target="main", local_merge=True
         ),
         repo_root=str(repo),
         yoke_repo_root=str(repo),
@@ -47,9 +51,7 @@ def _patch_post_steps():
 
 def test_dirty_or_ignored_worktree_is_preserved(tmp_path):
     ctx = _ctx(tmp_path)
-    with _patch_post_steps(), mock.patch.object(
-        merge_worktree, "_run_git"
-    ) as run_git:
+    with _patch_post_steps(), mock.patch.object(merge_worktree, "_run_git") as run_git:
         run_git.side_effect = [
             mock.Mock(returncode=0, stdout=""),  # checkout target
             mock.Mock(returncode=0, stdout=""),  # local merge
@@ -65,9 +67,7 @@ def test_dirty_or_ignored_worktree_is_preserved(tmp_path):
 
 def test_clean_worktree_uses_normal_remove_before_branch_delete(tmp_path):
     ctx = _ctx(tmp_path)
-    with _patch_post_steps(), mock.patch.object(
-        merge_worktree, "_run_git"
-    ) as run_git:
+    with _patch_post_steps(), mock.patch.object(merge_worktree, "_run_git") as run_git:
         run_git.side_effect = [
             mock.Mock(returncode=0, stdout=""),  # checkout target
             mock.Mock(returncode=0, stdout=""),  # local merge
@@ -79,7 +79,13 @@ def test_clean_worktree_uses_normal_remove_before_branch_delete(tmp_path):
         assert merge_worktree_post_local.do_local_merge(ctx) == 0
 
     commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
-    remove_index = next(i for i, command in enumerate(commands) if "worktree remove" in command)
-    branch_index = next(i for i, command in enumerate(commands) if "branch -d" in command)
+    remove_index = next(
+        i for i, command in enumerate(commands) if "worktree remove" in command
+    )
+    branch_index = next(
+        i for i, command in enumerate(commands) if "branch -d" in command
+    )
     assert remove_index < branch_index
-    assert not any("--force" in command or "branch -D" in command for command in commands)
+    assert not any(
+        "--force" in command or "branch -D" in command for command in commands
+    )

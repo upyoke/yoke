@@ -48,27 +48,37 @@ def test_schema_converge_token_resolves() -> None:
 def test_schema_converge_calls_boot_convergence_and_emits_json() -> None:
     calls: list[str] = []
     module = SimpleNamespace(
-        ensure_core_schema=lambda: calls.append("converged"),
+        ensure_core_schema=lambda: calls.append("schema"),
+        ensure_permission_catalog=lambda *, fail_soft: (
+            calls.append(f"catalog:{fail_soft}") or True
+        ),
     )
     out, err = io.StringIO(), io.StringIO()
 
-    with patch.dict(
-        os.environ,
-        {"YOKE_PG_DSN": "", "YOKE_PG_DSN_FILE": ""},
-        clear=False,
-    ), patch(
-        "yoke_cli.config.machine_config.active_env",
-        return_value="stage-db-admin",
-    ), patch(
-        "yoke_cli.commands.schema_converge.importlib.import_module",
-        side_effect=_core_module_loader(module),
-    ), redirect_stdout(out), redirect_stderr(err):
+    with (
+        patch.dict(
+            os.environ,
+            {"YOKE_PG_DSN": "", "YOKE_PG_DSN_FILE": ""},
+            clear=False,
+        ),
+        patch(
+            "yoke_cli.config.machine_config.active_env",
+            return_value="stage-db-admin",
+        ),
+        patch(
+            "yoke_cli.commands.schema_converge.importlib.import_module",
+            side_effect=_core_module_loader(module),
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
+    ):
         rc = cli_main(["schema", "converge", "--json"])
 
     assert rc == 0
-    assert calls == ["converged"]
+    assert calls == ["schema", "catalog:False"]
     assert json.loads(out.getvalue()) == {
         "authority_source": "connected_environment",
+        "catalog": "roles_permissions",
         "environment": "stage-db-admin",
         "ok": True,
         "operation": "schema.converge",
@@ -83,19 +93,71 @@ def test_schema_converge_failure_redacts_exception_message() -> None:
     def fail() -> None:
         raise RuntimeError(secret)
 
-    module = SimpleNamespace(ensure_core_schema=fail)
+    module = SimpleNamespace(
+        ensure_core_schema=fail,
+        ensure_permission_catalog=lambda **_kwargs: True,
+    )
     out, err = io.StringIO(), io.StringIO()
-    with patch.dict(
-        os.environ,
-        {"YOKE_PG_DSN": "", "YOKE_PG_DSN_FILE": ""},
-        clear=False,
-    ), patch(
-        "yoke_cli.config.machine_config.active_env",
-        return_value="stage-db-admin",
-    ), patch(
-        "yoke_cli.commands.schema_converge.importlib.import_module",
-        side_effect=_core_module_loader(module),
-    ), redirect_stdout(out), redirect_stderr(err):
+    with (
+        patch.dict(
+            os.environ,
+            {"YOKE_PG_DSN": "", "YOKE_PG_DSN_FILE": ""},
+            clear=False,
+        ),
+        patch(
+            "yoke_cli.config.machine_config.active_env",
+            return_value="stage-db-admin",
+        ),
+        patch(
+            "yoke_cli.commands.schema_converge.importlib.import_module",
+            side_effect=_core_module_loader(module),
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
+    ):
+        rc = cli_main(["schema", "converge", "--json"])
+
+    assert rc == 1
+    assert out.getvalue() == ""
+    assert secret not in err.getvalue()
+    assert json.loads(err.getvalue()) == {
+        "error": "schema_convergence_failed",
+        "error_type": "RuntimeError",
+        "ok": False,
+        "operation": "schema.converge",
+    }
+
+
+def test_schema_converge_redacts_strict_catalog_reseed_failure() -> None:
+    secret = "postgresql://admin:do-not-print@example/yoke_prod"
+
+    def fail_catalog(*, fail_soft: bool) -> None:
+        assert fail_soft is False
+        raise RuntimeError(secret)
+
+    module = SimpleNamespace(
+        ensure_core_schema=lambda: None,
+        ensure_permission_catalog=fail_catalog,
+    )
+    out, err = io.StringIO(), io.StringIO()
+
+    with (
+        patch.dict(
+            os.environ,
+            {"YOKE_PG_DSN": "", "YOKE_PG_DSN_FILE": ""},
+            clear=False,
+        ),
+        patch(
+            "yoke_cli.config.machine_config.active_env",
+            return_value="stage-db-admin",
+        ),
+        patch(
+            "yoke_cli.commands.schema_converge.importlib.import_module",
+            side_effect=_core_module_loader(module),
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
+    ):
         rc = cli_main(["schema", "converge", "--json"])
 
     assert rc == 1
@@ -117,17 +179,28 @@ def test_schema_converge_rejects_named_env_with_direct_dsn() -> None:
     )
     out, err = io.StringIO(), io.StringIO()
 
-    with patch.dict(
-        os.environ,
-        {"YOKE_PG_DSN": secret},
-        clear=False,
-    ), patch(
-        "yoke_cli.commands.schema_converge.importlib.import_module",
-        side_effect=_core_module_loader(module),
-    ), redirect_stdout(out), redirect_stderr(err):
-        rc = cli_main([
-            "--env", "prod-db-admin", "schema", "converge", "--json",
-        ])
+    with (
+        patch.dict(
+            os.environ,
+            {"YOKE_PG_DSN": secret},
+            clear=False,
+        ),
+        patch(
+            "yoke_cli.commands.schema_converge.importlib.import_module",
+            side_effect=_core_module_loader(module),
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
+    ):
+        rc = cli_main(
+            [
+                "--env",
+                "prod-db-admin",
+                "schema",
+                "converge",
+                "--json",
+            ]
+        )
 
     assert rc == 1
     assert calls == []
@@ -150,21 +223,32 @@ def test_schema_converge_rejects_named_env_with_managed_secret() -> None:
     )
     out, err = io.StringIO(), io.StringIO()
 
-    with patch.dict(
-        os.environ,
-        {
-            "YOKE_DB_SECRET_ARN": secret,
-            "YOKE_PG_DSN": "",
-            "YOKE_PG_DSN_FILE": "",
-        },
-        clear=False,
-    ), patch(
-        "yoke_cli.commands.schema_converge.importlib.import_module",
-        side_effect=_core_module_loader(module, managed_secret=True),
-    ), redirect_stdout(out), redirect_stderr(err):
-        rc = cli_main([
-            "--env", "prod-db-admin", "schema", "converge", "--json",
-        ])
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "YOKE_DB_SECRET_ARN": secret,
+                "YOKE_PG_DSN": "",
+                "YOKE_PG_DSN_FILE": "",
+            },
+            clear=False,
+        ),
+        patch(
+            "yoke_cli.commands.schema_converge.importlib.import_module",
+            side_effect=_core_module_loader(module, managed_secret=True),
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
+    ):
+        rc = cli_main(
+            [
+                "--env",
+                "prod-db-admin",
+                "schema",
+                "converge",
+                "--json",
+            ]
+        )
 
     assert rc == 1
     assert calls == []
@@ -183,19 +267,32 @@ def test_schema_converge_global_env_is_selected_then_restored() -> None:
     seen: list[str | None] = []
     module = SimpleNamespace(
         ensure_core_schema=lambda: seen.append(os.environ.get("YOKE_ENV")),
+        ensure_permission_catalog=lambda **_kwargs: True,
     )
     out, err = io.StringIO(), io.StringIO()
 
-    with patch.dict(os.environ, {}, clear=True), patch(
-        "yoke_cli.config.machine_config.active_env",
-        side_effect=lambda *, explicit_env: explicit_env,
-    ), patch(
-        "yoke_cli.commands.schema_converge.importlib.import_module",
-        side_effect=_core_module_loader(module),
-    ), redirect_stdout(out), redirect_stderr(err):
-        rc = cli_main([
-            "--env", "prod-db-admin", "schema", "converge", "--json",
-        ])
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        patch(
+            "yoke_cli.config.machine_config.active_env",
+            side_effect=lambda *, explicit_env: explicit_env,
+        ),
+        patch(
+            "yoke_cli.commands.schema_converge.importlib.import_module",
+            side_effect=_core_module_loader(module),
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
+    ):
+        rc = cli_main(
+            [
+                "--env",
+                "prod-db-admin",
+                "schema",
+                "converge",
+                "--json",
+            ]
+        )
         restored = os.environ.get("YOKE_ENV")
 
     assert rc == 0
@@ -213,6 +310,7 @@ def test_schema_converge_help_marks_source_dev_admin_surface() -> None:
     assert rc == 0
     assert "source-dev/admin operation" in out.getvalue()
     assert "idempotent, additive schema convergence" in out.getvalue()
+    assert "role/permission catalog" in out.getvalue()
     assert err.getvalue() == ""
 
 
@@ -229,9 +327,7 @@ def test_schema_converge_is_registered_as_source_dev_admin() -> None:
     row = rows["yoke schema converge"]
     assert row.disposition == boundary_inventory.SOURCE_DEV_ADMIN
     assert row.function_id is None
-    assert {edge.classification for edge in row.import_edges} == {
-        "source_dev_admin"
-    }
+    assert {edge.classification for edge in row.import_edges} == {"source_dev_admin"}
 
 
 def test_top_and_group_help_label_schema_converge_source_dev_admin() -> None:

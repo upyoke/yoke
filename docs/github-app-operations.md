@@ -47,20 +47,20 @@ non-idempotent POST. Its idempotency key reuses the stage key for resumes,
 scopes retriggers to the failed/empty predecessor, and gives `--fresh` a new
 scope, so transport replay cannot suppress a deliberately new run.
 
-To narrow a deploy actor that temporarily holds `owner`, deploy/restart so the
-catalog removes stale role permissions. Grant the role, verify the relay
-preflight, then revoke `owner`:
+Bootstrap each project service identity through the source-dev/admin token
+surface; run it once per role with distinct component, token, and secret names:
 
 ```bash
-YOKE_ENV=prod-db-admin python3 -m yoke_core.domain.actor_grants_cli grant-project \
-  --actor <service-actor-id> --project <project> --role deployment_ci
-# Run the relay preflight with the existing service token.
-YOKE_ENV=prod-db-admin python3 -m yoke_core.domain.actor_grants_cli revoke-project \
-  --actor <service-actor-id> --project <project> --role owner
+YOKE_ENV=prod-db-admin python3 -m yoke_core.domain.api_tokens_cli \
+  bootstrap-project-service --system-component <service-component> \
+  --project <project> --role <deployment_ci-or-infrastructure_ci> \
+  --name <token-name> --raw-token-file <owner-only-secret-path>
 ```
 
-Both commands are idempotent. Revoke only after the same token succeeds against
-the newly deployed control plane.
+The actor and grant converge idempotently, but every invocation mints another
+active token. File mode atomically replaces a `0600` file and prints only token
+and actor ids; install the new secret, verify it, then revoke the prior token id.
+Without file mode, the raw token appears once in the JSON response for attended use.
 
 `YOKE_GITHUB_ACTIONS_RELAY_ENV` selects HTTPS GitHub authority independently of
 `YOKE_ENV`, which may select deployment metadata authority. Missing, malformed,

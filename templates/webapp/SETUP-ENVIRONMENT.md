@@ -65,7 +65,11 @@ variant); `pulumi up` exits non-zero if any is missing.
 | `database_min_capacity_acu` / `database_max_capacity_acu` | number | env | Aurora Serverless v2 capacity range | `0` / `4` |
 | `database_seconds_until_auto_pause` | int | env | Aurora Serverless v2 idle seconds before scale-to-zero pause | `1800` |
 | `database_backup_retention_days` | int | env | Provider-managed retention window | `7` |
+| `database_allowed_security_group_ids` | JSON string list | env | Additional managed services allowed to reach Postgres; the origin VPS security group is always included automatically | `["sg-0123456789abcdef0"]` |
 | `render_only` | bool string | env | Generated but intentionally not applied | `true` |
+
+`database_allowed_security_group_ids` is rendered from the authoritative
+`environments.settings.database.allowed_security_group_ids` string list.
 
 These values are Yoke-owned: update the canonical DB site/environment
 settings or project capability settings through project onboarding or product

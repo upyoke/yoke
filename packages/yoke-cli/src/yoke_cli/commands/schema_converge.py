@@ -22,8 +22,10 @@ _DIRECT_AUTHORITY_ENV_VARS = ("YOKE_PG_DSN", "YOKE_PG_DSN_FILE")
 
 _SCHEMA_CONVERGE_HELP = """\
 Run the same idempotent, additive schema convergence used at API boot.
-This creates missing tables, indexes, and additive columns; it does not
-run seeds, destructive changes, data backfills, or the full init chain.
+This creates missing tables, indexes, and additive columns, then reconciles
+the code-owned role/permission catalog through the same idempotent boot seam.
+It does not run other domain seeds, destructive changes, data backfills, or
+the full init chain.
 
 This is an explicit source-dev/admin operation. Database authority is
 selected through the normal connected-environment contract, including
@@ -53,7 +55,10 @@ def _failure(*, json_mode: bool, error_type: str) -> int:
 
 
 def _authority_conflict(
-    *, json_mode: bool, environment: str, direct_variables: list[str],
+    *,
+    json_mode: bool,
+    environment: str,
+    direct_variables: list[str],
 ) -> int:
     """Reject ambiguous named-environment plus direct-DSN authority."""
     payload = {
@@ -80,13 +85,9 @@ def _authority_receipt() -> tuple[dict[str, str | None], list[str]]:
     """Return redacted authority identity and any unsafe override conflict."""
     environment = os.environ.get(ENV_OVERRIDE, "").strip()
     direct_variables = [
-        name
-        for name in _DIRECT_AUTHORITY_ENV_VARS
-        if os.environ.get(name, "").strip()
+        name for name in _DIRECT_AUTHORITY_ENV_VARS if os.environ.get(name, "").strip()
     ]
-    managed_secret = importlib.import_module(
-        "yoke_core.domain.cloud_db_secret_dsn"
-    )
+    managed_secret = importlib.import_module("yoke_core.domain.cloud_db_secret_dsn")
     if managed_secret.env_binding_selected():
         direct_variables.append(managed_secret.DB_SECRET_ARN_ENV)
     if environment and direct_variables:
@@ -112,9 +113,7 @@ def _authority_receipt() -> tuple[dict[str, str | None], list[str]]:
 def schema_converge(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke schema converge",
-        description=(
-            f"{SCHEMA_CONVERGE_USAGE}\n\n{_SCHEMA_CONVERGE_HELP}"
-        ),
+        description=(f"{SCHEMA_CONVERGE_USAGE}\n\n{_SCHEMA_CONVERGE_HELP}"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -142,18 +141,30 @@ def schema_converge(args: List[str]) -> int:
         )
 
     try:
-        entrypoint = importlib.import_module(
-            "yoke_core.api.server_entrypoint"
-        )
+        entrypoint = importlib.import_module("yoke_core.api.server_entrypoint")
     except ImportError:
         return _failure(json_mode=parsed.json_mode, error_type="ImportError")
 
     ensure_core_schema = getattr(entrypoint, "ensure_core_schema", None)
-    if not callable(ensure_core_schema):
+    ensure_permission_catalog = getattr(
+        entrypoint,
+        "ensure_permission_catalog",
+        None,
+    )
+    if not callable(ensure_core_schema) or not callable(ensure_permission_catalog):
         return _failure(json_mode=parsed.json_mode, error_type="MissingEntrypoint")
 
     try:
         ensure_core_schema()
+        # Catalog ownership stays in the API boot seam, which delegates to
+        # actor_permissions.seed_roles_and_permissions. The source-dev/admin
+        # command triggers that same idempotent seam instead of reimplementing
+        # role or permission ownership here.
+        if ensure_permission_catalog(fail_soft=False) is False:
+            return _failure(
+                json_mode=parsed.json_mode,
+                error_type="PermissionCatalogSeedError",
+            )
     except Exception as exc:  # noqa: BLE001 - CLI boundary redacts details
         return _failure(
             json_mode=parsed.json_mode,
@@ -162,6 +173,7 @@ def schema_converge(args: List[str]) -> int:
 
     payload = {
         **authority,
+        "catalog": "roles_permissions",
         "ok": True,
         "operation": "schema.converge",
         "schema": "core",
@@ -169,7 +181,7 @@ def schema_converge(args: List[str]) -> int:
     if parsed.json_mode:
         print(json.dumps(payload, sort_keys=True))
     else:
-        print("Core schema converged.")
+        print("Core schema and role/permission catalog converged.")
     return 0
 
 

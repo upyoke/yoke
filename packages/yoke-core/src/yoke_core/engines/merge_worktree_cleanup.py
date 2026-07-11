@@ -15,7 +15,9 @@ from yoke_core.engines.remote_branch_cleanup import (
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
+
 
 def _post_merge_cleanup(
     ctx: MergeContext,
@@ -50,11 +52,19 @@ def _post_merge_cleanup(
         _print(f"Verifying merge commit in origin/{ctx.args.target}...")
         _run_git(["fetch", "origin", ctx.args.target], cwd=ctx.repo_root, capture=True)
 
-        branch_tip = _run_git(["rev-parse", ctx.args.branch], cwd=ctx.repo_root, capture=True)
+        branch_tip = _run_git(
+            ["rev-parse", ctx.args.branch], cwd=ctx.repo_root, capture=True
+        )
         if branch_tip.returncode == 0 and branch_tip.stdout.strip():
             verify = _run_git(
-                ["merge-base", "--is-ancestor", branch_tip.stdout.strip(), f"origin/{ctx.args.target}"],
-                cwd=ctx.repo_root, capture=True,
+                [
+                    "merge-base",
+                    "--is-ancestor",
+                    branch_tip.stdout.strip(),
+                    f"origin/{ctx.args.target}",
+                ],
+                cwd=ctx.repo_root,
+                capture=True,
             )
             if verify.returncode != 0:
                 _print(
@@ -117,7 +127,10 @@ def _post_merge_cleanup(
                 err=True,
             )
 
-    # Worktree and local branch cleanup
+    # Worktree cleanup. Local branch deletion waits until the target branch is
+    # synchronized below so normal ``git branch -d`` can prove ancestry against
+    # the checked-out target without force.
+    worktree_removed = False
     if not local_cleanup_safe:
         _print(
             "WARNING: Preserving local worktree and branch so remote cleanup "
@@ -133,7 +146,6 @@ def _post_merge_cleanup(
         worktree_clean = clean_after_disposable_cache_removal(
             _run_git, ctx.worktree_path
         )
-        worktree_removed = False
         if not worktree_clean:
             _print(
                 f"WARNING: Preserving dirty or unverifiable worktree: "
@@ -157,11 +169,6 @@ def _post_merge_cleanup(
                         Path(parent).rmdir()
                 except OSError:
                     pass
-            _run_git(
-                ["branch", "-d", ctx.args.branch],
-                cwd=ctx.repo_root,
-                capture=True,
-            )
         elif worktree_clean:
             _print(
                 f"WARNING: Worktree removal refused; preserving branch "
@@ -213,6 +220,19 @@ def _post_merge_cleanup(
         )
         # Continue with remaining cleanup (stash, ensure-target, print
         # YOKE_REPO_ROOT) but return exit 5 at the end.
+
+    if sync_ok and worktree_removed:
+        branch_delete = _run_git(
+            ["branch", "-d", ctx.args.branch],
+            cwd=ctx.repo_root,
+            capture=True,
+        )
+        if branch_delete.returncode != 0:
+            _print(
+                f"WARNING: Preserving local branch after delete refusal: "
+                f"{ctx.args.branch}",
+                err=True,
+            )
 
     # Schema refresh
     _schema_refresh(ctx)

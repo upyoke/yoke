@@ -21,8 +21,15 @@ from runtime.api.tools.runner_fleet_exec_test_support import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_runner_authority_from_ci(monkeypatch):
+    """Local-authority cases must not inherit the test host's CI marker."""
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+
+
 def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     snapshot = _write_snapshot(
         tmp_path / "stack-config.json",
@@ -34,23 +41,29 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     child_calls: list[dict[str, object]] = []
 
     def fake_values(settings, *, fallback_repo, enabled):
-        value_calls.append({
-            "project": settings.project,
-            "fallback_repo": fallback_repo,
-            "enabled": enabled,
-        })
+        value_calls.append(
+            {
+                "project": settings.project,
+                "fallback_repo": fallback_repo,
+                "enabled": enabled,
+            }
+        )
         return _runner_values()
 
     monkeypatch.setattr(
-        runner_fleet_exec, "runner_fleet_values", fake_values,
+        runner_fleet_exec,
+        "runner_fleet_values",
+        fake_values,
     )
 
     def fake_secret_loader(secret_arn, *, region, env):
-        secret_calls.append({
-            "secret_arn": secret_arn,
-            "region": region,
-            "env": env,
-        })
+        secret_calls.append(
+            {
+                "secret_arn": secret_arn,
+                "region": region,
+                "env": env,
+            }
+        )
         return _PRIVATE_KEY
 
     def fake_token_minter(**kwargs):
@@ -58,10 +71,12 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         return SimpleNamespace(token=_TOKEN)
 
     def fake_child_factory(argv, **kwargs):
-        child_calls.append({
-            "argv": argv,
-            **kwargs,
-        })
+        child_calls.append(
+            {
+                "argv": argv,
+                **kwargs,
+            }
+        )
         return _Process(
             returncode=7,
             stdout=(
@@ -104,40 +119,46 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     )
 
     assert rc == 7
-    assert value_calls == [{
-        "project": "buzz",
-        "fallback_repo": "",
-        "enabled": True,
-    }]
-    assert secret_calls == [{
-        "secret_arn": _SECRET_ARN,
-        "region": "us-east-1",
-        "env": {
-            "AWS_REGION": "us-east-1",
-            "GH_TOKEN": "inherited-gh-token",
-            "GH_ENTERPRISE_TOKEN": "inherited-enterprise-token",
-            "GITHUB_APP_ID": "inherited-app-id",
-            "GITHUB_APP_INSTALLATION_ID": "inherited-installation-id",
-            "GITHUB_APP_PEM_FILE": "inherited-private-key",
-            "GITHUB_BASE_URL": "https://ambient.example/api/v3/",
-            "GITHUB_ENTERPRISE_TOKEN": "inherited-github-enterprise-token",
-            "GITHUB_ORGANIZATION": "ambient-org",
-            "GITHUB_OWNER": "ambient-owner",
-            "GITHUB_TOKEN": "inherited-broad-token",
-            "RUNNER_FLEET_GITHUB_TOKEN": "inherited-github-token",
-        },
-    }]
-    assert mint_calls == [{
-        "issuer": "Iv1.runner-fleet",
-        "private_key_pem": _PRIVATE_KEY.strip(),
-        "installation_id": 123456,
-        "api_url": "https://api.github.com",
-        "repository_ids": [789012],
-        "permissions": {
-            "actions_variables": "write",
-            "repository_hooks": "write",
-        },
-    }]
+    assert value_calls == [
+        {
+            "project": "buzz",
+            "fallback_repo": "",
+            "enabled": True,
+        }
+    ]
+    assert secret_calls == [
+        {
+            "secret_arn": _SECRET_ARN,
+            "region": "us-east-1",
+            "env": {
+                "AWS_REGION": "us-east-1",
+                "GH_TOKEN": "inherited-gh-token",
+                "GH_ENTERPRISE_TOKEN": "inherited-enterprise-token",
+                "GITHUB_APP_ID": "inherited-app-id",
+                "GITHUB_APP_INSTALLATION_ID": "inherited-installation-id",
+                "GITHUB_APP_PEM_FILE": "inherited-private-key",
+                "GITHUB_BASE_URL": "https://ambient.example/api/v3/",
+                "GITHUB_ENTERPRISE_TOKEN": "inherited-github-enterprise-token",
+                "GITHUB_ORGANIZATION": "ambient-org",
+                "GITHUB_OWNER": "ambient-owner",
+                "GITHUB_TOKEN": "inherited-broad-token",
+                "RUNNER_FLEET_GITHUB_TOKEN": "inherited-github-token",
+            },
+        }
+    ]
+    assert mint_calls == [
+        {
+            "issuer": "Iv1.runner-fleet",
+            "private_key_pem": _PRIVATE_KEY.strip(),
+            "installation_id": 123456,
+            "api_url": "https://api.github.com",
+            "repository_ids": [789012],
+            "permissions": {
+                "actions_variables": "write",
+                "repository_hooks": "write",
+            },
+        }
+    ]
     assert len(child_calls) == 1
     child = child_calls[0]
     assert child["argv"] == ["pulumi", "up", "--yes"]
@@ -154,14 +175,9 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     assert isinstance(child_env, dict)
     assert child_env["RUNNER_FLEET_GITHUB_TOKEN"] == _TOKEN
     assert child_env["GITHUB_TOKEN"] == _TOKEN
-    assert (
-        child_env["RUNNER_FLEET_GITHUB_TOKEN"]
-        == child_env["GITHUB_TOKEN"]
-    )
+    assert child_env["RUNNER_FLEET_GITHUB_TOKEN"] == child_env["GITHUB_TOKEN"]
     assert _PRIVATE_KEY not in child_env.values()
-    intent = json.loads(
-        child_env[runner_fleet_exec.RUNNER_FLEET_AUTHORITY_INTENT_ENV]
-    )
+    intent = json.loads(child_env[runner_fleet_exec.RUNNER_FLEET_AUTHORITY_INTENT_ENV])
     assert intent["schema"] == 1
     assert intent["authority"] == {
         "project": "buzz",
@@ -181,7 +197,10 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         "web_url": "https://github.com",
         "private_key_secret_arn": _SECRET_ARN,
         "runner_labels": [
-            "self-hosted", "Linux", "ARM64", "yoke-github-actions",
+            "self-hosted",
+            "Linux",
+            "ARM64",
+            "yoke-github-actions",
         ],
         "runner_variable_name": "YOKE_LINUX_RUNS_ON",
         "routing_enabled": True,
@@ -194,11 +213,11 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         "shutdown_mode": "terminate",
     }
     canonical = json.dumps(
-        intent["authority"], sort_keys=True, separators=(",", ":"),
+        intent["authority"],
+        sort_keys=True,
+        separators=(",", ":"),
     )
-    assert intent["sha256"] == hashlib.sha256(
-        canonical.encode("utf-8")
-    ).hexdigest()
+    assert intent["sha256"] == hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     for name in (
         "GH_TOKEN",
         "GH_ENTERPRISE_TOKEN",
@@ -223,7 +242,8 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
 
 
 def test_github_actions_uses_hosted_token_without_loading_app_key(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     snapshot = _write_snapshot(tmp_path / "stack-config.json")
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
@@ -261,7 +281,8 @@ def test_github_actions_uses_hosted_token_without_loading_app_key(
 
 
 def test_github_actions_fails_closed_without_hosted_token_connection(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     snapshot = _write_snapshot(tmp_path / "stack-config.json")
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
@@ -279,8 +300,6 @@ def test_github_actions_fails_closed_without_hosted_token_connection(
             "buzz",
             snapshot,
             ["pulumi", "preview"],
-            aws_env_loader=lambda *args, **kwargs: {
-                "AWS_REGION": "us-east-1"
-            },
+            aws_env_loader=lambda *args, **kwargs: {"AWS_REGION": "us-east-1"},
             secret_loader=lambda *args, **kwargs: pytest.fail("loaded App PEM"),
         )

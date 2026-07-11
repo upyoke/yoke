@@ -80,7 +80,7 @@ class WebappInfraArgs:
     # Optional static distribution bucket for public install artifacts. When
     # set, the stack adds an S3 origin and routes /install plus /dist/* to it.
     distribution_bucket_name: str = ""
-    distribution_origin_id: str = "yoke-distribution-static"
+    distribution_origin_id: str = ""
     domain_txt_records: Sequence[DomainTxtRecordArgs] = ()
     domain_mx_records: Sequence[DomainMxRecordArgs] = ()
 
@@ -177,7 +177,10 @@ class WebappInfraStack(pulumi.ComponentResource):
         distribution_hosting = build_distribution_hosting(
             deploy_namespace=args.deploy_namespace,
             distribution_bucket_name=args.distribution_bucket_name,
-            distribution_origin_id=args.distribution_origin_id,
+            distribution_origin_id=(
+                args.distribution_origin_id
+                or f"{args.deploy_namespace}-distribution-static"
+            ),
             app_origin=app_origin,
             tags=tags,
             child_opts=child_opts,
@@ -207,7 +210,13 @@ class WebappInfraStack(pulumi.ComponentResource):
                 cache_policy_id="4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
                 origin_request_policy_id="216adef6-5c7f-47e4-b989-5492eafa07d3",
                 allowed_methods=[
-                    "GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE",
+                    "GET",
+                    "HEAD",
+                    "OPTIONS",
+                    "PUT",
+                    "POST",
+                    "PATCH",
+                    "DELETE",
                 ],
                 cached_methods=["GET", "HEAD"],
                 function_associations=[

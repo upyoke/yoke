@@ -69,9 +69,7 @@ def _parse_workers(value: str) -> int:
             f"workers must be an integer, got {value!r}"
         ) from exc
     if workers < 1:
-        raise argparse.ArgumentTypeError(
-            f"workers must be at least 1, got {value!r}"
-        )
+        raise argparse.ArgumentTypeError(f"workers must be at least 1, got {value!r}")
     return workers
 
 
@@ -122,7 +120,7 @@ def resolve_settings(
     )
 
 
-def ensure_permission_catalog() -> None:
+def ensure_permission_catalog(*, fail_soft: bool = True) -> bool:
     """Reseed the role/permission catalog on boot (idempotent, fail-soft).
 
     Closes the deploy-time drift where a new code-defined permission (e.g.
@@ -131,7 +129,9 @@ def ensure_permission_catalog() -> None:
     matches the deployed code. The seed is idempotent (``ON CONFLICT``) and runs
     against the canonical DB resolved by ``db_helpers``. A failure must not
     brick the container — the prior catalog stays in place and the next boot
-    retries — so errors are logged, not raised.
+    retries — so the default boot policy logs errors instead of raising.
+    Explicit source-dev convergence passes ``fail_soft=False`` so it cannot
+    report success when the catalog did not converge.
     """
     try:
         from yoke_core.domain import db_helpers
@@ -142,8 +142,12 @@ def ensure_permission_catalog() -> None:
             create_auth_tables(conn)
             seed_roles_and_permissions(conn)
         _log.info("permission catalog reseeded on boot")
-    except Exception:  # noqa: BLE001 - catalog reseed must not block serving
+        return True
+    except Exception:  # noqa: BLE001 - policy chooses boot vs operator behavior
+        if not fail_soft:
+            raise
         _log.exception("permission-catalog reseed on boot failed; continuing")
+        return False
 
 
 def ensure_core_schema() -> None:

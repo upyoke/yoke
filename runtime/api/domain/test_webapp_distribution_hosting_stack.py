@@ -98,9 +98,7 @@ def test_distribution_hosting_adds_static_origin_and_path_behaviors(monkeypatch)
     assert block.kwargs["ignore_public_acls"] is True
     assert block.kwargs["restrict_public_buckets"] is True
     origin_access = recorder.single("distributionOriginAccess")
-    assert origin_access.kwargs["comment"] == (
-        "yoke-distribution-static read access"
-    )
+    assert origin_access.kwargs["comment"] == ("yoke-distribution-static read access")
 
     distribution = recorder.single("distribution")
     origins = distribution.kwargs["origins"]
@@ -110,8 +108,7 @@ def test_distribution_hosting_adds_static_origin_and_path_behaviors(monkeypatch)
     ]
     static_origin = origins[1]
     assert (
-        static_origin.kwargs["s3_origin_config"].kwargs["origin_access_identity"]
-        .value
+        static_origin.kwargs["s3_origin_config"].kwargs["origin_access_identity"].value
         == "distributionOriginAccess.cloudfront_access_identity_path"
     )
     assert "origin_access_control_id" not in static_origin.kwargs
@@ -126,8 +123,7 @@ def test_distribution_hosting_adds_static_origin_and_path_behaviors(monkeypatch)
         for behavior in behaviors
     )
     assert all(
-        behavior.kwargs["cache_policy_id"]
-        == "658327ea-f89d-4fab-a63d-7e88639e58f6"
+        behavior.kwargs["cache_policy_id"] == "658327ea-f89d-4fab-a63d-7e88639e58f6"
         for behavior in behaviors
     )
     # Only the PEP 503 simple/* behavior rewrites directory URLs to index.html.
@@ -152,8 +148,39 @@ def test_distribution_hosting_adds_static_origin_and_path_behaviors(monkeypatch)
     assert statement["Resource"] == "arn:aws:s3:::example-distribution-prod/*"
     assert "Condition" not in statement
     assert stack.distribution_bucket is bucket
-    assert recorder.exports["distributionBucketName"] == (
-        "example-distribution-prod"
+    assert recorder.exports["distributionBucketName"] == ("example-distribution-prod")
+
+
+def test_static_origin_default_uses_deploy_namespace(monkeypatch):
+    recorder, _stack = _infra_stack(
+        monkeypatch,
+        deploy_namespace="acme",
+        origin_id="acme-origin",
+        distribution_bucket_name="acme-distribution-prod",
+    )
+
+    distribution = recorder.single("distribution")
+    origin_ids = [
+        origin.kwargs["origin_id"] for origin in distribution.kwargs["origins"]
+    ]
+    assert origin_ids == [
+        "acme-origin",
+        "acme-distribution-static",
+    ]
+
+
+def test_static_origin_explicit_id_is_preserved(monkeypatch):
+    recorder, _stack = _infra_stack(
+        monkeypatch,
+        deploy_namespace="acme",
+        origin_id="acme-origin",
+        distribution_bucket_name="acme-distribution-prod",
+        distribution_origin_id="imported-static-origin",
+    )
+
+    distribution = recorder.single("distribution")
+    assert distribution.kwargs["origins"][1].kwargs["origin_id"] == (
+        "imported-static-origin"
     )
 
 
@@ -166,7 +193,9 @@ def test_api_edge_hosts_distribution_paths_on_environment_hostname(monkeypatch):
 
     distribution = recorder.single("apiDistribution")
     assert distribution.kwargs["aliases"] == ["api.example.com"]
-    assert [origin.kwargs["origin_id"] for origin in distribution.kwargs["origins"]] == [
+    assert [
+        origin.kwargs["origin_id"] for origin in distribution.kwargs["origins"]
+    ] == [
         "yoke-prod-api-origin",
         "yoke-prod-distribution-static",
     ]
@@ -182,6 +211,4 @@ def test_api_edge_hosts_distribution_paths_on_environment_hostname(monkeypatch):
     assert stack.distribution_bucket_policy is recorder.single(
         "distributionBucketPolicy"
     )
-    assert recorder.exports["distributionBucketName"] == (
-        "example-distribution-prod"
-    )
+    assert recorder.exports["distributionBucketName"] == ("example-distribution-prod")

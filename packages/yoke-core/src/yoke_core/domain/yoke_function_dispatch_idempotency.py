@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -13,9 +13,16 @@ from yoke_core.domain.yoke_function_dispatch_events import emit_idempotency_repl
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
 
+IdempotencyReplay = Tuple[Dict[str, Any], str, str, str, str]
+IdempotencyLookup = Callable[
+    [str],
+    Optional[IdempotencyReplay],
+]
+
+
 def _idempotency_lookup(
     request_id: str,
-) -> Optional[Tuple[Dict[str, Any], str, str, str, str]]:
+) -> Optional[IdempotencyReplay]:
     if not request_id:
         return None
     try:
@@ -52,11 +59,19 @@ def handle_idempotency(
     project: Optional[str],
     authorization_scope: str,
     payload_checksum: str,
+    lookup: Optional[IdempotencyLookup] = None,
 ) -> Optional[FunctionCallResponse]:
-    """Return a replay/collision response, or None for a fresh request."""
+    """Return a replay/collision response, or None for a fresh request.
+
+    ``lookup`` is an explicit dispatcher integration seam. Direct callers omit
+    it and use this module's ledger lookup; the dispatcher supplies its bound
+    seam so existing transport and handler tests can isolate persistence without
+    moving replay decisions back into the routing module.
+    """
     if "handler_managed_idempotency" in entry.guardrails or not request.request_id:
         return None
-    replay = _idempotency_lookup(request.request_id)
+    lookup_call = _idempotency_lookup if lookup is None else lookup
+    replay = lookup_call(request.request_id)
     if replay is None:
         return None
     result, function_id, actor_id, scope, checksum = replay
@@ -100,4 +115,4 @@ def handle_idempotency(
     )
 
 
-__all__ = ["handle_idempotency"]
+__all__ = ["IdempotencyLookup", "IdempotencyReplay", "handle_idempotency"]

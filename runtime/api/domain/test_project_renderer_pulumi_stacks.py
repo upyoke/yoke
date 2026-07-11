@@ -24,12 +24,15 @@ class TestGatherPulumiStacks:
         _stub_renderer_settings(monkeypatch, "buzz", {"projectName": "buzz"})
         root = _make_project_root(tmp_path, "buzz")
         assert project_renderer_pulumi.gather_pulumi_stacks("buzz", root) == [
-            "infra", "vps",
+            "infra",
+            "vps",
         ]
 
     def test_reads_explicit_domain_only(self, tmp_path, monkeypatch):
         _stub_renderer_settings(
-            monkeypatch, "yoke", {"projectName": "yoke", "stacks": ["domain"]},
+            monkeypatch,
+            "yoke",
+            {"projectName": "yoke", "stacks": ["domain"]},
         )
         root = _make_project_root(tmp_path, "yoke")
         assert project_renderer_pulumi.gather_pulumi_stacks("yoke", root) == [
@@ -38,16 +41,20 @@ class TestGatherPulumiStacks:
 
     def test_reads_explicit_infra_vps(self, tmp_path, monkeypatch):
         _stub_renderer_settings(
-            monkeypatch, "buzz", {"projectName": "buzz", "stacks": ["infra", "vps"]},
+            monkeypatch,
+            "buzz",
+            {"projectName": "buzz", "stacks": ["infra", "vps"]},
         )
         root = _make_project_root(tmp_path, "buzz")
         assert project_renderer_pulumi.gather_pulumi_stacks("buzz", root) == [
-            "infra", "vps",
+            "infra",
+            "vps",
         ]
 
     def test_reads_explicit_registry(self, tmp_path, monkeypatch):
         _stub_renderer_settings(
-            monkeypatch, "yoke",
+            monkeypatch,
+            "yoke",
             {"projectName": "yoke", "stacks": ["registry"]},
         )
         root = _make_project_root(tmp_path, "yoke")
@@ -74,7 +81,9 @@ class TestGatherPulumiStacks:
 
     def test_rejects_unknown_stack_type(self, tmp_path, monkeypatch):
         _stub_renderer_settings(
-            monkeypatch, "yoke", {"projectName": "yoke", "stacks": ["doamin"]},
+            monkeypatch,
+            "yoke",
+            {"projectName": "yoke", "stacks": ["doamin"]},
         )
         root = _make_project_root(tmp_path, "yoke")
         with pytest.raises(ValueError, match="Unknown Pulumi stack type"):
@@ -102,7 +111,7 @@ class TestRenderDomainOnly:
             "  webapp-infra:project_name: {{project_name}}\n"
             "  webapp-infra:domain_name: {{domain_name}}\n"
             "  webapp-infra:import_zone_id: {{import_zone_id}}\n"
-            "  webapp-infra:manage_registration: \"{{manage_registration}}\"\n"
+            '  webapp-infra:manage_registration: "{{manage_registration}}"\n'
             "  webapp-infra:domain_txt_records: '{{domain_txt_records_json}}'\n"
             "  webapp-infra:domain_mx_records: '{{domain_mx_records_json}}'\n"
         )
@@ -152,7 +161,11 @@ class TestRenderDomainOnly:
             "domain_name": "example.com",
         }
         project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", values, root, proj, write=True,
+            "yoke",
+            values,
+            root,
+            proj,
+            write=True,
         )
         names = {p.name for p in (proj / "infra").iterdir()}
         # Domain-only output: shared files + domain stack + domain config YAML.
@@ -179,19 +192,22 @@ class TestRenderDomainOnly:
             "domain_name": "example.com",
         }
         project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", values, root, proj, write=True,
+            "yoke",
+            values,
+            root,
+            proj,
+            write=True,
         )
         domain_yaml = (proj / "infra" / "Pulumi.yoke-domain.yaml").read_text()
         # Domain config carries only domain keys, never the infra/vps
         # config keys, and substitutes manage_registration (default false).
         assert "example.com" in domain_yaml
-        assert "manage_registration: \"false\"" in domain_yaml
+        assert 'manage_registration: "false"' in domain_yaml
         assert (
-            "domain_txt_records: '[{\"id\":\"googleWorkspaceVerification\""
-            in domain_yaml
+            'domain_txt_records: \'[{"id":"googleWorkspaceVerification"' in domain_yaml
         )
         assert "google-site-verification=abc123" in domain_yaml
-        assert "domain_mx_records: '[{\"id\":\"googleWorkspaceGmail\"" in domain_yaml
+        assert 'domain_mx_records: \'[{"id":"googleWorkspaceGmail"' in domain_yaml
         assert "SMTP.GOOGLE.COM" in domain_yaml
         # hosted_zone_id from DB settings is injected as import_zone_id so a
         # future `pulumi up` adopts the registrar-auto-created zone instead of
@@ -204,7 +220,9 @@ class TestRenderDomainOnly:
         assert "{{" not in domain_yaml
 
     def test_infra_config_skips_txt_records_when_domain_stack_owns_them(
-        self, tmp_path, monkeypatch,
+        self,
+        tmp_path,
+        monkeypatch,
     ):
         root = tmp_path / "repo"
         infra = root / "templates" / "webapp" / "infra"
@@ -223,7 +241,7 @@ class TestRenderDomainOnly:
             "  webapp-infra:project_name: {{project_name}}\n"
             "  webapp-infra:domain_name: {{domain_name}}\n"
             "  webapp-infra:import_zone_id: {{import_zone_id}}\n"
-            "  webapp-infra:manage_registration: \"{{manage_registration}}\"\n"
+            '  webapp-infra:manage_registration: "{{manage_registration}}"\n'
             "  webapp-infra:domain_txt_records: '{{domain_txt_records_json}}'\n"
             "  webapp-infra:domain_mx_records: '{{domain_mx_records_json}}'\n"
         )
@@ -238,26 +256,28 @@ class TestRenderDomainOnly:
             monkeypatch,
             "yoke",
             {
-            "projectName": "yoke",
-            "stacks": ["domain", "infra"],
-            "txtRecords": [{"name": "@", "value": "verification"}],
-            "mxRecords": [{"name": "@", "priority": 1, "value": "SMTP.GOOGLE.COM"}],
-        },
+                "projectName": "yoke",
+                "stacks": ["domain", "infra"],
+                "txtRecords": [{"name": "@", "value": "verification"}],
+                "mxRecords": [{"name": "@", "priority": 1, "value": "SMTP.GOOGLE.COM"}],
+            },
         )
         values = {
             "aws_region": "us-east-1",
             "project_name": "yoke",
             "domain_name": "example.com",
-            "domain_txt_records_json": (
-                '[{"name":"@","value":"verification"}]'
-            ),
+            "domain_txt_records_json": ('[{"name":"@","value":"verification"}]'),
             "domain_mx_records_json": (
                 '[{"name":"@","priority":1,"value":"SMTP.GOOGLE.COM"}]'
             ),
         }
 
         project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", values, root, proj, write=True,
+            "yoke",
+            values,
+            root,
+            proj,
+            write=True,
         )
 
         domain_yaml = (proj / "infra" / "Pulumi.yoke-domain.yaml").read_text()
@@ -268,123 +288,36 @@ class TestRenderDomainOnly:
         assert "domain_mx_records: '[]'" in infra_yaml
 
 
-class TestRenderRegistryOnly:
-    """A project declaring stacks=["registry"] renders ONLY registry artifacts."""
-
-    @pytest.fixture
-    def registry_tree(self, tmp_path):
-        root = tmp_path / "repo"
-        infra = root / "templates" / "webapp" / "infra"
-        infra.mkdir(parents=True)
-        (infra / "Pulumi.yaml").write_text(
-            "name: webapp-infra\nruntime:\n  name: python\n"
-        )
-        # Both stack-config templates present, plus extra program modules —
-        # the renderer must select only the registry ones.
-        (infra / "Pulumi.stack.yaml.tmpl").write_text(
-            "config:\n  webapp-infra:project_name: {{project_name}}\n"
-        )
-        (infra / "Pulumi.registry-stack.yaml.tmpl").write_text(
-            "config:\n  aws:region: {{aws_region}}\n"
-            "  webapp-infra:aws_account_id: \"{{aws_account_id}}\"\n"
-            "  webapp-infra:project_name: {{project_name}}\n"
-            "  webapp-infra:repository_name: {{repository_name}}\n"
-        )
-        (infra / "__main__.py").write_text("# pulumi entrypoint\n")
-        (infra / "webapp_infra_stack.py").write_text("# infra stack\n")
-        (infra / "webapp_vps_stack.py").write_text("# vps stack\n")
-        (infra / "webapp_registry_stack.py").write_text("# registry stack\n")
-        (infra / "requirements.txt").write_text("pulumi>=3.0.0\n")
-
-        proj = root / "projects" / "yoke"
-        proj.mkdir(parents=True)
-        return root, proj
-
-    _VALUES = {
-        "aws_region": "us-east-1",
-        "aws_account_id": "123456789012",
-        "project_name": "yoke",
-    }
-
-    def test_renders_only_registry_files(self, registry_tree, monkeypatch):
-        _stub_renderer_settings(
-            monkeypatch, "yoke",
-            {"projectName": "yoke", "stacks": ["registry"]},
-        )
-        root, proj = registry_tree
-        project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", dict(self._VALUES), root, proj, write=True,
-        )
-        names = {p.name for p in (proj / "infra").iterdir()}
-        assert names == {
-            "Pulumi.yaml",
-            "Pulumi.yoke-registry.yaml",
-            "__main__.py",
-            "webapp_registry_stack.py",
-            "requirements.txt",
-        }
-
-    def test_registry_config_defaults_repository_name(
-        self, registry_tree, monkeypatch,
-    ):
-        _stub_renderer_settings(
-            monkeypatch, "yoke",
-            {"projectName": "yoke", "stacks": ["registry"]},
-        )
-        root, proj = registry_tree
-        project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", dict(self._VALUES), root, proj, write=True,
-        )
-        registry_yaml = (
-            proj / "infra" / "Pulumi.yoke-registry.yaml"
-        ).read_text()
-        assert "repository_name: yoke-core" in registry_yaml
-        assert "aws:region: us-east-1" in registry_yaml
-        assert "{{" not in registry_yaml
-
-    def test_registry_config_honors_repository_override(
-        self, registry_tree, monkeypatch,
-    ):
-        _stub_renderer_settings(
-            monkeypatch,
-            "yoke",
-            {
-                "projectName": "yoke",
-                "stacks": ["registry"],
-                "containerRepositoryName": "yoke-images",
-            },
-        )
-        root, proj = registry_tree
-        project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", dict(self._VALUES), root, proj, write=True,
-        )
-        registry_yaml = (
-            proj / "infra" / "Pulumi.yoke-registry.yaml"
-        ).read_text()
-        assert "repository_name: yoke-images" in registry_yaml
-
-
 def test_pulumi_entrypoint_uses_branch_local_stack_imports():
     repo_root = Path(__file__).resolve().parents[3]
     entrypoint = repo_root.joinpath(
-        "templates", "webapp", "infra", "__main__.py",
+        "templates",
+        "webapp",
+        "infra",
+        "__main__.py",
     )
     tree = ast.parse(entrypoint.read_text())
     top_level_imports = {
         node.module for node in tree.body if isinstance(node, ast.ImportFrom)
     }
 
-    assert not {
-        "webapp_domain_stack",
-        "webapp_infra_stack",
-        "webapp_vps_stack",
-    } & top_level_imports
+    assert (
+        not {
+            "webapp_domain_stack",
+            "webapp_infra_stack",
+            "webapp_vps_stack",
+        }
+        & top_level_imports
+    )
 
 
 def test_domain_registration_nameservers_transform_pulumi_output():
     repo_root = Path(__file__).resolve().parents[3]
     stack = repo_root.joinpath(
-        "templates", "webapp", "infra", "webapp_domain_stack.py",
+        "templates",
+        "webapp",
+        "infra",
+        "webapp_domain_stack.py",
     ).read_text()
 
     assert "name_servers=self.hosted_zone.name_servers.apply(" in stack

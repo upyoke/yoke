@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from yoke_core.domain import json_helper
+
 from .project_renderer_settings import (
     ProjectRendererSettings,
     _first_mapping,
@@ -42,7 +44,8 @@ def pulumi_stack_instances_from_settings(
 ) -> list[PulumiStackInstance]:
     """Build Pulumi stack instances from ``environments.settings`` rows."""
     raw_instances = [
-        raw for raw in (
+        raw
+        for raw in (
             _raw_stack_instance_from_environment(settings, env)
             for env in settings.environments
         )
@@ -55,7 +58,8 @@ def pulumi_stack_instances_from_settings(
 
 
 def _raw_stack_instance_from_environment(
-    settings: ProjectRendererSettings, env,
+    settings: ProjectRendererSettings,
+    env,
 ) -> dict[str, object] | None:
     pulumi = _first_mapping(env.settings.get("pulumi"))
     stack_name = pulumi.get("stack_name")
@@ -74,7 +78,8 @@ def _raw_stack_instance_from_environment(
     distribution_origin_id = str(distribution.get("origin_id", "") or "")
     if distribution_bucket_name and not distribution_origin_id:
         distribution_origin_id = _default_distribution_origin_id(
-            settings.deploy_namespace, env.name,
+            settings.deploy_namespace,
+            env.name,
         )
 
     config = {
@@ -94,8 +99,12 @@ def _raw_stack_instance_from_environment(
             "seconds_until_auto_pause",
             DEFAULT_DATABASE_SECONDS_UNTIL_AUTO_PAUSE,
         ),
-        "database_backup_retention_days": database.get(
-            "backup_retention_days", ""
+        "database_backup_retention_days": database.get("backup_retention_days", ""),
+        "database_allowed_security_group_ids": _json_string_list(
+            settings.project,
+            env.name,
+            "database.allowed_security_group_ids",
+            database.get("allowed_security_group_ids", []),
         ),
         "distribution_bucket_name": distribution_bucket_name,
         "distribution_origin_id": distribution_origin_id,
@@ -133,24 +142,45 @@ def _default_distribution_origin_id(deploy_namespace: str, environment: str) -> 
     return f"{deploy_namespace}-{environment}-distribution-static"
 
 
+def _json_string_list(
+    project: str,
+    environment: str,
+    setting: str,
+    value: object,
+) -> str:
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) or not item.strip() for item in value
+    ):
+        raise ValueError(
+            f"Environment {environment!r} {setting} for {project} must be "
+            "a list of non-empty strings."
+        )
+    return json_helper.dumps_compact([item.strip() for item in value])
+
+
 def instance_template_values(
-    instance: PulumiStackInstance, values: Mapping[str, str],
+    instance: PulumiStackInstance,
+    values: Mapping[str, str],
 ) -> dict[str, str]:
     """Build render-template values for one environment stack instance."""
     result = dict(values)
     result.update(instance.config)
-    result.update({
-        "stack_instance_name": instance.name,
-        "stack_name": instance.name,
-        "environment": instance.environment,
-        "capabilities": ",".join(instance.capabilities),
-        "render_only": "true" if instance.render_only else "false",
-    })
+    result.update(
+        {
+            "stack_instance_name": instance.name,
+            "stack_name": instance.name,
+            "environment": instance.environment,
+            "capabilities": ",".join(instance.capabilities),
+            "render_only": "true" if instance.render_only else "false",
+        }
+    )
     return result
 
 
 def _parse_stack_instance(
-    project: str, index: int, raw: object,
+    project: str,
+    index: int,
+    raw: object,
 ) -> PulumiStackInstance:
     if not isinstance(raw, dict):
         raise ValueError(
@@ -173,7 +203,10 @@ def _parse_stack_instance(
 
 
 def _required_string(
-    project: str, index: int, raw: Mapping[str, object], key: str,
+    project: str,
+    index: int,
+    raw: Mapping[str, object],
+    key: str,
 ) -> str:
     value = raw.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -187,19 +220,20 @@ def _required_string(
 def _string_tuple(project: str, index: int, value: object) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise ValueError(
-            f"Pulumi stackInstances[{index}].capabilities for {project} "
-            "must be a list."
+            f"Pulumi stackInstances[{index}].capabilities for {project} must be a list."
         )
     return tuple(str(item) for item in value)
 
 
 def _string_dict(
-    project: str, index: int, value: object, key: str,
+    project: str,
+    index: int,
+    value: object,
+    key: str,
 ) -> dict[str, str]:
     if not isinstance(value, dict):
         raise ValueError(
-            f"Pulumi stackInstances[{index}].{key} for {project} "
-            "must be an object."
+            f"Pulumi stackInstances[{index}].{key} for {project} must be an object."
         )
     return {str(k): _config_value_to_string(v) for k, v in value.items()}
 

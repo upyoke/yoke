@@ -13,14 +13,17 @@ class WatchDeployProductSourceError(ValueError):
 
 
 def prepare_product_deploy_args(
-    deploy_args: Sequence[str], product_root: Path,
+    deploy_args: Sequence[str],
+    product_root: Path,
 ) -> list[str]:
     """Validate the pin and add its product build-context argument once."""
     args = list(deploy_args)
     image_tag = _single_option(args, "--image-tag")
     source = validate_product_source(product_root, image_tag)
     explicit_path = _single_option(
-        args, "--product-repo-path", required=False,
+        args,
+        "--product-repo-path",
+        required=False,
     )
     if explicit_path is None:
         return [*args, "--product-repo-path", source.repo_path]
@@ -31,14 +34,31 @@ def prepare_product_deploy_args(
     return args
 
 
+def itemless_deploy_requires_product_source(
+    deploy_args: Sequence[str],
+) -> bool:
+    """Return whether deploy arguments select the pinned item-less path."""
+    return (
+        _single_option(
+            deploy_args,
+            "--image-tag",
+            required=False,
+        )
+        is not None
+    )
+
+
 def _single_option(
-    args: Sequence[str], name: str, *, required: bool = True,
+    args: Sequence[str],
+    name: str,
+    *,
+    required: bool = True,
 ) -> str | None:
     values: list[str] = []
     prefix = f"{name}="
     for index, token in enumerate(args):
         if token.startswith(prefix):
-            values.append(token[len(prefix):])
+            values.append(token[len(prefix) :])
         elif token == name:
             if index + 1 >= len(args) or args[index + 1].startswith("--"):
                 raise WatchDeployProductSourceError(f"{name} requires a value")
@@ -57,4 +77,8 @@ def _single_option(
     return value
 
 
-__all__ = ["WatchDeployProductSourceError", "prepare_product_deploy_args"]
+__all__ = [
+    "WatchDeployProductSourceError",
+    "itemless_deploy_requires_product_source",
+    "prepare_product_deploy_args",
+]

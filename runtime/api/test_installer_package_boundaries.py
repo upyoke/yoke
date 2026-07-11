@@ -34,7 +34,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
         "packages/yoke-cli/src/yoke_cli/commands/_helpers.py",
         "yoke_core.domain.handlers.__init_register__",
-    ): ("local_universe_dispatch", "handler registration for local-universe in-process dispatch"),
+    ): (
+        "local_universe_dispatch",
+        "handler registration for local-universe in-process dispatch",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/board.py",
         "yoke_core.cli.board_rebuild_timing_events",
@@ -50,19 +53,31 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
         "packages/yoke-cli/src/yoke_cli/board/source_dev_extras.py",
         "yoke_core.domain.workspace_authority",
-    ): ("client_local_diagnostics", "board rebuild seed-source check (source-dev only)"),
+    ): (
+        "client_local_diagnostics",
+        "board rebuild seed-source check (source-dev only)",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/board/source_dev_extras.py",
         "yoke_core.domain.schema",
-    ): ("client_local_diagnostics", "board rebuild seed-source module (source-dev only)"),
+    ): (
+        "client_local_diagnostics",
+        "board rebuild seed-source module (source-dev only)",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/board/source_dev_extras.py",
         "yoke_core.domain.connected_env_readiness",
-    ): ("client_local_diagnostics", "board rebuild connected-env classifier (source-dev only)"),
+    ): (
+        "client_local_diagnostics",
+        "board rebuild connected-env classifier (source-dev only)",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/board/source_dev_extras.py",
         "yoke_core.domain.rebuild_board_outcome",
-    ): ("client_local_diagnostics", "board rebuild outcome event emit (source-dev only)"),
+    ): (
+        "client_local_diagnostics",
+        "board rebuild outcome event emit (source-dev only)",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/github_actions.py",
         "yoke_core.domain.github_actions_run_monitoring",
@@ -116,33 +131,45 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
         "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py",
         "yoke_core.domain.local_universe",
-    ): ("local_engine_activation",
-        "local mode runs the embedded engine on this machine by design"),
+    ): (
+        "local_engine_activation",
+        "local mode runs the embedded engine on this machine by design",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py",
         "yoke_core.domain.universe_export",
-    ): ("local_engine_activation",
-        "universe export dumps the machine-held database via the engine"),
+    ): (
+        "local_engine_activation",
+        "universe export dumps the machine-held database via the engine",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/local_universe.py",
         "yoke_core.domain.db_backend",
-    ): ("local_engine_activation",
-        "local demo seeding uses the engine DSN env contract"),
+    ): (
+        "local_engine_activation",
+        "local demo seeding uses the engine DSN env contract",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/config/existing_project_lookup.py",
         "yoke_core.domain.db_backend",
-    ): ("local_engine_activation",
-        "local project-reuse lookup reads the engine DSN env contract to verify local project metadata"),
+    ): (
+        "local_engine_activation",
+        "local project-reuse lookup reads the engine DSN env contract to verify local project metadata",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/local_universe.py",
         "yoke_core.domain.local_demo_seed",
-    ): ("local_engine_activation",
-        "local demo seeding writes demo rows through the embedded engine"),
+    ): (
+        "local_engine_activation",
+        "local demo seeding writes demo rows through the embedded engine",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py",
         "yoke_core.ui.server",
-    ): ("local_engine_activation",
-        "the local-universe UI server runs the engine on this machine by design"),
+    ): (
+        "local_engine_activation",
+        "the local-universe UI server runs the engine on this machine by design",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
         "yoke_core.domain.deploy_core_container",
@@ -185,28 +212,44 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
         "packages/yoke-cli/src/yoke_cli/project_install/transport.py",
         "yoke_core.domain.db_backend",
-    ): ("local_engine_activation",
-        "local-postgres project install uses the engine DSN env contract"),
+    ): (
+        "local_engine_activation",
+        "local-postgres project install uses the engine DSN env contract",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/project_install/transport.py",
         "yoke_core.domain.db_helpers",
-    ): ("local_engine_activation",
-        "local-postgres project install reads the local universe database"),
+    ): (
+        "local_engine_activation",
+        "local-postgres project install reads the local universe database",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/project_install/transport.py",
         "yoke_core.domain.install_bundle",
-    ): ("local_engine_activation",
-        "local-postgres project install renders bundles through the engine"),
+    ): (
+        "local_engine_activation",
+        "local-postgres project install renders bundles through the engine",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/transport/dispatcher.py",
         "yoke_core.domain.yoke_function_dispatch",
-    ): ("local_universe_dispatch", "in-process dispatch branch for non-https connections"),
+    ): (
+        "local_universe_dispatch",
+        "in-process dispatch branch for non-https connections",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/transport/local_github_dispatch.py",
         "yoke_core.domain.project_github_auth",
     ): (
         "local_universe_dispatch",
         "project-scoped GitHub App token dispatch for a local universe",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/transport/local_github_dispatch.py",
+        "yoke_core.domain.github_actions_local_authority",
+    ): (
+        "local_universe_dispatch",
+        "explicit attended GitHub Actions bootstrap dispatcher",
     ),
 }
 

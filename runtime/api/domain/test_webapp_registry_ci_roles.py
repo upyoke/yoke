@@ -25,14 +25,10 @@ def test_github_oidc_roles_split_infrastructure_from_delivery(monkeypatch):
     assert delivery.kwargs["name"] == "yoke-delivery-ci-github"
     infra_subjects = json.loads(infrastructure.kwargs["assume_role_policy"])[
         "Statement"
-    ][0]["Condition"]["StringEquals"][
-        "token.actions.githubusercontent.com:sub"
-    ]
-    delivery_subjects = json.loads(delivery.kwargs["assume_role_policy"])[
-        "Statement"
-    ][0]["Condition"]["StringEquals"][
-        "token.actions.githubusercontent.com:sub"
-    ]
+    ][0]["Condition"]["StringEquals"]["token.actions.githubusercontent.com:sub"]
+    delivery_subjects = json.loads(delivery.kwargs["assume_role_policy"])["Statement"][
+        0
+    ]["Condition"]["StringEquals"]["token.actions.githubusercontent.com:sub"]
     assert infra_subjects == ["repo:upyoke/platform:ref:refs/heads/main"]
     assert delivery_subjects == [
         "repo:upyoke/platform:ref:refs/heads/main",
@@ -44,17 +40,25 @@ def test_github_oidc_roles_split_infrastructure_from_delivery(monkeypatch):
         ":policy/job-function/ViewOnlyAccess"
     )
     infrastructure_deny = json.loads(
-        recorder.single("githubActionsInfrastructureBoundary").kwargs[
-            "policy"
-        ]
+        recorder.single("githubActionsInfrastructureBoundary").kwargs["policy"]
     )["Statement"][-1]
     assert infrastructure_deny["Effect"] == "Deny"
     assert app_secret in infrastructure_deny["Resource"]
-    policy = json.loads(
-        recorder.single("githubActionsDeliveryPolicy").kwargs["policy"]
+    policy = json.loads(recorder.single("githubActionsDeliveryPolicy").kwargs["policy"])
+    discovery = next(
+        statement
+        for statement in policy["Statement"]
+        if statement.get("Sid") == "DiscoverDistributionIds"
     )
+    assert discovery == {
+        "Sid": "DiscoverDistributionIds",
+        "Effect": "Allow",
+        "Action": "cloudfront:ListDistributions",
+        "Resource": "*",
+    }
     deny = next(
-        statement for statement in policy["Statement"]
+        statement
+        for statement in policy["Statement"]
         if statement.get("Sid") == "DenyGitHubAppPrivateKeys"
     )
     assert app_secret in deny["Resource"]
@@ -69,23 +73,15 @@ def test_github_oidc_roles_split_infrastructure_from_delivery(monkeypatch):
         "owner": "upyoke",
         "base_url": "https://api.github.com/",
     }
-    infrastructure_variable = recorder.single(
-        "githubActionsInfrastructureRoleVariable"
-    )
+    infrastructure_variable = recorder.single("githubActionsInfrastructureRoleVariable")
     delivery_variable = recorder.single("githubActionsDeliveryRoleVariable")
     assert infrastructure_variable.kwargs["repository"] == "platform"
-    assert infrastructure_variable.kwargs["variable_name"] == (
-        "YOKE_INFRA_CI_ROLE_ARN"
-    )
+    assert infrastructure_variable.kwargs["variable_name"] == ("YOKE_INFRA_CI_ROLE_ARN")
     assert infrastructure_variable.kwargs["value"].value == (
         stack.infrastructure_role.arn.value
     )
     assert delivery_variable.kwargs["repository"] == "platform"
-    assert delivery_variable.kwargs["variable_name"] == (
-        "YOKE_DELIVERY_CI_ROLE_ARN"
-    )
-    assert delivery_variable.kwargs["value"].value == (
-        stack.delivery_role.arn.value
-    )
+    assert delivery_variable.kwargs["variable_name"] == ("YOKE_DELIVERY_CI_ROLE_ARN")
+    assert delivery_variable.kwargs["value"].value == (stack.delivery_role.arn.value)
     assert infrastructure_variable.opts.provider is provider
     assert delivery_variable.opts.provider is provider

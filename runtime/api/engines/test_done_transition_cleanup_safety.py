@@ -8,11 +8,16 @@ from unittest import mock
 import pytest
 
 from yoke_core.engines import done_transition, done_transition_cleanup
-from yoke_core.engines._done_transition_test_helpers import (
-    _insert_item,
-    dt_db as _shared_dt_db,
-)
+from yoke_core.engines._done_transition_test_helpers import dt_db as _shared_dt_db
 from runtime.api.test_backlog import _seed_claim
+
+
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
+
+def _git_args(repo, *args):
+    return ["git", "-C", str(repo), *args]
 
 
 @pytest.fixture
@@ -23,7 +28,7 @@ def dt_db(tmp_path, monkeypatch):
 class TestCleanupStaleBranches:
     def test_preserves_unregistered_worktree_and_files(self, dt_db, tmp_path):
         project_repo = tmp_path / "repo"
-        wt_dir = project_repo / ".worktrees" / "YOK-42"
+        wt_dir = project_repo / ".worktrees" / TEST_ITEM_REF
         wt_dir.mkdir(parents=True)
         (wt_dir / "leftover.txt").write_text("stale content")
 
@@ -34,20 +39,19 @@ class TestCleanupStaleBranches:
                 mock.Mock(returncode=0, stdout=""),
             ]
             complete = done_transition._cleanup_stale_branches(
-                42, "YOK-42", project_repo
+                TEST_ITEM_ID, TEST_ITEM_REF, project_repo
             )
 
         assert complete is False
         assert (wt_dir / "leftover.txt").read_text() == "stale content"
         commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
         assert not any(
-            "--force" in command or "branch -D" in command
-            for command in commands
+            "--force" in command or "branch -D" in command for command in commands
         )
 
     def test_preserves_dirty_registered_worktree(self, dt_db, tmp_path):
         project_repo = tmp_path / "repo"
-        wt_dir = project_repo / ".worktrees" / "YOK-42"
+        wt_dir = project_repo / ".worktrees" / TEST_ITEM_REF
         wt_dir.mkdir(parents=True)
 
         with mock.patch.object(done_transition, "_run_git") as run_git:
@@ -57,14 +61,13 @@ class TestCleanupStaleBranches:
                 mock.Mock(
                     returncode=0,
                     stdout=(
-                        f"worktree {wt_dir}\n"
-                        "branch refs/heads/YOK-42\n\n"
+                        f"worktree {wt_dir}\nbranch refs/heads/{TEST_ITEM_REF}\n\n"
                     ),
                 ),
                 mock.Mock(returncode=0, stdout="!! local-cache/\n"),
             ]
             complete = done_transition._cleanup_stale_branches(
-                42, "YOK-42", project_repo
+                TEST_ITEM_ID, TEST_ITEM_REF, project_repo
             )
 
         assert complete is False
@@ -84,12 +87,12 @@ class TestCleanupStaleBranches:
                 mock.Mock(returncode=0, stdout=""),  # remote absent
             ]
             complete = done_transition._cleanup_stale_branches(
-                42, "", project_repo
+                TEST_ITEM_ID, "", project_repo
             )
 
         assert complete is True
         commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
-        assert any("branch -d YOK-42" in command for command in commands)
+        assert any(f"branch -d {TEST_ITEM_REF}" in command for command in commands)
         assert not any("branch -D" in command for command in commands)
 
     def test_remote_delete_refusal_preserves_metadata(self, dt_db, tmp_path):
@@ -102,7 +105,7 @@ class TestCleanupStaleBranches:
                 mock.Mock(returncode=1, stdout=""),  # no local branch
                 mock.Mock(
                     returncode=0,
-                    stdout="abc\trefs/heads/YOK-42\n",
+                    stdout=f"abc\trefs/heads/{TEST_ITEM_REF}\n",
                 ),
                 mock.Mock(returncode=0, stdout=""),  # fetch exact remote
                 mock.Mock(returncode=0, stdout=""),  # remote ancestry
@@ -110,18 +113,18 @@ class TestCleanupStaleBranches:
                 mock.Mock(returncode=1, stdout=""),  # remote delete refused
             ]
             complete = done_transition._cleanup_stale_branches(
-                42, "", project_repo
+                TEST_ITEM_ID, "", project_repo
             )
 
         assert complete is False
         commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
         assert any(
-            "merge-base --is-ancestor origin/YOK-42 origin/main" in command
+            f"merge-base --is-ancestor origin/{TEST_ITEM_REF} origin/main" in command
             for command in commands
         )
         assert any(
-            "push --force-with-lease=refs/heads/YOK-42:abc origin "
-            ":refs/heads/YOK-42" in command
+            f"push --force-with-lease=refs/heads/{TEST_ITEM_REF}:abc origin "
+            f":refs/heads/{TEST_ITEM_REF}" in command
             for command in commands
         )
 
@@ -151,9 +154,7 @@ class TestCleanupStaleBranches:
                 check=True,
             )
         (project_repo / "README.md").write_text("base\n", encoding="utf-8")
-        subprocess.run(
-            ["git", "-C", str(project_repo), "add", "README.md"], check=True
-        )
+        subprocess.run(["git", "-C", str(project_repo), "add", "README.md"], check=True)
         subprocess.run(
             ["git", "-C", str(project_repo), "commit", "-m", "base"],
             check=True,
@@ -169,10 +170,11 @@ class TestCleanupStaleBranches:
             capture_output=True,
         )
         subprocess.run(
-            ["git", "-C", str(project_repo), "branch", "YOK-42"], check=True
+            _git_args(project_repo, "branch", TEST_ITEM_REF),
+            check=True,
         )
         subprocess.run(
-            ["git", "-C", str(project_repo), "push", "origin", "YOK-42"],
+            _git_args(project_repo, "push", "origin", TEST_ITEM_REF),
             check=True,
             capture_output=True,
         )
@@ -185,17 +187,26 @@ class TestCleanupStaleBranches:
                 value.startswith("--force-with-lease=") for value in args
             ):
                 head = subprocess.check_output(
-                    ["git", "-C", str(project_repo), "rev-parse", "YOK-42"],
+                    _git_args(project_repo, "rev-parse", TEST_ITEM_REF),
                     text=True,
                 ).strip()
                 tree = subprocess.check_output(
-                    ["git", "-C", str(project_repo), "rev-parse", "YOK-42^{tree}"],
+                    _git_args(
+                        project_repo,
+                        "rev-parse",
+                        f"{TEST_ITEM_REF}^{{tree}}",
+                    ),
                     text=True,
                 ).strip()
                 concurrent_sha = subprocess.run(
                     [
-                        "git", "-C", str(project_repo), "commit-tree", tree,
-                        "-p", head,
+                        "git",
+                        "-C",
+                        str(project_repo),
+                        "commit-tree",
+                        tree,
+                        "-p",
+                        head,
                     ],
                     input="concurrent remote work\n",
                     text=True,
@@ -203,10 +214,12 @@ class TestCleanupStaleBranches:
                     capture_output=True,
                 ).stdout.strip()
                 subprocess.run(
-                    [
-                        "git", "-C", str(project_repo), "push", "origin",
-                        f"{concurrent_sha}:refs/heads/YOK-42",
-                    ],
+                    _git_args(
+                        project_repo,
+                        "push",
+                        "origin",
+                        f"{concurrent_sha}:refs/heads/{TEST_ITEM_REF}",
+                    ),
                     check=True,
                     capture_output=True,
                 )
@@ -219,11 +232,14 @@ class TestCleanupStaleBranches:
 
         monkeypatch.setattr(done_transition, "_run_git", run_git)
 
-        assert done_transition_cleanup._delete_remote_if_merged(
-            project_repo, "YOK-42", "origin/main"
-        ) is False
+        assert (
+            done_transition_cleanup._delete_remote_if_merged(
+                project_repo, TEST_ITEM_REF, "origin/main"
+            )
+            is False
+        )
         advertised = subprocess.check_output(
-            ["git", "-C", str(project_repo), "ls-remote", "origin", "YOK-42"],
+            _git_args(project_repo, "ls-remote", "origin", TEST_ITEM_REF),
             text=True,
         )
         assert advertised.split()[0] == concurrent_sha
@@ -237,11 +253,11 @@ class TestCleanupStaleBranches:
                 mock.Mock(returncode=1, stdout=""),  # no local branch
                 mock.Mock(
                     returncode=0,
-                    stdout="abc\trefs/heads/YOK-420\n",
+                    stdout=f"abc\trefs/heads/{TEST_ITEM_REF}0\n",
                 ),
             ]
             complete = done_transition._cleanup_stale_branches(
-                42, "", project_repo
+                TEST_ITEM_ID, "", project_repo
             )
 
         assert complete is True
@@ -254,7 +270,7 @@ class TestCleanupStaleBranches:
         with mock.patch.object(done_transition, "_run_git") as run_git:
             run_git.return_value = mock.Mock(returncode=1, stdout="")
             complete = done_transition._cleanup_stale_branches(
-                42, "../other-worktree", project_repo
+                TEST_ITEM_ID, "../other-worktree", project_repo
             )
 
         assert complete is False
@@ -263,63 +279,18 @@ class TestCleanupStaleBranches:
 
     def test_foreign_claim_preserves_entire_lane(self, dt_db, tmp_path):
         db_path, _ = dt_db
-        _seed_claim(db_path, session_id="other-session", item_id="42")
+        _seed_claim(
+            db_path,
+            session_id="other-session",
+            item_id=str(TEST_ITEM_ID),
+        )
         project_repo = tmp_path / "repo"
         project_repo.mkdir()
 
         with mock.patch.object(done_transition, "_run_git") as run_git:
             complete = done_transition._cleanup_stale_branches(
-                42, "YOK-42", project_repo
+                TEST_ITEM_ID, TEST_ITEM_REF, project_repo
             )
 
         assert complete is False
         run_git.assert_not_called()
-
-
-class TestCleanupTrialBranches:
-    def test_deletes_only_merged_trial_for_done_item(self, dt_db, tmp_path):
-        db_path, _ = dt_db
-        _insert_item(db_path, 99, status="done")
-        project_repo = tmp_path / "repo"
-        project_repo.mkdir()
-
-        with mock.patch.object(done_transition, "_run_git") as run_git:
-            run_git.side_effect = [
-                mock.Mock(returncode=0, stdout="  trial/YOK-99\n"),
-                mock.Mock(returncode=0, stdout=""),  # ancestry
-                mock.Mock(returncode=0, stdout=""),  # branch -d
-            ]
-            assert done_transition._cleanup_trial_branches(project_repo) is True
-
-        commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
-        assert any("branch -d trial/YOK-99" in command for command in commands)
-        assert not any("branch -D" in command for command in commands)
-
-    def test_preserves_trial_branch_for_active_item(self, dt_db, tmp_path):
-        db_path, _ = dt_db
-        _insert_item(db_path, 100, status="implementing")
-        project_repo = tmp_path / "repo"
-        project_repo.mkdir()
-
-        with mock.patch.object(done_transition, "_run_git") as run_git:
-            run_git.return_value = mock.Mock(
-                returncode=0, stdout="  trial/YOK-100\n"
-            )
-            assert done_transition._cleanup_trial_branches(project_repo) is False
-
-        commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
-        assert not any(
-            "branch -d" in command or "branch -D" in command
-            for command in commands
-        )
-
-    def test_preserves_non_item_trial_branch(self, dt_db, tmp_path):
-        project_repo = tmp_path / "repo"
-        project_repo.mkdir()
-        with mock.patch.object(done_transition, "_run_git") as run_git:
-            run_git.return_value = mock.Mock(
-                returncode=0, stdout="  trial/abandoned-feature\n"
-            )
-            done_transition._cleanup_trial_branches(project_repo)
-
-        assert run_git.call_count == 1

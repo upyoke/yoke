@@ -53,8 +53,7 @@ def _fake_sibling_modules(recorder):
             self.args = args
             self.cluster = types.SimpleNamespace(endpoint="db.internal.example")
             self.master_secret_arn = (
-                "arn:aws:secretsmanager:us-east-1:123456789012:"
-                "secret:yoke-prod-db"
+                "arn:aws:secretsmanager:us-east-1:123456789012:secret:yoke-prod-db"
             )
             recorder.resources.append(self)
 
@@ -106,22 +105,33 @@ def _environment_stack(monkeypatch, **arg_overrides):
         database_min_capacity_acu=0.0,
         database_max_capacity_acu=4.0,
         database_backup_retention_days=7,
+        database_allowed_security_group_ids=["sg-tenant-provisioner"],
     )
     kwargs.update(arg_overrides)
     stack = module.WebappEnvironmentStack(
-        "yoke-prod", module.WebappEnvironmentArgs(**kwargs),
+        "yoke-prod",
+        module.WebappEnvironmentArgs(**kwargs),
     )
     return recorder, stack
 
 
 class TestEnvironmentOriginRuntimeSubstrate:
+    def test_database_allows_origin_and_configured_service_groups(self, monkeypatch):
+        recorder, _stack = _environment_stack(monkeypatch)
+        database = recorder.single("database")
+        assert database.args.allowed_security_group_ids == [
+            "sg-fake",
+            "sg-tenant-provisioner",
+        ]
+
     def test_creates_core_log_group(self, monkeypatch):
         recorder, _stack = _environment_stack(monkeypatch)
         log_group = recorder.single("coreLogGroup")
         assert log_group.kwargs["name"] == "/yoke/prod/core"
         assert log_group.kwargs["retention_in_days"] == 30
         assert log_group.kwargs["tags"] == {
-            "project": "yoke", "environment": "prod",
+            "project": "yoke",
+            "environment": "prod",
         }
 
     def test_origin_role_grants_runtime_permissions(self, monkeypatch):
@@ -158,13 +168,10 @@ class TestEnvironmentOriginRuntimeSubstrate:
             "secretsmanager:GetSecretValue",
         ]
         assert statements[3]["Resource"] == (
-            "arn:aws:secretsmanager:us-east-1:123456789012:"
-            "secret:yoke-prod-db"
+            "arn:aws:secretsmanager:us-east-1:123456789012:secret:yoke-prod-db"
         )
         assert statements[4]["Action"] == ["s3:PutObject", "s3:GetObject"]
-        assert statements[4]["Resource"] == (
-            "arn:aws:s3:::yoke-prod-artifacts/*"
-        )
+        assert statements[4]["Resource"] == ("arn:aws:s3:::yoke-prod-artifacts/*")
 
     def test_instance_profile_wired_into_vps(self, monkeypatch):
         recorder, _stack = _environment_stack(monkeypatch)
@@ -184,13 +191,12 @@ class TestEnvironmentOriginRuntimeSubstrate:
         )
 
     def test_container_repository_name_defaults_to_project_core(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ):
         recorder, stack = _environment_stack(monkeypatch)
         assert recorder.exports["containerRepositoryName"] == "yoke-core"
-        assert stack.registered_outputs["containerRepositoryName"] == (
-            "yoke-core"
-        )
+        assert stack.registered_outputs["containerRepositoryName"] == ("yoke-core")
         assert {"coreLogGroupName", "originInstanceProfileName"} <= set(
             recorder.exports
         )
@@ -198,7 +204,8 @@ class TestEnvironmentOriginRuntimeSubstrate:
 
     def test_container_repository_name_override(self, monkeypatch):
         recorder, _stack = _environment_stack(
-            monkeypatch, container_repository_name="custom-repo",
+            monkeypatch,
+            container_repository_name="custom-repo",
         )
         assert recorder.exports["containerRepositoryName"] == "custom-repo"
         policy = recorder.single("originRolePolicy").kwargs["policy"]
@@ -221,7 +228,8 @@ class TestArtifactsBucket:
         bucket = recorder.single("artifactsBucket")
         assert bucket.kwargs["bucket"] == "yoke-prod-artifacts"
         assert bucket.kwargs["tags"] == {
-            "project": "yoke", "environment": "prod",
+            "project": "yoke",
+            "environment": "prod",
         }
         assert stack.artifacts_bucket is bucket
 
@@ -241,20 +249,18 @@ class TestArtifactsBucket:
 
     def test_bucket_name_exported(self, monkeypatch):
         recorder, stack = _environment_stack(monkeypatch)
-        assert recorder.exports["artifactsBucketName"] == (
-            "yoke-prod-artifacts"
-        )
+        assert recorder.exports["artifactsBucketName"] == ("yoke-prod-artifacts")
         assert stack.registered_outputs["artifactsBucketName"] == (
             "yoke-prod-artifacts"
         )
 
     def test_bucket_name_tracks_environment(self, monkeypatch):
         recorder, _stack = _environment_stack(
-            monkeypatch, environment="stage", stack_name="yoke-stage",
+            monkeypatch,
+            environment="stage",
+            stack_name="yoke-stage",
         )
-        assert recorder.exports["artifactsBucketName"] == (
-            "yoke-stage-artifacts"
-        )
+        assert recorder.exports["artifactsBucketName"] == ("yoke-stage-artifacts")
         policy = recorder.single("originRolePolicy").kwargs["policy"]
         assert "arn:aws:s3:::yoke-stage-artifacts/*" in policy
 
@@ -262,7 +268,8 @@ class TestArtifactsBucket:
 class TestEphemeralPreviewSubstrate:
     def test_preview_domain_creates_wildcard_record(self, monkeypatch):
         recorder, stack = _environment_stack(
-            monkeypatch, ephemeral_preview_domain="preview.example.com",
+            monkeypatch,
+            ephemeral_preview_domain="preview.example.com",
         )
         record = recorder.single("ephemeralWildcardRecord")
         assert record.kwargs["zone_id"] == "Z123"
@@ -274,7 +281,8 @@ class TestEphemeralPreviewSubstrate:
 
     def test_preview_domain_grants_dns01_route53_statements(self, monkeypatch):
         recorder, _stack = _environment_stack(
-            monkeypatch, ephemeral_preview_domain="preview.example.com",
+            monkeypatch,
+            ephemeral_preview_domain="preview.example.com",
         )
         policy = recorder.single("originRolePolicy")
         statements = json.loads(policy.kwargs["policy"])["Statement"]
@@ -291,11 +299,10 @@ class TestEphemeralPreviewSubstrate:
 
     def test_preview_domain_exported(self, monkeypatch):
         recorder, stack = _environment_stack(
-            monkeypatch, ephemeral_preview_domain="preview.example.com",
+            monkeypatch,
+            ephemeral_preview_domain="preview.example.com",
         )
-        assert recorder.exports["ephemeralPreviewDomain"] == (
-            "preview.example.com"
-        )
+        assert recorder.exports["ephemeralPreviewDomain"] == ("preview.example.com")
         assert stack.registered_outputs["ephemeralPreviewDomain"] == (
             "preview.example.com"
         )

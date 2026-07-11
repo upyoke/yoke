@@ -11,6 +11,10 @@ from yoke_core.engines.remote_branch_cleanup import (
 )
 
 
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
+
 def _completed(returncode: int = 0, stdout: str = ""):
     return mock.Mock(returncode=returncode, stdout=stdout, stderr="")
 
@@ -21,7 +25,7 @@ def test_delete_uses_exact_ref_refreshed_ancestry_and_lease():
         (
             _completed(),
             _completed(),
-            _completed(stdout="branch-sha\trefs/heads/YOK-42\n"),
+            _completed(stdout=f"branch-sha\trefs/heads/{TEST_ITEM_REF}\n"),
             _completed(),
             _completed(),
             _completed(stdout="branch-sha\n"),
@@ -37,7 +41,7 @@ def test_delete_uses_exact_ref_refreshed_ancestry_and_lease():
 
     result = delete_remote_branch_if_merged(
         run_git=run_git,
-        branch="YOK-42",
+        branch=TEST_ITEM_REF,
         target_branch="main",
     )
 
@@ -46,7 +50,7 @@ def test_delete_uses_exact_ref_refreshed_ancestry_and_lease():
         "ls-remote",
         "--heads",
         "origin",
-        "refs/heads/YOK-42",
+        f"refs/heads/{TEST_ITEM_REF}",
     ] in commands
     assert [
         "fetch",
@@ -56,7 +60,7 @@ def test_delete_uses_exact_ref_refreshed_ancestry_and_lease():
     assert [
         "fetch",
         "origin",
-        "+refs/heads/YOK-42:refs/remotes/origin/YOK-42",
+        f"+refs/heads/{TEST_ITEM_REF}:refs/remotes/origin/{TEST_ITEM_REF}",
     ] in commands
     assert [
         "merge-base",
@@ -66,9 +70,9 @@ def test_delete_uses_exact_ref_refreshed_ancestry_and_lease():
     ] in commands
     assert commands[-1] == [
         "push",
-        "--force-with-lease=refs/heads/YOK-42:branch-sha",
+        f"--force-with-lease=refs/heads/{TEST_ITEM_REF}:branch-sha",
         "origin",
-        ":refs/heads/YOK-42",
+        f":refs/heads/{TEST_ITEM_REF}",
     ]
 
 
@@ -78,7 +82,7 @@ def test_ambiguous_remote_advertisement_is_preserved_without_delete():
         (
             _completed(),
             _completed(),
-            _completed(stdout="sha\trefs/heads/YOK-420\n"),
+            _completed(stdout=f"sha\trefs/heads/{TEST_ITEM_REF}0\n"),
         )
     )
 
@@ -88,7 +92,7 @@ def test_ambiguous_remote_advertisement_is_preserved_without_delete():
 
     result = delete_remote_branch_if_merged(
         run_git=run_git,
-        branch="YOK-42",
+        branch=TEST_ITEM_REF,
         target_branch="main",
     )
 
@@ -128,8 +132,8 @@ def test_concurrent_remote_update_survives_leased_delete(tmp_path: Path):
     _git(repo, "commit", "-m", "base")
     _git(repo, "remote", "add", "origin", str(origin))
     _git(repo, "push", "origin", "main")
-    _git(repo, "branch", "YOK-42")
-    _git(repo, "push", "origin", "YOK-42")
+    _git(repo, "branch", TEST_ITEM_REF)
+    _git(repo, "push", "origin", TEST_ITEM_REF)
 
     concurrent_sha = ""
 
@@ -138,8 +142,8 @@ def test_concurrent_remote_update_survives_leased_delete(tmp_path: Path):
         if command[0] == "push" and any(
             value.startswith("--force-with-lease=") for value in command
         ):
-            head = _git(repo, "rev-parse", "YOK-42").stdout.strip()
-            tree = _git(repo, "rev-parse", "YOK-42^{tree}").stdout.strip()
+            head = _git(repo, "rev-parse", TEST_ITEM_REF).stdout.strip()
+            tree = _git(repo, "rev-parse", f"{TEST_ITEM_REF}^{{tree}}").stdout.strip()
             concurrent_sha = subprocess.run(
                 ["git", "-C", str(repo), "commit-tree", tree, "-p", head],
                 input="concurrent remote work\n",
@@ -151,17 +155,17 @@ def test_concurrent_remote_update_survives_leased_delete(tmp_path: Path):
                 repo,
                 "push",
                 "origin",
-                f"{concurrent_sha}:refs/heads/YOK-42",
+                f"{concurrent_sha}:refs/heads/{TEST_ITEM_REF}",
             )
         return _git(repo, *command, check=False)
 
     result = delete_remote_branch_if_merged(
         run_git=run_git,
-        branch="YOK-42",
+        branch=TEST_ITEM_REF,
         target_branch="main",
     )
 
     assert result.status == "preserved"
     assert "refused" in result.reason
-    advertised = _git(repo, "ls-remote", "origin", "refs/heads/YOK-42")
+    advertised = _git(repo, "ls-remote", "origin", f"refs/heads/{TEST_ITEM_REF}")
     assert advertised.stdout.split()[0] == concurrent_sha

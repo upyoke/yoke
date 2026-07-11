@@ -15,6 +15,12 @@ from yoke_core.domain.deploy_remote import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_aws_authority_from_ci(monkeypatch):
+    """Each case selects Actions authority explicitly when it needs it."""
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+
+
 def _env() -> DeployEnvironment:
     return DeployEnvironment(
         project="yoke",
@@ -86,9 +92,7 @@ class TestAwsCapabilityEnv:
                 "session_token": None,
             }[key]
 
-        monkeypatch.setattr(
-            deploy_remote, "cmd_capability_get_secret", fake_secret
-        )
+        monkeypatch.setattr(deploy_remote, "cmd_capability_get_secret", fake_secret)
         env = aws_capability_env("yoke", "us-east-1")
         assert env["AWS_ACCESS_KEY_ID"] == "AKIATEST"
         assert env["AWS_SECRET_ACCESS_KEY"] == "shh"
@@ -102,9 +106,11 @@ class TestAwsCapabilityEnv:
         monkeypatch.setattr(
             deploy_remote,
             "cmd_capability_get_secret",
-            lambda *a: {"access_key_id": "AKIATEST",
-                        "secret_access_key": "shh",
-                        "session_token": None}[a[2]],
+            lambda *a: {
+                "access_key_id": "AKIATEST",
+                "secret_access_key": "shh",
+                "session_token": None,
+            }[a[2]],
         )
         env = aws_capability_env("yoke", "us-east-1")
         for name in AWS_AMBIENT_AUTH_ENV_VARS:
@@ -116,9 +122,11 @@ class TestAwsCapabilityEnv:
         monkeypatch.setattr(
             deploy_remote,
             "cmd_capability_get_secret",
-            lambda *a: {"access_key_id": "AKIATEST",
-                        "secret_access_key": "shh",
-                        "session_token": "capability-token"}[a[2]],
+            lambda *a: {
+                "access_key_id": "AKIATEST",
+                "secret_access_key": "shh",
+                "session_token": "capability-token",
+            }[a[2]],
         )
         env = aws_capability_env("yoke", "us-east-1")
         assert env["AWS_SESSION_TOKEN"] == "capability-token"
@@ -148,17 +156,24 @@ class TestAwsCapabilityEnv:
             }[key]
 
         monkeypatch.setattr(
-            deploy_remote, "cmd_capability_get_settings", fake_settings,
+            deploy_remote,
+            "cmd_capability_get_settings",
+            fake_settings,
         )
         monkeypatch.setattr(
-            deploy_remote, "cmd_capability_get_secret", fake_secret,
+            deploy_remote,
+            "cmd_capability_get_secret",
+            fake_secret,
         )
 
         region = aws_capability_region(
-            "buzz", capability_type="runner-aws",
+            "buzz",
+            capability_type="runner-aws",
         )
         env = aws_capability_env(
-            "buzz", region or "", capability_type="runner-aws",
+            "buzz",
+            region or "",
+            capability_type="runner-aws",
         )
 
         assert region == "eu-west-1"
@@ -169,9 +184,7 @@ class TestAwsCapabilityEnv:
         assert env["AWS_SESSION_TOKEN"] == "custom-session"
 
     def test_missing_secret_fails_with_seed_recipe(self, monkeypatch):
-        monkeypatch.setattr(
-            deploy_remote, "cmd_capability_get_secret", lambda *a: None
-        )
+        monkeypatch.setattr(deploy_remote, "cmd_capability_get_secret", lambda *a: None)
         # No capability creds AND no ambient creds -> loud failure (a naked
         # unauthenticated aws call is never the fallback).
         monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
@@ -185,9 +198,7 @@ class TestAwsCapabilityEnv:
         # An ephemeral CI runner has no capability store, but the GitHub-OIDC
         # role exports a real authenticated AWS credential set; use it, keep it
         # intact, and only pin the region.
-        monkeypatch.setattr(
-            deploy_remote, "cmd_capability_get_secret", lambda *a: None
-        )
+        monkeypatch.setattr(deploy_remote, "cmd_capability_get_secret", lambda *a: None)
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ASIA_OIDC")
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "oidc-secret")
         monkeypatch.setenv("AWS_SESSION_TOKEN", "oidc-session-token")

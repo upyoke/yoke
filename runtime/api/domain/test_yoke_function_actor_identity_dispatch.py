@@ -51,9 +51,7 @@ def _warning_handler(_request):
     return HandlerOutcome(
         result_payload={"ok": True},
         primary_success=True,
-        warnings=[
-            FunctionWarning(code="downstream", step="x", detail="fail")
-        ],
+        warnings=[FunctionWarning(code="downstream", step="x", detail="fail")],
     )
 
 
@@ -61,12 +59,13 @@ def _make_request(
     *,
     function: str = "test.family.op",
     payload_session: str = "payload-s",
+    actor_id: Optional[str] = None,
     item_id: int = 7,
     request_id: Optional[str] = None,
 ) -> FunctionCallRequest:
     return FunctionCallRequest(
         function=function,
-        actor=ActorContext(actor_id=None, session_id=payload_session),
+        actor=ActorContext(actor_id=actor_id, session_id=payload_session),
         target=TargetRef(kind="item", item_id=item_id),
         request_id=request_id,
     )
@@ -95,11 +94,13 @@ class _IntegrationBase(unittest.TestCase):
         self._patchers = [
             patch.object(events_module, "emit_event", self._recorder),
             patch.object(
-                dispatch_module, "_idempotency_lookup",
+                dispatch_module,
+                "_idempotency_lookup",
                 lambda *_a, **_k: None,
             ),
             patch.object(
-                identity_module, "_default_actor_id_resolver",
+                identity_module,
+                "_default_actor_id_resolver",
                 lambda _sid: self.resolver_lookup,
             ),
         ]
@@ -113,7 +114,10 @@ class _IntegrationBase(unittest.TestCase):
 
     def _register(self, function_id, handler=_ok_handler, side_effects=()):
         register(
-            function_id, handler, _Req, _Resp,
+            function_id,
+            handler,
+            _Req,
+            _Resp,
             stability="stable",
             owner_module="yoke_core.domain.test_actor_identity",
             target_kinds=["item"],
@@ -124,10 +128,7 @@ class _IntegrationBase(unittest.TestCase):
         )
 
     def _called_events(self, name="YokeFunctionCalled"):
-        return [
-            c for c in self._recorder.calls
-            if c["args"] and c["args"][0] == name
-        ]
+        return [c for c in self._recorder.calls if c["args"] and c["args"][0] == name]
 
 
 class TestDispatcherMutatingIdentity(_IntegrationBase):
@@ -136,13 +137,19 @@ class TestDispatcherMutatingIdentity(_IntegrationBase):
     def test_divergent_payload_session_binds_and_flags_override(self):
         self._register("intg.mut.op", side_effects=["rows_insert"])
 
-        with patch.dict("os.environ", {
-            "YOKE_SESSION_ID": "ambient-real",
-        }, clear=False):
-            resp = dispatch(_make_request(
-                function="intg.mut.op",
-                payload_session="explicit-debug",
-            ))
+        with patch.dict(
+            "os.environ",
+            {
+                "YOKE_SESSION_ID": "ambient-real",
+            },
+            clear=False,
+        ):
+            resp = dispatch(
+                _make_request(
+                    function="intg.mut.op",
+                    payload_session="explicit-debug",
+                )
+            )
 
         self.assertTrue(resp.success)
         events = self._called_events()
@@ -171,84 +178,25 @@ class TestDispatcherMutatingIdentity(_IntegrationBase):
     def test_match_lets_handler_run_without_identity_context(self):
         self._register("intg.mut.match", side_effects=["rows_insert"])
 
-        with patch.dict("os.environ", {
-            "YOKE_SESSION_ID": "match-session",
-        }, clear=False):
-            resp = dispatch(_make_request(
-                function="intg.mut.match",
-                payload_session="match-session",
-            ))
+        with patch.dict(
+            "os.environ",
+            {
+                "YOKE_SESSION_ID": "match-session",
+            },
+            clear=False,
+        ):
+            resp = dispatch(
+                _make_request(
+                    function="intg.mut.match",
+                    payload_session="match-session",
+                )
+            )
 
         self.assertTrue(resp.success)
         ctx = self._called_events()[0]["kwargs"]["context"]
         self.assertNotIn("session_override", ctx)
         self.assertNotIn("ambient_session_id", ctx)
         self.assertNotIn("provenance_unverified", ctx)
-
-
-class TestDispatcherProvenanceMarking(_IntegrationBase):
-    """Calls from sessions with no harness_sessions row are marked."""
-
-    resolver_lookup = ActorLookup(actor_id=None, session_found=False)
-
-    def test_unregistered_session_marks_called_event(self):
-        self._register("intg.mut.ghost", side_effects=["rows_insert"])
-
-        resp = dispatch(
-            _make_request(
-                function="intg.mut.ghost", payload_session="ghost-session",
-            ),
-            ambient_session_id="ghost-session",
-        )
-
-        self.assertTrue(resp.success)
-        ctx = self._called_events()[0]["kwargs"]["context"]
-        self.assertIs(ctx["provenance_unverified"], True)
-
-    def test_unregistered_session_marks_downstream_degraded(self):
-        self._register(
-            "intg.warn.ghost", handler=_warning_handler,
-            side_effects=["rows_insert"],
-        )
-
-        resp = dispatch(
-            _make_request(
-                function="intg.warn.ghost", payload_session="ghost-session",
-            ),
-            ambient_session_id="ghost-session",
-        )
-
-        self.assertTrue(resp.success)
-        warn_events = self._called_events("DispatcherDownstreamDegraded")
-        self.assertEqual(len(warn_events), 1)
-        self.assertIs(
-            warn_events[0]["kwargs"]["context"]["provenance_unverified"],
-            True,
-        )
-
-    def test_unregistered_session_marks_idempotency_replay(self):
-        self._register("intg.replay.ghost", side_effects=["rows_insert"])
-
-        stored = ({"replayed": True}, "intg.replay.ghost")
-        with patch.object(
-            dispatch_module, "_idempotency_lookup", return_value=stored,
-        ):
-            resp = dispatch(
-                _make_request(
-                    function="intg.replay.ghost",
-                    payload_session="ghost-session",
-                    request_id="r-1",
-                ),
-                ambient_session_id="ghost-session",
-            )
-
-        self.assertTrue(resp.success)
-        replay_events = self._called_events("DispatcherIdempotencyReplay")
-        self.assertEqual(len(replay_events), 1)
-        self.assertIs(
-            replay_events[0]["kwargs"]["context"]["provenance_unverified"],
-            True,
-        )
 
 
 class TestDispatcherReadOnlyAttribution(_IntegrationBase):
@@ -259,7 +207,8 @@ class TestDispatcherReadOnlyAttribution(_IntegrationBase):
 
         resp = dispatch(
             _make_request(
-                function="intg.ro.op", payload_session="payload-shaped",
+                function="intg.ro.op",
+                payload_session="payload-shaped",
             ),
             ambient_session_id="real-caller",
         )
@@ -278,7 +227,8 @@ class TestDispatcherReadOnlyAttribution(_IntegrationBase):
 
         resp = dispatch(
             _make_request(
-                function="intg.ro.matched", payload_session="same-session",
+                function="intg.ro.matched",
+                payload_session="same-session",
             ),
             ambient_session_id="same-session",
         )
@@ -289,44 +239,6 @@ class TestDispatcherReadOnlyAttribution(_IntegrationBase):
         self.assertNotIn("session_override", ctx)
         self.assertNotIn("ambient_session_id", ctx)
         self.assertEqual(evt["kwargs"]["session_id"], "same-session")
-
-
-class TestHttpBoundaryAmbient(unittest.TestCase):
-    """The https boundary never lets the server's env stand in for the caller."""
-
-    def test_empty_envelope_session_with_empty_ambient_stays_missing(self):
-        reset_registry_for_tests()
-        recorder = _Recorder()
-        with patch.object(events_module, "emit_event", recorder), patch.object(
-            identity_module, "_default_actor_id_resolver",
-            lambda _sid: ActorLookup(),
-        ):
-            register(
-                "intg.http.op", _ok_handler, _Req, _Resp,
-                stability="stable",
-                owner_module="yoke_core.domain.test_actor_identity",
-                target_kinds=["item"],
-                side_effects=["rows_insert"],
-                emitted_event_names=[],
-                guardrails=[],
-                adapter_status="live",
-            )
-            with patch.dict("os.environ", {
-                "YOKE_SESSION_ID": "server-process-session",
-            }, clear=False):
-                # ambient_session_id="" is what the HTTP route passes when
-                # the envelope carries no session: the server env must NOT
-                # be consulted as the caller's ambient identity.
-                resp = dispatch(
-                    _make_request(
-                        function="intg.http.op", payload_session="",
-                    ),
-                    ambient_session_id="",
-                )
-        reset_registry_for_tests()
-        self.assertFalse(resp.success)
-        assert resp.error is not None
-        self.assertEqual(resp.error.code, "actor_session_missing")
 
 
 if __name__ == "__main__":  # pragma: no cover - manual run

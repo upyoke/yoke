@@ -17,6 +17,33 @@ from yoke_contracts.github_origin import (
 )
 
 
+LocalDispatch = Callable[[FunctionCallRequest], FunctionCallResponse]
+
+
+def resolve_github_actions_bootstrap_dispatch() -> LocalDispatch:
+    """Load the engine's narrow attended-bootstrap dispatcher lazily.
+
+    Command adapters remain client-only. This transport seam is the sanctioned
+    local-universe activation boundary and imports the engine only after the
+    caller has explicitly selected attended local GitHub authority.
+    """
+    try:
+        module = importlib.import_module(
+            "yoke_core.domain.github_actions_local_authority"
+        )
+    except ImportError as exc:
+        raise RuntimeError(
+            "attended local GitHub Actions authority requires yoke-core"
+        ) from exc
+    dispatch = getattr(module, "dispatch", None)
+    if not callable(dispatch):
+        raise RuntimeError(
+            "installed yoke-core does not provide attended local GitHub "
+            "Actions authority"
+        )
+    return dispatch
+
+
 def call_with_machine_github_authorization(
     request: FunctionCallRequest,
     local_dispatch: Callable[[FunctionCallRequest], FunctionCallResponse],
@@ -25,9 +52,7 @@ def call_with_machine_github_authorization(
 ) -> FunctionCallResponse:
     """Expose lazy machine user auth only to in-process core dispatch."""
     try:
-        auth_module = importlib.import_module(
-            "yoke_core.domain.project_github_auth"
-        )
+        auth_module = importlib.import_module("yoke_core.domain.project_github_auth")
     except ImportError:
         if core_available:
             return _error(
@@ -57,9 +82,7 @@ def call_with_machine_github_authorization(
                 f"machine GitHub App configuration is invalid: {config_error}. "
                 "Run `yoke github status`, then reconnect GitHub."
             )
-        token_module = importlib.import_module(
-            "yoke_cli.config.github_user_tokens"
-        )
+        token_module = importlib.import_module("yoke_cli.config.github_user_tokens")
         return token_module.access_token_from_machine_config().access_token
 
     with auth_module.bind_local_github_user_token_provider(
@@ -88,4 +111,7 @@ def _error(
     )
 
 
-__all__ = ["call_with_machine_github_authorization"]
+__all__ = [
+    "call_with_machine_github_authorization",
+    "resolve_github_actions_bootstrap_dispatch",
+]

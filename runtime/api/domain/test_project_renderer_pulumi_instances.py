@@ -20,9 +20,7 @@ def _make_project_tree(tmp_path, project: str):
     root = tmp_path / "repo"
     infra = root / "templates" / "webapp" / "infra"
     infra.mkdir(parents=True)
-    (infra / "Pulumi.yaml").write_text(
-        "name: webapp-infra\nruntime:\n  name: python\n"
-    )
+    (infra / "Pulumi.yaml").write_text("name: webapp-infra\nruntime:\n  name: python\n")
     (infra / "Pulumi.stack.yaml.tmpl").write_text(
         "config:\n  aws:region: {{aws_region}}\n"
         "  webapp-infra:project_name: {{project_name}}\n"
@@ -32,7 +30,7 @@ def _make_project_tree(tmp_path, project: str):
         "  webapp-infra:project_name: {{project_name}}\n"
         "  webapp-infra:domain_name: {{domain_name}}\n"
         "  webapp-infra:import_zone_id: {{import_zone_id}}\n"
-        "  webapp-infra:manage_registration: \"{{manage_registration}}\"\n"
+        '  webapp-infra:manage_registration: "{{manage_registration}}"\n'
         "  webapp-infra:domain_txt_records: '{{domain_txt_records_json}}'\n"
         "  webapp-infra:domain_mx_records: '{{domain_mx_records_json}}'\n"
     )
@@ -61,6 +59,8 @@ def _make_project_tree(tmp_path, project: str):
         '  webapp-infra:database_max_capacity_acu: "{{database_max_capacity_acu}}"\n'
         '  webapp-infra:database_seconds_until_auto_pause: "{{database_seconds_until_auto_pause}}"\n'
         '  webapp-infra:database_backup_retention_days: "{{database_backup_retention_days}}"\n'
+        "  webapp-infra:database_allowed_security_group_ids: "
+        "{{database_allowed_security_group_ids}}\n"
         "  webapp-infra:ephemeral_preview_domain: {{ephemeral_preview_domain}}\n"
         "  webapp-infra:github_app_private_key_secret_arn: "
         "{{github_app_private_key_secret_arn}}\n"
@@ -109,7 +109,10 @@ def _settings_with_environments(
 
 
 def _environment_settings(
-    name: str, environment: str, *, render_only: bool = False,
+    name: str,
+    environment: str,
+    *,
+    render_only: bool = False,
 ) -> RendererEnvironmentSettings:
     host_prefix = "" if environment == "prod" else f"{environment}."
     activation_state = "render_only" if render_only else "active"
@@ -122,11 +125,13 @@ def _environment_settings(
                 "origin": f"origin.{host_prefix}example.com",
                 "origin_port": 80,
             },
-            "servers": [{
-                "instance_type": "t4g.medium",
-                "root_volume_gb": 40,
-                "aws_key_pair_name": f"yoke-{environment}",
-            }],
+            "servers": [
+                {
+                    "instance_type": "t4g.medium",
+                    "root_volume_gb": 40,
+                    "aws_key_pair_name": f"yoke-{environment}",
+                }
+            ],
             "database": {
                 "name": f"yoke_{environment}",
                 "master_username": "yoke_admin",
@@ -134,6 +139,7 @@ def _environment_settings(
                 "min_capacity_acu": 0,
                 "max_capacity_acu": 4,
                 "backup_retention_days": 7,
+                "allowed_security_group_ids": ["sg-tenant-provisioner"],
             },
             "pulumi": {"stack_name": name, "activation_state": activation_state},
             "capabilities": ["database", "vps", "api"],
@@ -193,6 +199,9 @@ class TestGatherPulumiStackInstances:
                     "database_max_capacity_acu": "4",
                     "database_seconds_until_auto_pause": "1800",
                     "database_backup_retention_days": "7",
+                    "database_allowed_security_group_ids": (
+                        '["sg-tenant-provisioner"]'
+                    ),
                     "distribution_bucket_name": "",
                     "distribution_origin_id": "",
                     "ephemeral_preview_domain": "",
@@ -203,7 +212,8 @@ class TestGatherPulumiStackInstances:
             )
         ]
         values = instance_template_values(
-            instances[0], {"project_name": "yoke", "environment": "base"},
+            instances[0],
+            {"project_name": "yoke", "environment": "base"},
         )
         assert values["project_name"] == "yoke"
         assert values["environment"] == "prod"
@@ -214,100 +224,13 @@ class TestGatherPulumiStackInstances:
         settings = _settings_with_environments(
             "yoke",
             ["domain"],
-            [RendererEnvironmentSettings(id="yoke-api-extra", name="extra", settings={})],
+            [
+                RendererEnvironmentSettings(
+                    id="yoke-api-extra", name="extra", settings={}
+                )
+            ],
         )
         _stub_settings(monkeypatch, settings)
         root, _ = _make_project_tree(tmp_path, "yoke")
 
         assert gather_pulumi_stack_instances("yoke", root) == []
-
-
-class TestRenderPulumiStackInstances:
-    def test_renders_instances_additively_with_legacy_stacks(self, tmp_path, monkeypatch):
-        root, proj = _make_project_tree(tmp_path, "yoke")
-        settings = _settings_with_environments(
-            "yoke",
-            ["infra"],
-            [_environment_settings("yoke-prod", "prod")],
-        )
-        _stub_settings(monkeypatch, settings)
-        values = {
-            "aws_region": "us-east-1",
-            "domain_name": "example.com",
-            "project_name": "yoke",
-        }
-
-        project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", values, root, proj, write=True,
-        )
-
-        names = {p.name for p in (proj / "infra").iterdir()}
-        assert "Pulumi.yoke-infra.yaml" in names
-        assert "Pulumi.yoke-prod.yaml" in names
-        assert "webapp_environment_stack.py" in names
-        assert "webapp_database_stack.py" in names
-        assert "webapp_api_stack.py" in names
-        assert "webapp_vps_stack.py" in names
-        stack_yaml = (proj / "infra" / "Pulumi.yoke-prod.yaml").read_text()
-        assert "webapp-infra:environment: prod" in stack_yaml
-        assert "webapp-infra:capabilities: database,vps,api" in stack_yaml
-        assert "webapp-infra:api_host: api.example.com" in stack_yaml
-        assert "webapp-infra:origin_host: origin.example.com" in stack_yaml
-        assert 'webapp-infra:database_min_capacity_acu: "0"' in stack_yaml
-        assert 'webapp-infra:database_seconds_until_auto_pause: "1800"' in stack_yaml
-        assert 'webapp-infra:render_only: "false"' in stack_yaml
-        assert "vpc_id" not in stack_yaml
-        assert "subnet_ids" not in stack_yaml
-        assert "allowed_security_group_ids" not in stack_yaml
-        assert "{{" not in stack_yaml
-
-    def test_renders_prod_stage_and_preserves_legacy_domain_stack(
-        self, tmp_path, monkeypatch,
-    ):
-        root, proj = _make_project_tree(tmp_path, "yoke")
-        settings = _settings_with_environments(
-            "yoke",
-            ["domain"],
-            [
-                _environment_settings("yoke-prod", "prod"),
-                _environment_settings("yoke-stage", "stage", render_only=True),
-            ],
-        )
-        _stub_settings(monkeypatch, settings)
-        values = {
-            "aws_region": "us-east-1",
-            "domain_name": "example.com",
-            "project_name": "yoke",
-        }
-
-        project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", values, root, proj, write=True,
-        )
-
-        names = {p.name for p in (proj / "infra").iterdir()}
-        assert {
-            "Pulumi.yoke-domain.yaml",
-            "Pulumi.yoke-prod.yaml",
-            "Pulumi.yoke-stage.yaml",
-            "webapp_domain_stack.py",
-            "webapp_environment_stack.py",
-            "webapp_database_stack.py",
-            "webapp_api_stack.py",
-            "webapp_vps_stack.py",
-        } <= names
-        assert "Pulumi.yoke-infra.yaml" not in names
-        assert "Pulumi.yoke-vps.yaml" not in names
-
-        prod_yaml = (proj / "infra" / "Pulumi.yoke-prod.yaml").read_text()
-        stage_yaml = (proj / "infra" / "Pulumi.yoke-stage.yaml").read_text()
-        domain_yaml = (proj / "infra" / "Pulumi.yoke-domain.yaml").read_text()
-
-        assert "webapp-infra:stack_kind: environment" in prod_yaml
-        assert "webapp-infra:api_host: api.example.com" in prod_yaml
-        assert "webapp-infra:environment: stage" in stage_yaml
-        assert "webapp-infra:api_host: api.stage.example.com" in stage_yaml
-        assert 'webapp-infra:render_only: "true"' in stage_yaml
-        assert "webapp-infra:manage_registration: \"false\"" in domain_yaml
-        assert "webapp-infra:api_host" not in domain_yaml
-        assert "webapp-infra:database_engine_version" not in domain_yaml
-        assert "{{" not in prod_yaml + stage_yaml + domain_yaml

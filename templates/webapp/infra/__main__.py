@@ -26,6 +26,7 @@ import pulumi  # noqa: E402 -- sibling path must be installed before this import
 
 def _infra_args_from_config(deploy_namespace: str):
     from webapp_infra_stack import WebappInfraArgs
+
     config = pulumi.Config()
     return WebappInfraArgs(
         domain_name=config.require("domain_name"),
@@ -35,10 +36,7 @@ def _infra_args_from_config(deploy_namespace: str):
         certificate_arn=config.get("certificate_arn") or "",
         origin_id=config.require("origin_id"),
         distribution_bucket_name=config.get("distribution_bucket_name") or "",
-        distribution_origin_id=(
-            config.get("distribution_origin_id")
-            or "yoke-distribution-static"
-        ),
+        distribution_origin_id=config.get("distribution_origin_id") or "",
         domain_txt_records=_domain_txt_records_from_config(config),
         domain_mx_records=_domain_mx_records_from_config(config),
     )
@@ -46,6 +44,7 @@ def _infra_args_from_config(deploy_namespace: str):
 
 def _vps_args_from_config(deploy_namespace: str):
     from webapp_vps_stack import WebappVpsArgs
+
     config = pulumi.Config()
     return WebappVpsArgs(
         deploy_namespace=deploy_namespace,
@@ -58,6 +57,7 @@ def _vps_args_from_config(deploy_namespace: str):
 
 def _domain_args_from_config(deploy_namespace: str):
     from webapp_domain_stack import WebappDomainArgs
+
     config = pulumi.Config()
     return WebappDomainArgs(
         domain_name=config.require("domain_name"),
@@ -89,9 +89,7 @@ def _domain_txt_records_from_config(config):
     parsed = []
     for index, item in enumerate(loaded):
         if not isinstance(item, dict):
-            raise pulumi.RunError(
-                f"domain_txt_records[{index}] must be an object"
-            )
+            raise pulumi.RunError(f"domain_txt_records[{index}] must be an object")
         raw_values = item.get("values", item.get("records"))
         if raw_values is None and item.get("value") is not None:
             raw_values = [item.get("value")]
@@ -115,9 +113,7 @@ def _domain_txt_records_from_config(config):
                 name=str(item.get("name") or "@"),
                 values=values,
                 ttl=ttl,
-                resource_name=str(
-                    item.get("resource_name") or item.get("id") or ""
-                ),
+                resource_name=str(item.get("resource_name") or item.get("id") or ""),
             )
         )
     return tuple(parsed)
@@ -130,18 +126,14 @@ def _domain_mx_records_from_config(config):
     try:
         loaded = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise pulumi.RunError(
-            f"domain_mx_records must be a JSON array: {exc}"
-        ) from exc
+        raise pulumi.RunError(f"domain_mx_records must be a JSON array: {exc}") from exc
     if not isinstance(loaded, list):
         raise pulumi.RunError("domain_mx_records must be a JSON array")
 
     parsed = []
     for index, item in enumerate(loaded):
         if not isinstance(item, dict):
-            raise pulumi.RunError(
-                f"domain_mx_records[{index}] must be an object"
-            )
+            raise pulumi.RunError(f"domain_mx_records[{index}] must be an object")
         raw_values = item.get("values", item.get("records"))
         if raw_values is None and item.get("value") is not None:
             try:
@@ -155,11 +147,7 @@ def _domain_mx_records_from_config(config):
             raise pulumi.RunError(
                 f"domain_mx_records[{index}] must declare value or values"
             )
-        values = tuple(
-            str(value).strip()
-            for value in raw_values
-            if str(value).strip()
-        )
+        values = tuple(str(value).strip() for value in raw_values if str(value).strip())
         if not values:
             raise pulumi.RunError(
                 f"domain_mx_records[{index}] must declare at least one value"
@@ -175,9 +163,7 @@ def _domain_mx_records_from_config(config):
                 name=str(item.get("name") or "@"),
                 values=values,
                 ttl=ttl,
-                resource_name=str(
-                    item.get("resource_name") or item.get("id") or ""
-                ),
+                resource_name=str(item.get("resource_name") or item.get("id") or ""),
             )
         )
     return tuple(parsed)
@@ -194,6 +180,7 @@ def _config_string_list(config, name: str) -> list[str]:
 
 def _registry_args_from_config(deploy_namespace: str):
     from webapp_registry_stack import WebappRegistryArgs
+
     config = pulumi.Config()
     manage_provider = config.get_bool("manage_github_oidc_provider")
     return WebappRegistryArgs(
@@ -223,6 +210,7 @@ def _registry_args_from_config(deploy_namespace: str):
 
 def _runner_fleet_args_from_config(deploy_namespace: str):
     from webapp_runner_fleet_config import WebappRunnerFleetArgs
+
     config = pulumi.Config()
     aws_config = pulumi.Config("aws")
     labels = json.loads(config.require("runner_labels"))
@@ -241,9 +229,7 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
         github_app_issuer=config.require("github_app_issuer"),
         github_api_url=config.require("github_api_url"),
         github_web_url=config.require("github_web_url"),
-        github_private_key_secret_arn=config.require(
-            "github_private_key_secret_arn"
-        ),
+        github_private_key_secret_arn=config.require("github_private_key_secret_arn"),
         runner_labels=[str(label) for label in labels],
         runner_variable_name=config.require("runner_variable_name"),
         routing_enabled=config.require_bool("routing_enabled"),
@@ -260,6 +246,7 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
 def _environment_args_from_config(deploy_namespace: str, stack_name: str):
     from webapp_database_stack import DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
     from webapp_environment_stack import WebappEnvironmentArgs
+
     config = pulumi.Config()
     seconds_until_auto_pause = config.get_int("database_seconds_until_auto_pause")
     return WebappEnvironmentArgs(
@@ -284,6 +271,9 @@ def _environment_args_from_config(deploy_namespace: str, stack_name: str):
         database_backup_retention_days=config.require_int(
             "database_backup_retention_days",
         ),
+        database_allowed_security_group_ids=_config_string_list(
+            config, "database_allowed_security_group_ids"
+        ),
         database_seconds_until_auto_pause=(
             DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
             if seconds_until_auto_pause is None
@@ -306,23 +296,32 @@ def main() -> None:
 
     if stack_kind == "environment":
         from webapp_environment_stack import WebappEnvironmentStack
-        WebappEnvironmentStack(stack, _environment_args_from_config(deploy_namespace, stack))
+
+        WebappEnvironmentStack(
+            stack, _environment_args_from_config(deploy_namespace, stack)
+        )
     elif stack.endswith("-infra"):
         from webapp_infra_stack import WebappInfraStack
+
         WebappInfraStack(stack, _infra_args_from_config(deploy_namespace))
     elif stack.endswith("-vps"):
         from webapp_vps_stack import WebappVpsStack
+
         WebappVpsStack(stack, _vps_args_from_config(deploy_namespace))
     elif stack.endswith("-domain"):
         from webapp_domain_stack import WebappDomainStack
+
         WebappDomainStack(stack, _domain_args_from_config(deploy_namespace))
     elif stack.endswith("-registry"):
         from webapp_registry_stack import WebappRegistryStack
+
         WebappRegistryStack(stack, _registry_args_from_config(deploy_namespace))
     elif stack.endswith("-runner-fleet"):
         from webapp_runner_fleet_stack import WebappRunnerFleetStack
+
         WebappRunnerFleetStack(
-            stack, _runner_fleet_args_from_config(deploy_namespace),
+            stack,
+            _runner_fleet_args_from_config(deploy_namespace),
         )
     else:
         raise pulumi.RunError(

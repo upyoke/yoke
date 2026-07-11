@@ -13,6 +13,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.transport import local_github_dispatch as local_github
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_contracts.api.function_call import (
     FunctionCallResponse,
@@ -85,9 +86,10 @@ def _call(
         )
     local_dispatch = None
     if local_setting == "1":
-        from yoke_core.domain.github_actions_local_authority import dispatch
-
-        local_dispatch = dispatch
+        try:
+            local_dispatch = local_github.resolve_github_actions_bootstrap_dispatch()
+        except RuntimeError as exc:
+            return _authority_error(function_id, request_id, str(exc))
     else:
         try:
             from yoke_cli.transport.https import resolve_https_connection
@@ -300,9 +302,7 @@ def github_actions_poll(args: List[str]) -> int:
         emit_response(response, json_mode=True)
     else:
         print(response.result.get("message") or state)
-    return {"success": 0, "failed": 1, "waiting": 2, "running": 3}.get(
-        state, 1
-    )
+    return {"success": 0, "failed": 1, "waiting": 2, "running": 3}.get(state, 1)
 
 
 def github_actions_jobs_count(args: List[str]) -> int:

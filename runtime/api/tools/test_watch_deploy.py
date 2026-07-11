@@ -260,9 +260,7 @@ class TestMainDispatch:
             seen.update(kwargs)
             return 2
 
-        monkeypatch.setattr(
-            watch_deploy._watch_runner, "run_watcher", fake_run_watcher
-        )
+        monkeypatch.setattr(watch_deploy._watch_runner, "run_watcher", fake_run_watcher)
         raw = tmp_path / "raw.log"
         progress = tmp_path / "progress.log"
 
@@ -324,7 +322,8 @@ class TestProductSrc:
             lambda root, **kwargs: None,
         )
         monkeypatch.setattr(
-            watch_deploy, "prepare_product_deploy_args",
+            watch_deploy,
+            "prepare_product_deploy_args",
             lambda args, root: [*args, "--product-repo-path", str(root.resolve())],
         )
         product_root = tmp_path / "product"
@@ -355,7 +354,9 @@ class TestProductSrc:
         assert pythonpath[0].startswith(str(product_root.resolve()))
 
     def test_absent_product_src_warns_and_inherits_env(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         seen = {}
@@ -384,7 +385,9 @@ class TestProductSrc:
         assert "stale logic" in err
 
     def test_product_src_import_refusal_returns_three(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         # run_watcher must NOT be reached when the product checkout can't
@@ -401,10 +404,7 @@ class TestProductSrc:
         )
         product_root = tmp_path / "product"
         product_root.mkdir()
-
-        rc = watch_deploy.main(
-            ["--product-src", str(product_root), "--", "run-1"]
-        )
+        rc = watch_deploy.main(["--product-src", str(product_root), "--", "run-1"])
 
         assert rc == 3
         assert "watch_deploy --product-src" in capsys.readouterr().err

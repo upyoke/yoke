@@ -44,9 +44,7 @@ def test_project_topic_renders_command_definitions_recipes() -> None:
 
 def test_project_topic_renders_deploy_defaults_recipe() -> None:
     body = sac.render_topic_packet("project")
-    assert (
-        "yoke project-structure deploy-defaults get --project <project>"
-    ) in body
+    assert ("yoke project-structure deploy-defaults get --project <project>") in body
     assert "project_structure.deploy_defaults.get" in body
     assert "raw deploy_defaults module" in body
 
@@ -133,18 +131,26 @@ def test_core_topic_includes_dependency_wrappers() -> None:
 def test_core_topic_pins_itemless_deploy_to_product_checkout() -> None:
     body = sac.render_topic_packet("core")
     fetch = 'git -C "$source_checkout" fetch origin "$target_branch"'
-    resolve = 'rev-parse --short=12 FETCH_HEAD'
+    detach = 'git -C "$source_checkout" checkout --detach FETCH_HEAD'
+    resolve = "rev-parse --short=12 HEAD"
     watched = (
         'watch_deploy --product-src "$source_checkout" -- {run-id} '
         '--image-tag "$deploy_image_tag"'
     )
     assert fetch in body
+    assert detach in body
     assert resolve in body
+    assert "$source_checkout/packages/yoke-core/src" in body
     assert watched in body
     assert "YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env>" in body
     assert "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1" in body
     assert "never leave authority selection implicit" in body
-    assert body.index(fetch) < body.index(resolve) < body.index(watched)
+    assert (
+        body.index(fetch)
+        < body.index(detach)
+        < body.index(resolve)
+        < body.index(watched)
+    )
 
 
 def test_every_role_packet_teaches_worktree_source_pythonpath() -> None:
@@ -177,11 +183,11 @@ def test_main_packet_includes_learning_log_and_deployment_runs() -> None:
 
 
 _NEW_STALE_TERMS_2026_05 = (
-    "command_definitions" " WHERE",
-    "qa_kind=" "'review'",
-    "--qa-kind " "review",
-    ".agents/skills/yoke/" "scripts/python3 -m yoke_core.cli.db_router qa",
-    "blocker_" "item_id",
+    "command_definitions WHERE",
+    "qa_kind='review'",
+    "--qa-kind review",
+    ".agents/skills/yoke/scripts/python3 -m yoke_core.cli.db_router qa",
+    "blocker_item_id",
 )
 
 
@@ -190,9 +196,7 @@ def test_new_stale_terms_in_seed() -> None:
     seed regression list."""
 
     for term in _NEW_STALE_TERMS_2026_05:
-        assert term in seed.STALE_TERMS, (
-            f"STALE_TERMS missing YOK-1611 entry: {term!r}"
-        )
+        assert term in seed.STALE_TERMS, f"STALE_TERMS missing YOK-1611 entry: {term!r}"
 
 
 def test_engineer_and_tester_receive_project_and_qa_topics() -> None:
@@ -234,9 +238,7 @@ def test_main_agent_role_present_with_core_claims_auth_qa_and_deploy_hint() -> N
         "claims",
         "auth",
         "qa",
-    ), (
-        "main_agent carries core + claims + auth + qa"
-    )
+    ), "main_agent carries core + claims + auth + qa"
     body = sac.render_role_packet("main_agent")
     assert body.strip(), "main_agent packet body must be non-empty"
     assert sac._TOPIC_HEADERS["core"] in body

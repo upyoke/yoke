@@ -12,6 +12,8 @@ import subprocess
 import sys
 import textwrap
 
+import pytest
+
 from runtime.api.test_merge_worktree_full import (
     TEST_BRANCH,
     MergeEnv,
@@ -19,10 +21,15 @@ from runtime.api.test_merge_worktree_full import (
     WORKTREE_ROOT,
     _git,
     _write_file,
+    merge_env as _shared_merge_env,
     run_merge,
 )
 
-pytest_plugins = ("runtime.api.test_merge_worktree_full",)
+
+@pytest.fixture(name="merge_env")
+def _merge_env_fixture(tmp_path, request):
+    """Expose the shared fixture without relying on plugin load order."""
+    return _shared_merge_env.__wrapped__(tmp_path, request)
 
 
 # ===========================================================================
@@ -96,7 +103,9 @@ class TestPostMergeOps:
 
         # Local main includes origin/main
         _git(repo, "fetch", "origin", "main", check=False)
-        anc = _git(repo, "merge-base", "--is-ancestor", "origin/main", "main", check=False)
+        anc = _git(
+            repo, "merge-base", "--is-ancestor", "origin/main", "main", check=False
+        )
         assert anc.returncode == 0
 
     def test_yok443_sync_failure_nonfatal(self, merge_env: MergeEnv) -> None:
@@ -123,7 +132,9 @@ class TestPostMergeOps:
         # No terminal DB owner, clean-status proof, or active-claim proof exists.
         assert stale_dir.exists()
 
-        branch_list = _git(repo, "branch", "--list", "worktree-agent-stale-12345", check=False)
+        branch_list = _git(
+            repo, "branch", "--list", "worktree-agent-stale-12345", check=False
+        )
         assert "worktree-agent-stale-12345" in branch_list.stdout.strip()
 
         assert "Pruning stale agent worktree" not in result.stdout
@@ -152,14 +163,23 @@ class TestPostMergeOps:
 class TestRemoteCleanup:
     """Remote branch deletion."""
 
-    def test_yok541_remote_branch_delete_unconditional(self, merge_env: MergeEnv) -> None:
+    def test_yok541_remote_branch_delete_unconditional(
+        self, merge_env: MergeEnv
+    ) -> None:
         """Remote branch deleted after merge."""
         result = run_merge(merge_env)
         assert result.exit_code == 0
 
         # Either the delete message appears, or the branch is already gone
         if "Deleted remote branch" not in result.stdout:
-            ls_remote = _git(merge_env.repo, "ls-remote", "--heads", str(merge_env.origin), TEST_BRANCH, check=False)
+            ls_remote = _git(
+                merge_env.repo,
+                "ls-remote",
+                "--heads",
+                str(merge_env.origin),
+                TEST_BRANCH,
+                check=False,
+            )
             assert TEST_BRANCH not in ls_remote.stdout
 
     def test_yok541_remote_delete_warning_on_failure(self, merge_env: MergeEnv) -> None:
@@ -175,12 +195,16 @@ class TestRemoteCleanup:
 class TestCleanupTrap:
     """Cleanup trap removes trial branch on error."""
 
-    def test_yok495_cleanup_trap_removes_trial_branch(self, merge_env: MergeEnv) -> None:
+    def test_yok495_cleanup_trap_removes_trial_branch(
+        self, merge_env: MergeEnv
+    ) -> None:
         """Trap cleans up trial branch on error."""
         repo = merge_env.repo
 
         # Find real git
-        real_git = subprocess.run(["which", "git"], capture_output=True, text=True, check=True).stdout.strip()
+        real_git = subprocess.run(
+            ["which", "git"], capture_output=True, text=True, check=True
+        ).stdout.strip()
 
         # Create git mock that fails on 'checkout YOK-N' (without -b)
         git_mock_dir = merge_env.tmpdir / "git-mock"

@@ -7,9 +7,13 @@ from unittest import mock
 from yoke_core.engines import merge_worktree
 
 
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
+
 def _ctx(tmp_path):
     return merge_worktree.MergeContext(
-        args=merge_worktree.MergeArgs(branch="YOK-42", target="main"),
+        args=merge_worktree.MergeArgs(branch=TEST_ITEM_REF, target="main"),
         repo_root=str(tmp_path),
         worktree_path=str(tmp_path),
     )
@@ -29,7 +33,7 @@ def test_non_conflict_merge_failure_restores_and_fails(tmp_path):
 
     assert result == (1, [])
     commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
-    assert "checkout YOK-42" in commands
+    assert f"checkout {TEST_ITEM_REF}" in commands
     assert not any("branch -D" in command for command in commands)
 
 
@@ -41,7 +45,11 @@ def test_detach_refusal_stops_before_merge(tmp_path):
 
     assert result == (1, [])
     assert run_git.call_count == 1
-    assert run_git.call_args.args[0] == ["checkout", "--detach", "YOK-42"]
+    assert run_git.call_args.args[0] == [
+        "checkout",
+        "--detach",
+        TEST_ITEM_REF,
+    ]
 
 
 def test_failed_trial_reports_restore_failure_as_error(tmp_path):
@@ -56,7 +64,7 @@ def test_failed_trial_reports_restore_failure_as_error(tmp_path):
         ]
         assert merge_worktree.trial_merge(ctx) == (1, [])
 
-    assert run_git.call_args_list[-1].args[0] == ["checkout", "YOK-42"]
+    assert run_git.call_args_list[-1].args[0] == ["checkout", TEST_ITEM_REF]
 
 
 def test_successful_trial_aborts_uncommitted_merge_before_restore(tmp_path):
@@ -73,7 +81,7 @@ def test_successful_trial_aborts_uncommitted_merge_before_restore(tmp_path):
 
     commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
     assert "merge --no-commit --no-ff origin/main" in commands
-    assert commands.index("merge --abort") < commands.index("checkout YOK-42")
+    assert commands.index("merge --abort") < commands.index(f"checkout {TEST_ITEM_REF}")
 
 
 def test_already_current_trial_restores_without_abort(tmp_path):
@@ -89,4 +97,4 @@ def test_already_current_trial_restores_without_abort(tmp_path):
 
     commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
     assert "merge --abort" not in commands
-    assert commands[-1] == "checkout YOK-42"
+    assert commands[-1] == f"checkout {TEST_ITEM_REF}"

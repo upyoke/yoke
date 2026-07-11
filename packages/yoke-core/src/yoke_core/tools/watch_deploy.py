@@ -51,7 +51,12 @@ from typing import Sequence
 
 from yoke_core.tools import _source_pythonpath, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
-from yoke_core.tools.watch_deploy_product_source import WatchDeployProductSourceError, prepare_product_deploy_args
+from yoke_core.tools import watch_deploy_args
+from yoke_core.tools.watch_deploy_product_source import (
+    WatchDeployProductSourceError,
+    itemless_deploy_requires_product_source,
+    prepare_product_deploy_args,
+)
 
 WRAPPER_MODULE = "yoke_core.tools.watch_deploy"
 KIND = "deploy"
@@ -254,7 +259,8 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default=None,
         help="Path to a product checkout at the deployed pin/image sha. "
         "Uses that checkout for both Python source and deploy build context. "
-        "Omit it to warn and run this checkout's code.",
+        "Required for item-less environment deploys carrying --image-tag; "
+        "other invocations may omit it to warn and run this checkout's code.",
     )
     parser.add_argument(
         "passthrough",
@@ -269,42 +275,31 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     return parser.parse_args(list(argv))
 
 
-def _strip_separator(passthrough: list[str]) -> list[str]:
-    """Drop a leading ``--`` argparse left in the REMAINDER list."""
-    if passthrough and passthrough[0] == "--":
-        return passthrough[1:]
-    return passthrough
-
-
-def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
-    """Pull ``--print-streaming-pair`` out of any position in ``argv``.
-
-    ``passthrough`` uses ``nargs=argparse.REMAINDER``, which means the
-    flag would otherwise reach deploy_pipeline verbatim if placed after
-    the ``--`` separator. Pre-extracting makes every position
-    equivalent.
-    """
-    filtered: list[str] = []
-    found = False
-    for arg in argv:
-        if arg == _watch_runner.PRINT_STREAMING_PAIR_FLAG:
-            found = True
-            continue
-        filtered.append(arg)
-    return filtered, found
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
-    raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
+    raw, print_streaming_pair_flag = watch_deploy_args.extract_streaming_flag(raw)
     ns = _parse_args(raw)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
-    deploy_args = _strip_separator(list(ns.passthrough))
+    deploy_args = watch_deploy_args.strip_separator(list(ns.passthrough))
 
     if _is_nested_deploy_invocation(deploy_args):
         print(NESTED_DEPLOY_REJECTION_MESSAGE, file=sys.stderr)
         return 2
+
+    try:
+        itemless_requires_source = itemless_deploy_requires_product_source(deploy_args)
+    except WatchDeployProductSourceError as exc:
+        print(f"watch_deploy --product-src: {exc}", file=sys.stderr)
+        return 3
+    if ns.product_src is None and itemless_requires_source:
+        print(
+            "watch_deploy --product-src: item-less environment deploys "
+            "carrying --image-tag require --product-src at the exact "
+            "deployed product checkout",
+            file=sys.stderr,
+        )
+        return 3
 
     product_root: Path | None = None
     deploy_env: dict[str, str] | None = None

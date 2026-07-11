@@ -96,10 +96,7 @@ WATCHERS_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": (
-            "Run done_transition / merge_worktree with watcher (main "
-            "session)"
-        ),
+        "purpose": ("Run done_transition / merge_worktree with watcher (main session)"),
         "recipe": (
             "python3 -m yoke_core.tools.watch_merge "
             "--print-streaming-pair merge-worktree -- YOK-N\n"
@@ -118,15 +115,21 @@ WATCHERS_COMMANDS: list[dict] = [
             "(admin/source-dev)"
         ),
         "recipe": (
-            "source_checkout=<source-checkout> target_branch=<main-or-stage>\n"
-            "git -C \"$source_checkout\" fetch origin \"$target_branch\" && "
-            "deploy_image_tag=\"$(git -C \"$source_checkout\" rev-parse "
-            "--short=12 FETCH_HEAD)\"\n"
+            "source_checkout=<source-checkout>; target_branch=<main-or-stage>; "
+            'git -C "$source_checkout" fetch origin "$target_branch" && '
+            'git -C "$source_checkout" checkout --detach FETCH_HEAD && '
+            'deploy_image_tag="$(git -C "$source_checkout" rev-parse '
+            '--short=12 HEAD)" && '
+            'PYTHONPATH="$source_checkout/packages/yoke-contracts/src:'
+            "$source_checkout/packages/yoke-cli/src:"
+            "$source_checkout/packages/yoke-core/src:"
+            "$source_checkout/packages/yoke-harness/src:"
+            '$source_checkout${PYTHONPATH:+:$PYTHONPATH}" '
             "YOKE_ENV=<control-plane-env>-db-admin "
             "YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env> "
             "python3 -m "
-            "yoke_core.tools.watch_deploy --product-src \"$source_checkout\" "
-            "-- {run-id} --image-tag \"$deploy_image_tag\""
+            'yoke_core.tools.watch_deploy --product-src "$source_checkout" '
+            '-- {run-id} --image-tag "$deploy_image_tag"'
         ),
         "notes": (
             "watch_deploy supplies the `python3 -m "
@@ -136,7 +139,11 @@ WATCHERS_COMMANDS: list[dict] = [
             "`--from-stage`, and the required `--image-tag`). The product "
             "checkout pins the executing code, build context, and product "
             "release SHA; use the same checkout and image tag on every retry "
-            "or resume. Claude adds `--print-streaming-pair` immediately "
+            "or resume. Fetching alone does not move the checkout; detach it "
+            "at `FETCH_HEAD` before resolving the tag. The explicit "
+            "worktree-source `PYTHONPATH` prevents an installed older Yoke "
+            "from running the outer watcher. Claude adds "
+            "`--print-streaming-pair` immediately "
             "before `--`; Codex/native shells run the shown command. This "
             "local-Postgres control-plane recipe is for "
             "source-dev/admin or audited break-glass operation only; "
@@ -160,8 +167,7 @@ WATCHERS_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": (
-            "Run pytest with explicit raw-capture path (post-completion "
-            "inspection)"
+            "Run pytest with explicit raw-capture path (post-completion inspection)"
         ),
         "recipe": (
             "python3 -m yoke_core.tools.watch_pytest "

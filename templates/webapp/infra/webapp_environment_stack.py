@@ -17,7 +17,7 @@ recovery path when SSH or the app runtime is unavailable.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import pulumi
@@ -32,7 +32,9 @@ from webapp_database_stack import (
 from webapp_vps_stack import WebappVpsArgs, WebappVpsStack
 from webapp_environment_origin_policy import apply_input, origin_role_policy_json
 
-_SSM_MANAGED_INSTANCE_CORE_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+_SSM_MANAGED_INSTANCE_CORE_POLICY_ARN = (
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+)
 
 
 @dataclass
@@ -54,6 +56,7 @@ class WebappEnvironmentArgs:
     database_min_capacity_acu: float
     database_max_capacity_acu: float
     database_backup_retention_days: int
+    database_allowed_security_group_ids: list[str] = field(default_factory=list)
     distribution_bucket_name: str = ""
     distribution_origin_id: str = ""
     database_seconds_until_auto_pause: int = DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
@@ -88,13 +91,8 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
         opts: Optional[pulumi.ResourceOptions] = None,
     ) -> None:
         super().__init__("webapp:infra:WebappEnvironmentStack", name, None, opts)
-        if (
-            args.github_app_kms_key_arn
-            and not args.github_app_private_key_secret_arn
-        ):
-            raise ValueError(
-                "github_app_kms_key_arn requires a GitHub App secret ARN"
-            )
+        if args.github_app_kms_key_arn and not args.github_app_private_key_secret_arn:
+            raise ValueError("github_app_kms_key_arn requires a GitHub App secret ARN")
 
         # Cost-allocation tags: project + environment on every env-bound
         # resource (the shared registry stack stays project-only).
@@ -189,8 +187,10 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
             opts=child_opts,
         )
         aws.iam.RolePolicyAttachment(
-            "originSsmManagedInstancePolicy", role=self.origin_role.name,
-            policy_arn=_SSM_MANAGED_INSTANCE_CORE_POLICY_ARN, opts=child_opts,
+            "originSsmManagedInstancePolicy",
+            role=self.origin_role.name,
+            policy_arn=_SSM_MANAGED_INSTANCE_CORE_POLICY_ARN,
+            opts=child_opts,
         )
         self.origin_instance_profile = aws.iam.InstanceProfile(
             "originInstanceProfile",
@@ -223,7 +223,10 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
                 engine_version=args.database_engine_version,
                 vpc_id=default_vpc.id,
                 subnet_ids=default_subnets.ids,
-                allowed_security_group_ids=[self.vps.security_group.id],
+                allowed_security_group_ids=[
+                    self.vps.security_group.id,
+                    *args.database_allowed_security_group_ids,
+                ],
                 min_capacity=args.database_min_capacity_acu,
                 max_capacity=args.database_max_capacity_acu,
                 backup_retention_days=args.database_backup_retention_days,

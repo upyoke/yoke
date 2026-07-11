@@ -61,7 +61,8 @@ The delivery allow matrix is limited to:
 - RDS cluster discovery and reads only of RDS-owned secrets whose
   `aws:rds:primaryDBClusterArn` tag matches the deploy namespace;
 - read-only `.pulumi` state objects and KMS decrypt on the configured state key;
-- exact distribution buckets and CloudFront invalidation.
+- exact distribution buckets, read-only CloudFront distribution discovery, and
+  CloudFront invalidation.
 
 SSH uses DB-declared hosts and keys, and SSM is not part of these delivery
 executors, so neither requires an AWS permission in the delivery role.

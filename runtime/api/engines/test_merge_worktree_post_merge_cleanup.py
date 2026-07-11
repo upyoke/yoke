@@ -76,20 +76,16 @@ class TestPostMergeCleanupLocalSyncFailure:
         printed_lines = [line for line, _kwargs in printed if line]
         assert any("do NOT roll the item back" in line for line in printed_lines)
         assert any(
-            f"YOKE_REPO_ROOT={ctx.yoke_repo_root}" in line
-            for line in printed_lines
+            f"YOKE_REPO_ROOT={ctx.yoke_repo_root}" in line for line in printed_lines
         )
 
         # The recovery text must not point operators at the
         # ambiguous ``git pull --ff-only`` shape this ticket retires; it
         # must teach the explicit fetch + ff-only-merge sequence the code
         # itself uses.
-        recovery_lines = [
-            line for line in printed_lines if "Recovery:" in line
-        ]
+        recovery_lines = [line for line in printed_lines if "Recovery:" in line]
         assert recovery_lines, (
-            f"expected a Recovery: line in stderr; printed lines were "
-            f"{printed_lines!r}"
+            f"expected a Recovery: line in stderr; printed lines were {printed_lines!r}"
         )
         recovery_text = " ".join(recovery_lines)
         assert "git pull" not in recovery_text, (
@@ -145,6 +141,53 @@ class TestPostMergeRemoteCleanupSafety:
         assert not any(command[:2] == ["worktree", "remove"] for command in commands)
         assert not any(command[:2] == ["branch", "-d"] for command in commands)
 
+    def test_local_branch_delete_waits_for_target_sync(self, tmp_path, monkeypatch):
+        ctx = _cleanup_ctx(tmp_path)
+        worktree = tmp_path / ".worktrees" / "YOK-9999"
+        worktree.mkdir(parents=True)
+        ctx.worktree_path = str(worktree)
+        timeline: list[str] = []
+
+        def run_git(command, cwd=None, capture=False):
+            del cwd, capture
+            timeline.append(" ".join(command))
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        def sync_target(_ctx):
+            timeline.append("sync-target")
+            return True
+
+        monkeypatch.setattr(merge_worktree, "_run_git", run_git)
+        monkeypatch.setattr(merge_worktree, "_sync_local_target", sync_target)
+        monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
+        monkeypatch.setattr(
+            merge_worktree, "_regenerate_views_or_exit5", lambda _ctx: 0
+        )
+        monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
+        monkeypatch.setattr(
+            merge_worktree, "_emit_merge_event", lambda *args, **kwargs: None
+        )
+        monkeypatch.setattr(merge_worktree, "_print", lambda *args, **kwargs: None)
+        monkeypatch.setattr(
+            merge_worktree_cleanup,
+            "delete_remote_branch_if_merged",
+            lambda **kwargs: RemoteBranchDeleteResult("deleted", ""),
+        )
+        from yoke_core.engines import merge_worktree_cleanliness
+
+        monkeypatch.setattr(
+            merge_worktree_cleanliness,
+            "clean_after_disposable_cache_removal",
+            lambda *args: True,
+        )
+
+        assert merge_worktree._post_merge_cleanup(ctx, no_changes=True) == 0
+        assert (
+            timeline.index("worktree remove " + str(worktree))
+            < timeline.index("sync-target")
+            < timeline.index("branch -d YOK-9999")
+        )
+
 
 class TestRegenerateViewsSubprocessIsolation:
     """``_regenerate_views`` must run board rebuild in a subprocess.
@@ -169,9 +212,7 @@ class TestRegenerateViewsSubprocessIsolation:
             return mock.Mock(returncode=0, stdout="", stderr="")
 
         monkeypatch.setattr(merge_worktree, "_run_python_module", fake_run)
-        monkeypatch.setattr(
-            merge_worktree, "_print", lambda *a, **kw: None
-        )
+        monkeypatch.setattr(merge_worktree, "_print", lambda *a, **kw: None)
 
         merge_worktree_post_helpers._regenerate_views(ctx)
 
@@ -193,9 +234,7 @@ class TestRegenerateViewsSubprocessIsolation:
                 returncode=7, stdout="", stderr=""
             ),
         )
-        monkeypatch.setattr(
-            merge_worktree, "_print", lambda *a, **kw: None
-        )
+        monkeypatch.setattr(merge_worktree, "_print", lambda *a, **kw: None)
 
         try:
             merge_worktree_post_helpers._regenerate_views(ctx)
