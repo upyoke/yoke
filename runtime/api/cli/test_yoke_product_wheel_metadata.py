@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import zipfile
 from pathlib import Path
 
 from packaging.requirements import Requirement
@@ -40,3 +41,21 @@ def test_built_product_wheels_pin_sibling_requires_dist(
                 requirement.name == "packaging"
                 for requirement in requirements
             ), "yoke-core must declare its direct packaging dependency"
+
+
+def test_yoke_core_wheel_carries_universe_app_runtime_and_types(
+    product_wheelhouse: Path,
+) -> None:
+    wheel = next(product_wheelhouse.glob("yoke_core-*.whl"))
+    with zipfile.ZipFile(wheel) as archive:
+        members = set(archive.namelist())
+    for member in (
+        "yoke_core/ui/static/app.js",
+        "yoke_core/ui/static/contract.js",
+        "yoke_core/ui/static/contract-version.js",
+        "yoke_core/ui/static/mount-options.js",
+        "yoke_core/ui/contracts/universe-app.ts",
+        "yoke_core/ui/contracts/universe-app.d.ts",
+        "yoke_core/ui/contracts/tsconfig.json",
+    ):
+        assert member in members

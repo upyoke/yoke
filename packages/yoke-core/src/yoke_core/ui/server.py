@@ -65,6 +65,9 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
 ASSET_CONTENT_TYPES: Dict[str, str] = {
     "index.html": "text/html; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
+    "contract.js": "text/javascript; charset=utf-8",
+    "contract-version.js": "text/javascript; charset=utf-8",
+    "mount-options.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
     "theme.css": "text/css; charset=utf-8",
     "yoke.svg": "image/svg+xml",

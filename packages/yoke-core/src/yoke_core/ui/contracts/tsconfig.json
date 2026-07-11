@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "strict": true,
+    "target": "ES2022"
+  },
+  "files": ["universe-app.ts"]
+}
