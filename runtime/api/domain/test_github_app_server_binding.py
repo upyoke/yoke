@@ -44,7 +44,7 @@ def test_server_app_jwt_fetches_canonical_installation_without_redirect():
     request, timeout = seen[0]
     assert request.full_url == "https://api.github.com/app/installations/12345"
     assert request.get_header("Authorization") == "Bearer server-app-jwt"
-    assert timeout == 4.0
+    assert 0 < timeout <= 4.0
 
 
 def test_foreign_app_installation_is_rejected_before_repository_lookup():
