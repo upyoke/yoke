@@ -33,7 +33,6 @@ _ARGV_FIELD_TO_KWARG = {
     "type": "event_type",
     "source-type": "source_type",
     "session-id": "session_id",
-    "user-id": "user_id",
     "org-id": "org_id",
     "environment": "environment",
     "request-id": "request_id",

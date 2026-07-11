@@ -23,7 +23,6 @@ class EventsEmitRequest(BaseModel):
     project: str = "yoke"
     item_id: Optional[str] = None
     task_num: Optional[int] = None
-    user_id: Optional[str] = None
     org_id: Optional[str] = None
     environment: Optional[str] = None
     request_id: Optional[str] = None
@@ -95,7 +94,6 @@ def handle_events_emit(request: FunctionCallRequest) -> HandlerOutcome:
             session_id=request.actor.session_id or "",
             severity=payload.severity,
             outcome=payload.outcome,
-            user_id=payload.user_id,
             org_id=payload.org_id,
             environment=payload.environment,
             request_id=payload.request_id,

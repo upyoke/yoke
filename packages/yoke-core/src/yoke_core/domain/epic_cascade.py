@@ -99,7 +99,6 @@ def _emit_task_status_changed(
         "service": "cli",
         "project": project,
         "environment": None,
-        "user_id": None,
         "org_id": None,
         "actor": None,
         "agent": None,

@@ -50,7 +50,7 @@ def _create_events_table(conn) -> None:
             event_type TEXT NOT NULL,
             event_name TEXT NOT NULL,
             event_outcome TEXT,
-            user_id TEXT, org_id TEXT, actor_id INTEGER, environment TEXT,
+            org_id TEXT, actor_id INTEGER, environment TEXT,
             service TEXT NOT NULL DEFAULT 'cli',
             project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
             item_id TEXT, task_num INTEGER, agent TEXT, tool_name TEXT,

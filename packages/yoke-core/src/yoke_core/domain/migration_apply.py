@@ -1,9 +1,8 @@
 """Two-unit apply contract for governed DB migrations.
 
-Per the governed-DB-mutation contract, a ticket with
-``db_mutation_profile.mutation_intent = "apply"`` inside ``implementing``
-runs its migration in two distinct units, separated by a mandatory
-operator checkpoint:
+Per the governed-DB-mutation contract, an item-backed profile or a committed
+ticketless migration manifest runs its migration in two distinct units,
+separated by a mandatory operator checkpoint:
 
 **Rehearsal unit** (no lease, no backup, no authoritative mutation):
 
@@ -80,6 +79,7 @@ from yoke_core.domain.migration_apply_contract import (
 )
 from yoke_core.domain.migration_apply_help import SELF_MIGRATION_TEMP_RECIPE
 from yoke_core.domain.migration_apply_live import live_apply
+from yoke_core.domain.migration_apply_manifest_units import live_apply_manifest, rehearse_manifest
 from yoke_core.domain.migration_apply_rehearse import rehearse
 from yoke_core.domain.migration_apply_resolve import (
     ModuleOverrideResolution, _load_item, _resolve_item_worktree_path,
@@ -109,8 +109,9 @@ def _format_rehearse(
     result: RehearseResult,
     override: Optional[ModuleOverrideResolution] = None,
 ) -> str:
+    subject = f"YOK-{result.item_id}" if result.item_id is not None else "manifest"
     lines = [
-        f"rehearse YOK-{result.item_id} model={result.model_name} "
+        f"rehearse {subject} model={result.model_name} "
         f"validation_db={result.validation_db_path}",
     ]
     extra = _format_override(override)
@@ -133,8 +134,9 @@ def _format_live_apply(
     result: LiveApplyResult,
     override: Optional[ModuleOverrideResolution] = None,
 ) -> str:
+    subject = f"YOK-{result.item_id}" if result.item_id is not None else "manifest"
     lines = [
-        f"live-apply YOK-{result.item_id} model={result.model_name} "
+        f"live-apply {subject} model={result.model_name} "
         f"authoritative_db={result.authoritative_db_path} "
         f"lease_id={result.lease_id}",
     ]
@@ -221,23 +223,42 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--module-path-override", default=None, help=_override_help,
     )
 
-    args = parser.parse_args(argv)
-    item_id = _parse_item_id(args.item_id)
-
-    try:
-        override = _resolve_override_from_cli(
-            item_id, args.module_path_override,
+    manifest_help = (
+        "Committed JSON migration manifest inside the exact clean source "
+        "worktree. This is the ticketless governed subject."
+    )
+    for command, help_text in (
+        ("rehearse-manifest", "Run itemless rehearsal from a committed manifest."),
+        ("live-apply-manifest", "Run itemless live apply from the rehearsed manifest."),
+    ):
+        manifest_parser = sub.add_parser(command, help=help_text)
+        manifest_parser.add_argument("manifest", help=manifest_help)
+        manifest_parser.add_argument(
+            "--worktree-path",
+            required=True,
+            help="Exact clean source worktree containing the manifest and module.",
         )
-    except ModuleOverrideError as exc:
-        print(f"REFUSED: {exc}", file=sys.stderr)
-        return 4
-    except MigrationApplyError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
+
+    args = parser.parse_args(argv)
+    item_id: Optional[int] = None
+    override: Optional[ModuleOverrideResolution] = None
+    if args.command in ("rehearse", "live-apply"):
+        item_id = _parse_item_id(args.item_id)
+        try:
+            override = _resolve_override_from_cli(
+                item_id, args.module_path_override,
+            )
+        except ModuleOverrideError as exc:
+            print(f"REFUSED: {exc}", file=sys.stderr)
+            return 4
+        except MigrationApplyError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
 
     override_worktree = override.worktree_path if override is not None else None
     try:
         if args.command == "rehearse":
+            assert item_id is not None
             result = rehearse(
                 item_id,
                 module_override=override,
@@ -245,13 +266,27 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             print(_format_rehearse(result, override=override))
             return 0 if result.all_succeeded else 1
-        if args.command == "live-apply":
+        if args.command == "rehearse-manifest":
+            result = rehearse_manifest(
+                Path(args.manifest),
+                worktree_path=Path(args.worktree_path),
+            )
+            print(_format_rehearse(result))
+            return 0 if result.all_succeeded else 1
+        if args.command in ("live-apply", "live-apply-manifest"):
             try:
-                result = live_apply(
-                    item_id,
-                    module_override=override,
-                    worktree_path=override_worktree,
-                )
+                if args.command == "live-apply":
+                    assert item_id is not None
+                    result = live_apply(
+                        item_id,
+                        module_override=override,
+                        worktree_path=override_worktree,
+                    )
+                else:
+                    result = live_apply_manifest(
+                        Path(args.manifest),
+                        worktree_path=Path(args.worktree_path),
+                    )
             except RehearsalStaleError as exc:
                 print(f"REFUSED: {exc}", file=sys.stderr)
                 return 2
@@ -303,8 +338,10 @@ __all__ = [
     "STATE_TEST_COPY_CREATED",
     "STATE_TEST_VERIFIED",
     "live_apply",
+    "live_apply_manifest",
     "main",
     "rehearse",
+    "rehearse_manifest",
 ]
 
 if __name__ == "__main__":

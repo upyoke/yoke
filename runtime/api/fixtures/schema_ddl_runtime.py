@@ -85,7 +85,6 @@ CREATE TABLE IF NOT EXISTS events (
     event_type TEXT NOT NULL,
     event_name TEXT NOT NULL,
     event_outcome TEXT,
-    user_id TEXT,
     org_id TEXT,
     actor_id INTEGER,
     environment TEXT,

@@ -18,7 +18,6 @@ event_kind TEXT NOT NULL -- taxonomy tier 1 (e.g., 'system', 'domain', 'user')
 event_type TEXT NOT NULL -- taxonomy tier 2 (e.g., 'tool_call', 'session')
 event_name TEXT NOT NULL -- PascalCase event name (e.g., 'HarnessToolCallCompleted')
 event_outcome TEXT -- nullable outcome (e.g., 'completed', 'failed')
-user_id TEXT -- future human/product account identity; not an authz subject
 org_id TEXT -- organization identifier
 actor_id INTEGER -- nullable Yoke control-plane subject; references actors(id)
 environment TEXT -- runtime environment (e.g., 'dev', 'prod')
@@ -38,7 +37,11 @@ envelope TEXT -- → JSONB on Postgres; full JSON envelope for lossless storage
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-**Indexes:** `source_type`, `session_id`, `event_name`, `created_at`, `user_id`, `actor_id`, `trace_id`, `project_id`, `tool_name`, `(event_kind, event_type)`, plus the partial dedup index `(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL` on DBs with the full correlation surface.
+**Indexes:** `source_type`, `session_id`, `event_name`, `created_at`, `actor_id`, `trace_id`, `project_id`, `tool_name`, `(event_kind, event_type)`, plus the partial dedup index `(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL` on DBs with the full correlation surface.
+
+Engine identity is actor-only. Historical JSON envelopes may retain a null
+human-user key, but fresh schemas, writers, readers, and filters do not expose
+that retired surface.
 
 **Deduplication:** The `event_id` column has a UNIQUE constraint. Inserts use `ON CONFLICT DO NOTHING` so duplicate event IDs are silently dropped.
 

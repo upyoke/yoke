@@ -169,7 +169,6 @@ CORE_TABLES: dict[str, dict] = {
             ("event_type", "TEXT"),
             ("event_name", "TEXT"),
             ("event_outcome", "TEXT"),
-            ("user_id", "TEXT"),
             ("org_id", "TEXT"),
             ("actor_id", "INTEGER"),
             ("environment", "TEXT"),

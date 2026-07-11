@@ -48,7 +48,6 @@ def test_emit_persists_canonical_correlation_fields(events_db):
             "--source-type", "agent",
             "--session-id", "correlation-session",
             "--event-id", "correlation-event-1",
-            "--user-id", "user-1",
             "--org-id", "org-1",
             "--request-id", "req-1",
             "--environment", "stage",
@@ -58,19 +57,32 @@ def test_emit_persists_canonical_correlation_fields(events_db):
     assert rc == 0
     conn = connect_test_db(events_db)
     row = conn.execute(
-        "SELECT user_id, org_id, environment, envelope "
+        "SELECT org_id, environment, envelope "
         "FROM events WHERE event_id='correlation-event-1'"
     ).fetchone()
     conn.close()
-    assert row[0] == "user-1"
-    assert row[1] == "org-1"
-    assert row[2] == "stage"
-    envelope = json.loads(row[3])
+    assert row[0] == "org-1"
+    assert row[1] == "stage"
+    envelope = json.loads(row[2])
     assert envelope["session_id"] == "correlation-session"
-    assert envelope["user_id"] == "user-1"
+    assert "user_id" not in envelope
     assert envelope["org_id"] == "org-1"
     assert envelope["environment"] == "stage"
     assert envelope["request_id"] == "req-1"
+
+
+def test_emit_cli_rejects_retired_user_identity(events_db):
+    rc = emit_event.main(
+        [
+            "--name", "RetiredIdentityEvent",
+            "--kind", "system",
+            "--type", "test",
+            "--source-type", "agent",
+            "--user-id", "user-1",
+        ]
+    )
+
+    assert rc == 2
 
 
 def test_emit_envelope_copies_active_trace_context(events_db):

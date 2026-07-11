@@ -25,7 +25,7 @@ SEVERITY_ORDER: Dict[str, int] = {
 # Standard SELECT columns (matches shell's _EVT_SELECT_COLS)
 _EVT_SELECT_COLS = (
     "id, event_id, source_type, session_id, severity, event_kind, event_type, "
-    "event_name, event_outcome, COALESCE(user_id,''), COALESCE(org_id,''), "
+    "event_name, event_outcome, COALESCE(org_id,''), "
     "COALESCE(CAST(actor_id AS TEXT),''), COALESCE(environment,''), service, "
     "COALESCE((SELECT p.slug FROM projects p WHERE p.id = events.project_id), ''), "
     "COALESCE(item_id,''), COALESCE(CAST(task_num AS TEXT),''), COALESCE(agent,''), "
@@ -38,8 +38,8 @@ _EVT_SELECT_COLS = (
 # tuples in lockstep — the typed events.* read handlers zip them.
 EVT_COLUMN_NAMES = (
     "id", "event_id", "source_type", "session_id", "severity",
-    "event_kind", "event_type", "event_name", "event_outcome", "user_id",
-    "org_id", "actor_id", "environment", "service", "project", "item_id",
+    "event_kind", "event_type", "event_name", "event_outcome", "org_id",
+    "actor_id", "environment", "service", "project", "item_id",
     "task_num", "agent", "tool_name", "duration_ms", "exit_code",
     "trace_id", "parent_id", "anomaly_flags", "created_at",
 )

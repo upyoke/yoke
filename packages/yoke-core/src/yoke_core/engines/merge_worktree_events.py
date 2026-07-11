@@ -46,7 +46,6 @@ def _emit_merge_event(
             or os.environ.get("CLAUDE_SESSION_ID", "")
             or os.environ.get("CODEX_THREAD_ID", ""),
             event_id="",
-            user_id="",
             org_id="",
             request_id="",
             actor_id=None,

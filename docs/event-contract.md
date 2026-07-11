@@ -33,9 +33,8 @@ Every event is a row in the `events` table. The canonical columns are:
 | `event_type` | TEXT | Yes | `snake_case` subcategory (e.g., `task_status_change`, `sync_failure`) |
 | `event_name` | TEXT | Yes | `PascalCase` unique name (e.g., `TaskStatusChanged`, `SyncFailed`) |
 | `event_outcome` | TEXT | No | `completed`, `failed`, `skipped`, or null |
-| `user_id` | TEXT | No | User identifier |
 | `org_id` | TEXT | No | Organization identifier |
-| `actor` | TEXT | No | Agent or human actor name |
+| `actor_id` | INTEGER | No | Authenticated engine actor; references `actors(id)` |
 | `environment` | TEXT | No | `production`, `staging`, `development` |
 | `service` | TEXT | Yes | Emitting service (default `cli`) |
 | `project` | TEXT | Yes | Project scope (default `yoke`) |
@@ -92,6 +91,10 @@ These columns are populated at emit time by the observe helper and denial-path o
 ### Envelope JSON Structure
 
 The `envelope` column stores a full JSON object. The `context` key holds event-specific data. Top-level fields mirror queryable columns for downstream consumers that parse JSON.
+
+New envelopes omit the retired human-user key. Historical envelopes are
+immutable and may retain that key with a null value; consumers must ignore it
+and use `actor_id` for engine identity.
 
 ```json
 {

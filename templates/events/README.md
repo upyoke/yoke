@@ -16,7 +16,7 @@ The Python reference is split across two sibling files to keep each file under t
 
 | File | Contents |
 |------|----------|
-| `events_props.py` | Property group builders -- `get_system_props`, `get_request_props`, `get_user_props`, `get_org_props`, `get_session_props`, `get_error_props`. Resolves fields from explicit arguments with environment-variable fallbacks for system props. |
+| `events_props.py` | Property group builders -- `get_system_props`, `get_request_props`, `get_actor_props`, `get_org_props`, `get_session_props`, `get_error_props`. Resolves fields from explicit arguments with environment-variable fallbacks for system props. |
 | `events.py` | Main module -- `build_event` (envelope assembly with size-limit enforcement), `emit_event` / `emit_event_obj` (build + emit), the `_emit` destination dispatcher (stdout / file / HTTP), the `UserLoggedIn` example, and a re-export block exposing every prop-builder name from `events_props.py` so consumers continue to write `from events import emit_event, get_system_props` without caring about the internal split. |
 
 The two files import from each other via the bare module name `events_props` (e.g. `from events_props import get_system_props`), so they must be copied as a unit and placed in the same directory.
@@ -28,7 +28,7 @@ The TypeScript reference is split across four sibling files for readability and 
 | File | Contents |
 |------|----------|
 | `events_types.ts` | Shared type aliases (`EventKind`, `SourceType`, `Severity`, `EventOutcome`), the `EventEnvelope` and `EmitOptions` interfaces, the `AttributionData` type, and the size-limit constants (`MAX_ENVELOPE_BYTES`, `MAX_CONTEXT_FIELD_BYTES`). |
-| `events_props.ts` | Property group builders -- `getSystemProps`, `getSessionProps`, `getUserProps`, `getPageProps`, `getDeviceProps`, plus the `parseBrowser` / `parseOS` / `detectDeviceType` helpers. |
+| `events_props.ts` | Property group builders -- `getSystemProps`, `getSessionProps`, `getOrgProps`, `getPageProps`, `getDeviceProps`, plus the `parseBrowser` / `parseOS` / `detectDeviceType` helpers. |
 | `events_attribution.ts` | Marketing attribution lifecycle -- `captureAttribution`, `getStoredAttribution`, `extractReferrerDomain`, `inferChannel`, `getUtmFromUrl`, `setCookie`, `getCookie`, plus the search-engine and social-domain lookup tables. |
 | `events.ts` | Main module -- `buildEvent`, `enforceContextLimits`, `emitEvent`, `flushEvents`, the visibilitychange flush hook, the `emitPageViewedExample` example, and a single trailing `export { ... };` block re-exporting every public symbol so consumers continue to write `import { emitEvent } from './events'` without caring about the internal split. |
 
@@ -72,7 +72,7 @@ emit_event(
     event_type="order",
     outcome="completed",
     duration_ms=89,
-    user_id="usr_a1b2c3d4",
+    actor_id=17,
     context={"order_id": "ord_p6q7r8s9", "total_cents": 4999},
 )
 ```
@@ -82,12 +82,12 @@ emit_event(
 ```python
 from events import (
     build_event, emit_event_obj,
-    get_system_props, get_user_props, get_org_props,
+    get_system_props, get_actor_props, get_org_props,
     get_session_props, get_request_props,
 )
 
 system = get_system_props(service="api", project="buzz")
-user = get_user_props(user_id="usr_a1b2c3d4", user_email="alice@example.com")
+actor = get_actor_props(actor_id=17)
 org = get_org_props(org_id="org_x1y2z3", org_name="Acme Corp", org_plan="pro")
 session = get_session_props(session_id="sess_abc123")
 request = get_request_props(request_id="req_xyz789")
@@ -98,7 +98,7 @@ event = build_event(
     event_type="auth",
     outcome="completed",
     context={"login_method": "oauth", "provider": "google"},
-    **system, **user, **org, **session, **request,
+    **system, **actor, **org, **session, **request,
 )
 emit_event_obj(event)
 ```
@@ -161,7 +161,6 @@ emitEvent({
   kind: 'analytics',
   eventType: 'page_view',
   context: { tab: 'orders', items_visible: 25 },
-  userId: 'usr_a1b2c3d4',
   orgId: 'org_x1y2z3',
 });
 
@@ -196,7 +195,7 @@ Each `get_*_props()` function returns a flat dict of fields for one property gro
 | Function | Standard Group | Required For |
 |----------|---------------|-------------|
 | `get_system_props()` | system_props | All source types |
-| `get_user_props()` | user_props | backend, frontend |
+| `get_actor_props()` | actor_props | backend after authentication |
 | `get_org_props()` | org_props | Conditional (when org context exists) |
 | `get_session_props()` | session_props | All source types |
 | `get_request_props()` | request_props | backend |
@@ -210,7 +209,7 @@ All property groups are auto-resolved by `buildEvent()`. The caller only needs t
 |----------|---------------|----------|
 | `getSystemProps()` | system_props | Resolves from `NEXT_PUBLIC_*` env vars |
 | `getSessionProps()` | session_props | Auto-generates session ID in sessionStorage |
-| `getUserProps()` | user_props + org_props | Passes IDs; PII resolved server-side |
+| `getOrgProps()` | org_props | Emits org context; the receiver stamps authenticated `actor_id` |
 | `getPageProps()` | page_props | Reads from `window.location` and `document` |
 | `getDeviceProps()` | device_props | Parses user agent + viewport width |
 | `getAttributionProps()` | marketing_attribution_props | Reads from cookie/sessionStorage |

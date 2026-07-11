@@ -50,7 +50,7 @@ def _add_emit_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--severity", default="INFO")
     parser.add_argument("--outcome", default="completed")
     for flag in (
-        "user-id", "org-id", "environment", "request-id", "project",
+        "org-id", "environment", "request-id", "project",
         "item-id", "agent", "tool-name", "trace-id", "parent-id",
         "anomaly-flags", "tool-use-id", "turn-id", "hook-event-name",
     ):
@@ -108,7 +108,7 @@ def events_emit(args: List[str]) -> int:
         "context": context,
     }
     for attr in (
-        "user_id", "org_id", "environment", "request_id", "project",
+        "org_id", "environment", "request_id", "project",
         "item_id", "task_num", "agent", "tool_name", "duration_ms",
         "exit_code", "trace_id", "parent_id", "anomaly_flags",
         "tool_use_id", "turn_id", "hook_event_name",
@@ -144,7 +144,6 @@ _FILTER_FLAGS = (
     ("--event-kind", "event_kind", "event_kind", "Filter by event kind."),
     ("--agent", "agent", "agent", "Filter by agent name."),
     ("--service", "service", "service", "Filter by service."),
-    ("--user-id", "user_id", "user_id", "Filter by user id."),
     ("--actor-id", "actor_id", "actor_id", "Filter by numeric actor id."),
     ("--trace-id", "trace_id", "trace_id", "Filter by trace id."),
     ("--tool-use-id", "tool_use_id", "tool_use_id",

@@ -122,6 +122,11 @@ def test_events_emit_handler_delegates_to_native_emitter(monkeypatch) -> None:
     assert calls[0]["context"] == {"detail": {"mode": "direct"}}
 
 
+def test_events_emit_schema_omits_platform_user_identity() -> None:
+    properties = events_emit.EventsEmitRequest.model_json_schema()["properties"]
+    assert "user_id" not in properties
+
+
 def test_ouroboros_entry_insert_handler_writes_row(tmp_db: str) -> None:
     outcome = ouroboros_writes.handle_ouroboros_entry_insert(
         _request(

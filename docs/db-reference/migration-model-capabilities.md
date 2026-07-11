@@ -65,6 +65,40 @@ Rehearsal and live apply dispatch the same slug through the same runner
 shape; only the checkout root differs (`worktree_path` during rehearsal,
 this machine's registered project checkout during live apply).
 
+### Ticketless committed manifests
+
+Operator-directed maintenance that deliberately has no backlog item uses a
+committed migration manifest instead of synthesizing a ticket. The manifest
+contains the same validated `db_mutation_profile` and
+`db_compatibility_attestation` the item-backed path reads, plus `version: 1`
+and the project slug. Every authored attestation field must be non-empty.
+
+Both units require an explicit clean worktree attached to the project's
+registered checkout. The manifest and every named module must be tracked at
+HEAD and must not be symlinks. Rehearsal records the full source commit,
+manifest-relative path, and manifest SHA-256 in
+`migration_audit.description`; live apply refuses unless those values match
+exactly, then revalidates the clean pinned checkout immediately before loading
+each module after the backup window. The ordinary fingerprint, freshness,
+lease, backup, baseline verification, module invariant, and audit state
+machinery otherwise runs unchanged. The itemless path never auto-deletes a
+module; source cleanup follows authoritative apply evidence.
+
+```bash
+python3 -m yoke_core.domain.migration_apply rehearse-manifest \
+  runtime/api/domain/migrations/<name>.migration.json \
+  --worktree-path /absolute/path/to/clean/worktree
+
+python3 -m yoke_core.domain.migration_apply live-apply-manifest \
+  runtime/api/domain/migrations/<name>.migration.json \
+  --worktree-path /absolute/path/to/the-same-clean-worktree
+```
+
+These remain separate invocations, preserving the operator checkpoint. A
+dirty checkout, untracked or symlinked source, checkout-authority mismatch,
+changed commit or manifest digest, stale database fingerprint, held lease, or
+failed backup refuses before destructive SQL.
+
 ## `migration_audit` Bootstrap
 
 Audit rows live on the **model's authoritative DB**, not the

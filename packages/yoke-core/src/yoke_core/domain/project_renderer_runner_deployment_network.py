@@ -12,7 +12,7 @@ def deployment_ssh_stack_names(
     settings: ProjectRendererSettings,
     runner_fleet: RunnerFleetSettings,
 ) -> list[str]:
-    """Resolve explicit environment selectors to active Pulumi stack names."""
+    """Resolve every explicitly allowed deployment SSH Pulumi stack."""
     network = runner_fleet.network
     if network is None:
         return []
@@ -66,6 +66,9 @@ def deployment_ssh_stack_names(
                 "distinct Pulumi stacks"
             )
         resolved.append(stack_name)
+    for stack_name in network.deployment_ssh_stack_names:
+        if stack_name not in resolved:
+            resolved.append(stack_name)
     return resolved
 
 

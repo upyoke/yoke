@@ -17,7 +17,7 @@ from yoke_core.domain import events_crud as _ec
 # external CLI consumers depend on each name (see Cross-Script Contracts).
 _INSERT_FLAG_MAP = {f"--{k.replace('_', '-')}": k for k in (
     "event_id", "source_type", "session_id", "severity", "event_kind",
-    "event_type", "event_name", "event_outcome", "user_id", "org_id",
+    "event_type", "event_name", "event_outcome", "org_id",
     "actor_id", "environment", "service", "project", "item_id", "task_num",
     "agent", "tool_name", "duration_ms", "exit_code", "trace_id",
     "parent_id", "anomaly_flags", "envelope", "tool_use_id", "turn_id",

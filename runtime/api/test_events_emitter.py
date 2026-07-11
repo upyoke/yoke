@@ -19,7 +19,6 @@ class TestBuildEnvelope(unittest.TestCase):
             event_type="unit_test",
             session_id="HS456",
             exit_code=7,
-            user_id="user-1",
             org_id="org-1",
             environment="stage",
             request_id="req-1",
@@ -28,7 +27,7 @@ class TestBuildEnvelope(unittest.TestCase):
             hook_event_name="PostToolUse",
         )
         self.assertEqual(env["session_id"], "HS456")
-        self.assertEqual(env["user_id"], "user-1")
+        self.assertNotIn("user_id", env)
         self.assertEqual(env["org_id"], "org-1")
         self.assertEqual(env["environment"], "stage")
         self.assertEqual(env["request_id"], "req-1")
@@ -47,7 +46,7 @@ class TestBuildEnvelope(unittest.TestCase):
         self.assertIsNone(env["tool_use_id"])
         self.assertIsNone(env["turn_id"])
         self.assertIsNone(env["hook_event_name"])
-        self.assertIsNone(env["user_id"])
+        self.assertNotIn("user_id", env)
         self.assertIsNone(env["org_id"])
         self.assertIsNone(env["environment"])
         self.assertIsNone(env["request_id"])
@@ -254,10 +253,10 @@ class TestInsertSqlColumnCount(unittest.TestCase):
         placeholders = val_section.count("%s")
 
         self.assertEqual(len(columns), placeholders)
-        self.assertEqual(len(columns), 28)
+        self.assertEqual(len(columns), 27)
 
         # Verify new columns are present
-        self.assertIn("user_id", columns)
+        self.assertNotIn("user_id", columns)
         self.assertIn("org_id", columns)
         self.assertIn("environment", columns)
         self.assertIn("actor_id", columns)
@@ -287,8 +286,6 @@ class TestEmitEventArgvCompat(unittest.TestCase):
                     "backend",
                     "--session-id",
                     "sess-1",
-                    "--user-id",
-                    "user-1",
                     "--org-id",
                     "org-1",
                     "--environment",
@@ -301,10 +298,31 @@ class TestEmitEventArgvCompat(unittest.TestCase):
         self.assertIs(result, sentinel)
         self.assertEqual(fake_emit.call_args.args, ("ArgvEvent",))
         self.assertEqual(fake_emit.call_args.kwargs["session_id"], "sess-1")
-        self.assertEqual(fake_emit.call_args.kwargs["user_id"], "user-1")
+        self.assertNotIn("user_id", fake_emit.call_args.kwargs)
         self.assertEqual(fake_emit.call_args.kwargs["org_id"], "org-1")
         self.assertEqual(fake_emit.call_args.kwargs["environment"], "stage")
         self.assertEqual(fake_emit.call_args.kwargs["request_id"], "req-1")
+
+
+class TestProductEventCli(unittest.TestCase):
+    def test_emit_rejects_retired_user_identity_flag(self):
+        from yoke_cli.commands.adapters.events import events_emit
+
+        result = events_emit(
+            [
+                "--name", "RetiredIdentityEvent",
+                "--kind", "system",
+                "--type", "test",
+                "--source-type", "backend",
+                "--user-id", "user-1",
+            ]
+        )
+        self.assertEqual(result, 2)
+
+    def test_query_rejects_retired_user_identity_filter(self):
+        from yoke_cli.commands.adapters.events import events_query
+
+        self.assertEqual(events_query(["--user-id", "user-1"]), 2)
 
 
 if __name__ == "__main__":

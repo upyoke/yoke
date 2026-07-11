@@ -37,6 +37,12 @@
 #       decision_record: docs/archive/decisions/<slug>.md
 #
 surfaces:
+  - module: events_actor_identity
+    project: yoke
+    model: primary
+    table: events
+    column: user_id
+    decision_record: docs/archive/decisions/events-actor-identity.md
   - module: deploy_defaults_cutover
     project: yoke
     model: primary

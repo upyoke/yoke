@@ -124,7 +124,6 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
         "service": "cli",
         "project": "yoke",
         "environment": None,
-        "user_id": None,
         "org_id": None,
         "actor": None,
         "agent": rec.agent_type,

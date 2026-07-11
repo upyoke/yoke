@@ -91,7 +91,7 @@ class TestEventsTsPropertyGroupBuilders:
     @pytest.mark.parametrize("fn_name", [
         "getSystemProps",
         "getSessionProps",
-        "getUserProps",
+        "getOrgProps",
         "getPageProps",
         "getDeviceProps",
         "getAttributionProps",
@@ -125,15 +125,15 @@ class TestEventsTsSessionProps:
         _must_contain(events_ts_concat, needle, label)
 
 
-class TestEventsTsUserProps:
-    def test_user_id_field(self, events_ts_concat: str) -> None:
-        _must_contain(events_ts_concat, "user_id:", "user_id field")
+class TestEventsTsOrgProps:
+    def test_org_id_field(self, events_ts_concat: str) -> None:
+        _must_contain(events_ts_concat, "org_id:", "org_id field")
 
-    def test_is_anonymous_field(self, events_ts_concat: str) -> None:
-        _must_contain(events_ts_concat, "is_anonymous:", "is_anonymous field")
+    def test_actor_identity_is_server_stamped(self, events_ts_concat: str) -> None:
+        _must_contain(events_ts_concat, "stamp actor_id", "server actor identity")
 
-    def test_pii_warning_comment(self, events_ts_concat: str) -> None:
-        _must_contain(events_ts_concat, "Never send PII from client", "PII warning comment")
+    def test_retired_user_id_is_absent(self, events_ts_concat: str) -> None:
+        assert "user_id:" not in events_ts_concat
 
 
 class TestEventsTsPageProps:
@@ -290,7 +290,7 @@ class TestEventsTsExports:
         "flushEvents,",
         "getSystemProps,",
         "getSessionProps,",
-        "getUserProps,",
+        "getOrgProps,",
         "getPageProps,",
         "getDeviceProps,",
         "getAttributionProps,",

@@ -87,6 +87,12 @@ Deployment workflows must explicitly list every environment they reach over
 SSH in `network.deployment_ssh_environments`. The renderer resolves each
 selected active environment to its Pulumi stack, and the runner stack consumes
 that stack's `originElasticIpAddress` output as one exact `/32` TCP/22 egress
-rule. The default list is empty; unrestricted SSH egress is never inferred.
+rule. Standalone deployment stacks that have no environment row belong in
+`network.deployment_ssh_stack_names`; entries must be Pulumi stack names or
+qualified `org/project/stack` references. The renderer appends those explicit
+names after environment-derived stacks and removes overlap without widening
+the rule. Both lists default empty. Literal addresses and CIDRs are not
+configuration: every target is resolved through a `Pulumi.StackReference`,
+and unrestricted SSH egress is never inferred.
 
 See the [Pulumi ActionsVariable import contract](https://www.pulumi.com/registry/packages/github/api-docs/actionsvariable/#import).

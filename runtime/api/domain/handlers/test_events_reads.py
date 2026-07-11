@@ -21,6 +21,10 @@ def _request(function_id: str, payload=None, target=None) -> FunctionCallRequest
 
 
 class TestEventsQuery:
+    def test_filter_schema_omits_platform_user_identity(self):
+        properties = events_reads.EventsFilterRequest.model_json_schema()["properties"]
+        assert "user_id" not in properties
+
     def test_rejects_bad_limit(self):
         outcome = events_reads.handle_events_query(
             _request("events.query.run", {"limit": 5000})
@@ -111,7 +115,7 @@ class TestEventsQuery:
         assert row["event_name"] == "EventA"
         assert row["envelope"] == '{"k":1}'
         assert row["anomaly_flags"] == "nonzero_exit"
-        # Full 25-column projection + envelope.
+        # Full 24-column projection + envelope.
         from yoke_core.domain.events_crud import EVT_COLUMN_NAMES
 
         assert set(row.keys()) == {*EVT_COLUMN_NAMES, "envelope"}

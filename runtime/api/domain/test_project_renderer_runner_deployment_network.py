@@ -113,3 +113,60 @@ def test_deployment_ssh_environment_defaults_to_active_stack():
     })
 
     assert deployment_ssh_stack_names(settings, runner) == ["buzz-live"]
+
+
+def test_standalone_deployment_ssh_stacks_do_not_require_environment_rows():
+    settings = _settings_from_context("yoke", {"projectName": "yoke"})
+    runner = RunnerFleetSettings.model_validate({
+        "network": {
+            "deployment_ssh_stack_names": [
+                "yoke-platform-vps", "upyoke/platform/production",
+            ],
+        },
+    })
+
+    assert deployment_ssh_stack_names(settings, runner) == [
+        "yoke-platform-vps", "upyoke/platform/production",
+    ]
+
+
+def test_deployment_ssh_stacks_merge_and_dedupe_after_environments():
+    settings = _settings_from_context("yoke", {"projectName": "yoke"})
+    assert settings.primary_environment is not None
+    settings.primary_environment.settings.clear()
+    settings.primary_environment.settings.update({
+        "capabilities": ["vps"],
+        "pulumi": {"stack_name": "yoke-prod"},
+    })
+    runner = RunnerFleetSettings.model_validate({
+        "network": {
+            "deployment_ssh_environments": ["production"],
+            "deployment_ssh_stack_names": [
+                "yoke-prod", "yoke-platform-vps", "yoke-platform-vps",
+            ],
+        },
+    })
+
+    assert deployment_ssh_stack_names(settings, runner) == [
+        "yoke-prod", "yoke-platform-vps",
+    ]
+
+
+@pytest.mark.parametrize(
+    "stack_name",
+    [
+        " ",
+        "org/project/stack/extra",
+        "org/project stack",
+        "stack:prod",
+        "198.51.100.42",
+        "198.51.100.42/32",
+    ],
+)
+def test_deployment_ssh_stack_names_reject_invalid_or_literal_targets(
+    stack_name,
+):
+    with pytest.raises(ValueError, match="Pulumi stack names"):
+        RunnerFleetSettings.model_validate({
+            "network": {"deployment_ssh_stack_names": [stack_name]},
+        })

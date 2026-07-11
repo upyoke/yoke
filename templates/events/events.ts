@@ -33,7 +33,6 @@
  *     eventType: 'interaction',
  *     outcome: 'completed',
  *     context: { button_id: 'checkout', position: 'hero' },
- *     userId: 'usr_a1b2c3d4',
  *     orgId: 'org_x1y2z3',
  *   });
  */
@@ -52,7 +51,7 @@ import {
 import {
   getSystemProps,
   getSessionProps,
-  getUserProps,
+  getOrgProps,
   getPageProps,
   getDeviceProps,
 } from './events_props';
@@ -71,7 +70,7 @@ import {
 /**
  * Build a complete event envelope.
  *
- * Merges all frontend property groups (system, session, user, org, page,
+ * Merges all frontend property groups (system, session, org, page,
  * device, attribution) into a flat envelope matching the canonical schema.
  *
  * Args:
@@ -82,7 +81,6 @@ import {
  *   options.severity: Log severity (DEBUG, INFO, WARN, ERROR, FATAL)
  *   options.durationMs: Operation duration in milliseconds
  *   options.context: Event-specific payload dict
- *   options.userId: User identifier for user_props
  *   options.orgId: Organization identifier for org_props
  *
  * Returns:
@@ -107,8 +105,8 @@ function buildEvent(options: EmitOptions): EventEnvelope {
     // session_props
     ...getSessionProps(),
 
-    // user_props + org_props
-    ...getUserProps(options.userId, options.orgId),
+    // org_props; authenticated receivers stamp actor_id server-side
+    ...getOrgProps(options.orgId),
 
     // page_props
     ...getPageProps(),
@@ -245,7 +243,6 @@ function emitPageViewedExample(): EventEnvelope {
     kind: 'analytics',
     eventType: 'page_view',
     outcome: 'completed',
-    userId: 'usr_a1b2c3d4',
     orgId: 'org_x1y2z3',
     context: {
       tab: 'orders',
@@ -267,7 +264,7 @@ export {
   // Property group builders (re-exported from events_props.ts)
   getSystemProps,
   getSessionProps,
-  getUserProps,
+  getOrgProps,
   getPageProps,
   getDeviceProps,
   getAttributionProps,

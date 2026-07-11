@@ -637,9 +637,9 @@ Key behavior:
 **Purpose:** Thin launcher delegating to `runtime.api.domain.events_crud` (YOK-1246 task 004). All domain logic (CRUD, registry, pruning, severity config) lives in the Python module. This file exists solely to preserve the `sh "$SCRIPT_DIR/yoke-db.sh" events` calling convention. Manages structured event logging data: agent tool call telemetry, session lifecycle events, anomaly detection, and event registry governance.
 
 Subcommands:
-- `init` — Create `events` and `severity_config` tables with indexes (idempotent). Indexes on: `event_id` (UNIQUE), `source_type`, `session_id`, `event_name`, `created_at`, `user_id`, `trace_id`, `project`, `tool_name`, and composite `(event_kind, event_type)`.
+- `init` — Create `events` and `severity_config` tables with indexes (idempotent). Indexes on: `event_id` (UNIQUE), `source_type`, `session_id`, `event_name`, `created_at`, `trace_id`, `project`, `tool_name`, and composite `(event_kind, event_type)`.
 - `insert [positional | --flags]` — Insert an event row. Supports both positional args and named flags. Uses `INSERT OR IGNORE` on `event_id` for deduplication.
-- `list [filters]` — List events (pipe-delimited), filterable by `--source-type`, `--session-id`, `--event-kind`, `--event-name`, `--agent`, `--service`, `--user-id`, `--trace-id`, `--project`, `--min-severity`, `--since`, `--until`.
+- `list [filters]` — List events (pipe-delimited), filterable by `--source-type`, `--session-id`, `--event-kind`, `--event-name`, `--agent`, `--service`, `--trace-id`, `--project`, `--min-severity`, `--since`, `--until`.
 - `query <sql>` — Pass-through SQL query on events.
 - `count [filters]` — Count events with same filters as `list`.
 - `anomalies [filters]` — Events where `anomaly_flags IS NOT NULL`. Same filters as `list`. Output is consumable by `/yoke curate`.
@@ -674,7 +674,7 @@ Required flags:
 - `--source-type <source>` — Source type: `agent`, `backend`, `frontend`, `system`
 
 Optional flags:
-- `--session-id`, `--event-id`, `--severity`, `--outcome`, `--agent`, `--tool-name`, `--duration-ms`, `--exit-code`, `--item-id`, `--task-num`, `--project`, `--service`, `--environment`, `--user-id`, `--org-id`, `--actor`, `--trace-id`, `--parent-id`, `--anomaly-flags`, `--context` (JSON), `--error-context` (JSON)
+- `--session-id`, `--event-id`, `--severity`, `--outcome`, `--agent`, `--tool-name`, `--duration-ms`, `--exit-code`, `--item-id`, `--task-num`, `--project`, `--service`, `--environment`, `--org-id`, `--actor`, `--trace-id`, `--parent-id`, `--anomaly-flags`, `--context` (JSON), `--error-context` (JSON)
 
 Session ID fallback chain (cross-harness, YOK-1271):
 1. `--session-id` parameter (explicit)
