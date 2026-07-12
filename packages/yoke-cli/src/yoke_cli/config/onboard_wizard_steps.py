@@ -90,6 +90,11 @@ YOKE_TOKEN_VERIFY_RETRY_ROWS = [
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
+HOSTED_MACHINE_RETRY_ROWS = [
+    SelectionRow("retry", "Try again", "start a fresh browser sign-in"),
+    SelectionRow("back", "Back", "choose a different option"),
+]
+
 PROBE_RETRY_ROWS = [
     SelectionRow("retry", "Try again", "rerun the check"),
     SelectionRow("back", "Back", "choose a different option"),
@@ -318,6 +323,7 @@ __all__ = [
     "YOKE_TOKEN_SOURCE_ROWS",
     "VERIFY_OK_ROWS",
     "YOKE_TOKEN_VERIFY_RETRY_ROWS",
+    "HOSTED_MACHINE_RETRY_ROWS",
     "apply_failure_body",
     "apply_progress_body",
     "apply_different_folder_body",

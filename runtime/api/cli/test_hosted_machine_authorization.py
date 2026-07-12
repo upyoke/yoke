@@ -7,7 +7,6 @@ import pytest
 from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpResponse,
-    BoundedJsonHttpStatusError,
 )
 
 
@@ -38,7 +37,11 @@ def test_browser_authorization_delivers_one_org_authority(monkeypatch) -> None:
                 status=200,
                 headers={},
             ),
-            BoundedJsonHttpStatusError(202, {"error": "authorization_pending"}),
+            BoundedJsonHttpResponse(
+                payload={"error": "authorization_pending"},
+                status=202,
+                headers={},
+            ),
             BoundedJsonHttpResponse(
                 payload={
                     "token": "tenant-actor-token",
@@ -72,6 +75,43 @@ def test_browser_authorization_delivers_one_org_authority(monkeypatch) -> None:
     assert credential.org == "acme"
     assert credential.token == "tenant-actor-token"
     assert seen[1][2] == ("device-secret",)
+
+
+def test_browser_authorization_rejects_malformed_pending_response(monkeypatch) -> None:
+    responses = deque(
+        [
+            BoundedJsonHttpResponse(
+                payload={"unexpected": "shape"},
+                status=202,
+                headers={},
+            ),
+        ]
+    )
+    monkeypatch.setattr(
+        auth,
+        "request_json",
+        lambda *_args, **_kwargs: responses.popleft(),
+    )
+    clock = _Clock()
+    pending = auth.PendingMachineAuthorization(
+        platform_url="https://app.upyoke.com",
+        device_code="device-secret",
+        user_code="ABCD-2345",
+        verification_uri="https://app.upyoke.com/machine",
+        verification_uri_complete="https://app.upyoke.com/machine?user_code=ABCD-2345",
+        expires_in=60,
+        interval=2,
+    )
+
+    with pytest.raises(
+        auth.HostedMachineAuthorizationError,
+        match="polling failed \\(HTTP 202\\)",
+    ):
+        auth.complete(
+            pending,
+            sleep=clock.sleep,
+            monotonic=clock.monotonic,
+        )
 
 
 def test_browser_authorization_rejects_cross_origin_authority(monkeypatch) -> None:
