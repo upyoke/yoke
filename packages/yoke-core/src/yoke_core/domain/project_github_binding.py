@@ -247,11 +247,8 @@ def cmd_unbind_project_repo(
             (ident.id,),
         )
         for table in ("project_capabilities", "capability_secrets"):
-            conn.execute(
-                f"DELETE FROM {table} WHERE project_id={p} "
-                f"AND LOWER(TRIM(type))={p}",
-                (ident.id, GITHUB_CAPABILITY_TYPE),
-            )
+            delete_sql = f"DELETE FROM {table} WHERE project_id={p} AND LOWER(TRIM(type))={p}"
+            conn.execute(delete_sql, (ident.id, GITHUB_CAPABILITY_TYPE))
         conn.execute(
             "UPDATE projects SET github_repo=NULL, "
             "github_sync_mode='backlog_only' "
