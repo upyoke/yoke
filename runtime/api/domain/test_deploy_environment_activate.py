@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 
 import pytest
 
@@ -102,6 +103,30 @@ class TestWaitSshReachable:
             runner, _env(), lambda _l: None, sleeper=lambda _s: None
         )
         assert len(runner.calls) == 2
+
+    def test_subprocess_timeout_is_retried(self, monkeypatch):
+        attempts = []
+        outcomes = iter(
+            [
+                subprocess.TimeoutExpired(cmd=["ssh"], timeout=30),
+                CommandResult(0, "ssh-ok\n", ""),
+            ]
+        )
+
+        def fake_run_remote(*_args, **_kwargs):
+            attempts.append(1)
+            outcome = next(outcomes)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            return outcome
+
+        monkeypatch.setattr(
+            deploy_environment_activate, "run_remote", fake_run_remote
+        )
+        wait_ssh_reachable(
+            FakeRunner(), _env(), lambda _l: None, sleeper=lambda _s: None
+        )
+        assert len(attempts) == 2
 
     def test_times_out_with_last_error(self, monkeypatch):
         clock = iter([0.0, 1.0, 200.0, 300.0])
