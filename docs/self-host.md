@@ -172,8 +172,7 @@ blocks in `docker-compose.yml`, and `docker compose up -d`. Setting
 some vars but not all fails loudly: the door answers 409 naming what is
 missing.
 
-The Compose service mounts the owner-only source secret as root, copies it
-into a container-private tmpfs as mode `0600` owned by the image's `yoke`
+The Compose service mounts the owner-only source secret as root, copies it into a container-private tmpfs as mode `0600` owned by the image's `yoke`
 user, rewrites the file binding, seals the original mount directory as
 root-only, clears supplementary groups, and drops to that user before starting
 the server. Every source must be a read-only mount; this also handles Compose

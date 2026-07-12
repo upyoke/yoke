@@ -8,11 +8,15 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from yoke_cli.transport.response_deadline_open import ResponseOpenDeadlineError
 from yoke_contracts import github_app_tokens as token_contract
 from yoke_contracts.github_origin import GitHubApiEndpoint, GitHubApiOriginError
 
 from yoke_core.domain import gh_rest_transport
-from yoke_core.domain.github_api_transport import open_same_origin
+from yoke_core.domain.github_api_transport import (
+    open_same_origin,
+    open_same_origin_deadline,
+)
 from yoke_core.domain.github_app_binding_verification_budget import (
     GitHubBindingVerificationBudget,
     GitHubBindingVerificationBudgetError,
@@ -104,19 +108,33 @@ def _get_json(
         method="GET",
     )
     try:
-        request_timeout = selected_budget.begin_request()
-        with open_same_origin(
+        selected_budget.begin_request()
+
+        def open_verification(selected_request, timeout):
+            return open_same_origin(
+                selected_request,
+                endpoint=endpoint,
+                timeout_seconds=timeout,
+                opener=opener,
+                reject_redirects=True,
+            )
+
+        with open_same_origin_deadline(
             request,
             endpoint=endpoint,
-            timeout_seconds=request_timeout,
-            opener=opener,
+            deadline=selected_budget.deadline,
+            replay_safe=True,
+            opener=open_verification,
             reject_redirects=True,
+            clock=selected_budget.clock,
         ) as response:
             require_unredirected_verification_response(
                 response, expected_url=request.full_url
             )
             raw = read_bounded_verification_response(
                 response,
+                deadline=selected_budget.deadline,
+                clock=selected_budget.clock,
                 limit_bytes=response_limit_bytes,
             )
             selected_budget.consume_response_bytes(len(raw))
@@ -127,6 +145,10 @@ def _get_json(
     except urllib.error.URLError as exc:
         raise GitHubUserVerificationError(
             "GitHub user authorization verification was unavailable"
+        ) from exc
+    except ResponseOpenDeadlineError as exc:
+        raise GitHubUserVerificationError(
+            "GitHub binding verification deadline exceeded"
         ) from exc
     except TimeoutError as exc:
         raise GitHubUserVerificationError(

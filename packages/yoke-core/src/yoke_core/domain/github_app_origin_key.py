@@ -97,7 +97,7 @@ def verification_and_promotion_command(env: Any, image_ref: str) -> str:
     issuer = shlex.quote(env.github_app.issuer)
     api_url = shlex.quote(env.github_app.api_url)
     secret_group = shlex.quote(GITHUB_APP_SECRET_GROUP_NAME)
-    probe_path = "/run/yoke/github-app-private-key-pending.pem"
+    probe_path = GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH
     public_env = _public_identity_probe_env(env)
     return (
         f"cd {directory} && "
