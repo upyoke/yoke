@@ -214,6 +214,31 @@ def test_preview_apply_writes_managed_block(stub_path) -> None:
     assert stub_path.verify_ssh_calls == ["zsh"]
 
 
+def test_preview_choose_different_returns_to_path_diagnosis(stub_path) -> None:
+    app = _app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            diagnosis_view = app._history[-1]
+            diagnosis_depth = len(app._history)
+            for _ in range(3):
+                await pilot.press("down")
+                await pilot.press("enter")
+                await pilot.pause()
+                await pilot.press("down")
+                await pilot.press("enter")
+                await pilot.pause()
+
+                assert app._history[-1] is diagnosis_view
+                assert len(app._history) == diagnosis_depth
+                assert app.query_one(Stepper).active == STEP_INSTALL
+                assert "Add Yoke to your PATH" in _visible_static_text(app)
+
+    asyncio.run(scenario())
+    assert stub_path.apply_calls == []
+
+
 def test_fix_choice_applies_directly(stub_path) -> None:
     app = _app()
 

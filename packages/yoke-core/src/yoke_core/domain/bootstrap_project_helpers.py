@@ -18,6 +18,9 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.project_github_capability_settings import (
+    reject_github_capability_secret_read,
+)
 from yoke_core.domain.project_identity import ProjectIdentity, resolve_project
 from yoke_core.domain.schema_common import (
     _column_exists as _schema_column_exists,
@@ -109,6 +112,7 @@ def _capability_settings(conn: Any, project: str, cap_type: str) -> dict:
 
 
 def _capability_secret(conn: Any, project: str, cap_type: str, key: str) -> str:
+    reject_github_capability_secret_read(cap_type)
     ident = _resolve_project_identity(conn, project)
     if _table_exists(conn, "capability_secrets"):
         p = _p(conn)

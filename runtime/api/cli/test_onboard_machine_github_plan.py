@@ -53,4 +53,5 @@ def test_apply_rejects_existing_connection_on_different_requested_origin(
             choice=onboard_machine_github.CHOICE_CONNECT,
             config_path=Path("/tmp/config.json"),
             api_url="https://github.example/api/v3",
+            service_api_url="https://api.stage.upyoke.com",
         )

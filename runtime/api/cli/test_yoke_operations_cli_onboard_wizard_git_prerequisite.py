@@ -171,6 +171,7 @@ def test_missing_git_install_action_runs_helper_then_continues(monkeypatch) -> N
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _skip_machine_github(pilot)
+            project_depth = len(app._history)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await app.workers.wait_for_complete()
             await pilot.pause()
@@ -181,6 +182,11 @@ def test_missing_git_install_action_runs_helper_then_continues(monkeypatch) -> N
             await pilot.pause()
             assert state["install_calls"] == 1
             assert _title(app) == "Clone a project from GitHub."
+            assert len(app._history) == project_depth + 1
+            await pilot.press("escape")
+            await pilot.pause()
+            assert _title(app) == "Set up a project."
+            assert len(app._history) == project_depth
 
     asyncio.run(scenario())
 
@@ -288,5 +294,43 @@ def test_clone_url_probe_missing_git_is_not_repo_unreachable(monkeypatch) -> Non
             assert "git is required" in body
             assert "install git" in body
             assert "couldn't reach that repo" not in body
+
+    asyncio.run(scenario())
+
+
+def test_project_git_retry_and_back_do_not_accumulate_recovery_views(
+    monkeypatch,
+) -> None:
+    app, _spy = make_app()
+    _force_linux(monkeypatch)
+    monkeypatch.setattr(
+        project_git_prerequisite.shutil, "which", _git_missing_dnf_available,
+    )
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await _skip_machine_github(pilot)
+            project_depth = len(app._history)
+            await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            error_depth = len(app._history)
+            assert error_depth == project_depth + 1
+
+            for _ in range(2):
+                await pilot.press("down")  # Install Git -> Try again
+                await pilot.press("enter")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                assert "git is required" in _body_text(app).lower()
+                assert len(app._history) == error_depth
+
+            await pilot.press("down")  # Install Git -> Try again
+            await pilot.press("down")  # Try again -> Back
+            await pilot.press("enter")
+            await pilot.pause()
+            assert _title(app) == "Set up a project."
+            assert "git is required" not in _body_text(app).lower()
+            assert len(app._history) == project_depth
 
     asyncio.run(scenario())

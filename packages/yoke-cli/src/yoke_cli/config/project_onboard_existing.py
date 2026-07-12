@@ -106,6 +106,7 @@ def onboard_existing(
     clone_token: str | None = None,
     clone_web_url: str | None = None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     github_adoption_preserve: bool = False,
 ) -> dict[str, Any]:
     root = project_checkout_path.for_apply(
@@ -191,6 +192,7 @@ def onboard_existing(
                     github_repo,
                     config_path,
                     service_api_url=service_api_url,
+                    local_connection_selected=local_connection_selected,
                 )
     payload = project_api_payload(
         slug=slug,
@@ -231,6 +233,8 @@ def onboard_existing(
             reuse_github_auth=reuse_github_auth,
             register_mapping=True,
             persist_sync_mode=persist_sync_mode,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     operations.finish_github_binding(
         progress,

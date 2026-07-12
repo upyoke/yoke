@@ -48,7 +48,7 @@ def test_projects_capability_secret_set_rejects_github_case_variants(
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "github_binding_owned"
-    assert "stranded" in outcome.error.message
+    assert "retired" in outcome.error.message
     assert captured == {}
 
 

@@ -58,6 +58,7 @@ def create_project(
     reuse_github_auth: bool = False,
     existing_project_id: int | None = None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     github_adoption_preserve: bool = False,
 ) -> dict[str, Any]:
     root = project_checkout_path.for_apply(
@@ -112,6 +113,7 @@ def create_project(
                 github_repo,
                 config_path,
                 service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
             )
     with onboard_apply_progress.step(progress, scaffold_action):
         result = operations.dispatch("projects.create", payload, config_path)
@@ -125,6 +127,8 @@ def create_project(
             github_auth_target=github_auth_target,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     operations.finish_github_binding(
         progress,

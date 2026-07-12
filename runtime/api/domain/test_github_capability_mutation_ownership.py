@@ -71,10 +71,10 @@ def _bind_yoke() -> None:
     )
 
 
-def test_github_secret_writes_are_closed_but_stranded_rows_remain_readable(
+def test_github_secret_reads_and_writes_stay_closed_with_retired_rows(
     github_db: str,
 ) -> None:
-    with pytest.raises(ValueError, match="stranded data"):
+    with pytest.raises(ValueError, match="retired"):
         projects.cmd_capability_set_secret(
             "yoke", " GitHub ", "token", "new-token"
         )
@@ -91,10 +91,10 @@ def test_github_secret_writes_are_closed_but_stranded_rows_remain_readable(
     finally:
         conn.close()
 
-    assert projects.cmd_capability_get_secret(
-        "yoke", "github", "token"
-    ) == "stranded-token"
-    assert projects.cmd_capability_list_secrets("yoke", "github") == "token"
+    with pytest.raises(ValueError, match="retired and cannot be read"):
+        projects.cmd_capability_get_secret("yoke", "github", "token")
+    with pytest.raises(ValueError, match="retired and cannot be read"):
+        projects.cmd_capability_list_secrets("yoke", "GitHub")
 
 
 def test_github_full_settings_writes_are_closed_case_insensitively(
@@ -181,7 +181,19 @@ def test_cli_rejects_github_secret_and_full_settings_writes(
     assert projects.main([
         "capability-set-secret", "yoke", "GitHub", "token", "secret",
     ]) == 2
-    assert "stranded data" in capsys.readouterr().err
+    assert "retired" in capsys.readouterr().err
+
+    assert projects.main([
+        "capability-get-secret", "yoke", "github", "token",
+    ]) == 2
+    read_error = capsys.readouterr()
+    assert "retired and cannot be read" in read_error.err
+    assert "token" not in read_error.out
+
+    assert projects.main([
+        "capability-list-secrets", "yoke", "GITHUB",
+    ]) == 2
+    assert "retired and cannot be read" in capsys.readouterr().err
 
     assert projects.main([
         "capability-set-settings", "yoke", "github", "{}", "--new",

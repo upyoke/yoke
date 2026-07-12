@@ -167,6 +167,35 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
     asyncio.run(scenario())
 
 
+def test_private_repo_error_back_returns_to_visibility_choice(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        clone_flow,
+        "fetch_private_repos",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("private repository lookup unavailable")
+        ),
+    )
+    app, _spy = make_app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await _start_clone(app, pilot, connect_github=True)
+            await pilot.press("down")   # visibility: Private
+            await pilot.press("enter")
+            text = await _wait_for_body_text(
+                app, pilot, "Couldn't load private repos",
+            )
+            assert "Couldn't load private repos" in text
+            await pilot.press("down")   # Back
+            await pilot.press("enter")
+            await pilot.pause(0.2)
+            assert "Is the repo public or private?" in _body_text(app)
+
+    asyncio.run(scenario())
+
+
 def test_no_app_connection_omits_visibility_and_uses_paste_url() -> None:
     """Without an App connection the visibility screen is skipped (no dead-end)."""
     app, spy = make_app()

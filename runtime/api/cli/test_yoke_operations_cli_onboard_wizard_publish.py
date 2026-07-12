@@ -198,6 +198,59 @@ def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
     assert applied["project_github_adoption"] == "app-binding"
 
 
+def test_changed_checkout_origin_back_returns_to_project_name(
+    tmp_path: Path,
+) -> None:
+    checkout = tmp_path / "changed-origin"
+    checkout.mkdir()
+    subprocess.run(
+        ["git", "init", str(checkout)],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    subprocess.run(
+        ["git", "remote", "add", "origin", "git@github.com:owner/repo.git"],
+        cwd=checkout,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    app, _spy = make_app()
+
+    def current_view_title() -> str:
+        widgets = list(app._history[-1].builder())
+        return str(widgets[0].render())
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await connect_github_app(app, pilot)
+            await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
+            await type_text(pilot, str(checkout))
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            subprocess.run(
+                [
+                    "git", "remote", "set-url", "origin",
+                    "git@github.com:owner/changed.git",
+                ],
+                cwd=checkout,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            await pilot.press("enter")  # slug
+            await pilot.press("enter")  # name
+            await pilot.pause(0.2)
+            assert "Checkout origin changed" in current_view_title()
+            await pilot.press("down")  # Back
+            await pilot.press("enter")
+            await pilot.pause(0.2)
+            assert "Give it a friendly name" in current_view_title()
+
+    asyncio.run(scenario())
+
+
 def test_no_app_connection_publish_no_keeps_it_local() -> None:
     """Without an App connection the publish prompt is still shown; No stays local."""
     app, spy = make_app()
@@ -226,3 +279,37 @@ def test_no_app_connection_publish_no_keeps_it_local() -> None:
     assert applied is not None
     assert applied["project_publish"] is None
     assert "machine_github_token" not in applied
+
+
+def test_owner_picker_error_back_returns_to_publish_choice(monkeypatch) -> None:
+    monkeypatch.setattr(
+        onboard_wizard_flow,
+        "fetch_repo_owners",
+        lambda _api_url, _token: (_ for _ in ()).throw(
+            RuntimeError("owner lookup unavailable")
+        ),
+    )
+    app, _spy = make_app()
+
+    def current_view_title() -> str:
+        widgets = list(app._history[-1].builder())
+        return str(widgets[0].render())
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await connect_github_app(app, pilot)
+            await _pick_mode(pilot, onboard_project.PROJECT_MODE_CREATE_REPO)
+            await type_text(pilot, "/home/code/widget")
+            await pilot.press("enter")
+            await pilot.press("enter")  # slug
+            await pilot.press("enter")  # name
+            await pilot.press("enter")  # publish: Yes
+            await app.workers.wait_for_complete()
+            await pilot.pause(0.2)
+            assert "Couldn't load GitHub owners" in current_view_title()
+            await pilot.press("down")  # Back
+            await pilot.press("enter")
+            await pilot.pause(0.2)
+            assert "Also publish to GitHub?" in current_view_title()
+
+    asyncio.run(scenario())

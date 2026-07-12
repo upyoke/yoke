@@ -11,7 +11,7 @@ from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_clone_resume
 from yoke_cli.project_install import files as project_install_files
-from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
+from yoke_contracts.machine_config import schema as machine_schema
 
 
 def detect(
@@ -52,7 +52,14 @@ def detect(
             and source_token_path == planned_token_path
             and Path(planned_token_path).expanduser().is_file()
         ),
-        "machine_github": _machine_github_matches(payload, machine_github),
+        "machine_github": _machine_github_matches(
+            payload,
+            machine_github,
+            service_api_url=api_url or None,
+            local_connection_selected=(
+                env_name == local_universe_setup.LOCAL_ENV and not api_url
+            ),
+        ),
         "temp_root": (
             _effective_path(machine_config.temp_root(cfg_path)) == _effective_path(temp_root)
             and temp_root.is_dir()
@@ -92,7 +99,10 @@ def _connection_entry(payload: Mapping[str, Any], env_name: str) -> Mapping[str,
 
 def _connection_matches(connection: Mapping[str, Any], api_url: str) -> bool:
     if not api_url:
-        return str(connection.get("transport") or "") in POSTGRES_TRANSPORTS
+        return (
+            str(connection.get("transport") or "")
+            in machine_schema.POSTGRES_TRANSPORTS
+        )
     return (
         str(connection.get("transport") or "") == "https"
         and _clean_url(connection.get("api_url")) == _clean_url(api_url)
@@ -115,6 +125,9 @@ def _credential_source_matches(
 def _machine_github_matches(
     payload: Mapping[str, Any],
     machine_github: Mapping[str, Any],
+    *,
+    service_api_url: str | None,
+    local_connection_selected: bool,
 ) -> bool:
     if str(machine_github.get("choice") or "") != onboard_machine_github.CHOICE_CONNECT:
         return False
@@ -127,9 +140,27 @@ def _machine_github_matches(
     authorization = github.get("authorization")
     if not isinstance(authorization, Mapping):
         return False
+    profile_source = str(github.get("profile_source") or "")
+    saved_service = _clean_url(github.get("profile_service_api_url"))
+    selected_service = _clean_url(service_api_url)
+    profile_matches = (
+        local_connection_selected
+        and not selected_service
+        and not saved_service
+        and profile_source in {
+            machine_schema.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
+            machine_schema.GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
+        }
+    ) or (
+        not local_connection_selected
+        and bool(selected_service)
+        and profile_source == machine_schema.GITHUB_PROFILE_SOURCE_SERVICE
+        and saved_service == selected_service
+    )
     refresh_ref = _path_text(authorization.get("refresh_credential_ref"))
     return (
         _clean_url(github.get("api_url")) == _clean_url(machine_github.get("api_url"))
+        and profile_matches
         and str(authorization_source.get("kind") or "") == "github_app"
         and bool(refresh_ref)
         and Path(refresh_ref).expanduser().is_file()

@@ -31,12 +31,16 @@ class ProfileBoundUserAccess:
 def access_token_for_binding(
     config_path: str | Path | None = None,
     *,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     profile_opener: Callable[..., Any] | None = None,
     token_opener: Callable[..., Any] | None = None,
 ) -> github_user_tokens.LocalUserAccessToken:
     """Verify the public App identity before refreshing a project token."""
     return profile_bound_access_for_binding(
         config_path,
+        service_api_url=service_api_url,
+        local_connection_selected=local_connection_selected,
         profile_opener=profile_opener,
         token_opener=token_opener,
     ).token
@@ -45,12 +49,16 @@ def access_token_for_binding(
 def profile_bound_access_for_binding(
     config_path: str | Path | None = None,
     *,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     profile_opener: Callable[..., Any] | None = None,
     token_opener: Callable[..., Any] | None = None,
 ) -> ProfileBoundUserAccess:
     """Read, prove, and return one internally consistent binding authority."""
     with locked_profile_bound_access_for_binding(
         config_path,
+        service_api_url=service_api_url,
+        local_connection_selected=local_connection_selected,
         profile_opener=profile_opener,
         token_opener=token_opener,
     ) as authority:
@@ -61,6 +69,8 @@ def profile_bound_access_for_binding(
 def locked_profile_bound_access_for_binding(
     config_path: str | Path | None = None,
     *,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     profile_opener: Callable[..., Any] | None = None,
     token_opener: Callable[..., Any] | None = None,
 ) -> Iterator[ProfileBoundUserAccess]:
@@ -81,6 +91,8 @@ def locked_profile_bound_access_for_binding(
             profile = github_app_public_profile.resolve_selected_and_match(
                 github,
                 config_path=config_path,
+                service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
                 opener=profile_opener,
             )
             token = github_user_tokens.access_token_from_machine_config(
@@ -88,6 +100,8 @@ def locked_profile_bound_access_for_binding(
                 opener=token_opener,
                 profile_opener=profile_opener,
                 _profile_proven=True,
+                _expected_service_api_url=service_api_url,
+                _expected_local_connection=local_connection_selected,
             )
             current = machine_config.github_config(config_path)
             if current != github:

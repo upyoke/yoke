@@ -25,6 +25,7 @@ def status(
     api_opener: Callable[..., Any] | None,
     token_opener: Callable[..., Any] | None,
     service_api_url: str | None,
+    local_connection_selected: bool,
     profile_opener: Callable[..., Any] | None,
     sleep: Callable[[float], None] | None,
     now: datetime | None,
@@ -47,6 +48,7 @@ def status(
             github,
             config_path=config_path,
             service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
             opener=profile_opener,
         )
     except github_app_public_profile.GitHubAppPublicProfileError as exc:
@@ -62,6 +64,7 @@ def status(
             config_path=config_path, opener=token_opener,
             profile_opener=profile_opener, now=now,
             service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
         if token.refresh_credential_ref != expected_credential_ref:
             raise error_type(
