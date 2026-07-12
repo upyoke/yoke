@@ -15,6 +15,7 @@ from runtime.api.cli.project_onboarding_test_helpers import (
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard as onboard_config
+from yoke_cli.config import onboard_destinations
 from yoke_cli.config import project_onboard
 from yoke_cli.config import project_onboard_progress
 from yoke_cli.config import writer as machine_writer
@@ -36,6 +37,7 @@ def test_project_apply_progress_events_follow_real_substeps(
             config_path=config,
             env_name="prod",
             api_url=api.url,
+            destination=onboard_destinations.DESTINATION_SERVER,
             token="actor-token",
             mode="quick",
             apply=True,
@@ -53,9 +55,7 @@ def test_project_apply_progress_events_follow_real_substeps(
             ),
         )
 
-    project_events = [
-        event for event in events if event[0].startswith("project-")
-    ]
+    project_events = [event for event in events if event[0].startswith("project-")]
     assert project_events == [
         ("project-source-choice", "local-checkout", "done"),
         ("project-onboard-local-checkout", str(checkout), "running"),
@@ -79,26 +79,39 @@ def test_apply_report_records_project_substep_statuses(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
 
     with ProjectOnboardApi(project=_project_row()) as api:
-        rc = yoke_operations_cli.main([
-            "onboard",
-            "actor-token",
-            "--non-interactive",
-            "--quick",
-            "--config", str(config),
-            "--env", "prod",
-            "--api-url", api.url,
-            "--skip-identity-check",
-            "--project-mode", "local-checkout",
-            "--checkout", str(checkout),
-            "--project-slug", "local",
-            "--project-name", "Local",
-            "--github-repo", "owner/local",
-            "--default-branch", "main",
-            "--public-item-prefix", "LOC",
-            "--github-adoption", "backlog-only",
-            "--yes",
-            "--json",
-        ])
+        rc = yoke_operations_cli.main(
+            [
+                "onboard",
+                "actor-token",
+                "--non-interactive",
+                "--quick",
+                "--config",
+                str(config),
+                "--env",
+                "prod",
+                "--api-url",
+                api.url,
+                "--skip-identity-check",
+                "--project-mode",
+                "local-checkout",
+                "--checkout",
+                str(checkout),
+                "--project-slug",
+                "local",
+                "--project-name",
+                "Local",
+                "--github-repo",
+                "owner/local",
+                "--default-branch",
+                "main",
+                "--public-item-prefix",
+                "LOC",
+                "--github-adoption",
+                "backlog-only",
+                "--yes",
+                "--json",
+            ]
+        )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -132,6 +145,7 @@ def test_project_apply_progress_updates_stale_checkout_mapping(tmp_path: Path) -
             config_path=config,
             env_name="prod",
             api_url=api.url,
+            destination=onboard_destinations.DESTINATION_SERVER,
             token="actor-token",
             mode="quick",
             apply=True,
@@ -151,10 +165,14 @@ def test_project_apply_progress_updates_stale_checkout_mapping(tmp_path: Path) -
 
     assert machine_config.project_id(checkout, config) == 44
     assert (
-        "project-checkout-register", str(checkout), "running",
+        "project-checkout-register",
+        str(checkout),
+        "running",
     ) in events
     assert (
-        "project-checkout-register", str(checkout), "done",
+        "project-checkout-register",
+        str(checkout),
+        "done",
     ) in events
 
 
@@ -174,6 +192,7 @@ def test_clone_resume_progress_marks_checkout_step_skipped(
             config_path=config,
             env_name="prod",
             api_url=api.url,
+            destination=onboard_destinations.DESTINATION_SERVER,
             token="actor-token",
             mode="quick",
             apply=True,
@@ -193,10 +212,14 @@ def test_clone_resume_progress_marks_checkout_step_skipped(
         )
 
     assert (
-        "project-clone-remote", str(checkout), "skipped",
+        "project-clone-remote",
+        str(checkout),
+        "skipped",
     ) in events
     assert (
-        "project-install-scaffold", "", "running",
+        "project-install-scaffold",
+        "",
+        "running",
     ) in events
 
 
@@ -218,7 +241,8 @@ def test_new_app_binding_stages_sync_as_backlog_only(tmp_path: Path) -> None:
 
 
 def test_existing_app_binding_failure_never_enables_sync(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     calls: list[tuple[str, dict]] = []
     monkeypatch.setattr(
@@ -226,11 +250,13 @@ def test_existing_app_binding_failure_never_enables_sync(
         "github_config",
         lambda _path: {
             "api_url": "https://api.github.example",
-            "repositories": [{
-                "installation_id": 123,
-                "repository_id": 456,
-                "full_name": "owner/demo",
-            }],
+            "repositories": [
+                {
+                    "installation_id": 123,
+                    "repository_id": 456,
+                    "full_name": "owner/demo",
+                }
+            ],
         },
     )
     monkeypatch.setattr(
