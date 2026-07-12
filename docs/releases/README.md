@@ -73,15 +73,18 @@ call the image launch complete until a clean, unauthenticated registry client
 can pull the exact digest and its registry-stored attestation verifies against
 the release tag and full source commit.
 
-Use this smoke from a machine with Docker, buildx, `gh`, and no required GHCR
-login. Replace only the tag value; the remaining identity is resolved from the
-remote annotated tag:
+Use this smoke from a machine with Docker, buildx, `curl`, `jq`, `gh`, and no
+required GHCR login. Replace only the tag value; the remaining identity is
+resolved from the public GitHub REST API and remote annotated tag:
 
 ```bash
 tag="vX.Y.Z+local.N"
 repository="ghcr.io/upyoke/yoke-server"
-tag_object="$(gh api "repos/upyoke/yoke/git/ref/tags/$tag" --jq '.object.sha')"
-source_sha="$(gh api "repos/upyoke/yoke/git/tags/$tag_object" --jq '.object.sha')"
+api="https://api.github.com/repos/upyoke/yoke/git"
+tag_object="$(curl -fsSL -H 'Accept: application/vnd.github+json' \
+  "$api/ref/tags/$tag" | jq -er '.object.sha')"
+source_sha="$(curl -fsSL -H 'Accept: application/vnd.github+json' \
+  "$api/tags/$tag_object" | jq -er '.object.sha')"
 sha12="${source_sha:0:12}"
 digest="<sha256:digest-from-the-completed-image-run>"
 
