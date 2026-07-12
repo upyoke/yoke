@@ -25,6 +25,7 @@ from yoke_core.api.http_auth import (
     record_function_authz,
     require_auth_context,
 )
+from yoke_core.domain import yoke_function_registry as function_registry
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -103,18 +104,19 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
     still operate on the caller's harness session.
     """
     auth = require_auth_context(request)
-    entry = lookup(str(envelope.get("function") or ""))
-    service_denial = _service_token_guard_response(envelope, entry, auth)
-    if service_denial is not None:
-        body = service_denial.model_dump()
-        _record_service_token_denial(request, auth, service_denial)
-        return JSONResponse(content=body, status_code=_status_for_response(body))
-    bound_envelope, ambient = bind_actor_from_auth(envelope, auth)
-    _record_pre_dispatch_authz(request, bound_envelope, auth)
+    bound_envelope = envelope
     # Pass "" (never None) when the envelope carries no session: the
     # caller's ambient identity lives client-side, so the dispatcher must
     # not fall back to resolving the SERVER process's env/ancestry.
     try:
+        entry = function_registry.lookup(str(envelope.get("function") or ""))
+        service_denial = _service_token_guard_response(envelope, entry, auth)
+        if service_denial is not None:
+            body = service_denial.model_dump()
+            _record_service_token_denial(request, auth, service_denial)
+            return JSONResponse(content=body, status_code=_status_for_response(body))
+        bound_envelope, ambient = bind_actor_from_auth(envelope, auth)
+        _record_pre_dispatch_authz(request, bound_envelope, auth)
         response = dispatch(bound_envelope, ambient_session_id=ambient or "")
     except Exception as exc:
         response = _exception_response(bound_envelope, exc)
