@@ -212,7 +212,8 @@ def test_resolve_export_dsn_refuses_https_connection_in_mode_language(
     message = str(excinfo.value)
     assert "DSN possession" in message
     assert "hosted" in message
-    assert "platform surface" in message
+    assert "Move universe" in message
+    assert "self-host" in message
     assert "yoke init --local" in message
 
 

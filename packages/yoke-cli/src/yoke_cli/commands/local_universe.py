@@ -111,9 +111,10 @@ def universe_export(args: List[str]) -> int:
             "the leave/graduate half of moving a universe between "
             "deployment modes. Requires holding the database DSN: "
             "sanctioned for a non-prod local-postgres connection. An https "
-            "(hosted/self-host) connection refuses — the server-side "
-            "export/download is a platform surface that has not shipped — "
-            "and prod-flagged Postgres connections stay operator-only."
+            "connection refuses because this machine holds no DSN: hosted "
+            "org admins use the dashboard's Move universe action, while a "
+            "self-host operator owns the server backup authority. "
+            "Prod-flagged Postgres connections stay operator-only."
         ),
     )
     parser.add_argument(

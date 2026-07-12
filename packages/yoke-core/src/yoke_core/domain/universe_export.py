@@ -4,18 +4,17 @@ One schema runs in every deployment mode, so moving a universe between
 modes (local / self-host / hosted) is dump-and-restore; this module owns
 the dump half. :func:`export_universe` runs ``pg_dump`` in custom format
 (``--format=custom``): a single self-contained, compressed archive that
-``pg_restore`` can list, filter, and restore into any same-or-newer
-Postgres — the right input for a future universe restore/upload surface,
-where plain SQL text would lose selective-restore and parallel-restore
-ability.
+``pg_restore`` can list, filter, and restore through the portability
+validator, where plain SQL text would lose selective-restore and
+parallel-restore ability.
 
 Authority is DSN possession. Export is sanctioned when the active
 machine-config connection is a non-prod Postgres connection whose DSN
 this machine holds (the local universe's shape). An https connection
-holds no DSN — hosted and self-hosted universes get a server-side
-export/download when that platform surface ships — and prod-flagged
-Postgres connections stay operator-only like every other direct prod
-authority. ``pg_dump`` resolves from the embedded engine's installed
+holds no DSN — a hosted org admin downloads through the dashboard's
+``Move universe`` action; a self-host operator backs up at the server
+authority — and prod-flagged Postgres connections stay operator-only like
+every other direct prod authority. ``pg_dump`` resolves from the embedded engine's installed
 binaries first, then ``PATH`` — the same rule the cluster lifecycle
 uses for ``initdb``/``pg_ctl``.
 """
@@ -85,9 +84,10 @@ def resolve_export_dsn() -> str:
             f"the active connection {env.environment!r} is "
             f"{env.backend}-transport (hosted/self-host mode): this machine "
             "does not hold the universe database's DSN, and export requires "
-            "DSN possession. A server-side export/download for hosted and "
-            "self-hosted universes is a platform surface that has not "
-            "shipped yet. To export a machine-local universe, switch to its "
+            "DSN possession. A hosted org admin downloads from the "
+            "dashboard's `Move universe` action; a self-host operator owns "
+            "the server-side backup authority. To export a machine-local "
+            "universe, switch to its "
             "env (`yoke env use local`) or create one (`yoke init --local`)."
         )
     if connection_is_prod(env.config):

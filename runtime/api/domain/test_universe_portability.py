@@ -116,6 +116,18 @@ def test_inspection_rejects_tampered_real_archive(tmp_path):
         portability.inspect_archive(artifact)
 
 
+def test_server_side_dump_enforces_size_while_streaming(tmp_path):
+    from runtime.api.fixtures import pg_testdb
+    from yoke_core.domain import db_backend
+
+    destination = tmp_path / "bounded.dump"
+    with pg_testdb.test_database():
+        dsn = os.environ[db_backend.PG_DSN_ENV]
+        with pytest.raises(portability.ArchiveTooLargeError):
+            portability.dump_universe(dsn, destination, max_bytes=5)
+    assert not destination.exists()
+
+
 def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
     from runtime.api.fixtures import pg_testdb
     from yoke_core.domain import db_backend
