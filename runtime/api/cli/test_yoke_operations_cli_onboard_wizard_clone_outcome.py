@@ -190,6 +190,8 @@ def test_clone_outcome_screen_writable_variant_drops_fork(monkeypatch) -> None:
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")  # remote -> clone-folder input
+            await app.workers.wait_for_complete()
+            await pilot.pause()
             await pilot.press("enter")  # accept default folder -> clone-outcome screen
             await pilot.pause()
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
@@ -230,7 +232,7 @@ def test_empty_private_repo_picker_falls_back_to_paste_url(monkeypatch) -> None:
     """An empty private-repo list routes to the paste-URL input, not a dead-end."""
     monkeypatch.setattr(
         onboard_wizard_flow_clone, "fetch_private_repos",
-        lambda api_url, token: [],
+        lambda api_url, token, **_kwargs: [],
     )
     app, _spy = make_app()
 
@@ -261,6 +263,8 @@ def test_clone_outcome_screen_drops_fork_row_for_non_github_remote() -> None:
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://gitlab.com/acme/widgets.git")
             await pilot.press("enter")  # remote -> clone-folder input
+            await app.workers.wait_for_complete()
+            await pilot.pause()
             await pilot.press("enter")  # accept default folder -> clone-outcome screen
             await pilot.pause()
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
@@ -283,7 +287,7 @@ def test_prior_partial_clone_offers_resume_then_continues(monkeypatch) -> None:
 
     # Treat the typed folder as an already-present clone of the chosen source.
     monkeypatch.setattr(
-        clone, "existing_clone_matches", lambda root, remote: True
+        clone, "existing_clone_matches", lambda root, remote, **_kwargs: True
     )
 
     app, _spy = make_app()
@@ -295,15 +299,17 @@ def test_prior_partial_clone_offers_resume_then_continues(monkeypatch) -> None:
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")  # remote -> clone-folder input
+            await app.workers.wait_for_complete()
+            await pilot.pause()
             await pilot.press("enter")  # accept default folder -> Resume screen
             await pilot.pause()
             body = " ".join(
                 str(w.render())
                 for w in app.query("#onboard-body Static").results(Static)
             )
-            assert "partial setup" in body.lower()
+            assert "already has this repo" in body.lower()
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
-            assert [r.value for r in selection.rows] == ["resume", "start-over"]
+            assert [r.value for r in selection.rows] == ["resume", "choose-folder"]
             await pilot.press("enter")  # Resume (first row) -> clone-outcome screen
             await app.workers.wait_for_complete()
             await pilot.pause()

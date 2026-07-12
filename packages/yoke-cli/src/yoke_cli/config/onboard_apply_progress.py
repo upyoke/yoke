@@ -5,7 +5,13 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Callable, Iterable, Iterator
 
-from yoke_cli.config import onboard_project
+from yoke_cli.config.onboard_project_modes import (
+    PROJECT_MODE_CLONE_REMOTE,
+    PROJECT_MODE_CREATE_REPO,
+    PROJECT_MODE_IMPORT_REMOTE,
+    PROJECT_MODE_LOCAL_CHECKOUT,
+    PROJECT_MODE_SOURCE_DEV_ADMIN,
+)
 
 ProgressCallback = Callable[[str, str, str], None]
 
@@ -45,15 +51,15 @@ def step(
 
 
 def project_action_for_mode(project_mode: str) -> str:
-    if project_mode == onboard_project.PROJECT_MODE_CREATE_REPO:
+    if project_mode == PROJECT_MODE_CREATE_REPO:
         return "project-create-checkout"
-    if project_mode == onboard_project.PROJECT_MODE_CLONE_REMOTE:
+    if project_mode == PROJECT_MODE_CLONE_REMOTE:
         return "project-clone-remote"
-    if project_mode == onboard_project.PROJECT_MODE_IMPORT_REMOTE:
+    if project_mode == PROJECT_MODE_IMPORT_REMOTE:
         return "project-import-remote"
-    if project_mode == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT:
+    if project_mode == PROJECT_MODE_LOCAL_CHECKOUT:
         return "project-onboard-local-checkout"
-    if project_mode == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN:
+    if project_mode == PROJECT_MODE_SOURCE_DEV_ADMIN:
         return "project-source-dev-admin"
     return "project-onboard"
 

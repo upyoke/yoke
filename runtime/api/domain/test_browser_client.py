@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -40,7 +39,7 @@ def state_file(tmp_path):
     data = {
         "pid": os.getpid(),  # Use current PID so kill -0 succeeds
         "token": "test-token-abc",
-        "endpoint": "http://localhost:9222",
+        "endpoint": "http://127.0.0.1:9222",
         "browserType": "chromium",
         "startedAt": "2026-04-09T00:00:00Z",
         "health": "healthy",
@@ -57,7 +56,7 @@ def dead_state_file(tmp_path):
     data = {
         "pid": 999999999,
         "token": "dead-token",
-        "endpoint": "http://localhost:9222",
+        "endpoint": "http://127.0.0.1:9222",
         "browserType": "chromium",
         "startedAt": "2026-04-09T00:00:00Z",
         "health": "healthy",
@@ -77,7 +76,7 @@ class TestDaemonState:
         assert st is not None
         assert st.pid == os.getpid()
         assert st.token == "test-token-abc"
-        assert st.endpoint == "http://localhost:9222"
+        assert st.endpoint == "http://127.0.0.1:9222"
         assert st.health == "healthy"
         assert st.port == 9222
 
@@ -164,6 +163,10 @@ class TestDaemonRequest:
         with mock.patch("yoke_core.domain.browser_client.urlopen") as mock_urlopen:
             mock_resp = mock.MagicMock()
             mock_resp.read.return_value = response_json
+            mock_resp.read1 = None
+            mock_resp.status = 200
+            mock_resp.headers = {}
+            mock_resp.geturl.return_value = "http://127.0.0.1:9222/api/health"
             mock_resp.__enter__ = mock.MagicMock(return_value=mock_resp)
             mock_resp.__exit__ = mock.MagicMock(return_value=False)
             mock_urlopen.return_value = mock_resp
@@ -227,7 +230,7 @@ class TestSnapshots:
     def test_screenshot_basic(self):
         with mock.patch("yoke_core.domain.browser_client.daemon_request") as mock_req:
             mock_req.return_value = {"screenshot": "/path.png"}
-            result = snapshot_screenshot("http://x")
+            snapshot_screenshot("http://x")
             body = mock_req.call_args[0][1]
             assert body["url"] == "http://x"
             assert body["annotate"] is False
@@ -242,7 +245,7 @@ class TestSnapshots:
     def test_diff(self):
         with mock.patch("yoke_core.domain.browser_client.daemon_request") as mock_req:
             mock_req.return_value = {"diffPercent": 0.5}
-            result = snapshot_diff("http://x", baseline="/b.png", viewport="800x600")
+            snapshot_diff("http://x", baseline="/b.png", viewport="800x600")
             body = mock_req.call_args[0][1]
             assert body["baselinePath"] == "/b.png"
             assert body["viewport"] == {"width": 800, "height": 600}

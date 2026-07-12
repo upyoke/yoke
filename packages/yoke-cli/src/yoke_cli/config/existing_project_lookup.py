@@ -36,6 +36,7 @@ class ExistingProject:
     github_repo: str
     default_branch: str
     public_item_prefix: str
+    github_sync_mode: str = "backlog_only"
 
 
 @dataclass(frozen=True)
@@ -168,9 +169,10 @@ def find_by_github_repo(
     api_url: str,
     token: str,
     github_repo: str,
+    web_url: str | None = None,
 ) -> ExistingProject | None:
     """Return the visible project whose recorded GitHub repo matches."""
-    wanted = normalize_github_repo(github_repo)
+    wanted = normalize_github_repo(github_repo, web_url=web_url)
     if not wanted:
         return None
     response = _call_function(
@@ -204,10 +206,17 @@ def find_by_github_repo(
     return _project_from_row(row)
 
 
-def normalize_github_repo(value: Any) -> str:
-    """Normalize a GitHub or GHES reference into lowercase ``owner/repo``."""
+def normalize_github_repo(
+    value: Any,
+    *,
+    web_url: str | None = None,
+) -> str:
+    """Normalize a repo on the configured GitHub origin to ``owner/repo``."""
     try:
-        normalized = github_origin.normalize_github_repository(str(value or ""))
+        normalized = github_origin.normalize_github_repository(
+            str(value or ""),
+            web_url=web_url or github_origin.DEFAULT_GITHUB_WEB_URL,
+        )
     except github_origin.GitHubApiOriginError:
         return ""
     return normalized.casefold()
@@ -299,6 +308,7 @@ def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:
         github_repo=github_repo,
         default_branch=_text(row.get("default_branch")) or "main",
         public_item_prefix=_text(row.get("public_item_prefix")) or "YOK",
+        github_sync_mode=_text(row.get("github_sync_mode")) or "backlog_only",
     )
 
 

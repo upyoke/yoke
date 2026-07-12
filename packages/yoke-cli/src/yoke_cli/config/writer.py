@@ -14,13 +14,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
-from yoke_cli.config import machine_config_file
+from yoke_cli.config import github_machine_operation
 from yoke_cli.config.machine_config_mutation import (
     MachineConfigWriteError as MachineConfigWriteError,
     load_payload as _load_payload,
     serialized_mutation as _serialized_mutation,
     write_payload as _write_payload,
 )
+from yoke_cli.config.writer_github import clear_github, set_github
 from yoke_cli.config.writer_credentials import (
     CredentialWriteError,
     credential_from_inputs,
@@ -28,6 +29,7 @@ from yoke_cli.config.writer_credentials import (
 from yoke_contracts.machine_config import schema as contract
 
 
+@github_machine_operation.serialized_operation(MachineConfigWriteError)
 @_serialized_mutation
 def set_active_env(env: str, *, path: str | Path | None = None) -> dict[str, Any]:
     """Point ``active_env`` at an already-configured connection."""
@@ -45,6 +47,7 @@ def set_active_env(env: str, *, path: str | Path | None = None) -> dict[str, Any
     return {"active_env": env, "config": str(cfg_path)}
 
 
+@github_machine_operation.serialized_operation(MachineConfigWriteError)
 @_serialized_mutation
 def set_connection(
     env: str,
@@ -120,6 +123,7 @@ def set_connection(
             "active_env": payload["active_env"], "config": str(cfg_path)}
 
 
+@github_machine_operation.serialized_operation(MachineConfigWriteError)
 @_serialized_mutation
 def set_credential(
     env: str,
@@ -282,56 +286,6 @@ def set_runtime_paths(
         "cache_dir": payload["cache_dir"],
         "config": str(cfg_path),
     }
-
-
-@_serialized_mutation
-def set_github(
-    github: Mapping[str, Any],
-    *,
-    expected_credential_ref: str,
-    path: str | Path | None = None,
-) -> dict[str, Any]:
-    """Replace GitHub metadata iff its authorization is still expected."""
-    payload, cfg_path = _load_payload(path)
-    replaced_ref = _github_credential_ref(payload.get("github"))
-    if replaced_ref != expected_credential_ref:
-        raise MachineConfigWriteError(
-            "machine GitHub App authorization changed during this operation; "
-            "retry against the current connection"
-        )
-    entry = dict(github)
-    payload["github"] = entry
-    _write_payload(payload, cfg_path)
-    return {
-        "github": dict(entry), "config": str(cfg_path),
-        "replaced_credential_ref": replaced_ref,
-    }
-
-
-@_serialized_mutation
-def clear_github(*, path: str | Path | None = None) -> dict[str, Any]:
-    """Remove only the machine-level GitHub App connection block."""
-    payload, cfg_path = _load_payload(path)
-    removed = payload.pop("github", None)
-    configured = removed is not None
-    removed_ref = _github_credential_ref(removed)
-    if set(payload) <= {"schema_version"}:
-        machine_config_file.remove_file(cfg_path)
-    else:
-        _write_payload(payload, cfg_path)
-    return {
-        "configured": configured, "config": str(cfg_path),
-        "removed_credential_ref": removed_ref,
-    }
-
-
-def _github_credential_ref(value: Any) -> str:
-    if not isinstance(value, Mapping):
-        return ""
-    authorization = value.get("authorization")
-    if not isinstance(authorization, Mapping):
-        return ""
-    return str(authorization.get("refresh_credential_ref") or "").strip()
 
 
 __all__ = ["MachineConfigWriteError", "clear_github", "register_project",

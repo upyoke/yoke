@@ -9,10 +9,13 @@ import urllib.error
 from runtime.api.cli.test_github_app_machine_connection import (
     _api_opener,
     _device_opener,
+    _explicit_profile,
+    _profile_opener,
 )
 from runtime.api.cli.test_github_app_machine_security import (
     _configured_machine,
     _empty_installation_opener,
+    _refresh_opener,
 )
 from yoke_cli.config import github_machine, writer
 
@@ -42,8 +45,7 @@ def test_connect_retries_fresh_user_token_until_github_accepts_it(
 
     report = github_machine.connect(
         config_path=config,
-        client_id="Iv1.local",
-        app_slug="yoke-local",
+        **_explicit_profile(),
         device_opener=_device_opener(),
         api_opener=delayed_authorization,
         browser_open=lambda url: opened.append(url) or True,
@@ -91,8 +93,7 @@ def test_connect_bounds_persistent_unauthorized_checks_without_secret_leak(
 
     report = github_machine.connect(
         config_path=config,
-        client_id="Iv1.local",
-        app_slug="yoke-local",
+        **_explicit_profile(),
         device_opener=_device_opener(),
         api_opener=unauthorized,
         browser_open=lambda url: True,
@@ -117,6 +118,7 @@ def test_status_retries_transient_unauthorized_without_revoking(
     tmp_path: Path, monkeypatch,
 ) -> None:
     config, _credential = _configured_machine(tmp_path, monkeypatch)
+    config.chmod(0o600)
     user_attempts = 0
     sleep_calls: list[float] = []
 
@@ -132,6 +134,9 @@ def test_status_retries_transient_unauthorized_without_revoking(
 
     report = github_machine.status(
         config_path=config,
+        service_api_url="https://api.upyoke.com",
+        profile_opener=_profile_opener,
+        token_opener=_refresh_opener,
         api_opener=delayed_authorization,
         sleep=lambda seconds: sleep_calls.append(seconds),
     )
@@ -148,6 +153,7 @@ def test_status_marks_revoked_only_after_unauthorized_retries_exhaust(
     tmp_path: Path, monkeypatch,
 ) -> None:
     config, _credential = _configured_machine(tmp_path, monkeypatch)
+    config.chmod(0o600)
     attempts = 0
     sleep_calls: list[float] = []
 
@@ -168,6 +174,9 @@ def test_status_marks_revoked_only_after_unauthorized_retries_exhaust(
 
     report = github_machine.status(
         config_path=config,
+        service_api_url="https://api.upyoke.com",
+        profile_opener=_profile_opener,
+        token_opener=_refresh_opener,
         api_opener=revoked,
         sleep=lambda seconds: sleep_calls.append(seconds),
     )

@@ -14,6 +14,7 @@ from runtime.api.cli.project_onboarding_github_assertions import (
     EXPECTED_GITHUB_PREVIEW_CATEGORIES as EXPECTED_GITHUB_PREVIEW_CATEGORIES,
     assert_github_preview as assert_github_preview,
 )
+from runtime.api.cli import project_onboarding_transport_test_support as transport_support
 ALLOWED_FUNCTION_IDS = {
     "onboard.checklist.run",
     "projects.create",
@@ -427,13 +428,12 @@ class ProjectOnboardApi:
 
         self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self._server.server_address[1]}"
-        self._thread = threading.Thread(
-            target=self._server.serve_forever, daemon=True
-        )
-        self._thread.start()
+        self._thread = transport_support.start_server_thread(self._server)
+        self._relay_opener = transport_support.enable_local_http_function_relay()
         return self
 
     def __exit__(self, *exc: object) -> None:
+        transport_support.restore_function_relay_opener(self._relay_opener)
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()

@@ -11,12 +11,13 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_cli.config import dev_setup_machine_config
 from yoke_cli.config import editable_install
 from yoke_cli.config import machine_config
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import writer
 from yoke_cli.project_install import source_dev
-from yoke_cli.project_install.files import MODE_SOURCE_LINK, ProjectInstallError
+from yoke_cli.project_install.files import MODE_SOURCE_LINK
 from yoke_contracts.machine_config import schema as contract
 
 DEFAULT_ADMIN_ENV = "source-dev-admin"
@@ -327,29 +328,13 @@ def _merge_connection_metadata(
     postgres: Mapping[str, Any] | None,
     authority: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
-    cfg_path = machine_config.config_path(config_path)
-    payload = machine_config.load_config(cfg_path)
-    entry = payload.setdefault("connections", {}).setdefault(env_name, {})
-    entry[contract.PROD_FLAG_KEY] = False
-    if postgres:
-        entry["postgres"] = dict(postgres)
-    if authority:
-        entry["authority"] = dict(authority)
-    _write_payload(payload, cfg_path)
-    return {"env": env_name, "connection": dict(entry), "config": str(cfg_path)}
-
-
-def _write_payload(payload: Mapping[str, Any], cfg_path: Path) -> None:
-    errors = [issue for issue in contract.validate_payload(payload)
-              if issue.severity == "error"]
-    if errors:
-        detail = "\n".join(f"  - {issue.code}: {issue.message}" for issue in errors)
-        raise DevSetupError(f"refusing to write invalid machine config:\n{detail}")
-    cfg_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    tmp_path = cfg_path.with_name(cfg_path.name + ".tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    tmp_path.chmod(0o600)
-    os.replace(tmp_path, cfg_path)
+    return dev_setup_machine_config.merge_connection_metadata(
+        env_name,
+        config_path,
+        postgres=postgres,
+        authority=authority,
+        error_type=DevSetupError,
+    )
 
 
 def _run_editable_install(root: Path) -> dict[str, Any]:

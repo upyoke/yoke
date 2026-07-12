@@ -15,6 +15,7 @@ from typing import Any
 from textual.widgets import Static
 
 from yoke_cli.config import onboard_wizard_steps as steps
+from yoke_cli.config.github_repository_create import REPOSITORY_CONTENT_MISMATCH
 from yoke_cli.config.onboard_terminal import plain_text
 from yoke_cli.config.onboard_error_friendly import (
     friendly_permission_error,
@@ -162,7 +163,9 @@ class ApplyFlow:
             resume_command=self.resume_command,
             retryable=_apply_error_retryable(self.last_error),
             can_resume=_can_resume_run(run_id),
-            can_start_over=_start_over_checkout_path(run_id) is not None,
+            can_use_different_folder=(
+                _preservable_checkout_path(run_id) is not None
+            ),
         )
 
     def _on_apply_failure(self, choice: str) -> None:
@@ -172,8 +175,8 @@ class ApplyFlow:
         if choice == "resume":
             self._resume_apply_from_report()
             return
-        if choice == "start-over":
-            self._goto_apply_start_over()
+        if choice == "different-folder":
+            self._goto_apply_different_folder()
             return
         if choice == "back":
             # The Applying screen replaced Review in history, so one step back
@@ -204,31 +207,31 @@ class ApplyFlow:
         self._resume_payload = payload
         self._start_apply()
 
-    def _goto_apply_start_over(self) -> None:
+    def _goto_apply_different_folder(self) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
         self._goto(
             _View(
                 STEP_FINISH,
-                self._build_apply_start_over,
-                self._on_apply_start_over,
+                self._build_apply_different_folder,
+                self._on_apply_different_folder,
             )
         )
 
-    def _build_apply_start_over(self) -> list:
+    def _build_apply_different_folder(self) -> list:
         run_id = _apply_report_run_id(self.report_path)
-        return steps.apply_start_over_body(
+        return steps.apply_different_folder_body(
             report_path=self.report_path,
-            checkout_path=_start_over_checkout_path(run_id),
+            checkout_path=_preservable_checkout_path(run_id),
         )
 
-    def _on_apply_start_over(self, choice: str) -> None:
+    def _on_apply_different_folder(self, choice: str) -> None:
         if choice == "cancel":
             import asyncio
 
             asyncio.ensure_future(self.action_back())
             return
-        if choice != "confirm-start-over":
+        if choice != "confirm-different-folder":
             return
         from yoke_cli.config import onboard_apply_resume
 
@@ -237,7 +240,9 @@ class ApplyFlow:
             self._show_apply_recovery_error("the saved apply report could not be found")
             return
         try:
-            result = onboard_apply_resume.start_over(run_id, confirmed=True)
+            result = onboard_apply_resume.preserve_checkout_for_new_target(
+                run_id, confirmed=True,
+            )
         except onboard_apply_resume.OnboardApplyResumeError as exc:
             self._show_apply_recovery_error(exc)
             return
@@ -282,7 +287,10 @@ def _apply_error_retryable(message: str | None) -> bool:
     succeed on a second attempt.
     """
     text = (message or "").lower()
-    if "already exists and has content" in text:
+    if (
+        "already exists and has content" in text
+        or REPOSITORY_CONTENT_MISMATCH in text
+    ):
         return False
     return True
 
@@ -311,13 +319,13 @@ def _can_resume_run(run_id: str | None) -> bool:
     return True
 
 
-def _start_over_checkout_path(run_id: str | None) -> str | None:
+def _preservable_checkout_path(run_id: str | None) -> str | None:
     if not run_id:
         return None
     from yoke_cli.config import onboard_apply_resume
 
     try:
-        return onboard_apply_resume.start_over_checkout_path(run_id)
+        return onboard_apply_resume.preservable_checkout_path(run_id)
     except onboard_apply_resume.OnboardApplyResumeError:
         return None
 

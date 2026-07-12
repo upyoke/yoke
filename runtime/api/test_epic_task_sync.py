@@ -239,6 +239,32 @@ class TestSyncTaskBody:
         )
         assert stderr.getvalue() == ""
 
+    def test_body_validation_failure_is_not_reported_as_repo_mismatch(self, db):
+        insert_item(db, id=1246, type="epic", status="implementing", project="buzz")
+        insert_epic_task(
+            db,
+            epic_id=1246,
+            task_num=1,
+            title="Task 1",
+            status="implementing",
+            body="Hello world",
+            github_issue="#77",
+        )
+        stderr = io.StringIO()
+
+        with patch(
+            "yoke_core.domain.epic_task_sync_github._validate_issue_in_repo",
+            autospec=True,
+            return_value=False,
+        ):
+            rc = epic_task_sync.sync_task_body(
+                "1246", 1, conn=db, stderr=stderr,
+            )
+
+        assert rc == 1
+        assert "issue validation failed" in stderr.getvalue()
+        assert "repo mismatch" not in stderr.getvalue()
+
     def test_body_usage_is_error(self, capsys):
         rc = epic_task_sync.main(["body", "1246"])
         captured = capsys.readouterr()

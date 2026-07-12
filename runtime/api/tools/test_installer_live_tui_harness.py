@@ -6,6 +6,19 @@ from yoke_core.domain import json_helper
 from yoke_core.tools import installer_live_tui_harness as harness
 
 
+def test_tracked_catalog_includes_complete_github_app_live_wave() -> None:
+    plan = Path(__file__).resolve().parents[3] / "docs" / "INSTALLER-TESTING.md"
+
+    scenarios = harness.load_scenarios_from_plan(plan)
+
+    github_ids = {
+        scenario.scenario_id
+        for scenario in scenarios
+        if scenario.scenario_id.startswith("GITHUB-")
+    }
+    assert github_ids == {f"GITHUB-{number:03d}" for number in range(1, 54)}
+
+
 def test_loads_scenario_tables_from_plan_doc(tmp_path: Path) -> None:
     """The parser extracts wave tables from a scenario-catalog doc.
 

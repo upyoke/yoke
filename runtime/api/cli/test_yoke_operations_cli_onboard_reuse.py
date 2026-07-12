@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from runtime.api.cli.project_clone_test_support import allow_local_clone
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     run_git,
@@ -120,10 +121,15 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     project_events = [event for event in events if event[0].startswith("project-")]
     actions = [step["action"] for step in report["plan"]["steps"]]
 
-    assert actions == ["project-refresh-scaffold", "project-write-board-art"]
+    assert actions == [
+        "project-refresh-scaffold",
+        "project-write-board-art",
+        "project-github-auth-choice",
+    ]
     assert project_events == [
         ("project-refresh-scaffold", "", "running"),
         ("project-refresh-scaffold", "", "done"),
+        ("project-github-auth-choice", "existing-project", "skipped"),
     ]
     assert report["plan"]["reuse"]["project_checkout"] is True
     assert report["plan"]["reuse"]["project_scaffold"] is True
@@ -140,8 +146,11 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     assert api.requests_for("GET", "/v1/projects/44/install-bundle")
 
 
-def test_onboard_preview_detects_matching_clone_reuse(tmp_path: Path) -> None:
+def test_onboard_preview_detects_matching_clone_reuse(
+    tmp_path: Path, monkeypatch,
+) -> None:
     remote = seed_remote(tmp_path)
+    allow_local_clone(monkeypatch)
     checkout = tmp_path / "clone"
     run_git(tmp_path, "clone", str(remote), str(checkout))
 

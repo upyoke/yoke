@@ -9,19 +9,25 @@ and the connection entry in machine config, then point ``active_env`` at
 the new entry unless the caller opts out.
 
 Scheme policy: ``https://`` is the normal shape. Plain ``http://`` is
-accepted deliberately — self-host TLS commonly terminates at a reverse
-proxy in front of the server, and loopback connects (``http://127.0.0.1``)
-must work out of the box. Any other scheme is refused.
+accepted only for a numeric loopback endpoint (for example,
+``http://127.0.0.1``). Any other scheme or non-loopback plaintext target is
+refused before the actor credential leaves the machine.
 """
 
 from __future__ import annotations
 
-import json
-import urllib.error
+import ipaddress
+import urllib.parse
 import urllib.request
 from typing import Any, Dict, Mapping, Optional
 
 from yoke_cli.config import writer
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    request_json,
+    safe_diagnostic_text,
+)
 from yoke_contracts.api_urls import (
     AUTH_IDENTITY_PATH,
     HEALTH_PATH,
@@ -92,25 +98,47 @@ def _normalized_api_url(url: str) -> str:
     if not candidate.startswith(_ALLOWED_SCHEMES):
         raise ServerConnectError(
             f"unsupported URL scheme in {candidate!r}: use https:// (normal) "
-            "or http:// (self-host behind a TLS-terminating proxy, or "
-            "loopback)"
+            "or http:// with a numeric loopback address"
         )
+    try:
+        parsed = urllib.parse.urlsplit(candidate)
+        parsed.port
+    except ValueError as exc:
+        raise ServerConnectError("server URL is invalid") from exc
+    if (
+        not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ServerConnectError("server URL must name a host without credentials")
+    if parsed.scheme.lower() == "http":
+        try:
+            address = ipaddress.ip_address(parsed.hostname)
+        except ValueError as exc:
+            raise ServerConnectError(
+                "plain HTTP server URLs require a numeric loopback address"
+            ) from exc
+        if not address.is_loopback:
+            raise ServerConnectError(
+                "plain HTTP server URLs require a numeric loopback address"
+            )
     return candidate
 
 
 def _verify_health(api_url: str, *, timeout_s: float) -> Mapping[str, Any]:
     health_url = join_api_url(api_url, HEALTH_PATH)
+    safe_health_url = safe_diagnostic_text(health_url)
     try:
         payload = _http_get_json(health_url, headers={}, timeout_s=timeout_s)
     except _HttpFailure as exc:
         raise ServerConnectError(
-            f"server health check failed ({health_url}): {exc}; nothing was "
+            f"server health check failed ({safe_health_url}): {exc}; nothing was "
             "persisted — verify the URL and that the server is running "
             "(docker compose ps / docker compose logs core)"
         ) from exc
     if not isinstance(payload, Mapping):
         raise ServerConnectError(
-            f"{health_url} did not return a JSON object; nothing was "
+            f"{safe_health_url} did not return a JSON object; nothing was "
             "persisted — is this a Yoke API server?"
         )
     return payload
@@ -120,6 +148,10 @@ def _verify_identity(
     api_url: str, *, token: str, timeout_s: float
 ) -> Mapping[str, Any]:
     identity_url = join_api_url(api_url, AUTH_IDENTITY_PATH)
+    safe_identity_url = safe_diagnostic_text(
+        identity_url,
+        sensitive_values=(token,),
+    )
     try:
         payload = _http_get_json(
             identity_url,
@@ -128,14 +160,13 @@ def _verify_identity(
         )
     except _HttpFailure as exc:
         raise ServerConnectError(
-            f"token verification failed ({identity_url}): {exc}; nothing "
+            f"token verification failed ({safe_identity_url}): {exc}; nothing "
             "was persisted — paste the server's initial admin token (first "
             "boot prints it: docker compose logs core), or mint a new one"
         ) from exc
     if not isinstance(payload, Mapping):
         raise ServerConnectError(
-            f"{identity_url} did not return a JSON object; nothing was "
-            "persisted"
+            f"{safe_identity_url} did not return a JSON object; nothing was persisted"
         )
     return payload
 
@@ -144,22 +175,22 @@ class _HttpFailure(RuntimeError):
     """One HTTP verification request failed (status, network, or body)."""
 
 
-def _http_get_json(
-    url: str, *, headers: Mapping[str, str], timeout_s: float
-) -> Any:
+def _http_get_json(url: str, *, headers: Mapping[str, str], timeout_s: float) -> Any:
     """GET ``url`` and parse the JSON body; tests stub this seam."""
     request = urllib.request.Request(url, method="GET", headers=dict(headers))
     try:
-        with urllib.request.urlopen(request, timeout=timeout_s) as resp:
-            raw = resp.read()
-    except urllib.error.HTTPError as exc:
-        raise _HttpFailure(f"HTTP {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise _HttpFailure(str(exc)) from exc
-    try:
-        return json.loads(raw.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise _HttpFailure(f"response body is not JSON: {exc}") from exc
+        response = request_json(
+            request,
+            timeout_seconds=timeout_s,
+            replay_safe=True,
+            allow_loopback_http=True,
+            opener=urllib.request.urlopen,
+        )
+    except BoundedJsonHttpStatusError as exc:
+        raise _HttpFailure(f"HTTP {exc.status}") from None
+    except BoundedJsonHttpError as exc:
+        raise _HttpFailure(str(exc)) from None
+    return response.payload
 
 
 def _health_summary(health: Mapping[str, Any]) -> Dict[str, Any]:

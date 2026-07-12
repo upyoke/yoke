@@ -291,6 +291,7 @@ def _graphql_batch_fetch(
                 method="POST",
                 path="/graphql",
                 body={"query": query},
+                replay_safe=True,
             ),
             token=resolved.token,
         )

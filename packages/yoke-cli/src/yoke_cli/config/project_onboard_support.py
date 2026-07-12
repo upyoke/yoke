@@ -205,12 +205,15 @@ def dispatch(
     function_id: str,
     payload: Mapping[str, Any],
     config_path: str | Path | None,
+    *,
+    sensitive_values: tuple[str, ...] = (),
 ) -> Mapping[str, Any]:
     with machine_config_path(config_path):
         response = call_dispatcher(
             function_id=function_id,
             target=TargetRef(kind="global"),
             payload=dict(payload),
+            sensitive_values=sensitive_values,
         )
     if not response.success:
         message = response.error.message if response.error else "unknown error"

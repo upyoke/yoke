@@ -17,6 +17,7 @@ from yoke_contracts.machine_config.capability_secrets import (
 from yoke_core.domain.project_github_capability_settings import (
     reject_github_capability_secret_write,
 )
+from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
 class ProjectsCapabilitySecretSetRequest(BaseModel):
@@ -46,7 +47,7 @@ def handle_projects_capability_secret_set(
             primary_success=False,
             error=FunctionError(
                 code="payload_invalid",
-                message=str(exc),
+                message=safe_validation_message(exc),
                 jsonpath="$.payload",
             ),
         )

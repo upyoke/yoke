@@ -4,12 +4,11 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 from typing import Any
-import urllib.error
 
 import pytest
 
 from yoke_cli.config import github_device_flow
-from yoke_cli.config import github_git_credential_file
+from yoke_cli.config import github_app_user_api
 from yoke_cli.config import github_git_credential_store
 from yoke_cli.config import github_machine
 from yoke_cli.config import github_machine_state
@@ -19,8 +18,9 @@ from yoke_contracts.machine_config import schema as contract
 
 
 class _Response:
-    def __init__(self, payload: dict[str, Any]) -> None:
+    def __init__(self, payload: dict[str, Any], *, url: str = "") -> None:
         self.payload = payload
+        self.url = url
 
     def __enter__(self):
         return self
@@ -28,8 +28,12 @@ class _Response:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-    def read(self) -> bytes:
-        return json.dumps(self.payload).encode("utf-8")
+    def read(self, size: int = -1) -> bytes:
+        body = json.dumps(self.payload).encode("utf-8")
+        return body[:size] if size >= 0 else body
+
+    def geturl(self) -> str:
+        return self.url
 
 
 def _permissions() -> dict[str, str]:
@@ -51,21 +55,19 @@ def _configured_machine(
 ) -> tuple[Path, Path]:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    config = home / "config.json"
     credential = (
         credential_ref
         or home / "secrets" / f"github-app-user-{'a' * 32}.json"
     )
     if credential_ref is None:
         github_git_credential_store.write_credential_document(credential, {
-            "schema_version": 1,
-            "access_token": "access-secret",
-            "expires_at": "2099-07-09T17:00:00+00:00",
+            "schema_version": 2,
             "refresh_token": "refresh-secret",
             "refresh_expires_at": "2099-12-09T17:00:00+00:00",
-            "scope": "",
-            "token_type": "bearer",
+            "config_owners": [str(config.resolve())],
+            "config_ownership_complete": True,
         })
-    config = home / "config.json"
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(json.dumps({
         "schema_version": 1,
@@ -73,7 +75,10 @@ def _configured_machine(
             "api_url": contract.DEFAULT_GITHUB_API_URL,
             "web_url": contract.DEFAULT_GITHUB_WEB_URL,
             "app_slug": "yoke-local",
+            "app_id": 123,
             "client_id": "Iv1.local",
+            "profile_source": contract.GITHUB_PROFILE_SOURCE_SERVICE,
+            "profile_service_api_url": "https://api.upyoke.com",
             "authorization": {
                 "kind": auth_kind,
                 "refresh_credential_ref": str(credential),
@@ -83,6 +88,8 @@ def _configured_machine(
             },
             "installations": [{
                 "installation_id": 123,
+                "app_id": 123,
+                "app_slug": "yoke-local",
                 "account_id": 9,
                 "account_login": "octo-org",
                 "account_type": "Organization",
@@ -95,6 +102,7 @@ def _configured_machine(
                 "installation_id": 123,
                 "full_name": "octo-org/app",
                 "default_branch": "main",
+                "private": True,
             }],
         },
     }), encoding="utf-8")
@@ -117,36 +125,88 @@ def _device_opener():
             "refresh_token_expires_in": 15_552_000,
         },
     ])
-    return lambda request, timeout: _Response(next(responses))
+    return lambda request, timeout: _Response(
+        next(responses), url=request.full_url,
+    )
 
 
 def _empty_installation_opener(request, timeout):
     if request.full_url.endswith("/user"):
-        return _Response({"id": 42, "login": "octocat"})
+        return _Response(
+            {"id": 42, "login": "octocat"}, url=request.full_url,
+        )
     if "/user/installations?" in request.full_url:
-        return _Response({"installations": []})
+        return _Response({"installations": []}, url=request.full_url)
     raise AssertionError(request.full_url)
 
 
-def test_status_marks_live_failure_as_cached_and_not_ready(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config, _credential = _configured_machine(tmp_path, monkeypatch)
+def _profile_opener(request, timeout):
+    return _Response({"github_app": {
+        "available": True,
+        "client_id": "Iv1.local",
+        "app_slug": "yoke-local",
+        "app_id": 123,
+        "api_url": contract.DEFAULT_GITHUB_API_URL,
+        "web_url": contract.DEFAULT_GITHUB_WEB_URL,
+    }}, url=request.full_url)
 
-    def unavailable(request, timeout):
-        raise urllib.error.HTTPError(
-            request.full_url, 503, "Unavailable", hdrs=None, fp=None,
+
+@pytest.mark.parametrize("target,value", [
+    ("user_login", "octocat\x1b]2;spoof"),
+    ("account_login", "org\x9b31m"),
+    ("account_type", "[bold]Organization"),
+    ("app_slug", "x" * 101),
+    ("full_name", "octo-org/repo\x07"),
+    ("default_branch", "--help"),
+    ("default_branch", "main\u202e"),
+])
+def test_discovery_rejects_hostile_persisted_identity_fields(
+    target: str, value: str,
+) -> None:
+    def opener(request, timeout):
+        if request.full_url.endswith("/user"):
+            return _Response({
+                "id": 42,
+                "login": value if target == "user_login" else "octocat",
+            }, url=request.full_url)
+        if "/user/installations?" in request.full_url:
+            return _Response({"installations": [{
+                "id": 123,
+                "app_id": 123,
+                "app_slug": value if target == "app_slug" else "yoke-local",
+                "account": {
+                    "id": 9,
+                    "login": value if target == "account_login" else "octo-org",
+                    "type": value if target == "account_type" else "Organization",
+                },
+                "repository_selection": "selected",
+                "permissions": _permissions(),
+            }]}, url=request.full_url)
+        if "/repositories?" in request.full_url:
+            return _Response({"repositories": [{
+                "id": 456,
+                "full_name": value if target == "full_name" else "octo-org/app",
+                "default_branch": value if target == "default_branch" else "main",
+                "private": True,
+            }]}, url=request.full_url)
+        raise AssertionError(request.full_url)
+
+    with pytest.raises(github_app_user_api.GitHubAppUserApiError):
+        github_app_user_api.discover_access(
+            api_url="https://api.github.com",
+            web_url="https://github.com",
+            access_token="access",
+            opener=opener,
         )
 
-    report = github_machine.status(config_path=config, api_opener=unavailable)
 
-    assert report["ok"] is False
-    assert report["ready"] is False
-    assert report["identity"]["checked"] is True
-    assert report["identity"]["ok"] is False
-    assert report["access"]["snapshot_source"] == "cached"
-    assert report["access"]["repo_listing_ok"] is False
-    assert report["access"]["org_listing_ok"] is False
+def _refresh_opener(request, timeout):
+    return _Response({
+        "access_token": "refreshed-access",
+        "expires_in": 28_800,
+        "refresh_token": "refreshed-refresh",
+        "refresh_token_expires_in": 15_552_000,
+    }, url=request.full_url)
 
 
 def test_config_failure_surfaces_credential_cleanup_failure_without_path(
@@ -164,7 +224,7 @@ def test_config_failure_surfaces_credential_cleanup_failure_without_path(
     )
     monkeypatch.setattr(
         github_machine_state,
-        "remove_owned_credential",
+        "release_config_credential",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             ValueError("credential-secret-path")
         ),
@@ -172,12 +232,15 @@ def test_config_failure_surfaces_credential_cleanup_failure_without_path(
 
     with pytest.raises(
         github_machine.GitHubMachineError,
-        match="could not be cleaned up safely",
+        match="credential rollback could not complete safely",
     ) as caught:
         github_machine.connect(
             config_path=config,
             client_id="Iv1.local",
             app_slug="yoke-local",
+            app_id=123,
+            api_url=contract.DEFAULT_GITHUB_API_URL,
+            web_url=contract.DEFAULT_GITHUB_WEB_URL,
             device_opener=_device_opener(),
             api_opener=_empty_installation_opener,
             browser_open=lambda url: True,
@@ -225,7 +288,9 @@ def test_device_authorization_rejects_boolean_timing() -> None:
         github_device_flow.authorize(
             client_id="Iv1.local",
             web_url="https://github.com",
-            opener=lambda request, timeout: _Response(response),
+            opener=lambda request, timeout: _Response(
+                response, url=request.full_url,
+            ),
         )
 
 
@@ -244,6 +309,8 @@ def test_connect_rejects_boolean_app_id_before_network(
             client_id="Iv1.local",
             app_slug="yoke-local",
             app_id=True,
+            api_url=contract.DEFAULT_GITHUB_API_URL,
+            web_url=contract.DEFAULT_GITHUB_WEB_URL,
             device_opener=lambda request, timeout: calls.append(request.full_url),
         )
 
@@ -263,60 +330,3 @@ def test_status_never_reports_authorization_kind_or_credential_path(
     assert "kind" not in report["authorization"]
     assert "legacy-source-kind" not in rendered
     assert str(credential) not in rendered
-
-
-def test_disconnect_sanitizes_outside_secrets_credential_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    outside = tmp_path / "outside" / "credential.json"
-    config, _credential = _configured_machine(
-        tmp_path, monkeypatch, credential_ref=outside,
-    )
-
-    report = github_machine.disconnect(config_path=config)
-    rendered = github_machine.dumps_json(report)
-
-    assert report["ok"] is False
-    assert report["issues"][0]["code"] == "github_credential_not_removed"
-    assert str(outside) not in rendered
-
-
-def test_disconnect_sanitizes_unlink_failure_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config, credential = _configured_machine(tmp_path, monkeypatch)
-    monkeypatch.setattr(
-        github_git_credential_file,
-        "delete_json_document",
-        lambda path: (_ for _ in ()).throw(
-            github_git_credential_file.CredentialFileError(
-                f"unlink failed for {credential}"
-            )
-        ),
-    )
-
-    report = github_machine.disconnect(config_path=config)
-    rendered = github_machine.dumps_json(report)
-
-    assert report["ok"] is False
-    assert report["issues"][0]["code"] == "github_credential_not_removed"
-    assert str(credential) not in rendered
-
-
-def test_suspended_installation_is_not_misreported_as_missing_permissions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config, _credential = _configured_machine(tmp_path, monkeypatch)
-    payload = json.loads(config.read_text(encoding="utf-8"))
-    payload["github"]["installations"][0]["suspended"] = True
-    config.write_text(json.dumps(payload), encoding="utf-8")
-
-    report = github_machine.status(config_path=config, check=False)
-    codes = {item["code"] for item in report["issues"]}
-
-    assert report["permissions"]["ok"] is True
-    assert report["permissions"]["usable"] is False
-    assert report["ready"] is False
-    assert "github_app_installation_suspended" in codes
-    assert "github_app_no_usable_installation" in codes
-    assert "github_app_installation_permissions_incomplete" not in codes

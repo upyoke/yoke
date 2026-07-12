@@ -31,6 +31,7 @@ def set_repo_variable(repo: str, name: str, value: str, *, token: str) -> str:
     body = {"name": name, "value": value}
     patch = RestRequest(
         method="PATCH",
+        replay_safe=True,
         path=f"/repos/{repo}/actions/variables/{name}",
         body=body,
     )

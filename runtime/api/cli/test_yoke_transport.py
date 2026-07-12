@@ -168,7 +168,7 @@ class TestRelayHttps:
             return _FakeResponse(_ok_envelope())
 
         monkeypatch.setattr(
-            yoke_transport.urllib.request, "urlopen", fake_urlopen
+            yoke_transport, "open_no_redirect", fake_urlopen
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is True
@@ -192,7 +192,7 @@ class TestRelayHttps:
             )
 
         monkeypatch.setattr(
-            yoke_transport.urllib.request, "urlopen", fake_urlopen
+            yoke_transport, "open_no_redirect", fake_urlopen
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is False
@@ -214,7 +214,7 @@ class TestRelayHttps:
             )
 
         monkeypatch.setattr(
-            yoke_transport.urllib.request, "urlopen", fake_urlopen
+            yoke_transport, "open_no_redirect", fake_urlopen
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is False
@@ -231,7 +231,7 @@ class TestRelayHttps:
             )
 
         monkeypatch.setattr(
-            yoke_transport.urllib.request, "urlopen", fake_urlopen
+            yoke_transport, "open_no_redirect", fake_urlopen
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is False
@@ -244,13 +244,12 @@ class TestRelayHttps:
             raise urllib.error.URLError("connection refused")
 
         monkeypatch.setattr(
-            yoke_transport.urllib.request, "urlopen", fake_urlopen
+            yoke_transport, "open_no_redirect", fake_urlopen
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is False
         assert response.error.code == "https_transport_failed"
         assert "could not reach" in response.error.message
-
 
 class TestEngineVersionSkewWarning:
     _CONN = HttpsConnection(api_url="https://api.example", token="tok-123")
@@ -262,7 +261,7 @@ class TestEngineVersionSkewWarning:
             return resp
 
         monkeypatch.setattr(
-            yoke_transport.urllib.request, "urlopen", fake_urlopen
+            yoke_transport, "open_no_redirect", fake_urlopen
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is True
@@ -334,7 +333,7 @@ class TestEngineVersionSkewWarning:
             )
 
         monkeypatch.setattr(
-            yoke_transport.urllib.request, "urlopen", fake_urlopen
+            yoke_transport, "open_no_redirect", fake_urlopen
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is False

@@ -28,8 +28,10 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     make_app,
     render,
 )
+from yoke_cli.config import onboard_machine_github  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow  # noqa: E402
+from yoke_cli.config import project_git_probe  # noqa: E402
 from yoke_cli.config import project_git_transport  # noqa: E402
 from yoke_cli.config.onboard_wizard_app import OnboardWizardApp  # noqa: E402
 
@@ -39,6 +41,14 @@ def _stub_source_branch(monkeypatch):
     # The clone-URL step probes the source's default branch with git ls-remote;
     # stub it so these render-only gates never shell out to git or hit the
     # fictional acme/widgets URL.
+    monkeypatch.setattr(
+        project_git_transport,
+        "remote_probe",
+        lambda url, token=None, github_web_url=None: project_git_probe.GitRemoteProbe(
+            True,
+            default_branch="main",
+        ),
+    )
     monkeypatch.setattr(
         project_git_transport, "remote_default_branch",
         lambda url, token=None, github_web_url=None: "main",
@@ -109,6 +119,7 @@ def test_project_repo_name() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a.result.project_slug = "my-project"
         a._owner_lookup = {o.login: o for o in OWNERS}
+        a._authenticated_github_login = "beebauman"
         a._on_owner_pick("acme-inc")
 
     assert_golden("project_repo_name", render(app, drive, title="yoke onboard · Project"))
@@ -136,7 +147,8 @@ def test_project_github_auth() -> None:
         a.result.project_github_repo = "acme-inc/my-project"
         a.result.project_public_item_prefix = "PROJ"
         # A verified machine App connection renders the connected-repo row.
-        a.result.machine_github_verification = {"ok": True}
+        a.result.machine_github_choice = onboard_machine_github.CHOICE_CONNECT
+        a.result.machine_github_verification = {"ok": True, "ready": True}
         a._after_prefix("PROJ")
 
     assert_golden("project_github_auth", render(app, drive, title="yoke onboard · Project"))

@@ -22,8 +22,9 @@ from yoke_core.domain import gh_rest_transport as t
 class _FakeResponse:
     """Mimic the urlopen() context-manager return value."""
 
-    def __init__(self, *, status: int, body: bytes,
-                 headers: dict[str, str] | None = None):
+    def __init__(
+        self, *, status: int, body: bytes, headers: dict[str, str] | None = None
+    ):
         self.status = status
         self._body = body
         self.headers = headers or {"Content-Type": "application/json"}
@@ -34,8 +35,8 @@ class _FakeResponse:
     def __exit__(self, exc_type, exc, tb):
         return False
 
-    def read(self):
-        return self._body
+    def read(self, size: int = -1):
+        return self._body if size < 0 else self._body[:size]
 
 
 def _make_http_error(status: int, body: bytes) -> urllib.error.HTTPError:
@@ -56,6 +57,7 @@ def _silent_backoff(monkeypatch):
 
 def test_429_classifies_as_rate_limited(monkeypatch):
     """Canonical 429 returns RateLimitedError after retry budget exhausts."""
+
     def fake_urlopen(request, timeout):
         raise _make_http_error(429, b'{"message":"rate limit exceeded"}')
 
@@ -72,7 +74,8 @@ def test_403_with_rate_limit_body_classifies_as_rate_limited(monkeypatch):
     def fake_urlopen(request, timeout):
         calls["n"] += 1
         raise _make_http_error(
-            403, b'{"message":"API rate limit exceeded for user ID 12345"}',
+            403,
+            b'{"message":"API rate limit exceeded for user ID 12345"}',
         )
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
@@ -93,7 +96,8 @@ def test_403_with_secondary_rate_limit_marker_retries_then_succeeds(monkeypatch)
         calls["n"] += 1
         if calls["n"] < 2:
             raise _make_http_error(
-                403, b'{"message":"You have exceeded a secondary rate limit"}',
+                403,
+                b'{"message":"You have exceeded a secondary rate limit"}',
             )
         return _FakeResponse(status=200, body=b"{}")
 
@@ -110,7 +114,8 @@ def test_403_with_abuse_marker_retries_then_succeeds(monkeypatch):
         calls["n"] += 1
         if calls["n"] < 2:
             raise _make_http_error(
-                403, b'{"message":"You have triggered an abuse detection mechanism"}',
+                403,
+                b'{"message":"You have triggered an abuse detection mechanism"}',
             )
         return _FakeResponse(status=200, body=b"{}")
 

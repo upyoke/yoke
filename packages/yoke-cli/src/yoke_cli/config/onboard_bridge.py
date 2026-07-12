@@ -27,12 +27,15 @@ def project_inputs(
     project_name: str | None,
     project_org: str | None,
     project_github_repo: str | None,
+    project_github_repository_id: int | None = None,
+    project_github_installation_id: int | None = None,
     project_default_branch: str | None,
     project_public_item_prefix: str | None,
     existing_project_id: int | None,
     existing_project_match_source: str | None = None,
     existing_project_local_source: str | None = None,
     project_github_adoption: str | None = None,
+    project_github_adoption_preserve: bool = False,
     project_publish: onboard_project.PublishRequest | None = None,
     project_clone: onboard_project.ClonePlan | None = None,
     project_keep_existing_remote: bool = False,
@@ -47,12 +50,15 @@ def project_inputs(
             project_name=project_name,
             project_org=project_org,
             project_github_repo=project_github_repo,
+            project_github_repository_id=project_github_repository_id,
+            project_github_installation_id=project_github_installation_id,
             project_default_branch=project_default_branch,
             project_public_item_prefix=project_public_item_prefix,
             existing_project_id=existing_project_id,
             existing_project_match_source=existing_project_match_source,
             existing_project_local_source=existing_project_local_source,
             project_github_adoption=project_github_adoption,
+            project_github_adoption_preserve=project_github_adoption_preserve,
             project_publish=project_publish,
             project_clone=project_clone,
             project_keep_existing_remote=project_keep_existing_remote,
@@ -77,6 +83,7 @@ def project_report(
     project_inputs: dict[str, Any],
     reuse: Mapping[str, Any],
     progress: onboard_apply_progress.ProgressCallback | None = None,
+    service_api_url: str | None = None,
 ) -> dict[str, Any]:
     try:
         return onboard_project.project_report(
@@ -85,6 +92,7 @@ def project_report(
             apply=apply,
             reuse=reuse,
             progress=progress,
+            service_api_url=service_api_url,
         )
     except onboard_project.OnboardProjectError as exc:
         raise error_cls(str(exc)) from exc

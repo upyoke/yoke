@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
-from pathlib import Path
-import stat
-from types import SimpleNamespace
 import urllib.parse
 
 import pytest
@@ -16,16 +13,8 @@ from yoke_contracts.github_origin import (
     validate_github_api_endpoint,
     validate_github_web_endpoint,
 )
-from yoke_core.domain import github_app_control_plane as control_plane
 from yoke_core.domain import github_app_user_verification as verification
 from yoke_core.domain.github_api_transport import _ExactOriginRedirectHandler
-from yoke_core.domain.github_app_control_plane import (
-    GITHUB_APP_API_URL_ENV,
-    GITHUB_APP_ISSUER_ENV,
-    GITHUB_APP_PRIVATE_KEY_FILE_ENV,
-    GitHubAppControlPlaneConfigError,
-    load_github_app_control_plane_config,
-)
 from yoke_core.domain.github_app_token_models import UserAccessToken
 from yoke_core.domain.github_app_user_verification import (
     GitHubUserVerificationError,
@@ -47,8 +36,8 @@ class _Response:
     def geturl(self) -> str:
         return self._url
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, size: int = -1) -> bytes:
+        return self._body if size < 0 else self._body[:size]
 
 
 def _verification_opener(seen):
@@ -60,27 +49,31 @@ def _verification_opener(seen):
             body = {"id": 77, "login": "octocat"}
         elif api_path == "/user/installations":
             body = {
-                "installations": [{
-                    "id": 12345,
-                    "account": {
-                        "id": 9988,
-                        "login": "Example-Org",
-                        "type": "Organization",
-                    },
-                    "repository_selection": "selected",
-                    "permissions": {"issues": "write", "checks": "read"},
-                    "suspended_at": None,
-                }],
+                "installations": [
+                    {
+                        "id": 12345,
+                        "account": {
+                            "id": 9988,
+                            "login": "Example-Org",
+                            "type": "Organization",
+                        },
+                        "repository_selection": "selected",
+                        "permissions": {"issues": "write", "checks": "read"},
+                        "suspended_at": None,
+                    }
+                ],
             }
         else:
             assert api_path == "/user/installations/12345/repositories"
             body = {
-                "repositories": [{
-                    "id": 4567,
-                    "full_name": "Example-Org/Buzz",
-                    "default_branch": "trunk",
-                    "owner": {"id": 9988},
-                }],
+                "repositories": [
+                    {
+                        "id": 4567,
+                        "full_name": "Example-Org/Buzz",
+                        "default_branch": "trunk",
+                        "owner": {"id": 9988},
+                    }
+                ],
             }
         return _Response(body, request.full_url)
 
@@ -111,7 +104,9 @@ def test_user_token_canonicalizes_installation_and_repository_metadata() -> None
         "/api/v3/user/installations",
         "/api/v3/user/installations/12345/repositories",
     ]
-    assert all(req.get_header("Authorization") == "Bearer github-user-token" for req in seen)
+    assert all(
+        req.get_header("Authorization") == "Bearer github-user-token" for req in seen
+    )
 
 
 def test_user_token_preserves_suspended_installation_for_unavailable_binding() -> None:
@@ -176,9 +171,9 @@ def test_pagination_continues_after_malformed_entry_on_full_page() -> None:
     endpoint = validate_github_api_endpoint("https://api.github.com")
 
     def paged_open(request, timeout):
-        page = urllib.parse.parse_qs(
-            urllib.parse.urlsplit(request.full_url).query
-        )["page"][0]
+        page = urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)[
+            "page"
+        ][0]
         if page == "1":
             entries = [{"id": value} for value in range(1, 100)] + ["malformed"]
         else:
@@ -234,23 +229,6 @@ def test_authorized_redirect_cannot_cross_configured_origin() -> None:
         )
 
 
-def test_control_plane_config_reads_owner_only_private_key(tmp_path: Path) -> None:
-    key_file = tmp_path / "github-app.pem"
-    key_file.write_text("test-private-key", encoding="utf-8")
-    key_file.chmod(0o600)
-
-    config = load_github_app_control_plane_config({
-        GITHUB_APP_ISSUER_ENV: "Iv1.control-plane",
-        GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(key_file),
-        GITHUB_APP_API_URL_ENV: "https://github.example/api/v3",
-    })
-
-    assert config.issuer == "Iv1.control-plane"
-    assert config.private_key_pem == "test-private-key"
-    assert config.endpoint.base_url == "https://github.example/api/v3"
-    assert "test-private-key" not in repr(config)
-
-
 def test_user_access_token_repr_hides_access_and_refresh_tokens() -> None:
     now = datetime(2026, 7, 9, tzinfo=timezone.utc)
     token = UserAccessToken(
@@ -263,86 +241,3 @@ def test_user_access_token_repr_hides_access_and_refresh_tokens() -> None:
     rendered = repr(token)
     assert "github-access-secret" not in rendered
     assert "github-refresh-secret" not in rendered
-
-
-def test_control_plane_config_rejects_group_readable_private_key(
-    tmp_path: Path,
-) -> None:
-    key_file = tmp_path / "github-app.pem"
-    key_file.write_text("test-private-key", encoding="utf-8")
-    key_file.chmod(0o640)
-
-    with pytest.raises(GitHubAppControlPlaneConfigError, match="owner-only"):
-        load_github_app_control_plane_config({
-            GITHUB_APP_ISSUER_ENV: "Iv1.control-plane",
-            GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(key_file),
-        })
-
-
-def test_control_plane_config_rejects_invalid_issuer_and_key_encoding(
-    tmp_path: Path,
-) -> None:
-    key_file = tmp_path / "github-app.pem"
-    key_file.write_bytes(b"\xff\xfe")
-    key_file.chmod(0o600)
-    with pytest.raises(GitHubAppControlPlaneConfigError, match="issuer"):
-        load_github_app_control_plane_config({
-            GITHUB_APP_ISSUER_ENV: "Iv1.good\nInjected",
-            GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(key_file),
-        })
-    with pytest.raises(GitHubAppControlPlaneConfigError, match="UTF-8"):
-        load_github_app_control_plane_config({
-            GITHUB_APP_ISSUER_ENV: "Iv1.good",
-            GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(key_file),
-        })
-
-
-def test_control_plane_config_accepts_root_owned_read_only_secret_mount(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    key_file = tmp_path / "github-app.pem"
-    key_file.write_text("test-private-key", encoding="utf-8")
-    mounted_stat = SimpleNamespace(st_uid=0, st_mode=stat.S_IFREG | 0o444)
-    monkeypatch.setattr(control_plane.os, "fstat", lambda descriptor: mounted_stat)
-    monkeypatch.setattr(
-        control_plane.os,
-        "readlink",
-        lambda path: "/run/secrets/yoke-github-app-private-key",
-    )
-
-    config = load_github_app_control_plane_config({
-        GITHUB_APP_ISSUER_ENV: "Iv1.control-plane",
-        GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(key_file),
-    })
-
-    assert config.private_key_pem == "test-private-key"
-
-
-def test_control_plane_config_rejects_root_owned_file_outside_runtime_mount(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    key_file = tmp_path / "github-app.pem"
-    key_file.write_text("test-private-key", encoding="utf-8")
-    mounted_stat = SimpleNamespace(st_uid=0, st_mode=stat.S_IFREG | 0o444)
-    monkeypatch.setattr(control_plane.os, "fstat", lambda descriptor: mounted_stat)
-    monkeypatch.setattr(control_plane.os, "readlink", lambda path: str(key_file))
-
-    with pytest.raises(GitHubAppControlPlaneConfigError, match="/run/secrets"):
-        load_github_app_control_plane_config({
-            GITHUB_APP_ISSUER_ENV: "Iv1.control-plane",
-            GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(key_file),
-        })
-
-
-def test_control_plane_config_rejects_private_key_symlink(tmp_path: Path) -> None:
-    target = tmp_path / "target.pem"
-    target.write_text("test-private-key", encoding="utf-8")
-    target.chmod(0o600)
-    link = tmp_path / "github-app.pem"
-    link.symlink_to(target)
-
-    with pytest.raises(GitHubAppControlPlaneConfigError, match="safely opened"):
-        load_github_app_control_plane_config({
-            GITHUB_APP_ISSUER_ENV: "Iv1.control-plane",
-            GITHUB_APP_PRIVATE_KEY_FILE_ENV: str(link),
-        })

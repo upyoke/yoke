@@ -78,6 +78,14 @@ def test_create_folder_rejects_a_regular_file(tmp_path: Path) -> None:
     assert "file, not a folder" in error
 
 
+def test_project_folder_rejects_symlink_to_home(tmp_path: Path) -> None:
+    target = tmp_path / "project"
+    target.symlink_to(Path.home(), target_is_directory=True)
+
+    assert "symbolic link" in (v.validate_create_target_folder(str(target)) or "")
+    assert "symbolic link" in (v.validate_clone_target_folder(str(target)) or "")
+
+
 def test_create_folder_rejects_an_unwritable_parent() -> None:
     error = v.validate_create_target_folder("/this-root-is-not-writable/x/y")
     assert error is not None
@@ -164,3 +172,7 @@ def test_branch_rejects_malformed_names() -> None:
     assert v.validate_branch("bad~tilde") is not None
     assert v.validate_branch("@") is not None
     assert v.validate_branch(" leading-space") is not None
+    assert v.validate_branch("--help") is not None
+    assert v.validate_branch("feature/.hidden") is not None
+    assert v.validate_branch("feature@{one}") is not None
+    assert v.validate_branch("main\x1b]2;spoof") is not None

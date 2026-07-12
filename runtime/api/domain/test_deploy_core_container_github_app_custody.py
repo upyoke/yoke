@@ -8,6 +8,7 @@ import subprocess
 
 import pytest
 
+from yoke_contracts.github_app_public import GitHubAppPublicProfile
 from runtime.api.domain.test_deploy_core_container import (
     _HappyRemoteRunner,
     _env,
@@ -31,11 +32,30 @@ _APP_SECRET_ARN = (
 
 
 def _app_environment():
-    return _env(github_app=github_app_deployment.GitHubAppDeploymentConfig(
-        issuer="123456",
-        api_url="https://api.github.com",
-        private_key_secret_arn=_APP_SECRET_ARN,
-    ))
+    return _env(
+        github_app=github_app_deployment.GitHubAppDeploymentConfig(
+            issuer="123456",
+            api_url="https://api.github.com",
+            private_key_secret_arn=_APP_SECRET_ARN,
+        )
+    )
+
+
+def _advertised_app_environment():
+    return _env(
+        github_app=github_app_deployment.GitHubAppDeploymentConfig(
+            issuer="123456",
+            api_url="https://api.github.com",
+            private_key_secret_arn=_APP_SECRET_ARN,
+            public_profile=GitHubAppPublicProfile(
+                client_id="Iv23public",
+                app_slug="yoke-development",
+                app_id=123456,
+                api_url="https://api.github.com",
+                web_url="https://github.com",
+            ),
+        )
+    )
 
 
 def test_deploy_fetches_and_verifies_key_only_on_origin(monkeypatch):
@@ -53,32 +73,34 @@ def test_deploy_fetches_and_verifies_key_only_on_origin(monkeypatch):
 
     assert rc == 0
     remote_commands = [
-        call["argv"][-1]
-        for call in runner.calls
-        if call["argv"][0] == "ssh"
+        call["argv"][-1] for call in runner.calls if call["argv"][0] == "ssh"
     ]
     fetch_index = next(
-        index for index, command in enumerate(remote_commands)
+        index
+        for index, command in enumerate(remote_commands)
         if "aws secretsmanager get-secret-value" in command
     )
     pull_index = next(
-        index for index, command in enumerate(remote_commands)
+        index
+        for index, command in enumerate(remote_commands)
         if "docker compose pull" in command
     )
     verify_index = next(
-        index for index, command in enumerate(remote_commands)
+        index
+        for index, command in enumerate(remote_commands)
         if "yoke_core.tools.github_app_identity_probe" in command
     )
     assert fetch_index < verify_index < pull_index
     assert _APP_SECRET_ARN in remote_commands[fetch_index]
     app_key_calls = [
-        call for call in runner.calls
+        call
+        for call in runner.calls
         if "aws secretsmanager get-secret-value" in call["argv"][-1]
         or "yoke_core.tools.github_app_identity_probe" in call["argv"][-1]
     ]
     assert all(call.get("input_text") is None for call in app_key_calls)
-    assert "--query SecretString --output text >\"$tmp\"" in (
-        remote_commands[fetch_index]
+    assert (
+        '--query SecretString --output text >"$tmp"' in (remote_commands[fetch_index])
     )
     assert ".github-app-private-key.pem.pending" in remote_commands[fetch_index]
     assert "groupadd --system yoke-core-secrets" in remote_commands[fetch_index]
@@ -90,9 +112,9 @@ def test_deploy_fetches_and_verifies_key_only_on_origin(monkeypatch):
 
 
 def test_origin_identity_failure_stops_deploy_without_key_output():
-    runner = FakeRunner([
-        CommandResult(1, "", "GitHub App identity verification failed\n")
-    ])
+    runner = FakeRunner(
+        [CommandResult(1, "", "GitHub App identity verification failed\n")]
+    )
 
     with pytest.raises(RemoteConvergenceError, match="verification failed"):
         verify_and_promote_in_core_image(
@@ -103,6 +125,18 @@ def test_origin_identity_failure_stops_deploy_without_key_output():
     assert call["input_text"] is None
     assert "github_app_identity_probe" in call["argv"][-1]
     assert _APP_SECRET_ARN not in call["argv"][-1]
+
+
+def test_origin_identity_probe_receives_every_public_identity_field():
+    command = verification_and_promotion_command(
+        _advertised_app_environment(),
+        "example/core:image",
+    )
+
+    assert "-e YOKE_GITHUB_APP_CLIENT_ID=Iv23public" in command
+    assert "-e YOKE_GITHUB_APP_SLUG=yoke-development" in command
+    assert "-e YOKE_GITHUB_APP_ID=123456" in command
+    assert "-e YOKE_GITHUB_APP_WEB_URL=https://github.com" in command
 
 
 def test_origin_key_convergence_command_is_valid_posix_shell():
@@ -134,9 +168,7 @@ def test_invalid_rotation_preserves_prior_key_bytes(tmp_path):
     docker.chmod(0o700)
     env = SimpleNamespace(
         compose_dir=str(compose_dir),
-        github_app=SimpleNamespace(
-            issuer="123456", api_url="https://api.github.com"
-        ),
+        github_app=SimpleNamespace(issuer="123456", api_url="https://api.github.com"),
     )
 
     result = subprocess.run(

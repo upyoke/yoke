@@ -3,18 +3,24 @@
 from __future__ import annotations
 
 import os
-import re
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from importlib import metadata
 from pathlib import Path
 from typing import Any, Mapping
 from uuid import uuid4
 
-from yoke_cli.config import onboard_apply_snapshot
-from yoke_cli.config import onboard_github_snapshot
+from yoke_cli.config import onboard_apply_snapshot, onboard_checkout_ownership
 from yoke_cli.config import onboard_checklist
+from yoke_cli.config.onboard_apply_report_metadata import (
+    RESUME_COMMAND,
+    credential_sources as _credential_sources,
+    new_target_hint as _new_target_hint,
+    package_version as _package_version,
+    safe_remote_url as _safe_remote_url,
+    sanitize_text,
+    target_github_repo as _target_github_repo,
+)
 from yoke_cli.config.onboard_plan_labels import friendly_line
 
 SCHEMA_NAME = "yoke.onboard.apply-report"
@@ -26,17 +32,6 @@ STATUS_RUNNING = "running"
 STATUS_DONE = "done"
 STATUS_SKIPPED = "skipped"
 STATUS_FAILED = "failed"
-
-# Re-entry command surfaced on the failure screen and shell summary.
-RESUME_COMMAND = "yoke onboard"
-
-_AUTH_HEADER_RE = re.compile(r"(Authorization:\s*)(Bearer|token)\s+[-._A-Za-z0-9]+",
-                             re.IGNORECASE)
-_TOKEN_ASSIGN_RE = re.compile(r"(\btoken\s*[=:]\s*)[^&\s,;]+", re.IGNORECASE)
-_URL_USERINFO_RE = re.compile(
-    r"\b([a-z][a-z0-9+.-]*://)([^@\s/]+)@([^/\s]+)",
-    re.IGNORECASE,
-)
 
 
 class OnboardApplyReportError(RuntimeError):
@@ -66,8 +61,14 @@ class ApplyReportWriter:
         }
 
     @classmethod
-    def start(cls, preview: Mapping[str, Any], kwargs: Mapping[str, Any]) -> "ApplyReportWriter":
+    def start(
+        cls, preview: Mapping[str, Any], kwargs: Mapping[str, Any]
+    ) -> "ApplyReportWriter":
         """Create the skeleton report before any apply-time mutation."""
+        safe_kwargs = dict(kwargs)
+        safe_kwargs["project_remote_url"] = _safe_remote_url(
+            kwargs.get("project_remote_url")
+        )
         resume_payload = kwargs.get("resume_payload")
         run_id = str(kwargs.get("resume_run_id") or _new_run_id())
         path = run_report_path(run_id)
@@ -93,20 +94,22 @@ class ApplyReportWriter:
             "created_at": _now_iso(),
             "updated_at": _now_iso(),
             "package_version": _package_version(),
-            "config_path": str(kwargs.get("config_path") or preview.get("config_path") or ""),
+            "config_path": str(
+                kwargs.get("config_path") or preview.get("config_path") or ""
+            ),
             "env": str(kwargs.get("env_name") or ""),
             "api_url": str(kwargs.get("api_url") or ""),
             "checkout_path": str(kwargs.get("project_checkout") or ""),
-            "source_repo": str(kwargs.get("project_remote_url") or ""),
-            "target_github_repo": _target_github_repo(kwargs),
-            "credential_sources": _credential_sources(kwargs),
-            "input_snapshot": onboard_apply_snapshot.build(kwargs),
+            "source_repo": str(safe_kwargs.get("project_remote_url") or ""),
+            "target_github_repo": _target_github_repo(safe_kwargs),
+            "credential_sources": _credential_sources(safe_kwargs),
+            "input_snapshot": onboard_apply_snapshot.build(safe_kwargs),
             "steps": steps,
             "final_status": None,
             "failed_step": None,
             "error": None,
             "resume_command": f"{RESUME_COMMAND} --resume {run_id}",
-            "start_over_hint": _start_over_hint(kwargs),
+            "new_target_hint": _new_target_hint(safe_kwargs),
             "secret_free": True,
         }
         writer = cls(path, payload)
@@ -127,7 +130,9 @@ class ApplyReportWriter:
         # coarse pair running together before a blocking call); earlier running
         # steps got far enough to hand off, so they are done — leave no step
         # orphaned at "running".
-        selected = step_id or self._last_running_step_id() or self._first_pending_step_id()
+        selected = (
+            step_id or self._last_running_step_id() or self._first_pending_step_id()
+        )
         for sid, step in self._steps.items():
             if step.get("status") == STATUS_RUNNING and sid != selected:
                 step["status"] = STATUS_DONE
@@ -162,6 +167,7 @@ class ApplyReportWriter:
         }
 
     def write(self) -> None:
+        onboard_checkout_ownership.refresh_snapshot(self.payload.get("input_snapshot"))
         try:
             self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             tmp_path = self.path.with_name(self.path.name + ".tmp")
@@ -247,11 +253,18 @@ def run_report_path(run_id: str) -> Path:
 
 
 def _new_run_id() -> str:
-    return f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
+    return (
+        f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
+    )
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _merge_resume_steps(
@@ -291,73 +304,15 @@ def steps_from_preview(preview: Mapping[str, Any]) -> list[StepRef]:
         if action == "stop-before-project-or-github":
             continue
         target = str(raw.get("target") or "")
-        refs.append(StepRef(
-            step_id=f"{index:02d}-{action}",
-            action=action,
-            target=target,
-            label=friendly_line(action, target, project_name),
-        ))
+        refs.append(
+            StepRef(
+                step_id=f"{index:02d}-{action}",
+                action=action,
+                target=target,
+                label=friendly_line(action, target, project_name),
+            )
+        )
     return refs
-
-
-def sanitize_text(value: str) -> str:
-    redacted = _AUTH_HEADER_RE.sub(r"\1<redacted>", value)
-    redacted = _TOKEN_ASSIGN_RE.sub(r"\1<redacted>", redacted)
-    return _URL_USERINFO_RE.sub(_redact_url_userinfo, redacted)
-
-
-def _redact_url_userinfo(match: re.Match[str]) -> str:
-    scheme, userinfo, host = match.groups()
-    username, separator, _secret = userinfo.partition(":")
-    if separator:
-        return f"{scheme}{username}:<redacted>@{host}"
-    return f"{scheme}<redacted>@{host}"
-
-
-def _package_version() -> str:
-    try:
-        return metadata.version("yoke-cli")
-    except metadata.PackageNotFoundError:
-        return "unknown"
-
-
-def _target_github_repo(kwargs: Mapping[str, Any]) -> str:
-    owner = str(kwargs.get("project_publish_owner") or "")
-    name = str(kwargs.get("project_publish_repo_name") or "")
-    repo = str(kwargs.get("project_github_repo") or "")
-    if owner and name:
-        return f"{owner}/{name}"
-    publish = kwargs.get("project_publish")
-    publish_owner = str(getattr(publish, "owner", "") or "")
-    publish_name = str(getattr(publish, "name", "") or "")
-    if publish_owner and publish_name:
-        return f"{publish_owner}/{publish_name}"
-    return repo
-
-
-def _start_over_hint(kwargs: Mapping[str, Any]) -> str:
-    """Truthful start-over guidance — no `--start-over` flag exists.
-
-    A project run leaves a checkout behind; starting fresh means removing it and
-    re-running. A machine-only run has nothing to remove.
-    """
-    checkout = str(kwargs.get("project_checkout") or "").strip()
-    if checkout:
-        return f"Remove {checkout} and re-run: {RESUME_COMMAND}"
-    return f"Re-run to redo setup: {RESUME_COMMAND}"
-
-
-def _credential_sources(kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        "yoke": {
-            "kind": str(kwargs.get("token_source_kind") or "argument"),
-            "path": str(kwargs.get("token_file") or ""),
-        },
-        "github_app": {
-            "machine": onboard_github_snapshot.authorization_source(kwargs),
-            "project": onboard_github_snapshot.binding(kwargs),
-        },
-    }
 
 
 __all__ = [

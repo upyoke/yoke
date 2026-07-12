@@ -45,10 +45,12 @@ def test_encrypt_secret_handles_unicode():
 class _FakeResponse:
     def __init__(self, status: int, body: Any):
         self.status = status
-        self._body = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        self._body = (
+            body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        )
         self.headers = {"X-RateLimit-Remaining": "5000"}
 
-    def read(self):
+    def read(self, _size: int = -1):
         return self._body
 
     def getcode(self):
@@ -66,12 +68,14 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
     received: list[dict] = []
 
     def fake(req, timeout=None):
-        received.append({
-            "method": req.get_method(),
-            "url": req.full_url,
-            "headers": dict(req.header_items()),
-            "body": req.data,
-        })
+        received.append(
+            {
+                "method": req.get_method(),
+                "url": req.full_url,
+                "headers": dict(req.header_items()),
+                "body": req.data,
+            }
+        )
         if not responses:
             raise AssertionError("fake urlopen exhausted")
         nxt = responses.pop(0)
@@ -81,6 +85,7 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
 
     # Patch the module-level urlopen attribute used by the transport.
     from yoke_core.domain import gh_rest_transport
+
     monkeypatch.setattr(gh_rest_transport, "urlopen", fake)
     return received
 
@@ -91,7 +96,9 @@ def test_fetch_public_key_returns_key_id_and_key(monkeypatch):
         [_FakeResponse(200, {"key_id": "abc123", "key": "BASE64PUBKEY=="})],
     )
 
-    key_id, key_b64 = mod.fetch_public_key("owner/repo", token="t")
+    key_id, key_b64 = mod.fetch_public_key(
+        "owner/repo", token="ghs_secrets_transport_test"
+    )
     assert key_id == "abc123"
     assert key_b64 == "BASE64PUBKEY=="
     assert received[0]["method"] == "GET"
@@ -108,7 +115,9 @@ def test_set_repo_secret_fetches_key_then_puts_ciphertext(monkeypatch):
         ],
     )
 
-    mod.set_repo_secret("owner/repo", "MY_SECRET", "shh", token="t")
+    mod.set_repo_secret(
+        "owner/repo", "MY_SECRET", "shh", token="ghs_secrets_transport_test"
+    )
 
     assert len(received) == 2
     get_req, put_req = received
@@ -118,22 +127,29 @@ def test_set_repo_secret_fetches_key_then_puts_ciphertext(monkeypatch):
 
     put_body = json.loads(put_req["body"].decode("utf-8"))
     assert put_body["key_id"] == "kid-1"
-    decrypted = SealedBox(private).decrypt(base64.b64decode(put_body["encrypted_value"]))
+    decrypted = SealedBox(private).decrypt(
+        base64.b64decode(put_body["encrypted_value"])
+    )
     assert decrypted == b"shh"
 
 
 def test_list_repo_secret_names_extracts_names(monkeypatch):
     _install_fake_urlopen(
         monkeypatch,
-        [_FakeResponse(200, {
-            "total_count": 2,
-            "secrets": [
-                {"name": "DEPLOY_KEY", "created_at": "2025-01-01"},
-                {"name": "DEPLOY_HOST", "created_at": "2025-01-02"},
-            ],
-        })],
+        [
+            _FakeResponse(
+                200,
+                {
+                    "total_count": 2,
+                    "secrets": [
+                        {"name": "DEPLOY_KEY", "created_at": "2025-01-01"},
+                        {"name": "DEPLOY_HOST", "created_at": "2025-01-02"},
+                    ],
+                },
+            )
+        ],
     )
-    names = mod.list_repo_secret_names("owner/repo", token="t")
+    names = mod.list_repo_secret_names("owner/repo", token="ghs_secrets_transport_test")
     assert names == ["DEPLOY_KEY", "DEPLOY_HOST"]
 
 
@@ -142,13 +158,19 @@ def test_repo_secret_exists_true_and_false(monkeypatch):
         monkeypatch,
         [_FakeResponse(200, {"secrets": [{"name": "X"}]})],
     )
-    assert mod.repo_secret_exists("owner/repo", "X", token="t") is True
+    assert (
+        mod.repo_secret_exists("owner/repo", "X", token="ghs_secrets_transport_test")
+        is True
+    )
 
     _install_fake_urlopen(
         monkeypatch,
         [_FakeResponse(200, {"secrets": [{"name": "X"}]})],
     )
-    assert mod.repo_secret_exists("owner/repo", "Y", token="t") is False
+    assert (
+        mod.repo_secret_exists("owner/repo", "Y", token="ghs_secrets_transport_test")
+        is False
+    )
 
 
 def test_set_repo_secret_propagates_transport_errors(monkeypatch):
@@ -164,4 +186,6 @@ def test_set_repo_secret_propagates_transport_errors(monkeypatch):
     _install_fake_urlopen(monkeypatch, [err])
 
     with pytest.raises(RestNotFoundError):
-        mod.set_repo_secret("owner/missing", "X", "v", token="t")
+        mod.set_repo_secret(
+            "owner/missing", "X", "v", token="ghs_secrets_transport_test"
+        )

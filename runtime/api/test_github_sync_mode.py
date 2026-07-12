@@ -1,4 +1,4 @@
-"""Per-project GitHub sync switch: reader, sync-surface gates, flip round-trip.
+"""Per-project GitHub sync switch: reader, sync-surface gates, and mode writes.
 
 ``projects.github_sync_mode`` is the one authority for whether a project's
 backlog mirrors to GitHub issues. These tests cover:
@@ -9,9 +9,9 @@ backlog mirrors to GitHub issues. These tests cover:
   the body-sync path that ``items.structured_field.replace`` with
   ``options.sync_github_body=true`` drives;
 - the explicit-refusal surface (``migrate_issue_to_repo``);
-- the operator flip round-trip through ``cmd_upsert`` / ``cmd_update`` /
-  ``cmd_get`` (the ``yoke projects update --github-sync-mode`` /
-  ``yoke projects get --field github_sync_mode`` backing calls).
+- the operator backlog-only write and unsafe enable refusal through
+  ``cmd_upsert`` / ``cmd_update`` / ``cmd_get`` (the registered projects
+  update/get backing calls).
 
 Tests mock the typed REST surfaces; no live GitHub calls are made.
 """
@@ -249,7 +249,7 @@ class TestStructuredWriteBodySync:
         assert github_sync_disabled_notice("yoke", "sync-body") in out.getvalue()
 
 
-class TestFlipRoundTrip:
+class TestModeWrites:
     """Backing calls for `yoke projects update --github-sync-mode` and
     `yoke projects get --field github_sync_mode`."""
 
@@ -267,10 +267,11 @@ class TestFlipRoundTrip:
         assert cmd_get("buzz", "github_sync_mode") == GITHUB_SYNC_BACKLOG_ONLY
         assert not github_sync_enabled("buzz")
 
-        # Flip back through the field-level updater.
-        cmd_update("buzz", "github_sync_mode", GITHUB_SYNC_ENABLED)
-        assert cmd_get("buzz", "github_sync_mode") == GITHUB_SYNC_ENABLED
-        assert github_sync_enabled("buzz")
+        # Enabling without the required active verified binding fails closed.
+        with pytest.raises(GithubSyncModeError, match="active, verified"):
+            cmd_update("buzz", "github_sync_mode", GITHUB_SYNC_ENABLED)
+        assert cmd_get("buzz", "github_sync_mode") == GITHUB_SYNC_BACKLOG_ONLY
+        assert not github_sync_enabled("buzz")
 
     def test_upsert_rejects_invalid_mode(self, ambient_db):
         from yoke_core.domain.projects_upsert import cmd_upsert

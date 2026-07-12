@@ -132,7 +132,7 @@ from yoke_cli.commands.adapters.projects_secret import (
     PROJECTS_CAPABILITY_SECRET_SET_USAGE,
 )
 from yoke_cli.commands.adapters.project_github_binding import (
-    PROJECTS_GITHUB_BINDING_BIND_USAGE, PROJECTS_GITHUB_BINDING_STATUS_USAGE, PROJECTS_GITHUB_BINDING_UNBIND_USAGE,
+    PROJECTS_GITHUB_BINDING_BIND_USAGE, PROJECTS_GITHUB_BINDING_STATUS_USAGE, PROJECTS_GITHUB_BINDING_UNBIND_USAGE, PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
 )
 from yoke_cli.commands.adapters import strategy_event_usage as _strategy_event_usage
 from yoke_cli.commands.adapters import qa as _qa_usage
@@ -281,6 +281,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.capability_secret.set": PROJECTS_CAPABILITY_SECRET_SET_USAGE,
     "projects.checkout_context.run": PROJECTS_CHECKOUT_CONTEXT_USAGE,
     "projects.github_binding.bind": PROJECTS_GITHUB_BINDING_BIND_USAGE, "projects.github_binding.unbind": PROJECTS_GITHUB_BINDING_UNBIND_USAGE, "projects.github_binding.status": PROJECTS_GITHUB_BINDING_STATUS_USAGE,
+    "projects.github_sync_mode.repair": PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
     "organizations.get": ORGANIZATIONS_GET_USAGE,
     **IDENTITY_USAGE,
     "project_structure.patch.apply": PROJECT_STRUCTURE_PATCH_APPLY_USAGE,

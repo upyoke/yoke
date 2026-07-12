@@ -105,11 +105,15 @@ def sync_body(
             return 1
 
         if not _bgs()._validate_issue_in_repo(
-            item_ref, issue_num, repo, project=gh_project, stderr=stderr,
+            item_ref, issue_num, project=gh_project, stderr=stderr,
             timeout_seconds=github_timeout_seconds,
             max_attempts=github_max_attempts,
         ):
-            print(f"Error: sync_body skipped for {item_ref} — repo mismatch detected", file=stderr)
+            print(
+                f"Error: sync_body skipped for {item_ref} — "
+                "issue validation failed",
+                file=stderr,
+            )
             return 1
 
         # Render body on demand
@@ -197,8 +201,14 @@ def sync_title(
             )
             return 1
 
-        if not _bgs()._validate_issue_in_repo(item_ref, issue_num, repo, project=gh_project, stderr=stderr):
-            print(f"Error: sync_title skipped for {item_ref} — repo mismatch detected", file=stderr)
+        if not _bgs()._validate_issue_in_repo(
+            item_ref, issue_num, project=gh_project, stderr=stderr,
+        ):
+            print(
+                f"Error: sync_title skipped for {item_ref} — "
+                "issue validation failed",
+                file=stderr,
+            )
             return 1
 
         fields = _item_fields(item_pk, ["title"], conn=conn)

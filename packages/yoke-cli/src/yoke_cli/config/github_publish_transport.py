@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping
+import time
+from typing import Any, Callable, Mapping
 import urllib.error
 import urllib.parse
 import urllib.request
 
 from yoke_contracts import github_app_tokens, github_origin
+from yoke_cli.config import github_response_safety
 
 _TIMEOUT_S = 20.0
 
@@ -37,7 +39,11 @@ def request_json(
     method: str = "GET",
     query: Mapping[str, str] | None = None,
     body: Mapping[str, Any] | None = None,
+    deadline: float | None = None,
+    monotonic: Callable[[], float] | None = None,
 ) -> Any:
+    clock = monotonic or time.monotonic
+    selected_deadline = deadline or (clock() + _TIMEOUT_S)
     try:
         endpoint = github_origin.validate_github_api_endpoint(api_url)
     except github_origin.GitHubApiOriginError as exc:
@@ -57,31 +63,69 @@ def request_json(
         },
     )
     try:
-        with _urlopen(request, timeout=_TIMEOUT_S) as response:
-            raw = response.read().decode("utf-8")
+        remaining = selected_deadline - clock()
+        if remaining <= 0:
+            raise github_response_safety.GitHubResponseReadError(
+                "GitHub response exceeded its deadline"
+            )
+        with _urlopen(request, timeout=min(_TIMEOUT_S, remaining)) as response:
+            response_body = github_response_safety.read_bounded(
+                response,
+                maximum_bytes=github_app_tokens.GITHUB_API_RESPONSE_MAX_BYTES,
+                deadline=selected_deadline,
+                monotonic=clock,
+            )
     except urllib.error.HTTPError as exc:
-        detail = _error_detail(exc)
+        detail = _error_detail(
+            exc, secret=token, deadline=selected_deadline,
+            monotonic=clock,
+        )
         raise GitHubPublishError(
             f"GitHub call failed: {method} {url} returned HTTP {exc.code}"
             + (f" — {detail}" if detail else ""), status=exc.code,
         ) from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise GitHubPublishError(f"GitHub call failed against {url}: {exc}") from exc
+        raise GitHubPublishError(
+            f"GitHub call failed against {url} because GitHub could not be reached"
+        ) from exc
+    except github_response_safety.GitHubResponseReadError as exc:
+        if "too large" in str(exc):
+            raise GitHubPublishError(
+                f"GitHub call returned an oversized response from {url}"
+            ) from exc
+        raise GitHubPublishError(
+            f"GitHub call exceeded its operation deadline against {url}"
+        ) from exc
     try:
+        raw = response_body.decode("utf-8")
         return json.loads(raw) if raw else None
-    except ValueError as exc:
+    except (UnicodeDecodeError, ValueError) as exc:
         raise GitHubPublishError(
             f"GitHub call returned invalid JSON from {url}"
         ) from exc
 
 
-def _error_detail(exc: urllib.error.HTTPError) -> str:
+def _error_detail(
+    exc: urllib.error.HTTPError,
+    *,
+    secret: str,
+    deadline: float,
+    monotonic: Callable[[], float],
+) -> str:
     try:
-        payload = json.loads(exc.read().decode("utf-8"))
-    except (ValueError, OSError):
+        raw = github_response_safety.read_bounded(
+            exc,
+            maximum_bytes=github_app_tokens.GITHUB_API_RESPONSE_MAX_BYTES,
+            deadline=deadline,
+            monotonic=monotonic,
+        )
+        payload = json.loads(raw.decode("utf-8"))
+    except (ValueError, OSError, github_response_safety.GitHubResponseReadError):
         return ""
     if isinstance(payload, Mapping) and payload.get("message"):
-        return str(payload["message"])
+        return github_response_safety.safe_error_text(
+            payload["message"], secrets=(secret,)
+        )
     return ""
 
 

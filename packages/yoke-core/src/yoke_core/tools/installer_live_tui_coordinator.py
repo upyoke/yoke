@@ -44,6 +44,9 @@ PATH_HEALTH_CONNECT_EXPECTED_TEXT = (
     "This machine",
     "upyoke.com",
 )
+GITHUB_APP_SCENARIO_ID_STOP = 54
+
+
 KNOWN_RECIPE_IDS = {
     "INSTALL-SMOKE-001",
     "INSTALL-SMOKE-002",
@@ -81,16 +84,10 @@ KNOWN_RECIPE_IDS = {
     "AUTH-009",
     "AUTH-010",
     "AUTH-011",
-    "GITHUB-001",
-    "GITHUB-002",
-    "GITHUB-003",
-    "GITHUB-004",
-    "GITHUB-005",
-    "GITHUB-006",
-    "GITHUB-007",
-    "GITHUB-008",
-    "GITHUB-009",
-    "GITHUB-010",
+    *(
+        f"GITHUB-{number:03d}"
+        for number in range(1, GITHUB_APP_SCENARIO_ID_STOP)
+    ),
     "PROJECT-SOURCE-001",
     "PROJECT-SOURCE-002",
     "PROJECT-SOURCE-003",
@@ -133,7 +130,6 @@ KNOWN_RECIPE_IDS = {
     "PUBLISH-010",
     "PUBLISH-011",
     "PUBLISH-012",
-    "PUBLISH-013",
     "APPLY-001",
     "APPLY-002",
     "APPLY-003",
@@ -169,10 +165,13 @@ KNOWN_RECIPE_IDS = {
     "STATE-009",
 }
 MANUAL_GITHUB_APP_RECIPE_IDS = {
-    *(f"GITHUB-{number:03d}" for number in range(2, 11)),
+    *(
+        f"GITHUB-{number:03d}"
+        for number in range(2, GITHUB_APP_SCENARIO_ID_STOP)
+    ),
     "PROJECT-SOURCE-006",
     "PROJECT-META-008",
-    *(f"PUBLISH-{number:03d}" for number in range(2, 14)),
+    *(f"PUBLISH-{number:03d}" for number in range(2, 13)),
     "APPLY-005",
     "APPLY-008",
     "STATE-002",

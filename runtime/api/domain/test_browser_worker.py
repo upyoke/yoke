@@ -9,14 +9,11 @@ passed as the explicit ``root`` override.
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
-import sys
 import unittest
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
-from unittest import mock
+from typing import Any, List
 
 from yoke_core.domain import browser_worker
 
@@ -293,7 +290,7 @@ class BrowserWorkerCase(unittest.TestCase):
             {
                 "pid": os.getpid(),
                 "health": "healthy",
-                "endpoint": "http://localhost:19222",
+                "endpoint": "http://127.0.0.1:19222",
             },
             self.repo,
         )

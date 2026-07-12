@@ -61,6 +61,9 @@ def _project(kwargs: Mapping[str, Any], project_mode: str) -> dict[str, Any]:
             kwargs.get("existing_project_local_source")
         ),
         "github_adoption": _text(kwargs.get("project_github_adoption")),
+        "github_adoption_preserve": bool(
+            kwargs.get("project_github_adoption_preserve")
+        ),
         "github_binding": onboard_github_snapshot.binding(kwargs),
         "keep_existing_remote": bool(kwargs.get("project_keep_existing_remote")),
         "publish": _publish(kwargs.get("project_publish")),
@@ -97,7 +100,7 @@ def _checkout_provenance(project_mode: str, checkout: str) -> dict[str, Any]:
         "project_mode": project_mode,
         "existed_before_apply": existed,
         "created_by_run": created_by_run,
-        "safe_to_remove_on_start_over": created_by_run,
+        "safe_to_preserve_for_new_target": created_by_run,
     }
 
 
@@ -111,6 +114,11 @@ def _publish(value: Any) -> dict[str, Any] | None:
         "api_url": _text(getattr(value, "api_url", "")),
         "web_url": _text(getattr(value, "web_url", "")),
         "private": bool(getattr(value, "private", True)),
+        "create_repository": bool(
+            getattr(value, "create_repository", True)
+        ),
+        "repository_id": getattr(value, "repository_id", None),
+        "installation_id": getattr(value, "installation_id", None),
     }
 
 
@@ -120,6 +128,9 @@ def _clone(value: Any) -> dict[str, Any] | None:
     return {
         "outcome": _text(getattr(value, "outcome", "")),
         "keep_upstream": bool(getattr(value, "keep_upstream", True)),
+        "use_machine_github": bool(
+            getattr(value, "use_machine_github", False)
+        ),
         "fork_api_url": _text(getattr(value, "fork_api_url", "")),
         "fork_web_url": _text(getattr(value, "fork_web_url", "")),
         "publish": _publish(getattr(value, "publish", None)),

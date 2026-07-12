@@ -192,7 +192,7 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 
 ### Wave 5: Machine GitHub App Connection
 
-See [Installer GitHub App live testing](installer-github-app-testing.md) for the automation boundary and the `GITHUB-*` scenario catalog.
+The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live testing](installer-github-app-testing.md); the campaign loader composes that sibling catalog with this guide and rejects duplicate scenario ids across both documents.
 
 ### Wave 6: Project Source Picker
 

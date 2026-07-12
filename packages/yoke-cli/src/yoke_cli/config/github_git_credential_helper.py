@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Any, Mapping, TextIO
-import urllib.parse
+from typing import TextIO
 
-try:
+if __package__:
     from yoke_cli.config import github_git_credential_store as credential_store
-except Exception:  # pragma: no cover - copied helper survives broken editable import
+else:  # pragma: no cover - copied helper always uses its immutable siblings
     import _yoke_github_git_credential_store as credential_store  # type: ignore
 
 
@@ -34,12 +33,11 @@ def main(
         return 0
     fields = _read_fields(stdin or sys.stdin)
     try:
-        config = credential_store.load_config(parsed.config_path)
-        if not _request_matches_github(fields, config):
-            return 0
-        credential = credential_store.access_token_from_config(
-            config, opener=None
+        credential = credential_store.access_token_for_git_request(
+            parsed.config_path, fields,
         )
+        if credential is None:
+            return 0
     except credential_store.GitHubCredentialStoreError:
         print(
             "yoke GitHub credential unavailable; run `yoke github status` "
@@ -51,23 +49,6 @@ def main(
     print("username=x-access-token", file=out)
     print(f"password={credential['access_token']}", file=out)
     return 0
-
-
-def _request_matches_github(
-    fields: Mapping[str, str], config: Mapping[str, Any]
-) -> bool:
-    if fields.get("protocol") != "https":
-        return False
-    github = config.get("github")
-    if not isinstance(github, Mapping):
-        return False
-    web_url = str(
-        github.get("web_url") or credential_store.DEFAULT_GITHUB_WEB_URL
-    )
-    expected_authority = urllib.parse.urlsplit(
-        credential_store.validated_web_url(web_url)
-    ).netloc
-    return fields.get("host", "").lower() == expected_authority.lower()
 
 
 def _read_fields(stream: TextIO) -> dict[str, str]:

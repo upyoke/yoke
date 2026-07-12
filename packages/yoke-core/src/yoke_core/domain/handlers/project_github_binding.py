@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
 class ProjectGithubBindingBindRequest(BaseModel):
@@ -131,15 +132,11 @@ def handle_project_github_binding_status(
 
 
 def _payload_invalid(exc: ValidationError) -> HandlerOutcome:
-    details = []
-    for error in exc.errors(include_url=False, include_input=False):
-        location = ".".join(str(part) for part in error.get("loc", ())) or "$"
-        details.append(f"{location}: {error.get('msg', 'invalid')}")
     return HandlerOutcome(
         primary_success=False,
         error=FunctionError(
             code="payload_invalid",
-            message="payload invalid: " + "; ".join(details),
+            message=safe_validation_message(exc),
             jsonpath="$.payload",
         ),
     )

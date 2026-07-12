@@ -8,9 +8,6 @@ import pytest
 from yoke_cli.commands.adapters import onboard as onboard_adapter
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_wizard
-from yoke_cli.config.project_clone_support import ClonePlan
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
-from yoke_cli.config.project_publish_support import PublishRequest
 
 
 def _preview() -> dict:
@@ -87,6 +84,30 @@ def test_sanitize_text_redacts_token_assignment_variants() -> None:
     assert "token = <redacted>" in redacted
     assert "token:<redacted>" in redacted
     assert "token=<redacted>" in redacted
+
+
+def test_apply_report_strips_credentials_from_both_remote_snapshots(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    writer = onboard_apply_report.ApplyReportWriter.start(
+        _preview(),
+        {
+            "project_remote_url": (
+                "https://octocat:ghp_legacy_secret@github.com/acme/widget.git"
+                "?token=query-secret"
+            ),
+        },
+    )
+
+    payload = json.loads(Path(writer.summary()["path"]).read_text(encoding="utf-8"))
+    expected = "https://github.com/acme/widget.git"
+    assert payload["source_repo"] == expected
+    assert payload["input_snapshot"]["project"]["remote_url"] == expected
+    serialized = json.dumps(payload)
+    assert "ghp_legacy_secret" not in serialized
+    assert "query-secret" not in serialized
 
 
 def test_adapter_converts_apply_failure_to_typed_report(
@@ -283,7 +304,8 @@ def test_report_resume_hints_reference_real_run_id(
     payload = json.loads(Path(writer.summary()["path"]).read_text(encoding="utf-8"))
     assert payload["resume_command"] == f"yoke onboard --resume {payload['run_id']}"
     assert "--start-over" not in json.dumps(payload)
-    assert "/home/u/code/widget" in payload["start_over_hint"]
+    assert "/home/u/code/widget" in payload["new_target_hint"]
+    assert "different folder" in payload["new_target_hint"]
 
 
 def test_fail_leaves_no_step_orphaned_at_running(
@@ -312,87 +334,3 @@ def test_fail_leaves_no_step_orphaned_at_running(
     assert statuses["00-project-source-choice"] == "done"
     assert statuses["01-project-create-checkout"] == "failed"
     assert payload["failed_step"] == "01-project-create-checkout"
-
-
-def test_apply_report_carries_replay_safe_input_snapshot(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
-    checkout = tmp_path / "fresh-checkout"
-    publish = PublishRequest(
-        owner="octo-org",
-        name="widget",
-        user_login="octocat",
-        token="publish-secret",
-        api_url="https://api.github.example",
-        private=True,
-    )
-    clone = ClonePlan(
-        outcome="make-it-mine",
-        keep_upstream=True,
-        publish=publish,
-        fallback_token="clone-secret",
-        fork_api_url="https://api.github.example",
-    )
-
-    writer = onboard_apply_report.ApplyReportWriter.start(
-        _preview(),
-        {
-            "config_path": "/tmp/home/config.json",
-            "env_name": "stage",
-            "api_url": "https://api.stage.upyoke.com",
-            "token": "yoke-secret",
-            "token_source_kind": "argument",
-            "machine_github_choice": "connect",
-            "project_mode": "clone-remote",
-            "project_remote_url": "https://github.com/octo/source.git",
-            "project_checkout": str(checkout),
-            "project_slug": "widget",
-            "project_name": "Widget",
-            "project_github_repo": "octo-org/widget",
-            "project_default_branch": "main",
-            "project_public_item_prefix": "WIDG",
-            "project_github_adoption": GITHUB_ADOPTION_APP_BINDING,
-            "project_clone": clone,
-        },
-    )
-
-    payload = json.loads(Path(writer.summary()["path"]).read_text(encoding="utf-8"))
-    snapshot = payload["input_snapshot"]
-    assert snapshot["env_name"] == "stage"
-    assert snapshot["project"]["slug"] == "widget"
-    assert snapshot["project"]["clone"]["outcome"] == "make-it-mine"
-    assert snapshot["project"]["clone"]["publish"]["owner"] == "octo-org"
-    assert snapshot["checkout_provenance"] == {
-        "path": str(checkout),
-        "project_mode": "clone-remote",
-        "existed_before_apply": False,
-        "created_by_run": True,
-        "safe_to_remove_on_start_over": True,
-    }
-    serialized = json.dumps(payload)
-    assert "yoke-secret" not in serialized
-    assert "machine-gh-secret" not in serialized
-    assert "publish-secret" not in serialized
-    assert "clone-secret" not in serialized
-
-
-def test_local_checkout_snapshot_is_not_safe_to_delete(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
-    checkout = tmp_path / "existing"
-    checkout.mkdir()
-    writer = onboard_apply_report.ApplyReportWriter.start(
-        _preview(),
-        {
-            "project_mode": "local-checkout",
-            "project_checkout": str(checkout),
-        },
-    )
-
-    payload = json.loads(Path(writer.summary()["path"]).read_text(encoding="utf-8"))
-    provenance = payload["input_snapshot"]["checkout_provenance"]
-    assert provenance["existed_before_apply"] is True
-    assert provenance["created_by_run"] is False
-    assert provenance["safe_to_remove_on_start_over"] is False

@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+from runtime.api.cli.project_clone_test_support import allow_local_clone
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     run_git,
@@ -10,6 +13,7 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     tree_snapshot,
 )
 from yoke_cli import main as yoke_operations_cli
+from yoke_cli.config import onboard_project
 
 
 def test_onboard_local_checkout_dry_run_previews_project_handoff(
@@ -112,6 +116,7 @@ def test_onboard_clone_remote_dry_run_uses_project_import_branch(
     home = tmp_path / "home"
     config = home / "config.json"
     remote = seed_remote(tmp_path)
+    allow_local_clone(monkeypatch)
     checkout = tmp_path / "imported"
     token = tmp_path / "token"
     token.write_text("actor-token\n", encoding="utf-8")
@@ -144,6 +149,96 @@ def test_onboard_clone_remote_dry_run_uses_project_import_branch(
     assert payload["project_onboarding"]["checkout"]["mode"] == "clone-remote"
     assert payload["plan"]["project"]["remote_url"] == str(remote)
     assert not checkout.exists()
+
+
+def test_clone_remote_rejects_credential_url_before_preview() -> None:
+    with pytest.raises(
+        onboard_project.OnboardProjectError,
+        match="credential-free HTTPS",
+    ) as caught:
+        onboard_project.project_inputs(
+            project_mode=onboard_project.PROJECT_MODE_CLONE_REMOTE,
+            project_remote_url=(
+                "https://octocat:ghp_must_not_escape@github.com/acme/widget.git"
+            ),
+            project_checkout="/tmp/widget",
+            project_slug="widget",
+            project_name="Widget",
+            project_org=None,
+            project_github_repo="acme/widget",
+            project_default_branch="main",
+            project_public_item_prefix="WIDG",
+            existing_project_id=None,
+        )
+
+    assert "ghp_must_not_escape" not in str(caught.value)
+
+
+@pytest.mark.parametrize("extra_args", [
+    [],
+    ["--json"],
+    ["--yes"],
+    ["--yes", "--json"],
+])
+def test_noninteractive_remote_secret_never_reaches_preview_or_apply_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+    extra_args: list[str],
+) -> None:
+    home = tmp_path / "home"
+    config = home / "config.json"
+    token = tmp_path / "token"
+    token.write_text("actor-token\n", encoding="utf-8")
+    sentinel = "ghp_preview_must_not_escape"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+
+    rc = yoke_operations_cli.main([
+        "onboard",
+        "--non-interactive",
+        "--quick",
+        "--config", str(config),
+        "--env", "prod",
+        "--api-url", "https://api.example.test",
+        "--token-file", str(token),
+        "--project-mode", "clone-remote",
+        "--remote-url", (
+            f"https://octocat:{sentinel}@github.com/acme/widget.git"
+        ),
+        "--checkout", str(tmp_path / "widget"),
+        "--project-slug", "widget",
+        "--project-name", "Widget",
+        "--github-repo", "acme/widget",
+        "--default-branch", "main",
+        "--public-item-prefix", "WIDG",
+        "--github-adoption", "backlog-only",
+        *extra_args,
+    ])
+
+    captured = capsys.readouterr()
+    assert rc != 0
+    assert sentinel not in captured.out
+    assert sentinel not in captured.err
+    assert not config.exists()
+
+
+def test_scp_like_credential_remote_is_not_treated_as_a_local_path() -> None:
+    sentinel = "scp_secret_must_not_escape"
+    with pytest.raises(onboard_project.OnboardProjectError) as caught:
+        onboard_project.project_inputs(
+            project_mode=onboard_project.PROJECT_MODE_CLONE_REMOTE,
+            project_remote_url=f"octocat:{sentinel}@github.com:acme/widget.git",
+            project_checkout="/tmp/widget",
+            project_slug="widget",
+            project_name="Widget",
+            project_org=None,
+            project_github_repo="acme/widget",
+            project_default_branch="main",
+            project_public_item_prefix="WIDG",
+            existing_project_id=None,
+        )
+
+    assert sentinel not in str(caught.value)
 
 
 def test_onboard_yes_writes_machine_config_and_project_handoff(

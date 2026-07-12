@@ -32,7 +32,7 @@ class _FakeRestResponse:
     def __exit__(self, exc_type, exc, tb) -> None:
         return None
 
-    def read(self) -> bytes:
+    def read(self, _size: int = -1) -> bytes:
         return self._body
 
 
@@ -44,6 +44,7 @@ def _fake_repo_public_key_b64() -> str:
     """Generate a real ed25519 public key (base64) so PyNaCl encryption succeeds."""
     import base64
     from nacl.public import PrivateKey
+
     private = PrivateKey.generate()
     return base64.b64encode(bytes(private.public_key)).decode("ascii")
 
@@ -69,9 +70,7 @@ def _install_fake_rest(monkeypatch) -> list[tuple[str, str]]:
             return _FakeRestResponse(200, {"name": "production"})
         return _FakeRestResponse(200, {})
 
-    monkeypatch.setattr(
-        "yoke_core.domain.gh_rest_transport.urlopen", fake_urlopen
-    )
+    monkeypatch.setattr("yoke_core.domain.gh_rest_transport.urlopen", fake_urlopen)
     return seen
 
 
@@ -164,9 +163,11 @@ def _apply_bootstrap_seed(
                 "buzz-web",
                 2,
                 "Buzz Web",
-                json.dumps({
-                    "domains": [{"domain_name": "buzz.example.com"}],
-                }),
+                json.dumps(
+                    {
+                        "domains": [{"domain_name": "buzz.example.com"}],
+                    }
+                ),
             ),
         )
         conn.execute(
@@ -176,10 +177,12 @@ def _apply_bootstrap_seed(
                 "buzz-web-production",
                 "buzz-web",
                 "production",
-                json.dumps({
-                    "hosts": {"origin": "origin.buzz.example.com"},
-                    "servers": [{"host": "45.55.157.144"}],
-                }),
+                json.dumps(
+                    {
+                        "hosts": {"origin": "origin.buzz.example.com"},
+                        "servers": [{"host": "45.55.157.144"}],
+                    }
+                ),
             ),
         )
     if include_project and include_ssh_capability:
@@ -189,7 +192,9 @@ def _apply_bootstrap_seed(
             (
                 2,
                 "ssh",
-                '{{"user":"openclaw","host":"45.55.157.144","key_path":"{0}"}}'.format(key_path),
+                '{{"user":"openclaw","host":"45.55.157.144","key_path":"{0}"}}'.format(
+                    key_path
+                ),
             ),
         )
     # The canonical project_github_auth resolver requires a github capability
@@ -312,7 +317,8 @@ def setup_validation_ctx(tmp_path: Path):
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         register_bootstrap_backend_checkout(db_path, repo_path)
         ctx = BootstrapContext(
-            project="buzz", project_root=tmp_path,
+            project="buzz",
+            project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,
         )

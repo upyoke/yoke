@@ -59,7 +59,7 @@ class RestResponse:
     def __exit__(self, exc_type, exc, tb) -> None:
         return None
 
-    def read(self) -> bytes:
+    def read(self, _size: int = -1) -> bytes:
         return self._body
 
 
@@ -103,7 +103,9 @@ def make_script_dir(root: Path) -> Path:
 def fake_app_auth(*, administration: bool = True) -> ProjectGithubAuth:
     permissions = {"administration": "read"} if administration else {}
     return ProjectGithubAuth(
-        project="buzz", repo="example-org/buzz", token="ghs_validator",
+        project="buzz",
+        repo="example-org/buzz",
+        token="ghs_validator",
         installation_id="12345",
         permissions=permissions,
     )
@@ -133,7 +135,12 @@ def patch_subprocess_helpers(monkeypatch) -> None:
 
 
 __all__ = [
-    "RestResponse", "VALIDATOR_SCHEMA_DDL", "fake_app_auth",
-    "install_rest_happy", "make_repo", "make_script_dir",
-    "patch_subprocess_helpers", "placeholder",
+    "RestResponse",
+    "VALIDATOR_SCHEMA_DDL",
+    "fake_app_auth",
+    "install_rest_happy",
+    "make_repo",
+    "make_script_dir",
+    "patch_subprocess_helpers",
+    "placeholder",
 ]

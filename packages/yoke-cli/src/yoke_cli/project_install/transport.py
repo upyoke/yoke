@@ -4,16 +4,24 @@ from __future__ import annotations
 
 import contextlib
 import importlib
-import json
 import os
-import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, Iterator, Mapping, Optional, Tuple
 
 from yoke_cli.config import machine_config
 from yoke_cli.project_install.files import ProjectInstallError
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    request_json,
+    safe_diagnostic_text,
+)
 from yoke_cli.transport.https import TransportError, resolve_https_connection
+from yoke_cli.transport.response_limits import (
+    BUNDLE_JSON_RESPONSE_LIMIT_BYTES,
+    DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS,
+)
 from yoke_contracts.api_urls import join_api_url
 from yoke_contracts.machine_config.schema import (
     CREDENTIAL_KIND_DSN_FILE,
@@ -23,7 +31,7 @@ from yoke_contracts.machine_config.schema import (
     connection_is_prod,
 )
 
-_FETCH_TIMEOUT_S = 30.0
+_FETCH_TIMEOUT_S = DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS
 _BUNDLE_PATH_TEMPLATE = "/v1/projects/{project_id}/install-bundle"
 
 
@@ -50,7 +58,8 @@ def resolve_bundle(
 
     try:
         connection = resolve_https_connection(
-            config_path, explicit_env=explicit_env,
+            config_path,
+            explicit_env=explicit_env,
         )
     except (MachineConfigContractError, TransportError) as exc:
         raise ProjectInstallError(str(exc)) from exc
@@ -78,9 +87,7 @@ def _fetch_bundle_local_postgres(
         )
     try:
         db_backend = importlib.import_module("yoke_core.domain.db_backend")
-        connect = importlib.import_module(
-            "yoke_core.domain.db_helpers"
-        ).connect
+        connect = importlib.import_module("yoke_core.domain.db_helpers").connect
         build_bundle = importlib.import_module(
             "yoke_core.domain.install_bundle"
         ).build_bundle
@@ -124,9 +131,7 @@ def _local_postgres_env(
             )
         dsn_path = _credential_path(raw_path, config_path)
         if not dsn_path.is_file():
-            raise ProjectInstallError(
-                f"local-postgres DSN file is missing: {dsn_path}"
-            )
+            raise ProjectInstallError(f"local-postgres DSN file is missing: {dsn_path}")
         updates[dsn_file_env] = str(dsn_path)
         removals.add(dsn_env)
     elif kind == CREDENTIAL_KIND_ENV:
@@ -182,26 +187,39 @@ def _fetch_bundle_https(connection, project_id: int) -> Dict[str, Any]:
         url, headers={"Authorization": f"Bearer {connection.token}"}
     )
     try:
-        with urllib.request.urlopen(request, timeout=_FETCH_TIMEOUT_S) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
+        response = request_json(
+            request,
+            timeout_seconds=_FETCH_TIMEOUT_S,
+            replay_safe=True,
+            allow_loopback_http=True,
+            response_limit_bytes=BUNDLE_JSON_RESPONSE_LIMIT_BYTES,
+            sensitive_values=(connection.token,),
+            opener=urllib.request.urlopen,
+        )
+    except BoundedJsonHttpStatusError as exc:
+        safe_url = safe_diagnostic_text(url, sensitive_values=(connection.token,))
+        if exc.status == 404:
             raise ProjectInstallError(
                 f"project id {project_id} is unknown to the active env "
-                f"({url} returned 404); check the id with `yoke status` "
+                f"({safe_url} returned 404); check the id with `yoke status` "
                 "or pass the right --project-id"
-            ) from exc
+            ) from None
         raise ProjectInstallError(
-            f"{url} returned HTTP {exc.code}; verify the active env and "
+            f"{safe_url} returned HTTP {exc.status}; verify the active env and "
             "credential with `yoke status`"
-        ) from exc
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        ) from None
+    except BoundedJsonHttpError as exc:
         raise ProjectInstallError(
-            f"could not fetch the install bundle from {url}: {exc}; verify "
+            "could not fetch the install bundle from "
+            f"{safe_diagnostic_text(url, sensitive_values=(connection.token,))}: "
+            f"{exc}; verify "
             "the active env with `yoke status`"
-        ) from exc
+        ) from None
+    payload = response.payload
     if not isinstance(payload, dict):
-        raise ProjectInstallError(f"{url} returned a non-object bundle body")
+        raise ProjectInstallError(
+            f"{safe_diagnostic_text(url)} returned a non-object bundle body"
+        )
     return payload
 
 

@@ -219,26 +219,31 @@ def repo_picker_body(repos: list) -> list[Static]:
     return selection_body(
         "Which private repo?",
         "Private repos available through GitHub authorization.",
-        repo_rows(repos),
+        [
+            *repo_rows(repos),
+            SelectionRow(
+                "paste-private", "Paste another private repo URL",
+                "use connected GitHub authorization",
+            ),
+        ],
     )
 
 
-# Resume vs Start-over choice shown when the chosen clone folder already holds a
-# matching clone of this source — a prior partial onboarding the user can pick up
-# or wipe and redo.
+# A matching existing clone is safe to resume but remains user-owned here. The
+# durable post-failure report is the only surface allowed to offer deletion.
 RESUME_ROWS = [
     SelectionRow("resume", "Resume where it failed",
                  "keep the clone, finish the rest"),
-    SelectionRow("start-over", "Start over",
-                 "remove the folder and re-clone"),
+    SelectionRow("choose-folder", "Choose another folder",
+                 "leave this clone untouched"),
 ]
 
 
-def resume_or_start_over_body(checkout: str) -> list[Static]:
+def resume_existing_clone_body(checkout: str) -> list[Static]:
     return selection_body(
-        "That folder is a partial setup.",
-        f"{checkout} is already a clone of this repo from an earlier run. "
-        "Resume from there, or start over.",
+        "That folder already has this repo.",
+        f"{checkout} is the exact root of a matching clone. Resume from it, "
+        "or choose another folder; Yoke will not delete this folder.",
         RESUME_ROWS,
     )
 
@@ -266,5 +271,5 @@ __all__ = [
     "publish_prompt_body",
     "repo_picker_body",
     "repo_rows",
-    "resume_or_start_over_body",
+    "resume_existing_clone_body",
 ]

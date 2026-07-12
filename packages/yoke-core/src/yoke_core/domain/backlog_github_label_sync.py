@@ -230,11 +230,14 @@ def sync_labels(
             )
             return 1
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), repo, project=gh_project, stderr=stderr,
+            item_ref, str(issue_num), project=gh_project, stderr=stderr,
         ):
-            print(f"Warning: sync_labels skipped for {item_ref} — repo mismatch",
-                  file=stderr)
-            return 0
+            print(
+                f"Warning: sync_labels skipped for {item_ref} — "
+                "issue validation failed",
+                file=stderr,
+            )
+            return 1
         fields = _item_fields(
             item_pk,
             ["status", "priority", "type", "source", "owner", "worktree", "blocked"],

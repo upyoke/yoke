@@ -9,6 +9,7 @@ is already origin, and the created repo's full_name lands on the API payload.
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -117,16 +118,19 @@ def test_fresh_create_refreshes_app_access_before_binding(
         }]
         return {"ok": True}
 
-    def _binding_dispatch(function_id, payload, _config_path):
-        assert function_id == "projects.github_binding.bind"
-        events.append("bind")
-        assert payload["repository_id"] == 88
-        assert payload["installation_id"] == 7
-        return {
-            "binding": {"status": "active"},
-            "permission_status": {"ok": True},
-            "github_sync_mode": "enabled",
-        }
+    def _binding_dispatch(function_id, payload, _config_path, **_kwargs):
+        if function_id == "projects.github_binding.bind":
+            events.append("bind")
+            assert payload["repository_id"] == 88
+            assert payload["installation_id"] == 7
+            return {
+                "binding": {"status": "active"},
+                "permission_status": {"ok": True},
+            }
+        assert function_id == "projects.update"
+        events.append("sync-policy")
+        assert payload["github_sync_mode"] == "enabled"
+        return {"project": payload}
 
     monkeypatch.setattr(project_onboard, "create_and_publish", _create)
     monkeypatch.setattr(
@@ -140,9 +144,12 @@ def test_fresh_create_refreshes_app_access_before_binding(
         lambda _path: github_config,
     )
     monkeypatch.setattr(
-        project_onboard_progress.github_user_tokens,
-        "access_token_from_machine_config",
-        lambda **_kwargs: SimpleNamespace(access_token="ghu_short_lived"),
+        project_onboard_progress.github_binding_auth,
+        "locked_profile_bound_access_for_binding",
+        lambda **_kwargs: nullcontext(SimpleNamespace(
+            token=SimpleNamespace(access_token="ghu_short_lived"),
+            api_url="https://api.github.com",
+        )),
     )
     monkeypatch.setattr(project_onboard_progress, "dispatch", _binding_dispatch)
     kwargs = _base_kwargs(tmp_path / "new")
@@ -153,7 +160,7 @@ def test_fresh_create_refreshes_app_access_before_binding(
 
     project_onboard.create_project(publish=_publish(), **kwargs)
 
-    assert events == ["publish", "refresh", "bind"]
+    assert events == ["publish", "refresh", "bind", "sync-policy"]
 
 
 def test_create_project_no_publish_does_not_create_repo(tmp_path, monkeypatch, _stub_backend):

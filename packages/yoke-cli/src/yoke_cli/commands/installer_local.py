@@ -55,7 +55,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke aws exec": "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>",
-    "yoke github connect": "yoke github connect [--client-id ID] [--app-slug SLUG] [--json]",
+    "yoke github connect": "yoke github connect [--replace] [--add-installation] [--config PATH] [--json]",
     "yoke github disconnect": "yoke github disconnect [--config PATH] [--json]",
     "yoke github status": "yoke github status [--offline] [--json]",
     "yoke dev setup": "yoke dev setup [CHECKOUT]",

@@ -255,6 +255,7 @@ def _batch_github_sync_tasks(
             request_with_retry(
                 RestRequest(
                     method="PATCH",
+                    replay_safe=True,
                     path=f"/repos/{owner}/{repo}/issues/{gh_inum}",
                     body={"state": "closed"},
                 ),

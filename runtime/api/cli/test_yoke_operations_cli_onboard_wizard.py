@@ -11,20 +11,16 @@ in ``test_yoke_operations_cli_onboard_wizard_nav``.
 from __future__ import annotations
 
 import asyncio
-import json
 
 import pytest
 
 pytest.importorskip("textual")
-
-from textual.widgets import Static  # noqa: E402
 
 from yoke_cli.config import existing_project_lookup  # noqa: E402
 from yoke_cli.config import onboard_machine_github  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config.onboard_wizard import (  # noqa: E402
-    WizardDefaults,
     WizardResult,
 )
 from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
@@ -51,7 +47,7 @@ def test_machine_only_flow_applies_machine_config() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # github: Skip for now (Connect is default)
+            await pilot.press("down")  # github: Skip for now (Connect is default)
             await pilot.press("enter")
             for _ in range(4):  # project: move to "Don't set up a project now"
                 await pilot.press("down")
@@ -83,12 +79,40 @@ def test_reset_project_fields_clears_existing_project_match_state() -> None:
         existing_project_lookup.MATCH_SOURCE_GITHUB_REPO
     )
     result.existing_project_local_source = "machine config"
+    result.project_remote_url = "https://github.com/old/repo.git"
+    result.project_checkout = "/tmp/old"
+    result.project_github_repo = "old/repo"
+    result.project_github_adoption = "app-binding"
+    result.project_publish_to_github = True
+    result.project_publish_owner = "old"
+    result.project_publish_owner_login = "operator"
+    result.project_publish_repo_name = "repo"
+    result.project_publish_private = False
+    result.project_clone_outcome = "fork"
+    result.project_clone_keep_upstream = False
+    result.project_clone_requires_machine_github = True
+    result.project_source_default_branch = "release"
+    result.project_keep_existing_remote = True
 
     steps.reset_project_fields(result)
 
     assert result.existing_project_id is None
     assert result.existing_project_match_source is None
     assert result.existing_project_local_source is None
+    assert result.project_remote_url is None
+    assert result.project_checkout is None
+    assert result.project_github_repo is None
+    assert result.project_github_adoption is None
+    assert result.project_publish_to_github is False
+    assert result.project_publish_owner is None
+    assert result.project_publish_owner_login is None
+    assert result.project_publish_repo_name is None
+    assert result.project_publish_private is True
+    assert result.project_clone_outcome is None
+    assert result.project_clone_keep_upstream is True
+    assert result.project_clone_requires_machine_github is False
+    assert result.project_source_default_branch is None
+    assert result.project_keep_existing_remote is False
 
 
 def test_cancel_at_finish_does_not_apply() -> None:
@@ -97,12 +121,12 @@ def test_cancel_at_finish_does_not_apply() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # github: Skip for now
+            await pilot.press("down")  # github: Skip for now
             await pilot.press("enter")
             for _ in range(4):  # project: move to machine-only
                 await pilot.press("down")
             await pilot.press("enter")  # project: machine-only
-            await pilot.press("down")   # finish: move to Cancel
+            await pilot.press("down")  # finish: move to Cancel
             await pilot.press("enter")
             await pilot.pause()
 
@@ -119,14 +143,16 @@ def test_local_checkout_collects_project_fields() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder (default, local-checkout)
+            await pilot.press(
+                "enter"
+            )  # project: existing folder (default, local-checkout)
             await type_text(pilot, "/home/code/widget")  # checkout path
             await pilot.press("enter")
             await pilot.press("enter")  # slug placeholder -> widget
             await pilot.press("enter")  # name placeholder
-            await pilot.press("down")   # publish prompt: move to No
+            await pilot.press("down")  # publish prompt: move to No
             await pilot.press("enter")  # publish: No — keep local
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # public item prefix placeholder
@@ -144,193 +170,6 @@ def test_local_checkout_collects_project_fields() -> None:
     assert applied["project_name"] == "widget"
     assert applied["project_default_branch"] == "main"
     assert applied["project_public_item_prefix"] == "WIDG"
-
-
-def test_local_checkout_manifest_project_id_skips_project_setup(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    checkout = tmp_path / "buzz"
-    (checkout / ".yoke").mkdir(parents=True)
-    (checkout / ".yoke" / "install-manifest.json").write_text(
-        '{"manifest_schema": 1, "project_id": 37}\n',
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(
-        existing_project_lookup,
-        "find_by_project_id",
-        lambda **_: existing_project_lookup.ExistingProject(
-            id=37,
-            slug="buzz",
-            name="Buzz",
-            github_repo="example-org/buzz",
-            default_branch="main",
-            public_item_prefix="BUZZ",
-        ),
-    )
-    app, spy = make_app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
-            await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder
-            await type_text(pilot, str(checkout))
-            await pilot.press("enter")
-            await pilot.pause()
-            title = next(
-                str(w.render()) for w in app.query(".onboard-title").results(Static)
-            )
-            body = _body_text(app)
-            assert title == "Existing Yoke project found."
-            assert (
-                "Local project metadata matched a Yoke core database project."
-                in body
-            )
-            assert (
-                "Local machine: found project id 37 in .yoke/install-manifest.json."
-                in body
-            )
-            assert "Yoke core database: verified project id 37." in body
-            await pilot.press("enter")  # continue -> board art
-            await complete_board_art(pilot)
-            await pilot.press("enter")  # finish: apply
-            await pilot.pause()
-
-    asyncio.run(scenario())
-
-    applied = spy.applied
-    assert applied is not None
-    assert applied["existing_project_id"] == 37
-    assert applied["project_slug"] == "buzz"
-    assert applied["project_name"] == "Buzz"
-    assert len(app.result.board_art_variants) == 1
-
-
-def test_stored_checkout_project_id_shows_confirmation_picker(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    checkout = tmp_path / "buzz"
-    checkout.mkdir()
-    config = tmp_path / "config.json"
-    config.write_text(
-        json.dumps({"projects": {str(checkout): {"project_id": 37}}}),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(
-        existing_project_lookup,
-        "find_by_project_id",
-        lambda **_: existing_project_lookup.ExistingProject(
-            id=37,
-            slug="buzz",
-            name="Buzz",
-            github_repo="example-org/buzz",
-            default_branch="main",
-            public_item_prefix="BUZZ",
-        ),
-    )
-    app, spy = make_app(WizardDefaults(
-        config_path=str(config),
-        env_name="prod",
-        api_url="https://api.test",
-        token="actor-token",
-    ))
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
-            await pilot.press("enter")
-            await pilot.pause()
-            assert "Use an existing project mapping?" in _body_text(app)
-            assert str(checkout) in _body_text(app)
-            await pilot.press("enter")  # stored mapping: reuse checkout
-            await pilot.pause()
-            title = next(
-                str(w.render()) for w in app.query(".onboard-title").results(Static)
-            )
-            body = _body_text(app)
-            assert title == "Existing Yoke project found."
-            assert "Checkout:" in body
-            assert (
-                "Local project metadata matched a Yoke core database project."
-                in body
-            )
-            assert "Local machine: found project id 37 in machine config." in body
-            assert "Yoke core database: verified project id 37." in body
-            assert str(checkout) in body
-            assert "~/code/my-project" not in body
-            await pilot.press("enter")  # continue -> board art
-            await complete_board_art(pilot)
-            await pilot.press("enter")  # finish: apply
-            await pilot.pause()
-
-    asyncio.run(scenario())
-
-    applied = spy.applied
-    assert applied is not None
-    assert applied["project_checkout"] == str(checkout)
-    assert applied["existing_project_id"] == 37
-    assert applied["project_slug"] == "buzz"
-    assert applied["project_name"] == "Buzz"
-    assert len(app.result.board_art_variants) == 1
-
-
-def test_existing_project_with_board_art_skips_art_flow(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    checkout = tmp_path / "buzz"
-    (checkout / ".yoke").mkdir(parents=True)
-    (checkout / ".yoke" / "install-manifest.json").write_text(
-        '{"manifest_schema": 1, "project_id": 37}\n',
-        encoding="utf-8",
-    )
-    (checkout / ".yoke" / "board-art").write_text("# art\n", encoding="utf-8")
-    monkeypatch.setattr(
-        existing_project_lookup,
-        "find_by_project_id",
-        lambda **_: existing_project_lookup.ExistingProject(
-            id=37,
-            slug="buzz",
-            name="Buzz",
-            github_repo="example-org/buzz",
-            default_branch="main",
-            public_item_prefix="BUZZ",
-        ),
-    )
-    app, spy = make_app(WizardDefaults(
-        config_path=str(tmp_path / "config.json"),
-        env_name="prod",
-        api_url="https://api.test",
-        token="actor-token",
-    ))
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
-            await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder
-            await type_text(pilot, str(checkout))
-            await pilot.press("enter")
-            await pilot.pause()
-            title = next(
-                str(w.render()) for w in app.query(".onboard-title").results(Static)
-            )
-            assert title == "Existing Yoke project found."
-            await pilot.press("enter")  # continue -> Finish
-            await pilot.press("enter")  # finish: apply
-            await pilot.pause()
-
-    asyncio.run(scenario())
-
-    applied = spy.applied
-    assert applied is not None
-    assert applied["existing_project_id"] == 37
-    assert app.result.board_art_variants == []
 
 
 def test_keystrokes_during_transition_reach_the_new_input() -> None:
@@ -355,10 +194,11 @@ def test_keystrokes_during_transition_reach_the_new_input() -> None:
 
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             create_index = next(
-                i for i, r in enumerate(steps.MODE_ROWS)
+                i
+                for i, r in enumerate(steps.MODE_ROWS)
                 if r.value == onboard_project.PROJECT_MODE_CREATE_REPO
             )
             for _ in range(create_index):
@@ -392,7 +232,7 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.press("enter")  # project: existing folder (local-checkout)
             # First input: checkout path, typed fast then Enter.
@@ -404,7 +244,7 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
             await type_text(pilot, "wdgt")
             await pilot.press("enter")  # slug submit
             await pilot.press("enter")  # name placeholder
-            await pilot.press("down")   # publish prompt: move to No
+            await pilot.press("down")  # publish prompt: move to No
             await pilot.press("enter")  # publish: No — keep local
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # public item prefix placeholder
@@ -432,7 +272,7 @@ def test_body_click_keeps_enter_live() -> None:
             await pilot.click("#onboard-body")  # would clear focus without the fix
             await pilot.pause()
             assert isinstance(app.focused, SelectionList)
-            await pilot.press("down")   # github: Skip for now
+            await pilot.press("down")  # github: Skip for now
             await pilot.press("enter")
             for _ in range(4):  # project: move to machine-only
                 await pilot.press("down")
@@ -444,10 +284,3 @@ def test_body_click_keeps_enter_live() -> None:
 
     assert spy.applied is not None
     assert spy.applied["project_mode"] == onboard_project.PROJECT_MODE_MACHINE_ONLY
-
-
-def _body_text(app) -> str:
-    return " ".join(
-        str(widget.render())
-        for widget in app.query("#onboard-body Static").results(Static)
-    )

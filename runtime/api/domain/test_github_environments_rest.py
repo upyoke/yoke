@@ -15,10 +15,12 @@ from yoke_core.domain.gh_rest_transport import RestUnprocessableError
 class _FakeResponse:
     def __init__(self, status: int, body: Any):
         self.status = status
-        self._body = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        self._body = (
+            body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        )
         self.headers = {"X-RateLimit-Remaining": "5000"}
 
-    def read(self):
+    def read(self, _size: int = -1):
         return self._body
 
     def getcode(self):
@@ -35,11 +37,13 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
     received: list[dict] = []
 
     def fake(req, timeout=None):
-        received.append({
-            "method": req.get_method(),
-            "url": req.full_url,
-            "body": req.data,
-        })
+        received.append(
+            {
+                "method": req.get_method(),
+                "url": req.full_url,
+                "body": req.data,
+            }
+        )
         if not responses:
             raise AssertionError("fake urlopen exhausted")
         nxt = responses.pop(0)
@@ -48,6 +52,7 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
         return nxt
 
     from yoke_core.domain import gh_rest_transport
+
     monkeypatch.setattr(gh_rest_transport, "urlopen", fake)
     return received
 
@@ -61,9 +66,14 @@ def test_put_environment_with_protection_rules(monkeypatch):
     config = {
         "wait_timer": 0,
         "reviewers": [{"type": "User", "id": 42}],
-        "deployment_branch_policy": {"protected_branches": True, "custom_branch_policies": False},
+        "deployment_branch_policy": {
+            "protected_branches": True,
+            "custom_branch_policies": False,
+        },
     }
-    result = mod.put_environment("owner/repo", "production", token="t", config=config)
+    result = mod.put_environment(
+        "owner/repo", "production", token="ghs_environment_test", config=config
+    )
 
     assert result["name"] == "production"
     assert received[0]["method"] == "PUT"
@@ -80,7 +90,9 @@ def test_put_environment_basic_no_config(monkeypatch):
         [_FakeResponse(200, {"id": 2, "name": "staging"})],
     )
 
-    mod.put_environment("owner/repo", "staging", token="t", config=None)
+    mod.put_environment(
+        "owner/repo", "staging", token="ghs_environment_test", config=None
+    )
 
     body = json.loads(received[0]["body"].decode("utf-8"))
     assert body == {}
@@ -91,7 +103,7 @@ def test_put_environment_falls_back_when_protection_unsupported(monkeypatch):
     and retry with a basic empty config; verify both calls land cleanly."""
     import urllib.error
 
-    received = _install_fake_urlopen(
+    _install_fake_urlopen(
         monkeypatch,
         [
             urllib.error.HTTPError(
@@ -105,7 +117,12 @@ def test_put_environment_falls_back_when_protection_unsupported(monkeypatch):
     )
 
     with pytest.raises(RestUnprocessableError):
-        mod.put_environment("owner/repo", "production", token="t", config={"wait_timer": 0})
+        mod.put_environment(
+            "owner/repo",
+            "production",
+            token="ghs_environment_test",
+            config={"wait_timer": 0},
+        )
 
 
 def test_fetch_authenticated_user(monkeypatch):
@@ -114,7 +131,7 @@ def test_fetch_authenticated_user(monkeypatch):
         [_FakeResponse(200, {"login": "alice", "id": 12345})],
     )
 
-    user = mod.fetch_authenticated_user(token="t")
+    user = mod.fetch_authenticated_user(token="ghs_environment_test")
     assert user["login"] == "alice"
     assert user["id"] == 12345
     assert received[0]["method"] == "GET"

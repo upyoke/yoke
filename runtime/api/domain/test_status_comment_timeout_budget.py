@@ -63,8 +63,8 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
             calls["github_auth_project"] = project
             return True
 
-        def _validate_issue_in_repo(self, item_ref, issue_num, repo, **kwargs):
-            calls["validate"] = (item_ref, issue_num, repo, kwargs)
+        def _validate_issue_in_repo(self, item_ref, issue_num, **kwargs):
+            calls["validate"] = (item_ref, issue_num, kwargs)
             return True
 
     def fake_post_comment(**kwargs):
@@ -119,7 +119,7 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
 
     assert rc == 0
     expected_budget = {"timeout_seconds": 5.0, "max_attempts": 1}
-    validate_kwargs = calls["validate"][3]  # type: ignore[index]
+    validate_kwargs = calls["validate"][2]  # type: ignore[index]
     assert validate_kwargs == expected_budget | {"project": "yoke", "stderr": validate_kwargs["stderr"]}
     assert calls["auth"] == ("yoke", GITHUB_ISSUES_WRITE_PERMISSION_LEVELS)
     assert calls["comment"]["timeout_seconds"] == 5.0  # type: ignore[index]

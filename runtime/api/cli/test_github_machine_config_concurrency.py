@@ -15,8 +15,9 @@ from yoke_contracts.machine_config import schema as contract
 
 
 class _Response:
-    def __init__(self, payload: dict[str, Any]) -> None:
+    def __init__(self, payload: dict[str, Any], *, url: str = "") -> None:
         self.payload = payload
+        self.url = url
 
     def __enter__(self):
         return self
@@ -24,8 +25,12 @@ class _Response:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-    def read(self) -> bytes:
-        return json.dumps(self.payload).encode("utf-8")
+    def read(self, size: int = -1) -> bytes:
+        body = json.dumps(self.payload).encode("utf-8")
+        return body[:size] if size >= 0 else body
+
+    def geturl(self) -> str:
+        return self.url
 
 
 def _token_response(label: str) -> dict[str, Any]:
@@ -49,7 +54,9 @@ def _device_opener(label: str):
         },
         _token_response(label),
     ])
-    return lambda request, timeout: _Response(next(responses))
+    return lambda request, timeout: _Response(
+        next(responses), url=request.full_url,
+    )
 
 
 def _api_opener():
@@ -61,49 +68,81 @@ def _api_opener():
     def open_request(request, timeout):
         url = request.full_url
         if url.endswith("/user"):
-            return _Response({"id": 42, "login": "octocat"})
+            return _Response({"id": 42, "login": "octocat"}, url=url)
         if "/user/installations?" in url:
             return _Response({"installations": [{
                 "id": 123,
+                "app_id": 123,
+                "app_slug": "yoke-local",
+                "html_url": (
+                    "https://github.com/organizations/octo-org/"
+                    "settings/installations/123"
+                ),
                 "account": {
                     "id": 9, "login": "octo-org", "type": "Organization",
                 },
                 "repository_selection": "selected",
                 "permissions": permissions,
                 "suspended_at": None,
-            }]})
+            }]}, url=url)
         if "/user/installations/123/repositories?" in url:
             return _Response({"repositories": [{
                 "id": 456, "full_name": "octo-org/app",
                 "default_branch": "main",
-            }]})
+                "private": True,
+            }]}, url=url)
         raise AssertionError(url)
 
     return open_request
 
 
-def _seed_connection(config: Path, label: str) -> tuple[dict[str, Any], Path]:
+def _seed_connection(
+    config: Path,
+    label: str,
+    *,
+    service_api_url: str | None = None,
+) -> tuple[dict[str, Any], Path]:
     credential_id = label.encode("utf-8").hex().ljust(32, "0")[:32]
     credential = secrets.secret_path(
         f"github-app-user-{credential_id}", "json"
     )
-    github_user_tokens.store_initial_token(credential, _token_response(label))
+    github_user_tokens.store_initial_token(
+        credential,
+        _token_response(label),
+        device_flow_completed=True,
+        config_path=config,
+    )
     github = {
         "api_url": contract.DEFAULT_GITHUB_API_URL,
         "web_url": contract.DEFAULT_GITHUB_WEB_URL,
-        "app_slug": f"yoke-{label}",
+        "app_slug": "yoke-local",
+        "app_id": 123,
         "client_id": "Iv1.local",
+        "profile_source": (
+            contract.GITHUB_PROFILE_SOURCE_SERVICE
+            if service_api_url
+            else contract.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT
+        ),
         "authorization": {
             "kind": contract.GITHUB_AUTH_KIND_USER_AUTHORIZATION,
             "refresh_credential_ref": str(credential),
             "status": "authorized",
         },
     }
+    if service_api_url:
+        github["profile_service_api_url"] = service_api_url
     return github, credential
 
 
-def _install_seed(config: Path, label: str) -> tuple[dict[str, Any], Path]:
-    github, credential = _seed_connection(config, label)
+def _install_seed(
+    config: Path,
+    label: str,
+    *,
+    service_api_url: str | None = None,
+) -> tuple[dict[str, Any], Path]:
+    github, credential = _seed_connection(
+        config, label, service_api_url=service_api_url,
+    )
     writer.set_github(github, expected_credential_ref="", path=config)
     return github, credential
 
@@ -114,37 +153,55 @@ def test_concurrent_connect_keeps_winner_and_cleans_loser(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     config = tmp_path / "home" / "config.json"
     first, first_credential = _install_seed(config, "first")
-    winner, winner_credential = _seed_connection(config, "winner")
+    winner_credential: Path | None = None
     original_set = writer.set_github
     raced = False
 
-    def race_set(github, *, expected_credential_ref, path=None):
-        nonlocal raced
+    def race_set(
+        github,
+        *,
+        expected_credential_ref,
+        expected_profile_identity=None,
+        path=None,
+    ):
+        nonlocal raced, winner_credential
         if not raced:
             raced = True
+            winner, winner_credential = _seed_connection(config, "winner")
             original_set(
                 winner,
                 expected_credential_ref=github_machine_state.credential_ref(first),
                 path=path,
             )
-            github_machine_state.remove_owned_credential(first_credential)
         return original_set(
-            github, expected_credential_ref=expected_credential_ref, path=path,
+            github,
+            expected_credential_ref=expected_credential_ref,
+            expected_profile_identity=expected_profile_identity,
+            path=path,
         )
 
     monkeypatch.setattr(writer, "set_github", race_set)
-    before = {winner_credential}
     with pytest.raises(github_machine.GitHubMachineError, match="changed"):
         github_machine.connect(
-            config_path=config, client_id="Iv1.local", app_slug="yoke-loser",
+            config_path=config,
+            client_id="Iv1.local",
+            app_slug="yoke-local",
+            app_id=123,
+            api_url=contract.DEFAULT_GITHUB_API_URL,
+            web_url=contract.DEFAULT_GITHUB_WEB_URL,
             device_opener=_device_opener("loser"), api_opener=_api_opener(),
             browser_open=lambda url: True, sleep=lambda seconds: None,
             monotonic=lambda: 0,
         )
 
     current = machine_config.github_config(config)
-    assert current["app_slug"] == "yoke-winner"
-    assert set(secrets.secrets_dir().glob("github-app-user-*.json")) == before
+    assert winner_credential is not None
+    assert current["app_slug"] == "yoke-local"
+    assert github_machine_state.credential_ref(current) == str(winner_credential)
+    assert set(secrets.secrets_dir().glob("github-app-user-*.json")) == {
+        winner_credential,
+    }
+    assert not first_credential.exists()
 
 
 def test_status_refuses_to_overwrite_newer_connection(
@@ -152,15 +209,21 @@ def test_status_refuses_to_overwrite_newer_connection(
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     config = tmp_path / "home" / "config.json"
-    first, _ = _install_seed(config, "first")
-    winner, winner_credential = _seed_connection(config, "winner")
+    service_api_url = "https://api.upyoke.com"
+    first, _ = _install_seed(
+        config, "first", service_api_url=service_api_url,
+    )
+    winner_credential: Path | None = None
     delegate = _api_opener()
     raced = False
 
     def race_during_live_check(request, timeout):
-        nonlocal raced
+        nonlocal raced, winner_credential
         if not raced:
             raced = True
+            winner, winner_credential = _seed_connection(
+                config, "winner", service_api_url=service_api_url,
+            )
             writer.set_github(
                 winner,
                 expected_credential_ref=github_machine_state.credential_ref(first),
@@ -168,40 +231,97 @@ def test_status_refuses_to_overwrite_newer_connection(
             )
         return delegate(request, timeout)
 
+    def profile_open(request, timeout):
+        return _Response({
+            "github_app": {
+                "available": True,
+                "client_id": "Iv1.local",
+                "app_slug": "yoke-local",
+                "app_id": 123,
+                "api_url": contract.DEFAULT_GITHUB_API_URL,
+                "web_url": contract.DEFAULT_GITHUB_WEB_URL,
+            }
+        }, url=request.full_url)
+
     with pytest.raises(github_machine.GitHubMachineError, match="changed"):
         github_machine.status(
-            config_path=config, api_opener=race_during_live_check,
+            config_path=config,
+            service_api_url=service_api_url,
+            api_opener=race_during_live_check,
+            profile_opener=profile_open,
+            token_opener=lambda request, timeout: _Response(
+                _token_response("status"), url=request.full_url,
+            ),
         )
 
     current = machine_config.github_config(config)
-    assert current["app_slug"] == "yoke-winner"
+    assert winner_credential is not None
+    assert current["app_slug"] == "yoke-local"
     assert Path(github_machine_state.credential_ref(current)) == winner_credential
 
 
-def test_disconnect_deletes_credential_actually_removed_from_config(
+def test_disconnect_cas_failure_keeps_winning_connection(
     tmp_path: Path, monkeypatch,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     config = tmp_path / "home" / "config.json"
     first, first_credential = _install_seed(config, "first")
-    winner, winner_credential = _seed_connection(config, "winner")
+    winner_credential: Path | None = None
     original_clear = writer.clear_github
 
-    def race_clear(*, path=None):
+    def race_clear(*, expected_credential_ref, path=None):
+        nonlocal winner_credential
+        winner, winner_credential = _seed_connection(config, "winner")
         writer.set_github(
             winner,
             expected_credential_ref=github_machine_state.credential_ref(first),
             path=path,
         )
-        return original_clear(path=path)
+        return original_clear(
+            expected_credential_ref=expected_credential_ref,
+            path=path,
+        )
 
     monkeypatch.setattr(writer, "clear_github", race_clear)
-    report = github_machine.disconnect(config_path=config)
+    with pytest.raises(github_machine.GitHubMachineError, match="changed"):
+        github_machine.disconnect(config_path=config)
 
-    assert report["credential_removed"] is True
-    assert first_credential.is_file()
-    assert not winner_credential.exists()
-    assert machine_config.github_config(config) == {}
-    serialized = json.dumps(report)
-    assert "refresh_credential_ref" not in serialized
-    assert str(winner_credential) not in serialized
+    assert winner_credential is not None
+    assert not first_credential.is_file()
+    assert winner_credential.is_file()
+    assert machine_config.github_config(config)["app_slug"] == "yoke-local"
+
+
+def test_connect_cas_failure_cleans_new_credential_and_preserves_old(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    config = tmp_path / "home" / "config.json"
+    _first, first_credential = _install_seed(config, "first")
+
+    def fail_config_write(*args, **kwargs):
+        raise writer.MachineConfigWriteError("machine config changed")
+
+    monkeypatch.setattr(writer, "set_github", fail_config_write)
+    with pytest.raises(github_machine.GitHubMachineError, match="changed"):
+        github_machine.connect(
+            config_path=config,
+            client_id="Iv1.local",
+            app_slug="yoke-local",
+            app_id=123,
+            api_url=contract.DEFAULT_GITHUB_API_URL,
+            web_url=contract.DEFAULT_GITHUB_WEB_URL,
+            device_opener=_device_opener("replacement"),
+            api_opener=_api_opener(),
+            browser_open=lambda url: True,
+            sleep=lambda seconds: None,
+            monotonic=lambda: 0,
+        )
+
+    assert first_credential.exists()
+    assert machine_config.github_config(config)["authorization"][
+        "refresh_credential_ref"
+    ] == str(first_credential)
+    assert list(secrets.secrets_dir().glob("github-app-user-*.json")) == [
+        first_credential
+    ]

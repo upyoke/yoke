@@ -108,8 +108,11 @@ class _FakeResponse:
     def __init__(self, body: bytes) -> None:
         self._body = body
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, size: int = -1) -> bytes:
+        return self._body if size < 0 else self._body[:size]
+
+    def geturl(self) -> str:
+        return "https://env.example/v1/hooks/evaluate"
 
     def __enter__(self) -> "_FakeResponse":
         return self
