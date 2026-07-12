@@ -4,6 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
+from yoke_contracts.github_binding_metadata import (
+    GitHubBindingMetadataError,
+    validate_account_login,
+    validate_account_type,
+    validate_binding_metadata,
+    validate_permissions,
+    validate_repository_full_name,
+    validate_repository_selection,
+)
 from yoke_contracts.github_origin import (
     DEFAULT_GITHUB_API_URL,
     GitHubApiEndpoint,
@@ -26,7 +35,6 @@ from yoke_core.domain.github_app_user_verification_transport import (
     _find_paginated,
     _get_json,
 )
-from yoke_core.domain.project_github_binding_payload import normalize_github_repo
 
 
 @dataclass(frozen=True)
@@ -62,11 +70,12 @@ def verify_project_github_binding(
     """Canonicalize a binding using GitHub responses, never caller metadata."""
     selected_installation_id = _positive_id(installation_id, "installation_id")
     selected_repository_id = _positive_id(repository_id, "repository_id")
-    expected_repo = normalize_github_repo(expected_github_repo)
-    if not expected_repo:
+    try:
+        expected_repo = validate_repository_full_name(expected_github_repo)
+    except GitHubBindingMetadataError as exc:
         raise GitHubUserVerificationError(
             "github_repo must be the expected GitHub owner/repo"
-        )
+        ) from exc
     access_token = str(github_user_access_token or "").strip()
     if not access_token:
         raise GitHubUserVerificationError("github_user_access_token is required")
@@ -105,7 +114,10 @@ def verify_project_github_binding(
         budget=budget,
     )
     _required_id(user.get("id"), "authenticated GitHub user id")
-    _required_text(user.get("login"), "authenticated GitHub user login")
+    try:
+        validate_account_login(user.get("login"))
+    except GitHubBindingMetadataError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
 
     installation = _find_paginated(
         selected_endpoint,
@@ -128,27 +140,24 @@ def verify_project_github_binding(
             "GitHub installation account metadata is missing"
         )
     account_id = _required_id(account.get("id"), "installation account id")
-    account_login = _required_text(account.get("login"), "installation account login")
-    account_type = _required_text(account.get("type"), "installation account type")
+    try:
+        account_login = validate_account_login(account.get("login"))
+        account_type = validate_account_type(account.get("type"))
+    except GitHubBindingMetadataError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
     raw_permissions = installation.get("permissions")
-    permissions = (
-        {
-            str(key): str(value)
-            for key, value in raw_permissions.items()
-            if str(key).strip() and str(value).strip()
-        }
-        if isinstance(raw_permissions, Mapping)
-        else {}
-    )
+    permissions = raw_permissions if isinstance(raw_permissions, Mapping) else {}
     if not permissions:
         raise GitHubUserVerificationError(
             "GitHub installation permission metadata is missing"
         )
-    repository_selection = str(installation.get("repository_selection") or "").strip()
-    if repository_selection not in {"all", "selected"}:
-        raise GitHubUserVerificationError(
-            "GitHub installation repository_selection is invalid"
+    try:
+        permissions = validate_permissions(permissions)
+        repository_selection = validate_repository_selection(
+            installation.get("repository_selection")
         )
+    except GitHubBindingMetadataError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
     if server_config is not None:
         try:
             verify_user_installation_against_server(
@@ -182,14 +191,16 @@ def verify_project_github_binding(
         raise GitHubUserVerificationError(
             "the requested repository is not available to this App installation"
         )
-    canonical_repo = str(repository.get("full_name") or "").strip().strip("/")
-    normalized_canonical_repo = normalize_github_repo(canonical_repo)
-    if not normalized_canonical_repo:
-        raise GitHubUserVerificationError("GitHub repository full_name is missing")
+    canonical_repo = repository.get("full_name")
+    try:
+        normalized_canonical_repo = validate_repository_full_name(canonical_repo)
+    except GitHubBindingMetadataError as exc:
+        raise GitHubUserVerificationError(
+            "GitHub repository full_name is invalid"
+        ) from exc
     if normalized_canonical_repo.casefold() != expected_repo.casefold():
         raise GitHubUserVerificationError(
-            f"repository id {selected_repository_id} resolves to {canonical_repo}, "
-            f"not {expected_repo}"
+            f"the selected repository id is not {expected_repo}"
         )
     owner = repository.get("owner")
     if isinstance(owner, Mapping) and owner.get("id") is not None:
@@ -203,20 +214,32 @@ def verify_project_github_binding(
         budget.checkpoint()
     except GitHubBindingVerificationBudgetError as exc:
         raise GitHubUserVerificationError(str(exc)) from exc
+    try:
+        metadata = validate_binding_metadata(
+            installation_id=selected_installation_id,
+            account_id=account_id,
+            account_login=account_login,
+            account_type=account_type,
+            repository_selection=repository_selection,
+            permissions=permissions,
+            repository_id=selected_repository_id,
+            github_repo=normalized_canonical_repo,
+            default_branch=repository.get("default_branch"),
+            installation_status=installation_status,
+        )
+    except GitHubBindingMetadataError as exc:
+        raise GitHubUserVerificationError(str(exc)) from exc
     return VerifiedProjectGitHubBinding(
-        installation_id=str(selected_installation_id),
-        account_id=str(account_id),
-        account_login=account_login,
-        account_type=account_type,
-        repository_selection=repository_selection,
-        permissions=permissions,
-        repository_id=str(selected_repository_id),
-        github_repo=canonical_repo,
-        default_branch=_required_text(
-            repository.get("default_branch"),
-            "repository default branch",
-        ),
-        installation_status=installation_status,
+        installation_id=metadata.installation_id,
+        account_id=metadata.account_id,
+        account_login=metadata.account_login,
+        account_type=metadata.account_type,
+        repository_selection=metadata.repository_selection,
+        permissions=metadata.permissions,
+        repository_id=metadata.repository_id,
+        github_repo=metadata.github_repo,
+        default_branch=metadata.default_branch,
+        installation_status=metadata.installation_status,
         api_url=selected_endpoint.base_url,
     )
 
@@ -237,13 +260,6 @@ def _positive_id(value: str | int, label: str) -> int:
 
 def _required_id(value: Any, label: str) -> int:
     return _positive_id(value, label)
-
-
-def _required_text(value: Any, label: str) -> str:
-    cleaned = str(value or "").strip()
-    if not cleaned:
-        raise GitHubUserVerificationError(f"{label} is missing")
-    return cleaned
 
 
 __all__ = [

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 import urllib.error
 
 import pytest
@@ -123,6 +124,25 @@ def test_http_error_body_is_bounded_and_scrubs_app_jwt(monkeypatch) -> None:
     assert body.read_sizes == [257]
     assert exc_info.value.status == 401
     assert exc_info.value.__cause__ is None
+
+
+def test_http_error_body_is_capped_and_terminal_safe() -> None:
+    hostile = f"denied\x1b]8;;https://evil.example\x07{APP_JWT}\u202e" + "x" * 6000
+    body = _RecordingReader(hostile.encode("utf-8"))
+    error = urllib.error.HTTPError("https://api.github.com/x", 401, APP_JWT, {}, body)
+
+    def fail(*_args, **_kwargs):
+        raise error
+
+    with pytest.raises(GitHubAppTokenResponseError) as exc_info:
+        _mint(fail)
+
+    rendered = f"{exc_info.value} {exc_info.value.body}"
+    assert APP_JWT not in rendered
+    assert len(exc_info.value.body or "") == 4096
+    assert not any(
+        unicodedata.category(character) in {"Cc", "Cf", "Cs"} for character in rendered
+    )
 
 
 def test_raw_network_reason_is_never_surfaced() -> None:

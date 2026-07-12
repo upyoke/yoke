@@ -26,7 +26,10 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
 
-from yoke_cli.transport.response_deadline_open import open_replay_safe
+from yoke_cli.transport.response_deadline_open import (
+    ResponseOpenDeadlineError,
+    open_replay_safe,
+)
 from yoke_core.domain import gh_retry
 from yoke_core.domain import github_response_safety
 from yoke_core.domain.github_actions_log_archive import (
@@ -44,6 +47,11 @@ from yoke_core.domain.gh_rest_transport import (
     RestTransportError,
     github_api_base,
 )
+from yoke_core.domain.gh_rest_operation_deadline import (
+    GitHubRestOperationDeadlineError,
+    require_remaining,
+    wait_before_retry,
+)
 from yoke_core.domain.github_actions_rest import rest_get
 from yoke_core.domain.github_response_safety import (
     GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
@@ -51,6 +59,7 @@ from yoke_core.domain.github_response_safety import (
     deadline_after,
     read_bounded_response,
     redact_exact_secrets,
+    safe_diagnostic_text,
 )
 
 
@@ -116,16 +125,24 @@ def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
         "X-GitHub-Api-Version": GITHUB_API_VERSION,
         "User-Agent": "yoke-merge-engine",
     }
+    operation_deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
 
     last_exc: Optional[RestTransportError] = None
     for attempt in range(1, gh_retry.MAX_RETRIES + 1):
         try:
+            require_remaining(
+                operation_deadline,
+                clock=github_response_safety.monotonic,
+            )
             return _fetch_once(
                 url,
                 headers=headers,
                 token=token,
                 response_limit_bytes=GITHUB_ACTIONS_LOG_ARCHIVE_LIMIT_BYTES,
+                deadline=operation_deadline,
             )
+        except GitHubRestOperationDeadlineError as exc:
+            raise RestNetworkError(str(exc)) from None
         except RestTransportError as exc:
             if not _is_retryable(exc) or attempt >= gh_retry.MAX_RETRIES:
                 raise
@@ -133,7 +150,15 @@ def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
         wait = gh_retry.BACKOFF_SECONDS[
             min(attempt - 1, len(gh_retry.BACKOFF_SECONDS) - 1)
         ]
-        sleep(wait)
+        try:
+            wait_before_retry(
+                operation_deadline,
+                wait,
+                clock=github_response_safety.monotonic,
+                sleeper=sleep,
+            )
+        except GitHubRestOperationDeadlineError as exc:
+            raise RestNetworkError(str(exc)) from None
 
     if last_exc is not None:
         raise last_exc
@@ -146,9 +171,9 @@ def _fetch_once(
     headers: Dict[str, str],
     token: str,
     response_limit_bytes: int,
+    deadline: float,
 ) -> bytes:
     request = urllib.request.Request(url, headers=headers, method="GET")
-    deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
     try:
         opened = open_replay_safe(
             request,
@@ -191,6 +216,10 @@ def _fetch_once(
         ) from None
     except urllib.error.URLError:
         raise RestNetworkError("GitHub Actions log network request failed") from None
+    except ResponseOpenDeadlineError:
+        raise RestNetworkError(
+            "GitHub REST operation exceeded the time limit"
+        ) from None
     except (TimeoutError, OSError):
         raise RestNetworkError("GitHub Actions log network request failed") from None
     except RestTransportError:
@@ -217,7 +246,7 @@ def _error_snippet(
         text = "GitHub Actions log error response exceeded the size limit"
     except Exception:
         text = "GitHub Actions log error response could not be read"
-    return redact_exact_secrets(text, (token,)).strip()[:240]
+    return safe_diagnostic_text(text, secrets=(token,))
 
 
 def _is_retryable(exc: RestTransportError) -> bool:
@@ -297,6 +326,7 @@ def _per_job_fallback(repo: str, run_id: int | str, *, token: str) -> Dict[str, 
         "User-Agent": "yoke-merge-engine",
     }
     result: Dict[str, str] = {}
+    operation_deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
     for job in failed:
         job_id = job.get("id")
         if job_id in (None, ""):
@@ -309,6 +339,7 @@ def _per_job_fallback(repo: str, run_id: int | str, *, token: str) -> Dict[str, 
                 headers=headers,
                 token=token,
                 response_limit_bytes=GITHUB_ACTIONS_LOG_ENTRY_LIMIT_BYTES,
+                deadline=operation_deadline,
             )
         except RestNotFoundError:
             continue

@@ -152,8 +152,8 @@ def test_actions_log_download_rejects_slow_trickle(monkeypatch) -> None:
     with pytest.raises(gh_rest_transport.RestNetworkError):
         github_actions_logs.fetch_failed_log_zip("o/r", 1, token="ghs_secret")
 
-    assert len(responses) == 3
-    assert all(response.read_calls == 2 for response in responses)
+    assert len(responses) == 1
+    assert responses[0].read_calls == 2
 
 
 def test_verification_reader_rejects_slow_trickle() -> None:

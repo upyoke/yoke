@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import unicodedata
 from collections.abc import Callable
 from typing import Any, Iterable
 
@@ -11,6 +12,8 @@ from yoke_cli.transport import response_deadline_read
 
 GITHUB_SMALL_RESPONSE_LIMIT_BYTES = 64 * 1024
 GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES = 4 * 1024 * 1024
+GITHUB_ERROR_BODY_LIMIT_CHARS = 4 * 1024
+GITHUB_DIAGNOSTIC_LIMIT_CHARS = 512
 REDACTED_SECRET = "[REDACTED]"
 monotonic = time.monotonic
 
@@ -99,6 +102,28 @@ def redact_exact_secrets(text: str, secrets: Iterable[str]) -> str:
     return redacted
 
 
+def safe_diagnostic_text(
+    text: str,
+    *,
+    secrets: Iterable[str] = (),
+    maximum_chars: int = GITHUB_DIAGNOSTIC_LIMIT_CHARS,
+) -> str:
+    """Redact, neutralize terminal controls, flatten, and cap diagnostics."""
+
+    if (
+        isinstance(maximum_chars, bool)
+        or not isinstance(maximum_chars, int)
+        or maximum_chars <= 0
+    ):
+        raise ValueError("GitHub diagnostic character limit must be positive")
+    redacted = redact_exact_secrets(str(text), secrets)
+    neutralized = "".join(
+        " " if unicodedata.category(character) in {"Cc", "Cf", "Cs"} else character
+        for character in redacted
+    )
+    return " ".join(neutralized.split())[:maximum_chars]
+
+
 def _content_length(response: Any) -> int | None:
     headers = getattr(response, "headers", None)
     try:
@@ -118,6 +143,8 @@ def _content_length(response: Any) -> int | None:
 
 __all__ = [
     "GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES",
+    "GITHUB_DIAGNOSTIC_LIMIT_CHARS",
+    "GITHUB_ERROR_BODY_LIMIT_CHARS",
     "GITHUB_SMALL_RESPONSE_LIMIT_BYTES",
     "GitHubResponseDecodeError",
     "GitHubResponseDeadlineError",
@@ -128,4 +155,5 @@ __all__ = [
     "decode_utf8_response",
     "read_bounded_response",
     "redact_exact_secrets",
+    "safe_diagnostic_text",
 ]

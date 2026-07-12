@@ -20,6 +20,7 @@ from yoke_core.domain.github_app_token_models import (
     GitHubAppTokenResponseSizeError,
 )
 from yoke_core.domain.github_response_safety import (
+    GITHUB_ERROR_BODY_LIMIT_CHARS,
     GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
     GitHubResponseDecodeError,
     GitHubResponseDeadlineError,
@@ -28,6 +29,7 @@ from yoke_core.domain.github_response_safety import (
     decode_utf8_response,
     read_bounded_response,
     redact_exact_secrets,
+    safe_diagnostic_text,
 )
 
 
@@ -154,7 +156,11 @@ def _read_error_body(
         text = "GitHub installation token error response was not valid UTF-8"
     except Exception:
         text = "GitHub installation token error response could not be read"
-    return redact_exact_secrets(text, (secret,))
+    return safe_diagnostic_text(
+        text,
+        secrets=(secret,),
+        maximum_chars=GITHUB_ERROR_BODY_LIMIT_CHARS,
+    )
 
 
 __all__ = ["issue_installation_token_request"]

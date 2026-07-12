@@ -18,9 +18,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Tuple
 
+from yoke_cli.transport.response_deadline_open import ResponseOpenDeadlineError
 from yoke_core.domain import gh_retry, github_response_safety
 from yoke_core.domain.gh_rest_transport_fakes import (
     FAKE_DIR_ENV as _FAKE_DIR_ENV,
@@ -29,6 +29,11 @@ from yoke_core.domain.gh_rest_transport_fakes import (
 from yoke_core.domain.gh_rest_http_errors import (
     classify_http_error as _classify_http_error,
     is_rate_limit_body as _is_rate_limit_body,  # noqa: F401 - test seam
+)
+from yoke_core.domain.gh_rest_operation_deadline import (
+    GitHubRestOperationDeadlineError,
+    require_remaining,
+    wait_before_retry,
 )
 from yoke_core.domain.gh_rest_transport_errors import (
     RateLimitedError as RateLimitedError,
@@ -46,10 +51,12 @@ from yoke_core.domain.gh_rest_retry_policy import (
     request_replay_is_safe as _request_replay_is_safe,
 )
 from yoke_core.domain.gh_rest_transport_test_guard import block_live_test_call
+from yoke_core.domain.gh_rest_transport_models import RestRequest, RestResponse
 from yoke_core.domain import github_api_urls
 from yoke_core.domain.github_api_transport import open_same_origin_deadline
 from yoke_core.domain.github_response_safety import (
     GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES,
+    GITHUB_ERROR_BODY_LIMIT_CHARS,
     GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
     GitHubResponseDecodeError,
     GitHubResponseDeadlineError,
@@ -58,6 +65,7 @@ from yoke_core.domain.github_response_safety import (
     decode_utf8_response,
     read_bounded_response,
     redact_exact_secrets,
+    safe_diagnostic_text,
 )
 from yoke_contracts.github_app_tokens import GITHUB_API_VERSION
 from yoke_contracts.github_origin import DEFAULT_GITHUB_API_URL, GitHubApiOriginError
@@ -65,37 +73,6 @@ from yoke_contracts.github_origin import DEFAULT_GITHUB_API_URL, GitHubApiOrigin
 
 GITHUB_API_BASE = DEFAULT_GITHUB_API_URL
 GITHUB_APP_API_URL_ENV = github_api_urls.GITHUB_APP_API_URL_ENV
-
-
-@dataclass(frozen=True)
-class RestRequest:
-    """A single GitHub REST API request.
-
-    ``path`` is the API path beginning with ``/`` (e.g. ``"/repos/o/r/pulls"``)
-    or a full URL beginning with ``http``; the transport joins it with
-    :data:`GITHUB_API_BASE` when relative. ``method`` is uppercase HTTP
-    verb. ``query`` is appended as a querystring. ``body`` is encoded as
-    JSON when present. ``accept`` overrides the default ``application/vnd
-    .github+json`` accept header. ``replay_safe`` explicitly registers an
-    operation as safe or unsafe to retry after an ambiguous failure; when
-    omitted, only HTTP-idempotent methods are replayed.
-    """
-
-    method: str
-    path: str
-    query: Mapping[str, str] = field(default_factory=dict)
-    body: Optional[Mapping[str, Any]] = None
-    accept: str = "application/vnd.github+json"
-    replay_safe: bool | None = None
-
-
-@dataclass(frozen=True)
-class RestResponse:
-    """A successful GitHub REST API response."""
-
-    status: int
-    headers: Mapping[str, str]
-    body: Any  # decoded JSON (dict / list / scalar) or empty string when no body
 
 
 # Module-level default; tests monkeypatch this attribute to inject a fake
@@ -128,6 +105,12 @@ def request_with_retry(
     if fake_dir:
         return _load_fake_response(req, fake_dir)
     block_live_test_call(urlopen, urllib.request.urlopen)
+    try:
+        operation_deadline = deadline_after(timeout_seconds)
+    except ValueError:
+        raise RestTransportError(
+            "GitHub REST timeout must be positive and finite"
+        ) from None
 
     last_exc: Optional[RestTransportError] = None
     attempt_limit = max(1, max_attempts or gh_retry.MAX_RETRIES)
@@ -137,13 +120,19 @@ def request_with_retry(
     )
     for attempt in range(1, attempt_limit + 1):
         try:
+            require_remaining(
+                operation_deadline,
+                clock=github_response_safety.monotonic,
+            )
             response = _issue_once(
                 req,
                 token=token,
-                timeout_seconds=timeout_seconds,
+                deadline=operation_deadline,
                 replay_safe=replay_safe,
             )
             return response
+        except GitHubRestOperationDeadlineError as exc:
+            raise RestNetworkError(str(exc)) from None
         except RestTransportError as exc:
             if (
                 not replay_safe
@@ -157,10 +146,19 @@ def request_with_retry(
         ]
         print(
             f"GitHub REST retry {attempt}/{gh_retry.MAX_RETRIES} "
-            f"after {redact_exact_secrets(str(last_exc), (token,))}; sleeping {wait}s",
+            f"after {safe_diagnostic_text(str(last_exc), secrets=(token,))}; "
+            f"sleeping {wait}s",
             file=sys.stderr,
         )
-        sleep(wait)
+        try:
+            wait_before_retry(
+                operation_deadline,
+                wait,
+                clock=github_response_safety.monotonic,
+                sleeper=sleep,
+            )
+        except GitHubRestOperationDeadlineError as exc:
+            raise RestNetworkError(str(exc)) from None
 
     # Defensive — loop exits via return or raise.
     if last_exc is not None:
@@ -172,13 +170,15 @@ def _issue_once(
     req: RestRequest,
     *,
     token: str,
-    timeout_seconds: float,
+    deadline: float,
     replay_safe: bool,
 ) -> RestResponse:
     try:
         url = _build_url(req)
     except RestTransportError as exc:
-        raise RestTransportError(redact_exact_secrets(str(exc), (token,))) from None
+        raise RestTransportError(
+            safe_diagnostic_text(str(exc), secrets=(token,))
+        ) from None
     encoded_body: Optional[bytes] = None
     if req.body is not None:
         encoded_body = _json.dumps(req.body).encode("utf-8")
@@ -195,13 +195,6 @@ def _issue_once(
     raw_request = urllib.request.Request(
         url, data=encoded_body, headers=headers, method=req.method.upper()
     )
-    try:
-        deadline = deadline_after(timeout_seconds)
-    except ValueError:
-        raise RestTransportError(
-            "GitHub REST timeout must be positive and finite"
-        ) from None
-
     try:
         endpoint = github_api_urls.active_api_endpoint(GITHUB_API_BASE)
         injected_opener = None if urlopen is urllib.request.urlopen else urlopen
@@ -253,14 +246,24 @@ def _issue_once(
                 )
             except GitHubResponseDecodeError:
                 body_text = "GitHub REST error response was not valid UTF-8"
-        body_text = redact_exact_secrets(body_text, (token,))
+        body_text = safe_diagnostic_text(
+            body_text,
+            secrets=(token,),
+            maximum_chars=GITHUB_ERROR_BODY_LIMIT_CHARS,
+        )
         raise _classify_http_error(status, body_text, response_headers) from None
     except urllib.error.URLError:
         raise RestNetworkError("GitHub REST network request failed") from None
+    except ResponseOpenDeadlineError:
+        raise RestNetworkError(
+            "GitHub REST operation exceeded the time limit"
+        ) from None
     except (TimeoutError, OSError):
         raise RestNetworkError("GitHub REST network request failed") from None
     except GitHubApiOriginError as exc:
-        raise RestTransportError(redact_exact_secrets(str(exc), (token,))) from None
+        raise RestTransportError(
+            safe_diagnostic_text(str(exc), secrets=(token,))
+        ) from None
     except RestTransportError:
         raise
     except Exception:
@@ -279,10 +282,15 @@ def _issue_once(
     if isinstance(parsed, dict):
         message = str(parsed.get("message") or "")
         if gh_retry.is_retryable_text(message):
+            safe_message = safe_diagnostic_text(message, secrets=(token,))
             raise RestUnprocessableError(
-                f"retryable envelope message: {message}",
+                f"retryable envelope message: {safe_message}",
                 status=status,
-                body=body_text,
+                body=safe_diagnostic_text(
+                    body_text,
+                    secrets=(token,),
+                    maximum_chars=GITHUB_ERROR_BODY_LIMIT_CHARS,
+                ),
             )
 
     return RestResponse(status=status, headers=response_headers, body=parsed)

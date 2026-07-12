@@ -8,6 +8,10 @@ from yoke_contracts.github_origin import (
     GitHubApiOriginError,
     validate_github_api_endpoint,
 )
+from yoke_contracts.github_binding_metadata import (
+    GitHubBindingMetadataError,
+    validate_binding_metadata,
+)
 
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
@@ -27,8 +31,6 @@ from yoke_core.domain.project_github_binding_persistence import (
     InstallationOriginConflict,
     ProjectGithubBindingError,
     RepositoryBindingConflict,
-    clean_optional,
-    clean_required,
     persist_project_binding,
     persist_verified_installation,
 )
@@ -92,10 +94,23 @@ def _store_verified_project_repo_binding(
     conn: Optional[Any] = None,
 ) -> dict[str, Any]:
     """Persist metadata produced by ``verify_project_github_binding`` only."""
-    installation_key = clean_required(verified.installation_id, "installation_id")
-    repo = str(verified.github_repo or "").strip().strip("/")
-    if not normalize_github_repo(repo):
-        raise ProjectGithubBindingError("verified GitHub repository is invalid")
+    try:
+        metadata = validate_binding_metadata(
+            installation_id=verified.installation_id,
+            account_id=verified.account_id,
+            account_login=verified.account_login,
+            account_type=verified.account_type,
+            repository_selection=verified.repository_selection,
+            permissions=verified.permissions,
+            repository_id=verified.repository_id,
+            github_repo=verified.github_repo,
+            default_branch=verified.default_branch,
+            installation_status=verified.installation_status,
+        )
+    except GitHubBindingMetadataError as exc:
+        raise ProjectGithubBindingError(str(exc)) from exc
+    installation_key = metadata.installation_id
+    repo = metadata.github_repo
     owns_conn = conn is None
     if owns_conn:
         conn = connect(db_path)
@@ -105,19 +120,17 @@ def _store_verified_project_repo_binding(
         assert ident is not None
         now = iso8601_now()
         p = _p(conn)
-        selected_permissions = permissions_text(verified.permissions)
-        installation_status = clean_required(
-            verified.installation_status, "installation_status",
-        )
+        selected_permissions = permissions_text(metadata.permissions)
+        installation_status = metadata.installation_status
         if installation_status not in INSTALLATION_STATUS_VALUES:
             raise ProjectGithubBindingError(
                 f"invalid verified installation status: {installation_status}"
             )
-        permissions_info = permission_status(verified.permissions)
+        permissions_info = permission_status(metadata.permissions)
         persistence = binding_persistence_state(
             installation_status, str(permissions_info.get("status") or "unknown"),
         )
-        repository_key = clean_required(verified.repository_id, "repository_id")
+        repository_key = metadata.repository_id
         try:
             api_url = validate_github_api_endpoint(verified.api_url).base_url
         except GitHubApiOriginError as exc:
@@ -131,7 +144,7 @@ def _store_verified_project_repo_binding(
             installation_id=installation_key,
             repository_id=repository_key,
             api_url=api_url,
-            permissions=verified.permissions,
+            permissions=metadata.permissions,
         )
         try:
             persist_verified_installation(
@@ -139,16 +152,10 @@ def _store_verified_project_repo_binding(
                 placeholder=p,
                 installation_id=installation_key,
                 api_url=api_url,
-                account_id=clean_required(verified.account_id, "account_id"),
-                account_login=clean_required(
-                    verified.account_login, "account_login",
-                ),
-                account_type=clean_required(
-                    verified.account_type, "account_type",
-                ),
-                repository_selection=(
-                    clean_optional(verified.repository_selection) or "selected"
-                ),
+                account_id=metadata.account_id,
+                account_login=metadata.account_login,
+                account_type=metadata.account_type,
+                repository_selection=metadata.repository_selection,
                 permissions=selected_permissions,
                 status=installation_status,
                 verified_at=now,
@@ -176,7 +183,7 @@ def _store_verified_project_repo_binding(
                 repository_id=repository_key,
                 api_url=api_url,
                 github_repo=repo,
-                default_branch=clean_optional(verified.default_branch),
+                default_branch=metadata.default_branch,
                 status=persistence.binding_status,
                 permissions=selected_permissions,
                 verified_at=now,
@@ -192,7 +199,7 @@ def _store_verified_project_repo_binding(
             f"default_branch=COALESCE({p}, default_branch) "
             f"WHERE id={p}",
             (
-                repo, clean_optional(verified.default_branch), ident.id,
+                repo, metadata.default_branch, ident.id,
             ),
         )
         conn.execute(
