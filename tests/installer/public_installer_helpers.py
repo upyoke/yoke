@@ -131,14 +131,20 @@ def linux_stub_bin(tmp_path: Path) -> Path:
     return bin_dir
 
 
-def write_uv_stub(bin_dir: Path, *, install_py_body: str | None = None) -> Path:
-    """Write a fake ``uv`` that satisfies ``uv run --no-project python ...``.
+def write_uv_stub(
+    bin_dir: Path,
+    *,
+    install_py_body: str | None = None,
+    tool_bin_dir: Path | None = None,
+) -> Path:
+    """Write a fake ``uv`` for the installer's isolated helper runner.
 
-    The shim runs the helper as ``uv run --no-project python <args>``; this stub
-    strips the ``run --no-project python`` prefix and execs a real python3 so the
-    tempdir probe, the install.py download, and the handoff all work without a
-    real uv. When ``install_py_body`` is given, the stub serves it as the
-    downloaded install.py instead of reaching the network.
+    The shim runs the helper as
+    ``uv run --isolated --no-project python <args>``; this stub strips that
+    prefix and execs a real python3 so the tempdir probe, the install.py
+    download, and the handoff all work without a real uv. When
+    ``install_py_body`` is given, the stub serves it as the downloaded
+    install.py instead of reaching the network.
     """
     path = bin_dir / "uv"
     serve = ""
@@ -151,14 +157,24 @@ def write_uv_stub(bin_dir: Path, *, install_py_body: str | None = None) -> Path:
             "  exit 0\n"
             "fi\n"
         )
+    tool_dir = ""
+    if tool_bin_dir is not None:
+        tool_dir = (
+            'if [ "$1" = "tool" ] && [ "$2" = "dir" ] '
+            '&& [ "$3" = "--bin" ]; then\n'
+            f"  printf '%s\\n' '{tool_bin_dir}'\n"
+            "  exit 0\n"
+            "fi\n"
+        )
     write_executable(
         path,
         "#!/bin/sh\n"
+        f"{tool_dir}"
         'if [ "$1" = "run" ]; then\n'
         "  shift\n"
         '  while [ "$#" -gt 0 ]; do\n'
         '    case "$1" in\n'
-        "      --no-project|--project|python) shift ;;\n"
+        "      --isolated|--no-project|--project|python) shift ;;\n"
         "      *) break ;;\n"
         "    esac\n"
         "  done\n"
