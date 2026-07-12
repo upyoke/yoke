@@ -8,6 +8,7 @@ from types import MappingProxyType
 from typing import Any, Mapping
 import unicodedata
 
+from yoke_contracts.github_account_types import ACCOUNT_TYPES
 from yoke_contracts.github_origin import (
     GitHubApiOriginError,
     normalize_github_repository,
@@ -22,7 +23,9 @@ GITHUB_PERMISSION_KEY_MAX_CHARS = 64
 GITHUB_PERMISSION_MAX_ITEMS = 100
 _ACCOUNT_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$")
 _PERMISSION_KEY = re.compile(r"^[a-z][a-z0-9_]*$")
-_ACCOUNT_TYPES = {"user": "User", "organization": "Organization"}
+_ACCOUNT_TYPES_BY_CASEFOLD = {
+    account_type.casefold(): account_type for account_type in ACCOUNT_TYPES
+}
 _REPOSITORY_SELECTIONS = frozenset({"all", "selected"})
 _PERMISSION_LEVELS = frozenset({"read", "write"})
 _INSTALLATION_STATUSES = frozenset({"active", "suspended"})
@@ -110,10 +113,10 @@ def validate_account_login(value: Any) -> str:
 
 
 def validate_account_type(value: Any) -> str:
-    """Return GitHub's canonical User or Organization account type."""
+    """Return a canonical GitHub App installation account type."""
 
     selected = _exact_text(value, "account type")
-    canonical = _ACCOUNT_TYPES.get(selected.casefold())
+    canonical = _ACCOUNT_TYPES_BY_CASEFOLD.get(selected.casefold())
     if canonical is None:
         raise GitHubBindingMetadataError("GitHub account type is invalid")
     return canonical

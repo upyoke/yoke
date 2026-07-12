@@ -7,6 +7,7 @@ import urllib.parse
 
 import pytest
 
+from yoke_contracts.github_account_types import ACCOUNT_TYPES
 from yoke_contracts.github_binding_metadata import (
     GitHubBindingMetadataError,
     validate_binding_metadata,
@@ -47,6 +48,17 @@ def test_binding_metadata_is_canonical_and_immutable() -> None:
         metadata.permissions["issues"] = "read"  # type: ignore[index]
 
 
+@pytest.mark.parametrize("account_type", sorted(ACCOUNT_TYPES))
+def test_every_canonical_installation_account_type_is_accepted(
+    account_type,
+) -> None:
+    metadata = validate_binding_metadata(
+        **_metadata(account_type=account_type.casefold())
+    )
+
+    assert metadata.account_type == account_type
+
+
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -54,7 +66,7 @@ def test_binding_metadata_is_canonical_and_immutable() -> None:
         ("installation_id", "1" * 21),
         ("account_login", "bad\x1b[red]"),
         ("account_login", "x" * 40),
-        ("account_type", "Enterprise"),
+        ("account_type", "Team"),
         ("repository_selection", "everything"),
         ("permissions", {"issues": "admin"}),
         ("permissions", {"bad\x1b": "write"}),
