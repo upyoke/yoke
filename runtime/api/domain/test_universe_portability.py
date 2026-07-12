@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import os
 import subprocess
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import psycopg
@@ -13,6 +15,21 @@ import pytest
 from yoke_core.domain import universe_export
 from yoke_core.domain import universe_portability as portability
 from yoke_core.domain.schema_fingerprint import fingerprint_kind
+
+
+@contextmanager
+def _canonical_test_universe():
+    from runtime.api.fixtures import pg_testdb
+    from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
+
+    name = pg_testdb.create_test_database()
+    dsn = pg_testdb.dsn_for_test_database(name)
+    try:
+        run_init_chain_at_dsn(dsn, emit=lambda _line: None)
+        with psycopg.connect(dsn) as conn:
+            yield conn, dsn
+    finally:
+        pg_testdb.drop_test_database(name)
 
 
 def test_postgres_client_env_keeps_credentials_out_of_argv_env_shape():
@@ -51,7 +68,8 @@ def test_inspection_rejects_bad_magic_without_spawning(tmp_path, monkeypatch):
     archive = tmp_path / "tampered.dump"
     archive.write_bytes(b"NOT-A-DUMP")
     monkeypatch.setattr(
-        subprocess, "Popen",
+        subprocess,
+        "Popen",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("pg_restore must not run")
         ),
@@ -109,16 +127,19 @@ def test_catalog_allowlist_omits_executable_schema_and_refuses_unknown(tmp_path)
         rendered = restore_list.read_text(encoding="utf-8")
     finally:
         restore_list.unlink()
-    assert "\n1; 1259 1 TABLE public organizations" in rendered
+    assert "\n;1; 1259 1 TABLE public organizations" in rendered
     assert "\n;2; 1255 2 FUNCTION public run_on_seed()" in rendered
     assert "\n;3; 2620 3 TRIGGER public projects" in rendered
+    assert "\n4; 0 4 TABLE DATA public organizations" in rendered
 
     unknown = catalog.replace("FUNCTION", "EXECUTABLE SURPRISE")
     with pytest.raises(portability.ArchiveInvalidError, match="unsupported"):
         portability._validate_catalog(unknown)
 
     foreign_schema = catalog.replace(
-        "TABLE public organizations", "TABLE private organizations", 1,
+        "TABLE public organizations",
+        "TABLE private organizations",
+        1,
     )
     with pytest.raises(portability.ArchiveInvalidError, match="outside public"):
         portability._validate_catalog(foreign_schema)
@@ -134,42 +155,157 @@ def test_catalog_reader_has_a_hard_memory_ceiling(monkeypatch):
     assert isinstance(errors[0], portability.ArchiveInvalidError)
 
 
-def test_restore_pump_filters_only_the_version_compatibility_preamble():
-    compatibility_line = b"SET transaction_timeout = 0;\n"
-    source = io.BytesIO(
-        b"-- PostgreSQL database dump\n"
-        + compatibility_line
-        + b"-- Name: sample; Type: TABLE DATA; Schema: public\n"
-        # Identical bytes after the first object marker represent user data and
-        # must never be globally rewritten.
-        + compatibility_line
-    )
-    destination = io.BytesIO()
-    errors: list[BaseException] = []
-    portability._sql_pump(
-        source, destination, max_sql_bytes=1024, errors=errors,
-    )
-    assert errors == []
-    assert destination.getvalue() == (
-        b"BEGIN;\n"
-        b"-- PostgreSQL database dump\n"
-        b"-- Name: sample; Type: TABLE DATA; Schema: public\n"
-        + compatibility_line
-    )
+class _Rows:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetchall(self):
+        return self._rows
 
 
-def test_restore_pump_bounds_expanded_archive_size():
-    errors: list[BaseException] = []
-    portability._sql_pump(
-        io.BytesIO(
-            b"-- Name: sample; Type: TABLE; Schema: public\n" + b"x" * 100
+class _CopySink:
+    def __init__(self):
+        self.body = bytearray()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def write(self, chunk):
+        self.body.extend(chunk)
+
+
+class _Cursor:
+    def __init__(self, owner):
+        self.owner = owner
+
+    def copy(self, statement):
+        self.owner.copy_statement = statement
+        return self.owner.copy_sink
+
+
+class _RestoreConn:
+    def __init__(self):
+        self.copy_sink = _CopySink()
+        self.copy_statement = None
+        self.setvals = []
+
+    def execute(self, statement, params=None):
+        rendered = str(statement)
+        if "pg_catalog.pg_class" in rendered:
+            return _Rows([("sample", "id"), ("sample", "body")])
+        if "pg_catalog.pg_sequences" in rendered:
+            return _Rows([("sample_id_seq",)])
+        self.setvals.append(params)
+        return _Rows([])
+
+    def cursor(self):
+        return _Cursor(self)
+
+
+def _apply_sample_restore(
+    body: bytes,
+    *,
+    max_sql_bytes: int = 4096,
+    allowed_tables=None,
+    allowed_sequences=None,
+):
+    conn = _RestoreConn()
+    portability._apply_restore_stream(
+        io.BytesIO(body),
+        conn,
+        allowed_tables={"sample"} if allowed_tables is None else allowed_tables,
+        allowed_sequences=(
+            {"sample_id_seq"} if allowed_sequences is None else allowed_sequences
         ),
-        io.BytesIO(),
-        max_sql_bytes=32,
-        errors=errors,
+        max_sql_bytes=max_sql_bytes,
+        deadline=time.monotonic() + 10,
     )
-    assert len(errors) == 1
-    assert isinstance(errors[0], portability.ArchiveTooLargeError)
+    return conn
+
+
+def test_restore_loader_discards_compatibility_preamble_and_uses_copy_api():
+    conn = _apply_sample_restore(
+        b"-- PostgreSQL database dump\n"
+        b"SET transaction_timeout = 0;\n"
+        b"SELECT pg_catalog.set_config('search_path', '', false);\n"
+        b"COPY public.sample (id, body) FROM stdin;\n"
+        b"1\tSET transaction_timeout = 0;\n"
+        b"\\.\n"
+        b"SELECT pg_catalog.setval('public.sample_id_seq', 1, true);\n"
+    )
+    assert conn.copy_sink.body == b"1\tSET transaction_timeout = 0;\n"
+    assert conn.copy_statement is not None
+    assert conn.setvals == [("public.sample_id_seq", 1, True)]
+
+
+@pytest.mark.parametrize(
+    "injected",
+    (b"COMMIT;\n", b"ALTER DATABASE postgres RENAME TO stolen;\n", b"\\! id\n"),
+)
+def test_restore_loader_rejects_executable_or_psql_syntax(injected):
+    with pytest.raises(portability.ArchiveInvalidError, match="executable"):
+        _apply_sample_restore(injected)
+
+
+def test_restore_loader_rejects_catalog_mismatch_and_expansion():
+    with pytest.raises(portability.ArchiveInvalidError, match="does not match"):
+        _apply_sample_restore(b"-- no table data\n")
+    with pytest.raises(portability.ArchiveCompatibilityError, match="catalog"):
+        _apply_sample_restore(
+            b"-- no table data\n",
+            allowed_tables=set(),
+        )
+    with pytest.raises(portability.ArchiveCompatibilityError, match="catalog"):
+        _apply_sample_restore(
+            b"-- no sequence data\n",
+            allowed_sequences=set(),
+        )
+    with pytest.raises(portability.ArchiveTooLargeError):
+        _apply_sample_restore(
+            b"COPY public.sample (id, body) FROM stdin;\n" + b"x" * 100,
+            max_sql_bytes=32,
+        )
+
+
+@pytest.mark.parametrize(
+    "body, match",
+    (
+        (
+            b"COPY public.sample (id) FROM stdin;\n1\n\\.\n",
+            "columns",
+        ),
+        (
+            b"COPY private.sample (id, body) FROM stdin;\n1\tx\n\\.\n",
+            "target",
+        ),
+        (
+            b"COPY public.sample (id, body) FROM stdin;\n1\tx\n\\.\nCOMMIT;\n",
+            "executable",
+        ),
+        (
+            b"COPY public.sample (id, body) FROM stdin;\n1\tx\n",
+            "terminator",
+        ),
+    ),
+)
+def test_restore_loader_rejects_incomplete_or_injected_copy(body, match):
+    with pytest.raises(portability.ArchiveInvalidError, match=match):
+        _apply_sample_restore(body)
+
+
+def test_restore_loader_streams_a_row_larger_than_one_chunk():
+    row = b"1\t" + b"x" * (portability._PUMP_CHUNK_BYTES + 17) + b"\n"
+    conn = _apply_sample_restore(
+        b"COPY public.sample (id, body) FROM stdin;\n"
+        + row
+        + b"\\.\n"
+        + b"SELECT pg_catalog.setval('public.sample_id_seq', 1, true);\n",
+        max_sql_bytes=len(row) + 4096,
+    )
+    assert conn.copy_sink.body == row
 
 
 def test_inspection_rejects_tampered_real_archive(tmp_path):
@@ -204,12 +340,8 @@ def test_server_side_dump_enforces_size_while_streaming(tmp_path):
 
 def test_real_restore_omits_uploaded_function_and_trigger(tmp_path):
     from runtime.api.fixtures import pg_testdb
-    from yoke_core.domain import db_backend
-    from yoke_core.domain.schema_init import converge_core_schema
 
-    with pg_testdb.test_database() as source:
-        source_dsn = os.environ[db_backend.PG_DSN_ENV]
-        converge_core_schema(source)
+    with _canonical_test_universe() as (source, source_dsn):
         source.execute(
             "CREATE FUNCTION uploaded_side_effect() RETURNS trigger"
             " LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$"
@@ -222,17 +354,8 @@ def test_real_restore_omits_uploaded_function_and_trigger(tmp_path):
         archive = tmp_path / "executable.dump"
         portability.dump_universe(source_dsn, archive)
 
-        source_info = psycopg.conninfo.conninfo_to_dict(source_dsn)
-        admin_info = dict(source_info, dbname="postgres")
-        target_db = "portability_executable_filter"
-        with psycopg.connect(
-            psycopg.conninfo.make_conninfo(**admin_info), autocommit=True,
-        ) as admin:
-            admin.execute(f'DROP DATABASE IF EXISTS "{target_db}"')
-            admin.execute(f'CREATE DATABASE "{target_db}"')
-        target_dsn = psycopg.conninfo.make_conninfo(
-            **dict(source_info, dbname=target_db),
-        )
+        target_db = pg_testdb.create_test_database()
+        target_dsn = pg_testdb.dsn_for_test_database(target_db)
         try:
             portability.restore_universe(archive, target_dsn)
             with psycopg.connect(target_dsn) as target:
@@ -246,62 +369,57 @@ def test_real_restore_omits_uploaded_function_and_trigger(tmp_path):
                     " WHERE tgname = 'uploaded_side_effect_trigger'"
                 ).fetchone() == (0,)
         finally:
-            with psycopg.connect(
-                psycopg.conninfo.make_conninfo(**admin_info), autocommit=True,
-            ) as admin:
-                admin.execute(
-                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
-                    " WHERE datname = %s AND pid <> pg_backend_pid()",
-                    (target_db,),
-                )
-                admin.execute(f'DROP DATABASE IF EXISTS "{target_db}"')
+            pg_testdb.drop_test_database(target_db)
 
 
 def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
     from runtime.api.fixtures import pg_testdb
-    from yoke_core.domain import db_backend
 
     # The public fixture owns an isolated cluster.  Create source and target
     # databases on that same cluster so pg_dump/pg_restore run for real.
-    with pg_testdb.test_database() as source:
-        source_dsn = os.environ[db_backend.PG_DSN_ENV]
-        # The broad API fixture is intentionally a reduced test schema; bring
-        # this source to the same full additive shape a real current local
-        # universe carries before producing the portability artifact.
-        from yoke_core.domain.schema_init import converge_core_schema
-        from yoke_core.domain.flow_init import create_or_replace_item_progress_view
-
-        converge_core_schema(source)
-        create_or_replace_item_progress_view(source)
-        source.commit()
+    with _canonical_test_universe() as (source, source_dsn):
         source.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix, created_at)"
             " VALUES (88001, 'portable', 'Portable', 'POR', now())"
+        )
+        source.execute(
+            "INSERT INTO designs (id, item_id, slug, body, created_at, updated_at)"
+            " VALUES (88002, 88001, 'portable-design', 'trusted body', now(), now())"
         )
         source.commit()
         archive = Path(
             universe_export.export_universe(dsn=source_dsn, out=tmp_path)["artifact"]
         )
 
-        source_info = psycopg.conninfo.conninfo_to_dict(source_dsn)
-        admin_info = dict(source_info)
-        admin_info["dbname"] = "postgres"
-        target_db = "portability_round_trip"
-        with psycopg.connect(
-            psycopg.conninfo.make_conninfo(**admin_info), autocommit=True,
-        ) as admin:
-            admin.execute(f'DROP DATABASE IF EXISTS "{target_db}"')
-            admin.execute(f'CREATE DATABASE "{target_db}"')
-        target_info = dict(source_info)
-        target_info["dbname"] = target_db
-        target_dsn = psycopg.conninfo.make_conninfo(**target_info)
+        target_db = pg_testdb.create_test_database()
+        target_dsn = pg_testdb.dsn_for_test_database(target_db)
         try:
             portability.restore_universe(archive, target_dsn)
+            from yoke_core.domain.schema_fingerprint import _postgres_schema_rows
+
+            expected_rows = _postgres_schema_rows(source)
             with psycopg.connect(target_dsn) as target:
                 assert target.execute(
                     "SELECT name FROM projects WHERE id = 88001"
                 ).fetchone() == ("Portable",)
+                assert target.execute(
+                    "SELECT body FROM designs WHERE id = 88002"
+                ).fetchone() == ("trusted body",)
+                actual_rows = _postgres_schema_rows(target)
+                assert actual_rows == expected_rows, {
+                    "missing": sorted(set(expected_rows) - set(actual_rows)),
+                    "extra": sorted(set(actual_rows) - set(expected_rows)),
+                }
                 expected_fp = fingerprint_kind("postgres", source)
+            from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
+
+            run_init_chain_at_dsn(target_dsn, emit=lambda _line: None)
+            with psycopg.connect(target_dsn) as target:
+                converged_rows = _postgres_schema_rows(target)
+                assert converged_rows == expected_rows, {
+                    "missing": sorted(set(expected_rows) - set(converged_rows)),
+                    "extra": sorted(set(converged_rows) - set(expected_rows)),
+                }
             result = portability.converge_and_validate_restored_universe(
                 target_dsn,
                 expected_org_slug="default",
@@ -318,15 +436,7 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
                     "SELECT name FROM projects WHERE id = 88001"
                 ).fetchone() == ("Portable",)
         finally:
-            with psycopg.connect(
-                psycopg.conninfo.make_conninfo(**admin_info), autocommit=True,
-            ) as admin:
-                admin.execute(
-                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
-                    " WHERE datname = %s AND pid <> pg_backend_pid()",
-                    (target_db,),
-                )
-                admin.execute(f'DROP DATABASE IF EXISTS "{target_db}"')
+            pg_testdb.drop_test_database(target_db)
 
 
 def test_schema_fingerprint_and_org_identity_fail_closed(tmp_path):
@@ -337,7 +447,8 @@ def test_schema_fingerprint_and_org_identity_fail_closed(tmp_path):
         dsn = os.environ[db_backend.PG_DSN_ENV]
         expected = fingerprint_kind("postgres", conn)
         with pytest.raises(
-            portability.ArchiveCompatibilityError, match="does not match",
+            portability.ArchiveCompatibilityError,
+            match="does not match",
         ):
             portability.converge_and_validate_restored_universe(
                 dsn,
@@ -347,7 +458,8 @@ def test_schema_fingerprint_and_org_identity_fail_closed(tmp_path):
         conn.execute("CREATE TABLE future_only_table (id bigint PRIMARY KEY)")
         conn.commit()
         with pytest.raises(
-            portability.ArchiveCompatibilityError, match="not compatible",
+            portability.ArchiveCompatibilityError,
+            match="not compatible",
         ):
             portability.converge_and_validate_restored_universe(
                 dsn,
@@ -357,15 +469,35 @@ def test_schema_fingerprint_and_org_identity_fail_closed(tmp_path):
 
 
 def test_user_content_counts_detects_nonempty_universe():
-    from runtime.api.fixtures import pg_testdb
-
-    with pg_testdb.test_database() as conn:
+    with _canonical_test_universe() as (conn, _dsn):
         # The general API fixture carries two synthetic project rows; a newly
         # born product universe does not.  Remove fixture-only content before
         # asserting the portability definition of empty.
+        conn.execute("DELETE FROM api_token_audit")
+        conn.execute("DELETE FROM api_tokens")
         conn.execute("DELETE FROM projects")
+        conn.execute(
+            "INSERT INTO migration_audit "
+            "(migration_name, tables_declared, expected_deltas, pre_row_counts, "
+            "backup_path, state, started_at) VALUES "
+            "('maintenance-receipt', '[]', '{}', '{}', 'none', 'completed', now())"
+        )
         conn.commit()
-        assert all(value == 0 for value in portability.user_content_counts(conn).values())
+        empty_counts = portability.user_content_counts(conn)
+        assert "migration_audit" not in empty_counts
+        assert all(value == 0 for value in empty_counts.values())
+        actor_id = conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[
+            0
+        ]
+        conn.execute(
+            "INSERT INTO api_tokens "
+            "(id, token_hash, actor_id, name, status, created_at) "
+            "VALUES (99000, 'credential-only', %s, 'extra', 'active', now())",
+            (actor_id,),
+        )
+        conn.commit()
+        assert portability.user_content_counts(conn)["api_tokens"] == 1
+        conn.execute("DELETE FROM api_tokens WHERE id = 99000")
         conn.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix, created_at)"
             " VALUES (99001, 'not-empty', 'Not Empty', 'NON', now())"
@@ -383,3 +515,8 @@ def test_user_content_counts_detects_nonempty_universe():
         conn.commit()
         counts = portability.user_content_counts(conn)
         assert counts["ouroboros_entries"] == 1
+
+        conn.execute("CREATE TABLE future_content (id integer primary key)")
+        conn.execute("INSERT INTO future_content (id) VALUES (1)")
+        conn.commit()
+        assert portability.all_table_row_counts(conn)["future_content"] == 1

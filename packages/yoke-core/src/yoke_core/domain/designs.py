@@ -9,6 +9,7 @@ CLI usage::
 
 Exit codes: 0 success, 1 error/not-found, 2 usage error.
 """
+
 from __future__ import annotations
 
 import os
@@ -65,11 +66,13 @@ def _p(conn) -> str:
 def _resolve_designs_dir() -> str:
     """Resolve the designs directory path."""
     from yoke_core.domain.db_helpers import resolve_db_path
+
     db_path = resolve_db_path()
     yoke_root = os.path.dirname(db_path)
     designs_dir = os.path.join(yoke_root, "designs")
     # guard against sibling-state directory creation.
     from yoke_core.domain.schema import guard_state_dir_creation
+
     guard_state_dir_creation(designs_dir, "designs._resolve_designs_dir")
     return designs_dir
 
@@ -91,6 +94,7 @@ CREATE INDEX IF NOT EXISTS idx_designs_slug ON designs(slug);
 
 def cmd_init(conn) -> str:
     execute_schema_script(conn, _INIT_SQL)
+    conn.commit()
     return "Designs table initialized"
 
 
@@ -185,9 +189,7 @@ def cmd_sync(conn, item_id: int, designs_dir: Optional[str] = None) -> str:
 
 
 def cmd_sync_all(conn, designs_dir: Optional[str] = None) -> str:
-    rows = query_rows(
-        conn, "SELECT item_id, slug, body FROM designs ORDER BY item_id"
-    )
+    rows = query_rows(conn, "SELECT item_id, slug, body FROM designs ORDER BY item_id")
     if not rows:
         return "No designs to sync."
 

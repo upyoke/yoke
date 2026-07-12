@@ -79,7 +79,8 @@ def _fingerprint_generic_sqlite_validation_conn(conn: sqlite3.Connection) -> str
 
 def _fingerprint_generic_sqlite_validation_path(db_path: str) -> str:
     reject_retired_root_yoke_db_path(
-        db_path, surface="schema_fingerprint sqlite_file target",
+        db_path,
+        surface="schema_fingerprint sqlite_file target",
     )
     conn = sqlite3.connect(db_path)
     try:
@@ -107,7 +108,8 @@ def _reject_retired_root_yoke_db_conn(conn: sqlite3.Connection) -> None:
         db_path = row[2] if len(row) > 2 else ""
         if db_path:
             reject_retired_root_yoke_db_path(
-                str(db_path), surface="schema_fingerprint sqlite_file connection",
+                str(db_path),
+                surface="schema_fingerprint sqlite_file connection",
             )
 
 
@@ -119,9 +121,26 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
             SELECT
                 'table' AS object_type,
                 cls.relname AS object_name,
+                cls.relkind::text || ':' || cls.relpersistence::text || ':' ||
+                COALESCE(am.amname, '') || ':' ||
+                cls.relrowsecurity::text || ':' ||
+                cls.relforcerowsecurity::text || ':' ||
+                COALESCE(
+                    (
+                        SELECT string_agg(option, ',' ORDER BY option)
+                        FROM unnest(cls.reloptions) AS option
+                    ),
+                    ''
+                ) || chr(10) ||
                 string_agg(
                     att.attname || ':' ||
                     pg_catalog.format_type(att.atttypid, att.atttypmod) || ':' ||
+                    COALESCE(
+                        CASE WHEN att.attcollation = 0 THEN '' ELSE
+                            coll_ns.nspname || '.' || coll.collname
+                        END,
+                        ''
+                    ) || ':' ||
                     COALESCE(
                         pg_catalog.pg_get_expr(def.adbin, def.adrelid),
                         ''
@@ -141,13 +160,16 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
             FROM pg_catalog.pg_class cls
             JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
             JOIN pg_catalog.pg_attribute att ON att.attrelid = cls.oid
+            LEFT JOIN pg_catalog.pg_am am ON am.oid = cls.relam
+            LEFT JOIN pg_catalog.pg_collation coll ON coll.oid = att.attcollation
+            LEFT JOIN pg_catalog.pg_namespace coll_ns ON coll_ns.oid = coll.collnamespace
             LEFT JOIN pg_catalog.pg_attrdef def
               ON def.adrelid = att.attrelid AND def.adnum = att.attnum
             WHERE ns.nspname = current_schema()
               AND cls.relkind IN ('r', 'p')
               AND att.attnum > 0
               AND NOT att.attisdropped
-            GROUP BY cls.oid, cls.relname
+            GROUP BY cls.oid, cls.relname, am.amname
 
             UNION ALL
 
@@ -168,6 +190,13 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
             SELECT
                 'view' AS object_type,
                 cls.relname AS object_name,
+                COALESCE(
+                    (
+                        SELECT string_agg(option, ',' ORDER BY option)
+                        FROM unnest(cls.reloptions) AS option
+                    ),
+                    ''
+                ) || chr(10) ||
                 COALESCE(pg_catalog.pg_get_viewdef(cls.oid, true), '') AS definition
             FROM pg_catalog.pg_class cls
             JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
@@ -192,7 +221,8 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
             SELECT
                 'trigger' AS object_type,
                 cls.relname || '.' || trig.tgname AS object_name,
-                pg_catalog.pg_get_triggerdef(trig.oid, true) AS definition
+                trig.tgenabled::text || ':' ||
+                    pg_catalog.pg_get_triggerdef(trig.oid, true) AS definition
             FROM pg_catalog.pg_trigger trig
             JOIN pg_catalog.pg_class cls ON cls.oid = trig.tgrelid
             JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
@@ -217,6 +247,18 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
                 'policy' AS object_type,
                 cls.relname || '.' || policy.polname AS object_name,
                 policy.polcmd::text || ':' || policy.polpermissive::text || ':' ||
+                    COALESCE(
+                        (
+                            SELECT string_agg(
+                                CASE WHEN role_oid = 0 THEN 'PUBLIC'
+                                    ELSE pg_catalog.pg_get_userbyid(role_oid)
+                                END,
+                                ',' ORDER BY role_oid
+                            )
+                            FROM unnest(policy.polroles) AS role_oid
+                        ),
+                        ''
+                    ) || ':' ||
                     COALESCE(pg_catalog.pg_get_expr(policy.polqual, policy.polrelid), '') || ':' ||
                     COALESCE(pg_catalog.pg_get_expr(policy.polwithcheck, policy.polrelid), '')
                     AS definition
@@ -230,7 +272,10 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
             SELECT
                 'index' AS object_type,
                 idx.relname AS object_name,
-                pg_catalog.pg_get_indexdef(idx.oid) AS definition
+                ind.indisvalid::text || ':' || ind.indisready::text || ':' ||
+                    ind.indislive::text || ':' || ind.indcheckxmin::text || ':' ||
+                    ind.indisreplident::text || ':' ||
+                    pg_catalog.pg_get_indexdef(idx.oid) AS definition
             FROM pg_catalog.pg_index ind
             JOIN pg_catalog.pg_class idx ON idx.oid = ind.indexrelid
             JOIN pg_catalog.pg_class tbl ON tbl.oid = ind.indrelid
@@ -243,6 +288,9 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
                 'constraint' AS object_type,
                 con.conname AS object_name,
                 cls.relname || ':' ||
+                    con.convalidated::text || ':' ||
+                    con.condeferrable::text || ':' ||
+                    con.condeferred::text || ':' ||
                     pg_catalog.pg_get_constraintdef(con.oid) AS definition
             FROM pg_catalog.pg_constraint con
             JOIN pg_catalog.pg_class cls ON cls.oid = con.conrelid
