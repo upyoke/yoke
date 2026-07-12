@@ -10,13 +10,17 @@ verification, and audit rows owned by the existing runner.
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.db_compatibility_attestation import AUTHORED_FIELDS, validate as validate_attestation
+from yoke_core.domain.db_compatibility_attestation import (
+    AUTHORED_FIELDS,
+    validate as validate_attestation,
+)
 from yoke_core.domain.db_mutation_profile import (
     MUTATION_INTENT_APPLY,
     STATE_DECLARED,
@@ -24,14 +28,24 @@ from yoke_core.domain.db_mutation_profile import (
 )
 from yoke_core.domain.migration_apply_audit import DESCRIPTION_BASE
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
-from yoke_core.domain.migration_apply_resolve import _load_item, _resolve_capability_settings
-from yoke_core.domain.migration_apply_resolve import _resolve_profile_or_raise, _resolve_repo_path
+from yoke_core.domain.migration_apply_resolve import (
+    _load_item,
+    _resolve_capability_settings,
+)
+from yoke_core.domain.migration_apply_resolve import (
+    _resolve_profile_or_raise,
+    _resolve_repo_path,
+)
 from yoke_core.domain.migration_model_capability_defaults import resolve_model
 from yoke_core.domain.project_identity import resolve_project_id
 
 
 MANIFEST_VERSION = 1
-_TOP_LEVEL_KEYS = frozenset({"version", "project", "profile", "attestation"})
+_TOP_LEVEL_KEYS = frozenset(
+    {"version", "project", "profile", "attestation", "module_sources"}
+)
+_MODULE_SOURCE_KEYS = frozenset({"path", "sha256"})
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 _SOURCE_COMMIT_MARKER = "manifest_source_commit="
 
 
@@ -96,7 +110,9 @@ def validate_manifest_payload(
         profile = validate_profile(payload.get("profile"))
         attestation = validate_attestation(payload.get("attestation"))
     except ValueError as exc:
-        raise MigrationManifestError(f"migration manifest theorem invalid: {exc}") from exc
+        raise MigrationManifestError(
+            f"migration manifest theorem invalid: {exc}"
+        ) from exc
     if profile.get("state") != STATE_DECLARED:
         raise MigrationManifestError("migration manifest profile must be declared")
     if profile.get("mutation_intent") != MUTATION_INTENT_APPLY:
@@ -109,7 +125,57 @@ def validate_manifest_payload(
             "migration manifest attestation has empty authored fields: "
             + ", ".join(missing_attestations)
         )
+    manifest_module_sources(payload, profile)
     return project, profile, attestation
+
+
+def manifest_module_sources(
+    payload: Mapping[str, Any], profile: Mapping[str, Any]
+) -> Mapping[str, Mapping[str, str]]:
+    """Validate the source path and digest bound to every module slug."""
+
+    raw = payload.get("module_sources")
+    if not isinstance(raw, dict):
+        raise MigrationManifestError(
+            "migration manifest module_sources must be an object"
+        )
+    expected = {str(identifier) for identifier in profile["migration_modules"]}
+    actual = set(raw)
+    if actual != expected:
+        raise MigrationManifestError(
+            "migration manifest module_sources must exactly match migration_modules; "
+            f"missing={sorted(expected - actual)} unknown={sorted(actual - expected)}"
+        )
+    normalized: dict[str, Mapping[str, str]] = {}
+    for identifier in sorted(expected):
+        source = raw[identifier]
+        if not isinstance(source, dict) or set(source) != _MODULE_SOURCE_KEYS:
+            raise MigrationManifestError(
+                f"migration manifest module source {identifier!r} must contain only "
+                "path and sha256"
+            )
+        path_raw = source.get("path")
+        if not isinstance(path_raw, str) or not path_raw.strip():
+            raise MigrationManifestError(
+                f"migration manifest module source {identifier!r} has no path"
+            )
+        path = PurePosixPath(path_raw)
+        if (
+            path.is_absolute()
+            or ".." in path.parts
+            or path.as_posix() != path_raw
+            or path.name != f"{identifier}.py"
+        ):
+            raise MigrationManifestError(
+                f"migration manifest module source {identifier!r} path is unsafe"
+            )
+        digest = source.get("sha256")
+        if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+            raise MigrationManifestError(
+                f"migration manifest module source {identifier!r} sha256 is invalid"
+            )
+        normalized[identifier] = {"path": path.as_posix(), "sha256": digest}
+    return normalized
 
 
 def resolve_runner_input(
@@ -174,6 +240,7 @@ def resolve_manifest_subject(
     except (OSError, ValueError) as exc:
         raise MigrationManifestError(f"cannot parse migration manifest: {exc}") from exc
     project, profile, attestation = validate_manifest_payload(payload)
+    module_sources = manifest_module_sources(payload, profile)
     try:
         project_id = resolve_project_id(control_conn, project)
     except LookupError as exc:
@@ -198,7 +265,9 @@ def resolve_manifest_subject(
         module_path = Path(modules_dir) / f"{identifier}.py"
         candidate_module = root / module_path
         if candidate_module.is_symlink():
-            raise MigrationManifestError(f"migration module must not be a symlink: {module_path}")
+            raise MigrationManifestError(
+                f"migration module must not be a symlink: {module_path}"
+            )
         resolved_module = candidate_module.resolve()
         try:
             resolved_module.relative_to(root)
@@ -211,6 +280,31 @@ def resolve_manifest_subject(
                 f"migration module is missing from source checkout: {module_path}"
             )
         _require_tracked(root, module_path)
+
+        source = module_sources[str(identifier)]
+        source_path = Path(source["path"])
+        candidate_source = root / source_path
+        if candidate_source.is_symlink():
+            raise MigrationManifestError(
+                f"packaged migration source must not be a symlink: {source_path}"
+            )
+        resolved_source = candidate_source.resolve()
+        try:
+            resolved_source.relative_to(root)
+        except ValueError as exc:
+            raise MigrationManifestError(
+                f"packaged migration source escapes worktree: {source_path}"
+            ) from exc
+        if not resolved_source.is_file():
+            raise MigrationManifestError(
+                f"packaged migration source is missing: {source_path}"
+            )
+        _require_tracked(root, source_path)
+        actual_digest = hashlib.sha256(resolved_source.read_bytes()).hexdigest()
+        if actual_digest != source["sha256"]:
+            raise MigrationManifestError(
+                f"packaged migration source digest differs for {identifier!r}"
+            )
 
     commit = _git_capture(root, ["rev-parse", "HEAD"])
     if len(commit) != 40:
@@ -301,7 +395,9 @@ def _require_clean_git_checkout(root: Path) -> None:
         raise MigrationManifestError(f"not a git worktree: {root}")
     status = _git_capture(root, ["status", "--porcelain", "--untracked-files=all"])
     if status:
-        raise MigrationManifestError("ticketless governed migration requires a clean source worktree")
+        raise MigrationManifestError(
+            "ticketless governed migration requires a clean source worktree"
+        )
 
 
 def _require_registered_checkout(control_conn: Any, root: Path, project: str) -> None:
@@ -357,6 +453,7 @@ __all__ = [
     "assert_manifest_subject_current",
     "assert_manifest_source_consistent",
     "assert_rehearsal_subject_consistent",
+    "manifest_module_sources",
     "resolve_manifest_subject",
     "resolve_runner_input",
     "validate_manifest_payload",

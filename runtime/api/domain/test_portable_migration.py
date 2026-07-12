@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -53,6 +54,9 @@ def test_manifest_text_keeps_exact_digest_and_loads_packaged_module() -> None:
     assert manifest.project == "yoke"
     assert manifest.module_identifiers == ("events_actor_identity",)
     assert manifest.affected_tables == ("events",)
+    assert manifest.module_sources["events_actor_identity"]["sha256"] == (
+        "d3c4e86e3ba17ecd94008d4a6ba1218bf4ca7addf9d4a302ccb48ad0d0d21de3"
+    )
     assert manifest.sha256 == hashlib.sha256(raw.encode("utf-8")).hexdigest()
     modules = load_packaged_modules(manifest)
     assert modules[0].__name__ == ("yoke_core.domain.migrations.events_actor_identity")
@@ -128,15 +132,49 @@ def test_row_counts_refuses_non_identifier_table() -> None:
         row_counts(NeverExecutes(), ("events; DROP TABLE events",))
 
 
-def test_packaged_module_invariants_hook_is_optional(monkeypatch) -> None:
+def test_packaged_module_invariants_hook_is_optional(monkeypatch, tmp_path) -> None:
     manifest = parse_manifest_text(MANIFEST.read_text(encoding="utf-8"))
-    module = SimpleNamespace(__name__="package.optional", apply=lambda _conn: None)
+    source = tmp_path / "events_actor_identity.py"
+    source.write_text("def apply(conn):\n    return None\n", encoding="utf-8")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    manifest = replace(
+        manifest,
+        module_sources={
+            "events_actor_identity": {
+                "path": "events_actor_identity.py",
+                "sha256": digest,
+            }
+        },
+    )
+    module = SimpleNamespace(
+        __name__="package.optional",
+        __file__=str(source),
+        apply=lambda _conn: None,
+    )
     monkeypatch.setattr(
         "yoke_core.domain.portable_migration.importlib.import_module",
         lambda _name: module,
     )
 
     assert load_packaged_modules(manifest) == (module,)
+
+
+def test_packaged_module_digest_must_match_manifest(monkeypatch, tmp_path) -> None:
+    manifest = parse_manifest_text(MANIFEST.read_text(encoding="utf-8"))
+    source = tmp_path / "events_actor_identity.py"
+    source.write_text("def apply(conn):\n    return None\n", encoding="utf-8")
+    module = SimpleNamespace(
+        __name__="package.changed",
+        __file__=str(source),
+        apply=lambda _conn: None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.portable_migration.importlib.import_module",
+        lambda _name: module,
+    )
+
+    with pytest.raises(PortableMigrationError, match="digest differs"):
+        load_packaged_modules(manifest)
 
 
 def test_verification_failure_carries_secret_free_baseline_evidence(

@@ -17,12 +17,14 @@ import importlib
 import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from types import ModuleType
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_apply_manifest import (
     MigrationManifestError,
+    manifest_module_sources,
     validate_manifest_payload,
 )
 from yoke_core.domain.migration_apply_verify import run_baseline_verify
@@ -54,6 +56,7 @@ class PortableManifest:
     project: str
     profile: Mapping[str, Any]
     attestation: Mapping[str, Any]
+    module_sources: Mapping[str, Mapping[str, str]]
 
     @property
     def module_identifiers(self) -> tuple[str, ...]:
@@ -102,6 +105,7 @@ def parse_manifest_text(raw_text: str) -> PortableManifest:
         project=project,
         profile=profile,
         attestation=attestation,
+        module_sources=manifest_module_sources(payload, profile),
     )
 
 
@@ -120,6 +124,22 @@ def load_packaged_modules(manifest: PortableManifest) -> tuple[ModuleType, ...]:
         if not callable(getattr(module, "apply", None)):
             raise PortableMigrationError(
                 f"packaged migration module {identifier!r} has no apply(conn)"
+            )
+        source_path_raw = getattr(module, "__file__", None)
+        if not isinstance(source_path_raw, str) or not source_path_raw:
+            raise PortableMigrationError(
+                f"packaged migration module {identifier!r} has no source file"
+            )
+        source_path = Path(source_path_raw)
+        if source_path.is_symlink() or not source_path.is_file():
+            raise PortableMigrationError(
+                f"packaged migration module {identifier!r} source is unsafe"
+            )
+        actual_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        expected_digest = manifest.module_sources[identifier]["sha256"]
+        if actual_digest != expected_digest:
+            raise PortableMigrationError(
+                f"packaged migration module {identifier!r} digest differs from manifest"
             )
         modules.append(module)
     return tuple(modules)
