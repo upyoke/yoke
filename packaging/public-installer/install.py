@@ -324,6 +324,11 @@ class Installer:
         xdg_bin = os.environ.get("XDG_BIN_HOME")
         if xdg_bin:
             yield os.path.join(xdg_bin, "yoke")
+        uv_bin = self.capture_runner(["uv", "tool", "dir", "--bin"])
+        if uv_bin.returncode == 0:
+            directory = uv_bin.stdout.strip()
+            if directory and "\n" not in directory and os.path.isabs(directory):
+                yield os.path.join(directory, "yoke")
         home = os.path.expanduser("~")
         if home and home != "~":
             yield os.path.join(home, ".local", "bin", "yoke")

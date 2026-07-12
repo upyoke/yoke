@@ -224,6 +224,38 @@ def test_full_install_audits_installed_launcher_not_stale_ambient(
     assert "Yoke v2.0.0 is ready" in output.getvalue()
 
 
+def test_installed_yoke_resolution_uses_uv_tool_bin_before_ambient(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    installer_mod = load_installer()
+    tool_bin = tmp_path / "uv-bin"
+    tool_bin.mkdir()
+    yoke_bin = tool_bin / "yoke"
+    yoke_bin.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    yoke_bin.chmod(0o755)
+    monkeypatch.delenv("UV_TOOL_BIN_DIR", raising=False)
+    monkeypatch.delenv("XDG_BIN_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    uv_dir = subprocess.CompletedProcess(
+        ["uv", "tool", "dir", "--bin"],
+        0,
+        f"{tool_bin}\n",
+        "",
+    )
+    runner = RecordingRunner(
+        responses={("uv", "tool", "dir", "--bin"): uv_dir},
+    )
+    installer = installer_mod.Installer(
+        _options(installer_mod),
+        runner=runner,
+        which=lambda name: "/ambient/dev/yoke" if name == "yoke" else None,
+    )
+
+    assert installer._resolve_installed_yoke_bin() == str(yoke_bin)
+    assert runner.commands == [["uv", "tool", "dir", "--bin"]]
+
+
 def test_explicit_version_skips_channel_fetch(tmp_path: Path, monkeypatch) -> None:
     installer_mod = load_installer()
     yoke_bin = _installed_yoke_path(tmp_path, monkeypatch)
