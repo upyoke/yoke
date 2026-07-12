@@ -12,11 +12,12 @@ import re
 from pathlib import Path
 
 
+_ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = "yoke-build-artifacts.yml"
 
 
 def _text() -> str:
-    workflows_dir = Path(__file__).resolve().parents[3] / ".github" / "workflows"
+    workflows_dir = _ROOT / ".github" / "workflows"
     return workflows_dir.joinpath(_WORKFLOW).read_text(encoding="utf-8")
 
 
@@ -58,7 +59,7 @@ def test_untrusted_build_has_no_signing_authority():
     assert "packages: write" not in text
     assert "artifact-metadata" not in text
     assert "persist-credentials: false" in build_block
-    assert 'python -m pip install "uv==0.11.21"' in build_block
+    assert 'python -m pip install "uv==0.11.28"' in build_block
 
 
 def test_only_trusted_ref_signer_attests_without_repository_code():
@@ -97,3 +98,27 @@ def test_validated_identity_drives_reusable_outputs_and_upload_name():
     assert "artifact_name: ${{ steps.release.outputs.artifact_name }}" in text
     assert "name: ${{ steps.release.outputs.artifact_name }}" in text
     assert "overwrite: true" in text
+
+
+def test_factory_uv_pin_matches_project_dependencies_and_lock():
+    workflow = _text()
+    project = _ROOT.joinpath("pyproject.toml").read_text(encoding="utf-8")
+    lock = _ROOT.joinpath("uv.lock").read_text(encoding="utf-8")
+    assert 'python -m pip install "uv==0.11.28"' in workflow
+    assert project.count('"uv==0.11.28"') == 2
+    assert 'name = "uv"\nversion = "0.11.28"' in lock
+    assert 'specifier = "==0.11.28"' in lock
+    assert set(re.findall(r"uv==([0-9.]+)", workflow + project)) == {"0.11.28"}
+
+
+def test_all_product_build_backends_pin_setuptools_scm():
+    pyprojects = [_ROOT / "pyproject.toml"]
+    pyprojects.extend(sorted((_ROOT / "packages").glob("yoke-*/pyproject.toml")))
+    requirements = []
+    for path in pyprojects:
+        text = path.read_text(encoding="utf-8")
+        match = re.search(r'"(setuptools-scm\[toml\][^"]+)"', text)
+        assert match is not None, f"missing setuptools-scm build requirement: {path}"
+        requirements.append(match.group(1))
+    assert len(requirements) == 5
+    assert set(requirements) == {"setuptools-scm[toml]==10.2.0"}

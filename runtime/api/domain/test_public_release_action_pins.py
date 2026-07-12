@@ -19,6 +19,7 @@ _ACTION_PINS = {
     "actions/setup-python": "ece7cb06caefa5fff74198d8649806c4678c61a1",
     "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
     "docker/build-push-action": "53b7df96c91f9c12dcc8a07bcb9ccacbed38856a",
+    "docker/login-action": "b45d80f862d83dbcd57f89517bcf500b2ab88fb2",
 }
 _REMOTE_USE = re.compile(r"^\s*uses:\s*([^./\s][^@\s]+)@([^\s#]+)", re.MULTILINE)
 

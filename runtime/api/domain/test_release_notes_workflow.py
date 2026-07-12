@@ -121,8 +121,10 @@ def test_public_operator_doc_starts_future_only_and_teaches_verification():
     assert "Treat release tags as immutable" in text
     assert "gh attestation verify ./yoke_core-*.whl" in text
     assert "oci://ghcr.io/upyoke/yoke-server@sha256:<digest>" in text
-    assert text.count("--source-ref") == 2
-    assert text.count("--source-digest") == 2
+    assert '--source-ref "$release_ref"' in text
+    assert '--source-ref "refs/tags/$tag"' in text
+    assert '--source-ref "refs/tags/$image_tag"' in text
+    assert text.count("--source-digest") == 3
     assert "--deny-self-hosted-runners" in text
     contributing = (_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     assert "[docs/releases/README.md](docs/releases/README.md)" in contributing

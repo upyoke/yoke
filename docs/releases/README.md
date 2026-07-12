@@ -49,13 +49,64 @@ when there are none.
 ```
 
 The SHA12 server image is a separate, repository-variable-gated factory lane.
-For the same release commit, arm `YOKE_PUBLISH_SERVER_IMAGE` only when image
-publication is intended, then run `yoke-server-image` on `main` at that commit.
-The workflow first pushes content by digest, refuses to overwrite an existing
-`:<sha12>` that resolves to different bytes, then publishes both `:<sha12>` and
-`:latest`. It verifies both names resolve to the built digest before signing.
-The provenance attestation names the repository without a tag and binds that
-exact immutable image digest.
+Arm `YOKE_PUBLISH_SERVER_IMAGE` before pushing the annotated release tag when
+image publication is intended. The tag push is the only trigger: branch pushes
+and ad hoc dispatches cannot move `latest` to a development version. If the
+variable was not armed, set it and choose **Re-run all jobs** on that tag's
+existing `yoke-server-image` run; never recreate or move the tag.
+
+The image workflow independently verifies the remote annotated tag, its exact
+peeled commit, and current-main reachability. It pushes unnamed content by
+digest, signs that digest from a no-checkout job, and only then exposes
+`:<sha12>` and `:latest`. Publication refuses an existing `:<sha12>` that points
+to different bytes and verifies both names resolve to the signed digest.
+
+## First public image publication
+
+GHCR creates the first container package as private even when it is linked to
+a public repository. After the first successful image run, a package admin must
+open the `upyoke/yoke-server` package settings and explicitly change its
+visibility to **Public**. Repository visibility alone is not sufficient. Do not
+call the image launch complete until a clean, unauthenticated registry client
+can pull the exact digest and its registry-stored attestation verifies against
+the release tag and full source commit.
+
+Use this smoke from a machine with Docker, buildx, `gh`, and no required GHCR
+login. Replace only the tag value; the remaining identity is resolved from the
+remote annotated tag:
+
+```bash
+tag="vX.Y.Z+local.N"
+repository="ghcr.io/upyoke/yoke-server"
+tag_object="$(gh api "repos/upyoke/yoke/git/ref/tags/$tag" --jq '.object.sha')"
+source_sha="$(gh api "repos/upyoke/yoke/git/tags/$tag_object" --jq '.object.sha')"
+sha12="${source_sha:0:12}"
+digest="<sha256:digest-from-the-completed-image-run>"
+
+anonymous_config="$(mktemp -d)"
+trap 'rm -rf "$anonymous_config"' EXIT
+DOCKER_CONFIG="$anonymous_config" docker pull "$repository:$sha12"
+DOCKER_CONFIG="$anonymous_config" docker pull "$repository:latest"
+sha_digest="$(DOCKER_CONFIG="$anonymous_config" docker buildx imagetools inspect \
+  "$repository:$sha12" --format '{{ .Manifest.Digest }}')"
+latest_digest="$(DOCKER_CONFIG="$anonymous_config" docker buildx imagetools inspect \
+  "$repository:latest" --format '{{ .Manifest.Digest }}')"
+test "$sha_digest" = "$digest"
+test "$latest_digest" = "$digest"
+DOCKER_CONFIG="$anonymous_config" gh attestation verify \
+  "oci://$repository@$digest" \
+  --bundle-from-oci \
+  --repo upyoke/yoke \
+  --signer-workflow upyoke/yoke/.github/workflows/yoke-server-image.yml \
+  --source-ref "refs/tags/$tag" \
+  --source-digest "$source_sha" \
+  --deny-self-hosted-runners
+```
+
+The launch receipt records the package settings URL with Public visibility,
+workflow-run URL, annotated tag-object SHA, peeled source SHA, image digest,
+successful digest equality, anonymous pull, and exact-source attestation output.
+Never record registry credentials or Docker configuration contents.
 
 ## Verify provenance
 
@@ -73,17 +124,18 @@ gh attestation verify ./yoke_core-*.whl \
   --deny-self-hosted-runners
 ```
 
-Resolve or copy the immutable image digest from the completed image workflow,
-authenticate Docker to GHCR, and verify that digest rather than `latest`:
+For later releases, resolve or copy the immutable image digest from the
+completed image workflow and verify that digest rather than `latest`:
 
 ```bash
-docker login ghcr.io
-image_sha="<full-40-character-main-commit-sha>"
+image_tag="vX.Y.Z+local.N"
+image_sha="<full-40-character-release-commit-sha>"
 gh attestation verify \
   oci://ghcr.io/upyoke/yoke-server@sha256:<digest> \
+  --bundle-from-oci \
   --repo upyoke/yoke \
   --signer-workflow upyoke/yoke/.github/workflows/yoke-server-image.yml \
-  --source-ref refs/heads/main \
+  --source-ref "refs/tags/$image_tag" \
   --source-digest "$image_sha" \
   --deny-self-hosted-runners
 ```
