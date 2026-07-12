@@ -147,20 +147,32 @@ def test_converge_adds_verified_github_api_origin_columns(
     with init_test_db(tmp_path) as db_path:
         conn = connect_test_db(db_path)
         try:
-            conn.execute(
-                "ALTER TABLE project_github_repo_bindings DROP COLUMN api_url"
-            )
-            conn.execute(
-                "ALTER TABLE github_app_installations DROP COLUMN api_url"
-            )
+            conn.execute("ALTER TABLE project_github_repo_bindings DROP COLUMN api_url")
+            conn.execute("ALTER TABLE github_app_installations DROP COLUMN api_url")
             conn.commit()
 
             converge_core_schema(conn)
 
             assert _column_exists(conn, "github_app_installations", "api_url")
-            assert _column_exists(
-                conn, "project_github_repo_bindings", "api_url"
-            )
+            assert _column_exists(conn, "project_github_repo_bindings", "api_url")
+        finally:
+            conn.close()
+
+
+def test_converge_adds_project_github_sync_receipt_columns(
+    tmp_path: Path,
+) -> None:
+    with init_test_db(tmp_path) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            for name in ("last_sync_at", "last_sync_outcome", "last_sync_error"):
+                conn.execute(f"ALTER TABLE project_github_repo_bindings DROP COLUMN {name}")
+            conn.commit()
+
+            converge_core_schema(conn)
+
+            for name in ("last_sync_at", "last_sync_outcome", "last_sync_error"):
+                assert _column_exists(conn, "project_github_repo_bindings", name)
         finally:
             conn.close()
 

@@ -21,6 +21,7 @@ import pytest
 from yoke_cli.commands import connect as commands
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.config import server_connect
+from yoke_cli.config import hosted_machine_authorization
 
 _TOKEN = "yk-test-token-0123456789abcdefghijklmnop"
 
@@ -95,6 +96,48 @@ def test_connect_verifies_then_writes_connection_and_token_file(
     assert report["ok"] is True
     assert report["activated"] is True
     assert report["identity"]["actor"]["label"] == "admin"
+
+
+def test_connect_without_token_uses_hosted_browser_org_authority(
+    monkeypatch,
+    machine_home,
+    capsys,
+):
+    _stub_http(monkeypatch)
+    monkeypatch.setattr(
+        hosted_machine_authorization,
+        "authorize",
+        lambda *_args, **kwargs: (
+            kwargs["notify"](
+                hosted_machine_authorization.PendingMachineAuthorization(
+                    platform_url="https://app.upyoke.com",
+                    device_code="device-secret",
+                    user_code="ABCD-2345",
+                    verification_uri="https://app.upyoke.com/machine",
+                    verification_uri_complete=(
+                        "https://app.upyoke.com/machine?user_code=ABCD-2345"
+                    ),
+                    expires_in=600,
+                    interval=2,
+                ),
+                True,
+            )
+            or hosted_machine_authorization.HostedMachineCredential(
+                api_url="https://app.upyoke.com/api/orgs/acme",
+                org="acme",
+                token=_TOKEN,
+            )
+        ),
+    )
+    assert commands.connect(["--json"]) == 0
+    config = _config(machine_home)
+    assert config["active_env"] == "acme"
+    assert config["connections"]["acme"]["api_url"] == (
+        "https://app.upyoke.com/api/orgs/acme"
+    )
+    output = capsys.readouterr()
+    assert json.loads(output.out)["env"] == "acme"
+    assert "ABCD-2345" in output.err
 
 
 def test_connect_custom_name_and_no_activate(
@@ -212,10 +255,10 @@ def test_connect_token_file_source(monkeypatch, machine_home, tmp_path, capsys):
     assert stored.read_text(encoding="utf-8").strip() == _TOKEN
 
 
-def test_connect_requires_exactly_one_token_source(machine_home, capsys):
+def test_connect_refuses_tokenless_self_host_url(machine_home, capsys):
     assert commands.connect(["http://127.0.0.1:8765"]) == 2
     err = capsys.readouterr().err
-    assert "exactly one token source" in err
+    assert "omit URL for hosted browser sign-in" in err
     assert not (machine_home / "config.json").exists()
 
 

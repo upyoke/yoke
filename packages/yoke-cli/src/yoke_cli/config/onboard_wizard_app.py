@@ -36,7 +36,7 @@ from yoke_cli.config.onboard_wizard_flow import WizardFlow
 from yoke_cli.config.onboard_wizard_flow_apply import ApplyFlow
 from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow
 from yoke_cli.config.onboard_wizard_flow_clone import CloneFlow
-from yoke_cli.config.onboard_wizard_flow_connect import ConnectFlow
+from yoke_cli.config.onboard_wizard_flow_connect import ConnectFlow, HostedMachineConnectFlow
 from yoke_cli.config.onboard_wizard_flow_destination import DestinationFlow
 from yoke_cli.config.onboard_wizard_flow_dev import DevFlow
 from yoke_cli.config.onboard_wizard_flow_github import MachineGithubFlow
@@ -90,7 +90,7 @@ def _disable_mouse_reporting() -> None:
 
 
 class OnboardWizardApp(
-    CheckingFlow, PathFlow, DestinationFlow, ConnectFlow, MachineGithubFlow,
+    CheckingFlow, PathFlow, DestinationFlow, HostedMachineConnectFlow, ConnectFlow, MachineGithubFlow,
     ProjectGitFlow, WizardFlow, ApplyFlow, CloneFlow, DevFlow, ManualPublishFlow,
     PublishFlow,
     BoardArtFlow, App[None],
