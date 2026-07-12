@@ -35,6 +35,7 @@ from yoke_contracts.project_contract.strategy_docs_io import (
     require_strategy_doc_slug,
 )
 from yoke_core.domain import strategy_docs_header as _header
+from yoke_core.domain.strategy_doc_presentation import summary_from_row
 from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 
 StrategyHeaderError = _header.StrategyHeaderError
@@ -64,6 +65,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_docs_project_id_slug
 # replace_doc refuses a write shrinking content below this fraction of
 # the old byte length unless force=True.
 SHRINK_GUARD_RATIO = 0.6
+
 
 class UnknownStrategyDocError(ValueError):
     """Raised for a slug whose shape can never name a strategy doc."""
@@ -127,31 +129,20 @@ def project_doc_slugs(conn: Any, project_id: int) -> List[str]:
 
 
 def list_docs(conn: Any, project_id: int) -> List[Dict[str, Any]]:
-    """Return one ``{slug, updated_at, updated_by, bytes, archived}`` row per doc.
+    """Return one display summary row per strategy document.
 
     ``archived`` is ``True`` when the doc carries an ``archived_at`` stamp.
     ``updated_by`` is the last editor's resolved display label (or ``None``):
     the stored identity is the numeric actor id, resolved to a label here for
     display only, the same projection the render header uses.
     """
-    from yoke_core.domain.actor_render import actor_render_label
-
     rows = conn.execute(
         f"SELECT slug, updated_at, updated_by_actor_id, content, archived_at "
         f"FROM {STRATEGY_DOCS_TABLE} WHERE project_id = %s",
         (project_id,),
     ).fetchall()
     order = {slug: i for i, slug in enumerate(DEFAULT_STRATEGY_DOC_SLUGS)}
-    docs = [
-        {
-            "slug": str(row["slug"]),
-            "updated_at": str(row["updated_at"]),
-            "updated_by": actor_render_label(conn, row["updated_by_actor_id"]),
-            "bytes": _byte_len(str(row["content"])),
-            "archived": row["archived_at"] is not None,
-        }
-        for row in rows
-    ]
+    docs = [summary_from_row(conn, row) for row in rows]
     docs.sort(key=lambda d: (order.get(d["slug"], len(order)), d["slug"]))
     return docs
 

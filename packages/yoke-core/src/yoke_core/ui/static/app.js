@@ -159,7 +159,7 @@ function renderStrategyView(context, main, projectId) {
       const docs = (callResult.envelope.result || {}).docs || [];
       renderTable(body, docs, [
         { label: "slug", value: (doc) => doc.slug },
-        { label: "updated", value: (doc) => doc.updated_at },
+        { label: "title", value: (doc) => doc.title },
         { label: "status", value: (doc) => (doc.archived ? "archived" : "active") },
       ], "no strategy docs yet");
     },

@@ -184,6 +184,51 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.ok(secondRoot.classList.contains("universe-app-root"));
 });
 
+test("strategy rows render slug, title, and status", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/strategy";
+  const root = documentNode.createElement("div");
+  const requests = [];
+  const client = {
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+      }
+      if (request.function === "strategy.doc.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              docs: [{ slug: "MISSION", title: "Mission statement", archived: false }],
+            },
+          },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  const cells = allNodes(root)
+    .filter((node) => node.tagName === "TH" || node.tagName === "TD")
+    .map((node) => node.textContent);
+  assert.deepEqual(cells, [
+    "slug", "title", "status", "MISSION", "Mission statement", "active",
+  ]);
+  assert.ok(requests.some((request) => request.function === "strategy.doc.list"));
+  mounted.unmount();
+});
+
 test("mount rejects non-elements and rolls back throwing slot factories", () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
