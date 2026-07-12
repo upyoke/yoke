@@ -22,6 +22,8 @@ from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_clone as clone_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_project_screens as screens  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
+from yoke_cli.config import project_git_probe  # noqa: E402
+from yoke_cli.config import project_git_transport  # noqa: E402
 from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
@@ -152,9 +154,7 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
             selection = await _wait_for_selection(app, pilot)
             values = [row.value for row in selection.rows]
             # The rows are the private repos' clone URLs.
-            assert values == [
-                *(r.clone_url for r in _PRIVATE_REPOS), "paste-private",
-            ]
+            assert values == [r.clone_url for r in _PRIVATE_REPOS]
             await pilot.press("down")   # pick the second private repo
             await pilot.press("enter")
             await pilot.pause()
@@ -163,6 +163,65 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
             await pilot.press("enter")  # accept default folder -> clone-outcome
             outcome = await _wait_for_selection(app, pilot)
             assert outcome.rows
+
+    asyncio.run(scenario())
+
+
+def test_empty_private_repo_access_has_manage_retry_and_back(
+    monkeypatch,
+) -> None:
+    calls = 0
+
+    def fetch(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        return [] if calls <= 2 else list(_PRIVATE_REPOS)
+
+    opened: list[str] = []
+    monkeypatch.setattr(clone_flow, "fetch_private_repos", fetch)
+    monkeypatch.setattr(
+        clone_flow.webbrowser, "open", lambda url: opened.append(url) or True,
+    )
+    monkeypatch.setattr(
+        clone_flow.github_state,
+        "repository_access_url",
+        lambda _result: "https://github.com/settings/installations/1",
+    )
+    app, _spy = make_app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await _start_clone(app, pilot, connect_github=True)
+            await pilot.press("down")
+            await pilot.press("enter")
+            text = await _wait_for_body_text(
+                app, pilot, "No private repositories are available to Yoke.",
+            )
+            assert "Paste" not in text
+            assert "GitHub App access URL" in text
+            selection = await _wait_for_selection(app, pilot)
+            assert [row.value for row in selection.rows] == [
+                "manage", "check", "back",
+            ]
+            await pilot.press("enter")
+            await pilot.pause()
+            assert opened == ["https://github.com/settings/installations/1"]
+            await pilot.press("down", "down")
+            await pilot.press("enter")
+            await pilot.pause()
+            assert "Is the repo public or private?" in _body_text(app)
+            await pilot.press("down")
+            await pilot.press("enter")
+            selection = await _wait_for_selection(app, pilot)
+            assert [row.value for row in selection.rows] == [
+                "manage", "check", "back",
+            ]
+            await pilot.press("down")
+            await pilot.press("enter")
+            selection = await _wait_for_selection(app, pilot)
+            assert [row.value for row in selection.rows] == [
+                repo.clone_url for repo in _PRIVATE_REPOS
+            ]
 
     asyncio.run(scenario())
 
@@ -192,6 +251,44 @@ def test_private_repo_error_back_returns_to_visibility_choice(
             await pilot.press("enter")
             await pilot.pause(0.2)
             assert "Is the repo public or private?" in _body_text(app)
+
+    asyncio.run(scenario())
+
+
+def test_private_reachability_error_never_falls_back_to_url_input(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        project_git_transport,
+        "remote_probe",
+        lambda *_args, **_kwargs: project_git_probe.GitRemoteProbe(
+            False, failure_kind=project_git_probe.FAILURE_ACCESS,
+        ),
+    )
+    app, _spy = make_app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await _start_clone(app, pilot, connect_github=True)
+            await pilot.press("down")
+            await pilot.press("enter")
+            picker = await _wait_for_selection(app, pilot)
+            assert picker.rows[0].value == _PRIVATE_REPOS[0].clone_url
+            await pilot.press("enter")
+            text = await _wait_for_body_text(app, pilot, "Couldn't reach that repo.")
+            assert "Change URL" not in text
+            from textual.widgets import Input
+
+            assert not list(app.query("#onboard-body Input").results(Input))
+            recovery = await _wait_for_selection(app, pilot)
+            assert [row.value for row in recovery.rows] == [
+                "repositories", "retry", "back",
+            ]
+            await pilot.press("enter")
+            refreshed = await _wait_for_selection(app, pilot)
+            assert [row.value for row in refreshed.rows] == [
+                repo.clone_url for repo in _PRIVATE_REPOS
+            ]
 
     asyncio.run(scenario())
 

@@ -96,13 +96,32 @@ def stub_token_verifiers(monkeypatch) -> None:
         "configured": True,
         "state": "connected",
         "api_url": "https://api.github.com",
+        "app": {"slug": "yoke-product", "app_id": 123, "client_id": "Iv1.test"},
         "identity": {"checked": True, "ok": True, "login": "machine-user"},
         "access": {
             "owners": ["machine-user", "octo-org"],
             "repos": ["machine-user/private-tool", "octo-org/app"],
             "repo_count": 2,
+            "installations": [
+                {
+                    "installation_id": 1,
+                    "account_login": "machine-user",
+                    "repository_selection": "selected",
+                    "suspended": False,
+                },
+                {
+                    "installation_id": 2,
+                    "account_login": "octo-org",
+                    "repository_selection": "all",
+                    "suspended": False,
+                },
+            ],
         },
-        "permissions": {"ok": True, "mode": "github_app_installation"},
+        "permissions": {
+            "ok": True,
+            "usable": True,
+            "mode": "github_app_installation",
+        },
         "issues": [],
     }
     monkeypatch.setattr(

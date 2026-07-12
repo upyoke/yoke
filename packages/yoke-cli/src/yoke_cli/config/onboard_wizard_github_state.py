@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts import github_origin
+from yoke_contracts import github_installation_urls, github_origin
 from yoke_cli.config import github_local_user_access
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_destinations
@@ -67,6 +67,36 @@ def clone_web_url(result: Any) -> str:
     if not connected(result):
         return github_origin.DEFAULT_GITHUB_WEB_URL
     return web_url(result)
+
+
+def repository_access_url(result: Any, *, owner: str | None = None) -> str:
+    """Return a validated App settings URL for repository-access management."""
+
+    config = machine_config.github_config(getattr(result, "config_path", None))
+    endpoint = github_origin.validate_github_endpoint_pair(
+        str(config.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL),
+        str(config.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL),
+    )
+    selected_owner = str(owner or "").casefold()
+    for installation in config.get("installations") or []:
+        if not isinstance(installation, dict):
+            continue
+        if selected_owner and (
+            str(installation.get("account_login") or "").casefold()
+            != selected_owner
+        ):
+            continue
+        try:
+            return github_installation_urls.validated_settings_url(
+                str(installation.get("html_url") or ""),
+                web_url=endpoint.web.base_url,
+                installation_id=installation.get("installation_id"),
+                account_login=str(installation.get("account_login") or ""),
+            )
+        except github_origin.GitHubApiOriginError:
+            continue
+    slug = str(config.get("app_slug") or "").strip()
+    return endpoint.app_install_url(slug) if slug else endpoint.web.base_url
 
 
 def administration_allowed(result: Any) -> bool:
@@ -174,6 +204,7 @@ __all__ = [
     "endpoint_pair",
     "fork_ready",
     "fork_ready_from_config",
+    "repository_access_url",
     "user_access_token",
     "web_url",
 ]

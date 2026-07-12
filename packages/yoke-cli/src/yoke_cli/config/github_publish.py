@@ -34,14 +34,15 @@ def list_user_repos(
     private_only: bool = False,
     page_size: int = 50,
     web_url: str = github_origin.DEFAULT_GITHUB_WEB_URL,
+    monotonic=time.monotonic,
 ) -> list[RepoRef]:
     """List repos the token can reach, most-recently-pushed first.
 
     Hits ``GET /user/repos`` with the same affiliation filter the machine
     verifier uses, so collaborator and org-member repos are included alongside
     the token owner's own. ``private_only`` keeps only private repos (the clone
-    picker's private branch). ``page_size`` caps the single page requested so the
-    picker never has to paginate; GitHub clamps it to 100.
+    picker's private branch). Results are paginated under one bounded operation
+    deadline; GitHub clamps ``page_size`` to 100.
     """
     return github_publish_repositories.list_user_repos(
         _request_json,
@@ -50,6 +51,7 @@ def list_user_repos(
         private_only=private_only,
         page_size=page_size,
         web_url=web_url,
+        monotonic=monotonic,
     )
 
 

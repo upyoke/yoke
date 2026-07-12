@@ -40,10 +40,10 @@ from yoke_cli.config.onboard_checklist_schema import (
     SETUP_HANDOFF_ROW_ID,
     SOURCE_DEV_ROW_ID,
     STATUS_BLOCKED,
-    STATUS_CONFIGURED,
     STATUS_DEFERRED,
     STATUS_NEEDED,
     STATUS_NOT_NEEDED,
+    STATUS_UNKNOWN,
     TERMINAL_STATUSES,
 )
 

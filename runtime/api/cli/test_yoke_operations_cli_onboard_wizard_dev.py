@@ -63,6 +63,8 @@ async def _pick_develop_yoke(pilot) -> None:
     await pilot.press("enter")  # machine github: Connect (default)
     await pilot.app.workers.wait_for_complete()
     await pilot.pause()
+    await pilot.press("enter")  # confirm connected identity and App access
+    await pilot.pause()
     index = next(
         i for i, r in enumerate(steps.MODE_ROWS)
         if r.value == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
@@ -146,6 +148,8 @@ def test_stored_yoke_checkout_offers_direct_source_dev_path(
             await pilot.press("enter")  # machine github: Connect (default)
             await app.workers.wait_for_complete()
             await pilot.pause()
+            await pilot.press("enter")  # confirm GitHub connection
+            await pilot.pause()
             text = _error_text(app)
             assert "Use an existing project mapping?" in text
             assert "Develop Yoke itself" in text
@@ -193,6 +197,8 @@ def test_project_mode_default_forces_source_dev_checkout(
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine github: Connect (default)
             await app.workers.wait_for_complete()
+            await pilot.pause()
+            await pilot.press("enter")  # confirm GitHub connection
             await pilot.pause()
             await pilot.press("enter")  # finish: apply
             await pilot.pause()

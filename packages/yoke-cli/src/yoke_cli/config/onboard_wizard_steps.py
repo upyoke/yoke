@@ -118,6 +118,14 @@ PROJECT_GITHUB_ACCESS_ROWS = [
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
+PRIVATE_REPO_EMPTY_ROWS = [
+    SelectionRow(
+        "manage", "Manage repository access in GitHub", "choose private repos",
+    ),
+    SelectionRow("check", "Check again", "refresh authorized repositories"),
+    SelectionRow("back", "Back", "choose public or private"),
+]
+
 PROJECT_GITHUB_ROWS = [
     SelectionRow(PROJECT_GITHUB_REUSE_MACHINE, onboard_github_copy.PROJECT_GITHUB_REUSE_LABEL,
                  onboard_github_copy.PROJECT_GITHUB_REUSE_DESC),
@@ -313,6 +321,7 @@ __all__ = [
     "GITHUB_APP_PENDING_ROWS",
     "MACHINE_GITHUB_ROWS",
     "PROJECT_GITHUB_ACCESS_ROWS",
+    "PRIVATE_REPO_EMPTY_ROWS",
     "MODE_ROWS",
     "PROJECT_GITHUB_ROWS",
     "PROJECT_GITHUB_ROWS_NO_MACHINE",

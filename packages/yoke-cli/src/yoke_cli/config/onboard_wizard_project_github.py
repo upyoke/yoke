@@ -6,8 +6,6 @@ import asyncio
 from typing import Any
 import webbrowser
 
-from yoke_contracts import github_origin
-from yoke_contracts import github_installation_urls
 from yoke_contracts import github_app_installation_permissions
 from yoke_cli.config import github_machine
 from yoke_cli.config import machine_config
@@ -87,32 +85,8 @@ class ProjectGithubAccessFlow:
         return None
 
     def _project_github_access_url(self) -> str:
-        config = machine_config.github_config(self.result.config_path)
-        endpoint = github_origin.validate_github_endpoint_pair(
-            str(config.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL),
-            str(config.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL),
-        )
-        owner = str(self.result.project_github_repo or "").split("/", 1)[0].casefold()
-        installation = next((
-            raw for raw in config.get("installations") or []
-            if isinstance(raw, dict)
-            and str(raw.get("account_login") or "").casefold() == owner
-            and raw.get("installation_id")
-        ), None)
-        if installation is not None:
-            try:
-                url = github_installation_urls.validated_settings_url(
-                    str(installation.get("html_url") or ""),
-                    web_url=endpoint.web.base_url,
-                    installation_id=installation["installation_id"],
-                    account_login=str(installation.get("account_login") or ""),
-                )
-            except github_origin.GitHubApiOriginError:
-                installation = None
-        if installation is None:
-            slug = str(config.get("app_slug") or "").strip()
-            url = endpoint.app_install_url(slug) if slug else endpoint.web.base_url
-        return url
+        owner = str(self.result.project_github_repo or "").split("/", 1)[0]
+        return github_state.repository_access_url(self.result, owner=owner)
 
     def _open_project_github_access(self) -> tuple[str, bool]:
         url = self._project_github_access_url()

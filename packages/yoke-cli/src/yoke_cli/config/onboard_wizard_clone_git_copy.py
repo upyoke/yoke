@@ -12,6 +12,14 @@ CLONE_REMOTE_ERROR_ROWS = [
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
+PRIVATE_REMOTE_ERROR_ROWS = [
+    SelectionRow(
+        "repositories", "Refresh private repositories", "reload App access",
+    ),
+    SelectionRow("retry", "Try again", "rerun the check"),
+    SelectionRow("back", "Back", "choose public or private"),
+]
+
 GIT_INSTALL_ERROR_ROWS = [
     SelectionRow("install", "Try install again", "run installer"),
     SelectionRow("retry", "Try again", "after fixing git"),
@@ -58,6 +66,7 @@ def handoff_rows() -> list[SelectionRow]:
 
 __all__ = [
     "CLONE_REMOTE_ERROR_ROWS",
+    "PRIVATE_REMOTE_ERROR_ROWS",
     "handoff_rows",
     "install_error_rows",
     "missing_rows",

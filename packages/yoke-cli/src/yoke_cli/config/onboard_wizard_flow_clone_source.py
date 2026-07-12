@@ -29,6 +29,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _run_checking(self, **kwargs) -> None: ...
     def _goto_clone_folder(self) -> None: ...
     def _goto_clone_visibility(self) -> None: ...
+    def _goto_private_repo_picker(self) -> None: ...
     def _goto_clone_url_input(self) -> None: ...
     def _goto_project_mode(self) -> None: ...
     def _record_existing_project(
@@ -209,7 +210,11 @@ class CloneSourceFlow:
                 "Couldn't reach that repo.",
                 str(exc),
                 ["Check the URL and, for private repos, GitHub authorization."],
-                clone_git_copy.CLONE_REMOTE_ERROR_ROWS,
+                (
+                    clone_git_copy.PRIVATE_REMOTE_ERROR_ROWS
+                    if self.result.project_clone_requires_machine_github
+                    else clone_git_copy.CLONE_REMOTE_ERROR_ROWS
+                ),
                 ok=False,
             ),
             lambda choice: self._on_clone_remote_error(choice, value),
@@ -309,6 +314,10 @@ class CloneSourceFlow:
         ))
 
     def _on_clone_remote_error(self: _Shell, choice: str, value: str) -> None:
+        if choice == "repositories":
+            self._discard_clone_project_views(limit=2)
+            self._goto_private_repo_picker()
+            return
         if choice == "edit":
             self._discard_clone_project_views(limit=2)
             self._goto_clone_url_input()
