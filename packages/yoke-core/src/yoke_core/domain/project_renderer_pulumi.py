@@ -64,10 +64,13 @@ def gather_pulumi_values(
 
     data = _pulumi_context_from_settings(settings)
 
-    # Three newly-surfaced VPS keys (camelCase JSON -> snake_case output).
+    # VPS keys (camelCase JSON -> snake_case output).
     values["vps_instance_type"] = _stringify(data.get("vpsInstanceType"))
     values["vps_root_volume_gb"] = _stringify(data.get("vpsRootVolumeGb"))
     values["vps_ssh_key_name"] = _stringify(data.get("vpsSshKeyName"))
+    values["vps_iam_instance_profile_name"] = _stringify(
+        data.get("vpsIamInstanceProfileName")
+    )
 
     # CloudFront origin Id: required per project so the rendered stack YAML
     # carries the project's own origin Id (no template-level default). Empty

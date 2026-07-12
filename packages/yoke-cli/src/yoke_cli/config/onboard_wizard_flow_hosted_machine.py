@@ -150,7 +150,7 @@ class HostedMachineConnectFlow:
                 "Browser sign-in did not finish.",
                 message,
                 ["Check your network, then start a fresh one-time authorization."],
-                steps.YOKE_TOKEN_VERIFY_RETRY_ROWS,
+                steps.HOSTED_MACHINE_RETRY_ROWS,
                 ok=False,
             ),
             lambda choice: (
