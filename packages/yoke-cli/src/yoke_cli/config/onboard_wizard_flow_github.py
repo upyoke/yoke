@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 from rich.markup import escape
 
@@ -21,6 +21,74 @@ def _wizard_steps():
     from yoke_cli.config import onboard_wizard_steps as steps
 
     return steps
+
+
+def _bounded_summary(values: list[str], *, total: int | None = None) -> str:
+    """Render a terminal-sized sample without hiding the omitted count."""
+
+    display_limit = 4
+    actual_total = max(len(values), total or 0)
+    if not values:
+        return "none"
+    visible = ", ".join(values[:display_limit])
+    omitted = actual_total - min(len(values), display_limit)
+    return f"{visible}, and {omitted} more" if omitted > 0 else visible
+
+
+def _success_message(report: Mapping[str, Any]) -> str:
+    identity = report.get("identity")
+    login = str(
+        identity.get("login")
+        if isinstance(identity, Mapping) else ""
+    ).strip()
+    return (
+        f"Success! Yoke GitHub App connected for {login}."
+        if login else
+        "Success! Yoke GitHub App connected."
+    )
+
+
+def _success_details(report: Mapping[str, Any]) -> list[str]:
+    details: list[str] = []
+    identity = report.get("identity")
+    if isinstance(identity, Mapping) and identity.get("login"):
+        details.append(f"GitHub username: {identity['login']}")
+    app = report.get("app")
+    if isinstance(app, Mapping) and app.get("slug"):
+        details.append(f"GitHub App: {app['slug']}")
+    access = report.get("access")
+    if isinstance(access, Mapping):
+        installations = [
+            item for item in access.get("installations") or []
+            if isinstance(item, Mapping)
+        ]
+        installation_labels = []
+        for item in installations:
+            account = str(item.get("account_login") or "").strip()
+            if not account:
+                continue
+            selection = str(item.get("repository_selection") or "selected")
+            state = "suspended" if item.get("suspended") else f"{selection} repositories"
+            installation_labels.append(f"{account} ({state})")
+        details.append(
+            "Installed for: " + _bounded_summary(installation_labels)
+        )
+        repositories = [
+            str(item) for item in access.get("repos") or [] if str(item)
+        ]
+        repo_count = access.get("repo_count")
+        total = repo_count if isinstance(repo_count, int) else len(repositories)
+        details.append(
+            f"Repositories available: {total} — "
+            f"{_bounded_summary(repositories, total=total)}"
+        )
+    permissions = report.get("permissions")
+    if isinstance(permissions, Mapping) and permissions.get("usable") is True:
+        details.append("Required GitHub App permissions: ready.")
+    details.append(
+        "Saved on this machine. Use `yoke github disconnect` to remove it."
+    )
+    return details
 
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -196,7 +264,26 @@ class MachineGithubFlow:
             report.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL
         )
         self.result.machine_github_verification = report
-        self._goto_project_mode()
+        self._goto_machine_github_success(report)
+
+    def _goto_machine_github_success(
+        self: _Shell,
+        report: Mapping[str, Any],
+    ) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        steps = _wizard_steps()
+        self._goto(_View(
+            STEP_GITHUB,
+            lambda: steps.verification_body(
+                "GitHub connected.",
+                _success_message(report),
+                _success_details(report),
+                steps.VERIFY_OK_ROWS,
+                ok=True,
+            ),
+            lambda _choice: self._goto_project_mode(),
+        ))
 
     def _goto_machine_github_pending(self: _Shell, report: dict[str, Any]) -> None:
         from yoke_cli.config.onboard_wizard_app import _View

@@ -15,6 +15,8 @@ _ORGS_PATH = "/user/orgs"
 _USER_REPOS_PATH = "/user/repos"
 _ACCOUNT_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 OWNER_LIST_DEADLINE_SECONDS = 20.0
+REPOSITORY_LIST_DEADLINE_SECONDS = 20.0
+REPOSITORY_LIST_MAX_PAGES = 10
 
 
 @dataclass(frozen=True)
@@ -43,60 +45,83 @@ def list_user_repos(
     private_only: bool = False,
     page_size: int = 50,
     web_url: str = github_origin.DEFAULT_GITHUB_WEB_URL,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> list[RepoRef]:
     """List repos the token can reach, most-recently-pushed first."""
 
     page_size = max(1, min(int(page_size), 100))
-    payload = request_json(
-        api_url,
-        _USER_REPOS_PATH,
-        token,
-        query={
-            "per_page": str(page_size),
-            "sort": "pushed",
-            "affiliation": "owner,collaborator,organization_member",
-        },
-    )
     try:
         endpoint = github_origin.validate_github_web_endpoint(web_url)
     except github_origin.GitHubApiOriginError as exc:
         raise GitHubPublishError(str(exc)) from exc
+    deadline = monotonic() + REPOSITORY_LIST_DEADLINE_SECONDS
     refs: list[RepoRef] = []
-    for repo in payload if isinstance(payload, list) else []:
-        if not isinstance(repo, Mapping):
-            continue
-        full_name = repo.get("full_name")
-        clone_url = repo.get("clone_url")
-        if not (isinstance(full_name, str) and full_name):
-            continue
-        if not (isinstance(clone_url, str) and clone_url):
-            continue
-        if any(ord(character) < 32 or ord(character) == 127 for character in full_name):
-            continue
-        private = repo.get("private")
-        if not isinstance(private, bool):
-            continue
-        try:
-            named_repo = github_origin.normalize_github_repository(
-                full_name,
-                web_url=endpoint.base_url,
+    seen: set[str] = set()
+    for page in range(1, REPOSITORY_LIST_MAX_PAGES + 1):
+        payload = request_json(
+            api_url,
+            _USER_REPOS_PATH,
+            token,
+            query={
+                "per_page": str(page_size),
+                "page": str(page),
+                "sort": "pushed",
+                "affiliation": "owner,collaborator,organization_member",
+            },
+            deadline=deadline,
+            monotonic=monotonic,
+        )
+        if not isinstance(payload, list):
+            raise GitHubPublishError(
+                "GitHub repository response did not contain a list"
             )
-            cloned_repo = github_origin.normalize_github_repository(
-                clone_url,
-                web_url=endpoint.base_url,
+        for repo in payload:
+            if not isinstance(repo, Mapping):
+                continue
+            full_name = repo.get("full_name")
+            clone_url = repo.get("clone_url")
+            if not (isinstance(full_name, str) and full_name):
+                continue
+            if not (isinstance(clone_url, str) and clone_url):
+                continue
+            if any(
+                ord(character) < 32 or ord(character) == 127
+                for character in full_name
+            ):
+                continue
+            private = repo.get("private")
+            if not isinstance(private, bool):
+                continue
+            try:
+                named_repo = github_origin.normalize_github_repository(
+                    full_name,
+                    web_url=endpoint.base_url,
+                )
+                cloned_repo = github_origin.normalize_github_repository(
+                    clone_url,
+                    web_url=endpoint.base_url,
+                )
+            except github_origin.GitHubApiOriginError:
+                continue
+            key = named_repo.casefold()
+            if key != cloned_repo.casefold() or key in seen:
+                continue
+            if private_only and not private:
+                continue
+            seen.add(key)
+            refs.append(
+                RepoRef(
+                    full_name=named_repo,
+                    clone_url=endpoint.url(f"/{named_repo}.git"),
+                    private=private,
+                )
             )
-        except github_origin.GitHubApiOriginError:
-            continue
-        if named_repo.casefold() != cloned_repo.casefold():
-            continue
-        if private_only and not private:
-            continue
-        refs.append(
-            RepoRef(
-                full_name=named_repo,
-                clone_url=endpoint.url(f"/{named_repo}.git"),
-                private=private,
-            )
+        if len(payload) < page_size:
+            break
+    else:
+        raise GitHubPublishError(
+            "GitHub repository access exceeds the bounded picker limit; narrow "
+            "the App installation's repository access, then check again"
         )
     return refs
 

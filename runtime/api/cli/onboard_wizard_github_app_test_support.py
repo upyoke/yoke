@@ -38,6 +38,9 @@ def stub_github_app_access(
         if not connected:
             return {}
         return {
+            "app_id": 123,
+            "client_id": "Iv1.test",
+            "app_slug": "yoke",
             "api_url": "https://api.github.com",
             "web_url": "https://github.com",
             "authorization": {
@@ -60,6 +63,7 @@ def stub_github_app_access(
                         "contents": "write",
                     },
                     "suspended": False,
+                    "html_url": f"https://github.com/settings/installations/{index}",
                 }
                 for index, owner in enumerate(owner_list, start=1)
             ],
@@ -88,10 +92,12 @@ def stub_github_app_access(
 
 
 async def connect_github_app(app: Any, pilot: Any) -> None:
-    """Complete the stubbed browser flow and wait for project-mode routing."""
+    """Complete the stubbed browser flow, confirm it, and reach project mode."""
     await advance_past_path(pilot)
     await pilot.press("enter")
     await app.workers.wait_for_complete()
+    await pilot.pause()
+    await pilot.press("enter")
     await pilot.pause()
 
 

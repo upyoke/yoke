@@ -130,6 +130,21 @@ _TOC_ROW_RE = re.compile(r"^\d+;\s+\d+\s+\d+\s+(.+)$")
 _DUMPED_FROM_RE = re.compile(r"^;\s+Dumped from database version:\s+(.+)$", re.M)
 _DUMPED_BY_RE = re.compile(r"^;\s+Dumped by pg_dump version:\s+(.+)$", re.M)
 
+# Portable archives are data contracts across engine releases.  The current
+# trusted schema owns every object and column; this manifest names only
+# previously shipped, lossless schema evolutions that the loader may bridge.
+# Any unlisted table or column drift remains a compatibility error.
+_ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset({"designs"})
+_ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset({"designs_id_seq"})
+_ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
+    "project_github_repo_bindings": frozenset(
+        {"last_sync_at", "last_sync_outcome", "last_sync_error"}
+    ),
+}
+_ARCHIVE_COLUMN_RENAMES = {
+    ("qa_artifacts", "storage_path"): "artifact_handle",
+}
+
 # A freshly born universe has identity, role, permission, and bootstrap event
 # rows.  These tables represent user-created work; any row makes the hosted
 # target non-empty and therefore ineligible for overwrite.
@@ -189,6 +204,8 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "path_targets",
     "project_capabilities",
     "project_github_repo_bindings",
+    "project_onboarding_checklist_rows",
+    "project_onboarding_runs",
     "session_tool_calls",
     "shepherd_verdicts",
     "sites",
@@ -856,6 +873,32 @@ def _restore_target_sequences(conn: object) -> set[str]:
     }
 
 
+def _compatible_restore_columns(
+    table: str,
+    archive_columns: Sequence[str],
+    target_columns: Sequence[str],
+) -> tuple[str, ...]:
+    """Map one known historical COPY shape onto the trusted target table."""
+    mapped = tuple(
+        _ARCHIVE_COLUMN_RENAMES.get((table, column), column)
+        for column in archive_columns
+    )
+    target = set(target_columns)
+    if len(mapped) != len(set(mapped)):
+        raise ArchiveInvalidError(
+            f"the universe archive COPY columns are invalid for {table}"
+        )
+    unknown = set(mapped) - target
+    missing = target - set(mapped)
+    omittable = _ARCHIVE_OMITTABLE_TARGET_COLUMNS.get(table, frozenset())
+    if unknown or not missing.issubset(omittable):
+        raise ArchiveCompatibilityError(
+            f"the universe archive COPY columns are not compatible with {table}"
+            f" (missing={sorted(missing)}, unknown={sorted(unknown)})"
+        )
+    return mapped
+
+
 def _consume_restore_bytes(
     consumed: int,
     chunk: bytes,
@@ -917,19 +960,29 @@ def _apply_restore_stream(
     target_columns = _restore_target_columns(conn)
     target_sequences = _restore_target_sequences(conn)
     expected_tables = set(target_columns)
-    if allowed_tables != expected_tables:
+    missing_tables = expected_tables - allowed_tables
+    extra_tables = allowed_tables - expected_tables
+    if (
+        not missing_tables.issubset(_ARCHIVE_OMITTABLE_TARGET_TABLES)
+        or extra_tables
+    ):
         raise ArchiveCompatibilityError(
             "the universe archive TABLE DATA catalog does not match the"
             " deployed schema"
-            f" (missing={sorted(expected_tables - allowed_tables)},"
-            f" extra={sorted(allowed_tables - expected_tables)})"
+            f" (missing={sorted(missing_tables)},"
+            f" extra={sorted(extra_tables)})"
         )
-    if allowed_sequences != target_sequences:
+    missing_sequences = target_sequences - allowed_sequences
+    extra_sequences = allowed_sequences - target_sequences
+    if (
+        not missing_sequences.issubset(_ARCHIVE_OMITTABLE_TARGET_SEQUENCES)
+        or extra_sequences
+    ):
         raise ArchiveCompatibilityError(
             "the universe archive SEQUENCE SET catalog does not match the"
             " deployed schema"
-            f" (missing={sorted(target_sequences - allowed_sequences)},"
-            f" extra={sorted(allowed_sequences - target_sequences)})"
+            f" (missing={sorted(missing_sequences)},"
+            f" extra={sorted(extra_sequences)})"
         )
     observed_tables: set[str] = set()
     observed_sequences: set[str] = set()
@@ -966,7 +1019,7 @@ def _apply_restore_stream(
         if copy_match is not None:
             schema_name = _unquote_identifier(copy_match.group("schema"))
             table_name = _unquote_identifier(copy_match.group("table"))
-            columns = [
+            archive_columns = [
                 _unquote_identifier(value)
                 for value in copy_match.group("columns").split(", ")
             ]
@@ -979,14 +1032,15 @@ def _apply_restore_stream(
                     f"the universe archive repeats TABLE DATA for {table_name}"
                 )
             known_columns = target_columns.get(table_name)
-            if (
-                known_columns is None
-                or len(columns) != len(set(columns))
-                or tuple(columns) != known_columns
-            ):
+            if known_columns is None:
                 raise ArchiveInvalidError(
                     f"the universe archive COPY columns are invalid for {table_name}"
                 )
+            columns = _compatible_restore_columns(
+                table_name,
+                archive_columns,
+                known_columns,
+            )
             statement = sql.SQL("COPY {}.{} ({}) FROM STDIN").format(
                 sql.Identifier("public"),
                 sql.Identifier(table_name),

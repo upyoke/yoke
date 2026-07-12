@@ -241,6 +241,41 @@ def test_restore_loader_discards_compatibility_preamble_and_uses_copy_api():
     assert conn.setvals == [("public.sample_id_seq", 1, True)]
 
 
+def test_restore_loader_accepts_catalog_columns_in_archive_order():
+    conn = _apply_sample_restore(
+        b"COPY public.sample (body, id) FROM stdin;\n"
+        b"trusted body\t1\n"
+        b"\\.\n"
+        b"SELECT pg_catalog.setval('public.sample_id_seq', 1, true);\n"
+    )
+    assert conn.copy_sink.body == b"trusted body\t1\n"
+    assert "body" in str(conn.copy_statement)
+    assert "id" in str(conn.copy_statement)
+
+
+def test_restore_column_compatibility_is_explicit_and_fail_closed():
+    assert portability._compatible_restore_columns(
+        "sample", ("body", "id"), ("id", "body")
+    ) == ("body", "id")
+    assert portability._compatible_restore_columns(
+        "qa_artifacts",
+        ("id", "storage_path"),
+        ("id", "artifact_handle"),
+    ) == ("id", "artifact_handle")
+    assert portability._compatible_restore_columns(
+        "project_github_repo_bindings",
+        ("project_id",),
+        ("project_id", "last_sync_at", "last_sync_outcome", "last_sync_error"),
+    ) == ("project_id",)
+
+    with pytest.raises(portability.ArchiveCompatibilityError, match="unknown"):
+        portability._compatible_restore_columns(
+            "sample", ("id", "surprise"), ("id", "body")
+        )
+    with pytest.raises(portability.ArchiveCompatibilityError, match="missing"):
+        portability._compatible_restore_columns("sample", ("id",), ("id", "body"))
+
+
 @pytest.mark.parametrize(
     "injected",
     (b"COMMIT;\n", b"ALTER DATABASE postgres RENAME TO stolen;\n", b"\\! id\n"),
@@ -262,6 +297,11 @@ def test_restore_loader_rejects_catalog_mismatch_and_expansion():
         _apply_sample_restore(
             b"-- no sequence data\n",
             allowed_sequences=set(),
+        )
+    with pytest.raises(portability.ArchiveCompatibilityError, match="extra"):
+        _apply_sample_restore(
+            b"-- no table data\n",
+            allowed_tables={"sample", "surprise"},
         )
     with pytest.raises(portability.ArchiveTooLargeError):
         _apply_sample_restore(
@@ -292,7 +332,7 @@ def test_restore_loader_rejects_catalog_mismatch_and_expansion():
     ),
 )
 def test_restore_loader_rejects_incomplete_or_injected_copy(body, match):
-    with pytest.raises(portability.ArchiveInvalidError, match=match):
+    with pytest.raises(portability.UniversePortabilityError, match=match):
         _apply_sample_restore(body)
 
 
@@ -439,6 +479,102 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
             pg_testdb.drop_test_database(target_db)
 
 
+def test_restore_converges_known_older_schema_without_losing_data(tmp_path):
+    from runtime.api.fixtures import pg_testdb
+
+    with _canonical_test_universe() as (source, source_dsn):
+        with _canonical_test_universe() as (reference, _reference_dsn):
+            expected_fp = fingerprint_kind("postgres", reference)
+
+        source.execute(
+            "INSERT INTO projects (id, slug, name, public_item_prefix, created_at)"
+            " VALUES (88101, 'portable-old', 'Portable Old', 'OLD', now())"
+        )
+        source.execute(
+            "INSERT INTO github_app_installations "
+            "(installation_id, account_id, account_login, account_type, "
+            "repository_selection, permissions, status, created_at, updated_at) "
+            "VALUES ('88102', '88103', 'example-org', 'Organization', "
+            "'selected', '{}', 'active', 'then', 'then')"
+        )
+        source.execute(
+            "INSERT INTO project_github_repo_bindings "
+            "(project_id, installation_id, repository_id, github_repo, status, "
+            "permissions, created_at, updated_at) "
+            "VALUES (88101, '88102', '88104', 'example-org/portable-old', "
+            "'active', '{}', 'then', 'then')"
+        )
+        source.execute(
+            "INSERT INTO project_onboarding_runs "
+            "(run_id, schema_version, project_id, branch, status, metadata_json, "
+            "created_at, updated_at) VALUES "
+            "('portable-run', 1, 88101, 'local-checkout', 'open', '{}', "
+            "'then', 'then')"
+        )
+        source.execute(
+            "INSERT INTO project_onboarding_checklist_rows "
+            "(run_id, row_id, step, title, layer, owner, status, evidence_json, "
+            "updated_at) VALUES "
+            "('portable-run', 'machine-profile', 'machine-profile', "
+            "'Machine profile', 'machine', 'operator', 'verified', '{}', 'then')"
+        )
+        source.execute(
+            "INSERT INTO qa_artifacts "
+            "(id, qa_run_id, artifact_type, content_type, artifact_handle, "
+            "metadata, created_at) VALUES "
+            "(88105, NULL, 'screenshot', 'image/png', "
+            "'artifact://legacy', '{}', 'then')"
+        )
+        source.execute("DROP TABLE designs")
+        source.execute(
+            "ALTER TABLE project_github_repo_bindings DROP COLUMN last_sync_at"
+        )
+        source.execute(
+            "ALTER TABLE project_github_repo_bindings DROP COLUMN last_sync_outcome"
+        )
+        source.execute(
+            "ALTER TABLE project_github_repo_bindings DROP COLUMN last_sync_error"
+        )
+        source.execute(
+            "ALTER TABLE qa_artifacts RENAME COLUMN artifact_handle TO storage_path"
+        )
+        source.commit()
+
+        archive = tmp_path / "known-older-schema.dump"
+        portability.dump_universe(source_dsn, archive)
+        target_db = pg_testdb.create_test_database()
+        target_dsn = pg_testdb.dsn_for_test_database(target_db)
+        try:
+            portability.restore_universe(archive, target_dsn)
+            result = portability.converge_and_validate_restored_universe(
+                target_dsn,
+                expected_org_slug="default",
+                expected_schema_fingerprint=expected_fp,
+            )
+            assert result["org"] == "default"
+            with psycopg.connect(target_dsn) as target:
+                assert target.execute(
+                    "SELECT COUNT(*) FROM designs"
+                ).fetchone() == (0,)
+                assert target.execute(
+                    "SELECT artifact_handle FROM qa_artifacts WHERE id = 88105"
+                ).fetchone() == ("artifact://legacy",)
+                assert target.execute(
+                    "SELECT last_sync_at, last_sync_outcome, last_sync_error "
+                    "FROM project_github_repo_bindings WHERE project_id = 88101"
+                ).fetchone() == (None, None, None)
+                assert target.execute(
+                    "SELECT COUNT(*) FROM project_onboarding_runs "
+                    "WHERE run_id = 'portable-run'"
+                ).fetchone() == (1,)
+                assert target.execute(
+                    "SELECT status FROM project_onboarding_checklist_rows "
+                    "WHERE run_id = 'portable-run' AND row_id = 'machine-profile'"
+                ).fetchone() == ("verified",)
+        finally:
+            pg_testdb.drop_test_database(target_db)
+
+
 def test_schema_fingerprint_and_org_identity_fail_closed(tmp_path):
     from runtime.api.fixtures import pg_testdb
     from yoke_core.domain import db_backend
@@ -515,6 +651,16 @@ def test_user_content_counts_detects_nonempty_universe():
         conn.commit()
         counts = portability.user_content_counts(conn)
         assert counts["ouroboros_entries"] == 1
+
+        conn.execute(
+            "INSERT INTO project_onboarding_runs "
+            "(run_id, schema_version, branch, status, metadata_json, created_at, "
+            "updated_at) VALUES "
+            "('content-run', 1, 'local-checkout', 'open', '{}', 'now', 'now')"
+        )
+        conn.commit()
+        counts = portability.user_content_counts(conn)
+        assert counts["project_onboarding_runs"] == 1
 
         conn.execute("CREATE TABLE future_content (id integer primary key)")
         conn.execute("INSERT INTO future_content (id) VALUES (1)")

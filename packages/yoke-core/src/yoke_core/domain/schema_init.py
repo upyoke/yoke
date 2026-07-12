@@ -8,6 +8,9 @@ from yoke_core.domain.external_identity_schema import create_external_identity_t
 from yoke_core.domain.flow_init import create_or_replace_item_progress_view
 from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.org_schema import seed_default_org
+from yoke_core.domain.project_onboarding_runs import (
+    create_project_onboarding_tables,
+)
 from yoke_core.domain.schema_common import _connect_raw
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
@@ -62,6 +65,7 @@ def converge_core_schema(conn) -> None:
     create_auth_tables(conn)
     create_external_identity_tables(conn)
     create_github_app_tables(conn)
+    create_project_onboarding_tables(conn)
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant
     # the strategy domain owns.
