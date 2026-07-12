@@ -11,7 +11,7 @@ On the server host (needs Docker with the compose plugin):
 
 ```bash
 # 1. Install the CLI (also how engineer machines install it later).
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 
 # 2. Materialize the compose bundle. Writes docker-compose.yml, .env,
 #    and generated database credentials as owner-only secret files —
@@ -69,7 +69,7 @@ Each engineer runs the same installer, then attaches to your server
 with a token you mint for them:
 
 ```bash
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 yoke connect https://yoke.internal --token-stdin
 yoke status
 ```

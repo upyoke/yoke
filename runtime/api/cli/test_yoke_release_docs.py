@@ -11,7 +11,7 @@ CANONICAL_BUILD_COMMAND = "uv run python -m yoke_core.tools.build_release"
 # Canonical user-facing install surfaces. The bare flow is the curl installer;
 # the manual/advanced equivalent is the explicit uv invocation taught
 # identically everywhere it appears.
-CANONICAL_INSTALL_CURL = "curl -fsSL https://api.upyoke.com/install | bash"
+CANONICAL_INSTALL_CURL = "curl -fsSL https://upyoke.com/install | sh"
 CANONICAL_UV_INSTALL = (
     "uv tool install yoke-cli==<version> --python '>=3.10' --reinstall "
     "--with yoke-contracts==<version> --with yoke-harness==<version> "

@@ -45,7 +45,7 @@ single uv invocation: uv provisions a managed Python, resolves dependencies,
 and links `yoke` onto PATH. It auto-launches `yoke onboard` when interactive.
 
 ```bash
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 yoke --version
 ```
 

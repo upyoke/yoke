@@ -10,7 +10,7 @@ Yoke installs as lockstep packaged wheels (`yoke-cli`, `yoke-contracts`,
 `yoke-harness`, `yoke-core`) via the public installer:
 
 ```bash
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 ```
 
 Install, upgrade, and onboarding details live in

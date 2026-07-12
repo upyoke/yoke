@@ -90,7 +90,7 @@ dependencies, and links `yoke` onto PATH — you are never asked to bring your
 own Python.
 
 ```bash
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 yoke onboard
 yoke status
 ```
