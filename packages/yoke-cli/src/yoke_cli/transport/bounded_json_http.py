@@ -251,7 +251,7 @@ def _response_headers(response: Any) -> Mapping[str, str]:
     if not callable(items):
         return {}
     try:
-        return {str(key): str(value) for key, value in items()}
+        return {str(key).casefold(): str(value) for key, value in items()}
     except (TypeError, ValueError):
         return {}
 

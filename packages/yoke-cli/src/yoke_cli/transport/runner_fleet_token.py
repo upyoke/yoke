@@ -79,7 +79,7 @@ def fetch_runner_fleet_token(
         raise TransportError(
             f"runner-fleet token broker returned an invalid response: {exc}"
         ) from None
-    cache_control = str(response.headers.get("Cache-Control") or "")
+    cache_control = str(response.headers.get("cache-control") or "")
     if "no-store" not in cache_control.lower():
         raise TransportError(
             "runner-fleet token broker response is not marked no-store"

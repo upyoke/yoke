@@ -229,6 +229,20 @@ def test_injected_opener_redirect_result_is_rejected_before_body_read() -> None:
     assert response.closed is True
 
 
+def test_response_header_names_are_case_insensitive() -> None:
+    response = transport.request_json(
+        _request(),
+        timeout_seconds=1.0,
+        replay_safe=True,
+        opener=lambda *_args, **_kwargs: _Response(
+            b"{}",
+            headers={"cAcHe-CoNtRoL": "no-store"},
+        ),
+    )
+
+    assert response.headers["cache-control"] == "no-store"
+
+
 @pytest.mark.parametrize(
     "module_name",
     [
