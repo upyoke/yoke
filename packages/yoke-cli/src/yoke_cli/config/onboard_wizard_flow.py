@@ -477,9 +477,9 @@ class WizardFlow(
         if not self.result.project_github_repo:
             self._goto_board_art_intro()
             return
-        # The connected-repo row only makes sense once the machine has a GitHub
-        # App authorization. Without one, drop it so the picker never offers a
-        # route that cannot bind a repository.
+        if self._route_future_project_github_binding():
+            return
+        # Existing-repo rows require a connected machine App authorization.
         if github_connected(self.result):
             rows = steps.PROJECT_GITHUB_ROWS
         else:

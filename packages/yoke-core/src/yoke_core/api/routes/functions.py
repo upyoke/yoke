@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
 from yoke_core.api.http_auth import (
+    HttpAuthContext,
     bind_actor_from_auth,
     record_function_authz,
     require_auth_context,
@@ -34,10 +35,12 @@ from yoke_core.domain.yoke_function_permissions import (
     dispatch_permission_for_request,
 )
 from yoke_core.domain.yoke_function_registry import (
+    RegistryEntry,
     list_entries,
     lookup,
     schema_for,
 )
+from yoke_core.domain.api_tokens import INITIAL_ADMIN_TOKEN_NAME
 
 
 router = APIRouter()
@@ -66,7 +69,6 @@ _ERROR_TO_STATUS: Dict[str, int] = {
     "handler_contract": 500,
     "handler_exception": 500,
     # Per-handler validation/gate codes raised by registered handlers.
-    "invalid_payload": 422,
     "validation_error": 422,
     "unsupported_field": 422,
     "lifecycle_gate_unmet": 422,
@@ -78,7 +80,6 @@ _ERROR_TO_STATUS: Dict[str, int] = {
     "sql_write_refused": 422,
     "sql_ddl_refused": 422,
     "sql_execution_failed": 422,
-    "target_not_found": 404,
 }
 
 
@@ -102,6 +103,12 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
     still operate on the caller's harness session.
     """
     auth = require_auth_context(request)
+    entry = lookup(str(envelope.get("function") or ""))
+    service_denial = _service_token_guard_response(envelope, entry, auth)
+    if service_denial is not None:
+        body = service_denial.model_dump()
+        _record_service_token_denial(request, auth, service_denial)
+        return JSONResponse(content=body, status_code=_status_for_response(body))
     bound_envelope, ambient = bind_actor_from_auth(envelope, auth)
     _record_pre_dispatch_authz(request, bound_envelope, auth)
     # Pass "" (never None) when the envelope carries no session: the
@@ -113,6 +120,50 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
         response = _exception_response(bound_envelope, exc)
     body = response.model_dump()
     return JSONResponse(content=body, status_code=_status_for_response(body))
+
+
+def _service_token_guard_response(
+    envelope: Dict[str, Any],
+    entry: RegistryEntry | None,
+    auth: HttpAuthContext,
+) -> FunctionCallResponse | None:
+    """Deny service-only functions unless the bootstrap service token called."""
+    if entry is None or "service_token_required" not in entry.guardrails:
+        return None
+    if auth.token_name == INITIAL_ADMIN_TOKEN_NAME:
+        return None
+    request_id = envelope.get("request_id")
+    return FunctionCallResponse(
+        success=False,
+        function=entry.function_id,
+        version=str(envelope.get("version") or "v1"),
+        request_id=str(request_id) if request_id is not None else None,
+        error=FunctionError(
+            code="permission_denied",
+            message=(
+                f"function {entry.function_id!r} requires the hosted service token"
+            ),
+        ),
+    )
+
+
+def _record_service_token_denial(
+    request: Request,
+    auth: HttpAuthContext,
+    response: FunctionCallResponse,
+) -> None:
+    try:
+        record_function_authz(
+            request,
+            auth,
+            function_id=response.function,
+            request_id=response.request_id,
+            project_id=None,
+            permission_key="service_token_required",
+            outcome="denied",
+        )
+    except Exception:
+        return
 
 
 def _exception_response(

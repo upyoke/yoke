@@ -83,7 +83,6 @@ def test_local_checkout_offers_publish_and_creates_request(monkeypatch) -> None:
             await pilot.press("enter")  # repo name placeholder -> widget
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -99,6 +98,9 @@ def test_local_checkout_offers_publish_and_creates_request(monkeypatch) -> None:
     assert publish.owner == "octocat"
     assert publish.name == "widget"
     assert publish.private is True
+    assert applied["project_github_adoption"] == "app-binding"
+    assert applied["project_github_repository_id"] is None
+    assert applied["project_github_installation_id"] is None
 
 
 def test_publish_no_keeps_it_local(monkeypatch) -> None:
@@ -146,7 +148,6 @@ def test_owner_picker_routes_org_with_user_login() -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -163,6 +164,9 @@ def test_owner_picker_routes_org_with_user_login() -> None:
     # which stays octocat even when an org owner is chosen.
     assert publish.user_login == "octocat"
     assert applied["project_github_repo"] == "acme-inc/thing"
+    assert applied["project_github_adoption"] == "app-binding"
+    assert applied["project_github_repository_id"] is None
+    assert applied["project_github_installation_id"] is None
 
 
 def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:

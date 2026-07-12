@@ -50,7 +50,10 @@ def record_selected_repository_identity(
 ) -> None:
     """Carry an explicit existing-repository selection through final binding."""
 
-    if publish is not None and not publish.create_repository:
+    if publish is not None and publish.create_repository:
+        repository_id = None
+        installation_id = None
+    elif publish is not None:
         repository_id = publish.repository_id
         installation_id = publish.installation_id
     if repository_id is None and installation_id is None:

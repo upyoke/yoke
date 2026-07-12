@@ -25,7 +25,7 @@ Any other string raises :class:`RegistryValidationError` at import time.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
@@ -34,7 +34,9 @@ from yoke_contracts.api.function_call import validate_function_id
 
 
 _STABILITY_VALUES = frozenset({"stable", "beta", "deprecated", "internal"})
-_ADAPTER_STATUS_VALUES = frozenset({"live", "deprecated", "retired"})
+_ADAPTER_STATUS_VALUES = frozenset(
+    {"live", "deprecated", "retired", "internal"}
+)
 _CLAIM_REQUIRED_KIND_VALUES: Tuple[Optional[str], ...] = (
     None,
     "item",

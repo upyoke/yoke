@@ -293,6 +293,7 @@ class CloneFlow(CloneSourceFlow):
         if choice == clone_support.CLONE_OUTCOME_MAKE_IT_MINE:
             self._goto_new_repo_visibility()
             return
+        steps.reset_project_publish_fields(self.result)
         self._goto_slug()
 
     def _goto_new_repo_visibility(self: _Shell) -> None:
@@ -330,9 +331,8 @@ class CloneFlow(CloneSourceFlow):
             == clone_support.CLONE_OUTCOME_MAKE_IT_MINE
         ):
             if not github_connected(self.result):
-                self.result.project_clone_outcome = (
-                    clone_support.CLONE_OUTCOME_JUST_CLONE
-                )
+                self.result.project_clone_outcome = clone_support.CLONE_OUTCOME_JUST_CLONE
+                steps.reset_project_publish_fields(self.result)
                 self._after_repo("")
                 return
             self.result.project_publish_to_github = True

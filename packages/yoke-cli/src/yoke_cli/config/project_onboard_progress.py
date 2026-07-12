@@ -225,8 +225,15 @@ def record_mutated_repository(
     local_connection_selected: bool = False,
 ) -> None:
     """Update binding intent and refresh App discovery after a repo write."""
+    prior_repo = str(github_adoption.get("github_repo") or "")
+    target_changed = prior_repo.casefold() != github_repo.casefold()
     github_adoption["github_repo"] = github_repo
     binding = dict(github_adoption.get("binding") or {})
+    if target_changed:
+        github_adoption.pop("repository_id", None)
+        github_adoption.pop("installation_id", None)
+        binding.pop("repository_id", None)
+        binding.pop("installation_id", None)
     binding["repo"] = github_repo
     github_adoption["binding"] = binding
     if github_adoption.get("choice") != GITHUB_ADOPTION_APP_BINDING:

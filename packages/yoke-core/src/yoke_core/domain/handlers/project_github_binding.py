@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, SecretStr, StrictBool, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -31,6 +31,17 @@ class ProjectGithubBindingUnbindRequest(BaseModel):
 
 class ProjectGithubBindingStatusRequest(BaseModel):
     project: str
+
+
+class ProjectGithubBindingLifecycleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: str
+    installation_id: str
+    repository_id: str
+    installation_status: Literal["active", "pending", "suspended", "deleted"]
+    repository_available: StrictBool
+    permissions: Optional[Dict[str, str]] = None
 
 
 class ProjectGithubBindingStatusResponse(BaseModel):
@@ -131,6 +142,40 @@ def handle_project_github_binding_status(
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 
+def handle_project_github_binding_lifecycle(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    try:
+        parsed = ProjectGithubBindingLifecycleRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _payload_invalid(exc)
+
+    from yoke_core.domain.project_github_binding_lifecycle import (
+        ProjectGithubBindingLifecycleError,
+        cmd_apply_project_github_binding_lifecycle,
+    )
+
+    try:
+        result = cmd_apply_project_github_binding_lifecycle(
+            parsed.project,
+            installation_id=parsed.installation_id,
+            repository_id=parsed.repository_id,
+            installation_status=parsed.installation_status,
+            repository_available=parsed.repository_available,
+            permissions=parsed.permissions,
+        )
+    except (LookupError, ProjectGithubBindingLifecycleError, ValueError) as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message=str(exc),
+                jsonpath="$.payload",
+            ),
+        )
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
 def _payload_invalid(exc: ValidationError) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -144,10 +189,12 @@ def _payload_invalid(exc: ValidationError) -> HandlerOutcome:
 
 __all__ = [
     "ProjectGithubBindingBindRequest",
+    "ProjectGithubBindingLifecycleRequest",
     "ProjectGithubBindingStatusRequest",
     "ProjectGithubBindingStatusResponse",
     "ProjectGithubBindingUnbindRequest",
     "handle_project_github_binding_bind",
+    "handle_project_github_binding_lifecycle",
     "handle_project_github_binding_status",
     "handle_project_github_binding_unbind",
 ]

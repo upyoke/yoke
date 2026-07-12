@@ -19,12 +19,20 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any, Dict, List, Sequence
 
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
 )
 from yoke_core.tools.atlas_integrity_audit import build_report
+from yoke_core.tools.atlas_render_docs_sections import (
+    _render_contradictions,
+    _render_curl_floor,
+    _render_field_notes,
+    _render_next_slice,
+    _render_teaching,
+)
+from yoke_core.tools.atlas_render_docs_tables import _md_table
 
 
 _ATLAS_RELPATH = "docs/atlas.md"
@@ -42,17 +50,19 @@ _FIELD_NOTE_SECTION_RE = re.compile(
 _FIELD_NOTE_PLACEHOLDER = "## 6. Field-note hotspots\n\n_<live DB section, stripped for diff>_\n\n"
 
 
-from yoke_core.tools.atlas_render_docs_tables import (  # noqa: F401
-    _escape_cell,
-    _md_table,
-)
-
-
 def _render_summary(report: Dict[str, Any]) -> List[str]:
     s = report["summary"]
     tracker = s["operation_tracker"]
     out = ["## 1. Summary", ""]
     out.append(f"- Function ids registered: **{s['function_ids']}**")
+    internal = report["function_registry"]["by_adapter_status"].get(
+        "internal", 0,
+    )
+    if internal:
+        out.append(
+            "- Internal dispatch-only functions without CLI adapters: "
+            f"**{internal}**"
+        )
     out.append(
         f"- `yoke` CLI subcommands: **{s['yoke_cli_subcommands']}** "
         f"({s['subcommand_help_coverage']['with_usable_help']} carry usable "
@@ -148,15 +158,6 @@ def _render_pending_roster(report: Dict[str, Any]) -> List[str]:
     ))
     out.append("")
     return out
-
-
-from yoke_core.tools.atlas_render_docs_sections import (  # noqa: F401
-    _render_contradictions,
-    _render_curl_floor,
-    _render_field_notes,
-    _render_next_slice,
-    _render_teaching,
-)
 
 
 def _header(report: Dict[str, Any]) -> List[str]:

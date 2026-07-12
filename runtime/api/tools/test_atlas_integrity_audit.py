@@ -116,6 +116,7 @@ class TestFieldNoteCollection:
         assert result["rows"] == [{"id": 1, "agent": "tester"}]
         assert seen["function_id"] == "ouroboros.field_note.list"
         assert seen["target"].kind == "global"
+        assert seen["target"].project_id == "yoke"
         assert seen["payload"] == {
             "category_prefix": "field-note-",
             "limit": 50,

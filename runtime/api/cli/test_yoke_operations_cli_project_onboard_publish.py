@@ -156,6 +156,8 @@ def test_fresh_create_refreshes_app_access_before_binding(
     kwargs.update({
         "github_repo": "octocat/widget",
         "github_adoption_choice": "app-binding",
+        "github_repository_id": 999,
+        "github_installation_id": 999,
     })
 
     project_onboard.create_project(publish=_publish(), **kwargs)
