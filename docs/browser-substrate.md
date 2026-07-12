@@ -213,7 +213,7 @@ Remote worker config is stored in `project_capabilities` with `type='remote-brow
 1. Verify remote host is reachable via SSH
 2. Start daemon on remote host (`node src/daemon.js`)
 3. Create SSH tunnel (`ssh -L localPort:127.0.0.1:remotePort`)
-4. Write local state file pointing to `http://localhost:{localPort}`
+4. Write local state file pointing to `http://127.0.0.1:{localPort}`
 5. All `yoke_core.domain.browser_client` snapshot and exec commands work transparently
 
 ## QA Artifact Integration

@@ -11,9 +11,13 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
-from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    request_json,
+)
+from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_harness import browser_runtime_home
 from yoke_harness.browser_linux_deps import (
     amazon_linux_chromium_deps_command,
@@ -98,11 +102,21 @@ def daemon_request(
         method="POST",
     )
     try:
-        with urlopen(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8")
-            return json.loads(raw) if raw.strip() else {}
-    except (URLError, json.JSONDecodeError, OSError) as exc:
-        raise RuntimeError(f"daemon request failed: {exc}") from exc
+        response = request_json(
+            request,
+            timeout_seconds=timeout,
+            replay_safe=False,
+            allow_loopback_http=True,
+            response_limit_bytes=DEFAULT_JSON_RESPONSE_LIMIT_BYTES,
+            sensitive_values=(selected.token,),
+            opener=urlopen,
+        )
+    except BoundedJsonHttpError as exc:
+        raise RuntimeError(f"daemon request failed: {exc}") from None
+    payload = response.payload if response.payload is not None else {}
+    if not isinstance(payload, dict):
+        raise RuntimeError("daemon request failed: response is not a JSON object")
+    return payload
 
 
 def daemon_status() -> Dict[str, Any]:

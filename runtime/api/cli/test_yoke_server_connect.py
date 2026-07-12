@@ -149,6 +149,20 @@ def test_connect_rejects_non_http_scheme(
     assert not (machine_home / "config.json").exists()
 
 
+def test_connect_rejects_non_loopback_plain_http(
+    monkeypatch, machine_home, token_stdin, capsys,
+):
+    calls = _stub_http(monkeypatch)
+
+    assert commands.connect(
+        ["http://yoke.internal", "--token-stdin"]
+    ) == 1
+
+    assert "numeric loopback" in capsys.readouterr().err
+    assert calls == []
+    assert not (machine_home / "config.json").exists()
+
+
 def test_connect_token_file_source(monkeypatch, machine_home, tmp_path, capsys):
     _stub_http(monkeypatch)
     token_file = tmp_path / "pasted-token"

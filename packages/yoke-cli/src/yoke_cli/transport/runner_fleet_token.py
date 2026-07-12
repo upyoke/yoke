@@ -3,39 +3,30 @@
 from __future__ import annotations
 
 import json
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import Request, build_opener
 
 from yoke_cli.api_urls import join_api_url
 from yoke_cli.transport.https import HttpsConnection, TransportError
-from yoke_cli.transport.response_deadline_read import (
-    ResponseReadDeadlineError,
-    ResponseReadError,
-    deadline_after,
-    read_response_body,
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpDeadlineError,
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    request_json,
 )
-from yoke_cli.transport.response_deadline_open import (
-    ResponseOpenDeadlineError,
-    open_caller_owned,
-    open_https_caller_owned,
+from yoke_cli.transport.https_urlopen import NoRedirect
+from yoke_cli.transport.response_limits import (
+    DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS,
+    SMALL_JSON_RESPONSE_LIMIT_BYTES,
 )
 from yoke_contracts.runner_fleet_token import (
     RunnerFleetTokenRequest,
     RunnerFleetTokenResponse,
 )
 
-_MAX_RESPONSE_BYTES = 64 * 1024
-_TIMEOUT_SECONDS = 30.0
+_TIMEOUT_SECONDS = DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS
 
-
-class _NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        del req, fp, code, msg, headers, newurl
-        return None
-
-
-_OPENER = build_opener(_NoRedirect())
+_OPENER = build_opener(NoRedirect())
 _DEFAULT_OPENER = _OPENER
 
 
@@ -47,12 +38,6 @@ def fetch_runner_fleet_token(
     timeout_seconds: float = _TIMEOUT_SECONDS,
 ) -> str:
     """Fetch one token without following redirects or exposing error bodies."""
-    try:
-        deadline = deadline_after(timeout_seconds)
-    except ValueError as exc:
-        raise TransportError(
-            "runner-fleet token broker timeout must be positive and finite"
-        ) from exc
     try:
         intent = json.loads(authority_intent)
         digest = str(intent.get("sha256") or "")
@@ -73,51 +58,34 @@ def fetch_runner_fleet_token(
         },
     )
     try:
-        if _OPENER is _DEFAULT_OPENER:
-            opened = open_https_caller_owned(
-                request,
-                deadline=deadline,
-                handlers=(_NoRedirect(),),
-            )
-        else:
-            opened = open_caller_owned(
-                request,
-                opener=_OPENER.open,
-                deadline=deadline,
-            )
-        with opened as response:
-            cache_control = str(response.headers.get("Cache-Control") or "")
-            if "no-store" not in cache_control.lower():
-                raise TransportError(
-                    "runner-fleet token broker response is not marked no-store"
-                )
-            raw = read_response_body(
-                response,
-                limit_bytes=_MAX_RESPONSE_BYTES,
-                deadline=deadline,
-            )
-    except ResponseReadDeadlineError:
+        response = request_json(
+            request,
+            timeout_seconds=timeout_seconds,
+            replay_safe=False,
+            allow_loopback_http=True,
+            response_limit_bytes=SMALL_JSON_RESPONSE_LIMIT_BYTES,
+            sensitive_values=(connection.token,),
+            opener=None if _OPENER is _DEFAULT_OPENER else _OPENER.open,
+        )
+    except BoundedJsonHttpStatusError as exc:
+        raise TransportError(
+            f"runner-fleet token broker returned HTTP {exc.status}"
+        ) from None
+    except BoundedJsonHttpDeadlineError:
         raise TransportError(
             "runner-fleet token broker response exceeded the time limit"
         ) from None
-    except ResponseOpenDeadlineError:
+    except BoundedJsonHttpError as exc:
         raise TransportError(
-            "runner-fleet token broker response exceeded the time limit"
+            f"runner-fleet token broker returned an invalid response: {exc}"
         ) from None
-    except ResponseReadError:
+    cache_control = str(response.headers.get("Cache-Control") or "")
+    if "no-store" not in cache_control.lower():
         raise TransportError(
-            "runner-fleet token broker returned an invalid response"
-        ) from None
-    except HTTPError as exc:
-        raise TransportError(
-            f"runner-fleet token broker returned HTTP {exc.code}"
-        ) from None
-    except (URLError, TimeoutError, OSError) as exc:
-        raise TransportError("runner-fleet token broker is unreachable") from exc
-    if len(raw) > _MAX_RESPONSE_BYTES:
-        raise TransportError("runner-fleet token broker response is too large")
+            "runner-fleet token broker response is not marked no-store"
+        )
     try:
-        grant = RunnerFleetTokenResponse.model_validate_json(raw)
+        grant = RunnerFleetTokenResponse.model_validate(response.payload)
     except ValueError as exc:
         raise TransportError(
             "runner-fleet token broker returned an invalid response"

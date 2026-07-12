@@ -12,6 +12,7 @@ from yoke_cli.transport.response_deadline_read import (
     ResponseReadError,
     read_response_body,
 )
+from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -19,7 +20,7 @@ from yoke_contracts.api.function_call import (
 )
 
 
-FUNCTION_RESPONSE_LIMIT_BYTES = 4 * 1024 * 1024
+FUNCTION_RESPONSE_LIMIT_BYTES = DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 REDACTED = "<redacted>"
 
 _SENSITIVE_KEY_WORDS = frozenset(

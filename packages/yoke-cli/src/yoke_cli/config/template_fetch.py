@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
-import json
 import os
-import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from yoke_cli.transport.https import TransportError, resolve_https_connection
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    error_detail,
+    request_json,
+    safe_diagnostic_text,
+)
+from yoke_cli.transport.response_limits import (
+    BUNDLE_JSON_RESPONSE_LIMIT_BYTES,
+    DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS,
+)
 from yoke_contracts.api_urls import join_api_url
 from yoke_contracts.template_bundle import (
     TEMPLATE_BUNDLE_SCHEMA,
@@ -21,7 +30,7 @@ from yoke_contracts.template_bundle import (
     TEMPLATES_API_PATH,
 )
 
-_FETCH_TIMEOUT_S = 30.0
+_FETCH_TIMEOUT_S = DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS
 
 
 class TemplateFetchError(RuntimeError):
@@ -158,44 +167,43 @@ def _fetch_json_https(
         url, headers={"Authorization": f"Bearer {connection.token}"}
     )
     try:
-        with urllib.request.urlopen(request, timeout=_FETCH_TIMEOUT_S) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = _http_error_detail(exc)
-        if exc.code == 404 and template is not None:
+        response = request_json(
+            request,
+            timeout_seconds=_FETCH_TIMEOUT_S,
+            replay_safe=True,
+            allow_loopback_http=True,
+            response_limit_bytes=BUNDLE_JSON_RESPONSE_LIMIT_BYTES,
+            sensitive_values=(connection.token,),
+            opener=urllib.request.urlopen,
+        )
+    except BoundedJsonHttpStatusError as exc:
+        detail = error_detail(exc.payload)
+        safe_url = safe_diagnostic_text(url, sensitive_values=(connection.token,))
+        if exc.status == 404 and template is not None:
             raise TemplateFetchError(
                 f"template {template!r} is unknown to the active env "
-                f"({url} returned 404); list the served templates with "
+                f"({safe_url} returned 404); list the served templates with "
                 "`yoke templates list`"
-            ) from exc
-        if exc.code == 403 and detail:
+            ) from None
+        if exc.status == 403 and detail:
             raise TemplateFetchError(detail) from exc
         raise TemplateFetchError(
-            f"{url} returned HTTP {exc.code}; verify the active env and "
+            f"{safe_url} returned HTTP {exc.status}; verify the active env and "
             "credential with `yoke status`"
-        ) from exc
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        ) from None
+    except BoundedJsonHttpError as exc:
         raise TemplateFetchError(
-            f"could not fetch {url}: {exc}; verify the active env with "
+            "could not fetch "
+            f"{safe_diagnostic_text(url, sensitive_values=(connection.token,))}: "
+            f"{exc}; verify the active env with "
             "`yoke status`"
-        ) from exc
+        ) from None
+    payload = response.payload
     if not isinstance(payload, dict):
-        raise TemplateFetchError(f"{url} returned a non-object body")
+        raise TemplateFetchError(
+            f"{safe_diagnostic_text(url)} returned a non-object body"
+        )
     return payload
-
-
-def _http_error_detail(exc: urllib.error.HTTPError) -> str:
-    try:
-        payload = json.loads(exc.read().decode("utf-8"))
-    except (OSError, ValueError, UnicodeDecodeError):
-        return ""
-    if not isinstance(payload, dict):
-        return ""
-    error = payload.get("error")
-    if isinstance(error, dict):
-        message = error.get("message")
-        return str(message) if message else ""
-    return ""
 
 
 def _validate_bundle(bundle: Dict[str, Any]) -> None:

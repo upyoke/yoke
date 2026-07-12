@@ -53,6 +53,9 @@ class _SlowTrickleResponse:
     def close(self) -> None:
         return None
 
+    def geturl(self) -> str:
+        return "https://api.upyoke.com/v1/projects/platform/runner-fleet-token"
+
     def read(self, _size: int = -1) -> bytes:
         raise AssertionError("network responses must use incremental reads")
 

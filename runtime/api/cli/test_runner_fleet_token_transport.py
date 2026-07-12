@@ -24,6 +24,9 @@ class _Response:
     def read(self, size):
         return self.payload[:size]
 
+    def geturl(self):
+        return "https://api.upyoke.com/v1/projects/platform/runner-fleet-token"
+
 
 class _Opener:
     def __init__(self, response):
