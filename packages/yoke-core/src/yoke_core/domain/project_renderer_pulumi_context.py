@@ -52,6 +52,9 @@ def _pulumi_context_from_settings(settings) -> Dict[str, object]:
     data["vpsInstanceType"] = server.get("instance_type", "")
     data["vpsRootVolumeGb"] = server.get("root_volume_gb", "")
     data["vpsSshKeyName"] = server.get("aws_key_pair_name", "")
+    data["vpsIamInstanceProfileName"] = server.get(
+        "iam_instance_profile_name", ""
+    )
     data["kmsKeyAlias"] = state.get("kms_key_alias", "")
     data["stateBucket"] = state.get("state_bucket", "")
     return data
