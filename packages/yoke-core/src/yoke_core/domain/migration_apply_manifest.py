@@ -63,6 +63,55 @@ class ResolvedMigrationInput:
     attestation_raw: Any
 
 
+def validate_manifest_payload(
+    payload: Any,
+) -> tuple[str, Mapping[str, Any], Mapping[str, Any]]:
+    """Validate the DB-independent theorem carried by a manifest payload.
+
+    Source-checkout execution adds project lookup, checkout authority, tracked
+    file, and exact-commit checks.  Hosted engine fleets reuse this pure layer
+    before applying the same packaged migration module to a tenant database;
+    their fleet control plane is intentionally not the tenant target.
+    """
+
+    if not isinstance(payload, dict):
+        raise MigrationManifestError("migration manifest root must be an object")
+    unknown = set(payload) - _TOP_LEVEL_KEYS
+    missing = _TOP_LEVEL_KEYS - set(payload)
+    if unknown or missing:
+        raise MigrationManifestError(
+            f"migration manifest keys invalid; missing={sorted(missing)} "
+            f"unknown={sorted(unknown)}"
+        )
+    if payload.get("version") != MANIFEST_VERSION:
+        raise MigrationManifestError(
+            f"migration manifest version must be {MANIFEST_VERSION}"
+        )
+
+    project = payload.get("project")
+    if not isinstance(project, str) or not project.strip():
+        raise MigrationManifestError("migration manifest project must be non-empty")
+    project = project.strip()
+    try:
+        profile = validate_profile(payload.get("profile"))
+        attestation = validate_attestation(payload.get("attestation"))
+    except ValueError as exc:
+        raise MigrationManifestError(f"migration manifest theorem invalid: {exc}") from exc
+    if profile.get("state") != STATE_DECLARED:
+        raise MigrationManifestError("migration manifest profile must be declared")
+    if profile.get("mutation_intent") != MUTATION_INTENT_APPLY:
+        raise MigrationManifestError("migration manifest profile intent must be apply")
+    missing_attestations = sorted(
+        field for field in AUTHORED_FIELDS if not attestation.get(field)
+    )
+    if missing_attestations:
+        raise MigrationManifestError(
+            "migration manifest attestation has empty authored fields: "
+            + ", ".join(missing_attestations)
+        )
+    return project, profile, attestation
+
+
 def resolve_runner_input(
     control_conn: Any,
     *,
@@ -124,24 +173,7 @@ def resolve_manifest_subject(
         payload = json_helper.load_path(resolved)
     except (OSError, ValueError) as exc:
         raise MigrationManifestError(f"cannot parse migration manifest: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise MigrationManifestError("migration manifest root must be an object")
-    unknown = set(payload) - _TOP_LEVEL_KEYS
-    missing = _TOP_LEVEL_KEYS - set(payload)
-    if unknown or missing:
-        raise MigrationManifestError(
-            f"migration manifest keys invalid; missing={sorted(missing)} "
-            f"unknown={sorted(unknown)}"
-        )
-    if payload.get("version") != MANIFEST_VERSION:
-        raise MigrationManifestError(
-            f"migration manifest version must be {MANIFEST_VERSION}"
-        )
-
-    project = payload.get("project")
-    if not isinstance(project, str) or not project.strip():
-        raise MigrationManifestError("migration manifest project must be non-empty")
-    project = project.strip()
+    project, profile, attestation = validate_manifest_payload(payload)
     try:
         project_id = resolve_project_id(control_conn, project)
     except LookupError as exc:
@@ -149,24 +181,6 @@ def resolve_manifest_subject(
             f"migration manifest project is unknown: {project!r}"
         ) from exc
     _require_registered_checkout(control_conn, root, project)
-
-    try:
-        profile = validate_profile(payload.get("profile"))
-        attestation = validate_attestation(payload.get("attestation"))
-    except ValueError as exc:
-        raise MigrationManifestError(f"migration manifest theorem invalid: {exc}") from exc
-    if profile.get("state") != STATE_DECLARED:
-        raise MigrationManifestError("migration manifest profile must be declared")
-    if profile.get("mutation_intent") != MUTATION_INTENT_APPLY:
-        raise MigrationManifestError("migration manifest profile intent must be apply")
-    missing_attestations = sorted(
-        field for field in AUTHORED_FIELDS if not attestation.get(field)
-    )
-    if missing_attestations:
-        raise MigrationManifestError(
-            "migration manifest attestation has empty authored fields: "
-            + ", ".join(missing_attestations)
-        )
 
     capability = _resolve_capability_settings(control_conn, project)
     try:
@@ -345,4 +359,5 @@ __all__ = [
     "assert_rehearsal_subject_consistent",
     "resolve_manifest_subject",
     "resolve_runner_input",
+    "validate_manifest_payload",
 ]

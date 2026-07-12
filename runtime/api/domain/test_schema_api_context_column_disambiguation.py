@@ -54,3 +54,11 @@ def test_qa_requirements_note_names_qa_kind_not_kind() -> None:
     body = sac.render_topic_packet("qa")
     assert "discriminator is `qa_kind`" in body
     assert "no `requirement_type` column" in body
+
+
+def test_migration_audit_note_names_live_columns_for_observed_wrong_guesses() -> None:
+    """Every observed raw-SELECT miss points directly to the live column."""
+    body = sac.render_topic_packet("project")
+    assert "wrong guess `migration_id` means `migration_name`" in body
+    assert "wrong guess `failure` means `failure_reason`" in body
+    assert "wrong guess `source_description` means `description`" in body
