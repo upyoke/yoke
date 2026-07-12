@@ -236,6 +236,22 @@ def test_machine_github_connect_uses_browser_app_flow() -> None:
             await pilot.press("enter")  # machine github: connect
             await app.workers.wait_for_complete()
             await pilot.pause()
+            text = _body_text(app)
+            assert "GitHub connected." in text
+            assert "GitHub username: machine-user" in text
+            assert "Installed for: machine-user (selected repositories), octo-org (all repositories)" in text
+            assert "Repositories available: 2" in text
+            assert "yoke github disconnect" in text
+            assert app.query_one(Stepper).active == STEP_GITHUB
+            await pilot.press("escape")
+            await pilot.pause()
+            assert "Connect GitHub" in _body_text(app)
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert "GitHub connected." in _body_text(app)
+            await pilot.press("enter")
+            await pilot.pause()
             assert app.query_one(Stepper).active == STEP_PROJECT
             assert app.result.machine_github_choice == "connect"
             assert app.result.machine_github_verification["ok"] is True
@@ -277,6 +293,10 @@ def test_stored_github_app_authorization_is_rechecked(tmp_path) -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert "GitHub connected." in _body_text(app)
+            assert app.query_one(Stepper).active == STEP_GITHUB
+            await pilot.press("enter")
             await pilot.pause()
             assert app.query_one(Stepper).active == STEP_PROJECT
             assert app.result.machine_github_verification["ok"] is True

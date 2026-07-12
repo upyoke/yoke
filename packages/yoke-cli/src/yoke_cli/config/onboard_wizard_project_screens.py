@@ -219,13 +219,7 @@ def repo_picker_body(repos: list) -> list[Static]:
     return selection_body(
         "Which private repo?",
         "Private repos available through GitHub authorization.",
-        [
-            *repo_rows(repos),
-            SelectionRow(
-                "paste-private", "Paste another private repo URL",
-                "use connected GitHub authorization",
-            ),
-        ],
+        repo_rows(repos),
     )
 
 

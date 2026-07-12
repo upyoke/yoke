@@ -2,8 +2,8 @@
 
 The clone-outcome screen drops the "Fork it" row for non-github remotes and for
 any remote when no token is connected (fork parses the source host and
-authenticates the fork API call). An empty private-repo list routes to the
-paste-URL input rather than a dead-end. ``build_report`` is spied at the wizard
+authenticates the fork API call). An empty private-repo list routes to App-access
+recovery without accepting an unusable URL. ``build_report`` is spied at the wizard
 boundary and the owner list is stubbed, so no scenario hits GitHub or git.
 """
 
@@ -58,6 +58,8 @@ async def _connect_machine_github_auth(app, pilot) -> None:
     await advance_past_path(pilot)
     await pilot.press("enter")  # machine github: connect account default
     await app.workers.wait_for_complete()
+    await pilot.pause()
+    await pilot.press("enter")  # confirm connected identity and App access
     await pilot.pause()
 
 
@@ -228,8 +230,8 @@ def test_clone_outcome_body_threads_has_token_flag() -> None:
     assert "Fork it" not in text
 
 
-def test_empty_private_repo_picker_falls_back_to_paste_url(monkeypatch) -> None:
-    """An empty private-repo list routes to the paste-URL input, not a dead-end."""
+def test_empty_private_repo_picker_requires_app_access(monkeypatch) -> None:
+    """An empty private list offers App access recovery, never URL paste."""
     monkeypatch.setattr(
         onboard_wizard_flow_clone, "fetch_private_repos",
         lambda api_url, token, **_kwargs: [],
@@ -241,13 +243,17 @@ def test_empty_private_repo_picker_falls_back_to_paste_url(monkeypatch) -> None:
             await _connect_machine_github_auth(app, pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("down")   # visibility: move to Private
-            await pilot.press("enter")  # -> empty picker -> paste-URL fallback
+            await pilot.press("enter")
             await pilot.pause()
-            # The paste-URL input screen is shown (it has an Input), not the
-            # dead-end empty SelectionList.
             from textual.widgets import Input
 
-            assert app.query_one("#onboard-input", Input) is not None
+            assert not list(app.query("#onboard-body Input").results(Input))
+            selection = app.query_one(
+                "#onboard-body SelectionList", SelectionList,
+            )
+            assert [row.value for row in selection.rows] == [
+                "manage", "check", "back",
+            ]
 
     asyncio.run(scenario())
 

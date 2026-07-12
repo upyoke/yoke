@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Protocol
+import webbrowser
 
 from yoke_contracts import github_origin
 from yoke_contracts.github_app_installation_permissions import ACCESS_WRITE
@@ -68,15 +69,9 @@ class CloneFlow(CloneSourceFlow):
         onboard_wizard_clone_visibility.route_visibility(self, choice)
 
     def _goto_clone_url_input(self: _Shell) -> None:
-        private = bool(self.result.project_clone_requires_machine_github)
         self._goto_input(
             STEP_PROJECT, "Clone a project from GitHub.",
-            (
-                "Paste the private repo's git URL — Yoke checks it with your "
-                "connected GitHub authorization."
-                if private else
-                "Paste the public repo's git URL — Yoke checks it anonymously."
-            ),
+            "Paste the public repo's git URL — Yoke checks it anonymously.",
             placeholder=f"{github_state.clone_web_url(self.result)}/acme/project.git",
             on_done=self._after_remote,
             allow_placeholder=False,
@@ -110,11 +105,7 @@ class CloneFlow(CloneSourceFlow):
         from yoke_cli.config.onboard_wizard_app import _View
 
         if not repos:
-            # No private repos are reachable: the picker would be an empty
-            # SelectionList whose Enter no-ops (action_choose guards on its rows),
-            # and the screen has no input — a dead-end. Fall back to pasting the
-            # URL, mirroring the no-authorization and public branches.
-            self._goto_clone_url_input()
+            self._goto_private_repo_empty()
             return
         self._goto(_View(
             STEP_PROJECT,
@@ -123,10 +114,39 @@ class CloneFlow(CloneSourceFlow):
         ))
 
     def _on_private_repo_pick(self: _Shell, choice: str) -> None:
-        if choice == "paste-private":
-            self._goto_clone_url_input()
-            return
         self._after_remote(choice)
+
+    def _goto_private_repo_empty(self: _Shell) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        access_url = github_state.repository_access_url(self.result)
+        self._goto(_View(
+            STEP_PROJECT,
+            lambda: steps.verification_body(
+                "No private repositories are available to Yoke.",
+                "The connected GitHub App cannot currently access a private repo.",
+                [
+                    "Choose private repositories in the App installation, then "
+                    "return here and check again.",
+                    f"GitHub App access URL: {access_url}",
+                ],
+                steps.PRIVATE_REPO_EMPTY_ROWS,
+                ok=False,
+            ),
+            self._on_private_repo_empty,
+        ))
+
+    def _on_private_repo_empty(self: _Shell, choice: str) -> None:
+        if choice == "manage":
+            try:
+                webbrowser.open(github_state.repository_access_url(self.result))
+            except Exception:
+                pass
+            return
+        if choice == "check":
+            self._goto_private_repo_picker(replace_current=True)
+            return
+        asyncio.ensure_future(self.action_back())
 
     def _goto_private_repo_picker_error(self: _Shell, exc: BaseException) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
