@@ -84,7 +84,7 @@ def _picker_defaults(**overrides) -> WizardDefaults:
     return WizardDefaults(**kwargs)
 
 
-def test_picker_opens_account_step_with_hosted_preselected() -> None:
+def test_picker_opens_account_step_with_local_preselected() -> None:
     app, _spy = make_app(_picker_defaults())
 
     async def scenario() -> None:
@@ -93,7 +93,7 @@ def test_picker_opens_account_step_with_hosted_preselected() -> None:
             text = _body_text(app)
             assert "Where should this Yoke live?" in text
             assert app.query_one(SelectionList).selected_value == (
-                DESTINATION_HOSTED
+                DESTINATION_LOCAL
             )
 
     asyncio.run(scenario())
@@ -105,7 +105,6 @@ def test_local_pick_swaps_sign_in_for_universe_summary() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # picker: wrap hosted -> This machine
             await pilot.press("enter")
             text = _body_text(app)
             assert "Your Yoke lives on this machine." in text
@@ -140,7 +139,6 @@ def test_local_pick_names_existing_universe_on_rerun(tmp_path: Path) -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # picker: wrap hosted -> This machine
             await pilot.press("enter")
             text = _body_text(app)
             assert "Your Yoke lives on this machine." in text
@@ -157,7 +155,7 @@ def test_server_pick_collects_url_then_token() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up")     # picker: hosted -> A team server
+            await pilot.press("down")   # picker: local -> A team server
             await pilot.press("enter")
             assert "Enter your Yoke server URL." in _body_text(app)
             await type_text(pilot, "https://yoke.acme.test")
@@ -176,7 +174,8 @@ def test_hosted_pick_shows_hosted_environments_only() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("enter")  # picker: upyoke.com (default)
+            await pilot.press("up")     # picker: wrap local -> upyoke.com
+            await pilot.press("enter")
             text = _body_text(app)
             assert "Which hosted environment should this machine use?" in text
             rows = app.query_one(SelectionList).rows
@@ -239,13 +238,13 @@ def test_back_from_local_summary_repicks_cleanly() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # picker -> This machine
             await pilot.press("enter")
             await pilot.press("escape")  # back to the picker
             await pilot.pause()
             assert "Where should this Yoke live?" in _body_text(app)
             assert app.query_one(Stepper).account_label == STEP_CONNECT_LABEL
-            await pilot.press("enter")  # repick: upyoke.com default
+            await pilot.press("up")     # repick: wrap local -> upyoke.com
+            await pilot.press("enter")
             await pilot.pause()
             # The local detour left no residue: hosted collects env + token.
             assert app.result.env_name != local_universe_setup.LOCAL_ENV
@@ -260,7 +259,6 @@ def test_local_flow_applies_local_destination_field_set() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # picker -> This machine
             await pilot.press("enter")
             await pilot.press("enter")  # universe summary: Continue
             await pilot.press("down")   # github: Skip for now
@@ -309,7 +307,6 @@ def test_wizard_local_apply_lands_config_like_yoke_init_local(
         async with app.run_test() as pilot:
             await pilot.pause()
             await pilot.press("enter")  # PATH all clear: continue
-            await pilot.press("down")   # picker -> This machine
             await pilot.press("enter")
             await pilot.press("enter")  # universe summary: Continue
             await pilot.press("down")   # github: Skip for now

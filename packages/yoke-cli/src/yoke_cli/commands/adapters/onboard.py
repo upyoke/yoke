@@ -172,7 +172,7 @@ def onboard(args: List[str]) -> int:
     # The legacy flag lane (--api-url without --local/--connect) reaches
     # here with no resolved destination; the URL itself names one. Deriving
     # it keeps the report and resume snapshot truthful — a resumed run must
-    # preset the server lane for a team-server URL, not the hosted default.
+    # preset the server lane for a team-server URL, not the local default.
     if destination is None and parsed.api_url:
         destination = onboard_destinations.destination_for_api_url(
             parsed.api_url

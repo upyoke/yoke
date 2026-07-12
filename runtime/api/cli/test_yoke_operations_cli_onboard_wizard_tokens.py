@@ -263,7 +263,7 @@ def test_stored_github_app_authorization_is_rechecked(tmp_path) -> None:
     asyncio.run(scenario())
 
 
-def test_hosted_pick_defaults_to_production_url() -> None:
+def test_hosted_pick_uses_the_production_url() -> None:
     app, _spy = make_app(WizardDefaults(
         config_path="/tmp/cfg.json", env_name="prod", token="actor-token",
     ))
@@ -271,7 +271,8 @@ def test_hosted_pick_defaults_to_production_url() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("enter")  # destination picker: upyoke.com default
+            await pilot.press("up")  # destination picker: wrap local -> upyoke.com
+            await pilot.press("enter")
             await pilot.press("enter")  # env select: Production default
             await pilot.pause()
             assert app.result.api_url == "https://api.upyoke.com"
