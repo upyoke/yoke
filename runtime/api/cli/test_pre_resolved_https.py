@@ -111,6 +111,26 @@ def test_https_proxy_transport_is_explicitly_refused(monkeypatch) -> None:
         )
 
 
+def test_https_handler_avoids_removed_check_hostname_state(monkeypatch) -> None:
+    handler = connection_module.PreResolvedHTTPSHandler(
+        address_book={}, deadline=10.0, clock=lambda: 0.0,
+    )
+    seen = {}
+
+    def do_open(connection, request, **kwargs):
+        seen.update(connection=connection, request=request, kwargs=kwargs)
+        return "opened"
+
+    monkeypatch.setattr(handler, "do_open", do_open)
+    request = urllib.request.Request(
+        "https://api.upyoke.com/v1/functions/call",
+    )
+
+    assert handler.https_open(request) == "opened"
+    assert seen["request"] is request
+    assert seen["kwargs"] == {"context": handler._context}
+
+
 class _ConnectSocket:
     def __init__(self, clock: _MutableClock, *, advance: float = 0.0) -> None:
         self.clock = clock
