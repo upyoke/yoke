@@ -12,6 +12,7 @@ from yoke_cli.transport.https_urlopen import NoRedirect, open_no_redirect
 from yoke_cli.transport.response_deadline_open import (
     open_caller_owned,
     open_https_caller_owned,
+    open_loopback_http_caller_owned,
     open_replay_safe,
 )
 
@@ -76,10 +77,10 @@ def open_bounded_request(
             opener=_LOOPBACK_OPENER.open,
             deadline=deadline,
         )
-    return open_caller_owned(
+    return open_loopback_http_caller_owned(
         request,
-        opener=_LOOPBACK_OPENER.open,
         deadline=deadline,
+        handlers=(urllib.request.ProxyHandler({}), NoRedirect()),
     )
 
 

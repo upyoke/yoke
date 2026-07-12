@@ -1,4 +1,4 @@
-"""Pre-resolved HTTPS connections with deadline-aware TLS and headers."""
+"""Pre-resolved HTTP connections with deadline-aware TLS and headers."""
 
 from __future__ import annotations
 
@@ -44,6 +44,67 @@ class PreResolvedHTTPSHandler(urllib.request.HTTPSHandler):
             request,
             context=self._context,
             check_hostname=self._check_hostname,
+        )
+
+
+class PreResolvedHTTPHandler(urllib.request.HTTPHandler):
+    """Plain-HTTP handler for an already validated numeric loopback target."""
+
+    def __init__(
+        self,
+        *,
+        address_book: dict[tuple[str, int], list[tuple[Any, ...]]],
+        deadline: float,
+        clock: Callable[[], float],
+    ) -> None:
+        super().__init__()
+        self._address_book = address_book
+        self._deadline = deadline
+        self._clock = clock
+
+    def http_open(self, request):
+        connection = functools.partial(
+            _PreResolvedHTTPConnection,
+            address_book=self._address_book,
+            deadline=self._deadline,
+            clock=self._clock,
+        )
+        return self.do_open(connection, request)
+
+
+class _PreResolvedHTTPConnection(http.client.HTTPConnection):
+    def __init__(
+        self,
+        host: str,
+        *,
+        address_book: dict[tuple[str, int], list[tuple[Any, ...]]],
+        deadline: float,
+        clock: Callable[[], float],
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(host, **kwargs)
+        self._address_book = address_book
+        self._deadline = deadline
+        self._deadline_clock = clock
+        self._create_connection = self._create_pre_resolved_connection
+        self.response_class = functools.partial(
+            _DeadlineHTTPResponse,
+            deadline=deadline,
+            clock=clock,
+        )
+
+    def _create_pre_resolved_connection(
+        self,
+        address: tuple[str, int],
+        _timeout: Any = socket._GLOBAL_DEFAULT_TIMEOUT,
+        source_address: tuple[str, int] | None = None,
+    ) -> socket.socket:
+        return _create_pre_resolved_connection(
+            address,
+            address_book=self._address_book,
+            deadline=self._deadline,
+            clock=self._deadline_clock,
+            source_address=source_address,
         )
 
 
@@ -116,30 +177,47 @@ class _PreResolvedHTTPSConnection(http.client.HTTPSConnection):
         _timeout: Any = socket._GLOBAL_DEFAULT_TIMEOUT,
         source_address: tuple[str, int] | None = None,
     ) -> socket.socket:
-        key = (_host_key(address[0]), int(address[1]))
-        addresses = self._address_book.get(key)
-        if not addresses:
-            raise ResponseOpenError(
-                "HTTPS connection target was not resolved by the deadline preflight"
-            )
-        last_error: OSError | None = None
-        for family, socktype, proto, _canonname, sockaddr in addresses:
-            sock: socket.socket | None = None
-            try:
-                sock = socket.socket(family, socktype, proto)
-                sock.settimeout(_remaining(self._deadline, self._deadline_clock))
-                if source_address:
-                    sock.bind(source_address)
-                sock.connect(sockaddr)
-                _remaining(self._deadline, self._deadline_clock)
-                return sock
-            except OSError as exc:
-                last_error = exc
-                if sock is not None:
-                    sock.close()
-        if last_error is not None:
-            raise last_error
-        raise ResponseOpenError("HTTPS resolver returned no usable addresses")
+        return _create_pre_resolved_connection(
+            address,
+            address_book=self._address_book,
+            deadline=self._deadline,
+            clock=self._deadline_clock,
+            source_address=source_address,
+        )
+
+
+def _create_pre_resolved_connection(
+    address: tuple[str, int],
+    *,
+    address_book: dict[tuple[str, int], list[tuple[Any, ...]]],
+    deadline: float,
+    clock: Callable[[], float],
+    source_address: tuple[str, int] | None,
+) -> socket.socket:
+    key = (_host_key(address[0]), int(address[1]))
+    addresses = address_book.get(key)
+    if not addresses:
+        raise ResponseOpenError(
+            "HTTP connection target was not resolved by the deadline preflight"
+        )
+    last_error: OSError | None = None
+    for family, socktype, proto, _canonname, sockaddr in addresses:
+        sock: socket.socket | None = None
+        try:
+            sock = socket.socket(family, socktype, proto)
+            sock.settimeout(_remaining(deadline, clock))
+            if source_address:
+                sock.bind(source_address)
+            sock.connect(sockaddr)
+            _remaining(deadline, clock)
+            return sock
+        except OSError as exc:
+            last_error = exc
+            if sock is not None:
+                sock.close()
+    if last_error is not None:
+        raise last_error
+    raise ResponseOpenError("HTTP resolver returned no usable addresses")
 
 
 class _DeadlineHTTPResponse(http.client.HTTPResponse):
@@ -256,4 +334,4 @@ def _remaining(deadline: float, clock: Callable[[], float]) -> float:
     return remaining
 
 
-__all__ = ["PreResolvedHTTPSHandler"]
+__all__ = ["PreResolvedHTTPHandler", "PreResolvedHTTPSHandler"]
