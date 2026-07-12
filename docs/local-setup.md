@@ -167,44 +167,19 @@ diagnostic to run after setup or when a project command cannot resolve context.
 
 ### 4. Optional Machine GitHub Connection
 
-Connect the Yoke GitHub App only when this machine should run GitHub product
-commands such as repository checks or product onboarding previews.
-
-For a local Yoke universe, the release already contains the non-secret public
-identity of the baseline **Yoke by upyoke.com** App. The default command needs no
-App fields: it opens GitHub's device-authorization flow, then discovers the App
-installations and repositories the signed-in user can reach. Install or grant
-the App access to the intended account and repositories when GitHub asks.
+Connect the Yoke GitHub App when this machine should run GitHub product
+commands. Local Yoke bundles the public identity of **Yoke by upyoke.com**, so
+the default command opens device authorization and discovers accessible App
+installations and repositories without App flags.
 
 ```bash
 yoke github connect
 yoke github status
 ```
 
-An operator intentionally using a different App for a local universe must pass
-one complete five-field public profile; partial profiles fail closed. These
-override flags are local-only. An HTTPS team server or hosted connection must
-publish its own complete profile through service health; ambient App metadata
-is ignored.
-
-```bash
-yoke github connect \
-  --client-id <client-id> \
-  --app-slug <app-slug> \
-  --app-id <numeric-app-id> \
-  --api-url https://api.github.com \
-  --web-url https://github.com
-```
-
-Use `--replace` as an explicit acknowledgement when switching an existing
-machine authorization to a different profile. The commands store an owner-only
-refresh credential reference, never a private key, client secret, manual token,
-or access token. Runtime authority comes from a separately verified installed-
-App repository binding. See [GitHub App Operations](github-app-operations.md)
-for registration, installation scope, server-side key custody, rotation, and
-incident response when operating a separate App or service.
-
-Administration is intentionally outside the baseline App grant. Repository creation, environment configuration, branch protection, and runner administration are skipped with an actionable GitHub settings link; enable any additional permission in the App registration and approve it on each affected installation before retrying that operation.
+Machine authorization, App installation, and project binding are separate.
+[GitHub Connection Layers](github-connections.md) explains their storage,
+permissions, local overrides, and disconnect/unbind/revoke operations.
 
 ### 5. Set Up a Project
 

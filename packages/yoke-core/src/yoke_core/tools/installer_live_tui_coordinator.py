@@ -44,7 +44,7 @@ PATH_HEALTH_CONNECT_EXPECTED_TEXT = (
     "This machine",
     "upyoke.com",
 )
-GITHUB_APP_SCENARIO_ID_STOP = 53
+GITHUB_APP_SCENARIO_ID_STOP = 54
 
 
 KNOWN_RECIPE_IDS = {
@@ -130,7 +130,6 @@ KNOWN_RECIPE_IDS = {
     "PUBLISH-010",
     "PUBLISH-011",
     "PUBLISH-012",
-    "PUBLISH-013",
     "APPLY-001",
     "APPLY-002",
     "APPLY-003",
@@ -172,7 +171,7 @@ MANUAL_GITHUB_APP_RECIPE_IDS = {
     ),
     "PROJECT-SOURCE-006",
     "PROJECT-META-008",
-    *(f"PUBLISH-{number:03d}" for number in range(2, 14)),
+    *(f"PUBLISH-{number:03d}" for number in range(2, 13)),
     "APPLY-005",
     "APPLY-008",
     "STATE-002",

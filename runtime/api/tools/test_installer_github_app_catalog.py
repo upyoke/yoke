@@ -12,7 +12,7 @@ from yoke_core.tools import installer_live_tui_coordinator as coordinator
 ROOT = Path(__file__).resolve().parents[3]
 MAIN_CATALOG = ROOT / "docs" / "INSTALLER-TESTING.md"
 GITHUB_CATALOG = ROOT / "docs" / catalog.GITHUB_APP_CATALOG_NAME
-GITHUB_IDS = tuple(f"GITHUB-{number:03d}" for number in range(1, 53))
+GITHUB_IDS = tuple(f"GITHUB-{number:03d}" for number in range(1, 54))
 
 
 def test_main_catalog_composes_canonical_github_companion() -> None:
@@ -82,5 +82,5 @@ def test_github_app_catalog_rows_remain_operator_attended(tmp_path: Path) -> Non
 def test_live_guide_does_not_claim_manual_rows_are_automated() -> None:
     normalized = " ".join(GITHUB_CATALOG.read_text(encoding="utf-8").split())
 
-    assert "`GITHUB-002` through `GITHUB-052`" in normalized
+    assert "`GITHUB-002` through `GITHUB-053`" in normalized
     assert "A blocked recipe stub is not a pass" in normalized

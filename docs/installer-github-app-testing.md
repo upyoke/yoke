@@ -61,9 +61,10 @@ assignments, then rejects duplicate ids across both documents.
 | `GITHUB-050` | `prepared-git` | Finish ordinary private clone, existing-checkout, and publish flows, then run Git after the wizard and after a Yoke upgrade | The clean HTTPS remote has an exact Yoke-owned URL-scoped helper; plain fetch/pull and push dry-run authenticate without reconnecting; no access token is stored in the remote, Git config, report, or helper bundle |
 | `GITHUB-051` | `prepared-stored-state` | Re-onboard an existing checkout with a GitHub origin against both an active-bound project and an existing backlog-only project | Detected repo/remote identity survives the existing-remote path; active binding and sync are preserved without a false backlog-only report; the unbound project offers an explicit verified bind-or-preserve choice and a requested bind is not skipped merely because the project or remote already exists |
 | `GITHUB-052` | `fault-injection` | Use two supported config paths sharing one machine secret root; interrupt connect/replacement/disconnect at credential write, config CAS, quarantine, and restore boundaries | One config never deletes or quarantines the other's live or recovery credential; each pending transaction has exact config ownership; crash recovery removes only proven orphans and leaves no unreferenced long-lived refresh credential |
+| `GITHUB-053` | `prepared-git` | Unbind and rebind one project's repository while machine authorization and the App installation remain | Unbind deletes only that project's binding and GitHub capability, clears its repo projection, and sets backlog-only; the machine authorization, App installation, and other project bindings remain; selecting and verifying the exact repository again restores an active binding before sync can be enabled |
 
 Only `GITHUB-001` and `PUBLISH-001` currently have deterministic coordinator
-recipes. `GITHUB-002` through `GITHUB-052`, `PUBLISH-002` through `PUBLISH-013`,
+recipes. `GITHUB-002` through `GITHUB-053`, `PUBLISH-002` through `PUBLISH-012`,
 `PROJECT-SOURCE-006`, `PROJECT-META-008`, `APPLY-005`, `APPLY-008`, `STATE-002`,
 and `STATE-007` require an operator-attended run against a real GitHub App. A
 blocked recipe stub is not a pass and must not be reported as automated proof.
@@ -74,7 +75,7 @@ and a secret scan for every manual result.
 
 - `GITHUB-001` proves only the backlog-only branch. It says nothing about
   browser authorization, App installation, or repository automation.
-- `GITHUB-002` through `GITHUB-016`, plus `GITHUB-020` through `GITHUB-052`,
+- `GITHUB-002` through `GITHUB-016`, plus `GITHUB-020` through `GITHUB-053`,
   require both screen evidence and post-apply
   machine/control-plane state. A green screen without the expected credential,
   installation, or binding state is a failure.
@@ -101,7 +102,7 @@ and a secret scan for every manual result.
 - `GITHUB-040` and `GITHUB-041` require hostile transport/archive fixtures plus
   bounded response and scratch-tree evidence. A generic error without proof of
   every aggregate limit is incomplete.
-- `GITHUB-042` through `GITHUB-052` require before/after filesystem, wizard,
+- `GITHUB-042` through `GITHUB-053` require before/after filesystem, wizard,
   GitHub API, and Git-configuration evidence appropriate to the row. A mocked
   happy path does not prove upgrade ownership, deletion provenance, abandoned-
   path state reset, beyond-first-page reachability, cleanup retry, or live

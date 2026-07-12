@@ -1132,7 +1132,7 @@ def test_seed_known_recipes_keeps_github_publish_recipes_manual(
     recipe_dir.mkdir(parents=True)
     profiles = {
         "PUBLISH-001": "prepared-git",
-        **{f"PUBLISH-{number:03d}": "prepared-git" for number in range(2, 14)},
+        **{f"PUBLISH-{number:03d}": "prepared-git" for number in range(2, 13)},
     }
     profiles["PUBLISH-008"] = "fault-injection"
     for scenario_id, profile in profiles.items():
@@ -1151,10 +1151,10 @@ def test_seed_known_recipes_keeps_github_publish_recipes_manual(
     result = coordinator.seed_known_recipes(campaign_root=campaign_root)
 
     assert result["seeded_count"] == 1
-    assert result["unseeded_count"] == 12
+    assert result["unseeded_count"] == 11
     assert [item["scenario_id"] for item in result["seeded"]] == ["PUBLISH-001"]
     assert {item["scenario_id"] for item in result["unseeded"]} == {
-        f"PUBLISH-{number:03d}" for number in range(2, 14)
+        f"PUBLISH-{number:03d}" for number in range(2, 13)
     }
     assert all(
         "HTTPS device-flow and installation fixture" in item["reason"]
