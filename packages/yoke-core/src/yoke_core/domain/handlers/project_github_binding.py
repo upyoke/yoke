@@ -33,6 +33,16 @@ class ProjectGithubBindingStatusRequest(BaseModel):
     project: str
 
 
+class ProjectGithubBindingLifecycleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: str
+    installation_id: str
+    installation_status: str
+    repository_available: bool
+    permissions: Optional[Dict[str, str]] = None
+
+
 class ProjectGithubBindingStatusResponse(BaseModel):
     project: str
     github_repo: str
@@ -131,6 +141,39 @@ def handle_project_github_binding_status(
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 
+def handle_project_github_binding_lifecycle(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    try:
+        parsed = ProjectGithubBindingLifecycleRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _payload_invalid(exc)
+
+    from yoke_core.domain.project_github_binding import ProjectGithubBindingError
+    from yoke_core.domain.project_github_binding_lifecycle import (
+        cmd_update_project_github_binding_lifecycle,
+    )
+
+    try:
+        result = cmd_update_project_github_binding_lifecycle(
+            project=parsed.project,
+            installation_id=parsed.installation_id,
+            installation_status=parsed.installation_status,
+            repository_available=parsed.repository_available,
+            permissions=parsed.permissions,
+        )
+    except (LookupError, ProjectGithubBindingError, ValueError) as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message=str(exc),
+                jsonpath="$.payload",
+            ),
+        )
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
 def _payload_invalid(exc: ValidationError) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -146,8 +189,10 @@ __all__ = [
     "ProjectGithubBindingBindRequest",
     "ProjectGithubBindingStatusRequest",
     "ProjectGithubBindingStatusResponse",
+    "ProjectGithubBindingLifecycleRequest",
     "ProjectGithubBindingUnbindRequest",
     "handle_project_github_binding_bind",
     "handle_project_github_binding_status",
+    "handle_project_github_binding_lifecycle",
     "handle_project_github_binding_unbind",
 ]

@@ -51,8 +51,10 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             "unavailable binding keeps `projects.github_sync_mode` backlog-only. "
             "The wrong guessed table name `project_github_bindings` does not "
             "exist; use this `_repo_` table. Registered functions are "
-            "`projects.github_binding.bind`, `projects.github_binding.status`, "
-            "and `projects.github_binding.unbind`; sync-mode drift is repaired "
+            "`projects.github_binding.bind`, `projects.github_binding.lifecycle`, "
+            "`projects.github_binding.status`, and "
+            "`projects.github_binding.unbind`; the hosted platform uses the "
+            "lifecycle function only after signature verification. Sync-mode drift is repaired "
             "through `projects.github_sync_mode.repair`."
         ),
     },
