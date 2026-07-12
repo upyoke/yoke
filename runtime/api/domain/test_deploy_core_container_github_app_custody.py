@@ -20,6 +20,7 @@ from yoke_core.domain.deploy_core_container import exec_core_container_deploy
 from yoke_core.domain.deploy_core_container_remote import RemoteConvergenceError
 from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.github_app_origin_key import (
+    GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH,
     converge_from_instance_role,
     verification_and_promotion_command,
     verify_and_promote_in_core_image,
@@ -137,6 +138,20 @@ def test_origin_identity_probe_receives_every_public_identity_field():
     assert "-e YOKE_GITHUB_APP_SLUG=yoke-development" in command
     assert "-e YOKE_GITHUB_APP_ID=123456" in command
     assert "-e YOKE_GITHUB_APP_WEB_URL=https://github.com" in command
+
+
+def test_origin_identity_probe_uses_runtime_secret_mount_path():
+    command = verification_and_promotion_command(
+        _app_environment(),
+        "example/core:image",
+    )
+
+    assert GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH.startswith("/run/secrets/")
+    assert (
+        "-e YOKE_GITHUB_APP_PRIVATE_KEY_FILE="
+        f"{GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH}"
+    ) in command
+    assert f":{GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH}:ro" in command
 
 
 def test_origin_key_convergence_command_is_valid_posix_shell():
