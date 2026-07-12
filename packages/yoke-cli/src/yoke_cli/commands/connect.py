@@ -15,12 +15,14 @@ from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config import secrets as machine_secrets
+from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import server_connect
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
 
 AdapterFn = Callable[[List[str]], int]
 
 CONNECT_USAGE = (
-    "yoke connect URL [--name ENV] (--token-file PATH | --token-stdin) "
+    "yoke connect [URL] [--name ENV] [--token-file PATH | --token-stdin] "
     "[--no-activate] [--config PATH] [--json]"
 )
 
@@ -44,14 +46,23 @@ def connect(args: List[str]) -> int:
             "non-loopback plaintext endpoints are refused."
         ),
     )
-    parser.add_argument("url", help="Server URL, e.g. https://yoke.internal")
+    parser.add_argument(
+        "url",
+        nargs="?",
+        default=None,
+        help=(
+            "Self-hosted server URL when using an explicit token. Omit it for "
+            "ordinary hosted browser sign-in."
+        ),
+    )
     parser.add_argument(
         "--name",
         dest="env",
-        default=server_connect.DEFAULT_ENV_NAME,
+        default=None,
         help=(
-            "Machine-config env label for the connection entry (default "
-            f"{server_connect.DEFAULT_ENV_NAME!r})."
+            "Machine-config env label. Hosted sign-in defaults to the selected "
+            "organization slug; explicit server sign-in defaults to "
+            f"{server_connect.DEFAULT_ENV_NAME!r}."
         ),
     )
     parser.add_argument(
@@ -82,11 +93,23 @@ def connect(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, CONNECT_USAGE)
     if parsed is None:
         return 2
-    if bool(parsed.token_file) == bool(parsed.token_stdin):
+    if parsed.token_file and parsed.token_stdin:
         return usage_error(
-            "exactly one token source is required (--token-file PATH or "
+            "use at most one token source (--token-file PATH or "
             f"--token-stdin): {CONNECT_USAGE}"
         )
+    explicit_token = bool(parsed.token_file or parsed.token_stdin)
+    if explicit_token and not parsed.url:
+        return usage_error(
+            f"a server URL is required with an explicit token: {CONNECT_USAGE}"
+        )
+    if not explicit_token and parsed.url:
+        return usage_error(
+            "omit URL for hosted browser sign-in, or provide --token-file/"
+            f"--token-stdin for a self-hosted server: {CONNECT_USAGE}"
+        )
+    if not explicit_token:
+        return _connect_hosted(parsed)
     try:
         token = (
             machine_secrets.read_secret_file(parsed.token_file, "token")
@@ -100,11 +123,50 @@ def connect(args: List[str]) -> int:
         report = server_connect.connect_server(
             parsed.url,
             token=token,
-            env=parsed.env,
+            env=parsed.env or server_connect.DEFAULT_ENV_NAME,
             activate=not parsed.no_activate,
             config_path=parsed.config_path,
         )
     except server_connect.ServerConnectError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if parsed.json_mode:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        _print_summary(report)
+    return 0
+
+
+def _connect_hosted(parsed: argparse.Namespace) -> int:
+    platform_url = parsed.url or HOSTED_PLATFORM_URL
+
+    def _notify(
+        pending: hosted_machine_authorization.PendingMachineAuthorization,
+        opened: bool,
+    ) -> None:
+        stream = sys.stderr if parsed.json_mode else sys.stdout
+        print(f"Open {pending.verification_uri}", file=stream)
+        print(f"Enter code: {pending.user_code}", file=stream)
+        if not opened:
+            print(f"Browser URL: {pending.verification_uri_complete}", file=stream)
+        print("Waiting for browser approval…", file=stream)
+
+    try:
+        credential = hosted_machine_authorization.authorize(
+            platform_url,
+            notify=_notify,
+        )
+        report = server_connect.connect_server(
+            credential.api_url,
+            token=credential.token,
+            env=parsed.env or credential.org,
+            activate=not parsed.no_activate,
+            config_path=parsed.config_path,
+        )
+    except (
+        hosted_machine_authorization.HostedMachineAuthorizationError,
+        server_connect.ServerConnectError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:

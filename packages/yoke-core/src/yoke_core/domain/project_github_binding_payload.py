@@ -36,9 +36,7 @@ def automation_status(
         return {"available": False, "reason": "repo_not_bound"}
     if installation is None:
         return {"available": False, "reason": "installation_missing"}
-    if str(binding.get("api_url") or "") != str(
-        installation.get("api_url") or ""
-    ):
+    if str(binding.get("api_url") or "") != str(installation.get("api_url") or ""):
         return {"available": False, "reason": "api_origin_mismatch"}
     if installation.get("status") != "active":
         return {
@@ -65,23 +63,15 @@ def permission_status(
         return {
             "status": "unknown",
             "missing": [],
-            "hint": (
-                "Reconnect the GitHub App so Yoke can verify its required "
-                "repository permissions."
-            ),
+            "hint": ("Reconnect the GitHub App so Yoke can verify its required repository permissions."),
         }
     missing: list[str] = []
-    required = (
-        required_permissions
-        or REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
-    )
+    required = required_permissions or REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
     for permission, required_level in required.items():
         actual = _permission_level(permissions.get(permission))
         normalized_required = str(required_level or "").strip().lower()
         if normalized_required not in {ACCESS_READ, ACCESS_WRITE}:
-            raise ValueError(
-                "required GitHub permission levels must be exactly read or write"
-            )
+            raise ValueError("required GitHub permission levels must be exactly read or write")
         required_value = _PERMISSION_LEVELS[normalized_required]
         if actual < required_value:
             missing.append(permission)
@@ -90,10 +80,7 @@ def permission_status(
     return {
         "status": "missing",
         "missing": missing,
-        "hint": (
-            "Grant the GitHub App the required permissions, then retry the "
-            f"binding: {', '.join(missing)}."
-        ),
+        "hint": (f"Grant the GitHub App the required permissions, then retry the binding: {', '.join(missing)}."),
     }
 
 
@@ -111,6 +98,9 @@ def binding_payload(row: Any) -> Optional[dict[str, Any]]:
         "permissions": permissions_dict(row["permissions"]),
         "last_verified_at": str(row["last_verified_at"] or ""),
         "last_error": str(row["last_error"] or ""),
+        "last_sync_at": str(row["last_sync_at"] or ""),
+        "last_sync_outcome": str(row["last_sync_outcome"] or ""),
+        "last_sync_error": str(row["last_sync_error"] or ""),
     }
 
 
@@ -134,11 +124,7 @@ def installation_payload(row: Any) -> Optional[dict[str, Any]]:
 def permissions_text(value: Optional[Mapping[str, Any]]) -> str:
     if value is None:
         return "{}"
-    return json_helper.dumps_compact({
-        str(key): str(raw_value)
-        for key, raw_value in value.items()
-        if str(key).strip()
-    })
+    return json_helper.dumps_compact({str(key): str(raw_value) for key, raw_value in value.items() if str(key).strip()})
 
 
 def permissions_dict(value: Any) -> dict[str, Any]:

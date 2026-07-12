@@ -3,9 +3,9 @@
 A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
 :class:`onboard_wizard_app.OnboardWizardApp`. It owns the sign-in lanes the
 deployment-destination picker (:class:`onboard_wizard_flow_destination.
-DestinationFlow`) routes into: the hosted environment select (Production /
-Stage), then the API token by paste or file reference — the same token lane
-a team-server URL feeds. The local destination has no sign-in and never
+DestinationFlow`) routes into for explicit team-server credentials. Hosted
+browser authorization lives in ``onboard_wizard_flow_hosted_machine``. The
+local destination has no sign-in and never
 reaches this mixin. Each handler records one answer onto ``self.result``
 and routes onward via the shell primitives; the GitHub → Project → Finish
 progression continues in :class:`WizardFlow` from ``_goto_machine_github``.
@@ -15,33 +15,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
-from yoke_contracts.api_urls import HOSTED_PROD_URL, HOSTED_STAGE_URL
-
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import yoke_token_verify
-from yoke_cli.config.onboard_destinations import ENV_PRODUCTION, ENV_STAGE
 from yoke_cli.config.onboard_wizard_palette import BRAND
-from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT, SelectionRow
-
-# Hosted environment choices for the upyoke.com lane. Each row pins both the
-# env id and its hosted API URL; team servers and the local universe route
-# through the destination picker, never through this select. The env id is
-# the row value so the handler sets ``api_url`` and ``env_name`` from one
-# pick. Production is the default selection (first row).
-_ENV_API_URLS = {
-    ENV_PRODUCTION: HOSTED_PROD_URL,
-    ENV_STAGE: HOSTED_STAGE_URL,
-}
-
-
-def _display_host(url: str) -> str:
-    return url.removeprefix("https://")
-
-
-ENV_SELECT_ROWS = [
-    SelectionRow(ENV_PRODUCTION, "Production", _display_host(HOSTED_PROD_URL)),
-    SelectionRow(ENV_STAGE, "Stage", _display_host(HOSTED_STAGE_URL)),
-]
+from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
+from yoke_cli.config.onboard_wizard_flow_hosted_machine import HostedMachineConnectFlow
 
 
 def verify_yoke_token(api_url: str, token: str) -> dict[str, Any]:
@@ -71,20 +49,6 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
 
 
 class ConnectFlow:
-    # ── hosted destination: environment, then token ─────────
-
-    def _goto_hosted_env_select(self: _Shell) -> None:
-        self._goto(self._selection_view(
-            STEP_CONNECT, f"Connect to {BRAND}.",
-            "Which hosted environment should this machine use?",
-            ENV_SELECT_ROWS, self._after_env_select,
-        ))
-
-    def _after_env_select(self: _Shell, choice: str) -> None:
-        self.result.env_name = choice
-        self.result.api_url = _ENV_API_URLS[choice]
-        self._goto_token_source()
-
     def _after_api_url(self: _Shell, value: str) -> None:
         self.result.api_url = value
         self._goto_token_source()
@@ -264,4 +228,8 @@ class ConnectFlow:
             self._goto_token_source()
 
 
-__all__ = ["ConnectFlow", "ENV_SELECT_ROWS", "verify_yoke_token"]
+__all__ = [
+    "ConnectFlow",
+    "HostedMachineConnectFlow",
+    "verify_yoke_token",
+]

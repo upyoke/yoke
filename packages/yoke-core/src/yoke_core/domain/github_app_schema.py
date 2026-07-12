@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS project_github_repo_bindings (
     permissions TEXT NOT NULL DEFAULT '{{}}',
     last_verified_at TEXT,
     last_error TEXT,
+    last_sync_at TEXT,
+    last_sync_outcome TEXT,
+    last_sync_error TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE(installation_id, github_repo)
@@ -62,11 +65,24 @@ def create_github_app_tables(conn) -> None:
     conn.execute(PROJECT_GITHUB_REPO_BINDINGS_CREATE_SQL)
     api_url_column = f"TEXT NOT NULL DEFAULT '{DEFAULT_GITHUB_API_URL}'"
     _add_column_if_not_exists(
-        conn, "github_app_installations", "api_url", api_url_column,
+        conn,
+        "github_app_installations",
+        "api_url",
+        api_url_column,
     )
     _add_column_if_not_exists(
-        conn, "project_github_repo_bindings", "api_url", api_url_column,
+        conn,
+        "project_github_repo_bindings",
+        "api_url",
+        api_url_column,
     )
+    for name in ("last_sync_at", "last_sync_outcome", "last_sync_error"):
+        _add_column_if_not_exists(
+            conn,
+            "project_github_repo_bindings",
+            name,
+            "TEXT",
+        )
     conn.execute(PROJECT_GITHUB_REPOSITORY_ID_UNIQUE_INDEX_SQL)
 
 
