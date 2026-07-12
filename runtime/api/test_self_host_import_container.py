@@ -72,8 +72,9 @@ def test_built_image_restores_archive_and_issues_usable_token(tmp_path, capsys):
                 "run",
                 "--rm",
                 "-T",
-                "core",
+                "--entrypoint",
                 "python",
+                "core",
                 "-c",
                 "import sys; from yoke_core.domain.db_helpers import connect; "
                 "from yoke_core.domain.api_tokens import verify_token; "

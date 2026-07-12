@@ -23,27 +23,6 @@ class _MutableClock:
         self.now += seconds
 
 
-def test_https_handler_uses_its_context_without_removed_runtime_state(monkeypatch):
-    clock = _MutableClock()
-    handler = connection_module.PreResolvedHTTPSHandler(
-        address_book={},
-        deadline=1.0,
-        clock=clock,
-    )
-    observed = {}
-
-    def do_open(connection, request, **kwargs):
-        observed.update(connection=connection, request=request, kwargs=kwargs)
-        return "opened"
-
-    monkeypatch.setattr(handler, "do_open", do_open)
-    request = urllib.request.Request("https://api.example/operation")
-
-    assert handler.https_open(request) == "opened"
-    assert observed["request"] is request
-    assert observed["kwargs"] == {"context": handler._context}
-
-
 @pytest.mark.parametrize(
     "proxies,expected",
     (
@@ -113,7 +92,9 @@ def test_https_proxy_transport_is_explicitly_refused(monkeypatch) -> None:
 
 def test_https_handler_avoids_removed_check_hostname_state(monkeypatch) -> None:
     handler = connection_module.PreResolvedHTTPSHandler(
-        address_book={}, deadline=10.0, clock=lambda: 0.0,
+        address_book={},
+        deadline=10.0,
+        clock=lambda: 0.0,
     )
     seen = {}
 
