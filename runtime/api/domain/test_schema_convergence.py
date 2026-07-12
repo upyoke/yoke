@@ -14,6 +14,7 @@ from pathlib import Path
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_fingerprint import fingerprint_kind
 from yoke_core.domain.schema_init import converge_core_schema
 from yoke_core.domain.schema_init_columns import apply_idempotent_migrations
 
@@ -175,6 +176,39 @@ def test_converge_adds_project_github_sync_receipt_columns(
                 assert _column_exists(conn, "project_github_repo_bindings", name)
         finally:
             conn.close()
+
+
+def test_fresh_and_upgraded_github_binding_schemas_have_one_fingerprint(
+    tmp_path: Path,
+) -> None:
+    """Fresh birth must preserve the column order produced by additive boot.
+
+    Portable restore creates a fresh trusted schema, while hosted targets are
+    commonly upgraded in place.  Their exact fingerprints must agree.
+    """
+    with init_test_db(tmp_path / "fresh") as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            fresh_fingerprint = fingerprint_kind("postgres", conn)
+        finally:
+            conn.close()
+
+    with init_test_db(tmp_path / "upgraded") as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            for name in ("last_sync_at", "last_sync_outcome", "last_sync_error"):
+                conn.execute(
+                    f"ALTER TABLE project_github_repo_bindings DROP COLUMN {name}"
+                )
+            conn.commit()
+
+            converge_core_schema(conn)
+
+            upgraded_fingerprint = fingerprint_kind("postgres", conn)
+        finally:
+            conn.close()
+
+    assert upgraded_fingerprint == fresh_fingerprint
 
 
 def test_converged_github_app_schema_accepts_id_free_postgres_inserts(

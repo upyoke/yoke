@@ -29,11 +29,11 @@ CREATE TABLE IF NOT EXISTS project_github_repo_bindings (
     permissions TEXT NOT NULL DEFAULT '{{}}',
     last_verified_at TEXT,
     last_error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
     last_sync_at TEXT,
     last_sync_outcome TEXT,
     last_sync_error TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
     UNIQUE(installation_id, github_repo)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS
