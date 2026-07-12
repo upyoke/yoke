@@ -43,7 +43,8 @@ def _verified(
         account_login="Example-Org",
         account_type="Organization",
         repository_selection="selected",
-        permissions=permissions or {
+        permissions=permissions
+        or {
             "metadata": "read",
             "issues": "write",
             "pull_requests": "write",
@@ -97,8 +98,7 @@ def test_bind_status_and_unbind_round_trip(monkeypatch):
         conn = pg_testdb.connect_test_database(db_name)
         try:
             project = conn.execute(
-                "SELECT github_repo, default_branch FROM projects "
-                "WHERE slug=%s",
+                "SELECT github_repo, default_branch FROM projects WHERE slug=%s",
                 ("buzz",),
             ).fetchone()
             assert project["github_repo"] == "Example-Org/Buzz"
@@ -115,6 +115,8 @@ def test_bind_status_and_unbind_round_trip(monkeypatch):
         assert unbound["github_sync_mode"] == "backlog_only"
     finally:
         pg_testdb.drop_test_database(db_name)
+
+
 def test_status_reports_missing_permissions(monkeypatch):
     db_name = pg_testdb.create_test_database()
     try:
@@ -230,10 +232,11 @@ def test_registered_dispatcher_bind_surface(monkeypatch):
         )
 
         with mock.patch(
-            "yoke_core.domain.yoke_function_dispatch."
-            "dispatch_permission_for_request",
+            "yoke_core.domain.yoke_function_dispatch.dispatch_permission_for_request",
             return_value=DispatchPermission(
-                "projects.admin", 2, "buzz",
+                "projects.admin",
+                2,
+                "buzz",
             ),
         ):
             response = dispatch(
@@ -242,12 +245,12 @@ def test_registered_dispatcher_bind_surface(monkeypatch):
                     target=TargetRef(kind="global"),
                     actor=ActorContext(actor_id="1", session_id="test-session"),
                     payload={
-                            "project": "buzz",
-                            "installation_id": "12345",
-                            "repository_id": "4567",
-                            "github_repo": "example-org/buzz",
-                            "expected_api_url": "https://api.github.com",
-                            "github_user_access_token": "github-user-token",
+                        "project": "buzz",
+                        "installation_id": "12345",
+                        "repository_id": "4567",
+                        "github_repo": "example-org/buzz",
+                        "expected_api_url": "https://api.github.com",
+                        "github_user_access_token": "github-user-token",
                     },
                 )
             )
@@ -261,19 +264,21 @@ def test_registered_dispatcher_bind_surface(monkeypatch):
 
 
 def test_bind_validation_never_reflects_transient_user_token():
-    outcome = handle_project_github_binding_bind(FunctionCallRequest(
-        function="projects.github_binding.bind",
-        target=TargetRef(kind="global"),
-        actor=ActorContext(actor_id="1", session_id="test-session"),
-        payload={
-            "project": "buzz",
-            "installation_id": "12345",
-            "github_repo": "example-org/buzz",
-            "expected_api_url": "https://api.github.com",
-            "github_user_access_token": "github-user-token-must-stay-secret",
-            "account_id": "caller-metadata-is-forbidden",
-        },
-    ))
+    outcome = handle_project_github_binding_bind(
+        FunctionCallRequest(
+            function="projects.github_binding.bind",
+            target=TargetRef(kind="global"),
+            actor=ActorContext(actor_id="1", session_id="test-session"),
+            payload={
+                "project": "buzz",
+                "installation_id": "12345",
+                "github_repo": "example-org/buzz",
+                "expected_api_url": "https://api.github.com",
+                "github_user_access_token": "github-user-token-must-stay-secret",
+                "account_id": "caller-metadata-is-forbidden",
+            },
+        )
+    )
 
     assert outcome.primary_success is False
     assert outcome.error.code == "payload_invalid"
@@ -291,15 +296,20 @@ def test_repo_normalization_accepts_common_clone_urls():
     )
     assert normalize_github_repo("example-org/buzz") == "example-org/buzz"
     assert normalize_github_repo("missing-owner") == ""
-    assert normalize_github_repo(
-        "https://github.enterprise.example/Example-Org/Buzz.git"
-    ) == "example-org/buzz"
-    assert normalize_github_repo(
-        "git@github.enterprise.example:Example-Org/Buzz.git"
-    ) == "example-org/buzz"
-    assert normalize_github_repo(
-        "ssh://git@github.enterprise.example/Example-Org/Buzz.git"
-    ) == "example-org/buzz"
+    assert (
+        normalize_github_repo("https://github.enterprise.example/Example-Org/Buzz.git")
+        == "example-org/buzz"
+    )
+    assert (
+        normalize_github_repo("git@github.enterprise.example:Example-Org/Buzz.git")
+        == "example-org/buzz"
+    )
+    assert (
+        normalize_github_repo(
+            "ssh://git@github.enterprise.example/Example-Org/Buzz.git"
+        )
+        == "example-org/buzz"
+    )
 
 
 @pytest.mark.parametrize(

@@ -6,6 +6,11 @@ import os
 from pathlib import Path
 import pwd
 import sys
+
+from yoke_contracts.self_host_bootstrap import (
+    IMPORT_UNIVERSE_ARG,
+    RECOVER_IMPORT_CREDENTIAL_ARG,
+)
 from yoke_core.tools.self_host_secret_materialization import (
     SELF_HOST_RUNTIME_SECRETS_DIR,
     SELF_HOST_SOURCE_SECRETS_DIR,
@@ -103,7 +108,23 @@ def main(argv: list[str] | None = None) -> int:
     selected_args = list(sys.argv[1:] if argv is None else argv)
     if selected_args == ["--healthcheck"]:
         return _run_healthcheck_as_runtime_user()
-    if selected_args:
+    if not selected_args:
+        command = [sys.executable, "-m", "yoke_core.api.server_entrypoint"]
+    elif selected_args == [IMPORT_UNIVERSE_ARG]:
+        command = [
+            sys.executable,
+            "-m",
+            "yoke_core.domain.universe_import_cli",
+            "--stdin",
+        ]
+    elif selected_args == [RECOVER_IMPORT_CREDENTIAL_ARG]:
+        command = [
+            sys.executable,
+            "-m",
+            "yoke_core.domain.universe_import_cli",
+            "--recover-credential",
+        ]
+    else:
         print(
             "self-host server bootstrap received unsupported arguments", file=sys.stderr
         )
@@ -126,11 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:  # noqa: BLE001 - fail closed before server exec
         print(f"self-host server bootstrap failed: {exc}", file=sys.stderr)
         return 1
-    os.execvpe(
-        sys.executable,
-        [sys.executable, "-m", "yoke_core.api.server_entrypoint"],
-        env,
-    )
+    os.execvpe(sys.executable, command, env)
     return 1
 
 

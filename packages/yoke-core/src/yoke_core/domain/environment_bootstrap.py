@@ -37,16 +37,22 @@ from typing import Callable, Dict, Optional
 #: Canonical schema/domain init order — schema first, then domains that
 #: depend on the ``items``/``projects`` tables. One source of truth shared
 #: with ``db_router init`` (which imports it as ``_AUTO_INIT_MODULES``).
+_FLOW_INIT_MODULE = "yoke_core.domain.flow"
+
 INIT_MODULE_CHAIN: tuple = (
     "yoke_core.domain.schema",
     "yoke_core.domain.shepherd",
     "yoke_core.domain.designs",
     "yoke_core.domain.projects",
     "yoke_core.domain.project_structure",
-    "yoke_core.domain.flow",
+    _FLOW_INIT_MODULE,
     "yoke_core.domain.events_crud",
     "yoke_core.domain.qa",
     "yoke_core.domain.deployment_runs",
+    # Finalize the progress view after QA/deployment tables exist. The first
+    # flow pass creates the tables needed by later modules; this idempotent
+    # second pass replaces its bootstrap fallback with the full canonical view.
+    _FLOW_INIT_MODULE,
 )
 
 #: Sentinel tables a complete control-plane DB must carry, paired with the
@@ -58,6 +64,7 @@ INIT_MODULE_CHAIN: tuple = (
 #: generic vocabulary every complete control plane ships.
 _VERIFY_SENTINELS: Dict[str, int] = {
     "items": 0,
+    "designs": 0,
     "projects": 0,
     "sites": 0,
     "environments": 0,
@@ -103,9 +110,7 @@ def run_init_chain(emit: Callable[[str], None] = _emit) -> None:
                 f"[env-bootstrap] init module {modname} raised: {exc}"
             ) from exc
         if rc not in (None, 0):
-            raise BootstrapError(
-                f"[env-bootstrap] init module {modname} exited {rc}"
-            )
+            raise BootstrapError(f"[env-bootstrap] init module {modname} exited {rc}")
 
 
 def populate_event_registry(
@@ -177,9 +182,7 @@ def verify_bootstrap(emit: Callable[[str], None] = _emit) -> Dict[str, int]:
     try:
         for table, minimum in _VERIFY_SENTINELS.items():
             try:
-                count = int(
-                    query_scalar(conn, f"SELECT COUNT(*) FROM {table}") or 0
-                )
+                count = int(query_scalar(conn, f"SELECT COUNT(*) FROM {table}") or 0)
             except Exception as exc:
                 raise BootstrapError(
                     f"[env-bootstrap] verification failed: sentinel table "
@@ -208,6 +211,24 @@ def run_bootstrap(
     run_init_chain(emit)
     populate_event_registry(repo_root, emit)
     return verify_bootstrap(emit)
+
+
+def run_init_chain_at_dsn(
+    dsn: str,
+    emit: Callable[[str], None] = _emit,
+) -> None:
+    """Materialize the complete schema chain at a context-bound authority.
+
+    The binding is context-local rather than process-global, so hosted import
+    requests can materialize trusted staging schemas concurrently without
+    rebinding the platform database or another import. This schema-only entry
+    point deliberately skips event-registry source scanning; callers that need
+    the full seeded environment continue to use :func:`run_bootstrap`.
+    """
+    from yoke_core.domain.db_backend import bound_pg_dsn
+
+    with bound_pg_dsn(dsn):
+        run_init_chain(emit=emit)
 
 
 def main(argv: Optional[list] = None) -> int:

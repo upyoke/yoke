@@ -20,10 +20,9 @@ DESTINATION_SERVER = "server"
 DESTINATION_HOSTED = "hosted"
 DESTINATIONS = (DESTINATION_LOCAL, DESTINATION_SERVER, DESTINATION_HOSTED)
 
-#: The picker's pre-selected row. Hosted while upyoke.com is the primary
-#: funnel; flips to ``DESTINATION_LOCAL`` when local mode becomes the
-#: public default.
-DEFAULT_DESTINATION = DESTINATION_HOSTED
+#: The public-launch picker starts with the private, no-signup path. Hosted
+#: and team-server destinations remain one explicit selection away.
+DEFAULT_DESTINATION = DESTINATION_LOCAL
 
 #: Environment override giving non-interactive parity with the picker:
 #: ``local`` / ``hosted`` name destinations directly; an http(s) URL means

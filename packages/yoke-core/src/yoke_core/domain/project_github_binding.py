@@ -129,7 +129,8 @@ def _store_verified_project_repo_binding(
             )
         permissions_info = permission_status(metadata.permissions)
         persistence = binding_persistence_state(
-            installation_status, str(permissions_info.get("status") or "unknown"),
+            installation_status,
+            str(permissions_info.get("status") or "unknown"),
         )
         repository_key = metadata.repository_id
         try:
@@ -200,7 +201,9 @@ def _store_verified_project_repo_binding(
             f"default_branch=COALESCE({p}, default_branch) "
             f"WHERE id={p}",
             (
-                repo, metadata.default_branch, ident.id,
+                repo,
+                metadata.default_branch,
+                ident.id,
             ),
         )
         conn.execute(
@@ -244,11 +247,8 @@ def cmd_unbind_project_repo(
             (ident.id,),
         )
         for table in ("project_capabilities", "capability_secrets"):
-            conn.execute(
-                f"DELETE FROM {table} WHERE project_id={p} "
-                f"AND LOWER(TRIM(type))={p}",
-                (ident.id, GITHUB_CAPABILITY_TYPE),
-            )
+            delete_sql = f"DELETE FROM {table} WHERE project_id={p} AND LOWER(TRIM(type))={p}"
+            conn.execute(delete_sql, (ident.id, GITHUB_CAPABILITY_TYPE))
         conn.execute(
             "UPDATE projects SET github_repo=NULL, "
             "github_sync_mode='backlog_only' "
@@ -293,8 +293,7 @@ def cmd_project_github_binding_status(
         if binding is not None:
             installation = query_one(
                 conn,
-                f"SELECT * FROM github_app_installations "
-                f"WHERE installation_id={p}",
+                f"SELECT * FROM github_app_installations WHERE installation_id={p}",
                 (binding["installation_id"],),
             )
         binding_info = binding_payload(binding)
@@ -317,7 +316,8 @@ def cmd_project_github_binding_status(
             ),
             "github_sync_mode": (
                 str(project_row["github_sync_mode"] or "enabled")
-                if project_row else "enabled"
+                if project_row
+                else "enabled"
             ),
             "bound": binding_info is not None,
             "binding": binding_info,

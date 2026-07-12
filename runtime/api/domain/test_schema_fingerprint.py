@@ -136,6 +136,34 @@ def _apply_postgres_fingerprint_schema() -> None:
         conn.close()
 
 
+def _apply_postgres_semantic_schema() -> None:
+    conn = db_backend.connect()
+    try:
+        conn.execute("CREATE TABLE parents (id INTEGER PRIMARY KEY)")
+        conn.execute(
+            "CREATE TABLE widgets (id INTEGER PRIMARY KEY, parent_id INTEGER,"
+            " name TEXT)"
+        )
+        conn.execute(
+            "ALTER TABLE widgets ADD CONSTRAINT widgets_parent_fk"
+            " FOREIGN KEY (parent_id) REFERENCES parents(id) NOT VALID"
+        )
+        conn.execute("CREATE VIEW widget_names AS SELECT id, name FROM widgets")
+        conn.execute(
+            "CREATE FUNCTION keep_widget() RETURNS trigger LANGUAGE plpgsql"
+            " AS $$ BEGIN RETURN NEW; END $$"
+        )
+        conn.execute(
+            "CREATE TRIGGER keep_widget BEFORE INSERT ON widgets"
+            " FOR EACH ROW EXECUTE FUNCTION keep_widget()"
+        )
+        conn.execute("ALTER TABLE widgets ENABLE ROW LEVEL SECURITY")
+        conn.execute("CREATE POLICY widget_reader ON widgets TO PUBLIC USING (true)")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 class TestPostgresFingerprint:
     postgres_only = pytest.mark.skipif(
         not db_backend.is_postgres(),
@@ -192,6 +220,55 @@ class TestPostgresFingerprint:
             finally:
                 conn.close()
         assert before == after
+
+    @postgres_only
+    @pytest.mark.parametrize(
+        "ddl",
+        (
+            "ALTER TABLE widgets SET UNLOGGED",
+            "ALTER TABLE widgets SET (fillfactor = 70)",
+            "ALTER TABLE widgets ENABLE ROW LEVEL SECURITY",
+            "ALTER TABLE widgets FORCE ROW LEVEL SECURITY",
+            'ALTER TABLE widgets ALTER COLUMN name TYPE TEXT COLLATE "C"',
+        ),
+    )
+    def test_changes_for_table_storage_security_and_collation(
+        self, tmp_path: Path, ddl: str
+    ) -> None:
+        with init_test_db(tmp_path, apply_schema=_apply_postgres_fingerprint_schema):
+            conn = db_backend.connect()
+            try:
+                before = fingerprint_kind("postgres", conn)
+                conn.execute(ddl)
+                conn.commit()
+                after = fingerprint_kind("postgres", conn)
+            finally:
+                conn.close()
+        assert before != after
+
+    @postgres_only
+    @pytest.mark.parametrize(
+        "ddl",
+        (
+            "ALTER TABLE widgets DISABLE TRIGGER keep_widget",
+            "ALTER VIEW widget_names SET (security_barrier = true)",
+            "ALTER POLICY widget_reader ON widgets TO CURRENT_USER",
+            "ALTER TABLE widgets VALIDATE CONSTRAINT widgets_parent_fk",
+        ),
+    )
+    def test_changes_for_runtime_schema_semantics(
+        self, tmp_path: Path, ddl: str
+    ) -> None:
+        with init_test_db(tmp_path, apply_schema=_apply_postgres_semantic_schema):
+            conn = db_backend.connect()
+            try:
+                before = fingerprint_kind("postgres", conn)
+                conn.execute(ddl)
+                conn.commit()
+                after = fingerprint_kind("postgres", conn)
+            finally:
+                conn.close()
+        assert before != after
 
 
 class TestFreshnessWindow:

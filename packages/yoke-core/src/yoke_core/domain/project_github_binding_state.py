@@ -99,6 +99,45 @@ def refresh_attached_project_bindings(
     )
 
 
+def refresh_project_binding(
+    conn: Any,
+    *,
+    project_id: int,
+    permissions: str,
+    persistence: BindingPersistenceState,
+    verified_at: str,
+) -> None:
+    """Refresh one repository binding without changing its installation peers."""
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    conn.execute(
+        "UPDATE project_github_repo_bindings SET "
+        f"permissions={placeholder}, status={placeholder}, "
+        f"last_verified_at={placeholder}, last_error={placeholder}, "
+        f"updated_at={placeholder} WHERE project_id={placeholder}",
+        (
+            permissions,
+            persistence.binding_status,
+            verified_at,
+            persistence.binding_error,
+            verified_at,
+            project_id,
+        ),
+    )
+    binding = conn.execute(
+        "SELECT project_id, installation_id, repository_id, api_url, github_repo "
+        "FROM project_github_repo_bindings "
+        f"WHERE project_id={placeholder}",
+        (project_id,),
+    ).fetchone()
+    if binding is not None:
+        _refresh_project_capability(
+            conn,
+            binding=binding,
+            permissions=permissions,
+            verified_at=verified_at,
+        )
+
+
 def _refresh_attached_project_capabilities(
     conn: Any,
     *,
@@ -114,30 +153,45 @@ def _refresh_attached_project_capabilities(
         f"WHERE installation_id={placeholder} ORDER BY project_id",
         (installation_id,),
     ).fetchall()
-    selected_permissions = permissions_dict(permissions)
     for binding in bindings:
-        project_id = int(binding["project_id"])
-        settings = build_github_capability_settings(
+        _refresh_project_capability(
             conn,
+            binding=binding,
+            permissions=permissions,
+            verified_at=verified_at,
+        )
+
+
+def _refresh_project_capability(
+    conn: Any,
+    *,
+    binding: Any,
+    permissions: str,
+    verified_at: str,
+) -> None:
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    project_id = int(binding["project_id"])
+    settings = build_github_capability_settings(
+        conn,
+        project_id,
+        github_repo=str(binding["github_repo"]),
+        installation_id=str(binding["installation_id"]),
+        repository_id=str(binding["repository_id"]),
+        api_url=str(binding["api_url"]),
+        permissions=permissions_dict(permissions),
+    )
+    conn.execute(
+        "INSERT INTO project_capabilities "
+        "(project_id, type, settings, created_at) "
+        f"VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}) "
+        "ON CONFLICT(project_id, type) DO UPDATE SET settings=EXCLUDED.settings",
+        (
             project_id,
-            github_repo=str(binding["github_repo"]),
-            installation_id=str(binding["installation_id"]),
-            repository_id=str(binding["repository_id"]),
-            api_url=str(binding["api_url"]),
-            permissions=selected_permissions,
-        )
-        conn.execute(
-            "INSERT INTO project_capabilities "
-            "(project_id, type, settings, created_at) "
-            f"VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}) "
-            "ON CONFLICT(project_id, type) DO UPDATE SET settings=EXCLUDED.settings",
-            (
-                project_id,
-                GITHUB_CAPABILITY_TYPE,
-                json_helper.dumps_compact(settings),
-                verified_at,
-            ),
-        )
+            GITHUB_CAPABILITY_TYPE,
+            json_helper.dumps_compact(settings),
+            verified_at,
+        ),
+    )
 
 
 __all__ = [
@@ -153,4 +207,5 @@ __all__ = [
     "BindingPersistenceState",
     "binding_persistence_state",
     "refresh_attached_project_bindings",
+    "refresh_project_binding",
 ]

@@ -179,6 +179,16 @@ class TestRegistryValidation(_RegistryTestBase):
                 **_stable_kwargs(adapter_status="experimental"),
             )
 
+    def test_internal_adapter_status_is_accepted(self):
+        entry = register(
+            "test.family.op",
+            _handler,
+            _ReqA,
+            _RespA,
+            **_stable_kwargs(adapter_status="internal"),
+        )
+        self.assertEqual(entry.adapter_status, "internal")
+
 
 class TestClaimRequiredKindEnumeration(_RegistryTestBase):
     """AC-1.15: registry accepts exactly the five canonical kinds."""

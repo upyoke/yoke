@@ -2,20 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-11T01:06:48Z_
+_Audit generated_at: 2026-07-12T13:22:35Z_
 
 ## 1. Summary
 
-- Function ids registered: **192**
-- `yoke` CLI subcommands: **192** (192 carry usable `--help`)
-- Operation tracker: **192 wrapped**, 68 permanent, 0 pending
+- Function ids registered: **194**
+- Internal dispatch-only functions without CLI adapters: **1**
+- `yoke` CLI subcommands: **193** (193 carry usable `--help`)
+- Operation tracker: **193 wrapped**, 69 permanent, 0 pending
 - Skill-body recipes: 217 total (179 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **192** (operation tracker confirms 192 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **193** (operation tracker confirms 193 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -131,6 +132,7 @@ Wrapped `yoke <subcommand>` adapters: **192** (operation tracker confirms 192 wr
 | projects | `yoke projects github-binding bind` | `projects.github_binding.bind` | ok |
 | projects | `yoke projects github-binding status` | `projects.github_binding.status` | ok |
 | projects | `yoke projects github-binding unbind` | `projects.github_binding.unbind` | ok |
+| projects | `yoke projects github-sync-mode repair` | `projects.github_sync_mode.repair` | ok |
 | projects | `yoke projects list` | `projects.list` | ok |
 | projects | `yoke projects resolve-by-github-repo` | `projects.resolve_by_github_repo` | ok |
 | projects | `yoke projects update` | `projects.update` | ok |
@@ -269,6 +271,7 @@ Wrapped `yoke <subcommand>` adapters: **192** (operation tracker confirms 192 wr
 | schema | `yoke schema converge` | tool_shaped |
 | self_host | `yoke self-host init` | tool_shaped |
 | self_host.connect | `yoke connect` | tool_shaped |
+| self_host.import | `yoke self-host import` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped |
 | tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped |

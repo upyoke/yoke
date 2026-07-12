@@ -489,17 +489,31 @@ esac
 
 ensure_uv
 
+# Ask uv for its authoritative tool-shim directory after uv exists. In
+# particular, uv derives this as a sibling of XDG_DATA_HOME when XDG_BIN_HOME
+# is unset; assuming ~/.local/bin in that case can smoke an unrelated ambient
+# Yoke after the correct release was installed elsewhere.
+resolved_uv_bin_dir=$(uv tool dir --bin 2>/dev/null || printf '')
+case "$resolved_uv_bin_dir" in
+  /*)
+    uv_bin_dir="$resolved_uv_bin_dir"
+    UV_TOOL_BIN_DIR="$resolved_uv_bin_dir"
+    PATH="$resolved_uv_bin_dir:$PATH"
+    export UV_TOOL_BIN_DIR PATH
+    ;;
+esac
+
 # uv provides Python, so the helper runs under uv even on a host with no system
-# python3. `uv run --no-project python` uses uv's managed interpreter. The runner
-# is a string of external-command tokens (intentionally word-split when
-# expanded), never a shell function, so env-var prefixes scope to the child
-# process rather than leaking into this shell. A --dry-run on a host without uv
-# falls back to any system python3 just to render the plan.
+# python3. `--isolated --no-project` prevents an active or cwd-local virtual
+# environment from supplying stale Yoke packages to the helper. The runner is a
+# string of external-command tokens (intentionally word-split when expanded),
+# never a shell function. A --dry-run on a host without uv falls back to any
+# system python3 just to render the plan.
 if [ -n "$dry_run" ] && ! need_command uv; then
   need_command python3 || fail "uv (or, for --dry-run only, python3) is required to render the install plan"
   python_runner="python3"
 else
-  python_runner="uv run --no-project python"
+  python_runner="uv run --isolated --no-project python"
 fi
 
 tmp_dir=$($python_runner -c 'import tempfile; print(tempfile.mkdtemp(prefix="yoke-install-"))') || fail "could not create temp directory"

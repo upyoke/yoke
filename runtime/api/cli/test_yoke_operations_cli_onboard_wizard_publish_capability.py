@@ -12,6 +12,7 @@ from yoke_contracts import github_origin  # noqa: E402
 from yoke_cli.config import github_publish  # noqa: E402
 from yoke_cli.config import machine_config  # noqa: E402
 from yoke_cli.config import onboard_machine_github  # noqa: E402
+from yoke_cli.config import onboard_destinations  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_github  # noqa: E402
@@ -295,6 +296,8 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
     app.result.project_checkout = "/home/code/widget"
     app.result.project_slug = "widget"
     app.result.project_name = "Widget"
+    app.result.destination = onboard_destinations.DESTINATION_LOCAL
+    app.result.api_url = ""
 
     async def scenario() -> None:
         async with app.run_test() as pilot:

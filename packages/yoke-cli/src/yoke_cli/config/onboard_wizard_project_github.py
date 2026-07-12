@@ -24,10 +24,36 @@ from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_APP_BINDING,
     GITHUB_ADOPTION_BACKLOG_ONLY,
 )
+from yoke_cli.config.project_clone_support import CLONE_OUTCOME_FORK
+from yoke_cli.config.project_clone_support import CLONE_OUTCOME_MAKE_IT_MINE
+from yoke_cli.config.onboard_project import PROJECT_MODE_CLONE_REMOTE
 
 
 class ProjectGithubAccessFlow:
     """Bind an exact App-visible repository or choose backlog-only mode."""
+
+    def _route_future_project_github_binding(self) -> bool:
+        """Defer identity selection for a repository created during Apply."""
+        publish_will_create = (
+            self.result.project_mode != PROJECT_MODE_CLONE_REMOTE
+            or self.result.project_clone_outcome == CLONE_OUTCOME_MAKE_IT_MINE
+        )
+        future_publish = bool(
+            publish_will_create
+            and self.result.project_publish_to_github
+            and self.result.project_publish_create_repository
+            and self.result.project_publish_owner
+            and self.result.project_publish_repo_name
+        )
+        future_fork = self.result.project_clone_outcome == CLONE_OUTCOME_FORK
+        if not github_connected(self.result) or not (future_publish or future_fork):
+            return False
+        self.result.project_github_adoption = GITHUB_ADOPTION_APP_BINDING
+        self.result.project_github_adoption_preserve = False
+        self.result.project_github_repository_id = None
+        self.result.project_github_installation_id = None
+        self._goto_board_art_intro()
+        return True
 
     def _on_project_github(self, choice: str) -> None:
         if choice == PROJECT_GITHUB_REUSE_MACHINE and not github_connected(self.result):

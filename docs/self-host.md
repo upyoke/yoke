@@ -11,7 +11,7 @@ On the server host (needs Docker with the compose plugin):
 
 ```bash
 # 1. Install the CLI (also how engineer machines install it later).
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 
 # 2. Materialize the compose bundle. Writes docker-compose.yml, .env,
 #    and generated database credentials as owner-only secret files —
@@ -59,6 +59,55 @@ ignore rules cannot remove an indexed secret. Remove the reported paths from
 the Git index, rotate any credential that entered history, then retry the
 protection command.
 
+## Move an existing universe here
+
+Create a fresh bundle, but do not start its `core` service. Protect the
+portable archive as private control-plane data, then import it from outside or
+inside the bundle directory:
+
+```bash
+yoke self-host init --dir /path/to/yoke-server
+chmod 600 ~/Downloads/acme-universe.dump
+yoke self-host import ~/Downloads/acme-universe.dump \
+  --dir /path/to/yoke-server
+```
+
+The command requires Docker with Compose, validates the existing bundle, and
+refuses while its `core` service is running. It opens the archive without
+following symlinks and requires a current-owner, single-link regular file with
+no group or world access. Compose starts only the database, then streams the
+archive over stdin to a one-off process in the pinned server image; the host
+archive is never bind-mounted into a container.
+
+The destination database must be catalog-empty. Uploaded DDL is never run:
+Yoke creates the trusted schema from the destination image, validates the
+bounded custom-format archive, and restores only approved table data and
+sequence values. A failure after schema preparation leaves that attempted
+fresh database ineligible for another restore; discard that unused destination
+volume and retry with a new one rather than overwriting it.
+
+A whole-universe archive can contain portable capability secrets in raw form,
+alongside hashed API and browser credential records. Keep the archive
+owner-only at every hop, and review or rotate capability secrets when custody
+changes between platforms. The import does not preserve API or browser access:
+in the same transaction as the data restore, it revokes every active imported
+API token and browser session, grants the neutral `admin` actor the org admin
+role, and mints one replacement token. Save the token from the success block
+immediately: it is shown once and never stored or reprinted. Then run the
+printed `docker compose up -d core` and `yoke connect` steps.
+
+If the restore reported success but its one-time result was lost before you
+could save it, mint a recovery credential while `core` remains stopped:
+
+```bash
+cd /path/to/yoke-server
+docker compose run --rm core --recover-import-credential
+```
+
+Save that command's `raw_token`, then start the service. Recovery atomically
+revokes every prior import/recovery credential before minting its replacement,
+so it is safe to repeat if another one-time result is lost.
+
 By default the API publishes on loopback only (`127.0.0.1:8765`). To
 serve your network, edit `YOKE_API_PUBLISH` in `.env` (for example
 `0.0.0.0:8765`) and put TLS in front — see the operator notes below.
@@ -69,7 +118,7 @@ Each engineer runs the same installer, then attaches to your server
 with a token you mint for them:
 
 ```bash
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 yoke connect https://yoke.internal --token-stdin
 yoke status
 ```
@@ -123,8 +172,7 @@ blocks in `docker-compose.yml`, and `docker compose up -d`. Setting
 some vars but not all fails loudly: the door answers 409 naming what is
 missing.
 
-The Compose service mounts the owner-only source secret as root, copies it
-into a container-private tmpfs as mode `0600` owned by the image's `yoke`
+The Compose service mounts the owner-only source secret as root, copies it into a container-private tmpfs as mode `0600` owned by the image's `yoke`
 user, rewrites the file binding, seals the original mount directory as
 root-only, clears supplementary groups, and drops to that user before starting
 the server. Every source must be a read-only mount; this also handles Compose

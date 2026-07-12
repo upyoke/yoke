@@ -90,7 +90,7 @@ dependencies, and links `yoke` onto PATH — you are never asked to bring your
 own Python.
 
 ```bash
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 yoke onboard
 yoke status
 ```
@@ -111,7 +111,7 @@ signup or token: `yoke init --local` fetches an embedded Postgres, births a
 complete machine-local universe under `~/.yoke/`, and points the machine
 config at it. When you want to leave or graduate to another deployment
 mode, `yoke universe export` dumps the whole universe to one portable
-`pg_restore`-compatible artifact. See
+`pg_restore`-compatible artifact; `yoke self-host import <archive> --dir <bundle>` restores it and rotates imported platform-held credentials into one newly shown admin token. See
 [docs/local-setup.md](docs/local-setup.md) ("Local Mode").
 
 Optionally connect the Yoke GitHub App for product commands that need to

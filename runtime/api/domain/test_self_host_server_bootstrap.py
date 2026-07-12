@@ -9,6 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.self_host_bootstrap import (
+    IMPORT_UNIVERSE_ARG,
+    RECOVER_IMPORT_CREDENTIAL_ARG,
+)
 from yoke_core.api.oidc_config import OIDC_CLIENT_SECRET_FILE_ENV
 from yoke_core.domain.db_backend import PG_DSN_FILE_ENV
 from yoke_core.domain.github_app_control_plane import (
@@ -123,6 +127,75 @@ def test_compose_healthcheck_drops_root_before_running_probe(monkeypatch):
         ("capabilities", {}),
         ("healthcheck", {}),
     ]
+
+
+@pytest.mark.parametrize(
+    ("selector", "expected_tail"),
+    (
+        (
+            IMPORT_UNIVERSE_ARG,
+            ["-m", "yoke_core.domain.universe_import_cli", "--stdin"],
+        ),
+        (
+            RECOVER_IMPORT_CREDENTIAL_ARG,
+            [
+                "-m",
+                "yoke_core.domain.universe_import_cli",
+                "--recover-credential",
+            ],
+        ),
+    ),
+)
+def test_bootstrap_allowlists_import_commands_after_privilege_drop(
+    monkeypatch, selector, expected_tail
+):
+    calls = []
+    runtime_env = {"YOKE_PG_DSN_FILE": "/run/yoke-runtime-secrets/yoke-db-dsn"}
+    monkeypatch.setattr(self_host_server_bootstrap.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        self_host_server_bootstrap.pwd,
+        "getpwnam",
+        lambda _name: SimpleNamespace(pw_uid=100, pw_gid=101),
+    )
+    monkeypatch.setattr(
+        self_host_server_bootstrap,
+        "materialize_self_host_runtime_secrets",
+        lambda *_args, **_kwargs: (runtime_env, (Path("/runtime/dsn"),)),
+    )
+    monkeypatch.setattr(
+        self_host_server_bootstrap,
+        "drop_to_self_host_runtime_identity",
+        lambda **identity: calls.append(("drop", identity)),
+    )
+    monkeypatch.setattr(
+        self_host_server_bootstrap,
+        "assert_runtime_secrets_readable",
+        lambda paths: calls.append(("readable", paths)),
+    )
+    monkeypatch.setattr(
+        self_host_server_bootstrap,
+        "assert_no_effective_linux_capabilities",
+        lambda: calls.append(("capabilities", {})),
+    )
+
+    def execvpe(executable, argv, env):
+        calls.append(("exec", (executable, argv, env)))
+        raise RuntimeError("exec intercepted")
+
+    monkeypatch.setattr(self_host_server_bootstrap.os, "execvpe", execvpe)
+
+    with pytest.raises(RuntimeError, match="exec intercepted"):
+        self_host_server_bootstrap.main([selector])
+
+    assert calls[:3] == [
+        ("drop", {"uid": 100, "gid": 101}),
+        ("readable", (Path("/runtime/dsn"),)),
+        ("capabilities", {}),
+    ]
+    executable, argv, env = calls[3][1]
+    assert argv[0] == executable
+    assert argv[1:] == expected_tail
+    assert env == runtime_env
 
 
 def test_native_permission_model_requires_runtime_owned_copy():

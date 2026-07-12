@@ -3,6 +3,9 @@
 Canonical source for every Yoke logo, wordmark, favicon, and (later) animation.
 Consumers **copy** from here — the marketing site (platform repo) copies from its
 pinned checkout of this repo; the universe app and the webapp template copy locally.
+The managed webapp copy lives under
+`templates/webapp/scaffold/app/web/public/brand/`; its global stylesheet loads
+that copied `theme.css`, and parity tests refuse consumer drift.
 Never fork the mark; change it here and let consumers follow.
 
 ## What the mark means

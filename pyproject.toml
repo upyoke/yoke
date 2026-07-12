@@ -1,7 +1,11 @@
 [build-system]
-# setuptools>=77.0.3: first release with stable SPDX `license` expression +
-# `license-files` metadata support.
-requires = ["setuptools>=77.0.3", "setuptools-scm[toml]>=8.0"]
+# Exact backends keep PEP 517 builds reproducible. Setuptools 83 is current;
+# 82.0.1 is the final exact line compatible with supported Python 3.9.
+requires = [
+    "setuptools==82.0.1; python_version < '3.10'",
+    "setuptools==83.0.0; python_version >= '3.10'",
+    "setuptools-scm[toml]==10.2.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -51,7 +55,7 @@ test = [
     "filelock>=3.13,<4",
     "httpx==0.28.1",
     # Release/distribution tests build product wheelhouses through uv.
-    "uv==0.11.21",
+    "uv==0.11.28",
 ]
 # Optional: board-art image onboarding (`yoke board art variant create
 # --image`) decodes PNG/JPEG to emoji grids. The converter is Pillow-optional —
@@ -68,7 +72,7 @@ dev = [
     "filelock>=3.13,<4",
     "httpx==0.28.1",
     # Release/distribution tests build product wheelhouses through uv.
-    "uv==0.11.21",
+    "uv==0.11.28",
 ]
 
 [project.scripts]

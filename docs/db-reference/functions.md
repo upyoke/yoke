@@ -249,7 +249,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 
 ## Adapter status
 
-The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `item_field_transform`, `epic task-update-body`, etc.) remain **live** adapters — they construct a `FunctionCallRequest` internally and dispatch through the same registry. The adapter status (`live`, `deprecated`, `retired`) is recorded per registry entry and surfaced in [`docs/atlas.md`](../atlas.md). Skill prose, packet prose, and agent docs reference the function id; operator/debug invocations of the CLI adapter remain valid and clearly labelled.
+The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `item_field_transform`, `epic task-update-body`, etc.) remain **live** adapters — they construct a `FunctionCallRequest` internally and dispatch through the same registry. The adapter status (`live`, `deprecated`, `retired`, or `internal`) is recorded per registry entry and surfaced in [`docs/atlas.md`](../atlas.md). An `internal` function is a typed service-to-service boundary without a retained operator CLI adapter, so it is excluded from CLI-adapter parity. That adapter classification does not authorize access; the function's authorization scope and guardrails enforce who may dispatch it. Skill prose, packet prose, and agent docs reference the function id; operator/debug invocations of the CLI adapter remain valid and clearly labelled.
 
 ## Authoring conventions
 

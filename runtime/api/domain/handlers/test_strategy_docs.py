@@ -20,7 +20,6 @@ import pytest
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.handlers import strategy_docs as handlers
 from yoke_core.domain.handlers._strategy_docs_test_helpers import (
-    OTHER_PROJECT_ID,
     OTHER_PROJECT_SLUG,
     PROJECT_ID,
     PROJECT_SLUG,
@@ -59,10 +58,16 @@ class TestDocList:
         assert outcome.primary_success is True
         docs = outcome.result_payload["docs"]
         assert [d["slug"] for d in docs] == [
-            "MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE", "PAD", "WISPS",
+            "MISSION",
+            "VISION",
+            "MASTER-PLAN",
+            "LANDSCAPE",
+            "PAD",
+            "WISPS",
         ]
         assert outcome.result_payload["project_id"] == PROJECT_ID
         assert outcome.result_payload["project_slug"] == PROJECT_SLUG
+        assert [d["title"] for d in docs] == list(SEED_SLUGS)
         assert all(d["bytes"] > 0 for d in docs)
 
     def test_list_rejects_non_global_target(self, tmp_db: str) -> None:
@@ -133,7 +138,8 @@ class TestDocGet:
 
         outcome = handlers.handle_doc_get(
             build_request(
-                "strategy.doc.get", {"slug": "MISSION"},
+                "strategy.doc.get",
+                {"slug": "MISSION"},
                 project=OTHER_PROJECT_SLUG,
             )
         )
@@ -144,11 +150,14 @@ class TestDocGet:
         assert "seed-defaults" in outcome.error.message
 
     def test_project_context_required_without_any_context(
-        self, tmp_db: str,
+        self,
+        tmp_db: str,
     ) -> None:
         outcome = handlers.handle_doc_get(
             build_request(
-                "strategy.doc.get", {"slug": "MISSION"}, project=None,
+                "strategy.doc.get",
+                {"slug": "MISSION"},
+                project=None,
             )
         )
         assert outcome.primary_success is False
@@ -158,7 +167,8 @@ class TestDocGet:
     def test_unknown_project_typed_error(self, tmp_db: str) -> None:
         outcome = handlers.handle_doc_get(
             build_request(
-                "strategy.doc.get", {"slug": "MISSION"},
+                "strategy.doc.get",
+                {"slug": "MISSION"},
                 project="no-such-project",
             )
         )
@@ -178,8 +188,11 @@ class TestDocReplaceClaimGate:
         outcome = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "MISSION", "content": SEED_CONTENT["MISSION"] + "x\n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "MISSION",
+                    "content": SEED_CONTENT["MISSION"] + "x\n",
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITHOUT_CLAIM,
             )
         )
@@ -200,8 +213,11 @@ class TestDocReplaceClaimGate:
         outcome = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "MISSION", "content": SEED_CONTENT["MISSION"] + "x\n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "MISSION",
+                    "content": SEED_CONTENT["MISSION"] + "x\n",
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITH_CLAIM,
             )
         )
@@ -222,8 +238,11 @@ class TestDocReplaceClaimGate:
         outcome = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "MISSION", "content": SEED_CONTENT["MISSION"] + "x\n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "MISSION",
+                    "content": SEED_CONTENT["MISSION"] + "x\n",
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITHOUT_CLAIM,
             )
         )
@@ -232,14 +251,17 @@ class TestDocReplaceClaimGate:
         assert outcome.error.code == "strategy_claim_required"
 
     def test_replace_denied_with_other_projects_claim(
-        self, tmp_db: str,
+        self,
+        tmp_db: str,
     ) -> None:
         conn = connect_test_db(tmp_db)
         try:
             seed_docs(conn)
             seed_session(conn, SESSION_WITH_CLAIM)
             seed_process_claim(
-                conn, SESSION_WITH_CLAIM, project_slug=OTHER_PROJECT_SLUG,
+                conn,
+                SESSION_WITH_CLAIM,
+                project_slug=OTHER_PROJECT_SLUG,
             )
         finally:
             conn.close()
@@ -247,8 +269,11 @@ class TestDocReplaceClaimGate:
         outcome = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "MISSION", "content": SEED_CONTENT["MISSION"] + "x\n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "MISSION",
+                    "content": SEED_CONTENT["MISSION"] + "x\n",
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITH_CLAIM,
             )
         )
@@ -258,7 +283,9 @@ class TestDocReplaceClaimGate:
 
     @pytest.mark.parametrize("process_key", [PROCESS_STRATEGIZE, "FEED"])
     def test_replace_allowed_with_active_claim(
-        self, tmp_db: str, process_key: str,
+        self,
+        tmp_db: str,
+        process_key: str,
     ) -> None:
         """STRATEGIZE or FEED both satisfy the shared conflict group."""
         conn = connect_test_db(tmp_db)
@@ -271,13 +298,18 @@ class TestDocReplaceClaimGate:
 
         new_content = SEED_CONTENT["MISSION"] + "\nNew paragraph.\n"
         with patch.object(
-            handlers._events, "emit_event", return_value=ok_emit(),
+            handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ) as emit:
             outcome = handlers.handle_doc_replace(
                 build_request(
                     "strategy.doc.replace",
-                    {"slug": "MISSION", "content": new_content,
-                     "base_updated_at": SEED_UPDATED_AT},
+                    {
+                        "slug": "MISSION",
+                        "content": new_content,
+                        "base_updated_at": SEED_UPDATED_AT,
+                    },
                     session_id=SESSION_WITH_CLAIM,
                     actor_id="7",
                 )
@@ -285,9 +317,7 @@ class TestDocReplaceClaimGate:
 
         assert outcome.primary_success is True
         assert outcome.result_payload["slug"] == "MISSION"
-        assert outcome.result_payload["new_bytes"] == len(
-            new_content.encode("utf-8")
-        )
+        assert outcome.result_payload["new_bytes"] == len(new_content.encode("utf-8"))
         emit.assert_called_once()
         name = emit.call_args.args[0]
         context = emit.call_args.kwargs["context"]
