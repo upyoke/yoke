@@ -1,10 +1,9 @@
 """Supply-chain contract for the public wheel factory workflow.
 
-The factory remains useful on untrusted fork pull requests, but only trusted
-push/dispatch callers may receive the OIDC identity and repository write scope
-needed to sign provenance. The attested subjects must be the exact product
-wheels that passed ``validate-release`` — not the checksum manifest or the
-larger release directory — and attestation must precede artifact upload.
+Untrusted repository code builds with read-only contents permission. Only a
+separate no-checkout, no-shell job on a trusted ref receives signing authority,
+and it signs the exact validated wheels transferred through the artifact
+service.
 """
 
 from __future__ import annotations
@@ -35,40 +34,57 @@ def test_remains_fork_buildable_and_reusable_by_release_factory():
 
 def test_hosted_runner_and_no_operator_credentials():
     text = _text()
-    assert re.findall(r"^\s+runs-on:\s*(.+)$", text, re.MULTILINE) == ["ubuntu-latest"]
+    assert re.findall(r"^\s+runs-on:\s*(.+)$", text, re.MULTILINE) == [
+        "ubuntu-latest",
+        "ubuntu-latest",
+    ]
     assert "runs-on: ${{ vars.YOKE_LINUX_RUNS_ON }}" not in text
     assert not re.findall(r"secrets\.([A-Za-z_0-9]+)", text)
     for needle in ("aws-actions", "YOKE_CI_ROLE_ARN", "AWS_REGION"):
         assert needle not in text, f"operator surface leaked in: {needle}"
 
 
-def test_attestation_permissions_are_narrow():
+def test_untrusted_build_has_no_signing_authority():
     text = _text()
-    assert "contents: read" in text
-    assert "attestations: write" in text
-    assert "id-token: write" in text
+    assert "permissions: {}" in text
+    build_start = text.index("  build:\n")
+    signer_start = text.index("  attest:\n")
+    build_block = text[build_start:signer_start]
+    assert "permissions:\n      contents: read" in build_block
+    assert "attestations: write" not in build_block
+    assert "id-token: write" not in build_block
+    assert "actions: write" not in build_block
     assert "contents: write" not in text
     assert "packages: write" not in text
     assert "artifact-metadata" not in text
+    assert "persist-credentials: false" in build_block
+    assert 'python -m pip install "uv==0.11.21"' in build_block
 
 
-def test_only_trusted_callers_attest():
+def test_only_trusted_ref_signer_attests_without_repository_code():
     text = _text()
-    assert (
-        "if: github.event_name == 'push' || "
-        "github.event_name == 'workflow_dispatch'" in text
-    )
-    assert "uses: actions/attest@v4" in text
+    signer = text[text.index("  attest:\n") :]
+    assert "needs: build" in signer
+    assert "github.ref == 'refs/heads/main'" in signer
+    assert "startsWith(github.ref, 'refs/tags/v')" in signer
+    assert "actions: read" in signer
+    assert "attestations: write" in signer
+    assert "contents: read" in signer
+    assert "id-token: write" in signer
+    assert "uses: actions/download-artifact@" in signer
+    assert "uses: actions/attest@" in signer
+    assert "uses: actions/checkout@" not in signer
+    assert not re.findall(r"^\s+run:\s*", signer, re.MULTILINE)
 
 
-def test_attests_exact_validated_wheels_before_upload():
+def test_signer_attests_exact_validated_wheels_after_transfer():
     text = _text()
     validate_index = text.index('validate-release "$release_dir"')
-    attest_index = text.index("uses: actions/attest@v4")
-    upload_index = text.index("uses: actions/upload-artifact@v4")
-    assert validate_index < attest_index < upload_index
-    assert 'echo "wheels_glob=$release_dir/wheels/*.whl"' in text
-    assert "subject-path: ${{ steps.release.outputs.wheels_glob }}" in text
+    upload_index = text.index("uses: actions/upload-artifact@")
+    download_index = text.index("uses: actions/download-artifact@")
+    attest_index = text.index("uses: actions/attest@")
+    assert validate_index < upload_index < download_index < attest_index
+    assert "subject-path: ${{ runner.temp }}/validated-release/wheels/*.whl" in text
     assert "subject-checksums:" not in text
     assert "subject-path: ${{ env.RELEASE_DIR }}" not in text
 

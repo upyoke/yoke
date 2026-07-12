@@ -30,8 +30,17 @@ def test_never_triggered_by_pull_request():
     assert "workflow_dispatch:" in text
 
 
-def test_publish_gate_is_repository_variable():
-    assert "vars.YOKE_PUBLISH_SERVER_IMAGE == 'true'" in _text()
+def test_publish_gate_requires_repository_variable_and_main_ref():
+    text = _text()
+    assert "vars.YOKE_PUBLISH_SERVER_IMAGE == 'true'" in text
+    assert "github.ref == 'refs/heads/main'" in text
+
+
+def test_publication_is_globally_serialized():
+    text = _text()
+    assert "group: yoke-server-image-publication" in text
+    assert "group: ${{ github.workflow }}-${{ github.ref }}" not in text
+    assert "cancel-in-progress: false" in text
 
 
 def test_permissions_are_minimal():
@@ -62,28 +71,44 @@ def test_no_operator_secrets_or_registry():
         assert needle not in text, f"operator surface leaked in: {needle}"
 
 
-def test_one_build_pushes_sha12_and_main_only_latest_tags():
+def test_one_build_pushes_by_digest_before_publishing_main_tags():
     text = _text()
     assert "fetch-depth: 0" in text
+    assert "persist-credentials: false" in text
+    assert "setuptools-scm[toml]==10.2.0" in text
     assert "python -m setuptools_scm --root" in text
-    assert "uses: docker/build-push-action@v6" in text
-    assert text.count("uses: docker/build-push-action@v6") == 1
+    assert text.count("uses: docker/build-push-action@") == 1
     assert "push: true" in text
+    assert "push-by-digest=true" in text
+    assert "name-canonical=true" in text
     assert "YOKE_BUILD_SHA=${{ steps.image.outputs.sha_tag }}" in text
     assert "YOKE_ENGINE_VERSION=${{ steps.version.outputs.value }}" in text
     assert "ghcr.io/${owner,,}/yoke-server" in text
     assert 'sha_tag="${GITHUB_SHA:0:12}"' in text
-    assert 'echo "$repository:$sha_tag"' in text
-    # latest only advances from main; dispatch on another ref publishes
-    # the sha tag alone.
-    assert 'if [[ "$GITHUB_REF" == "refs/heads/main" ]]' in text
-    assert 'echo "$repository:latest"' in text
+    assert 'echo "sha_ref=$repository:$sha_tag"' in text
+    assert 'echo "latest_ref=$repository:latest"' in text
+
+
+def test_conflicting_sha12_is_refused_and_both_tags_are_verified():
+    text = _text()
+    build_index = text.index("uses: docker/build-push-action@")
+    conflict_index = text.index("refusing conflicting immutable sha12")
+    latest_index = text.index('--tag "$LATEST_REF"')
+    verify_index = text.index("Verify published references resolve to the built digest")
+    attest_index = text.index("uses: actions/attest@")
+    assert build_index < conflict_index < latest_index < verify_index < attest_index
+    assert '"$existing_digest" != "$PUSHED_DIGEST"' in text
+    assert text.count("--prefer-index=false") == 2
+    assert '--tag "$SHA_REF" "$REPOSITORY@$PUSHED_DIGEST"' in text
+    assert '--tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"' in text
+    assert '"$sha_digest" != "$PUSHED_DIGEST"' in text
+    assert '"$latest_digest" != "$PUSHED_DIGEST"' in text
 
 
 def test_attestation_binds_build_output_digest_and_registry_subject():
     text = _text()
-    build_index = text.index("uses: docker/build-push-action@v6")
-    attest_index = text.index("uses: actions/attest@v4")
+    build_index = text.index("uses: docker/build-push-action@")
+    attest_index = text.index("uses: actions/attest@")
     assert build_index < attest_index
     assert "id: push" in text[:build_index]
     assert "subject-name: ${{ steps.image.outputs.repository }}" in text

@@ -28,7 +28,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # One global lane protects the immutable sha12 namespace and serializes the
+  # intentional latest-pointer update across push and manual invocations.
+  group: yoke-server-image-publication
   cancel-in-progress: false
 
 permissions:
@@ -40,21 +42,22 @@ permissions:
 jobs:
   build-push:
     name: build-push-ghcr
-    if: ${{ vars.YOKE_PUBLISH_SERVER_IMAGE == 'true' }}
+    if: ${{ vars.YOKE_PUBLISH_SERVER_IMAGE == 'true' && github.ref == 'refs/heads/main' }}
     # Deliberately NOT the runner-routing repository variable: publishing
     # to GHCR carries no operator state, so there is nothing a hosted
     # runner cannot do, and hard-pinning keeps this lane off operator
     # runner fleets even on repos where routing is configured.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # The server wheel version is derived by setuptools-scm before the
           # Docker build, because the Docker context intentionally does not
           # carry .git into the image.
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Resolve image references (sha12 and main-only latest)
+      - name: Resolve image references
         id: image
         run: |
           owner="${{ github.repository_owner }}"
@@ -63,18 +66,14 @@ jobs:
           {
             echo "repository=$repository"
             echo "sha_tag=$sha_tag"
-            echo "tags<<EOF"
-            echo "$repository:$sha_tag"
-            if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
-              echo "$repository:latest"
-            fi
-            echo "EOF"
+            echo "sha_ref=$repository:$sha_tag"
+            echo "latest_ref=$repository:latest"
           } >> "$GITHUB_OUTPUT"
 
       - name: Resolve package version
         id: version
         run: |
-          python -m pip install "setuptools-scm[toml]"
+          python -m pip install "setuptools-scm[toml]==10.2.0"
           version="$(python -m setuptools_scm --root "$GITHUB_WORKSPACE")"
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
@@ -88,19 +87,66 @@ jobs:
         id: push
         # YOKE_BUILD_SHA bakes the source sha into the image; /v1/health
         # serves it as `build` so self-hosters can confirm WHICH code is
-        # answering after an upgrade. One build pushes both names so latest
-        # and the immutable sha12 tag resolve to the attested digest.
-        uses: docker/build-push-action@v6
+        # answering after an upgrade. One build produces one registry digest;
+        # the guarded publication steps then attach both names to those bytes.
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
-          tags: ${{ steps.image.outputs.tags }}
+          # Push the content-addressed image first, without mutating either
+          # human-facing tag. The following step can then refuse a conflicting
+          # immutable sha12 before creating it.
+          outputs: type=image,name=${{ steps.image.outputs.repository }},push-by-digest=true,name-canonical=true,push=true
           build-args: |
             YOKE_BUILD_SHA=${{ steps.image.outputs.sha_tag }}
             YOKE_ENGINE_VERSION=${{ steps.version.outputs.value }}
 
+      - name: Publish immutable sha12 and latest references
+        env:
+          LATEST_REF: ${{ steps.image.outputs.latest_ref }}
+          PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
+          REPOSITORY: ${{ steps.image.outputs.repository }}
+          SHA_REF: ${{ steps.image.outputs.sha_ref }}
+        run: |
+          inspect_error="$RUNNER_TEMP/sha12-inspect-error"
+          existing_digest=""
+          if existing_digest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{ .Manifest.Digest }}' \
+            2>"$inspect_error")"; then
+            if [[ "$existing_digest" != "$PUSHED_DIGEST" ]]; then
+              echo "refusing conflicting immutable sha12: $SHA_REF is $existing_digest, build is $PUSHED_DIGEST" >&2
+              exit 1
+            fi
+          elif grep -Eqi 'manifest unknown|not found' "$inspect_error"; then
+            docker buildx imagetools create \
+              --prefer-index=false \
+              --tag "$SHA_REF" "$REPOSITORY@$PUSHED_DIGEST"
+          else
+            cat "$inspect_error" >&2
+            exit 1
+          fi
+
+          docker buildx imagetools create \
+            --prefer-index=false \
+            --tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"
+
+      - name: Verify published references resolve to the built digest
+        env:
+          LATEST_REF: ${{ steps.image.outputs.latest_ref }}
+          PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
+          SHA_REF: ${{ steps.image.outputs.sha_ref }}
+        run: |
+          sha_digest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{ .Manifest.Digest }}')"
+          latest_digest="$(docker buildx imagetools inspect \
+            "$LATEST_REF" --format '{{ .Manifest.Digest }}')"
+          if [[ "$sha_digest" != "$PUSHED_DIGEST" || "$latest_digest" != "$PUSHED_DIGEST" ]]; then
+            echo "published references differ from built digest: sha12=$sha_digest latest=$latest_digest built=$PUSHED_DIGEST" >&2
+            exit 1
+          fi
+
       - name: Attest the immutable image digest
-        uses: actions/attest@v4
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
         with:
           subject-name: ${{ steps.image.outputs.repository }}
           subject-digest: ${{ steps.push.outputs.digest }}

@@ -1,8 +1,9 @@
 name: yoke-release
 
-# Classification: FACTORY. A vX.Y.Z+local.N tag on a commit already reachable
-# from main is the sole release trigger. The PEP 440 local segment is required
-# by the product's public-index confusion defense. The tagged tree must carry
+# Classification: FACTORY. An immutable annotated vX.Y.Z+local.N tag on a
+# commit already reachable from main is the sole release trigger. The PEP 440
+# local segment is required by the product's public-index confusion defense.
+# The tagged tree must carry
 # its own nonempty docs/releases/<tag>.md; the workflow then invokes the
 # reusable wheel factory, checks that setuptools-scm resolved the exact same
 # version, and creates the GitHub Release from those validated artifacts.
@@ -29,25 +30,64 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      source_sha: ${{ steps.tag.outputs.source_sha }}
+      tag_object_sha: ${{ steps.tag.outputs.tag_object_sha }}
     steps:
       - name: Checkout the tagged tree
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
 
-      - name: Require an unforgeable release tag on main with authored notes
+      - name: Require an immutable annotated release tag on main
+        id: tag
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
           if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\+[a-z0-9]+(\.[a-z0-9]+)*$ ]]; then
             echo "release tags must match vX.Y.Z+local.N: $TAG_NAME" >&2
             exit 1
           fi
-          git fetch --no-tags origin main:refs/remotes/origin/main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "release commit is not reachable from origin/main: $GITHUB_SHA" >&2
+
+          remote_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG_NAME")"
+          object_type="$(jq -r '.object.type' <<< "$remote_ref")"
+          tag_object_sha="$(jq -r '.object.sha' <<< "$remote_ref")"
+          if [[ "$object_type" != "tag" || ! "$tag_object_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "release tag must be an annotated tag object: $TAG_NAME" >&2
             exit 1
           fi
+
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
+          target_type="$(jq -r '.object.type' <<< "$tag_object")"
+          source_sha="$(jq -r '.object.sha' <<< "$tag_object")"
+          if [[ "$target_type" != "commit" || ! "$source_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "release tag must point directly to one commit: $TAG_NAME" >&2
+            exit 1
+          fi
+          if [[ "$source_sha" != "$GITHUB_SHA" ]]; then
+            echo "remote tag commit $source_sha differs from workflow commit $GITHUB_SHA" >&2
+            exit 1
+          fi
+
+          main_relation="$(gh api \
+            "repos/$GITHUB_REPOSITORY/compare/$source_sha...main" \
+            --jq '.status')"
+          if [[ "$main_relation" != "ahead" && "$main_relation" != "identical" ]]; then
+            echo "release commit is not reachable from current main: $source_sha" >&2
+            exit 1
+          fi
+          {
+            echo "source_sha=$source_sha"
+            echo "tag_object_sha=$tag_object_sha"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Require authored release notes from the tagged tree
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
           notes_path="docs/releases/$TAG_NAME.md"
           if [[ ! -f "$notes_path" || -L "$notes_path" || ! -s "$notes_path" ]]; then
             echo "release notes must be a nonempty regular file: $notes_path" >&2
@@ -65,6 +105,7 @@ jobs:
     needs: validate-tag
     uses: ./.github/workflows/yoke-build-artifacts.yml
     permissions:
+      actions: read
       contents: read
       attestations: write
       id-token: write
@@ -74,13 +115,18 @@ jobs:
     needs: [validate-tag, build]
     runs-on: ubuntu-latest
     permissions:
+      actions: read
+      attestations: read
       contents: write
     steps:
       - name: Checkout the tagged release notes
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
 
       - name: Download the validated release tree
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.build.outputs.artifact_name }}
           path: ${{ runner.temp }}/yoke-release-artifact
@@ -88,6 +134,7 @@ jobs:
       - name: Verify tag, manifest, and transferred wheel bytes
         env:
           ARTIFACT_DIR: ${{ runner.temp }}/yoke-release-artifact
+          GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.build.outputs.release_version }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
@@ -95,7 +142,7 @@ jobs:
             echo "tag $TAG_NAME does not match built version $RELEASE_VERSION" >&2
             exit 1
           fi
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import hashlib
           import json
           import os
@@ -123,13 +170,51 @@ jobs:
                   raise SystemExit(f"wheel digest differs from manifest: {path.name}")
           PY
 
-      - name: Create the GitHub Release entry
+          shopt -s nullglob
+          wheels=("$ARTIFACT_DIR"/wheels/*.whl)
+          for wheel in "${wheels[@]}"; do
+            gh attestation verify "$wheel" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/yoke-build-artifacts.yml" \
+              --source-ref "$GITHUB_REF" \
+              --source-digest "$GITHUB_SHA" \
+              --deny-self-hosted-runners
+          done
+
+      - name: Re-resolve the tag and create the GitHub Release entry
         env:
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_DIR: ${{ runner.temp }}/yoke-release-artifact
+          EXPECTED_SOURCE_SHA: ${{ needs.validate-tag.outputs.source_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.validate-tag.outputs.tag_object_sha }}
           RELEASE_VERSION: ${{ needs.build.outputs.release_version }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
+          # Re-read the remote ref immediately before publication. A force-move
+          # after validation must never publish the earlier workflow's bytes
+          # under the new tag target.
+          remote_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG_NAME")"
+          object_type="$(jq -r '.object.type' <<< "$remote_ref")"
+          tag_object_sha="$(jq -r '.object.sha' <<< "$remote_ref")"
+          if [[ "$object_type" != "tag" || "$tag_object_sha" != "$EXPECTED_TAG_OBJECT_SHA" ]]; then
+            echo "remote annotated tag changed before publication: $TAG_NAME" >&2
+            exit 1
+          fi
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
+          target_type="$(jq -r '.object.type' <<< "$tag_object")"
+          source_sha="$(jq -r '.object.sha' <<< "$tag_object")"
+          if [[ "$target_type" != "commit" || "$source_sha" != "$EXPECTED_SOURCE_SHA" || "$source_sha" != "$GITHUB_SHA" ]]; then
+            echo "remote tag no longer peels to the workflow commit: $TAG_NAME" >&2
+            exit 1
+          fi
+          main_relation="$(gh api \
+            "repos/$GITHUB_REPOSITORY/compare/$source_sha...main" \
+            --jq '.status')"
+          if [[ "$main_relation" != "ahead" && "$main_relation" != "identical" ]]; then
+            echo "release commit is no longer reachable from current main: $source_sha" >&2
+            exit 1
+          fi
+
           shopt -s nullglob
           wheels=("$ARTIFACT_DIR"/wheels/*.whl)
           if (( ${#wheels[@]} == 0 )); then

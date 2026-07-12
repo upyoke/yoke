@@ -16,13 +16,17 @@ tags are deliberately not backfilled with reconstructed history.
    ticket chronology or internal planning provenance.
 2. Run the canonical test gate on that exact commit and merge it to `main`.
 3. Create an annotated `vX.Y.Z+local.N` tag at the verified main commit and
-   push only that tag. The `yoke-release` workflow refuses tags without the
-   required local segment, commits not reachable from `main`,
-   missing/mismatched notes, or a wheel version that differs from the tag.
+   push only that tag. Treat release tags as immutable: never move or recreate
+   one after pushing it. The `yoke-release` workflow resolves the remote tag
+   object and its peeled commit before the build and again immediately before
+   publication. It refuses lightweight or moved tags, tags without the required
+   local segment, commits not reachable from current `main`, missing/mismatched
+   notes, or a wheel version that differs from the tag.
 4. The workflow calls `yoke-build-artifacts`, which builds and validates the
-   four product wheels, signs GitHub build-provenance attestations for those
-   exact wheel bytes, and uploads the release tree. Only after those checks
-   pass does the final job create the GitHub Release with the wheels,
+   four product wheels in a read-only job, then transfers the validated tree to
+   a no-checkout signer job that signs those exact wheel bytes. Only after the
+   final job verifies the manifest, bytes, signer workflow, exact tag ref, and
+   exact source commit does it create the GitHub Release with the wheels,
    `release-records.json`, and the authored note.
 
 A new note can start from this shape:
@@ -46,10 +50,12 @@ when there are none.
 
 The SHA12 server image is a separate, repository-variable-gated factory lane.
 For the same release commit, arm `YOKE_PUBLISH_SERVER_IMAGE` only when image
-publication is intended, then run `yoke-server-image` on that commit. One
-build pushes both `:<sha12>` and (from `main`) `:latest`; the provenance
-attestation names the repository without a tag and binds the exact immutable
-image digest.
+publication is intended, then run `yoke-server-image` on `main` at that commit.
+The workflow first pushes content by digest, refuses to overwrite an existing
+`:<sha12>` that resolves to different bytes, then publishes both `:<sha12>` and
+`:latest`. It verifies both names resolve to the built digest before signing.
+The provenance attestation names the repository without a tag and binds that
+exact immutable image digest.
 
 ## Verify provenance
 
@@ -57,9 +63,13 @@ Download a wheel from the GitHub Release, then verify both its bytes and the
 GitHub-hosted signer workflow:
 
 ```bash
+release_ref="refs/tags/vX.Y.Z+local.N"
+release_sha="<full-40-character-release-commit-sha>"
 gh attestation verify ./yoke_core-*.whl \
   --repo upyoke/yoke \
   --signer-workflow upyoke/yoke/.github/workflows/yoke-build-artifacts.yml \
+  --source-ref "$release_ref" \
+  --source-digest "$release_sha" \
   --deny-self-hosted-runners
 ```
 
@@ -68,10 +78,13 @@ authenticate Docker to GHCR, and verify that digest rather than `latest`:
 
 ```bash
 docker login ghcr.io
+image_sha="<full-40-character-main-commit-sha>"
 gh attestation verify \
   oci://ghcr.io/upyoke/yoke-server@sha256:<digest> \
   --repo upyoke/yoke \
   --signer-workflow upyoke/yoke/.github/workflows/yoke-server-image.yml \
+  --source-ref refs/heads/main \
+  --source-digest "$image_sha" \
   --deny-self-hosted-runners
 ```
 
