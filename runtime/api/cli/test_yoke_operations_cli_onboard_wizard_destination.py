@@ -177,7 +177,7 @@ def test_server_pick_collects_url_then_token() -> None:
     asyncio.run(scenario())
 
 
-def test_hosted_pick_shows_hosted_environments_only() -> None:
+def test_hosted_pick_offers_the_product_cloud_authority() -> None:
     app, _spy = make_app(_picker_defaults(token=None))
 
     async def scenario() -> None:
@@ -188,7 +188,7 @@ def test_hosted_pick_shows_hosted_environments_only() -> None:
             text = _body_text(app)
             assert "Which hosted environment should this machine use?" in text
             rows = app.query_one(SelectionList).rows
-            assert [row.label for row in rows] == ["Production", "Stage"]
+            assert [row.label for row in rows] == ["Yoke Cloud"]
             assert app.result.destination == DESTINATION_HOSTED
 
     asyncio.run(scenario())

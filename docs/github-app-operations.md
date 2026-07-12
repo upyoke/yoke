@@ -79,12 +79,11 @@ broker, OIDC role split, explicit App-key denies, and origin-owned key retrieval
 
 ## Registration Checklist
 
-Use a manual registration or a prefilled registration URL for the current
-device-flow implementation. A GitHub App manifest is useful only when a trusted
-HTTPS redirect can exchange its one-hour code and immediately place the
-returned secrets in the operator secret store. Do not use a manifest as a JSON
-file containing returned credentials, and do not add a manifest callback that
-does not exist.
+Use a manual registration or a prefilled registration URL. Production hosted Yoke
+uses the public product App; CLI device flow and the privileged Development App
+remain separate operator boundaries. Use a manifest only when a trusted HTTPS
+redirect immediately places returned secrets in the operator store; never save
+returned credentials as manifest JSON or add a callback that does not exist.
 
 Set or review these fields:
 
@@ -95,13 +94,13 @@ Set or review these fields:
 | Homepage | The operator's real HTTPS product or control-plane homepage |
 | Description | GitHub automation for Yoke projects |
 | Visibility | Private for owner-only/internal use; public only for an App intended for third-party installation |
-| User callback URLs | Leave empty for CLI device flow; add only implemented HTTPS hosted callbacks |
-| Setup URL | Leave empty until an implemented hosted installation callback owns it |
+| User callback URLs | Product App: `https://app.upyoke.com/api/github/oauth/callback`. Leave empty for a device-flow-only registration. |
+| Setup URL | Product App: `https://app.upyoke.com/api/github/setup` with redirect-on-update enabled. |
 | Request authorization on install | Off; Yoke starts user authorization explicitly |
 | Device Flow | On |
 | Expire user authorization tokens | On |
-| App-level webhook | Off until the hosted installation-lifecycle receiver exists |
-| Webhook events | None while the App-level webhook is off |
+| App-level webhook | Product App: active at `https://app.upyoke.com/api/github/webhooks`, using a product-owned webhook secret in Platform secret custody. |
+| Optional webhook events | Leave the checklist entirely unchecked. GitHub sends `github_app_authorization`, `installation`, and `installation_repositories` automatically; they are not optional subscriptions, so public App metadata correctly reports `events: []`. |
 
 The runner fleet uses a Pulumi-managed **repository webhook**. It is not the
 App-level webhook above.
@@ -130,10 +129,11 @@ operator-only App is the intended stronger isolation boundary, but verified
 multi-binding support has not landed: do not configure a second registration
 as a runner capability selector yet.
 
-No GitHub client secret is required. Device authorization and refresh use the
-public client id, while server automation signs App JWTs with the private key.
-Do not generate, copy, or store a client secret unless a future implemented web
-authorization flow explicitly owns it.
+CLI device authorization uses the public client id without a client secret. Hosted
+OAuth needs a product-owned client secret; store it and the distinct webhook secret
+only in Platform's owner-only custody. Server automation separately signs App JWTs
+with the private key. Leave the Development App's hosted fields unchanged; its
+privileged runner lane uses the separate repository webhook described above.
 
 ## Installation And Repository Scope
 

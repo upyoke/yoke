@@ -16,6 +16,9 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             ("status", "TEXT"),
             ("last_verified_at", "TEXT"),
             ("last_error", "TEXT"),
+            ("last_sync_at", "TEXT"),
+            ("last_sync_outcome", "TEXT"),
+            ("last_sync_error", "TEXT"),
             ("created_at", "TEXT"),
             ("updated_at", "TEXT"),
         ],
@@ -50,7 +53,9 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             "`permissions` is a JSON object. Binding lifecycle changes do not "
             "rewrite the project's explicit `projects.github_sync_mode`; "
             "automation availability is derived from installation, permission, "
-            "and binding status. "
+            "and binding status. `last_sync_at`, `last_sync_outcome`, and "
+            "`last_sync_error` are durable terminal receipts from actual "
+            "project-scoped GitHub REST automation, not binding time. "
             "The wrong guessed table name `project_github_bindings` does not "
             "exist; use this `_repo_` table. Registered functions are "
             "`projects.github_binding.bind`, `projects.github_binding.lifecycle`, "

@@ -46,6 +46,7 @@ from yoke_core.domain.project_github_binding_payload import (
     permission_status,
     permissions_dict,
 )
+from yoke_core.domain.project_github_sync_receipt import register_installation_token
 
 
 def resolve_project_github_auth(
@@ -86,17 +87,15 @@ def resolve_project_github_auth(
     if installation_status != INSTALLATION_ACTIVE:
         raise InstallationUnavailable(
             state.project_slug,
-            f"project '{state.project_slug}' GitHub App installation is "
-            f"{installation_status!r}",
+            f"project '{state.project_slug}' GitHub App installation is {installation_status!r}",
         )
 
     installation_permissions = permissions_dict(state.installation.get("permissions"))
-    installation_requirements = installation_contract_permissions(
-        required_permissions
-    )
+    installation_requirements = installation_contract_permissions(required_permissions)
     token_permissions = scoped_installation_token_permissions(required_permissions)
     permissions_info = permission_status(
-        installation_permissions, installation_requirements,
+        installation_permissions,
+        installation_requirements,
     )
     if permissions_info.get("status") != "satisfied":
         missing = ", ".join(permissions_info.get("missing") or [])
@@ -115,7 +114,10 @@ def resolve_project_github_auth(
     local_token = resolve_local_user_token(state)
     if local_token is not None:
         return _auth_result(
-            state, repo, local_token, installation_permissions,
+            state,
+            repo,
+            local_token,
+            installation_permissions,
             token_source="github_app_user",
         )
     credentials = read_app_credentials(state, control_plane_config)
@@ -133,12 +135,14 @@ def resolve_project_github_auth(
             f"project '{state.project_slug}' GitHub App token resolved empty",
         )
     result = _auth_result(state, repo, token, installation_permissions)
-    return ProjectGithubAuth(
+    resolved = ProjectGithubAuth(
         **{
             **result.__dict__,
             "token_expires_at": minted.expires_at.isoformat(),
         }
     )
+    register_installation_token(token, state.project_slug, db_path=db_path)
+    return resolved
 
 
 def _auth_result(
@@ -173,16 +177,9 @@ _HINT_BY_CODE: Mapping[str, str] = {
     "binding_unavailable": "repair or re-bind GitHub access for project {project}",
     "installation_unavailable": "restore the App installation for project {project}",
     "missing_permission": "approve missing App permissions for project {project}",
-    "missing_app_credentials": (
-        "configure the control-plane App issuer and private-key file for "
-        "project {project}"
-    ),
-    "token_mint_failed": (
-        "repair App credentials or installation access for project {project}"
-    ),
-    "user_authorization_unavailable": (
-        "reconnect GitHub on this machine, then retry project {project}"
-    ),
+    "missing_app_credentials": ("configure the control-plane App issuer and private-key file for project {project}"),
+    "token_mint_failed": ("repair App credentials or installation access for project {project}"),
+    "user_authorization_unavailable": ("reconnect GitHub on this machine, then retry project {project}"),
     "invalid_token": "reconnect GitHub App access for project {project}",
     "transport_failure": "retry once network access is restored for project {project}",
 }
@@ -196,11 +193,22 @@ def repair_command_hint(error: ProjectGithubAuthError, project: str) -> str:
 
 
 __all__ = [
-    "BindingUnavailable", "GITHUB_CAPABILITY_TYPE", "InstallationUnavailable",
-    "InvalidToken", "MissingAppCredentials", "MissingCapability",
-    "MissingInstallation", "MissingPermission", "MissingRepoBinding",
-    "MissingRepoMetadata", "ProjectGithubAuth", "ProjectGithubAuthError",
-    "TokenMintFailed", "TransportFailure", "UserAuthorizationUnavailable",
-    "bind_local_github_user_token_provider", "repair_command_hint",
+    "BindingUnavailable",
+    "GITHUB_CAPABILITY_TYPE",
+    "InstallationUnavailable",
+    "InvalidToken",
+    "MissingAppCredentials",
+    "MissingCapability",
+    "MissingInstallation",
+    "MissingPermission",
+    "MissingRepoBinding",
+    "MissingRepoMetadata",
+    "ProjectGithubAuth",
+    "ProjectGithubAuthError",
+    "TokenMintFailed",
+    "TransportFailure",
+    "UserAuthorizationUnavailable",
+    "bind_local_github_user_token_provider",
+    "repair_command_hint",
     "resolve_project_github_auth",
 ]
