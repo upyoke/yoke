@@ -1,15 +1,8 @@
-"""Portable universe archive validation, dump, restore, and compatibility.
+"""Validate, dump, and restore portable universe archives.
 
-The artifact is the custom-format ``pg_dump`` file produced by
-``yoke universe export``.  Hosted and self-host front doors use this module
-at the DSN enforcement point; clients never receive or submit a database
-credential.
-
-An upload is never restored over a live universe.  Callers restore into a
-fresh database, converge the current additive schema there, and compare its
-schema fingerprint with the known-good empty target before switching any
-registry pointer.  This module owns the reusable, mode-neutral pieces of that
-flow.  The platform owns the registry/runtime cutover and its rollback.
+Artifacts are custom-format ``pg_dump`` files; clients never receive a DSN.
+Restores accept only a catalog-empty target and uploaded data, while callers
+own deployment cutover and rollback.
 """
 
 from __future__ import annotations
@@ -24,7 +17,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, MutableMapping, Optional, Sequence
+from typing import Callable, Mapping, MutableMapping, Optional, Sequence
 
 import psycopg
 from psycopg import conninfo, pq, sql
@@ -744,6 +737,7 @@ def restore_universe(
     max_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
     timeout_s: int = DEFAULT_ARCHIVE_TIMEOUT_S,
     pg_restore: Optional[str] = None,
+    finalize: Optional[Callable[[psycopg.Connection], None]] = None,
 ) -> ArchiveInspection:
     """Restore archive data into a fresh deployed-code schema transactionally.
 
@@ -751,6 +745,8 @@ def restore_universe(
     materializes the current trusted schema, clears only its bootstrap rows,
     and then enables TABLE DATA/SEQUENCE SET entries. Uploaded DDL is never
     executed, and no clean/drop flags can overwrite an existing universe.
+    A trusted deployed-code ``finalize`` callback, when supplied, runs after
+    data and constraints validate but before the restore transaction commits.
     """
     deadline = time.monotonic() + timeout_s
     inspection, catalog = _inspect_archive(
@@ -782,6 +778,7 @@ def restore_universe(
                 64 * 1024 * 1024,
                 max_bytes * DEFAULT_MAX_RESTORE_EXPANSION,
             ),
+            finalize=finalize,
         )
     finally:
         restore_list.unlink(missing_ok=True)
@@ -1198,6 +1195,7 @@ def _restore_via_libpq(
     allowed_sequences: set[str],
     timeout_s: float,
     max_sql_bytes: int,
+    finalize: Optional[Callable[[psycopg.Connection], None]],
 ) -> None:
     """Generate data-only output and apply its payload through strict libpq."""
     restore_cmd = [
@@ -1287,6 +1285,8 @@ def _restore_via_libpq(
             connection.rollback()
         else:
             _restore_constraints(connection, foreign_keys, triggers)
+            if finalize is not None:
+                finalize(connection)
             connection.commit()
     except subprocess.TimeoutExpired as exc:
         worker_stopped = _quiesce_restore_worker(

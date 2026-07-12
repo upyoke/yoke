@@ -1,10 +1,11 @@
-"""Tool-shaped ``yoke self-host init`` command.
+"""Tool-shaped self-host bundle initialization and import registry.
 
-Client-local machine operation with NO dispatcher function id: it writes
-a ``docker compose`` working directory on the caller's own machine, so
-there is no control plane to dispatch through until the server it
-describes is running. Resolves via the tool-shaped table after
-SUBCOMMAND_REGISTRY misses, like the other machine-setup families.
+These client-local machine operations carry NO dispatcher function id.
+Initialization writes a ``docker compose`` working directory on the caller's
+machine; import securely streams an archive into that bundle's stopped server
+image. There is no control plane to dispatch through until the described
+server is running. Both resolve through the tool-shaped table after
+``SUBCOMMAND_REGISTRY`` misses, like the other machine-setup families.
 """
 
 from __future__ import annotations
@@ -14,6 +15,10 @@ import json
 import sys
 from typing import Callable, Dict, List, Tuple
 
+from yoke_cli.commands.self_host_import import (
+    TOOL_SHAPED_SUBCOMMANDS as _IMPORT_SUBCOMMANDS,
+    TOOL_SHAPED_USAGE as _IMPORT_USAGE,
+)
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.self_host import bundle
 
@@ -26,6 +31,7 @@ INIT_USAGE = (
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke self-host init": INIT_USAGE,
+    **_IMPORT_USAGE,
 }
 
 
@@ -164,6 +170,7 @@ def _print_summary(report: Dict[str, object]) -> None:
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("self-host", "init"): self_host_init,
+    **_IMPORT_SUBCOMMANDS,
 }
 
 
