@@ -192,7 +192,7 @@ keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
 
 ### Wave 5: Machine GitHub App Connection
 
-See [Installer GitHub App live testing](installer-github-app-testing.md) for the automation boundary and the `GITHUB-*` scenario catalog.
+The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live testing](installer-github-app-testing.md); the campaign loader composes that sibling catalog with this guide and rejects duplicate scenario ids across both documents.
 
 ### Wave 6: Project Source Picker
 
@@ -318,6 +318,26 @@ Screen Recording.
 | `MAC-008` | test Mac | Stage + prod credentials | Env switching works without reinstalling project |
 | `MAC-009` | test Mac | Develop Yoke into a fresh `~/code/yoke` | Post-apply: real clone, source-link symlinks, git hooks, and `git push --dry-run` authenticates |
 | `MAC-010` | test Mac | PATH repair writes both startup files | Fresh login shell and one-shot SSH command both resolve `yoke` |
+
+### Wave 13: Open Source Mode Closing Regression
+
+This wave closes the public-launch mode tracks after the screen-by-screen pilot.
+Every pass requires the listed post-apply state checks; a completed TUI alone is
+not a pass.
+
+| ID | Profile | Flow | Assertions |
+| --- | --- | --- | --- |
+| `LOCAL-BIRTH-001` | `prepared-yoke` | `yoke init --local`, then open the local universe | Post-apply: local Postgres and API are healthy; one human actor exists; no user table or signup step appears; `yoke status` and the two-view UI both reach the new universe |
+| `MODE-PICKER-001` | `prepared-yoke` | Onboard destination = this machine | Post-apply: local birth completes; active connection is `local-postgres`; no hosted credential is written |
+| `MODE-PICKER-002` | `prepared-yoke` | Onboard destination = team server | Server URL and OIDC sign-in are required; Post-apply: connection uses `https`; no local universe is born |
+| `MODE-PICKER-003` | `prepared-yoke` | Onboard destination = upyoke.com | Post-apply: hosted sign-in completes; existing hosted projects are listed for clone/map; no duplicate project is created |
+| `SELF-HOST-001` | `prepared-yoke` | Initialize the published self-host bundle, Compose up, then `yoke connect` | Post-apply: server and Postgres containers are healthy; OIDC door signs in; connected CLI reports the exact server release; mounted App key is file-only and absent from retained evidence |
+| `HOSTED-CONNECT-001` | `prepared-yoke` | Sign in to upyoke.com, create an org/project backlog-only, then connect the CLI | Post-apply: platform membership maps to one tenant actor; board skeleton exists before machine mapping; CLI reuses the hosted project instead of creating another |
+| `HOSTED-GITHUB-001` | `prepared-yoke` | Install the hosted GitHub App, choose a repository, create and bind its project | Post-apply: platform installation and repository inventory exist; tenant binding is active; issue sync uses installation-token auth; no user token appears in browser, reports, or project settings |
+| `PORTABILITY-001` | `prepared-yoke` | Export a populated local universe and upload it to a fresh hosted org | Post-apply: stable-table digest and row counts match; hosted actor/token identities are regenerated; imported items, strategy, and projects render |
+| `PORTABILITY-002` | `prepared-yoke` | Download a hosted universe and import it into a fresh local universe | Post-apply: stable-table digest and row counts match; platform identities are absent; local bootstrap actor can read the imported work |
+| `UPGRADE-001` | `prepared-yoke` | Upgrade an existing local universe to the next signed release | Post-apply: release pin changes exactly once; migrations complete; data and API token remain usable; second upgrade is idempotent |
+| `UPGRADE-002` | `prepared-yoke` | Pull the next signed self-host server image and restart Compose | Post-apply: image digest and version endpoint match the target release; migrate-on-boot completes; OIDC sign-in and existing project reads remain healthy |
 
 ## Render A Campaign
 

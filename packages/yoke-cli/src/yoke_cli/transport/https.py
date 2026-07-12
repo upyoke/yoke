@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import sys
 import urllib.error
@@ -12,6 +13,24 @@ from typing import Optional
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, HEALTH_PATH, join_api_url
 from yoke_cli.config.machine_config import active_connection
+from yoke_cli.transport.bounded_http_open_policy import (
+    HttpOpenPolicyError,
+    open_bounded_request,
+)
+from yoke_cli.transport.https_response_policy import (
+    HttpsResponsePolicyError,
+    adopt_boundary_error,
+    collect_request_secrets,
+    parse_typed_response,
+    read_bounded_response,
+    redact_text,
+    safe_excerpt,
+)
+from yoke_cli.transport.https_urlopen import open_no_redirect
+from yoke_cli.transport.response_deadline_open import (
+    ResponseOpenDeadlineError,
+)
+from yoke_cli.transport.response_deadline_read import deadline_after
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -28,6 +47,13 @@ from yoke_contracts.machine_config.schema import (
 )
 
 _DEFAULT_TIMEOUT_S = 30.0
+_NETWORK_ERRORS = (
+    urllib.error.URLError,
+    TimeoutError,
+    OSError,
+    http.client.HTTPException,
+)
+_DEFAULT_OPEN_NO_REDIRECT = open_no_redirect
 
 # Process-wide latch: the engine-version skew warning prints at most once.
 _skew_warned = False
@@ -93,9 +119,7 @@ def _resolve_token(connection) -> str:
                 "(yoke status diagnoses the active config)"
             ) from exc
         if not token:
-            raise TransportError(
-                f"https credential token_file {token_path} is empty"
-            )
+            raise TransportError(f"https credential token_file {token_path} is empty")
         return token
     raise TransportError(
         "https transport requires credential_source.kind 'token_file' "
@@ -112,7 +136,20 @@ def relay_https(
 ) -> FunctionCallResponse:
     """POST the envelope to the active env; parse the typed response."""
 
-    body = json.dumps(request.model_dump(mode="json")).encode("utf-8")
+    payload = request.model_dump(mode="json")
+    sensitive_values = collect_request_secrets(
+        request, transport_token=connection.token
+    )
+    try:
+        deadline = deadline_after(timeout_s)
+    except ValueError:
+        return _transport_error_response(
+            request,
+            connection,
+            "HTTPS function relay timeout must be positive and finite",
+            sensitive_values=sensitive_values,
+        )
+    body = json.dumps(payload).encode("utf-8")
     http_request = urllib.request.Request(
         connection.functions_url,
         data=body,
@@ -123,38 +160,129 @@ def relay_https(
         },
     )
     try:
-        with urllib.request.urlopen(http_request, timeout=timeout_s) as resp:
-            _warn_on_engine_version_skew(getattr(resp, "headers", None))
-            return _parse_response(resp.read())
-    except urllib.error.HTTPError as exc:
-        _warn_on_engine_version_skew(getattr(exc, "headers", None))
-        try:
-            raw = exc.read()
-        except OSError:
-            raw = b""
-        try:
-            return _parse_response(raw)
-        except TransportError:
-            adopted = _adopt_boundary_error(request, raw)
-            if adopted is not None:
-                return adopted
-            excerpt = raw.decode("utf-8", errors="replace").strip()[:200]
-            detail = f": {excerpt}" if excerpt else ""
-            return _transport_error_response(
-                request,
-                connection,
-                f"{connection.functions_url} returned HTTP {exc.code} "
-                f"with a non-envelope body{detail}",
+        opened = _open_function_relay(
+            http_request,
+            deadline=deadline,
+            timeout_s=timeout_s,
+        )
+        with opened as resp:
+            _warn_on_engine_version_skew(
+                getattr(resp, "headers", None), sensitive_values
             )
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raw = read_bounded_response(resp, deadline=deadline)
+    except urllib.error.HTTPError as exc:
+        return _http_error_response(
+            request,
+            connection,
+            exc,
+            deadline=deadline,
+            sensitive_values=sensitive_values,
+        )
+    except HttpsResponsePolicyError as exc:
         return _transport_error_response(
             request,
             connection,
-            f"could not reach {connection.functions_url}: {exc}",
+            str(exc),
+            sensitive_values=sensitive_values,
+        )
+    except ResponseOpenDeadlineError:
+        return _transport_error_response(
+            request,
+            connection,
+            "HTTPS function relay response exceeded the time limit",
+            sensitive_values=sensitive_values,
+        )
+    except _NETWORK_ERRORS:
+        return _network_error_response(
+            request, connection, sensitive_values=sensitive_values
+        )
+    try:
+        return parse_typed_response(raw, sensitive_values=sensitive_values)
+    except HttpsResponsePolicyError as exc:
+        return _transport_error_response(
+            request,
+            connection,
+            str(exc),
+            sensitive_values=sensitive_values,
         )
 
 
-def _warn_on_engine_version_skew(headers) -> None:
+def _open_function_relay(
+    request: urllib.request.Request,
+    *,
+    deadline: float,
+    timeout_s: float,
+):
+    if open_no_redirect is not _DEFAULT_OPEN_NO_REDIRECT:
+        return open_no_redirect(request, timeout=timeout_s)
+    try:
+        return open_bounded_request(
+            request,
+            deadline=deadline,
+            replay_safe=False,
+            allow_loopback_http=True,
+            opener=None,
+        )
+    except HttpOpenPolicyError as exc:
+        raise HttpsResponsePolicyError(str(exc)) from exc
+
+
+def _http_error_response(
+    request: FunctionCallRequest,
+    connection: HttpsConnection,
+    exc: urllib.error.HTTPError,
+    *,
+    deadline: float,
+    sensitive_values: tuple[str, ...],
+) -> FunctionCallResponse:
+    _warn_on_engine_version_skew(getattr(exc, "headers", None), sensitive_values)
+    try:
+        raw = read_bounded_response(exc, deadline=deadline)
+    except HttpsResponsePolicyError as read_error:
+        return _transport_error_response(
+            request,
+            connection,
+            str(read_error),
+            sensitive_values=sensitive_values,
+        )
+    except _NETWORK_ERRORS:
+        return _network_error_response(
+            request, connection, sensitive_values=sensitive_values
+        )
+    try:
+        return parse_typed_response(raw, sensitive_values=sensitive_values)
+    except HttpsResponsePolicyError:
+        adopted = adopt_boundary_error(request, raw, sensitive_values=sensitive_values)
+        if adopted is not None:
+            return adopted
+        excerpt = safe_excerpt(raw, sensitive_values=sensitive_values)
+        detail = f": {excerpt}" if excerpt else ""
+        return _transport_error_response(
+            request,
+            connection,
+            f"{connection.functions_url} returned HTTP {exc.code} "
+            f"with a non-envelope body{detail}",
+            sensitive_values=sensitive_values,
+        )
+
+
+def _network_error_response(
+    request: FunctionCallRequest,
+    connection: HttpsConnection,
+    *,
+    sensitive_values: tuple[str, ...],
+) -> FunctionCallResponse:
+    return _transport_error_response(
+        request,
+        connection,
+        "could not reach the HTTPS function relay endpoint",
+        sensitive_values=sensitive_values,
+    )
+
+
+def _warn_on_engine_version_skew(
+    headers, sensitive_values: tuple[str, ...] = ()
+) -> None:
     """Print one stderr warning per process when server/client versions skew.
 
     Advisory only — never blocks the relay, never repeats, and stays
@@ -167,51 +295,20 @@ def _warn_on_engine_version_skew(headers) -> None:
     get = getattr(headers, "get", None)
     if not callable(get):
         return
-    server_version = str(get(ENGINE_VERSION_HEADER) or "")
-    if not server_version:
+    raw_server_version = str(get(ENGINE_VERSION_HEADER) or "")
+    if not raw_server_version:
         return
     local_version = local_handshake_version()
-    if not local_version or local_version == server_version:
+    if not local_version or local_version == raw_server_version:
         return
     _skew_warned = True
+    server_version = redact_text(raw_server_version, sensitive_values)[:128]
+    displayed_local_version = redact_text(local_version, sensitive_values)[:128]
     print(
         f"yoke: server engine version {server_version} differs from the "
-        f"local install {local_version}; commands still relay — update "
+        f"local install {displayed_local_version}; commands still relay — update "
         "the older side if behavior looks off",
         file=sys.stderr,
-    )
-
-
-def _parse_response(raw: bytes) -> FunctionCallResponse:
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-        return FunctionCallResponse.model_validate(payload)
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise TransportError(f"response body is not a typed envelope: {exc}")
-
-
-def _adopt_boundary_error(
-    request: FunctionCallRequest, raw: bytes
-) -> Optional[FunctionCallResponse]:
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        return None
-    if not isinstance(payload, dict) or payload.get("success") is not False:
-        return None
-    error = payload.get("error")
-    if not isinstance(error, dict) or not error.get("code"):
-        return None
-    return FunctionCallResponse(
-        success=False,
-        function=request.function,
-        version=request.version,
-        request_id=request.request_id,
-        error=FunctionError(
-            code=str(error.get("code")),
-            message=str(error.get("message") or ""),
-            recovery_hint=error.get("recovery_hint"),
-        ),
     )
 
 
@@ -219,8 +316,17 @@ def _transport_error_response(
     request: FunctionCallRequest,
     connection: HttpsConnection,
     detail: str,
+    *,
+    sensitive_values: tuple[str, ...] = (),
 ) -> FunctionCallResponse:
     health_url = join_api_url(connection.api_url, HEALTH_PATH)
+    safe_detail = redact_text(detail, sensitive_values)
+    recovery_hint = redact_text(
+        "Verify the active env and credential with `yoke status`; "
+        "repair ~/.yoke/config.json per `yoke config example`. "
+        f"The env's public health endpoint is {health_url}.",
+        sensitive_values,
+    )
     return FunctionCallResponse(
         success=False,
         function=request.function,
@@ -228,12 +334,8 @@ def _transport_error_response(
         request_id=request.request_id,
         error=FunctionError(
             code="https_transport_failed",
-            message=detail,
-            recovery_hint=(
-                "Verify the active env and credential with `yoke status`; "
-                "repair ~/.yoke/config.json per `yoke config example`. "
-                f"The env's public health endpoint is {health_url}."
-            ),
+            message=safe_detail,
+            recovery_hint=recovery_hint,
         ),
     )
 

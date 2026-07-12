@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 from pathlib import Path
@@ -92,7 +91,7 @@ def _integrity_check(conn: Any) -> str:
         return f"error: {exc}"
 
 
-def _run_baseline_verify(
+def run_baseline_verify(
     conn: Any,
     tables: List[str],
     count_preserving: bool,
@@ -134,6 +133,11 @@ def _run_baseline_verify(
     if failures:
         return result, "; ".join(failures)
     return result, None
+
+
+# Retained for the internal rehearsal/live runners while portable fleet
+# executors use the descriptive public name.
+_run_baseline_verify = run_baseline_verify
 
 
 # ---------------------------------------------------------------------------

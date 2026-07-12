@@ -141,7 +141,7 @@ def cmd_start(
     state = {
         "pid": daemon_proc.pid,
         "token": token,
-        "endpoint": f"http://localhost:{lport}",
+        "endpoint": f"http://127.0.0.1:{lport}",
         "browserType": "chromium",
         "startedAt": _bw._now_iso(),
         "health": "healthy",
@@ -159,7 +159,7 @@ def cmd_start(
         json.dumps(
             {
                 "status": "started",
-                "endpoint": f"http://localhost:{lport}",
+                "endpoint": f"http://127.0.0.1:{lport}",
                 "host": host,
                 "tunnel_pid": tunnel_pid or 0,
             }

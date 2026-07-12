@@ -276,43 +276,42 @@ def _print_admin_token_once(raw_token: str) -> None:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     settings = resolve_settings(argv)
-    if not universe_is_born():
-        _log.info("empty database detected: bootstrapping a fresh universe")
-        birth_universe()
-    elif not admin_credential_exists():
-        # A prior birth died after the born-ness sentinel committed but
-        # before the end-of-birth token mint. Serving now would strand a
-        # permanently credential-less universe; re-enter the idempotent
-        # birth so the one-time admin token still gets minted and printed.
-        _log.warning(
-            "born universe carries no API credential: "
-            "completing an interrupted birth before serving"
-        )
-        birth_universe()
-    else:
-        ensure_core_schema()
-        # Reseed the permission catalog before serving so a deploy of new
-        # code that adds permissions propagates to the DB without a manual
-        # seed step.
-        ensure_permission_catalog()
-    import uvicorn
+    from yoke_core.domain import db_backend, universe_startup_lock
 
-    # log_config=None: do not let uvicorn install its plain-text dictConfig.
-    # The app already installs a JSON stdout handler on the root logger
-    # (configure_observability), so uvicorn's own loggers propagate to it
-    # and CloudWatch receives one consistent JSON stream.
-    # access_log=False: the bearer-token middleware emits a structured
-    # HttpRequestCompleted log per request, so uvicorn's plain-text access
-    # lines would be redundant noise mixed into the JSON stream.
-    uvicorn.run(
-        settings.app,
-        host=settings.host,
-        port=settings.port,
-        log_level=settings.log_level,
-        workers=settings.workers,
-        access_log=False,
-        log_config=None,
-    )
+    with universe_startup_lock.server_startup_guard(db_backend.resolve_pg_dsn()):
+        if not universe_is_born():
+            _log.info("empty database detected: bootstrapping a fresh universe")
+            birth_universe()
+        elif not admin_credential_exists():
+            # A prior birth died after the born-ness sentinel committed but
+            # before the end-of-birth token mint. Serving now would strand a
+            # permanently credential-less universe; re-enter the idempotent
+            # birth so the one-time admin token still gets minted and printed.
+            _log.warning(
+                "born universe carries no API credential: "
+                "completing an interrupted birth before serving"
+            )
+            birth_universe()
+        else:
+            ensure_core_schema()
+            # Reseed the permission catalog before serving so a deploy of new
+            # code that adds permissions propagates to the DB without a manual
+            # seed step.
+            ensure_permission_catalog()
+        import uvicorn
+
+        # Keep the shared database lease for the serving lifetime: an import
+        # must never acquire its exclusive lease after the startup check but
+        # while this process is serving requests.
+        uvicorn.run(
+            settings.app,
+            host=settings.host,
+            port=settings.port,
+            log_level=settings.log_level,
+            workers=settings.workers,
+            access_log=False,
+            log_config=None,
+        )
     return 0
 
 

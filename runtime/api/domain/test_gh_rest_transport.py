@@ -21,7 +21,9 @@ from yoke_core.domain import gh_rest_transport as t
 class _FakeResponse:
     """Mimic the urlopen() context-manager return value."""
 
-    def __init__(self, *, status: int, body: bytes, headers: dict[str, str] | None = None):
+    def __init__(
+        self, *, status: int, body: bytes, headers: dict[str, str] | None = None
+    ):
         self.status = status
         self._body = body
         self.headers = headers or {"Content-Type": "application/json"}
@@ -32,8 +34,8 @@ class _FakeResponse:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, size: int = -1) -> bytes:
+        return self._body if size < 0 else self._body[:size]
 
 
 def _make_http_error(status: int, body: bytes = b"") -> urllib.error.HTTPError:
@@ -151,9 +153,7 @@ def test_retries_on_502(monkeypatch):
         return _FakeResponse(status=200, body=b'{"ok": true}')
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    resp = t.request_with_retry(
-        t.RestRequest(method="GET", path="/x"), token="ghs_xyz"
-    )
+    resp = t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_xyz")
     assert resp.body == {"ok": True}
     assert calls["n"] == 2
 
@@ -168,9 +168,7 @@ def test_retries_on_500(monkeypatch):
         return _FakeResponse(status=200, body=b'{"ok": true}')
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
-    resp = t.request_with_retry(
-        t.RestRequest(method="GET", path="/x"), token="ghs_xyz"
-    )
+    resp = t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_xyz")
     assert resp.body == {"ok": True}
     assert calls["n"] == 2
 
@@ -222,9 +220,7 @@ def test_retries_on_422_with_graphql_propagation_body(monkeypatch):
 
 def test_422_without_retryable_body_terminal(monkeypatch):
     def fake_urlopen(request, timeout):
-        raise _make_http_error(
-            422, b'{"message": "A pull request already exists"}'
-        )
+        raise _make_http_error(422, b'{"message": "A pull request already exists"}')
 
     monkeypatch.setattr(t, "urlopen", fake_urlopen)
     with pytest.raises(t.RestUnprocessableError) as excinfo:
@@ -294,7 +290,7 @@ def test_network_error_retries(monkeypatch, capsys):
     t.request_with_retry(t.RestRequest(method="GET", path="/x"), token="ghs_xyz")
     assert calls["n"] == 2
     assert (
-        "GitHub REST retry 1/3 after network failure: timed out"
+        "GitHub REST retry 1/3 after GitHub REST network request failed"
         in capsys.readouterr().err
     )
 
@@ -303,7 +299,8 @@ def test_response_read_error_retries(monkeypatch):
     calls = {"n": 0}
 
     class BrokenRead(_FakeResponse):
-        def read(self) -> bytes:
+        def read(self, size: int = -1) -> bytes:
+            del size
             raise http.client.IncompleteRead(b"partial", 10)
 
     def fake_urlopen(request, timeout):
@@ -334,6 +331,7 @@ def test_401_is_terminal_auth_error(monkeypatch):
 
 def test_403_is_terminal_auth_error(monkeypatch):
     """A 403 WITHOUT the rate-limit body markers is a terminal auth error."""
+
     def fake_urlopen(request, timeout):
         raise _make_http_error(403, b'{"message":"Resource not accessible"}')
 

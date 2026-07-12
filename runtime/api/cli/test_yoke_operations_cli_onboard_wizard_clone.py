@@ -19,81 +19,33 @@ pytest.importorskip("textual")
 
 from textual.widgets import Input, Static  # noqa: E402
 
-from yoke_cli.config import github_publish  # noqa: E402
-from yoke_cli.config import existing_project_lookup  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
-from yoke_cli.config import onboard_wizard_flow  # noqa: E402
-from yoke_cli.config import onboard_wizard_flow_clone as clone_flow  # noqa: E402
-from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config import project_clone_support as clone  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
     make_app,
-    stub_path_doctor,
-    stub_source_branch,
     type_text,
 )
 from runtime.api.cli.onboard_wizard_github_app_test_support import (  # noqa: E402
     connect_github_app,
     select_connected_repository,
-    stub_github_app_access,
+)
+from runtime.api.cli.onboard_wizard_clone_test_support import (  # noqa: E402
+    configure_clone_flow,
+    pick_mode,
 )
 
 
 @pytest.fixture(autouse=True)
-def _stub_path_doctor(monkeypatch):
-    stub_path_doctor(monkeypatch)
-
-
-@pytest.fixture(autouse=True)
-def _stub_source_branch(monkeypatch):
-    # The clone path no longer prompts for the default branch — it detects the
-    # source's branch at the URL step. Stub the probe so flow scenarios stay
-    # offline and the detected branch is a fixed `main`.
-    stub_source_branch(monkeypatch, "main")
-
-
-@pytest.fixture(autouse=True)
-def _stub_github_app(monkeypatch, _stub_path_doctor):
-    monkeypatch.setattr(
-        onboard_wizard_flow, "fetch_repo_owners",
-        lambda api_url, token: [
-            github_publish.RepoOwner("octocat", "user"),
-            github_publish.RepoOwner("acme-inc", "organization"),
-        ],
-    )
-    stub_github_app_access(
-        monkeypatch,
-        owners=("octocat", "acme-inc", "acme"),
-        repositories=("acme/widgets", "octocat/widgets"),
-        user_access_token="short-lived-clone-access",
-    )
-
-@pytest.fixture(autouse=True)
-def _stub_push_access(monkeypatch):
-    """Default the source-push probe to read-only so the fork row is offered.
-
-    Read-only is the safe default the screen renders when the probe is unknown;
-    it keeps "Fork it" in the row set for the github source these scenarios use.
-    Writable-variant scenarios override this seam to True directly.
-    """
-    monkeypatch.setattr(
-        clone_flow.CloneFlow, "_source_push_access", lambda self: None
-    )
-
-
-async def _pick_mode(pilot, value: str) -> None:
-    index = next(i for i, r in enumerate(steps.MODE_ROWS) if r.value == value)
-    for _ in range(index):
-        await pilot.press("down")
-    await pilot.press("enter")
+def _configure_clone_flow(monkeypatch):
+    configure_clone_flow(monkeypatch)
 
 
 async def _to_clone_outcome(app, pilot) -> None:
     await connect_github_app(app, pilot)
-    await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     await pilot.press("enter")  # visibility: Public (default) -> paste-URL input
     await type_text(pilot, "git@github.com:acme/widgets.git")  # remote url
     await pilot.press("enter")  # remote -> clone-folder input (default ~/code/widgets)
@@ -169,7 +121,8 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
     # "Duplicate it" always keeps the source as a pull-only upstream — that is
     # what lets a private copy pull from a public original.
     assert plan.keep_upstream is True
-    assert plan.fallback_token == "short-lived-clone-access"
+    assert plan.fallback_token is None
+    assert plan.use_machine_github is True
     publish = plan.publish
     assert publish is not None
     assert publish.owner == "octocat"
@@ -237,115 +190,12 @@ def test_fork_builds_clone_plan_with_app_access() -> None:
     plan = applied["project_clone"]
     assert plan is not None
     assert plan.outcome == clone.CLONE_OUTCOME_FORK
-    assert plan.fallback_token == "short-lived-clone-access"
+    assert plan.fallback_token is None
+    assert plan.use_machine_github is True
     assert plan.publish is None
     # Fork does not run the keep-upstream screen; the default stays True but is
     # ignored by the fork outcome (it always tracks the source as upstream).
     assert applied["project_publish"] is None
-
-
-def test_clone_existing_yoke_project_uses_project_id_and_skips_setup(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        existing_project_lookup,
-        "find_by_github_repo",
-        lambda **_: existing_project_lookup.ExistingProject(
-            id=37,
-            slug="buzz",
-            name="Buzz",
-            github_repo="example-org/buzz",
-            default_branch="main",
-            public_item_prefix="BUZZ",
-        ),
-    )
-    app, spy = make_app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await connect_github_app(app, pilot)
-            await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-            await pilot.press("enter")  # visibility: Public
-            await type_text(pilot, "git@github.com:example-org/buzz.git")
-            await pilot.press("enter")  # remote -> clone-folder input
-            await pilot.press("enter")  # folder -> existing project ready
-            await pilot.pause()
-            title = next(
-                str(w.render()) for w in app.query(".onboard-title").results(Static)
-            )
-            body = _body_text(app)
-            assert title == "Existing Yoke project found."
-            assert (
-                "The Yoke core database already has a project for this GitHub repo."
-                in body
-            )
-            assert "Yoke core database: matched GitHub repo example-org/buzz." in body
-            assert (
-                "Local machine: no existing Yoke project metadata was used."
-                in body
-            )
-            assert "Clone target: ~/code/buzz" in body
-            assert "Using existing checkout:" not in body
-            await pilot.press("enter")  # continue -> board art
-            await complete_board_art(pilot)
-            await pilot.press("enter")  # apply
-            await pilot.pause()
-
-    asyncio.run(scenario())
-
-    applied = spy.applied
-    assert applied is not None
-    assert applied["existing_project_id"] == 37
-    assert applied["project_slug"] == "buzz"
-    assert applied["project_name"] == "Buzz"
-    assert applied["project_github_repo"] == "example-org/buzz"
-    assert applied["project_public_item_prefix"] == "BUZZ"
-    assert applied["project_github_adoption"] == "backlog-only"
-    assert len(app.result.board_art_variants) == 1
-    plan = applied["project_clone"]
-    assert plan is not None
-    assert plan.outcome == clone.CLONE_OUTCOME_JUST_CLONE
-    assert plan.fallback_token == "short-lived-clone-access"
-
-
-def _body_text(app) -> str:
-    return " ".join(
-        str(widget.render())
-        for widget in app.query("#onboard-body Static").results(Static)
-    )
-
-
-def test_clone_existing_yoke_project_access_error_blocks_setup(monkeypatch) -> None:
-    def _deny(**_kwargs):
-        raise existing_project_lookup.ExistingProjectAccessError(
-            "this Yoke token cannot access project 37"
-        )
-
-    monkeypatch.setattr(
-        existing_project_lookup,
-        "find_by_github_repo",
-        _deny,
-    )
-    app, spy = make_app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await connect_github_app(app, pilot)
-            await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-            await pilot.press("enter")  # visibility: Public
-            await type_text(pilot, "git@github.com:example-org/buzz.git")
-            await pilot.press("enter")
-            await pilot.pause()
-            title = next(
-                str(w.render())
-                for w in app.query(".onboard-title-error").results(Static)
-            )
-            assert title == "✗ Can't use that Yoke project."
-
-    asyncio.run(scenario())
-
-    assert spy.applied is None
-    assert app.result.existing_project_id is None
 
 
 def test_duplicate_without_app_connection_falls_back_to_just_clone(monkeypatch) -> None:
@@ -359,7 +209,7 @@ def test_duplicate_without_app_connection_falls_back_to_just_clone(monkeypatch) 
             await advance_past_path(pilot)
             await pilot.press("down")   # machine github: Skip for now
             await pilot.press("enter")  # continue without GitHub
-            await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+            await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await type_text(pilot, "git@github.com:acme/widgets.git")  # remote first
             await pilot.press("enter")  # remote -> clone-folder input
             await pilot.press("enter")  # accept default folder -> clone-outcome

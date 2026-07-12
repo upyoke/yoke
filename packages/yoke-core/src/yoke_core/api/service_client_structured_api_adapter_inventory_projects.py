@@ -22,6 +22,14 @@ PROJECT_ADAPTERS = [
         ),
     ),
     AdapterEntry(
+        function_id="projects.github_binding.lifecycle",
+        cli_invocation="HTTPS function-call only (hosted platform webhook)",
+        notes=(
+            "applies a signature-verified installation or repository lifecycle "
+            "event to a hosted project binding"
+        ),
+    ),
+    AdapterEntry(
         function_id="projects.github_binding.unbind",
         cli_invocation="yoke projects github-binding unbind --project NAME",
         notes="removes the repo binding and marks the project backlog-only",
@@ -29,6 +37,16 @@ PROJECT_ADAPTERS = [
     _read_entry(
         function_id="projects.github_binding.status",
         cli_invocation="yoke projects github-binding status --project NAME",
+    ),
+    AdapterEntry(
+        function_id="projects.github_sync_mode.repair",
+        cli_invocation=(
+            "yoke projects github-sync-mode repair [--project NAME] [--apply]"
+        ),
+        notes=(
+            "dry-runs by default; --apply normalizes effectively-enabled "
+            "projects that lack an active verified App binding to backlog-only"
+        ),
     ),
 ]
 

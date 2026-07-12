@@ -102,7 +102,7 @@ def test_dry_run_hard_errors_on_path_that_is_a_regular_file(tmp_path: Path) -> N
     plain_file = tmp_path / "a-file"
     plain_file.write_text("not a directory\n", encoding="utf-8")
 
-    with pytest.raises(ProjectOnboardError, match="checkout is not a directory"):
+    with pytest.raises(ProjectOnboardError, match="file, not a folder"):
         project_onboard.onboard_existing(apply=False, **_base_kwargs(plain_file))
 
 

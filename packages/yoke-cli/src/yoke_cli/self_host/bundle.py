@@ -21,6 +21,12 @@ from typing import Any, Dict, Optional
 
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import secure_layout
+from yoke_contracts.github_app_public import (
+    GITHUB_APP_CLIENT_ID_ENV,
+    GITHUB_APP_ID_ENV,
+    GITHUB_APP_SLUG_ENV,
+    GITHUB_APP_WEB_URL_ENV,
+)
 from yoke_contracts.server_image import DEFAULT_SERVER_IMAGE
 
 #: Default bundle directory, created under the invoking directory. The
@@ -148,7 +154,11 @@ def protect_existing_bundle(
             public_names=(COMPOSE_FILE_NAME, ENV_FILE_NAME),
             secret_names=(DB_PASSWORD_FILE_NAME, DSN_FILE_NAME),
         )
-    except secure_layout.SecureLayoutError as exc:
+        protection.assert_sensitive_paths_untracked(target)
+    except (
+        protection.SelfHostProtectionError,
+        secure_layout.SecureLayoutError,
+    ) as exc:
         raise SelfHostBundleError(str(exc)) from exc
 
     try:
@@ -175,6 +185,25 @@ def protect_existing_bundle(
         "credentials_regenerated": False,
         "github_app_private_key_installed": key_path is not None,
     }
+
+
+def validate_existing_bundle(*, directory: Optional[str] = None) -> Path:
+    """Return one safely validated existing compose working directory."""
+    target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
+    _prepare_layout(target, create=False)
+    try:
+        secure_layout.validate_existing_bundle_files(
+            target,
+            public_names=(COMPOSE_FILE_NAME, ENV_FILE_NAME),
+            secret_names=(DB_PASSWORD_FILE_NAME, DSN_FILE_NAME),
+        )
+        protection.assert_sensitive_paths_untracked(target)
+    except (
+        protection.SelfHostProtectionError,
+        secure_layout.SecureLayoutError,
+    ) as exc:
+        raise SelfHostBundleError(str(exc)) from exc
+    return target.resolve()
 
 
 def _compose_text() -> str:
@@ -217,6 +246,12 @@ def _env_text(*, image: str, publish_spec: str) -> str:
         "# are nonsecret; the App private key remains a mounted file.\n"
         "#YOKE_GITHUB_APP_ISSUER=123456\n"
         "#YOKE_GITHUB_APP_API_URL=https://api.github.com\n"
+        "# Optional product-facing Connect profile: set every field or\n"
+        "# leave every field commented to advertise GitHub as unavailable.\n"
+        f"#{GITHUB_APP_WEB_URL_ENV}=https://github.com\n"
+        f"#{GITHUB_APP_ID_ENV}=123456\n"
+        f"#{GITHUB_APP_CLIENT_ID_ENV}=Iv23example\n"
+        f"#{GITHUB_APP_SLUG_ENV}=yoke-self-hosted\n"
         "# Install or rotate through Yoke's atomic owner-only ingress:\n"
         "#   chmod 600 /secure/path/app-key.pem\n"
         "#   yoke self-host init --dir . --protect-existing \\\n"
@@ -267,5 +302,6 @@ __all__ = [
     "SelfHostBundleError",
     "bundle_file_paths",
     "protect_existing_bundle",
+    "validate_existing_bundle",
     "write_bundle",
 ]

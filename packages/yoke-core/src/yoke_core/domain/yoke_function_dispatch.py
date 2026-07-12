@@ -57,6 +57,7 @@ from yoke_core.domain.yoke_function_idempotency_scope import (
     authorization_scope_key,
     idempotency_payload_checksum,
 )
+from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -144,7 +145,7 @@ def _coerce_request(
             function_id,
             version,
             "envelope_invalid",
-            str(exc),
+            safe_validation_message(exc, prefix="envelope invalid"),
         )
 
 

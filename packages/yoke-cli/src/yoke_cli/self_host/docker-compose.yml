@@ -22,6 +22,27 @@ services:
 
   core:
     image: ${YOKE_SERVER_IMAGE}
+    # The public image remains USER yoke. This self-host-only bootstrap starts
+    # as root just long enough to copy root-only Compose secret mounts into a
+    # private tmpfs, drops every group/uid privilege, then execs the server.
+    user: "0:0"
+    entrypoint: ["python", "-m", "yoke_core.tools.self_host_server_bootstrap"]
+    command: []
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -m
+        - yoke_core.tools.self_host_server_bootstrap
+        - --healthcheck
     restart: unless-stopped
     depends_on:
       db:
@@ -39,6 +60,10 @@ services:
       # live in .env; the private key is a mounted owner-only file.
       YOKE_GITHUB_APP_ISSUER: ${YOKE_GITHUB_APP_ISSUER:-}
       YOKE_GITHUB_APP_API_URL: ${YOKE_GITHUB_APP_API_URL:-}
+      YOKE_GITHUB_APP_WEB_URL: ${YOKE_GITHUB_APP_WEB_URL:-}
+      YOKE_GITHUB_APP_ID: ${YOKE_GITHUB_APP_ID:-}
+      YOKE_GITHUB_APP_CLIENT_ID: ${YOKE_GITHUB_APP_CLIENT_ID:-}
+      YOKE_GITHUB_APP_SLUG: ${YOKE_GITHUB_APP_SLUG:-}
       YOKE_GITHUB_APP_PRIVATE_KEY_FILE: ${YOKE_GITHUB_APP_PRIVATE_KEY_FILE:-}
     secrets:
       - yoke-db-dsn
@@ -49,6 +74,8 @@ services:
       # --dir . --protect-existing --github-app-private-key PATH` and
       # setting the GitHub App values in .env:
       #- yoke-github-app-private-key
+    tmpfs:
+      - /run/yoke-runtime-secrets:mode=0700
     ports:
       - "${YOKE_API_PUBLISH:-127.0.0.1:8765}:8765"
 

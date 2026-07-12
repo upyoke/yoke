@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import os
 import subprocess
+from types import SimpleNamespace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,7 +47,8 @@ def _schema_loaded_universe():
 def _write_machine_config(machine_home: Path, payload: dict) -> None:
     machine_home.mkdir(parents=True, exist_ok=True)
     (machine_home / "config.json").write_text(
-        dumps_pretty(payload), encoding="utf-8",
+        dumps_pretty(payload),
+        encoding="utf-8",
     )
 
 
@@ -83,7 +85,8 @@ def test_export_produces_pg_restore_listable_artifact(tmp_path):
 
     listing = subprocess.run(
         ["pg_restore", "--list", str(artifact)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert listing.returncode == 0, listing.stderr
     assert "organizations" in listing.stdout
@@ -178,8 +181,31 @@ def test_export_prefers_embedded_pg_dump_and_cleans_failed_artifact(
     with _schema_loaded_universe() as (_conn, dsn):
         with pytest.raises(ux.UniverseExportError) as excinfo:
             ux.export_universe(dsn=dsn, out=dest)
-    assert "simulated failure" in str(excinfo.value)
+    assert "redacted" in str(excinfo.value)
     assert not dest.exists()
+
+
+def test_export_delegates_to_env_credential_dumper(monkeypatch, tmp_path):
+    """The local command must never rebuild a pg_dump argv containing a DSN."""
+    dsn = "postgresql://alice:secret@db.example/yoke"
+    destination = tmp_path / "safe.dump"
+    observed: dict[str, object] = {}
+    monkeypatch.setattr(ux, "_org_slug", lambda _dsn: "portable")
+
+    def safe_dump(received_dsn, received_destination, **kwargs):
+        observed.update(
+            dsn=received_dsn,
+            destination=received_destination,
+            timeout_s=kwargs["timeout_s"],
+        )
+        destination.write_bytes(b"PGDMP")
+        return SimpleNamespace(size_bytes=5)
+
+    monkeypatch.setattr(ux.universe_portability, "dump_universe", safe_dump)
+    report = ux.export_universe(dsn=dsn, out=destination)
+    assert observed["dsn"] == dsn
+    assert observed["destination"] == destination
+    assert report["bytes"] == 5
 
 
 def _enable_connected_env(monkeypatch) -> None:
@@ -188,23 +214,27 @@ def _enable_connected_env(monkeypatch) -> None:
 
 
 def test_resolve_export_dsn_refuses_https_connection_in_mode_language(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     _enable_connected_env(monkeypatch)
-    _write_machine_config(tmp_path / "machine-home", {
-        "schema_version": 1,
-        "active_env": "prod",
-        "connections": {
-            "prod": {
-                "transport": "https",
-                "api_url": "https://api.example",
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(tmp_path / "token"),
+    _write_machine_config(
+        tmp_path / "machine-home",
+        {
+            "schema_version": 1,
+            "active_env": "prod",
+            "connections": {
+                "prod": {
+                    "transport": "https",
+                    "api_url": "https://api.example",
+                    "credential_source": {
+                        "kind": "token_file",
+                        "path": str(tmp_path / "token"),
+                    },
                 },
             },
         },
-    })
+    )
 
     with pytest.raises(ux.UniverseExportError) as excinfo:
         ux.resolve_export_dsn()
@@ -212,7 +242,8 @@ def test_resolve_export_dsn_refuses_https_connection_in_mode_language(
     message = str(excinfo.value)
     assert "DSN possession" in message
     assert "hosted" in message
-    assert "platform surface" in message
+    assert "Move universe" in message
+    assert "self-host" in message
     assert "yoke init --local" in message
 
 
@@ -220,20 +251,23 @@ def test_resolve_export_dsn_refuses_prod_flagged_postgres(monkeypatch, tmp_path)
     _enable_connected_env(monkeypatch)
     dsn_file = tmp_path / "prod.dsn"
     dsn_file.write_text("host=/prod-sock user=yoke dbname=yoke\n", encoding="utf-8")
-    _write_machine_config(tmp_path / "machine-home", {
-        "schema_version": 1,
-        "active_env": "prod-db-admin",
-        "connections": {
-            "prod-db-admin": {
-                "transport": "local-postgres",
-                "prod": True,
-                "credential_source": {
-                    "kind": "dsn_file",
-                    "path": str(dsn_file),
+    _write_machine_config(
+        tmp_path / "machine-home",
+        {
+            "schema_version": 1,
+            "active_env": "prod-db-admin",
+            "connections": {
+                "prod-db-admin": {
+                    "transport": "local-postgres",
+                    "prod": True,
+                    "credential_source": {
+                        "kind": "dsn_file",
+                        "path": str(dsn_file),
+                    },
                 },
             },
         },
-    })
+    )
 
     with pytest.raises(ux.UniverseExportError) as excinfo:
         ux.resolve_export_dsn()
@@ -244,25 +278,29 @@ def test_resolve_export_dsn_refuses_prod_flagged_postgres(monkeypatch, tmp_path)
 
 
 def test_resolve_export_dsn_returns_nonprod_local_postgres_dsn(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     _enable_connected_env(monkeypatch)
     dsn_file = tmp_path / "local.dsn"
     dsn_file.write_text("host=/sock user=yoke dbname=yoke\n", encoding="utf-8")
-    _write_machine_config(tmp_path / "machine-home", {
-        "schema_version": 1,
-        "active_env": "local",
-        "connections": {
-            "local": {
-                "transport": "local-postgres",
-                "prod": False,
-                "credential_source": {
-                    "kind": "dsn_file",
-                    "path": str(dsn_file),
+    _write_machine_config(
+        tmp_path / "machine-home",
+        {
+            "schema_version": 1,
+            "active_env": "local",
+            "connections": {
+                "local": {
+                    "transport": "local-postgres",
+                    "prod": False,
+                    "credential_source": {
+                        "kind": "dsn_file",
+                        "path": str(dsn_file),
+                    },
                 },
             },
         },
-    })
+    )
 
     assert ux.resolve_export_dsn() == "host=/sock user=yoke dbname=yoke"
 

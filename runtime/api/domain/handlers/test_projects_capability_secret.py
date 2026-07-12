@@ -96,6 +96,23 @@ def test_projects_capability_secret_set_rejects_external_source() -> None:
     assert "literal" in outcome.error.message
 
 
+def test_capability_secret_validation_never_reflects_secret_value() -> None:
+    secret = "capability-secret-must-not-be-reflected"
+    outcome = projects_capability_secret.handle_projects_capability_secret_set(
+        _request({
+            "cap_type": "deploy",
+            "key": "token",
+            "value": secret,
+        })
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error is not None
+    assert outcome.error.code == "payload_invalid"
+    assert "project" in outcome.error.message
+    assert secret not in outcome.error.message
+
+
 def test_projects_capability_secret_set_rejects_machine_local_aws() -> None:
     outcome = projects_capability_secret.handle_projects_capability_secret_set(
         _request({

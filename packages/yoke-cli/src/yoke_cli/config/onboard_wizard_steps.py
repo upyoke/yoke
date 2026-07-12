@@ -24,24 +24,31 @@ from yoke_cli.config.onboard_wizard_apply_steps import (  # noqa: F401
     APPLY_FAILURE_ROWS,
     APPLY_FAILURE_RESUME_ROW,
     APPLY_FAILURE_ROWS_RETRYABLE,
-    APPLY_FAILURE_START_OVER_ROW,
-    APPLY_START_OVER_CONFIRM_ROWS,
+    APPLY_FAILURE_DIFFERENT_FOLDER_ROW,
+    APPLY_DIFFERENT_FOLDER_CONFIRM_ROWS,
     APPLY_STATUS_GLYPHS,
     APPLY_SUCCESS_ROWS,
     apply_failure_body,
     apply_progress_body,
-    apply_start_over_body,
+    apply_different_folder_body,
     apply_step_line,
     apply_success_body,
 )
 from yoke_cli.config.onboard_wizard import PROJECT_GITHUB_REUSE_MACHINE
-from yoke_cli.config.onboard_wizard_palette import ACCENT, BRAND
+from yoke_cli.config.onboard_wizard_palette import ACCENT
 from yoke_cli.config.onboard_wizard_plan_review import (
-    _PLAN_GROUPS,
     _friendly_line,  # noqa: F401 - re-exported for steps.* callers and tests
     classify_plan,
     render_reuse_summary,
     render_write_plan,
+)
+from yoke_cli.config import onboard_wizard_review_steps as review_steps
+from yoke_cli.config.onboard_wizard_review_steps import (
+    CONFIRM_ROWS,
+    FINISH_EMPTY_ROWS,
+    REVIEW_BLOCKED_ROWS,
+    REVIEW_SUBTITLE,
+    REVIEW_TITLE,
 )
 from yoke_cli.config.onboard_wizard_widgets import (
     FocusInput,
@@ -89,6 +96,13 @@ PROBE_RETRY_ROWS = [
 ]
 
 GITHUB_APP_UNAVAILABLE_ROWS = [
+    SelectionRow("reconnect", "Reconnect GitHub", "replace saved authorization"),
+    SelectionRow("backlog", "Use backlog only", "continue without GitHub"),
+    SelectionRow("back", "Back", "choose a different option"),
+]
+
+GITHUB_APP_PENDING_ROWS = [
+    SelectionRow("check", "Check access", "after finishing in GitHub"),
     SelectionRow("backlog", "Use backlog only", "continue without GitHub"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
@@ -108,24 +122,7 @@ PROJECT_GITHUB_ROWS = [
                  onboard_github_copy.PROJECT_GITHUB_SKIP_DESC),
 ]
 
-PROJECT_GITHUB_ROWS_NO_MACHINE = PROJECT_GITHUB_ROWS[1:]
-CONFIRM_ROWS = [
-    SelectionRow("apply", "Apply", "writes everything above"),
-    SelectionRow("cancel", "Cancel", "nothing is saved"),
-]
-REVIEW_TITLE = f"Review what {BRAND} will save."
-REVIEW_SUBTITLE = "Nothing is written until you choose Apply."
-REVIEW_BLOCKED_ROWS = [
-    SelectionRow("back", "Back to fix that", "step back and correct it"),
-    SelectionRow("cancel", "Quit", "nothing is saved"),
-]
-
-# Shown when the plan has no persistent writes — a single Finish row that still
-# routes through the apply confirm so the wizard exits cleanly.
-FINISH_EMPTY_ROWS = [
-    SelectionRow("apply", "Finish", ""),
-]
-
+PROJECT_GITHUB_ROWS_NO_MACHINE = [PROJECT_GITHUB_ROWS[-1]]
 def _heading(title: str, subtitle: str | None) -> list[Static]:
     widgets = [Static(title, classes="onboard-title")]
     if subtitle is not None:
@@ -232,52 +229,15 @@ def verification_body(
 def finish_body(
     plan: dict[str, Any], *, problems: list[str] | None = None,
     notes: list[str] | None = None,
+    machine_github_saved: bool = False,
 ) -> list[Static]:
-    grouped = classify_plan(plan)
-    has_writes = any(grouped.get(key) for _label, _css, key in _PLAN_GROUPS)
-    if not has_writes:
-        widgets = _heading(
-            "You're connected.",
-            "Nothing new to save — the selected setup is already in place.",
-        )
-        widgets.extend(render_reuse_summary(plan))
-        if len(widgets) > 2:
-            widgets.append(Static("", classes="onboard-spacer"))
-        widgets.append(SelectionList(FINISH_EMPTY_ROWS))
-        return widgets
-    # Pre-flight found problems: show ALL of them at once and guard Apply behind a
-    # single "Back to fix that" row, so a stale target / repo name can't
-    # be applied into a half-written state.
-    if problems:
-        widgets = [
-            Static("✗ A few things to fix before applying.",
-                   classes="onboard-title-error"),
-            Static("", classes="onboard-spacer"),
-        ]
-        widgets.extend(
-            Static(f"  • {escape(line)}", classes="onboard-plan-line")
-            for line in problems
-        )
-        widgets.append(Static("", classes="onboard-spacer"))
-        widgets.append(SelectionList(REVIEW_BLOCKED_ROWS))
-        return widgets
-    widgets = _heading(REVIEW_TITLE, REVIEW_SUBTITLE)
-    widgets.extend(render_write_plan(plan))
-    reuse_widgets = render_reuse_summary(plan)
-    if reuse_widgets:
-        widgets.append(Static("", classes="onboard-spacer"))
-        widgets.extend(reuse_widgets)
-    # Advisory notes (e.g. an existing empty repo Apply will reuse) sit between
-    # the plan and the Apply row so the user knows what "Apply" will really do.
-    for line in notes or []:
-        widgets.append(Static(f"Note: {escape(line)}", classes="onboard-note"))
-    # Long plans can scroll the focused Apply row into view and push the top
-    # heading off-screen. Repeat the safety copy next to the action rows so the
-    # final consent screen still names what Apply means.
-    widgets.append(Static("", classes="onboard-spacer"))
-    widgets.extend(_heading(REVIEW_TITLE, REVIEW_SUBTITLE))
-    widgets.append(SelectionList(CONFIRM_ROWS))
-    return widgets
+    return review_steps.finish_body(
+        plan,
+        problems=problems,
+        notes=notes,
+        machine_github_saved=machine_github_saved,
+        heading=_heading,
+    )
 
 
 def reset_project_fields(result: Any) -> None:
@@ -286,22 +246,39 @@ def reset_project_fields(result: Any) -> None:
     result.project_slug = None
     result.project_name = None
     result.project_github_repo = None
+    result.project_github_repository_id = None
+    result.project_github_installation_id = None
+    result.project_checkout_origin_url = None
+    result.project_checkout_github_repo = None
     result.project_default_branch = None
     result.project_public_item_prefix = None
     result.existing_project_id = None
     result.existing_project_match_source = None
     result.existing_project_local_source = None
     result.project_github_adoption = None
+    result.project_github_adoption_preserve = False
+    reset_project_publish_fields(result)
+    result.project_clone_outcome = None
+    result.project_clone_keep_upstream = True
+    result.project_clone_requires_machine_github = False
+    result.project_source_default_branch = None
+    result.project_keep_existing_remote = False
+    result.board_art_word = None
+    result.board_art_seed = None
+    result.board_art_variants = []
+
+
+def reset_project_publish_fields(result: Any) -> None:
+    """Clear every create/manual-attach field as one navigation transaction."""
+
     result.project_publish_to_github = False
     result.project_publish_owner = None
     result.project_publish_owner_login = None
     result.project_publish_repo_name = None
     result.project_publish_private = True
-    result.project_clone_outcome = None
-    result.project_clone_keep_upstream = True
-    result.board_art_word = None
-    result.board_art_seed = None
-    result.board_art_variants = []
+    result.project_publish_create_repository = True
+    result.project_publish_repository_id = None
+    result.project_publish_installation_id = None
 
 
 def slug_from_checkout(checkout: str | None) -> str:
@@ -322,12 +299,13 @@ __all__ = [
     "APPLY_FAILURE_ROWS",
     "APPLY_FAILURE_RESUME_ROW",
     "APPLY_FAILURE_ROWS_RETRYABLE",
-    "APPLY_FAILURE_START_OVER_ROW",
-    "APPLY_START_OVER_CONFIRM_ROWS",
+    "APPLY_FAILURE_DIFFERENT_FOLDER_ROW",
+    "APPLY_DIFFERENT_FOLDER_CONFIRM_ROWS",
     "APPLY_STATUS_GLYPHS",
     "APPLY_SUCCESS_ROWS",
     "FINISH_EMPTY_ROWS",
     "GITHUB_APP_UNAVAILABLE_ROWS",
+    "GITHUB_APP_PENDING_ROWS",
     "MACHINE_GITHUB_ROWS",
     "PROJECT_GITHUB_ACCESS_ROWS",
     "MODE_ROWS",
@@ -342,7 +320,7 @@ __all__ = [
     "YOKE_TOKEN_VERIFY_RETRY_ROWS",
     "apply_failure_body",
     "apply_progress_body",
-    "apply_start_over_body",
+    "apply_different_folder_body",
     "apply_step_line",
     "apply_success_body",
     "classify_plan",

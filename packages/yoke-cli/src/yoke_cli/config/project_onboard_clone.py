@@ -13,10 +13,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Callable
 
-from yoke_contracts import github_origin
-from yoke_cli.config import github_publish, github_user_tokens, machine_config
-from yoke_cli.config import project_clone_resume
+from yoke_cli.config import github_local_user_access, github_publish, machine_config
+from yoke_cli.config import onboard_wizard_github_state
+from yoke_cli.config import project_clone_fork_resume
 from yoke_cli.config.project_clone_resume import existing_clone_matches
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
@@ -28,16 +29,23 @@ from yoke_cli.config.project_clone_support import (
     set_fork_remotes,
     source_owner_repo,
 )
-from yoke_cli.config.project_git_transport import git_current_branch, https_remote
+from yoke_cli.config.project_git_transport import (
+    clean_remote_url,
+    git_current_branch,
+    https_remote,
+)
 from yoke_cli.config.project_onboard_support import (
     ProjectOnboardError,
     ensure_new_checkout,
 )
+from yoke_cli.config.project_publish_support import local_head_sha
 
 
 def prepare_clone_plan(
     plan: ClonePlan,
     config_path: str | Path | None,
+    *,
+    remote_url: str | None = None,
 ) -> ClonePlan:
     """Thread the configured App deployment and request-scoped user access."""
     github_config = machine_config.github_config(config_path)
@@ -45,13 +53,23 @@ def prepare_clone_plan(
         plan = replace(
             plan,
             fork_web_url=str(github_config.get("web_url") or plan.fork_web_url),
+            fork_allowed=(
+                onboard_wizard_github_state.fork_ready_from_config(
+                    github_config, remote_url,
+                )
+                if plan.outcome == CLONE_OUTCOME_FORK else plan.fork_allowed
+            ),
         )
-    if plan.fallback_token is None and github_config:
+    if (
+        plan.fallback_token is None
+        and plan.use_machine_github
+        and plan.outcome in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE)
+    ):
         try:
-            token = github_user_tokens.access_token_from_machine_config(
+            token = github_local_user_access.access_token(
                 config_path=config_path,
             )
-        except github_user_tokens.GitHubUserTokenError as exc:
+        except github_local_user_access.GitHubLocalUserAccessError as exc:
             raise ProjectOnboardError(
                 "Connected GitHub App authorization could not be refreshed for "
                 "the clone. Run `yoke github connect` again, or disconnect it "
@@ -61,24 +79,43 @@ def prepare_clone_plan(
     return plan
 
 
+def normalize_clone_request(
+    remote_url: str,
+    plan: ClonePlan | None,
+) -> tuple[ClonePlan, str]:
+    """Return a plan and its credential-free canonical source URL."""
+
+    selected = plan or ClonePlan()
+    return selected, clean_remote_url(
+        remote_url, web_url=selected.fork_web_url,
+    )
+
+
+def machine_token_provider(
+    plan: ClonePlan,
+    config_path: str | Path | None,
+) -> Callable[[], str | None] | None:
+    """Return a lazy token source for an explicitly private clone."""
+    if not plan.use_machine_github or plan.fallback_token:
+        return None
+
+    def provide() -> str:
+        try:
+            return github_local_user_access.access_token(
+                config_path=config_path,
+            ).access_token
+        except github_local_user_access.GitHubLocalUserAccessError as exc:
+            raise ProjectOnboardError(
+                "Connected GitHub App authorization could not be refreshed "
+                "after anonymous clone access failed. Reconnect GitHub and retry."
+            ) from exc
+
+    return provide
+
+
 @dataclass(frozen=True)
 class CloneApplyResult:
-    """What the clone apply did, including which steps were reused on a resume.
-
-    ``github_repo`` / ``branch`` are the recorded repo + live default branch (see
-    :func:`apply_clone_outcome`). The three resume flags let the report
-    distinguish a fresh run from one that picked up a prior partial run's work:
-
-    * ``clone_reused`` — the working copy was already a clone of the source, so
-      the clone step was skipped.
-    * ``repo_reused`` — ``make-it-mine`` found its target repo already existing
-      (empty, from a prior run) and adopted it instead of creating it.
-    * ``origin_rehomed`` — ``make-it-mine`` found ``origin`` already pointing at
-      the new repo, so the remote re-home was skipped (the push still ran).
-
-    All three default ``False`` on a fresh run, so a first run reports exactly as
-    before; only a resumed run flips them.
-    """
+    """Clone result plus which idempotent steps reused prior-run state."""
 
     github_repo: str | None
     branch: str | None
@@ -92,6 +129,7 @@ def resumable_clone(
     remote_url: str,
     *,
     token: str | None,
+    token_provider: Callable[[], str | None] | None = None,
     github_web_url: str | None = None,
 ) -> bool:
     """Clone ``remote_url`` into ``root``, skipping when it is already cloned.
@@ -107,7 +145,10 @@ def resumable_clone(
     skipped), ``False`` when a fresh clone was made — so the caller can tell the
     user the clone was reused on a resume.
     """
-    if existing_clone_matches(root, remote_url):
+    clean_remote = clean_remote_url(remote_url, web_url=github_web_url)
+    if existing_clone_matches(
+        root, clean_remote, web_url=github_web_url,
+    ):
         return True
     if root.exists() and any(root.iterdir()):
         raise ProjectOnboardError(
@@ -117,10 +158,30 @@ def resumable_clone(
         )
     ensure_new_checkout(root)
     clone_with_token_fallback(
-        root.parent, root.name, remote_url,
-        token=token, github_web_url=github_web_url,
+        root.parent, root.name, clean_remote,
+        token=token, token_provider=token_provider,
+        github_web_url=github_web_url,
     )
     return False
+
+
+def resumable_clone_with_machine_fallback(
+    root: Path,
+    remote_url: str,
+    *,
+    plan: ClonePlan,
+    config_path: str | Path | None,
+    clone: Callable[..., bool] = resumable_clone,
+) -> bool:
+    """Run anonymous-first clone with a lazy machine token when requested."""
+
+    return clone(
+        root,
+        remote_url,
+        token=plan.fallback_token,
+        token_provider=machine_token_provider(plan, config_path),
+        github_web_url=plan.fork_web_url,
+    )
 
 
 def apply_clone_outcome(
@@ -153,12 +214,40 @@ def apply_clone_outcome(
         expected_origin = https_remote(
             plan.publish.full_name, web_url=plan.publish.web_url,
         )
-        if origin_is(root, expected_origin):
-            created = {
-                "full_name": plan.publish.full_name,
-                "private": plan.publish.private,
-                "reused": True,
-            }
+        expected_head_sha = local_head_sha(root, default_branch)
+        if not plan.publish.create_repository:
+            if (
+                not isinstance(plan.publish.repository_id, int)
+                or plan.publish.repository_id <= 0
+                or not isinstance(plan.publish.installation_id, int)
+                or plan.publish.installation_id <= 0
+            ):
+                raise ProjectOnboardError(
+                    "The selected existing repository identity is incomplete; "
+                    "check repositories again before Apply"
+                )
+            created = github_publish.verify_existing_repo(
+                plan.publish.api_url,
+                plan.publish.token,
+                owner=plan.publish.owner,
+                name=plan.publish.name,
+                expected_head_sha=expected_head_sha,
+                private=plan.publish.private,
+                repository_id=plan.publish.repository_id,
+                web_url=plan.publish.web_url,
+            )
+        elif origin_is(
+            root, expected_origin, web_url=plan.publish.web_url,
+        ):
+            created = github_publish.verify_resumable_repo(
+                plan.publish.api_url,
+                plan.publish.token,
+                owner=plan.publish.owner,
+                name=plan.publish.name,
+                private=plan.publish.private,
+                expected_head_sha=expected_head_sha,
+                web_url=plan.publish.web_url,
+            )
         else:
             created = github_publish.create_repo(
                 plan.publish.api_url,
@@ -177,7 +266,9 @@ def apply_clone_outcome(
         # no-op resume (origin already pointed at the new repo) or a fresh
         # re-home — rehome_to_new_origin uses the same predicate internally to
         # decide whether to skip the rename/add, then always (re-)pushes.
-        origin_rehomed = origin_is(root, new_origin_url)
+        origin_rehomed = origin_is(
+            root, new_origin_url, web_url=plan.publish.web_url,
+        )
         pushed_branch = rehome_to_new_origin(
             root,
             new_origin_url=new_origin_url,
@@ -194,12 +285,27 @@ def apply_clone_outcome(
             origin_rehomed=origin_rehomed,
         )
     if plan.outcome == CLONE_OUTCOME_FORK and plan.fallback_token:
+        if not plan.fork_allowed:
+            raise ProjectOnboardError(
+                "Creating a fork through Yoke requires Administration: write, "
+                "Contents access, all-repositories access on the destination, "
+                "and source-repository access. The baseline Yoke GitHub App "
+                "does not request Administration; clone the repository without "
+                "forking, or create the fork in GitHub first."
+            )
         owner, repo = source_owner_repo(remote_url, web_url=plan.fork_web_url)
-        existing_fork = _existing_fork_repo(
+        existing_fork = project_clone_fork_resume.existing_fork_repo(
             root, remote_url=remote_url, web_url=plan.fork_web_url,
         ) if clone_reused else None
         fork = (
-            {"full_name": existing_fork, "reused": True}
+            github_publish.verify_resumable_fork(
+                plan.fork_api_url,
+                plan.fallback_token,
+                source_owner=owner,
+                source_repo=repo,
+                candidate_full_name=existing_fork,
+                web_url=plan.fork_web_url,
+            )
             if existing_fork
             else github_publish.fork_repo(
                 plan.fork_api_url, plan.fallback_token, owner=owner, repo=repo,
@@ -209,11 +315,13 @@ def apply_clone_outcome(
         set_fork_remotes(
             root,
             fork_url=https_remote(fork["full_name"], web_url=plan.fork_web_url),
+            github_web_url=plan.fork_web_url,
         )
         return CloneApplyResult(
             github_repo=fork["full_name"],
             branch=git_current_branch(root),
             clone_reused=clone_reused,
+            repo_reused=bool(fork.get("reused")),
         )
     # just-clone (or fork without a token): origin stays the source; the recorded
     # default branch is still the clone's real checked-out branch.
@@ -224,34 +332,12 @@ def apply_clone_outcome(
     )
 
 
-def _existing_fork_repo(
-    root: Path,
-    *,
-    remote_url: str,
-    web_url: str,
-) -> str | None:
-    """Return a prior run's fork when origin changed and upstream is the source."""
-    origin = project_clone_resume.remote_url(root, "origin")
-    upstream = project_clone_resume.remote_url(root, "upstream")
-    if not (origin and upstream and project_clone_resume.same_repo(
-        upstream, remote_url,
-    )):
-        return None
-    try:
-        fork_repo = github_origin.normalize_github_repository(
-            origin, web_url=web_url,
-        )
-        source_repo = github_origin.normalize_github_repository(
-            remote_url, web_url=web_url,
-        )
-    except github_origin.GitHubApiOriginError:
-        return None
-    return fork_repo if fork_repo.casefold() != source_repo.casefold() else None
-
-
 __all__ = [
     "CloneApplyResult",
     "apply_clone_outcome",
     "prepare_clone_plan",
+    "machine_token_provider",
+    "normalize_clone_request",
     "resumable_clone",
+    "resumable_clone_with_machine_fallback",
 ]

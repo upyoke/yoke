@@ -164,6 +164,38 @@ def configured_projects(
     return out
 
 
+def all_registered_checkouts(
+    path: str | Path | None = None,
+    *,
+    existing_only: bool = False,
+) -> list[Path]:
+    """Return deduplicated checkout paths across every configured env.
+
+    GitHub credentials are machine-global, so cleanup callers cannot use the
+    active-env-scoped :func:`configured_projects` inventory. Malformed project
+    rows are ignored by the canonical normalizer, and filesystem errors on one
+    row do not hide the remaining registered checkouts.
+    """
+
+    payload = load_config(path)
+    out: list[Path] = []
+    seen: set[str] = set()
+    for entry in contract.normalize_projects(payload.get("projects")):
+        try:
+            checkout = Path(entry["checkout"]).expanduser()
+            canonical = checkout.resolve(strict=False)
+            if existing_only and not canonical.is_dir():
+                continue
+        except (OSError, TypeError, ValueError):
+            continue
+        key = str(canonical)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(canonical)
+    return out
+
+
 def project_id(repo_root: str | Path, path: str | Path | None = None) -> int | None:
     """Resolve the numeric project id for a checkout."""
 
@@ -229,6 +261,7 @@ __all__ = [
     "MachineConfigError",
     "active_connection",
     "active_env",
+    "all_registered_checkouts",
     "board_art_path",
     "board_render_path",
     "board_scope",

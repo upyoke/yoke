@@ -65,6 +65,13 @@ def _config_payload(home: Path) -> dict:
 # ── pure destination resolution ──────────────────────────────────────────
 
 
+def test_public_onboarding_defaults_to_the_local_universe() -> None:
+    assert (
+        onboard_destinations.DEFAULT_DESTINATION
+        == onboard_destinations.DESTINATION_LOCAL
+    )
+
+
 def test_resolve_choice_flag_and_override_routing() -> None:
     resolve = onboard_destinations.resolve_choice
     assert resolve(local_flag=True) == (
@@ -283,7 +290,7 @@ def test_legacy_api_url_lane_stamps_server_destination(
     """``--api-url`` alone (no ``--local``/``--connect``) derives the
     destination the URL implies, so the report and the resume snapshot
     preset the team-server lane — a resumed run must not silently flip a
-    self-hosted onboarding to the hosted default."""
+    self-hosted onboarding to the local default."""
     rc = yoke_operations_cli.main([
         "onboard", "a-plausible-team-server-actor-token-value",
         "--non-interactive", "--quick", "--env", "prod",

@@ -20,7 +20,7 @@ dependencies, and links `yoke` onto PATH. The installer auto-launches
 `yoke onboard` when interactive.
 
 ```bash
-curl -fsSL https://api.upyoke.com/install | bash
+curl -fsSL https://upyoke.com/install | sh
 yoke --version
 ```
 

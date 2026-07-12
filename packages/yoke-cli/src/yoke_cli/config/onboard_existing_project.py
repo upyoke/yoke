@@ -7,6 +7,8 @@ from typing import Any
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
+from yoke_contracts.project_contract.github_sync_mode import GITHUB_SYNC_ENABLED
 
 
 def match_summary(result: Any) -> str:
@@ -61,10 +63,18 @@ def record_match(
     result.project_github_repo = project.github_repo
     result.project_default_branch = project.default_branch
     result.project_public_item_prefix = project.public_item_prefix
-    result.project_github_adoption = GITHUB_ADOPTION_BACKLOG_ONLY
+    result.project_github_adoption = (
+        GITHUB_ADOPTION_APP_BINDING
+        if project.github_sync_mode == GITHUB_SYNC_ENABLED
+        else GITHUB_ADOPTION_BACKLOG_ONLY
+    )
+    result.project_github_adoption_preserve = True
     result.project_publish_to_github = False
     result.project_publish_owner = None
     result.project_publish_repo_name = None
+    result.project_publish_create_repository = True
+    result.project_publish_repository_id = None
+    result.project_publish_installation_id = None
     result.board_art_word = None
     result.board_art_seed = None
     result.board_art_variants = []

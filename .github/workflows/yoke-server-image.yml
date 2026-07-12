@@ -5,63 +5,128 @@ name: yoke-server-image
 # .env references by default (see yoke_contracts.server_image). Stays
 # with the product repo when it becomes public.
 #
-# Dormant until armed: the job is gated on the repository variable
-# YOKE_PUBLISH_SERVER_IMAGE == 'true', so nothing publishes from this
-# repository until the operator flips the variable on the public repo.
+# Dormant until armed: the build job is gated on the repository variable
+# YOKE_PUBLISH_SERVER_IMAGE == 'true'. Publication is tag-driven so a branch
+# push can never move latest to a setuptools-scm development version.
 #
-# Fork safety: never runs for a stranger's pull request (push-to-main and
-# manual dispatch only); no step reads a repository secret beyond the
-# workflow's own GITHUB_TOKEN, which the permissions block scopes to
-# package publishing; runs-on is hard-pinned to GitHub-hosted so this
-# lane can never reach operator infrastructure. No cloud credentials, no
-# operator registry — the private registry prewarm lane is a separate
-# OPERATION workflow (yoke-core-image.yml).
+# Fork safety: only annotated release tags whose commit is reachable from
+# current main can enter the build. Validation has read-only repository scope;
+# build, signing, and tag publication are separate GitHub-hosted jobs. The
+# signer has no checkout or run step, and sha12/latest do not become visible
+# until the digest attestation succeeds. No cloud credentials or operator
+# registry are available in this lane.
 
 on:
   push:
-    branches: [main]
-    paths-ignore:
-      - ".yoke/strategy/**"
-      - "docs/**"
-      - "**/*.md"
-  workflow_dispatch:
+    tags:
+      - "v*"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # One global lane protects the immutable sha12 namespace and serializes the
+  # intentional latest-pointer update across release tags and reruns.
+  group: yoke-server-image-publication
   cancel-in-progress: false
 
-permissions:
-  contents: read
-  packages: write
+permissions: {}
 
 jobs:
-  build-push:
-    name: build-push-ghcr
+  validate-tag:
+    name: validate-release-tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_version: ${{ steps.tag.outputs.release_version }}
+      source_sha: ${{ steps.tag.outputs.source_sha }}
+      tag_object_sha: ${{ steps.tag.outputs.tag_object_sha }}
+    steps:
+      - name: Require an immutable annotated release tag on main
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          canonical_tag_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\+([a-z0-9]*[a-z][a-z0-9]*|0|[1-9][0-9]*)(\.([a-z0-9]*[a-z][a-z0-9]*|0|[1-9][0-9]*))*$'
+          if [[ "$GITHUB_REF" != "refs/tags/$TAG_NAME" || ! "$TAG_NAME" =~ $canonical_tag_re ]]; then
+            echo "image release tags must use canonical vX.Y.Z+local.N spelling without leading-zero numeric atoms: $TAG_NAME" >&2
+            exit 1
+          fi
+
+          remote_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG_NAME")"
+          object_type="$(jq -r '.object.type' <<< "$remote_ref")"
+          tag_object_sha="$(jq -r '.object.sha' <<< "$remote_ref")"
+          if [[ "$object_type" != "tag" || ! "$tag_object_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "image release tag must be an annotated tag object: $TAG_NAME" >&2
+            exit 1
+          fi
+
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
+          target_type="$(jq -r '.object.type' <<< "$tag_object")"
+          source_sha="$(jq -r '.object.sha' <<< "$tag_object")"
+          if [[ "$target_type" != "commit" || "$source_sha" != "$GITHUB_SHA" ]]; then
+            echo "remote image tag does not peel to workflow commit $GITHUB_SHA" >&2
+            exit 1
+          fi
+
+          main_relation="$(gh api \
+            "repos/$GITHUB_REPOSITORY/compare/$source_sha...main" \
+            --jq '.status')"
+          if [[ "$main_relation" != "ahead" && "$main_relation" != "identical" ]]; then
+            echo "image release commit is not reachable from current main: $source_sha" >&2
+            exit 1
+          fi
+          {
+            echo "release_version=${TAG_NAME#v}"
+            echo "source_sha=$source_sha"
+            echo "tag_object_sha=$tag_object_sha"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build-content-addressed-image
+    needs: validate-tag
     if: ${{ vars.YOKE_PUBLISH_SERVER_IMAGE == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      latest_ref: ${{ steps.image.outputs.latest_ref }}
+      repository: ${{ steps.image.outputs.repository }}
+      sha_ref: ${{ steps.image.outputs.sha_ref }}
+      sha_tag: ${{ steps.image.outputs.sha_tag }}
     # Deliberately NOT the runner-routing repository variable: publishing
     # to GHCR carries no operator state, so there is nothing a hosted
     # runner cannot do, and hard-pinning keeps this lane off operator
     # runner fleets even on repos where routing is configured.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          # The server wheel version is derived by setuptools-scm before the
-          # Docker build, because the Docker context intentionally does not
-          # carry .git into the image.
           fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.validate-tag.outputs.source_sha }}
 
-      - name: Resolve image reference (sha12 tag, lowercase owner)
+      - name: Set up QEMU for the arm64 image
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Resolve image references
+        id: image
         run: |
           owner="${{ github.repository_owner }}"
-          echo "IMAGE_REPOSITORY=ghcr.io/${owner,,}/yoke-server" >> "$GITHUB_ENV"
-          echo "IMAGE_TAG=${GITHUB_SHA:0:12}" >> "$GITHUB_ENV"
-
-      - name: Resolve package version
-        run: |
-          python -m pip install "setuptools-scm[toml]"
-          version="$(python -m setuptools_scm --root "$GITHUB_WORKSPACE")"
-          echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
+          repository="ghcr.io/${owner,,}/yoke-server"
+          source_sha="${{ needs.validate-tag.outputs.source_sha }}"
+          sha_tag="${source_sha:0:12}"
+          {
+            echo "repository=$repository"
+            echo "sha_tag=$sha_tag"
+            echo "sha_ref=$repository:$sha_tag"
+            echo "latest_ref=$repository:latest"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR
         run: |
@@ -69,21 +134,140 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" \
             | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Build the server image
-        # YOKE_BUILD_SHA bakes the source sha into the image; /v1/health
-        # serves it as `build` so self-hosters can confirm WHICH code is
-        # answering after an upgrade.
-        run: |
-          docker build \
-            --build-arg "YOKE_BUILD_SHA=$IMAGE_TAG" \
-            --build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION" \
-            -t "$IMAGE_REPOSITORY:$IMAGE_TAG" .
+      - name: Build and push the content-addressed server image
+        id: push
+        # The digest is pushed without sha12/latest. /v1/health exposes the
+        # baked source SHA12, while package versions come directly from the
+        # validated release tag rather than a branch development version.
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          # Push the content-addressed image first, without mutating either
+          # human-facing tag. The post-attestation publication job can then
+          # refuse a conflicting immutable sha12 before creating it.
+          outputs: type=image,name=${{ steps.image.outputs.repository }},push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            YOKE_BUILD_SHA=${{ steps.image.outputs.sha_tag }}
+            YOKE_ENGINE_VERSION=${{ needs.validate-tag.outputs.release_version }}
 
-      - name: Push the sha tag
-        run: docker push "$IMAGE_REPOSITORY:$IMAGE_TAG"
+  attest:
+    name: attest-content-addressed-image
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      # Deliberately no checkout and no run step: repository code never shares
+      # the OIDC identity or attestation write scope.
+      - name: Login to GHCR
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push latest (main only)
-        if: github.ref == 'refs/heads/main'
+      - name: Attest the untagged image digest
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-name: ${{ needs.build.outputs.repository }}
+          subject-digest: ${{ needs.build.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+
+  publish-tags:
+    name: publish-and-verify-image-tags
+    needs: [validate-tag, build, attest]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Login to GHCR
         run: |
-          docker tag "$IMAGE_REPOSITORY:$IMAGE_TAG" "$IMAGE_REPOSITORY:latest"
-          docker push "$IMAGE_REPOSITORY:latest"
+          set -o pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Revalidate tag and publish image references
+        env:
+          EXPECTED_SOURCE_SHA: ${{ needs.validate-tag.outputs.source_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.validate-tag.outputs.tag_object_sha }}
+          GH_TOKEN: ${{ github.token }}
+          LATEST_REF: ${{ needs.build.outputs.latest_ref }}
+          PUSHED_DIGEST: ${{ needs.build.outputs.digest }}
+          REPOSITORY: ${{ needs.build.outputs.repository }}
+          SHA_REF: ${{ needs.build.outputs.sha_ref }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          remote_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG_NAME")"
+          object_type="$(jq -r '.object.type' <<< "$remote_ref")"
+          tag_object_sha="$(jq -r '.object.sha' <<< "$remote_ref")"
+          if [[ "$object_type" != "tag" || "$tag_object_sha" != "$EXPECTED_TAG_OBJECT_SHA" ]]; then
+            echo "remote image tag changed before publication: $TAG_NAME" >&2
+            exit 1
+          fi
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
+          target_type="$(jq -r '.object.type' <<< "$tag_object")"
+          source_sha="$(jq -r '.object.sha' <<< "$tag_object")"
+          if [[ "$target_type" != "commit" || "$source_sha" != "$EXPECTED_SOURCE_SHA" || "$source_sha" != "$GITHUB_SHA" ]]; then
+            echo "remote image tag no longer peels to the workflow commit" >&2
+            exit 1
+          fi
+          main_relation="$(gh api \
+            "repos/$GITHUB_REPOSITORY/compare/$source_sha...main" \
+            --jq '.status')"
+          if [[ "$main_relation" != "ahead" && "$main_relation" != "identical" ]]; then
+            echo "image release commit is no longer reachable from current main" >&2
+            exit 1
+          fi
+
+          inspect_error="$RUNNER_TEMP/sha12-inspect-error"
+          existing_digest=""
+          if existing_digest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{ .Manifest.Digest }}' \
+            2>"$inspect_error")"; then
+            if [[ "$existing_digest" != "$PUSHED_DIGEST" ]]; then
+              echo "refusing conflicting immutable sha12: $SHA_REF is $existing_digest, build is $PUSHED_DIGEST" >&2
+              exit 1
+            fi
+          elif grep -Eqi 'manifest unknown|not found' "$inspect_error"; then
+            docker buildx imagetools create \
+              --prefer-index=false \
+              --tag "$SHA_REF" "$REPOSITORY@$PUSHED_DIGEST"
+          else
+            cat "$inspect_error" >&2
+            exit 1
+          fi
+
+          docker buildx imagetools create \
+            --prefer-index=false \
+            --tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"
+
+      - name: Verify published references resolve to the built digest
+        env:
+          LATEST_REF: ${{ needs.build.outputs.latest_ref }}
+          PUSHED_DIGEST: ${{ needs.build.outputs.digest }}
+          SHA_REF: ${{ needs.build.outputs.sha_ref }}
+        run: |
+          sha_digest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{ .Manifest.Digest }}')"
+          latest_digest="$(docker buildx imagetools inspect \
+            "$LATEST_REF" --format '{{ .Manifest.Digest }}')"
+          if [[ "$sha_digest" != "$PUSHED_DIGEST" || "$latest_digest" != "$PUSHED_DIGEST" ]]; then
+            echo "published references differ from built digest: sha12=$sha_digest latest=$latest_digest built=$PUSHED_DIGEST" >&2
+            exit 1
+          fi
+          manifest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{json .Manifest}}')"
+          platforms="$(jq -r \
+            '[.manifests[]?.platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | unique | sort | join(",")' \
+            <<< "$manifest")"
+          if [[ "$platforms" != "linux/amd64,linux/arm64" ]]; then
+            echo "published image lacks the required linux platforms: $platforms" >&2
+            exit 1
+          fi

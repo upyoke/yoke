@@ -106,9 +106,13 @@ def close_issue(
         colors = _label_colors()
 
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), repo, project=gh_project, stderr=stderr,
+            item_ref, str(issue_num), project=gh_project, stderr=stderr,
         ):
-            print(f"Warning: close_issue skipped for {item_ref} — repo mismatch", file=stderr)
+            print(
+                f"Warning: close_issue skipped for {item_ref} — "
+                "issue validation failed",
+                file=stderr,
+            )
             return 1
 
         auth = resolve_project_github_auth(
@@ -203,9 +207,13 @@ def reopen_issue(
             return 1
 
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), repo, project=gh_project, stderr=stderr,
+            item_ref, str(issue_num), project=gh_project, stderr=stderr,
         ):
-            print(f"Warning: reopen_issue skipped for {item_ref} — repo mismatch", file=stderr)
+            print(
+                f"Warning: reopen_issue skipped for {item_ref} — "
+                "issue validation failed",
+                file=stderr,
+            )
             return 1
 
         # Check if already open
@@ -293,13 +301,14 @@ def _sync_flag_label(
             )
             return 1
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), repo, project=gh_project, stderr=stderr,
+            item_ref, str(issue_num), project=gh_project, stderr=stderr,
         ):
             print(
-                f"Warning: sync_{log_name}_label skipped for {item_ref} — repo mismatch",
+                f"Warning: sync_{log_name}_label skipped for {item_ref} — "
+                "issue validation failed",
                 file=stderr,
             )
-            return 0
+            return 1
 
         auth = resolve_project_github_auth(
             gh_project,

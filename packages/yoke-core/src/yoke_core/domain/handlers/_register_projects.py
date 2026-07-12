@@ -1,15 +1,15 @@
-"""Handler registrations for project-write functions (projects.create/update).
+"""Handler registrations for project registry and sync-policy writes.
 
-Split out of :mod:`_register_qa_reads` so that module stays under the
-authored-file line cap. Both surfaces are backed by the idempotent project
-upsert workhorse and differ only in authorization scope — ``projects.create``
-is org-scoped (register a new project), ``projects.update`` is project-scoped
-(edit an existing one); see ``function_authz_scope``. (The project *read*
-registrations still live in ``_register_qa_reads``.)
+The create/update pair is backed by the idempotent project upsert workhorse;
+the explicit sync-mode repair is control-plane scoped and dry-runs by default.
+Project *read* registrations still live in ``_register_qa_reads``.
 """
 from __future__ import annotations
 
 from yoke_core.domain.handlers import projects_upsert as _projects_upsert
+from yoke_core.domain.handlers import (
+    projects_github_sync_mode_repair as _sync_mode_repair,
+)
 
 _PROJECT_WRITE_SURFACES = (
     ("projects.create", _projects_upsert.handle_projects_create),
@@ -18,7 +18,7 @@ _PROJECT_WRITE_SURFACES = (
 
 
 def register(registry) -> None:
-    """Register projects.create + projects.update via the given registry module."""
+    """Register project registry writes via the given registry module."""
     for function_id, handler in _PROJECT_WRITE_SURFACES:
         registry.register(
             function_id, handler,
@@ -32,3 +32,20 @@ def register(registry) -> None:
             guardrails=[], adapter_status="live", claim_required_kind=None,
             ambient_session_required=False,
         )
+    registry.register(
+        "projects.github_sync_mode.repair",
+        _sync_mode_repair.handle_projects_github_sync_mode_repair,
+        _sync_mode_repair.ProjectsGithubSyncModeRepairRequest,
+        _sync_mode_repair.ProjectsGithubSyncModeRepairResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.projects_github_sync_mode_repair"
+        ),
+        target_kinds=["global"],
+        side_effects=["projects_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["dry_run_default", "explicit_apply_required"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )

@@ -18,6 +18,10 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from yoke_contracts.github_app_public import (
+    GitHubAppAdvertisement,
+    GitHubAppUnavailable,
+)
 from yoke_core.domain import lifecycle
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
 
@@ -81,6 +85,7 @@ class HealthResponse(BaseModel):
     build: str = ""
     schema_ready: bool
     schema_missing_tables: List[str] = Field(default_factory=list)
+    github_app: GitHubAppAdvertisement = Field(default_factory=GitHubAppUnavailable)
 
 
 # ---------------------------------------------------------------------------

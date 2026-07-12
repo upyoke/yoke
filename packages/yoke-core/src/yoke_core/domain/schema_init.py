@@ -5,9 +5,11 @@ from yoke_core.domain.actors import seed_canonical_actors
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
+from yoke_core.domain.flow_init import create_or_replace_item_progress_view
 from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.schema_common import _connect_raw
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_identity_tables,
     create_actor_path_claim_tables,
@@ -28,6 +30,7 @@ from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.schema_init_work_claim_indexes import (
     create_work_claim_active_uniques,
 )
+from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
 from yoke_core.domain.strategy_docs import STRATEGY_DOCS_CREATE_TABLE_SQL
 
 
@@ -64,6 +67,13 @@ def converge_core_schema(conn) -> None:
     # the strategy domain owns.
     conn.execute(STRATEGY_DOCS_CREATE_TABLE_SQL)
     apply_additive_schema(conn)
+    # The initial bootstrap creates the view before deployment-run tables land;
+    # every subsequent server boot must converge it onto the complete current
+    # projection once those tables exist.
+    if _table_exists(conn, "deployment_flows"):
+        create_or_replace_item_progress_view(conn)
+    if _table_exists(conn, "qa_runs"):
+        _ensure_qa_runs_verdict_trigger(conn)
 
 
 def cmd_init() -> None:

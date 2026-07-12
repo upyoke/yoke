@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -29,7 +30,9 @@ from yoke_core.domain.schema_common import _table_exists
 _MANIFEST_REL = Path("runtime/api/domain/migrations/sample_migration.migration.json")
 
 
-def _manifest() -> dict:
+def _manifest(root: Path) -> dict:
+    module_path = Path("runtime/api/domain/migrations/sample_migration.py")
+    module_digest = hashlib.sha256((root / module_path).read_bytes()).hexdigest()
     return {
         "version": 1,
         "project": "yoke",
@@ -42,10 +45,14 @@ def _manifest() -> dict:
             "migration_strategy": "additive_only",
             "schema_kinds": ["additive"],
             "data_kinds": [],
-            "affected_surfaces": [
-                {"table": "widgets", "columns": ["id", "name"]}
-            ],
+            "affected_surfaces": [{"table": "widgets", "columns": ["id", "name"]}],
             "count_preserving": True,
+        },
+        "module_sources": {
+            "sample_migration": {
+                "path": module_path.as_posix(),
+                "sha256": module_digest,
+            }
         },
         "attestation": {
             "pre_merge_readers_writers": [
@@ -63,13 +70,11 @@ def _manifest() -> dict:
 
 
 @pytest.fixture
-def manifest_env(apply_env):
+def manifest_env(apply_env):  # noqa: F811
     root = apply_env["worktree"]
-    (root / ".gitignore").write_text(
-        ".yoke/\n__pycache__/\n", encoding="utf-8"
-    )
+    (root / ".gitignore").write_text(".yoke/\n__pycache__/\n", encoding="utf-8")
     manifest = root / _MANIFEST_REL
-    json_helper.dump_path(manifest, _manifest())
+    json_helper.dump_path(manifest, _manifest(root))
     _git(root, "init")
     _git(root, "add", ".")
     _git(
@@ -135,7 +140,9 @@ def test_manifest_rehearse_and_live_apply_without_item(manifest_env) -> None:
     finally:
         control.close()
     assert after_items == before_items
-    assert (manifest_env["worktree"] / "runtime/api/domain/migrations/sample_migration.py").is_file()
+    assert (
+        manifest_env["worktree"] / "runtime/api/domain/migrations/sample_migration.py"
+    ).is_file()
 
 
 def test_live_apply_refuses_changed_manifest_source(manifest_env) -> None:
@@ -144,7 +151,7 @@ def test_live_apply_refuses_changed_manifest_source(manifest_env) -> None:
         worktree_path=manifest_env["worktree"],
         control_db_path=manifest_env["control_db"],
     )
-    changed = _manifest()
+    changed = _manifest(manifest_env["worktree"])
     changed["attestation"]["residual_risk_notes"] = "Changed after rehearsal."
     json_helper.dump_path(manifest_env["manifest"], changed)
     _git(manifest_env["worktree"], "add", _MANIFEST_REL.as_posix())
@@ -183,7 +190,7 @@ def test_manifest_resolution_refuses_dirty_worktree(manifest_env) -> None:
 
 def test_manifest_resolution_refuses_untracked_source(manifest_env) -> None:
     untracked = manifest_env["worktree"] / "untracked.migration.json"
-    json_helper.dump_path(untracked, _manifest())
+    json_helper.dump_path(untracked, _manifest(manifest_env["worktree"]))
     _git(manifest_env["worktree"], "add", "untracked.migration.json")
     _git(
         manifest_env["worktree"],
@@ -223,8 +230,7 @@ def test_manifest_resolution_refuses_untracked_source(manifest_env) -> None:
 
 def test_manifest_resolution_refuses_tracked_module_symlink(manifest_env) -> None:
     module = (
-        manifest_env["worktree"]
-        / "runtime/api/domain/migrations/sample_migration.py"
+        manifest_env["worktree"] / "runtime/api/domain/migrations/sample_migration.py"
     )
     target = module.with_name("sample_migration_target.py")
     target.write_text(module.read_text(encoding="utf-8"), encoding="utf-8")
@@ -261,8 +267,7 @@ def test_live_revalidates_source_after_backup(manifest_env, monkeypatch) -> None
         control_db_path=manifest_env["control_db"],
     )
     module = (
-        manifest_env["worktree"]
-        / "runtime/api/domain/migrations/sample_migration.py"
+        manifest_env["worktree"] / "runtime/api/domain/migrations/sample_migration.py"
     )
 
     def mutate_source_during_backup(*args, **kwargs) -> str:
@@ -297,7 +302,7 @@ def test_live_revalidates_source_after_backup(manifest_env, monkeypatch) -> None
     )
 
     assert not result.all_succeeded
-    assert "changed after subject resolution" in (result.modules[0].error or "")
+    assert "packaged migration source digest differs" in (result.modules[0].error or "")
 
 
 def test_cli_help_lists_manifest_units(capsys) -> None:

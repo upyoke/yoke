@@ -43,9 +43,12 @@ _VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:\.dev\d+\+g[0-9a-f]+(?:\.d\d+)?)?")
 
 @contextmanager
 def golden_color_env():
-    """Render approved SVG colors even when the parent shell disables color."""
+    """Render approved SVG colors and glyphs regardless of the parent shell."""
+    force_plain_name = "YOKE_ONBOARD_FORCE_PLAIN"
     previous = os.environ.get("NO_COLOR")
+    previous_force_plain = os.environ.get(force_plain_name)
     os.environ.pop("NO_COLOR", None)
+    os.environ[force_plain_name] = "0"
     try:
         yield
     finally:
@@ -53,6 +56,10 @@ def golden_color_env():
             os.environ.pop("NO_COLOR", None)
         else:
             os.environ["NO_COLOR"] = previous
+        if previous_force_plain is None:
+            os.environ.pop(force_plain_name, None)
+        else:
+            os.environ[force_plain_name] = previous_force_plain
 
 
 def _normalize(svg: str) -> str:
@@ -207,6 +214,8 @@ def render(app: OnboardWizardApp,
 
     async def scenario() -> str:
         async with app.run_test(size=TERMINAL_SIZE) as pilot:
+            await pilot.pause()
+            await app.workers.wait_for_complete()
             await pilot.pause()
             await drive(app, pilot)
             await pilot.pause()

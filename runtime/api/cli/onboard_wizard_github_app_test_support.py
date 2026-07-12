@@ -40,24 +40,41 @@ def stub_github_app_access(
         return {
             "api_url": "https://api.github.com",
             "web_url": "https://github.com",
+            "authorization": {
+                "kind": "github_app_user_authorization",
+                "status": "authorized",
+                "login": owner_list[0] if owner_list else "",
+            },
             "installations": [
                 {
                     "installation_id": index,
                     "account_login": owner,
-                    "permissions": {"administration": "write"},
+                    "account_type": (
+                        "User" if index == 1 else "Organization"
+                    ),
+                    "app_id": 123,
+                    "app_slug": "yoke",
+                    "repository_selection": "all",
+                    "permissions": {
+                        "administration": "write",
+                        "contents": "write",
+                    },
                     "suspended": False,
                 }
                 for index, owner in enumerate(owner_list, start=1)
             ],
             "repositories": [
                 {
+                    "repository_id": repository_id,
                     "full_name": repository,
                     "installation_id": installation_ids.get(
                         repository.split("/", 1)[0].casefold(),
                         1,
                     ),
                 }
-                for repository in repository_list
+                for repository_id, repository in enumerate(
+                    repository_list, start=1_001
+                )
             ],
         }
 

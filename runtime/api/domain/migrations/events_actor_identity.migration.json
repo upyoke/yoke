@@ -26,6 +26,12 @@
     ],
     "count_preserving": false
   },
+  "module_sources": {
+    "events_actor_identity": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/events_actor_identity.py",
+      "sha256": "d3c4e86e3ba17ecd94008d4a6ba1218bf4ca7addf9d4a302ccb48ad0d0d21de3"
+    }
+  },
   "attestation": {
     "pre_merge_readers_writers": [
       {

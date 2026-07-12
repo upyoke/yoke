@@ -45,14 +45,15 @@ def _stub_http(monkeypatch, *, healthy=True, authorized=True):
         if url.endswith("/v1/health"):
             if not healthy:
                 raise server_connect._HttpFailure("connection refused")
-            return {"status": "ok", "build": "abc123def456",
-                    "schema_ready": True}
+            return {"status": "ok", "build": "abc123def456", "schema_ready": True}
         if url.endswith("/v1/auth/identity"):
             if not authorized:
                 raise server_connect._HttpFailure("HTTP 401")
-            return {"ok": True,
-                    "actor": {"id": 1, "label": "admin"},
-                    "token": {"id": 1, "name": "initial-admin"}}
+            return {
+                "ok": True,
+                "actor": {"id": 1, "label": "admin"},
+                "token": {"id": 1, "name": "initial-admin"},
+            }
         raise AssertionError(f"unexpected URL {url}")
 
     monkeypatch.setattr(server_connect, "_http_get_json", fake_get)
@@ -64,12 +65,13 @@ def _config(home: Path) -> dict:
 
 
 def test_connect_verifies_then_writes_connection_and_token_file(
-    monkeypatch, machine_home, token_stdin, capsys,
+    monkeypatch,
+    machine_home,
+    token_stdin,
+    capsys,
 ):
     calls = _stub_http(monkeypatch)
-    assert commands.connect(
-        ["http://127.0.0.1:8765", "--token-stdin", "--json"]
-    ) == 0
+    assert commands.connect(["http://127.0.0.1:8765", "--token-stdin", "--json"]) == 0
 
     assert [c["url"] for c in calls] == [
         "http://127.0.0.1:8765/v1/health",
@@ -96,13 +98,25 @@ def test_connect_verifies_then_writes_connection_and_token_file(
 
 
 def test_connect_custom_name_and_no_activate(
-    monkeypatch, machine_home, token_stdin, capsys,
+    monkeypatch,
+    machine_home,
+    token_stdin,
+    capsys,
 ):
     _stub_http(monkeypatch)
-    assert commands.connect([
-        "https://yoke.internal", "--name", "team",
-        "--token-stdin", "--no-activate", "--json",
-    ]) == 0
+    assert (
+        commands.connect(
+            [
+                "https://yoke.internal",
+                "--name",
+                "team",
+                "--token-stdin",
+                "--no-activate",
+                "--json",
+            ]
+        )
+        == 0
+    )
     config = _config(machine_home)
     assert config["connections"]["team"]["api_url"] == "https://yoke.internal"
     # No prior active_env: the connection writer still needs one to keep
@@ -112,12 +126,13 @@ def test_connect_custom_name_and_no_activate(
 
 
 def test_connect_health_failure_persists_nothing(
-    monkeypatch, machine_home, token_stdin, capsys,
+    monkeypatch,
+    machine_home,
+    token_stdin,
+    capsys,
 ):
     _stub_http(monkeypatch, healthy=False)
-    assert commands.connect(
-        ["http://127.0.0.1:8765", "--token-stdin"]
-    ) == 1
+    assert commands.connect(["http://127.0.0.1:8765", "--token-stdin"]) == 1
     err = capsys.readouterr().err
     assert "nothing was persisted" in err
     assert not (machine_home / "config.json").exists()
@@ -125,12 +140,13 @@ def test_connect_health_failure_persists_nothing(
 
 
 def test_connect_identity_failure_persists_nothing(
-    monkeypatch, machine_home, token_stdin, capsys,
+    monkeypatch,
+    machine_home,
+    token_stdin,
+    capsys,
 ):
     _stub_http(monkeypatch, authorized=False)
-    assert commands.connect(
-        ["http://127.0.0.1:8765", "--token-stdin"]
-    ) == 1
+    assert commands.connect(["http://127.0.0.1:8765", "--token-stdin"]) == 1
     err = capsys.readouterr().err
     assert "token verification failed" in err
     assert not (machine_home / "config.json").exists()
@@ -138,24 +154,59 @@ def test_connect_identity_failure_persists_nothing(
 
 
 def test_connect_rejects_non_http_scheme(
-    monkeypatch, machine_home, token_stdin, capsys,
+    monkeypatch,
+    machine_home,
+    token_stdin,
+    capsys,
 ):
     calls = _stub_http(monkeypatch)
-    assert commands.connect(
-        ["postgres://db.internal", "--token-stdin"]
-    ) == 1
+    assert commands.connect(["postgres://db.internal", "--token-stdin"]) == 1
     assert "unsupported URL scheme" in capsys.readouterr().err
     assert calls == []
     assert not (machine_home / "config.json").exists()
+
+
+def test_connect_rejects_non_loopback_plain_http(
+    monkeypatch,
+    machine_home,
+    token_stdin,
+    capsys,
+):
+    calls = _stub_http(monkeypatch)
+
+    assert commands.connect(["http://yoke.internal", "--token-stdin"]) == 1
+
+    assert "numeric loopback" in capsys.readouterr().err
+    assert calls == []
+    assert not (machine_home / "config.json").exists()
+
+
+def test_connect_help_requires_https_beyond_numeric_loopback(capsys):
+    with pytest.raises(SystemExit) as raised:
+        commands.connect(["--help"])
+
+    assert raised.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "required for every network server" in help_text
+    assert "accepted only for a numeric loopback endpoint" in help_text
+    assert "plain http:// is accepted for self-host servers" not in help_text
 
 
 def test_connect_token_file_source(monkeypatch, machine_home, tmp_path, capsys):
     _stub_http(monkeypatch)
     token_file = tmp_path / "pasted-token"
     token_file.write_text(_TOKEN + "\n", encoding="utf-8")
-    assert commands.connect([
-        "http://127.0.0.1:8765", "--token-file", str(token_file), "--json",
-    ]) == 0
+    assert (
+        commands.connect(
+            [
+                "http://127.0.0.1:8765",
+                "--token-file",
+                str(token_file),
+                "--json",
+            ]
+        )
+        == 0
+    )
     config = _config(machine_home)
     stored = Path(config["connections"]["self-host"]["credential_source"]["path"])
     assert stored.read_text(encoding="utf-8").strip() == _TOKEN

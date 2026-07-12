@@ -37,8 +37,8 @@ CORE_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Backlog row keyed by global bare-integer id for internal joins. "
-            "The primary key is `id`; there is NO `item_id` column "
-            "on items — `item_id` is a foreign-key column on OTHER tables, "
+            "The primary key is `id`; items has NO `item_id` or `public_id` column. "
+            "`item_id` is a foreign-key column on OTHER tables, "
             "so self-orient with `WHERE id = <n>` here. Public item refs are "
             "project-scoped: join `items.project_id` to `projects.id` and "
             "render `{projects.public_item_prefix}-{items.project_sequence}` "

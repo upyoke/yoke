@@ -170,7 +170,8 @@ def sync_task_body(
         stderr=stderr,
     ):
         print(
-            f"Warning: sync-task-body skipped for {epic_id}/{task_num} — repo mismatch",
+            f"Warning: sync-task-body skipped for {epic_id}/{task_num} — "
+            "issue validation failed",
             file=stderr,
         )
         return 1

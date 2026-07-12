@@ -71,7 +71,9 @@ class TestSyncBody:
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True
+            f"{GH_PATCH}._validate_issue_in_repo",
+            autospec=True,
+            return_value=True,
         ), patch.object(
             body_title_sync.github_rest, "update_issue",
             return_value=_fake_issue(),
@@ -101,7 +103,9 @@ class TestSyncBody:
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True
+            f"{GH_PATCH}._validate_issue_in_repo",
+            autospec=True,
+            return_value=True,
         ), patch.object(
             body_title_sync.github_rest, "update_issue",
             return_value=_fake_issue(),

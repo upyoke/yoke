@@ -6,10 +6,13 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_cli.config import machine_config
+from yoke_contracts import github_app_snapshot
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config.schema_github_access import (
     GITHUB_REPOSITORY_ALLOWED_KEYS,
 )
+
+_HUMAN_LIST_LIMIT = 20
 
 
 def not_configured(
@@ -29,7 +32,7 @@ def not_configured(
         "issues": [issue(
             "error", "github_not_configured",
             "machine GitHub App authorization is not configured",
-            "Run `yoke github connect --client-id … --app-slug …`.",
+            "Run `yoke github connect` against the active Yoke service.",
         )],
     }
 
@@ -50,16 +53,39 @@ def connected(
         dict(item) for item in github.get("installations") or []
         if isinstance(item, Mapping)
     ]
-    repositories = [
-        {
-            key: value
-            for key, value in item.items()
+    repositories = []
+    for item in github.get("repositories") or []:
+        if not isinstance(item, Mapping):
+            continue
+        try:
+            full_name = github_app_snapshot.repository_full_name(
+                item.get("full_name"),
+            )
+            branch = github_app_snapshot.default_branch(
+                item.get("default_branch"),
+            )
+        except github_app_snapshot.GitHubAppSnapshotError:
+            continue
+        normalized = {
+            key: value for key, value in item.items()
             if key in GITHUB_REPOSITORY_ALLOWED_KEYS
         }
-        for item in github.get("repositories") or []
-        if isinstance(item, Mapping)
-    ]
+        normalized["full_name"] = full_name
+        normalized["default_branch"] = branch
+        if isinstance(item.get("private"), bool):
+            normalized["private"] = item["private"]
+        repositories.append(normalized)
     ok = not any(item.get("severity") == "error" for item in issues)
+    try:
+        login = github_app_snapshot.user_login(auth.get("login"))
+    except github_app_snapshot.GitHubAppSnapshotError:
+        login = ""
+    try:
+        app_slug = github_app_snapshot.app_slug(
+            github.get("app_slug"), "github.app_slug",
+        )
+    except github_app_snapshot.GitHubAppSnapshotError:
+        app_slug = ""
     return {
         **_base(config_path, str(github.get("api_url") or "")),
         "web_url": str(github.get("web_url") or contract.DEFAULT_GITHUB_WEB_URL),
@@ -69,7 +95,7 @@ def connected(
         "configured": True,
         "state": "connected" if installations else "pending_installation",
         "app": {
-            "slug": str(github.get("app_slug") or ""),
+            "slug": app_slug,
             "app_id": github.get("app_id"),
             "client_id": str(github.get("client_id") or ""),
         },
@@ -78,7 +104,7 @@ def connected(
             "checked": checked,
             "ok": live_check_ok,
             "snapshot_source": "live" if live_check_ok is True else "cached",
-            "login": str(auth.get("login") or ""),
+            "login": login,
             "id": auth.get("github_user_id"),
         },
         "access": {
@@ -111,8 +137,30 @@ def render_human(report: Mapping[str, Any]) -> str:
     access = report.get("access")
     if isinstance(access, Mapping):
         lines.append(f"  access_snapshot: {access.get('snapshot_source')}")
-        lines.append(f"  owners: {', '.join(access.get('owners') or [])}")
-        lines.append(f"  repos: {len(access.get('repos') or [])} accessible")
+        installations = [
+            item for item in access.get("installations") or []
+            if isinstance(item, Mapping)
+        ]
+        if installations:
+            lines.append("  installations:")
+            for item in installations[:_HUMAN_LIST_LIMIT]:
+                state = "suspended" if item.get("suspended") else "active"
+                lines.append(
+                    "    - "
+                    f"{item.get('account_login') or '<unknown>'} "
+                    f"({item.get('account_type') or 'account'}, {state}, "
+                    f"{item.get('repository_selection') or 'selected'} repos)"
+                )
+            _append_omitted(lines, len(installations), "installations")
+        else:
+            lines.append(
+                "  installations: none (installation or organization approval pending)"
+            )
+        repos = [str(item) for item in access.get("repos") or []]
+        lines.append(f"  repositories: {len(repos)} accessible")
+        for repo in repos[:_HUMAN_LIST_LIMIT]:
+            lines.append(f"    - {repo}")
+        _append_omitted(lines, len(repos), "repositories")
     permissions = report.get("permissions")
     if isinstance(permissions, Mapping) and permissions.get("ok") is not None:
         lines.append(f"  permissions: {str(permissions.get('ok')).lower()}")
@@ -126,13 +174,16 @@ def render_human(report: Mapping[str, Any]) -> str:
                     f"{permission.get('key')}:{permission.get('required')} "
                     f"(granted={permission.get('granted') or 'none'})"
                 )
+            if item.get("settings_url") and (
+                item.get("suspended") or missing
+            ):
+                lines.append(f"  repair_url: {item.get('settings_url')}")
     progress = report.get("progress") or []
     for event in progress:
         if event.get("phase") == "device_authorization":
-            lines.extend([
-                f"  verification_url: {event.get('verification_uri')}",
-                f"  user_code: {event.get('user_code')}",
-            ])
+            lines.append(
+                f"  verification_url: {event.get('verification_uri')}"
+            )
     if report.get("install_url"):
         lines.append(f"  install_url: {report.get('install_url')}")
     if report.get("issues"):
@@ -144,6 +195,12 @@ def render_human(report: Mapping[str, Any]) -> str:
                 lines.append(f"    hint: {item.get('hint')}")
     lines.append("")
     return "\n".join(lines)
+
+
+def _append_omitted(lines: list[str], total: int, label: str) -> None:
+    omitted = total - _HUMAN_LIST_LIMIT
+    if omitted > 0:
+        lines.append(f"    ... {omitted} more {label}")
 
 
 def issue(severity: str, code: str, message: str, hint: str = "") -> dict[str, str]:

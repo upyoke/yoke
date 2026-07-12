@@ -7,6 +7,7 @@ from typing import Any, Optional
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_scalar
 from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX
 from yoke_core.domain.project_github_binding_payload import normalize_github_repo
+from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_BACKLOG_ONLY
 
 
 def cmd_upsert(
@@ -85,14 +86,34 @@ def cmd_upsert(
                 "to register a new project"
             )
         now = iso8601_now()
-        numeric_id = (
-            _insert(conn, selected_id, target_org_id, selected_slug, selected_name,
-                    default_branch, github_repo, public_item_prefix, emoji, now)
-            if created else
-            _update(conn, existing, selected_slug, selected_name, default_branch,
-                    github_repo, public_item_prefix, emoji)
-        )
-        if selected_sync_mode is not None:
+        if created:
+            inserted_sync_mode = selected_sync_mode or GITHUB_SYNC_BACKLOG_ONLY
+            if inserted_sync_mode != GITHUB_SYNC_BACKLOG_ONLY:
+                raise ValueError(
+                    "github_sync_mode=enabled requires an active, verified "
+                    "GitHub App repository binding; create the project as "
+                    "backlog_only, bind it, then enable issue sync"
+                )
+            numeric_id = _insert(
+                conn, selected_id, target_org_id, selected_slug, selected_name,
+                default_branch, github_repo, public_item_prefix, emoji, now,
+                inserted_sync_mode,
+            )
+        else:
+            numeric_id = _update(
+                conn, existing, selected_slug, selected_name, default_branch,
+                github_repo, public_item_prefix, emoji,
+            )
+        if selected_sync_mode is not None and not created:
+            from yoke_core.domain.projects_github_sync_mode import (
+                validate_github_sync_mode_update,
+            )
+
+            selected_sync_mode = validate_github_sync_mode_update(
+                selected_sync_mode,
+                conn=conn,
+                project_id=numeric_id,
+            )
             conn.execute(
                 "UPDATE projects SET github_sync_mode=%s WHERE id=%s",
                 (selected_sync_mode, numeric_id),
@@ -128,6 +149,7 @@ def _insert(
     public_item_prefix: Optional[str],
     emoji: Optional[str],
     now: str,
+    github_sync_mode: str,
 ) -> int:
     numeric_id = selected_id or int(
         query_scalar(conn, "SELECT COALESCE(MAX(id), 0) + 1 FROM projects") or 1
@@ -135,13 +157,13 @@ def _insert(
     conn.execute(
         "INSERT INTO projects "
         "(id, slug, name, emoji, default_branch, github_repo, "
-        "public_item_prefix, created_at, org_id) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "public_item_prefix, created_at, org_id, github_sync_mode) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             numeric_id, slug, name, _clean_optional(emoji) or "",
             _clean_optional(default_branch) or "main", _clean_optional(github_repo),
             _clean_optional(public_item_prefix) or DEFAULT_PUBLIC_ITEM_PREFIX, now,
-            org_id,
+            org_id, github_sync_mode,
         ),
     )
     return numeric_id

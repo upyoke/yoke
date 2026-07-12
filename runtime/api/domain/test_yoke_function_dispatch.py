@@ -157,6 +157,21 @@ class TestEnvelopeValidation(_DispatcherTestBase):
         assert resp.error is not None
         self.assertEqual(resp.error.code, "envelope_invalid")
 
+    def test_malformed_envelope_never_reflects_payload_credentials(self):
+        secret = "github-user-token-must-not-be-reflected"
+        resp = dispatch({
+            "function": "projects.github_binding.bind",
+            "actor": {"actor_id": "operator"},
+            "target": {"kind": "global"},
+            "payload": {"github_user_access_token": secret},
+        })
+
+        self.assertFalse(resp.success)
+        assert resp.error is not None
+        self.assertEqual(resp.error.code, "envelope_invalid")
+        self.assertIn("actor.session_id", resp.error.message)
+        self.assertNotIn(secret, resp.model_dump_json())
+
 
 class TestFunctionNotRegistered(_DispatcherTestBase):
     """AC-1.7: unknown id -> function_not_registered."""

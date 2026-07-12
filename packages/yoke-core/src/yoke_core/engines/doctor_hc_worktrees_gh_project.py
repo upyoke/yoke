@@ -25,12 +25,18 @@ from yoke_core.domain.gh_rest_transport import (
     request_with_retry,
 )
 from yoke_core.domain.project_github_auth import (
+    MissingCapability,
     ProjectGithubAuthError,
     repair_command_hint,
     resolve_project_github_auth,
 )
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.projects_github_sync_mode import (
+    GithubSyncModeError,
+    github_sync_disabled_notice,
+    github_sync_enabled,
+)
 
 import yoke_core.engines.doctor_report as _base
 
@@ -84,6 +90,24 @@ def hc_project_gh_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     try:
         resolve_project_github_auth(proj_id, db_path=args.db_path)
     except ProjectGithubAuthError as err:
+        intentional_backlog_only = False
+        if isinstance(err, MissingCapability):
+            try:
+                intentional_backlog_only = not github_sync_enabled(
+                    proj_id, conn=conn,
+                )
+            except GithubSyncModeError:
+                # Preserve the auth failure when the project policy itself is
+                # corrupt; Doctor must not call that an intentional skip.
+                pass
+        if intentional_backlog_only:
+            rec.record(
+                "HC-project-gh-auth",
+                f"GitHub App auth ({proj_id})",
+                "SKIP",
+                github_sync_disabled_notice(proj_id, "project auth check"),
+            )
+            return
         rec.record(
             "HC-project-gh-auth",
             f"GitHub App auth ({proj_id})",

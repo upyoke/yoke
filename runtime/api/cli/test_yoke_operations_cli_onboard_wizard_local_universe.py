@@ -57,7 +57,7 @@ def test_local_destination_manifest_project_id_uses_local_universe(
             id=37,
             slug="buzz",
             name="Buzz",
-            github_repo="example-org/buzz",
+            github_repo="",
             default_branch="main",
             public_item_prefix="BUZZ",
         )
@@ -88,6 +88,7 @@ def test_local_destination_manifest_project_id_uses_local_universe(
             await pilot.press("enter")  # project: existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)

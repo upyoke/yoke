@@ -119,6 +119,10 @@ def test_init_ships_github_app_secret_wiring_disabled(target):
 
     compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
     assert "YOKE_GITHUB_APP_ISSUER: ${YOKE_GITHUB_APP_ISSUER:-}" in compose
+    assert "YOKE_GITHUB_APP_CLIENT_ID: ${YOKE_GITHUB_APP_CLIENT_ID:-}" in compose
+    assert "YOKE_GITHUB_APP_SLUG: ${YOKE_GITHUB_APP_SLUG:-}" in compose
+    assert "YOKE_GITHUB_APP_ID: ${YOKE_GITHUB_APP_ID:-}" in compose
+    assert "YOKE_GITHUB_APP_WEB_URL: ${YOKE_GITHUB_APP_WEB_URL:-}" in compose
     assert "YOKE_GITHUB_APP_PRIVATE_KEY_FILE:" in compose
     assert "#- yoke-github-app-private-key" in compose
     assert "#yoke-github-app-private-key:" in compose
@@ -126,6 +130,10 @@ def test_init_ships_github_app_secret_wiring_disabled(target):
     env_text = (target / ".env").read_text(encoding="utf-8")
     assert "#YOKE_GITHUB_APP_ISSUER=" in env_text
     assert "#YOKE_GITHUB_APP_API_URL=https://api.github.com" in env_text
+    assert "#YOKE_GITHUB_APP_WEB_URL=https://github.com" in env_text
+    assert "#YOKE_GITHUB_APP_ID=123456" in env_text
+    assert "#YOKE_GITHUB_APP_CLIENT_ID=" in env_text
+    assert "#YOKE_GITHUB_APP_SLUG=" in env_text
     assert "#YOKE_GITHUB_APP_PRIVATE_KEY_FILE=" in env_text
     assert not any(
         line.startswith("YOKE_GITHUB_APP_") for line in env_text.splitlines()
@@ -133,6 +141,27 @@ def test_init_ships_github_app_secret_wiring_disabled(target):
     assert "cp /secure/path" not in env_text
     assert "--protect-existing" in env_text
     assert "--github-app-private-key" in env_text
+
+
+def test_init_uses_self_host_only_root_bootstrap_for_core_secrets(target):
+    assert commands.self_host_init(["--dir", str(target)]) == 0
+
+    compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
+    assert 'user: "0:0"' in compose
+    assert (
+        'entrypoint: ["python", "-m", '
+        '"yoke_core.tools.self_host_server_bootstrap"]' in compose
+    )
+    assert "command: []" in compose
+    assert "cap_drop:\n      - ALL" in compose
+    assert "cap_add:\n      - CHOWN\n      - SETGID\n      - SETUID" in compose
+    assert "security_opt:\n      - no-new-privileges:true" in compose
+    assert (
+        "- yoke_core.tools.self_host_server_bootstrap\n        - --healthcheck"
+        in compose
+    )
+    assert "YOKE_PG_DSN_FILE: /run/secrets/yoke-db-dsn" in compose
+    assert "- /run/yoke-runtime-secrets:mode=0700" in compose
 
 
 def test_init_json_report_omits_secrets(target, capsys):

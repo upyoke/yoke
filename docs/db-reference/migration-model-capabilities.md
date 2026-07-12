@@ -99,6 +99,43 @@ dirty checkout, untracked or symlinked source, checkout-authority mismatch,
 changed commit or manifest digest, stale database fingerprint, held lease, or
 failed backup refuses before destructive SQL.
 
+### Hosted engine fleet executors
+
+An installed engine fleet has one platform control plane and many physical
+tenant targets. It must not pretend that each target is a standalone Yoke
+install or put fleet receipts on a tenant database. The public wheel therefore
+provides
+[`yoke_core.domain.portable_migration`](../../packages/yoke-core/src/yoke_core/domain/portable_migration.py),
+which validates the same manifest theorem and loads migration implementations
+from `yoke_core.domain.migrations`. The source-checkout wrapper and installed
+fleet executor import that one packaged implementation.
+
+The portable surface deliberately resolves no DSN, project row, lease, backup
+path, or audit table. A fleet executor owns those concerns in its separate
+control plane and must preserve the governed runner's ordering for every
+physical target:
+
+1. Prove the exact installed engine pin and complete reader/writer rollout.
+2. Enumerate registry targets and physical databases, refusing any difference.
+3. Rehearse the exact raw manifest and packaged module on isolated restored
+   copies, recording source fingerprints and invariant results.
+4. Stop for a separate operator checkpoint with bounded freshness.
+5. Recheck pin, coverage, and fingerprints; durably receipt a rollback backup
+   for each target before calling `apply_manifest`.
+6. Record each target result in the fleet control plane and require explicit
+   recovery authority after a failed or unexpected partial state.
+
+`apply_manifest` keeps the public runner's module-apply, commit, fixed baseline,
+optional author-invariant, and affected-table-count order. It is not an
+alternate command that weakens the
+ordinary stage/prod path: those governed units still run their manifest source
+rehearsal, lease, backup, fingerprint, and `migration_audit` machinery.
+
+A packaged migration remains in the wheel until completed evidence exists for
+every install that can still carry the old schema: ordinary authoritative
+stage/prod databases and every physical hosted tenant. Validation-copy success
+alone is never retirement evidence.
+
 ## `migration_audit` Bootstrap
 
 Audit rows live on the **model's authoritative DB**, not the

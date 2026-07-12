@@ -67,9 +67,10 @@ def run_local_init(
     """Birth (or verify) the local universe and point machine config at it.
 
     Idempotent: a second run detects the live universe, reports, and
-    leaves an existing matching ``local`` connection untouched. A
-    conflicting ``local`` connection (different transport or DSN) is
-    never clobbered without ``force``.
+    leaves an existing matching ``local`` connection untouched. A socket-only
+    DSN relocation reported by the engine is updated automatically because it
+    still addresses the same durable cluster. Any other conflicting local
+    connection is never clobbered without ``force``.
     """
     engine = _engine()
     try:
@@ -77,7 +78,10 @@ def run_local_init(
     except RuntimeError as exc:  # engine setup errors (binaries, cluster, bootstrap)
         raise LocalUniverseSetupError(str(exc)) from exc
     connection = _ensure_local_connection(
-        report["dsn"], force=force, config_path=config_path,
+        report["dsn"],
+        force=force,
+        config_path=config_path,
+        equivalent_dsns=tuple(report.get("socket_dsn_aliases") or ()),
     )
     report["connection"] = connection
     if connection["written"] or not _active_env(config_path):
@@ -189,7 +193,11 @@ def universe_export(
 
 
 def _ensure_local_connection(
-    dsn: str, *, force: bool, config_path: Optional[str],
+    dsn: str,
+    *,
+    force: bool,
+    config_path: Optional[str],
+    equivalent_dsns: tuple[str, ...] = (),
 ) -> Dict[str, Any]:
     """Record the local DSN under ``connections.local`` without clobbering."""
     payload = machine_config.load_config(config_path)
@@ -199,9 +207,13 @@ def _ensure_local_connection(
         transport = str(entry.get("transport") or "").strip()
         existing_dsn = _stored_dsn(entry)
         if transport == contract.DEFAULT_TRANSPORT and existing_dsn == dsn:
-            return {"env": LOCAL_ENV, "connection": dict(entry),
-                    "written": False}
-        if not force:
+            return {"env": LOCAL_ENV, "connection": dict(entry), "written": False}
+        same_cluster_relocation = (
+            transport == contract.DEFAULT_TRANSPORT
+            and not contract.connection_is_prod(entry)
+            and existing_dsn in equivalent_dsns
+        )
+        if not force and not same_cluster_relocation:
             raise LocalUniverseSetupError(
                 f"machine config already has a {LOCAL_ENV!r} connection that "
                 f"does not match the local universe (transport "

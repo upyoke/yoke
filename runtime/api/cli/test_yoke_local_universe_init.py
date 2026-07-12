@@ -24,11 +24,17 @@ class _EngineError(RuntimeError):
     pass
 
 
-def _stub_engine(*, born: bool = True, dsn: str = "host=/sock user=yoke dbname=yoke"):
+def _stub_engine(
+    *,
+    born: bool = True,
+    dsn: str = "host=/sock user=yoke dbname=yoke",
+    socket_dsn_aliases: tuple[str, ...] = (),
+):
     report = {
         "born": born,
         "cluster": {"root": "/machine-home/local-universe", "running": True},
         "dsn": dsn,
+        "socket_dsn_aliases": list(socket_dsn_aliases),
         "org": {"slug": "default", "name": "Default Org"},
         "human_actor_id": 1,
     }
@@ -55,7 +61,9 @@ def _config(home: Path) -> dict:
 
 
 def test_init_local_writes_connection_secret_and_active_env(
-    monkeypatch, machine_home, capsys,
+    monkeypatch,
+    machine_home,
+    capsys,
 ):
     monkeypatch.setattr(setup, "_engine", _stub_engine)
 
@@ -93,14 +101,17 @@ def test_init_second_run_reports_without_rewriting(monkeypatch, machine_home, ca
 
 
 def test_init_refuses_to_clobber_conflicting_local_connection(
-    monkeypatch, machine_home, capsys,
+    monkeypatch,
+    machine_home,
+    capsys,
 ):
     monkeypatch.setattr(setup, "_engine", _stub_engine)
     assert commands.init(["--local", "--json"]) == 0
     capsys.readouterr()
 
     monkeypatch.setattr(
-        setup, "_engine",
+        setup,
+        "_engine",
         lambda: _stub_engine(dsn="host=/elsewhere user=yoke dbname=yoke"),
     )
     assert commands.init(["--local", "--json"]) == 1
@@ -116,13 +127,81 @@ def test_init_refuses_to_clobber_conflicting_local_connection(
     )
 
 
+def test_init_updates_same_cluster_socket_relocation_without_force(
+    monkeypatch,
+    machine_home,
+    capsys,
+):
+    old_dsn = "host=/old-socket user=yoke dbname=yoke"
+    new_dsn = "host=/tmp/yoke-pg-501-example user=yoke dbname=yoke"
+    monkeypatch.setattr(setup, "_engine", lambda: _stub_engine(dsn=old_dsn))
+    assert commands.init(["--local", "--json"]) == 0
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        setup,
+        "_engine",
+        lambda: _stub_engine(
+            born=False,
+            dsn=new_dsn,
+            socket_dsn_aliases=(old_dsn,),
+        ),
+    )
+    assert commands.init(["--local", "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+
+    assert report["connection"]["written"] is True
+    secret = machine_home / "secrets" / "local.dsn"
+    assert secret.read_text(encoding="utf-8").strip() == new_dsn
+
+
+def test_init_socket_relocation_does_not_clear_prod_marker_without_force(
+    monkeypatch,
+    machine_home,
+    capsys,
+):
+    from yoke_cli.config import writer
+
+    old_dsn = "host=/old-socket user=yoke dbname=yoke"
+    new_dsn = "host=/tmp/yoke-pg-501-example user=yoke dbname=yoke"
+    writer.set_connection(
+        "local",
+        transport="local-postgres",
+        dsn=old_dsn,
+        prod=True,
+    )
+    monkeypatch.setattr(
+        setup,
+        "_engine",
+        lambda: _stub_engine(
+            born=False,
+            dsn=new_dsn,
+            socket_dsn_aliases=(old_dsn,),
+        ),
+    )
+
+    assert commands.init(["--local", "--json"]) == 1
+    assert "--force" in capsys.readouterr().err
+    secret = machine_home / "secrets" / "local.dsn"
+    assert secret.read_text(encoding="utf-8").strip() == old_dsn
+
+    assert commands.init(["--local", "--force", "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["connection"]["written"] is True
+    assert secret.read_text(encoding="utf-8").strip() == new_dsn
+
+
 def test_init_force_replaces_https_shaped_local_entry_without_stray_keys(
-    monkeypatch, machine_home, capsys,
+    monkeypatch,
+    machine_home,
+    capsys,
 ):
     from yoke_cli.config import writer
 
     writer.set_connection(
-        "local", transport="https", api_url="https://api.example",
+        "local",
+        transport="https",
+        api_url="https://api.example",
         token="t" * 40,
     )
     monkeypatch.setattr(setup, "_engine", _stub_engine)
@@ -148,7 +227,9 @@ def test_init_requires_explicit_local_mode(capsys):
 
 
 def test_init_preserves_other_active_env_on_unchanged_rerun(
-    monkeypatch, machine_home, capsys,
+    monkeypatch,
+    machine_home,
+    capsys,
 ):
     monkeypatch.setattr(setup, "_engine", _stub_engine)
     assert commands.init(["--local", "--json"]) == 0
@@ -157,7 +238,9 @@ def test_init_preserves_other_active_env_on_unchanged_rerun(
     from yoke_cli.config import writer
 
     writer.set_connection(
-        "stage", transport="https", api_url="https://api.example",
+        "stage",
+        transport="https",
+        api_url="https://api.example",
         token="t" * 40,
     )
     writer.set_active_env("stage")
@@ -196,27 +279,32 @@ def test_local_postgres_lifecycle_routes_to_engine(monkeypatch, machine_home, ca
 
 
 def test_local_demo_seed_uses_non_prod_local_connection(
-    monkeypatch, machine_home, capsys,
+    monkeypatch,
+    machine_home,
+    capsys,
 ):
     dsn = machine_home / "secrets" / "local.dsn"
     dsn.parent.mkdir(parents=True)
     dsn.write_text("host=/sock user=yoke dbname=yoke\n", encoding="utf-8")
     (machine_home / "config.json").write_text(
-        json.dumps({
-            "schema_version": 1,
-            "active_env": "local",
-            "connections": {
-                "local": {
-                    "transport": "local-postgres",
-                    "prod": False,
-                    "credential_source": {
-                        "kind": "dsn_file",
-                        "path": str(dsn),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "local",
+                "connections": {
+                    "local": {
+                        "transport": "local-postgres",
+                        "prod": False,
+                        "credential_source": {
+                            "kind": "dsn_file",
+                            "path": str(dsn),
+                        },
                     },
                 },
-            },
-            "settings": {},
-        }) + "\n",
+                "settings": {},
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -238,35 +326,49 @@ def test_local_demo_seed_uses_non_prod_local_connection(
 
     monkeypatch.setattr(local_demo_seed, "seed_demo_items", _fake_seed)
 
-    assert commands.local_demo_seed([
-        "--project", "1", "--count", "2", "--json",
-    ]) == 0
+    assert (
+        commands.local_demo_seed(
+            [
+                "--project",
+                "1",
+                "--count",
+                "2",
+                "--json",
+            ]
+        )
+        == 0
+    )
     report = json.loads(capsys.readouterr().out)
     assert [item["item_ref"] for item in report["items"]] == ["LOC-1", "LOC-2"]
 
 
 def test_local_demo_seed_refuses_prod_local_connection(
-    monkeypatch, machine_home, capsys,
+    monkeypatch,
+    machine_home,
+    capsys,
 ):
     dsn = machine_home / "secrets" / "prod.dsn"
     dsn.parent.mkdir(parents=True)
     dsn.write_text("host=/sock user=yoke dbname=yoke_prod\n", encoding="utf-8")
     (machine_home / "config.json").write_text(
-        json.dumps({
-            "schema_version": 1,
-            "active_env": "prod-db-admin",
-            "connections": {
-                "prod-db-admin": {
-                    "transport": "local-postgres",
-                    "prod": True,
-                    "credential_source": {
-                        "kind": "dsn_file",
-                        "path": str(dsn),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "prod-db-admin",
+                "connections": {
+                    "prod-db-admin": {
+                        "transport": "local-postgres",
+                        "prod": True,
+                        "credential_source": {
+                            "kind": "dsn_file",
+                            "path": str(dsn),
+                        },
                     },
                 },
-            },
-            "settings": {},
-        }) + "\n",
+                "settings": {},
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
 

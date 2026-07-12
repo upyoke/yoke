@@ -44,8 +44,8 @@ class _FakeResponse:
         self.status = status
         self.headers: Dict[str, str] = {}
 
-    def read(self) -> bytes:
-        return self._payload
+    def read(self, size: int = -1) -> bytes:
+        return self._payload if size < 0 else self._payload[:size]
 
     def __enter__(self) -> "_FakeResponse":
         return self
@@ -170,9 +170,7 @@ class TestFetchFailedLogZip:
         responses = [_make_http_error(503), zip_bytes]
         _install_urlopen(monkeypatch, responses)
 
-        result = github_actions_logs.fetch_failed_log_zip(
-            "o/r", "123", token="ghs_x"
-        )
+        result = github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
 
         assert result == zip_bytes
 
@@ -231,10 +229,9 @@ class TestParseFailedLogZip:
 
         assert result == {}
 
-    def test_malformed_zip_returns_empty(self):
-        result = github_actions_logs.parse_failed_log_zip(b"not a zip")
-
-        assert result == {}
+    def test_malformed_zip_raises_typed_error(self):
+        with pytest.raises(github_actions_logs.ActionsLogArchiveError):
+            github_actions_logs.parse_failed_log_zip(b"not a zip")
 
     def test_empty_bytes_returns_empty(self):
         assert github_actions_logs.parse_failed_log_zip(b"") == {}
@@ -262,9 +259,7 @@ class TestFetchFailedLog:
 
         monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
 
-        result = github_actions_logs.fetch_failed_log(
-            "o/r", "123", token="ghs_x"
-        )
+        result = github_actions_logs.fetch_failed_log("o/r", "123", token="ghs_x")
 
         assert result == {"build": "compile failed"}
 
@@ -310,9 +305,7 @@ class TestFetchFailedLog:
 
         monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
 
-        result = github_actions_logs.fetch_failed_log(
-            "o/r", "123", token="ghs_x"
-        )
+        result = github_actions_logs.fetch_failed_log("o/r", "123", token="ghs_x")
 
         # Only the failed job's log should be present.
         assert result == {"build": "build job log body\n"}
@@ -338,8 +331,6 @@ class TestFetchFailedLog:
 
         monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
 
-        result = github_actions_logs.fetch_failed_log(
-            "o/r", "123", token="ghs_x"
-        )
+        result = github_actions_logs.fetch_failed_log("o/r", "123", token="ghs_x")
 
         assert result == {}

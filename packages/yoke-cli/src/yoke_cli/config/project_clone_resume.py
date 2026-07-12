@@ -14,11 +14,12 @@ Kept dependency-free of :mod:`project_clone_support` so the import goes one way
 from __future__ import annotations
 
 import re
-import subprocess
 import urllib.parse
 from pathlib import Path
 
 from yoke_contracts import github_origin
+from yoke_cli.config import project_local_git
+from yoke_cli.config.project_git_process import NetworkGitBoundaryError
 
 
 _SCP_RE = re.compile(r"^git@(?P<host>[^:/\\]+):(?P<path>.+)$")
@@ -31,27 +32,26 @@ def remote_url(root: Path, remote: str) -> str | None:
     after a partial onboarding can tell which steps already landed.
     """
     try:
-        result = subprocess.run(
-            ["git", "remote", "get-url", remote],
-            cwd=root,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
+        result = project_local_git.run(
+            root, "config", "--local", "--get-all", f"remote.{remote}.url",
         )
-    except FileNotFoundError:
+    except (OSError, NetworkGitBoundaryError):
         return None
-    if result.returncode != 0:
+    values = result.stdout.splitlines()
+    if result.returncode not in (0, 1) or len(values) != 1:
         return None
-    url = result.stdout.strip()
+    url = values[0].strip()
     return url or None
 
 
-def _canonical(url: str) -> tuple[str, str]:
+def _canonical(url: str, *, web_url: str | None) -> tuple[str, str]:
     """Return ``(host, owner/repo)`` for a git URL, or a raw fallback."""
     cleaned = url.strip()
     try:
-        repository = github_origin.normalize_github_repository(cleaned)
+        repository = github_origin.normalize_github_repository(
+            cleaned,
+            web_url=web_url,
+        )
     except github_origin.GitHubApiOriginError:
         return "", cleaned.removesuffix(".git").rstrip("/")
     scp = _SCP_RE.fullmatch(cleaned)
@@ -62,7 +62,12 @@ def _canonical(url: str) -> tuple[str, str]:
     return host, repository
 
 
-def same_repo(a: str | None, b: str | None) -> bool:
+def same_repo(
+    a: str | None,
+    b: str | None,
+    *,
+    web_url: str | None = None,
+) -> bool:
     """Compare two git URLs for the same repo, ignoring transport / ``.git``.
 
     A prior clone may store ``origin`` as the HTTPS form of an SSH source (the
@@ -72,13 +77,18 @@ def same_repo(a: str | None, b: str | None) -> bool:
     """
     if not a or not b:
         return False
-    host_a, repo_a = _canonical(a)
-    host_b, repo_b = _canonical(b)
+    host_a, repo_a = _canonical(a, web_url=web_url)
+    host_b, repo_b = _canonical(b, web_url=web_url)
     hosts_match = not host_a or not host_b or host_a == host_b
     return repo_a == repo_b and hosts_match
 
 
-def existing_clone_matches(root: Path, source_url: str) -> bool:
+def existing_clone_matches(
+    root: Path,
+    source_url: str,
+    *,
+    web_url: str | None = None,
+) -> bool:
     """True when ``root`` is already a clone of ``source_url`` (origin/upstream).
 
     A re-run after a partial onboarding may find the source already cloned into
@@ -88,26 +98,50 @@ def existing_clone_matches(root: Path, source_url: str) -> bool:
     After make-it-mine / fork the source lives on ``upstream`` not ``origin``, so
     a match on either remote means the source is already present.
     """
-    from yoke_cli.config.project_publish_support import is_git_repo
-
-    if not is_git_repo(root):
+    if not is_exact_worktree_root(root):
         return False
     origin = remote_url(root, "origin")
     upstream = remote_url(root, "upstream")
-    return same_repo(origin, source_url) or same_repo(upstream, source_url)
+    return same_repo(origin, source_url, web_url=web_url) or same_repo(
+        upstream, source_url, web_url=web_url,
+    )
 
 
-def origin_is(root: Path, new_origin_url: str) -> bool:
+def is_exact_worktree_root(root: Path) -> bool:
+    """True only when ``root`` itself—not a parent—is the Git worktree root."""
+
+    if not root.is_dir() or root.is_symlink():
+        return False
+    try:
+        result = project_local_git.run(root, "rev-parse", "--show-toplevel")
+        return (
+            result.returncode == 0
+            and Path(result.stdout.strip()).resolve(strict=True)
+            == root.resolve(strict=True)
+        )
+    except (OSError, RuntimeError, NetworkGitBoundaryError):
+        return False
+
+
+def origin_is(
+    root: Path,
+    new_origin_url: str,
+    *,
+    web_url: str | None = None,
+) -> bool:
     """True when ``root``'s ``origin`` already points at ``new_origin_url``.
 
     Lets the re-home / fork steps skip when a prior run already re-pointed
     ``origin`` — the remote choreography is idempotent on a resume.
     """
-    return same_repo(remote_url(root, "origin"), new_origin_url)
+    return same_repo(
+        remote_url(root, "origin"), new_origin_url, web_url=web_url,
+    )
 
 
 __all__ = [
     "existing_clone_matches",
+    "is_exact_worktree_root",
     "origin_is",
     "remote_url",
     "same_repo",

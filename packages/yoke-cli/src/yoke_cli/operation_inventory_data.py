@@ -126,6 +126,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects capability-secret set", "projects.capability"),
     _w("yoke projects capability secret set", "projects.capability"),
     _w("yoke projects github-binding bind", "projects.github_binding"), _w("yoke projects github-binding unbind", "projects.github_binding"), _w("yoke projects github-binding status", "projects.github_binding"),
+    _w("yoke projects github-sync-mode repair", "projects.github_sync_mode"),
     # checkout→project identity for the strategize/feed preambles — works over
     # https and from any cwd.
     _w("yoke projects checkout-context", "projects"),
@@ -254,6 +255,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # connection, so there is no control plane to dispatch through —
     # tool-shaped like the other machine-setup flows.
     _p("yoke self-host init", "self_host", REASON_TOOL_SHAPED),
+    _p("yoke self-host import", "self_host.import", REASON_TOOL_SHAPED),
     _p("yoke connect", "self_host.connect", REASON_TOOL_SHAPED),
     # Machine-local token-gated UI server (reads dispatch in-process).
     _p("yoke ui", "local_universe.ui", REASON_TOOL_SHAPED),

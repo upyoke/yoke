@@ -3,19 +3,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from runtime.api.cli.project_clone_test_support import allow_local_clone
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     run_git,
     seed_remote,
 )
 from yoke_cli.config import onboard as onboard_config
+from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import writer as machine_writer
 
 
 def test_onboard_yes_reuses_existing_machine_and_project_state(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
@@ -64,38 +67,49 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
             "public_item_prefix": "LOC",
         },
     ) as api:
-        config.write_text(json.dumps({
-            "schema_version": 1,
-            "active_env": "prod",
-            "connections": {
-                "prod": {
-                    "transport": "https",
-                    "api_url": api.url,
-                    "credential_source": {"kind": "token_file", "path": str(token)},
+        config.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "active_env": "prod",
+                    "connections": {
+                        "prod": {
+                            "transport": "https",
+                            "api_url": api.url,
+                            "credential_source": {
+                                "kind": "token_file",
+                                "path": str(token),
+                            },
+                        },
+                    },
+                    "github": {
+                        "api_url": "https://api.github.com",
+                        "app_slug": "yoke",
+                        "client_id": "Iv1.example",
+                        "authorization": {
+                            "kind": "github_app_user_authorization",
+                            "refresh_credential_ref": str(github_refresh),
+                            "github_user_id": 1001,
+                            "login": "machine-user",
+                            "status": "authorized",
+                        },
+                    },
+                    "temp_root": str(temp_root),
+                    "cache_dir": str(cache_dir),
+                    "projects": {str(checkout.resolve()): {"project_id": 44}},
                 },
-            },
-            "github": {
-                "api_url": "https://api.github.com",
-                "app_slug": "yoke",
-                "client_id": "Iv1.example",
-                "authorization": {
-                    "kind": "github_app_user_authorization",
-                    "refresh_credential_ref": str(github_refresh),
-                    "github_user_id": 1001,
-                    "login": "machine-user",
-                    "status": "authorized",
-                },
-            },
-            "temp_root": str(temp_root),
-            "cache_dir": str(cache_dir),
-            "projects": {str(checkout.resolve()): {"project_id": 44}},
-        }, indent=2) + "\n", encoding="utf-8")
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         before_config = json.loads(config.read_text(encoding="utf-8"))
 
         report = onboard_config.build_report(
             config_path=config,
             env_name="prod",
             api_url=api.url,
+            destination=onboard_destinations.DESTINATION_SERVER,
             token_file=token,
             token_source_kind="token_file",
             mode="quick",
@@ -120,10 +134,15 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     project_events = [event for event in events if event[0].startswith("project-")]
     actions = [step["action"] for step in report["plan"]["steps"]]
 
-    assert actions == ["project-refresh-scaffold", "project-write-board-art"]
+    assert actions == [
+        "project-refresh-scaffold",
+        "project-write-board-art",
+        "project-github-auth-choice",
+    ]
     assert project_events == [
         ("project-refresh-scaffold", "", "running"),
         ("project-refresh-scaffold", "", "done"),
+        ("project-github-auth-choice", "existing-project", "skipped"),
     ]
     assert report["plan"]["reuse"]["project_checkout"] is True
     assert report["plan"]["reuse"]["project_scaffold"] is True
@@ -140,8 +159,11 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     assert api.requests_for("GET", "/v1/projects/44/install-bundle")
 
 
-def test_onboard_preview_detects_matching_clone_reuse(tmp_path: Path) -> None:
+def test_onboard_preview_detects_matching_clone_reuse(
+    tmp_path: Path, monkeypatch,
+) -> None:
     remote = seed_remote(tmp_path)
+    allow_local_clone(monkeypatch)
     checkout = tmp_path / "clone"
     run_git(tmp_path, "clone", str(remote), str(checkout))
 
@@ -149,6 +171,7 @@ def test_onboard_preview_detects_matching_clone_reuse(tmp_path: Path) -> None:
         config_path=tmp_path / "home" / "config.json",
         env_name="prod",
         api_url="https://api.test",
+        destination=onboard_destinations.DESTINATION_SERVER,
         token="token",
         token_source_kind="argument",
         mode="quick",
@@ -170,5 +193,7 @@ def test_onboard_preview_detects_matching_clone_reuse(tmp_path: Path) -> None:
 
     assert report["plan"]["reuse"]["project_clone_checkout"] is True
     rendered = onboard_config.render_human(report)
-    assert f"Matching clone already exists at {checkout}; Apply will reuse it." in rendered
+    assert (
+        f"Matching clone already exists at {checkout}; Apply will reuse it." in rendered
+    )
     assert "Using detected source default branch: trunk." in rendered

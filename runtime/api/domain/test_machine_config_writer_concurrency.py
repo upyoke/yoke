@@ -19,7 +19,9 @@ def _github(ref: str, *, slug: str = "yoke") -> dict:
         "api_url": contract.DEFAULT_GITHUB_API_URL,
         "web_url": contract.DEFAULT_GITHUB_WEB_URL,
         "app_slug": slug,
+        "app_id": 42,
         "client_id": "Iv1.example",
+        "profile_source": contract.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
         "authorization": {
             "kind": contract.GITHUB_AUTH_KIND_USER_AUTHORIZATION,
             "refresh_credential_ref": ref,

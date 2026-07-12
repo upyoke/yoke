@@ -166,6 +166,14 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
         "./packages/yoke-harness" in dockerfile
     )
     assert "local_wheel_constraints.py" in dockerfile
+    assert "postgres_binaries.py" in dockerfile
+    assert "['ensure_binaries']()" in dockerfile
+    assert "libgssapi-krb5-2" in dockerfile
+    assert "p._postgres_executable(name), '--version'" in dockerfile
+    assert (
+        "COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres "
+        "/var/lib/yoke/postgres"
+    ) in dockerfile
     assert "--constraint /tmp/yoke-local-constraints.txt ." in dockerfile
     assert dockerfile.index("local_wheel_constraints.py") < dockerfile.index(
         "--constraint /tmp/yoke-local-constraints.txt ."

@@ -45,7 +45,9 @@ class TestPostComment:
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True
+            f"{GH_PATCH}._validate_issue_in_repo",
+            autospec=True,
+            return_value=True,
         ), patch.object(
             backlog_github_comments, "resolve_project_github_auth",
             return_value=_ok_auth(),
@@ -70,6 +72,30 @@ class TestPostComment:
         assert add_labels.call_args.args[2] == ["status:implementing"]
         remove_label.assert_called_once()
         assert remove_label.call_args.args[2] == "status:idea"
+        db.close()
+
+    def test_issue_validation_failure_is_nonzero(self):
+        db = _make_db()
+        insert_item(
+            db, id=31, type="issue", status="implementing",
+            project="buzz", github_issue="#51",
+        )
+        stderr = io.StringIO()
+
+        with patch(
+            f"{GH_PATCH}._github_auth_available", return_value=True,
+        ), patch(
+            f"{GH_PATCH}._validate_issue_in_repo",
+            autospec=True,
+            return_value=False,
+        ):
+            rc = backlog_github_sync.post_comment(
+                "31", "idea", "implementing", conn=db, stderr=stderr,
+            )
+
+        assert rc == 1
+        assert "issue validation failed" in stderr.getvalue()
+        assert "repo mismatch" not in stderr.getvalue()
         db.close()
 
     def test_noop_when_no_github_issue(self):
@@ -106,7 +132,9 @@ class TestCloseIssue:
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True
+            f"{GH_PATCH}._validate_issue_in_repo",
+            autospec=True,
+            return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
             return_value=_ok_auth(),

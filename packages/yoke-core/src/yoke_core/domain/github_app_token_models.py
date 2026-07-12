@@ -29,6 +29,14 @@ class GitHubAppTokenResponseError(GitHubAppTokenError):
         self.error_code = error_code
 
 
+class GitHubAppTokenResponseSizeError(GitHubAppTokenError):
+    """A token response exceeded the bounded JSON envelope."""
+
+
+class GitHubAppTokenResponseDecodeError(GitHubAppTokenError):
+    """A token response was not valid UTF-8 or JSON."""
+
+
 @dataclass(frozen=True)
 class InstallationToken:
     """Short-lived bearer token minted for one GitHub App installation."""
@@ -109,7 +117,9 @@ def parse_json_object(raw: bytes, label: str) -> dict[str, Any]:
 
 __all__ = [
     "GitHubAppTokenError",
+    "GitHubAppTokenResponseDecodeError",
     "GitHubAppTokenResponseError",
+    "GitHubAppTokenResponseSizeError",
     "InstallationToken",
     "UserAccessToken",
     "ensure_utc",

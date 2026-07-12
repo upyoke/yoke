@@ -147,6 +147,7 @@ def issue_close(*, repo: str, num: str, token: str) -> subprocess.CompletedProce
         request_with_retry(
             RestRequest(
                 method="PATCH",
+                replay_safe=True,
                 path=f"/repos/{owner}/{name}/issues/{num}",
                 body={"state": "closed"},
             ),
@@ -186,4 +187,3 @@ def issue_delete(*, repo: str, num: str, token: str) -> subprocess.CompletedProc
     except RestTransportError:
         return _fail()
     return _ok()
-

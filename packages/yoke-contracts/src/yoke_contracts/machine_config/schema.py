@@ -42,6 +42,10 @@ from yoke_contracts.machine_config.schema_transport import (
 from yoke_contracts.machine_config.schema_github import (
     DEFAULT_GITHUB_API_URL as DEFAULT_GITHUB_API_URL, DEFAULT_GITHUB_WEB_URL as DEFAULT_GITHUB_WEB_URL,
     GITHUB_AUTH_KIND_USER_AUTHORIZATION as GITHUB_AUTH_KIND_USER_AUTHORIZATION, GITHUB_AUTH_STATUSES as GITHUB_AUTH_STATUSES,
+    GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT as GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
+    GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT as GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
+    GITHUB_PROFILE_SOURCE_SERVICE as GITHUB_PROFILE_SOURCE_SERVICE,
+    GITHUB_PROFILE_SOURCES as GITHUB_PROFILE_SOURCES,
     github_config as github_config, has_github_config, normalize_github_payload, validate_github_config,
 )
 from yoke_contracts.machine_config.schema_connections import (
