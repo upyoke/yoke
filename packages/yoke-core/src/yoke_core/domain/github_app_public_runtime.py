@@ -109,7 +109,7 @@ async def attest_github_app_runtime_identity_with_hard_deadline(
     ).start()
     try:
         result = await asyncio.wait_for(completed, timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         _log.warning(
             "GitHub App runtime identity attestation exceeded its hard "
             "startup deadline; advertisement disabled"

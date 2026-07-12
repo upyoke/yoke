@@ -4,15 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
-from yoke_contracts.github_binding_metadata import (
-    GitHubBindingMetadataError,
-    validate_account_login,
-    validate_account_type,
-    validate_binding_metadata,
-    validate_permissions,
-    validate_repository_full_name,
-    validate_repository_selection,
-)
 from yoke_contracts.github_origin import (
     DEFAULT_GITHUB_API_URL,
     GitHubApiEndpoint,
@@ -35,6 +26,7 @@ from yoke_core.domain.github_app_user_verification_transport import (
     _find_paginated,
     _get_json,
 )
+from yoke_core.domain.project_github_binding_payload import normalize_github_repo
 
 
 @dataclass(frozen=True)
@@ -140,24 +132,27 @@ def verify_project_github_binding(
             "GitHub installation account metadata is missing"
         )
     account_id = _required_id(account.get("id"), "installation account id")
-    try:
-        account_login = validate_account_login(account.get("login"))
-        account_type = validate_account_type(account.get("type"))
-    except GitHubBindingMetadataError as exc:
-        raise GitHubUserVerificationError(str(exc)) from exc
+    account_login = _required_text(account.get("login"), "installation account login")
+    account_type = _required_text(account.get("type"), "installation account type")
     raw_permissions = installation.get("permissions")
-    permissions = raw_permissions if isinstance(raw_permissions, Mapping) else {}
+    permissions = (
+        {
+            str(key): str(value)
+            for key, value in raw_permissions.items()
+            if str(key).strip() and str(value).strip()
+        }
+        if isinstance(raw_permissions, Mapping)
+        else {}
+    )
     if not permissions:
         raise GitHubUserVerificationError(
             "GitHub installation permission metadata is missing"
         )
-    try:
-        permissions = validate_permissions(permissions)
-        repository_selection = validate_repository_selection(
-            installation.get("repository_selection")
+    repository_selection = str(installation.get("repository_selection") or "").strip()
+    if repository_selection not in {"all", "selected"}:
+        raise GitHubUserVerificationError(
+            "GitHub installation repository_selection is invalid"
         )
-    except GitHubBindingMetadataError as exc:
-        raise GitHubUserVerificationError(str(exc)) from exc
     if server_config is not None:
         try:
             verify_user_installation_against_server(
@@ -214,32 +209,20 @@ def verify_project_github_binding(
         budget.checkpoint()
     except GitHubBindingVerificationBudgetError as exc:
         raise GitHubUserVerificationError(str(exc)) from exc
-    try:
-        metadata = validate_binding_metadata(
-            installation_id=selected_installation_id,
-            account_id=account_id,
-            account_login=account_login,
-            account_type=account_type,
-            repository_selection=repository_selection,
-            permissions=permissions,
-            repository_id=selected_repository_id,
-            github_repo=normalized_canonical_repo,
-            default_branch=repository.get("default_branch"),
-            installation_status=installation_status,
-        )
-    except GitHubBindingMetadataError as exc:
-        raise GitHubUserVerificationError(str(exc)) from exc
     return VerifiedProjectGitHubBinding(
-        installation_id=metadata.installation_id,
-        account_id=metadata.account_id,
-        account_login=metadata.account_login,
-        account_type=metadata.account_type,
-        repository_selection=metadata.repository_selection,
-        permissions=metadata.permissions,
-        repository_id=metadata.repository_id,
-        github_repo=metadata.github_repo,
-        default_branch=metadata.default_branch,
-        installation_status=metadata.installation_status,
+        installation_id=str(selected_installation_id),
+        account_id=str(account_id),
+        account_login=account_login,
+        account_type=account_type,
+        repository_selection=repository_selection,
+        permissions=permissions,
+        repository_id=str(selected_repository_id),
+        github_repo=canonical_repo,
+        default_branch=_required_text(
+            repository.get("default_branch"),
+            "repository default branch",
+        ),
+        installation_status=installation_status,
         api_url=selected_endpoint.base_url,
     )
 

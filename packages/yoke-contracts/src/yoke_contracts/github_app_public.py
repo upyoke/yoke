@@ -61,13 +61,6 @@ class GitHubAppPublicProfile(BaseModel):
             raise ValueError("app_slug must be nonempty")
         return selected
 
-    @field_validator("app_id", mode="before")
-    @classmethod
-    def _non_boolean_app_id(cls, value: object) -> object:
-        if isinstance(value, bool):
-            raise ValueError("app_id must be a positive integer")
-        return value
-
     @model_validator(mode="after")
     def _canonical_deployment(self) -> "GitHubAppPublicProfile":
         pair = validate_github_endpoint_pair(self.api_url, self.web_url)

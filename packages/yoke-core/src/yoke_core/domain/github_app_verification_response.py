@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 
-from yoke_core.domain.github_response_safety import (
-    GITHUB_COLLECTION_RESPONSE_LIMIT_BYTES as GITHUB_APP_COLLECTION_RESPONSE_LIMIT_BYTES,
-    GITHUB_SMALL_RESPONSE_LIMIT_BYTES as GITHUB_APP_VERIFICATION_RESPONSE_LIMIT_BYTES,
-    GitHubResponseDeadlineError,
-    GitHubResponseTooLargeError,
-    read_bounded_response,
-)
+GITHUB_APP_VERIFICATION_RESPONSE_LIMIT_BYTES = 64 * 1024
+GITHUB_APP_COLLECTION_RESPONSE_LIMIT_BYTES = 4 * 1024 * 1024
 
 
 class GitHubAppVerificationResponseError(ValueError):
@@ -33,31 +27,15 @@ def require_unredirected_verification_response(
 def read_bounded_verification_response(
     response,
     *,
-    deadline: float,
-    clock: Callable[[], float] | None = None,
     limit_bytes: int = GITHUB_APP_VERIFICATION_RESPONSE_LIMIT_BYTES,
 ) -> bytes:
     """Read one response with a one-byte overflow sentinel."""
-    try:
-        return read_bounded_response(
-            response,
-            limit_bytes=limit_bytes,
-            label="GitHub App verification response",
-            deadline=deadline,
-            clock=clock,
-        )
-    except GitHubResponseDeadlineError:
-        raise GitHubAppVerificationResponseError(
-            "GitHub App verification response exceeded the time limit"
-        ) from None
-    except GitHubResponseTooLargeError:
+    raw = response.read(limit_bytes + 1)
+    if len(raw) > limit_bytes:
         raise GitHubAppVerificationResponseError(
             "GitHub App verification response exceeded the size limit"
-        ) from None
-    except Exception:
-        raise GitHubAppVerificationResponseError(
-            "GitHub App verification response could not be read"
-        ) from None
+        )
+    return raw
 
 
 __all__ = [

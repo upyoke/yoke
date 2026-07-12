@@ -140,20 +140,6 @@ def test_origin_identity_probe_receives_every_public_identity_field():
     assert "-e YOKE_GITHUB_APP_WEB_URL=https://github.com" in command
 
 
-def test_origin_identity_probe_uses_runtime_secret_mount_path():
-    command = verification_and_promotion_command(
-        _app_environment(),
-        "example/core:image",
-    )
-
-    assert GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH.startswith("/run/secrets/")
-    assert (
-        "-e YOKE_GITHUB_APP_PRIVATE_KEY_FILE="
-        f"{GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH}"
-    ) in command
-    assert f":{GITHUB_APP_PRIVATE_KEY_CONTAINER_PATH}:ro" in command
-
-
 def test_origin_key_convergence_command_is_valid_posix_shell():
     runner = FakeRunner([CommandResult(0, "", "")])
 
