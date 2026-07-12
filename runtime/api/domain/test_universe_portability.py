@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import os
 import subprocess
 from pathlib import Path
@@ -57,6 +58,44 @@ def test_inspection_rejects_bad_magic_without_spawning(tmp_path, monkeypatch):
     )
     with pytest.raises(portability.ArchiveInvalidError, match="custom-format"):
         portability.inspect_archive(archive)
+
+
+def test_restore_pump_filters_only_the_version_compatibility_preamble():
+    compatibility_line = b"SET transaction_timeout = 0;\n"
+    source = io.BytesIO(
+        b"-- PostgreSQL database dump\n"
+        + compatibility_line
+        + b"-- Name: sample; Type: TABLE DATA; Schema: public\n"
+        # Identical bytes after the first object marker represent user data and
+        # must never be globally rewritten.
+        + compatibility_line
+    )
+    destination = io.BytesIO()
+    errors: list[BaseException] = []
+    portability._sql_pump(
+        source, destination, max_sql_bytes=1024, errors=errors,
+    )
+    assert errors == []
+    assert destination.getvalue() == (
+        b"BEGIN;\n"
+        b"-- PostgreSQL database dump\n"
+        b"-- Name: sample; Type: TABLE DATA; Schema: public\n"
+        + compatibility_line
+    )
+
+
+def test_restore_pump_bounds_expanded_archive_size():
+    errors: list[BaseException] = []
+    portability._sql_pump(
+        io.BytesIO(
+            b"-- Name: sample; Type: TABLE; Schema: public\n" + b"x" * 100
+        ),
+        io.BytesIO(),
+        max_sql_bytes=32,
+        errors=errors,
+    )
+    assert len(errors) == 1
+    assert isinstance(errors[0], portability.ArchiveTooLargeError)
 
 
 def test_inspection_rejects_tampered_real_archive(tmp_path):

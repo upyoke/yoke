@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import os
 import re
+import logging
 import subprocess
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, MutableMapping, Optional, Sequence
@@ -26,10 +29,25 @@ from psycopg import conninfo, pq
 from yoke_core.domain import postgres_binaries, postgres_cluster
 
 
+_log = logging.getLogger("yoke.universe.portability")
+
+
 ARCHIVE_FORMAT = "pg_dump-custom"
 ARCHIVE_MAGIC = b"PGDMP"
 DEFAULT_MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 DEFAULT_ARCHIVE_TIMEOUT_S = 600
+DEFAULT_MAX_RESTORE_EXPANSION = 16
+
+# pg_dump 17 adds this session setting even when it dumps an older server;
+# PostgreSQL 16 rejects it.  The restore pipeline removes only this exact
+# preamble command, before the first archive object, so a local PG17 universe
+# remains portable to a hosted PG16 cluster without rewriting any user data.
+_COMPATIBILITY_PREAMBLE_LINES = frozenset({
+    b"SET transaction_timeout = 0;\n",
+})
+_PREAMBLE_LINE_LIMIT = 256
+_PUMP_CHUNK_BYTES = 1 << 20
+_DIAGNOSTIC_BYTES = 32 * 1024
 
 # A portable universe carries ordinary public-schema objects only.  These
 # cluster/global object kinds are never required by Yoke and would widen an
@@ -225,6 +243,7 @@ def dump_universe(
     dest = Path(destination)
     dest.parent.mkdir(parents=True, exist_ok=True)
     executable = pg_dump or _postgres_executable("pg_dump")
+    client_env = postgres_client_env(dsn)
     try:
         completed = subprocess.run(
             [
@@ -234,7 +253,7 @@ def dump_universe(
                 "--no-privileges",
                 "--file", str(dest),
             ],
-            env=postgres_client_env(dsn),
+            env=client_env,
             capture_output=True,
             text=True,
             timeout=timeout_s,
@@ -277,44 +296,236 @@ def restore_universe(
         pg_restore=pg_restore,
     )
     executable = pg_restore or _postgres_executable("pg_restore")
+    psql = _postgres_executable("psql")
     dbname = conninfo.conninfo_to_dict(dsn).get("dbname")
     if not dbname:
         raise UniversePortabilityError(
             "the restore target DSN must name a database"
         )
+    client_env = postgres_client_env(dsn)
+    _restore_via_filtered_sql(
+        executable=executable,
+        psql=psql,
+        archive=inspection.path,
+        dbname=str(dbname),
+        client_env=client_env,
+        timeout_s=timeout_s,
+        max_sql_bytes=max(
+            64 * 1024 * 1024,
+            max_bytes * DEFAULT_MAX_RESTORE_EXPANSION,
+        ),
+    )
+    return inspection
+
+
+def _bounded_diagnostic_reader(stream: object, sink: bytearray) -> None:
+    """Drain a subprocess stderr pipe while retaining only its bounded tail."""
     try:
-        completed = subprocess.run(
-            [
-                executable,
-                # pg_restore requires explicit destination mode; the bare
-                # database name is non-secret while every credential and
-                # network/SSL option remains in the sanitized PG* env.
-                "--dbname", str(dbname),
-                "--exit-on-error",
-                "--single-transaction",
-                "--no-owner",
-                "--no-privileges",
-                "--no-comments",
-                "--no-publications",
-                "--no-security-labels",
-                "--no-subscriptions",
-                "--schema=public",
-                str(inspection.path),
-            ],
-            env=postgres_client_env(dsn),
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
+        while True:
+            chunk = stream.read(_PUMP_CHUNK_BYTES)  # type: ignore[attr-defined]
+            if not chunk:
+                return
+            sink.extend(chunk)
+            if len(sink) > _DIAGNOSTIC_BYTES:
+                del sink[:-_DIAGNOSTIC_BYTES]
+    finally:
+        stream.close()  # type: ignore[attr-defined]
+
+
+def _sql_pump(
+    source: object,
+    destination: object,
+    *,
+    max_sql_bytes: int,
+    errors: list[BaseException],
+) -> None:
+    """Stream pg_restore SQL to psql, filtering only known preamble lines."""
+    written = 0
+
+    def write(chunk: bytes) -> None:
+        nonlocal written
+        if not chunk:
+            return
+        written += len(chunk)
+        if written > max_sql_bytes:
+            raise ArchiveTooLargeError(
+                "the expanded universe restore exceeds the"
+                f" {max_sql_bytes}-byte safety limit"
+            )
+        destination.write(chunk)  # type: ignore[attr-defined]
+
+    try:
+        write(b"BEGIN;\n")
+        # Compatibility settings live in pg_restore's short preamble.  Stop
+        # line parsing at the first object marker, then stream raw fixed-size
+        # chunks so an attacker cannot force an unbounded readline allocation
+        # with one enormous COPY field.
+        for _index in range(_PREAMBLE_LINE_LIMIT):
+            line = source.readline(64 * 1024)  # type: ignore[attr-defined]
+            if not line:
+                break
+            if line not in _COMPATIBILITY_PREAMBLE_LINES:
+                write(line)
+            if line.startswith(b"-- Name:"):
+                break
+        while True:
+            chunk = source.read(_PUMP_CHUNK_BYTES)  # type: ignore[attr-defined]
+            if not chunk:
+                break
+            write(chunk)
+    except BaseException as exc:  # noqa: BLE001 - crosses a worker thread
+        errors.append(exc)
+    finally:
+        source.close()  # type: ignore[attr-defined]
+
+
+def _terminate(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is not None:
+        return
+    process.kill()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _restore_via_filtered_sql(
+    *,
+    executable: str,
+    psql: str,
+    archive: Path,
+    dbname: str,
+    client_env: Mapping[str, str],
+    timeout_s: int,
+    max_sql_bytes: int,
+) -> None:
+    """Generate filtered SQL and execute it as one fail-closed transaction."""
+    restore_cmd = [
+        executable,
+        "--file=-",
+        "--no-owner",
+        "--no-privileges",
+        "--no-comments",
+        "--no-publications",
+        "--no-security-labels",
+        "--no-subscriptions",
+        "--schema=public",
+        str(archive),
+    ]
+    psql_cmd = [
+        psql,
+        "--dbname", dbname,
+        "--no-psqlrc",
+        "--set=ON_ERROR_STOP=1",
+    ]
+    restore: subprocess.Popen[bytes] | None = None
+    apply: subprocess.Popen[bytes] | None = None
+    try:
+        restore = subprocess.Popen(
+            restore_cmd,
+            env=dict(client_env),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        detail = "timed out" if isinstance(exc, subprocess.TimeoutExpired) else str(exc)
-        raise UniversePortabilityError(f"universe restore {detail}") from exc
-    if completed.returncode != 0:
+        apply = subprocess.Popen(
+            psql_cmd,
+            env=dict(client_env),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as exc:
+        if restore is not None:
+            _terminate(restore)
+        raise UniversePortabilityError(
+            f"universe restore client could not start: {exc}"
+        ) from exc
+    assert restore is not None and apply is not None
+    assert restore.stdout is not None and restore.stderr is not None
+    assert apply.stdin is not None and apply.stderr is not None
+    pump_errors: list[BaseException] = []
+    restore_stderr = bytearray()
+    apply_stderr = bytearray()
+    workers = (
+        threading.Thread(
+            target=_sql_pump,
+            args=(restore.stdout, apply.stdin),
+            kwargs={"max_sql_bytes": max_sql_bytes, "errors": pump_errors},
+            daemon=True,
+        ),
+        threading.Thread(
+            target=_bounded_diagnostic_reader,
+            args=(restore.stderr, restore_stderr),
+            daemon=True,
+        ),
+        threading.Thread(
+            target=_bounded_diagnostic_reader,
+            args=(apply.stderr, apply_stderr),
+            daemon=True,
+        ),
+    )
+    for worker in workers:
+        worker.start()
+    deadline = time.monotonic() + timeout_s
+    try:
+        restore.wait(timeout=max(0.001, deadline - time.monotonic()))
+        workers[0].join(timeout=max(0.001, deadline - time.monotonic()))
+        if workers[0].is_alive():
+            raise subprocess.TimeoutExpired(restore_cmd, timeout_s)
+        # The generator must finish cleanly before COMMIT ever reaches psql.
+        # Closing an uncommitted stream rolls back, so corrupt/oversized input
+        # cannot leave even partial state in the fresh staging database.
+        try:
+            if restore.returncode == 0 and not pump_errors:
+                apply.stdin.write(b"COMMIT;\n")
+            else:
+                apply.stdin.write(b"ROLLBACK;\n")
+        except BrokenPipeError:
+            pass
+        finally:
+            try:
+                apply.stdin.close()
+            except BrokenPipeError:
+                pass
+        apply.wait(timeout=max(0.001, deadline - time.monotonic()))
+    except subprocess.TimeoutExpired as exc:
+        _terminate(restore)
+        _terminate(apply)
+        raise UniversePortabilityError(
+            f"universe restore timed out after {timeout_s}s"
+        ) from exc
+    finally:
+        _terminate(restore)
+        _terminate(apply)
+        for worker in workers:
+            worker.join(timeout=5)
+    if pump_errors:
+        error = pump_errors[0]
+        if isinstance(error, ArchiveTooLargeError):
+            raise error
+        if apply.returncode == 0:
+            raise UniversePortabilityError(
+                "universe restore stream failed before the transaction completed"
+            ) from error
+    if restore.returncode != 0 or apply.returncode != 0:
+        diagnostic = bytes(restore_stderr + apply_stderr).decode(
+            "utf-8", errors="replace",
+        )
+        password = client_env.get("PGPASSWORD", "")
+        if password:
+            diagnostic = diagnostic.replace(password, "<redacted-secret>")
+        diagnostic = "\n".join(diagnostic.strip().splitlines()[-12:])
+        _log.error(
+            "portable universe restore failed generator_rc=%s apply_rc=%s;"
+            " redacted stderr tail:\n%s",
+            restore.returncode,
+            apply.returncode,
+            diagnostic or "<no stderr>",
+        )
         raise UniversePortabilityError(
             "universe restore failed transactionally; the staging database"
             " was not accepted"
         )
-    return inspection
 
 
 def user_content_counts(
