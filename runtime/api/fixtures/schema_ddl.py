@@ -1,7 +1,8 @@
 """Test-fixture schema DDL assembler and apply helpers.
 
 Composes ``SCHEMA_DDL`` by concatenating the table-family DDL strings in
-fixed order: items, epic/QA, runtime, strategy, auth, then merge locks.
+fixed order: items, epic/QA, runtime, strategy, auth, onboarding, then merge
+locks.
 The items family is derived from canonical schema initialization in
 ``schema_ddl_items``; the other families are fixture-owned native
 Postgres DDL.
@@ -31,10 +32,23 @@ def _schema_ddl() -> str:
     composed = globals().get("SCHEMA_DDL")
     if composed is None:
         from runtime.api.fixtures.schema_ddl_items import _ITEMS_DDL
+        from yoke_core.domain.project_onboarding_runs import (
+            PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL,
+            PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL,
+            PROJECT_ONBOARDING_RUNS_CREATE_SQL,
+        )
 
+        onboarding_rows_without_fk = (
+            PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL.replace(
+                f",\n    {PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL}",
+                "",
+            )
+        )
         composed = (
             _ITEMS_DDL + _EPIC_QA_DDL + _RUNTIME_DDL + _STRATEGY_DDL
-            + _AUTH_DDL + _MERGE_LOCKS_DDL
+            + _AUTH_DDL + PROJECT_ONBOARDING_RUNS_CREATE_SQL + ";"
+            + onboarding_rows_without_fk + ";"
+            + _MERGE_LOCKS_DDL
         )
         globals()["SCHEMA_DDL"] = composed
     return composed

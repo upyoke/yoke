@@ -34,45 +34,55 @@ from yoke_core.domain.project_onboarding_run_records import (
 OPERATION_RUN = f"{OPERATION}.run"
 
 
-def ensure_schema(conn: Any) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS project_onboarding_runs (
-            run_id TEXT PRIMARY KEY,
-            schema_version INTEGER NOT NULL,
-            project_id INTEGER,
-            branch TEXT NOT NULL,
-            checkout_path TEXT,
-            machine_config_path TEXT,
-            github_repo TEXT,
-            status TEXT NOT NULL,
-            metadata_json TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS project_onboarding_checklist_rows (
-            run_id TEXT NOT NULL,
-            row_id TEXT NOT NULL,
-            step TEXT NOT NULL,
-            title TEXT NOT NULL,
-            layer TEXT NOT NULL,
-            owner TEXT NOT NULL,
-            status TEXT NOT NULL,
-            hint TEXT,
-            evidence_json TEXT NOT NULL,
-            blocker TEXT NOT NULL DEFAULT '',
-            note TEXT NOT NULL DEFAULT '',
-            updated_at TEXT NOT NULL,
-            PRIMARY KEY (run_id, row_id),
-            FOREIGN KEY (run_id) REFERENCES project_onboarding_runs(run_id)
-        )
-        """
-    )
+PROJECT_ONBOARDING_RUNS_CREATE_SQL = """
+CREATE TABLE IF NOT EXISTS project_onboarding_runs (
+    run_id TEXT PRIMARY KEY,
+    schema_version INTEGER NOT NULL,
+    project_id INTEGER,
+    branch TEXT NOT NULL,
+    checkout_path TEXT,
+    machine_config_path TEXT,
+    github_repo TEXT,
+    status TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+)
+"""
+
+PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL = (
+    "FOREIGN KEY (run_id) REFERENCES project_onboarding_runs(run_id)"
+)
+
+PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL = f"""
+CREATE TABLE IF NOT EXISTS project_onboarding_checklist_rows (
+    run_id TEXT NOT NULL,
+    row_id TEXT NOT NULL,
+    step TEXT NOT NULL,
+    title TEXT NOT NULL,
+    layer TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    status TEXT NOT NULL,
+    hint TEXT,
+    evidence_json TEXT NOT NULL,
+    blocker TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (run_id, row_id),
+    {PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL}
+)
+"""
+
+
+def create_project_onboarding_tables(conn: Any) -> None:
+    """Converge the onboarding run tables without owning the transaction."""
+    conn.execute(PROJECT_ONBOARDING_RUNS_CREATE_SQL)
+    conn.execute(PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL)
     _ensure_columns(conn)
+
+
+def ensure_schema(conn: Any) -> None:
+    create_project_onboarding_tables(conn)
     conn.commit()
 
 
@@ -318,7 +328,11 @@ def _p(conn: Any) -> str:
 
 
 __all__ = [
+    "PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL",
+    "PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL",
+    "PROJECT_ONBOARDING_RUNS_CREATE_SQL",
     "ProjectOnboardingRunError",
+    "create_project_onboarding_tables",
     "ensure_schema",
     "get_run",
     "init_run",
