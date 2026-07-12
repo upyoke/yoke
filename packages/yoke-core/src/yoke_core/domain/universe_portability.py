@@ -1458,7 +1458,9 @@ def converge_and_validate_restored_universe(
     from yoke_core.domain import db_backend
     from yoke_core.domain.actor_permissions import seed_roles_and_permissions
     from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
-    from yoke_core.domain.schema_fingerprint import fingerprint_kind
+    from yoke_core.domain.schema_fingerprint import (
+        fingerprint_portable_postgres_schema,
+    )
     from yoke_core.domain.flow_init import create_or_replace_item_progress_view
     from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
     from yoke_core.domain.schema_init import converge_core_schema
@@ -1513,7 +1515,7 @@ def converge_and_validate_restored_universe(
                 "the restored universe is missing required tables after"
                 " convergence: " + ", ".join(missing)
             )
-        actual_fingerprint = fingerprint_kind("postgres", conn)
+        actual_fingerprint = fingerprint_portable_postgres_schema(conn)
         if actual_fingerprint != expected_schema_fingerprint:
             raise ArchiveCompatibilityError(
                 "the restored universe schema is not compatible with the"

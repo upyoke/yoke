@@ -113,10 +113,16 @@ def _reject_retired_root_yoke_db_conn(conn: sqlite3.Connection) -> None:
             )
 
 
-def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
-    """Canonical ordered Postgres schema rows used by exact fingerprints."""
-    rows = conn.execute(
-        """
+def _postgres_schema_rows(
+    conn,
+    *,
+    order_table_columns_by_name: bool = False,
+) -> list[tuple[str, str, str]]:
+    """Canonical Postgres schema rows for exact or name-mapped comparison."""
+    table_column_order = (
+        'att.attname COLLATE "C"' if order_table_columns_by_name else "att.attnum"
+    )
+    query = """
         WITH objects AS (
             SELECT
                 'table' AS object_type,
@@ -155,7 +161,7 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
                         ),
                         ''
                     ),
-                    chr(10) ORDER BY att.attnum
+                    chr(10) ORDER BY __TABLE_COLUMN_ORDER__
                 ) AS definition
             FROM pg_catalog.pg_class cls
             JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
@@ -300,8 +306,8 @@ def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
         SELECT object_type, object_name, COALESCE(definition, '')
         FROM objects
         ORDER BY object_type, object_name, definition
-        """
-    ).fetchall()
+        """.replace("__TABLE_COLUMN_ORDER__", table_column_order)
+    rows = conn.execute(query).fetchall()
     return [tuple(str(value) for value in row) for row in rows]
 
 
@@ -317,6 +323,27 @@ def _fingerprint_postgres_target(target) -> str:
     conn = psycopg.connect(str(target))
     try:
         return _fingerprint_postgres_conn(conn)
+    finally:
+        conn.close()
+
+
+def fingerprint_portable_postgres_schema(target) -> str:
+    """Fingerprint Postgres structure for name-mapped archive restore.
+
+    Physical table-column order is excluded because portable restore binds
+    every value to a named target column. All column properties and every
+    other schema object remain part of the exact comparison.
+    """
+    if hasattr(target, "execute"):
+        return _hash_rows(
+            _postgres_schema_rows(target, order_table_columns_by_name=True)
+        )
+
+    conn = psycopg.connect(str(target))
+    try:
+        return _hash_rows(
+            _postgres_schema_rows(conn, order_table_columns_by_name=True)
+        )
     finally:
         conn.close()
 
@@ -398,5 +425,6 @@ __all__ = [
     "SUPPORTED_KINDS",
     "UnsupportedFingerprintKindError",
     "fingerprint_kind",
+    "fingerprint_portable_postgres_schema",
     "freshness_expired",
 ]

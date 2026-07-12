@@ -14,7 +14,9 @@ import pytest
 
 from yoke_core.domain import universe_export
 from yoke_core.domain import universe_portability as portability
-from yoke_core.domain.schema_fingerprint import fingerprint_kind
+from yoke_core.domain.schema_fingerprint import (
+    fingerprint_portable_postgres_schema,
+)
 
 
 @contextmanager
@@ -450,7 +452,7 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
                     "missing": sorted(set(expected_rows) - set(actual_rows)),
                     "extra": sorted(set(actual_rows) - set(expected_rows)),
                 }
-                expected_fp = fingerprint_kind("postgres", source)
+                expected_fp = fingerprint_portable_postgres_schema(source)
             from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
 
             run_init_chain_at_dsn(target_dsn, emit=lambda _line: None)
@@ -484,7 +486,7 @@ def test_restore_converges_known_older_schema_without_losing_data(tmp_path):
 
     with _canonical_test_universe() as (source, source_dsn):
         with _canonical_test_universe() as (reference, _reference_dsn):
-            expected_fp = fingerprint_kind("postgres", reference)
+            expected_fp = fingerprint_portable_postgres_schema(reference)
 
         source.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix, created_at)"
@@ -581,7 +583,7 @@ def test_schema_fingerprint_and_org_identity_fail_closed(tmp_path):
 
     with pg_testdb.test_database() as conn:
         dsn = os.environ[db_backend.PG_DSN_ENV]
-        expected = fingerprint_kind("postgres", conn)
+        expected = fingerprint_portable_postgres_schema(conn)
         with pytest.raises(
             portability.ArchiveCompatibilityError,
             match="does not match",

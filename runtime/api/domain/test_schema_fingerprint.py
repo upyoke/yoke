@@ -14,6 +14,7 @@ from yoke_core.domain.schema_fingerprint import (
     SUPPORTED_KINDS,
     UnsupportedFingerprintKindError,
     fingerprint_kind,
+    fingerprint_portable_postgres_schema,
     freshness_expired,
 )
 
@@ -191,6 +192,45 @@ class TestPostgresFingerprint:
             finally:
                 conn.close()
         assert from_dsn == from_conn
+
+    @postgres_only
+    def test_portable_fingerprint_ignores_only_table_column_order(
+        self, tmp_path: Path
+    ) -> None:
+        def apply_first_order() -> None:
+            conn = db_backend.connect()
+            try:
+                conn.execute("CREATE TABLE widgets (id INTEGER, name TEXT)")
+                conn.commit()
+            finally:
+                conn.close()
+
+        def apply_second_order() -> None:
+            conn = db_backend.connect()
+            try:
+                conn.execute("CREATE TABLE widgets (name TEXT, id INTEGER)")
+                conn.commit()
+            finally:
+                conn.close()
+
+        with init_test_db(tmp_path / "first", apply_schema=apply_first_order):
+            conn = db_backend.connect()
+            try:
+                first_exact = fingerprint_kind("postgres", conn)
+                first_portable = fingerprint_portable_postgres_schema(conn)
+            finally:
+                conn.close()
+
+        with init_test_db(tmp_path / "second", apply_schema=apply_second_order):
+            conn = db_backend.connect()
+            try:
+                second_exact = fingerprint_kind("postgres", conn)
+                second_portable = fingerprint_portable_postgres_schema(conn)
+            finally:
+                conn.close()
+
+        assert first_exact != second_exact
+        assert first_portable == second_portable
 
     @postgres_only
     def test_changes_when_ddl_changes(self, tmp_path: Path) -> None:
