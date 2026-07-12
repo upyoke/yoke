@@ -52,6 +52,9 @@ def _vps_args_from_config(deploy_namespace: str):
         root_volume_gb=config.require_int("vps_root_volume_gb"),
         ssh_key_name=config.require("vps_ssh_key_name"),
         stack_name=pulumi.get_stack(),
+        iam_instance_profile_name=(
+            config.get("vps_iam_instance_profile_name") or None
+        ),
     )
 
 

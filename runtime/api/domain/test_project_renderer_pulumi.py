@@ -27,7 +27,12 @@ _GATHER_VALUES_KEYS = {
     "api_port", "ephemeral_ttl_hours", "web_health_path", "web_smoke_paths",
     "domain", "api_port_base", "port_base", "port_range", "dns_provider",
 }
-_VPS_KEYS = {"vps_instance_type", "vps_root_volume_gb", "vps_ssh_key_name"}
+_VPS_KEYS = {
+    "vps_instance_type",
+    "vps_root_volume_gb",
+    "vps_ssh_key_name",
+    "vps_iam_instance_profile_name",
+}
 _PULUMI_KEYS = {
     "origin_id", "distribution_bucket_name", "kms_key_alias", "state_bucket",
     "pulumi_infra_stack_name", "pulumi_vps_stack_name",
@@ -111,6 +116,9 @@ def _settings_from_context(
             "instance_type": context.get("vpsInstanceType", ""),
             "root_volume_gb": context.get("vpsRootVolumeGb", ""),
             "aws_key_pair_name": context.get("vpsSshKeyName", ""),
+            "iam_instance_profile_name": context.get(
+                "vpsIamInstanceProfileName", ""
+            ),
         }],
     }
     capabilities = {
@@ -189,6 +197,7 @@ class TestGatherPulumiValues:
             "vpsInstanceType": "t3.small",
             "vpsRootVolumeGb": "20",
             "vpsSshKeyName": "buzz-key",
+            "vpsIamInstanceProfileName": "buzz-origin-profile",
             "awsAccountId": "111122223333",
             "awsRegion": "us-east-1",
             "kmsKeyAlias": "alias/buzz-state",
@@ -205,7 +214,8 @@ class TestGatherPulumiValues:
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert len(result) == 67
+        assert len(result) == 68
+        assert result["vps_iam_instance_profile_name"] == "buzz-origin-profile"
         assert result["origin_id"] == "buzzinfraDistributionOrigin18BAD744B"
         assert result["distribution_bucket_name"] == "buzz-distribution-prod"
         assert result["domain_txt_records_json"] == "[]"
@@ -222,6 +232,7 @@ class TestGatherPulumiValues:
             "vpsInstanceType": "t3.medium",
             "vpsRootVolumeGb": "40",
             "vpsSshKeyName": "buzz-prod",
+            "vpsIamInstanceProfileName": "buzz-prod-origin",
             "awsAccountId": "999988887777",
             "awsRegion": "us-west-2",
             "kmsKeyAlias": "alias/buzz-pulumi",
@@ -234,6 +245,7 @@ class TestGatherPulumiValues:
         assert result["vps_instance_type"] == "t3.medium"
         assert result["vps_root_volume_gb"] == "40"
         assert result["vps_ssh_key_name"] == "buzz-prod"
+        assert result["vps_iam_instance_profile_name"] == "buzz-prod-origin"
         # aws_account_id and aws_region live on gather_values()'s 25-key dict;
         # gather_pulumi_values keeps those base renderer slots while projecting
         # Pulumi-specific settings into the snake_case keys below.
@@ -317,6 +329,8 @@ class TestRenderPulumiStackYaml:
             "  webapp-infra:vps_instance_type: {{vps_instance_type}}\n"
             "  webapp-infra:vps_root_volume_gb: \"{{vps_root_volume_gb}}\"\n"
             "  webapp-infra:vps_ssh_key_name: {{vps_ssh_key_name}}\n"
+            "  webapp-infra:vps_iam_instance_profile_name: "
+            "{{vps_iam_instance_profile_name}}\n"
         )
         values = {
             "aws_region": "us-east-1",
@@ -334,6 +348,7 @@ class TestRenderPulumiStackYaml:
             "vps_instance_type": "t3.small",
             "vps_root_volume_gb": "20",
             "vps_ssh_key_name": "buzz-key",
+            "vps_iam_instance_profile_name": "buzz-origin-profile",
         }
         rendered = project_renderer_pulumi.render_pulumi_stack_yaml(
             template, values,

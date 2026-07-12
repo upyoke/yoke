@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from runtime.api.domain.test_webapp_registry_stack import (
     _load_template_module,
     _Recorder,
@@ -42,3 +44,14 @@ def test_instance_ignores_ami_drift(monkeypatch):
     instance = recorder.single("vpsInstance")
     assert instance.opts.ignore_changes == ["ami"]
     assert instance.opts.parent is stack
+
+
+def test_standalone_stack_config_exposes_optional_instance_profile():
+    root = Path(__file__).parents[3]
+    entrypoint = (root / "templates/webapp/infra/__main__.py").read_text()
+    stack_template = (
+        root / "templates/webapp/infra/Pulumi.stack.yaml.tmpl"
+    ).read_text()
+
+    assert 'config.get("vps_iam_instance_profile_name")' in entrypoint
+    assert "webapp-infra:vps_iam_instance_profile_name:" in stack_template
