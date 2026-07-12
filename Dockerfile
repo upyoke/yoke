@@ -14,6 +14,12 @@ COPY .git_archival.txt ./
 COPY runtime ./runtime
 COPY packages ./packages
 
+# Portability runs pg_restore/pg_dump inside the server. Fetch the same
+# checksum-verified PostgreSQL build that local mode pins in product code.
+RUN PYTHONPATH=/build/packages/yoke-contracts/src \
+        YOKE_MACHINE_HOME=/var/lib/yoke \
+        python -c "import runpy; runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries']()"
+
 ARG YOKE_ENGINE_VERSION=""
 
 # Build the root `yoke` wheel (the runtime* tree) plus the four split packages
@@ -54,10 +60,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system yoke \
     && adduser --system --ingroup yoke --home /var/lib/yoke yoke \
     && mkdir -p /var/lib/yoke \
     && chown -R yoke:yoke /var/lib/yoke
+
+COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres /var/lib/yoke/postgres
 
 # Bundle sources live OUTSIDE the runtime package, so the wheel install
 # cannot serve them; install-bundle and template routes read them from
@@ -73,6 +85,10 @@ COPY --from=builder /wheels /wheels
 RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
         yoke yoke-contracts yoke-cli yoke-harness yoke-core \
     && rm -rf /wheels
+
+# Fail the image build unless the installed product resolver can execute both
+# portability clients with all runtime shared-library dependencies present.
+RUN python -c "from yoke_core.domain import universe_portability as p; import subprocess; [subprocess.run([p._postgres_executable(name), '--version'], check=True) for name in ('pg_restore', 'pg_dump')]"
 
 USER yoke
 

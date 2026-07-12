@@ -327,6 +327,57 @@ def test_prior_runtime_helper_requires_valid_adjacent_bundle(
     )
 
 
+def test_active_group_writable_runtime_recognizes_prior_helper_bundle(
+    tmp_path, monkeypatch,
+) -> None:
+    config = tmp_path / "config.json"
+    site = tmp_path / "prior-site"
+    helper = github_git_credentials.install_stable_helper(site)
+    active_python = tmp_path / "active-python"
+    active_python.write_text("#!/bin/sh\n", encoding="utf-8")
+    active_python.chmod(0o775)
+    monkeypatch.setattr(
+        github_git_credentials.sys, "executable", str(active_python),
+    )
+    monkeypatch.setattr(
+        github_git_credentials,
+        "_helper_site_dir",
+        lambda: tmp_path / "current-site",
+    )
+
+    assert github_git_credentials._is_yoke_helper(
+        _helper_command(active_python, helper, config),
+        config_path=config,
+    )
+
+
+def test_group_writable_prior_runtime_is_not_recognized(
+    tmp_path, monkeypatch,
+) -> None:
+    config = tmp_path / "config.json"
+    site = tmp_path / "prior-site"
+    helper = github_git_credentials.install_stable_helper(site)
+    active_python = tmp_path / "active-python"
+    active_python.write_text("#!/bin/sh\n", encoding="utf-8")
+    active_python.chmod(0o755)
+    prior_python = tmp_path / "prior-python"
+    prior_python.write_text("#!/bin/sh\n", encoding="utf-8")
+    prior_python.chmod(0o775)
+    monkeypatch.setattr(
+        github_git_credentials.sys, "executable", str(active_python),
+    )
+    monkeypatch.setattr(
+        github_git_credentials,
+        "_helper_site_dir",
+        lambda: tmp_path / "current-site",
+    )
+
+    assert not github_git_credentials._is_yoke_helper(
+        _helper_command(prior_python, helper, config),
+        config_path=config,
+    )
+
+
 def test_marker_shaped_helper_without_bundle_is_preserved(
     tmp_path, monkeypatch,
 ) -> None:

@@ -12,9 +12,11 @@ name: yoke-build-artifacts
 # operation surface owned by the operator's private ops repo posture (see
 # the yoke-distribution-publish.yml header).
 #
-# Fork-PR safety: no step reads a repository secret; the token is pinned
-# read-only; runs-on is hard-pinned to GitHub-hosted so a stranger pull
-# request can never reach operator infrastructure through this lane.
+# Fork-PR safety: the build job has read-only repository access, never receives
+# signing authority, and runs only on GitHub-hosted infrastructure. A separate
+# trusted-ref signer job downloads the already-validated artifact and has no
+# checkout or run step, so repository code never executes with an OIDC identity
+# or attestation write scope.
 
 on:
   pull_request:
@@ -34,17 +36,31 @@ on:
       - "pyproject.toml"
       - "uv.lock"
   workflow_dispatch:
+  workflow_call:
+    outputs:
+      release_version:
+        description: Validated shared product-wheel version.
+        value: ${{ jobs.build.outputs.release_version }}
+      artifact_name:
+        description: Workflow artifact containing the validated release tree.
+        value: ${{ jobs.build.outputs.artifact_name }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # A called workflow inherits the caller's github.workflow name. A literal
+  # namespace keeps this group distinct from yoke-release's caller group.
+  group: yoke-build-artifacts-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   build:
     name: build
+    permissions:
+      contents: read
+    outputs:
+      release_version: ${{ steps.release.outputs.release_version }}
+      artifact_name: ${{ steps.release.outputs.artifact_name }}
     # Deliberately NOT vars.YOKE_LINUX_RUNS_ON: factory builds carry no
     # operator state, so there is nothing a hosted runner cannot do, and
     # hard-pinning keeps fork pull requests off self-hosted fleets even
@@ -52,34 +68,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # Full history: every package derives its version from git via
           # setuptools_scm, and a shallow clone collapses the build to the
           # fallback version.
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: uv.lock
 
       - name: Install uv
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv
+        run: python -m pip install "uv==0.11.28"
 
       - name: Install build tooling
         run: uv sync --all-packages --all-groups --locked
 
       - name: Build and validate the release artifact contract
+        id: release
         run: |
           release_root="$RUNNER_TEMP/yoke-release"
           release_json="$RUNNER_TEMP/yoke-release.json"
           release_generated_at="$(git show -s --format=%cI HEAD)"
-          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          source_date_epoch="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH="$source_date_epoch"
           uv run python -m yoke_core.tools.build_release \
             --repo-root "$GITHUB_WORKSPACE" \
             --output-root "$release_root" \
@@ -89,12 +106,48 @@ jobs:
           release_dir="$(uv run python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["release_dir"])' "$release_json")"
           uv run python -m yoke_core.tools.distribution_publish \
             validate-release "$release_dir"
+          release_version="$(uv run python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' "$release_json")"
           echo "RELEASE_DIR=$release_dir" >> "$GITHUB_ENV"
+          {
+            echo "release_version=$release_version"
+            echo "artifact_name=yoke-release-${GITHUB_SHA}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: yoke-release-${{ github.sha }}
+          name: ${{ steps.release.outputs.artifact_name }}
           path: ${{ env.RELEASE_DIR }}
           retention-days: 14
           if-no-files-found: error
+          overwrite: true
+
+  attest:
+    name: attest-validated-wheels
+    needs: build
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      # Deliberately no checkout and no run step: the only inputs to the signer
+      # are bytes transferred through GitHub's artifact service.
+      - name: Download the validated release tree
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: ${{ runner.temp }}/validated-release
+
+      - name: Attest the validated product wheels
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          # The build job validated this exact product-wheel set before upload,
+          # including manifest hashes, wheel ZIP/RECORD integrity, shared
+          # version, and sibling pins. Installer and index files are excluded.
+          subject-path: ${{ runner.temp }}/validated-release/wheels/*.whl

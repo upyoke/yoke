@@ -17,6 +17,7 @@ this stage only guarantees "reachable now".
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import time
 from typing import Callable, Optional
@@ -144,7 +145,13 @@ def wait_ssh_reachable(
     deadline = time.monotonic() + timeout_s
     last_error = ""
     while time.monotonic() < deadline:
-        probe = run_remote(runner, env, "echo ssh-ok", timeout=30)
+        try:
+            probe = run_remote(runner, env, "echo ssh-ok", timeout=30)
+        except subprocess.TimeoutExpired as exc:
+            last_error = f"ssh probe timed out after {exc.timeout}s"
+            emit("  [env-activate] waiting for ssh...")
+            sleeper(poll_interval_s)
+            continue
         if probe.ok and "ssh-ok" in probe.stdout:
             emit(f"  [env-activate] ssh reachable on {env.origin_host}")
             return

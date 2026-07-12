@@ -4,18 +4,17 @@ One schema runs in every deployment mode, so moving a universe between
 modes (local / self-host / hosted) is dump-and-restore; this module owns
 the dump half. :func:`export_universe` runs ``pg_dump`` in custom format
 (``--format=custom``): a single self-contained, compressed archive that
-``pg_restore`` can list, filter, and restore into any same-or-newer
-Postgres — the right input for a future universe restore/upload surface,
-where plain SQL text would lose selective-restore and parallel-restore
-ability.
+``pg_restore`` can list, filter, and restore through the portability
+validator, where plain SQL text would lose selective-restore and
+parallel-restore ability.
 
 Authority is DSN possession. Export is sanctioned when the active
 machine-config connection is a non-prod Postgres connection whose DSN
 this machine holds (the local universe's shape). An https connection
-holds no DSN — hosted and self-hosted universes get a server-side
-export/download when that platform surface ships — and prod-flagged
-Postgres connections stay operator-only like every other direct prod
-authority. ``pg_dump`` resolves from the embedded engine's installed
+holds no DSN — a hosted org admin downloads through the dashboard's
+``Move universe`` action; a self-host operator backs up at the server
+authority — and prod-flagged Postgres connections stay operator-only like
+every other direct prod authority. ``pg_dump`` resolves from the embedded engine's installed
 binaries first, then ``PATH`` — the same rule the cluster lifecycle
 uses for ``initdb``/``pg_ctl``.
 """
@@ -24,14 +23,13 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
 from yoke_core.domain import postgres_binaries
-from yoke_core.domain import postgres_cluster
 from yoke_core.domain import runtime_settings
+from yoke_core.domain import universe_portability
 
 #: pg_dump custom-format archive (``pg_restore``-compatible, compressed).
 ARTIFACT_FORMAT = "pg_dump-custom"
@@ -50,7 +48,8 @@ class UniverseExportError(RuntimeError):
 
 
 def default_artifact_name(
-    org_slug: str, now: Optional[datetime] = None,
+    org_slug: str,
+    now: Optional[datetime] = None,
 ) -> str:
     """``<org-slug>-universe-<utc-timestamp>.dump``."""
     stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
@@ -85,9 +84,10 @@ def resolve_export_dsn() -> str:
             f"the active connection {env.environment!r} is "
             f"{env.backend}-transport (hosted/self-host mode): this machine "
             "does not hold the universe database's DSN, and export requires "
-            "DSN possession. A server-side export/download for hosted and "
-            "self-hosted universes is a platform surface that has not "
-            "shipped yet. To export a machine-local universe, switch to its "
+            "DSN possession. A hosted org admin downloads from the "
+            "dashboard's `Move universe` action; a self-host operator owns "
+            "the server-side backup authority. To export a machine-local "
+            "universe, switch to its "
             "env (`yoke env use local`) or create one (`yoke init --local`)."
         )
     if connection_is_prod(env.config):
@@ -130,50 +130,30 @@ def export_universe(
     resolved_dsn = dsn if dsn is not None else resolve_export_dsn()
     org_slug = _org_slug(resolved_dsn)
     dest = _resolve_destination(out, org_slug)
-    dump_executable = postgres_cluster.executable(
-        postgres_binaries.installed_bin_dir(), "pg_dump",
-    )
     emit(f"  [universe-export] dumping org {org_slug!r} universe -> {dest}")
     timeout = runtime_settings.get_seconds(
-        EXPORT_TIMEOUT_SETTING, DEFAULT_EXPORT_TIMEOUT_S,
+        EXPORT_TIMEOUT_SETTING,
+        DEFAULT_EXPORT_TIMEOUT_S,
     )
     try:
-        result = subprocess.run(
-            [
-                dump_executable,
-                "--format=custom",
-                "--no-owner",
-                "--no-privileges",
-                "--file", str(dest),
-                resolved_dsn,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
+        inspection = universe_portability.dump_universe(
+            resolved_dsn,
+            dest,
+            timeout_s=timeout,
         )
-    except FileNotFoundError as exc:
+    except universe_portability.UniversePortabilityError as exc:
+        if isinstance(exc.__cause__, FileNotFoundError):
+            raise UniverseExportError(
+                "pg_dump is missing: expected the embedded engine binaries at "
+                f"{postgres_binaries.version_dir() / 'bin'} and found no "
+                "pg_dump on PATH. Run `yoke local-postgres start` "
+                "(or `yoke init --local`) to refetch the embedded engine."
+            ) from exc
         raise UniverseExportError(
-            "pg_dump is missing: expected the embedded engine binaries at "
-            f"{postgres_binaries.version_dir() / 'bin'} and found no "
-            f"pg_dump on PATH ({exc}). Run `yoke local-postgres start` "
-            "(or `yoke init --local`) to refetch the embedded engine."
+            f"universe export refused or failed safely: {exc}. If the embedded "
+            "Postgres is stopped, `yoke local-postgres start` brings it up."
         ) from exc
-    except subprocess.TimeoutExpired as exc:
-        dest.unlink(missing_ok=True)
-        raise UniverseExportError(
-            f"pg_dump did not finish within {timeout}s; raise the "
-            f"{EXPORT_TIMEOUT_SETTING} machine setting for very large "
-            "universes"
-        ) from exc
-    if result.returncode != 0 or not dest.is_file() or dest.stat().st_size == 0:
-        stderr_tail = (result.stderr or "").strip()[-500:]
-        dest.unlink(missing_ok=True)  # never leave a truncated artifact
-        raise UniverseExportError(
-            f"pg_dump failed (exit {result.returncode}): "
-            f"{stderr_tail or 'no stderr'}. If the embedded Postgres is "
-            "stopped, `yoke local-postgres start` brings it up."
-        )
-    size_bytes = dest.stat().st_size
+    size_bytes = inspection.size_bytes
     emit(f"  [universe-export] wrote {size_bytes} bytes ({ARTIFACT_FORMAT})")
     return {
         "artifact": str(dest),
@@ -216,7 +196,8 @@ def _org_slug(dsn: str) -> str:
 
 
 def _resolve_destination(
-    out: Optional[Union[str, Path]], org_slug: str,
+    out: Optional[Union[str, Path]],
+    org_slug: str,
 ) -> Path:
     """Route ``out`` to the artifact path (see :func:`export_universe`).
 

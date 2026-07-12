@@ -154,7 +154,11 @@ def protect_existing_bundle(
             public_names=(COMPOSE_FILE_NAME, ENV_FILE_NAME),
             secret_names=(DB_PASSWORD_FILE_NAME, DSN_FILE_NAME),
         )
-    except secure_layout.SecureLayoutError as exc:
+        protection.assert_sensitive_paths_untracked(target)
+    except (
+        protection.SelfHostProtectionError,
+        secure_layout.SecureLayoutError,
+    ) as exc:
         raise SelfHostBundleError(str(exc)) from exc
 
     try:
@@ -181,6 +185,25 @@ def protect_existing_bundle(
         "credentials_regenerated": False,
         "github_app_private_key_installed": key_path is not None,
     }
+
+
+def validate_existing_bundle(*, directory: Optional[str] = None) -> Path:
+    """Return one safely validated existing compose working directory."""
+    target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
+    _prepare_layout(target, create=False)
+    try:
+        secure_layout.validate_existing_bundle_files(
+            target,
+            public_names=(COMPOSE_FILE_NAME, ENV_FILE_NAME),
+            secret_names=(DB_PASSWORD_FILE_NAME, DSN_FILE_NAME),
+        )
+        protection.assert_sensitive_paths_untracked(target)
+    except (
+        protection.SelfHostProtectionError,
+        secure_layout.SecureLayoutError,
+    ) as exc:
+        raise SelfHostBundleError(str(exc)) from exc
+    return target.resolve()
 
 
 def _compose_text() -> str:
@@ -279,5 +302,6 @@ __all__ = [
     "SelfHostBundleError",
     "bundle_file_paths",
     "protect_existing_bundle",
+    "validate_existing_bundle",
     "write_bundle",
 ]

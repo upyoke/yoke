@@ -282,7 +282,7 @@ def test_registered_lifecycle_dispatch_reaches_real_domain(binding_db) -> None:
                 session_id="hosted-webhook",
             ),
             payload={
-                "project": "buzz",
+                "project": "2",
                 "installation_id": "77",
                 "repository_id": "88",
                 "installation_status": "deleted",

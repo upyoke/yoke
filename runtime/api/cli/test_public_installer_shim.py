@@ -197,6 +197,7 @@ def _write_fake_curl(path: Path) -> None:
         "#!/bin/sh\n"
         'if [ "$1" = "run" ]; then\n'
         "  shift\n"
+        '  if [ "$1" = "--isolated" ]; then shift; fi\n'
         '  if [ "$1" = "--no-project" ]; then shift; fi\n'
         '  if [ "$1" = "python" ]; then shift; exec '
         f'{python} "$@"; fi\n'

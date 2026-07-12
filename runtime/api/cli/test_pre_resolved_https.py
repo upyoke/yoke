@@ -92,7 +92,9 @@ def test_https_proxy_transport_is_explicitly_refused(monkeypatch) -> None:
 
 def test_https_handler_avoids_removed_check_hostname_state(monkeypatch) -> None:
     handler = connection_module.PreResolvedHTTPSHandler(
-        address_book={}, deadline=10.0, clock=lambda: 0.0,
+        address_book={},
+        deadline=10.0,
+        clock=lambda: 0.0,
     )
     seen = {}
 

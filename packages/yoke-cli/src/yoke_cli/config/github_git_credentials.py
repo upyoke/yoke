@@ -187,19 +187,30 @@ def _is_yoke_helper(
     return (
         actual[2] == expected[2]
         and actual[1].name == STABLE_HELPER_FILE_NAME
-        and _verified_prior_runtime_helper(actual[0], actual[1])
+        and _verified_prior_runtime_helper(
+            actual[0], actual[1], current_python=expected[0],
+        )
     )
 
 
-def _verified_prior_runtime_helper(python: Path, helper: Path) -> bool:
+def _verified_prior_runtime_helper(
+    python: Path,
+    helper: Path,
+    *,
+    current_python: Path,
+) -> bool:
     """Recognize a safe prior-runtime launcher without trusting its path."""
 
     try:
         python_info = python.stat()
         if (
             not stat.S_ISREG(python_info.st_mode)
-            or stat.S_IMODE(python_info.st_mode) & 0o022
             or not os.access(python, os.X_OK)
+        ):
+            return False
+        if (
+            python != current_python
+            and stat.S_IMODE(python_info.st_mode) & 0o022
         ):
             return False
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(

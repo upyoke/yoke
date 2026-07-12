@@ -10,13 +10,15 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     seed_remote,
 )
 from yoke_cli.config import onboard as onboard_config
+from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import writer as machine_writer
 
 
 def test_onboard_yes_reuses_existing_machine_and_project_state(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
@@ -65,42 +67,53 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
             "public_item_prefix": "LOC",
         },
     ) as api:
-        config.write_text(json.dumps({
-            "schema_version": 1,
-            "active_env": "prod",
-            "connections": {
-                "prod": {
-                    "transport": "https",
-                    "api_url": api.url,
-                    "credential_source": {"kind": "token_file", "path": str(token)},
+        config.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "active_env": "prod",
+                    "connections": {
+                        "prod": {
+                            "transport": "https",
+                            "api_url": api.url,
+                            "credential_source": {
+                                "kind": "token_file",
+                                "path": str(token),
+                            },
+                        },
+                    },
+                    "github": {
+                        "api_url": "https://api.github.com",
+                        "web_url": "https://github.com",
+                        "app_slug": "yoke",
+                        "app_id": 123,
+                        "client_id": "Iv1.example",
+                        "profile_source": "service",
+                        "profile_service_api_url": api.url,
+                        "authorization": {
+                            "kind": "github_app_user_authorization",
+                            "refresh_credential_ref": str(github_refresh),
+                            "github_user_id": 1001,
+                            "login": "machine-user",
+                            "status": "authorized",
+                        },
+                    },
+                    "temp_root": str(temp_root),
+                    "cache_dir": str(cache_dir),
+                    "projects": {str(checkout.resolve()): {"project_id": 44}},
                 },
-            },
-            "github": {
-                "api_url": "https://api.github.com",
-                "web_url": "https://github.com",
-                "app_slug": "yoke",
-                "app_id": 123,
-                "client_id": "Iv1.example",
-                "profile_source": "service",
-                "profile_service_api_url": api.url,
-                "authorization": {
-                    "kind": "github_app_user_authorization",
-                    "refresh_credential_ref": str(github_refresh),
-                    "github_user_id": 1001,
-                    "login": "machine-user",
-                    "status": "authorized",
-                },
-            },
-            "temp_root": str(temp_root),
-            "cache_dir": str(cache_dir),
-            "projects": {str(checkout.resolve()): {"project_id": 44}},
-        }, indent=2) + "\n", encoding="utf-8")
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         before_config = json.loads(config.read_text(encoding="utf-8"))
 
         report = onboard_config.build_report(
             config_path=config,
             env_name="prod",
             api_url=api.url,
+            destination=onboard_destinations.DESTINATION_SERVER,
             token_file=token,
             token_source_kind="token_file",
             mode="quick",
@@ -162,6 +175,7 @@ def test_onboard_preview_detects_matching_clone_reuse(
         config_path=tmp_path / "home" / "config.json",
         env_name="prod",
         api_url="https://api.test",
+        destination=onboard_destinations.DESTINATION_SERVER,
         token="token",
         token_source_kind="argument",
         mode="quick",
@@ -183,5 +197,7 @@ def test_onboard_preview_detects_matching_clone_reuse(
 
     assert report["plan"]["reuse"]["project_clone_checkout"] is True
     rendered = onboard_config.render_human(report)
-    assert f"Matching clone already exists at {checkout}; Apply will reuse it." in rendered
+    assert (
+        f"Matching clone already exists at {checkout}; Apply will reuse it." in rendered
+    )
     assert "Using detected source default branch: trunk." in rendered

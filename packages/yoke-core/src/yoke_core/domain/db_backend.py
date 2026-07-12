@@ -7,6 +7,9 @@ or the presence of a ``data/yoke.db`` file.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 import os
 import sqlite3
 from typing import Optional
@@ -18,6 +21,34 @@ POSTGRES_TEST_DB_PREFIX = "yoke_test_"
 TEST_TRACK_CONNECTIONS_ENV = "YOKE_TEST_TRACK_PG_CONNECTIONS"
 
 _TRACKED_TEST_CONNECTIONS = []
+_BOUND_PG_DSN: ContextVar[Optional[str]] = ContextVar(
+    "yoke_bound_pg_dsn",
+    default=None,
+)
+
+
+@contextmanager
+def bound_pg_dsn(dsn: str) -> Iterator[None]:
+    """Bind this execution context to one explicit Postgres authority.
+
+    Unlike an environment-variable override, this is safe when concurrent
+    request handlers need different staging authorities in the same process.
+    Child calls through :func:`resolve_pg_dsn`, :func:`connect`, and the
+    domain init modules inherit the binding; unrelated threads and tasks do
+    not.
+    """
+    if not dsn.strip():
+        raise ValueError("the bound Postgres DSN must not be empty")
+    token = _BOUND_PG_DSN.set(dsn)
+    try:
+        yield
+    finally:
+        _BOUND_PG_DSN.reset(token)
+
+
+def pg_dsn_is_bound() -> bool:
+    """Return whether this execution context has an explicit DSN binding."""
+    return _BOUND_PG_DSN.get() is not None
 
 
 def is_postgres() -> bool:
@@ -49,7 +80,7 @@ def resolve_pg_dsn(dbname: Optional[str] = None) -> str:
     database named in the base DSN. Used by the test-DB helper to target a
     freshly created disposable database on the shared cluster.
     """
-    dsn = os.environ.get(PG_DSN_ENV)
+    dsn = _BOUND_PG_DSN.get() or os.environ.get(PG_DSN_ENV)
     if not dsn:
         dsn_file = os.environ.get(PG_DSN_FILE_ENV)
         if dsn_file:
@@ -205,6 +236,8 @@ def connect(path: Optional[str] = None, *, busy_timeout_ms: Optional[int] = None
     """
     from yoke_core.domain import connected_env_readiness as _readiness
 
+    if pg_dsn_is_bound():
+        return _open_native_postgres(resolve_pg_dsn())
     return _readiness.connect_with_readiness(
         lambda: _open_native_postgres(resolve_pg_dsn())
     )
@@ -227,6 +260,8 @@ def connect_psycopg(dsn: Optional[str] = None, *, autocommit: bool = False):
         target = dsn if dsn is not None else resolve_pg_dsn()
         return _track_test_connection(psycopg.connect(target, autocommit=autocommit))
 
+    if dsn is not None or pg_dsn_is_bound():
+        return _open()
     return _readiness.connect_with_readiness(_open)
 
 
@@ -300,6 +335,8 @@ __all__ = [
     "PG_DSN_FILE_ENV",
     "POSTGRES_TEST_DB_PREFIX",
     "TEST_TRACK_CONNECTIONS_ENV",
+    "bound_pg_dsn",
+    "pg_dsn_is_bound",
     "is_postgres",
     "resolve_pg_dsn",
     "connect",

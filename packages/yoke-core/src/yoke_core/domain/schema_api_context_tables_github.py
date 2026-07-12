@@ -56,8 +56,9 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             "`projects.github_binding.bind`, `projects.github_binding.lifecycle`, "
             "`projects.github_binding.status`, and "
             "`projects.github_binding.unbind`; lifecycle is an internal, "
-            "service-token-only hosted webhook boundary that requires the exact "
-            "installation and repository ids. Sync-mode drift is repaired "
+            "service-token-only hosted webhook boundary that requires the stable "
+            "numeric project id and exact installation and repository ids. "
+            "Sync-mode drift is repaired "
             "through `projects.github_sync_mode.repair`."
         ),
     },

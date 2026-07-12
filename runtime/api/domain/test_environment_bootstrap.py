@@ -30,9 +30,7 @@ class TestInitModuleChain:
 class TestRunInitChain:
     def _patch_imports(self, monkeypatch, behavior_by_module):
         def fake_import(modname):
-            return _FakeModule(
-                behavior_by_module.get(modname, lambda argv: 0)
-            )
+            return _FakeModule(behavior_by_module.get(modname, lambda argv: 0))
 
         monkeypatch.setattr(
             environment_bootstrap.importlib, "import_module", fake_import
@@ -98,9 +96,7 @@ class TestEventScanRoot:
         bundle_root = tmp_path / "bundle-source"
         bundle_root.mkdir()
 
-        monkeypatch.setattr(
-            "yoke_core.api.repo_root.find_repo_root", _raise
-        )
+        monkeypatch.setattr("yoke_core.api.repo_root.find_repo_root", _raise)
         monkeypatch.setattr(
             "yoke_core.domain.install_bundle.server_tree_root",
             lambda: bundle_root,
@@ -141,6 +137,7 @@ class TestRunBootstrapRealDb:
             # through onboarding — so the projects family and the
             # project-scoped flow rows start empty.
             assert counts["projects"] == 0
+            assert counts["designs"] == 0
             assert counts["sites"] == 0
             assert counts["deployment_flows"] == 0
             conn = connect_test_db(db_path)
@@ -173,15 +170,9 @@ class TestUniverseIsBorn:
 
             conn = pg_testdb.connect_test_database(name)
             try:
-                conn.execute(
-                    "CREATE TABLE actors (id SERIAL PRIMARY KEY)"
-                )
-                conn.execute(
-                    "CREATE TABLE roles (id SERIAL PRIMARY KEY)"
-                )
-                conn.execute(
-                    "CREATE TABLE projects (id SERIAL PRIMARY KEY, slug TEXT)"
-                )
+                conn.execute("CREATE TABLE actors (id SERIAL PRIMARY KEY)")
+                conn.execute("CREATE TABLE roles (id SERIAL PRIMARY KEY)")
+                conn.execute("CREATE TABLE projects (id SERIAL PRIMARY KEY, slug TEXT)")
                 create_org_tables(conn)
                 assert universe_is_born(dsn) is False  # table exists, no card
                 seed_default_org(conn)
@@ -194,10 +185,12 @@ class TestUniverseIsBorn:
     def test_unreachable_database_reads_as_not_born(self):
         from yoke_core.domain.environment_bootstrap import universe_is_born
 
-        assert universe_is_born(
-            "host=127.0.0.1 port=9 user=nobody dbname=absent "
-            "connect_timeout=1"
-        ) is False
+        assert (
+            universe_is_born(
+                "host=127.0.0.1 port=9 user=nobody dbname=absent connect_timeout=1"
+            )
+            is False
+        )
 
     def test_local_universe_probe_delegates_to_shared_probe(self, monkeypatch):
         from yoke_core.domain import environment_bootstrap as eb

@@ -299,7 +299,10 @@ PROJECT_TABLES: dict[str, dict] = {
             "model attribution is `model_name`; timing fields are "
             "`started_at` and `completed_at`. The migration identifier "
             "column is `migration_name`, not `module_name`; migration "
-            "modules are matched by this stored name. There is NO `status`, "
+            "modules are matched by this stored name. The wrong guess "
+            "`migration_id` means `migration_name`; the wrong guess `failure` "
+            "means `failure_reason`; and the wrong guess `source_description` "
+            "means `description`. There is NO `status`, "
             "NO `model`, NO `model_id`, NO `module_name`, and NO "
             "`module` or `applied_at` column."
         ),

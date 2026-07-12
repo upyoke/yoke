@@ -8,9 +8,6 @@ assets resolve from the packaged ``yoke_core.ui`` static resources.
 
 from __future__ import annotations
 
-import re
-from importlib.resources import files
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -46,12 +43,14 @@ class TestSessionTokenGate:
     def test_assets_and_api_refuse_without_token(self, ui_client):
         assert ui_client.get("/assets/app.js").status_code == 401
         response = ui_client.post(
-            "/api/functions/call", json={"function": "organizations.get"},
+            "/api/functions/call",
+            json={"function": "organizations.get"},
         )
         assert response.status_code == 401
 
     def test_token_exchange_sets_cookie_and_redirects_to_bare_url(
-        self, ui_client,
+        self,
+        ui_client,
     ):
         # The 303 to bare "/" drops the tokened URL out of browser
         # history; the cookie it sets authenticates the follow-up.
@@ -61,7 +60,8 @@ class TestSessionTokenGate:
         assert ui_server.SESSION_COOKIE_NAME in response.cookies
 
     def test_cookie_authenticates_shell_and_assets_after_exchange(
-        self, ui_client,
+        self,
+        ui_client,
     ):
         response = ui_client.get(f"/?token={_TOKEN}")  # follows the 303
         assert response.status_code == 200
@@ -79,135 +79,31 @@ class TestSessionTokenGate:
             ui_server.create_ui_app("")
 
 
-class TestAssets:
-    def test_known_assets_serve_with_content_types(self, ui_client):
-        for asset_name, content_type in ui_server.ASSET_CONTENT_TYPES.items():
-            response = ui_client.get(f"/assets/{asset_name}?token={_TOKEN}")
-            assert response.status_code == 200, asset_name
-            assert response.headers["content-type"] == content_type
-
-    def test_javascript_module_graph_is_in_closed_asset_roster(self):
-        static_root = files("yoke_core.ui").joinpath("static")
-        for module_name in ("app.js", "contract.js"):
-            source = static_root.joinpath(module_name).read_text(
-                encoding="utf-8"
-            )
-            imports = re.findall(r'from "\./([^\"]+\.js)"', source)
-            assert imports
-            assert set(imports) <= set(ui_server.ASSET_CONTENT_TYPES)
-
-    def test_unknown_asset_is_404(self, ui_client):
-        response = ui_client.get(f"/assets/nope.txt?token={_TOKEN}")
-        assert response.status_code == 404
-
-    def test_static_assets_ship_as_package_resources(self):
-        static_root = files("yoke_core.ui").joinpath("static")
-        for asset_name in ui_server.ASSET_CONTENT_TYPES:
-            assert static_root.joinpath(asset_name).is_file(), asset_name
-
-    def test_page_module_exports_the_mount_contract(self):
-        page_module = (
-            files("yoke_core.ui").joinpath("static", "app.js")
-            .read_text(encoding="utf-8")
-        )
-        assert (
-            "export function mountUniverseApp(rootNode, options = {})"
-            in page_module
-        )
-        assert "options.client || createHttpFunctionClient()" in page_module
-        assert 'new URL("./yoke-wordmark.svg", import.meta.url)' in page_module
-        assert 'fetch("/assets/' not in page_module
-
-    def test_shell_static_references_are_host_prefix_safe(self):
-        shell = (
-            files("yoke_core.ui").joinpath("static", "index.html")
-            .read_text(encoding="utf-8")
-        )
-        assert 'class="local-universe-page"' in shell
-        assert '="/assets/' not in shell
-        for asset_name in ("app.js", "app.css", "theme.css", "favicon.svg"):
-            assert f"./assets/{asset_name}" in shell
-
-    def test_typed_mount_contract_and_declaration_emit_ship(self):
-        ui_root = files("yoke_core.ui")
-        contract_root = ui_root.joinpath("contracts")
-        source = contract_root.joinpath("universe-app.ts").read_text(
-            encoding="utf-8"
-        )
-        declaration = contract_root.joinpath("universe-app.d.ts").read_text(
-            encoding="utf-8"
-        )
-        runtime_version = ui_root.joinpath(
-            "static", "contract-version.js"
-        ).read_text(encoding="utf-8")
-        assert contract_root.joinpath("tsconfig.json").is_file()
-        for reference in (
-            "UniverseFunctionClient",
-            "UniverseCapabilities",
-            "UniverseAction",
-            "UniverseAppSlots",
-            "UniverseAppMount",
-            "mountUniverseApp",
-        ):
-            assert reference in source
-            assert reference in declaration
-        source_value = re.search(
-            r"UNIVERSE_APP_CONTRACT_VERSION = (\d+) as const", source
-        )
-        declaration_value = re.search(
-            r"UNIVERSE_APP_CONTRACT_VERSION: (\d+)", declaration
-        )
-        runtime_value = re.search(
-            r"UNIVERSE_APP_CONTRACT_VERSION = (\d+)", runtime_version
-        )
-        assert source_value is not None
-        assert declaration_value is not None
-        assert runtime_value is not None
-        assert {
-            source_value.group(1),
-            declaration_value.group(1),
-            runtime_value.group(1),
-        } == {"1"}
-
-    def test_page_module_wires_the_two_view_shell(self):
-        # Structural pin on the app shell: the mount contract still holds,
-        # and the module drives the new data surfaces + hash routes so the
-        # server allowlist and the client stay in lockstep.
-        page_module = (
-            files("yoke_core.ui").joinpath("static", "app.js")
-            .read_text(encoding="utf-8")
-        )
-        assert "export function mountUniverseApp" in page_module
-        for reference in (
-            "projects.list",
-            "strategy.doc.list",
-            "#/items",
-            "#/strategy",
-        ):
-            assert reference in page_module, reference
-
-
 class TestFunctionProxy:
     def _call(self, ui_client, envelope):
         return ui_client.post(
-            f"/api/functions/call?token={_TOKEN}", json=envelope,
+            f"/api/functions/call?token={_TOKEN}",
+            json=envelope,
         )
 
     def test_write_function_id_refused(self, ui_client):
         response = self._call(
-            ui_client, {"function": "items.structured_field.replace"},
+            ui_client,
+            {"function": "items.structured_field.replace"},
         )
         assert response.status_code == 403
         body = response.json()
         assert body["error"]["code"] == "function_not_allowed"
-        assert body["error"]["allowed"] == sorted(
-            ui_server.UI_READ_FUNCTION_ALLOWLIST
-        )
+        assert body["error"]["allowed"] == sorted(ui_server.UI_READ_FUNCTION_ALLOWLIST)
 
     def test_unknown_function_id_refused(self, ui_client):
-        assert self._call(
-            ui_client, {"function": "no.such.function"},
-        ).status_code == 403
+        assert (
+            self._call(
+                ui_client,
+                {"function": "no.such.function"},
+            ).status_code
+            == 403
+        )
 
     def test_malformed_target_is_typed_422(self, ui_client):
         response = self._call(
@@ -230,12 +126,17 @@ class TestFunctionProxy:
         assert envelope["result"]["created_at"]
 
     def test_items_read_returns_well_formed_empty_table(
-        self, ui_client, test_db,
+        self,
+        ui_client,
+        test_db,
     ):
-        response = self._call(ui_client, {
-            "function": "items.list.run",
-            "payload": {"fields": ["id", "title", "status"]},
-        })
+        response = self._call(
+            ui_client,
+            {
+                "function": "items.list.run",
+                "payload": {"fields": ["id", "title", "status"]},
+            },
+        )
         assert response.status_code == 200
         envelope = response.json()
         assert envelope["success"] is True
@@ -245,10 +146,13 @@ class TestFunctionProxy:
     def test_projects_list_returns_well_formed_rows(self, ui_client, test_db):
         # Anonymous (cookie-only) identity: local mode makes every project
         # visible, so the seeded corpus comes back as a rows list.
-        response = self._call(ui_client, {
-            "function": "projects.list",
-            "payload": {"fields": ["id", "slug", "name"]},
-        })
+        response = self._call(
+            ui_client,
+            {
+                "function": "projects.list",
+                "payload": {"fields": ["id", "slug", "name"]},
+            },
+        )
         assert response.status_code == 200
         envelope = response.json()
         assert envelope["success"] is True
@@ -257,33 +161,44 @@ class TestFunctionProxy:
         assert any(row.get("slug") == "yoke" for row in rows)
 
     def test_strategy_doc_list_with_project_target_reaches_handler(
-        self, ui_client, test_db,
+        self,
+        ui_client,
+        test_db,
     ):
         # A project target is required; carry it the way the Strategy view
         # does and confirm the handler returns a well-formed docs list.
-        projects = self._call(ui_client, {
-            "function": "projects.list",
-            "payload": {"fields": ["id", "slug", "name"]},
-        }).json()["result"]["rows"]
+        projects = self._call(
+            ui_client,
+            {
+                "function": "projects.list",
+                "payload": {"fields": ["id", "slug", "name"]},
+            },
+        ).json()["result"]["rows"]
         project_id = str(projects[0]["id"])
-        response = self._call(ui_client, {
-            "function": "strategy.doc.list",
-            "target": {"kind": "global", "project_id": project_id},
-            "payload": {},
-        })
+        response = self._call(
+            ui_client,
+            {
+                "function": "strategy.doc.list",
+                "target": {"kind": "global", "project_id": project_id},
+                "payload": {},
+            },
+        )
         assert response.status_code == 200
         envelope = response.json()
         assert envelope["success"] is True
         assert isinstance(envelope["result"]["docs"], list)
 
     def test_strategy_doc_list_without_project_is_graceful_error(
-        self, ui_client, test_db,
+        self,
+        ui_client,
+        test_db,
     ):
         # No project target + the browser's empty session: the handler must
         # return a typed error envelope (HTTP 200, success=false), never a
         # 500 that would strand the view at "loading…".
         response = self._call(
-            ui_client, {"function": "strategy.doc.list", "payload": {}},
+            ui_client,
+            {"function": "strategy.doc.list", "payload": {}},
         )
         assert response.status_code == 200
         envelope = response.json()

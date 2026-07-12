@@ -90,7 +90,7 @@ def test_missing_uv_installs_via_astral_on_consent(tmp_path: Path) -> None:
         "  shift\n"
         '  while [ "$#" -gt 0 ]; do\n'
         '    case "$1" in\n'
-        "      --no-project|--project|python) shift ;;\n"
+        "      --isolated|--no-project|--project|python) shift ;;\n"
         "      *) break ;;\n"
         "    esac\n"
         "  done\n"
@@ -136,6 +136,36 @@ def test_present_uv_hands_off_to_install_py(tmp_path: Path) -> None:
     assert "--yes" in result.stdout
 
 
+def test_present_uv_exports_authoritative_tool_bin_and_isolates_helper(
+    tmp_path: Path,
+) -> None:
+    bin_dir = _bin(tmp_path)
+    tool_bin = tmp_path / "xdg-bin"
+    tool_bin.mkdir()
+    write_uv_stub(
+        bin_dir,
+        install_py_body=(
+            "import os\n"
+            "print('UV_TOOL_BIN_DIR=' + os.environ['UV_TOOL_BIN_DIR'])\n"
+            "print('PATH_HEAD=' + os.environ['PATH'].split(':', 1)[0])\n"
+        ),
+        tool_bin_dir=tool_bin,
+    )
+
+    result = run_shim(
+        bin_dir,
+        args=("--yes", "--no-onboard"),
+        env_extra={"XDG_DATA_HOME": str(tmp_path / "xdg-data")},
+    )
+
+    assert result.returncode == 0
+    assert f"UV_TOOL_BIN_DIR={tool_bin}" in result.stdout
+    assert f"PATH_HEAD={tool_bin}" in result.stdout
+    assert 'python_runner="uv run --isolated --no-project python"' in (
+        INSTALL_SHIM_PATH.read_text(encoding="utf-8")
+    )
+
+
 def test_dry_run_forwards_dry_run_flag_to_helper(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
@@ -167,7 +197,7 @@ def test_uv_install_prompt_reads_dev_tty_under_pipe(tmp_path: Path) -> None:
         "  shift\n"
         '  while [ "$#" -gt 0 ]; do\n'
         '    case "$1" in\n'
-        "      --no-project|--project|python) shift ;;\n"
+        "      --isolated|--no-project|--project|python) shift ;;\n"
         "      *) break ;;\n"
         "    esac\n"
         "  done\n"

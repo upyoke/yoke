@@ -10,11 +10,12 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     seed_remote,
     write_https_config,
 )
-from yoke_cli.config import onboard, onboard_project
+from yoke_cli.config import onboard, onboard_destinations, onboard_project
 
 
 def test_onboard_existing_project_clone_accepts_versioned_api_url(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     remote = seed_remote(tmp_path)
@@ -37,6 +38,7 @@ def test_onboard_existing_project_clone_accepts_versioned_api_url(
             config_path=config,
             env_name="prod",
             api_url=versioned_api_url,
+            destination=onboard_destinations.DESTINATION_SERVER,
             token="product-token",
             token_source_kind="argument",
             mode="quick",
