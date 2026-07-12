@@ -43,7 +43,6 @@ class PreResolvedHTTPSHandler(urllib.request.HTTPSHandler):
             connection,
             request,
             context=self._context,
-            check_hostname=self._check_hostname,
         )
 
 
