@@ -156,6 +156,8 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     assert "direct variable" in readme_text
     assert "writes are drift" in readme_text
     assert "network.deployment_ssh_stack_names" in runner_fleet_readme_text
+    assert "originElasticIpAddress" in runner_fleet_readme_text
+    assert "vpsElasticIpAddress" in runner_fleet_readme_text
     assert "Literal addresses and CIDRs are not" in runner_fleet_readme_text
     assert "Pulumi.StackReference" in runner_fleet_readme_text
     assert "configure one manual GitHub webhook" not in readme_text
@@ -180,14 +182,14 @@ def test_runner_variable_adoption_docs_preserve_generated_pulumi_identity():
 def test_runner_network_derives_standalone_ssh_target_from_stack_output(
     monkeypatch,
 ):
-    stack_names = ["yoke-platform-vps"]
+    stack_outputs = {"yoke-platform-vps": "vpsElasticIpAddress"}
     recorder, _stack = _runner_stack(
         monkeypatch,
-        config_overrides={"deployment_ssh_stack_names": stack_names},
-        authority_overrides={"deployment_ssh_stack_names": stack_names},
-        deployment_ssh_stack_outputs={
+        config_overrides={"deployment_ssh_stack_outputs": stack_outputs},
+        authority_overrides={"deployment_ssh_stack_outputs": stack_outputs},
+        stack_reference_outputs={
             "yoke-platform-vps": {
-                "originElasticIpAddress": "198.51.100.42",
+                "vpsElasticIpAddress": "198.51.100.42",
             },
         },
     )
@@ -199,7 +201,7 @@ def test_runner_network_derives_standalone_ssh_target_from_stack_output(
     ]
     assert recorder.stack_references == ["yoke-platform-vps"]
     assert recorder.stack_reference_outputs == [
-        ("yoke-platform-vps", "originElasticIpAddress"),
+        ("yoke-platform-vps", "vpsElasticIpAddress"),
     ]
 
 
@@ -269,13 +271,19 @@ def test_runner_network_derives_standalone_ssh_target_from_stack_output(
             "runner_labels",
         ),
         (
-            {"deployment_ssh_stack_names": ["attacker-prod"]},
             {
-                "deployment_ssh_stack_names": [
-                    "yoke-prod", "yoke-stage",
-                ],
+                "deployment_ssh_stack_outputs": {
+                    "yoke-prod": "vpsElasticIpAddress",
+                    "yoke-stage": "originElasticIpAddress",
+                },
             },
-            "deployment_ssh_stack_names",
+            {
+                "deployment_ssh_stack_outputs": {
+                    "yoke-prod": "originElasticIpAddress",
+                    "yoke-stage": "originElasticIpAddress",
+                },
+            },
+            "deployment_ssh_stack_outputs",
         ),
         (
             {

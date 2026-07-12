@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import ipaddress
-from typing import Mapping, Sequence
+from typing import Mapping
 
 import pulumi
 import pulumi_aws as aws
@@ -23,7 +23,7 @@ class RunnerFleetNetwork:
 def create_runner_network(
     *,
     tags: Mapping[str, str],
-    deployment_ssh_stack_names: Sequence[str],
+    deployment_ssh_stack_outputs: Mapping[str, str],
     child_opts: pulumi.ResourceOptions,
 ) -> RunnerFleetNetwork:
     """Provision an isolated public VPC with explicit workflow egress."""
@@ -77,13 +77,13 @@ def create_runner_network(
         _egress("VPC DNS over UDP", "udp", 53, "10.253.0.2/32"),
         _egress("VPC DNS over TCP", "tcp", 53, "10.253.0.2/32"),
     ]
-    for stack_name in deployment_ssh_stack_names:
+    for stack_name, output_name in deployment_ssh_stack_outputs.items():
         egress.append(
             _egress(
-                f"SSH to deployment environment stack {stack_name}",
+                f"SSH to deployment stack {stack_name}",
                 "tcp",
                 22,
-                _deployment_ssh_cidr(stack_name),
+                _deployment_ssh_cidr(stack_name, output_name),
             )
         )
     security_group = aws.ec2.SecurityGroup(
@@ -100,9 +100,11 @@ def create_runner_network(
     )
 
 
-def _deployment_ssh_cidr(stack_name: str) -> pulumi.Output[str]:
+def _deployment_ssh_cidr(
+    stack_name: str, output_name: str,
+) -> pulumi.Output[str]:
     reference = pulumi.StackReference(stack_name)
-    return reference.require_output("originElasticIpAddress").apply(
+    return reference.require_output(output_name).apply(
         _exact_ipv4_cidr
     )
 

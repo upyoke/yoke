@@ -148,7 +148,7 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
 
         network = create_runner_network(
             tags=tags,
-            deployment_ssh_stack_names=args.deployment_ssh_stack_names,
+            deployment_ssh_stack_outputs=args.deployment_ssh_stack_outputs,
             child_opts=child_opts,
         )
         self.vpc = network.vpc

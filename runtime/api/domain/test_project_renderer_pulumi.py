@@ -53,7 +53,7 @@ _RUNNER_FLEET_KEYS = {
     "runner_fleet_instance_type", "runner_fleet_architecture",
     "runner_fleet_root_volume_gb", "runner_fleet_runner_count",
     "runner_fleet_max_runner_count", "runner_fleet_idle_shutdown_minutes",
-    "runner_fleet_shutdown_mode", "runner_fleet_deployment_ssh_stack_names_json",
+    "runner_fleet_shutdown_mode", "runner_fleet_deployment_ssh_stack_outputs_json",
 }
 
 

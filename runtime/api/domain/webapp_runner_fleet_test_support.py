@@ -48,11 +48,11 @@ def _runner_stack(
     routing_enabled=True,
     authority_overrides=None,
     config_overrides=None,
-    deployment_ssh_stack_outputs=None,
+    stack_reference_outputs=None,
     recorder=None,
 ):
     recorder = recorder or _Recorder()
-    recorder.stack_outputs = deployment_ssh_stack_outputs or {
+    recorder.stack_outputs = stack_reference_outputs or {
         "yoke-prod": {"originElasticIpAddress": "203.0.113.10"},
         "yoke-stage": {"originElasticIpAddress": "203.0.113.11"},
     }
@@ -191,7 +191,10 @@ def _runner_stack(
         root_volume_gb=100,
         idle_shutdown_minutes=30,
         shutdown_mode=shutdown_mode,
-        deployment_ssh_stack_names=["yoke-prod", "yoke-stage"],
+        deployment_ssh_stack_outputs={
+            "yoke-prod": "originElasticIpAddress",
+            "yoke-stage": "originElasticIpAddress",
+        },
     )
     for key, value in (config_overrides or {}).items():
         setattr(args, key, value)
@@ -222,7 +225,9 @@ def _runner_stack(
         "root_volume_gb": args.root_volume_gb,
         "idle_shutdown_minutes": args.idle_shutdown_minutes,
         "shutdown_mode": args.shutdown_mode,
-        "deployment_ssh_stack_names": list(args.deployment_ssh_stack_names),
+        "deployment_ssh_stack_outputs": dict(
+            args.deployment_ssh_stack_outputs
+        ),
     }
     authority.update(authority_overrides or {})
     monkeypatch.setenv(

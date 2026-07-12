@@ -178,6 +178,17 @@ def _config_string_list(config, name: str) -> list[str]:
     return [value.strip() for value in values]
 
 
+def _config_string_map(config, name: str) -> dict[str, str]:
+    values = config.get_object(name) or {}
+    if not isinstance(values, dict) or any(
+        not isinstance(key, str) or not key.strip()
+        or not isinstance(value, str) or not value.strip()
+        for key, value in values.items()
+    ):
+        raise pulumi.RunError(f"{name} must be a JSON string map")
+    return {key.strip(): value.strip() for key, value in values.items()}
+
+
 def _registry_args_from_config(deploy_namespace: str):
     from webapp_registry_stack import WebappRegistryArgs
 
@@ -240,8 +251,8 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
         root_volume_gb=config.require_int("root_volume_gb"),
         idle_shutdown_minutes=config.require_int("idle_shutdown_minutes"),
         shutdown_mode=config.require("shutdown_mode"),
-        deployment_ssh_stack_names=_config_string_list(
-            config, "deployment_ssh_stack_names"
+        deployment_ssh_stack_outputs=_config_string_map(
+            config, "deployment_ssh_stack_outputs"
         ),
     )
 

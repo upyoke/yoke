@@ -88,10 +88,12 @@ def _authority_from_args(
         "root_volume_gb": int(getattr(args, "root_volume_gb")),
         "idle_shutdown_minutes": int(getattr(args, "idle_shutdown_minutes")),
         "shutdown_mode": str(getattr(args, "shutdown_mode")),
-        "deployment_ssh_stack_names": [
-            str(stack_name)
-            for stack_name in getattr(args, "deployment_ssh_stack_names")
-        ],
+        "deployment_ssh_stack_outputs": {
+            str(stack_name): str(output_name)
+            for stack_name, output_name in getattr(
+                args, "deployment_ssh_stack_outputs"
+            ).items()
+        },
     }
 
 

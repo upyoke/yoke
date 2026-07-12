@@ -48,7 +48,10 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
                 "enabled": enabled,
             }
         )
-        return _runner_values()
+        return _runner_values(deployment_ssh_stack_outputs={
+            "yoke-platform-vps": "vpsElasticIpAddress",
+            "buzz-stage": "originElasticIpAddress",
+        })
 
     monkeypatch.setattr(
         runner_fleet_exec,
@@ -211,7 +214,10 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         "root_volume_gb": 200,
         "idle_shutdown_minutes": 30,
         "shutdown_mode": "terminate",
-        "deployment_ssh_stack_names": [],
+        "deployment_ssh_stack_outputs": {
+            "buzz-stage": "originElasticIpAddress",
+            "yoke-platform-vps": "vpsElasticIpAddress",
+        },
     }
     canonical = json.dumps(
         intent["authority"],

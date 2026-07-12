@@ -8,15 +8,27 @@ from .github_actions_runner_fleet_capability import RunnerFleetSettings
 from .project_renderer_settings import ProjectRendererSettings
 
 
+ENVIRONMENT_ELASTIC_IP_OUTPUT = "originElasticIpAddress"
+STANDALONE_VPS_ELASTIC_IP_OUTPUT = "vpsElasticIpAddress"
+
+
 def deployment_ssh_stack_names(
     settings: ProjectRendererSettings,
     runner_fleet: RunnerFleetSettings,
 ) -> list[str]:
     """Resolve every explicitly allowed deployment SSH Pulumi stack."""
+    return list(deployment_ssh_stack_outputs(settings, runner_fleet))
+
+
+def deployment_ssh_stack_outputs(
+    settings: ProjectRendererSettings,
+    runner_fleet: RunnerFleetSettings,
+) -> dict[str, str]:
+    """Bind every allowed stack to its established Elastic IP output."""
     network = runner_fleet.network
     if network is None:
-        return []
-    resolved: list[str] = []
+        return {}
+    resolved: dict[str, str] = {}
     for selector in network.deployment_ssh_environments:
         matches = [
             environment
@@ -65,11 +77,16 @@ def deployment_ssh_stack_names(
                 "runner-fleet deployment SSH environments must resolve to "
                 "distinct Pulumi stacks"
             )
-        resolved.append(stack_name)
+        resolved[stack_name] = ENVIRONMENT_ELASTIC_IP_OUTPUT
     for stack_name in network.deployment_ssh_stack_names:
         if stack_name not in resolved:
-            resolved.append(stack_name)
+            resolved[stack_name] = STANDALONE_VPS_ELASTIC_IP_OUTPUT
     return resolved
 
 
-__all__ = ["deployment_ssh_stack_names"]
+__all__ = [
+    "ENVIRONMENT_ELASTIC_IP_OUTPUT",
+    "STANDALONE_VPS_ELASTIC_IP_OUTPUT",
+    "deployment_ssh_stack_names",
+    "deployment_ssh_stack_outputs",
+]

@@ -14,4 +14,7 @@ The migration fails closed when it sees non-empty column identity, non-null
 envelope identity, malformed envelope JSON, a missing pre-cutover index, a
 changed row count, or either retired schema object after apply. The
 retired-schema registry prevents ambient schema convergence from re-adding
-the column.
+the column. Historical envelopes can contain escaped NUL characters inside
+captured tool output. The preflight substitutes a harmless non-NUL code point
+only in its temporary JSONB expression so PostgreSQL can inspect the top-level
+identity key; the stored envelope text is never rewritten.

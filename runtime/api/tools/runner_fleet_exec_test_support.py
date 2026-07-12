@@ -87,7 +87,11 @@ def _write_snapshot(
     return path
 
 
-def _runner_values(*, routing_enabled: bool = True) -> dict[str, str]:
+def _runner_values(
+    *,
+    routing_enabled: bool = True,
+    deployment_ssh_stack_outputs: dict[str, str] | None = None,
+) -> dict[str, str]:
     return {
         "runner_fleet_aws_capability": "aws-admin",
         "runner_fleet_aws_region": "us-east-1",
@@ -116,7 +120,9 @@ def _runner_values(*, routing_enabled: bool = True) -> dict[str, str]:
         "runner_fleet_root_volume_gb": "200",
         "runner_fleet_idle_shutdown_minutes": "30",
         "runner_fleet_shutdown_mode": "terminate",
-        "runner_fleet_deployment_ssh_stack_names_json": "[]",
+        "runner_fleet_deployment_ssh_stack_outputs_json": (
+            json_helper.dumps_compact(deployment_ssh_stack_outputs or {})
+        ),
     }
 
 
