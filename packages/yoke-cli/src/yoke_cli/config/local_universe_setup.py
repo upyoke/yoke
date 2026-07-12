@@ -22,6 +22,7 @@ import importlib
 from typing import Any, Callable, Dict, Optional
 
 from yoke_cli.config import machine_config
+from yoke_cli.config import machine_config_file
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import writer
 from yoke_contracts.machine_config import schema as contract
@@ -72,6 +73,10 @@ def run_local_init(
     still addresses the same durable cluster. Any other conflicting local
     connection is never clobbered without ``force``.
     """
+    try:
+        machine_config_file.ensure_owner_only_directory(machine_config.yoke_home())
+    except machine_config_file.MachineConfigFileError as exc:
+        raise LocalUniverseSetupError(str(exc)) from exc
     engine = _engine()
     try:
         report = dict(engine.birth(org_name=org_name, emit=emit))
