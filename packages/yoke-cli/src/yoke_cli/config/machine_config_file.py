@@ -15,6 +15,47 @@ class MachineConfigFileError(RuntimeError):
     """The machine-config file or its stable lock is unsafe."""
 
 
+def ensure_owner_only_directory(path: str | Path) -> Path:
+    """Create or tighten one current-user-owned machine-state directory.
+
+    Nested runtime writers may create their parents with the process umask
+    before machine config exists.  Establish the machine-home boundary first
+    so those children cannot leave it group- or world-writable.
+    """
+    selected = Path(path).expanduser()
+    descriptor = -1
+    try:
+        selected.mkdir(mode=0o700, parents=True, exist_ok=True)
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(selected, flags)
+        info = os.fstat(descriptor)
+        if not stat.S_ISDIR(info.st_mode):
+            raise MachineConfigFileError(
+                f"machine-state path must be a directory: {selected}"
+            )
+        if hasattr(os, "getuid") and info.st_uid != os.getuid():
+            raise MachineConfigFileError(
+                f"machine-state directory is not owned by the current user: {selected}"
+            )
+        os.fchmod(descriptor, 0o700)
+        current = selected.lstat()
+        if (info.st_dev, info.st_ino) != (current.st_dev, current.st_ino):
+            raise MachineConfigFileError(
+                f"machine-state directory changed while being secured: {selected}"
+            )
+    except MachineConfigFileError:
+        raise
+    except OSError as exc:
+        raise MachineConfigFileError(
+            f"machine-state directory could not be secured: {selected}"
+        ) from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    return selected
+
+
 @contextmanager
 def exclusive_lock(config_path: str | Path) -> Iterator[None]:
     """Hold the stable owner-only lock associated with ``config_path``."""
@@ -24,8 +65,10 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
         _assert_secure_parent(selected.parent)
         lock_path = selected.with_name(selected.name + ".lock")
         flags = (
-            os.O_RDWR | os.O_CREAT
-            | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+            os.O_RDWR
+            | os.O_CREAT
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
         )
         descriptor = os.open(lock_path, flags, 0o600)
     except OSError as exc:
@@ -43,9 +86,7 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
         _assert_config_target(selected)
         yield
     except OSError as exc:
-        raise MachineConfigFileError(
-            f"machine-config lock failed: {selected}"
-        ) from exc
+        raise MachineConfigFileError(f"machine-config lock failed: {selected}") from exc
     finally:
         try:
             if locked:
@@ -61,7 +102,9 @@ def atomic_write_text(path: str | Path, content: str) -> None:
     tmp_path: Path | None = None
     try:
         descriptor, raw_tmp = tempfile.mkstemp(
-            prefix=f".{selected.name}.", suffix=".tmp", dir=selected.parent,
+            prefix=f".{selected.name}.",
+            suffix=".tmp",
+            dir=selected.parent,
         )
         tmp_path = Path(raw_tmp)
         os.fchmod(descriptor, 0o600)
@@ -143,9 +186,7 @@ def _assert_config_target(path: Path) -> None:
     except FileNotFoundError:
         return
     if not stat.S_ISREG(info.st_mode):
-        raise MachineConfigFileError(
-            f"machine config must be a regular file: {path}"
-        )
+        raise MachineConfigFileError(f"machine config must be a regular file: {path}")
     if hasattr(os, "getuid") and info.st_uid != os.getuid():
         raise MachineConfigFileError(
             f"machine config is not owned by the current user: {path}"
@@ -175,6 +216,9 @@ def _fsync_directory(path: Path) -> None:
 
 
 __all__ = [
-    "MachineConfigFileError", "atomic_write_text", "exclusive_lock",
+    "MachineConfigFileError",
+    "atomic_write_text",
+    "ensure_owner_only_directory",
+    "exclusive_lock",
     "remove_file",
 ]
