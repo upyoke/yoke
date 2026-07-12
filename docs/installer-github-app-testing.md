@@ -56,9 +56,14 @@ assignments, then rejects duplicate ids across both documents.
 | `GITHUB-045` | `prepared-stored-state` | Select an organization or private repository beyond the first bounded API page | Bounded pagination or an authenticated paste/search fallback keeps the target reachable, preserves private-auth intent, and verifies the selected owner and clone URL as one identity |
 | `GITHUB-046` | `fault-injection` | Fail credential deletion during disconnect, replacement cleanup, and config-write rollback, then repair permissions and retry | The exact orphan remains durably cleanup-pending, the authoritative connection is preserved or cleared as reported, and a later retry removes only the recorded orphan |
 | `GITHUB-047` | `prepared-git` | Resume make-it-mine and fork after an ambiguous response or partial local remote change | Yoke re-reads the expected repository, owner, parent, fork marker, and privacy from GitHub before pushing; a different or merely source-related origin is rejected without mutation |
+| `GITHUB-048` | `fault-injection` | Press Ctrl-C during Connect, Check access, owner/repo loading, private-clone authorization, and every other refresh-backed checking screen | Quit is deferred until the refresh-token exchange and owner-only save commit or roll back; no worker writes after UI exit; the prior or rotated credential remains usable and no access token reaches evidence |
+| `GITHUB-049` | `prepared-git` | With the baseline no-Administration App, choose publish or Duplicate, create an empty repo in GitHub, grant App access, return to Check access, and explicitly select the live repo | One-step create/fork rows remain unavailable; no same-name inference or silent clone downgrade occurs; the exact selected empty repo and compatible origin are reverified, push succeeds or rolls back safely, and sync enables only after an active binding |
+| `GITHUB-050` | `prepared-git` | Finish ordinary private clone, existing-checkout, and publish flows, then run Git after the wizard and after a Yoke upgrade | The clean HTTPS remote has an exact Yoke-owned URL-scoped helper; plain fetch/pull and push dry-run authenticate without reconnecting; no access token is stored in the remote, Git config, report, or helper bundle |
+| `GITHUB-051` | `prepared-stored-state` | Re-onboard an existing checkout with a GitHub origin against both an active-bound project and an existing backlog-only project | Detected repo/remote identity survives the existing-remote path; active binding and sync are preserved without a false backlog-only report; the unbound project offers an explicit verified bind-or-preserve choice and a requested bind is not skipped merely because the project or remote already exists |
+| `GITHUB-052` | `fault-injection` | Use two supported config paths sharing one machine secret root; interrupt connect/replacement/disconnect at credential write, config CAS, quarantine, and restore boundaries | One config never deletes or quarantines the other's live or recovery credential; each pending transaction has exact config ownership; crash recovery removes only proven orphans and leaves no unreferenced long-lived refresh credential |
 
 Only `GITHUB-001` and `PUBLISH-001` currently have deterministic coordinator
-recipes. `GITHUB-002` through `GITHUB-047`, `PUBLISH-002` through `PUBLISH-013`,
+recipes. `GITHUB-002` through `GITHUB-052`, `PUBLISH-002` through `PUBLISH-013`,
 `PROJECT-SOURCE-006`, `PROJECT-META-008`, `APPLY-005`, `APPLY-008`, `STATE-002`,
 and `STATE-007` require an operator-attended run against a real GitHub App. A
 blocked recipe stub is not a pass and must not be reported as automated proof.
@@ -69,7 +74,7 @@ and a secret scan for every manual result.
 
 - `GITHUB-001` proves only the backlog-only branch. It says nothing about
   browser authorization, App installation, or repository automation.
-- `GITHUB-002` through `GITHUB-016`, plus `GITHUB-020` through `GITHUB-047`,
+- `GITHUB-002` through `GITHUB-016`, plus `GITHUB-020` through `GITHUB-052`,
   require both screen evidence and post-apply
   machine/control-plane state. A green screen without the expected credential,
   installation, or binding state is a failure.
@@ -96,7 +101,7 @@ and a secret scan for every manual result.
 - `GITHUB-040` and `GITHUB-041` require hostile transport/archive fixtures plus
   bounded response and scratch-tree evidence. A generic error without proof of
   every aggregate limit is incomplete.
-- `GITHUB-042` through `GITHUB-047` require before/after filesystem, wizard,
+- `GITHUB-042` through `GITHUB-052` require before/after filesystem, wizard,
   GitHub API, and Git-configuration evidence appropriate to the row. A mocked
   happy path does not prove upgrade ownership, deletion provenance, abandoned-
   path state reset, beyond-first-page reachability, cleanup retry, or live
