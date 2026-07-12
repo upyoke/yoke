@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import stat
 from types import SimpleNamespace
 
 import pytest
@@ -85,6 +86,48 @@ def test_init_local_writes_connection_secret_and_active_env(
     assert report["ok"] is True
     assert report["born"] is True
     assert report["connection"]["written"] is True
+
+
+def test_init_secures_machine_home_before_nested_runtime_writes(
+    monkeypatch,
+    machine_home,
+    capsys,
+):
+    machine_home.mkdir(mode=0o775)
+    machine_home.chmod(0o775)
+
+    def engine_after_nested_write():
+        (machine_home / "postgres" / "17.10.0").mkdir(
+            mode=0o700, parents=True, exist_ok=True
+        )
+        assert stat.S_IMODE(machine_home.stat().st_mode) == 0o700
+        return _stub_engine()
+
+    monkeypatch.setattr(setup, "_engine", engine_after_nested_write)
+
+    assert commands.init(["--local", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["ok"] is True
+    assert stat.S_IMODE(machine_home.stat().st_mode) == 0o700
+
+
+def test_init_refuses_symlink_machine_home(monkeypatch, tmp_path, capsys):
+    target = tmp_path / "actual-machine-home"
+    target.mkdir()
+    selected = tmp_path / "selected-machine-home"
+    selected.symlink_to(target, target_is_directory=True)
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(selected))
+    engine_called = False
+
+    def forbidden_engine():
+        nonlocal engine_called
+        engine_called = True
+        return _stub_engine()
+
+    monkeypatch.setattr(setup, "_engine", forbidden_engine)
+
+    assert commands.init(["--local", "--json"]) == 1
+    assert "could not be secured" in capsys.readouterr().err
+    assert engine_called is False
 
 
 def test_init_second_run_reports_without_rewriting(monkeypatch, machine_home, capsys):
