@@ -84,8 +84,12 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
                     },
                     "github": {
                         "api_url": "https://api.github.com",
+                        "web_url": "https://github.com",
                         "app_slug": "yoke",
+                        "app_id": 123,
                         "client_id": "Iv1.example",
+                        "profile_source": "service",
+                        "profile_service_api_url": api.url,
                         "authorization": {
                             "kind": "github_app_user_authorization",
                             "refresh_credential_ref": str(github_refresh),

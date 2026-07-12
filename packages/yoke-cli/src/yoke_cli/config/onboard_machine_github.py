@@ -44,12 +44,18 @@ def apply(
     config_path: Path,
     api_url: str | None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     selected = normalize_choice(choice)
     if selected != CHOICE_CONNECT:
         return plan(
             choice=selected,
             api_url=api_url,
+        )
+    if bool(str(service_api_url or "").strip()) == local_connection_selected:
+        raise OnboardMachineGithubError(
+            "GitHub onboarding requires exactly one local or HTTPS Yoke "
+            "connection selection"
         )
     try:
         existing = machine_config.github_config(config_path)
@@ -74,9 +80,10 @@ def apply(
                 config_path=config_path,
                 check=True,
                 service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
             )
         else:
-            if api_url and not service_api_url:
+            if api_url and local_connection_selected:
                 requested_endpoint = github_origin.validate_github_api_endpoint(
                     api_url
                 )
@@ -91,7 +98,7 @@ def apply(
             report = github_machine.connect(
                 config_path=config_path,
                 service_api_url=service_api_url,
-                use_local_product_profile=not bool(service_api_url),
+                use_local_product_profile=local_connection_selected,
             )
     except (
         github_machine.GitHubMachineError,

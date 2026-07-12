@@ -111,7 +111,7 @@ class TestCapabilitySecrets:
 
     def test_get_missing_returns_none(self, cap_db: str) -> None:
         assert pc.cmd_capability_get_secret(
-            "yoke", "github", "absent", db_path=cap_db
+            "yoke", "deploy", "absent", db_path=cap_db
         ) is None
 
     def test_get_secret_rejects_file_source(

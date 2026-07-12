@@ -14,7 +14,7 @@ the machine's GitHub App authorization once that flow is connected.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import github_publish
@@ -32,9 +32,12 @@ from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.onboard_wizard_project_github import ProjectGithubAccessFlow
+from yoke_cli.config.onboard_wizard_existing_project_recovery import (
+    ExistingProjectLookupRecoveryFlow,
+)
 from yoke_cli.config.onboard_wizard_finish_flow import FinishBodyFlow
 from yoke_cli.config.onboard_wizard_stored_project import StoredProjectFlow
-from yoke_cli.config.onboard_wizard_widgets import STEP_FINISH, STEP_PROJECT, SelectionRow
+from yoke_cli.config.onboard_wizard_widgets import STEP_FINISH, STEP_PROJECT
 from yoke_cli.config.project_publish_support import is_existing_project_dir
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
 
@@ -78,7 +81,12 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _goto_stored_project_picker(self) -> None: ...
 
 
-class WizardFlow(FinishBodyFlow, ProjectGithubAccessFlow, StoredProjectFlow):
+class WizardFlow(
+    ExistingProjectLookupRecoveryFlow,
+    FinishBodyFlow,
+    ProjectGithubAccessFlow,
+    StoredProjectFlow,
+):
     # ── Project step ────────────────────────────────────────
 
     def _goto_project_mode(self: _Shell) -> None:
@@ -93,7 +101,9 @@ class WizardFlow(FinishBodyFlow, ProjectGithubAccessFlow, StoredProjectFlow):
             self._stored_project_attempted = True
             self._goto_stored_project_picker()
             return
-        self._goto(_View(STEP_PROJECT, steps.project_mode_body, self._on_project_mode))
+        view = _View(STEP_PROJECT, steps.project_mode_body, self._on_project_mode)
+        self._project_mode_view = view
+        self._goto(view)
 
     def _on_project_mode(self: _Shell, mode: str) -> None:
         if not getattr(self, "_preserve_project_fields_once", False):
@@ -440,34 +450,6 @@ class WizardFlow(FinishBodyFlow, ProjectGithubAccessFlow, StoredProjectFlow):
             return
         self._goto_board_art_intro()
 
-    def _goto_existing_project_lookup_error(
-        self: _Shell,
-        exc: BaseException,
-        *,
-        retry: Callable[[], None],
-        local_destination: bool = False,
-    ) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
-        rows = [
-            SelectionRow("retry", "Try again", "rerun the project check"),
-            SelectionRow("back", "Back", "choose a different project option"),
-        ]
-        hint = onboard_existing_project.lookup_error_hint(
-            local_destination=local_destination,
-        )
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "Can't use that Yoke project.",
-                str(exc),
-                [hint],
-                rows,
-                ok=False,
-            ),
-            lambda choice: retry() if choice == "retry" else self._goto_project_mode(),
-        ))
-
     def _yoke_token_for_project_lookup(self: _Shell) -> str | None:
         try:
             return yoke_token_verify.read_token_source(
@@ -495,9 +477,9 @@ class WizardFlow(FinishBodyFlow, ProjectGithubAccessFlow, StoredProjectFlow):
         if not self.result.project_github_repo:
             self._goto_board_art_intro()
             return
-        # The connected-repo row only makes sense once the machine has a GitHub
-        # App authorization. Without one, drop it so the picker never offers a
-        # route that cannot bind a repository.
+        if self._route_future_project_github_binding():
+            return
+        # Existing-repo rows require a connected machine App authorization.
         if github_connected(self.result):
             rows = steps.PROJECT_GITHUB_ROWS
         else:

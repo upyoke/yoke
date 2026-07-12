@@ -18,12 +18,24 @@ def github_user_access_token(
     parsed: argparse.Namespace,
     *,
     required: bool,
+    local_connection_selected: bool = False,
 ) -> str | None:
     if not required:
         return None
-    refreshed = github_local_user_access.access_token(
-        config_path=getattr(parsed, "config_path", None),
-    )
+    selected_service = str(getattr(parsed, "api_url", "") or "").strip()
+    if not selected_service and not local_connection_selected:
+        raise github_user_tokens.GitHubUserTokenError(
+            "the onboarding run does not identify a local or service Yoke "
+            "connection"
+        )
+    try:
+        refreshed = github_local_user_access.access_token(
+            config_path=getattr(parsed, "config_path", None),
+            service_api_url=selected_service or None,
+            local_connection_selected=local_connection_selected,
+        )
+    except github_local_user_access.GitHubLocalUserAccessError as exc:
+        raise github_user_tokens.GitHubUserTokenError(str(exc)) from exc
     return refreshed.access_token
 
 

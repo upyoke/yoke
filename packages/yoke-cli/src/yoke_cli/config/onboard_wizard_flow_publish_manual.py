@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from yoke_contracts import github_app_snapshot
 from yoke_cli.config import github_machine
+from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_PROJECT,
@@ -94,7 +95,6 @@ class ManualPublishFlow:
         *,
         replace_current: bool,
     ) -> None:
-        service_api_url = str(self.result.api_url or "")
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking GitHub repositories.",
@@ -102,11 +102,7 @@ class ManualPublishFlow:
             work=lambda: github_machine.status(
                 config_path=self.result.config_path,
                 check=True,
-                service_api_url=(
-                    service_api_url
-                    if service_api_url.startswith("https://")
-                    else None
-                ),
+                **github_state.connection_scope(self.result),
             ),
             on_success=self._after_manual_publish_refresh,
             on_error=self._manual_publish_refresh_error,

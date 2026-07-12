@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from yoke_cli.config import github_app_public_profile
 from yoke_cli.config import github_machine_access
 from yoke_cli.config import github_machine_state as state
 from yoke_cli.config import github_app_user_api
@@ -39,6 +40,13 @@ def add_installation(
             _profile_proven=True,
             _expected_service_api_url=(
                 str(metadata.get("profile_service_api_url") or "") or None
+            ),
+            _expected_local_connection=(
+                metadata.get("profile_source")
+                in {
+                    github_app_public_profile.PROFILE_SOURCE_LOCAL_EXPLICIT,
+                    github_app_public_profile.PROFILE_SOURCE_LOCAL_PRODUCT,
+                }
             ),
         )
     except github_user_tokens.GitHubUserTokenError as exc:

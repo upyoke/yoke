@@ -39,6 +39,8 @@ def store_github_binding(
     config_path: str | Path | None,
     *,
     persist_sync_mode: bool = False,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> Mapping[str, Any] | None:
     choice = str((github_adoption or {}).get("choice") or "")
     sync_mode = github_sync_mode(github_adoption)
@@ -77,6 +79,8 @@ def store_github_binding(
     try:
         with github_binding_auth.locked_profile_bound_access_for_binding(
             config_path=config_path,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         ) as authority:
             github_config = machine_config.github_config(config_path)
             repository = _configured_repository(
@@ -185,6 +189,7 @@ def refresh_github_repository_access(
     github_repo: str,
     *,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> Mapping[str, Any]:
     """Refresh App discovery after a create/fork and require the exact repo."""
     try:
@@ -192,6 +197,7 @@ def refresh_github_repository_access(
             config_path=config_path,
             check=True,
             service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     except github_machine.GitHubMachineError as exc:
         raise ProjectGithubAdoptionError(
@@ -216,16 +222,27 @@ def record_mutated_repository(
     config_path: str | Path | None,
     *,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> None:
     """Update binding intent and refresh App discovery after a repo write."""
+    prior_repo = str(github_adoption.get("github_repo") or "")
+    target_changed = prior_repo.casefold() != github_repo.casefold()
     github_adoption["github_repo"] = github_repo
     binding = dict(github_adoption.get("binding") or {})
+    if target_changed:
+        github_adoption.pop("repository_id", None)
+        github_adoption.pop("installation_id", None)
+        binding.pop("repository_id", None)
+        binding.pop("installation_id", None)
     binding["repo"] = github_repo
     github_adoption["binding"] = binding
     if github_adoption.get("choice") != GITHUB_ADOPTION_APP_BINDING:
         return None
     repository = refresh_github_repository_access(
-        config_path, github_repo, service_api_url=service_api_url,
+        config_path,
+        github_repo,
+        service_api_url=service_api_url,
+        local_connection_selected=local_connection_selected,
     )
     expected_repository_id = _positive_identity(
         github_adoption.get("repository_id")

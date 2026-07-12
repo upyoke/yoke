@@ -68,6 +68,7 @@ ACCOUNT_STEP_LABELS = {
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
+    _history: list[Any]
     _account_step_label: str
     _destination_preset: bool
     _api_url_preset: bool
@@ -84,6 +85,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _goto_token_source(self) -> None: ...
     def _goto_hosted_env_select(self) -> None: ...
     def _after_api_url(self, value: str) -> None: ...
+    def _render_current(self) -> None: ...
 
 
 class DestinationFlow:
@@ -118,7 +120,9 @@ class DestinationFlow:
             )
 
         self._account_step_label = STEP_CONNECT_LABEL
-        self._goto(_View(STEP_CONNECT, builder, self._after_destination_select))
+        view = _View(STEP_CONNECT, builder, self._after_destination_select)
+        self._destination_picker_view = view
+        self._goto(view)
 
     def _goto_stored_destination_picker(self: _Shell) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
@@ -151,14 +155,16 @@ class DestinationFlow:
             )
 
         self._account_step_label = STEP_CONNECT_LABEL
-        self._goto(_View(
+        view = _View(
             STEP_CONNECT,
             builder,
             lambda choice: self._after_stored_destination_select(
                 choice,
                 stored_destination,
             ),
-        ))
+        )
+        self._destination_picker_view = view
+        self._goto(view)
 
     def _after_destination_select(self: _Shell, choice: str) -> None:
         self._route_destination(choice)
@@ -238,12 +244,22 @@ class DestinationFlow:
                 rows,
                 ok=state.get("state") != local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE,
             ),
-            lambda choice: (
-                self._goto_destination_picker()
-                if choice == "back" else
-                self._goto_machine_github()
-            ),
+            self._on_local_universe_summary,
         ))
+
+    def _on_local_universe_summary(self: _Shell, choice: str) -> None:
+        if choice != "back":
+            self._goto_machine_github()
+            return
+        target = getattr(self, "_destination_picker_view", None)
+        for index in range(len(self._history) - 1, -1, -1):
+            if self._history[index] is target:
+                del self._history[index + 1:]
+                self._render_current()
+                return
+        if self._history:
+            self._history.pop()
+        self._goto_destination_picker()
 
     # ── server destination: URL, then token ─────────────────
 

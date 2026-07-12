@@ -1,12 +1,7 @@
-"""Resumable clone + post-clone remote choreography for project onboarding.
+"""Resumable clone and post-clone remote choreography for onboarding.
 
-Split out of :mod:`project_onboard` to keep both modules under the line budget.
-:func:`resumable_clone` is the idempotent clone step (skip an already-present
-clone, error with recovery guidance on a genuine conflict);
-:func:`apply_clone_outcome` runs the chosen post-clone remote choreography
-(just-clone / make-it-mine / fork) and reports the repo, live branch, and which
-steps were *reused* from a prior partial run rather than done fresh — so the
-onboarding report can read differently after a resume.
+The helpers distinguish fresh work from reusable partial-run state and report
+the resulting repository, live branch, and remote outcome.
 """
 
 from __future__ import annotations
@@ -46,6 +41,8 @@ def prepare_clone_plan(
     config_path: str | Path | None,
     *,
     remote_url: str | None = None,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> ClonePlan:
     """Thread the configured App deployment and request-scoped user access."""
     github_config = machine_config.github_config(config_path)
@@ -68,6 +65,8 @@ def prepare_clone_plan(
         try:
             token = github_local_user_access.access_token(
                 config_path=config_path,
+                service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
             )
         except github_local_user_access.GitHubLocalUserAccessError as exc:
             raise ProjectOnboardError(
@@ -94,6 +93,9 @@ def normalize_clone_request(
 def machine_token_provider(
     plan: ClonePlan,
     config_path: str | Path | None,
+    *,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> Callable[[], str | None] | None:
     """Return a lazy token source for an explicitly private clone."""
     if not plan.use_machine_github or plan.fallback_token:
@@ -103,6 +105,8 @@ def machine_token_provider(
         try:
             return github_local_user_access.access_token(
                 config_path=config_path,
+                service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
             ).access_token
         except github_local_user_access.GitHubLocalUserAccessError as exc:
             raise ProjectOnboardError(
@@ -134,16 +138,9 @@ def resumable_clone(
 ) -> bool:
     """Clone ``remote_url`` into ``root``, skipping when it is already cloned.
 
-    Resumable apply: a re-run after a partial onboarding may find the source
-    already cloned into the target. When ``root`` is already a clone of
-    ``remote_url`` (origin or upstream matches), the clone is skipped so the
-    remaining steps resume. An empty / not-yet-existing target is cloned. A
-    non-empty target that is NOT this source is a genuine conflict — raised with a
-    recovery-shaped message naming the target and both ways forward.
-
-    Returns ``True`` when an existing matching clone was reused (the clone was
-    skipped), ``False`` when a fresh clone was made — so the caller can tell the
-    user the clone was reused on a resume.
+    A matching origin or upstream is reusable, an empty target is cloned, and a
+    non-empty unrelated target is a conflict. The return value is ``True`` only
+    when an existing clone was reused.
     """
     clean_remote = clean_remote_url(remote_url, web_url=github_web_url)
     if existing_clone_matches(
@@ -171,6 +168,8 @@ def resumable_clone_with_machine_fallback(
     *,
     plan: ClonePlan,
     config_path: str | Path | None,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     clone: Callable[..., bool] = resumable_clone,
 ) -> bool:
     """Run anonymous-first clone with a lazy machine token when requested."""
@@ -179,7 +178,12 @@ def resumable_clone_with_machine_fallback(
         root,
         remote_url,
         token=plan.fallback_token,
-        token_provider=machine_token_provider(plan, config_path),
+        token_provider=machine_token_provider(
+            plan,
+            config_path,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
+        ),
         github_web_url=plan.fork_web_url,
     )
 

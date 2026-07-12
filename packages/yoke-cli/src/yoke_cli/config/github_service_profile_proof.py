@@ -120,9 +120,26 @@ def selected_service_api_url(
     github: Mapping[str, Any],
     *,
     expected_service_api_url: str | None = None,
+    expected_local_connection: bool = False,
 ) -> str | None:
     """Validate saved profile provenance against the selected connection."""
 
+    if expected_local_connection and str(expected_service_api_url or "").strip():
+        raise GitHubServiceProfileProofError(
+            "a local Yoke connection cannot also select an HTTPS service"
+        )
+    if expected_local_connection:
+        if github.get("profile_service_api_url") in (None, "") and github.get(
+            "profile_source"
+        ) in {
+            github_app_tokens.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
+            github_app_tokens.GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
+        }:
+            return None
+        raise GitHubServiceProfileProofError(
+            "saved GitHub App profile does not match the requested local Yoke "
+            "connection; reconnect GitHub"
+        )
     if str(expected_service_api_url or "").strip():
         selected = str(expected_service_api_url).strip().rstrip("/")
         saved = str(github.get("profile_service_api_url") or "").rstrip("/")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
@@ -42,6 +43,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _goto_project_mode(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
     def _goto_existing_project_ready(self) -> None: ...
+    async def action_back(self) -> None: ...
 
 
 class CloneFlow(CloneSourceFlow):
@@ -148,7 +150,7 @@ class CloneFlow(CloneSourceFlow):
         if choice == "retry":
             self._goto_private_repo_picker(replace_current=True)
             return
-        self._goto_clone_url_input()
+        asyncio.ensure_future(self.action_back())
 
     # ── Local folder (defaults from the repo name) ──────────
 
@@ -291,6 +293,7 @@ class CloneFlow(CloneSourceFlow):
         if choice == clone_support.CLONE_OUTCOME_MAKE_IT_MINE:
             self._goto_new_repo_visibility()
             return
+        steps.reset_project_publish_fields(self.result)
         self._goto_slug()
 
     def _goto_new_repo_visibility(self: _Shell) -> None:
@@ -328,9 +331,8 @@ class CloneFlow(CloneSourceFlow):
             == clone_support.CLONE_OUTCOME_MAKE_IT_MINE
         ):
             if not github_connected(self.result):
-                self.result.project_clone_outcome = (
-                    clone_support.CLONE_OUTCOME_JUST_CLONE
-                )
+                self.result.project_clone_outcome = clone_support.CLONE_OUTCOME_JUST_CLONE
+                steps.reset_project_publish_fields(self.result)
                 self._after_repo("")
                 return
             self.result.project_publish_to_github = True

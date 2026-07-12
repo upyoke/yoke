@@ -57,6 +57,8 @@ def _git_handoff_rows() -> list[SelectionRow]:
 
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
+    _history: list["_View"]
+
     def _goto(self, view: "_View") -> None: ...
     def _goto_project_mode(self) -> None: ...
     def _after_project_git_ready(self, mode: str) -> None: ...
@@ -64,7 +66,17 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
 
 
 class ProjectGitFlow:
-    def _check_project_git(self: _Shell, mode: str) -> None:
+    def _discard_project_git_views(self: _Shell) -> None:
+        """Remove the current project recovery chain before going Back."""
+        while self._history and self._history[-1].step == STEP_PROJECT:
+            self._history.pop()
+
+    def _check_project_git(
+        self: _Shell,
+        mode: str,
+        *,
+        replace_current: bool = False,
+    ) -> None:
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking git.",
@@ -73,6 +85,7 @@ class ProjectGitFlow:
             on_success=lambda _result: self._after_project_git_ready(mode),
             on_error=lambda exc: self._goto_project_git_missing(mode, exc),
             group="onboard-project-git",
+            replace_current=replace_current,
         )
 
     def _goto_project_git_missing(
@@ -99,8 +112,9 @@ class ProjectGitFlow:
             self._install_project_git(mode)
             return
         if choice == "retry":
-            self._check_project_git(mode)
+            self._check_project_git(mode, replace_current=True)
             return
+        self._discard_project_git_views()
         self._goto_project_mode()
 
     def _install_project_git(self: _Shell, mode: str) -> None:
@@ -116,6 +130,7 @@ class ProjectGitFlow:
             on_success=lambda result: self._after_project_git_install(mode, result),
             on_error=lambda exc: self._goto_project_git_install_error(mode, exc),
             group="onboard-project-git-install",
+            replace_current=True,
         )
 
     def _after_project_git_install(
@@ -162,6 +177,7 @@ class ProjectGitFlow:
             on_success=lambda _result: self._check_project_git(mode),
             on_error=lambda _exc: self._check_project_git(mode),
             group="onboard-project-git-finalize",
+            replace_current=True,
         )
 
     def _goto_project_git_install_error(

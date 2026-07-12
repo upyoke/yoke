@@ -22,6 +22,7 @@ def access_token(
     opener: Callable[..., Any] | None = None,
     profile_opener: Callable[..., Any] | None = None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     now: datetime | None = None,
 ) -> github_user_tokens.LocalUserAccessToken:
     """Validate the saved public profile, then refresh locally against GitHub."""
@@ -36,6 +37,7 @@ def access_token(
                 github,
                 config_path=config_path,
                 service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
                 opener=profile_opener,
             )
             return github_user_tokens.access_token_from_machine_config(
@@ -44,6 +46,7 @@ def access_token(
                 profile_opener=profile_opener,
                 _profile_proven=True,
                 _expected_service_api_url=service_api_url,
+                _expected_local_connection=local_connection_selected,
                 now=now,
             )
     except (

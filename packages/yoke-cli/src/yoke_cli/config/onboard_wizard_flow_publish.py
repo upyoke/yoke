@@ -16,9 +16,10 @@ clone re-home paths.
 
 from __future__ import annotations
 
+import asyncio
+import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
-import webbrowser
 
 from yoke_contracts import github_origin
 from yoke_cli.config import onboard_input_validation as input_validation
@@ -51,6 +52,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
                     initial_value: str = "") -> None: ...
     def _after_branch(self, value: str) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
+    async def action_back(self) -> None: ...
 
 
 class PublishFlow:
@@ -106,8 +108,7 @@ class PublishFlow:
                 self._history.pop()
             self._goto_publish_prompt()
             return
-        self.result.project_keep_existing_remote = False
-        self._after_repo("")
+        asyncio.ensure_future(self.action_back())
 
     def _on_publish_choice(self: _Shell, choice: str) -> None:
         if choice != project_screens.PUBLISH_YES:
@@ -246,8 +247,7 @@ class PublishFlow:
         if choice == "retry":
             self._goto_owner_picker(replace_current=True)
             return
-        self.result.project_publish_to_github = False
-        self._after_repo("")
+        asyncio.ensure_future(self.action_back())
 
     def _on_owner_pick(self: _Shell, login: str) -> None:
         selected = self._owner_lookup.get(login.casefold())

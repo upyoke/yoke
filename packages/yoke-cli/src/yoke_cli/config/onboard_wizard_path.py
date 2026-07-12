@@ -1,21 +1,8 @@
 """Install-summary and PATH screens for the ``yoke onboard`` wizard.
 
-A mixin consumed by :class:`onboard_wizard_app.OnboardWizardApp`, mirroring the
-shape of :class:`onboard_wizard_flow.WizardFlow`. It fronts the wizard so the
-installer hand-off and onboarding read as one app:
-
-* a post-install summary shown only when the installer launched the wizard
-  (``--post-install``), and
-* a PATH diagnosis driven by :mod:`yoke_cli.config.path_doctor`, followed by a
-  preview + consent screen that writes the managed PATH block and a verified
-  screen that confirms a fresh login shell can find Yoke.
-
-All of these screens highlight the ``install`` segment of the stepper — PATH
-setup is part of installation, not its own step. They chain into the Account
-step via ``_start_connect`` (the deployment-destination picker in
-``onboard_wizard_flow_destination``) once the operator advances or skips, so
-the rest of onboarding is unchanged. The mixin holds the PATH decision graph
-only — no Textual plumbing and no report assembly.
+The flow diagnoses PATH, previews and applies the managed shell block, verifies
+fresh Terminal and SSH resolution, then advances to the deployment destination.
+All screens remain in the Install stepper segment.
 """
 
 from __future__ import annotations
@@ -44,34 +31,30 @@ _PACKAGE_NAME = "yoke-cli"
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     _post_install: bool
+    _history: list["_View"]
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, step, title, subtitle, rows, on_select) -> "_View": ...
+    def _render_current(self) -> None: ...
     def _start_connect(self) -> None: ...
 
 
-# Install-summary choices.
 INSTALL_ROWS = [
     SelectionRow("continue", "Continue", ""),
     SelectionRow("quit", "Quit", "stop here"),
 ]
 
-# PATH diagnosis choices when a fix is needed. The add/apply row is the default
-# selection (first row) per the default-Yes spirit.
+# The apply row is first so the safe, idempotent fix is the default.
 PATH_FIX_ROWS = [
     SelectionRow("fix", "Add yoke to my PATH", "updates your shell startup file"),
     SelectionRow("preview", "See exactly what changes", ""),
     SelectionRow("skip", "Skip", ""),
 ]
 
-# PATH diagnosis continue row when nothing needs fixing.
 PATH_OK_ROWS = [
     SelectionRow("continue", "Continue", "your shell is ready"),
 ]
 
-# PATH verified continue row, shown after the managed block is written. The
-# next screen is the deployment-destination picker, so the caption names the
-# choice rather than assuming a hosted sign-in.
 PATH_VERIFIED_ROWS = [
     SelectionRow("continue", "Continue", "choose where your Yoke lives"),
 ]
@@ -273,7 +256,9 @@ class PathFlow:
         def builder() -> list[Static]:
             return path_diagnosis_body(diagnosis)
 
-        self._goto(_View(STEP_INSTALL, builder, self._on_path_diagnosis))
+        view = _View(STEP_INSTALL, builder, self._on_path_diagnosis)
+        self._path_diagnosis_view = view
+        self._goto(view)
 
     def _on_path_diagnosis(self: _Shell, choice: str) -> None:
         if choice == "fix":
@@ -304,9 +289,20 @@ class PathFlow:
         if choice == "apply":
             self._apply_path_fix()
             return
-        # "different" and "skip" both leave the startup file untouched for now;
-        # an alternate-file picker is a later refinement.
+        if choice == "different":
+            self._return_to_path_diagnosis()
+            return
+        # "skip" leaves the startup file untouched and advances.
         self._start_connect()
+
+    def _return_to_path_diagnosis(self: _Shell) -> None:
+        target = getattr(self, "_path_diagnosis_view", None)
+        for index in range(len(self._history) - 1, -1, -1):
+            if self._history[index] is target:
+                del self._history[index + 1:]
+                self._render_current()
+                return
+        self._goto_path_diagnosis()
 
     def _apply_path_fix(self: _Shell) -> None:
         diagnosis = path_doctor.diagnose()

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, SecretStr, StrictBool, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -38,8 +38,9 @@ class ProjectGithubBindingLifecycleRequest(BaseModel):
 
     project: str
     installation_id: str
-    installation_status: str
-    repository_available: bool
+    repository_id: str
+    installation_status: Literal["active", "pending", "suspended", "deleted"]
+    repository_available: StrictBool
     permissions: Optional[Dict[str, str]] = None
 
 
@@ -149,20 +150,21 @@ def handle_project_github_binding_lifecycle(
     except ValidationError as exc:
         return _payload_invalid(exc)
 
-    from yoke_core.domain.project_github_binding import ProjectGithubBindingError
     from yoke_core.domain.project_github_binding_lifecycle import (
-        cmd_update_project_github_binding_lifecycle,
+        ProjectGithubBindingLifecycleError,
+        cmd_apply_project_github_binding_lifecycle,
     )
 
     try:
-        result = cmd_update_project_github_binding_lifecycle(
-            project=parsed.project,
+        result = cmd_apply_project_github_binding_lifecycle(
+            parsed.project,
             installation_id=parsed.installation_id,
+            repository_id=parsed.repository_id,
             installation_status=parsed.installation_status,
             repository_available=parsed.repository_available,
             permissions=parsed.permissions,
         )
-    except (LookupError, ProjectGithubBindingError, ValueError) as exc:
+    except (LookupError, ProjectGithubBindingLifecycleError, ValueError) as exc:
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(
@@ -187,12 +189,12 @@ def _payload_invalid(exc: ValidationError) -> HandlerOutcome:
 
 __all__ = [
     "ProjectGithubBindingBindRequest",
+    "ProjectGithubBindingLifecycleRequest",
     "ProjectGithubBindingStatusRequest",
     "ProjectGithubBindingStatusResponse",
-    "ProjectGithubBindingLifecycleRequest",
     "ProjectGithubBindingUnbindRequest",
     "handle_project_github_binding_bind",
-    "handle_project_github_binding_status",
     "handle_project_github_binding_lifecycle",
+    "handle_project_github_binding_status",
     "handle_project_github_binding_unbind",
 ]

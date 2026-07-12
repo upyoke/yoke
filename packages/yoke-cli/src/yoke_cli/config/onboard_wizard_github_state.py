@@ -7,6 +7,7 @@ from typing import Any
 from yoke_contracts import github_origin
 from yoke_cli.config import github_local_user_access
 from yoke_cli.config import machine_config
+from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
 
 
@@ -32,7 +33,27 @@ def user_access_token(result: Any) -> str | None:
         return None
     return github_local_user_access.access_token(
         config_path=config_path,
+        **connection_scope(result),
     ).access_token
+
+
+def connection_scope(result: Any) -> dict[str, Any]:
+    """Pin GitHub checks to this run's local or HTTPS Yoke destination."""
+
+    selected_service = str(getattr(result, "api_url", "") or "").strip()
+    local_selected = (
+        getattr(result, "destination", None)
+        == onboard_destinations.DESTINATION_LOCAL
+    )
+    if bool(selected_service) == local_selected:
+        raise github_local_user_access.GitHubLocalUserAccessError(
+            "the onboarding run does not identify exactly one local or service "
+            "Yoke connection"
+        )
+    return {
+        "service_api_url": selected_service or None,
+        "local_connection_selected": local_selected,
+    }
 
 
 def web_url(result: Any) -> str:
@@ -148,6 +169,7 @@ def endpoint_pair(result: Any) -> github_origin.GitHubEndpointPair:
 __all__ = [
     "administration_allowed",
     "clone_web_url",
+    "connection_scope",
     "connected",
     "endpoint_pair",
     "fork_ready",

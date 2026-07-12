@@ -42,6 +42,7 @@ def project_kwargs(
     config_path: Path,
     apply: bool,
     service_api_url: str | None,
+    local_connection_selected: bool,
 ) -> dict[str, Any]:
     return {
         "checkout": inputs["checkout"],
@@ -59,6 +60,7 @@ def project_kwargs(
         "config_path": config_path,
         "apply": apply,
         "service_api_url": service_api_url,
+        "local_connection_selected": local_connection_selected,
     }
 
 

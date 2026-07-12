@@ -223,6 +223,68 @@ def test_onboard_binding_holds_destination_through_token_dispatch(
     assert machine_config.active_env(config) == "service-b"
 
 
+@pytest.mark.parametrize(
+    ("service_api_url", "local_connection_selected"),
+    (
+        (None, True),
+        ("https://service-b.yoke.example/v1", False),
+    ),
+)
+def test_onboard_binding_uses_the_run_selected_connection_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    service_api_url: str | None,
+    local_connection_selected: bool,
+) -> None:
+    config = _two_service_config(tmp_path)
+    seen: dict[str, object] = {}
+
+    @contextmanager
+    def locked_authority(**kwargs):
+        seen.update(kwargs)
+        yield SimpleNamespace(
+            api_url="https://api.github.com",
+            token=SimpleNamespace(access_token="selected-user-token"),
+        )
+
+    monkeypatch.setattr(
+        project_onboard_progress.github_binding_auth,
+        "locked_profile_bound_access_for_binding",
+        locked_authority,
+    )
+    monkeypatch.setattr(
+        project_onboard_progress.machine_config,
+        "github_config",
+        lambda _path: {"repositories": [{
+            "installation_id": 1,
+            "repository_id": 2,
+            "full_name": "owner/demo",
+        }]},
+    )
+    monkeypatch.setattr(
+        project_onboard_progress,
+        "dispatch",
+        lambda *_args, **_kwargs: {"binding": {"status": "active"}},
+    )
+
+    report = project_onboard_progress.store_github_binding(
+        None,
+        "app-binding",
+        {"id": 41, "slug": "demo", "name": "Demo"},
+        {"choice": "app-binding", "github_repo": "owner/demo"},
+        config,
+        service_api_url=service_api_url,
+        local_connection_selected=local_connection_selected,
+    )
+
+    assert report["binding"] == "active"
+    assert seen == {
+        "config_path": config,
+        "service_api_url": service_api_url,
+        "local_connection_selected": local_connection_selected,
+    }
+
+
 def test_onboard_dispatch_redacts_every_echo_of_transient_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -24,6 +24,9 @@ class MachineGitHubInputError(RuntimeError):
 def hydrate_machine_github_inputs(
     inputs: dict[str, Any],
     config_path: Path,
+    *,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     """Acquire one post-connect token for explicitly App-backed project work."""
 
@@ -73,6 +76,8 @@ def hydrate_machine_github_inputs(
         report = github_machine.status(
             config_path=config_path,
             check=True,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
         identity = report.get("identity") if isinstance(report, Mapping) else None
         access = report.get("access") if isinstance(report, Mapping) else None
@@ -109,6 +114,8 @@ def hydrate_machine_github_inputs(
     try:
         token = github_local_user_access.access_token(
             config_path=config_path,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         ).access_token
     except github_local_user_access.GitHubLocalUserAccessError as exc:
         raise MachineGitHubInputError(

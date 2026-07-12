@@ -177,6 +177,17 @@ class TestRender:
         assert "1 pending" in body
         assert "**1 open**" in body or "open" in body
 
+    def test_summary_explains_internal_function_without_cli_adapter(
+        self,
+        report: dict,
+    ) -> None:
+        report["function_registry"]["by_adapter_status"]["internal"] = 1
+        rendered = ard.render(report)
+        assert (
+            "Internal dispatch-only functions without CLI adapters: **1**"
+            in rendered
+        )
+
     def test_wrapped_roster_lists_every_cli_row(self, body: str) -> None:
         assert "yoke items get" in body
         assert "yoke claims work acquire" in body

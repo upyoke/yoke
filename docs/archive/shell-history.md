@@ -884,7 +884,7 @@ Key behavior:
 **Purpose:** One-time Buzz GitHub Actions setup script. Wires Buzz into Yoke's GitHub Actions deployment pipeline.
 
 Key behavior:
-- **Preflight phase:** Historical script-era preflight for Buzz pipeline setup. This archive is not the live GitHub auth contract; current project auth is resolved through project metadata and `capability_secrets`.
+- **Preflight phase:** Historical script-era preflight for Buzz pipeline setup. This archive is not the live GitHub auth contract; current project auth resolves a verified repository binding and a short-lived GitHub App installation token, never `capability_secrets`.
 - **Setup phase:** Creates GitHub Secrets (`BUZZ_SSH_KEY`, `BUZZ_SSH_HOST`, `BUZZ_SSH_USER`), creates `production` environment with required reviewer protection, generates and commits workflow files (`buzz-deploy.yml`, `buzz-ephemeral.yml`, `buzz-ephemeral-teardown.yml`, `buzz-smoke.yml`) to Buzz main, then verifies all resources.
 - **How to run:** `sh .agents/skills/yoke/scripts/bootstrap-project.sh` (or `--preflight-only` for dry-run validation)
 - **On failure:** Follow the preflight output instructions, then re-run the script.

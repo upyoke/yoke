@@ -84,6 +84,7 @@ def project_report(
     reuse: Mapping[str, Any],
     progress: onboard_apply_progress.ProgressCallback | None = None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     try:
         return onboard_project.project_report(
@@ -93,6 +94,7 @@ def project_report(
             reuse=reuse,
             progress=progress,
             service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     except onboard_project.OnboardProjectError as exc:
         raise error_cls(str(exc)) from exc

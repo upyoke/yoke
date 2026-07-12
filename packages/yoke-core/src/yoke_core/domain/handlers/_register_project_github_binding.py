@@ -58,11 +58,11 @@ def register(registry) -> None:
         side_effects=[
             "github_app_installations_update",
             "project_github_repo_bindings_update",
-            "project_capabilities_update",
+            "project_capabilities_upsert",
         ],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["signature_verified_platform_event"],
-        adapter_status="live",
+        guardrails=["service_token_required"],
+        adapter_status="internal",
         claim_required_kind=None,
         ambient_session_required=False,
     )

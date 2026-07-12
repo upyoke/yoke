@@ -22,14 +22,6 @@ PROJECT_ADAPTERS = [
         ),
     ),
     AdapterEntry(
-        function_id="projects.github_binding.lifecycle",
-        cli_invocation="HTTPS function-call only (hosted platform webhook)",
-        notes=(
-            "applies a signature-verified installation or repository lifecycle "
-            "event to a hosted project binding"
-        ),
-    ),
-    AdapterEntry(
         function_id="projects.github_binding.unbind",
         cli_invocation="yoke projects github-binding unbind --project NAME",
         notes="removes the repo binding and marks the project backlog-only",

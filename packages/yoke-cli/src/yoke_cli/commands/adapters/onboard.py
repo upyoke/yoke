@@ -7,10 +7,7 @@ import sys
 from pathlib import Path
 from typing import List
 
-from yoke_cli.commands._helpers import (
-    attach_field_note_footer,
-    parse_or_usage_error,
-)
+from yoke_cli.commands._helpers import attach_field_note_footer, parse_or_usage_error
 from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.commands.adapters import onboard_destination_args
 from yoke_cli.commands.adapters import onboard_project_args
@@ -186,7 +183,9 @@ def onboard(args: List[str]) -> int:
     try:
         needs_user_token = _project_needs_github_user_access_token(parsed)
         github_user_access_token = _github_user_access_token(
-            parsed, required=needs_user_token and not connect_machine_github,
+            parsed,
+            required=needs_user_token and not connect_machine_github,
+            local_connection_selected=local_destination,
         )
         project_publish = _project_publish(
             parsed,

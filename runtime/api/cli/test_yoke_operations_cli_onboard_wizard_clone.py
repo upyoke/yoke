@@ -106,7 +106,6 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
             await pilot.press("enter")  # repo name placeholder -> widgets
             # Clone path skips the default-branch prompt (detected at URL step).
             await pilot.press("enter")  # prefix
-            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -145,7 +144,6 @@ def test_duplicate_public_visibility_sets_public_publish() -> None:
             await pilot.press("enter")  # repo name
             # clone skips the default-branch prompt
             await pilot.press("enter")  # prefix
-            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -178,7 +176,6 @@ def test_fork_builds_clone_plan_with_app_access() -> None:
             await pilot.press("enter")  # name
             # clone skips the default-branch prompt
             await pilot.press("enter")  # prefix
-            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -195,6 +192,41 @@ def test_fork_builds_clone_plan_with_app_access() -> None:
     assert plan.publish is None
     # Fork does not run the keep-upstream screen; the default stays True but is
     # ignored by the fork outcome (it always tracks the source as upstream).
+    assert applied["project_publish"] is None
+
+
+def test_back_from_duplicate_to_clone_clears_future_publish_state() -> None:
+    app, spy = make_app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await _to_clone_outcome(app, pilot)
+            await pilot.press("down")   # "Duplicate it"
+            await pilot.press("enter")
+            await pilot.press("enter")  # private visibility
+            await pilot.press("enter")  # slug
+            await pilot.press("enter")  # name -> owner picker
+            await pilot.press("enter")  # owner
+            await pilot.press("enter")  # repo name -> prefix
+            for _ in range(6):
+                await pilot.press("escape")
+            await pilot.press("enter")  # outcome: Clone it
+            await pilot.press("enter")  # slug
+            await pilot.press("enter")  # name
+            await pilot.press("enter")  # prefix
+            await select_connected_repository(app, pilot)
+            await complete_board_art(pilot)
+            await pilot.press("enter")  # finish: apply
+            await pilot.pause()
+
+    asyncio.run(scenario())
+
+    applied = spy.applied
+    assert applied is not None
+    plan = applied["project_clone"]
+    assert plan is not None
+    assert plan.outcome == clone.CLONE_OUTCOME_JUST_CLONE
+    assert plan.publish is None
     assert applied["project_publish"] is None
 
 
