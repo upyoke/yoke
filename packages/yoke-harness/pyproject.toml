@@ -1,7 +1,11 @@
 [build-system]
-# setuptools>=77.0.3: first release with stable SPDX `license` expression +
-# `license-files` metadata support.
-requires = ["setuptools>=77.0.3", "setuptools-scm[toml]==10.2.0"]
+# Exact backends keep PEP 517 builds reproducible. Setuptools 83 is current;
+# 82.0.1 is the final exact line compatible with supported Python 3.9.
+requires = [
+    "setuptools==82.0.1; python_version < '3.10'",
+    "setuptools==83.0.0; python_version >= '3.10'",
+    "setuptools-scm[toml]==10.2.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project]

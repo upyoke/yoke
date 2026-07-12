@@ -17,7 +17,9 @@ tags are deliberately not backfilled with reconstructed history.
 2. Run the canonical test gate on that exact commit and merge it to `main`.
 3. Create an annotated `vX.Y.Z+local.N` tag at the verified main commit and
    push only that tag. Treat release tags as immutable: never move or recreate
-   one after pushing it. The `yoke-release` workflow resolves the remote tag
+   one after pushing it. Use canonical decimal atoms: `v1.2.3+launch.1` is
+   valid, while release or numeric-local atoms with leading zeros are refused.
+   The `yoke-release` workflow resolves the remote tag
    object and its peeled commit before the build and again immediately before
    publication. It refuses lightweight or moved tags, tags without the required
    local segment, commits not reachable from current `main`, missing/mismatched

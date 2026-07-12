@@ -41,7 +41,9 @@ def test_release_authority_is_isolated_to_final_hosted_job():
 
 def test_tag_must_have_local_version_reach_main_and_have_authored_notes():
     text = _text()
-    assert "^v[0-9]+\\.[0-9]+\\.[0-9]+\\+[a-z0-9]+(\\.[a-z0-9]+)*$" in text
+    assert "canonical_tag_re='^v" in text
+    assert '[[ ! "$TAG_NAME" =~ $canonical_tag_re ]]' in text
+    assert "without leading-zero numeric atoms" in text
     assert text.count("git/ref/tags/$TAG_NAME") == 2
     assert text.count("git/tags/$tag_object_sha") == 2
     assert '[[ "$object_type" != "tag"' in text

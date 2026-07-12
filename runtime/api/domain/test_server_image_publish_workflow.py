@@ -97,7 +97,9 @@ def test_every_job_is_github_hosted_and_operator_credentials_are_absent():
 
 def test_remote_annotated_tag_and_current_main_are_checked_twice():
     text = _text()
-    assert "^v[0-9]+\\.[0-9]+\\.[0-9]+\\+[a-z0-9]+(\\.[a-z0-9]+)*$" in text
+    assert "canonical_tag_re='^v" in text
+    assert '"$TAG_NAME" =~ $canonical_tag_re' in text
+    assert "without leading-zero numeric atoms" in text
     assert text.count("git/ref/tags/$TAG_NAME") == 2
     assert text.count("git/tags/$tag_object_sha") == 2
     assert text.count('[[ "$object_type" != "tag"') == 2

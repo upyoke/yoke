@@ -111,14 +111,16 @@ def test_factory_uv_pin_matches_project_dependencies_and_lock():
     assert set(re.findall(r"uv==([0-9.]+)", workflow + project)) == {"0.11.28"}
 
 
-def test_all_product_build_backends_pin_setuptools_scm():
+def test_all_product_build_backends_are_exactly_pinned():
     pyprojects = [_ROOT / "pyproject.toml"]
     pyprojects.extend(sorted((_ROOT / "packages").glob("yoke-*/pyproject.toml")))
-    requirements = []
+    expected = {
+        "setuptools==82.0.1; python_version < '3.10'",
+        "setuptools==83.0.0; python_version >= '3.10'",
+        "setuptools-scm[toml]==10.2.0",
+    }
     for path in pyprojects:
         text = path.read_text(encoding="utf-8")
-        match = re.search(r'"(setuptools-scm\[toml\][^"]+)"', text)
-        assert match is not None, f"missing setuptools-scm build requirement: {path}"
-        requirements.append(match.group(1))
-    assert len(requirements) == 5
-    assert set(requirements) == {"setuptools-scm[toml]==10.2.0"}
+        build_system = text.split("[project]", 1)[0]
+        requirements = set(re.findall(r'^\s*"([^"]+)",?$', build_system, re.MULTILINE))
+        assert requirements == expected, f"floating or stale PEP 517 backend: {path}"
