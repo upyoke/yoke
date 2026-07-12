@@ -50,7 +50,11 @@ CREATE TABLE IF NOT EXISTS project_onboarding_runs (
 )
 """
 
-PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL = """
+PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL = (
+    "FOREIGN KEY (run_id) REFERENCES project_onboarding_runs(run_id)"
+)
+
+PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL = f"""
 CREATE TABLE IF NOT EXISTS project_onboarding_checklist_rows (
     run_id TEXT NOT NULL,
     row_id TEXT NOT NULL,
@@ -65,7 +69,7 @@ CREATE TABLE IF NOT EXISTS project_onboarding_checklist_rows (
     note TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL,
     PRIMARY KEY (run_id, row_id),
-    FOREIGN KEY (run_id) REFERENCES project_onboarding_runs(run_id)
+    {PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL}
 )
 """
 
@@ -325,6 +329,7 @@ def _p(conn: Any) -> str:
 
 __all__ = [
     "PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL",
+    "PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL",
     "PROJECT_ONBOARDING_RUNS_CREATE_SQL",
     "ProjectOnboardingRunError",
     "create_project_onboarding_tables",
