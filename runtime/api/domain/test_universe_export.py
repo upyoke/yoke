@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import os
 import subprocess
+from types import SimpleNamespace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -178,8 +179,31 @@ def test_export_prefers_embedded_pg_dump_and_cleans_failed_artifact(
     with _schema_loaded_universe() as (_conn, dsn):
         with pytest.raises(ux.UniverseExportError) as excinfo:
             ux.export_universe(dsn=dsn, out=dest)
-    assert "simulated failure" in str(excinfo.value)
+    assert "redacted" in str(excinfo.value)
     assert not dest.exists()
+
+
+def test_export_delegates_to_env_credential_dumper(monkeypatch, tmp_path):
+    """The local command must never rebuild a pg_dump argv containing a DSN."""
+    dsn = "postgresql://alice:secret@db.example/yoke"
+    destination = tmp_path / "safe.dump"
+    observed: dict[str, object] = {}
+    monkeypatch.setattr(ux, "_org_slug", lambda _dsn: "portable")
+
+    def safe_dump(received_dsn, received_destination, **kwargs):
+        observed.update(
+            dsn=received_dsn,
+            destination=received_destination,
+            timeout_s=kwargs["timeout_s"],
+        )
+        destination.write_bytes(b"PGDMP")
+        return SimpleNamespace(size_bytes=5)
+
+    monkeypatch.setattr(ux.universe_portability, "dump_universe", safe_dump)
+    report = ux.export_universe(dsn=dsn, out=destination)
+    assert observed["dsn"] == dsn
+    assert observed["destination"] == destination
+    assert report["bytes"] == 5
 
 
 def _enable_connected_env(monkeypatch) -> None:

@@ -18,6 +18,7 @@ import os
 import re
 import logging
 import subprocess
+import tempfile
 import threading
 import time
 from dataclasses import dataclass
@@ -48,20 +49,79 @@ _COMPATIBILITY_PREAMBLE_LINES = frozenset({
 _PREAMBLE_LINE_LIMIT = 256
 _PUMP_CHUNK_BYTES = 1 << 20
 _DIAGNOSTIC_BYTES = 32 * 1024
+_CATALOG_BYTES = 16 * 1024 * 1024
 
-# A portable universe carries ordinary public-schema objects only.  These
-# cluster/global object kinds are never required by Yoke and would widen an
-# importing tenant owner's authority surface for no product benefit.
-_REFUSED_TOC_KINDS = (
-    " DATABASE ",
-    " EXTENSION ",
-    " FOREIGN DATA WRAPPER ",
-    " FOREIGN SERVER ",
-    " PROCEDURAL LANGUAGE ",
-    " PUBLICATION ",
-    " SUBSCRIPTION ",
-    " USER MAPPING ",
+# Only inert relational structure/data is replayed from an uploaded archive.
+# Executable or authority-bearing entries are recognized so they can be
+# deliberately omitted from the pg_restore use-list; an unknown descriptor is
+# rejected instead of silently becoming executable when PostgreSQL adds one.
+_RESTORED_TOC_KINDS = (
+    "SEQUENCE OWNED BY",
+    "SEQUENCE SET",
+    "TABLE ATTACH",
+    "TABLE DATA",
+    "FK CONSTRAINT",
+    "CHECK CONSTRAINT",
+    "INDEX ATTACH",
+    "CONSTRAINT",
+    "SEQUENCE",
+    "DEFAULT",
+    "INDEX",
+    "TABLE",
 )
+_OMITTED_TOC_KINDS = (
+    "TEXT SEARCH CONFIGURATION",
+    "TEXT SEARCH DICTIONARY",
+    "TEXT SEARCH PARSER",
+    "TEXT SEARCH TEMPLATE",
+    "FOREIGN DATA WRAPPER",
+    "MATERIALIZED VIEW DATA",
+    "PROCEDURAL LANGUAGE",
+    "PUBLICATION TABLE",
+    "DEFAULT ACL",
+    "DOMAIN CONSTRAINT",
+    "EVENT TRIGGER",
+    "FOREIGN SERVER",
+    "FOREIGN TABLE",
+    "MATERIALIZED VIEW",
+    "OPERATOR CLASS",
+    "OPERATOR FAMILY",
+    "SECURITY LABEL",
+    "USER MAPPING",
+    "AGGREGATE",
+    "BLOB COMMENTS",
+    "COLLATION",
+    "CONVERSION",
+    "DATABASE",
+    "EXTENSION",
+    "FUNCTION",
+    "OPERATOR",
+    "POLICY",
+    "PROCEDURE",
+    "PUBLICATION",
+    "ROW SECURITY",
+    "STATISTICS",
+    "SUBSCRIPTION",
+    "TRANSFORM",
+    "TRIGGER",
+    "TYPE",
+    "BLOB",
+    "CAST",
+    "COMMENT",
+    "DOMAIN",
+    "PROCACT_SCHEMA",
+    "RULE",
+    "SCHEMA",
+    "VIEW",
+    "ACL",
+)
+_TOC_KINDS = tuple(
+    sorted(
+        set(_RESTORED_TOC_KINDS + _OMITTED_TOC_KINDS),
+        key=lambda value: (-len(value), value),
+    )
+)
+_TOC_ROW_RE = re.compile(r"^\d+;\s+\d+\s+\d+\s+(.+)$")
 _DUMPED_FROM_RE = re.compile(r"^;\s+Dumped from database version:\s+(.+)$", re.M)
 _DUMPED_BY_RE = re.compile(r"^;\s+Dumped by pg_dump version:\s+(.+)$", re.M)
 
@@ -69,13 +129,77 @@ _DUMPED_BY_RE = re.compile(r"^;\s+Dumped by pg_dump version:\s+(.+)$", re.M)
 # rows.  These tables represent user-created work; any row makes the hosted
 # target non-empty and therefore ineligible for overwrite.
 USER_CONTENT_TABLES: tuple[str, ...] = (
+    "actor_invites",
+    "actor_project_roles",
+    "capability_secrets",
+    "caveat_dispositions",
+    "coordination_leases",
+    "deployment_run_items",
+    "deployment_run_qa",
     "projects",
     "items",
-    "strategy_docs",
-    "deployment_runs",
-    "harness_sessions",
+    "item_activity_days",
+    "item_dependencies",
+    "item_sections",
+    "item_status_transitions",
+    "designs",
+    "epic_dispatch_chains",
+    "epic_progress_notes",
+    "epic_task_files",
     "epic_tasks",
+    "release_entries",
+    "qa_artifacts",
+    "qa_requirements",
+    "qa_runs",
+    "strategy_docs",
+    "strategy_checkpoints",
+    "strategize_landed_carry",
+    "deployment_runs",
+    "ephemeral_environments",
+    "environments",
+    "events",
+    "function_call_ledger",
+    "github_app_installations",
+    "github_workflow_dispatch_intents",
+    "harness_sessions",
+    "merge_locks",
+    "migration_audit",
+    "ouroboros_entries",
+    "path_claim_amendments",
+    "path_claim_overrides",
+    "path_claim_targets",
+    "path_claims",
+    "path_context_values",
+    "path_integrity_failures",
+    "path_integrity_fixtures",
+    "path_integrity_repairs",
+    "path_integrity_runs",
+    "path_moves",
+    "path_snapshot_entries",
+    "path_snapshot_symlink_facts",
+    "path_snapshot_sync_upload_chunks",
+    "path_snapshot_sync_uploads",
+    "path_snapshots",
+    "path_targets",
+    "project_capabilities",
+    "project_github_repo_bindings",
+    "session_tool_calls",
+    "shepherd_verdicts",
+    "sites",
+    "web_sessions",
+    "work_claims",
+    "wrapup_reports",
 )
+_USER_CONTENT_COUNT_SQL = {
+    # Hosted birth admits the sole founding admin through the normal invite
+    # ladder, leaving exactly one accepted receipt. Pending/revoked invites or
+    # any additional accepted identity are user-created work.
+    "actor_invites": (
+        "SELECT COUNT(*) FILTER (WHERE status <> 'accepted') + "
+        "GREATEST(COUNT(*) FILTER (WHERE status = 'accepted') - 1, 0) "
+        "FROM actor_invites"
+    ),
+}
 
 
 class UniversePortabilityError(RuntimeError):
@@ -107,6 +231,15 @@ def _postgres_executable(name: str) -> str:
     return postgres_cluster.executable(
         postgres_binaries.installed_bin_dir(), name,
     )
+
+
+def _remaining_timeout(deadline: float, operation: str) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise UniversePortabilityError(
+            f"universe {operation} exhausted its end-to-end timeout"
+        )
+    return max(0.001, remaining)
 
 
 def _subprocess_base_env() -> dict[str, str]:
@@ -154,13 +287,152 @@ def postgres_client_env(
     return dict(env)
 
 
-def inspect_archive(
+def _catalog_reader(
+    stream: object,
+    sink: bytearray,
+    errors: list[BaseException],
+) -> None:
+    """Drain one catalog with a hard memory ceiling."""
+    try:
+        while True:
+            chunk = stream.read(_PUMP_CHUNK_BYTES)  # type: ignore[attr-defined]
+            if not chunk:
+                return
+            if len(sink) + len(chunk) > _CATALOG_BYTES:
+                raise ArchiveInvalidError(
+                    "the universe archive catalog exceeds the inspection limit"
+                )
+            sink.extend(chunk)
+    except BaseException as exc:  # noqa: BLE001 - crosses a worker thread
+        errors.append(exc)
+    finally:
+        stream.close()  # type: ignore[attr-defined]
+
+
+def _archive_catalog(
+    archive: Path,
+    *,
+    executable: str,
+    timeout_s: int,
+) -> str:
+    """Return bounded pg_restore catalog text without buffering its stderr."""
+    try:
+        process = subprocess.Popen(
+            [executable, "--list", str(archive)],
+            env=_subprocess_base_env(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as exc:
+        raise ArchiveInvalidError(
+            f"the universe archive could not be inspected: {exc}"
+        ) from exc
+    assert process.stdout is not None and process.stderr is not None
+    catalog_bytes = bytearray()
+    diagnostic = bytearray()
+    errors: list[BaseException] = []
+    workers = (
+        threading.Thread(
+            target=_catalog_reader,
+            args=(process.stdout, catalog_bytes, errors),
+            daemon=True,
+        ),
+        threading.Thread(
+            target=_bounded_diagnostic_reader,
+            args=(process.stderr, diagnostic),
+            daemon=True,
+        ),
+    )
+    for worker in workers:
+        worker.start()
+    try:
+        process.wait(timeout=timeout_s)
+    except subprocess.TimeoutExpired as exc:
+        _terminate(process)
+        raise ArchiveInvalidError(
+            "the universe archive could not be inspected: timed out"
+        ) from exc
+    finally:
+        _terminate(process)
+        for worker in workers:
+            worker.join(timeout=5)
+    if errors:
+        error = errors[0]
+        if isinstance(error, ArchiveInvalidError):
+            raise error
+        raise ArchiveInvalidError(
+            "the universe archive catalog could not be read"
+        ) from error
+    if process.returncode != 0:
+        detail = bytes(diagnostic).decode("utf-8", errors="replace")
+        tail = detail.strip().splitlines()[-1:]
+        raise ArchiveInvalidError(
+            "the universe archive catalog is corrupt or unreadable"
+            + (f": {tail[0]}" if tail else "")
+        )
+    try:
+        return bytes(catalog_bytes).decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ArchiveInvalidError(
+            "the universe archive catalog is not valid UTF-8"
+        ) from exc
+
+
+def _toc_kind_and_namespace(line: str) -> tuple[str, str]:
+    match = _TOC_ROW_RE.fullmatch(line)
+    if match is None:
+        raise ArchiveInvalidError(
+            "the universe archive contains an unrecognized catalog row"
+        )
+    remainder = match.group(1)
+    for kind in _TOC_KINDS:
+        prefix = kind + " "
+        if not remainder.startswith(prefix):
+            continue
+        tail = remainder[len(prefix):]
+        namespace = tail.split(" ", 1)[0]
+        if kind == "SCHEMA":
+            parts = tail.split(" ", 2)
+            if len(parts) < 2 or parts[0] != "-" or parts[1] != "public":
+                raise ArchiveInvalidError(
+                    "the universe archive contains SCHEMA outside public schema"
+                )
+            return kind, "public"
+        if namespace != "public":
+            raise ArchiveInvalidError(
+                f"the universe archive contains {kind} outside public schema"
+            )
+        return kind, namespace
+    raise ArchiveInvalidError(
+        "the universe archive contains an unsupported catalog object kind"
+    )
+
+
+def _validate_catalog(catalog: str) -> int:
+    table_entries = 0
+    has_org_table = False
+    for line in catalog.splitlines():
+        if not line or line.startswith(";"):
+            continue
+        kind, _namespace = _toc_kind_and_namespace(line)
+        if kind in ("TABLE", "TABLE DATA"):
+            table_entries += 1
+        if kind == "TABLE" and " TABLE public organizations " in line:
+            has_org_table = True
+    if table_entries == 0 or not has_org_table:
+        raise ArchiveInvalidError(
+            "the archive contains no Yoke organization table"
+        )
+    return table_entries
+
+
+def _inspect_archive(
     path: Path | str,
     *,
     max_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
     timeout_s: int = DEFAULT_ARCHIVE_TIMEOUT_S,
     pg_restore: Optional[str] = None,
-) -> ArchiveInspection:
+) -> tuple[ArchiveInspection, str]:
     """Validate size, magic, listability, and the safe TOC object boundary."""
     archive = Path(path)
     if not archive.is_file():
@@ -178,57 +450,41 @@ def inspect_archive(
                 "the artifact is not a pg_dump custom-format universe archive"
             )
     executable = pg_restore or _postgres_executable("pg_restore")
-    try:
-        listed = subprocess.run(
-            [executable, "--list", str(archive)],
-            env=_subprocess_base_env(),
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        detail = "timed out" if isinstance(exc, subprocess.TimeoutExpired) else str(exc)
-        raise ArchiveInvalidError(
-            f"the universe archive could not be inspected: {detail}"
-        ) from exc
-    if listed.returncode != 0:
-        detail = (listed.stderr or "").strip().splitlines()[-1:]
-        raise ArchiveInvalidError(
-            "the universe archive catalog is corrupt or unreadable"
-            + (f": {detail[0]}" if detail else "")
-        )
-    catalog = listed.stdout
-    toc_lines = [line for line in catalog.splitlines() if not line.startswith(";")]
-    upper_toc = "\n".join(toc_lines).upper()
-    refused = [kind.strip() for kind in _REFUSED_TOC_KINDS if kind in upper_toc]
-    if refused:
-        raise ArchiveInvalidError(
-            "the universe archive contains cluster/global object kinds that"
-            f" are not portable: {', '.join(sorted(set(refused)))}"
-        )
-    # pg_restore list rows are semicolon-prefixed IDs; TABLE and TABLE DATA
-    # entries prove this is a database archive rather than an empty catalog.
-    table_entries = sum(
-        1 for line in catalog.splitlines()
-        if not line.startswith(";") and (" TABLE " in line or " TABLE DATA " in line)
+    catalog = _archive_catalog(
+        archive, executable=executable, timeout_s=timeout_s,
     )
-    if table_entries == 0 or " organizations " not in catalog.lower():
-        raise ArchiveInvalidError(
-            "the archive contains no Yoke organization table"
-        )
+    table_entries = _validate_catalog(catalog)
     dumped_from = _DUMPED_FROM_RE.search(catalog)
     dumped_by = _DUMPED_BY_RE.search(catalog)
     if dumped_from is None or dumped_by is None:
         raise ArchiveInvalidError(
             "the archive catalog omits its PostgreSQL version headers"
         )
-    return ArchiveInspection(
+    inspection = ArchiveInspection(
         path=archive,
         size_bytes=size,
         dumped_from_postgres=dumped_from.group(1).strip(),
         dumped_by_pg_dump=dumped_by.group(1).strip(),
         table_entries=table_entries,
     )
+    return inspection, catalog
+
+
+def inspect_archive(
+    path: Path | str,
+    *,
+    max_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
+    timeout_s: int = DEFAULT_ARCHIVE_TIMEOUT_S,
+    pg_restore: Optional[str] = None,
+) -> ArchiveInspection:
+    """Validate size, bounded catalog, versions, schema, and TOC kinds."""
+    inspection, _catalog = _inspect_archive(
+        path,
+        max_bytes=max_bytes,
+        timeout_s=timeout_s,
+        pg_restore=pg_restore,
+    )
+    return inspection
 
 
 def dump_universe(
@@ -244,6 +500,7 @@ def dump_universe(
     dest.parent.mkdir(parents=True, exist_ok=True)
     executable = pg_dump or _postgres_executable("pg_dump")
     client_env = postgres_client_env(dsn)
+    deadline = time.monotonic() + timeout_s
     stderr_tail = bytearray()
     pump_errors: list[BaseException] = []
     try:
@@ -253,6 +510,8 @@ def dump_universe(
                 "--format=custom",
                 "--no-owner",
                 "--no-privileges",
+                "--no-comments",
+                "--no-security-labels",
             ],
             env=client_env,
             stdout=subprocess.PIPE,
@@ -278,7 +537,7 @@ def dump_universe(
     for worker in workers:
         worker.start()
     try:
-        process.wait(timeout=timeout_s)
+        process.wait(timeout=_remaining_timeout(deadline, "export"))
         workers[0].join(timeout=5)
         if workers[0].is_alive():
             raise subprocess.TimeoutExpired([executable], timeout_s)
@@ -317,7 +576,9 @@ def dump_universe(
         )
     try:
         return inspect_archive(
-            dest, max_bytes=max_bytes, timeout_s=timeout_s,
+            dest,
+            max_bytes=max_bytes,
+            timeout_s=_remaining_timeout(deadline, "export"),
         )
     except UniversePortabilityError:
         dest.unlink(missing_ok=True)
@@ -371,8 +632,11 @@ def restore_universe(
     archive inside the tenant schema.  The caller must supply a fresh database;
     no clean/drop flags exist here, making accidental overwrite impossible.
     """
-    inspection = inspect_archive(
-        archive, max_bytes=max_bytes, timeout_s=timeout_s,
+    deadline = time.monotonic() + timeout_s
+    inspection, catalog = _inspect_archive(
+        archive,
+        max_bytes=max_bytes,
+        timeout_s=_remaining_timeout(deadline, "restore"),
         pg_restore=pg_restore,
     )
     executable = pg_restore or _postgres_executable("pg_restore")
@@ -383,19 +647,49 @@ def restore_universe(
             "the restore target DSN must name a database"
         )
     client_env = postgres_client_env(dsn)
-    _restore_via_filtered_sql(
-        executable=executable,
-        psql=psql,
-        archive=inspection.path,
-        dbname=str(dbname),
-        client_env=client_env,
-        timeout_s=timeout_s,
-        max_sql_bytes=max(
-            64 * 1024 * 1024,
-            max_bytes * DEFAULT_MAX_RESTORE_EXPANSION,
-        ),
-    )
+    restore_list = _write_restore_list(catalog)
+    try:
+        _restore_via_filtered_sql(
+            executable=executable,
+            psql=psql,
+            archive=inspection.path,
+            restore_list=restore_list,
+            dbname=str(dbname),
+            client_env=client_env,
+            timeout_s=_remaining_timeout(deadline, "restore"),
+            max_sql_bytes=max(
+                64 * 1024 * 1024,
+                max_bytes * DEFAULT_MAX_RESTORE_EXPANSION,
+            ),
+        )
+    finally:
+        restore_list.unlink(missing_ok=True)
     return inspection
+
+
+def _write_restore_list(catalog: str) -> Path:
+    """Write a private pg_restore list containing only inert public objects."""
+    descriptor, raw_path = tempfile.mkstemp(prefix="yoke-universe-", suffix=".toc")
+    path = Path(raw_path)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            for line in catalog.splitlines():
+                if not line or line.startswith(";"):
+                    stream.write(line + "\n")
+                    continue
+                kind, _namespace = _toc_kind_and_namespace(line)
+                if kind in _RESTORED_TOC_KINDS:
+                    stream.write(line + "\n")
+                else:
+                    # pg_restore list files use a leading semicolon to disable
+                    # an entry while retaining dependency ordering for the
+                    # remaining inert relation/data rows.
+                    stream.write(";" + line + "\n")
+        path.chmod(0o600)
+        return path
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
 
 
 def _bounded_diagnostic_reader(stream: object, sink: bytearray) -> None:
@@ -474,6 +768,7 @@ def _restore_via_filtered_sql(
     executable: str,
     psql: str,
     archive: Path,
+    restore_list: Path,
     dbname: str,
     client_env: Mapping[str, str],
     timeout_s: int,
@@ -490,6 +785,7 @@ def _restore_via_filtered_sql(
         "--no-security-labels",
         "--no-subscriptions",
         "--schema=public",
+        "--use-list", str(restore_list),
         str(archive),
     ]
     psql_cmd = [
@@ -612,24 +908,30 @@ def user_content_counts(
     conn: object,
     tables: Sequence[str] = USER_CONTENT_TABLES,
 ) -> dict[str, int]:
-    """Return user-created row counts, treating an absent table as incompatible."""
+    """Return counts for every known user-work table present in this release.
+
+    Additive releases may introduce a table before an older universe has
+    converged it.  Missing tables therefore count as zero here; the separate
+    exact schema-fingerprint gate remains responsible for compatibility.
+    """
     present_rows = conn.execute(  # type: ignore[attr-defined]
         "SELECT table_name FROM information_schema.tables"
         " WHERE table_schema = current_schema() AND table_name = ANY(%s)",
         (list(tables),),
     ).fetchall()
     present = {str(row[0]) for row in present_rows}
-    missing = sorted(set(tables).difference(present))
-    if missing:
-        raise ArchiveCompatibilityError(
-            "the universe schema is missing content tables: " + ", ".join(missing)
-        )
     counts: dict[str, int] = {}
     for table in tables:
         # Names come only from the module constant/caller-owned trusted tuple,
         # never from an archive or request.
-        row = conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()  # type: ignore[attr-defined]
-        counts[table] = int(row[0])
+        if table in present:
+            sql = _USER_CONTENT_COUNT_SQL.get(
+                table, f'SELECT COUNT(*) FROM "{table}"',
+            )
+            row = conn.execute(sql).fetchone()  # type: ignore[attr-defined]
+            counts[table] = int(row[0])
+        else:
+            counts[table] = 0
     return counts
 
 
@@ -638,15 +940,27 @@ def converge_and_validate_restored_universe(
     *,
     expected_org_slug: str,
     expected_schema_fingerprint: str,
+    timeout_s: float = DEFAULT_ARCHIVE_TIMEOUT_S,
 ) -> dict[str, object]:
     """Converge an imported DB and prove org identity + exact current schema."""
     from yoke_core.domain import db_backend
     from yoke_core.domain.actor_permissions import seed_roles_and_permissions
     from yoke_core.domain.schema_fingerprint import fingerprint_kind
+    from yoke_core.domain.flow_init import create_or_replace_item_progress_view
+    from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
     from yoke_core.domain.schema_init import converge_core_schema
     from yoke_core.domain.schema_readiness import missing_readiness_tables
 
-    conn = db_backend.connect_psycopg(dsn)
+    parsed_dsn = conninfo.conninfo_to_dict(dsn)
+    prior_options = str(parsed_dsn.get("options") or "").strip()
+    bounded_options = (
+        f"-c statement_timeout={max(1, int(timeout_s * 1000))}"
+        f" -c lock_timeout={max(1, int(timeout_s * 1000))}"
+    )
+    parsed_dsn["options"] = " ".join(
+        value for value in (prior_options, bounded_options) if value
+    )
+    conn = db_backend.connect_psycopg(conninfo.make_conninfo(**parsed_dsn))
     try:
         # Some legacy convergence steps own explicit commits, so they cannot
         # run inside psycopg's nested ``transaction()`` context.  The database
@@ -654,6 +968,11 @@ def converge_and_validate_restored_universe(
         # already atomic, and callers drop staging on any validation failure.
         converge_core_schema(conn)
         seed_roles_and_permissions(conn)
+        # Views and executable schema are deliberately omitted from uploaded
+        # TOCs. Recreate the sole canonical view and QA trigger/function from
+        # trusted deployed code before the exact fingerprint check.
+        create_or_replace_item_progress_view(conn)
+        _ensure_qa_runs_verdict_trigger(conn)
         conn.commit()
         organizations = conn.execute(
             "SELECT slug FROM organizations ORDER BY id"

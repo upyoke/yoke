@@ -41,7 +41,7 @@ def test_inspection_rejects_huge_body_before_subprocess(tmp_path, monkeypatch):
         called = True
         raise AssertionError("pg_restore must not run")
 
-    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
     with pytest.raises(portability.ArchiveTooLargeError):
         portability.inspect_archive(archive, max_bytes=10)
     assert called is False
@@ -51,13 +51,87 @@ def test_inspection_rejects_bad_magic_without_spawning(tmp_path, monkeypatch):
     archive = tmp_path / "tampered.dump"
     archive.write_bytes(b"NOT-A-DUMP")
     monkeypatch.setattr(
-        subprocess, "run",
+        subprocess, "Popen",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("pg_restore must not run")
         ),
     )
     with pytest.raises(portability.ArchiveInvalidError, match="custom-format"):
         portability.inspect_archive(archive)
+
+
+def test_inspection_rejects_cluster_objects_and_timeout(tmp_path, monkeypatch):
+    archive = tmp_path / "catalog.dump"
+    archive.write_bytes(portability.ARCHIVE_MAGIC + b"placeholder")
+    catalog = """;
+;     Dumped from database version: 17.10
+;     Dumped by pg_dump version: 17.10
+1; 1259 1 TABLE public organizations yoke
+2; 3079 2 EXTENSION - dblink
+"""
+    with pytest.raises(portability.ArchiveInvalidError, match="EXTENSION"):
+        portability._validate_catalog(catalog)
+
+    class TimedOutCatalog:
+        def __init__(self, *_args, **_kwargs):
+            self.stdout = io.BytesIO()
+            self.stderr = io.BytesIO()
+            self.returncode = None
+
+        def wait(self, timeout=None):
+            if self.returncode is None:
+                raise subprocess.TimeoutExpired(["pg_restore"], timeout)
+            return self.returncode
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.returncode = -9
+
+    monkeypatch.setattr(subprocess, "Popen", TimedOutCatalog)
+    with pytest.raises(portability.ArchiveInvalidError, match="timed out"):
+        portability.inspect_archive(archive, timeout_s=1)
+
+
+def test_catalog_allowlist_omits_executable_schema_and_refuses_unknown(tmp_path):
+    catalog = """;
+;     Dumped from database version: 17.10
+;     Dumped by pg_dump version: 17.10
+1; 1259 1 TABLE public organizations yoke
+2; 1255 2 FUNCTION public run_on_seed() yoke
+3; 2620 3 TRIGGER public projects dangerous yoke
+4; 0 4 TABLE DATA public organizations yoke
+"""
+    assert portability._validate_catalog(catalog) == 2
+    restore_list = portability._write_restore_list(catalog)
+    try:
+        rendered = restore_list.read_text(encoding="utf-8")
+    finally:
+        restore_list.unlink()
+    assert "\n1; 1259 1 TABLE public organizations" in rendered
+    assert "\n;2; 1255 2 FUNCTION public run_on_seed()" in rendered
+    assert "\n;3; 2620 3 TRIGGER public projects" in rendered
+
+    unknown = catalog.replace("FUNCTION", "EXECUTABLE SURPRISE")
+    with pytest.raises(portability.ArchiveInvalidError, match="unsupported"):
+        portability._validate_catalog(unknown)
+
+    foreign_schema = catalog.replace(
+        "TABLE public organizations", "TABLE private organizations", 1,
+    )
+    with pytest.raises(portability.ArchiveInvalidError, match="outside public"):
+        portability._validate_catalog(foreign_schema)
+
+
+def test_catalog_reader_has_a_hard_memory_ceiling(monkeypatch):
+    monkeypatch.setattr(portability, "_CATALOG_BYTES", 5)
+    sink = bytearray()
+    errors: list[BaseException] = []
+    portability._catalog_reader(io.BytesIO(b"123456"), sink, errors)
+    assert sink == b""
+    assert len(errors) == 1
+    assert isinstance(errors[0], portability.ArchiveInvalidError)
 
 
 def test_restore_pump_filters_only_the_version_compatibility_preamble():
@@ -128,6 +202,61 @@ def test_server_side_dump_enforces_size_while_streaming(tmp_path):
     assert not destination.exists()
 
 
+def test_real_restore_omits_uploaded_function_and_trigger(tmp_path):
+    from runtime.api.fixtures import pg_testdb
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.schema_init import converge_core_schema
+
+    with pg_testdb.test_database() as source:
+        source_dsn = os.environ[db_backend.PG_DSN_ENV]
+        converge_core_schema(source)
+        source.execute(
+            "CREATE FUNCTION uploaded_side_effect() RETURNS trigger"
+            " LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$"
+        )
+        source.execute(
+            "CREATE TRIGGER uploaded_side_effect_trigger BEFORE INSERT ON projects"
+            " FOR EACH ROW EXECUTE FUNCTION uploaded_side_effect()"
+        )
+        source.commit()
+        archive = tmp_path / "executable.dump"
+        portability.dump_universe(source_dsn, archive)
+
+        source_info = psycopg.conninfo.conninfo_to_dict(source_dsn)
+        admin_info = dict(source_info, dbname="postgres")
+        target_db = "portability_executable_filter"
+        with psycopg.connect(
+            psycopg.conninfo.make_conninfo(**admin_info), autocommit=True,
+        ) as admin:
+            admin.execute(f'DROP DATABASE IF EXISTS "{target_db}"')
+            admin.execute(f'CREATE DATABASE "{target_db}"')
+        target_dsn = psycopg.conninfo.make_conninfo(
+            **dict(source_info, dbname=target_db),
+        )
+        try:
+            portability.restore_universe(archive, target_dsn)
+            with psycopg.connect(target_dsn) as target:
+                assert target.execute(
+                    "SELECT COUNT(*) FROM pg_proc p JOIN pg_namespace n"
+                    " ON n.oid = p.pronamespace WHERE n.nspname = 'public'"
+                    " AND p.proname = 'uploaded_side_effect'"
+                ).fetchone() == (0,)
+                assert target.execute(
+                    "SELECT COUNT(*) FROM pg_trigger"
+                    " WHERE tgname = 'uploaded_side_effect_trigger'"
+                ).fetchone() == (0,)
+        finally:
+            with psycopg.connect(
+                psycopg.conninfo.make_conninfo(**admin_info), autocommit=True,
+            ) as admin:
+                admin.execute(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
+                    " WHERE datname = %s AND pid <> pg_backend_pid()",
+                    (target_db,),
+                )
+                admin.execute(f'DROP DATABASE IF EXISTS "{target_db}"')
+
+
 def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
     from runtime.api.fixtures import pg_testdb
     from yoke_core.domain import db_backend
@@ -140,8 +269,10 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
         # this source to the same full additive shape a real current local
         # universe carries before producing the portability artifact.
         from yoke_core.domain.schema_init import converge_core_schema
+        from yoke_core.domain.flow_init import create_or_replace_item_progress_view
 
         converge_core_schema(source)
+        create_or_replace_item_progress_view(source)
         source.commit()
         source.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix, created_at)"
@@ -241,3 +372,14 @@ def test_user_content_counts_detects_nonempty_universe():
         )
         counts = portability.user_content_counts(conn)
         assert counts["projects"] == 1
+
+        conn.execute("DELETE FROM projects WHERE id = 99001")
+        conn.execute(
+            "INSERT INTO ouroboros_entries"
+            " (id, timestamp, agent, category, body, created_at, project_id)"
+            " VALUES (99002, 'now', 'tester', 'observation', 'real work',"
+            " 'now', NULL)"
+        )
+        conn.commit()
+        counts = portability.user_content_counts(conn)
+        assert counts["ouroboros_entries"] == 1

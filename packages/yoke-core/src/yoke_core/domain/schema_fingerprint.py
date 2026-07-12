@@ -111,8 +111,8 @@ def _reject_retired_root_yoke_db_conn(conn: sqlite3.Connection) -> None:
             )
 
 
-def _fingerprint_postgres_conn(conn) -> str:
-    """Compute the canonical fingerprint over the current Postgres schema."""
+def _postgres_schema_rows(conn) -> list[tuple[str, str, str]]:
+    """Canonical ordered Postgres schema rows used by exact fingerprints."""
     rows = conn.execute(
         """
         WITH objects AS (
@@ -126,7 +126,16 @@ def _fingerprint_postgres_conn(conn) -> str:
                         pg_catalog.pg_get_expr(def.adbin, def.adrelid),
                         ''
                     ) || ':' ||
-                    CASE WHEN att.attnotnull THEN 'NO' ELSE 'YES' END,
+                    CASE WHEN att.attnotnull THEN 'NO' ELSE 'YES' END || ':' ||
+                    att.attidentity::text || ':' || att.attgenerated::text || ':' ||
+                    COALESCE(
+                        pg_catalog.pg_get_serial_sequence(
+                            pg_catalog.quote_ident(ns.nspname) || '.' ||
+                                pg_catalog.quote_ident(cls.relname),
+                            att.attname
+                        ),
+                        ''
+                    ),
                     chr(10) ORDER BY att.attnum
                 ) AS definition
             FROM pg_catalog.pg_class cls
@@ -143,6 +152,20 @@ def _fingerprint_postgres_conn(conn) -> str:
             UNION ALL
 
             SELECT
+                'sequence' AS object_type,
+                cls.relname AS object_name,
+                pg_catalog.format_type(seq.seqtypid, NULL) || ':' ||
+                    seq.seqstart || ':' || seq.seqincrement || ':' ||
+                    seq.seqmax || ':' || seq.seqmin || ':' ||
+                    seq.seqcache || ':' || seq.seqcycle AS definition
+            FROM pg_catalog.pg_sequence seq
+            JOIN pg_catalog.pg_class cls ON cls.oid = seq.seqrelid
+            JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+            WHERE ns.nspname = current_schema()
+
+            UNION ALL
+
+            SELECT
                 'view' AS object_type,
                 cls.relname AS object_name,
                 COALESCE(pg_catalog.pg_get_viewdef(cls.oid, true), '') AS definition
@@ -150,6 +173,57 @@ def _fingerprint_postgres_conn(conn) -> str:
             JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
             WHERE ns.nspname = current_schema()
               AND cls.relkind IN ('v', 'm')
+
+            UNION ALL
+
+            SELECT
+                'function' AS object_type,
+                proc.proname || '(' ||
+                    pg_catalog.pg_get_function_identity_arguments(proc.oid) || ')'
+                    AS object_name,
+                pg_catalog.pg_get_functiondef(proc.oid) AS definition
+            FROM pg_catalog.pg_proc proc
+            JOIN pg_catalog.pg_namespace ns ON ns.oid = proc.pronamespace
+            WHERE ns.nspname = current_schema()
+              AND proc.prokind IN ('f', 'p')
+
+            UNION ALL
+
+            SELECT
+                'trigger' AS object_type,
+                cls.relname || '.' || trig.tgname AS object_name,
+                pg_catalog.pg_get_triggerdef(trig.oid, true) AS definition
+            FROM pg_catalog.pg_trigger trig
+            JOIN pg_catalog.pg_class cls ON cls.oid = trig.tgrelid
+            JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+            WHERE ns.nspname = current_schema()
+              AND NOT trig.tgisinternal
+
+            UNION ALL
+
+            SELECT
+                'rule' AS object_type,
+                cls.relname || '.' || rewrite.rulename AS object_name,
+                pg_catalog.pg_get_ruledef(rewrite.oid, true) AS definition
+            FROM pg_catalog.pg_rewrite rewrite
+            JOIN pg_catalog.pg_class cls ON cls.oid = rewrite.ev_class
+            JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+            WHERE ns.nspname = current_schema()
+              AND rewrite.rulename <> '_RETURN'
+
+            UNION ALL
+
+            SELECT
+                'policy' AS object_type,
+                cls.relname || '.' || policy.polname AS object_name,
+                policy.polcmd::text || ':' || policy.polpermissive::text || ':' ||
+                    COALESCE(pg_catalog.pg_get_expr(policy.polqual, policy.polrelid), '') || ':' ||
+                    COALESCE(pg_catalog.pg_get_expr(policy.polwithcheck, policy.polrelid), '')
+                    AS definition
+            FROM pg_catalog.pg_policy policy
+            JOIN pg_catalog.pg_class cls ON cls.oid = policy.polrelid
+            JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+            WHERE ns.nspname = current_schema()
 
             UNION ALL
 
@@ -180,7 +254,12 @@ def _fingerprint_postgres_conn(conn) -> str:
         ORDER BY object_type, object_name, definition
         """
     ).fetchall()
-    return _hash_rows(rows)
+    return [tuple(str(value) for value in row) for row in rows]
+
+
+def _fingerprint_postgres_conn(conn) -> str:
+    """Compute the canonical fingerprint over the current Postgres schema."""
+    return _hash_rows(_postgres_schema_rows(conn))
 
 
 def _fingerprint_postgres_target(target) -> str:
