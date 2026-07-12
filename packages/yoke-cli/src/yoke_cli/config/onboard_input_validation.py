@@ -18,6 +18,10 @@ import os
 import re
 from pathlib import Path
 
+from yoke_cli.config import project_checkout_path
+from yoke_cli.config import github_repository_name
+from yoke_cli.config import project_git_branch
+
 # A project slug is a lowercase, hyphen-separated identifier (e.g. ``my-project``)
 # — the same shape ``slug_from_checkout`` produces and the backlog layer stores.
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -57,6 +61,9 @@ def validate_clone_target_folder(path: str) -> str | None:
     cleaned = path.strip()
     if not cleaned:
         return "Enter a folder path."
+    unsafe = project_checkout_path.validation_error(cleaned)
+    if unsafe is not None:
+        return unsafe
     target = _expand(cleaned)
     if target.exists():
         if not target.is_dir():
@@ -72,6 +79,18 @@ def validate_clone_target_folder(path: str) -> str | None:
     return None
 
 
+def validate_clone_resume_target_folder(path: str) -> str | None:
+    """Validate path safety for an exact existing clone considered for resume."""
+
+    cleaned = path.strip()
+    if not cleaned:
+        return "Enter a folder path."
+    unsafe = project_checkout_path.validation_error(cleaned)
+    if unsafe is not None:
+        return unsafe
+    return validate_create_target_folder(cleaned)
+
+
 def validate_create_target_folder(path: str) -> str | None:
     """Validate a create-new / existing-folder target's path shape and writability.
 
@@ -83,6 +102,9 @@ def validate_create_target_folder(path: str) -> str | None:
     cleaned = path.strip()
     if not cleaned:
         return "Enter a folder path."
+    unsafe = project_checkout_path.validation_error(cleaned)
+    if unsafe is not None:
+        return unsafe
     target = _expand(cleaned)
     if target.exists() and not target.is_dir():
         return "That path is a file, not a folder — pick a folder path."
@@ -121,39 +143,25 @@ def validate_prefix(value: str) -> str | None:
 
 
 def validate_branch(value: str) -> str | None:
-    """Validate a git branch name's shape (the rejection cases git itself enforces).
+    """Validate a branch before it can reach any Git command."""
 
-    Not the full ``git check-ref-format`` grammar — just the cheap, common
-    mistakes (whitespace, leading/trailing slash or dot, ``..``, control chars,
-    the reserved ``@``) so a clearly-malformed branch is caught inline instead of
-    failing the push at apply.
-    """
-    cleaned = value.strip()
-    if not cleaned:
-        return "Enter a branch name."
-    if cleaned != value:
-        return "A branch name can't have leading or trailing spaces."
-    if any(c.isspace() for c in cleaned):
-        return "A branch name can't contain spaces."
-    if cleaned == "@":
-        return "That branch name is reserved — pick another."
-    if (
-        cleaned.startswith(("/", "."))
-        or cleaned.endswith(("/", ".", ".lock"))
-        or ".." in cleaned
-        or "//" in cleaned
-        or any(bad in cleaned for bad in ("~", "^", ":", "?", "*", "[", "\\"))
-    ):
-        return "That isn't a valid branch name — use letters, digits, - / _ . "
-    return None
+    return project_git_branch.validation_error(value)
+
+
+def validate_repository_name(value: str) -> str | None:
+    """Reject names GitHub could normalize or reinterpret before a POST."""
+
+    return github_repository_name.validation_error(value)
 
 
 __all__ = [
     "PROJECT_SLUG_MAX_LENGTH",
     "validate_branch",
     "validate_clone_target_folder",
+    "validate_clone_resume_target_folder",
     "validate_create_target_folder",
     "validate_display_name",
     "validate_prefix",
+    "validate_repository_name",
     "validate_slug",
 ]

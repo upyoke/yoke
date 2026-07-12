@@ -251,7 +251,6 @@ class TestRelayHttps:
         assert response.error.code == "https_transport_failed"
         assert "could not reach" in response.error.message
 
-
 class TestEngineVersionSkewWarning:
     _CONN = HttpsConnection(api_url="https://api.example", token="tok-123")
 

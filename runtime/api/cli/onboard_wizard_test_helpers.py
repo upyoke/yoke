@@ -92,6 +92,7 @@ def stub_token_verifiers(monkeypatch) -> None:
     )
     github_report = {
         "ok": True,
+        "ready": True,
         "configured": True,
         "state": "connected",
         "api_url": "https://api.github.com",
@@ -165,7 +166,17 @@ def stub_source_branch(
     detected default (``None`` = no parseable HEAD) and ``reachable`` is whether
     the URL passes the inline reachability check. No scenario shells out to git.
     """
-    from yoke_cli.config import project_git_transport
+    from yoke_cli.config import project_git_probe, project_git_transport
+
+    monkeypatch.setattr(
+        project_git_transport,
+        "remote_probe",
+        lambda url, token=None, github_web_url=None: project_git_probe.GitRemoteProbe(
+            reachable,
+            default_branch=branch if reachable else None,
+            failure_kind=None if reachable else project_git_probe.FAILURE_OTHER,
+        ),
+    )
 
     monkeypatch.setattr(
         project_git_transport, "remote_default_branch",

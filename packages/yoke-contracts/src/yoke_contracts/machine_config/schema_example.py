@@ -74,6 +74,8 @@ def canonical_example_payload() -> dict[str, Any]:
             "app_slug": "yoke",
             "app_id": 12345,
             "client_id": "Iv1.example",
+            "profile_source": _contract().GITHUB_PROFILE_SOURCE_SERVICE,
+            "profile_service_api_url": "https://api.upyoke.com",
             "authorization": {
                 "kind": _contract().GITHUB_AUTH_KIND_USER_AUTHORIZATION,
                 "refresh_credential_ref": (

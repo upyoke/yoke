@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.cli.project_clone_test_support import allow_local_clone
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     run_git,
@@ -164,6 +166,7 @@ def test_clone_resume_progress_marks_checkout_step_skipped(
     home = tmp_path / "home"
     config = home / "config.json"
     remote = seed_remote(tmp_path)
+    allow_local_clone(monkeypatch)
     checkout = tmp_path / "clone"
     run_git(tmp_path, "clone", str(remote), str(checkout))
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
@@ -234,12 +237,15 @@ def test_existing_app_binding_failure_never_enables_sync(
         },
     )
     monkeypatch.setattr(
-        project_onboard_progress.github_user_tokens,
-        "access_token_from_machine_config",
-        lambda **_kwargs: SimpleNamespace(access_token="ghu_short_lived"),
+        project_onboard_progress.github_binding_auth,
+        "locked_profile_bound_access_for_binding",
+        lambda **_kwargs: nullcontext(SimpleNamespace(
+            api_url="https://api.github.example",
+            token=SimpleNamespace(access_token="ghu_short_lived"),
+        )),
     )
 
-    def fail_bind(function_id, payload, _config_path):
+    def fail_bind(function_id, payload, _config_path, **_kwargs):
         calls.append((function_id, payload))
         raise RuntimeError("binding rejected")
 
@@ -292,12 +298,15 @@ def test_app_binding_enables_issue_sync_only_after_active_verification(
         },
     )
     monkeypatch.setattr(
-        project_onboard_progress.github_user_tokens,
-        "access_token_from_machine_config",
-        lambda **_kwargs: SimpleNamespace(access_token="ghu_short_lived"),
+        project_onboard_progress.github_binding_auth,
+        "locked_profile_bound_access_for_binding",
+        lambda **_kwargs: nullcontext(SimpleNamespace(
+            api_url="https://api.github.example",
+            token=SimpleNamespace(access_token="ghu_short_lived"),
+        )),
     )
 
-    def dispatch(function_id, payload, _config_path):
+    def dispatch(function_id, payload, _config_path, **_kwargs):
         calls.append((function_id, payload))
         if function_id == "projects.github_binding.bind":
             return {"binding": {"status": binding_status}}

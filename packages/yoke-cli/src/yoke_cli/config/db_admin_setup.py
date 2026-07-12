@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
 import re
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from yoke_cli.config import machine_config
+from yoke_cli.config import machine_config_file
+from yoke_cli.config import github_machine_operation
 from yoke_cli.config import secrets as machine_secrets
 from yoke_contracts.machine_config import schema as contract
 
@@ -257,32 +258,48 @@ def _write_connection(
     set_active_env: bool,
 ) -> dict[str, Any]:
     cfg_path = machine_config.config_path(config_path)
-    payload = machine_config.load_config(cfg_path)
-    if not payload:
-        payload = {"schema_version": contract.SCHEMA_VERSION}
-    connections = payload.setdefault("connections", {})
-    if not isinstance(connections, dict):
-        raise DbAdminSetupError("connections must be an object; repair the file first")
-    entry = {
-        "transport": "local-postgres",
-        contract.PROD_FLAG_KEY: False,
-        "credential_source": {
-            "kind": contract.CREDENTIAL_KIND_DSN_FILE,
-            "path": _path_ref(secret_path),
-        },
-        "postgres": dict(postgres),
-        "authority": dict(authority),
-    }
-    connections[env_name] = entry
-    if set_active_env or not str(payload.get("active_env") or "").strip():
-        payload["active_env"] = env_name
-    _write_payload(payload, cfg_path)
-    return {
-        "env": env_name,
-        "connection": dict(entry),
-        "active_env": payload.get("active_env"),
-        "config": str(cfg_path),
-    }
+    try:
+        with github_machine_operation.operation_lock(cfg_path):
+            with machine_config_file.exclusive_lock(cfg_path):
+                payload = machine_config.load_config(cfg_path)
+                if not payload:
+                    payload = {"schema_version": contract.SCHEMA_VERSION}
+                connections = payload.setdefault("connections", {})
+                if not isinstance(connections, dict):
+                    raise DbAdminSetupError(
+                        "connections must be an object; repair the file first"
+                    )
+                entry = {
+                    "transport": "local-postgres",
+                    contract.PROD_FLAG_KEY: False,
+                    "credential_source": {
+                        "kind": contract.CREDENTIAL_KIND_DSN_FILE,
+                        "path": _path_ref(secret_path),
+                    },
+                    "postgres": dict(postgres),
+                    "authority": dict(authority),
+                }
+                connections[env_name] = entry
+                if (
+                    set_active_env
+                    or not str(payload.get("active_env") or "").strip()
+                ):
+                    payload["active_env"] = env_name
+                _write_payload(payload, cfg_path)
+                return {
+                    "env": env_name,
+                    "connection": dict(entry),
+                    "active_env": payload.get("active_env"),
+                    "config": str(cfg_path),
+                }
+    except (
+        github_machine_operation.GitHubMachineOperationError,
+        machine_config.MachineConfigError,
+        machine_config_file.MachineConfigFileError,
+    ) as exc:
+        raise DbAdminSetupError(
+            "machine configuration changed or was unavailable during db-admin setup"
+        ) from exc
 
 
 def _write_payload(payload: Mapping[str, Any], cfg_path: Path) -> None:
@@ -293,11 +310,9 @@ def _write_payload(payload: Mapping[str, Any], cfg_path: Path) -> None:
     if errors:
         detail = "\n".join(f"  - {issue.code}: {issue.message}" for issue in errors)
         raise DbAdminSetupError(f"refusing to write invalid machine config:\n{detail}")
-    cfg_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    tmp_path = cfg_path.with_name(cfg_path.name + ".tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    tmp_path.chmod(0o600)
-    os.replace(tmp_path, cfg_path)
+    machine_config_file.atomic_write_text(
+        cfg_path, json.dumps(payload, indent=2) + "\n",
+    )
 
 
 def _path_ref(path: Path) -> str:

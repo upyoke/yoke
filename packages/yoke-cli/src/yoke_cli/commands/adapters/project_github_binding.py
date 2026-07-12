@@ -7,12 +7,8 @@ import json
 import sys
 from typing import Any, Dict, List
 
-from yoke_cli.config import github_user_tokens, machine_config
+from yoke_cli.config import github_binding_auth
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.github_origin import (
-    GitHubApiOriginError,
-    validate_github_api_endpoint,
-)
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
@@ -55,12 +51,24 @@ def projects_github_binding_bind(args: List[str]) -> int:
     if parsed is None:
         return 2
     try:
-        github = machine_config.github_config()
-        expected_api_url = validate_github_api_endpoint(
-            str(github.get("api_url") or "")
-        ).base_url
-        user_token = github_user_tokens.access_token_from_machine_config()
-    except (GitHubApiOriginError, github_user_tokens.GitHubUserTokenError):
+        with github_binding_auth.locked_profile_bound_access_for_binding(
+        ) as authority:
+            payload: Dict[str, Any] = {
+                "project": parsed.project,
+                "installation_id": parsed.installation_id,
+                "repository_id": parsed.repository_id,
+                "github_repo": parsed.github_repo,
+                "expected_api_url": authority.api_url,
+                "github_user_access_token": authority.token.access_token,
+            }
+            return _dispatch(
+                "projects.github_binding.bind",
+                payload,
+                parsed.session_id,
+                parsed.json_mode,
+                sensitive_values=(authority.token.access_token,),
+            )
+    except github_binding_auth.GitHubBindingAuthError:
         message = (
             "GitHub App user authorization is unavailable. Run "
             "`yoke github connect` and retry."
@@ -74,20 +82,6 @@ def projects_github_binding_bind(args: List[str]) -> int:
         else:
             print(f"error: {message}", file=sys.stderr)
         return 1
-    payload: Dict[str, Any] = {
-        "project": parsed.project,
-        "installation_id": parsed.installation_id,
-        "repository_id": parsed.repository_id,
-        "github_repo": parsed.github_repo,
-        "expected_api_url": expected_api_url,
-        "github_user_access_token": user_token.access_token,
-    }
-    return _dispatch(
-        "projects.github_binding.bind",
-        payload,
-        parsed.session_id,
-        parsed.json_mode,
-    )
 
 
 def projects_github_binding_unbind(args: List[str]) -> int:
@@ -141,6 +135,7 @@ def _dispatch(
     json_mode: bool,
     *,
     field: str | None = None,
+    sensitive_values: tuple[str, ...] = (),
 ) -> int:
     def _human_writer(response, stdout, stderr) -> None:
         if response.success:
@@ -159,6 +154,7 @@ def _dispatch(
         session_id=session_id,
         json_mode=json_mode,
         human_writer=_human_writer,
+        sensitive_values=sensitive_values,
     )
 
 

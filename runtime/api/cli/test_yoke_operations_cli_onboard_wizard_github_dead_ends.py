@@ -134,6 +134,7 @@ def test_no_machine_token_drops_reuse_machine_row() -> None:
             await pilot.pause()
             values = _row_values(app)
             assert PROJECT_GITHUB_REUSE_MACHINE not in values
+            assert GITHUB_ADOPTION_APP_BINDING not in values
             assert values == [r.value for r in steps.PROJECT_GITHUB_ROWS_NO_MACHINE]
 
     asyncio.run(scenario())

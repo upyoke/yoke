@@ -16,7 +16,7 @@ def test_tracked_catalog_includes_complete_github_app_live_wave() -> None:
         for scenario in scenarios
         if scenario.scenario_id.startswith("GITHUB-")
     }
-    assert github_ids == {f"GITHUB-{number:03d}" for number in range(1, 42)}
+    assert github_ids == {f"GITHUB-{number:03d}" for number in range(1, 54)}
 
 
 def test_loads_scenario_tables_from_plan_doc(tmp_path: Path) -> None:

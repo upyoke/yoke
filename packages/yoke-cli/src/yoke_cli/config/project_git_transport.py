@@ -20,19 +20,40 @@ module is the single home for that transport policy:
 from __future__ import annotations
 
 import base64
-import os
-import subprocess
 from pathlib import Path
-from typing import Mapping
+import urllib.parse
 
 from yoke_contracts import github_origin
 from yoke_cli.config import project_git_prerequisite
 from yoke_cli.config.project_onboard_support import ProjectOnboardError
+from yoke_cli.config.project_git_environment import (
+    git_config_env,
+    isolated_network_git_env,
+    non_interactive_git_env,
+)
+from yoke_cli.config.project_git_diagnostics import scrub_git_diagnostic
+from yoke_cli.config.project_git_process import (
+    NetworkGitBoundaryError,
+    run_network_git,
+)
+from yoke_cli.config.project_git_remote_url import (
+    clean_remote_url,
+    is_configured_github_remote,
+)
+from yoke_cli.config.project_git_push_target import (
+    effective_push_urls,
+    reject_local_push_policy,
+)
+from yoke_cli.config import project_git_probe
+from yoke_cli.config import project_git_upstream
+from yoke_cli.config import project_local_git
 
 # The redaction placeholder substituted for the auth header in any surfaced
-# error so a token can never reach a log line (same invariant the clone runner
-# enforces).
+# error so a token can never reach a log line.
 REDACTED_AUTH_HEADER = "AUTHORIZATION: basic [redacted]"
+GENERAL_CREDENTIAL_HELPER_KEY = "credential.helper"
+GENERAL_HTTP_EXTRA_HEADER_KEY = "http.extraHeader"
+REMOTE_FAILURE_ACCESS = project_git_probe.FAILURE_ACCESS
 
 
 def https_remote(github_repo: str, *, web_url: str | None = None) -> str:
@@ -79,52 +100,55 @@ def git_auth_config(
     return f"http.{endpoint.origin}/.extraheader={git_auth_header(token)}"
 
 
-def non_interactive_git_env(
-    base: Mapping[str, str] | None = None,
-) -> dict[str, str]:
-    """Return a git subprocess env that can never block on an interactive prompt.
-
-    ``GIT_TERMINAL_PROMPT=0`` makes git fail fast instead of prompting for a
-    username/password (the TUI holds the terminal, so a prompt would garble the
-    UI and deadlock). ``GIT_SSH_COMMAND`` hardens the residual-SSH case
-    (``BatchMode=yes`` refuses any SSH prompt; ``StrictHostKeyChecking=accept-new``
-    auto-trusts an unknown host-key instead of asking) — though onboarding
-    eliminates SSH for github.com entirely in favor of HTTPS + the token header.
-    """
-    env = dict(base if base is not None else os.environ)
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    # Git may include HTTP headers in trace output. Force redaction even when
-    # the caller's ambient environment explicitly disabled it.
-    env["GIT_TRACE_REDACT"] = "1"
-    # Installation/user tokens must never cross an unverified TLS connection.
-    # Keep custom CA configuration intact while refusing the global bypass.
-    env["GIT_SSL_NO_VERIFY"] = "0"
-    env.setdefault(
-        "GIT_SSH_COMMAND",
-        "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new",
-    )
-    return env
-
-
-def git_config_env(
-    entries: tuple[str, ...],
+def isolated_remote_config(
+    url: str,
     *,
-    base: Mapping[str, str] | None = None,
-) -> dict[str, str]:
-    """Put ephemeral Git config in subprocess env, never process argv."""
-    env = non_interactive_git_env(base)
-    try:
-        offset = int(env.get("GIT_CONFIG_COUNT", "0"))
-    except ValueError:
-        offset = 0
-    for index, entry in enumerate(entries, start=offset):
-        key, separator, value = entry.partition("=")
-        if not separator or not key:
-            raise ProjectOnboardError(f"invalid ephemeral git config: {entry!r}")
-        env[f"GIT_CONFIG_KEY_{index}"] = key
-        env[f"GIT_CONFIG_VALUE_{index}"] = value
-    env["GIT_CONFIG_COUNT"] = str(offset + len(entries))
-    return env
+    token: str | None = None,
+    web_url: str | None = None,
+) -> tuple[str, ...]:
+    """Reset ambient auth for one remote, optionally adding one Yoke header."""
+
+    endpoint = github_origin.validate_github_web_endpoint(web_url)
+    clean_url = clean_remote_url(url, web_url=endpoint.base_url)
+    remote = urllib.parse.urlsplit(clean_url)
+    remote_origin = urllib.parse.urlunsplit(
+        (remote.scheme, remote.netloc, "", "", "")
+    )
+    if token and not is_configured_github_remote(
+        clean_url, web_url=endpoint.base_url,
+    ):
+        raise ProjectOnboardError(
+            "GitHub App authorization cannot be sent to a repository outside "
+            "the configured GitHub origin"
+        )
+    isolated_origins = tuple(dict.fromkeys((endpoint.origin, remote_origin)))
+    entries = (
+        f"{GENERAL_CREDENTIAL_HELPER_KEY}=",
+        *(f"credential.{origin}.helper=" for origin in isolated_origins),
+        f"{GENERAL_HTTP_EXTRA_HEADER_KEY}=",
+        *(f"http.{origin}/.extraheader=" for origin in isolated_origins),
+        f"http.{clean_url}.extraheader=",
+        "core.askPass=",
+        "credential.interactive=false",
+        "http.followRedirects=false",
+        "http.proxy=",
+        "http.sslVerify=true",
+        "http.cookieFile=",
+        "http.saveCookies=false",
+        "push.gpgSign=false",
+        "push.recurseSubmodules=no",
+        f"http.{clean_url}.sslVerify=true",
+        f"http.{clean_url}.followRedirects=false",
+        f"http.{clean_url}.proxy=",
+        f"http.{clean_url}.cookieFile=",
+        f"http.{clean_url}.saveCookies=false",
+    )
+    if token:
+        entries = (
+            *entries,
+            f"http.{clean_url}.extraheader={git_auth_header(token)}",
+        )
+    return entries
 
 
 def run_git(
@@ -145,30 +169,67 @@ def run_git(
         project_git_prerequisite.require_git_available()
     except project_git_prerequisite.MissingGitError as exc:
         raise ProjectOnboardError(str(exc)) from exc
-    header: str | None = None
     entries: tuple[str, ...] = ()
+    run_args = args
+    upstream: tuple[str, str] | None = None
+    upstream_snapshot: project_git_upstream.UpstreamSnapshot | None = None
     if token:
-        header = git_auth_header(token)
-        remote_url = _push_remote_url(cwd, args)
-        auth_config = git_auth_config(
-            token, remote_url or "", web_url=github_web_url,
+        target = effective_push_urls(cwd, args)
+        remote_url = clean_remote_url(
+            target.selected_url, web_url=github_web_url,
+        )
+        effective = tuple(
+            clean_remote_url(url, web_url=github_web_url)
+            for url in target.effective_urls
+        )
+        if len(effective) != 1 or any(
+            url.casefold() != remote_url.casefold() for url in effective
+        ):
+            raise ProjectOnboardError(
+                "GitHub push target does not match the selected origin repository"
+            )
+        # URL-matched http.* policy must be inspected against the URL Git will
+        # actually contact.  Raw SSH/scp remotes do not participate in Git's
+        # HTTP URL matching and inspecting them would miss hostile CA, proxy,
+        # resolve, cookie, or redirect policy for this canonical HTTPS target.
+        reject_local_push_policy(
+            cwd, remote_url, remote=target.remote,
         )
         entries = (
-            (auth_config, "http.followRedirects=false") if auth_config else ()
+            *isolated_remote_config(
+                remote_url, token=token, web_url=github_web_url,
+            ),
+            f"remote.{target.remote}.proxy=",
         )
-    result = subprocess.run(
-        ["git", *args],
-        cwd=cwd,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-        env=git_config_env(entries),
-    )
+        run_args, upstream = _direct_push_args(
+            args, remote=target.remote, url=remote_url,
+        )
+        if upstream is not None:
+            upstream_snapshot = project_git_upstream.configure(
+                cwd, remote=upstream[0], branch=upstream[1],
+            )
+    try:
+        if _network_command(run_args):
+            with isolated_network_git_env(
+                entries, allow_protocols="https" if token else None,
+            ) as env:
+                result = run_network_git(["git", *run_args], cwd=cwd, env=env)
+        else:
+            result = run_network_git(
+                ["git", *args], cwd=cwd, env=git_config_env(entries),
+                timeout_seconds=60,
+            )
+    except NetworkGitBoundaryError as exc:
+        if upstream_snapshot is not None:
+            project_git_upstream.restore(cwd, upstream_snapshot)
+        raise ProjectOnboardError(
+            scrub_git_diagnostic(exc, token=token)
+        ) from exc
     if result.returncode != 0:
+        if upstream_snapshot is not None:
+            project_git_upstream.restore(cwd, upstream_snapshot)
         detail = result.stderr.strip() or result.stdout.strip()
-        if header:
-            detail = detail.replace(header, REDACTED_AUTH_HEADER)
+        detail = scrub_git_diagnostic(detail, token=token)
         raise ProjectOnboardError(
             f"git {' '.join(args)} failed with {result.returncode}: {detail}"
         )
@@ -191,40 +252,9 @@ def remote_default_branch(
     auth refused, unparseable output, no symref line) so the wizard can fall back
     to a plain default rather than crash on a probe.
     """
-    cleaned = url.strip()
-    if not cleaned:
-        return None
-    project_git_prerequisite.require_git_available()
-    auth_config = (
-        git_auth_config(token, cleaned, web_url=github_web_url) if token else None
-    )
-    entries = (auth_config, "http.followRedirects=false") if auth_config else ()
-    try:
-        result = subprocess.run(
-            ["git", "ls-remote", "--symref", cleaned, "HEAD"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            env=git_config_env(entries),
-            timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if result.returncode != 0:
-        return None
-    for line in result.stdout.splitlines():
-        # The symref line looks like: ``ref: refs/heads/main\tHEAD``.
-        stripped = line.strip()
-        if not stripped.startswith("ref:"):
-            continue
-        ref = stripped[len("ref:"):].split("\t", 1)[0].strip()
-        prefix = "refs/heads/"
-        if ref.startswith(prefix):
-            branch = ref[len(prefix):].strip()
-            if branch:
-                return branch
-    return None
+    return remote_probe(
+        url, token=token, github_web_url=github_web_url,
+    ).default_branch
 
 
 def remote_is_reachable(
@@ -240,85 +270,81 @@ def remote_is_reachable(
     can read it, so the wizard can reject an unreachable URL inline instead of
     deferring the failure to a clone at apply. Returns ``False`` on any failure.
     """
-    cleaned = url.strip()
-    if not cleaned:
-        return False
+    return remote_probe(
+        url, token=token, github_web_url=github_web_url,
+    ).reachable
+
+
+def remote_probe(
+    url: str,
+    token: str | None = None,
+    *,
+    github_web_url: str | None = None,
+) -> project_git_probe.GitRemoteProbe:
+    """Return structured auth/network provenance from one bounded probe."""
+
+    if not str(url or "").strip():
+        return project_git_probe.GitRemoteProbe(
+            False, failure_kind=project_git_probe.FAILURE_OTHER,
+        )
+    try:
+        cleaned = clean_remote_url(url, web_url=github_web_url)
+        entries = isolated_remote_config(
+            cleaned, token=token, web_url=github_web_url,
+        )
+    except ProjectOnboardError:
+        return project_git_probe.GitRemoteProbe(
+            False, failure_kind=project_git_probe.FAILURE_OTHER,
+        )
     project_git_prerequisite.require_git_available()
-    auth_config = (
-        git_auth_config(token, cleaned, web_url=github_web_url) if token else None
+    return project_git_probe.probe_remote(
+        cleaned, entries, runner=run_network_git,
     )
-    entries = (auth_config, "http.followRedirects=false") if auth_config else ()
-    try:
-        result = subprocess.run(
-            ["git", "ls-remote", cleaned, "HEAD"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            env=git_config_env(entries),
-            timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return False
-    return result.returncode == 0
 
 
-def git_current_branch(cwd: Path) -> str:
-    """Return the name of the currently checked-out branch in ``cwd``.
-
-    A freshly cloned repo checks out whatever branch the source repo's HEAD
-    points at — ``master``, ``main``, ``trunk``, or anything else — so the
-    re-home push must target that branch rather than assuming ``main`` (a wrong
-    assumption fails with ``src refspec main does not match any``). Runs under
-    :func:`non_interactive_git_env` like :func:`run_git`; raises
-    :class:`ProjectOnboardError` when the branch cannot be resolved (e.g. a
-    detached HEAD or an empty repo with no commits).
-    """
-    try:
-        project_git_prerequisite.require_git_available()
-    except project_git_prerequisite.MissingGitError as exc:
-        raise ProjectOnboardError(str(exc)) from exc
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=cwd,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-        env=non_interactive_git_env(),
-    )
-    branch = result.stdout.strip()
-    if result.returncode != 0 or not branch or branch == "HEAD":
-        detail = result.stderr.strip() or result.stdout.strip() or "no branch"
-        raise ProjectOnboardError(
-            f"could not resolve the current git branch in {cwd}: {detail}"
-        )
-    return branch
+git_current_branch = project_local_git.current_branch
 
 
-def _push_remote_url(cwd: Path, args: tuple[str, ...]) -> str | None:
-    if not args or args[0] != "push":
-        return None
-    remote = next((item for item in args[1:] if not item.startswith("-")), None)
-    if not remote:
-        return None
-    result = subprocess.run(
-        ["git", "remote", "get-url", remote], cwd=cwd, text=True,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
-        env=non_interactive_git_env(),
-    )
-    return result.stdout.strip() if result.returncode == 0 else None
+def _network_command(args: tuple[str, ...]) -> bool:
+    return bool(args) and args[0] in {"clone", "fetch", "ls-remote", "pull", "push"}
+
+
+def _direct_push_args(
+    args: tuple[str, ...], *, remote: str, url: str,
+) -> tuple[tuple[str, ...], tuple[str, str] | None]:
+    direct: list[str] = []
+    upstream_requested = False
+    replaced = False
+    for item in args:
+        if item in ("-u", "--set-upstream"):
+            upstream_requested = True
+            continue
+        if not replaced and item == remote:
+            direct.append(url)
+            replaced = True
+            continue
+        direct.append(item)
+    branch = direct[-1] if len(direct) > 2 else ""
+    upstream = (remote, branch) if upstream_requested and branch else None
+    return tuple(direct), upstream
 
 
 __all__ = [
     "REDACTED_AUTH_HEADER",
+    "REMOTE_FAILURE_ACCESS",
+    "GENERAL_CREDENTIAL_HELPER_KEY",
+    "GENERAL_HTTP_EXTRA_HEADER_KEY",
+    "clean_remote_url",
     "git_auth_header",
     "git_auth_config",
     "git_current_branch",
     "git_config_env",
     "https_remote",
+    "is_configured_github_remote",
+    "isolated_remote_config",
     "non_interactive_git_env",
     "remote_default_branch",
     "remote_is_reachable",
+    "remote_probe",
     "run_git",
 ]

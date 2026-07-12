@@ -16,15 +16,20 @@ apply"; a non-empty list is the ordered set of problems to show.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Protocol
 
-from yoke_contracts import github_origin
 from yoke_cli.config import onboard_input_validation as validation
 from yoke_cli.config import onboard_credential_replacement
-from yoke_cli.config import github_user_tokens
-from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_git_prerequisite
+from yoke_cli.config import project_clone_resume
+from yoke_cli.config import onboard_wizard_github_state
+from yoke_cli.config.project_clone_support import (
+    CLONE_OUTCOME_FORK,
+    CLONE_OUTCOME_MAKE_IT_MINE,
+)
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 
 REPO_FREE = "free"
 REPO_EMPTY_RESUMABLE = "exists-empty-resumable"
@@ -120,7 +125,15 @@ def _folder_problems(result: _ResultLike, mode: str) -> list[str]:
     # A clone needs an empty/new target; create/existing-folder tolerate an
     # existing dir (it adopts) but still reject a file / unwritable parent.
     if mode in onboard_project.PROJECT_REMOTE_MODES:
-        error = validation.validate_clone_target_folder(str(checkout))
+        remote = str(getattr(result, "project_remote_url", None) or "")
+        if remote and project_clone_resume.existing_clone_matches(
+            Path(str(checkout)).expanduser(),
+            remote,
+            web_url=onboard_wizard_github_state.clone_web_url(result),
+        ):
+            error = validation.validate_clone_resume_target_folder(str(checkout))
+        else:
+            error = validation.validate_clone_target_folder(str(checkout))
     else:
         error = validation.validate_create_target_folder(str(checkout))
     return [error] if error else []
@@ -131,60 +144,19 @@ def _network_findings(
 ) -> tuple[list[str], list[str]]:
     problems: list[str] = []
     notes: list[str] = []
-    token: str | None = None
-    github_config = machine_config.github_config(getattr(result, "config_path", None))
-    if github_config:
-        try:
-            token = github_user_tokens.access_token_from_machine_config(
-                config_path=getattr(result, "config_path", None),
-            ).access_token
-        except github_user_tokens.GitHubUserTokenError:
-            problems.append(
-                "Your connected GitHub authorization could not be refreshed; "
-                "reconnect GitHub before publishing."
-            )
-    api_url = (
-        getattr(result, "machine_github_api_url", None)
-        or github_origin.DEFAULT_GITHUB_API_URL
-    )
-
-    # The connected token still authenticates.
-    if token and probes.token_ok is not None and not probes.token_ok(api_url, token):
-        problems.append(
-            "Your connected GitHub authorization no longer works; reconnect "
-            "GitHub before publishing."
-        )
-
-    # The repo a publish would create isn't already taken on GitHub.
-    if (
+    needs_github_token = bool(
         getattr(result, "project_publish_to_github", False)
-        and probes.repo_availability is not None
-        and token
-    ):
-        owner = getattr(result, "project_publish_owner", None)
-        name = (
-            getattr(result, "project_publish_repo_name", None)
-            or _slug_fallback(result)
-        )
-        if owner and name:
-            availability = probes.repo_availability(api_url, token, owner, name)
-            if availability == REPO_POPULATED_BLOCKING:
-                problems.append(
-                    f"{owner}/{name} already exists and has content — pick a "
-                    "different repo name."
-                )
-            elif availability == REPO_AMBIGUOUS_BLOCKING:
-                problems.append(
-                    f"Couldn't prove {owner}/{name} is available or safely "
-                    "resumable — check the repo name and GitHub access."
-                )
-            elif availability == REPO_EMPTY_RESUMABLE:
-                # Not a problem — Apply reuses an existing empty repo. Say so on
-                # the ready-to-apply screen instead of implying a fresh create.
-                notes.append(
-                    f"{owner}/{name} already exists and is empty — Yoke will "
-                    "reuse it instead of creating a new repo."
-                )
+        or getattr(result, "project_clone_outcome", None)
+        in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE)
+        or getattr(result, "project_github_adoption", None)
+        == GITHUB_ADOPTION_APP_BINDING
+    )
+    if not needs_github_token:
+        return problems, notes
+    # Review is a dry-run surface. Refreshing the App token here would rotate
+    # the persisted refresh credential before Apply, so all live App and repo
+    # checks run only after the operator confirms Apply.
+    notes.append("Live GitHub access will be checked during Apply.")
     return problems, notes
 
 

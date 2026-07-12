@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 from typing import Any
+import urllib.error
 
 import pytest
 
@@ -51,6 +52,33 @@ class _Recorder:
 
 def _install(monkeypatch, recorder: _Recorder) -> None:
     monkeypatch.setattr(github_publish_transport, "_urlopen", recorder)
+
+
+def test_publish_invalid_utf8_is_a_typed_error(monkeypatch) -> None:
+    monkeypatch.setattr(
+        github_publish_transport,
+        "_urlopen",
+        lambda request, timeout: _FakeResponse(b"\xff"),
+    )
+    with pytest.raises(github_publish.GitHubPublishError, match="invalid JSON"):
+        github_publish_transport.request_json(
+            "https://api.github.com", "/user", "secret-token",
+        )
+
+
+def test_publish_transport_reason_redacts_access_token(monkeypatch) -> None:
+    monkeypatch.setattr(
+        github_publish_transport,
+        "_urlopen",
+        lambda request, timeout: (_ for _ in ()).throw(
+            urllib.error.URLError("refused secret-token")
+        ),
+    )
+    with pytest.raises(github_publish.GitHubPublishError) as caught:
+        github_publish_transport.request_json(
+            "https://api.github.com", "/user", "secret-token",
+        )
+    assert "secret-token" not in str(caught.value)
 
 
 def test_list_repo_owners_leads_with_user_then_orgs(monkeypatch) -> None:
@@ -126,6 +154,7 @@ def test_create_repo_requires_optional_administration_without_network(monkeypatc
         )
 
     assert "optional GitHub App Administration permission" in str(caught.value)
+    assert "reconnecting alone does not change" in str(caught.value)
     assert "https://github.com/new" in str(caught.value)
     assert recorder.requests == []
 
@@ -211,11 +240,47 @@ def test_create_repo_happy_path_makes_no_extra_calls(monkeypatch) -> None:
     assert recorder.requests[0]["method"] == "POST"
 
 
+def test_create_repo_resume_rejects_visibility_flip_before_commit_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def request(_api, path, _token, *, method="GET", **_kwargs):
+        calls.append((method, path))
+        if method == "POST":
+            raise github_publish.GitHubPublishError(
+                "name already exists", status=422,
+            )
+        if path == "/repos/octocat/widget":
+            return {"full_name": "octocat/widget", "private": False}
+        raise AssertionError(path)
+
+    monkeypatch.setattr(github_publish, "_request_json", request)
+
+    with pytest.raises(
+        github_publish.GitHubPublishError,
+        match="owner, name, and visibility",
+    ):
+        github_publish.create_repo(
+            "https://api.github.com", "ghs_x",
+            owner="octocat", name="widget", user_login="octocat",
+            private=True, administration_allowed=True,
+        )
+
+    assert calls == [
+        ("POST", "/user/repos"),
+        ("GET", "/repos/octocat/widget"),
+    ]
+
+
 def test_fork_repo_posts_to_forks_endpoint(monkeypatch) -> None:
     recorder = _Recorder({
+        "/user": {"login": "octocat"},
         "/repos/acme/widgets/forks": {
             "full_name": "octocat/widgets",
+            "fork": True,
             "private": False,
+            "parent": {"full_name": "acme/widgets", "private": False},
             "clone_url": "https://github.com/octocat/widgets.git",
             "ssh_url": "git@github.com:octocat/widgets.git",
             "default_branch": "main",
@@ -235,7 +300,10 @@ def test_fork_repo_posts_to_forks_endpoint(monkeypatch) -> None:
 
 
 def test_fork_repo_requires_full_name(monkeypatch) -> None:
-    recorder = _Recorder({"/repos/acme/widgets/forks": {"private": False}})
+    recorder = _Recorder({
+        "/user": {"login": "octocat"},
+        "/repos/acme/widgets/forks": {"private": False},
+    })
     _install(monkeypatch, recorder)
 
     with pytest.raises(github_publish.GitHubPublishError):

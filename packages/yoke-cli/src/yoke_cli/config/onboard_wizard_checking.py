@@ -20,8 +20,13 @@ class CheckingFlow:
         on_error: Callable[[BaseException], None],
         detail_lines: list[str] | None = None,
         group: str = "onboard-check",
+        replace_current: bool = False,
+        blocks_quit: bool = False,
     ) -> None:
         self._checking = True
+        self._checking_blocks_quit = blocks_quit
+        if replace_current and self._history:
+            self._history.pop()
         self._goto(_View(
             step,
             lambda: steps.checking_body(title, message, detail_lines),
@@ -74,6 +79,7 @@ class CheckingFlow:
         if not self._checking:
             return
         self._checking = False
+        self._checking_blocks_quit = False
         if self._history:
             self._history.pop()
         if exc is None:

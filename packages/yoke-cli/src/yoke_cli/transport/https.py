@@ -13,6 +13,10 @@ from typing import Optional
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, HEALTH_PATH, join_api_url
 from yoke_cli.config.machine_config import active_connection
+from yoke_cli.transport.bounded_http_open_policy import (
+    HttpOpenPolicyError,
+    open_bounded_request,
+)
 from yoke_cli.transport.https_response_policy import (
     HttpsResponsePolicyError,
     adopt_boundary_error,
@@ -22,10 +26,9 @@ from yoke_cli.transport.https_response_policy import (
     redact_text,
     safe_excerpt,
 )
-from yoke_cli.transport.https_urlopen import NoRedirect, open_no_redirect
+from yoke_cli.transport.https_urlopen import open_no_redirect
 from yoke_cli.transport.response_deadline_open import (
     ResponseOpenDeadlineError,
-    open_https_caller_owned,
 )
 from yoke_cli.transport.response_deadline_read import deadline_after
 from yoke_contracts.api.function_call import (
@@ -212,11 +215,16 @@ def _open_function_relay(
 ):
     if open_no_redirect is not _DEFAULT_OPEN_NO_REDIRECT:
         return open_no_redirect(request, timeout=timeout_s)
-    return open_https_caller_owned(
-        request,
-        deadline=deadline,
-        handlers=(NoRedirect(),),
-    )
+    try:
+        return open_bounded_request(
+            request,
+            deadline=deadline,
+            replay_safe=False,
+            allow_loopback_http=True,
+            opener=None,
+        )
+    except HttpOpenPolicyError as exc:
+        raise HttpsResponsePolicyError(str(exc)) from exc
 
 
 def _http_error_response(

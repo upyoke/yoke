@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-import re
+import urllib.parse
 from typing import Any, Mapping
+
+from yoke_contracts import github_app_snapshot
 
 from yoke_contracts.github_origin import (
     DEFAULT_GITHUB_API_URL as DEFAULT_GITHUB_API_URL,
@@ -13,7 +15,12 @@ from yoke_contracts.github_origin import (
     validate_github_endpoint_pair,
     validate_github_web_endpoint,
 )
-from yoke_contracts.github_app_tokens import GITHUB_AUTH_KIND_USER_AUTHORIZATION
+from yoke_contracts.github_app_tokens import (
+    GITHUB_AUTH_KIND_USER_AUTHORIZATION,
+    GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
+    GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
+    GITHUB_PROFILE_SOURCE_SERVICE,
+)
 from yoke_contracts.machine_config.schema_projects import (
     ValidationIssue,
     _error,
@@ -26,12 +33,19 @@ from yoke_contracts.machine_config.schema_github_access import (
 
 GITHUB_CONFIG_KEY = "github"
 GITHUB_AUTH_STATUSES = frozenset({"authorized", "pending", "revoked"})
+GITHUB_PROFILE_SOURCES = frozenset({
+    GITHUB_PROFILE_SOURCE_SERVICE,
+    GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
+    GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
+})
 GITHUB_ALLOWED_KEYS = frozenset({
     "api_url",
     "web_url",
     "app_slug",
     "app_id",
     "client_id",
+    "profile_source",
+    "profile_service_api_url",
     "authorization",
     "installations",
     "repositories",
@@ -90,16 +104,24 @@ def validate_github_config(payload: Mapping[str, Any]) -> list[ValidationIssue]:
         issues.extend(_validate_endpoint(entry, "web_url", validate_github_web_endpoint))
     issues.extend(_validate_endpoint_pair(entry))
     issues.extend(_validate_nonempty(entry, "app_slug"))
-    if _is_nonempty_str(entry.get("app_slug")) and not re.fullmatch(
-        r"[A-Za-z0-9-]+", str(entry["app_slug"])
-    ):
-        issues.append(_error(
-            "github_app_slug_invalid",
-            "github.app_slug may contain only letters, numbers, and hyphens",
-            path="github.app_slug",
-        ))
+    if _is_nonempty_str(entry.get("app_slug")):
+        try:
+            github_app_snapshot.app_slug(entry.get("app_slug"), "github.app_slug")
+        except github_app_snapshot.GitHubAppSnapshotError:
+            issues.append(_error(
+                "github_app_slug_invalid",
+                "github.app_slug may contain only bounded letters, numbers, and hyphens",
+                path="github.app_slug",
+            ))
     issues.extend(_validate_nonempty(entry, "client_id"))
-    if "app_id" in entry and (
+    issues.extend(_validate_profile_provenance(entry))
+    if "app_id" not in entry:
+        issues.append(_error(
+            "github_app_id_required",
+            "github.app_id must be a positive integer",
+            path="github.app_id",
+        ))
+    elif (
         isinstance(entry.get("app_id"), bool)
         or not isinstance(entry.get("app_id"), int)
         or int(entry.get("app_id")) <= 0
@@ -121,6 +143,50 @@ def validate_github_config(payload: Mapping[str, Any]) -> list[ValidationIssue]:
     issues.extend(validate_installations(entry.get("installations")))
     issues.extend(validate_repositories(entry.get("repositories")))
     return issues
+
+
+def _validate_profile_provenance(
+    entry: Mapping[str, Any],
+) -> list[ValidationIssue]:
+    source = entry.get("profile_source")
+    if source not in GITHUB_PROFILE_SOURCES:
+        return [_error(
+            "github_profile_source_invalid",
+            "github.profile_source must be 'service', 'local_product', or "
+            "'local_explicit'; "
+            "reconnect GitHub to bind the saved profile",
+            path="github.profile_source",
+        )]
+    service_url = entry.get("profile_service_api_url")
+    if source in {
+        GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
+        GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
+    }:
+        if service_url not in (None, ""):
+            return [_error(
+                "github_profile_service_unexpected",
+                "github.profile_service_api_url is only valid for service profiles",
+                path="github.profile_service_api_url",
+            )]
+        return []
+    if not _is_nonempty_str(service_url):
+        return [_error(
+            "github_profile_service_required",
+            "github.profile_service_api_url is required for a service profile",
+            path="github.profile_service_api_url",
+        )]
+    parsed = urllib.parse.urlsplit(str(service_url))
+    if (
+        parsed.scheme != "https" or not parsed.hostname
+        or parsed.username is not None or parsed.password is not None
+        or parsed.query or parsed.fragment
+    ):
+        return [_error(
+            "github_profile_service_invalid",
+            "github.profile_service_api_url must be a credential-free HTTPS URL",
+            path="github.profile_service_api_url",
+        )]
+    return []
 
 
 def _validate_endpoint(
@@ -204,12 +270,17 @@ def _validate_github_authorization(
             f"{prefix}.status must be one of {sorted(GITHUB_AUTH_STATUSES)}",
             path=f"{prefix}.status",
         ))
-    if "login" in authorization and not _is_nonempty_str(authorization.get("login")):
-        issues.append(_error(
-            "github_authorization_login_invalid",
-            f"{prefix}.login must be a non-empty string",
-            path=f"{prefix}.login",
-        ))
+    if "login" in authorization:
+        try:
+            github_app_snapshot.user_login(
+                authorization.get("login"), f"{prefix}.login",
+            )
+        except github_app_snapshot.GitHubAppSnapshotError:
+            issues.append(_error(
+                "github_authorization_login_invalid",
+                f"{prefix}.login is invalid",
+                path=f"{prefix}.login",
+            ))
     if (
         "github_user_id" in authorization
         and (

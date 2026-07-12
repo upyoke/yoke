@@ -18,28 +18,25 @@ from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import github_publish
-from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_existing_project
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_input_validation as input_validation
+from yoke_cli.config import onboard_local_checkout_identity
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_wizard_board_art
+from yoke_cli.config import onboard_wizard_github_state
 from yoke_cli.config import yoke_token_verify
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 
 from yoke_cli.config import onboard_wizard_steps as steps
-from yoke_cli.config.onboard_wizard import (
-    github_connected,
-)
+from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.onboard_wizard_project_github import ProjectGithubAccessFlow
-from yoke_cli.config.onboard_wizard_widgets import (
-    STEP_FINISH,
-    STEP_PROJECT,
-    SelectionRow,
-)
+from yoke_cli.config.onboard_wizard_finish_flow import FinishBodyFlow
+from yoke_cli.config.onboard_wizard_stored_project import StoredProjectFlow
+from yoke_cli.config.onboard_wizard_widgets import STEP_FINISH, STEP_PROJECT, SelectionRow
 from yoke_cli.config.project_publish_support import is_existing_project_dir
-from yoke_cli.project_install import source_dev
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
 
 # Modes that offer the "Also publish to GitHub?" follow-up. A clone always
 # brings its own remote and source-dev/admin develops Yoke itself, so neither
@@ -48,13 +45,6 @@ PUBLISH_MODES = (
     onboard_project.PROJECT_MODE_CREATE_REPO,
     onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
 )
-
-
-def _is_yoke_source_checkout(path: Path) -> bool:
-    try:
-        return source_dev.is_yoke_source_checkout(path.expanduser())
-    except OSError:
-        return False
 
 
 def fetch_repo_owners(api_url: str, token: str) -> list:
@@ -68,11 +58,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
     _pending_stored_project_checkout: str | None
-    _preset_dev_checkout: str | None
     _project_mode_preset: bool
     _project_preset_attempted: bool
     _stored_project_attempted: bool
-    _stored_project_checkouts: list[machine_config.ConfiguredProject]
+    _stored_project_checkouts: list[Any]
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, step, title, subtitle, rows, on_select) -> "_View": ...
@@ -86,9 +75,10 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _run_checking(self, **kwargs) -> None: ...
     def _goto_finish(self) -> None: ...
     def _goto_board_art_intro(self) -> None: ...
+    def _goto_stored_project_picker(self) -> None: ...
 
 
-class WizardFlow(ProjectGithubAccessFlow):
+class WizardFlow(FinishBodyFlow, ProjectGithubAccessFlow, StoredProjectFlow):
     # ── Project step ────────────────────────────────────────
 
     def _goto_project_mode(self: _Shell) -> None:
@@ -96,6 +86,7 @@ class WizardFlow(ProjectGithubAccessFlow):
 
         if self._project_mode_preset and not self._project_preset_attempted:
             self._project_preset_attempted = True
+            self._preserve_project_fields_once = True
             self._on_project_mode(self.result.project_mode)
             return
         if self._stored_project_checkouts and not self._stored_project_attempted:
@@ -104,82 +95,12 @@ class WizardFlow(ProjectGithubAccessFlow):
             return
         self._goto(_View(STEP_PROJECT, steps.project_mode_body, self._on_project_mode))
 
-    def _goto_stored_project_picker(self: _Shell) -> None:
-        rows: list[SelectionRow] = []
-        for index, project in enumerate(self._stored_project_checkouts):
-            checkout = str(project.checkout)
-            rows.append(SelectionRow(
-                f"stored:{index}",
-                checkout,
-                f"project id {project.project_id}",
-            ))
-            if _is_yoke_source_checkout(project.checkout):
-                rows.append(SelectionRow(
-                    f"source-dev:{index}",
-                    "Develop Yoke itself",
-                    f"use {checkout} as the source checkout",
-                ))
-        rows.append(SelectionRow(
-            "other",
-            "Choose another project",
-            "show all project options",
-        ))
-        rows.append(SelectionRow(
-            "none",
-            "Don't set up a project now",
-            "just the machine",
-        ))
-        self._goto(self._selection_view(
-            STEP_PROJECT,
-            "Use an existing project mapping?",
-            "Yoke found project mappings saved on this machine. Reuse one, or choose another path.",
-            rows,
-            self._on_stored_project_choice,
-        ))
-
-    def _on_stored_project_choice(self: _Shell, choice: str) -> None:
-        if choice == "other":
-            self._goto_project_mode()
-            return
-        if choice == "none":
-            self._on_project_mode(onboard_project.PROJECT_MODE_MACHINE_ONLY)
-            return
-        if choice.startswith("source-dev:"):
-            try:
-                index = int(choice.split(":", 1)[1])
-                project = self._stored_project_checkouts[index]
-            except (IndexError, TypeError, ValueError):
-                self._goto_project_mode()
-                return
-            self._preset_dev_checkout = str(project.checkout)
-            self.result.project_checkout = str(project.checkout)
-            self._on_project_mode(onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN)
-            return
-        if choice.startswith("stored:"):
-            try:
-                index = int(choice.split(":", 1)[1])
-                project = self._stored_project_checkouts[index]
-            except (IndexError, TypeError, ValueError):
-                self._goto_project_mode()
-                return
-            self._use_stored_project_checkout(project)
-            return
-        self._goto_project_mode()
-
-    def _use_stored_project_checkout(
-        self: _Shell,
-        project: machine_config.ConfiguredProject,
-    ) -> None:
-        checkout = str(project.checkout)
-        self.result.project_mode = onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
-        self.result.project_checkout = checkout
-        self._pending_stored_project_checkout = checkout
-        self._check_project_git(onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
-
     def _on_project_mode(self: _Shell, mode: str) -> None:
+        if not getattr(self, "_preserve_project_fields_once", False):
+            steps.reset_project_fields(self.result)
+        self._preserve_project_fields_once = False
         self.result.project_mode = mode
         if mode == onboard_project.PROJECT_MODE_MACHINE_ONLY:
-            steps.reset_project_fields(self.result)
             self._goto_finish()
             return
         self._check_project_git(mode)
@@ -220,6 +141,9 @@ class WizardFlow(ProjectGithubAccessFlow):
         )
 
     def _after_checkout(self: _Shell, value: str) -> None:
+        mode = self.result.project_mode
+        steps.reset_project_fields(self.result)
+        self.result.project_mode = mode
         self.result.project_checkout = value
         # "Create a new project" pointed at a folder that already holds code is
         # really the existing-folder case. Adopt it instead of creating over it:
@@ -251,8 +175,15 @@ class WizardFlow(ProjectGithubAccessFlow):
         ))
 
     def _after_local_checkout_source(self: _Shell, value: str) -> None:
-        from yoke_cli.config import project_clone_resume
-
+        try:
+            remote, web_url = onboard_local_checkout_identity.inspect(
+                self.result, value,
+            )
+        except RuntimeError as exc:
+            self._goto_existing_project_lookup_error(
+                exc, retry=lambda: self._after_local_checkout_source(value),
+            )
+            return
         try:
             local_ref = existing_project_lookup.find_local_project_reference(
                 value,
@@ -326,13 +257,12 @@ class WizardFlow(ProjectGithubAccessFlow):
                 group="onboard-existing-project",
             )
             return
-        remote = project_clone_resume.remote_url(Path(value).expanduser(), "origin")
         if not remote:
             self._goto_slug()
             return
-        self.result.project_github_repo = (
-            existing_project_lookup.normalize_github_repo(remote) or None
-        )
+        if not self.result.project_github_repo:
+            self._goto_slug()
+            return
         token = self._yoke_token_for_project_lookup()
         if not token:
             self._goto_slug()
@@ -345,6 +275,7 @@ class WizardFlow(ProjectGithubAccessFlow):
                 api_url=self.result.api_url,
                 token=token,
                 github_repo=remote,
+                web_url=web_url,
             ),
             on_success=lambda project: self._after_existing_project_lookup(
                 project,
@@ -413,11 +344,50 @@ class WizardFlow(ProjectGithubAccessFlow):
         if project is None:
             self._goto_slug()
             return
+        if (
+            self.result.project_mode
+            == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
+            and project.github_repo
+        ):
+            try:
+                onboard_local_checkout_identity.require_matching_origin(
+                    self.result.project_checkout or "",
+                    github_repo=project.github_repo,
+                    web_url=(
+                        onboard_wizard_github_state.clone_web_url(self.result)
+                    ),
+                )
+            except RuntimeError as exc:
+                self._goto_existing_project_lookup_error(
+                    exc,
+                    retry=lambda: self._after_local_checkout_source(
+                        self.result.project_checkout or ""
+                    ),
+                )
+                return
         self._record_existing_project(
             project,
             match_source=match_source,
             local_source=local_source,
         )
+        # A backlog-only project can predate GitHub binding while its checkout
+        # already has a canonical GitHub origin. Preserve the server project,
+        # but retain that detected repository so a connected run can offer an
+        # explicit in-place binding upgrade.
+        if (
+            not self.result.project_github_repo
+            and self.result.project_checkout
+            and self.result.project_mode
+            == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
+        ):
+            try:
+                onboard_local_checkout_identity.inspect(
+                    self.result, self.result.project_checkout,
+                )
+            except RuntimeError:
+                # Existing project identity remains authoritative even if the
+                # optional local Git inspection cannot identify an upgrade.
+                pass
         self._goto_existing_project_ready()
 
     def _goto_existing_project_ready(self: _Shell) -> None:
@@ -457,6 +427,14 @@ class WizardFlow(ProjectGithubAccessFlow):
         ))
 
     def _after_existing_project_ready(self: _Shell) -> None:
+        if (
+            self.result.project_github_adoption
+            == GITHUB_ADOPTION_BACKLOG_ONLY
+            and self.result.project_github_repo
+            and github_connected(self.result)
+        ):
+            self._after_prefix(self.result.project_public_item_prefix)
+            return
         if onboard_wizard_board_art.board_art_exists(self.result.project_checkout):
             self._goto_finish()
             return
@@ -542,13 +520,6 @@ class WizardFlow(ProjectGithubAccessFlow):
             on_success=self._show_finish,
             on_error=self._goto_finish_error,
             group="onboard-review",
-        )
-
-    def _build_finish(self) -> list:
-        return steps.finish_body(
-            self._review_plan,
-            problems=getattr(self, "_review_problems", []),
-            notes=getattr(self, "_review_notes", []),
         )
 
     def _build_review_model(self) -> dict[str, Any]:

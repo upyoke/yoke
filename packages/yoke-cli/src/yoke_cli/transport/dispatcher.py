@@ -115,6 +115,7 @@ def call_dispatcher(
     local_only: bool = False,
     _local_dispatch: Optional[LocalDispatch] = None,
     _function_hint: Optional[HintResolver] = None,
+    sensitive_values: tuple[str, ...] = (),
 ) -> FunctionCallResponse:
     """Build a request envelope and route it via the active transport.
 
@@ -139,21 +140,52 @@ def call_dispatcher(
         intent=intent,
     )
     if local_only:
-        return _call_local(request, _local_dispatch)
+        return _redact_response(
+            _call_local(request, _local_dispatch), sensitive_values,
+        )
     try:
         https = https_transport.resolve_https_connection()
     except https_transport.TransportError as exc:
-        return _error_response(
+        return _redact_response(_error_response(
             request, "https_transport_misconfigured", str(exc)
-        )
+        ), sensitive_values)
     if https is not None:
         response = (
             https_transport.relay_https(request, https, timeout_s=timeout_s)
             if timeout_s is not None
             else https_transport.relay_https(request, https)
         )
-        return _enrich_https_function_drift(response, request, _function_hint)
-    return _call_local(request, _local_dispatch)
+        return _redact_response(
+            _enrich_https_function_drift(response, request, _function_hint),
+            sensitive_values,
+        )
+    return _redact_response(
+        _call_local(request, _local_dispatch), sensitive_values,
+    )
+
+
+def _redact_response(
+    response: FunctionCallResponse,
+    sensitive_values: tuple[str, ...],
+) -> FunctionCallResponse:
+    secrets = tuple(value for value in sensitive_values if value)
+    if not secrets:
+        return response
+
+    def redact(value: Any) -> Any:
+        if isinstance(value, str):
+            for secret in secrets:
+                value = value.replace(secret, "<redacted>")
+            return value
+        if isinstance(value, list):
+            return [redact(item) for item in value]
+        if isinstance(value, dict):
+            return {key: redact(item) for key, item in value.items()}
+        return value
+
+    return FunctionCallResponse.model_validate(
+        redact(response.model_dump(mode="python"))
+    )
 
 
 def response_to_dict(response: FunctionCallResponse) -> Dict[str, Any]:

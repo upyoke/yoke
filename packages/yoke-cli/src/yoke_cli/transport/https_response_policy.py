@@ -216,7 +216,11 @@ def _decode_json(raw: bytes) -> Any:
         ) from exc
     try:
         return json.loads(text)
-    except (RecursionError, ValueError) as exc:
+    except RecursionError as exc:
+        raise HttpsResponsePolicyError(
+            "HTTPS function relay response exceeded the nesting limit"
+        ) from exc
+    except ValueError as exc:
         raise HttpsResponsePolicyError(
             "HTTPS function relay response was not valid JSON"
         ) from exc

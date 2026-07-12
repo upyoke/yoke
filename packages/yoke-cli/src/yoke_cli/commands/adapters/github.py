@@ -17,7 +17,11 @@ import argparse
 import sys
 from typing import Any, Dict, List, Mapping
 
-from yoke_cli.config import github_machine
+from yoke_cli.config import (
+    github_app_public_profile,
+    github_machine,
+    github_response_safety,
+)
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
@@ -41,9 +45,9 @@ __all__ = [
 
 
 GITHUB_CONNECT_USAGE = (
-    "yoke github connect [--client-id ID] [--app-slug SLUG] "
-    "[--app-id ID] [--api-url URL] [--web-url URL] [--add-installation] "
-    "[--config PATH] [--json]"
+    "yoke github connect [--replace] [--add-installation] [--config PATH] [--json] "
+    "[self-host operator override: --client-id ID --app-slug SLUG "
+    "--app-id ID --api-url URL --web-url URL]"
 )
 
 
@@ -67,21 +71,37 @@ def github_connect(args: List[str]) -> int:
         prog="yoke github connect",
         description=(
             "Start the machine-level Yoke GitHub App authorization flow. "
-            "This never accepts or stores manual GitHub credentials and never writes "
-            "project runtime auth."
+            "An HTTPS Yoke service advertises its App identity; the local Yoke "
+            "product carries a bundled profile. Local/source-development "
+            "operators may instead provide one complete five-field override. "
+            "This never accepts or stores manual GitHub credentials."
         ),
     )
     parser.add_argument(
         "--client-id",
         default=None,
-        help="Public GitHub App client id (or YOKE_GITHUB_APP_CLIENT_ID).",
+        help=(
+            "Local/source-development override; provide together with app slug, "
+            "app id, API URL, and web URL."
+        ),
     )
     parser.add_argument(
         "--app-slug",
         default=None,
-        help="Public GitHub App slug (or YOKE_GITHUB_APP_SLUG).",
+        help="Local/source-development override; requires the other four App fields.",
     )
-    parser.add_argument("--app-id", type=int, default=None)
+    parser.add_argument(
+        "--app-id", type=int, default=None,
+        help="Local/source-development override; requires the other four App fields.",
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help=(
+            "Explicitly replace an existing authorization, including one for "
+            "a different App profile, only after the new access is verified."
+        ),
+    )
     parser.add_argument(
         "--add-installation",
         action="store_true",
@@ -90,12 +110,12 @@ def github_connect(args: List[str]) -> int:
     parser.add_argument(
         "--api-url",
         default=None,
-        help="GitHub API root (default: https://api.github.com).",
+        help="Local/source-development override; requires the other four App fields.",
     )
     parser.add_argument(
         "--web-url",
         default=None,
-        help="GitHub browser origin (default: https://github.com).",
+        help="Local/source-development override; requires the other four App fields.",
     )
     parser.add_argument("--config", dest="config_path", default=None)
     add_json_arg(parser)
@@ -103,6 +123,13 @@ def github_connect(args: List[str]) -> int:
     if parsed is None:
         return 2
     try:
+        explicit_profile = any((
+            parsed.client_id,
+            parsed.app_slug,
+            parsed.app_id,
+            parsed.api_url,
+            parsed.web_url,
+        ))
         report = github_machine.connect(
             config_path=parsed.config_path,
             client_id=parsed.client_id,
@@ -110,10 +137,21 @@ def github_connect(args: List[str]) -> int:
             app_id=parsed.app_id,
             api_url=parsed.api_url,
             web_url=parsed.web_url,
+            service_api_url=(
+                None
+                if explicit_profile
+                else github_app_public_profile.selected_https_service_api_url(
+                    parsed.config_path
+                )
+            ),
+            replace_profile=parsed.replace,
             add_installation=parsed.add_installation,
             notify=_render_connect_progress,
         )
-    except github_machine.GitHubMachineError as exc:
+    except (
+        github_machine.GitHubMachineError,
+        github_app_public_profile.GitHubAppPublicProfileError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:
@@ -183,16 +221,22 @@ def github_status(args: List[str]) -> int:
 def _render_connect_progress(event: Mapping[str, Any]) -> None:
     phase = event.get("phase")
     if phase == "device_authorization":
+        uri = github_response_safety.safe_error_text(
+            event.get("verification_uri"),
+        )
+        code = github_response_safety.safe_error_text(event.get("user_code"))
         print(
-            f"Open {event.get('verification_uri')} and enter code "
-            f"{event.get('user_code')}",
+            f"Open {uri} and enter code {code}",
             file=sys.stderr,
             flush=True,
         )
     elif phase == "device_browser" and not event.get("browser_opened"):
+        uri = github_response_safety.safe_error_text(
+            event.get("verification_uri"),
+        )
+        code = github_response_safety.safe_error_text(event.get("user_code"))
         print(
-            f"Browser did not open; use {event.get('verification_uri')} with "
-            f"code {event.get('user_code')}",
+            f"Browser did not open; use {uri} with code {code}",
             file=sys.stderr,
             flush=True,
         )

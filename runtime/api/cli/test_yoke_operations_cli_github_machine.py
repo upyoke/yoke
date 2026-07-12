@@ -29,9 +29,12 @@ def test_github_machine_help_and_registry(capsys) -> None:
     assert yoke_operations_cli.main(["github", "connect", "--help"]) == 0
     connect_out = capsys.readouterr().out
     assert "yoke github connect" in connect_out
+    assert "HTTPS Yoke service advertises its App identity" in connect_out
+    assert "local Yoke product carries a bundled profile" in connect_out
+    assert "complete five-field override" in connect_out
     for flag in (
         "--client-id", "--app-slug", "--app-id", "--api-url", "--web-url",
-        "--add-installation",
+        "--replace", "--add-installation",
         "--config", "--json",
     ):
         assert flag in connect_out
@@ -69,7 +72,7 @@ def test_github_connect_requires_public_app_metadata_before_network_access(
     captured = capsys.readouterr()
     assert rc == 1
     assert captured.out == ""
-    assert "client id is required" in captured.err
+    assert "selected Yoke connection is unavailable or invalid" in captured.err
     assert not config.exists()
 
 
@@ -129,6 +132,60 @@ def test_github_connect_pending_installation_exits_zero(
     assert payload["state"] == "pending_installation"
 
 
+def test_plain_connect_selects_active_service_instead_of_environment(
+    monkeypatch, capsys,
+) -> None:
+    from yoke_cli.commands.adapters import github as github_adapter
+
+    monkeypatch.setenv("YOKE_GITHUB_APP_CLIENT_ID", "Iv1.hostile-env")
+    monkeypatch.setattr(
+        github_adapter.github_app_public_profile,
+        "selected_https_service_api_url",
+        lambda config_path=None: "https://yoke.team.example",
+    )
+    seen: dict[str, Any] = {}
+
+    def connect(**kwargs):
+        seen.update(kwargs)
+        return {"ok": True, "ready": False, "configured": True, "issues": []}
+
+    monkeypatch.setattr(github_adapter.github_machine, "connect", connect)
+
+    assert yoke_operations_cli.main(["github", "connect", "--json"]) == 0
+    capsys.readouterr()
+    assert seen["service_api_url"] == "https://yoke.team.example"
+    assert seen["client_id"] is None
+
+
+def test_plain_connect_reports_invalid_selection_without_starting_auth(
+    monkeypatch, capsys,
+) -> None:
+    from yoke_cli.commands.adapters import github as github_adapter
+
+    connect_calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        github_adapter.github_app_public_profile,
+        "selected_https_service_api_url",
+        lambda config_path=None: (_ for _ in ()).throw(
+            github_adapter.github_app_public_profile.GitHubAppPublicProfileError(
+                "the selected Yoke connection is unavailable or invalid"
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        github_adapter.github_machine,
+        "connect",
+        lambda **kwargs: connect_calls.append(kwargs),
+    )
+
+    assert yoke_operations_cli.main(["github", "connect", "--json"]) == 1
+
+    assert connect_calls == []
+    error = capsys.readouterr().err
+    assert "unavailable or invalid" in error
+    assert "api.upyoke.com" not in error
+
+
 def test_github_connect_retry_progress_explains_authorization_wait(capsys) -> None:
     from yoke_cli.commands.adapters import github as github_adapter
 
@@ -143,6 +200,20 @@ def test_github_connect_retry_progress_explains_authorization_wait(capsys) -> No
     )
 
 
+def test_github_connect_progress_neutralizes_terminal_controls(capsys) -> None:
+    from yoke_cli.commands.adapters import github as github_adapter
+
+    github_adapter._render_connect_progress({
+        "phase": "device_authorization",
+        "verification_uri": "https://github.com/login/device\x1b]2;spoof\x07",
+        "user_code": "ABCD-EFGH\x9b31m",
+    })
+
+    rendered = capsys.readouterr().err
+    assert "spoof" in rendered
+    assert all(ord(char) >= 32 or char == "\n" for char in rendered)
+
+
 def test_github_status_reads_app_config_offline(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
@@ -150,13 +221,9 @@ def test_github_status_reads_app_config_offline(
     config = tmp_path / "machine" / "config.json"
     refresh_file = tmp_path / "github-app-user.json"
     github_git_credential_store.write_credential_document(refresh_file, {
-        "schema_version": 1,
-        "access_token": "access-token",
-        "expires_at": "2027-07-09T17:00:00+00:00",
+        "schema_version": 2,
         "refresh_token": "refresh-token",
         "refresh_expires_at": "2027-12-09T17:00:00+00:00",
-        "scope": "",
-        "token_type": "bearer",
     })
     permissions = {
         item.key: item.access
@@ -171,13 +238,19 @@ def test_github_status_reads_app_config_offline(
                     "api_url": "https://github.example/api/v3",
                     "web_url": "https://github.example",
                     "app_slug": "yoke-local",
+                    "app_id": 123,
                     "client_id": "Iv1.local",
+                    "profile_source": "service",
+                    "profile_service_api_url": "https://api.upyoke.com",
                     "installations": [
                         {
                             "installation_id": 123,
+                            "app_id": 123,
+                            "app_slug": "yoke-local",
                             "account_login": "octo-org",
                             "account_type": "Organization",
                             "repository_selection": "selected",
+                            "suspended": False,
                             "permissions": permissions,
                         }
                     ],
@@ -187,6 +260,7 @@ def test_github_status_reads_app_config_offline(
                             "full_name": "octo-org/app",
                             "default_branch": "main",
                             "installation_id": 123,
+                            "private": True,
                         },
                     ],
                     "authorization": {
@@ -203,6 +277,7 @@ def test_github_status_reads_app_config_offline(
         ),
         encoding="utf-8",
     )
+    config.chmod(0o600)
 
     rc = yoke_operations_cli.main([
         "github",
@@ -234,6 +309,7 @@ def test_github_status_reads_app_config_offline(
         "full_name": "octo-org/app",
         "default_branch": "main",
         "installation_id": 123,
+        "private": True,
     }]
     assert payload["permissions"]["ok"] is True
     assert payload["permissions"]["mode"] == "github_app_installation"

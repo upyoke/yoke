@@ -109,14 +109,22 @@ def test_https_relay_success_body_rejects_slow_trickle(monkeypatch) -> None:
     assert response_stream.socket_timeouts == pytest.approx([1.0, 0.4])
 
 
-def test_https_relay_default_opener_uses_caller_owned_post(monkeypatch) -> None:
+def test_https_relay_default_opener_uses_bounded_caller_owned_post(
+    monkeypatch,
+) -> None:
     seen = {}
 
-    def caller_owned(request, *, deadline, handlers):
-        seen.update(request=request, deadline=deadline, handlers=handlers)
+    def bounded(request, *, deadline, replay_safe, allow_loopback_http, opener):
+        seen.update(
+            request=request,
+            deadline=deadline,
+            replay_safe=replay_safe,
+            allow_loopback_http=allow_loopback_http,
+            opener=opener,
+        )
         return FakeResponse(envelope(result={"ok": True}))
 
-    monkeypatch.setattr(relay_module, "open_https_caller_owned", caller_owned)
+    monkeypatch.setattr(relay_module, "open_bounded_request", bounded)
     response = relay_module.relay_https(
         sensitive_request(),
         CONNECTION,
@@ -126,7 +134,9 @@ def test_https_relay_default_opener_uses_caller_owned_post(monkeypatch) -> None:
     assert response.success is True
     assert response.result == {"ok": True}
     assert seen["request"].get_method() == "POST"
-    assert len(seen["handlers"]) == 1
+    assert seen["replay_safe"] is False
+    assert seen["allow_loopback_http"] is True
+    assert seen["opener"] is None
 
 
 def test_https_relay_error_body_rejects_slow_trickle(monkeypatch) -> None:

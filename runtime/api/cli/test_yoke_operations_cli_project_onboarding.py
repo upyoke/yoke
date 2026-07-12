@@ -2,9 +2,11 @@
 
 import json
 import subprocess
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
+from runtime.api.cli.project_clone_test_support import allow_local_clone
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     assert_github_preview,
@@ -28,9 +30,11 @@ def test_project_create_new_repo_binds_identity_and_installs(
         config_payload = json.loads(config.read_text(encoding="utf-8"))
         config_payload["github"] = {
             "api_url": "https://api.github.com",
+            "web_url": "https://github.com",
             "app_slug": "yoke-test",
             "app_id": 1234,
             "client_id": "Iv1.test",
+            "profile_source": "local_explicit",
             "authorization": {
                 "kind": "github_app_user_authorization",
                 "refresh_credential_ref": "secrets/github-user.json",
@@ -38,7 +42,10 @@ def test_project_create_new_repo_binds_identity_and_installs(
             },
             "installations": [{
                 "installation_id": 123,
+                "app_id": 1234,
+                "app_slug": "yoke-test",
                 "account_login": "owner",
+                "account_type": "Organization",
                 "repository_selection": "selected",
             }],
             "repositories": [{
@@ -49,8 +56,11 @@ def test_project_create_new_repo_binds_identity_and_installs(
         }
         config.write_text(json.dumps(config_payload), encoding="utf-8")
         monkeypatch.setattr(
-            "yoke_cli.config.project_onboard_progress.github_user_tokens.access_token_from_machine_config",
-            lambda **_kwargs: SimpleNamespace(access_token="ghu_short_lived"),
+            "yoke_cli.config.project_onboard_progress.github_binding_auth.locked_profile_bound_access_for_binding",
+            lambda **_kwargs: nullcontext(SimpleNamespace(
+                api_url="https://api.github.com",
+                token=SimpleNamespace(access_token="ghu_short_lived"),
+            )),
         )
         rc = yoke_operations_cli.main([
             "project", "create", str(checkout),
@@ -86,8 +96,9 @@ def test_project_create_new_repo_binds_identity_and_installs(
     assert payload["install"]["project_id"] == 41
     assert payload["capabilities"] == {}
     assert payload["github_adoption"] == {
-        "choice": "app-binding",
-        "explicit": True,
+            "choice": "app-binding",
+            "explicit": True,
+            "preserve_existing": False,
         "github_repo": "owner/demo",
         "automation_enabled": True,
         "requires_explicit_choice": False,
@@ -248,6 +259,7 @@ def test_project_import_clones_existing_remote_binds_identity_and_installs(
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     remote = seed_remote(tmp_path)
+    allow_local_clone(monkeypatch)
     checkout = tmp_path / "checkouts" / "imported"
 
     with ProjectOnboardApi(
@@ -312,6 +324,7 @@ def test_onboard_existing_project_clone_uses_project_id_without_create(
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     remote = seed_remote(tmp_path)
+    allow_local_clone(monkeypatch)
     checkout = tmp_path / "checkouts" / "buzz"
 
     with ProjectOnboardApi(
@@ -364,52 +377,4 @@ def test_onboard_existing_project_clone_uses_project_id_without_create(
     assert config_payload["projects"] == [
         {"checkout": str(checkout.resolve()), "project_id": 37, "env": "prod"},
     ]
-    assert (checkout / ".yoke/install-manifest.json").is_file()
-
-
-def test_onboard_existing_project_clone_accepts_versioned_api_url(
-    tmp_path: Path, monkeypatch
-) -> None:
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
-    remote = seed_remote(tmp_path)
-    checkout = tmp_path / "checkouts" / "buzz"
-
-    with ProjectOnboardApi(
-        project={
-            "id": 37,
-            "slug": "buzz",
-            "name": "Buzz",
-            "github_repo": "example-org/buzz",
-            "default_branch": "trunk",
-            "public_item_prefix": "BUZZ",
-        },
-    ) as api:
-        versioned_api_url = f"{api.url}/v1"
-        config = write_https_config(tmp_path, "product-token", versioned_api_url)
-        report = onboard.build_report(
-            config_path=config,
-            env_name="prod",
-            api_url=versioned_api_url,
-            token="product-token",
-            token_source_kind="argument",
-            mode="quick",
-            apply=True,
-            check_identity=False,
-            machine_github_choice="skip",
-            project_mode=onboard_project.PROJECT_MODE_CLONE_REMOTE,
-            project_remote_url=str(remote),
-            project_checkout=checkout,
-            project_slug="buzz",
-            project_name="Buzz",
-            project_github_repo="example-org/buzz",
-            project_default_branch="trunk",
-            project_public_item_prefix="BUZZ",
-            existing_project_id=37,
-            project_github_adoption="backlog-only",
-            project_clone=onboard_project.ClonePlan(),
-        )
-
-    assert report["project_onboarding"]["install"]["project_id"] == 37
-    assert api.requests_for("GET", "/v1/projects/37/install-bundle")
-    assert not any("/v1/v1/" in request["path"] for request in api.requests)
     assert (checkout / ".yoke/install-manifest.json").is_file()

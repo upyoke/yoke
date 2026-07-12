@@ -23,6 +23,7 @@ import webbrowser
 from yoke_contracts import github_origin
 from yoke_cli.config import onboard_input_validation as input_validation
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_local_checkout_identity
 from yoke_cli.config import onboard_wizard_flow
 from yoke_cli.config import onboard_wizard_project_screens as project_screens
 from yoke_cli.config import onboard_wizard_steps as steps
@@ -60,8 +61,22 @@ class PublishFlow:
         # remote — re-homing an existing remote is a separate capability.
         checkout = self.result.project_checkout
         if checkout and has_remote(Path(checkout).expanduser()):
+            intended = str(self.result.project_github_repo or "")
+            if intended:
+                try:
+                    onboard_local_checkout_identity.require_matching_origin(
+                        checkout,
+                        github_repo=intended,
+                        web_url=endpoint_pair(self.result).web.base_url,
+                    )
+                except RuntimeError as exc:
+                    self._goto_publish_origin_mismatch(exc)
+                    return
             self.result.project_keep_existing_remote = True
-            self._after_repo("")
+            # Keep the already-detected canonical GitHub identity. Clearing it
+            # here made the later App-binding step disappear even though the
+            # checkout had a usable origin.
+            self._after_repo(self.result.project_github_repo or "")
             return
         self._goto(self._selection_view(
             STEP_PROJECT,
@@ -70,24 +85,63 @@ class PublishFlow:
             project_screens.PUBLISH_ROWS, self._on_publish_choice,
         ))
 
+    def _goto_publish_origin_mismatch(self: _Shell, exc: BaseException) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        self._goto(_View(
+            STEP_PROJECT,
+            lambda: steps.verification_body(
+                "Checkout origin changed.",
+                str(exc),
+                ["Repair the checkout origin, then retry the check."],
+                steps.PROBE_RETRY_ROWS,
+                ok=False,
+            ),
+            self._on_publish_origin_mismatch,
+        ))
+
+    def _on_publish_origin_mismatch(self: _Shell, choice: str) -> None:
+        if choice == "retry":
+            if getattr(self, "_history", None):
+                self._history.pop()
+            self._goto_publish_prompt()
+            return
+        self.result.project_keep_existing_remote = False
+        self._after_repo("")
+
     def _on_publish_choice(self: _Shell, choice: str) -> None:
         if choice != project_screens.PUBLISH_YES:
             self.result.project_publish_to_github = False
             self._after_repo("")
             return
         self.result.project_publish_to_github = True
+        self.result.project_publish_create_repository = True
+        self.result.project_publish_repository_id = None
+        self.result.project_publish_installation_id = None
         if self._machine_can_publish():
             self._goto_owner_picker()
             return
-        try:
-            webbrowser.open(endpoint_pair(self.result).new_repository_url())
-        except Exception:
-            pass
+        self._open_repository_creation_page()
         self._goto_publish_cannot_create()
+
+    def _open_repository_creation_page(self: _Shell) -> tuple[str, bool]:
+        url = endpoint_pair(self.result).new_repository_url()
+        try:
+            opened = bool(webbrowser.open(url))
+        except Exception:
+            opened = False
+        self._manual_repository_url = url
+        self._manual_repository_opened = opened
+        return url, opened
 
     def _machine_can_publish(self: _Shell) -> bool:
         """Whether a connected installation grants optional Administration."""
         if not github_connected(self.result):
+            return False
+        try:
+            if endpoint_pair(self.result).deployment_kind != "github_cloud":
+                return False
+        except github_origin.GitHubApiOriginError:
             return False
         from yoke_cli.config import machine_config
 
@@ -95,44 +149,27 @@ class PublishFlow:
         return any(
             isinstance(raw, dict)
             and not raw.get("suspended")
+            and raw.get("repository_selection") == "all"
             and isinstance(raw.get("permissions"), dict)
             and raw["permissions"].get("administration") == "write"
             for raw in config.get("installations") or []
         )
 
-    def _goto_publish_cannot_create(self: _Shell) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
-        def _ack(_choice: str) -> None:
-            self.result.project_publish_to_github = False
-            self._after_repo("")  # no repo: drop adoption, keep it local
-
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "GitHub authorization can't publish a new repo.",
-                self._cannot_publish_reason(),
-                [],
-                steps.VERIFY_OK_ROWS,
-                ok=False,
-            ),
-            _ack,
-        ))
-
     def _cannot_publish_reason(self: _Shell) -> str:
         """Explain whether the block is a create gap or a push-to-new-repo gap."""
-        tail = (
-            " GitHub's new-repository page was opened. Create the repo, grant the "
-            "Yoke GitHub App access to it, and then re-run yoke onboard."
-        )
         if github_connected(self.result):
             return (
                 "No non-suspended Yoke GitHub App installation grants the optional "
-                "Administration permission needed for one-step repo creation." + tail
+                "Administration permission and all-repositories access needed "
+                "for one-step repo creation."
             )
-        return "Connect the Yoke GitHub App before publishing." + tail
+        return "Connect the Yoke GitHub App before publishing."
 
-    def _goto_owner_picker(self: _Shell) -> None:
+    def _goto_owner_picker(
+        self: _Shell,
+        *,
+        replace_current: bool = False,
+    ) -> None:
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking GitHub owners.",
@@ -141,6 +178,8 @@ class PublishFlow:
             on_success=self._show_owner_picker,
             on_error=self._goto_owner_picker_error,
             group="onboard-owner-picker",
+            blocks_quit=True,
+            replace_current=replace_current,
         )
 
     def _fetch_repo_owners(self: _Shell) -> list:
@@ -150,11 +189,20 @@ class PublishFlow:
             self.result.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL,
             user_access_token(self.result) or "",
         )
+        authenticated = next(
+            (owner.login for owner in owners if owner.kind == "user"), "",
+        )
+        if not authenticated:
+            raise RuntimeError(
+                "GitHub did not identify the authenticated repository owner"
+            )
+        self._authenticated_github_login = authenticated
         config = machine_config.github_config(self.result.config_path)
         allowed = {
             str(row.get("account_login") or "").casefold()
             for row in config.get("installations") or []
             if isinstance(row, dict) and not row.get("suspended")
+            and row.get("repository_selection") == "all"
             and isinstance(row.get("permissions"), dict)
             and row["permissions"].get("administration") == "write"
         }
@@ -163,7 +211,16 @@ class PublishFlow:
     def _show_owner_picker(self: _Shell, owners: Any) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._owner_lookup = {o.login: o for o in owners}
+        if not owners:
+            self._open_repository_creation_page()
+            self._goto_publish_cannot_create()
+            return
+        authenticated = next(
+            (owner.login for owner in owners if owner.kind == "user"), "",
+        )
+        if authenticated:
+            self._authenticated_github_login = authenticated
+        self._owner_lookup = {o.login.casefold(): o for o in owners}
         self._goto(_View(
             STEP_PROJECT,
             lambda: project_screens.owner_picker_body(owners),
@@ -187,26 +244,36 @@ class PublishFlow:
 
     def _on_owner_picker_error(self: _Shell, choice: str) -> None:
         if choice == "retry":
-            self._goto_owner_picker()
+            self._goto_owner_picker(replace_current=True)
             return
         self.result.project_publish_to_github = False
         self._after_repo("")
 
     def _on_owner_pick(self: _Shell, login: str) -> None:
-        self.result.project_publish_owner = login
-        self.result.project_publish_owner_login = next(
-            (o.login for o in self._owner_lookup.values() if o.kind == "user"),
-            login,
+        selected = self._owner_lookup.get(login.casefold())
+        authenticated = str(
+            getattr(self, "_authenticated_github_login", "") or ""
         )
+        if selected is None or not authenticated:
+            self._goto_owner_picker_error(RuntimeError(
+                "GitHub owner selection changed; reload the owner list"
+            ))
+            return
+        self.result.project_publish_owner = selected.login
+        self.result.project_publish_owner_login = authenticated
         visibility = "private" if self.result.project_publish_private else "public"
         self._goto_input(
             STEP_PROJECT, "Name the repo.",
-            f"Created as {login}/… · {visibility}.",
+            f"Created as {selected.login}/… · {visibility}.",
             placeholder=self.result.project_slug or "project",
             on_done=self._after_repo_name,
+            validate=input_validation.validate_repository_name,
         )
 
     def _after_repo_name(self: _Shell, value: str) -> None:
+        self.result.project_publish_create_repository = True
+        self.result.project_publish_repository_id = None
+        self.result.project_publish_installation_id = None
         self.result.project_publish_repo_name = value
         self.result.project_github_repo = f"{self.result.project_publish_owner}/{value}"
         self._after_repo(self.result.project_github_repo)
@@ -219,12 +286,20 @@ class PublishFlow:
             # App binding that raises "adoption requires --github-repo"
             # at apply.
             self.result.project_github_adoption = None
+            self.result.project_github_adoption_preserve = False
         # The default branch is a property of the source for any clone-of-existing
         # outcome (just-clone / make-it-mine / fork) — it is detected at the URL
         # step, not picked. Skip the prompt and carry the detected branch (or the
         # plain fallback when detection failed); the prompt stays only for
         # creating a brand-new empty repo, where "main" is a real choice.
-        if self.result.project_mode in onboard_project.PROJECT_REMOTE_MODES:
+        if (
+            self.result.project_mode in onboard_project.PROJECT_REMOTE_MODES
+            or (
+                self.result.project_mode
+                == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
+                and self.result.project_source_default_branch
+            )
+        ):
             self._after_branch(
                 self.result.project_source_default_branch
                 or onboard_project.DEFAULT_NEW_REPO_BRANCH

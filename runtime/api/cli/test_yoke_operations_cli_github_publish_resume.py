@@ -210,7 +210,9 @@ def test_create_repo_refuses_populated_repo_on_name_exists(monkeypatch) -> None:
             administration_allowed=True,
         )
 
-    assert "already exists and has content" in str(caught.value)
+    assert "already has content that does not match this checkout" in str(
+        caught.value
+    )
 
 
 def test_create_repo_propagates_non_422_create_error(monkeypatch) -> None:

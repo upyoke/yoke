@@ -1,4 +1,4 @@
-"""Cache-aware local GitHub App user-access tokens."""
+"""Refresh-only access over a serialized refresh-token rotation chain."""
 
 from __future__ import annotations
 
@@ -37,8 +37,11 @@ def access_token_from_machine_config(
     opener: Callable[..., Any] | None = None,
     now: datetime | None = None,
     timeout_seconds: float = 30.0,
+    profile_opener: Callable[..., Any] | None = None,
+    _profile_proven: bool = False,
+    _expected_service_api_url: str | None = None,
 ) -> LocalUserAccessToken:
-    """Return a valid cached token, refreshing under lock only near expiry."""
+    """Refresh under lock and return a transient, never-persisted access token."""
     try:
         payload = credential_store.access_token_from_machine_config(
             _resolved_config_path(config_path),
@@ -46,6 +49,9 @@ def access_token_from_machine_config(
             opener=opener,
             now=now,
             timeout_seconds=timeout_seconds,
+            profile_opener=profile_opener,
+            profile_proven=_profile_proven,
+            expected_service_api_url=_expected_service_api_url,
         )
     except credential_store.GitHubCredentialStoreError as exc:
         raise GitHubUserTokenError(str(exc)) from exc
@@ -83,11 +89,17 @@ def store_initial_token(
     token_response: Mapping[str, Any],
     *,
     now: datetime | None = None,
+    device_flow_completed: bool = False,
+    config_path: str | Path | None = None,
 ) -> Path:
     """Persist the first device-flow token as one owner-only document."""
+    if device_flow_completed is not True:
+        raise GitHubUserTokenError(
+            "initial GitHub App credentials may be stored only after device flow"
+        )
     try:
         document = credential_store.credential_document_from_token_response(
-            token_response, now=now
+            token_response, now=now, config_path=config_path,
         )
         return credential_store.write_credential_document(path, document)
     except credential_store.GitHubCredentialStoreError as exc:
