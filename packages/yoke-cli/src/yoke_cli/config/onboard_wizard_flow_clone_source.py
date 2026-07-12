@@ -23,6 +23,7 @@ class CloneRemoteCheck:
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: object
+    _history: list["_View"]
 
     def _goto(self, view: "_View") -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
@@ -42,6 +43,19 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
 
 
 class CloneSourceFlow:
+    def _discard_clone_project_views(
+        self: _Shell,
+        *,
+        limit: int | None = None,
+    ) -> None:
+        """Drop superseded recovery views before routing onward."""
+        removed = 0
+        while self._history and self._history[-1].step == STEP_PROJECT:
+            if limit is not None and removed >= limit:
+                break
+            self._history.pop()
+            removed += 1
+
     def _after_remote(self: _Shell, value: str) -> None:
         # value is a pasted URL (public branch) or the chosen repo's clone URL
         # (private picker, where the row value is the clone URL). The remote is
@@ -206,8 +220,10 @@ class CloneSourceFlow:
             self._install_clone_git(value)
             return
         if choice == "retry":
+            self._discard_clone_project_views(limit=1)
             self._after_remote(value)
             return
+        self._discard_clone_project_views()
         self._goto_project_mode()
 
     def _install_clone_git(self: _Shell, value: str) -> None:
@@ -223,6 +239,7 @@ class CloneSourceFlow:
             on_success=lambda result: self._after_clone_git_install(value, result),
             on_error=lambda exc: self._goto_clone_git_install_error(value, exc),
             group="onboard-clone-git-install",
+            replace_current=True,
         )
 
     def _after_clone_git_install(
@@ -269,6 +286,7 @@ class CloneSourceFlow:
             on_success=lambda _result: self._after_remote(value),
             on_error=lambda _exc: self._after_remote(value),
             group="onboard-clone-git-finalize",
+            replace_current=True,
         )
 
     def _goto_clone_git_install_error(
@@ -292,16 +310,22 @@ class CloneSourceFlow:
 
     def _on_clone_remote_error(self: _Shell, choice: str, value: str) -> None:
         if choice == "edit":
+            self._discard_clone_project_views(limit=2)
             self._goto_clone_url_input()
             return
         if choice == "retry":
+            self._discard_clone_project_views(limit=1)
             self._after_remote(value)
             return
         from yoke_cli.config.onboard_wizard import github_connected
 
         if github_connected(self.result):
+            # Error + source input/picker + visibility are replaced by one
+            # freshly rendered visibility choice.
+            self._discard_clone_project_views(limit=3)
             self._goto_clone_visibility()
             return
+        self._discard_clone_project_views()
         self._goto_project_mode()
 
 

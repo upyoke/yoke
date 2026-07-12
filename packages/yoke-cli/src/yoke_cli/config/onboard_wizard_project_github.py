@@ -12,6 +12,7 @@ from yoke_contracts import github_app_installation_permissions
 from yoke_cli.config import github_machine
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_github_copy
+from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard import (
     PROJECT_GITHUB_REUSE_MACHINE,
@@ -137,11 +138,7 @@ class ProjectGithubAccessFlow:
                 message="Checking installations and repositories from GitHub.",
                 work=lambda: github_machine.status(
                     config_path=self.result.config_path, check=True,
-                    service_api_url=(
-                        str(self.result.api_url)
-                        if str(self.result.api_url or "").startswith("https://")
-                        else None
-                    ),
+                    **github_state.connection_scope(self.result),
                 ),
                 on_success=self._after_project_github_access_refresh,
                 on_error=lambda _exc: self._goto_project_github_access(),

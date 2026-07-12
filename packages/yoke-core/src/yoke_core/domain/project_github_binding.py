@@ -12,6 +12,7 @@ from yoke_contracts.github_binding_metadata import (
     GitHubBindingMetadataError,
     validate_binding_metadata,
 )
+from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
@@ -229,7 +230,7 @@ def cmd_unbind_project_repo(
     db_path: Optional[str] = None,
     conn: Optional[Any] = None,
 ) -> dict[str, Any]:
-    """Remove the project repository binding and mark the project backlog-only."""
+    """Remove one project's GitHub binding and retired credential residue."""
     owns_conn = conn is None
     if owns_conn:
         conn = connect(db_path)
@@ -242,10 +243,12 @@ def cmd_unbind_project_repo(
             f"DELETE FROM project_github_repo_bindings WHERE project_id={p}",
             (ident.id,),
         )
-        conn.execute(
-            f"DELETE FROM project_capabilities WHERE project_id={p} AND type={p}",
-            (ident.id, "github"),
-        )
+        for table in ("project_capabilities", "capability_secrets"):
+            conn.execute(
+                f"DELETE FROM {table} WHERE project_id={p} "
+                f"AND LOWER(TRIM(type))={p}",
+                (ident.id, GITHUB_CAPABILITY_TYPE),
+            )
         conn.execute(
             "UPDATE projects SET github_repo=NULL, "
             "github_sync_mode='backlog_only' "

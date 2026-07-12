@@ -118,8 +118,11 @@ def test_project_report_clones_yoke_repo_for_source_dev(
         onboard_project.project_onboard, "onboard_existing",
         lambda **kw: captured.update(kw) or {"ok": True},
     )
+    token_scope: dict = {}
     monkeypatch.setattr(
-        onboard_project, "_github_user_access_token", lambda cfg: "gh-tok",
+        onboard_project,
+        "_github_user_access_token",
+        lambda cfg, **kwargs: token_scope.update(kwargs) or "gh-tok",
     )
 
     onboard_project._project_report(
@@ -135,7 +138,12 @@ def test_project_report_clones_yoke_repo_for_source_dev(
         },
         reuse=None,
         progress=None,
+        service_api_url="https://api.stage.upyoke.com",
     )
 
     assert "yoke" in (captured["clone_remote_url"] or "")
     assert captured["clone_token"] == "gh-tok"
+    assert token_scope == {
+        "service_api_url": "https://api.stage.upyoke.com",
+        "local_connection_selected": False,
+    }

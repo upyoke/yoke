@@ -27,11 +27,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List, Optional
 
+from yoke_core.domain.project_github_capability_settings import (
+    reject_github_capability_secret_read,
+)
+from yoke_core.domain.project_identity import ProjectIdentity, resolve_project
 from yoke_core.domain.schema_common import (
     _column_exists as _schema_column_exists,
     _table_exists as _schema_table_exists,
 )
-from yoke_core.domain.project_identity import ProjectIdentity, resolve_project
 
 
 @dataclass
@@ -171,6 +174,7 @@ def _capability_settings(
 def _capability_secret(
     conn: Any, project: str, cap_type: str, key: str
 ) -> str:
+    reject_github_capability_secret_read(cap_type)
     ident = _resolve_project_identity(conn, project)
     if _table_exists(conn, "capability_secrets"):
         row = _query_scalar(

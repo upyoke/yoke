@@ -53,6 +53,7 @@ def access_token_from_machine_config(
     profile_opener: Callable[..., Any] | None = None,
     profile_proven: bool = False,
     expected_service_api_url: str | None = None,
+    expected_local_connection: bool = False,
 ) -> dict[str, Any]:
     with _machine_operation_lock(config_path):
         return access_token_from_config(
@@ -65,12 +66,12 @@ def access_token_from_machine_config(
             profile_opener=profile_opener,
             profile_proven=profile_proven,
             expected_service_api_url=expected_service_api_url,
+            expected_local_connection=expected_local_connection,
         )
 
 
 def access_token_for_git_request(
-    config_path: str | Path | None,
-    fields: Mapping[str, str],
+    config_path: str | Path | None, fields: Mapping[str, str],
     *,
     opener: Callable[..., Any] | None = None,
 ) -> dict[str, Any] | None:
@@ -104,6 +105,7 @@ def access_token_from_config(
     profile_opener: Callable[..., Any] | None = None,
     profile_proven: bool = False,
     expected_service_api_url: str | None = None,
+    expected_local_connection: bool = False,
 ) -> dict[str, Any]:
     github = config.get("github")
     if not isinstance(github, Mapping):
@@ -136,6 +138,7 @@ def access_token_from_config(
             config,
             github,
             expected_service_api_url=expected_service_api_url,
+            expected_local_connection=expected_local_connection,
         )
     except github_service_profile_proof.GitHubServiceProfileProofError as exc:
         raise GitHubCredentialStoreError(str(exc)) from exc
@@ -274,9 +277,7 @@ def _locked(path: Path) -> Iterator[None]:
 
 
 @contextmanager
-def _machine_operation_lock(
-    config_path: str | Path | None,
-) -> Iterator[None]:
+def _machine_operation_lock(config_path: str | Path | None) -> Iterator[None]:
     try:
         if __package__:
             with github_machine_operation.operation_lock(config_path):
@@ -336,8 +337,7 @@ _token_state_from_response = partial(
 )
 _persisted_document = partial(
     credential_document.persisted_document,
-    schema_version=CREDENTIAL_SCHEMA_VERSION,
-    error_type=GitHubCredentialStoreError,
+    schema_version=CREDENTIAL_SCHEMA_VERSION, error_type=GitHubCredentialStoreError,
 )
 _required_string = partial(
     credential_document.required_string,

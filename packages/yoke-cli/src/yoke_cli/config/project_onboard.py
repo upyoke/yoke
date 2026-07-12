@@ -70,6 +70,7 @@ def create_project(
     reuse_github_auth: bool = False,
     existing_project_id: int | None = None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     github_adoption_preserve: bool = False,
 ) -> dict[str, Any]:
     return project_onboard_create.create_project(
@@ -110,6 +111,7 @@ def import_project(
     reuse_github_auth: bool = False,
     existing_project_id: int | None = None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     github_adoption_preserve: bool = False,
 ) -> dict[str, Any]:
     requested_plan, remote_url = apply_clone.normalize_clone_request(
@@ -157,6 +159,8 @@ def import_project(
         requested_plan,
         config_path,
         remote_url=remote_url,
+        service_api_url=service_api_url,
+        local_connection_selected=local_connection_selected,
     )
     _record_selected_repository_identity(
         github_adoption,
@@ -186,6 +190,8 @@ def import_project(
                 remote_url,
                 plan=plan,
                 config_path=config_path,
+                service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
                 clone=_resumable_clone,
             )
         except Exception:
@@ -229,6 +235,8 @@ def import_project(
             clone_outcome=outcome,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     if outcome is not None and outcome.github_repo is not None:
         github_repo = outcome.github_repo
@@ -238,6 +246,7 @@ def import_project(
             outcome.github_repo,
             config_path,
             service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     if outcome is not None and outcome.branch is not None:
         default_branch = outcome.branch
@@ -255,6 +264,8 @@ def import_project(
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
             clone_outcome=outcome,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     _finish_github_binding(
         progress, github_auth_target, github_adoption, reuse_github_auth
@@ -290,6 +301,7 @@ def onboard_existing(
     clone_token: str | None = None,
     clone_web_url: str | None = None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     github_adoption_preserve: bool = False,
 ) -> dict[str, Any]:
     return project_onboard_existing.onboard_existing(

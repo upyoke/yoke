@@ -6,8 +6,6 @@ from pathlib import Path
 
 import pytest
 
-# The flow + helper modules pull Textual/Rich (via the wizard widgets); skip the
-# whole file where that optional dep is absent, matching the other wizard suites.
 pytest.importorskip("textual")
 
 from yoke_cli.config import onboard_wizard_board_art as art  # noqa: E402
@@ -23,7 +21,6 @@ from yoke_contracts.project_contract.board_art import (  # noqa: E402
 )
 
 
-# ── name ladder ─────────────────────────────────────────────
 def test_resolve_word_short_display_name_used_whole():
     assert resolve_project_art_word("Buzz", slug="buzz", short_code="BUZZ") == "BUZZ"
 
@@ -31,8 +28,7 @@ def test_resolve_word_short_display_name_used_whole():
 def test_resolve_word_long_name_falls_to_first_word():
     # whole join is too long; the first word fits and is most recognizable.
     assert resolve_project_art_word(
-        "Buzz Marketing Platform", slug="buzz-marketing-platform",
-        short_code="BUZZ",
+        "Buzz Marketing Platform", slug="buzz-marketing-platform", short_code="BUZZ",
     ) == "BUZZ"
 
 
@@ -53,7 +49,6 @@ def test_resolve_word_empty_falls_back_to_project():
     assert resolve_project_art_word("", slug=None, short_code=None) == "PROJECT"
 
 
-# ── normalizers ─────────────────────────────────────────────
 def test_normalize_master_map_word_caps_and_uppercases():
     assert normalize_master_map_word("my cool app") == "MYCOOLAP"  # 9 -> 8
     assert normalize_master_map_word("!!!") == ""
@@ -65,7 +60,6 @@ def test_normalize_header_art_word_keeps_spaces_allows_longer():
     assert len(out) > MAX_ART_WORD_LEN  # header art is not capped at the map limit
 
 
-# ── generator word override ─────────────────────────────────
 def test_ascii_generator_word_override_bypasses_choose_art_word():
     variant = generate_random_ascii_variant_detail(
         word="SHIP IT", seed_text="seed", attempt=0,
@@ -89,7 +83,6 @@ def test_generate_variant_helper_shuffle_changes_output():
     assert first.text != second.text  # a different attempt picks a different font
 
 
-# ── render + write helpers ──────────────────────────────────
 def test_render_master_map_returns_board_header():
     rendered = art.render_master_map("BUZZ")
     assert "\n" in rendered
@@ -126,13 +119,13 @@ def test_preview_rows_shape_by_kind():
     assert emoji_values == ["save", "reimage", "back"]  # no shuffle/customize
 
 
-# ── flow navigation (no Textual loop) ───────────────────────
 class _FakeShell(BoardArtFlow):
     """Drives BoardArtFlow without the Textual app: records goto/input/finish."""
 
     def __init__(self, result: WizardResult) -> None:
         self.result = result
-        self.goto_views: list = []
+        self._history: list = []
+        self.goto_views = self._history
         self.input_calls: list = []
         self.finished = False
         self.exited = False
@@ -144,11 +137,22 @@ class _FakeShell(BoardArtFlow):
         return {"step": step, "title": title, "rows": rows, "on_select": on_select}
 
     def _goto(self, view):
-        self.goto_views.append(view)
+        self._history.append(view)
+
+    def _replace_current(self, view):
+        if self._history:
+            self._history[-1] = view
+        else:
+            self._history.append(view)
+
+    def _render_current(self):
+        return None
 
     def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
                     password=False, allow_placeholder=True):
-        self.input_calls.append({"placeholder": placeholder, "on_done": on_done})
+        view = {"step": step, "placeholder": placeholder, "on_done": on_done}
+        self.input_calls.append(view)
+        self._goto(view)
 
     def _goto_finish(self):
         self.finished = True
@@ -195,6 +199,98 @@ def test_flow_shuffle_increments_attempt():
     assert shell._art_variant.text != first
 
 
+def test_flow_repeated_preview_transitions_keep_history_bounded():
+    shell = _shell()
+    shell._goto_board_art_intro()
+    shell._on_board_art_intro("design")
+    map_depth = len(shell._history)
+    for word in ("First", "Second", "Third"):
+        shell._on_board_art_map_preview("edit")
+        shell._after_board_art_map_word(word)
+    assert len(shell._history) == map_depth
+
+    shell._on_board_art_map_preview("continue")
+    shell._on_board_art_style("ascii")
+    preview_depth = len(shell._history)
+
+    for _ in range(5):
+        shell._on_board_art_preview("shuffle")
+    assert len(shell._history) == preview_depth
+
+    for word in ("First", "Second", "Third"):
+        shell._on_board_art_preview("customize")
+        shell._after_board_art_text(word)
+    assert len(shell._history) == preview_depth
+
+
+def test_flow_image_error_retry_and_back_reuse_real_views(monkeypatch):
+    shell = _shell()
+    shell._goto_board_art_intro()
+    shell._on_board_art_intro("design")
+    shell._on_board_art_map_preview("continue")
+    style_view = shell._history[-1]
+    shell._on_board_art_style("image")
+    input_depth = len(shell._history)
+    monkeypatch.setattr(
+        art, "build_image",
+        lambda **_: (_ for _ in ()).throw(ValueError("not an image")),
+    )
+
+    for _ in range(4):
+        shell._after_board_art_image_path("/tmp/not-an-image")
+        assert len(shell._history) == input_depth
+        shell._on_board_art_image_error("retry")
+        assert len(shell._history) == input_depth
+
+    shell._after_board_art_image_path("/tmp/not-an-image")
+    shell._on_board_art_image_error("back")
+    assert shell._history[-1] is style_view
+    assert len(shell._history) == input_depth - 1
+
+
+def test_flow_repeated_image_previews_reuse_input_slot(monkeypatch):
+    shell = _shell()
+    shell._goto_board_art_intro()
+    shell._on_board_art_intro("design")
+    shell._on_board_art_map_preview("continue")
+    style_view = shell._history[-1]
+    shell._on_board_art_style("image")
+    input_depth = len(shell._history)
+    variant = art.generate_variant(
+        kind="ASCII", word="BUZZ", seed_text="seed", attempt=0,
+    )
+    monkeypatch.setattr(
+        art, "build_image", lambda **_: ("Emoji", variant, "🟩"),
+    )
+
+    for _ in range(4):
+        shell._after_board_art_image_path("/tmp/logo.png")
+        assert len(shell._history) == input_depth
+        shell._on_board_art_preview("reimage")
+        assert len(shell._history) == input_depth
+
+    shell._after_board_art_image_path("/tmp/logo.png")
+    shell._on_board_art_preview("back")
+    assert shell._history[-1] is style_view
+
+
+def test_flow_preview_back_and_gallery_another_return_to_style():
+    shell = _shell()
+    shell._goto_board_art_intro()
+    shell._on_board_art_intro("design")
+    shell._on_board_art_map_preview("continue")
+    style_view = shell._history[-1]
+
+    shell._on_board_art_style("ascii")
+    shell._on_board_art_preview("back")
+    assert shell._history[-1] is style_view
+
+    shell._on_board_art_style("ascii")
+    shell._on_board_art_preview("save")
+    shell._on_board_art_gallery("another")
+    assert shell._history[-1] is style_view
+
+
 def test_flow_customize_text_allows_long_header():
     shell = _shell()
     shell._goto_board_art_intro()
@@ -229,7 +325,6 @@ def test_flow_after_apply_noop_without_variants(tmp_path: Path):
     assert shell._board_art_after_apply(report) is False
 
 
-# ── yoke board shortcut ───────────────────────────────────
 def test_board_shortcut_injects_print(monkeypatch):
     from yoke_cli.commands.adapters import board as board_mod
 

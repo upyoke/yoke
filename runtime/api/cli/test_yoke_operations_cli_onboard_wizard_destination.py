@@ -147,6 +147,15 @@ def test_local_pick_names_existing_universe_on_rerun(tmp_path: Path) -> None:
             assert "Yoke found an existing local universe connection in ~/.yoke." in text
             assert "Apply verifies the existing database and preserves" in text
             assert app.query_one(SelectionList).rows[0].label == "Use existing"
+            summary_depth = len(app._history)
+            await pilot.press("down")   # Back
+            await pilot.press("enter")
+            await pilot.pause()
+            assert "Where should this Yoke live?" in _body_text(app)
+            assert len(app._history) == summary_depth - 1
+            await pilot.press("escape")
+            await pilot.pause()
+            assert "Your Yoke lives on this machine." not in _body_text(app)
 
     asyncio.run(scenario())
 

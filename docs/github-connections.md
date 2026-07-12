@@ -84,11 +84,12 @@ checkouts. It preserves ambient or user-managed Git helpers. It does not call
 GitHub to revoke authorization or uninstall the App, and it does not unbind a
 project.
 
-Project unbind deletes the project's binding and `github` capability, clears
-the display projection, and puts the project in `backlog_only` mode. It leaves
-the GitHub installation record intact so another project or a later rebind can
-use it. Rebinding requires selecting and live-verifying the exact repository;
-GitHub sync can be enabled only after that binding is active.
+Project unbind deletes the project's binding, `github` capability, and any
+retired project GitHub credential residue; clears the display projection; and
+puts the project in `backlog_only` mode. It leaves the GitHub installation
+record intact so another project or a later rebind can use it. Rebinding
+requires selecting and live-verifying the exact repository; GitHub sync can be
+enabled only after that binding is active.
 
 For the safe order when changing an already-bound project's repository, see
 [GitHub sync](github-sync.md). App registration, permission, and key-custody

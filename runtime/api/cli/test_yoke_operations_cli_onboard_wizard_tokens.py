@@ -34,6 +34,15 @@ def _stub_path_doctor(monkeypatch):
     stub_path_doctor(monkeypatch)
 
 
+def _body_text(app) -> str:
+    from textual.widgets import Static
+
+    return " ".join(
+        str(widget.render())
+        for widget in app.query("#onboard-body Static").results(Static)
+    )
+
+
 def test_token_prompt_input_is_password() -> None:
     app, _spy = make_app(WizardDefaults(
         config_path="/tmp/cfg.json", env_name="prod", api_url="https://api.test",
@@ -197,9 +206,22 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
             )
             assert "Yoke token could not be verified." in text
             assert "API token is unknown" in text
+            error_depth = len(app._history)
             await pilot.press("enter")  # Try again
             await pilot.pause()
             assert app.query_one("#onboard-input", Input).password is True
+            assert len(app._history) == error_depth
+            await type_text(pilot, "yoke_v1_still_bad")
+            await pilot.press("enter")
+            await _wait_for_body_text(
+                app, pilot, "Yoke token could not be verified.",
+            )
+            assert len(app._history) == error_depth
+            await pilot.press("down")  # Back
+            await pilot.press("enter")
+            await pilot.pause()
+            assert "Provide your Yoke API token." in _body_text(app)
+            assert len(app._history) == error_depth - 1
             assert app.result.token is None
 
     asyncio.run(scenario())

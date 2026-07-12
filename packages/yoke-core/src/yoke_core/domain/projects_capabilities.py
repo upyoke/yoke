@@ -27,6 +27,7 @@ from yoke_core.domain.db_helpers import (
 )
 from yoke_core.domain.project_identity import resolve_project, resolve_project_id
 from yoke_core.domain.project_github_capability_settings import (
+    reject_github_capability_secret_read,
     reject_github_capability_secret_write,
 )
 
@@ -95,15 +96,16 @@ def cmd_capability_get_secret(
 
     ``aws-admin`` secrets are machine-local under
     ``~/.yoke/secrets/capability-secrets``. Other active capability secrets
-    may live in :data:`capability_secrets` with ``source='literal'``. Existing
-    GitHub rows are stranded legacy data: generic admin reads remain available,
-    but GitHub authentication never reads them and new writes are refused.
+    may live in :data:`capability_secrets` with ``source='literal'``. GitHub
+    capability secrets are retired and cannot be read or written through this
+    generic surface.
 
     When ``conn`` is supplied the read happens against the caller's
     connection and it is left open. Without ``conn`` the function opens a
     fresh connection via ``db_path`` (or canonical ``YOKE_DB``) and
     closes it before returning — existing callers stay backward compatible.
     """
+    reject_github_capability_secret_read(cap_type)
     own_conn = conn is None
     if own_conn:
         conn = connect(db_path)
@@ -268,6 +270,7 @@ def cmd_capability_list_secrets(
     db_path: Optional[str] = None,
 ) -> str:
     """List secret key names (newline-separated)."""
+    reject_github_capability_secret_read(cap_type)
     conn = connect(db_path)
     try:
         ident = resolve_project(conn, project, required=True)

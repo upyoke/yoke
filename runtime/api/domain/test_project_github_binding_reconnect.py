@@ -67,6 +67,18 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
 
         _bind("buzz", "4567", "Example-Org/Buzz")
         _bind("yoke", "4568", "Example-Org/Yoke")
+        conn = pg_testdb.connect_test_database(db_name)
+        try:
+            conn.execute(
+                "INSERT INTO capability_secrets "
+                "(project_id, type, key, value, source) VALUES "
+                "(2, ' GitHub ', 'token', 'retired-buzz-token', 'literal'), "
+                "(2, 'docker', 'registry', 'keep-buzz-registry', 'literal'), "
+                "(1, 'github', 'token', 'keep-yoke-token', 'literal')"
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
         unbound = cmd_unbind_project_repo("buzz")
 
@@ -95,6 +107,25 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
                     "WHERE project_id=2 AND type='github'"
                 ).fetchone()[0]
                 == 0
+            )
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM capability_secrets "
+                    "WHERE project_id=2 AND LOWER(TRIM(type))='github'"
+                ).fetchone()[0]
+                == 0
+            )
+            unrelated = conn.execute(
+                "SELECT value FROM capability_secrets "
+                "WHERE project_id=2 AND type='docker' AND key='registry'"
+            ).fetchone()
+            assert unrelated[0] == "keep-buzz-registry"
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM capability_secrets "
+                    "WHERE project_id=1 AND type='github' AND key='token'"
+                ).fetchone()[0]
+                == 1
             )
             assert (
                 conn.execute(

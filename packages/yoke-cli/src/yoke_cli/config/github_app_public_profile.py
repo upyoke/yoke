@@ -198,6 +198,7 @@ def resolve_selected_and_match(
     *,
     config_path: str | Path | None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
     opener: Callable[..., Any] | None = None,
 ) -> GitHubAppPublicProfile:
     """Match HTTPS services by health and local dispatch by its saved profile."""
@@ -205,6 +206,7 @@ def resolve_selected_and_match(
         github,
         config_path=config_path,
         service_api_url=service_api_url,
+        local_connection_selected=local_connection_selected,
     )
     if selected is not None:
         return resolve_and_match(
@@ -235,9 +237,17 @@ def assert_selected_provenance(
     *,
     config_path: str | Path | None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> str | None:
     """Require the cached profile's source to match the active transport."""
 
+    if local_connection_selected and str(service_api_url or "").strip():
+        raise GitHubAppPublicProfileError(
+            "a local Yoke connection cannot also select an HTTPS service"
+        )
+    if local_connection_selected:
+        _assert_local_provenance(github)
+        return None
     if str(service_api_url or "").strip():
         selected = _validated_service_root(str(service_api_url))
         _assert_service_provenance(github, selected)

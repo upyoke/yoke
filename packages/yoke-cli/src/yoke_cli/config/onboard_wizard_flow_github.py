@@ -10,6 +10,7 @@ from yoke_contracts import github_origin
 from yoke_cli.config import github_machine
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_machine_github
+from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_github_repair
 from yoke_cli.config import onboard_wizard_saved_github as saved_github
 from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
@@ -90,16 +91,12 @@ class MachineGithubFlow:
                 return
 
         def _work() -> dict[str, Any]:
-            selected_service = (
-                str(self.result.api_url)
-                if str(self.result.api_url or "").startswith("https://")
-                else None
-            )
+            selected_service = str(self.result.api_url or "").strip() or None
             if reuse:
                 return github_machine.status(
                     config_path=self.result.config_path,
                     check=True,
-                    service_api_url=selected_service,
+                    **github_state.connection_scope(self.result),
                 )
             return github_machine.connect(
                 config_path=self.result.config_path,

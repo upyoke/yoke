@@ -171,6 +171,7 @@ def build_report(
             project_inputs=project_inputs,
             reuse=reuse,
             service_api_url=api_url or None,
+            local_connection_selected=local_destination,
         )
     if not apply:
         report["message"] = "write plan only; rerun with --yes to apply"
@@ -222,6 +223,7 @@ def build_report(
             config_path=cfg_path,
             api_url=machine_github_api_url,
             service_api_url=api_url or None,
+            local_connection_selected=local_destination,
         )
         onboard_apply_progress.emit(
             progress, "machine-github-connection", machine_github_choice, "done"
@@ -244,6 +246,7 @@ def build_report(
             reuse=reuse,
             progress=progress,
             service_api_url=api_url or None,
+            local_connection_selected=local_destination,
         )
         report["message"] = "machine config and project handoff written"
     return report

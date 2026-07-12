@@ -126,6 +126,20 @@ def test_clone_existing_yoke_project_access_error_blocks_setup(monkeypatch) -> N
                 for w in app.query(".onboard-title-error").results(Static)
             )
             assert title == "✗ Can't use that Yoke project."
+            error_depth = len(app._history)
+            await pilot.press("enter")  # Try again
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert "Can't use that Yoke project." in _body_text(app)
+            assert len(app._history) == error_depth
+            await pilot.press("down")  # Back
+            await pilot.press("enter")
+            await pilot.pause()
+            assert "Set up a project." in _body_text(app)
+            assert len(app._history) < error_depth
+            await pilot.press("escape")
+            await pilot.pause()
+            assert "Can't use that Yoke project." not in _body_text(app)
 
     asyncio.run(scenario())
 

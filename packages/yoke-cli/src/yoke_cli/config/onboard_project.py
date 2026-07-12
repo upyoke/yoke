@@ -157,11 +157,18 @@ def _normalized_remote_url(
         raise OnboardProjectError(str(exc)) from exc
 
 
-def _github_user_access_token(config_path: Path) -> str | None:
+def _github_user_access_token(
+    config_path: Path,
+    *,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
+) -> str | None:
     """A refreshed local GitHub App user token, or None — used to clone Yoke."""
     try:
         return github_local_user_access.access_token(
-            config_path=config_path
+            config_path=config_path,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         ).access_token
     except github_local_user_access.GitHubLocalUserAccessError:
         return None
@@ -175,6 +182,7 @@ def project_report(
     reuse: Mapping[str, Any] | None = None,
     progress: onboard_apply_progress.ProgressCallback | None = None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     try:
         return _project_report(
@@ -184,6 +192,7 @@ def project_report(
             reuse=reuse,
             progress=progress,
             service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     except (
         ProjectGithubAdoptionError,
@@ -202,16 +211,21 @@ def _project_report(
     reuse: Mapping[str, Any] | None,
     progress: onboard_apply_progress.ProgressCallback | None,
     service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     if apply:
         inputs = onboard_project_github_inputs.hydrate_machine_github_inputs(
-            inputs, config_path
+            inputs,
+            config_path,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     kwargs = _project_kwargs(
         inputs=inputs,
         config_path=config_path,
         apply=apply,
         service_api_url=service_api_url,
+        local_connection_selected=local_connection_selected,
     )
     mode = str(inputs.get("mode") or PROJECT_MODE_LOCAL_CHECKOUT)
     publish = inputs.get("publish")
@@ -278,7 +292,11 @@ def _project_report(
             str(github_config.get("web_url") or clone_web_url)
         )
         if configured_web.origin == clone_web_url:
-            clone_token = _github_user_access_token(config_path)
+            clone_token = _github_user_access_token(
+                config_path,
+                service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
+            )
     return project_onboard.onboard_existing(
         operation=operation,
         publish=publish,

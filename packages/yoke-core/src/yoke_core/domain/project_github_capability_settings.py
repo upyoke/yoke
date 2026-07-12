@@ -23,12 +23,21 @@ def normalize_github_capability_type(cap_type: str) -> str:
 
 
 def reject_github_capability_secret_write(cap_type: str) -> None:
-    """Keep retired GitHub secret rows readable but permanently write-closed."""
+    """Refuse generic writes to the retired GitHub secret surface."""
     if normalize_github_capability_type(cap_type) == GITHUB_CAPABILITY_TYPE:
         raise ValueError(
-            "GitHub capability secrets are retired stranded data; new writes "
-            "are refused. Connect or rebind the repository through the GitHub "
-            "App binding surface."
+            "GitHub capability secrets are retired; new writes are refused. "
+            "Connect or rebind the repository through the GitHub App binding "
+            "surface."
+        )
+
+
+def reject_github_capability_secret_read(cap_type: str) -> None:
+    """Refuse reads that could disclose retired project GitHub credentials."""
+    if normalize_github_capability_type(cap_type) == GITHUB_CAPABILITY_TYPE:
+        raise ValueError(
+            "GitHub capability secrets are retired and cannot be read. Use the "
+            "GitHub App connection and project binding surfaces."
         )
 
 
@@ -177,6 +186,7 @@ __all__ = [
     "build_github_capability_settings",
     "normalize_github_capability_type",
     "reject_github_capability_full_settings_write",
+    "reject_github_capability_secret_read",
     "reject_github_capability_secret_write",
     "validate_github_capability_merge_assignments",
 ]

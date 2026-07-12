@@ -40,6 +40,7 @@ def access_token_from_machine_config(
     profile_opener: Callable[..., Any] | None = None,
     _profile_proven: bool = False,
     _expected_service_api_url: str | None = None,
+    _expected_local_connection: bool = False,
 ) -> LocalUserAccessToken:
     """Refresh under lock and return a transient, never-persisted access token."""
     try:
@@ -52,6 +53,7 @@ def access_token_from_machine_config(
             profile_opener=profile_opener,
             profile_proven=_profile_proven,
             expected_service_api_url=_expected_service_api_url,
+            expected_local_connection=_expected_local_connection,
         )
     except credential_store.GitHubCredentialStoreError as exc:
         raise GitHubUserTokenError(str(exc)) from exc

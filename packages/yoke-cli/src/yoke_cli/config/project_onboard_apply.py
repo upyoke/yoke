@@ -48,13 +48,18 @@ def finish_after_dispatch(
     clone_outcome: Any | None = None,
     register_mapping: bool = False,
     persist_sync_mode: bool = False,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     project = project_from_result(result)
     project_id = int(project["id"])
     binding_result = None if reuse_github_auth else (
         progress_steps.store_github_binding(
             progress, github_auth_target, project, github_adoption,
-            config_path, persist_sync_mode=persist_sync_mode,
+            config_path,
+            persist_sync_mode=persist_sync_mode,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     )
     if binding_result and binding_result.get("binding"):
@@ -174,6 +179,8 @@ def install_existing_project(
     clone_outcome: Any | None = None,
     scaffold_action: str = "project-install-scaffold",
     reuse_github_auth: bool = False,
+    service_api_url: str | None = None,
+    local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     with onboard_apply_progress.step(progress, scaffold_action):
         result = dispatch("projects.get", {"project": project_key}, config_path)
@@ -190,6 +197,8 @@ def install_existing_project(
             clone_outcome=clone_outcome,
             register_mapping=True,
             persist_sync_mode=True,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
         )
     finish_github_binding_if_needed(
         progress, github_auth_target, github_adoption, reuse_github_auth,

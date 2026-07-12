@@ -54,6 +54,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
+    _history: list[Any]
     _stored_yoke_token_available: bool
     _stored_yoke_attempted: bool
 
@@ -66,6 +67,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
                     initial_value: str = "") -> None: ...
     def _goto_machine_github(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
+    def _render_current(self) -> None: ...
 
 
 class ConnectFlow:
@@ -102,6 +104,7 @@ class ConnectFlow:
                     token_file=self.result.token_file,
                     token_source_kind=self.result.token_source_kind,
                     retry_source="file" if self.result.token_file else "prompt",
+                    replace_current=False,
                 )
                 return
             self._goto_machine_github()
@@ -136,6 +139,7 @@ class ConnectFlow:
             token_file=None,
             token_source_kind="prompt",
             retry_source="prompt",
+            replace_current=True,
         )
 
     def _after_token_file(self: _Shell, value: str) -> None:
@@ -144,6 +148,7 @@ class ConnectFlow:
             token_file=value,
             token_source_kind="token_file",
             retry_source="file",
+            replace_current=True,
         )
 
     def _verify_yoke_token_value(
@@ -153,6 +158,7 @@ class ConnectFlow:
         token_file: str | None,
         token_source_kind: str,
         retry_source: str,
+        replace_current: bool,
     ) -> None:
         def _work() -> dict[str, Any]:
             secret = yoke_token_verify.read_token_source(
@@ -195,6 +201,7 @@ class ConnectFlow:
             on_success=_success,
             on_error=_error,
             group="onboard-yoke-token",
+            replace_current=replace_current,
         )
 
     def _goto_yoke_verify_success(
@@ -245,9 +252,16 @@ class ConnectFlow:
 
     def _on_yoke_verify_error(self: _Shell, choice: str, retry_source: str) -> None:
         if choice == "retry":
+            if self._history:
+                self._history.pop()
             self._after_token_source(retry_source)
             return
-        self._goto_token_source()
+        if self._history:
+            self._history.pop()
+        if self._history:
+            self._render_current()
+        else:
+            self._goto_token_source()
 
 
 __all__ = ["ConnectFlow", "ENV_SELECT_ROWS", "verify_yoke_token"]

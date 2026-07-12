@@ -178,7 +178,9 @@ Seed data: 6 templates seeded by `python3 -m yoke_core.cli.db_router projects in
 - `aws-route53` -- DNS management via Route53 (keys: hosted_zone_id; requires: aws-admin)
 - `github` -- GitHub App repo binding metadata for issue sync, PRs, Actions, and API access (keys: repo_owner, repo_name, installation_id, repository_id). The verified GitHub deployment API base is stored on `project_github_repo_bindings.api_url` and `github_app_installations.api_url`, not inferred from the repo slug. GitHub App private-key and webhook secret material belongs to the control-plane secret store, not `capability_secrets`.
 
-**Bootstrap config field:** The `github` capability may include an `ssh_key_path` secret pointing to the SSH private key used by the bootstrap script to configure GitHub Secrets for deployment workflows.
+Deployment SSH credentials belong to the separate `ssh` capability. The
+`github` capability has no secret fields; GitHub App private keys and webhook
+secrets stay in the control-plane secret store.
 
 ## Table: deployment_flows
 

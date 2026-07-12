@@ -28,8 +28,13 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_one, query_rows
+from yoke_core.domain.project_github_capability_settings import (
+    normalize_github_capability_type,
+)
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.projects_breakage_policy import resolve_breakage_policy
 
@@ -112,6 +117,8 @@ def _secrets_metadata(conn: Any, project_id: int) -> List[Dict[str, str]]:
     return [
         {"type": row["type"], "key": row["key"], "source": row["source"]}
         for row in rows
+        if normalize_github_capability_type(str(row["type"]))
+        != GITHUB_CAPABILITY_TYPE
     ]
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
@@ -42,6 +43,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _goto_project_mode(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
     def _goto_existing_project_ready(self) -> None: ...
+    async def action_back(self) -> None: ...
 
 
 class CloneFlow(CloneSourceFlow):
@@ -148,7 +150,7 @@ class CloneFlow(CloneSourceFlow):
         if choice == "retry":
             self._goto_private_repo_picker(replace_current=True)
             return
-        self._goto_clone_url_input()
+        asyncio.ensure_future(self.action_back())
 
     # ── Local folder (defaults from the repo name) ──────────
 
