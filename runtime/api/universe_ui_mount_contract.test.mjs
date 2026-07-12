@@ -158,8 +158,10 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
 
   const [button, select] = byClass(firstRoot, "capability-action");
   button.dispatchEvent(new Event("click"));
+  assert.equal(invoked.length, 1);
   select.value = "1";
   select.dispatchEvent(new Event("change"));
+  assert.equal(invoked.length, 2);
   await settle();
   assert.equal(invoked[0][0], "refresh");
   assert.equal(invoked[0][1], undefined);
