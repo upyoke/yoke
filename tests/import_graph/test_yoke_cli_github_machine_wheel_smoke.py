@@ -15,6 +15,8 @@ from pathlib import Path
 
 BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 REFRESH_SECRET = "github-app-refresh-secret"
+
+
 def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
     tmp_path: Path,
     product_wheelhouse: Path,
@@ -23,10 +25,21 @@ def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
     create_seeded_pip_venv(venv_dir)
     venv_python = venv_dir / "bin" / "python"
     yoke = venv_dir / "bin" / "yoke"
-    _run([
-        str(venv_python), "-m", "pip", "install", "--no-index",
-        "--find-links", str(product_wheelhouse), "yoke-cli", "yoke-core",
-    ], cwd=tmp_path, timeout=180)
+    _run(
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--no-index",
+            "--find-links",
+            str(product_wheelhouse),
+            "yoke-cli",
+            "yoke-core",
+        ],
+        cwd=tmp_path,
+        timeout=180,
+    )
     assert yoke.is_file()
 
     checkout = tmp_path / "external-project"
@@ -45,11 +58,16 @@ def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
     )
 
     # Engine present: the wheel channel ships yoke-core to every machine.
-    _run([
-        str(venv_python), "-c",
-        "import importlib.util; "
-        "assert importlib.util.find_spec('yoke_core') is not None",
-    ], cwd=checkout, env=env)
+    _run(
+        [
+            str(venv_python),
+            "-c",
+            "import importlib.util; "
+            "assert importlib.util.find_spec('yoke_core') is not None",
+        ],
+        cwd=checkout,
+        env=env,
+    )
 
     help_result = _run([str(yoke), "--help"], cwd=checkout, env=env)
     assert "yoke github connect" in help_result.stdout
@@ -58,7 +76,15 @@ def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
     for args, flags, absent in (
         (
             ("github", "connect", "--help"),
-            ("--client-id", "--app-slug", "--api-url", "--web-url", "--add-installation", "--config", "--json"),
+            (
+                "--client-id",
+                "--app-slug",
+                "--api-url",
+                "--web-url",
+                "--add-installation",
+                "--config",
+                "--json",
+            ),
             ("--token-file", "--github-repo", "--token-stdin"),
         ),
         (
@@ -78,77 +104,113 @@ def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
         for flag in absent:
             assert flag not in sub_help.stdout
 
-    refused = _run([
-        str(yoke), "github", "connect",
-        "--config", str(config),
-        "--json",
-    ], cwd=checkout, env=env, check=False)
+    refused = _run(
+        [
+            str(yoke),
+            "github",
+            "connect",
+            "--config",
+            str(config),
+            "--json",
+        ],
+        cwd=checkout,
+        env=env,
+        check=False,
+    )
     assert refused.returncode == 1
     assert refused.stdout == ""
-    assert "client id is required" in refused.stderr
+    assert "selected Yoke connection is unavailable or invalid" in refused.stderr
     assert not (machine_home / "secrets" / "github.token").exists()
 
-    refresh = machine_home / "secrets" / "github-app-user.json"
+    refresh = machine_home / "secrets" / f"github-app-user-{'a' * 32}.json"
     refresh.parent.mkdir(parents=True)
     refresh.parent.chmod(0o700)
-    refresh.write_text(json.dumps({
-        "schema_version": 1,
-        "access_token": "short-lived-access",
-        "expires_at": "2099-07-09T17:00:00+00:00",
-        "refresh_token": REFRESH_SECRET,
-        "refresh_expires_at": "2099-12-09T17:00:00+00:00",
-        "scope": "",
-        "token_type": "bearer",
-    }) + "\n", encoding="utf-8")
+    refresh.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "refresh_token": REFRESH_SECRET,
+                "refresh_expires_at": "2099-12-09T17:00:00+00:00",
+                "config_owners": [str(config.resolve())],
+                "config_ownership_complete": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     refresh.chmod(0o600)
-    config.write_text(json.dumps({
-        "schema_version": 1,
-        "github": {
-            "api_url": "https://api.github.com",
-            "web_url": "https://github.com",
-            "app_slug": "yoke",
-            "client_id": "Iv1.example",
-            "installations": [{
-                "installation_id": 123,
-                "account_id": 9,
-                "account_login": "octo-org",
-                "account_type": "Organization",
-                "repository_selection": "selected",
-                "suspended": False,
-                "permissions": {
-                    "actions": "write",
-                    "checks": "read",
-                    "contents": "write",
-                    "issues": "write",
-                    "metadata": "read",
-                    "pull_requests": "write",
-                    "secrets": "write",
-                    "actions_variables": "write",
-                    "workflows": "write",
+    config.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "github": {
+                    "api_url": "https://api.github.com",
+                    "web_url": "https://github.com",
+                    "app_slug": "yoke",
+                    "app_id": 1234,
+                    "client_id": "Iv1.example",
+                    "profile_source": "local_explicit",
+                    "installations": [
+                        {
+                            "installation_id": 123,
+                            "app_id": 1234,
+                            "app_slug": "yoke",
+                            "account_id": 9,
+                            "account_login": "octo-org",
+                            "account_type": "Organization",
+                            "repository_selection": "selected",
+                            "suspended": False,
+                            "permissions": {
+                                "actions": "write",
+                                "checks": "read",
+                                "contents": "write",
+                                "issues": "write",
+                                "metadata": "read",
+                                "pull_requests": "write",
+                                "secrets": "write",
+                                "actions_variables": "write",
+                                "workflows": "write",
+                            },
+                        }
+                    ],
+                    "repositories": [
+                        {
+                            "repository_id": 456,
+                            "full_name": "octo-org/app",
+                            "default_branch": "main",
+                            "installation_id": 123,
+                            "private": True,
+                        }
+                    ],
+                    "authorization": {
+                        "kind": "github_app_user_authorization",
+                        "refresh_credential_ref": str(refresh),
+                        "github_user_id": 1001,
+                        "login": "machine-user",
+                        "status": "authorized",
+                    },
                 },
-            }],
-            "repositories": [{
-                "repository_id": 456,
-                "full_name": "octo-org/app",
-                "default_branch": "main",
-                "installation_id": 123,
-            }],
-            "authorization": {
-                "kind": "github_app_user_authorization",
-                "refresh_credential_ref": str(refresh),
-                "github_user_id": 1001,
-                "login": "machine-user",
-                "status": "authorized",
             },
-        },
-    }, indent=2) + "\n", encoding="utf-8")
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config.chmod(0o600)
 
-    status = _run([
-        str(yoke), "github", "status",
-        "--config", str(config),
-        "--offline",
-        "--json",
-    ], cwd=checkout, env=env)
+    status = _run(
+        [
+            str(yoke),
+            "github",
+            "status",
+            "--config",
+            str(config),
+            "--offline",
+            "--json",
+        ],
+        cwd=checkout,
+        env=env,
+    )
     status_payload = json.loads(status.stdout)
     assert status_payload["ok"] is True
     assert status_payload["operation"] == "github.status"
@@ -160,6 +222,7 @@ def test_github_machine_commands_work_from_product_wheel_with_inert_engine(
     assert readme.read_text("utf-8") == "# external\n"
     assert sorted(path.name for path in checkout.iterdir()) == ["README.md"]
     assert not gh_marker.exists()
+
 
 def _product_env(
     machine_home: Path,
@@ -220,6 +283,7 @@ def _run(
         assert result.returncode == 0, _format_result(result)
     return result
 
+
 def _format_result(result: subprocess.CompletedProcess[str]) -> str:
     return (
         f"command failed with {result.returncode}: {result.args!r}\n"
@@ -227,9 +291,11 @@ def _format_result(result: subprocess.CompletedProcess[str]) -> str:
         f"stderr:\n{result.stderr}"
     )
 
+
 def _assert_token_absent(*texts: str) -> None:
     for text in texts:
         assert REFRESH_SECRET not in text
+
 
 def _assert_no_project_runtime_auth(payload: dict[str, object]) -> None:
     for key in (

@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 from typing import List
 
-from yoke_contracts import github_origin
 from yoke_cli.commands._helpers import (
     attach_field_note_footer,
     parse_or_usage_error,
@@ -16,6 +15,12 @@ from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.commands.adapters import onboard_destination_args
 from yoke_cli.commands.adapters import onboard_project_args
 from yoke_cli.commands.adapters import onboard_resume
+from yoke_cli.commands.adapters.onboard_github_requests import (
+    github_user_access_token as _github_user_access_token,
+    project_clone as _project_clone,
+    project_needs_github_user_access_token as _project_needs_github_user_access_token,
+    project_publish as _project_publish,
+)
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_destinations
@@ -25,11 +30,7 @@ from yoke_cli.config import onboard_wizard
 from yoke_cli.config import github_user_tokens
 from yoke_cli.config import yoke_dev_access
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
-from yoke_cli.config.project_clone_support import (
-    CLONE_OUTCOME_FORK,
-    CLONE_OUTCOME_MAKE_IT_MINE,
-    ClonePlan,
-)
+from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.project_publish_support import PublishRequest
 from yoke_cli.config.writer import MachineConfigWriteError
 from yoke_contracts.machine_config.schema import MachineConfigContractError
@@ -39,6 +40,7 @@ ONBOARD_USAGE = (
     "yoke onboard [--quick | --advanced] [--local | --connect URL] [--json] "
     "[--non-interactive] [--config PATH] --env ENV --api-url URL "
     "[TOKEN | --token-file PATH | --token-stdin] [--yes] "
+    "[--machine-github connect|backlog-only] "
     "[--skip-identity-check] "
     "[--project-mode machine-only|create-repo|clone-remote|import-remote|"
     "local-checkout --checkout PATH [--remote-url URL] "
@@ -65,6 +67,12 @@ def onboard(args: List[str]) -> int:
                         action="store_true")
     parser.add_argument("--yes", dest="apply", action="store_true")
     parser.add_argument(
+        "--machine-github",
+        choices=("connect", "backlog-only"),
+        default=None,
+        help="Connect the advertised Yoke GitHub App or stay backlog-only.",
+    )
+    parser.add_argument(
         "--skip-identity-check", dest="skip_identity_check",
         action="store_true",
     )
@@ -73,18 +81,30 @@ def onboard(args: List[str]) -> int:
         help="launched straight after install; show the install-summary screen",
     )
     parser.add_argument("--resume", dest="resume_run_id", default=None)
-    parser.add_argument("--start-over", dest="start_over_run_id", default=None)
+    parser.add_argument(
+        "--use-different-folder",
+        "--start-over",
+        dest="different_folder_run_id",
+        default=None,
+        help=(
+            "preserve a failed run's checkout and close it before choosing a "
+            "different folder; --start-over is a compatibility alias"
+        ),
+    )
     onboard_project_args.add_project_args(parser)
     attach_field_note_footer(parser)
     parsed = parse_or_usage_error(parser, args, ONBOARD_USAGE)
     if parsed is None:
         return 2
-    if parsed.resume_run_id and parsed.start_over_run_id:
-        print("error: --resume and --start-over cannot be used together", file=sys.stderr)
+    if parsed.resume_run_id and parsed.different_folder_run_id:
+        print(
+            "error: --resume and --use-different-folder cannot be used together",
+            file=sys.stderr,
+        )
         return 2
-    if parsed.start_over_run_id:
-        return onboard_resume.start_over(
-            parsed.start_over_run_id,
+    if parsed.different_folder_run_id:
+        return onboard_resume.use_different_folder(
+            parsed.different_folder_run_id,
             confirmed=parsed.apply,
             json_mode=parsed.json_mode,
         )
@@ -151,16 +171,33 @@ def onboard(args: List[str]) -> int:
         if not token:
             print("error: token on stdin is empty", file=sys.stderr)
             return 2
-    machine_github_choice = getattr(parsed, "machine_github_choice", None) or "skip"
+    requested_machine_github = getattr(parsed, "machine_github", None)
+    connect_machine_github = requested_machine_github == "connect"
+    use_machine_github = connect_machine_github or bool(
+        getattr(parsed, "project_clone_use_machine_github", False)
+    )
+    machine_github_choice = (
+        "connect"
+        if requested_machine_github == "connect"
+        else "skip"
+        if requested_machine_github == "backlog-only"
+        else getattr(parsed, "machine_github_choice", None) or "skip"
+    )
     try:
         needs_user_token = _project_needs_github_user_access_token(parsed)
         github_user_access_token = _github_user_access_token(
-            parsed,
-            required=needs_user_token,
+            parsed, required=needs_user_token and not connect_machine_github,
         )
-        project_publish = _project_publish(parsed, github_user_access_token)
+        project_publish = _project_publish(
+            parsed,
+            github_user_access_token,
+            use_machine_github=use_machine_github,
+        )
         project_clone = _project_clone(
-            parsed, github_user_access_token, project_publish,
+            parsed,
+            github_user_access_token,
+            project_publish,
+            use_machine_github=use_machine_github,
         )
     except github_user_tokens.GitHubUserTokenError:
         print(
@@ -200,6 +237,12 @@ def onboard(args: List[str]) -> int:
         project_github_repo=(
             parsed.project_github_repo or source_dev_defaults.get("github_repo")
         ),
+        project_github_repository_id=getattr(
+            parsed, "project_github_repository_id", None,
+        ),
+        project_github_installation_id=getattr(
+            parsed, "project_github_installation_id", None,
+        ),
         project_default_branch=(
             parsed.project_default_branch or source_dev_defaults.get("default_branch")
         ),
@@ -222,6 +265,9 @@ def onboard(args: List[str]) -> int:
             None,
         ),
         project_github_adoption=parsed.github_adoption,
+        project_github_adoption_preserve=bool(
+            getattr(parsed, "project_github_adoption_preserve", False)
+        ),
         project_publish=project_publish,
         project_clone=project_clone,
         project_keep_existing_remote=bool(
@@ -332,6 +378,12 @@ def _run_wizard(
     if result.error:
         _print_failure_summary(result)
         return 1
+    if result.cancelled and result.machine_github_saved:
+        print(
+            "GitHub App authorization remains saved on this machine. Run "
+            "`yoke github disconnect` to remove it.",
+            file=sys.stderr,
+        )
     _finish_pending_dev_install(parsed.config_path)
     return result.exit_code
 
@@ -392,11 +444,14 @@ def _build_report(
     project_name: str | None,
     project_org: str | None,
     project_github_repo: str | None,
+    project_github_repository_id: int | None = None,
+    project_github_installation_id: int | None = None,
     project_default_branch: str | None,
     project_default_branch_source: str | None,
     project_public_item_prefix: str | None,
     existing_project_id: int | None,
     project_github_adoption: str | None,
+    project_github_adoption_preserve: bool = False,
     existing_project_match_source: str | None = None,
     existing_project_local_source: str | None = None,
     project_publish: PublishRequest | None = None,
@@ -426,6 +481,8 @@ def _build_report(
             "project_name": project_name,
             "project_org": project_org,
             "project_github_repo": project_github_repo,
+            "project_github_repository_id": project_github_repository_id,
+            "project_github_installation_id": project_github_installation_id,
             "project_default_branch": project_default_branch,
             "project_default_branch_source": project_default_branch_source,
             "project_public_item_prefix": project_public_item_prefix,
@@ -433,6 +490,9 @@ def _build_report(
             "existing_project_match_source": existing_project_match_source,
             "existing_project_local_source": existing_project_local_source,
             "project_github_adoption": project_github_adoption,
+            "project_github_adoption_preserve": (
+                project_github_adoption_preserve
+            ),
             "project_publish": project_publish,
             "project_clone": project_clone,
             "project_keep_existing_remote": project_keep_existing_remote,
@@ -460,120 +520,6 @@ def _build_report(
 
 _apply_with_durable_report = onboard_apply.apply_with_durable_report
 _print_failure_summary = onboard_apply.print_failure_summary
-
-
-def _github_user_access_token(
-    parsed: argparse.Namespace,
-    *,
-    required: bool,
-) -> str | None:
-    if not required:
-        return None
-    refreshed = github_user_tokens.access_token_from_machine_config(
-        config_path=getattr(parsed, "config_path", None),
-    )
-    return refreshed.access_token
-
-
-def _project_publish(
-    parsed: argparse.Namespace,
-    github_user_access_token: str | None,
-) -> PublishRequest | None:
-    owner = str(getattr(parsed, "project_publish_owner", "") or "").strip()
-    name = str(getattr(parsed, "project_publish_repo_name", "") or "").strip()
-    if not (owner and name):
-        return None
-    if not github_user_access_token:
-        raise github_user_tokens.GitHubUserTokenError(
-            "GitHub App user authorization is required to create a GitHub repo. "
-            "Run `yoke github connect` when browser authorization is available, "
-            "or continue backlog-only."
-        )
-    return PublishRequest(
-        owner=owner,
-        name=name,
-        user_login=str(getattr(parsed, "project_publish_owner_login", "") or ""),
-        token=github_user_access_token,
-        api_url=str(
-            getattr(parsed, "project_publish_api_url", "")
-            or getattr(parsed, "machine_github_api_url", "")
-            or github_origin.DEFAULT_GITHUB_API_URL
-        ),
-        private=bool(getattr(parsed, "project_publish_private", True)),
-        administration_allowed=_github_administration_allowed(
-            getattr(parsed, "config_path", None), owner,
-        ),
-        web_url=_github_web_url(getattr(parsed, "config_path", None)),
-    )
-
-
-def _project_clone(
-    parsed: argparse.Namespace,
-    github_user_access_token: str | None,
-    project_publish: PublishRequest | None,
-) -> ClonePlan | None:
-    outcome = str(getattr(parsed, "project_clone_outcome", "") or "").strip()
-    if not outcome:
-        if github_user_access_token and str(
-            getattr(parsed, "project_mode", "") or ""
-        ) in ("clone-remote", "import-remote"):
-            return ClonePlan(
-                fallback_token=github_user_access_token,
-                fork_web_url=_github_web_url(getattr(parsed, "config_path", None)),
-            )
-        return None
-    if outcome in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE):
-        if not github_user_access_token:
-            raise github_user_tokens.GitHubUserTokenError(
-                "GitHub App user authorization is required for the saved clone "
-                "outcome. Run `yoke github connect` when browser authorization "
-                "is available, or choose a plain clone/backlog-only flow."
-            )
-    return ClonePlan(
-        outcome=outcome,
-        keep_upstream=bool(getattr(parsed, "project_clone_keep_upstream", True)),
-        publish=project_publish if outcome == CLONE_OUTCOME_MAKE_IT_MINE else None,
-        fallback_token=github_user_access_token,
-        fork_api_url=str(
-            getattr(parsed, "project_clone_fork_api_url", "")
-            or getattr(parsed, "machine_github_api_url", "")
-            or github_origin.DEFAULT_GITHUB_API_URL
-        ),
-        fork_web_url=_github_web_url(getattr(parsed, "config_path", None)),
-    )
-
-
-def _project_needs_github_user_access_token(parsed: argparse.Namespace) -> bool:
-    outcome = str(getattr(parsed, "project_clone_outcome", "") or "").strip()
-    if outcome in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE):
-        return True
-    if str(getattr(parsed, "project_mode", "") or "") in (
-        "clone-remote", "import-remote",
-    ):
-        return bool(machine_config.github_config(getattr(parsed, "config_path", None)))
-    return bool(
-        str(getattr(parsed, "project_publish_owner", "") or "").strip()
-        and str(getattr(parsed, "project_publish_repo_name", "") or "").strip()
-    )
-
-
-def _github_administration_allowed(config_path: str | None, owner: str) -> bool:
-    github = machine_config.github_config(config_path)
-    return any(
-        isinstance(installation, dict)
-        and isinstance(installation.get("permissions"), dict)
-        and str(installation.get("account_login") or "").casefold() == owner.casefold()
-        and not installation.get("suspended")
-        and installation["permissions"].get("administration") == "write"
-        for installation in github.get("installations") or []
-    )
-
-
-def _github_web_url(config_path: str | None) -> str:
-    github = machine_config.github_config(config_path)
-    return github_origin.validate_github_web_endpoint(
-        str(github.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL)
-    ).base_url
 
 
 __all__ = ["ONBOARD_USAGE", "onboard"]

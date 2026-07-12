@@ -36,17 +36,17 @@ APPLY_FAILURE_RESUME_ROW = SelectionRow(
     "Resume from cloned folder",
     "keep completed work",
 )
-APPLY_FAILURE_START_OVER_ROW = SelectionRow(
-    "start-over",
-    "Start over",
-    "remove local checkout",
+APPLY_FAILURE_DIFFERENT_FOLDER_ROW = SelectionRow(
+    "different-folder",
+    "Use a different folder",
+    "preserve this partial checkout",
 )
 
-APPLY_START_OVER_CONFIRM_ROWS = [
+APPLY_DIFFERENT_FOLDER_CONFIRM_ROWS = [
     SelectionRow(
-        "confirm-start-over",
-        "Remove checkout",
-        "delete the local folder",
+        "confirm-different-folder",
+        "Preserve checkout and go back",
+        "choose a new empty folder next",
     ),
     SelectionRow("cancel", "Cancel", "back to recovery"),
 ]
@@ -107,7 +107,7 @@ def apply_failure_body(
     resume_command: str | None,
     retryable: bool = False,
     can_resume: bool = False,
-    can_start_over: bool = False,
+    can_use_different_folder: bool = False,
 ) -> list[Static]:
     widgets = [
         Static("✗ Couldn't finish setup.", classes="onboard-title-error"),
@@ -131,22 +131,22 @@ def apply_failure_body(
     rows = _apply_failure_rows(
         retryable=retryable,
         can_resume=can_resume,
-        can_start_over=can_start_over,
+        can_use_different_folder=can_use_different_folder,
     )
     widgets.append(SelectionList(rows))
     return widgets
 
 
-def apply_start_over_body(
+def apply_different_folder_body(
     *,
     report_path: str | None,
     checkout_path: str | None,
 ) -> list[Static]:
     widgets = [
-        Static("Start over?", classes="onboard-title-error"),
+        Static("Use a different folder?", classes="onboard-title-error"),
         Static("", classes="onboard-spacer"),
         Static(
-            "This removes the local checkout Yoke created for this run.",
+            "This leaves the local checkout untouched; choose a new empty folder next.",
             classes="onboard-plan-line",
         ),
     ]
@@ -159,7 +159,7 @@ def apply_start_over_body(
             Static(f"Report: {escape(report_path)}", classes="onboard-note")
         )
     widgets.append(Static("", classes="onboard-spacer"))
-    widgets.append(SelectionList(APPLY_START_OVER_CONFIRM_ROWS))
+    widgets.append(SelectionList(APPLY_DIFFERENT_FOLDER_CONFIRM_ROWS))
     return widgets
 
 
@@ -186,15 +186,15 @@ def _apply_failure_rows(
     *,
     retryable: bool,
     can_resume: bool,
-    can_start_over: bool,
+    can_use_different_folder: bool,
 ) -> list[SelectionRow]:
     base = list(APPLY_FAILURE_ROWS_RETRYABLE if retryable else APPLY_FAILURE_ROWS)
     insert_at = 1 if retryable else 0
     recovery: list[SelectionRow] = []
     if can_resume:
         recovery.append(APPLY_FAILURE_RESUME_ROW)
-    if can_start_over:
-        recovery.append(APPLY_FAILURE_START_OVER_ROW)
+    if can_use_different_folder:
+        recovery.append(APPLY_FAILURE_DIFFERENT_FOLDER_ROW)
     return base[:insert_at] + recovery + base[insert_at:]
 
 
@@ -202,13 +202,13 @@ __all__ = [
     "APPLY_FAILURE_ROWS",
     "APPLY_FAILURE_RESUME_ROW",
     "APPLY_FAILURE_ROWS_RETRYABLE",
-    "APPLY_FAILURE_START_OVER_ROW",
-    "APPLY_START_OVER_CONFIRM_ROWS",
+    "APPLY_FAILURE_DIFFERENT_FOLDER_ROW",
+    "APPLY_DIFFERENT_FOLDER_CONFIRM_ROWS",
     "APPLY_STATUS_GLYPHS",
     "APPLY_SUCCESS_ROWS",
     "apply_failure_body",
     "apply_progress_body",
-    "apply_start_over_body",
+    "apply_different_folder_body",
     "apply_step_line",
     "apply_success_body",
 ]

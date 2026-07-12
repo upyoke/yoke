@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import json
-import urllib.error
 import urllib.request
 import uuid
 from typing import Any, Mapping
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    request_json,
+    safe_diagnostic_text,
+)
+from yoke_cli.transport.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 
-_TIMEOUT_S = 20.0
+_TIMEOUT_S = ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 
 
 class ExistingProjectLookupError(RuntimeError):
@@ -25,16 +31,18 @@ def call_function(
     payload: Mapping[str, Any],
 ) -> Mapping[str, Any]:
     """Call one hosted project lookup function and return its response object."""
-    body = json.dumps({
-        "function": function,
-        "version": "v1",
-        "actor": {"actor_id": None, "session_id": ""},
-        "target": {"kind": "global"},
-        "request_id": str(uuid.uuid4()),
-        "payload": dict(payload),
-        "preconditions": {},
-        "options": {},
-    }).encode("utf-8")
+    body = json.dumps(
+        {
+            "function": function,
+            "version": "v1",
+            "actor": {"actor_id": None, "session_id": ""},
+            "target": {"kind": "global"},
+            "request_id": str(uuid.uuid4()),
+            "payload": dict(payload),
+            "preconditions": {},
+            "options": {},
+        }
+    ).encode("utf-8")
     request = urllib.request.Request(
         join_api_url(api_url, FUNCTIONS_CALL_PATH),
         data=body,
@@ -45,31 +53,29 @@ def call_function(
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        try:
-            raw = exc.read().decode("utf-8")
-        except Exception:
-            raw = ""
-        if raw:
-            try:
-                error_payload = json.loads(raw)
-            except ValueError:
-                error_payload = {}
-            if isinstance(error_payload, Mapping):
-                return error_payload
+        response = request_json(
+            request,
+            timeout_seconds=_TIMEOUT_S,
+            replay_safe=False,
+            allow_loopback_http=True,
+            sensitive_values=(token,),
+            opener=urllib.request.urlopen,
+        )
+    except BoundedJsonHttpStatusError as exc:
+        if isinstance(exc.payload, Mapping):
+            return exc.payload
         raise ExistingProjectLookupError(
-            f"{function} lookup returned HTTP {exc.code}"
-        ) from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise ExistingProjectLookupError(str(exc)) from exc
-    try:
-        parsed = json.loads(raw) if raw else {}
-    except ValueError as exc:
-        raise ExistingProjectLookupError(f"{function} returned invalid JSON") from exc
+            f"{safe_diagnostic_text(function)} lookup returned HTTP {exc.status}"
+        ) from None
+    except BoundedJsonHttpError as exc:
+        raise ExistingProjectLookupError(
+            f"{safe_diagnostic_text(function)} lookup failed: {exc}"
+        ) from None
+    parsed = response.payload if response.payload is not None else {}
     if not isinstance(parsed, Mapping):
-        raise ExistingProjectLookupError(f"{function} returned a non-object response")
+        raise ExistingProjectLookupError(
+            f"{safe_diagnostic_text(function)} returned a non-object response"
+        )
     return parsed
 
 

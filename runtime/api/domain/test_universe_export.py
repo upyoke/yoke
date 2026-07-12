@@ -47,7 +47,8 @@ def _schema_loaded_universe():
 def _write_machine_config(machine_home: Path, payload: dict) -> None:
     machine_home.mkdir(parents=True, exist_ok=True)
     (machine_home / "config.json").write_text(
-        dumps_pretty(payload), encoding="utf-8",
+        dumps_pretty(payload),
+        encoding="utf-8",
     )
 
 
@@ -84,7 +85,8 @@ def test_export_produces_pg_restore_listable_artifact(tmp_path):
 
     listing = subprocess.run(
         ["pg_restore", "--list", str(artifact)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert listing.returncode == 0, listing.stderr
     assert "organizations" in listing.stdout
@@ -212,23 +214,27 @@ def _enable_connected_env(monkeypatch) -> None:
 
 
 def test_resolve_export_dsn_refuses_https_connection_in_mode_language(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     _enable_connected_env(monkeypatch)
-    _write_machine_config(tmp_path / "machine-home", {
-        "schema_version": 1,
-        "active_env": "prod",
-        "connections": {
-            "prod": {
-                "transport": "https",
-                "api_url": "https://api.example",
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(tmp_path / "token"),
+    _write_machine_config(
+        tmp_path / "machine-home",
+        {
+            "schema_version": 1,
+            "active_env": "prod",
+            "connections": {
+                "prod": {
+                    "transport": "https",
+                    "api_url": "https://api.example",
+                    "credential_source": {
+                        "kind": "token_file",
+                        "path": str(tmp_path / "token"),
+                    },
                 },
             },
         },
-    })
+    )
 
     with pytest.raises(ux.UniverseExportError) as excinfo:
         ux.resolve_export_dsn()
@@ -245,20 +251,23 @@ def test_resolve_export_dsn_refuses_prod_flagged_postgres(monkeypatch, tmp_path)
     _enable_connected_env(monkeypatch)
     dsn_file = tmp_path / "prod.dsn"
     dsn_file.write_text("host=/prod-sock user=yoke dbname=yoke\n", encoding="utf-8")
-    _write_machine_config(tmp_path / "machine-home", {
-        "schema_version": 1,
-        "active_env": "prod-db-admin",
-        "connections": {
-            "prod-db-admin": {
-                "transport": "local-postgres",
-                "prod": True,
-                "credential_source": {
-                    "kind": "dsn_file",
-                    "path": str(dsn_file),
+    _write_machine_config(
+        tmp_path / "machine-home",
+        {
+            "schema_version": 1,
+            "active_env": "prod-db-admin",
+            "connections": {
+                "prod-db-admin": {
+                    "transport": "local-postgres",
+                    "prod": True,
+                    "credential_source": {
+                        "kind": "dsn_file",
+                        "path": str(dsn_file),
+                    },
                 },
             },
         },
-    })
+    )
 
     with pytest.raises(ux.UniverseExportError) as excinfo:
         ux.resolve_export_dsn()
@@ -269,25 +278,29 @@ def test_resolve_export_dsn_refuses_prod_flagged_postgres(monkeypatch, tmp_path)
 
 
 def test_resolve_export_dsn_returns_nonprod_local_postgres_dsn(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     _enable_connected_env(monkeypatch)
     dsn_file = tmp_path / "local.dsn"
     dsn_file.write_text("host=/sock user=yoke dbname=yoke\n", encoding="utf-8")
-    _write_machine_config(tmp_path / "machine-home", {
-        "schema_version": 1,
-        "active_env": "local",
-        "connections": {
-            "local": {
-                "transport": "local-postgres",
-                "prod": False,
-                "credential_source": {
-                    "kind": "dsn_file",
-                    "path": str(dsn_file),
+    _write_machine_config(
+        tmp_path / "machine-home",
+        {
+            "schema_version": 1,
+            "active_env": "local",
+            "connections": {
+                "local": {
+                    "transport": "local-postgres",
+                    "prod": False,
+                    "credential_source": {
+                        "kind": "dsn_file",
+                        "path": str(dsn_file),
+                    },
                 },
             },
         },
-    })
+    )
 
     assert ux.resolve_export_dsn() == "host=/sock user=yoke dbname=yoke"
 

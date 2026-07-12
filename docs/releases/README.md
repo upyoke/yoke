@@ -90,7 +90,10 @@ digest="<sha256:digest-from-the-completed-image-run>"
 
 anonymous_config="$(mktemp -d)"
 trap 'rm -rf "$anonymous_config"' EXIT
-DOCKER_CONFIG="$anonymous_config" docker pull "$repository:$sha12"
+DOCKER_CONFIG="$anonymous_config" docker pull --platform linux/amd64 \
+  "$repository:$sha12"
+DOCKER_CONFIG="$anonymous_config" docker pull --platform linux/arm64 \
+  "$repository:$sha12"
 DOCKER_CONFIG="$anonymous_config" docker pull "$repository:latest"
 sha_digest="$(DOCKER_CONFIG="$anonymous_config" docker buildx imagetools inspect \
   "$repository:$sha12" --format '{{ .Manifest.Digest }}')"
@@ -98,6 +101,12 @@ latest_digest="$(DOCKER_CONFIG="$anonymous_config" docker buildx imagetools insp
   "$repository:latest" --format '{{ .Manifest.Digest }}')"
 test "$sha_digest" = "$digest"
 test "$latest_digest" = "$digest"
+manifest="$(DOCKER_CONFIG="$anonymous_config" docker buildx imagetools inspect \
+  "$repository:$sha12" --format '{{json .Manifest}}')"
+platforms="$(jq -r \
+  '[.manifests[]?.platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | unique | sort | join(",")' \
+  <<< "$manifest")"
+test "$platforms" = "linux/amd64,linux/arm64"
 DOCKER_CONFIG="$anonymous_config" gh attestation verify \
   "oci://$repository@$digest" \
   --bundle-from-oci \
@@ -110,7 +119,8 @@ DOCKER_CONFIG="$anonymous_config" gh attestation verify \
 
 The launch receipt records the package settings URL with Public visibility,
 workflow-run URL, annotated tag-object SHA, peeled source SHA, image digest,
-successful digest equality, anonymous pull, and exact-source attestation output.
+successful digest equality, both anonymous platform pulls, the exact
+linux/amd64+linux/arm64 manifest, and exact-source attestation output.
 Never record registry credentials or Docker configuration contents.
 
 ## Verify provenance

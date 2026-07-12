@@ -15,12 +15,17 @@ from __future__ import annotations
 
 import json
 import time
-import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.api_urls import join_api_url
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    request_json,
+    safe_diagnostic_text,
+)
 
 MANIFEST_VERSION = 1
 MANIFEST_PATH = "/v1/cli/manifest"
@@ -118,11 +123,12 @@ def server_only_subcommands(manifest: Dict[str, Any]) -> List[Dict[str, Any]]:
     local.update(tuple(tokens) for tokens in SUBCOMMAND_ALIAS_REGISTRY)
     rows = list(manifest.get("subcommands") or [])
     rows.extend(manifest.get("aliases") or [])
-    return [row for row in rows
-            if tuple(row.get("tokens") or ()) not in local]
+    return [row for row in rows if tuple(row.get("tokens") or ()) not in local]
 
 
-def manifest_knows(manifest: Dict[str, Any], argv: List[str]) -> Optional[Dict[str, Any]]:
+def manifest_knows(
+    manifest: Dict[str, Any], argv: List[str]
+) -> Optional[Dict[str, Any]]:
     """Return the manifest row matching ``argv``'s leading tokens, if any."""
     rows = list(manifest.get("subcommands") or [])
     rows.extend(manifest.get("aliases") or [])
@@ -167,18 +173,24 @@ def _manifest_request(connection) -> urllib.request.Request:
     """Build the authenticated manifest GET for *connection*."""
     url = join_api_url(connection.api_url, MANIFEST_PATH)
     return urllib.request.Request(
-        url, headers={"Authorization": f"Bearer {connection.token}"},
+        url,
+        headers={"Authorization": f"Bearer {connection.token}"},
     )
 
 
 def _fetch(connection) -> Optional[Dict[str, Any]]:
     try:
-        with urllib.request.urlopen(
-            _manifest_request(connection), timeout=_FETCH_TIMEOUT_S
-        ) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        response = request_json(
+            _manifest_request(connection),
+            timeout_seconds=_FETCH_TIMEOUT_S,
+            replay_safe=True,
+            allow_loopback_http=True,
+            sensitive_values=(connection.token,),
+            opener=urllib.request.urlopen,
+        )
+    except BoundedJsonHttpError:
         return None
+    payload = response.payload
     return payload if isinstance(payload, dict) else None
 
 
@@ -193,26 +205,27 @@ def diagnose_env_manifest_fetch(env_name: str) -> str:
 
         connection = resolve_https_connection(explicit_env=env_name)
     except Exception as exc:
-        return f"connection resolution failed: {exc}"
+        return f"connection resolution failed: {safe_diagnostic_text(exc)}"
     if connection is None:
         return f"no HTTPS connection configured for env {env_name!r}"
     try:
-        with urllib.request.urlopen(
-            _manifest_request(connection), timeout=_FETCH_TIMEOUT_S
-        ):
-            return ""
-    except urllib.error.HTTPError as exc:
-        return f"HTTP {exc.code}{_http_error_detail(exc)}"
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        return f"network error: {getattr(exc, 'reason', None) or exc}"
-
-
-def _http_error_detail(exc: urllib.error.HTTPError) -> str:
-    """Extract ``code ("message")`` from a Yoke JSON error body, if present."""
-    try:
-        body = json.loads(exc.read().decode("utf-8"))
-    except Exception:
+        request_json(
+            _manifest_request(connection),
+            timeout_seconds=_FETCH_TIMEOUT_S,
+            replay_safe=True,
+            allow_loopback_http=True,
+            sensitive_values=(connection.token,),
+            opener=urllib.request.urlopen,
+        )
         return ""
+    except BoundedJsonHttpStatusError as exc:
+        return f"HTTP {exc.status}{_http_error_detail(exc.payload)}"
+    except BoundedJsonHttpError as exc:
+        return f"network error: {exc}"
+
+
+def _http_error_detail(body: Any) -> str:
+    """Extract ``code ("message")`` from a Yoke JSON error body, if present."""
     err = body.get("error") if isinstance(body, dict) else None
     if not isinstance(err, dict):
         return ""

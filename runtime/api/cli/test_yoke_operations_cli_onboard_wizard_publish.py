@@ -54,8 +54,8 @@ def _stub_github_app(monkeypatch, _stub_path_doctor):
     )
     stub_github_app_access(
         monkeypatch,
-        owners=("octocat", "acme-inc"),
-        repositories=("octocat/widget", "acme-inc/thing"),
+        owners=("octocat", "acme-inc", "owner"),
+        repositories=("octocat/widget", "acme-inc/thing", "owner/repo"),
         user_access_token="short-lived-publish-access",
     )
 
@@ -184,8 +184,8 @@ def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # slug
             await pilot.press("enter")  # name -> publish prompt auto-skipped
-            await pilot.press("enter")  # default branch main
-            await pilot.press("enter")  # prefix placeholder
+            await pilot.press("enter")  # prefix; existing branch was detected
+            await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -195,6 +195,7 @@ def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
     applied = spy.applied
     assert applied is not None
     assert applied["project_publish"] is None
+    assert applied["project_github_adoption"] == "app-binding"
 
 
 def test_no_app_connection_publish_no_keeps_it_local() -> None:

@@ -86,21 +86,22 @@ sequence values. A failure after schema preparation leaves that attempted
 fresh database ineligible for another restore; discard that unused destination
 volume and retry with a new one rather than overwriting it.
 
-Hosted and other platform-held credentials are hashes in the archive, not
-usable raw secrets. In the same transaction as the data restore, the import
-revokes every active imported API token and browser session, grants the neutral
-`admin` actor the org admin role, and mints one replacement token. Save the
-token from the success block immediately: it is shown once and never stored or
-reprinted. Then run the printed `docker compose up -d core` and `yoke connect`
-steps.
+A whole-universe archive can contain portable capability secrets in raw form,
+alongside hashed API and browser credential records. Keep the archive
+owner-only at every hop, and review or rotate capability secrets when custody
+changes between platforms. The import does not preserve API or browser access:
+in the same transaction as the data restore, it revokes every active imported
+API token and browser session, grants the neutral `admin` actor the org admin
+role, and mints one replacement token. Save the token from the success block
+immediately: it is shown once and never stored or reprinted. Then run the
+printed `docker compose up -d core` and `yoke connect` steps.
 
 If the restore reported success but its one-time result was lost before you
 could save it, mint a recovery credential while `core` remains stopped:
 
 ```bash
 cd /path/to/yoke-server
-docker compose run --rm core python3 -m \
-  yoke_core.domain.universe_import_cli --recover-credential
+docker compose run --rm core --recover-import-credential
 ```
 
 Save that command's `raw_token`, then start the service. Recovery atomically
@@ -122,11 +123,12 @@ yoke connect https://yoke.internal --token-stdin
 yoke status
 ```
 
-`yoke connect` accepts plain `http://` deliberately: self-host TLS
-commonly terminates at a reverse proxy in front of the server, and
-loopback attaches must work out of the box. It refuses to persist
-anything until the server answers `/v1/health` and the token passes
-`/v1/auth/identity`.
+`yoke connect` requires `https://` for every network server. Terminate TLS at
+your reverse proxy and give engineers its HTTPS URL. Plain `http://` is
+accepted only for a numeric loopback endpoint such as `127.0.0.1`, so local
+host setup works without sending an actor token over the network. The command
+refuses to persist anything until the server answers `/v1/health` and the
+token passes `/v1/auth/identity`.
 
 Minting additional tokens is an admin operation on the server host
 (operator-shaped surface today):
@@ -169,6 +171,20 @@ Then uncomment the OIDC lines in `.env` (`YOKE_OIDC_ISSUER`,
 blocks in `docker-compose.yml`, and `docker compose up -d`. Setting
 some vars but not all fails loudly: the door answers 409 naming what is
 missing.
+
+The Compose service mounts the owner-only source secret as root, copies it into a container-private tmpfs as mode `0600` owned by the image's `yoke`
+user, rewrites the file binding, seals the original mount directory as
+root-only, clears supplementary groups, and drops to that user before starting
+the server. Every source must be a read-only mount; this also handles Compose
+implementations that normalize the in-container source-file mode. The same
+bootstrap protects the core database DSN and optional GitHub App key; host
+copies remain owner-only.
+Compose drops every ambient container capability, grants only the three needed
+for this handoff (`CHOWN`, `SETGID`, and `SETUID`), enables
+`no-new-privileges`, and the bootstrap refuses to start the server if any
+effective Linux capability remains after the drop. The Compose healthcheck
+uses the same immediate drop, so the service-level root override does not leave
+periodic root healthcheck processes running beside the server.
 
 **3. Decide who gets in.** Visiting `https://yoke.internal/` offers
 "Sign in"; after the provider round-trip the server admits the verified
@@ -241,6 +257,12 @@ Then set these non-secret/runtime bindings in `.env`:
 YOKE_GITHUB_APP_ISSUER=<numeric-app-id>
 YOKE_GITHUB_APP_API_URL=https://api.github.com
 YOKE_GITHUB_APP_PRIVATE_KEY_FILE=/run/secrets/yoke-github-app-private-key
+
+# Optional product-facing Connect GitHub profile; set all four or none.
+YOKE_GITHUB_APP_WEB_URL=https://github.com
+YOKE_GITHUB_APP_ID=<numeric-app-id>
+YOKE_GITHUB_APP_CLIENT_ID=<public-client-id>
+YOKE_GITHUB_APP_SLUG=<app-slug>
 ```
 
 Uncomment the `yoke-github-app-private-key` service mount and top-level secret
@@ -248,6 +270,18 @@ definition in `docker-compose.yml`, then run `docker compose up -d`. The
 bundled GitHub App block is disabled until all three values and the mounted key
 are present. GitHub Enterprise Server uses its HTTPS API origin in
 `YOKE_GITHUB_APP_API_URL`; redirects to another origin are rejected.
+The key stays mode `0600` in the host bundle. The self-host bootstrap copies it
+to the core service's private tmpfs with runtime-user ownership before dropping
+root; it never weakens the host file to make a bind mount readable.
+The public profile is all-or-none. Whenever private App configuration is
+present, startup performs one bounded, no-redirect App identity check—even
+when the public profile is omitted. Missing, partial, unreadable, or identity-
+mismatched public configuration remains a detail-free `available: false` in
+health, so onboarding offers backlog-only. Partial or invalid public settings
+also emit a value-free startup warning that tells the operator to set every
+public field consistently or unset all of them. Health never performs a network
+request. After repairing a key or identity mismatch, restart the core service
+so startup can attest the repaired authority before it is advertised.
 
 Hosted/stage deployments use the same runtime contract but source the key from
 AWS Secrets Manager. The deploy environment's `environments.settings` contains
@@ -258,10 +292,20 @@ only this non-secret reference block:
   "github_app": {
     "issuer": "<numeric-app-id>",
     "api_url": "https://api.github.com",
-    "private_key_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>"
+    "private_key_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>",
+    "public": {
+      "client_id": "<public-client-id>",
+      "app_slug": "<app-slug>",
+      "app_id": 123456,
+      "web_url": "https://github.com"
+    }
   }
 }
 ```
+
+Omit `public` for a private/operator-only App that must never become the
+default machine Connect profile. If `public` is present it must be complete;
+the outer `api_url` is its single API-origin authority.
 
 The origin instance role resolves that ARN locally. Deployment writes
 `github-app-private-key.pem` as mode `0640`, owned by the deploy user and a

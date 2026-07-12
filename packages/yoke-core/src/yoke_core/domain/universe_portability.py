@@ -1,9 +1,4 @@
-"""Validate, dump, and restore portable universe archives.
-
-Artifacts are custom-format ``pg_dump`` files; clients never receive a DSN.
-Restores accept only a catalog-empty target and uploaded data, while callers
-own deployment cutover and rollback.
-"""
+"""Validate, dump, and restore portable universe archives safely."""
 
 from __future__ import annotations
 
@@ -22,6 +17,7 @@ from typing import Callable, Mapping, MutableMapping, Optional, Sequence
 import psycopg
 from psycopg import conninfo, pq, sql
 
+from yoke_core.domain import universe_archive_output
 from yoke_core.domain import postgres_binaries, postgres_cluster
 
 
@@ -548,6 +544,10 @@ def dump_universe(
     dest.parent.mkdir(parents=True, exist_ok=True)
     executable = pg_dump or _postgres_executable("pg_dump")
     client_env = postgres_client_env(dsn)
+    try:
+        archive_output = universe_archive_output.prepare_private_archive_output(dest)
+    except universe_archive_output.PrivateArchiveOutputError as exc:
+        raise UniversePortabilityError(str(exc)) from exc
     deadline = time.monotonic() + timeout_s
     stderr_tail = bytearray()
     pump_errors: list[BaseException] = []
@@ -566,7 +566,7 @@ def dump_universe(
             stderr=subprocess.PIPE,
         )
     except OSError as exc:
-        dest.unlink(missing_ok=True)
+        archive_output.cleanup()
         raise UniversePortabilityError(
             f"universe export could not start: {exc}"
         ) from exc
@@ -574,7 +574,7 @@ def dump_universe(
     workers = (
         threading.Thread(
             target=_archive_pump,
-            args=(process.stdout, dest),
+            args=(process.stdout, archive_output),
             kwargs={"max_bytes": max_bytes, "errors": pump_errors},
             daemon=True,
         ),
@@ -593,7 +593,7 @@ def dump_universe(
             raise subprocess.TimeoutExpired([executable], timeout_s)
     except subprocess.TimeoutExpired as exc:
         _terminate(process)
-        dest.unlink(missing_ok=True)
+        archive_output.cleanup()
         raise UniversePortabilityError(
             f"universe export timed out after {timeout_s}s"
         ) from exc
@@ -602,7 +602,7 @@ def dump_universe(
         for worker in workers:
             worker.join(timeout=5)
     if pump_errors:
-        dest.unlink(missing_ok=True)
+        archive_output.cleanup()
         error = pump_errors[0]
         if isinstance(error, ArchiveTooLargeError):
             raise error
@@ -610,7 +610,7 @@ def dump_universe(
             "universe export stream failed before the archive completed"
         ) from error
     if process.returncode != 0:
-        dest.unlink(missing_ok=True)
+        archive_output.cleanup()
         diagnostic = bytes(stderr_tail).decode("utf-8", errors="replace")
         password = client_env.get("PGPASSWORD", "")
         if password:
@@ -625,19 +625,24 @@ def dump_universe(
             " pg_dump diagnostic"
         )
     try:
-        return inspect_archive(
-            dest,
+        inspection = inspect_archive(
+            archive_output.temporary,
             max_bytes=max_bytes,
             timeout_s=_remaining_timeout(deadline, "export"),
         )
+        archive_output.commit()
+        return inspection
     except UniversePortabilityError:
-        dest.unlink(missing_ok=True)
+        archive_output.cleanup()
         raise
+    except universe_archive_output.PrivateArchiveOutputError as exc:
+        archive_output.cleanup()
+        raise UniversePortabilityError(str(exc)) from exc
 
 
 def _archive_pump(
     source: object,
-    destination: Path,
+    output: object,
     *,
     max_bytes: int,
     errors: list[BaseException],
@@ -645,12 +650,7 @@ def _archive_pump(
     """Write pg_dump stdout to a private file with an in-flight hard ceiling."""
     written = 0
     try:
-        descriptor = os.open(
-            destination,
-            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-            0o600,
-        )
-        with os.fdopen(descriptor, "wb") as output:
+        with output as stream:
             while True:
                 chunk = source.read(_PUMP_CHUNK_BYTES)  # type: ignore[attr-defined]
                 if not chunk:
@@ -661,7 +661,7 @@ def _archive_pump(
                         "the universe archive exceeds the"
                         f" {max_bytes}-byte safety limit"
                     )
-                output.write(chunk)
+                stream.write(chunk)
     except BaseException as exc:  # noqa: BLE001 - crosses a worker thread
         errors.append(exc)
     finally:

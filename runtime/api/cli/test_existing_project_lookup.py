@@ -275,10 +275,12 @@ def test_normalize_github_repo_handles_common_clone_urls() -> None:
         "example-org/buzz"
     )
     assert existing_project_lookup.normalize_github_repo(
-        "https://ghe.example/Example-Org/Buzz.git"
+        "https://ghe.example/Example-Org/Buzz.git",
+        web_url="https://ghe.example",
     ) == "example-org/buzz"
     assert existing_project_lookup.normalize_github_repo(
-        "git@ghe.example:Example-Org/Buzz.git"
+        "git@ghe.example:Example-Org/Buzz.git",
+        web_url="https://ghe.example",
     ) == "example-org/buzz"
 
 
@@ -290,3 +292,27 @@ def test_normalize_github_repo_rejects_unrelated_or_malformed_paths() -> None:
         "https://ghe.example/owner/repo/extra"
     ) == ""
     assert existing_project_lookup.normalize_github_repo("owner") == ""
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "https://gitlab.com/owner/repo.git",
+        "git@gitlab.com:owner/repo.git",
+        "https://ghe.example/owner/repo.git",
+    ],
+)
+def test_normalize_github_repo_rejects_foreign_origin(value: str) -> None:
+    assert existing_project_lookup.normalize_github_repo(value) == ""
+
+
+def test_find_by_github_repo_does_not_dispatch_for_foreign_origin() -> None:
+    with ProjectOnboardApi() as api:
+        project = existing_project_lookup.find_by_github_repo(
+            api_url=api.url,
+            token="product-token",
+            github_repo="https://gitlab.com/owner/demo.git",
+        )
+
+    assert project is None
+    assert api.function_calls("projects.resolve_by_github_repo") == []

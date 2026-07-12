@@ -250,6 +250,7 @@ def dispatch_and_emit(
     human_writer: Optional[Callable[[Any, TextIO, TextIO], None]] = None,
     local_only: bool = False,
     timeout_s: Optional[float] = None,
+    sensitive_values: tuple[str, ...] = (),
 ) -> int:
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
@@ -260,6 +261,7 @@ def dispatch_and_emit(
         actor=actor,
         local_only=local_only,
         timeout_s=timeout_s,
+        sensitive_values=sensitive_values,
     )
     return emit_response(
         response, json_mode=json_mode, human_writer=human_writer,

@@ -56,6 +56,8 @@ def build_report(
     project_name: str | None = None,
     project_org: str | None = None,
     project_github_repo: str | None = None,
+    project_github_repository_id: int | None = None,
+    project_github_installation_id: int | None = None,
     project_default_branch: str | None = None,
     project_default_branch_source: str | None = None,
     project_public_item_prefix: str | None = None,
@@ -63,6 +65,7 @@ def build_report(
     existing_project_match_source: str | None = None,
     existing_project_local_source: str | None = None,
     project_github_adoption: str | None = None,
+    project_github_adoption_preserve: bool = False,
     project_publish: onboard_project.PublishRequest | None = None,
     project_clone: onboard_project.ClonePlan | None = None,
     project_keep_existing_remote: bool = False,
@@ -104,12 +107,15 @@ def build_report(
         project_name=project_name,
         project_org=project_org,
         project_github_repo=project_github_repo,
+        project_github_repository_id=project_github_repository_id,
+        project_github_installation_id=project_github_installation_id,
         project_default_branch=project_default_branch,
         project_public_item_prefix=project_public_item_prefix,
         existing_project_id=existing_project_id,
         existing_project_match_source=existing_project_match_source,
         existing_project_local_source=existing_project_local_source,
         project_github_adoption=project_github_adoption,
+        project_github_adoption_preserve=project_github_adoption_preserve,
         project_publish=project_publish,
         project_clone=project_clone,
         project_keep_existing_remote=project_keep_existing_remote,
@@ -164,6 +170,7 @@ def build_report(
             apply=False,
             project_inputs=project_inputs,
             reuse=reuse,
+            service_api_url=api_url or None,
         )
     if not apply:
         report["message"] = "write plan only; rerun with --yes to apply"
@@ -214,6 +221,7 @@ def build_report(
             choice=machine_github_choice,
             config_path=cfg_path,
             api_url=machine_github_api_url,
+            service_api_url=api_url or None,
         )
         onboard_apply_progress.emit(
             progress, "machine-github-connection", machine_github_choice, "done"
@@ -235,6 +243,7 @@ def build_report(
             project_inputs=project_inputs,
             reuse=reuse,
             progress=progress,
+            service_api_url=api_url or None,
         )
         report["message"] = "machine config and project handoff written"
     return report

@@ -10,8 +10,11 @@ def test_github_app_authorization_config_is_valid_without_env_connection() -> No
         "schema_version": 1,
         "github": {
             "api_url": contract.DEFAULT_GITHUB_API_URL,
+            "web_url": contract.DEFAULT_GITHUB_WEB_URL,
             "app_slug": "yoke",
+            "app_id": 42,
             "client_id": "Iv1.example",
+            "profile_source": contract.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
             "authorization": {
                 "kind": contract.GITHUB_AUTH_KIND_USER_AUTHORIZATION,
                 "refresh_credential_ref": "~/.yoke/secrets/github.user-refresh",
@@ -80,7 +83,9 @@ def test_github_app_config_rejects_boolean_ids(
         "api_url": contract.DEFAULT_GITHUB_API_URL,
         "web_url": contract.DEFAULT_GITHUB_WEB_URL,
         "app_slug": "yoke",
+        "app_id": 5,
         "client_id": "Iv1.example",
+        "profile_source": contract.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
         "authorization": {
             "kind": contract.GITHUB_AUTH_KIND_USER_AUTHORIZATION,
             "refresh_credential_ref": "~/.yoke/secrets/github-app-user.json",

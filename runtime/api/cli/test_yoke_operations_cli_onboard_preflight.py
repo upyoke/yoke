@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
+import subprocess
 
 from yoke_cli.config import onboard_preflight
 from yoke_cli.config import onboard_project
@@ -34,19 +34,8 @@ class _Result:
     token: str | None = None
     token_file: str | None = None
     machine_github_choice: str | None = "skip"
-
-
-def _stub_github_access(monkeypatch, token: str = "ghu_short_lived") -> None:
-    monkeypatch.setattr(
-        onboard_preflight.machine_config,
-        "github_config",
-        lambda _path: {"api_url": "https://api.github.com"},
-    )
-    monkeypatch.setattr(
-        onboard_preflight.github_user_tokens,
-        "access_token_from_machine_config",
-        lambda **_kwargs: SimpleNamespace(access_token=token),
-    )
+    project_clone_outcome: str | None = None
+    project_github_adoption: str | None = None
 
 
 def test_machine_only_is_always_clear() -> None:
@@ -106,6 +95,32 @@ def test_clone_target_that_filled_up_is_flagged(tmp_path: Path) -> None:
     assert any("already has files" in p for p in problems)
 
 
+def test_exact_existing_clone_is_safe_to_resume(tmp_path: Path) -> None:
+    checkout = tmp_path / "existing-clone"
+    checkout.mkdir()
+    subprocess.run(
+        ["git", "init", "--initial-branch", "main"],
+        cwd=checkout, check=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    subprocess.run(
+        [
+            "git", "remote", "add", "origin",
+            "https://github.com/acme/widgets.git",
+        ],
+        cwd=checkout, check=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    (checkout / "README.md").write_text("partial clone", encoding="utf-8")
+    result = _Result(
+        project_mode=onboard_project.PROJECT_MODE_CLONE_REMOTE,
+        project_remote_url="git@github.com:acme/widgets.git",
+        project_checkout=str(checkout),
+    )
+
+    assert onboard_preflight.preflight_problems(result) == []
+
+
 def test_create_target_existing_dir_is_not_flagged(tmp_path: Path) -> None:
     # An existing non-empty dir is fine for create-new (it adopts) — no problem.
     full = tmp_path / "existing"
@@ -118,27 +133,10 @@ def test_create_target_existing_dir_is_not_flagged(tmp_path: Path) -> None:
     assert onboard_preflight.preflight_problems(result) == []
 
 
-def test_revoked_token_is_flagged(tmp_path: Path, monkeypatch) -> None:
-    _stub_github_access(monkeypatch, "ghu_revoked")
-    result = _Result(
-        project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
-        project_checkout=str(tmp_path / "fresh"),
-    )
-    probes = onboard_preflight.PreflightProbes(
-        token_ok=lambda _api, _token: False,
-    )
-    problems = onboard_preflight.preflight_problems(result, probes=probes)
-    assert any("no longer works" in p for p in problems)
-
-
-def test_populated_repo_name_is_flagged(tmp_path: Path, monkeypatch) -> None:
-    _stub_github_access(monkeypatch)
-    seen: dict = {}
-
-    def _repo_availability(api_url, token, owner, name) -> str:
-        seen.update(api_url=api_url, token=token, owner=owner, name=name)
-        return onboard_preflight.REPO_POPULATED_BLOCKING
-
+def test_review_defers_live_github_checks_without_refreshing(
+    tmp_path: Path,
+) -> None:
+    calls: list[str] = []
     result = _Result(
         project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
         project_checkout=str(tmp_path / "fresh"),
@@ -147,88 +145,15 @@ def test_populated_repo_name_is_flagged(tmp_path: Path, monkeypatch) -> None:
         project_publish_repo_name="widget",
     )
     probes = onboard_preflight.PreflightProbes(
-        token_ok=lambda _api, _token: True,
-        repo_availability=_repo_availability,
-    )
-    problems = onboard_preflight.preflight_problems(result, probes=probes)
-    assert any("already exists and has content" in p for p in problems)
-    # The probe authenticated with the connected token and the chosen owner/name.
-    assert seen == {
-        "api_url": "https://api.github.com", "token": "ghu_short_lived",
-        "owner": "octocat", "name": "widget",
-    }
-
-
-def test_free_repo_name_is_clear(tmp_path: Path, monkeypatch) -> None:
-    _stub_github_access(monkeypatch)
-    result = _Result(
-        project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
-        project_checkout=str(tmp_path / "fresh"),
-        project_publish_to_github=True,
-        project_publish_owner="octocat",
-        project_publish_repo_name="widget",
-    )
-    probes = onboard_preflight.PreflightProbes(
-        token_ok=lambda _api, _token: True,
-        repo_availability=(
-            lambda _api, _token, _owner, _name: onboard_preflight.REPO_FREE
+        token_ok=lambda *_: calls.append("token") or False,
+        repo_availability=lambda *_: calls.append("repo") or (
+            onboard_preflight.REPO_POPULATED_BLOCKING
         ),
-    )
-    assert onboard_preflight.preflight_problems(result, probes=probes) == []
-
-
-def test_empty_existing_repo_is_resumable(tmp_path: Path, monkeypatch) -> None:
-    _stub_github_access(monkeypatch)
-    result = _Result(
-        project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
-        project_checkout=str(tmp_path / "fresh"),
-        project_publish_to_github=True,
-        project_publish_owner="octocat",
-        project_publish_repo_name="widget",
-    )
-    probes = onboard_preflight.PreflightProbes(
-        token_ok=lambda _api, _token: True,
-        repo_availability=lambda *_: onboard_preflight.REPO_EMPTY_RESUMABLE,
-    )
-    assert onboard_preflight.preflight_problems(result, probes=probes) == []
-
-
-def test_empty_existing_repo_surfaces_reuse_note(tmp_path: Path, monkeypatch) -> None:
-    """An existing empty repo does not block, but Review announces the reuse."""
-    _stub_github_access(monkeypatch)
-    result = _Result(
-        project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
-        project_checkout=str(tmp_path / "fresh"),
-        project_publish_to_github=True,
-        project_publish_owner="octocat",
-        project_publish_repo_name="widget",
-    )
-    probes = onboard_preflight.PreflightProbes(
-        token_ok=lambda _api, _token: True,
-        repo_availability=lambda *_: onboard_preflight.REPO_EMPTY_RESUMABLE,
     )
     checks = onboard_preflight.preflight(result, probes=probes)
     assert checks.problems == []
-    assert any(
-        "octocat/widget" in n and "reuse" in n.lower() for n in checks.notes
-    )
-
-
-def test_ambiguous_repo_probe_blocks_apply(tmp_path: Path, monkeypatch) -> None:
-    _stub_github_access(monkeypatch)
-    result = _Result(
-        project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
-        project_checkout=str(tmp_path / "fresh"),
-        project_publish_to_github=True,
-        project_publish_owner="octocat",
-        project_publish_repo_name="widget",
-    )
-    probes = onboard_preflight.PreflightProbes(
-        token_ok=lambda _api, _token: True,
-        repo_availability=lambda *_: onboard_preflight.REPO_AMBIGUOUS_BLOCKING,
-    )
-    problems = onboard_preflight.preflight_problems(result, probes=probes)
-    assert any("Couldn't prove octocat/widget is available" in p for p in problems)
+    assert checks.notes == ["Live GitHub access will be checked during Apply."]
+    assert calls == []
 
 
 def test_default_repo_classifier_splits_empty_and_populated(monkeypatch) -> None:
@@ -263,22 +188,19 @@ def test_default_repo_classifier_splits_empty_and_populated(monkeypatch) -> None
     ) == onboard_preflight.REPO_AMBIGUOUS_BLOCKING
 
 
-def test_all_problems_reported_together(tmp_path: Path, monkeypatch) -> None:
-    # A filled clone target AND a revoked token surface in one pass, not one at a
-    # time — the whole point of the consolidated re-check.
+def test_folder_problem_still_blocks_without_live_github_check(
+    tmp_path: Path,
+) -> None:
     full = tmp_path / "full"
     full.mkdir()
     (full / "f.txt").write_text("x", encoding="utf-8")
-    _stub_github_access(monkeypatch, "ghu_revoked")
     result = _Result(
         project_mode=onboard_project.PROJECT_MODE_CLONE_REMOTE,
         project_remote_url="https://github.com/acme/widgets.git",
         project_checkout=str(full),
     )
-    probes = onboard_preflight.PreflightProbes(token_ok=lambda _a, _t: False)
-    problems = onboard_preflight.preflight_problems(result, probes=probes)
+    problems = onboard_preflight.preflight_problems(result)
     assert any("already has files" in p for p in problems)
-    assert any("no longer works" in p for p in problems)
 
 
 def test_missing_git_is_flagged(tmp_path: Path, monkeypatch) -> None:

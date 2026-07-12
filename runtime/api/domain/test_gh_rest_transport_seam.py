@@ -80,10 +80,12 @@ def test_build_url_uses_context_bound_ghes_api():
             "https://github.example/api/graphql"
         )
         with pytest.raises(t.RestTransportError, match="crossed"):
-            t._build_url(t.RestRequest(
-                method="GET",
-                path="https://api.github.com/user",
-            ))
+            t._build_url(
+                t.RestRequest(
+                    method="GET",
+                    path="https://api.github.com/user",
+                )
+            )
 
 
 def test_build_url_with_query():
@@ -188,7 +190,7 @@ def test_injected_transport_rejects_cross_origin_final_url(monkeypatch):
         def geturl(self):
             return "https://attacker.example/archive"
 
-        def read(self):
+        def read(self, _size: int = -1):
             return b"{}"
 
         def __enter__(self):

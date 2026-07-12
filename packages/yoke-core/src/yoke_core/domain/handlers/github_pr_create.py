@@ -21,7 +21,6 @@ from pydantic import BaseModel, Field, ValidationError
 from yoke_core.domain.handlers.github_actions_set import (
     _auth_failed,
     _bad_request,
-    _sanitized_validation_message,
     _transport_failed,
 )
 from yoke_contracts.api.function_call import (
@@ -31,6 +30,7 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS,
 )
+from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
 class PrCreateRequest(BaseModel):
@@ -70,7 +70,7 @@ def handle_pr_create(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         payload = PrCreateRequest.model_validate(request.payload or {})
     except ValidationError as exc:
-        return _bad_request(_sanitized_validation_message(exc))
+        return _bad_request(safe_validation_message(exc))
 
     from yoke_core.domain.project_github_auth import (
         ProjectGithubAuthError,

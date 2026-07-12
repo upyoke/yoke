@@ -5,6 +5,13 @@ from __future__ import annotations
 import shlex
 from typing import Any
 
+from yoke_contracts.github_app_public import (
+    GITHUB_APP_CLIENT_ID_ENV,
+    GITHUB_APP_ID_ENV,
+    GITHUB_APP_SLUG_ENV,
+    GITHUB_APP_WEB_URL_ENV,
+)
+
 GITHUB_APP_PRIVATE_KEY_FILE_NAME = "github-app-private-key.pem"
 GITHUB_APP_PRIVATE_KEY_PENDING_FILE_NAME = (
     f".{GITHUB_APP_PRIVATE_KEY_FILE_NAME}.pending"
@@ -25,9 +32,7 @@ def converge_from_instance_role(runner: Any, env: Any) -> None:
     from yoke_core.domain.deploy_remote import remove_remote_file, run_remote
 
     remote_path = f"{env.compose_dir}/{GITHUB_APP_PRIVATE_KEY_FILE_NAME}"
-    pending_path = (
-        f"{env.compose_dir}/{GITHUB_APP_PRIVATE_KEY_PENDING_FILE_NAME}"
-    )
+    pending_path = f"{env.compose_dir}/{GITHUB_APP_PRIVATE_KEY_PENDING_FILE_NAME}"
     if env.github_app is None:
         for selected_path in (remote_path, pending_path):
             removed = remove_remote_file(
@@ -84,9 +89,7 @@ def converge_from_instance_role(runner: Any, env: Any) -> None:
 def verification_and_promotion_command(env: Any, image_ref: str) -> str:
     """Build the origin-only verify-then-promote rotation command."""
     directory = shlex.quote(env.compose_dir)
-    pending_path = (
-        f"{env.compose_dir}/{GITHUB_APP_PRIVATE_KEY_PENDING_FILE_NAME}"
-    )
+    pending_path = f"{env.compose_dir}/{GITHUB_APP_PRIVATE_KEY_PENDING_FILE_NAME}"
     final_path = f"{env.compose_dir}/{GITHUB_APP_PRIVATE_KEY_FILE_NAME}"
     pending = shlex.quote(pending_path)
     final = shlex.quote(final_path)
@@ -95,6 +98,7 @@ def verification_and_promotion_command(env: Any, image_ref: str) -> str:
     api_url = shlex.quote(env.github_app.api_url)
     secret_group = shlex.quote(GITHUB_APP_SECRET_GROUP_NAME)
     probe_path = "/run/yoke/github-app-private-key-pending.pem"
+    public_env = _public_identity_probe_env(env)
     return (
         f"cd {directory} && "
         f"if secret_gid=$(getent group {secret_group} | cut -d: -f3) "
@@ -104,6 +108,7 @@ def verification_and_promotion_command(env: Any, image_ref: str) -> str:
         f"-e YOKE_GITHUB_APP_ISSUER={issuer} "
         f"-e YOKE_GITHUB_APP_API_URL={api_url} "
         f"-e YOKE_GITHUB_APP_PRIVATE_KEY_FILE={probe_path} "
+        f"{public_env}"
         f"-v {pending}:{probe_path}:ro "
         f"--entrypoint python {image} -m yoke_core.tools.github_app_identity_probe; "
         f"then chmod 640 {pending} && mv -f {pending} {final}; "
@@ -111,8 +116,23 @@ def verification_and_promotion_command(env: Any, image_ref: str) -> str:
     )
 
 
+def _public_identity_probe_env(env: Any) -> str:
+    profile = getattr(env.github_app, "public_profile", None)
+    if profile is None:
+        return ""
+    values = (
+        (GITHUB_APP_CLIENT_ID_ENV, profile.client_id),
+        (GITHUB_APP_SLUG_ENV, profile.app_slug),
+        (GITHUB_APP_ID_ENV, str(profile.app_id)),
+        (GITHUB_APP_WEB_URL_ENV, profile.web_url),
+    )
+    return "".join(f"-e {name}={shlex.quote(value)} " for name, value in values)
+
+
 def verify_and_promote_in_core_image(
-    runner: Any, env: Any, image_ref: str,
+    runner: Any,
+    env: Any,
+    image_ref: str,
 ) -> None:
     """Verify the pending key, then atomically replace the durable key."""
     from yoke_core.domain.deploy_core_container_remote import (

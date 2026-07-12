@@ -29,6 +29,7 @@ from yoke_cli.config import github_publish_transport
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config import project_clone_support as clone
 from yoke_cli.config import project_onboard
+from yoke_cli.config import project_onboard_clone
 from yoke_cli.config.project_onboard import ProjectOnboardError
 
 
@@ -62,6 +63,24 @@ def _clone_into(tmp_path: Path, bare: Path, name: str) -> Path:
     _git(target, "config", "user.email", "t@example.com")
     _git(target, "config", "user.name", "Test")
     return target
+
+
+def _allow_local_clone(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep local-repo mechanics testable below the GitHub reference boundary."""
+
+    def passthrough(remote_url, **_kwargs):
+        return remote_url
+    monkeypatch.setattr(
+        project_onboard_clone,
+        "clean_remote_url",
+        passthrough,
+    )
+    monkeypatch.setattr(clone, "clean_remote_url", passthrough)
+    monkeypatch.setattr(
+        clone,
+        "isolated_remote_config",
+        lambda *args, **kwargs: ("core.askPass=",),
+    )
 
 
 # ── existing_clone_matches / origin_is ───────────────────────────────────
@@ -119,7 +138,8 @@ def test_same_repo_normalizes_ghes_ssh_and_https_without_crossing_hosts() -> Non
 # ── _resumable_clone ─────────────────────────────────────────────────────
 
 
-def test_resumable_clone_clones_an_empty_target(tmp_path: Path) -> None:
+def test_resumable_clone_clones_an_empty_target(tmp_path: Path, monkeypatch) -> None:
+    _allow_local_clone(monkeypatch)
     source = _seed_bare_source(tmp_path)
     target = tmp_path / "checkouts" / "widgets"
     project_onboard._resumable_clone(target, str(source), token=None)
@@ -127,7 +147,8 @@ def test_resumable_clone_clones_an_empty_target(tmp_path: Path) -> None:
     assert clone.origin_is(target, str(source))
 
 
-def test_resumable_clone_skips_an_already_present_clone(tmp_path: Path) -> None:
+def test_resumable_clone_skips_an_already_present_clone(tmp_path: Path, monkeypatch) -> None:
+    _allow_local_clone(monkeypatch)
     source = _seed_bare_source(tmp_path)
     target = _clone_into(tmp_path, source, "widgets")
     # A sentinel uncommitted file proves the clone was not re-run (which would
@@ -137,7 +158,10 @@ def test_resumable_clone_skips_an_already_present_clone(tmp_path: Path) -> None:
     assert (target / "WORK_IN_PROGRESS").is_file()
 
 
-def test_resumable_clone_conflict_raises_recovery_message(tmp_path: Path) -> None:
+def test_resumable_clone_conflict_raises_recovery_message(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    _allow_local_clone(monkeypatch)
     source = _seed_bare_source(tmp_path)
     target = tmp_path / "checkouts" / "widgets"
     target.mkdir(parents=True)
@@ -229,6 +253,7 @@ def test_import_resumes_over_an_existing_matching_clone(
     — the old behavior hard-failed with "checkout already exists and is not empty".
     """
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+    _allow_local_clone(monkeypatch)
     remote = seed_remote(tmp_path)
     checkout = tmp_path / "checkouts" / "imported"
     # Pre-clone the source into the target (the prior partial run's leftover).
@@ -276,6 +301,7 @@ def test_fresh_import_carries_no_clone_resume_block(
     a resumed run produces the new resume-aware lines.
     """
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+    _allow_local_clone(monkeypatch)
     remote = seed_remote(tmp_path)
     checkout = tmp_path / "checkouts" / "fresh"
 

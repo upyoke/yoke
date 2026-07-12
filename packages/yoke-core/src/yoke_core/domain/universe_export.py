@@ -48,7 +48,8 @@ class UniverseExportError(RuntimeError):
 
 
 def default_artifact_name(
-    org_slug: str, now: Optional[datetime] = None,
+    org_slug: str,
+    now: Optional[datetime] = None,
 ) -> str:
     """``<org-slug>-universe-<utc-timestamp>.dump``."""
     stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
@@ -131,7 +132,8 @@ def export_universe(
     dest = _resolve_destination(out, org_slug)
     emit(f"  [universe-export] dumping org {org_slug!r} universe -> {dest}")
     timeout = runtime_settings.get_seconds(
-        EXPORT_TIMEOUT_SETTING, DEFAULT_EXPORT_TIMEOUT_S,
+        EXPORT_TIMEOUT_SETTING,
+        DEFAULT_EXPORT_TIMEOUT_S,
     )
     try:
         inspection = universe_portability.dump_universe(
@@ -147,10 +149,8 @@ def export_universe(
                 "pg_dump on PATH. Run `yoke local-postgres start` "
                 "(or `yoke init --local`) to refetch the embedded engine."
             ) from exc
-        dest.unlink(missing_ok=True)
         raise UniverseExportError(
-            "pg_dump failed without leaving an artifact; see the redacted "
-            "universe-export diagnostic in the local log. If the embedded "
+            f"universe export refused or failed safely: {exc}. If the embedded "
             "Postgres is stopped, `yoke local-postgres start` brings it up."
         ) from exc
     size_bytes = inspection.size_bytes
@@ -196,7 +196,8 @@ def _org_slug(dsn: str) -> str:
 
 
 def _resolve_destination(
-    out: Optional[Union[str, Path]], org_slug: str,
+    out: Optional[Union[str, Path]],
+    org_slug: str,
 ) -> Path:
     """Route ``out`` to the artifact path (see :func:`export_universe`).
 

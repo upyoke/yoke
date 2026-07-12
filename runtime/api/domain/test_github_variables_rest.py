@@ -20,10 +20,12 @@ from yoke_core.domain.gh_rest_transport import RestAuthError, RestNotFoundError
 class _FakeResponse:
     def __init__(self, status: int, body: Any):
         self.status = status
-        self._body = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        self._body = (
+            body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        )
         self.headers = {"X-RateLimit-Remaining": "5000"}
 
-    def read(self):
+    def read(self, _size: int = -1):
         return self._body
 
     def getcode(self):
@@ -51,11 +53,13 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
     received: list[dict] = []
 
     def fake(req, timeout=None):
-        received.append({
-            "method": req.get_method(),
-            "url": req.full_url,
-            "body": req.data,
-        })
+        received.append(
+            {
+                "method": req.get_method(),
+                "url": req.full_url,
+                "body": req.data,
+            }
+        )
         if not responses:
             raise AssertionError("fake urlopen exhausted")
         nxt = responses.pop(0)
@@ -64,6 +68,7 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
         return nxt
 
     from yoke_core.domain import gh_rest_transport
+
     monkeypatch.setattr(gh_rest_transport, "urlopen", fake)
     return received
 
@@ -71,7 +76,9 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
 def test_set_repo_variable_patches_existing(monkeypatch):
     received = _install_fake_urlopen(monkeypatch, [_FakeResponse(204, b"")])
 
-    outcome = mod.set_repo_variable("owner/repo", "GATE", "false", token="t")
+    outcome = mod.set_repo_variable(
+        "owner/repo", "GATE", "false", token="ghs_variables_transport_test"
+    )
 
     assert outcome == "updated"
     assert len(received) == 1
@@ -90,7 +97,9 @@ def test_set_repo_variable_creates_on_404(monkeypatch):
         ],
     )
 
-    outcome = mod.set_repo_variable("owner/repo", "GATE", "true", token="t")
+    outcome = mod.set_repo_variable(
+        "owner/repo", "GATE", "true", token="ghs_variables_transport_test"
+    )
 
     assert outcome == "created"
     assert len(received) == 2
@@ -106,7 +115,9 @@ def test_set_repo_variable_propagates_auth_error(monkeypatch):
     _install_fake_urlopen(monkeypatch, [_http_error(401, "Bad credentials")])
 
     with pytest.raises(RestAuthError):
-        mod.set_repo_variable("owner/repo", "GATE", "x", token="t")
+        mod.set_repo_variable(
+            "owner/repo", "GATE", "x", token="ghs_variables_transport_test"
+        )
 
 
 def test_set_repo_variable_404_on_create_propagates(monkeypatch):
@@ -117,4 +128,6 @@ def test_set_repo_variable_404_on_create_propagates(monkeypatch):
     )
 
     with pytest.raises(RestNotFoundError):
-        mod.set_repo_variable("owner/missing", "GATE", "x", token="t")
+        mod.set_repo_variable(
+            "owner/missing", "GATE", "x", token="ghs_variables_transport_test"
+        )

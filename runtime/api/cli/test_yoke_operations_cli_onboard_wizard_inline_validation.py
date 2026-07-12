@@ -21,6 +21,7 @@ from textual.widgets import Input, Static  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
+from yoke_cli.config import project_git_probe  # noqa: E402
 from yoke_cli.config import project_git_transport  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
@@ -95,12 +96,15 @@ def test_unreachable_clone_url_shows_recovery_then_retry_advances(
     # The first probe says unreachable; flip to reachable for the retry.
     state = {"reachable": False}
     monkeypatch.setattr(
-        project_git_transport, "remote_is_reachable",
-        lambda url, token=None, github_web_url=None: state["reachable"],
-    )
-    monkeypatch.setattr(
-        project_git_transport, "remote_default_branch",
-        lambda url, token=None, github_web_url=None: "main" if state["reachable"] else None,
+        project_git_transport,
+        "remote_probe",
+        lambda url, token=None, github_web_url=None: project_git_probe.GitRemoteProbe(
+            state["reachable"],
+            default_branch="main" if state["reachable"] else None,
+            failure_kind=(
+                None if state["reachable"] else project_git_probe.FAILURE_OTHER
+            ),
+        ),
     )
 
     async def scenario() -> None:
@@ -136,16 +140,12 @@ def test_clone_url_probe_paints_checking_before_it_finishes(monkeypatch) -> None
     started = threading.Event()
     release = threading.Event()
 
-    def _branch(url, token=None, *, github_web_url=None):
+    def _probe(url, token=None, *, github_web_url=None):
         started.set()
         assert release.wait(5), "test did not release clone URL probe"
-        return "main"
+        return project_git_probe.GitRemoteProbe(True, default_branch="main")
 
-    monkeypatch.setattr(project_git_transport, "remote_default_branch", _branch)
-    monkeypatch.setattr(
-        project_git_transport, "remote_is_reachable",
-        lambda url, token=None, github_web_url=None: True,
-    )
+    monkeypatch.setattr(project_git_transport, "remote_probe", _probe)
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
@@ -172,18 +172,13 @@ def test_reachable_clone_url_caches_branch_without_a_second_probe(
     monkeypatch,
 ) -> None:
     app, _spy = make_app()
-    calls = {"branch": 0, "reachable": 0}
+    calls = {"probe": 0}
 
-    def _branch(url, token=None, *, github_web_url=None):
-        calls["branch"] += 1
-        return "trunk"
+    def _probe(url, token=None, *, github_web_url=None):
+        calls["probe"] += 1
+        return project_git_probe.GitRemoteProbe(True, default_branch="trunk")
 
-    def _reachable(url, token=None, *, github_web_url=None):
-        calls["reachable"] += 1
-        return True
-
-    monkeypatch.setattr(project_git_transport, "remote_default_branch", _branch)
-    monkeypatch.setattr(project_git_transport, "remote_is_reachable", _reachable)
+    monkeypatch.setattr(project_git_transport, "remote_probe", _probe)
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
@@ -197,11 +192,10 @@ def test_reachable_clone_url_caches_branch_without_a_second_probe(
 
     asyncio.run(scenario())
 
-    # The branch came from the checking probe and was cached for _after_remote —
-    # exactly one ls-remote --symref ran, and the reachability fallback never did.
+    # The branch and reachability came from one structured checking probe and
+    # were cached for _after_remote — exactly one ls-remote --symref ran.
     assert app.result.project_source_default_branch == "trunk"
-    assert calls["branch"] == 1
-    assert calls["reachable"] == 0
+    assert calls["probe"] == 1
 
 
 # ── slug format gate ─────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ from yoke_core.domain.project_identity import (
     resolve_project,
     resolve_project_id,
 )
+from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_BACKLOG_ONLY
 
 
 def _parent_constants():
@@ -69,11 +70,11 @@ def cmd_create(
         next_id = int(query_scalar(conn, "SELECT COALESCE(MAX(id), 0) + 1 FROM projects") or 1)
         conn.execute(
             "INSERT INTO projects "
-            "(id, slug, name, public_item_prefix, created_at) "
-            "VALUES (%s, %s, %s, %s, %s)",
+            "(id, slug, name, public_item_prefix, github_sync_mode, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
             (
                 next_id, project_id, name, DEFAULT_PUBLIC_ITEM_PREFIX,
-                iso8601_now(),
+                GITHUB_SYNC_BACKLOG_ONLY, iso8601_now(),
             ),
         )
         from yoke_core.domain.project_policy_capabilities import (
@@ -217,6 +218,17 @@ def cmd_update(
         )
         if not exists:
             raise LookupError(f"Error: project '{project_id}' not found")
+
+        if field == "github_sync_mode":
+            from yoke_core.domain.projects_github_sync_mode import (
+                validate_github_sync_mode_update,
+            )
+
+            value = validate_github_sync_mode_update(
+                value,
+                conn=conn,
+                project_id=numeric_project_id,
+            )
 
         if field == "github_repo":
             from yoke_core.domain.projects_upsert import (

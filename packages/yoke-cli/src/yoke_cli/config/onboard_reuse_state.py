@@ -34,6 +34,8 @@ def detect(
     project_id = _positive_int(project_inputs.get("existing_project_id"))
     mode = str(project_inputs.get("mode") or "")
     remote_url = str(project_inputs.get("remote_url") or "")
+    clone_plan = project_inputs.get("clone")
+    clone_web_url = str(getattr(clone_plan, "fork_web_url", "") or "")
     local_state = (
         local_universe_setup.inspect_local_state(str(cfg_path))
         if env_name == local_universe_setup.LOCAL_ENV and not api_url
@@ -62,11 +64,12 @@ def detect(
         "project_identity": project_id is not None,
         "project_checkout": _project_checkout_reused(cfg_path, checkout, project_id),
         "project_github_auth": (
-            project_id is not None or bool(project_inputs.get("keep_existing_remote"))
+            project_id is not None
+            and bool(project_inputs.get("github_adoption_preserve"))
         ),
         "project_existing_remote": bool(project_inputs.get("keep_existing_remote")),
         "project_clone_checkout": _project_clone_checkout_reused(
-            checkout, remote_url, mode,
+            checkout, remote_url, mode, web_url=clone_web_url,
         ),
         "project_scaffold": _project_scaffold_installed(checkout, project_id),
     }
@@ -161,12 +164,20 @@ def _project_scaffold_installed(checkout: Any, project_id: int | None) -> bool:
     return _positive_int(manifest.get("project_id")) == project_id
 
 
-def _project_clone_checkout_reused(checkout: Any, remote_url: str, mode: str) -> bool:
+def _project_clone_checkout_reused(
+    checkout: Any,
+    remote_url: str,
+    mode: str,
+    *,
+    web_url: str,
+) -> bool:
     if mode not in onboard_project.PROJECT_REMOTE_MODES or not checkout or not remote_url:
         return False
     try:
         root = Path(str(checkout)).expanduser()
-        return project_clone_resume.existing_clone_matches(root, remote_url)
+        return project_clone_resume.existing_clone_matches(
+            root, remote_url, web_url=web_url or None,
+        )
     except Exception:
         return False
 

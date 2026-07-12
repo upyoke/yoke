@@ -91,25 +91,30 @@ class DevFlow:
     def _goto_dev_github_check(self: _Shell) -> None:
         """Second grant: GitHub authorization that can read Yoke's repo."""
         if github_connected(self.result):
-            token = github_state.user_access_token(self.result)
-            if token:
-                self._run_dev_github_check(token)
-                return
+            self._run_checking(
+                step=STEP_PROJECT,
+                title="Checking Yoke GitHub access.",
+                message="Verifying GitHub authorization can read Yoke's repo.",
+                work=self._check_dev_github_access_from_machine,
+                on_success=lambda _result: self._goto_dev_checkout(),
+                on_error=lambda exc: self._goto_dev_error(str(exc)),
+                group="onboard-dev-github",
+                blocks_quit=True,
+            )
+            return
         self._goto_dev_error(
             "Developing Yoke requires GitHub App access to Yoke's repo. "
             "Connect GitHub, grant the App access to the Yoke repo, then retry."
         )
 
-    def _run_dev_github_check(self: _Shell, user_access_token: str) -> None:
-        self._run_checking(
-            step=STEP_PROJECT,
-            title="Checking Yoke GitHub access.",
-            message="Verifying GitHub authorization can read Yoke's repo.",
-            work=lambda: self._check_dev_github_access(user_access_token),
-            on_success=lambda _result: self._goto_dev_checkout(),
-            on_error=lambda exc: self._goto_dev_error(str(exc)),
-            group="onboard-dev-github",
-        )
+    def _check_dev_github_access_from_machine(self: _Shell) -> bool:
+        token = github_state.user_access_token(self.result)
+        if not token:
+            raise RuntimeError(
+                "Connected GitHub authorization could not be refreshed. "
+                "Reconnect GitHub and retry."
+            )
+        return self._check_dev_github_access(token)
 
     def _check_dev_github_access(self: _Shell, user_access_token: str) -> bool:
         api_url = (

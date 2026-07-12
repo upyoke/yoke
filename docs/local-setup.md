@@ -167,21 +167,19 @@ diagnostic to run after setup or when a project command cannot resolve context.
 
 ### 4. Optional Machine GitHub Connection
 
-Connect the Yoke GitHub App only when this machine should run GitHub product
-commands such as repository checks or product onboarding previews.
-
-First follow [GitHub App Operations](github-app-operations.md) for registration,
-installation scope, secret bootstrap, rotation, and incident response.
+Connect the Yoke GitHub App when this machine should run GitHub product
+commands. Local Yoke bundles the public identity of **Yoke by upyoke.com**, so
+the default command opens device authorization and discovers accessible App
+installations and repositories without App flags.
 
 ```bash
-yoke github connect --client-id <client-id> --app-slug <app-slug>
+yoke github connect
 yoke github status
 ```
 
-The commands store owner-only App user-authorization metadata, never a private
-key. Runtime authority comes from a verified installed-App repository binding.
-
-Administration is intentionally outside the baseline App grant. Repository creation, environment configuration, branch protection, and runner administration are skipped with an actionable GitHub settings link; enable any additional permission in the App registration and approve it on each affected installation before retrying that operation.
+Machine authorization, App installation, and project binding are separate.
+[GitHub Connection Layers](github-connections.md) explains their storage,
+permissions, local overrides, and disconnect/unbind/revoke operations.
 
 ### 5. Set Up a Project
 

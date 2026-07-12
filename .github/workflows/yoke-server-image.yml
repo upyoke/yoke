@@ -106,6 +106,14 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.validate-tag.outputs.source_sha }}
 
+      - name: Set up QEMU for the arm64 image
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
       - name: Resolve image references
         id: image
         run: |
@@ -135,6 +143,7 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64
           # Push the content-addressed image first, without mutating either
           # human-facing tag. The post-attestation publication job can then
           # refuse a conflicting immutable sha12 before creating it.
@@ -251,5 +260,14 @@ jobs:
             "$LATEST_REF" --format '{{ .Manifest.Digest }}')"
           if [[ "$sha_digest" != "$PUSHED_DIGEST" || "$latest_digest" != "$PUSHED_DIGEST" ]]; then
             echo "published references differ from built digest: sha12=$sha_digest latest=$latest_digest built=$PUSHED_DIGEST" >&2
+            exit 1
+          fi
+          manifest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{json .Manifest}}')"
+          platforms="$(jq -r \
+            '[.manifests[]?.platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | unique | sort | join(",")' \
+            <<< "$manifest")"
+          if [[ "$platforms" != "linux/amd64,linux/arm64" ]]; then
+            echo "published image lacks the required linux platforms: $platforms" >&2
             exit 1
           fi

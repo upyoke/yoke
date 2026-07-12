@@ -25,10 +25,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
+
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    request_json,
+    safe_diagnostic_text,
+)
 
 _SENSITIVE_HEALTH_TOKENS = ("dsn", "password", "secret", "token")
 
@@ -48,14 +54,29 @@ def _request(
         headers["Content-Type"] = "application/json"
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    request = urllib.request.Request(
-        url, data=data, headers=headers, method=method
-    )
+    request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.status, response.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as exc:
-        return exc.code, exc.read().decode("utf-8", "replace")
+        response = request_json(
+            request,
+            timeout_seconds=timeout,
+            replay_safe=method.upper() in {"GET", "HEAD"},
+            allow_loopback_http=True,
+            sensitive_values=(token,) if token else (),
+            opener=urllib.request.urlopen,
+        )
+        return response.status, _payload_text(response.payload)
+    except BoundedJsonHttpStatusError as exc:
+        return exc.status, _payload_text(exc.payload)
+    except BoundedJsonHttpError as exc:
+        raise RuntimeError(f"auth boundary request failed: {exc}") from None
+
+
+def _payload_text(payload: object) -> str:
+    if payload is None:
+        return ""
+    if isinstance(payload, str):
+        return payload
+    return json.dumps(payload, sort_keys=True)
 
 
 def _read_token(token_file: Path) -> str:
@@ -64,9 +85,7 @@ def _read_token(token_file: Path) -> str:
         payload = json.loads(raw)
         token = str(payload.get("raw_token") or "")
         if not token:
-            raise ValueError(
-                f"{token_file} is JSON but carries no 'raw_token' key"
-            )
+            raise ValueError(f"{token_file} is JSON but carries no 'raw_token' key")
         return token
     return raw
 
@@ -83,21 +102,20 @@ def _function_call_payload() -> dict:
 
 def verify(base_url: str, token: str, emit=print) -> int:
     base = base_url.rstrip("/")
+    safe_base = safe_diagnostic_text(base, sensitive_values=(token,))
     failures = 0
 
     status, body = _request(f"{base}/v1/health")
     lowered = body.lower()
     leaked = [t for t in _SENSITIVE_HEALTH_TOKENS if t in lowered]
     if status == 200 and not leaked:
-        emit(f"PASS public health: 200, non-sensitive payload ({base}/v1/health)")
+        emit(f"PASS public health: 200, non-sensitive payload ({safe_base}/v1/health)")
     else:
         failures += 1
         emit(f"FAIL public health: status={status} leaked={leaked}")
 
     call_url = f"{base}/v1/functions/call"
-    status, _body = _request(
-        call_url, method="POST", payload=_function_call_payload()
-    )
+    status, _body = _request(call_url, method="POST", payload=_function_call_payload())
     if status == 401:
         emit("PASS unauthenticated function call denied with 401")
     else:

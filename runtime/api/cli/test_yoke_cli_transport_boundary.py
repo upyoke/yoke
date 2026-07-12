@@ -202,7 +202,7 @@ def test_local_dispatch_binds_lazy_machine_github_authorization(
 ) -> None:
     from types import SimpleNamespace
 
-    from yoke_cli.config import github_user_tokens, machine_config
+    from yoke_cli.config import github_local_user_access, machine_config
     from yoke_cli.transport.dispatcher import call_dispatcher
     from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
     from yoke_core.domain.github_app_dispatch_context import (
@@ -222,8 +222,8 @@ def test_local_dispatch_binds_lazy_machine_github_authorization(
         return SimpleNamespace(access_token="local-user-token")
 
     monkeypatch.setattr(
-        github_user_tokens,
-        "access_token_from_machine_config",
+        github_local_user_access,
+        "access_token",
         _token,
     )
 

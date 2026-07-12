@@ -88,7 +88,7 @@ def test_apply_failure_stays_in_tui_until_exit() -> None:
     def fail_on_apply(kwargs: dict, progress=None) -> dict:
         if kwargs["apply"]:
             raise WizardApplyError(
-                "repo already exists and has content",
+                "repo already has content that does not match this checkout",
                 failed_step="03-project-create",
                 report_path="/tmp/onboard-report.json",
                 resume_command="yoke onboard",
@@ -101,7 +101,9 @@ def test_apply_failure_stays_in_tui_until_exit() -> None:
     asyncio.run(_apply_machine_only(app, ["Change answers", "Exit"]))
 
     assert app.exit_code == 1
-    assert app.last_error == "repo already exists and has content"
+    assert app.last_error == (
+        "repo already has content that does not match this checkout"
+    )
     assert app.report_path == "/tmp/onboard-report.json"
 
 
@@ -200,7 +202,6 @@ def test_apply_failure_offers_saved_report_recovery_actions(
             await pilot.pause()
             assert [row.label for row in app.query_one(SelectionList).rows] == [
                 "Resume from cloned folder",
-                "Start over",
                 "Change answers",
                 "Exit",
             ]
@@ -243,7 +244,7 @@ def test_apply_failure_resume_reuses_saved_run(
     assert calls[0]["resume_payload"]["run_id"] == calls[0]["resume_run_id"]
 
 
-def test_apply_failure_start_over_waits_for_confirmation(
+def test_apply_failure_does_not_offer_unproven_checkout_removal(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -258,20 +259,16 @@ def test_apply_failure_start_over_waits_for_confirmation(
         async with app.run_test() as pilot:
             app._goto_apply_failure()
             await pilot.pause()
-            await pilot.press("down")
-            await pilot.press("enter")
-            await pilot.pause()
             assert checkout.is_dir()
             assert [row.label for row in app.query_one(SelectionList).rows] == [
-                "Remove checkout",
-                "Cancel",
+                "Resume from cloned folder",
+                "Change answers",
+                "Exit",
             ]
-            await pilot.press("enter")
-            await pilot.pause()
 
     asyncio.run(scenario())
 
-    assert not checkout.exists()
+    assert checkout.is_dir()
 
 
 def test_apply_success_stays_in_tui_with_report_action() -> None:

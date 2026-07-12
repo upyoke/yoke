@@ -5,10 +5,16 @@ from __future__ import annotations
 import json
 import os
 import sys
-import urllib.error
 import urllib.request
 
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    request_json,
+    safe_diagnostic_text,
+)
 from yoke_cli.transport.https import HttpsConnection
+from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner import lint_policy
 
@@ -55,15 +61,12 @@ def _parse_payload(stdin_data: str) -> dict:
 def _record_client_anchor(payload: dict) -> None:
     try:
         session_id = payload.get("session_id")
-        if (
-            not isinstance(session_id, str)
-            or not session_id
-            or session_id == "unknown"
-        ):
+        if not isinstance(session_id, str) or not session_id or session_id == "unknown":
             return
         tp = payload.get("transcript_path")
         record_session_anchor(
-            session_id, transcript_path=tp if isinstance(tp, str) else "",
+            session_id,
+            transcript_path=tp if isinstance(tp, str) else "",
         )
     except Exception:
         return
@@ -167,20 +170,28 @@ def relay_hook_event(event_name: str, connection: HttpsConnection) -> int:
             "Authorization": f"Bearer {connection.token}",
         },
     )
-    timeout_s = max(0.05, deadline.remaining_ms() / 1000.0)
+    timeout_s = deadline.remaining_ms() / 1000.0
     try:
-        with urllib.request.urlopen(http_request, timeout=timeout_s) as resp:
-            response = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
+        hosted = request_json(
+            http_request,
+            timeout_seconds=timeout_s,
+            replay_safe=False,
+            allow_loopback_http=True,
+            response_limit_bytes=SMALL_JSON_RESPONSE_LIMIT_BYTES,
+            sensitive_values=(connection.token,),
+            opener=urllib.request.urlopen,
+        )
+        response = hosted.payload
+    except BoundedJsonHttpStatusError as exc:
         return degrade_to_noop(
             event_name,
-            f"HTTP {exc.code} from {url}",
+            f"HTTP {exc.status} from {safe_diagnostic_text(url)}",
             preserved_stdout=local.stdout,
         )
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+    except BoundedJsonHttpError as exc:
         return degrade_to_noop(
             event_name,
-            f"{url} unreachable or timed out: {exc}",
+            f"{safe_diagnostic_text(url)} unreachable or timed out: {exc}",
             preserved_stdout=local.stdout,
         )
 

@@ -11,6 +11,10 @@ import sys
 from pathlib import Path
 from typing import BinaryIO, Callable, Dict, List, Tuple
 
+from yoke_contracts.self_host_bootstrap import (
+    IMPORT_UNIVERSE_ARG,
+    RECOVER_IMPORT_CREDENTIAL_ARG,
+)
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.self_host import bundle
 
@@ -18,16 +22,8 @@ from yoke_cli.self_host import bundle
 AdapterFn = Callable[[List[str]], int]
 
 IMPORT_USAGE = "yoke self-host import ARCHIVE [--dir D] [--json]"
-_RECOVERY_COMMAND = (
-    "docker compose run --rm core python3 -m "
-    "yoke_core.domain.universe_import_cli --recover-credential"
-)
-_CORE_IMPORT_COMMAND = (
-    "python3",
-    "-m",
-    "yoke_core.domain.universe_import_cli",
-    "--stdin",
-)
+_RECOVERY_COMMAND = f"docker compose run --rm core {RECOVER_IMPORT_CREDENTIAL_ARG}"
+_CORE_IMPORT_COMMAND = (IMPORT_UNIVERSE_ARG,)
 _SUBPROCESS_RUN = subprocess.run
 
 

@@ -41,10 +41,11 @@ def test_harness_sessions_note_calls_out_state_and_started_at() -> None:
     assert "offered_at" in column_line
 
 
-def test_items_note_calls_out_id_pk_and_github_issue() -> None:
-    """items PK is `id` (no `item_id` column); GitHub field is `github_issue`."""
+def test_items_note_calls_out_id_pk_public_ref_and_github_issue() -> None:
+    """Items has one integer PK; public refs are rendered, not stored."""
     body = sac.render_topic_packet("core")
-    assert "NO `item_id` column" in body
+    assert "NO `item_id` or `public_id` column" in body
+    assert "{projects.public_item_prefix}-{items.project_sequence}" in body
     assert "`github_issue` column" in body
     assert "no `github_issue_number`" in body
 

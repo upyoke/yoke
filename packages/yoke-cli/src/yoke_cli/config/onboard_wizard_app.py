@@ -1,11 +1,6 @@
-"""Textual ``App`` shell and flow control for the ``yoke onboard`` wizard.
+"""Textual shell for the fixed-frame, keyboard-driven onboarding wizard.
 
-One screen redraws in place: a fixed header, stepper, and footer stay mounted
-while the body container is recomposed per view. Free-text entry (token paste,
-checkout path, project metadata) swaps the body to a focused input view; every
-other decision is an arrow-key :class:`SelectionList`. Esc steps back; Ctrl+C
-quits cleanly. No view ever displays a secret — token inputs are password
-fields. Per-step body builders live in :mod:`onboard_wizard_steps`.
+Per-step bodies and decision transitions live in focused sibling modules.
 """
 
 from __future__ import annotations
@@ -19,7 +14,6 @@ from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.widgets import Input, Rule, Static
 
-from yoke_contracts import github_origin
 from yoke_cli.config.onboard_terminal import (
     glyphs,
     plain_glyphs,
@@ -29,6 +23,7 @@ from yoke_cli.config.onboard_terminal import (
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_wizard_stored_github
 from yoke_cli.config.onboard_wizard import (
     WizardDefaults,
     WizardResult,
@@ -47,6 +42,7 @@ from yoke_cli.config.onboard_wizard_flow_dev import DevFlow
 from yoke_cli.config.onboard_wizard_flow_github import MachineGithubFlow
 from yoke_cli.config.onboard_wizard_flow_project_git import ProjectGitFlow
 from yoke_cli.config.onboard_wizard_flow_publish import PublishFlow
+from yoke_cli.config.onboard_wizard_flow_publish_manual import ManualPublishFlow
 from yoke_cli.config.onboard_wizard_path import PathFlow
 from yoke_cli.config.onboard_wizard_state import _PendingInput, _View
 from yoke_cli.config.onboard_wizard_widgets import (
@@ -95,7 +91,8 @@ def _disable_mouse_reporting() -> None:
 
 class OnboardWizardApp(
     CheckingFlow, PathFlow, DestinationFlow, ConnectFlow, MachineGithubFlow,
-    ProjectGitFlow, WizardFlow, ApplyFlow, CloneFlow, DevFlow, PublishFlow,
+    ProjectGitFlow, WizardFlow, ApplyFlow, CloneFlow, DevFlow, ManualPublishFlow,
+    PublishFlow,
     BoardArtFlow, App[None],
 ):
     CSS_PATH = "onboard_wizard.tcss"
@@ -171,6 +168,7 @@ class OnboardWizardApp(
         self._history: list[_View] = []
         self._pending_input: _PendingInput | None = None
         self._checking = False
+        self._checking_blocks_quit = False
         # Set by ``_render_current`` and drained by the async message handlers so
         # the body swap runs in the same handler turn as the transition keypress.
         self._swap_pending = False
@@ -247,13 +245,13 @@ class OnboardWizardApp(
         self._stored_yoke_token_available = True
 
     def _hydrate_stored_github_connection(self) -> None:
-        try:
-            github = machine_config.github_config(self.result.config_path)
-        except (OSError, RuntimeError, ValueError):
+        api_url = onboard_wizard_stored_github.stored_api_url(
+            self.result.config_path
+        )
+        if api_url is None:
             return
-        self._stored_machine_github_api_url = str(
-            github.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL
-        ).strip()
+        self.result.machine_github_saved = True
+        self._stored_machine_github_api_url = api_url
 
     def _hydrate_stored_project_checkouts(self) -> None:
         try:
@@ -417,7 +415,7 @@ class OnboardWizardApp(
         # flight; quitting here is the mid-mutation cliff (after clone, before
         # push) onboarding must avoid. Suppress quit while applying — the worker
         # finalizes the report and routes to success/failure, where Exit lives.
-        if self._applying:
+        if self._applying or self._checking_blocks_quit:
             return
         self.cancelled = True
         self.exit_code = 130

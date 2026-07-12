@@ -21,6 +21,12 @@ from typing import Any, Dict, Optional
 
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import secure_layout
+from yoke_contracts.github_app_public import (
+    GITHUB_APP_CLIENT_ID_ENV,
+    GITHUB_APP_ID_ENV,
+    GITHUB_APP_SLUG_ENV,
+    GITHUB_APP_WEB_URL_ENV,
+)
 from yoke_contracts.server_image import DEFAULT_SERVER_IMAGE
 
 #: Default bundle directory, created under the invoking directory. The
@@ -240,6 +246,12 @@ def _env_text(*, image: str, publish_spec: str) -> str:
         "# are nonsecret; the App private key remains a mounted file.\n"
         "#YOKE_GITHUB_APP_ISSUER=123456\n"
         "#YOKE_GITHUB_APP_API_URL=https://api.github.com\n"
+        "# Optional product-facing Connect profile: set every field or\n"
+        "# leave every field commented to advertise GitHub as unavailable.\n"
+        f"#{GITHUB_APP_WEB_URL_ENV}=https://github.com\n"
+        f"#{GITHUB_APP_ID_ENV}=123456\n"
+        f"#{GITHUB_APP_CLIENT_ID_ENV}=Iv23example\n"
+        f"#{GITHUB_APP_SLUG_ENV}=yoke-self-hosted\n"
         "# Install or rotate through Yoke's atomic owner-only ingress:\n"
         "#   chmod 600 /secure/path/app-key.pem\n"
         "#   yoke self-host init --dir . --protect-existing \\\n"

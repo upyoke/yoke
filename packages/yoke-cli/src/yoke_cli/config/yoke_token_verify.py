@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
@@ -15,8 +14,16 @@ from yoke_cli.api_urls import (
     join_api_url,
 )
 from yoke_cli.config import secrets as machine_secrets
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    BoundedJsonHttpStatusError,
+    error_detail,
+    request_json,
+    safe_diagnostic_text,
+)
+from yoke_cli.transport.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 
-_TIMEOUT_S = 20.0
+_TIMEOUT_S = ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 _IDENTITY_PATH = AUTH_IDENTITY_PATH
 _REGISTRY_PATH = FUNCTIONS_REGISTRY_PATH
 _CALL_PATH = FUNCTIONS_CALL_PATH
@@ -170,41 +177,37 @@ def _request_json(
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404 and url.endswith(_IDENTITY_PATH):
-            raise _EndpointUnavailable from exc
-        if url.endswith(_CALL_PATH) and exc.code != 401:
-            raise _EndpointUnavailable from exc
-        raise YokeTokenVerificationError(_http_error_message(exc, url)) from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        response = request_json(
+            request,
+            timeout_seconds=_TIMEOUT_S,
+            replay_safe=body is None,
+            allow_loopback_http=True,
+            sensitive_values=(token,),
+            opener=urllib.request.urlopen,
+        )
+    except BoundedJsonHttpStatusError as exc:
+        if exc.status == 404 and url.endswith(_IDENTITY_PATH):
+            raise _EndpointUnavailable from None
+        if url.endswith(_CALL_PATH) and exc.status != 401:
+            raise _EndpointUnavailable from None
         raise YokeTokenVerificationError(
-            f"Yoke token check failed against {url}: {exc}"
-        ) from exc
-    try:
-        return json.loads(raw) if raw else None
-    except ValueError as exc:
+            _http_error_message(exc.status, exc.payload, url)
+        ) from None
+    except BoundedJsonHttpError as exc:
         raise YokeTokenVerificationError(
-            f"Yoke token check returned invalid JSON from {url}"
-        ) from exc
+            "Yoke token check failed against "
+            f"{safe_diagnostic_text(url, sensitive_values=(token,))}: {exc}"
+        ) from None
+    return response.payload
 
 
-def _http_error_message(exc: urllib.error.HTTPError, url: str) -> str:
-    detail = ""
-    try:
-        raw = exc.read().decode("utf-8")
-        payload = json.loads(raw) if raw else {}
-    except Exception:
-        payload = {}
-    if isinstance(payload, Mapping):
-        error = payload.get("error")
-        if isinstance(error, Mapping):
-            detail = str(error.get("message") or "")
-        elif payload.get("detail"):
-            detail = str(payload["detail"])
+def _http_error_message(status: int, payload: Any, url: str) -> str:
+    detail = error_detail(payload)
     suffix = f": {detail}" if detail else ""
-    return f"Yoke token check failed: {url} returned HTTP {exc.code}{suffix}"
+    return (
+        "Yoke token check failed: "
+        f"{safe_diagnostic_text(url)} returned HTTP {status}{suffix}"
+    )
 
 
 def _projects_envelope() -> dict[str, Any]:

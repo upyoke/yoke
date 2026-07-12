@@ -16,12 +16,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, TextIO
 
-from yoke_contracts import github_origin
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_wizard_github_state as github_state
+from yoke_cli.config import onboard_wizard_github_plan
 from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_APP_BINDING,
     GITHUB_ADOPTION_BACKLOG_ONLY,
@@ -62,6 +62,7 @@ class WizardRunResult:
     failed_step: str | None = None
     report_path: str | None = None
     resume_command: str | None = None
+    machine_github_saved: bool = False
 
 
 @dataclass
@@ -84,6 +85,7 @@ class WizardResult:
     machine_github_choice: str = onboard_machine_github.CHOICE_SKIP
     machine_github_api_url: str | None = None
     machine_github_verification: dict[str, Any] | None = None
+    machine_github_saved: bool = False
     project_mode: str = onboard_project.PROJECT_MODE_MACHINE_ONLY
     project_remote_url: str | None = None
     project_checkout: str | None = None
@@ -91,12 +93,22 @@ class WizardResult:
     project_name: str | None = None
     project_org: str | None = None
     project_github_repo: str | None = None
+    project_github_repository_id: int | None = None
+    project_github_installation_id: int | None = None
+    # Live origin identity remains separate from a server-side existing-project
+    # mapping so a stale mapping can never overwrite checkout truth.
+    project_checkout_origin_url: str | None = None
+    project_checkout_github_repo: str | None = None
     project_default_branch: str | None = None
     project_public_item_prefix: str | None = None
     existing_project_id: int | None = None
     existing_project_match_source: str | None = None
     existing_project_local_source: str | None = None
     project_github_adoption: str | None = None
+    # Existing-project discovery records the server's current GitHub mode for
+    # truthful review while preserving it unless the operator makes a new
+    # explicit choice.
+    project_github_adoption_preserve: bool = False
     # "Also publish to GitHub?" answer. When the user publishes, the wizard
     # creates the repo at apply time under the chosen owner; the assembled
     # PublishRequest carries the inputs through build_report.
@@ -108,11 +120,18 @@ class WizardResult:
     # the default for any created repo). Private is the safe default; the
     # make-it-mine visibility step flips it to public on request.
     project_publish_private: bool = True
+    # False only after the operator manually creates and then explicitly picks
+    # an App-visible repository in this same run. Apply verifies and attaches
+    # that exact repo without issuing a create POST.
+    project_publish_create_repository: bool = True
+    project_publish_repository_id: int | None = None
+    project_publish_installation_id: int | None = None
     # Clone-outcome answers (clone path only). The outcome selects the post-clone
     # remote choreography; keep_upstream is honored only by "make it mine"; the
     # ClonePlan carries the make-it-mine PublishRequest and the fallback token.
     project_clone_outcome: str | None = None
     project_clone_keep_upstream: bool = True
+    project_clone_requires_machine_github: bool = False
     # Default branch detected from the clone source (via ls-remote --symref) at
     # the URL step. The clone path uses the source's real default branch instead
     # of prompting — a clone of a `master` repo records `master`, not a guessed
@@ -132,27 +151,7 @@ class WizardResult:
     board_art_variants: list = field(default_factory=list)
 
     def _publish_request_from_owner(self) -> Any:
-        """Assemble a PublishRequest from the chosen owner/repo, or None.
-
-        Shared by the "Also publish to GitHub?" path and the clone "make it
-        mine" path. Returns None without a chosen owner or usable GitHub
-        authorization; there is nothing to create the repo with in that case.
-        """
-        from yoke_cli.config.onboard_project import PublishRequest
-
-        token = github_state.user_access_token(self)
-        if not (self.project_publish_owner and token):
-            return None
-        return PublishRequest(
-            owner=self.project_publish_owner,
-            name=(self.project_publish_repo_name or self.project_slug or "project"),
-            user_login=(self.project_publish_owner_login or ""),
-            token=token,
-            api_url=(self.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL),
-            web_url=github_state.web_url(self),
-            private=self.project_publish_private,
-            administration_allowed=github_state.administration_allowed(self),
-        )
+        return onboard_wizard_github_plan.publish_request_from_owner(self)
 
     def build_publish_request(self) -> Any:
         """Assemble the "Also publish to GitHub?" PublishRequest, or None.
@@ -162,11 +161,7 @@ class WizardResult:
         usable GitHub authorization, so the publish is silently a no-op the
         Finish plan reflects.
         """
-        if self.project_mode in onboard_project.PROJECT_REMOTE_MODES:
-            return None
-        if not self.project_publish_to_github:
-            return None
-        return self._publish_request_from_owner()
+        return onboard_wizard_github_plan.build_publish_request(self)
 
     def build_clone_plan(self) -> Any:
         """Assemble a ClonePlan from the clone-outcome answers, or None.
@@ -177,35 +172,7 @@ class WizardResult:
         binding. "Make it mine" carries a PublishRequest built from the chosen
         owner/repo so the new private repo is created at apply.
         """
-        from yoke_cli.config.onboard_project import ClonePlan
-        from yoke_cli.config.project_clone_support import (
-            CLONE_OUTCOME_MAKE_IT_MINE,
-        )
-
-        if self.project_mode not in onboard_project.PROJECT_REMOTE_MODES:
-            return None
-        token = github_state.user_access_token(self)
-        if not self.project_clone_outcome:
-            if self.existing_project_id or token:
-                return ClonePlan(
-                    fallback_token=token,
-                    fork_api_url=(
-                        self.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL
-                    ),
-                    fork_web_url=github_state.web_url(self),
-                )
-            return None
-        publish = None
-        if self.project_clone_outcome == CLONE_OUTCOME_MAKE_IT_MINE:
-            publish = self._publish_request_from_owner()
-        return ClonePlan(
-            outcome=self.project_clone_outcome,
-            keep_upstream=self.project_clone_keep_upstream,
-            publish=publish,
-            fallback_token=token,
-            fork_api_url=(self.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL),
-            fork_web_url=github_state.web_url(self),
-        )
+        return onboard_wizard_github_plan.build_clone_plan(self)
 
     def default_branch_source(self) -> str | None:
         """Where the selected project default branch came from."""
@@ -238,6 +205,8 @@ class WizardResult:
             "project_name": self.project_name,
             "project_org": self.project_org,
             "project_github_repo": self.project_github_repo,
+            "project_github_repository_id": self.project_github_repository_id,
+            "project_github_installation_id": self.project_github_installation_id,
             "project_default_branch": self.project_default_branch,
             "project_default_branch_source": self.default_branch_source(),
             "project_public_item_prefix": self.project_public_item_prefix,
@@ -245,6 +214,9 @@ class WizardResult:
             "existing_project_match_source": self.existing_project_match_source,
             "existing_project_local_source": self.existing_project_local_source,
             "project_github_adoption": self.project_github_adoption,
+            "project_github_adoption_preserve": (
+                self.project_github_adoption_preserve
+            ),
             "project_publish": self.build_publish_request(),
             "project_clone": self.build_clone_plan(),
             "project_keep_existing_remote": self.project_keep_existing_remote,
@@ -305,7 +277,11 @@ def run_wizard(
     app = OnboardWizardApp(defaults=defaults, apply_report=apply_report)
     app.run()
     if app.cancelled:
-        return WizardRunResult(exit_code=130, cancelled=True)
+        return WizardRunResult(
+            exit_code=130,
+            cancelled=True,
+            machine_github_saved=app.result.machine_github_saved,
+        )
     return WizardRunResult(
         exit_code=app.exit_code,
         cancelled=False,
@@ -313,6 +289,7 @@ def run_wizard(
         failed_step=app.failed_step,
         report_path=app.report_path,
         resume_command=app.resume_command,
+        machine_github_saved=app.result.machine_github_saved,
     )
 
 

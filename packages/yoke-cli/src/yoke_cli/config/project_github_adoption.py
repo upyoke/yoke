@@ -16,6 +16,7 @@ class ProjectGithubAdoptionError(RuntimeError):
 
 GITHUB_ADOPTION_APP_BINDING = "app-binding"
 GITHUB_ADOPTION_BACKLOG_ONLY = "backlog-only"
+GITHUB_ADOPTION_PRESERVE = "preserve-existing"
 GITHUB_ADOPTION_CHOICES = (
     GITHUB_ADOPTION_APP_BINDING,
     GITHUB_ADOPTION_BACKLOG_ONLY,
@@ -23,6 +24,7 @@ GITHUB_ADOPTION_CHOICES = (
 GITHUB_ADOPTION_INPUT_CHOICES = GITHUB_ADOPTION_CHOICES
 GITHUB_BINDING_PENDING_STATUS = "pending_app_connection"
 GITHUB_BINDING_BACKLOG_ONLY_STATUS = "backlog_only"
+GITHUB_BINDING_PRESERVED_STATUS = "preserved"
 GITHUB_AUTOMATION_CATEGORIES = (
     "labels",
     "issue_templates",
@@ -49,16 +51,24 @@ def github_adoption_report(
     choice: str | None,
     github_repo: str | None,
     apply: bool,
+    preserve_existing: bool = False,
 ) -> dict[str, Any]:
-    explicit = choice is not None
-    normalized = _normalize_github_adoption_choice(
-        choice=choice, github_repo=github_repo,
+    explicit = choice is not None and not preserve_existing
+    normalized = (
+        GITHUB_ADOPTION_PRESERVE
+        if preserve_existing and choice is None
+        else _normalize_github_adoption_choice(
+            choice=choice, github_repo=github_repo,
+        )
     )
     if not github_repo and normalized == GITHUB_ADOPTION_APP_BINDING:
         raise ProjectGithubAdoptionError(
             "--github-adoption app-binding requires --github-repo OWNER/REPO"
         )
     binding_status = (
+        GITHUB_BINDING_PRESERVED_STATUS
+        if preserve_existing
+        else
         GITHUB_BINDING_PENDING_STATUS
         if normalized == GITHUB_ADOPTION_APP_BINDING
         else GITHUB_BINDING_BACKLOG_ONLY_STATUS
@@ -67,15 +77,21 @@ def github_adoption_report(
     return {
         "choice": normalized,
         "explicit": explicit,
+        "preserve_existing": preserve_existing,
         "github_repo": github_repo,
         "automation_enabled": bool(
-            github_repo and normalized == GITHUB_ADOPTION_APP_BINDING
+            github_repo
+            and normalized == GITHUB_ADOPTION_APP_BINDING
+            and not preserve_existing
         ),
         "requires_explicit_choice": False,
         "binding": {
             "status": binding_status,
             "repo": github_repo,
-            "requires_app_installation": normalized == GITHUB_ADOPTION_APP_BINDING,
+            "requires_app_installation": (
+                normalized == GITHUB_ADOPTION_APP_BINDING
+                and not preserve_existing
+            ),
         },
     }
 
@@ -85,6 +101,7 @@ def should_store_project_github_binding(
 ) -> bool:
     return bool(
         github_adoption
+        and not github_adoption.get("preserve_existing")
         and github_adoption.get("choice") == GITHUB_ADOPTION_APP_BINDING
         and github_adoption.get("github_repo")
     )
@@ -171,7 +188,10 @@ def _project_write_preview(
         "surface": PROJECT_SURFACE_BY_OPERATION.get(operation, operation),
         "fields": sorted(str(key) for key in project.keys()),
     }]
-    if github_adoption.get("choice") == GITHUB_ADOPTION_APP_BINDING:
+    if (
+        github_adoption.get("choice") == GITHUB_ADOPTION_APP_BINDING
+        and not github_adoption.get("preserve_existing")
+    ):
         writes.append({
             "surface": "project.github_app_repo_binding",
             "repo": _project_value(project, "github_repo"),
@@ -189,7 +209,9 @@ def _github_write_preview(
     github_repo: str | None,
     github_adoption: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    if not github_repo:
+    if github_adoption.get("preserve_existing"):
+        status = "preserved-existing"
+    elif not github_repo:
         status = "skipped-no-repo"
     elif github_adoption.get("automation_enabled"):
         status = "pending-app-installation"

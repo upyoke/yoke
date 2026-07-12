@@ -120,6 +120,7 @@ def update_issue(
     resp = request_with_retry(
         RestRequest(
             method="PATCH",
+            replay_safe=True,
             path=f"/repos/{tgt.owner}/{tgt.repo}/issues/{number}",
             body=patch,
         ),
@@ -153,6 +154,7 @@ def set_issue_state(
     resp = request_with_retry(
         RestRequest(
             method="PATCH",
+            replay_safe=True,
             path=f"/repos/{tgt.owner}/{tgt.repo}/issues/{number}",
             body={"state": state},
         ),

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_contracts import github_origin
+from yoke_cli.config import github_app_public_profile
 from yoke_cli.config import github_machine
 from yoke_cli.config import machine_config
 
@@ -42,6 +43,7 @@ def apply(
     choice: str,
     config_path: Path,
     api_url: str | None,
+    service_api_url: str | None = None,
 ) -> dict[str, Any]:
     selected = normalize_choice(choice)
     if selected != CHOICE_CONNECT:
@@ -71,15 +73,33 @@ def apply(
             report = github_machine.status(
                 config_path=config_path,
                 check=True,
+                service_api_url=service_api_url,
             )
         else:
+            if api_url and not service_api_url:
+                requested_endpoint = github_origin.validate_github_api_endpoint(
+                    api_url
+                )
+                bundled_endpoint = github_origin.validate_github_api_endpoint(
+                    github_app_public_profile.bundled_local_product_profile().api_url
+                )
+                if requested_endpoint.base_url != bundled_endpoint.base_url:
+                    raise OnboardMachineGithubError(
+                        "the requested GitHub API origin does not match the "
+                        "bundled local product App"
+                    )
             report = github_machine.connect(
                 config_path=config_path,
-                api_url=api_url,
+                service_api_url=service_api_url,
+                use_local_product_profile=not bool(service_api_url),
             )
-    except github_machine.GitHubMachineError as exc:
+    except (
+        github_machine.GitHubMachineError,
+        github_app_public_profile.GitHubAppPublicProfileError,
+        github_origin.GitHubApiOriginError,
+    ) as exc:
         raise OnboardMachineGithubError(str(exc)) from exc
-    if not report.get("ok"):
+    if not report.get("ok") or not report.get("ready"):
         issues = report.get("issues") or []
         first = issues[0] if issues else {}
         raise OnboardMachineGithubError(

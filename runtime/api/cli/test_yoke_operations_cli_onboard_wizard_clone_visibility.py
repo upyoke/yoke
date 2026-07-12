@@ -55,7 +55,7 @@ def _stub_source_branch(monkeypatch):
 def _stub_private_repos(monkeypatch):
     monkeypatch.setattr(
         clone_flow, "fetch_private_repos",
-        lambda api_url, token: list(_PRIVATE_REPOS),
+        lambda api_url, token, **_kwargs: list(_PRIVATE_REPOS),
     )
     monkeypatch.setattr(
         github_app_machine_access, "repository_permission",
@@ -152,7 +152,9 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
             selection = await _wait_for_selection(app, pilot)
             values = [row.value for row in selection.rows]
             # The rows are the private repos' clone URLs.
-            assert values == [r.clone_url for r in _PRIVATE_REPOS]
+            assert values == [
+                *(r.clone_url for r in _PRIVATE_REPOS), "paste-private",
+            ]
             await pilot.press("down")   # pick the second private repo
             await pilot.press("enter")
             await pilot.pause()

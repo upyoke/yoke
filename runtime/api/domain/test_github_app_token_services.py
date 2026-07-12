@@ -26,8 +26,8 @@ class _FakeResponse:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, size: int = -1) -> bytes:
+        return self._body if size < 0 else self._body[:size]
 
 
 def _private_key_pair() -> tuple[bytes, bytes]:
@@ -79,13 +79,15 @@ def test_mint_installation_token_posts_jwt_and_restrictions() -> None:
         seen["method"] = request.get_method()
         seen["headers"] = dict(request.header_items())
         seen["body"] = json.loads(request.data.decode("utf-8"))
-        return _FakeResponse({
-            "token": "ghs_install",
-            "expires_at": "2026-07-09T18:00:00Z",
-            "permissions": {"issues": "write"},
-            "repository_selection": "selected",
-            "repositories": [{"full_name": "octo/repo"}],
-        })
+        return _FakeResponse(
+            {
+                "token": "ghs_install",
+                "expires_at": "2026-07-09T18:00:00Z",
+                "permissions": {"issues": "write"},
+                "repository_selection": "selected",
+                "repositories": [{"full_name": "octo/repo"}],
+            }
+        )
 
     token = installation_tokens.mint_installation_token(
         issuer=12345,
@@ -97,16 +99,16 @@ def test_mint_installation_token_posts_jwt_and_restrictions() -> None:
         opener=fake_urlopen,
     )
 
-    assert seen["url"] == (
-        "https://api.github.com/app/installations/99/access_tokens"
-    )
+    assert seen["url"] == ("https://api.github.com/app/installations/99/access_tokens")
     assert seen["method"] == "POST"
     assert seen["body"] == {
         "repository_ids": [1001],
         "permissions": {"issues": "write"},
     }
     headers = {key.lower(): value for key, value in seen["headers"].items()}
-    claims = _token_payload(headers["authorization"].removeprefix("Bearer "), public_pem)
+    claims = _token_payload(
+        headers["authorization"].removeprefix("Bearer "), public_pem
+    )
     assert claims["iss"] == "12345"
     assert headers["accept"] == "application/vnd.github+json"
     assert headers["x-github-api-version"] == "2022-11-28"
@@ -125,10 +127,12 @@ def test_installation_token_cache_reuses_token_until_expiry() -> None:
 
     def fake_urlopen(request, timeout):
         calls.append(request.full_url)
-        return _FakeResponse({
-            "token": f"ghs_{len(calls)}",
-            "expires_at": "2026-07-09T17:10:00Z",
-        })
+        return _FakeResponse(
+            {
+                "token": f"ghs_{len(calls)}",
+                "expires_at": "2026-07-09T17:10:00Z",
+            }
+        )
 
     cache = installation_tokens.InstallationTokenCache()
 
@@ -170,10 +174,12 @@ def test_installation_token_cache_separates_exact_permission_scopes() -> None:
 
     def fake_urlopen(request, timeout):
         requests.append(json.loads(request.data.decode("utf-8")))
-        return _FakeResponse({
-            "token": f"ghs_{len(requests)}",
-            "expires_at": "2026-07-09T18:00:00Z",
-        })
+        return _FakeResponse(
+            {
+                "token": f"ghs_{len(requests)}",
+                "expires_at": "2026-07-09T18:00:00Z",
+            }
+        )
 
     cache = installation_tokens.InstallationTokenCache()
     common = {
@@ -185,13 +191,16 @@ def test_installation_token_cache_separates_exact_permission_scopes() -> None:
         "opener": fake_urlopen,
     }
     metadata = cache.get_or_mint(
-        **common, permissions={"metadata": "read"},
+        **common,
+        permissions={"metadata": "read"},
     )
     issues = cache.get_or_mint(
-        **common, permissions={"metadata": "read", "issues": "write"},
+        **common,
+        permissions={"metadata": "read", "issues": "write"},
     )
     metadata_again = cache.get_or_mint(
-        **common, permissions={"metadata": "read"},
+        **common,
+        permissions={"metadata": "read"},
     )
 
     assert metadata.token == metadata_again.token == "ghs_1"

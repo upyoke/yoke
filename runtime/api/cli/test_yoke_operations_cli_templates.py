@@ -58,8 +58,12 @@ class _JsonResponse:
     def __exit__(self, *_exc: object) -> None:
         return None
 
-    def read(self) -> bytes:
-        return json.dumps(self._payload).encode("utf-8")
+    def read(self, size: int = -1) -> bytes:
+        body = json.dumps(self._payload).encode("utf-8")
+        return body if size < 0 else body[:size]
+
+    def geturl(self) -> str:
+        return "https://api.example/v1/templates"
 
 
 @pytest.fixture()

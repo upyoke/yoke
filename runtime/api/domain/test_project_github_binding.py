@@ -148,7 +148,7 @@ def test_status_reports_missing_permissions(monkeypatch):
         assert "contents" in status["permission_status"]["missing"]
         assert "Grant the GitHub App" in status["permission_status"]["hint"]
         assert status["binding"]["status"] == "pending"
-        assert status["github_sync_mode"] == "backlog_only"
+        assert status["github_sync_mode"] == "enabled"
         assert status["automation"] == {
             "available": False,
             "reason": "missing_permissions",
@@ -200,7 +200,7 @@ def test_suspended_installation_persists_unavailable_binding(monkeypatch):
 
         assert status["installation"]["status"] == "suspended"
         assert status["binding"]["status"] == "unavailable"
-        assert status["github_sync_mode"] == "backlog_only"
+        assert status["github_sync_mode"] == "enabled"
         assert status["automation"] == {
             "available": False,
             "reason": "installation_suspended",

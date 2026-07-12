@@ -124,7 +124,7 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
 
         downgraded = cmd_project_github_binding_status("yoke")
         assert downgraded["binding"]["status"] == "pending"
-        assert downgraded["github_sync_mode"] == "backlog_only"
+        assert downgraded["github_sync_mode"] == "enabled"
         assert downgraded["permission_status"]["status"] == "missing"
         assert downgraded["automation"] == {
             "available": False,
@@ -172,6 +172,49 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
         assert upgraded_capability["repository_id"] == "4567"
         assert upgraded_capability["api_url"] == "https://api.github.com"
         assert upgraded_capability["ci_oidc_manage_provider"] is False
+    finally:
+        pg_testdb.drop_test_database(db_name)
+
+
+def test_installation_refresh_preserves_intentional_backlog_only(
+    monkeypatch,
+) -> None:
+    db_name = pg_testdb.create_test_database()
+    try:
+        conn = pg_testdb.connect_test_database(db_name)
+        try:
+            apply_fixture_schema(conn)
+        finally:
+            conn.close()
+        monkeypatch.setenv(
+            db_backend.PG_DSN_ENV,
+            pg_testdb.dsn_for_test_database(db_name),
+        )
+        _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
+        _bind("buzz", "Example-Org/Buzz", "4568", permissions=_FULL_PERMISSIONS)
+        projects.cmd_update("yoke", "github_sync_mode", "backlog_only")
+
+        _bind(
+            "buzz",
+            "Example-Org/Buzz",
+            "4568",
+            permissions={"metadata": "read", "issues": "read"},
+        )
+
+        downgraded = cmd_project_github_binding_status("yoke")
+        assert downgraded["github_sync_mode"] == "backlog_only"
+        assert downgraded["binding"]["status"] == "pending"
+        assert downgraded["automation"] == {
+            "available": False,
+            "reason": "missing_permissions",
+        }
+
+        _bind("buzz", "Example-Org/Buzz", "4568", permissions=_FULL_PERMISSIONS)
+
+        recovered = cmd_project_github_binding_status("yoke")
+        assert recovered["github_sync_mode"] == "backlog_only"
+        assert recovered["binding"]["status"] == "active"
+        assert recovered["automation"] == {"available": True, "reason": "bound"}
     finally:
         pg_testdb.drop_test_database(db_name)
 

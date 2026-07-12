@@ -29,6 +29,15 @@ def _init_repo(root: Path, branch: str = "main") -> None:
     _git(root, "config", "user.name", "Test")
 
 
+@pytest.fixture(autouse=True)
+def _local_git_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        pub,
+        "run_git",
+        lambda root, *args, **_kwargs: _git(root, *args),
+    )
+
+
 def test_is_git_repo_distinguishes_plain_folder(tmp_path: Path) -> None:
     plain = tmp_path / "plain"
     plain.mkdir()
@@ -151,6 +160,7 @@ def test_create_and_publish_denied_push_raises_typed_naming_error(
     )
     monkeypatch.setattr(pub, "init_repo_if_needed", lambda root, branch: True)
     monkeypatch.setattr(pub, "ensure_initial_commit", lambda root, branch: None)
+    monkeypatch.setattr(pub, "local_head_sha", lambda root, branch: "abc123")
 
     def _denied_push(*a, **k):
         raise ProjectOnboardError(
@@ -183,6 +193,7 @@ def test_create_and_publish_non_403_push_error_names_repo_and_resume(
     )
     monkeypatch.setattr(pub, "init_repo_if_needed", lambda root, branch: True)
     monkeypatch.setattr(pub, "ensure_initial_commit", lambda root, branch: None)
+    monkeypatch.setattr(pub, "local_head_sha", lambda root, branch: "abc123")
 
     def _network_push(*a, **k):
         raise ProjectOnboardError(
@@ -226,6 +237,13 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
         ),
     )
     monkeypatch.setattr(pub, "https_remote", lambda repo, **_: str(bare))
+    monkeypatch.setattr(
+        github_publish,
+        "verify_resumable_repo",
+        lambda *args, **kwargs: {
+            "full_name": "octocat/widget", "private": True, "reused": True,
+        },
+    )
 
     request = pub.PublishRequest(
         owner="octocat", name="widget", user_login="octocat", token="ghs_x",
@@ -240,6 +258,38 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
         stdout=subprocess.PIPE, text=True, check=True,
     )
     assert "main" in branches.stdout
+
+
+def test_publish_origin_mismatch_never_echoes_embedded_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    secret = "ghp_publish_origin_secret"
+    monkeypatch.setattr(
+        pub.project_clone_resume,
+        "remote_url",
+        lambda *_args: (
+            f"https://octocat:{secret}@github.com/foreign/repository.git"
+        ),
+    )
+    monkeypatch.setattr(
+        pub.project_clone_resume,
+        "same_repo",
+        lambda *_args, **_kwargs: False,
+    )
+
+    with pytest.raises(ProjectOnboardError) as caught:
+        pub.publish_to_remote(
+            checkout,
+            github_repo="owner/demo",
+            default_branch="main",
+            web_url="https://github.com",
+        )
+
+    assert secret not in str(caught.value)
+    assert "different origin" in str(caught.value)
 
 
 def test_create_and_publish_private_default_in_request() -> None:

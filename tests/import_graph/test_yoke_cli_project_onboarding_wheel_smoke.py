@@ -57,6 +57,14 @@ def test_project_onboard_product_wheel_dry_run_stays_inert_and_does_not_mutate(
     before_config = config.read_text(encoding="utf-8")
     env = _product_env(machine_home, venv_dir)
 
+    # The orchestration helper must also import first in a fresh interpreter;
+    # source-suite import order can otherwise hide package-internal cycles.
+    _run([
+        str(venv_python), "-c",
+        "import importlib; "
+        "importlib.import_module('yoke_cli.config.project_onboard_existing')",
+    ], cwd=checkout, env=env)
+
     # Engine present: the wheel channel ships yoke-core to every machine.
     _run([
         str(venv_python), "-c",

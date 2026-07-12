@@ -37,6 +37,7 @@ _RESOLVED = ProjectGithubAuth(
 def _raise_error(error_cls):
     def _raise(project, **kw):
         raise error_cls(project, f"project '{project}' synthetic test failure")
+
     return _raise
 
 
@@ -53,7 +54,7 @@ class _FakeResponse:
         self.status = status
         self.headers: Dict[str, str] = {}
 
-    def read(self) -> bytes:
+    def read(self, _size: int = -1) -> bytes:
         return self._bytes
 
     def __enter__(self) -> "_FakeResponse":
@@ -80,6 +81,7 @@ def _fake_urls(monkeypatch, responses: List[Any]):
         return _FakeResponse(result)
 
     from yoke_core.domain import gh_rest_transport
+
     monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_urlopen)
     yield calls
 
@@ -93,7 +95,8 @@ def _resolver_ok(monkeypatch):
         return _RESOLVED
 
     monkeypatch.setattr(
-        github_actions_rest, "resolve_project_github_auth",
+        github_actions_rest,
+        "resolve_project_github_auth",
         _resolve,
     )
     return calls
@@ -101,11 +104,14 @@ def _resolver_ok(monkeypatch):
 
 class TestResolveToken:
     def test_returns_token_on_success(self, _resolver_ok):
-        assert github_actions_rest.resolve_token(
-            "yoke",
-            "o/r",
-            required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
-        ) == "ghs_test_token"
+        assert (
+            github_actions_rest.resolve_token(
+                "yoke",
+                "o/r",
+                required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+            )
+            == "ghs_test_token"
+        )
         assert _resolver_ok == [
             (
                 "yoke",
@@ -114,7 +120,9 @@ class TestResolveToken:
         ]
 
     def test_exits_4_when_repo_does_not_match_binding(
-        self, _resolver_ok, capsys,
+        self,
+        _resolver_ok,
+        capsys,
     ):
         with pytest.raises(SystemExit) as exc_info:
             github_actions_rest.resolve_token(
@@ -129,7 +137,8 @@ class TestResolveToken:
 
     def test_exits_4_on_missing_app_credentials(self, monkeypatch, capsys):
         monkeypatch.setattr(
-            github_actions_rest, "resolve_project_github_auth",
+            github_actions_rest,
+            "resolve_project_github_auth",
             _raise_error(MissingAppCredentials),
         )
         with pytest.raises(SystemExit) as exc_info:
@@ -144,7 +153,8 @@ class TestResolveToken:
 
     def test_exits_4_on_missing_capability_with_repair_hint(self, monkeypatch, capsys):
         monkeypatch.setattr(
-            github_actions_rest, "resolve_project_github_auth",
+            github_actions_rest,
+            "resolve_project_github_auth",
             _raise_error(MissingCapability),
         )
         with pytest.raises(SystemExit) as exc_info:
@@ -194,12 +204,18 @@ class TestLatestWorkflowRun:
 
     def test_propagates_rest_error(self, monkeypatch):
         import urllib.error
+
         err = urllib.error.HTTPError(
-            "https://example/foo", 500, "boom", {}, None  # type: ignore[arg-type]
+            "https://example/foo",
+            500,
+            "boom",
+            {},
+            None,  # type: ignore[arg-type]
         )
         # Repeat error so retries exhaust; transport then surfaces it.
         with _fake_urls(monkeypatch, [err, err, err]):
             from yoke_core.domain import gh_rest_transport
+
             monkeypatch.setattr(gh_rest_transport, "sleep", lambda _s: None)
             with pytest.raises(RestServerError):
                 github_actions_rest.latest_workflow_run(
@@ -224,8 +240,13 @@ class TestRestHelpers:
 
     def test_get_returns_none_on_404(self, monkeypatch):
         import urllib.error
+
         err = urllib.error.HTTPError(
-            "https://example/foo", 404, "Not Found", {}, None  # type: ignore[arg-type]
+            "https://example/foo",
+            404,
+            "Not Found",
+            {},
+            None,  # type: ignore[arg-type]
         )
         with _fake_urls(monkeypatch, [err]):
             data = github_actions_rest.rest_get("/repos/o/r/missing", token="ghs_x")

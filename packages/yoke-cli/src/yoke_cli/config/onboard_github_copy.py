@@ -36,7 +36,7 @@ PROJECT_GITHUB_SKIP_DESC = "backlog-only"
 
 PROJECT_GITHUB_SETUP_HELP = (
     "Project GitHub automation now uses a Yoke GitHub App repo binding. "
-    "Use skip/backlog-only until repo binding is available in this setup flow."
+    "Bind the selected repository, add App access, or keep this project backlog-only."
 )
 
 

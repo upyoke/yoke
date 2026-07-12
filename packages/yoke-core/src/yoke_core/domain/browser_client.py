@@ -37,11 +37,10 @@ take effect inside sibling-owned code paths (``daemon_start``,
 ``snapshot_*``, the CLI handlers).  The siblings preserve that contract
 by resolving every parent-bound symbol through
 ``_bc = yoke_core.domain.browser_client`` at call time rather than
-direct ``from ...`` imports.  The ``from urllib.request import Request,
-urlopen`` and ``from urllib.error import URLError`` lines below are
+direct ``from ...`` imports.  The module-level ``urlopen`` import below is
 load-bearing for ``mock.patch("yoke_core.domain.browser_client.urlopen")``
-even though the only in-module caller is ``daemon_request`` itself —
-removing them silently breaks the patches.
+even though the only in-module caller is ``daemon_request`` itself — removing
+it silently breaks the patch seam.
 
 CLI usage::
 
@@ -72,22 +71,30 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
-from urllib.error import URLError  # noqa: F401 — patched by tests; see module docstring
-from urllib.request import Request, urlopen  # noqa: F401 — patched by tests; see module docstring
+from urllib.request import Request, urlopen  # patched by tests; see module docstring
 
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpError,
+    request_json,
+)
+from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_core.domain import browser_runtime_home
 from yoke_core.domain.browser_client_cli import _cli_daemon, _cli_exec, _cli_snapshot
-from yoke_core.domain.browser_client_lifecycle import daemon_start, daemon_stop
+from yoke_core.domain.browser_client_lifecycle import (  # noqa: F401
+    daemon_start,
+    daemon_stop,
+)
 from yoke_core.domain.browser_client_snapshot import (
-    snapshot_accessibility,
-    snapshot_diff,
-    snapshot_screenshot,
+    snapshot_accessibility,  # noqa: F401
+    snapshot_diff,  # noqa: F401
+    snapshot_screenshot,  # noqa: F401
 )
 
 
 # ---------------------------------------------------------------------------
 # Path resolution
 # ---------------------------------------------------------------------------
+
 
 def _browser_dir() -> Path:
     """Return the machine-level browser runtime dir, materializing it."""
@@ -102,9 +109,11 @@ def _state_file_path() -> Path:
 # Daemon state
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DaemonState:
     """Parsed daemon state file."""
+
     pid: int = 0
     token: str = ""
     endpoint: str = ""
@@ -152,6 +161,7 @@ def daemon_running(state: Optional[DaemonState] = None) -> bool:
 # HTTP client
 # ---------------------------------------------------------------------------
 
+
 def daemon_request(
     path: str,
     body: Optional[Dict[str, Any]] = None,
@@ -180,19 +190,28 @@ def daemon_request(
         method="POST",
     )
     try:
-        with urlopen(req, timeout=timeout) as resp:
-            raw = resp.read().decode()
-            if raw.strip():
-                return json.loads(raw)
-            return {}
-    except (URLError, json.JSONDecodeError, OSError) as exc:
-        raise RuntimeError(f"daemon request failed: {exc}") from exc
+        response = request_json(
+            req,
+            timeout_seconds=timeout,
+            replay_safe=False,
+            allow_loopback_http=True,
+            response_limit_bytes=DEFAULT_JSON_RESPONSE_LIMIT_BYTES,
+            sensitive_values=(st.token,),
+            opener=urlopen,
+        )
+    except BoundedJsonHttpError as exc:
+        raise RuntimeError(f"daemon request failed: {exc}") from None
+    payload = response.payload if response.payload is not None else {}
+    if not isinstance(payload, dict):
+        raise RuntimeError("daemon request failed: response is not a JSON object")
+    return payload
 
 
 # ---------------------------------------------------------------------------
 # Daemon status / health (lifecycle start / stop live in
 # ``browser_client_lifecycle`` and are re-exported above).
 # ---------------------------------------------------------------------------
+
 
 def daemon_status() -> Dict[str, Any]:
     """Return daemon status JSON."""
@@ -227,6 +246,7 @@ def daemon_health() -> Dict[str, Any]:
 # Step execution
 # ---------------------------------------------------------------------------
 
+
 def execute_step(
     step_json: Dict[str, Any],
     base_url: str,
@@ -246,6 +266,7 @@ def execute_step(
 # Viewport parsing (used by snapshot sibling)
 # ---------------------------------------------------------------------------
 
+
 def _parse_viewport(vp: str) -> tuple:
     """Parse ``WxH`` viewport string to ``(width, height)`` ints."""
     parts = vp.lower().split("x")
@@ -258,6 +279,7 @@ def _parse_viewport(vp: str) -> tuple:
 # Logging
 # ---------------------------------------------------------------------------
 
+
 def _log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
@@ -265,6 +287,7 @@ def _log(msg: str) -> None:
 # ---------------------------------------------------------------------------
 # CLI argparse tree (handlers live in ``browser_client_cli``)
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(

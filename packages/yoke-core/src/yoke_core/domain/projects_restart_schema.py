@@ -14,9 +14,9 @@ from yoke_core.domain.github_app_schema import GITHUB_APP_SCHEMA_SQL
 def _projects_table_sql(*, if_not_exists: bool) -> str:
     clause = "IF NOT EXISTS " if if_not_exists else ""
     # github_sync_mode: per-project GitHub sync switch (enabled |
-    # backlog_only); NULL resolves to enabled through
-    # yoke_core.domain.projects_github_sync_mode. Pre-existing DBs gain
-    # the column via the idempotent schema-init migrations.
+    # backlog_only). Authoritative creators write backlog_only; legacy NULL
+    # resolves enabled until explicit repair. Pre-existing DBs gain the column
+    # via the idempotent schema-init migrations.
     return f"""
         CREATE TABLE {clause}projects (
             id INTEGER PRIMARY KEY,

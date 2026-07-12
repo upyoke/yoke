@@ -8,6 +8,10 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.self_host_bootstrap import (
+    IMPORT_UNIVERSE_ARG,
+    RECOVER_IMPORT_CREDENTIAL_ARG,
+)
 from yoke_cli.commands import self_host_import as command
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli import product_boundary_inventory
@@ -87,10 +91,7 @@ def test_import_runs_exact_compose_sequence_and_prints_one_time_token(
             "--rm",
             "-T",
             "core",
-            "python3",
-            "-m",
-            "yoke_core.domain.universe_import_cli",
-            "--stdin",
+            IMPORT_UNIVERSE_ARG,
         ),
     ]
     assert all(call[1]["cwd"] == directory for call in calls)
@@ -188,7 +189,7 @@ def test_malformed_success_teaches_safe_credential_recovery(
     assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
     error = capsys.readouterr().err
     assert "yoke_v1_Hidden" not in error
-    assert "--recover-credential" in error
+    assert RECOVER_IMPORT_CREDENTIAL_ARG in error
 
 
 def test_import_requires_owner_only_single_link_archive(

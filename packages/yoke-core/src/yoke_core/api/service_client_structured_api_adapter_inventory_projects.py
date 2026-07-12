@@ -30,6 +30,16 @@ PROJECT_ADAPTERS = [
         function_id="projects.github_binding.status",
         cli_invocation="yoke projects github-binding status --project NAME",
     ),
+    AdapterEntry(
+        function_id="projects.github_sync_mode.repair",
+        cli_invocation=(
+            "yoke projects github-sync-mode repair [--project NAME] [--apply]"
+        ),
+        notes=(
+            "dry-runs by default; --apply normalizes effectively-enabled "
+            "projects that lack an active verified App binding to backlog-only"
+        ),
+    ),
 ]
 
 

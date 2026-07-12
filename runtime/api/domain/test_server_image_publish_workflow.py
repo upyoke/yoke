@@ -121,6 +121,9 @@ def test_build_uses_exact_tag_version_and_pushes_only_by_digest():
     assert "fetch-depth: 0" in build
     assert "persist-credentials: false" in build
     assert "ref: ${{ needs.validate-tag.outputs.source_sha }}" in build
+    assert "uses: docker/setup-qemu-action@" in build
+    assert "uses: docker/setup-buildx-action@" in build
+    assert "platforms: linux/amd64,linux/arm64" in build
     assert 'echo "release_version=${TAG_NAME#v}"' in text
     assert "python -m setuptools_scm" not in build
     assert 'pip install "setuptools-scm' not in build
@@ -162,6 +165,7 @@ def test_conflicting_sha12_is_refused_and_both_tags_are_verified():
     assert '--tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"' in text
     assert '"$sha_digest" != "$PUSHED_DIGEST"' in text
     assert '"$latest_digest" != "$PUSHED_DIGEST"' in text
+    assert '"$platforms" != "linux/amd64,linux/arm64"' in text
 
 
 def test_login_pipes_preserve_failure_status():
@@ -176,10 +180,12 @@ def test_first_publication_contract_proves_visibility_pull_and_provenance():
     assert "visibility to **Public**" in text
     assert "Repository visibility alone is not sufficient" in text
     assert 'anonymous_config="$(mktemp -d)"' in text
-    assert 'DOCKER_CONFIG="$anonymous_config" docker pull "$repository:$sha12"' in text
+    assert "docker pull --platform linux/amd64" in text
+    assert "docker pull --platform linux/arm64" in text
     assert 'DOCKER_CONFIG="$anonymous_config" docker pull "$repository:latest"' in text
     assert 'test "$sha_digest" = "$digest"' in text
     assert 'test "$latest_digest" = "$digest"' in text
+    assert 'test "$platforms" = "linux/amd64,linux/arm64"' in text
     assert 'DOCKER_CONFIG="$anonymous_config" gh attestation verify' in text
     assert "--bundle-from-oci" in text
     assert '--source-ref "refs/tags/$tag"' in text
@@ -189,6 +195,6 @@ def test_first_publication_contract_proves_visibility_pull_and_provenance():
         "annotated tag-object SHA",
         "peeled source SHA",
         "image digest",
-        "anonymous pull",
+        "both anonymous platform pulls",
     ):
         assert receipt_field in text

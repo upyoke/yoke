@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_cli.config import onboard_apply_report
+from yoke_cli.config import onboard_checkout_ownership
 
 
 class OnboardApplyResumeError(RuntimeError):
@@ -56,6 +56,17 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
     _set_missing(parsed, "project_name", project.get("name"))
     _set_missing(parsed, "project_org", project.get("org"))
     _set_missing(parsed, "project_github_repo", project.get("github_repo"))
+    binding = _mapping(project.get("github_binding"))
+    _set_missing(
+        parsed,
+        "project_github_repository_id",
+        _positive_int(binding.get("repository_id")),
+    )
+    _set_missing(
+        parsed,
+        "project_github_installation_id",
+        _positive_int(binding.get("installation_id")),
+    )
     _set_missing(parsed, "project_default_branch", project.get("default_branch"))
     _set_missing(
         parsed, "project_default_branch_source",
@@ -75,6 +86,11 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
     )
     _set_missing(parsed, "github_adoption", project.get("github_adoption"))
     _set_bool_missing(
+        parsed,
+        "project_github_adoption_preserve",
+        project.get("github_adoption_preserve"),
+    )
+    _set_bool_missing(
         parsed, "project_keep_existing_remote", project.get("keep_existing_remote"),
     )
     _restore_publish_defaults(parsed, project.get("publish"))
@@ -85,6 +101,11 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
     )
     _set_missing(parsed, "project_clone_fork_api_url", clone.get("fork_api_url"))
     _set_missing(parsed, "project_clone_fork_web_url", clone.get("fork_web_url"))
+    _set_bool_missing(
+        parsed,
+        "project_clone_use_machine_github",
+        clone.get("use_machine_github"),
+    )
     _restore_publish_defaults(parsed, clone.get("publish"))
     machine_github = _mapping(snapshot.get("machine_github"))
     _set_missing(parsed, "machine_github_choice", machine_github.get("choice"))
@@ -92,22 +113,32 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
     _restore_token_file(parsed, snapshot)
 
 
-def start_over(run_id: str, *, confirmed: bool) -> dict[str, Any]:
-    """Remove the checkout only when the report proves Yoke created it."""
+def preserve_checkout_for_new_target(
+    run_id: str,
+    *,
+    confirmed: bool,
+) -> dict[str, Any]:
+    """Close a failed attempt while preserving its checkout for inspection."""
     if not confirmed:
-        raise OnboardApplyResumeError("--start-over requires --yes")
+        raise OnboardApplyResumeError("--use-different-folder requires --yes")
     normalized = normalize_run_id(run_id)
     payload = load_payload(normalized)
-    checkout = start_over_checkout_path(normalized)
+    checkout = preservable_checkout_path(normalized)
     if not checkout:
         raise OnboardApplyResumeError(
-            f"run {run_id!r} has no checkout Yoke can safely remove"
+            f"run {run_id!r} has no run-created checkout Yoke can preserve"
         )
-    removed = _remove_checkout(checkout)
-    payload["final_status"] = "started-over"
-    payload["start_over"] = {
+    snapshot = payload.get("input_snapshot")
+    snapshot = snapshot if isinstance(snapshot, Mapping) else {}
+    provenance = _mapping(snapshot.get("checkout_provenance"))
+    preserved = _preserve_checkout(
+        checkout, _mapping(provenance.get("ownership")),
+    )
+    payload["final_status"] = "checkout-preserved"
+    payload["new_target"] = {
         "checkout_path": checkout,
-        "removed_checkout": removed,
+        "removed_checkout": False,
+        "preserved_checkout_path": preserved,
         "remote_repo_removed": False,
     }
     onboard_apply_report.ApplyReportWriter(
@@ -117,19 +148,24 @@ def start_over(run_id: str, *, confirmed: bool) -> dict[str, Any]:
         "run_id": normalized,
         "report_path": str(onboard_apply_report.run_report_path(normalized)),
         "checkout_path": checkout,
-        "removed_checkout": removed,
+        "removed_checkout": False,
+        "preserved_checkout_path": preserved,
         "remote_repo_removed": False,
     }
 
 
-def start_over_checkout_path(run_id: str) -> str | None:
-    """Return the removable checkout path for a run, if the report proves one."""
+def preservable_checkout_path(run_id: str) -> str | None:
+    """Return a run-created checkout that will be preserved for a new target."""
     payload = load_payload(normalize_run_id(run_id))
     snapshot = payload.get("input_snapshot")
     snapshot = snapshot if isinstance(snapshot, Mapping) else {}
     provenance = _mapping(snapshot.get("checkout_provenance"))
     checkout = str(provenance.get("path") or "")
-    if checkout and provenance.get("safe_to_remove_on_start_over"):
+    if (
+        checkout
+        and provenance.get("created_by_run")
+        and _mapping(provenance.get("ownership"))
+    ):
         return checkout
     return None
 
@@ -154,7 +190,11 @@ def _restore_token_file(parsed: Any, snapshot: Mapping[str, Any]) -> None:
             parsed.token_file = path
 
 
-def _remove_checkout(value: str) -> bool:
+def _preserve_checkout(
+    value: str, ownership: Mapping[str, Any],
+) -> str | None:
+    """Validate the run-created checkout and leave its contents untouched."""
+
     path = Path(value).expanduser()
     try:
         resolved = path.resolve(strict=False)
@@ -166,11 +206,17 @@ def _remove_checkout(value: str) -> bool:
     if resolved == home or resolved == Path(resolved.anchor):
         raise OnboardApplyResumeError(f"refusing to remove unsafe checkout: {value}")
     if not path.exists():
-        return False
+        return None
     if not path.is_dir() or path.is_symlink():
         raise OnboardApplyResumeError(f"checkout is not a removable directory: {value}")
-    shutil.rmtree(path)
-    return True
+    if not onboard_checkout_ownership.matches(path, ownership):
+        raise OnboardApplyResumeError(
+            "checkout identity changed after onboarding; refusing to remove it"
+        )
+    # There is no portable conditional unlink/rename-by-inode operation. Any
+    # pathname mutation after the identity check can act on a same-user
+    # replacement. Preserve in place and require a fresh target on the next run.
+    return str(path)
 
 
 def _set_missing(parsed: Any, name: str, value: Any) -> None:
@@ -199,10 +245,33 @@ def _restore_publish_defaults(parsed: Any, value: Any) -> None:
     _set_missing(parsed, "project_publish_api_url", publish.get("api_url"))
     _set_missing(parsed, "project_publish_web_url", publish.get("web_url"))
     _set_bool_missing(parsed, "project_publish_private", publish.get("private"))
+    _set_bool_missing(
+        parsed,
+        "project_publish_create_repository",
+        publish.get("create_repository"),
+    )
+    _set_missing(
+        parsed, "project_publish_repository_id", publish.get("repository_id"),
+    )
+    _set_missing(
+        parsed,
+        "project_publish_installation_id",
+        publish.get("installation_id"),
+    )
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
+
+
+def _positive_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
 
 
 __all__ = [
@@ -211,6 +280,6 @@ __all__ = [
     "load_payload",
     "load_snapshot",
     "normalize_run_id",
-    "start_over",
-    "start_over_checkout_path",
+    "preservable_checkout_path",
+    "preserve_checkout_for_new_target",
 ]

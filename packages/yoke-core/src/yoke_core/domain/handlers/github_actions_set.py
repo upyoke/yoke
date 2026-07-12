@@ -33,6 +33,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_SECRETS_WRITE_PERMISSION_LEVELS,
     GITHUB_VARIABLES_WRITE_PERMISSION_LEVELS,
 )
+from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
 class SecretSetRequest(BaseModel):
@@ -99,15 +100,6 @@ def _transport_failed(message: str) -> HandlerOutcome:
     )
 
 
-def _sanitized_validation_message(exc: ValidationError) -> str:
-    """Render a ValidationError without reflecting input values back."""
-    parts: List[str] = []
-    for err in exc.errors(include_url=False, include_input=False):
-        loc = ".".join(str(p) for p in err.get("loc", ())) or "$"
-        parts.append(f"{loc}: {err.get('msg', 'invalid')}")
-    return "payload invalid: " + "; ".join(parts)
-
-
 def _validate_and_resolve(
     request: FunctionCallRequest,
     model: Type[BaseModel],
@@ -151,7 +143,7 @@ def _validate_and_resolve_auth(
     try:
         payload = model.model_validate(request.payload or {})
     except ValidationError as exc:
-        return None, None, _bad_request(_sanitized_validation_message(exc))
+        return None, None, _bad_request(safe_validation_message(exc))
 
     repo = getattr(payload, "repo", None)
     if repo is not None and "/" not in repo:
