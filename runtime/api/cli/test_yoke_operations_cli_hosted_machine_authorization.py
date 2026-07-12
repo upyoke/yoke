@@ -98,3 +98,39 @@ def test_hosted_pick_uses_browser_approval_and_selected_org(monkeypatch) -> None
             assert app.query_one(Stepper).active == STEP_GITHUB
 
     asyncio.run(scenario())
+
+
+def test_hosted_failure_retries_browser_flow_without_teaching_token_paste(
+    monkeypatch,
+) -> None:
+    pending = hosted_machine_authorization.PendingMachineAuthorization(
+        platform_url="https://app.upyoke.com",
+        device_code="device-secret",
+        user_code="ABCD-2345",
+        verification_uri="https://app.upyoke.com/machine",
+        verification_uri_complete="https://app.upyoke.com/machine?user_code=ABCD-2345",
+        expires_in=600,
+        interval=2,
+    )
+    monkeypatch.setattr(hosted_machine_authorization, "start", lambda _url: pending)
+    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: True)
+    def fail_complete(_pending) -> None:
+        raise hosted_machine_authorization.HostedMachineAuthorizationError(
+            "approval expired"
+        )
+
+    monkeypatch.setattr(hosted_machine_authorization, "complete", fail_complete)
+    app, _spy = make_app(WizardDefaults(config_path="/tmp/cfg.json", env_name="prod"))
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            await pilot.press("up", "enter", "enter")
+            await app.workers.wait_for_complete()
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            body = _body_text(app)
+            assert "start a fresh browser sign-in" in body
+            assert "paste a different token" not in body
+
+    asyncio.run(scenario())

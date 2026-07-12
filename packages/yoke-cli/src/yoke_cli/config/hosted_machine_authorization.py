@@ -48,7 +48,7 @@ def start(
     """Begin one authorization without opening a browser or persisting state."""
     origin = _platform_origin(platform_url)
     try:
-        payload = _post_json(
+        payload, status = _post_json(
             f"{origin}/api/machine/authorizations",
             {},
             opener=opener,
@@ -58,6 +58,10 @@ def start(
         raise HostedMachineAuthorizationError(
             f"hosted authorization could not start (HTTP {exc.status})"
         ) from None
+    if status != 200:
+        raise HostedMachineAuthorizationError(
+            f"hosted authorization could not start (HTTP {status})"
+        )
     device_code = _required(payload, "device_code")
     user_code = _required(payload, "user_code")
     verification_uri = _same_origin_url(
@@ -110,7 +114,7 @@ def complete(
         if monotonic() >= deadline:
             break
         try:
-            payload = _post_json(
+            payload, status = _post_json(
                 token_url,
                 {"device_code": authorization.device_code},
                 opener=opener,
@@ -130,6 +134,21 @@ def complete(
             raise HostedMachineAuthorizationError(
                 f"hosted authorization polling failed (HTTP {exc.status})"
             ) from None
+        error = payload.get("error")
+        if status == 202 and error == "authorization_pending":
+            continue
+        if error in {"authorization_expired", "authorization_consumed"}:
+            raise HostedMachineAuthorizationError(
+                str(error).replace("_", " ")
+            )
+        if status != 200:
+            raise HostedMachineAuthorizationError(
+                f"hosted authorization polling failed (HTTP {status})"
+            )
+        if error:
+            raise HostedMachineAuthorizationError(
+                "hosted authorization returned an error"
+            )
         token = _required(payload, "token")
         org = _required(payload, "org")
         api_url = _same_origin_api_url(
@@ -169,7 +188,7 @@ def _post_json(
     opener: Callable[..., Any] | None,
     timeout_seconds: float,
     sensitive_values: tuple[str, ...] = (),
-) -> Mapping[str, Any]:
+) -> tuple[Mapping[str, Any], int]:
     request = urllib.request.Request(
         url,
         method="POST",
@@ -192,7 +211,7 @@ def _post_json(
         raise HostedMachineAuthorizationError(
             "hosted authorization returned invalid JSON"
         )
-    return response.payload
+    return response.payload, int(response.status)
 
 
 def _platform_origin(value: str) -> str:
