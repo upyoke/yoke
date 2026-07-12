@@ -70,6 +70,8 @@ _VERIFY_SENTINELS: Dict[str, int] = {
     "environments": 0,
     "capability_templates": 1,
     "project_capabilities": 0,
+    "project_onboarding_checklist_rows": 0,
+    "project_onboarding_runs": 0,
     "deployment_flows": 0,
     "deployment_runs": 0,
     "event_registry": 1,
