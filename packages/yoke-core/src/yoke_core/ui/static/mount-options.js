@@ -70,9 +70,18 @@ export function materializeSlots(slots, rootNode) {
 }
 
 function invokeAction(action, option) {
-  // Callbacks cross the same JS realm as the mount. Surface rejected async
-  // handlers without coupling the workbench to host-specific error concepts.
-  Promise.resolve().then(() => action.onInvoke(option)).catch((error) => {
+  // Invoke during the originating DOM event so host actions that require
+  // transient user activation (for example a file picker) retain it. Surface
+  // both synchronous throws and rejected async handlers without coupling the
+  // workbench to host-specific error concepts.
+  let result;
+  try {
+    result = action.onInvoke(option);
+  } catch (error) {
+    globalThis.console.error("universe capability action failed", error);
+    return;
+  }
+  Promise.resolve(result).catch((error) => {
     globalThis.console.error("universe capability action failed", error);
   });
 }
