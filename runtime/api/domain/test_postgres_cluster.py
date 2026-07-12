@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -75,7 +76,8 @@ def test_initdb_noop_when_cluster_exists(monkeypatch, tmp_path):
     spec.data_dir.mkdir(parents=True)
     (spec.data_dir / "PG_VERSION").write_text("17\n", encoding="utf-8")
     monkeypatch.setattr(
-        postgres_cluster, "_run",
+        postgres_cluster,
+        "_run",
         lambda argv, **kw: pytest.fail("initdb must not run on a live data dir"),
     )
 
@@ -99,7 +101,8 @@ def test_start_server_uses_pinned_binaries_and_options(monkeypatch, tmp_path):
     spec = _spec(tmp_path, bin_dir=tmp_path / "engine" / "bin")
     calls = []
     monkeypatch.setattr(
-        postgres_cluster, "_run",
+        postgres_cluster,
+        "_run",
         lambda argv, **kw: calls.append(argv) or _completed(),
     )
 
@@ -115,7 +118,8 @@ def test_stop_uses_spec_stop_mode(monkeypatch, tmp_path):
     spec.data_dir.mkdir(parents=True)
     calls = []
     monkeypatch.setattr(
-        postgres_cluster, "_run",
+        postgres_cluster,
+        "_run",
         lambda argv, **kw: calls.append(argv) or _completed(),
     )
 
@@ -127,18 +131,35 @@ def test_ensure_started_skips_start_when_ready(monkeypatch, tmp_path):
     spec = _spec(tmp_path)
     calls = []
     monkeypatch.setattr(
-        postgres_cluster, "initdb_if_needed",
+        postgres_cluster,
+        "initdb_if_needed",
         lambda s: calls.append("initdb") or 0,
     )
     monkeypatch.setattr(postgres_cluster, "is_ready", lambda s: True)
     monkeypatch.setattr(
-        postgres_cluster, "start_server",
+        postgres_cluster,
+        "start_server",
         lambda s: pytest.fail("must not start an already-ready cluster"),
     )
 
     assert postgres_cluster.ensure_started(spec) == 0
     assert calls == ["initdb"]
     assert spec.sock_dir.is_dir()
+    assert stat.S_IMODE(spec.sock_dir.stat().st_mode) == 0o700
+
+
+def test_ensure_started_rejects_symlink_socket_directory(tmp_path):
+    target = tmp_path / "other-directory"
+    target.mkdir()
+    socket_dir = tmp_path / "cluster-socket"
+    socket_dir.symlink_to(target, target_is_directory=True)
+    spec = _spec(tmp_path, socket_dir=socket_dir)
+
+    with pytest.raises(
+        postgres_cluster.PostgresClusterError,
+        match="not a private directory",
+    ):
+        postgres_cluster.ensure_started(spec)
 
 
 @pytest.mark.skipif(

@@ -25,9 +25,13 @@ Three surfaces:
 from __future__ import annotations
 
 import contextlib
+from dataclasses import replace
 import getpass
+import hashlib
 import os
 from pathlib import Path
+import sys
+import tempfile
 from typing import Any, Callable, Dict, Iterator, Optional
 
 from yoke_contracts.machine_config import runtime as machine_runtime
@@ -45,6 +49,12 @@ LOCAL_UNIVERSE_DIR_NAME = "local-universe"
 LOCAL_SUPERUSER = "yoke"
 LOCAL_DBNAME = "yoke"
 
+# sockaddr_un.sun_path holds 104 bytes on macOS/BSD and 108 on Linux, including
+# the trailing NUL. Preserve every path that the current platform can bind;
+# durable data remains under the machine home while only an actually overlong
+# socket moves beneath the shortest writable machine temp root.
+_MAX_POSTGRES_SOCKET_PATH_BYTES = 107 if sys.platform.startswith("linux") else 103
+
 
 class LocalUniverseError(RuntimeError):
     """The embedded local universe could not be started or created."""
@@ -55,19 +65,53 @@ def universe_root() -> Path:
 
 
 def cluster_spec(
-    root: Optional[Path] = None, bin_dir: Optional[Path] = None,
+    root: Optional[Path] = None,
+    bin_dir: Optional[Path] = None,
 ) -> ClusterSpec:
     """The durable local-universe cluster description.
 
     No throwaway-cluster tuning: durability settings stay at Postgres
     defaults because this cluster IS the user's authoritative state.
     """
+    resolved_root = root if root is not None else universe_root()
     return ClusterSpec(
-        root=root if root is not None else universe_root(),
+        root=resolved_root,
         superuser=LOCAL_SUPERUSER,
         bin_dir=bin_dir,
         stop_mode="fast",
+        socket_dir=_socket_dir_for_root(resolved_root),
     )
+
+
+def _socket_dir_for_root(root: Path) -> Optional[Path]:
+    """Return a stable short socket directory only when the root is too long."""
+    default = root / "sock"
+    socket_name = f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
+    if len(os.fsencode(default / socket_name)) <= _MAX_POSTGRES_SOCKET_PATH_BYTES:
+        return None
+    uid = getattr(os, "getuid", lambda: 0)()
+    digest = hashlib.sha256(os.fsencode(root.absolute())).hexdigest()[:12]
+    candidates = (Path(tempfile.gettempdir()), Path("/tmp"))
+    bases = {
+        os.fsencode(candidate): candidate
+        for candidate in candidates
+        if candidate.is_dir() and os.access(candidate, os.W_OK | os.X_OK)
+    }
+    if not bases:
+        raise LocalUniverseError(
+            "no writable temporary directory is available for an embedded "
+            "Postgres Unix socket"
+        )
+    base = min(
+        bases.values(),
+        key=lambda candidate: (len(os.fsencode(candidate)), os.fsencode(candidate)),
+    )
+    fallback = base / f"yoke-pg-{uid}-{digest}"
+    if len(os.fsencode(fallback / socket_name)) > _MAX_POSTGRES_SOCKET_PATH_BYTES:
+        raise LocalUniverseError(
+            "the machine paths are too long for an embedded Postgres Unix socket"
+        )
+    return fallback
 
 
 def ensure_engine_binaries(
@@ -91,8 +135,7 @@ def start(
     rc = postgres_cluster.ensure_started(resolved)
     if rc != 0:
         raise LocalUniverseError(
-            f"embedded Postgres failed to start (exit {rc}); see "
-            f"{resolved.log_file}"
+            f"embedded Postgres failed to start (exit {rc}); see {resolved.log_file}"
         )
     ensure_database(resolved)
     return status(resolved)
@@ -127,11 +170,13 @@ def status(spec: Optional[ClusterSpec] = None) -> Dict[str, Any]:
 
 
 def ensure_database(
-    spec: ClusterSpec, dbname: str = LOCAL_DBNAME,
+    spec: ClusterSpec,
+    dbname: str = LOCAL_DBNAME,
 ) -> None:
     """Create the control-plane database once (initdb only makes postgres)."""
     probe = postgres_cluster.psql(
-        spec, f"SELECT 1 FROM pg_database WHERE datname = '{dbname}'",
+        spec,
+        f"SELECT 1 FROM pg_database WHERE datname = '{dbname}'",
     )
     if probe.returncode != 0:
         raise LocalUniverseError(
@@ -155,9 +200,7 @@ def is_born(spec: Optional[ClusterSpec] = None) -> bool:
     """
     from yoke_core.domain import environment_bootstrap
 
-    return environment_bootstrap.universe_is_born(
-        local_dsn(_spec_or_default(spec))
-    )
+    return environment_bootstrap.universe_is_born(local_dsn(_spec_or_default(spec)))
 
 
 def birth(
@@ -185,6 +228,7 @@ def birth(
         "repaired": False,
         "cluster": cluster,
         "dsn": dsn,
+        "socket_dsn_aliases": _socket_dsn_aliases(spec),
     }
     with contextlib.ExitStack() as stack:
         stack.enter_context(pinned_authority(dsn))
@@ -207,6 +251,13 @@ def birth(
         report["org"] = _ensure_org_card(org_name, emit)
         report["human_actor_id"] = _ensure_human_actor(emit)
     return report
+
+
+def _socket_dsn_aliases(spec: ClusterSpec) -> list[str]:
+    """Prior DSNs that address this same durable cluster through its old socket."""
+    if spec.socket_dir is None:
+        return []
+    return [local_dsn(replace(spec, socket_dir=None))]
 
 
 def _verify_or_repair(
@@ -263,7 +314,8 @@ def _os_login_label() -> Optional[str]:
 
 
 def _ensure_org_card(
-    org_name: Optional[str], emit: Callable[[str], None],
+    org_name: Optional[str],
+    emit: Callable[[str], None],
 ) -> Dict[str, Any]:
     """Ensure the single-row org identity card, applying a requested name."""
     from yoke_core.domain import db_helpers, org_schema
@@ -298,7 +350,9 @@ def _ensure_human_actor(emit: Callable[[str], None]) -> int:
             return int(row[0])
         actor_id = actors.seed_human_actor(conn)
         actors.set_actor_label(
-            conn, actor_id, _os_login_label() or actors.DEFAULT_LOCAL_HUMAN_LABEL,
+            conn,
+            actor_id,
+            _os_login_label() or actors.DEFAULT_LOCAL_HUMAN_LABEL,
         )
         emit(f"  [local-universe] seeded local human actor {actor_id}")
         return actor_id
@@ -322,7 +376,9 @@ def _spec_or_default(spec: Optional[ClusterSpec]) -> ClusterSpec:
 
 
 def _resolve_spec(
-    spec: Optional[ClusterSpec], *, emit: Callable[[str], None],
+    spec: Optional[ClusterSpec],
+    *,
+    emit: Callable[[str], None],
 ) -> ClusterSpec:
     if spec is not None:
         return spec

@@ -35,6 +35,60 @@ def test_cluster_spec_is_durable_and_socket_scoped(tmp_path):
     assert lu.local_dsn(spec) == f"host={spec.sock_dir} user=yoke dbname=yoke"
 
 
+def test_cluster_spec_shortens_overlong_unix_socket_path(tmp_path):
+    root = tmp_path / ("nested-machine-home-" * 8) / "local-universe"
+    spec = lu.cluster_spec(root=root)
+    socket_path = spec.sock_dir / f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
+
+    assert spec.root == root
+    assert spec.socket_dir is not None
+    assert spec.sock_dir != root / "sock"
+    assert len(os.fsencode(socket_path)) <= lu._MAX_POSTGRES_SOCKET_PATH_BYTES
+    assert lu.local_dsn(spec) == f"host={spec.sock_dir} user=yoke dbname=yoke"
+
+
+def test_socket_path_at_platform_limit_stays_with_cluster_root():
+    socket_name = f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
+    suffix_size = len(os.fsencode(f"/sock/{socket_name}"))
+    root_size = lu._MAX_POSTGRES_SOCKET_PATH_BYTES - suffix_size
+    root = Path("/" + ("r" * (root_size - 1)))
+
+    assert len(os.fsencode(root / "sock" / socket_name)) == (
+        lu._MAX_POSTGRES_SOCKET_PATH_BYTES
+    )
+    assert lu._socket_dir_for_root(root) is None
+    assert lu._socket_dir_for_root(Path(f"{root}x")) is not None
+
+
+def test_socket_fallback_skips_unwritable_shorter_root(monkeypatch, tmp_path):
+    long_root = tmp_path / ("nested-machine-home-" * 8) / "local-universe"
+    with lu.tempfile.TemporaryDirectory(
+        prefix="yoke-fallback-test-", dir="/tmp"
+    ) as short_temp:
+        preferred = Path(short_temp)
+        monkeypatch.setattr(lu.tempfile, "gettempdir", lambda: str(preferred))
+        original_access = lu.os.access
+        monkeypatch.setattr(
+            lu.os,
+            "access",
+            lambda path, mode: (
+                False if Path(path) == Path("/tmp") else original_access(path, mode)
+            ),
+        )
+
+        assert lu._socket_dir_for_root(long_root).parent == preferred
+
+
+def test_birth_reports_prior_socket_dsn_for_same_cluster(monkeypatch, tmp_path):
+    root = tmp_path / ("nested-machine-home-" * 8) / "local-universe"
+    spec = lu.cluster_spec(root=root)
+
+    assert spec.socket_dir is not None
+    assert lu._socket_dsn_aliases(spec) == [
+        f"host={root / 'sock'} user=yoke dbname=yoke"
+    ]
+
+
 def test_ensure_database_creates_once(monkeypatch, tmp_path):
     spec = lu.cluster_spec(root=tmp_path / "u")
     statements = []
@@ -71,11 +125,13 @@ class _BirthHarness:
         self.dsn_at_bootstrap = None
         self.label_env_at_bootstrap = None
         monkeypatch.setattr(
-            lu, "ensure_engine_binaries",
+            lu,
+            "ensure_engine_binaries",
             lambda emit=None: self.calls.append("binaries") or Path("/nowhere/bin"),
         )
         monkeypatch.setattr(
-            lu, "start",
+            lu,
+            "start",
             lambda spec, emit: self.calls.append("start") or {"running": True},
         )
         monkeypatch.setattr(lu, "is_born", lambda spec: already_born)
@@ -83,9 +139,7 @@ class _BirthHarness:
         def fake_bootstrap(emit):
             self.calls.append("bootstrap")
             self.dsn_at_bootstrap = os.environ.get(db_backend.PG_DSN_ENV)
-            self.label_env_at_bootstrap = os.environ.get(
-                actors.LOCAL_HUMAN_LABEL_ENV
-            )
+            self.label_env_at_bootstrap = os.environ.get(actors.LOCAL_HUMAN_LABEL_ENV)
             return {"organizations": 1, "actors": 1}
 
         def fake_verify(emit):
@@ -99,12 +153,16 @@ class _BirthHarness:
         monkeypatch.setattr(environment_bootstrap, "run_bootstrap", fake_bootstrap)
         monkeypatch.setattr(environment_bootstrap, "verify_bootstrap", fake_verify)
         monkeypatch.setattr(
-            lu, "_ensure_org_card",
-            lambda org_name, emit: self.calls.append(("org", org_name))
-            or {"slug": "default", "name": org_name or "Default Org"},
+            lu,
+            "_ensure_org_card",
+            lambda org_name, emit: (
+                self.calls.append(("org", org_name))
+                or {"slug": "default", "name": org_name or "Default Org"}
+            ),
         )
         monkeypatch.setattr(
-            lu, "_ensure_human_actor",
+            lu,
+            "_ensure_human_actor",
             lambda emit: self.calls.append("human") or 7,
         )
 
@@ -120,7 +178,11 @@ def test_birth_bootstraps_fresh_universe_under_pinned_dsn(monkeypatch):
     assert report["org"] == {"slug": "default", "name": "Proof Org"}
     assert report["human_actor_id"] == 7
     assert harness.calls == [
-        "binaries", "start", "bootstrap", ("org", "Proof Org"), "human",
+        "binaries",
+        "start",
+        "bootstrap",
+        ("org", "Proof Org"),
+        "human",
     ]
     assert harness.dsn_at_bootstrap == report["dsn"]
     assert "dbname=yoke" in report["dsn"]
@@ -149,7 +211,12 @@ def test_birth_repairs_live_universe_that_fails_verification(monkeypatch):
     assert report["repaired"] is True
     assert report["verified"] == {"organizations": 1, "actors": 1}
     assert harness.calls == [
-        "binaries", "start", "verify", "bootstrap", ("org", None), "human",
+        "binaries",
+        "start",
+        "verify",
+        "bootstrap",
+        ("org", None),
+        "human",
     ]
 
 
@@ -232,9 +299,7 @@ def test_run_bootstrap_seeds_human_actor_with_injected_label(tmp_path, monkeypat
     repo_root = find_repo_root(Path(__file__))
 
     def bootstrap():
-        environment_bootstrap.run_bootstrap(
-            repo_root=repo_root, emit=lambda _l: None
-        )
+        environment_bootstrap.run_bootstrap(repo_root=repo_root, emit=lambda _l: None)
 
     with init_test_db(tmp_path, apply_schema=bootstrap) as db_path:
         conn = connect_test_db(db_path)
@@ -263,7 +328,9 @@ def test_birth_composition_labels_os_login_and_repairs_half_born(monkeypatch):
     name = pg_testdb.create_test_database()
     dsn = pg_testdb.dsn_for_test_database(name)
     monkeypatch.setattr(
-        lu, "ensure_engine_binaries", lambda emit=None: Path("/unused-bin"),
+        lu,
+        "ensure_engine_binaries",
+        lambda emit=None: Path("/unused-bin"),
     )
     monkeypatch.setattr(lu, "start", lambda spec, emit: {"running": True})
     monkeypatch.setattr(lu, "local_dsn", lambda spec=None: dsn)

@@ -10,15 +10,17 @@ One cluster-lifecycle core, two frontends:
 Both frontends describe their cluster with a :class:`ClusterSpec` and call
 the same functions here, so the initdb/pg_ctl mechanics never fork. Every
 managed cluster is unix-socket-only (``listen_addresses=''``) with trust
-auth on the socket: the socket directory lives inside the cluster root, so
-filesystem ownership of the root is the access boundary and no TCP port is
-ever claimed.
+auth on the socket. The socket directory is private to the current user; it
+normally lives inside the cluster root, but may use a short external path on
+platforms with restrictive Unix-socket path limits. No TCP port is ever
+claimed.
 """
 
 from __future__ import annotations
 
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -30,6 +32,10 @@ from typing import Optional, Tuple
 #: is bound, so this never collides with another server: each managed
 #: cluster owns a private socket directory.
 SOCKET_PORT = 5432
+
+
+class PostgresClusterError(RuntimeError):
+    """A managed cluster's filesystem boundary is unsafe or unavailable."""
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,7 @@ class ClusterSpec:
     server_settings: Tuple[Tuple[str, str], ...] = ()
     bin_dir: Optional[Path] = None
     stop_mode: str = "fast"
+    socket_dir: Optional[Path] = None
 
     @property
     def data_dir(self) -> Path:
@@ -55,7 +62,7 @@ class ClusterSpec:
 
     @property
     def sock_dir(self) -> Path:
-        return self.root / "sock"
+        return self.socket_dir if self.socket_dir is not None else self.root / "sock"
 
     @property
     def log_file(self) -> Path:
@@ -96,24 +103,36 @@ def dsn(spec: ClusterSpec, dbname: str = "postgres") -> str:
     return f"host={spec.sock_dir} user={spec.superuser} dbname={dbname}"
 
 
-def psql(spec: ClusterSpec, sql: str, dbname: str = "postgres") -> subprocess.CompletedProcess:
-    return _run([
-        binary(spec, "psql"),
-        "-h", str(spec.sock_dir),
-        "-U", spec.superuser,
-        "-d", dbname,
-        "-Atc", sql,
-    ])
+def psql(
+    spec: ClusterSpec, sql: str, dbname: str = "postgres"
+) -> subprocess.CompletedProcess:
+    return _run(
+        [
+            binary(spec, "psql"),
+            "-h",
+            str(spec.sock_dir),
+            "-U",
+            spec.superuser,
+            "-d",
+            dbname,
+            "-Atc",
+            sql,
+        ]
+    )
 
 
 def is_ready(spec: ClusterSpec) -> bool:
     if not spec.data_dir.exists():
         return False
-    res = _run([
-        binary(spec, "pg_isready"),
-        "-h", str(spec.sock_dir),
-        "-U", spec.superuser,
-    ])
+    res = _run(
+        [
+            binary(spec, "pg_isready"),
+            "-h",
+            str(spec.sock_dir),
+            "-U",
+            spec.superuser,
+        ]
+    )
     return res.returncode == 0
 
 
@@ -131,10 +150,18 @@ def initdb_if_needed(spec: ClusterSpec) -> int:
         return 0
     if data_dir.exists():
         shutil.rmtree(data_dir, ignore_errors=True)
-    res = _run([
-        binary(spec, "initdb"), "-D", str(data_dir), "-U", spec.superuser,
-        "--auth=trust", "--locale=C", "--encoding=UTF8",
-    ])
+    res = _run(
+        [
+            binary(spec, "initdb"),
+            "-D",
+            str(data_dir),
+            "-U",
+            spec.superuser,
+            "--auth=trust",
+            "--locale=C",
+            "--encoding=UTF8",
+        ]
+    )
     if res.returncode != 0:
         sys.stderr.write(res.stdout + res.stderr)
     return res.returncode
@@ -152,17 +179,24 @@ def server_options(spec: ClusterSpec) -> str:
 
 
 def start_server(spec: ClusterSpec) -> subprocess.CompletedProcess:
-    return _run([
-        binary(spec, "pg_ctl"), "-D", str(spec.data_dir),
-        "-l", str(spec.log_file),
-        "-o", server_options(spec),
-        "-w", "start",
-    ])
+    return _run(
+        [
+            binary(spec, "pg_ctl"),
+            "-D",
+            str(spec.data_dir),
+            "-l",
+            str(spec.log_file),
+            "-o",
+            server_options(spec),
+            "-w",
+            "start",
+        ]
+    )
 
 
 def ensure_started(spec: ClusterSpec) -> int:
     """Idempotently bring the cluster up: initdb if new, start if down."""
-    spec.sock_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_private_socket_dir(spec.sock_dir)
     rc = initdb_if_needed(spec)
     if rc != 0:
         return rc
@@ -175,14 +209,47 @@ def ensure_started(spec: ClusterSpec) -> int:
     return 0
 
 
+def _ensure_private_socket_dir(path: Path) -> None:
+    """Create and validate the trust-auth socket directory without symlinks."""
+    try:
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(path, flags)
+    except OSError as exc:
+        raise PostgresClusterError(
+            f"Postgres socket path is not a private directory: {path}"
+        ) from exc
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISDIR(info.st_mode):
+            raise PostgresClusterError(
+                f"Postgres socket path is not a directory: {path}"
+            )
+        getuid = getattr(os, "getuid", None)
+        if getuid is not None and info.st_uid != getuid():
+            raise PostgresClusterError(
+                f"Postgres socket directory is not owned by this user: {path}"
+            )
+        os.fchmod(fd, 0o700)
+    finally:
+        os.close(fd)
+
+
 def stop(spec: ClusterSpec) -> int:
     """Stop the server (keep the data directory). No-op when absent/down."""
     if not spec.data_dir.exists():
         return 0
-    res = _run([
-        binary(spec, "pg_ctl"), "-D", str(spec.data_dir),
-        "-m", spec.stop_mode, "stop",
-    ])
+    res = _run(
+        [
+            binary(spec, "pg_ctl"),
+            "-D",
+            str(spec.data_dir),
+            "-m",
+            spec.stop_mode,
+            "stop",
+        ]
+    )
     return 0 if res.returncode == 0 or not is_ready(spec) else res.returncode
 
 
@@ -191,11 +258,17 @@ def destroy(spec: ClusterSpec) -> int:
     stop(spec)
     if spec.root.exists():
         shutil.rmtree(spec.root, ignore_errors=True)
+    if spec.socket_dir is not None:
+        try:
+            spec.socket_dir.rmdir()
+        except OSError:
+            pass
     return 0
 
 
 __all__ = [
     "ClusterSpec",
+    "PostgresClusterError",
     "SOCKET_PORT",
     "binary",
     "destroy",
