@@ -38,33 +38,46 @@ def connect(args: List[str]) -> int:
             "write an https connection entry plus an owner-only token "
             "secret file, and make it the active env. Nothing is persisted "
             "when verification fails. Scheme policy: https:// is the "
-            "normal shape; plain http:// is accepted for self-host servers "
-            "whose TLS terminates at a reverse proxy, and for loopback "
-            "(http://127.0.0.1:8765). Other schemes are refused."
+            "normal shape and is required for every network server. Plain "
+            "http:// is accepted only for a numeric loopback endpoint "
+            "(for example, http://127.0.0.1:8765). Other schemes and "
+            "non-loopback plaintext endpoints are refused."
         ),
     )
     parser.add_argument("url", help="Server URL, e.g. https://yoke.internal")
     parser.add_argument(
-        "--name", dest="env", default=server_connect.DEFAULT_ENV_NAME,
+        "--name",
+        dest="env",
+        default=server_connect.DEFAULT_ENV_NAME,
         help=(
             "Machine-config env label for the connection entry (default "
             f"{server_connect.DEFAULT_ENV_NAME!r})."
         ),
     )
     parser.add_argument(
-        "--token-file", dest="token_file", default=None,
+        "--token-file",
+        dest="token_file",
+        default=None,
         help="Read the actor token from this file.",
     )
     parser.add_argument(
-        "--token-stdin", dest="token_stdin", action="store_true",
+        "--token-stdin",
+        dest="token_stdin",
+        action="store_true",
         help="Read the actor token from stdin (keeps it out of shell history).",
     )
     parser.add_argument(
-        "--no-activate", dest="no_activate", action="store_true",
+        "--no-activate",
+        dest="no_activate",
+        action="store_true",
         help="Write the connection entry without switching active_env to it.",
     )
-    parser.add_argument("--config", dest="config_path", default=None,
-                        help="Machine config path override.")
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config path override.",
+    )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, CONNECT_USAGE)
     if parsed is None:

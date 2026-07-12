@@ -74,11 +74,12 @@ yoke connect https://yoke.internal --token-stdin
 yoke status
 ```
 
-`yoke connect` accepts plain `http://` deliberately: self-host TLS
-commonly terminates at a reverse proxy in front of the server, and
-loopback attaches must work out of the box. It refuses to persist
-anything until the server answers `/v1/health` and the token passes
-`/v1/auth/identity`.
+`yoke connect` requires `https://` for every network server. Terminate TLS at
+your reverse proxy and give engineers its HTTPS URL. Plain `http://` is
+accepted only for a numeric loopback endpoint such as `127.0.0.1`, so local
+host setup works without sending an actor token over the network. The command
+refuses to persist anything until the server answers `/v1/health` and the
+token passes `/v1/auth/identity`.
 
 Minting additional tokens is an admin operation on the server host
 (operator-shaped surface today):
