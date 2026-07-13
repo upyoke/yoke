@@ -12,6 +12,7 @@ import pytest
 import threading
 
 from yoke_core.domain import connected_env_readiness as cer
+from yoke_core.domain import cloud_db_secret_dsn
 from yoke_core.domain import db_backend
 
 
@@ -254,3 +255,74 @@ def test_explicit_connect_psycopg_bypasses_unrelated_readiness(monkeypatch):
     )
     monkeypatch.setattr(psycopg, "connect", lambda *_args, **_kwargs: "DIRECT")
     assert db_backend.connect_psycopg("dbname=staging") == "DIRECT"
+
+
+def test_explicit_connect_psycopg_never_uses_managed_secret_fallback(monkeypatch):
+    monkeypatch.setenv(cloud_db_secret_dsn.DB_SECRET_ARN_ENV, "arn")
+    monkeypatch.setattr(
+        cloud_db_secret_dsn,
+        "resolve_previous_dsn_from_env",
+        lambda: (_ for _ in ()).throw(AssertionError("must not load previous")),
+    )
+    monkeypatch.setattr(
+        psycopg,
+        "connect",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            psycopg.errors.InvalidPassword("password rejected")
+        ),
+    )
+
+    with pytest.raises(psycopg.errors.InvalidPassword):
+        db_backend.connect_psycopg("dbname=explicit")
+
+
+def test_managed_secret_invalid_password_refreshes_then_uses_previous(monkeypatch):
+    attempts = []
+    resolved = iter(("dbname=current-cached", "dbname=current-refreshed"))
+
+    monkeypatch.delenv(db_backend.PG_DSN_ENV, raising=False)
+    monkeypatch.delenv(db_backend.PG_DSN_FILE_ENV, raising=False)
+    monkeypatch.setenv(cloud_db_secret_dsn.DB_SECRET_ARN_ENV, "arn")
+    monkeypatch.setattr(db_backend, "resolve_pg_dsn", lambda: next(resolved))
+    monkeypatch.setattr(cloud_db_secret_dsn, "clear_cache", lambda: None)
+    monkeypatch.setattr(
+        cloud_db_secret_dsn,
+        "resolve_previous_dsn_from_env",
+        lambda: "dbname=previous",
+    )
+
+    def fake_native_connect(dsn, *, autocommit=False):  # noqa: ARG001
+        attempts.append(dsn)
+        if dsn != "dbname=previous":
+            raise psycopg.errors.InvalidPassword("password rejected")
+        return "PREVIOUS-CONN"
+
+    monkeypatch.setattr(db_backend, "_open_native_postgres", fake_native_connect)
+
+    assert db_backend.connect() == "PREVIOUS-CONN"
+    assert attempts == [
+        "dbname=current-cached",
+        "dbname=current-refreshed",
+        "dbname=previous",
+    ]
+
+
+def test_managed_secret_does_not_fallback_for_other_connection_errors(monkeypatch):
+    monkeypatch.delenv(db_backend.PG_DSN_ENV, raising=False)
+    monkeypatch.delenv(db_backend.PG_DSN_FILE_ENV, raising=False)
+    monkeypatch.setenv(cloud_db_secret_dsn.DB_SECRET_ARN_ENV, "arn")
+    monkeypatch.setattr(db_backend, "resolve_pg_dsn", lambda: "dbname=current")
+    monkeypatch.setattr(
+        cloud_db_secret_dsn,
+        "resolve_previous_dsn_from_env",
+        lambda: (_ for _ in ()).throw(AssertionError("must not load previous")),
+    )
+    monkeypatch.setattr(
+        db_backend,
+        "_open_native_postgres",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(_refused()),
+    )
+    monkeypatch.setattr(cer, "is_local_tunnel_connection_error", lambda exc: False)
+
+    with pytest.raises(psycopg.OperationalError):
+        db_backend.connect()

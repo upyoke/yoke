@@ -22,6 +22,8 @@ DB_SECRET_CACHE_SECONDS_ENV = "YOKE_DB_SECRET_CACHE_SECONDS"
 DEFAULT_CACHE_SECONDS = 60.0
 
 SecretLoader = Callable[[str, str], str]
+VersionedSecretLoader = Callable[[str, str, str], str]
+PREVIOUS_SECRET_VERSION_STAGE = "AWSPREVIOUS"
 
 
 @dataclass(frozen=True)
@@ -54,15 +56,33 @@ def resolve_dsn_from_env(
     secret_arn = source.get(DB_SECRET_ARN_ENV, "").strip()
     if not secret_arn:
         return ""
-    binding = ManagedSecretBinding(
-        secret_arn=secret_arn,
-        region=_required(source, DB_SECRET_REGION_ENV),
-        host=_required(source, DB_SECRET_HOST_ENV),
-        database=_required(source, DB_SECRET_NAME_ENV),
-        port=_optional_port(source.get(DB_SECRET_PORT_ENV, "").strip()),
-    )
+    binding = _binding_from_source(source, secret_arn=secret_arn)
     cache_seconds = _cache_seconds(source.get(DB_SECRET_CACHE_SECONDS_ENV, ""))
     return resolve_dsn(binding, loader=loader, now=now, cache_seconds=cache_seconds)
+
+
+def resolve_previous_dsn_from_env(
+    env: Optional[Mapping[str, str]] = None,
+    *,
+    loader: Optional[VersionedSecretLoader] = None,
+) -> str:
+    """Return the previous managed-secret DSN for rotation recovery.
+
+    This surface deliberately has no cache. It is used only after Postgres
+    rejects the current credential with ``InvalidPassword`` during a managed
+    rotation window.
+    """
+    source = os.environ if env is None else env
+    secret_arn = source.get(DB_SECRET_ARN_ENV, "").strip()
+    if not secret_arn:
+        return ""
+    binding = _binding_from_source(source, secret_arn=secret_arn)
+    raw_secret = (loader or _load_versioned_secret_string)(
+        binding.secret_arn,
+        binding.region,
+        PREVIOUS_SECRET_VERSION_STAGE,
+    )
+    return _build_dsn(binding, raw_secret)
 
 
 def env_binding_selected(env: Optional[Mapping[str, str]] = None) -> bool:
@@ -95,13 +115,7 @@ def resolve_dsn(
     raw_secret = (loader or _load_secret_string)(
         binding.secret_arn, binding.region
     )
-    secret = PostgresSecret.from_json(raw_secret)
-    dsn = build_libpq_dsn(
-        host=binding.host,
-        database=binding.database,
-        secret=secret,
-        port=binding.port or secret.port or DEFAULT_POSTGRES_PORT,
-    )
+    dsn = _build_dsn(binding, raw_secret)
     _CACHE_KEY = key
     _CACHE_DSN = dsn
     _CACHE_EXPIRES_AT = current + max(cache_seconds, 0.0)
@@ -125,6 +139,48 @@ def _load_secret_string(secret_arn: str, region: str) -> str:
     if not isinstance(secret, str) or not secret:
         raise RuntimeError("database secret payload did not include SecretString")
     return secret
+
+
+def _load_versioned_secret_string(
+    secret_arn: str,
+    region: str,
+    version_stage: str,
+) -> str:
+    import boto3
+
+    client = boto3.client("secretsmanager", region_name=region)
+    payload = client.get_secret_value(
+        SecretId=secret_arn,
+        VersionStage=version_stage,
+    )
+    secret = payload.get("SecretString")
+    if not isinstance(secret, str) or not secret:
+        raise RuntimeError("database secret payload did not include SecretString")
+    return secret
+
+
+def _binding_from_source(
+    source: Mapping[str, str],
+    *,
+    secret_arn: str,
+) -> ManagedSecretBinding:
+    return ManagedSecretBinding(
+        secret_arn=secret_arn,
+        region=_required(source, DB_SECRET_REGION_ENV),
+        host=_required(source, DB_SECRET_HOST_ENV),
+        database=_required(source, DB_SECRET_NAME_ENV),
+        port=_optional_port(source.get(DB_SECRET_PORT_ENV, "").strip()),
+    )
+
+
+def _build_dsn(binding: ManagedSecretBinding, raw_secret: str) -> str:
+    secret = PostgresSecret.from_json(raw_secret)
+    return build_libpq_dsn(
+        host=binding.host,
+        database=binding.database,
+        secret=secret,
+        port=binding.port or secret.port or DEFAULT_POSTGRES_PORT,
+    )
 
 
 def _required(source: Mapping[str, str], key: str) -> str:
@@ -170,8 +226,10 @@ __all__ = [
     "DB_SECRET_PORT_ENV",
     "DB_SECRET_REGION_ENV",
     "ManagedSecretBinding",
+    "PREVIOUS_SECRET_VERSION_STAGE",
     "clear_cache",
     "env_binding_selected",
     "resolve_dsn",
     "resolve_dsn_from_env",
+    "resolve_previous_dsn_from_env",
 ]

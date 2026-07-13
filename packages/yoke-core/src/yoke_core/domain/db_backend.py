@@ -186,6 +186,47 @@ def _open_native_postgres(dsn: str, *, autocommit: bool = False):
     )
 
 
+def _managed_secret_is_active_authority() -> bool:
+    """Return whether ambient connection acquisition uses the managed secret."""
+    if pg_dsn_is_bound():
+        return False
+    if os.environ.get(PG_DSN_ENV) or os.environ.get(PG_DSN_FILE_ENV):
+        return False
+    from yoke_core.domain.cloud_db_secret_dsn import env_binding_selected
+
+    return env_binding_selected()
+
+
+def _open_with_managed_rotation_recovery(opener, current_dsn: str):
+    """Open with a narrow managed-secret rotation recovery sequence.
+
+    Postgres ``InvalidPassword`` is the only signal that selects recovery.
+    Refreshing ``AWSCURRENT`` first handles a process cache that spans a
+    completed rotation. ``AWSPREVIOUS`` then covers the brief managed-rotation
+    interval where the secret label and database password are not yet aligned.
+    """
+    import psycopg
+
+    try:
+        return opener(current_dsn)
+    except psycopg.errors.InvalidPassword as current_error:
+        if not _managed_secret_is_active_authority():
+            raise
+
+        from yoke_core.domain import cloud_db_secret_dsn
+
+        cloud_db_secret_dsn.clear_cache()
+        refreshed_dsn = resolve_pg_dsn()
+        try:
+            return opener(refreshed_dsn)
+        except psycopg.errors.InvalidPassword:
+            try:
+                previous_dsn = cloud_db_secret_dsn.resolve_previous_dsn_from_env()
+            except Exception:
+                raise current_error
+            return opener(previous_dsn)
+
+
 def _track_test_connection(conn):
     if os.environ.get(TEST_TRACK_CONNECTIONS_ENV) == "1":
         _TRACKED_TEST_CONNECTIONS.append(conn)
@@ -236,11 +277,15 @@ def connect(path: Optional[str] = None, *, busy_timeout_ms: Optional[int] = None
     """
     from yoke_core.domain import connected_env_readiness as _readiness
 
+    def _open_resolved():
+        return _open_with_managed_rotation_recovery(
+            lambda target: _open_native_postgres(target),
+            resolve_pg_dsn(),
+        )
+
     if pg_dsn_is_bound():
-        return _open_native_postgres(resolve_pg_dsn())
-    return _readiness.connect_with_readiness(
-        lambda: _open_native_postgres(resolve_pg_dsn())
-    )
+        return _open_resolved()
+    return _readiness.connect_with_readiness(_open_resolved)
 
 
 def connect_psycopg(dsn: Optional[str] = None, *, autocommit: bool = False):
@@ -256,9 +301,16 @@ def connect_psycopg(dsn: Optional[str] = None, *, autocommit: bool = False):
 
     from yoke_core.domain import connected_env_readiness as _readiness
 
+    def _open_target(target: str):
+        return _track_test_connection(
+            psycopg.connect(target, autocommit=autocommit)
+        )
+
     def _open():
         target = dsn if dsn is not None else resolve_pg_dsn()
-        return _track_test_connection(psycopg.connect(target, autocommit=autocommit))
+        if dsn is not None:
+            return _open_target(target)
+        return _open_with_managed_rotation_recovery(_open_target, target)
 
     if dsn is not None or pg_dsn_is_bound():
         return _open()

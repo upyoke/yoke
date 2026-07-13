@@ -69,3 +69,28 @@ def test_secret_arn_requires_complete_non_secret_binding() -> None:
         resolver.resolve_dsn_from_env({resolver.DB_SECRET_ARN_ENV: "arn"})
 
     assert resolver.DB_SECRET_REGION_ENV in str(exc.value)
+
+
+def test_resolves_previous_version_without_caching() -> None:
+    calls: list[tuple[str, str, str]] = []
+
+    def loader(secret_arn: str, region: str, version_stage: str) -> str:
+        calls.append((secret_arn, region, version_stage))
+        return '{"username":"yoke_admin","password":"previous"}'
+
+    env = {
+        resolver.DB_SECRET_ARN_ENV: "arn",
+        resolver.DB_SECRET_REGION_ENV: "us-east-1",
+        resolver.DB_SECRET_HOST_ENV: "db.internal",
+        resolver.DB_SECRET_NAME_ENV: "yoke_prod",
+    }
+
+    first = resolver.resolve_previous_dsn_from_env(env, loader=loader)
+    second = resolver.resolve_previous_dsn_from_env(env, loader=loader)
+
+    assert "password=previous" in first
+    assert second == first
+    assert calls == [
+        ("arn", "us-east-1", resolver.PREVIOUS_SECRET_VERSION_STAGE),
+        ("arn", "us-east-1", resolver.PREVIOUS_SECRET_VERSION_STAGE),
+    ]
