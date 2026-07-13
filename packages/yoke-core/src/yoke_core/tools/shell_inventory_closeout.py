@@ -21,7 +21,6 @@ ZERO_SHELL_CLOSEOUT_DB_RELPATHS = frozenset(
         ".agents/skills/yoke/scripts/release-notes-db.sh",
         ".agents/skills/yoke/scripts/harness-sessions-db.sh",
         ".agents/skills/yoke/scripts/backup-db.sh",
-        ".agents/skills/yoke/scripts/designs-db.sh",
         ".agents/skills/yoke/scripts/env-db.sh",
         ".agents/skills/yoke/scripts/events-db.sh",
         ".agents/skills/yoke/scripts/shepherd-db.sh",
@@ -146,7 +145,6 @@ ZERO_SHELL_CLOSEOUT_DB_TESTS = frozenset(
     {
         "test-backup-db.sh",
         "test-baseline-db.sh",
-        "test-designs-db.sh",
         "test-env-db.sh",
         "test-flow-db.sh",
         "test-harness-sessions-parity.sh",

@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "design_documents_to_item_field"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "hard_cutover",
+    "schema_kinds": [
+      "destructive"
+    ],
+    "data_kinds": [
+      "transform",
+      "drop"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "items",
+        "columns": [
+          "design_spec"
+        ]
+      },
+      {
+        "table": "designs",
+        "columns": [
+          "item_id",
+          "body"
+        ]
+      }
+    ],
+    "count_preserving": false
+  },
+  "module_sources": {
+    "design_documents_to_item_field": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/design_documents_to_item_field.py",
+      "sha256": "8c732f146ec05226246d0d7e0927785987bbadfcea7a3874f5c431b906fab0ad"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/handlers/items_structured_field.py",
+        "symbol": "handle_replace",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/backlog_queries.py",
+        "symbol": "_query_item_field",
+        "role": "reader"
+      },
+      {
+        "path": ".agents/skills/yoke/plan/SKILL.md",
+        "symbol": "design_spec input read",
+        "role": "reader"
+      },
+      {
+        "path": ".agents/skills/yoke/shepherd/design-checks.md",
+        "symbol": "existing design check",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "Every legacy document has a matching item before any write occurs.",
+      "Existing non-empty item design content is never overwritten with different content.",
+      "Every legacy document body is byte-identical in items.design_spec before obsolete storage is dropped.",
+      "The obsolete table and its owned sequence and indexes are absent after apply."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_design_documents_to_item_field.py runtime/api/domain/test_universe_portability.py -q"
+    ],
+    "residual_risk_notes": "Apply takes exclusive locks on items and the obsolete document table. It refuses orphaned documents and any differing non-empty items.design_spec value before copying or dropping data. Empty or already-consolidated databases are idempotent."
+  }
+}

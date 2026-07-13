@@ -24,7 +24,7 @@ def check_sibling_state_collision(db_root: str) -> bool:
     - A sibling directory at the same repo root contains a live ``yoke.db``.
 
     This is the canonical policy anchor. Other state-derived
-    writers (backup, designs, ouroboros) should call
+    state-derived writers (backup and ouroboros) should call
     :func:`guard_state_dir_creation` instead of reimplementing this logic.
     """
     db_root_path = Path(db_root)
@@ -54,7 +54,7 @@ _check_sibling_state_collision = check_sibling_state_collision
 def guard_state_dir_creation(target_dir: str, caller: str) -> None:
     """Abort with a clear error if *target_dir* would create a sibling state dir.
 
-    Intended for state-derived writers (backup, designs, ouroboros, browser_qa)
+    Intended for state-derived writers (backup, ouroboros, browser_qa)
     that derive output directories from the resolved state root and call
     ``os.makedirs(...)`` before writing.  The guard checks whether the
     **state root** (grandparent or parent of *target_dir*) would collide, not

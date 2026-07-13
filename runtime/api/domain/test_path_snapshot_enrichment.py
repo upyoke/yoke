@@ -157,10 +157,10 @@ class TestEnrichEntry:
         self, conn
     ):
         parent = mint_target(
-            conn, "yoke", "designs", kind="directory",
+            conn, "yoke", "ux-specs", kind="directory",
         )
         child = mint_target(
-            conn, "yoke", "designs/build/page.html",
+            conn, "yoke", "ux-specs/build/page.html",
             parent_target_id=parent,
         )
         event_id = emit_event(conn, name="GeneratedAssigned")
@@ -177,7 +177,7 @@ class TestEnrichEntry:
             conn,
             target_id=child,
             source="<html></html>\n",
-            path_string="designs/build/page.html",
+            path_string="ux-specs/build/page.html",
         )
         assert cols.is_generated == 1
         assert cols.language == "html"

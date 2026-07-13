@@ -137,7 +137,6 @@ class TestRunBootstrapRealDb:
             # through onboarding — so the projects family and the
             # project-scoped flow rows start empty.
             assert counts["projects"] == 0
-            assert counts["designs"] == 0
             assert counts["project_onboarding_runs"] == 0
             assert counts["project_onboarding_checklist_rows"] == 0
             assert counts["sites"] == 0

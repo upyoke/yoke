@@ -4,7 +4,6 @@
 # Yoke — .yoke tree ignore policy lives IN the tree (.yoke/.gitignore,
 # a seeded contract file); root gitignores carry no .yoke/* rules.
 # Yoke — generated design views (DB is source of truth)
-designs/
 # Yoke — session/scratch roots use ~/.yoke/config.json:temp_root, not repo data/
 # Yoke — session timing logs (local instrumentation data, not committed)
 ouroboros/session-logs/
