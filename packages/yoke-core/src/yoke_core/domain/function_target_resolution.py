@@ -43,6 +43,11 @@ def resolve_project_context(
         return _resolve_named_project_context(
             conn, request, visible_project_ids=visible_project_ids,
         )
+    process_context = _resolve_process_target_project_context(
+        conn, request, visible_project_ids=visible_project_ids,
+    )
+    if process_context is not None:
+        return process_context
     target = request.target
     explicit = target.project_id or request.payload.get("project_id") or request.payload.get("project")
     if explicit:
@@ -112,6 +117,40 @@ def _resolve_github_actions_project_context(
         target_ref = str(request.target.project_id or "").strip()
         if target_ref and resolve_project_id(conn, target_ref) != project_id:
             return None
+    except AmbiguousProjectRefError:
+        raise
+    except LookupError:
+        return None
+    return project_id, _slug_for_project_id(conn, project_id)
+
+
+def _resolve_process_target_project_context(
+    conn: Any,
+    request: FunctionCallRequest,
+    *,
+    visible_project_ids: Collection[int] | None = None,
+) -> tuple[int, str] | None:
+    """Resolve a process work-claim's target project from the payload target.
+
+    A process work claim (``claims.work.acquire`` with a ``--process`` target)
+    carries a ``kind='process'`` target spec in the payload whose ``project``
+    names the per-project process authority — every process conflict group is
+    per-project (e.g. ``strategy-control-plane:<project>``). The envelope
+    ``TargetRef`` is ``kind='global'`` with no project id, so the project must
+    be read from ``payload['target']['project']`` — the same field the acquire
+    handler consumes. Returns ``None`` for any non-process target so the caller
+    falls through to the remaining resolution branches.
+    """
+    payload_target = request.payload.get("target")
+    if not isinstance(payload_target, dict) or payload_target.get("kind") != "process":
+        return None
+    ref = payload_target.get("project")
+    if not ref:
+        return None
+    try:
+        project_id = _resolve_authorized_project_id(
+            conn, str(ref), visible_project_ids,
+        )
     except AmbiguousProjectRefError:
         raise
     except LookupError:

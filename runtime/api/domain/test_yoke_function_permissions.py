@@ -6,6 +6,7 @@ import pytest
 from pydantic import BaseModel
 
 from yoke_core.domain.actor_permissions import (
+    PERM_CLAIMS_ACQUIRE,
     PERM_DB_READ_RAW,
     PERM_EVENTS_READ,
     PERM_EVENTS_WRITE,
@@ -315,6 +316,64 @@ def test_events_and_ouroboros_permissions_split_reads_and_writes():
         == PERM_EVENTS_READ
     )
     assert permission_key_for(_entry("ouroboros.field_note.append")) is None
+
+
+def _process_acquire_request(
+    actor_id: int, *, project: str | None,
+) -> FunctionCallRequest:
+    """Build a ``claims.work.acquire --process`` request as the CLI adapter does.
+
+    The adapter sends a ``kind='global'`` envelope target and nests the project
+    inside ``payload['target']['project']`` (the shape the acquire handler
+    consumes); it never sets a top-level ``project`` / ``project_id``.
+    """
+    target_spec: dict = {"kind": "process", "process_key": "STRATEGIZE"}
+    if project is not None:
+        target_spec["project"] = project
+    return FunctionCallRequest(
+        function="claims.work.acquire",
+        actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
+        target=TargetRef(kind="global"),
+        payload={"target": target_spec},
+    )
+
+
+def test_process_work_claim_resolves_project_from_payload_target():
+    conn = _conn()
+    try:
+        actor_id = seed_human_actor(conn)
+        yoke_id = resolve_project_id(conn, "yoke")
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=yoke_id,
+            role_name=ROLE_OWNER,
+            granted_by_actor_id=actor_id,
+        )
+        entry = _entry("claims.work.acquire")
+        assert permission_key_for(entry) == PERM_CLAIMS_ACQUIRE
+
+        # The per-project process authority is read from the nested target
+        # spec; before this branch existed the resolver saw no project hint
+        # and denied with "could not resolve a target project".
+        allowed = check_dispatch_permission(
+            conn, entry, _process_acquire_request(actor_id, project="yoke"),
+        )
+        assert allowed.error is None
+        assert allowed.permission_key == PERM_CLAIMS_ACQUIRE
+        assert allowed.project_slug == "yoke"
+
+        # A process target that names no project still cannot resolve one —
+        # the no-fallback contract holds (matches the handler's own guard).
+        unresolvable = check_dispatch_permission(
+            conn, entry, _process_acquire_request(actor_id, project=None),
+        )
+        assert unresolvable.error is not None
+        assert unresolvable.error.error is not None
+        assert unresolvable.error.error.code == "permission_denied"
+        assert unresolvable.project_id is None
+    finally:
+        conn.close()
 
 
 def test_strategy_carry_summary_stays_read_only_by_contract():
