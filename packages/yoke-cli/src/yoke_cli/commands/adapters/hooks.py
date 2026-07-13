@@ -68,6 +68,8 @@ def hook_evaluate(args: List[str]) -> int:
         return _degrade_to_noop(parsed.event_name, str(exc))
 
     if not parsed.dry_run:
+        import sys
+
         from yoke_cli.transport.https import (
             TransportError,
             resolve_https_connection,
@@ -82,4 +84,38 @@ def hook_evaluate(args: List[str]) -> int:
         if connection is not None:
             return relay_hook_event(parsed.event_name, connection)
 
+        # No https connection. Run the client-local lint subset for the
+        # verdict (unchanged), then — only on a bound local-postgres universe
+        # where the client IS the authority — drive the in-process session
+        # lifecycle (register/heartbeat/end) against it. Fail-open: a
+        # lifecycle failure never affects the hook decision, and a machine
+        # with no engine / no universe stays lint-only.
+        stdin_data = sys.stdin.read()
+        exit_code = evaluate_hook_event(
+            parsed.event_name, stdin_data=stdin_data,
+        )
+        _drive_local_universe_lifecycle(parsed.event_name, stdin_data)
+        return exit_code
+
     return evaluate_hook_event(parsed.event_name, dry_run=parsed.dry_run)
+
+
+def _drive_local_universe_lifecycle(event_name: str, stdin_data: str) -> None:
+    """Best-effort in-process session lifecycle for a bound local universe.
+
+    Reaches the engine-side orchestrator (bundled with the core wheel) via the
+    sanctioned dynamic-import lane, exactly as the function-call dispatcher
+    lazily reaches the engine for a local universe. Absent engine / no
+    universe -> no-op; never raises."""
+    import importlib
+
+    try:
+        module = importlib.import_module(
+            "runtime.harness.hook_runner.local_universe_lifecycle"
+        )
+    except Exception:
+        return
+    try:
+        module.run_local_universe_session_lifecycle(event_name, stdin_data)
+    except Exception:
+        return

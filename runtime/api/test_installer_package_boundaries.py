@@ -251,6 +251,13 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "local_universe_dispatch",
         "explicit attended GitHub Actions bootstrap dispatcher",
     ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py",
+        "runtime.harness.hook_runner.local_universe_lifecycle",
+    ): (
+        "local_universe_dispatch",
+        "drive the in-process session lifecycle for a bound local universe",
+    ),
 }
 
 
