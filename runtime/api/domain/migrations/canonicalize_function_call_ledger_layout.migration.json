@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "canonicalize_function_call_ledger_layout"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "hard_cutover",
+    "schema_kinds": [
+      "destructive"
+    ],
+    "data_kinds": [
+      "transform"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "function_call_ledger",
+        "columns": [
+          "request_id",
+          "function_id",
+          "actor_id",
+          "authorization_scope",
+          "payload_checksum",
+          "result",
+          "created_at"
+        ]
+      }
+    ],
+    "count_preserving": true
+  },
+  "module_sources": {
+    "canonicalize_function_call_ledger_layout": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/canonicalize_function_call_ledger_layout.py",
+      "sha256": "1a21deab487f2c3a2bd9975f4dd1ad6576d88ad4595091aa4f33e392c5992481"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/function_call_ledger.py",
+        "symbol": "record_call",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/function_call_ledger.py",
+        "symbol": "lookup_call",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/events_prune.py",
+        "symbol": "prune_expired",
+        "role": "writer"
+      }
+    ],
+    "invariants": [
+      "The ledger contains exactly the canonical seven columns before any rebuild begins.",
+      "Every ledger row remains byte-identical when selected by the canonical named columns.",
+      "The row count is identical before and after the table rebuild.",
+      "The primary key and created-at index have their canonical names after apply."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_canonicalize_function_call_ledger_layout.py -q"
+    ],
+    "residual_risk_notes": "Apply takes an exclusive lock on function_call_ledger, copies all rows by explicit column name, verifies row count and bidirectional content equality, then replaces only the physically reordered table. Already-canonical databases are idempotent."
+  }
+}

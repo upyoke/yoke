@@ -194,7 +194,14 @@ def _managed_secret_is_active_authority() -> bool:
         return False
     from yoke_core.domain.cloud_db_secret_dsn import env_binding_selected
 
-    return env_binding_selected()
+    if env_binding_selected():
+        return True
+    try:
+        from yoke_core.domain import yoke_connected_env
+
+        return yoke_connected_env.managed_secret_selected()
+    except Exception:
+        return False
 
 
 def _open_with_managed_rotation_recovery(opener, current_dsn: str):
@@ -221,7 +228,12 @@ def _open_with_managed_rotation_recovery(opener, current_dsn: str):
             return opener(refreshed_dsn)
         except psycopg.errors.InvalidPassword:
             try:
-                previous_dsn = cloud_db_secret_dsn.resolve_previous_dsn_from_env()
+                if cloud_db_secret_dsn.env_binding_selected():
+                    previous_dsn = cloud_db_secret_dsn.resolve_previous_dsn_from_env()
+                else:
+                    from yoke_core.domain import yoke_connected_env
+
+                    previous_dsn = yoke_connected_env.resolve_previous_postgres_dsn()
             except Exception:
                 raise current_error
             return opener(previous_dsn)
@@ -302,9 +314,7 @@ def connect_psycopg(dsn: Optional[str] = None, *, autocommit: bool = False):
     from yoke_core.domain import connected_env_readiness as _readiness
 
     def _open_target(target: str):
-        return _track_test_connection(
-            psycopg.connect(target, autocommit=autocommit)
-        )
+        return _track_test_connection(psycopg.connect(target, autocommit=autocommit))
 
     def _open():
         target = dsn if dsn is not None else resolve_pg_dsn()

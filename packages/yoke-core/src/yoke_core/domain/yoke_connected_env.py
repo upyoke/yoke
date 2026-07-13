@@ -78,8 +78,7 @@ def find_binding(start: Optional[Path] = None) -> Optional[Path]:
     if os.environ.get(DISABLE_ENV) == "1":
         return None
     in_pytest = (
-        os.environ.get("PYTEST_CURRENT_TEST")
-        or "pytest" in __import__("sys").modules
+        os.environ.get("PYTEST_CURRENT_TEST") or "pytest" in __import__("sys").modules
     )
     if start is None and in_pytest and os.environ.get(PYTEST_ENABLE_ENV) != "1":
         return None
@@ -95,8 +94,10 @@ def load_active(start: Optional[Path] = None) -> Optional[ConnectedEnv]:
     try:
         raw = machine_config.load_config(binding)
         env_cfg = machine_config.active_connection(binding)
-    except (machine_config.MachineConfigError,
-            contract.MachineConfigContractError) as exc:
+    except (
+        machine_config.MachineConfigError,
+        contract.MachineConfigContractError,
+    ) as exc:
         raise ConnectedEnvError(str(exc)) from exc
     issues = contract.validate_payload(raw)
     errors = [issue for issue in issues if issue.severity == "error"]
@@ -133,11 +134,13 @@ def resolve_postgres_dsn(
     if not env:
         raise ConnectedEnvError("no connected environment binding found")
     if env.backend != "postgres":
-        raise ConnectedEnvNotLocalPostgres(contract.env_override_teaching(
-            machine_config.load_config(env.binding_path),
-            selected_env=env.environment,
-            transport=env.backend,
-        ))
+        raise ConnectedEnvNotLocalPostgres(
+            contract.env_override_teaching(
+                machine_config.load_config(env.binding_path),
+                selected_env=env.environment,
+                transport=env.backend,
+            )
+        )
     source = env.credential_source
     kind = _required_str(source, "kind")
     if kind == "dsn_file":
@@ -168,9 +171,7 @@ def resolve_postgres_dsn(
         name = str(source.get("name") or dsn_env)
         dsn = os.environ.get(name, "").strip()
         if not dsn:
-            raise ConnectedEnvError(
-                f"connected-env credential env var missing: {name}"
-            )
+            raise ConnectedEnvError(f"connected-env credential env var missing: {name}")
         redacted = _redacted_dsn(dsn)
         return ResolvedDsn(
             dsn=dsn,
@@ -185,6 +186,11 @@ def resolve_postgres_dsn(
             process_env={dsn_env: dsn},
         )
     if kind == "aws_secrets_manager":
+        if (
+            isinstance(source.get("secret_arn"), str)
+            and str(source.get("secret_arn")).strip()
+        ):
+            return _resolve_direct_managed_secret(env, source, dsn_env=dsn_env)
         from yoke_core.domain.yoke_cloud_db_authority import (
             PostgresAuthorityLocation,
             resolve_declared_dsn,
@@ -216,6 +222,120 @@ def resolve_postgres_dsn(
             process_env={dsn_env: dsn},
         )
     raise ConnectedEnvError(f"unsupported credential_source.kind: {kind!r}")
+
+
+def managed_secret_selected(start: Optional[Path] = None) -> bool:
+    """Return whether the active connected env resolves a managed DB secret."""
+
+    try:
+        env = load_active(start)
+    except ConnectedEnvError:
+        return False
+    if env is None or env.backend != "postgres":
+        return False
+    source = env.credential_source
+    return (
+        source.get("kind") == contract.CREDENTIAL_KIND_AWS_SECRETS_MANAGER
+        and isinstance(source.get("secret_arn"), str)
+        and bool(str(source.get("secret_arn")).strip())
+    )
+
+
+def resolve_previous_postgres_dsn(start: Optional[Path] = None) -> str:
+    """Resolve ``AWSPREVIOUS`` for the active direct managed-secret source."""
+
+    env = load_active(start)
+    if env is None:
+        raise ConnectedEnvError("no connected environment binding found")
+    source = env.credential_source
+    if not managed_secret_selected(start):
+        raise ConnectedEnvError(
+            "active connected environment does not use a direct managed DB secret"
+        )
+    return _resolve_direct_managed_secret(env, source, version_stage="AWSPREVIOUS").dsn
+
+
+def _resolve_direct_managed_secret(
+    env: ConnectedEnv,
+    source: Mapping[str, Any],
+    *,
+    version_stage: str | None = None,
+    dsn_env: str = "YOKE_PG_DSN",
+) -> ResolvedDsn:
+    from yoke_core.domain.cloud_db_secret_dsn import (
+        ManagedSecretBinding,
+        resolve_dsn,
+    )
+    from yoke_core.domain.deploy_remote import aws_machine_capability_env
+    from yoke_core.domain.yoke_cloud_db_authority import (
+        DEFAULT_POSTGRES_PORT,
+        PostgresAuthorityLocation,
+        PostgresSecret,
+        build_libpq_dsn,
+        load_secret_string,
+    )
+
+    secret_arn = _required_str(source, "secret_arn")
+    region = _required_str(source, "region")
+    project_slug = _required_str(source, "project")
+    authority = _required_mapping(env.config, "authority")
+    location = PostgresAuthorityLocation.from_mapping(
+        _required_mapping(authority, "location")
+    )
+    connection = env.connection
+    host = _required_str(connection, "host")
+    port = _optional_int(connection, "port")
+    aws_env = aws_machine_capability_env(project_slug, region)
+    binding = ManagedSecretBinding(
+        secret_arn=secret_arn,
+        region=region,
+        host=host,
+        database=location.database_name,
+        port=port,
+    )
+    if version_stage:
+        secret = PostgresSecret.from_json(
+            load_secret_string(
+                secret_arn,
+                region=region,
+                env=aws_env,
+                version_stage=version_stage,
+            )
+        )
+        dsn = build_libpq_dsn(
+            host=host,
+            database=location.database_name,
+            secret=secret,
+            port=port or secret.port or DEFAULT_POSTGRES_PORT,
+        )
+    else:
+        dsn = resolve_dsn(
+            binding,
+            loader=lambda arn, selected_region: load_secret_string(
+                arn, region=selected_region, env=aws_env
+            ),
+        )
+    redacted = _redacted_dsn(dsn)
+    return ResolvedDsn(
+        dsn=dsn,
+        redacted_dsn=redacted,
+        evidence={
+            "project": env.project,
+            "environment": env.environment,
+            "backend": env.backend,
+            "credential_source": {
+                "kind": contract.CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
+                "project": project_slug,
+                "region": region,
+                "version_stage": version_stage or "AWSCURRENT",
+            },
+            "connection": _connection_evidence(connection),
+            "stack": location.stack,
+            "database_name": location.database_name,
+            "dsn": redacted,
+        },
+        process_env={dsn_env: dsn},
+    )
 
 
 def process_env_overrides(
@@ -326,7 +446,9 @@ __all__ = [
     "connected_backend",
     "find_binding",
     "load_active",
+    "managed_secret_selected",
     "process_env_overrides",
+    "resolve_previous_postgres_dsn",
     "resolve_postgres_dsn",
     "sqlite_guard_message",
     "sqlite_guard_reason",
