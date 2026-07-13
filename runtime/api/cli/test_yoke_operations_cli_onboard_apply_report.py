@@ -215,7 +215,7 @@ def test_noninteractive_machine_config_write_failure_prints_report_summary(
     rc = onboard_adapter.onboard([
         "--config", str(config),
         "--env", "stage",
-        "--api-url", "https://api.stage.upyoke.com",
+        "--api-url", "https://yoke.example.test",
         "yoke-secret",
         "--yes",
         "--json",

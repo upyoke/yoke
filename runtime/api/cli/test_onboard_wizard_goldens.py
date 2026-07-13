@@ -214,7 +214,7 @@ def test_connect_token_error() -> None:
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_yoke_verify_error(
-            "Yoke token check failed: https://api.upyoke.com/v1/auth/identity "
+            "Yoke token check failed: https://yoke.example.test/v1/auth/identity "
             "returned HTTP 401: API token is unknown",
             "prompt",
         )

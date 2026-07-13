@@ -185,7 +185,7 @@ FINISH_PLAN_EMPTY: dict[str, Any] = {"plan": {"steps": []}}
 
 
 def make_app(*, post_install: bool = False, env_name: str = "prod",
-             api_url: str = "https://api.upyoke.com",
+             api_url: str = "https://yoke.example.test",
              token: str | None = "actor-token",
              apply_report: Callable[[dict[str, Any]], Any] | None = None,
              ) -> OnboardWizardApp:

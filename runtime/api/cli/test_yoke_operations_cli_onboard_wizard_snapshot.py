@@ -54,7 +54,7 @@ def test_project_step_renders() -> None:
         app = OnboardWizardApp(
             defaults=WizardDefaults(
                 config_path="/tmp/cfg.json", env_name="prod",
-                api_url="https://api.upyoke.com", token="actor-token",
+                api_url="https://yoke.example.test", token="actor-token",
             ),
             apply_report=_noop_report,
         )

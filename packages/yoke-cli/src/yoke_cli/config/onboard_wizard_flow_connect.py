@@ -26,6 +26,7 @@ def verify_yoke_token(api_url: str, token: str) -> dict[str, Any]:
     """Network seam for tests and the Textual flow."""
     return yoke_token_verify.verify(api_url, token)
 
+
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
 
@@ -37,12 +38,21 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     _stored_yoke_attempted: bool
 
     def _goto(self, view: "_View") -> None: ...
-    def _selection_view(self, step, title, subtitle, rows, on_select,
-                        *, initial: int = 0) -> "_View": ...
-    def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
-                    password: bool = False,
-                    allow_placeholder: bool = True,
-                    initial_value: str = "") -> None: ...
+    def _selection_view(
+        self, step, title, subtitle, rows, on_select, *, initial: int = 0
+    ) -> "_View": ...
+    def _goto_input(
+        self,
+        step,
+        title,
+        subtitle,
+        *,
+        placeholder,
+        on_done,
+        password: bool = False,
+        allow_placeholder: bool = True,
+        initial_value: str = "",
+    ) -> None: ...
     def _goto_machine_github(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
     def _render_current(self) -> None: ...
@@ -53,7 +63,7 @@ class ConnectFlow:
         self.result.api_url = value
         self._goto_token_source()
 
-    # ── token entry + verification (hosted and server) ──────
+    # ── explicit team-server token entry + verification ─────
 
     def _goto_token_source(self: _Shell) -> None:
         if self.result.token or self.result.token_file:
@@ -73,16 +83,21 @@ class ConnectFlow:
                 return
             self._goto_machine_github()
             return
-        self._goto(self._selection_view(
-            STEP_CONNECT, f"Provide your {BRAND} API token.",
-            "How do you want to give Yoke your token?",
-            steps.YOKE_TOKEN_SOURCE_ROWS, self._after_token_source,
-        ))
+        self._goto(
+            self._selection_view(
+                STEP_CONNECT,
+                f"Provide your {BRAND} API token.",
+                "How do you want to give Yoke your token?",
+                steps.YOKE_TOKEN_SOURCE_ROWS,
+                self._after_token_source,
+            )
+        )
 
     def _after_token_source(self: _Shell, choice: str) -> None:
         if choice == "file":
             self._goto_input(
-                STEP_CONNECT, "Point at your token file.",
+                STEP_CONNECT,
+                "Point at your token file.",
                 "Yoke reads your token from this file — it stays where it is.",
                 placeholder=f"~/.yoke/secrets/{self.result.env_name}.token",
                 allow_placeholder=False,
@@ -90,9 +105,11 @@ class ConnectFlow:
             )
             return
         self._goto_input(
-            STEP_CONNECT, f"Paste your {BRAND} API token.",
+            STEP_CONNECT,
+            f"Paste your {BRAND} API token.",
             f"Never shown on screen. Saved to ~/.yoke/secrets/{self.result.env_name}.token, owner-only.",
-            placeholder="paste token", password=True,
+            placeholder="paste token",
+            password=True,
             allow_placeholder=False,
             on_done=self._after_token,
         )
@@ -181,17 +198,19 @@ class ConnectFlow:
                 "Using existing Yoke token file from machine config.",
                 *details,
             ]
-        self._goto(_View(
-            STEP_CONNECT,
-            lambda: steps.verification_body(
-                "Yoke token connected.",
-                yoke_token_verify.success_message(verification),
-                details,
-                steps.VERIFY_OK_ROWS,
-                ok=True,
-            ),
-            lambda _choice: self._goto_machine_github(),
-        ))
+        self._goto(
+            _View(
+                STEP_CONNECT,
+                lambda: steps.verification_body(
+                    "Yoke token connected.",
+                    yoke_token_verify.success_message(verification),
+                    details,
+                    steps.VERIFY_OK_ROWS,
+                    ok=True,
+                ),
+                lambda _choice: self._goto_machine_github(),
+            )
+        )
 
     def _goto_yoke_verify_error(
         self: _Shell,
@@ -201,18 +220,20 @@ class ConnectFlow:
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_CONNECT,
-            lambda: steps.verification_body(
-                "Yoke token could not be verified.",
-                message,
-                detail_lines
-                or ["Check the token value, environment, and network connection."],
-                steps.YOKE_TOKEN_VERIFY_RETRY_ROWS,
-                ok=False,
-            ),
-            lambda choice: self._on_yoke_verify_error(choice, retry_source),
-        ))
+        self._goto(
+            _View(
+                STEP_CONNECT,
+                lambda: steps.verification_body(
+                    "Yoke token could not be verified.",
+                    message,
+                    detail_lines
+                    or ["Check the token value, environment, and network connection."],
+                    steps.YOKE_TOKEN_VERIFY_RETRY_ROWS,
+                    ok=False,
+                ),
+                lambda choice: self._on_yoke_verify_error(choice, retry_source),
+            )
+        )
 
     def _on_yoke_verify_error(self: _Shell, choice: str, retry_source: str) -> None:
         if choice == "retry":

@@ -92,6 +92,8 @@ requires selecting and live-verifying the exact repository; GitHub sync can be
 enabled only after that binding is active.
 
 For the safe order when changing an already-bound project's repository, see
-[GitHub sync](github-sync.md). App registration, permission, and key-custody
-operations are documented in
+[GitHub sync](github-sync.md). For why Yoke requests each repository permission
+and what it does with them, see
+[GitHub App Permissions](github-permissions.md). App registration, permission,
+and key-custody operations are documented in
 [GitHub App Operations](github-app-operations.md).

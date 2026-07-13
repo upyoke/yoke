@@ -3,7 +3,7 @@
 ``build_report`` (:mod:`yoke_cli.config.onboard`) delegates its connection
 writes here once the plan is confirmed: the local destination births (or
 verifies) the machine-local universe in place of any sign-in write, while
-the hosted/server destinations resolve the token, optionally validate
+the hosted browser flow or explicit server destination resolves a token, optionally validates
 identity, and write the https connection. Callers pass their error class
 (the :class:`onboard.OnboardError` shape) so this module carries no import
 back into the report assembler.
@@ -41,7 +41,10 @@ def apply_local_universe(
     report["identity"] = {"checked": False, "ok": None, "status": "local-universe"}
     universe_target = str(reuse.get("local_universe") or "create")
     onboard_apply_progress.emit(
-        progress, "local-universe-init", universe_target, "running",
+        progress,
+        "local-universe-init",
+        universe_target,
+        "running",
     )
     try:
         local_report = local_universe_setup.run_local_init(
@@ -50,7 +53,10 @@ def apply_local_universe(
     except local_universe_setup.LocalUniverseSetupError as exc:
         raise error_cls(str(exc)) from exc
     onboard_apply_progress.emit(
-        progress, "local-universe-init", universe_target, "done",
+        progress,
+        "local-universe-init",
+        universe_target,
+        "done",
     )
     report["local_universe"] = {
         "born": bool(local_report.get("born")),
@@ -80,7 +86,7 @@ def apply_sign_in_connection(
     check_identity: bool,
     error_cls: type[Exception],
 ) -> None:
-    """Write the https connection + token reference for hosted/server runs."""
+    """Write the HTTPS connection and its resolved credential reference."""
     secret = _resolve_token_source(
         token=token,
         token_file=token_file,
@@ -93,16 +99,13 @@ def apply_sign_in_connection(
         report["identity"] = {"checked": False, "ok": None, "status": "skipped"}
     if not (reuse.get("connection") and reuse.get("token_reference")):
         connection_steps = tuple(
-            step for step in (
+            step
+            for step in (
                 None
-                if reuse.get("yoke_home") else
-                ("create-or-validate-dir", str(cfg_path.parent)),
-                None
-                if reuse.get("connection") else
-                ("set-https-api-url", api_url),
-                None
-                if reuse.get("token_reference") else
-                ("store-token-reference", ""),
+                if reuse.get("yoke_home")
+                else ("create-or-validate-dir", str(cfg_path.parent)),
+                None if reuse.get("connection") else ("set-https-api-url", api_url),
+                None if reuse.get("token_reference") else ("store-token-reference", ""),
             )
             if step is not None
         )
@@ -141,7 +144,9 @@ def _resolve_token_source(
 
 
 def _validate_identity(
-    api_url: str, token: str, error_cls: type[Exception],
+    api_url: str,
+    token: str,
+    error_cls: type[Exception],
 ) -> Dict[str, Any]:
     try:
         return yoke_token_verify.verify(api_url, token)

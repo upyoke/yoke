@@ -10,6 +10,7 @@ from typing import List
 from yoke_cli.commands._helpers import attach_field_note_footer, parse_or_usage_error
 from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.commands.adapters import onboard_destination_args
+from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_auth
 from yoke_cli.commands.adapters import onboard_project_args
 from yoke_cli.commands.adapters import onboard_resume
 from yoke_cli.commands.adapters.onboard_github_requests import (
@@ -58,10 +59,7 @@ def onboard(args: List[str]) -> int:
     parser.add_argument("--config", dest="config_path", default=None, metavar="PATH")
     parser.add_argument("--env", dest="env_name", default=None)
     parser.add_argument("--api-url", dest="api_url", default=None)
-    parser.add_argument("token", nargs="?")
-    parser.add_argument("--token-file", dest="token_file", default=None)
-    parser.add_argument("--token-stdin", dest="token_stdin",
-                        action="store_true")
+    hosted_auth.add_token_arguments(parser)
     parser.add_argument("--yes", dest="apply", action="store_true")
     parser.add_argument(
         "--machine-github",
@@ -70,11 +68,14 @@ def onboard(args: List[str]) -> int:
         help="Connect the advertised Yoke GitHub App or stay backlog-only.",
     )
     parser.add_argument(
-        "--skip-identity-check", dest="skip_identity_check",
+        "--skip-identity-check",
+        dest="skip_identity_check",
         action="store_true",
     )
     parser.add_argument(
-        "--post-install", dest="post_install", action="store_true",
+        "--post-install",
+        dest="post_install",
+        action="store_true",
         help="launched straight after install; show the install-summary screen",
     )
     parser.add_argument("--resume", dest="resume_run_id", default=None)
@@ -93,6 +94,7 @@ def onboard(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, ONBOARD_USAGE)
     if parsed is None:
         return 2
+    explicit_token_source = hosted_auth.has_explicit_token_source(parsed)
     if parsed.resume_run_id and parsed.different_folder_run_id:
         print(
             "error: --resume and --use-different-folder cannot be used together",
@@ -125,19 +127,20 @@ def onboard(args: List[str]) -> int:
     local_destination = destination == onboard_destinations.DESTINATION_LOCAL
     selected_mode = "advanced" if parsed.advanced else "quick"
     config_path = str(machine_config.config_path(parsed.config_path))
-    missing = [] if local_destination else [
-        flag for flag, value in (
-            ("--env", env_name),
-            ("--api-url", parsed.api_url),
-        )
-        if not value
-    ]
-    token_sources = [
-        bool(parsed.token),
-        bool(parsed.token_file),
-        bool(parsed.token_stdin),
-    ]
-    if _should_prompt(parsed, env_name, token_sources, destination):
+    missing = onboard_destination_args.missing_required_flags(
+        parsed,
+        env_name=env_name,
+        local_destination=local_destination,
+    )
+    token_sources = onboard_destination_args.token_sources(parsed)
+    should_prompt = _should_prompt(parsed, env_name, token_sources, destination)
+    hosted_usage_error = hosted_auth.usage_error(
+        destination, explicit_token_source, bool(parsed.resume_run_id), should_prompt
+    )
+    if hosted_usage_error:
+        print(f"error: {hosted_usage_error}", file=sys.stderr)
+        return 2
+    if should_prompt:
         if sum(1 for given in token_sources if given) > 1:
             print(
                 "error: exactly one token source is required",
@@ -205,14 +208,6 @@ def onboard(args: List[str]) -> int:
             file=sys.stderr,
         )
         return 2
-    # The legacy flag lane (--api-url without --local/--connect) reaches
-    # here with no resolved destination; the URL itself names one. Deriving
-    # it keeps the report and resume snapshot truthful — a resumed run must
-    # preset the server lane for a team-server URL, not the local default.
-    if destination is None and parsed.api_url:
-        destination = onboard_destinations.destination_for_api_url(
-            parsed.api_url
-        )
     source_dev_defaults = _source_dev_project_defaults(parsed.project_mode)
     report = _build_report(
         config_path=config_path,
@@ -237,10 +232,14 @@ def onboard(args: List[str]) -> int:
             parsed.project_github_repo or source_dev_defaults.get("github_repo")
         ),
         project_github_repository_id=getattr(
-            parsed, "project_github_repository_id", None,
+            parsed,
+            "project_github_repository_id",
+            None,
         ),
         project_github_installation_id=getattr(
-            parsed, "project_github_installation_id", None,
+            parsed,
+            "project_github_installation_id",
+            None,
         ),
         project_default_branch=(
             parsed.project_default_branch or source_dev_defaults.get("default_branch")
@@ -325,9 +324,8 @@ def _has_missing_prompt_input(
     if destination == onboard_destinations.DESTINATION_LOCAL:
         # Local runs have no API URL or token to collect; only the project
         # answers can still be missing.
-        return (
-            not parsed.project_mode
-            or onboard_project_args.project_prompt_missing(parsed)
+        return not parsed.project_mode or onboard_project_args.project_prompt_missing(
+            parsed
         )
     return (
         not env_name
@@ -358,6 +356,7 @@ def _run_wizard(
         apply=parsed.apply,
         post_install=parsed.post_install,
     )
+
     def apply_report(kwargs: dict, tui_progress=None) -> dict:
         if parsed.skip_identity_check:
             kwargs = {**kwargs, "check_identity": False}
@@ -410,8 +409,7 @@ def _finish_pending_dev_install(config_path: str | None, *, stream=None) -> None
     outcome = dev_setup.run_editable_install_step(Path(root))
     if outcome.get("ok"):
         print(
-            f"✓ Dev environment ready. Open a new terminal so `yoke` runs "
-            f"from {root}.",
+            f"✓ Dev environment ready. Open a new terminal so `yoke` runs from {root}.",
             file=stream,
         )
     else:
@@ -460,44 +458,44 @@ def _build_report(
     resume_payload: dict | None = None,
 ) -> dict | None:
     try:
-        return _apply_with_durable_report({
-            "config_path": config_path,
-            "env_name": env_name,
-            "api_url": api_url,
-            "destination": destination,
-            "token": token,
-            "token_file": token_file,
-            "token_source_kind": token_source_kind,
-            "mode": mode,
-            "apply": apply,
-            "check_identity": check_identity,
-            "machine_github_choice": machine_github_choice,
-            "machine_github_api_url": machine_github_api_url,
-            "project_mode": project_mode,
-            "project_remote_url": project_remote_url,
-            "project_checkout": project_checkout,
-            "project_slug": project_slug,
-            "project_name": project_name,
-            "project_org": project_org,
-            "project_github_repo": project_github_repo,
-            "project_github_repository_id": project_github_repository_id,
-            "project_github_installation_id": project_github_installation_id,
-            "project_default_branch": project_default_branch,
-            "project_default_branch_source": project_default_branch_source,
-            "project_public_item_prefix": project_public_item_prefix,
-            "existing_project_id": existing_project_id,
-            "existing_project_match_source": existing_project_match_source,
-            "existing_project_local_source": existing_project_local_source,
-            "project_github_adoption": project_github_adoption,
-            "project_github_adoption_preserve": (
-                project_github_adoption_preserve
-            ),
-            "project_publish": project_publish,
-            "project_clone": project_clone,
-            "project_keep_existing_remote": project_keep_existing_remote,
-            "resume_run_id": resume_run_id,
-            "resume_payload": resume_payload,
-        })
+        return _apply_with_durable_report(
+            {
+                "config_path": config_path,
+                "env_name": env_name,
+                "api_url": api_url,
+                "destination": destination,
+                "token": token,
+                "token_file": token_file,
+                "token_source_kind": token_source_kind,
+                "mode": mode,
+                "apply": apply,
+                "check_identity": check_identity,
+                "machine_github_choice": machine_github_choice,
+                "machine_github_api_url": machine_github_api_url,
+                "project_mode": project_mode,
+                "project_remote_url": project_remote_url,
+                "project_checkout": project_checkout,
+                "project_slug": project_slug,
+                "project_name": project_name,
+                "project_org": project_org,
+                "project_github_repo": project_github_repo,
+                "project_github_repository_id": project_github_repository_id,
+                "project_github_installation_id": project_github_installation_id,
+                "project_default_branch": project_default_branch,
+                "project_default_branch_source": project_default_branch_source,
+                "project_public_item_prefix": project_public_item_prefix,
+                "existing_project_id": existing_project_id,
+                "existing_project_match_source": existing_project_match_source,
+                "existing_project_local_source": existing_project_local_source,
+                "project_github_adoption": project_github_adoption,
+                "project_github_adoption_preserve": (project_github_adoption_preserve),
+                "project_publish": project_publish,
+                "project_clone": project_clone,
+                "project_keep_existing_remote": project_keep_existing_remote,
+                "resume_run_id": resume_run_id,
+                "resume_payload": resume_payload,
+            }
+        )
     except (
         onboard_config.OnboardError,
         onboard_apply_report.OnboardApplyReportError,
@@ -507,13 +505,15 @@ def _build_report(
         print(f"error: {friendly_permission_error(str(exc))}", file=sys.stderr)
         return None
     except onboard_wizard.WizardApplyError as exc:
-        _print_failure_summary(onboard_wizard.WizardRunResult(
-            exit_code=1,
-            error=str(exc),
-            failed_step=exc.failed_step,
-            report_path=exc.report_path,
-            resume_command=exc.resume_command,
-        ))
+        _print_failure_summary(
+            onboard_wizard.WizardRunResult(
+                exit_code=1,
+                error=str(exc),
+                failed_step=exc.failed_step,
+                report_path=exc.report_path,
+                resume_command=exc.resume_command,
+            )
+        )
         return None
 
 

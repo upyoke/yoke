@@ -3,7 +3,7 @@
 The Account step opens on one picker — this machine / a team server /
 upyoke.com — and the answer changes only the sign-in lane: local swaps
 sign-in for the universe summary (birth runs at Apply), server collects a
-URL then a token, hosted keeps the environment select. The closing test
+URL then a token, hosted keeps the environment select and browser approval. The closing test
 drives the real apply seam end to end (picker → local → Apply) against a
 scratch machine home with the embedded-Postgres engine stubbed, and proves
 the written config matches what ``yoke init --local`` lands.
@@ -92,9 +92,7 @@ def test_picker_opens_account_step_with_local_preselected() -> None:
             await advance_past_path(pilot)
             text = _body_text(app)
             assert "Where should this Yoke live?" in text
-            assert app.query_one(SelectionList).selected_value == (
-                DESTINATION_LOCAL
-            )
+            assert app.query_one(SelectionList).selected_value == (DESTINATION_LOCAL)
 
     asyncio.run(scenario())
 
@@ -115,9 +113,7 @@ def test_local_pick_swaps_sign_in_for_universe_summary() -> None:
             assert app.result.api_url == ""
             assert app.result.token is None  # local lane clears sign-in state
             stepper = app.query_one(Stepper)
-            assert stepper.account_label == (
-                ACCOUNT_STEP_LABELS[DESTINATION_LOCAL]
-            )
+            assert stepper.account_label == (ACCOUNT_STEP_LABELS[DESTINATION_LOCAL])
             await pilot.press("enter")  # summary: Continue -> GitHub step
             await pilot.pause()
             assert stepper.active == STEP_GITHUB
@@ -142,11 +138,13 @@ def test_local_pick_names_existing_universe_on_rerun(tmp_path: Path) -> None:
             await pilot.press("enter")
             text = _body_text(app)
             assert "Your Yoke lives on this machine." in text
-            assert "Yoke found an existing local universe connection in ~/.yoke." in text
+            assert (
+                "Yoke found an existing local universe connection in ~/.yoke." in text
+            )
             assert "Apply verifies the existing database and preserves" in text
             assert app.query_one(SelectionList).rows[0].label == "Use existing"
             summary_depth = len(app._history)
-            await pilot.press("down")   # Back
+            await pilot.press("down")  # Back
             await pilot.press("enter")
             await pilot.pause()
             assert "Where should this Yoke live?" in _body_text(app)
@@ -164,7 +162,7 @@ def test_server_pick_collects_url_then_token() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # picker: local -> A team server
+            await pilot.press("down")  # picker: local -> A team server
             await pilot.press("enter")
             assert "Enter your Yoke server URL." in _body_text(app)
             await type_text(pilot, "https://yoke.acme.test")
@@ -183,7 +181,7 @@ def test_hosted_pick_offers_the_product_cloud_authority() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up")     # picker: wrap local -> upyoke.com
+            await pilot.press("up")  # picker: wrap local -> upyoke.com
             await pilot.press("enter")
             text = _body_text(app)
             assert "Which hosted environment should this machine use?" in text
@@ -212,20 +210,22 @@ def test_stored_connection_shows_confirmation_picker(tmp_path: Path) -> None:
     token.write_text("actor-token\n", encoding="utf-8")
     config = tmp_path / "config.json"
     config.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "active_env": "prod",
-            "connections": {
-                "prod": {
-                    "transport": "https",
-                    "api_url": HOSTED_PROD_URL,
-                    "credential_source": {
-                        "kind": "token_file",
-                        "path": str(token),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "prod",
+                "connections": {
+                    "prod": {
+                        "transport": "https",
+                        "api_url": HOSTED_PROD_URL,
+                        "credential_source": {
+                            "kind": "token_file",
+                            "path": str(token),
+                        },
                     },
                 },
-            },
-        }),
+            }
+        ),
         encoding="utf-8",
     )
     app, _spy = make_app(WizardDefaults(config_path=str(config)))
@@ -252,10 +252,10 @@ def test_back_from_local_summary_repicks_cleanly() -> None:
             await pilot.pause()
             assert "Where should this Yoke live?" in _body_text(app)
             assert app.query_one(Stepper).account_label == STEP_CONNECT_LABEL
-            await pilot.press("up")     # repick: wrap local -> upyoke.com
+            await pilot.press("up")  # repick: wrap local -> upyoke.com
             await pilot.press("enter")
             await pilot.pause()
-            # The local detour left no residue: hosted collects env + token.
+            # The local detour left no residue: hosted collects env + browser approval.
             assert app.result.env_name != local_universe_setup.LOCAL_ENV
             assert "Which hosted environment" in _body_text(app)
 
@@ -270,9 +270,9 @@ def test_local_flow_applies_local_destination_field_set() -> None:
             await advance_past_path(pilot)
             await pilot.press("enter")
             await pilot.press("enter")  # universe summary: Continue
-            await pilot.press("down")   # github: Skip for now
+            await pilot.press("down")  # github: Skip for now
             await pilot.press("enter")
-            for _ in range(4):          # project: machine-only
+            for _ in range(4):  # project: machine-only
                 await pilot.press("down")
             await pilot.press("enter")
             await pilot.press("enter")  # finish: apply
@@ -299,7 +299,9 @@ def test_wizard_local_apply_lands_config_like_yoke_init_local(
     ``yoke init --local`` writes with the same engine stub.
     """
     monkeypatch.setattr(
-        local_universe_setup, "_engine", lambda: _FakeEngine(),
+        local_universe_setup,
+        "_engine",
+        lambda: _FakeEngine(),
     )
     wizard_home = tmp_path / "wizard-home"
     init_home = tmp_path / "init-home"
@@ -318,9 +320,9 @@ def test_wizard_local_apply_lands_config_like_yoke_init_local(
             await pilot.press("enter")  # PATH all clear: continue
             await pilot.press("enter")
             await pilot.press("enter")  # universe summary: Continue
-            await pilot.press("down")   # github: Skip for now
+            await pilot.press("down")  # github: Skip for now
             await pilot.press("enter")
-            for _ in range(4):          # project: machine-only
+            for _ in range(4):  # project: machine-only
                 await pilot.press("down")
             await pilot.press("enter")
             await _wait_for_body_text(app, pilot, "Review what")
@@ -339,8 +341,7 @@ def test_wizard_local_apply_lands_config_like_yoke_init_local(
     assert yoke_operations_cli.main(["init", "--local", "--json"]) == 0
     capsys.readouterr()
 
-    assert (
-        _normalized_local_connection(wizard_home)
-        == _normalized_local_connection(init_home)
+    assert _normalized_local_connection(wizard_home) == _normalized_local_connection(
+        init_home
     )
     assert _normalized_local_connection(wizard_home)["dsn_value"] == FAKE_DSN
