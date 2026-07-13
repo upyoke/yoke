@@ -18,6 +18,7 @@ from yoke_contracts.project_contract.file_line_policy import (
     DEFAULT_LIMIT,
     default_exception_globs,
     resolve_file_line_policy,
+    tracked_generated_views,
 )
 from yoke_contracts.project_contract.install_manifest import (
     is_install_bundle_generated_path,
@@ -46,7 +47,11 @@ LOCKFILE_BASENAMES = frozenset({
     "poetry.lock",
     "uv.lock",
 })
-GENERATED_SENTINELS = frozenset({".yoke/BOARD.md", ".yoke/BOARD.md.ts"})
+GENERATED_SENTINELS = frozenset({
+    ".yoke/BOARD.md",
+    ".yoke/BOARD.md.ts",
+    *tracked_generated_views(),
+})
 GENERATED_PATH_PATTERNS = (
     "runtime/harness/claude/agents/yoke-*.md",
     "runtime/harness/codex/agents/yoke-*.toml",

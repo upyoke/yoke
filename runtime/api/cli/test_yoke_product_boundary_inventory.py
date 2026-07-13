@@ -40,10 +40,10 @@ def test_hook_and_operator_boundaries_keep_their_own_dispositions():
     hook = rows["yoke hook evaluate"]
     assert hook.disposition == inventory.HOOK_LOCAL_SUBSET
     assert hook.transport_branch == "hook-local-or-https-relay"
-    assert {
-        (edge.target, edge.classification)
-        for edge in hook.import_edges
-    } == set()
+    assert {(edge.target, edge.classification) for edge in hook.import_edges} == {
+        ("runtime.harness.hook_runner.local_universe_lifecycle",
+         "local_universe_dispatch"),
+    }
 
     lease = rows[
         "python3 -m yoke_core.api.service_client coordination-lease-acquire"

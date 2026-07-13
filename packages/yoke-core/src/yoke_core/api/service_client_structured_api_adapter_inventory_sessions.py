@@ -10,6 +10,13 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 SESSION_ADAPTERS = [
     AdapterEntry(
+        function_id="sessions.begin",
+        cli_invocation=(
+            "yoke sessions begin --executor E --provider P --model M "
+            "--workspace W"
+        ),
+    ),
+    AdapterEntry(
         function_id="sessions.touch",
         cli_invocation="yoke sessions touch [--mode MODE]",
     ),

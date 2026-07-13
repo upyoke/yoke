@@ -32,6 +32,61 @@ def _project_id_from_args(explicit: str | None, workspace: str) -> int | None:
         return None
 
 
+def begin_session(
+    conn,
+    *,
+    session_id: str,
+    executor: str,
+    provider: str,
+    model: str,
+    workspace: str,
+    project_id: int,
+    mode: str = "wait",
+    entrypoint: str | None = None,
+) -> dict:
+    """Register (or idempotently refresh) a session row; return a result dict.
+
+    Composes the executor, resolves the execution lane from the project's
+    routing config, and registers the session — the identical steps the
+    operator-debug ``session-begin`` command and the transport-keyed
+    ``sessions.begin`` function handler both need. The already-registered
+    case returns a success dict rather than raising; every other
+    :class:`SessionError` propagates so callers can shape their own error
+    response.
+    """
+    from yoke_core.domain.sessions import SessionError, register_session
+
+    composed_executor = compose_executor_from_entrypoint(executor, entrypoint)
+    routing_config = _load_routing_config(conn=conn, project_id=project_id)
+    resolved_lane = resolve_execution_lane(
+        executor=composed_executor,
+        explicit_lane=None,
+        routing_config=routing_config,
+    )
+    try:
+        result = register_session(
+            conn,
+            session_id=session_id,
+            executor=composed_executor,
+            provider=provider,
+            model=model,
+            workspace=workspace,
+            project_id=project_id,
+            mode=mode,
+            execution_lane=resolved_lane,
+            entrypoint=entrypoint,
+        )
+    except SessionError as exc:
+        if exc.code == "SESSION_EXISTS":
+            return {
+                "success": True,
+                "already_registered": True,
+                "session_id": session_id,
+            }
+        raise
+    return {"success": True, "session": result}
+
+
 def cmd_session_begin(args: list[str]) -> int:
     """Begin (or idempotently refresh) a session in harness_sessions.
 
@@ -69,11 +124,6 @@ def cmd_session_begin(args: list[str]) -> int:
         print(SESSION_REQUIRED_ERROR, file=sys.stderr)
         return 2
 
-    parsed.executor = compose_executor_from_entrypoint(
-        parsed.executor,
-        parsed.entrypoint,
-    )
-
     resolved_project_id = _project_id_from_args(parsed.project_id, parsed.workspace)
     if resolved_project_id is None:
         print(
@@ -85,18 +135,9 @@ def cmd_session_begin(args: list[str]) -> int:
 
     conn = _get_db_readwrite()
     try:
-        routing_config = _load_routing_config(
-            conn=conn,
-            project_id=resolved_project_id,
-        )
-        resolved_lane = resolve_execution_lane(
-            executor=parsed.executor,
-            explicit_lane=None,
-            routing_config=routing_config,
-        )
-        from yoke_core.domain.sessions import register_session, SessionError
+        from yoke_core.domain.sessions import SessionError
         try:
-            result = register_session(
+            result = begin_session(
                 conn,
                 session_id=parsed.session_id,
                 executor=parsed.executor,
@@ -105,27 +146,19 @@ def cmd_session_begin(args: list[str]) -> int:
                 workspace=parsed.workspace,
                 project_id=resolved_project_id,
                 mode=parsed.mode,
-                execution_lane=resolved_lane,
                 entrypoint=parsed.entrypoint,
             )
-            print(json.dumps({"success": True, "session": result}, default=str))
+            print(json.dumps(result, default=str))
         except SessionError as exc:
-            if exc.code == "SESSION_EXISTS":
-                print(json.dumps({
-                    "success": True,
-                    "already_registered": True,
-                    "session_id": parsed.session_id,
-                }))
-            else:
-                print(json.dumps({
-                    "success": False,
-                    "code": exc.code,
-                    "message": exc.message,
-                }), file=sys.stderr)
-                return 1
+            print(json.dumps({
+                "success": False,
+                "code": exc.code,
+                "message": exc.message,
+            }), file=sys.stderr)
+            return 1
         return 0
     finally:
         conn.close()
 
 
-__all__ = ["cmd_session_begin"]
+__all__ = ["begin_session", "cmd_session_begin"]

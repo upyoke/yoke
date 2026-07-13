@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.handlers import sessions_begin as _sb
 from yoke_core.domain.handlers import sessions_orchestration as _so
 
 
@@ -41,6 +42,22 @@ def register(registry) -> None:
         guardrails=["session_required"],
         adapter_status="live",
         claim_required_kind=None,
+    )
+    registry.register(
+        "sessions.begin", _sb.handle_begin,
+        _sb.BeginRequest, _sb.BeginResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.sessions_begin",
+        target_kinds=["global"],
+        side_effects=[
+            "harness_sessions_insert", "harness_sessions_update",
+            "work_claims_update", "events_insert",
+        ],
+        emitted_event_names=["HarnessSessionStarted", "YokeFunctionCalled"],
+        guardrails=["session_creation"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
     )
     registry.register(
         "sessions.offer", _so.handle_offer,

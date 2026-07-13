@@ -30,6 +30,9 @@ def clean_env(monkeypatch):
         "CODEX_INTERNAL_ORIGINATOR_OVERRIDE",
     ):
         monkeypatch.delenv(key, raising=False)
+    # Pin the transport gate to local so model-resolver tests read locally
+    # regardless of the machine's real connection (https-gate tested apart).
+    monkeypatch.setattr(session_init, "_relay_owns_session_authority", lambda: False)
 
 
 class TestResolveExecutor:

@@ -53,6 +53,7 @@ from yoke_contracts.project_contract.file_line_policy import (
     FileLinePolicy,
     default_exception_globs,
     resolve_file_line_policy,
+    tracked_generated_views,
 )
 from yoke_core.domain.file_line_check_helpers import EMPTY_TREE as _EMPTY_TREE
 from yoke_core.domain.strategy_docs_paths import is_strategy_view_path
@@ -113,6 +114,8 @@ def _classify_path_with_policy(
     path: str, *, repo_root: pathlib.Path, policy
 ) -> Classification:
     if _is_rendered_strategy_doc(path, repo_root=repo_root):
+        return Classification.GENERATED
+    if path.replace("\\", "/") in tracked_generated_views():
         return Classification.GENERATED
     return do_classify_path(
         path,

@@ -66,6 +66,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # db_claim.
     _w("yoke db-claim amend", "db_claim"),
     _w("yoke db read", "raw.sql"),
+    _w("yoke sessions begin", "sessions"),
     _w("yoke sessions touch", "sessions"),
     _w("yoke sessions checkpoint", "sessions"),
     _w("yoke sessions checkpoint-read", "sessions"),
