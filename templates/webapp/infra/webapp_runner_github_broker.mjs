@@ -3,21 +3,16 @@
 
 import {
   DeleteParameterCommand,
-  GetParameterCommand,
   GetParametersByPathCommand,
-  PutParameterCommand,
   SSMClient,
 } from "@aws-sdk/client-ssm";
 import {
   deleteRunner,
   listRunners,
-  registrationToken,
-  runnerDownloadUrl,
   runnerLabels,
   runnerPrefix,
 } from "./webapp_runner_github_api.mjs";
 import {
-  assertActiveInstance,
   currentAsgInstanceIds,
   currentLifecycleState,
   instanceLaunchTime,
@@ -25,6 +20,13 @@ import {
   restoreDesiredCapacity,
   writeLifecycleState,
 } from "./webapp_runner_aws_state.mjs";
+import {
+  bootstrapMarkerPrefix,
+  bootstrapRunnerHost,
+  parseBootstrapMarker,
+  registerRunner,
+  updateBootstrapState,
+} from "./webapp_runner_registration.mjs";
 import {
   parseTerminationRecord,
   resumeTermination,
@@ -34,7 +36,7 @@ import {
 const ssm = new SSMClient({});
 const brokerMode = required("BROKER_MODE");
 const idleMinutes = positiveInteger(required("IDLE_MINUTES"), "IDLE_MINUTES");
-const markerPrefix = required("BOOTSTRAP_MARKER_PREFIX").replace(/\/$/, "");
+const markerPrefix = bootstrapMarkerPrefix;
 const bootstrapTimeout = positiveInteger(
   required("BOOTSTRAP_TIMEOUT_MINUTES"), "BOOTSTRAP_TIMEOUT_MINUTES",
 ) * 60;
@@ -61,86 +63,7 @@ function positiveInteger(value, name) {
 
 function nowSeconds() { return Math.floor(Date.now() / 1000); }
 
-function validateInstanceId(value) {
-  const instanceId = String(value || "");
-  if (!/^i-[0-9a-f]{8,17}$/.test(instanceId)) {
-    throw new Error("instance_id must be an EC2 instance id");
-  }
-  return instanceId;
-}
-
-function markerName(instanceId) { return `${markerPrefix}/${instanceId}`; }
-
 function runnerName(instanceId) { return `${runnerPrefix}${instanceId}`; }
-
-function markerValue(state, at = nowSeconds()) {
-  return JSON.stringify({ state, at });
-}
-
-function parseMarker(value) {
-  try {
-    const parsed = JSON.parse(String(value || ""));
-    if (!["claimed", "ready", "failed"].includes(parsed.state) ||
-        !Number.isSafeInteger(parsed.at) || parsed.at <= 0) {
-      throw new Error("invalid marker fields");
-    }
-    return parsed;
-  } catch (_error) {
-    throw new Error("runner bootstrap marker is malformed");
-  }
-}
-
-async function claimBootstrap(instanceId) {
-  await assertActiveInstance(instanceId);
-  const name = markerName(instanceId);
-  try {
-    await ssm.send(new PutParameterCommand({
-      Name: name, Type: "String", Value: markerValue("claimed"), Overwrite: false,
-    }));
-  } catch (error) {
-    if (error && error.name === "ParameterAlreadyExists") {
-      throw new Error("runner bootstrap was already consumed for this instance");
-    }
-    throw error;
-  }
-  return name;
-}
-
-async function updateBootstrapState(instanceId, state) {
-  await assertActiveInstance(instanceId);
-  const name = markerName(instanceId);
-  const current = await ssm.send(new GetParameterCommand({ Name: name }));
-  const marker = parseMarker(current.Parameter && current.Parameter.Value);
-  if (marker.state === state) {
-    return { ok: true, runner_name: runnerName(instanceId) };
-  }
-  if (state === "ready" && marker.state !== "claimed") {
-    throw new Error("runner bootstrap cannot transition to ready");
-  }
-  if (state === "failed" && !["claimed", "ready"].includes(marker.state)) {
-    throw new Error("runner bootstrap cannot transition to failed");
-  }
-  await ssm.send(new PutParameterCommand({
-    Name: name, Type: "String", Value: markerValue(state), Overwrite: true,
-  }));
-  return { ok: true, runner_name: runnerName(instanceId) };
-}
-
-async function bootstrap(event) {
-  const instanceId = validateInstanceId(event.instance_id);
-  const marker = await claimBootstrap(instanceId);
-  try {
-    const [downloadUrl, token] = await Promise.all([
-      runnerDownloadUrl(), registrationToken(),
-    ]);
-    return { download_url: downloadUrl, registration_token: token };
-  } catch (error) {
-    await ssm.send(new PutParameterCommand({
-      Name: marker, Type: "String", Value: markerValue("failed"), Overwrite: true,
-    })).catch(() => {});
-    throw error;
-  }
-}
 
 async function loadMarkers(activeIds) {
   const markers = new Map();
@@ -161,7 +84,7 @@ async function loadMarkers(activeIds) {
       } else if (!activeIds.has(instanceId)) {
         await ssm.send(new DeleteParameterCommand({ Name: name }));
       } else {
-        markers.set(instanceId, parseMarker(parameter.Value));
+        markers.set(instanceId, parseBootstrapMarker(parameter.Value));
       }
     }
     nextToken = page.NextToken;
@@ -282,35 +205,35 @@ async function reapFleet() {
     const { progress, completed } = await readRunnerEvents();
     const completionMatches = completed.action === "completed" &&
       completed.runner_name === expectedName;
-    if (!completionMatches && now - marker.at < readyGrace) {
+    const progressMatches = progress.action === "in_progress" &&
+      progress.runner_name === expectedName;
+    const currentCycleCompleted = completionMatches &&
+      (!progressMatches || progress.job_id === completed.job_id);
+    if (currentCycleCompleted && now - completed.at < readyGrace) {
+      await writeLifecycleState({
+        ...state, idle_since: 0, online_instance_id: instanceId,
+      });
+      return { action: "kept", reason: "runner_rearm_window" };
+    }
+    if (!currentCycleCompleted && now - marker.at < readyGrace) {
       await writeLifecycleState({ ...state, idle_since: 0 });
       return { action: "kept", reason: "runner_startup_window" };
     }
-    const progressMatches = progress.action === "in_progress" &&
-      progress.runner_name === expectedName;
-    if (!completionMatches && progressMatches &&
+    if (!currentCycleCompleted && progressMatches &&
         now - progress.at < jobEventTimeout) {
       await writeLifecycleState({
         ...state, idle_since: 0, online_instance_id: instanceId,
       });
       return { action: "kept", reason: "job_event_in_progress" };
     }
-    if (!completionMatches && !wasOnline) {
+    if (!currentCycleCompleted && !wasOnline) {
       return retryBootstrap(
         instanceId, current, state, activity, "runner_never_online",
       );
     }
-    return terminateHost({
-      instanceId,
-      loadRunners: async () => current,
-      state: {
-        ...state, idle_since: 0, bootstrap_failures: 0,
-        online_instance_id: "",
-      },
-      activity,
-      reason: "ephemeral_runner_finished",
-      decrementDesired: false,
-    });
+    return retryBootstrap(
+      instanceId, current, state, activity, "runner_rearm_failed",
+    );
   }
   state = {
     ...state, bootstrap_failures: 0, online_instance_id: instanceId,
@@ -335,12 +258,13 @@ async function reapFleet() {
 export async function handler(event) {
   const action = event && typeof event === "object" ? event.action : "";
   if (brokerMode === "bootstrap") {
-    if (action === "bootstrap") return bootstrap(event);
+    if (action === "bootstrap") return bootstrapRunnerHost(event.instance_id);
+    if (action === "register") return registerRunner(event.instance_id);
     if (action === "ready") {
-      return updateBootstrapState(validateInstanceId(event.instance_id), "ready");
+      return updateBootstrapState(event.instance_id, "ready");
     }
     if (action === "failed") {
-      return updateBootstrapState(validateInstanceId(event.instance_id), "failed");
+      return updateBootstrapState(event.instance_id, "failed");
     }
   } else if (brokerMode === "reaper" && action === "reap") {
     return reapFleet();

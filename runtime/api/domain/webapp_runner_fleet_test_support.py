@@ -64,10 +64,16 @@ def _runner_stack(
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     else:
         monkeypatch.setenv("GITHUB_TOKEN", github_provider_token)
+    host_cycle = _load_template_module(
+        monkeypatch,
+        recorder,
+        "webapp_runner_host_cycle.py",
+    )
     internals = _load_template_module(
         monkeypatch,
         recorder,
         "webapp_runner_fleet_internals.py",
+        extra_modules={"webapp_runner_host_cycle": host_cycle},
     )
     github_state = _load_template_module(
         monkeypatch,

@@ -146,6 +146,7 @@ def _write_node_fixture(tmp_path: Path) -> None:
         "webapp_runner_aws_state.mjs",
         "webapp_runner_github_api.mjs",
         "webapp_runner_github_broker.mjs",
+        "webapp_runner_registration.mjs",
         "webapp_runner_termination.mjs",
     ):
         (tmp_path / name).write_text((INFRA_ROOT / name).read_text())

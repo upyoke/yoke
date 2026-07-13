@@ -218,7 +218,7 @@ def test_signed_in_progress_event_prevents_transient_offline_recycle(tmp_path):
 @pytest.mark.parametrize(
     "marker_age_seconds", [30, 600], ids=["startup-grace", "steady-state"],
 )
-def test_completion_wins_over_delayed_in_progress_delivery(
+def test_completion_opens_rearm_window_despite_delayed_in_progress_delivery(
     tmp_path, marker_age_seconds,
 ):
     _write_node_fixture(tmp_path)
@@ -247,9 +247,39 @@ def test_completion_wins_over_delayed_in_progress_delivery(
     """)
 
     assert payload["result"] == {
-        "action": "replaced", "reason": "ephemeral_runner_finished",
+        "action": "kept", "reason": "runner_rearm_window",
     }
-    assert payload["terminated"] == {
-        "InstanceId": INSTANCE_ID,
-        "ShouldDecrementDesiredCapacity": False,
+    assert payload["terminated"] is None
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
+def test_previous_completion_does_not_override_newer_job_progress(tmp_path):
+    _write_node_fixture(tmp_path)
+    now = int(time.time())
+    parameters = _parameters(
+        online_instance_id=INSTANCE_ID,
+        marker_age_seconds=600,
+        progress_event={
+            "action": "in_progress",
+            "runner_name": RUNNER_NAME,
+            "job_id": "new-job",
+            "at": now,
+        },
+        completion_event={
+            "action": "completed",
+            "runner_name": RUNNER_NAME,
+            "job_id": "previous-job",
+            "at": now - 30,
+        },
+    )
+    payload = _run_driver(tmp_path, _driver("", parameters, []) + """
+        const result = await handler({ action: "reap" });
+        console.log(JSON.stringify({
+          result, terminated: globalThis.__terminated,
+        }));
+    """)
+
+    assert payload["result"] == {
+        "action": "kept", "reason": "job_event_in_progress",
     }
+    assert payload["terminated"] is None
