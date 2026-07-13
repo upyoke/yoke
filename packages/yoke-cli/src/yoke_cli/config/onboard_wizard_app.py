@@ -355,12 +355,12 @@ class OnboardWizardApp(
     def _refocus_body(self) -> None:
         """Move focus to the body's first focusable child (SelectionList/Input).
 
-        The body is a non-focusable VerticalScroll, so a click on empty body
-        space would otherwise clear focus off the active list — leaving the
-        highlighted row in place while Enter silently no-ops. Re-running the
-        same focus rule the body uses on mount keeps Enter live after any click.
+        The body is a non-focusable VerticalScroll or plain-glyph Vertical.
+        Empty body space would otherwise clear focus off the active list,
+        leaving the highlighted row while Enter silently no-ops. Re-running
+        the body mount focus rule keeps Enter live after any click.
         """
-        body = self.query_one("#onboard-body", VerticalScroll)
+        body = self.query_one("#onboard-body")
         self._focus_first(list(body.children))
 
     def on_click(self, event: Any) -> None:
@@ -373,7 +373,7 @@ class OnboardWizardApp(
 
     def on_key(self, event: Any) -> None:
         text = str(getattr(event, "character", "") or "")
-        if not text:
+        if not text or not text.isprintable():  # Enter is "\r"; controls stay with widgets
             return
         target = self._active_input()
         if target is not None and not target.has_focus:
@@ -389,7 +389,7 @@ class OnboardWizardApp(
     def _active_input(self) -> Input | None:
         if self._pending_input is None:
             return None
-        body = self.query_one("#onboard-body", VerticalScroll)
+        body = self.query_one("#onboard-body")
         for widget in body.children:
             if isinstance(widget, Input) and not widget.disabled:
                 return widget
