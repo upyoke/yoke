@@ -20,6 +20,10 @@ from yoke_core.domain.db_compatibility_attestation import (
     validate as validate_attestation,
 )
 from yoke_core.domain.db_mutation_profile import validate as validate_profile
+from yoke_core.domain.portable_migration import (
+    load_packaged_modules,
+    parse_manifest_text,
+)
 
 
 _SCHEMA = """
@@ -36,14 +40,17 @@ CREATE TABLE capability_secrets (
 
 
 def test_ticketless_manifest_is_valid() -> None:
-    payload = json_helper.load_path(
-        Path(__file__).with_name(
-            "retired_github_capability_secrets.migration.json"
-        )
+    path = Path(__file__).with_name(
+        "retired_github_capability_secrets.migration.json"
     )
+    payload = json_helper.load_path(path)
 
     validate_profile(payload["profile"])
     validate_attestation(payload["attestation"])
+    manifest = parse_manifest_text(path.read_text(encoding="utf-8"))
+    assert load_packaged_modules(manifest)[0].__name__ == (
+        "yoke_core.domain.migrations.retired_github_capability_secrets"
+    )
 
 
 @pytest.mark.parametrize(
