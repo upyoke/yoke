@@ -1,17 +1,10 @@
-"""Engine import-boundary guards for the client packages.
+"""Guard engine import boundaries for the client packages.
 
-The engine (yoke-core) is present on every machine — the wheel channel ships
-it and the installer puts it alongside the client packages. Whether it runs
-is decided by the active connection, not by which packages are installed:
-https connections relay every call to the server and keep the engine inert;
-a non-prod local-postgres connection is a local universe whose in-process
-dispatch is the product path; prod-flagged postgres connections stay
-operator-only. What keeps the engine connection-gated is this static import
-boundary: yoke-cli, yoke-contracts, and yoke-harness must never gain static
-import authority over yoke_core, runtime internals, or local database
-drivers, so nothing dispatches in-process before the transport decision
-runs. Dynamic imports are allowed only when this file names the lane that
-sanctions the edge.
+The engine ships beside the clients, but the active connection decides whether
+it runs: HTTPS relays to the server, non-prod local Postgres dispatches in
+process, and prod-flagged Postgres stays operator-only. Client packages cannot
+take static authority over engine/runtime/database modules before that transport
+decision. Dynamic imports remain limited to the lanes named below.
 """
 
 from __future__ import annotations

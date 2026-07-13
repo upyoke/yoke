@@ -68,8 +68,6 @@ def hook_evaluate(args: List[str]) -> int:
         return _degrade_to_noop(parsed.event_name, str(exc))
 
     if not parsed.dry_run:
-        import sys
-
         from yoke_cli.transport.https import (
             TransportError,
             resolve_https_connection,

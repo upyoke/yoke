@@ -34,7 +34,7 @@ For each drift point found, record:
 Beyond narrative drift review, run the deterministic MASTER-PLAN validator. It extracts the ordered frontier entries from `MASTER-PLAN.md` and the prerequisite/enabling prose relationships around them, then cross-checks both against live item statuses.
 
 ```bash
-yoke strategy master-plan-check
+yoke strategy master-plan-check --plan-path "$REPO_ROOT/.yoke/strategy/MASTER-PLAN.md"
 ```
 
 Read the output and fold it into the rest of the landscape analysis:
