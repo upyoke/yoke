@@ -24,6 +24,9 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     api_source = broker.kwargs["code"].kwargs["assets"][
         "webapp_runner_github_api.mjs"
     ].kwargs["text"]
+    registration_source = broker.kwargs["code"].kwargs["assets"][
+        "webapp_runner_registration.mjs"
+    ].kwargs["text"]
     aws_state_source = broker.kwargs["code"].kwargs["assets"][
         "webapp_runner_aws_state.mjs"
     ].kwargs["text"]
@@ -36,8 +39,9 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     assert "repository_ids" in api_source
     assert 'brokerMode === "bootstrap"' in source
     assert 'brokerMode === "reaper"' in source
-    assert "runnerDownloadUrl()" in source
-    assert "runner bootstrap was already consumed" in source
+    assert "runnerDownloadUrl()" in registration_source
+    assert "runner bootstrap was already consumed" in registration_source
+    assert "registerRunner" in registration_source
     assert "currentAsgInstanceIds" in aws_state_source
     assert "MaxRecords: 50" in aws_state_source
     assert "termination_acknowledged" in termination_source

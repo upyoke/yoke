@@ -40,35 +40,32 @@ def test_launch_template_uses_selected_size_and_disposable_root(monkeypatch):
     assert "AWSCLI_ARCH=\"aarch64\"" in user_data
     assert "actions/runners/downloads" not in user_data
     assert "github_broker bootstrap" in user_data
-    assert "github_broker ready" in user_data
     assert "github_broker failed" in user_data
     assert "jq -cn" in user_data
     assert "{action:$action,instance_id:$instance_id}" in user_data
     assert '"action":"reap"' not in user_data
-    assert ".registration_token // empty" in user_data
     assert "releases/latest" not in user_data
     assert "actions ALL=(ALL) NOPASSWD:ALL" in user_data
     assert "env HOME=/root PULUMI_HOME=/root/.pulumi" in user_data
     assert "PULUMI_BIN=/.pulumi/bin/pulumi" in user_data
     assert 'install -m 0755 "$PULUMI_BIN" /usr/bin/pulumi' in user_data
-    assert '(cd "${dir}" && ./svc.sh install actions && ./svc.sh start)' in user_data
-    assert "--ephemeral" in user_data
+    assert "yoke-actions-runner.service" in user_data
+    assert "initial-registration.json" in user_data
+    assert "actions-runner.tar.gz" in user_data
+    assert "svc.sh" not in user_data
     assert "trap bootstrap_failed ERR" in user_data
     assert "cleanup_bootstrap" in user_data
-    assert user_data.index("cleanup_bootstrap\ngithub_broker") < user_data.index(
-        "./svc.sh start"
+    assert user_data.index("cleanup_bootstrap\nsystemctl") < user_data.index(
+        "enable --now yoke-actions-runner.service"
     )
     assert "set-desired-capacity" not in user_data
     assert "GITHUB_BROKER_FUNCTION=runnerFleetGithubBroker.name" in user_data
     assert "GITHUB_WEB_URL=https://github.com" in user_data
-    assert "sudo -u actions bash -c" in user_data
-    assert '--url "$2" --token "$3" --name "$4" --labels "$5"' in user_data
     assert "/etc/yoke-runner-fleet.json" not in user_data
     assert "Environment=GITHUB_BROKER_FUNCTION" not in user_data
     assert "aws lambda invoke" in user_data
     assert "GITHUB_TOKEN" not in user_data
     assert "ssm get-parameter" not in user_data
-
 
 def test_user_data_serializes_broker_actions_as_json(monkeypatch, tmp_path):
     recorder, _stack = _runner_stack(monkeypatch)
@@ -204,8 +201,12 @@ def test_idle_reaper_runs_outside_the_workflow_host(monkeypatch):
 
 def test_user_data_treats_rendered_values_as_data(monkeypatch):
     recorder = _Recorder()
+    host_cycle = _load_template_module(
+        monkeypatch, recorder, "webapp_runner_host_cycle.py",
+    )
     internals = _load_template_module(
         monkeypatch, recorder, "webapp_runner_fleet_internals.py",
+        extra_modules={"webapp_runner_host_cycle": host_cycle},
     )
     args = types.SimpleNamespace(
         deploy_namespace="yoke$(exit 77)",
@@ -232,7 +233,6 @@ def test_user_data_treats_rendered_values_as_data(monkeypatch):
     )
 
     assert result.stdout == "yoke$(exit 77)"
-    assert "sudo -u actions bash -c" in script
     assert "instance_id" in script
 
 

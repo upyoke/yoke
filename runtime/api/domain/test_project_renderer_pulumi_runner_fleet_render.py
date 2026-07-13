@@ -39,6 +39,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     (infra / "webapp_runner_fleet_stack.py").write_text("# runners\n")
     (infra / "webapp_runner_authority_intent.py").write_text("# intent\n")
     (infra / "webapp_runner_fleet_config.py").write_text("# config\n")
+    (infra / "webapp_runner_host_cycle.py").write_text("# host cycle\n")
     (infra / "webapp_runner_fleet_internals.py").write_text("# internals\n")
     (infra / "webapp_runner_fleet_iam.py").write_text("# iam\n")
     (infra / "webapp_runner_fleet_network.py").write_text("# network\n")
@@ -51,6 +52,9 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     (infra / "webapp_runner_aws_state.mjs").write_text("// aws state\n")
     (infra / "webapp_runner_github_api.mjs").write_text("// github api\n")
     (infra / "webapp_runner_github_broker.mjs").write_text("// broker\n")
+    (infra / "webapp_runner_registration.mjs").write_text(
+        "// registration\n"
+    )
     (infra / "webapp_runner_termination.mjs").write_text("// termination\n")
     (infra / "requirements.txt").write_text("pulumi>=3.0.0\n")
     proj = root / "projects" / "buzz"
@@ -110,6 +114,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "webapp_runner_fleet_stack.py",
         "webapp_runner_authority_intent.py",
         "webapp_runner_fleet_config.py",
+        "webapp_runner_host_cycle.py",
         "webapp_runner_fleet_internals.py",
         "webapp_runner_fleet_iam.py",
         "webapp_runner_fleet_network.py",
@@ -119,6 +124,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "webapp_runner_aws_state.mjs",
         "webapp_runner_github_api.mjs",
         "webapp_runner_github_broker.mjs",
+        "webapp_runner_registration.mjs",
         "webapp_runner_termination.mjs",
         "requirements.txt",
         "webapp_github_repository_provider.py",

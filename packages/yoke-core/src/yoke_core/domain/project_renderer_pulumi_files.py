@@ -21,6 +21,7 @@ REGISTRY_PROGRAM_FILES = (
 RUNNER_FLEET_PROGRAM_FILES = (
     "webapp_runner_authority_intent.py",
     "webapp_runner_fleet_config.py",
+    "webapp_runner_host_cycle.py",
     "webapp_runner_fleet_internals.py",
     "webapp_runner_fleet_iam.py",
     "webapp_runner_fleet_network.py",
@@ -30,6 +31,7 @@ RUNNER_FLEET_PROGRAM_FILES = (
     "webapp_runner_aws_state.mjs",
     "webapp_runner_github_api.mjs",
     "webapp_runner_github_broker.mjs",
+    "webapp_runner_registration.mjs",
     "webapp_runner_termination.mjs",
 )
 

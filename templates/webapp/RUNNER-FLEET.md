@@ -83,6 +83,13 @@ rename the nonmatching variable, or follow the base-apply and adoption sequence
 above before any apply that declares the variable.
 Arm and disarm only through the capability plus runner-fleet apply; direct
 variable writes are drift. V1 runs one ephemeral host with DNS and web egress.
+Each GitHub runner registration still accepts exactly one job. After a job, the
+host deletes that runner's work directory and immediately registers a fresh
+ephemeral runner. The host remains available until
+`lifecycle.idle_shutdown_minutes` elapses without another job, then the
+external reaper terminates it and returns the fleet to zero. A failed rearm is
+bounded by the bootstrap retry policy and replaces the host rather than
+silently converting it into a persistent runner.
 Deployment workflows must explicitly list every environment they reach over
 SSH in `network.deployment_ssh_environments`. The renderer resolves each
 selected active environment to its Pulumi stack, and the runner stack consumes

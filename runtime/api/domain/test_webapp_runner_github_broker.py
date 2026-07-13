@@ -92,14 +92,24 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
         const {{ handler }} = await import("./webapp_runner_github_broker.mjs");
         const event = {{ action: "bootstrap", instance_id: "i-0123456789abcdef0" }};
         const bootstrap = await handler(event);
+        let earlyRegister = "";
+        try {{
+          await handler({{
+            action: "register", instance_id: "i-0123456789abcdef0",
+          }});
+        }} catch (error) {{ earlyRegister = error.message; }}
         const ready = await handler({{
           action: "ready", instance_id: "i-0123456789abcdef0",
+        }});
+        const register = await handler({{
+          action: "register", instance_id: "i-0123456789abcdef0",
         }});
         let secondBootstrap = "";
         try {{ await handler(event); }} catch (error) {{ secondBootstrap = error.message; }}
         let reap = "";
         try {{ await handler({{ action: "reap" }}); }} catch (error) {{ reap = error.message; }}
-        console.log(JSON.stringify({{ bootstrap, ready, secondBootstrap, reap, calls,
+        console.log(JSON.stringify({{ bootstrap, earlyRegister, ready, register,
+          secondBootstrap, reap, calls,
           marker: JSON.parse(globalThis.__parameters.get(
             "/fleet/bootstrap/i-0123456789abcdef0")),
         }}));
@@ -112,6 +122,12 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
     assert payload["ready"]["runner_name"] == (
         "yoke-github-actions-i-0123456789abcdef0"
     )
+    assert payload["register"] == {
+        "registration_token": "registration-token",
+    }
+    assert payload["earlyRegister"] == (
+        "runner host is not ready for another registration"
+    )
     assert payload["marker"]["state"] == "ready"
     assert "already consumed" in payload["secondBootstrap"]
     assert payload["reap"] == "unsupported runner broker action"
@@ -120,7 +136,7 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
         call for call in payload["calls"]
         if call["url"].endswith("/access_tokens")
     ]
-    assert len(token_calls) == 2
+    assert len(token_calls) == 3
     for call in token_calls:
         body = json.loads(call["body"])
         permissions = body["permissions"]
@@ -195,7 +211,7 @@ def test_reaper_paginates_before_keeping_a_busy_runner(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
-def test_finished_ephemeral_runner_replaces_host_without_dropping_queue(
+def test_stale_completed_runner_replaces_host_when_rearm_never_returns(
     tmp_path,
 ):
     _write_node_fixture(tmp_path)
@@ -237,7 +253,7 @@ def test_finished_ephemeral_runner_replaces_host_without_dropping_queue(
 
     assert payload["result"] == {
         "action": "replaced",
-        "reason": "ephemeral_runner_finished",
+        "reason": "runner_rearm_failed",
     }
     assert payload["scaled"] is None
     assert payload["terminated"] == {
