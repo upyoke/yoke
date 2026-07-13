@@ -101,8 +101,34 @@ def _backfill_session(conn, session_id: str, record: HookContext) -> None:
     )
 
 
+def _relay_owns_session_authority() -> bool:
+    """True when the active transport is https, so the session row lives on
+    the connected server rather than any local DB.
+
+    Mirrors ``session_lifecycle_client._relay_owns_registration``. The local
+    ``db_backend.connect()`` below is the right authority only when the
+    session row is local (local-postgres transport, or the server process
+    itself running the relayed hook). A defensive guard so a client-side
+    in-process invocation on an https machine can never silently heartbeat a
+    local DB. Any config read failure resolves False so local-transport
+    behavior is untouched.
+    """
+    try:
+        from yoke_core.domain.machine_config import active_connection
+        from yoke_contracts.machine_config.schema import TRANSPORT_HTTPS
+
+        return str(active_connection().get("transport") or "") == TRANSPORT_HTTPS
+    except Exception:  # never break the telemetry heartbeat on config
+        return False
+
+
 def _heartbeat_session(session_id: str, record: HookContext) -> None:
     """Best-effort heartbeat update/backfill. Never raises."""
+    if _relay_owns_session_authority():
+        # https: the session row is server-side. The relay path runs this
+        # heartbeat server-side (where the transport is local-postgres);
+        # a client-side in-process call must not write a local DB.
+        return
     try:
         from yoke_core.domain.sessions import SessionError
         from yoke_core.domain.sessions_lifecycle_registry import heartbeat

@@ -70,14 +70,42 @@ def _resolve_session_id(executor: str) -> str:
     return f"{executor}-{ts}-{uuid.uuid4().hex[:6]}"
 
 
+def _relay_owns_session_authority() -> bool:
+    """True when the active transport is https, so the session row lives
+    on the connected server rather than any local DB.
+
+    Mirrors ``session_lifecycle_client._relay_owns_registration``. On https
+    a local ``harness_sessions`` read targets the wrong authority — it finds
+    no row and degrades to ``detect_model`` after a misleading local read —
+    so the reader skips it and lets ``yoke sessions offer`` re-resolve the
+    canonical model server-side from the row. Any config read failure
+    resolves False so local-transport behavior is untouched.
+    """
+    try:
+        from yoke_core.domain.machine_config import active_connection
+        from yoke_contracts.machine_config.schema import TRANSPORT_HTTPS
+
+        return str(active_connection().get("transport") or "") == TRANSPORT_HTTPS
+    except Exception:  # never break model resolution on config
+        return False
+
+
 def _resolve_model(session_id: str, executor: str) -> str:
     """Resolve the canonical model id for *session_id*.
 
-    Reads ``harness_sessions.model`` first (preserves variant suffix
-    written by SessionStart) and falls back to
+    On a local transport, reads ``harness_sessions.model`` first (preserves
+    the variant suffix written by SessionStart) and falls back to
     ``hook_helpers_model.detect_model`` when no row exists or the stored
     value is a placeholder (``unknown`` / ``default`` / ``auto`` / empty).
+
+    On an https transport the session row is server-side, so the local read
+    would target the wrong authority; the reader skips it and returns the
+    ``detect_model`` best-effort value. ``MODEL=`` is advisory on https —
+    ``yoke sessions offer`` re-resolves the canonical model from the row
+    server-side (see do/loop.md).
     """
+    if _relay_owns_session_authority():
+        return detect_model(executor)
     try:
         conn = connect(resolve_db_path())
     except Exception:
