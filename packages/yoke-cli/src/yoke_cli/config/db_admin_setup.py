@@ -72,12 +72,14 @@ def build_report(
             f"creating {selected_admin_env}"
         )
 
-    secret_path = machine_secrets.secret_path(selected_secret_label, "dsn")
+    superseded_secret_path = machine_secrets.secret_path_no_create(
+        selected_secret_label, "dsn"
+    )
     postgres = _postgres_metadata(env, selected_port)
     authority = _authority_metadata(env)
     plan = {
         "admin_env": selected_admin_env,
-        "secret_path": _path_ref(secret_path),
+        "superseded_secret_path": _path_ref(superseded_secret_path),
         "postgres": postgres,
         "authority": authority,
         "steps": [
@@ -90,12 +92,12 @@ def build_report(
                 "target": env.stack_name,
             },
             {
-                "action": "store-localized-dsn-secret",
-                "target": _path_ref(secret_path),
+                "action": "configure-managed-secret-authority",
+                "target": selected_admin_env,
             },
             {
-                "action": "configure-local-postgres-env",
-                "target": selected_admin_env,
+                "action": "remove-superseded-dsn-snapshot",
+                "target": _path_ref(superseded_secret_path),
             },
         ],
     }
@@ -115,23 +117,24 @@ def build_report(
     if endpoint:
         postgres["tunnel"]["remote_host"] = endpoint
     postgres["tunnel"]["remote_port"] = _dsn_port(dsn)
-    local_dsn = _localize_dsn(dsn, selected_port)
-    written_secret = machine_secrets.store_machine_secret(
-        selected_secret_label, "dsn", local_dsn,
-    )
+    credential_source = _managed_credential_source(env, outputs)
     configured = _write_connection(
         env_name=selected_admin_env,
-        secret_path=written_secret,
+        credential_source=credential_source,
         config_path=config_path,
         postgres=postgres,
         authority=authority,
         set_active_env=set_active_env,
     )
-    report.update({
-        "applied": True,
-        "admin_connection": configured,
-        "message": f"{selected_admin_env} configured",
-    })
+    superseded_removed = machine_config_file.remove_file(superseded_secret_path)
+    report.update(
+        {
+            "applied": True,
+            "admin_connection": configured,
+            "superseded_dsn_snapshot_removed": superseded_removed,
+            "message": f"{selected_admin_env} configured",
+        }
+    )
     return report
 
 
@@ -159,9 +162,7 @@ def render_human(report: Mapping[str, Any]) -> str:
 
 def _resolve_environment(project: str, env_name: str) -> Any:
     try:
-        module = importlib.import_module(
-            "yoke_core.domain.deploy_environment_settings"
-        )
+        module = importlib.import_module("yoke_core.domain.deploy_environment_settings")
     except ModuleNotFoundError as exc:
         raise DbAdminSetupError(
             "db-admin setup requires the yoke-core engine's deploy modules, "
@@ -175,12 +176,12 @@ def _resolve_environment(project: str, env_name: str) -> Any:
 
 
 def _resolve_environment_dsn(
-    env: Any, *, emit: Callable[[str], None] | None,
+    env: Any,
+    *,
+    emit: Callable[[str], None] | None,
 ) -> tuple[str, Mapping[str, Any]]:
     try:
-        deploy_core = importlib.import_module(
-            "yoke_core.domain.deploy_core_container"
-        )
+        deploy_core = importlib.import_module("yoke_core.domain.deploy_core_container")
         deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
     except ModuleNotFoundError as exc:
         raise DbAdminSetupError(
@@ -192,7 +193,10 @@ def _resolve_environment_dsn(
         aws_env = deploy_remote.aws_capability_env(env.project, env.aws_region)
         runner = deploy_remote.CommandRunner()
         return deploy_core.resolve_environment_dsn(
-            runner, env, aws_env, emit=emit or (lambda _line: None),
+            runner,
+            env,
+            aws_env,
+            emit=emit or (lambda _line: None),
         )
     except Exception as exc:  # noqa: BLE001
         raise DbAdminSetupError(
@@ -238,11 +242,6 @@ def _environment_summary(env: Any) -> dict[str, str]:
     }
 
 
-def _localize_dsn(dsn: str, local_port: int) -> str:
-    dsn = re.sub(r"(^|\s)host=\S+", r"\1host=127.0.0.1", dsn, count=1)
-    return re.sub(r"(^|\s)port=\d+", rf"\1port={local_port}", dsn, count=1)
-
-
 def _dsn_port(dsn: str) -> int:
     match = re.search(r"(?:^|\s)port=(\d+)", dsn)
     return int(match.group(1)) if match else 5432
@@ -251,7 +250,7 @@ def _dsn_port(dsn: str) -> int:
 def _write_connection(
     *,
     env_name: str,
-    secret_path: Path,
+    credential_source: Mapping[str, Any],
     config_path: str | Path | None,
     postgres: Mapping[str, Any],
     authority: Mapping[str, Any],
@@ -272,18 +271,12 @@ def _write_connection(
                 entry = {
                     "transport": "local-postgres",
                     contract.PROD_FLAG_KEY: False,
-                    "credential_source": {
-                        "kind": contract.CREDENTIAL_KIND_DSN_FILE,
-                        "path": _path_ref(secret_path),
-                    },
+                    "credential_source": dict(credential_source),
                     "postgres": dict(postgres),
                     "authority": dict(authority),
                 }
                 connections[env_name] = entry
-                if (
-                    set_active_env
-                    or not str(payload.get("active_env") or "").strip()
-                ):
+                if set_active_env or not str(payload.get("active_env") or "").strip():
                     payload["active_env"] = env_name
                 _write_payload(payload, cfg_path)
                 return {
@@ -302,16 +295,43 @@ def _write_connection(
         ) from exc
 
 
+def _managed_credential_source(
+    env: Any,
+    outputs: Mapping[str, Any],
+) -> dict[str, str]:
+    try:
+        authority = importlib.import_module("yoke_core.domain.yoke_cloud_db_authority")
+    except ModuleNotFoundError as exc:
+        raise DbAdminSetupError(
+            "db-admin setup requires the yoke-core cloud database authority "
+            "module, which is not importable here"
+        ) from exc
+    output_name = authority.DEFAULT_SECRET_ARN_OUTPUT
+    secret_arn = str(outputs.get(output_name) or "").strip()
+    if not secret_arn:
+        raise DbAdminSetupError(
+            f"stack {env.stack_name} outputs are missing {output_name}"
+        )
+    return {
+        "kind": contract.CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
+        "secret_arn": secret_arn,
+        "region": str(env.aws_region),
+        "project": str(env.project),
+    }
+
+
 def _write_payload(payload: Mapping[str, Any], cfg_path: Path) -> None:
     errors = [
-        issue for issue in contract.validate_payload(payload)
+        issue
+        for issue in contract.validate_payload(payload)
         if issue.severity == "error"
     ]
     if errors:
         detail = "\n".join(f"  - {issue.code}: {issue.message}" for issue in errors)
         raise DbAdminSetupError(f"refusing to write invalid machine config:\n{detail}")
     machine_config_file.atomic_write_text(
-        cfg_path, json.dumps(payload, indent=2) + "\n",
+        cfg_path,
+        json.dumps(payload, indent=2) + "\n",
     )
 
 

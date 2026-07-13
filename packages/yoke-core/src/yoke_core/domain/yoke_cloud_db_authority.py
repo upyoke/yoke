@@ -35,8 +35,12 @@ class PostgresAuthorityLocation:
         return cls(
             stack=_required_str(value, "stack"),
             database_name=_required_str(value, "database_name"),
-            endpoint_output=str(value.get("endpoint_output") or DEFAULT_ENDPOINT_OUTPUT),
-            secret_arn_output=str(value.get("secret_arn_output") or DEFAULT_SECRET_ARN_OUTPUT),
+            endpoint_output=str(
+                value.get("endpoint_output") or DEFAULT_ENDPOINT_OUTPUT
+            ),
+            secret_arn_output=str(
+                value.get("secret_arn_output") or DEFAULT_SECRET_ARN_OUTPUT
+            ),
             state_backend=_optional_str(value, "state_backend"),
             region=_optional_str(value, "region"),
         )
@@ -120,6 +124,7 @@ def load_secret_string(
     *,
     region: Optional[str] = None,
     env: Optional[Mapping[str, str]] = None,
+    version_stage: Optional[str] = None,
 ) -> str:
     """Read the RDS secret JSON string from AWS Secrets Manager."""
     cmd = [
@@ -135,6 +140,8 @@ def load_secret_string(
     ]
     if region:
         cmd.extend(["--region", region])
+    if version_stage:
+        cmd.extend(["--version-stage", version_stage])
     proc = subprocess.run(
         cmd,
         check=True,
@@ -237,4 +244,3 @@ def _optional_int(mapping: Mapping[str, Any], key: str) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{key} must be an integer when present") from exc
-

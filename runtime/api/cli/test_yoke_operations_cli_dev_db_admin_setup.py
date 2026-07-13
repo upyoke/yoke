@@ -23,7 +23,8 @@ def test_registry_and_inventory_track_dev_db_admin_setup() -> None:
 
 
 def test_dev_db_admin_setup_dry_run_plans_without_resolving_secret(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     from yoke_cli.config import db_admin_setup as config
 
@@ -33,9 +34,16 @@ def test_dev_db_admin_setup_dry_run_plans_without_resolving_secret(
         lambda project, env_name: _env(project=project, env_name=env_name),
     )
 
-    rc = yoke_operations_cli.main([
-        "dev", "db-admin", "setup", "stage", "--dry-run", "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "dev",
+            "db-admin",
+            "setup",
+            "stage",
+            "--dry-run",
+            "--json",
+        ]
+    )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -44,13 +52,15 @@ def test_dev_db_admin_setup_dry_run_plans_without_resolving_secret(
     assert payload["plan"]["admin_env"] == "stage-db-admin"
     assert payload["plan"]["postgres"]["host"] == "127.0.0.1"
     assert payload["plan"]["postgres"]["port"] == 6548
-    assert payload["plan"]["secret_path"].endswith(
+    assert payload["plan"]["superseded_secret_path"].endswith(
         "secrets/yoke-stage-db-admin.dsn"
     )
 
 
-def test_dev_db_admin_setup_apply_writes_localized_secret_and_config(
-    tmp_path: Path, monkeypatch, capsys,
+def test_dev_db_admin_setup_apply_uses_managed_secret_and_removes_snapshot(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
 ) -> None:
     from yoke_cli.config import db_admin_setup as config
 
@@ -61,6 +71,9 @@ def test_dev_db_admin_setup_apply_writes_localized_secret_and_config(
         "host=stage.cluster.internal port=5432 user=yoke_admin "
         "password=top-secret dbname=yoke_stage"
     )
+    secret_path = machine_home / "secrets" / "yoke-stage-db-admin.dsn"
+    secret_path.parent.mkdir(mode=0o700, parents=True)
+    secret_path.write_text("stale-password-snapshot\n", encoding="utf-8")
     monkeypatch.setattr(
         config,
         "_resolve_environment",
@@ -70,16 +83,28 @@ def test_dev_db_admin_setup_apply_writes_localized_secret_and_config(
         config,
         "_resolve_environment_dsn",
         lambda env, emit=None: (
-            dsn, {"databaseClusterEndpoint": "stage.cluster.internal"}
+            dsn,
+            {
+                "databaseClusterEndpoint": "stage.cluster.internal",
+                "databaseSecretArn": (
+                    "arn:aws:secretsmanager:us-east-1:123456789012:secret:yoke-stage"
+                ),
+            },
         ),
     )
 
-    rc = yoke_operations_cli.main([
-        "dev", "db-admin", "setup", "stage",
-        "--config", str(config_path),
-        "--yes",
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "dev",
+            "db-admin",
+            "setup",
+            "stage",
+            "--config",
+            str(config_path),
+            "--yes",
+            "--json",
+        ]
+    )
 
     assert rc == 0
     captured = capsys.readouterr()
@@ -87,18 +112,19 @@ def test_dev_db_admin_setup_apply_writes_localized_secret_and_config(
     assert "top-secret" not in captured.err
     payload = json.loads(captured.out)
     assert payload["applied"] is True
-    secret_path = machine_home / "secrets" / "yoke-stage-db-admin.dsn"
-    assert secret_path.read_text(encoding="utf-8") == (
-        "host=127.0.0.1 port=6548 user=yoke_admin "
-        "password=top-secret dbname=yoke_stage\n"
-    )
+    assert payload["superseded_dsn_snapshot_removed"] is True
+    assert not secret_path.exists()
     config_payload = json.loads(config_path.read_text(encoding="utf-8"))
     entry = config_payload["connections"]["stage-db-admin"]
     assert entry["transport"] == "local-postgres"
     assert entry["prod"] is False
     assert entry["credential_source"] == {
-        "kind": "dsn_file",
-        "path": str(secret_path),
+        "kind": "aws_secrets_manager",
+        "secret_arn": (
+            "arn:aws:secretsmanager:us-east-1:123456789012:secret:yoke-stage"
+        ),
+        "region": "us-east-1",
+        "project": "yoke",
     }
     assert entry["postgres"] == {
         "host": "127.0.0.1",
@@ -125,13 +151,21 @@ def test_dev_db_admin_setup_refuses_render_only(monkeypatch, capsys) -> None:
         config,
         "_resolve_environment",
         lambda project, env_name: _env(
-            project=project, env_name=env_name, activation_state="render_only",
+            project=project,
+            env_name=env_name,
+            activation_state="render_only",
         ),
     )
 
-    rc = yoke_operations_cli.main([
-        "dev", "db-admin", "setup", "stage", "--yes",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "dev",
+            "db-admin",
+            "setup",
+            "stage",
+            "--yes",
+        ]
+    )
 
     assert rc == 1
     err = capsys.readouterr().err

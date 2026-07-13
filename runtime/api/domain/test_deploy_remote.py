@@ -11,6 +11,7 @@ from yoke_core.domain.deploy_remote import (
     CommandResult,
     aws_capability_region,
     aws_capability_env,
+    aws_machine_capability_env,
     ssh_argv,
 )
 
@@ -82,6 +83,38 @@ class TestSshArgv:
 
 
 class TestAwsCapabilityEnv:
+    def test_machine_authority_reads_slugged_files_without_database(self, monkeypatch):
+        reads = []
+
+        def fake_machine_secret(project, cap_type, key):
+            reads.append((project, cap_type, key))
+            return {
+                "access_key_id": "AKIAMACHINE",
+                "secret_access_key": "machine-secret",
+                "session_token": None,
+            }[key]
+
+        monkeypatch.setattr(
+            deploy_remote.capability_machine_secrets,
+            "read_machine_capability_secret",
+            fake_machine_secret,
+        )
+        monkeypatch.setattr(
+            deploy_remote,
+            "cmd_capability_get_secret",
+            lambda *_args: pytest.fail("consulted the selected database"),
+        )
+
+        env = aws_machine_capability_env("yoke", "us-east-1")
+
+        assert env["AWS_ACCESS_KEY_ID"] == "AKIAMACHINE"
+        assert env["AWS_SECRET_ACCESS_KEY"] == "machine-secret"
+        assert {key for _project, _cap_type, key in reads} == {
+            "access_key_id",
+            "secret_access_key",
+            "session_token",
+        }
+
     def test_materializes_capability_secrets_into_env(self, monkeypatch):
         def fake_secret(project, cap_type, key):
             assert project == "yoke"
