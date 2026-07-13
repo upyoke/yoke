@@ -8,6 +8,7 @@ from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
 
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import onboard_wizard_steps as steps
+from yoke_cli.config import writer
 from yoke_cli.config import yoke_token_verify
 from yoke_cli.config.onboard_destinations import ENV_PRODUCTION
 from yoke_cli.config.onboard_wizard_palette import BRAND
@@ -107,21 +108,33 @@ class HostedMachineConnectFlow:
         def _work() -> tuple[
             hosted_machine_authorization.HostedMachineCredential,
             dict[str, Any],
+            str,
         ]:
             credential = hosted_machine_authorization.complete(pending)
             verification = yoke_token_verify.verify(
                 credential.api_url,
                 credential.token,
             )
-            return credential, verification
+            connection = writer.set_connection(
+                credential.org,
+                transport="https",
+                api_url=credential.api_url,
+                token=credential.token,
+                activate=True,
+                path=self.result.config_path,
+            )
+            token_file = str(
+                connection["connection"]["credential_source"]["path"]
+            )
+            return credential, verification, token_file
 
         def _success(value: Any) -> None:
-            credential, verification = value
+            credential, verification, token_file = value
             self.result.env_name = credential.org
             self.result.api_url = credential.api_url
-            self.result.token = credential.token
-            self.result.token_file = None
-            self.result.token_source_kind = "browser"
+            self.result.token = None
+            self.result.token_file = token_file
+            self.result.token_source_kind = "token_file"
             self.result.yoke_token_verification = verification
             self._goto_yoke_verify_success(verification)
 
