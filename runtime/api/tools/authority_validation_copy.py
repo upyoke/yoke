@@ -33,6 +33,19 @@ def _database_identity(dsn: str) -> tuple[str, str, str]:
     return str(row[0]), str(row[1]), str(row[2])
 
 
+def _subprocess_connection(dsn: str) -> tuple[str, dict[str, str]]:
+    """Return password-free conninfo plus a libpq subprocess environment."""
+
+    parameters = psycopg.conninfo.conninfo_to_dict(dsn)
+    password = parameters.pop("password", None)
+    child_env = dict(os.environ)
+    if password:
+        child_env["PGPASSWORD"] = password
+    else:
+        child_env.pop("PGPASSWORD", None)
+    return psycopg.conninfo.make_conninfo(**parameters), child_env
+
+
 def copy_authority_to_validation(validation_dsn: str) -> tuple[str, str]:
     """Replace a distinct validation DB with a dump of the active authority."""
 
@@ -46,6 +59,8 @@ def copy_authority_to_validation(validation_dsn: str) -> tuple[str, str]:
         raise ValidationCopyError(
             "validation database resolves to the authoritative database"
         )
+    authority_arg, authority_env = _subprocess_connection(authority)
+    validation_arg, validation_env = _subprocess_connection(validation)
 
     with tempfile.TemporaryDirectory(prefix="yoke-validation-copy-") as raw_tmp:
         archive = Path(raw_tmp) / "authority.dump"
@@ -57,11 +72,12 @@ def copy_authority_to_validation(validation_dsn: str) -> tuple[str, str]:
                 "--no-privileges",
                 "--file",
                 str(archive),
-                authority,
+                authority_arg,
             ],
             capture_output=True,
             text=True,
             check=False,
+            env=authority_env,
         )
         if (
             dumped.returncode != 0
@@ -80,12 +96,13 @@ def copy_authority_to_validation(validation_dsn: str) -> tuple[str, str]:
                 "--no-owner",
                 "--no-privileges",
                 "--dbname",
-                validation,
+                validation_arg,
                 str(archive),
             ],
             capture_output=True,
             text=True,
             check=False,
+            env=validation_env,
         )
         if restored.returncode != 0:
             raise ValidationCopyError(

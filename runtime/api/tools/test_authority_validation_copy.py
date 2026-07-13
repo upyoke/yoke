@@ -48,10 +48,10 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
             else ("yoke_validation", "local-socket", "5432")
         ),
     )
-    calls: list[list[str]] = []
+    calls: list[tuple[list[str], dict[str, str]]] = []
 
     def fake_run(argv, **_kwargs):
-        calls.append(list(argv))
+        calls.append((list(argv), dict(_kwargs["env"])))
         if argv[0] == "pg_dump":
             archive = Path(argv[argv.index("--file") + 1])
             archive.write_bytes(b"archive")
@@ -62,12 +62,17 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     result = copy_tool.copy_authority_to_validation(validation_dsn)
 
     assert result == ("yoke", "yoke_validation")
-    assert calls[0][0] == "pg_dump"
-    assert calls[1][0] == "pg_restore"
-    assert "--no-owner" in calls[0]
-    assert "--no-privileges" in calls[0]
-    assert "--clean" in calls[1]
-    assert "--if-exists" in calls[1]
-    assert "--exit-on-error" in calls[1]
-    assert validation_dsn in calls[1]
-
+    dump_argv, dump_env = calls[0]
+    restore_argv, restore_env = calls[1]
+    assert dump_argv[0] == "pg_dump"
+    assert restore_argv[0] == "pg_restore"
+    assert "--no-owner" in dump_argv
+    assert "--no-privileges" in dump_argv
+    assert "--clean" in restore_argv
+    assert "--if-exists" in restore_argv
+    assert "--exit-on-error" in restore_argv
+    assert authority_dsn not in dump_argv
+    assert validation_dsn not in restore_argv
+    assert "top-secret" not in " ".join(dump_argv)
+    assert dump_env["PGPASSWORD"] == "top-secret"
+    assert restore_env.get("PGPASSWORD") is None
