@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
@@ -20,6 +21,24 @@ from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT, SelectionList
 
 def test_first_tilde_reaches_new_input_after_view_swap() -> None:
     asyncio.run(_assert_first_tilde_reaches_new_input())
+
+
+def test_plain_glyph_body_accepts_input_focus_handoff() -> None:
+    asyncio.run(_assert_plain_glyph_body_accepts_input_focus_handoff())
+
+
+@pytest.mark.parametrize("character", ["\r", "\n", "\t", "\x1b", "\x7f"])
+def test_control_keys_never_enter_input_handoff(character: str) -> None:
+    app = OnboardWizardApp(
+        defaults=WizardDefaults(),
+        apply_report=lambda _kwargs: {},
+    )
+
+    def unexpected_active_input() -> Input | None:
+        raise AssertionError("control keys must not inspect or mutate active input")
+
+    app._active_input = unexpected_active_input  # type: ignore[method-assign]
+    app.on_key(SimpleNamespace(character=character))
 
 
 def test_screen_term_uses_static_divider(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -70,6 +89,35 @@ async def _assert_first_tilde_reaches_new_input() -> None:
 
         widget = app.query_one("#onboard-input", Input)
         assert widget.value == "~"
+
+
+async def _assert_plain_glyph_body_accepts_input_focus_handoff() -> None:
+    captured: list[str] = []
+    app = OnboardWizardApp(
+        defaults=WizardDefaults(),
+        apply_report=lambda _kwargs: {},
+    )
+    app._plain_glyphs = True
+    async with app.run_test() as pilot:
+        app._goto_input(
+            STEP_PROJECT,
+            "Clone a project from GitHub.",
+            "Paste the public repo's git URL.",
+            placeholder="https://github.com/acme/project.git",
+            on_done=captured.append,
+        )
+        await pilot.pause()
+        app.set_focus(None)
+        await pilot.press("h")
+        await pilot.pause()
+
+        widget = app.query_one("#onboard-input", Input)
+        assert widget.value == "h"
+        assert widget.has_focus
+
+        app.set_focus(None)
+        app._refocus_body()
+        assert widget.has_focus
 
 
 def _static_texts(widgets: list[object]) -> list[str]:
