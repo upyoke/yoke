@@ -425,6 +425,18 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
             " VALUES (88001, 'portable', 'Portable', 'POR', now())"
         )
         source.execute(
+            "UPDATE projects SET breakage_policy='compatibility_required'"
+            " WHERE id=88001"
+        )
+        source.execute(
+            "INSERT INTO items "
+            "(id, title, type, status, priority, created_at, updated_at, "
+            "project_id, project_sequence, resolution, resolution_ref, "
+            "resolution_comment) VALUES "
+            "(88003, 'Closed item', 'issue', 'cancelled', 'medium', now(), now(), "
+            "88001, 1, 'duplicate', 'POR-2', 'Preserve close history')"
+        )
+        source.execute(
             "INSERT INTO designs (id, item_id, slug, body, created_at, updated_at)"
             " VALUES (88002, 88001, 'portable-design', 'trusted body', now(), now())"
         )
@@ -444,6 +456,17 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
                 assert target.execute(
                     "SELECT name FROM projects WHERE id = 88001"
                 ).fetchone() == ("Portable",)
+                assert target.execute(
+                    "SELECT breakage_policy FROM projects WHERE id = 88001"
+                ).fetchone() == ("compatibility_required",)
+                assert target.execute(
+                    "SELECT resolution, resolution_ref, resolution_comment "
+                    "FROM items WHERE id = 88003"
+                ).fetchone() == (
+                    "duplicate",
+                    "POR-2",
+                    "Preserve close history",
+                )
                 assert target.execute(
                     "SELECT body FROM designs WHERE id = 88002"
                 ).fetchone() == ("trusted body",)

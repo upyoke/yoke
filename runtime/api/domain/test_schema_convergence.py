@@ -33,6 +33,9 @@ def _regress_to_pre_additive(conn) -> None:
     """Drop recent additive schema from a fully-born universe to model a
     universe whose last full ``cmd_init`` predates it."""
     conn.execute("ALTER TABLE projects DROP COLUMN IF EXISTS github_sync_mode")
+    conn.execute("ALTER TABLE projects DROP COLUMN IF EXISTS breakage_policy")
+    for name in ("resolution", "resolution_ref", "resolution_comment"):
+        conn.execute(f"ALTER TABLE items DROP COLUMN IF EXISTS {name}")
     conn.execute("ALTER TABLE organizations DROP COLUMN IF EXISTS auto_join_domain")
     for tbl in reversed(_RECENT_ADDITIVE_TABLES):
         conn.execute(f"DROP TABLE IF EXISTS {tbl}")
@@ -54,6 +57,8 @@ def test_converge_adds_missing_columns_and_tables(tmp_path: Path) -> None:
         try:
             _regress_to_pre_additive(conn)
             assert _column_exists(conn, "projects", "github_sync_mode") is False
+            assert _column_exists(conn, "projects", "breakage_policy") is False
+            assert _column_exists(conn, "items", "resolution") is False
             assert _table_exists(conn, "actor_external_identities") is False
             assert _table_exists(conn, "github_app_installations") is False
             assert _table_exists(conn, "project_github_repo_bindings") is False
@@ -61,6 +66,9 @@ def test_converge_adds_missing_columns_and_tables(tmp_path: Path) -> None:
             converge_core_schema(conn)
 
             assert _column_exists(conn, "projects", "github_sync_mode") is True
+            assert _column_exists(conn, "projects", "breakage_policy") is True
+            for name in ("resolution", "resolution_ref", "resolution_comment"):
+                assert _column_exists(conn, "items", name) is True
             assert _column_exists(conn, "organizations", "auto_join_domain") is True
             for tbl in _RECENT_ADDITIVE_TABLES:
                 assert _table_exists(conn, tbl) is True
