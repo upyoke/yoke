@@ -107,6 +107,7 @@ class TestRenderServiceFiles:
         _, nginx, _ = render_service_files(_env(), "img:tag", _BINDING)
         assert "listen 80 default_server;" in nginx
         assert "server_name origin.example.com api.example.com;" in nginx
+        assert "client_max_body_size" in nginx
         assert "proxy_pass http://127.0.0.1:8765;" in nginx
 
     def test_env_file_points_at_managed_secret_never_raw_password(self):
