@@ -48,6 +48,8 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
             else ("yoke_validation", "local-socket", "5432")
         ),
     )
+    resets: list[str] = []
+    monkeypatch.setattr(copy_tool, "_reset_validation_schema", resets.append)
     calls: list[tuple[list[str], dict[str, str]]] = []
 
     def fake_run(argv, **_kwargs):
@@ -68,11 +70,12 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     assert restore_argv[0] == "pg_restore"
     assert "--no-owner" in dump_argv
     assert "--no-privileges" in dump_argv
-    assert "--clean" in restore_argv
-    assert "--if-exists" in restore_argv
+    assert "--clean" not in restore_argv
+    assert "--if-exists" not in restore_argv
     assert "--exit-on-error" in restore_argv
     assert authority_dsn not in dump_argv
     assert validation_dsn not in restore_argv
     assert "top-secret" not in " ".join(dump_argv)
     assert dump_env["PGPASSWORD"] == "top-secret"
     assert restore_env.get("PGPASSWORD") is None
+    assert resets == [validation_dsn]

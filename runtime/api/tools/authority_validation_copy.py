@@ -46,6 +46,14 @@ def _subprocess_connection(dsn: str) -> tuple[str, dict[str, str]]:
     return psycopg.conninfo.make_conninfo(**parameters), child_env
 
 
+def _reset_validation_schema(dsn: str) -> None:
+    """Clear the disposable validation schema without archive drop ordering."""
+
+    with psycopg.connect(dsn) as conn:
+        conn.execute("DROP SCHEMA public CASCADE")
+        conn.execute("CREATE SCHEMA public")
+
+
 def copy_authority_to_validation(validation_dsn: str) -> tuple[str, str]:
     """Replace a distinct validation DB with a dump of the active authority."""
 
@@ -87,11 +95,10 @@ def copy_authority_to_validation(validation_dsn: str) -> tuple[str, str]:
             raise ValidationCopyError(
                 "authority dump failed: " + (dumped.stderr or "unknown error")[-800:]
             )
+        _reset_validation_schema(validation)
         restored = subprocess.run(
             [
                 "pg_restore",
-                "--clean",
-                "--if-exists",
                 "--exit-on-error",
                 "--no-owner",
                 "--no-privileges",
