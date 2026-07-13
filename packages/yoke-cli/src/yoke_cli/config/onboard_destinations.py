@@ -66,6 +66,35 @@ def is_hosted_url(api_url: object) -> bool:
     )
 
 
+def matches_stored_hosted_authority(
+    selected_api_url: object,
+    stored_api_url: object,
+) -> bool:
+    """Whether a hosted selector may reuse one stored tenant authority.
+
+    ``--connect https://app.upyoke.com`` selects the hosted deployment, while
+    the durable machine connection is tenant-scoped under
+    ``/api/orgs/<slug>`` on that same origin.  Treat that pair as the same
+    authority without allowing the selector to cross origins or to collapse
+    the distinct legacy production/stage API hosts.
+    """
+
+    selected = str(selected_api_url or "").strip().rstrip("/")
+    stored = str(stored_api_url or "").strip().rstrip("/")
+    if selected == stored:
+        return bool(selected)
+    if not (is_hosted_url(selected) and is_hosted_url(stored)):
+        return False
+    selected_parts = urllib.parse.urlsplit(selected)
+    stored_parts = urllib.parse.urlsplit(stored)
+    return (
+        selected_parts.scheme == stored_parts.scheme
+        and selected_parts.netloc == stored_parts.netloc
+        and not selected_parts.path
+        and bool(re.fullmatch(r"/api/orgs/[^/]+", stored_parts.path))
+    )
+
+
 def destination_for_api_url(api_url: object) -> str:
     """The destination an explicit API URL implies."""
     return DESTINATION_HOSTED if is_hosted_url(api_url) else DESTINATION_SERVER
@@ -132,5 +161,6 @@ __all__ = [
     "ENV_STAGE",
     "destination_for_api_url",
     "is_hosted_url",
+    "matches_stored_hosted_authority",
     "resolve_choice",
 ]

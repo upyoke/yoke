@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 
 import pytest
 
@@ -8,7 +10,9 @@ pytest.importorskip("textual")
 
 from yoke_cli.config import hosted_machine_authorization  # noqa: E402
 from yoke_cli.config import onboard_destinations  # noqa: E402
+from yoke_cli.config import onboard_wizard_flow_connect  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_hosted_machine  # noqa: E402
+from yoke_cli.config import writer  # noqa: E402
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT, STEP_GITHUB, Stepper  # noqa: E402
 
@@ -42,6 +46,19 @@ def test_org_api_authority_is_hosted_without_trusting_lookalike_origins() -> Non
     assert resolve(connect_url="https://app.upyoke.com.evil.example/api/orgs/acme") == (
         onboard_destinations.DESTINATION_SERVER,
         "https://app.upyoke.com.evil.example/api/orgs/acme",
+    )
+    matches = onboard_destinations.matches_stored_hosted_authority
+    assert matches(
+        "https://app.upyoke.com",
+        "https://app.upyoke.com/api/orgs/acme",
+    )
+    assert not matches(
+        "https://app.upyoke.com.evil.example",
+        "https://app.upyoke.com/api/orgs/acme",
+    )
+    assert not matches(
+        "https://api.stage.upyoke.com",
+        "https://api.upyoke.com",
     )
 
 
@@ -94,7 +111,13 @@ def test_hosted_url_preset_starts_browser_approval_without_token_entry(
     asyncio.run(scenario())
 
 
-def test_hosted_pick_uses_browser_approval_and_selected_org(monkeypatch) -> None:
+def test_hosted_pick_persists_browser_approval_before_project_flow(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    config = home / "config.json"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     pending = hosted_machine_authorization.PendingMachineAuthorization(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
@@ -125,7 +148,7 @@ def test_hosted_pick_uses_browser_approval_and_selected_org(monkeypatch) -> None
             "projects": [{"slug": "demo"}],
         },
     )
-    app, _spy = make_app(WizardDefaults(config_path="/tmp/cfg.json", env_name="prod"))
+    app, _spy = make_app(WizardDefaults(config_path=str(config), env_name="prod"))
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
@@ -140,11 +163,99 @@ def test_hosted_pick_uses_browser_approval_and_selected_org(monkeypatch) -> None
             assert "Yoke token connected." in _body_text(app)
             assert app.result.api_url == "https://app.upyoke.com/api/orgs/acme"
             assert app.result.env_name == "acme"
-            assert app.result.token == "tenant-actor-token"
+            assert app.result.token is None
+            assert app.result.token_source_kind == "token_file"
+            token_file = app.result.token_file
+            assert token_file is not None
+            assert Path(token_file).read_text(encoding="utf-8").strip() == (
+                "tenant-actor-token"
+            )
+            payload = json.loads(config.read_text(encoding="utf-8"))
+            assert payload["active_env"] == "acme"
+            assert payload["connections"]["acme"] == {
+                "transport": "https",
+                "api_url": "https://app.upyoke.com/api/orgs/acme",
+                "credential_source": {
+                    "kind": "token_file",
+                    "path": token_file,
+                },
+            }
             await pilot.press("enter")
             assert app.query_one(Stepper).active == STEP_GITHUB
 
     asyncio.run(scenario())
+
+
+def test_hosted_selector_reuses_persisted_tenant_connection(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    config = home / "config.json"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    writer.set_connection(
+        "acme",
+        transport="https",
+        api_url="https://app.upyoke.com/api/orgs/acme",
+        token="persisted-tenant-actor-token",
+        activate=True,
+        path=config,
+    )
+    monkeypatch.setattr(
+        hosted_machine_authorization,
+        "start",
+        lambda _url: pytest.fail("stored hosted connection started a new code"),
+    )
+    monkeypatch.setattr(
+        onboard_wizard_flow_connect,
+        "verify_yoke_token",
+        lambda api_url, token: {
+            "ok": True,
+            "actor": {"label": "test-actor"},
+            "orgs": [{"name": "Acme"}],
+            "projects": [{"slug": "demo"}],
+            "verified_api_url": api_url,
+            "verified_token": token,
+        },
+    )
+    app, _spy = make_app(
+        WizardDefaults(
+            config_path=str(config),
+            api_url="https://app.upyoke.com",
+            destination=onboard_destinations.DESTINATION_HOSTED,
+        )
+    )
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            await app.workers.wait_for_complete()
+            assert "Yoke token connected." in _body_text(app)
+            assert app.result.env_name == "acme"
+            assert app.result.api_url == "https://app.upyoke.com/api/orgs/acme"
+            assert app.result.token_file == str(home / "secrets" / "acme.token")
+
+    asyncio.run(scenario())
+
+
+def test_browser_connection_write_atomically_activates_existing_env(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    config = home / "config.json"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    writer.set_connection(
+        "first", transport="https", api_url="https://api.upyoke.com",
+        token="yoke_v1_first_secret", path=config,
+    )
+    writer.set_connection(
+        "second", transport="https", api_url="https://api.stage.upyoke.com",
+        token="yoke_v1_second_secret", activate=True, path=config,
+    )
+
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    assert payload["active_env"] == "second"
 
 
 def test_hosted_failure_retries_browser_flow_without_teaching_token_paste(

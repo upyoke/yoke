@@ -30,6 +30,7 @@ from yoke_cli.config.onboard_wizard import (
     default_config_path,
 )
 from yoke_cli.config import onboard_wizard_steps as steps
+from yoke_cli.config.onboard_destinations import matches_stored_hosted_authority as _matches_hosted
 from yoke_cli.config.onboard_wizard_checking import CheckingFlow
 from yoke_cli.config.onboard_wizard_palette import ACCENT, DIM, TEXT
 from yoke_cli.config.onboard_wizard_flow import WizardFlow
@@ -226,7 +227,7 @@ class OnboardWizardApp(
         api_url = str(connection.get("api_url") or "").strip()
         if not api_url:
             return
-        if defaults.api_url and defaults.api_url.strip() != api_url:
+        if defaults.api_url and not _matches_hosted(defaults.api_url, api_url):
             return
         source = connection.get("credential_source")
         if not isinstance(source, dict) or source.get("kind") != "token_file":
@@ -238,8 +239,7 @@ class OnboardWizardApp(
         if not token_path.is_file():
             return
         self.result.env_name = str(connection.get("env") or self.result.env_name)
-        if not self.result.api_url:
-            self.result.api_url = api_url
+        self.result.api_url = api_url
         self.result.token_file = str(token_path)
         self.result.token_source_kind = "token_file"
         self._stored_yoke_token_available = True
