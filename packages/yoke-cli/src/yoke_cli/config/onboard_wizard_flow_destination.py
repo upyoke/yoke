@@ -10,7 +10,7 @@ changes only that lane:
   at Apply by the existing ``local_universe_setup`` machinery, so the
   Account step becomes a universe summary instead of a token prompt.
 * **A team server** collects the server URL, then the API token.
-* **upyoke.com** picks the hosted environment, then the API token.
+* **upyoke.com** picks the hosted environment, then starts browser approval.
 
 PATH, machine GitHub, project, review, apply, and resume stay
 destination-independent; every lane continues in :class:`ConnectFlow` /
@@ -45,14 +45,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # Where should this Yoke live? Every row is a full first-class deployment of
 # the same engine; the hint names what makes each home different.
 DESTINATION_ROWS = [
-    SelectionRow(DESTINATION_LOCAL, "This machine",
-                 "free · no account · stays here"),
-    SelectionRow(DESTINATION_SERVER, "A team server",
-                 "your own Yoke server URL"),
+    SelectionRow(DESTINATION_LOCAL, "This machine", "free · no account · stays here"),
+    SelectionRow(DESTINATION_SERVER, "A team server", "your own Yoke server URL"),
     SelectionRow(DESTINATION_HOSTED, "upyoke.com", "hosted by Yoke"),
 ]
 _DEFAULT_DESTINATION_INDEX = next(
-    index for index, row in enumerate(DESTINATION_ROWS)
+    index
+    for index, row in enumerate(DESTINATION_ROWS)
     if row.value == DEFAULT_DESTINATION
 )
 _STORED_DESTINATION = "stored"
@@ -75,12 +74,21 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     _stored_yoke_token_available: bool
 
     def _goto(self, view: "_View") -> None: ...
-    def _selection_view(self, step, title, subtitle, rows, on_select,
-                        *, initial: int = 0) -> "_View": ...
-    def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
-                    password: bool = False,
-                    allow_placeholder: bool = True,
-                    initial_value: str = "") -> None: ...
+    def _selection_view(
+        self, step, title, subtitle, rows, on_select, *, initial: int = 0
+    ) -> "_View": ...
+    def _goto_input(
+        self,
+        step,
+        title,
+        subtitle,
+        *,
+        placeholder,
+        on_done,
+        password: bool = False,
+        allow_placeholder: bool = True,
+        initial_value: str = "",
+    ) -> None: ...
     def _goto_machine_github(self) -> None: ...
     def _goto_token_source(self) -> None: ...
     def _goto_hosted_env_select(self) -> None: ...
@@ -95,7 +103,8 @@ class DestinationFlow:
             return
         if self._api_url_preset and self.result.api_url:
             self._route_destination(
-                DESTINATION_HOSTED if is_hosted_url(self.result.api_url)
+                DESTINATION_HOSTED
+                if is_hosted_url(self.result.api_url)
                 else DESTINATION_SERVER
             )
             return
@@ -128,7 +137,8 @@ class DestinationFlow:
         from yoke_cli.config.onboard_wizard_app import _View
 
         stored_destination = (
-            DESTINATION_HOSTED if is_hosted_url(self.result.api_url)
+            DESTINATION_HOSTED
+            if is_hosted_url(self.result.api_url)
             else DESTINATION_SERVER
         )
         env = str(self.result.env_name or DEFAULT_SIGN_IN_ENV)
@@ -191,7 +201,8 @@ class DestinationFlow:
     def _route_destination(self: _Shell, choice: str) -> None:
         self.result.destination = choice
         self._account_step_label = ACCOUNT_STEP_LABELS.get(
-            choice, STEP_CONNECT_LABEL,
+            choice,
+            STEP_CONNECT_LABEL,
         )
         if choice == DESTINATION_LOCAL:
             self._prepare_local_result()
@@ -210,10 +221,14 @@ class DestinationFlow:
             self.result.api_url = ""
             self._goto_server_url_input()
             return
-        if is_hosted_url(self.result.api_url):
+        if is_hosted_url(self.result.api_url) and self._stored_yoke_token_available:
+            # A previously browser-approved connection may reuse its owner-only
+            # machine credential. A URL preset such as ``--connect
+            # https://app.upyoke.com`` is not credential authority and must
+            # start a fresh browser approval instead of exposing token entry.
             self._goto_token_source()
             return
-        self.result.api_url = ""
+        self._clear_stored_connection()
         self._goto_hosted_env_select()
 
     # ── local destination: universe setup replaces sign-in ──
@@ -235,17 +250,20 @@ class DestinationFlow:
         state = local_universe_setup.inspect_local_state(self.result.config_path)
         rows = _local_universe_summary_rows(state)
 
-        self._goto(_View(
-            STEP_CONNECT,
-            lambda: steps.verification_body(
-                "Your Yoke lives on this machine.",
-                "Free, no account — everything stays on this computer.",
-                _local_universe_summary_lines(state),
-                rows,
-                ok=state.get("state") != local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE,
-            ),
-            self._on_local_universe_summary,
-        ))
+        self._goto(
+            _View(
+                STEP_CONNECT,
+                lambda: steps.verification_body(
+                    "Your Yoke lives on this machine.",
+                    "Free, no account — everything stays on this computer.",
+                    _local_universe_summary_lines(state),
+                    rows,
+                    ok=state.get("state")
+                    != local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE,
+                ),
+                self._on_local_universe_summary,
+            )
+        )
 
     def _on_local_universe_summary(self: _Shell, choice: str) -> None:
         if choice != "back":
@@ -254,7 +272,7 @@ class DestinationFlow:
         target = getattr(self, "_destination_picker_view", None)
         for index in range(len(self._history) - 1, -1, -1):
             if self._history[index] is target:
-                del self._history[index + 1:]
+                del self._history[index + 1 :]
                 self._render_current()
                 return
         if self._history:
@@ -265,7 +283,8 @@ class DestinationFlow:
 
     def _goto_server_url_input(self: _Shell) -> None:
         self._goto_input(
-            STEP_CONNECT, f"Enter your {BRAND} server URL.",
+            STEP_CONNECT,
+            f"Enter your {BRAND} server URL.",
             "Where your team's Yoke lives — e.g. https://api.mycompany.com.",
             placeholder="https://api.mycompany.com",
             allow_placeholder=False,

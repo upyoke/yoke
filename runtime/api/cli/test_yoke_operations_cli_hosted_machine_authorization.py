@@ -39,12 +39,59 @@ def test_org_api_authority_is_hosted_without_trusting_lookalike_origins() -> Non
         onboard_destinations.DESTINATION_HOSTED,
         "https://app.upyoke.com/api/orgs/acme",
     )
-    assert resolve(
-        connect_url="https://app.upyoke.com.evil.example/api/orgs/acme"
-    ) == (
+    assert resolve(connect_url="https://app.upyoke.com.evil.example/api/orgs/acme") == (
         onboard_destinations.DESTINATION_SERVER,
         "https://app.upyoke.com.evil.example/api/orgs/acme",
     )
+
+
+@pytest.mark.parametrize("preset_token", [None, "legacy-hosted-token"])
+def test_hosted_url_preset_starts_browser_approval_without_token_entry(
+    monkeypatch,
+    preset_token: str | None,
+) -> None:
+    pending = hosted_machine_authorization.PendingMachineAuthorization(
+        platform_url="https://app.upyoke.com",
+        device_code="device-secret",
+        user_code="ABCD-2345",
+        verification_uri="https://app.upyoke.com/machine",
+        verification_uri_complete="https://app.upyoke.com/machine?user_code=ABCD-2345",
+        expires_in=600,
+        interval=2,
+    )
+    starts: list[str] = []
+    monkeypatch.setattr(
+        hosted_machine_authorization,
+        "start",
+        lambda url: starts.append(url) or pending,
+    )
+    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: False)
+    app, _spy = make_app(
+        WizardDefaults(
+            config_path="/tmp/cfg.json",
+            env_name="prod",
+            api_url="https://app.upyoke.com",
+            destination=onboard_destinations.DESTINATION_HOSTED,
+            token=preset_token,
+        )
+    )
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            assert "Which hosted environment should this machine use?" in _body_text(
+                app
+            )
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            body = _body_text(app)
+            assert "Sign in and choose an organization." in body
+            assert "ABCD-2345" in body
+            assert "Provide your Yoke API token" not in body
+            assert app.result.token is None
+            assert starts == ["https://app.upyoke.com"]
+
+    asyncio.run(scenario())
 
 
 def test_hosted_pick_uses_browser_approval_and_selected_org(monkeypatch) -> None:
@@ -114,6 +161,7 @@ def test_hosted_failure_retries_browser_flow_without_teaching_token_paste(
     )
     monkeypatch.setattr(hosted_machine_authorization, "start", lambda _url: pending)
     monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: True)
+
     def fail_complete(_pending) -> None:
         raise hosted_machine_authorization.HostedMachineAuthorizationError(
             "approval expired"

@@ -20,14 +20,19 @@ from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 def add_destination_args(parser: argparse.ArgumentParser) -> None:
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "--local", dest="destination_local", action="store_true",
+        "--local",
+        dest="destination_local",
+        action="store_true",
         help=(
             "host this Yoke on this machine: create or verify the free "
             "local universe (no account, no token)"
         ),
     )
     group.add_argument(
-        "--connect", dest="connect_url", default=None, metavar="URL",
+        "--connect",
+        dest="connect_url",
+        default=None,
+        metavar="URL",
         help="connect this machine to the Yoke server at URL",
     )
 
@@ -51,9 +56,7 @@ def resolve_destination(parsed: argparse.Namespace) -> DestinationChoice:
         destination, destination_api_url = onboard_destinations.resolve_choice(
             local_flag=parsed.destination_local,
             connect_url=parsed.connect_url,
-            override_value=os.environ.get(
-                onboard_destinations.DESTINATION_OVERRIDE
-            ),
+            override_value=os.environ.get(onboard_destinations.DESTINATION_OVERRIDE),
             resumed=getattr(parsed, "destination", None),
         )
     except ValueError as exc:
@@ -67,6 +70,8 @@ def resolve_destination(parsed: argparse.Namespace) -> DestinationChoice:
                 error="--connect URL and --api-url disagree; pass just one",
             )
         parsed.api_url = destination_api_url
+    if destination is None and str(parsed.api_url or "").strip():
+        destination = onboard_destinations.destination_for_api_url(parsed.api_url)
     if destination == onboard_destinations.DESTINATION_LOCAL:
         conflict = _local_destination_conflict(parsed)
         if conflict:
@@ -78,6 +83,27 @@ def resolve_destination(parsed: argparse.Namespace) -> DestinationChoice:
     return DestinationChoice(destination=destination, env_name=env_name)
 
 
+def missing_required_flags(
+    parsed: argparse.Namespace,
+    *,
+    env_name: str,
+    local_destination: bool,
+) -> list[str]:
+    """Return connection flags still required by a nonlocal lane."""
+    if local_destination:
+        return []
+    return [
+        flag
+        for flag, value in (("--env", env_name), ("--api-url", parsed.api_url))
+        if not value
+    ]
+
+
+def token_sources(parsed: argparse.Namespace) -> list[bool]:
+    """Truth values for the mutually exclusive token input surfaces."""
+    return [bool(parsed.token), bool(parsed.token_file), bool(parsed.token_stdin)]
+
+
 def _local_destination_conflict(parsed: argparse.Namespace) -> str | None:
     """Flags that contradict the local destination (which has no sign-in).
 
@@ -85,9 +111,7 @@ def _local_destination_conflict(parsed: argparse.Namespace) -> str | None:
     into the :data:`ENV_OVERRIDE` environment override before the adapter
     runs, so the env conflict is read from both surfaces.
     """
-    explicit_env = str(
-        parsed.env_name or os.environ.get(ENV_OVERRIDE, "")
-    ).strip()
+    explicit_env = str(parsed.env_name or os.environ.get(ENV_OVERRIDE, "")).strip()
     if explicit_env and explicit_env != LOCAL_ENV:
         return (
             f"--local owns the {LOCAL_ENV!r} env label; drop --env "
@@ -96,11 +120,14 @@ def _local_destination_conflict(parsed: argparse.Namespace) -> str | None:
     if str(parsed.api_url or "").strip():
         return "--local runs on this machine; --api-url does not apply"
     if parsed.token or parsed.token_file or parsed.token_stdin:
-        return (
-            "--local needs no API token; the local universe uses a "
-            "machine-local DSN"
-        )
+        return "--local needs no API token; the local universe uses a machine-local DSN"
     return None
 
 
-__all__ = ["DestinationChoice", "add_destination_args", "resolve_destination"]
+__all__ = [
+    "DestinationChoice",
+    "add_destination_args",
+    "missing_required_flags",
+    "resolve_destination",
+    "token_sources",
+]
