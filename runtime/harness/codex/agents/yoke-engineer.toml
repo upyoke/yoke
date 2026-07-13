@@ -69,7 +69,6 @@ These are the exact directory names. Do NOT guess or reconstruct them token-by-t
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
 | `ouroboros/patterns.md` | Ouroboros pattern memory |
 | `items` table | Backlog items (read body via `items get YOK-N body`) |
-| `designs/` | UX specifications (generated views; DB is source of truth) |
 | `docs/` | Project documentation |
 | `.yoke/BOARD.md` | Board (auto-generated) |
 

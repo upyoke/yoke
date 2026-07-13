@@ -38,7 +38,7 @@ class TestDetectAnomalies:
 
     def test_designs_not_generated_view(self):
         """Design docs are no longer a generated-view category."""
-        rec = EventRecord(tool_name="Write", file_path="designs/spec.md")
+        rec = EventRecord(tool_name="Write", file_path="generated/spec.md")
         anomalies = detect_anomalies(rec)
         assert "generated_view_write" not in anomalies
 

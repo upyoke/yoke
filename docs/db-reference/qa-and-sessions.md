@@ -274,21 +274,3 @@ The `service_client.py session-offer` command calls `compute_schedule()` directl
 API: `POST /v1/sessions/offer`. Service client: `python3 service_client.py session-offer --executor E --provider P --workspace W [--lane L] [--session-id S] [--model M]`.
 
 Yoke-owned `/yoke do` callers omit `--model`; the service client resolves the model from `harness_sessions.model` by `session_id` and falls back to `runtime.harness.hook_helpers_model.detect_model()` only when the stored row is absent or placeholder-valued. The optional `--model` flag remains for low-level adapter diagnostics that intentionally need an explicit override.
-
-## Table: designs
-
-Stores design documents (UX specs) linked to backlog items. The DB is the source of truth; `.md` files in `yoke/designs/` are gitignored local generated views via the designs sync-all command. One design per item (UNIQUE constraint on `item_id`).
-
-```sql
-id INTEGER PRIMARY KEY
-item_id INTEGER NOT NULL -- backlog item ID (numeric, e.g., 51 for YOK-N)
-slug TEXT NOT NULL -- filename stem (e.g., "project-awareness")
-body TEXT NOT NULL -- full design document content (Markdown)
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-updated_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-UNIQUE(item_id)
-```
-
-Indexes:
-- `idx_designs_item ON designs(item_id)`
-- `idx_designs_slug ON designs(slug)`

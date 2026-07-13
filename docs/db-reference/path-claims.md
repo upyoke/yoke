@@ -68,7 +68,7 @@ function-call surface.
 
 Scope (v0): the 14 rendered packet outputs for the seven canonical
 agents (7 Claude `.md` + 7 Codex `.toml`). Non-packet generated
-surfaces (BOARD, event-catalog, function inventory, designs) are not
+surfaces (BOARD, event-catalog, and function inventory) are not
 in scope for this slice.
 
 ## Integrity check

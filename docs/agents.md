@@ -42,11 +42,11 @@ Single-pass spec generator. Receives feature description + codebase context + us
 **Tools:** Read, Grep, Glob (no Write, Edit, Bash)
 **Hooks:** PreToolUse(all tools) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=product-designer`, PostToolUseFailure -> observe hook with `agent=product-designer`, SubagentStop -> `yoke_core.domain.agent_stop`
 
-Optional phase. Produces UX spec from item spec + existing UI patterns. Outputs: user flows, screen/component specs, interaction patterns, accessibility requirements, existing patterns to reuse. Recommends skipping for non-UI work. Design output is stored in the `designs` DB table by the invoking design workflow; `.md` files in `yoke/designs/` are generated views.
+Optional phase. Produces UX spec from item spec + existing UI patterns. Outputs: user flows, screen/component specs, interaction patterns, accessibility requirements, existing patterns to reuse. Recommends skipping for non-UI work. The invoking workflow stores design output in the item's `design_spec` structured field.
 
 **Key rules:**
 - Never replace existing rendered item content. If the item's structured spec/design content already contains substantive operator decisions, the Designer must enrich it rather than rewrite from scratch.
-- Output goes to the DB via `designs upsert`, not the filesystem. The invoking command (design SKILL.md) handles the DB write and file sync.
+- Output goes to `items.design_spec`, not the filesystem. The invoking workflow owns the structured-field write.
 
 ## Architect
 

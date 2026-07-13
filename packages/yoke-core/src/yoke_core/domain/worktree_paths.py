@@ -298,7 +298,6 @@ def resolve_named_path(
         "docs": "docs",
         "epics": "epics",
         "ouroboros": "ouroboros",
-        "designs": "designs",
         "backlog": "backlog",
     }
     if mode in content_suffixes:

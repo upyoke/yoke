@@ -31,7 +31,7 @@ class TestDetectAnomalies:
 
     def test_root_data_designs_not_generated_view(self):
         rec = EventRecord(
-            tool_name="Write", file_path="designs/spec.md"
+            tool_name="Write", file_path="generated/spec.md"
         )
         anomalies = detect_anomalies(rec)
         assert "generated_view_write" not in anomalies

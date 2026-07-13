@@ -24,10 +24,8 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import db_backend
-# Re-export shared fixture.
-from runtime.api.test_worktree_db_resolution_test_helpers import (  # noqa: F401
-    fake_repo,
-)
+
+pytest_plugins = ("runtime.api.test_worktree_db_resolution_test_helpers",)
 
 
 class TestUnifiedResolverFromWorktree:
@@ -146,7 +144,6 @@ class TestResolveNamedPathSplit:
                 ("docs", "docs"),
                 ("epics", "epics"),
                 ("ouroboros", "ouroboros"),
-                ("designs", "designs"),
                 ("backlog", "backlog"),
             ]:
                 result = resolve_named_path(mode)

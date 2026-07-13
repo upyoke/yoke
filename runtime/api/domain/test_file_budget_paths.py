@@ -279,11 +279,11 @@ class TestYOK1710ReproductionShape:
         spec = (
             "## File Budget\n\n"
             "- `.gitignore` — remove stale generated-view ignore rule.\n"
-            "- `runtime/api/domain/designs.py` — remove retired command.\n"
+            "- `runtime/api/domain/retired_command.py` — remove retired command.\n"
         )
         paths = extract_file_budget_paths_set(spec)
         assert ".gitignore" in paths
-        assert "runtime/api/domain/designs.py" in paths
+        assert "runtime/api/domain/retired_command.py" in paths
 
 
 class TestYOK1902ReproductionShape:

@@ -51,7 +51,7 @@ mixes rendered targets with hand-authored paths (falls through to the
 normal classifier), overlap on rendered targets whose seed sources
 also overlap (still `INCOMPATIBLE` / `SERIAL_VIA_DEPENDENCY` per the
 existing semantics), and non-packet rendered surfaces (BOARD,
-event-catalog, function inventory, designs — not yet in scope).
+event-catalog, and function inventory — not yet in scope).
 
 ## 1. Classify the overlap (mandatory first step)
 

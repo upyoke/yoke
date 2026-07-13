@@ -22,7 +22,6 @@ from yoke_core.domain.strategy_docs_paths import STRATEGY_DIR_REL
 
 import argparse
 import fnmatch
-import os
 import subprocess
 import sys
 from typing import Iterable, Sequence
@@ -33,7 +32,7 @@ from typing import Iterable, Sequence
 # Project-local board and backlog views are untracked/generated. No
 # classification is needed for untracked files.
 #
-# ouroboros/health/*, ouroboros/wrapups/*, and designs/* are now gitignored
+# ouroboros/health/* and ouroboros/wrapups/* are now gitignored
 # -- no classification needed.
 YOKE_MANAGED_PATTERNS: tuple[str, ...] = (
     "ouroboros/simulation-*.md",
