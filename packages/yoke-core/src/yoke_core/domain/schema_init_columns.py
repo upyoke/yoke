@@ -102,6 +102,10 @@ def apply_additive_schema(conn: Any) -> None:
     # Per-project GitHub sync switch. Authoritative creators write
     # 'backlog_only'; legacy NULL resolves to 'enabled' until explicit repair.
     _add_column_if_not_exists(conn, "projects", "github_sync_mode", "TEXT DEFAULT NULL")
+    # Project-wide governed-migration compatibility posture. Nullable keeps
+    # the founder-cutover fallback for projects created before the policy was
+    # explicit while preserving stored policy during universe portability.
+    _add_column_if_not_exists(conn, "projects", "breakage_policy", "TEXT DEFAULT NULL")
     conn.commit()
 
     # claim-reason / release-intent state (the events ledger is
@@ -151,6 +155,13 @@ def apply_additive_schema(conn: Any) -> None:
     # TEXT to preserve historical source/owner values; readers cast to
     # int at the boundary.
     _add_column_if_not_exists(conn, "items", "owner", "TEXT")
+
+    # Durable item-close outcome. These scalar fields remain part of the live
+    # items read/write contract and must exist on both fresh and fleet-upgraded
+    # universes so portable archives retain cancellation history.
+    _add_column_if_not_exists(conn, "items", "resolution", "TEXT")
+    _add_column_if_not_exists(conn, "items", "resolution_ref", "TEXT")
+    _add_column_if_not_exists(conn, "items", "resolution_comment", "TEXT")
 
     # Add structured columns to items table
     _add_column_if_not_exists(conn, "items", "spec", "TEXT")
