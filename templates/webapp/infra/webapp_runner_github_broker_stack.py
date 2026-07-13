@@ -129,6 +129,9 @@ def _lambda_code() -> pulumi.AssetArchive:
         "webapp_runner_github_api.mjs": pulumi.StringAsset(
             (root / "webapp_runner_github_api.mjs").read_text()
         ),
+        "webapp_runner_registration.mjs": pulumi.StringAsset(
+            (root / "webapp_runner_registration.mjs").read_text()
+        ),
         "webapp_runner_termination.mjs": pulumi.StringAsset(
             (root / "webapp_runner_termination.mjs").read_text()
         ),

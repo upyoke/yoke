@@ -20,6 +20,11 @@ import shlex
 import textwrap
 from typing import TYPE_CHECKING
 
+from webapp_runner_host_cycle import (
+    _runner_cycle_script as _host_runner_cycle_script,
+)
+from webapp_runner_host_cycle import _runner_service_unit
+
 if TYPE_CHECKING:
     from webapp_runner_fleet_config import WebappRunnerFleetArgs
 
@@ -51,6 +56,14 @@ def _user_data(
 ) -> str:
     labels_csv = ",".join(args.runner_labels)
     runner_arch = _runner_arch(args.architecture)
+    cycle_script = base64.b64encode(_host_runner_cycle_script(
+        args=args,
+        region=region,
+        github_broker_function=github_broker_function,
+    ).encode("utf-8")).decode("ascii")
+    service_unit = base64.b64encode(
+        _runner_service_unit().encode("utf-8")
+    ).decode("ascii")
     script = f"""#!/bin/bash
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -151,27 +164,19 @@ if [ -z "${{RUNNER_DOWNLOAD_URL}}" ] || [ "${{RUNNER_DOWNLOAD_URL}}" = "null" ];
   echo "Could not resolve actions runner download URL" >&2
   exit 1
 fi
-dir="/opt/actions-runner/runner"
-mkdir -p "${{dir}}"
-chown -R actions:actions "${{dir}}"
-sudo -u actions bash -c \
-  'cd "$1" && curl -fsSL -o actions-runner.tar.gz "$2" \
-   && tar xzf actions-runner.tar.gz && rm actions-runner.tar.gz' \
-  _ "${{dir}}" "${{RUNNER_DOWNLOAD_URL}}"
-reg_token="$(jq -r '.registration_token // empty' "${{BOOTSTRAP_FILE}}")"
-if [ -z "${{reg_token}}" ]; then
-  echo "Runner bootstrap omitted its registration token" >&2
-  exit 1
-fi
-sudo -u actions bash -c \
-  'cd "$1" && ./config.sh --unattended --replace --ephemeral \
-   --url "$2" --token "$3" --name "$4" --labels "$5" --work _work' \
-  _ "${{dir}}" "${{GITHUB_WEB_URL}}/${{GITHUB_REPO}}" "${{reg_token}}" \
-  "${{HOST_PREFIX}}" "${{RUNNER_LABELS}}"
-unset reg_token
+curl -fsSL -o /opt/actions-runner/actions-runner.tar.gz \
+  "${{RUNNER_DOWNLOAD_URL}}"
+install -m 0600 -o actions -g actions "${{BOOTSTRAP_FILE}}" \
+  /var/lib/yoke-runner-fleet/initial-registration.json
+chown -R actions:actions /opt/actions-runner /var/lib/yoke-runner-fleet
+printf '%s' {shlex.quote(cycle_script)} | base64 -d \
+  >/usr/local/bin/yoke-runner-cycle
+chmod 0755 /usr/local/bin/yoke-runner-cycle
+printf '%s' {shlex.quote(service_unit)} | base64 -d \
+  >/etc/systemd/system/yoke-actions-runner.service
 cleanup_bootstrap
-github_broker ready >/dev/null
-(cd "${{dir}}" && ./svc.sh install actions && ./svc.sh start)
+systemctl daemon-reload
+systemctl enable --now yoke-actions-runner.service
 trap - ERR
 """
     return base64.b64encode(script.encode("utf-8")).decode("ascii")
