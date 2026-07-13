@@ -27,6 +27,10 @@ SESSIONS_CHECKPOINT_USAGE = (
 SESSIONS_CHECKPOINT_READ_USAGE = (
     "yoke sessions checkpoint-read [--session-id S] [--json]"
 )
+SESSIONS_BEGIN_USAGE = (
+    "yoke sessions begin --executor E --provider P --model M --workspace W "
+    "[--project P] [--mode MODE] [--entrypoint E] [--session-id S] [--json]"
+)
 SESSIONS_OFFER_USAGE = (
     "yoke sessions offer --executor E --provider P --workspace W "
     "[--model M] [--lane L] [--step N] [--supported-paths P] "
@@ -124,6 +128,74 @@ def sessions_checkpoint_read(args: List[str]) -> int:
     )
 
 
+def _resolve_begin_project_id(explicit: str | None, workspace: str):
+    """Resolve the numeric project id client-side — never a server round-trip.
+
+    Mirrors the checkout->project resolution the operator-debug
+    ``session-begin`` path uses, but on the CLIENT so the resolved id
+    ships in the dispatch envelope. This keeps the transport-keyed begin
+    correct over https: the remote server never sees the caller's checkout
+    map, so project identity is resolved here and passed as ``project_id``.
+    Returns ``None`` when neither an explicit positive-int project nor a
+    mapped checkout resolves.
+    """
+    if explicit:
+        try:
+            pid = int(explicit)
+        except (TypeError, ValueError):
+            return None
+        return pid if pid > 0 else None
+    try:
+        from pathlib import Path
+
+        from yoke_cli.config import machine_config
+
+        return machine_config.project_id(Path(workspace))
+    except Exception:
+        return None
+
+
+def sessions_begin(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke sessions begin", description=SESSIONS_BEGIN_USAGE,
+    )
+    parser.add_argument("--executor", required=True)
+    parser.add_argument("--provider", required=True)
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--workspace", required=True)
+    parser.add_argument("--project", default=None)
+    parser.add_argument("--mode", default="wait")
+    parser.add_argument("--entrypoint", default=None)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, SESSIONS_BEGIN_USAGE)
+    if parsed is None:
+        return 2
+    project_id = _resolve_begin_project_id(parsed.project, parsed.workspace)
+    if project_id is None:
+        return usage_error(
+            "Session registration requires a project id. Run Yoke setup for "
+            "this checkout or pass --project."
+        )
+    payload: Dict[str, Any] = {
+        "executor": parsed.executor,
+        "provider": parsed.provider,
+        "model": parsed.model,
+        "workspace": parsed.workspace,
+        "project_id": project_id,
+        "mode": parsed.mode,
+    }
+    if parsed.entrypoint is not None:
+        payload["entrypoint"] = parsed.entrypoint
+    return dispatch_and_emit(
+        function_id="sessions.begin",
+        target=TargetRef(kind="global"),
+        payload=payload,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+    )
+
+
 def sessions_offer(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions offer", description=SESSIONS_OFFER_USAGE,
@@ -212,9 +284,10 @@ def charge_schedule(args: List[str]) -> int:
 
 
 __all__ = [
-    "sessions_touch", "sessions_checkpoint", "sessions_checkpoint_read",
+    "sessions_begin", "sessions_touch", "sessions_checkpoint",
+    "sessions_checkpoint_read",
     "sessions_offer", "sessions_ownership_guard", "charge_schedule",
-    "SESSIONS_TOUCH_USAGE", "SESSIONS_CHECKPOINT_USAGE",
+    "SESSIONS_BEGIN_USAGE", "SESSIONS_TOUCH_USAGE", "SESSIONS_CHECKPOINT_USAGE",
     "SESSIONS_CHECKPOINT_READ_USAGE", "SESSIONS_OFFER_USAGE",
     "SESSIONS_OWNERSHIP_GUARD_USAGE", "CHARGE_SCHEDULE_USAGE",
 ]

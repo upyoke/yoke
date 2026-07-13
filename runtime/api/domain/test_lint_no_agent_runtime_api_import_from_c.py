@@ -52,6 +52,16 @@ class TestPositiveTrip(unittest.TestCase):
         self.assertEqual(outcome, "denied")
         self.assertIn("BLOCKED", reason)
 
+    def test_message_clarifies_dash_m_is_not_blocked(self):
+        # The denial message must state it targets only `-c` one-liners so
+        # agents do not read it as banning the sanctioned `-m` bootstrap.
+        cmd = 'python3 -c "from yoke_core.domain.events import emit"'
+        result = _eval(cmd)
+        self.assertIsNotNone(result)
+        _mode, reason, _outcome = result
+        self.assertIn("-m", reason)
+        self.assertIn("session_init", reason)
+
     def test_runtime_harness_import_denies(self):
         cmd = 'python3 -c "from runtime.harness.harness_sessions import x"'
         result = _eval(cmd)

@@ -140,11 +140,22 @@ def _read_max_chain_steps(workspace: str) -> str:
 
 def _session_begin(
     session_id: str, executor: str, provider: str, model: str, workspace: str,
-) -> int:
-    """Idempotent session-begin call. Returns exit code (0 on success)."""
-    result = subprocess.run(
+) -> "subprocess.CompletedProcess[str]":
+    """Idempotent, transport-keyed session-begin.
+
+    Routes through the ``yoke sessions begin`` CLI adapter, which is
+    connection-keyed exactly like ``yoke sessions offer``: an https active
+    connection relays registration to the connected server (so a
+    prod-over-https ``/yoke do`` bootstrap registers on that authority),
+    while a non-prod local-postgres connection dispatches in-process. Output
+    is captured so ``session_init``'s stdout stays strictly ``KEY=VALUE``;
+    the caller forwards the captured stderr on failure so the underlying
+    handler's actionable message (missing project id, ``SessionError``,
+    transport misconfiguration) surfaces instead of a bare exit code.
+    """
+    return subprocess.run(
         [
-            sys.executable, "-m", "yoke_core.api.service_client", "session-begin",
+            sys.executable, "-m", "yoke_cli.main", "sessions", "begin",
             "--session-id", session_id,
             "--executor", executor,
             "--provider", provider,
@@ -153,7 +164,6 @@ def _session_begin(
         ],
         capture_output=True, text=True, timeout=30,
     )
-    return result.returncode
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -209,16 +219,24 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     model = _resolve_model(session_id, executor)
 
     if not ns.skip_begin:
-        rc = _session_begin(
+        completed = _session_begin(
             session_id=session_id, executor=executor, provider=provider,
             model=model, workspace=workspace,
         )
-        if rc != 0:
+        if completed.returncode != 0:
+            # Surface the underlying handler's real message (routed to
+            # stderr; stdout carries the failure JSON on some paths) so the
+            # cause is actionable rather than an opaque exit code.
+            forwarded = (completed.stderr or "").rstrip()
+            if not forwarded:
+                forwarded = (completed.stdout or "").rstrip()
+            if forwarded:
+                print(forwarded, file=sys.stderr)
             print(
-                f"Error: session-begin failed with exit {rc}",
+                f"Error: session-begin failed with exit {completed.returncode}",
                 file=sys.stderr,
             )
-            return rc
+            return completed.returncode
 
     print(f"SESSION_ID={session_id}")
     print(f"WORKSPACE={workspace}")
