@@ -280,7 +280,7 @@ All paths below are repo-relative from the repo root.
 - Backlog state: item content is read via `yoke items get YOK-N body` (virtual rendered field). No `.md` files are generated.
 - Browser: packaged daemon sources in `runtime/browser_runtime/`, materialized to the machine runtime `~/.yoke/browser-runtime/` (node_modules + daemon state live there, never in a repo); Python owners under `runtime/api/domain/browser_*.py` + `browser_runtime_home.py`.
 - Harness adapters: `runtime/harness/{harness-id}/` with manifests plus Python launchers. For Codex, use `python3 -m runtime.harness.codex.codex_entry` and `python3 -m runtime.harness.codex.codex_open_app`.
-- Machine config: `~/.yoke/config.json`. Project-local Yoke surfaces: `.yoke/`. Docs: `docs/`. Designs: `designs/` is a generated local view.
+- Machine config: `~/.yoke/config.json`. Project-local Yoke surfaces: `.yoke/`. Docs: `docs/`. Item design specifications live in `items.design_spec`.
 
 ## Testing
 - The generic runner is the source-dev `python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet.

@@ -84,6 +84,20 @@ lease, backup, baseline verification, module invariant, and audit state
 machinery otherwise runs unchanged. The itemless path never auto-deletes a
 module; source cleanup follows authoritative apply evidence.
 
+For the `external_validation` model, create a separate empty Postgres database,
+set only `YOKE_PG_DSN_VALIDATION` to that target, and hydrate it from the
+selected authority before rehearsal:
+
+```bash
+python3 -m runtime.api.tools.authority_validation_copy
+```
+
+The helper refuses an authority/validation identity match, does not print
+credentials, and replaces the validation database contents with a
+no-owner/no-privileges dump restore. Merely creating an empty validation
+database is insufficient because migration modules rehearse against the
+deployed schema and data shape.
+
 ```bash
 python3 -m yoke_core.domain.migration_apply rehearse-manifest \
   runtime/api/domain/migrations/<name>.migration.json \

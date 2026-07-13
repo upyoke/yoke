@@ -140,7 +140,7 @@ Brief description of the UX approach.
 - **Follow existing patterns.** The codebase already has UI conventions. Match them. Don't introduce new patterns unless the existing ones genuinely can't handle the requirement.
 - **Be specific about states.** Every component has loading, error, empty, and populated states. Specify all of them.
 - **Accessibility is mandatory.** Every interactive element needs keyboard support and screen reader labels.
-- **Output goes to the DB via `designs upsert`, not the filesystem.** The `designs/` directory contains generated views (DB is source of truth). The invoking command handles the DB write — present the final design spec content to the session that invoked you.
+- **Output goes to `items.design_spec`, not the filesystem.** The invoking workflow owns the structured-field write — present the complete design spec content to the session that invoked you.
 - **You cannot write files.** Present the final design spec content to the session that invoked you. The invoking command handles file creation.
 - **Skip this for non-UI work.** If the item spec is for backend, CLI, or infrastructure work, say so and recommend skipping the design phase.
 - **Data access.** You do not have Bash access. Item specs are provided to you as file paths by the invoking command. The source of truth is the DB (`python3 -m yoke_core.cli.db_router`), but the invoking command handles that — you read the generated files it points you to.

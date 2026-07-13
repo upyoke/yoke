@@ -42,7 +42,6 @@ _FLOW_INIT_MODULE = "yoke_core.domain.flow"
 INIT_MODULE_CHAIN: tuple = (
     "yoke_core.domain.schema",
     "yoke_core.domain.shepherd",
-    "yoke_core.domain.designs",
     "yoke_core.domain.projects",
     "yoke_core.domain.project_structure",
     _FLOW_INIT_MODULE,
@@ -64,7 +63,6 @@ INIT_MODULE_CHAIN: tuple = (
 #: generic vocabulary every complete control plane ships.
 _VERIFY_SENTINELS: Dict[str, int] = {
     "items": 0,
-    "designs": 0,
     "projects": 0,
     "sites": 0,
     "environments": 0,

@@ -129,6 +129,13 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.tools.pg_testcluster",
     ): ("source_dev_admin", "explicit disposable Postgres setup branch"),
     (
+        "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
+        "yoke_core.domain.yoke_cloud_db_authority",
+    ): (
+        "source_dev_admin",
+        "explicit managed cloud database credential setup branch",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py",
         "yoke_core.domain.local_universe",
     ): (

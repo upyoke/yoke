@@ -130,13 +130,13 @@ def test_top_level_dotfile_passes_consistency(conn_with_claim):
     spec = (
         "## File Budget\n\n"
         "- `.gitignore` — remove stale generated-view ignore rule.\n"
-        "- `runtime/api/domain/designs.py` — remove retired command.\n"
+        "- `runtime/api/domain/retired_command.py` — remove retired command.\n"
     )
     conn.execute(f"INSERT INTO items (id, spec) VALUES (1, {p})", (spec,))
     conn.execute("INSERT INTO path_claims VALUES (10, 1, 'planned')")
     for tid, path in (
         (1, ".gitignore"),
-        (2, "runtime/api/domain/designs.py"),
+        (2, "runtime/api/domain/retired_command.py"),
     ):
         conn.execute(
             f"INSERT INTO path_targets VALUES ({p}, {p}, 'file')",

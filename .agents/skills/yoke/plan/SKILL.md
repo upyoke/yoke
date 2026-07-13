@@ -124,13 +124,9 @@ yoke sessions touch \
  > - `projects`: `id` (NOT `project_id`/`name`), `repo_path` (NOT `path`/`repo`), `github_repo` (NOT `repo_url`/`github_url`)
 
 5. **Read inputs:**
- - The design spec from the DB (if it exists):
+ - The item's design spec (if it exists):
  ```bash
- _has_design=$(python3 -m yoke_core.cli.db_router designs exists {N})
- if [ "$_has_design" = "true" ]; then
- _design_body=$(python3 -m yoke_core.cli.db_router designs get-body {N})
- # Returns raw body text to stdout — safe for bodies containing pipes
- fi
+ _design_body=$(yoke items get YOK-{N} design_spec)
  ```
  - Contents of `/docs/` for project context
 

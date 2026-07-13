@@ -229,7 +229,6 @@ class TestPathsMain:
             ("docs", "docs"),
             ("epics", "epics"),
             ("ouroboros", "ouroboros"),
-            ("designs", "designs"),
             ("backups", ".yoke/backups"),
         ],
     )

@@ -53,7 +53,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     )
     from yoke_core.domain.worktree_deps import (
         DepInstallSpec,
-        _find_nested,
         detect_deps,
         install_worktree_deps,
         resolve_playwright_cache,
@@ -275,7 +274,7 @@ def main_paths() -> int:
     if not args:
         print("Usage: python3 -m yoke_core.domain.worktree paths <mode> [args]", file=sys.stderr)
         print(
-            "Modes: main, worktree, main-file, yoke-root, db, config, config-example, backlog, board, docs, epics, ouroboros, designs, backups",
+            "Modes: main, worktree, main-file, yoke-root, db, config, config-example, backlog, board, docs, epics, ouroboros, backups",
             file=sys.stderr,
         )
         return 1
@@ -287,7 +286,7 @@ def main_paths() -> int:
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         print(
-            "Modes: main, worktree, main-file, yoke-root, db, config, config-example, backlog, board, docs, epics, ouroboros, designs, backups",
+            "Modes: main, worktree, main-file, yoke-root, db, config, config-example, backlog, board, docs, epics, ouroboros, backups",
             file=sys.stderr,
         )
         return 1

@@ -59,7 +59,7 @@ When this reference changes (a new column, a renamed table, a new wrapper comman
 ## Topic Index
 
 - [items-and-epics.md](db-reference/items-and-epics.md) — `items`, `item_sections`, `shepherd_verdicts`, `caveat_dispositions`, `item_dependencies`, `ouroboros_entries`, `wrapup_reports`, `epic_tasks`, `epic_task_files`, `epic_dispatch_chains`, `item_progress_view`, `epic_progress_notes`. Includes the **Backlog ontology** note (items are flat rows; epic decomposition lives in `epic_tasks` keyed on `(epic_id, task_num)` where `epic_id` is the epic item's own `items.id`), the **DB Claim — unified amendment workflow**, and the `deploy_stage` cache contract.
-- [qa-and-sessions.md](db-reference/qa-and-sessions.md) — `qa_requirements`, `qa_runs`, `qa_artifacts`, `release_entries`, `merge_locks`, `harness_sessions`, `work_claims`, `designs`. Includes session-offer endpoint behavior and chain checkpoint persistence.
+- [qa-and-sessions.md](db-reference/qa-and-sessions.md) — `qa_requirements`, `qa_runs`, `qa_artifacts`, `release_entries`, `merge_locks`, `harness_sessions`, `work_claims`. Includes session-offer endpoint behavior and chain checkpoint persistence.
 - [projects-and-flows.md](db-reference/projects-and-flows.md) — `projects`, the Project Structure aggregate (state/entries/audit), `sites`, `environments`, `project_capabilities`, `capability_secrets`, `capability_templates`, `deployment_flows`. Includes deployment-flow defaulting rules and seed data.
 - [events-and-deployments.md](db-reference/events-and-deployments.md) — `events`, `severity_config`, `event_registry`, `deployment_runs`, `deployment_run_items`, `deployment_run_qa`, `deployment_preview_environments`, `ephemeral_environments`. Includes the branch-naming contract.
 - [qa-cli-and-body-write.md](db-reference/qa-cli-and-body-write.md) — qa domain CLI subcommand reference, the structured-field body write path, error propagation, project-aware GitHub sync, canonical write pattern.
@@ -107,7 +107,6 @@ Adding a new retirement: the governed cutover lands first (authoritative DB no l
 | `items` | `yoke_core.api.service_client_items` / `yoke_core.api.service_client backlog-cli` | Backlog item CRUD and structured-field writes (`spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, `deploy_log`, `browser_qa_metadata`) |
 | `epic` | `yoke_core.domain.epic` | Epic task management |
 | `sections` | `yoke_core.domain.item_sections` | Item sections CRUD (`item_sections` table) |
-| `designs` | `yoke_core.domain.designs` | Design document management |
 | `shepherd` | `yoke_core.domain.shepherd` | Shepherd verdicts and dependency operations |
 | `projects` | `yoke_core.domain.projects` | Projects, sites, environments, capabilities |
 | `flows` | `yoke_core.domain.deployment_flows` | Deployment flow definitions |

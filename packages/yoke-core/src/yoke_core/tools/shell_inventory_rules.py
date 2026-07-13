@@ -98,7 +98,6 @@ DB_WRAPPER_TICKETS = {
     "ouroboros-db.sh": "domain-db-wrapper-retirement",
     "flow-db.sh": "domain-db-wrapper-retirement",
     "backup-db.sh": "domain-db-wrapper-retirement",
-    "designs-db.sh": "domain-db-wrapper-retirement",
     "env-db.sh": "domain-db-wrapper-retirement",
     "harness-sessions-db.sh": "domain-db-wrapper-retirement",
     "release-notes-db.sh": "domain-db-wrapper-retirement",

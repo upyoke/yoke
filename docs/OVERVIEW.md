@@ -120,7 +120,6 @@ AGENTS.md # Project conventions (always loaded; CLAUDE.md is a compat symlink)
 yoke/ # All Yoke state directories
 ├── BOARD.md # Sprint board (auto-generated)
 ├── docs/ # Architecture docs (agents read for cold starts)
-├── designs/ # Design specs (gitignored generated views from designs DB)
 ├── releases/ # Release notes
 ├── context-archive/ # Archived implementation context
 ├── runtime/agents/ # Canonical agent behavior bodies ({agent}.md) — source of truth
@@ -164,7 +163,7 @@ Every trackable item (idea, epic, issue) gets a stable `YOK-N` ID that persists 
 
 ## Key Design Decisions
 
-1. **Persistent state is the source of truth.** Not conversation memory. Operational state lives in the connected Postgres authority: backlog items, epic tasks, dispatch chains, QA requirements/runs/artifacts, progress notes, simulations, designs, deployment flows, deployment runs, structured events, severity config, ouroboros entries. The `.md` files in `yoke/designs/` are generated views. Item body content is a virtual rendered field (read via `yoke items get YOK-N body`). DB access goes through registered `yoke ...` commands or the function-call surface, not through per-item markdown files or constructed file paths. A fresh session can pick up where the last left off.
+1. **Persistent state is the source of truth.** Not conversation memory. Operational state lives in the connected Postgres authority: backlog items and their structured design specifications, epic tasks, dispatch chains, QA requirements/runs/artifacts, progress notes, simulations, deployment flows, deployment runs, structured events, severity config, and ouroboros entries. Item body content is a virtual rendered field (read via `yoke items get YOK-N body`). DB access goes through registered `yoke ...` commands or the function-call surface, not through per-item markdown files or constructed file paths. A fresh session can pick up where the last left off.
 
 2. **Session-aware decomposition.** Tasks are sized to fit in a single harness session. XL (>100k tokens) is never allowed. The Architect splits further if needed.
 

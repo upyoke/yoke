@@ -209,7 +209,6 @@ def _auto_init(repo_root: Path, *, forced: bool = False) -> None:
 
 _DOMAIN_YOK_N_NORMALIZE: Dict[str, Dict[str, int]] = {
     "sections": {"upsert": 0, "get": 0, "list": 0, "delete": 0},
-    "designs":  {"render": 0, "list": 0, "show": 0},
     "runs":     {"start-for-item": 0},
 }
 

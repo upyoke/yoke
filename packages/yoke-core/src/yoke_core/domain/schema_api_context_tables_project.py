@@ -2,7 +2,7 @@
 
 Sibling of :mod:`schema_api_context_tables` (which combines per-topic
 dicts into the canonical ``CANONICAL_TABLES``). Holds the ``project``
-topic entries: project_structure, deployment_flows, deployment_runs,
+topic entries: sites, environments, project_structure, deployment_flows, deployment_runs,
 deployment_run_items, ephemeral_environments, path_snapshots, project_capabilities,
 capability_secrets, migration_audit.
 
@@ -52,6 +52,47 @@ PROJECT_TABLES: dict[str, dict] = {
             "Project-scoped settings do NOT live on a `projects.settings` "
             "column; use `project_structure`, `project_capabilities.settings`, "
             "or environment settings surfaces for those aggregates."
+        ),
+    },
+    "sites": {
+        "columns": [
+            ("id", "TEXT"),
+            ("name", "TEXT"),
+            ("description", "TEXT"),
+            ("created_at", "TEXT"),
+            ("settings", "TEXT"),
+            ("project_id", "INTEGER"),
+        ],
+        "notes": (
+            "Deployable sites belong to projects through numeric "
+            "`sites.project_id = projects.id`. Environment ownership is "
+            "indirect: join `environments.site = sites.id`, then join the "
+            "site to its project. Structured site configuration lives in "
+            "the JSON `settings` column."
+        ),
+    },
+    "environments": {
+        "columns": [
+            ("id", "TEXT"),
+            ("site", "TEXT"),
+            ("name", "TEXT"),
+            ("url", "TEXT"),
+            ("deploy_method", "TEXT"),
+            ("deploy_command", "TEXT"),
+            ("health_check_url", "TEXT"),
+            ("config_notes", "TEXT"),
+            ("last_deployed_at", "TEXT"),
+            ("created_at", "TEXT"),
+            ("settings", "TEXT"),
+        ],
+        "notes": (
+            "Named deployment environments belong to a site through the "
+            "TEXT `site` column. There is NO `project_id` column on this "
+            "table (stale guess). Resolve project ownership with "
+            "`environments.site = sites.id` and "
+            "`sites.project_id = projects.id`. Deployment metadata such as "
+            "git branch, hosts, database, and Pulumi settings lives in the "
+            "JSON `settings` column."
         ),
     },
     "project_structure": {
