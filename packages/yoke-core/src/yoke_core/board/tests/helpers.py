@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from yoke_core.board.db import BoardDB
 from runtime.api.fixtures.file_test_db import connect_test_db
 
@@ -124,6 +126,25 @@ def insert_transition(
             int(item_id), task_num, from_status, to_status, source,
             project_id(project), created_at,
         ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def insert_event(
+    db_path: str,
+    event_name: str,
+    project: object,
+    created_at: str,
+    context: dict,
+) -> None:
+    """Insert one ``events`` row with a JSON envelope carrying *context*."""
+    conn = connect_test_db(db_path)
+    envelope = json.dumps({"event_name": event_name, "context": context})
+    conn.execute(
+        "INSERT INTO events (event_name, project_id, envelope, created_at) "
+        "VALUES (%s, %s, %s, %s)",
+        (event_name, project_id(project), envelope, created_at),
     )
     conn.commit()
     conn.close()

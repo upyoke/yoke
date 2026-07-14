@@ -77,6 +77,27 @@ def test_parity_empty_board(test_db_path, config_file):
     assert fed == direct
 
 
+def test_parity_velocity_meter_strategy_events(populated_db, tmp_path):
+    """The velocity meter's strategy row is sourced from the strategy-doc
+    write-event stream; the query ``collect_board_data`` records must be
+    the one replay serves, else the render raises ``BoardDataMissError``."""
+    from datetime import date
+
+    from yoke_core.board.tests.helpers import insert_event
+
+    cfg = tmp_path / "config"
+    cfg.write_text("dashboard_velocity_meter=true\n")
+    today = date.today().isoformat()
+    insert_event(
+        populated_db, "StrategyDocReplaced", "yoke",
+        f"{today}T09:00:00Z", {"old_bytes": 10, "new_bytes": 3300},
+    )
+    direct = _direct_render(populated_db, "yoke", str(cfg), seed=42)
+    fed = _data_fed_render(populated_db, "yoke", str(cfg), seed=42)
+    assert fed == direct
+    assert "120d strategy" in fed
+
+
 def test_payload_uses_stamped_session_project_identity(populated_db, config_file):
     conn = connect_test_db(populated_db)
     try:
