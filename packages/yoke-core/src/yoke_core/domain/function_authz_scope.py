@@ -101,6 +101,11 @@ _BY_ID: dict[str, AuthzSpec] = {
     # Per-project settings / secrets / metadata — checked against the TARGET
     # project (resolved from the payload), gated by that project's admin.
     "projects.capability_secret.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.capability_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "projects.capability_settings.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.capability_settings.merge": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN,
+    ),
     "projects.capability.has": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.resolve_by_github_repo": AuthzSpec(ACTOR_SESSION, None),
