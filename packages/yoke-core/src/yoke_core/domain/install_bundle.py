@@ -38,8 +38,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.engine_version import (
+    UNRESOLVED_SCM_FALLBACK_VERSION,
+    installed_engine_version,
+)
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
-FALLBACK_VERSION = "0.1.0"
 
 # Server-tree source dirs (relative to the tree root).
 SKILLS_SOURCE = ".agents/skills/yoke"
@@ -78,13 +81,8 @@ class ProjectNotFoundError(InstallBundleError):
 
 
 def yoke_version() -> str:
-    """Installed ``yoke`` package version, or the source-tree fallback."""
-    try:
-        from importlib.metadata import version
-
-        return version("yoke")
-    except Exception:
-        return FALLBACK_VERSION
+    """Installed engine version, or the shared unresolved-source fallback."""
+    return installed_engine_version() or UNRESOLVED_SCM_FALLBACK_VERSION
 
 
 def server_tree_root() -> Path:
