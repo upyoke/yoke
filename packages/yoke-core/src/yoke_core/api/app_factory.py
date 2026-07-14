@@ -16,6 +16,7 @@ from fastapi.routing import APIRouter
 
 from yoke_contracts.engine_version import (
     ENGINE_VERSION_HEADER,
+    UNRESOLVED_SCM_FALLBACK_VERSION,
     advertised_engine_version,
 )
 from yoke_core.api.http_auth import (
@@ -68,9 +69,11 @@ def create_app() -> FastAPI:
         await attest_github_app_runtime_identity_with_hard_deadline()
         yield
 
+    build_sha = os.environ.get("YOKE_BUILD_SHA", "")
+    engine_version = advertised_engine_version(build=build_sha)
     application = FastAPI(
         title="Yoke API",
-        version="0.1.0",
+        version=engine_version or UNRESOLVED_SCM_FALLBACK_VERSION,
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -102,9 +105,6 @@ def create_app() -> FastAPI:
     # Advertised once per process: the engine dist version this server runs.
     # Empty (source run without dist metadata) means "do not advertise";
     # clients treat the absent header as handshake-silent.
-    build_sha = os.environ.get("YOKE_BUILD_SHA", "")
-    engine_version = advertised_engine_version(build=build_sha)
-
     @application.middleware("http")
     async def bearer_token_auth(request, call_next):
         request_id = new_request_id(request.headers)

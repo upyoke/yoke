@@ -36,7 +36,8 @@ and migration_modules=[SLUG].
   aws rds wait db-cluster-snapshot-available --db-cluster-snapshot-identifier "$SNAP"
   echo "backup ready: $SNAP"
 
-  # 2. Provision local validation. Set ONLY YOKE_PG_DSN_VALIDATION.
+  # 2. Provision and hydrate local validation. Set ONLY
+  #    YOKE_PG_DSN_VALIDATION.
   #    Do not eval pg_testcluster env and do not set YOKE_PG_DSN, because
   #    YOKE_PG_DSN is the authoritative/live target selector.
   python3 -m yoke_core.tools.pg_testcluster start >/dev/null
@@ -44,8 +45,10 @@ and migration_modules=[SLUG].
   psql -h "$SOCK" -U yoketest -d postgres -Atc "DROP DATABASE IF EXISTS $VALDB;"
   psql -h "$SOCK" -U yoketest -d postgres -Atc "CREATE DATABASE $VALDB;"
   export YOKE_PG_DSN_VALIDATION="host=$SOCK user=yoketest dbname=$VALDB"
+  python3 -m runtime.api.tools.authority_validation_copy
 
-  # 3. Rehearse against validation while authoritative remains prod.
+  # 3. Rehearse against the restored validation copy while authoritative
+  #    remains unchanged.
   cd "$WT"
   python3 -m yoke_core.domain.migration_apply rehearse "$ITEM" --module-path-override "$MODULE"
 

@@ -192,6 +192,7 @@ from yoke_cli.commands.adapters.templates import (
 )
 from yoke_cli.commands.adapters.sessions import (
     CHARGE_SCHEDULE_USAGE,
+    SESSIONS_BEGIN_USAGE,
     SESSIONS_CHECKPOINT_READ_USAGE,
     SESSIONS_CHECKPOINT_USAGE,
     SESSIONS_OFFER_USAGE,
@@ -231,6 +232,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "path_claims.conflicts.list": PATH_CLAIMS_CONFLICTS_LIST_USAGE,
     "db_claim.amend": DB_CLAIM_AMEND_USAGE,
     "db.read.run": DB_READ_USAGE,
+    "sessions.begin": SESSIONS_BEGIN_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
     "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,

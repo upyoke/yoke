@@ -16,6 +16,17 @@ def test_both_gate_copies_share_default_exception_globs() -> None:
     assert core_gate.TEMPORARY_EXCEPTIONS == harness_gate.TEMPORARY_EXCEPTIONS
 
 
+def test_both_gate_copies_share_tracked_generated_views(
+    tmp_path: pathlib.Path,
+) -> None:
+    for rel in contract.tracked_generated_views():
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("generated\n", encoding="utf-8")
+        assert core_gate.classify_path(rel, repo_root=tmp_path).value == "generated"
+        assert harness_gate.classify_path(rel, repo_root=tmp_path).value == "generated"
+
+
 def test_default_exceptions_are_project_contract_wide_not_yoke_specific() -> None:
     # Rendered strategy views are untracked local renders, so no built-in
     # exception glob exists; project-local additions come from

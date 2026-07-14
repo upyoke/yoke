@@ -30,6 +30,7 @@ from yoke_cli.config.onboard_wizard import (
     default_config_path,
 )
 from yoke_cli.config import onboard_wizard_steps as steps
+from yoke_cli.config.onboard_destinations import matches_stored_hosted_authority as _matches_hosted
 from yoke_cli.config.onboard_wizard_checking import CheckingFlow
 from yoke_cli.config.onboard_wizard_palette import ACCENT, DIM, TEXT
 from yoke_cli.config.onboard_wizard_flow import WizardFlow
@@ -226,7 +227,7 @@ class OnboardWizardApp(
         api_url = str(connection.get("api_url") or "").strip()
         if not api_url:
             return
-        if defaults.api_url and defaults.api_url.strip() != api_url:
+        if defaults.api_url and not _matches_hosted(defaults.api_url, api_url):
             return
         source = connection.get("credential_source")
         if not isinstance(source, dict) or source.get("kind") != "token_file":
@@ -238,8 +239,7 @@ class OnboardWizardApp(
         if not token_path.is_file():
             return
         self.result.env_name = str(connection.get("env") or self.result.env_name)
-        if not self.result.api_url:
-            self.result.api_url = api_url
+        self.result.api_url = api_url
         self.result.token_file = str(token_path)
         self.result.token_source_kind = "token_file"
         self._stored_yoke_token_available = True
@@ -355,12 +355,12 @@ class OnboardWizardApp(
     def _refocus_body(self) -> None:
         """Move focus to the body's first focusable child (SelectionList/Input).
 
-        The body is a non-focusable VerticalScroll, so a click on empty body
-        space would otherwise clear focus off the active list — leaving the
-        highlighted row in place while Enter silently no-ops. Re-running the
-        same focus rule the body uses on mount keeps Enter live after any click.
+        The body is a non-focusable VerticalScroll or plain-glyph Vertical.
+        Empty body space would otherwise clear focus off the active list,
+        leaving the highlighted row while Enter silently no-ops. Re-running
+        the body mount focus rule keeps Enter live after any click.
         """
-        body = self.query_one("#onboard-body", VerticalScroll)
+        body = self.query_one("#onboard-body")
         self._focus_first(list(body.children))
 
     def on_click(self, event: Any) -> None:
@@ -373,7 +373,7 @@ class OnboardWizardApp(
 
     def on_key(self, event: Any) -> None:
         text = str(getattr(event, "character", "") or "")
-        if not text:
+        if not text or not text.isprintable():  # Enter is "\r"; controls stay with widgets
             return
         target = self._active_input()
         if target is not None and not target.has_focus:
@@ -389,7 +389,7 @@ class OnboardWizardApp(
     def _active_input(self) -> Input | None:
         if self._pending_input is None:
             return None
-        body = self.query_one("#onboard-body", VerticalScroll)
+        body = self.query_one("#onboard-body")
         for widget in body.children:
             if isinstance(widget, Input) and not widget.disabled:
                 return widget

@@ -29,9 +29,6 @@ _changed_files=$(git -C "${_worktree_path}" diff --name-only main...HEAD)
 	 Read the authoritative task spec from the DB before validating:
 	 yoke workflow-item epic-task body-get --epic "{_epic_id}" --task-num "{_task_id}"
 
- Scripts directory: {MAIN_ROOT}/.agents/skills/yoke/scripts
- IMPORTANT: Use this absolute path for ALL script calls. Shell variables do NOT persist across Bash tool calls.
-
  Changed files (read these directly from the worktree):
  {_changed_files}
 

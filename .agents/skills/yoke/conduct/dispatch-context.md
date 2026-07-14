@@ -2,8 +2,7 @@
 
 Referenced by the conduct phase files (`entry-activation.md`, `engineer-tester-loop.md`, `simulation-gate.md`). This file covers per-item context preparation (step 5f), prior attempt rehydration (step 5f-rehydrate), Engineer and Tester dispatch (steps 5g-5i), and shared utility steps (5m-5p).
 
-**Inherited from router:** `SCRIPT_DIR`, `MAX_TESTER_REPROMPTS`, and all parsed arguments.
-<!-- $SCRIPT_DIR works here because conduct runs inline (not as a subagent).. -->
+**Inherited from router:** `MAX_TESTER_REPROMPTS` and all parsed arguments.
 
 **Safe-read guidance:** This file and its children total ~1450 lines. **Do NOT read them end-to-end.** Use the section index below with the Read tool's `offset`/`limit` parameters to load only the section you need.
 

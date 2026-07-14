@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import List, Mapping, Optional, Sequence
 
 from yoke_core.domain import json_helper
+from yoke_core.domain import capability_machine_secrets
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote_atomic_file import (
     push_remote_file as push_remote_file,
@@ -35,9 +36,12 @@ from yoke_core.domain.projects_capabilities_settings import (
 )
 
 _SSH_BASE_OPTIONS: Sequence[str] = (
-    "-o", "BatchMode=yes",
-    "-o", "StrictHostKeyChecking=accept-new",
-    "-o", "ConnectTimeout=10",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-o",
+    "ConnectTimeout=10",
 )
 AWS_AMBIENT_AUTH_ENV_VARS: Sequence[str] = (
     "AWS_CONFIG_FILE",
@@ -132,6 +136,83 @@ def aws_capability_env(
     OIDC role); otherwise raises — a naked unauthenticated ``aws`` call is
     never the fallback.
     """
+    if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
+        return _materialize_aws_env(
+            project=project,
+            region=region,
+            capability_type=capability_type,
+            access_key=None,
+            secret_key=None,
+            session_token=None,
+        )
+    access_key = cmd_capability_get_secret(project, capability_type, "access_key_id")
+    secret_key = cmd_capability_get_secret(
+        project, capability_type, "secret_access_key"
+    )
+    session_token = cmd_capability_get_secret(project, capability_type, "session_token")
+    return _materialize_aws_env(
+        project=project,
+        region=region,
+        capability_type=capability_type,
+        access_key=access_key,
+        secret_key=secret_key,
+        session_token=session_token,
+    )
+
+
+def aws_machine_capability_env(
+    project_slug: str,
+    region: str,
+    *,
+    capability_type: str = DEFAULT_AWS_CAPABILITY_TYPE,
+) -> dict[str, str]:
+    """Materialize AWS credentials directly from the machine-local store.
+
+    Unlike :func:`aws_capability_env`, this recovery surface never opens the
+    selected Yoke database merely to resolve a project slug. The caller must
+    therefore provide the canonical slug already recorded in machine config.
+    """
+
+    project = str(project_slug or "").strip()
+    if not project:
+        raise RuntimeError("project slug is required for machine AWS authority")
+    if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
+        return _materialize_aws_env(
+            project=project,
+            region=region,
+            capability_type=capability_type,
+            access_key=None,
+            secret_key=None,
+            session_token=None,
+        )
+    access_key = capability_machine_secrets.read_machine_capability_secret(
+        project, capability_type, "access_key_id"
+    )
+    secret_key = capability_machine_secrets.read_machine_capability_secret(
+        project, capability_type, "secret_access_key"
+    )
+    session_token = capability_machine_secrets.read_machine_capability_secret(
+        project, capability_type, "session_token"
+    )
+    return _materialize_aws_env(
+        project=project,
+        region=region,
+        capability_type=capability_type,
+        access_key=access_key,
+        secret_key=secret_key,
+        session_token=session_token,
+    )
+
+
+def _materialize_aws_env(
+    *,
+    project: str,
+    region: str,
+    capability_type: str,
+    access_key: str | None,
+    secret_key: str | None,
+    session_token: str | None,
+) -> dict[str, str]:
     ambient_access = os.environ.get("AWS_ACCESS_KEY_ID", "").strip()
     ambient_secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "").strip()
     if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
@@ -147,15 +228,6 @@ def aws_capability_env(
         env["AWS_PAGER"] = ""
         return env
 
-    access_key = cmd_capability_get_secret(
-        project, capability_type, "access_key_id"
-    )
-    secret_key = cmd_capability_get_secret(
-        project, capability_type, "secret_access_key"
-    )
-    session_token = cmd_capability_get_secret(
-        project, capability_type, "session_token"
-    )
     if not access_key or not secret_key:
         # No capability-store creds for this project on this machine — e.g. an
         # ephemeral CI runner with no ~/.yoke/secrets. Fall back to ambient
@@ -206,7 +278,8 @@ def ssh_argv(
         )
     return [
         "ssh",
-        "-i", env.ssh_key_path,
+        "-i",
+        env.ssh_key_path,
         *options,
         env.ssh_target,
         remote_command,
@@ -259,10 +332,15 @@ def open_db_tunnel(
     """
     argv = [
         "ssh",
-        "-i", env.ssh_key_path,
+        "-i",
+        env.ssh_key_path,
         *_SSH_BASE_OPTIONS,
-        "-o", "ExitOnForwardFailure=yes",
-        "-N", "-f", "-L", forward_spec,
+        "-o",
+        "ExitOnForwardFailure=yes",
+        "-N",
+        "-f",
+        "-L",
+        forward_spec,
         env.ssh_target,
     ]
     result = runner.run(argv, timeout=timeout)
@@ -280,6 +358,4 @@ def close_db_tunnel(
 
     Best-effort: rc=1 (no match) is fine — the forward may have exited.
     """
-    runner.run(
-        ["pkill", "-f", "--", f"-L {forward_spec}"], timeout=timeout
-    )
+    runner.run(["pkill", "-f", "--", f"-L {forward_spec}"], timeout=timeout)

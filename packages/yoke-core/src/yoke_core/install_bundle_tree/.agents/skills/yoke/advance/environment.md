@@ -4,7 +4,7 @@
 
 Called by the advance router when target is `implementing` and type is not `epic`. Handles ephemeral env setup for browser QA. Skip if target is not `implementing` or type is `epic` (epics use conduct E1-E5).
 
-**Context variables** (set by router/worktree phase): `{N}`, `_type`, `_item_project`, `WORKTREE_PATH`, `SCRIPT_DIR`
+**Context variables** (set by router/worktree phase): `{N}`, `_type`, `_item_project`, `WORKTREE_PATH`
 
 ---
 

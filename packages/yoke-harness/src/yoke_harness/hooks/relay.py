@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import urllib.request
+from typing import Optional
 
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
@@ -92,9 +93,18 @@ def _codex_capture(event_name: str, stdin_data: str, executor: str) -> None:
         return
 
 
-def evaluate_hook_event(event_name: str, *, dry_run: bool = False) -> int:
-    """Evaluate the installed product-local hook subset only."""
-    stdin_data = sys.stdin.read()
+def evaluate_hook_event(
+    event_name: str, *, dry_run: bool = False, stdin_data: Optional[str] = None,
+) -> int:
+    """Evaluate the installed product-local hook subset only.
+
+    ``stdin_data`` lets the caller supply the already-read payload (the CLI
+    adapter reads stdin once so it can also drive the local-universe session
+    lifecycle from the same payload); when ``None`` the payload is read from
+    stdin as before.
+    """
+    if stdin_data is None:
+        stdin_data = sys.stdin.read()
     if dry_run:
         rendered = render_dry_run(event_name, stdin_data)
         if rendered:

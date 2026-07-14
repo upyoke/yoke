@@ -57,7 +57,7 @@ class TestItemsFamilyDerivation:
 
         apply_fixture_ddl(scratch_db, _ITEMS_DDL)
         tables = set(_get_tables(scratch_db))
-        for expected in ("items", "item_dependencies", "designs", "release_entries"):
+        for expected in ("items", "item_dependencies", "release_entries"):
             assert expected in tables, f"_ITEMS_DDL missing {expected!r}"
 
     def test_items_columns_match_canonical(self, scratch_db) -> None:

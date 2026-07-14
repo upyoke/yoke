@@ -2,7 +2,7 @@
 
 Called by the advance router when target is `reviewed-implementation`, `implemented`, or `polishing-implementation`. Runs browser scenario orchestrator and screenshot evaluation. Skip if target is not one of those three statuses.
 
-**Context variables** (set by router): `{N}`, `_item_project`, `SCRIPT_DIR`
+**Context variables** (set by router): `{N}`, `_item_project`
 
 **This gate is re-entrant:** Retrying the same `/yoke advance YOK-{N} <target>` boundary re-executes the orchestrator. A new passing run satisfies the gate.
 

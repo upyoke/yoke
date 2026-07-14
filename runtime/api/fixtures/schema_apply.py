@@ -52,7 +52,6 @@ def apply_canonical_schema(conn) -> None:
     from yoke_core.domain.org_schema import seed_default_org
     from yoke_core.domain.project_seed_test_helpers import seed_project_identities
     from yoke_core.domain.shepherd import cmd_init as shepherd_cmd_init
-    from yoke_core.domain.designs import cmd_init as designs_cmd_init
 
     create_core_tables(conn)
     seed_project_identities(conn)
@@ -69,7 +68,6 @@ def apply_canonical_schema(conn) -> None:
     seed_roles_and_permissions(conn)
     apply_idempotent_migrations(conn)
     shepherd_cmd_init(conn)
-    designs_cmd_init(conn)
     for col, ctype in _ITEMS_LEGACY_COLUMNS:
         if not _column_exists(conn, "items", col):
             conn.execute(f"ALTER TABLE items ADD COLUMN {col} {ctype}")

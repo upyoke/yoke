@@ -35,6 +35,19 @@ from runtime.harness.hook_runner.types import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _pin_local_transport(monkeypatch):
+    # The heartbeat DB-write tests assume the local transport is the
+    # authority; pin the gate so the machine's real https connection (if
+    # any) does not divert _heartbeat_session to its remote-only early
+    # return. The https-skip behavior is asserted explicitly below.
+    from runtime.harness import hook_helpers_heartbeat
+
+    monkeypatch.setattr(
+        hook_helpers_heartbeat, "_relay_owns_session_authority", lambda: False,
+    )
+
+
 @pytest.fixture()
 def base_context():
     return HookContext(
@@ -135,6 +148,19 @@ def test_heartbeat_session_uses_backend_factory():
         conn_factory.side_effect = RuntimeError("no authority")
         hook_helpers_heartbeat._heartbeat_session("abc-123", mock.MagicMock())
     conn_factory.assert_called_once()
+
+
+def test_heartbeat_session_skips_local_write_on_https(monkeypatch):
+    """On https the session row is server-side; a client-side in-process
+    call must not open a local DB connection."""
+    from runtime.harness import hook_helpers_heartbeat
+
+    monkeypatch.setattr(
+        hook_helpers_heartbeat, "_relay_owns_session_authority", lambda: True,
+    )
+    with mock.patch("yoke_core.domain.db_backend.connect") as conn_factory:
+        hook_helpers_heartbeat._heartbeat_session("abc-123", mock.MagicMock())
+    conn_factory.assert_not_called()
 
 
 def test_heartbeat_session_backfills_missing_session(base_context):

@@ -3,8 +3,8 @@
 Proves both sides of the contract:
 - Sibling-state collision detection refuses a new state dir when a sibling
   already contains a live ``yoke.db``.
-- ``guard_state_dir_creation`` blocks state-derived writers
-  (designs, ouroboros) from creating sibling-state dirs.
+- ``guard_state_dir_creation`` blocks state-derived writers from creating
+  sibling-state dirs.
 - browser_qa artifact paths use scratch-backed QA artifact helpers.
 
 Guard-subject sqlite: the raw ``sqlite3.connect`` calls here build the live
@@ -16,13 +16,12 @@ from __future__ import annotations
 
 import os
 import sqlite3
-import tempfile
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
-from yoke_core.domain import browser_qa_requirement, designs, ouroboros
+from yoke_core.domain import browser_qa_requirement, ouroboros
 from yoke_core.domain.schema import (
     _check_sibling_state_collision,
     check_sibling_state_collision,
@@ -145,7 +144,7 @@ class TestGuardStateDirCreation:
         conn.execute("CREATE TABLE test (id INTEGER)")
         conn.close()
 
-        target = tmp_path / "data" / "designs"
+        target = tmp_path / "data" / "generated-artifacts"
         with pytest.raises(RuntimeError, match="my_caller"):
             guard_state_dir_creation(str(target), "my_caller")
 
@@ -182,16 +181,6 @@ class TestGuardedWriterWiring:
         conn = sqlite3.connect(str(sibling / "yoke.db"))
         conn.execute("CREATE TABLE test (id INTEGER)")
         conn.close()
-
-    def test_designs_resolver_raises_on_collision(self, tmp_path: Path):
-        """designs._resolve_designs_dir should reuse the shared collision guard."""
-        self._seed_live_sibling_db(tmp_path)
-        with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(tmp_path / "data" / "yoke.db"),
-        ):
-            with pytest.raises(RuntimeError, match="designs._resolve_designs_dir"):
-                designs._resolve_designs_dir()
 
     def test_ouroboros_resolver_raises_on_collision(self, tmp_path: Path):
         """ouroboros._resolve_wrapups_dir should reuse the shared collision guard."""

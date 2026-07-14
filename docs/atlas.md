@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-12T13:22:35Z_
+_Audit generated_at: 2026-07-13T18:00:27Z_
 
 ## 1. Summary
 
-- Function ids registered: **194**
+- Function ids registered: **195**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **193** (193 carry usable `--help`)
-- Operation tracker: **193 wrapped**, 69 permanent, 0 pending
-- Skill-body recipes: 217 total (179 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **194** (194 carry usable `--help`)
+- Operation tracker: **194 wrapped**, 69 permanent, 0 pending
+- Skill-body recipes: 217 total (180 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **193** (operation tracker confirms 193 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **194** (operation tracker confirms 194 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -159,6 +159,7 @@ Wrapped `yoke <subcommand>` adapters: **193** (operation tracker confirms 193 wr
 | readiness | `yoke readiness repair-claim-coverage` | `readiness.repair_claim_coverage` | ok |
 | readiness | `yoke readiness repair-stale-count` | `readiness.repair_stale_count` | ok |
 | scratch | `yoke scratch dispatch-inputs` | `scratch.dispatch_inputs` | ok |
+| sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
 | sessions | `yoke sessions offer` | `sessions.offer` | ok |

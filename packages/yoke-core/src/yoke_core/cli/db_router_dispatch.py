@@ -19,7 +19,6 @@ from typing import Dict, FrozenSet, List
 _DOMAIN_PY_MODULES: Dict[str, str] = {
     "epic":              "yoke_core.domain.epic",
     "shepherd":          "yoke_core.domain.shepherd",
-    "designs":           "yoke_core.domain.designs",
     "ouroboros":         "yoke_core.domain.ouroboros",
     "projects":          "yoke_core.domain.projects",
     "project-structure": "yoke_core.domain.project_structure",

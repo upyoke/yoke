@@ -216,15 +216,11 @@ If verification passes:
 
 This gate is conditional. The design gate uses a unified heuristic in both standalone and subagent mode (no user interaction).
 
-**Step 1: Existing design check.** Check two locations:
-- **DB (primary):** Query the designs table for an existing design for this item:
+**Step 1: Existing design check.** Read the item's canonical structured field:
  ```bash
- _design_exists=$(python3 -m yoke_core.cli.db_router designs exists $_num)
+ _design_spec=$(yoke items get "YOK-$_num" design_spec)
  ```
- If `_design_exists` prints `true` (exit 0), a design already exists in the DB.
-- **Body (fallback):** Check the item body for an existing `## Design Spec` section.
-
-If either check matches, skip design. Log: `Design gate: SKIP -- design already exists in DB for YOK-{N}` or `Design gate: SKIP -- existing ## Design Spec section found in body`. Persist a SKIPPED pseudo-verdict:
+If `_design_spec` is non-empty, skip design. Log: `Design gate: SKIP -- design already exists for YOK-{N}`. Persist a SKIPPED pseudo-verdict:
 
 ```bash
 yoke shepherd verdict --item "YOK-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "SKIPPED" --caveats "design gate: existing design"

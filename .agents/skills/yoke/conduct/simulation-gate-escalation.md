@@ -2,7 +2,7 @@
 
 Invoked from `simulation-gate-criteria.md` after `_local_result` and `_verified_verdict` are set. Covers CLEAN handoff, GAPS FOUND branch selection, auto-fix invocation, and return handling.
 
-**Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_project`, `_local_result`, `_verified_verdict`, `_simulation_gaps` (Simulator output).
+**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_project`, `_local_result`, `_verified_verdict`, `_simulation_gaps` (Simulator output).
 
 ---
 
@@ -104,7 +104,7 @@ Print halt message. **Go to `cleanup-report.md`** with `HALTED`.
 ##### Branch 3 — Full autofix (CRITICAL gaps or Recommendation ≠ PROCEED)
 
 Read and follow `.agents/skills/yoke/conduct/simulation-autofix.md`. Pass inherited context:
-- `SCRIPT_DIR`, `MAIN_ROOT`
+- `MAIN_ROOT`
 - `_epic_id`, `N` (as `_item_id`), `_worktree_path`, `_worktree_branch`
 - `_simulator_output` = Simulator's raw output from this step
 - `_max_attempts`, `MAX_ARCHITECT_FIX_ITERATIONS`

@@ -61,6 +61,7 @@ def set_connection(
     dsn_file: Optional[str] = None,
     dsn_stdin: bool = False,
     prod: Optional[bool] = None,
+    activate: bool = False,
     replace: bool = False,
     path: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -69,9 +70,10 @@ def set_connection(
     Creating a new entry requires ``transport``; updates merge only the
     provided fields. ``replace=True`` discards any existing entry first
     (``transport`` required again), so no stray keys from a different
-    transport shape survive the rewrite. The first configured connection
-    becomes ``active_env`` (an empty config with a dangling default would
-    fail validation).
+    transport shape survive the rewrite. ``activate=True`` selects the env in
+    the same atomic config write. Otherwise, the first configured connection
+    becomes ``active_env`` (an empty config with a dangling default would fail
+    validation).
     """
     payload, cfg_path = _load_payload(path)
     connections = payload.setdefault("connections", {})
@@ -116,7 +118,7 @@ def set_connection(
         raise MachineConfigWriteError(str(exc)) from exc
     if source:
         entry["credential_source"] = source
-    if not str(payload.get("active_env") or "").strip():
+    if activate or not str(payload.get("active_env") or "").strip():
         payload["active_env"] = env
     _write_payload(payload, cfg_path)
     return {"env": env, "connection": dict(entry),

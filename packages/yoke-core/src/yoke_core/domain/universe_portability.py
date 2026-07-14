@@ -134,8 +134,8 @@ _DUMPED_BY_RE = re.compile(r"^;\s+Dumped by pg_dump version:\s+(.+)$", re.M)
 # trusted schema owns every object and column; this manifest names only
 # previously shipped, lossless schema evolutions that the loader may bridge.
 # Any unlisted table or column drift remains a compatibility error.
-_ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset({"designs"})
-_ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset({"designs_id_seq"})
+_ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset()
+_ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset()
 _ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
     "project_github_repo_bindings": frozenset(
         {"last_sync_at", "last_sync_outcome", "last_sync_error"}
@@ -164,7 +164,6 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "item_dependencies",
     "item_sections",
     "item_status_transitions",
-    "designs",
     "epic_dispatch_chains",
     "epic_progress_notes",
     "epic_task_files",

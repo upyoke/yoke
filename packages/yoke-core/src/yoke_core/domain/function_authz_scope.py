@@ -152,6 +152,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "onboard.checklist.init": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "onboard.checklist.run": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     # Actor/session: the caller operating on its own session/orchestration.
+    "sessions.begin": AuthzSpec(ACTOR_SESSION, None),
     "sessions.touch": AuthzSpec(ACTOR_SESSION, None),
     "sessions.offer": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint": AuthzSpec(ACTOR_SESSION, None),

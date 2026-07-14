@@ -22,7 +22,6 @@ from yoke_core.cli.db_router_dispatch import (
 DOMAIN_TABLE = [
     ("items",            "Backlog item reads and writes"),
     ("epic",             "Epic task management"),
-    ("designs",          "Design document management"),
     ("ouroboros",        "Learning loop entries and wrapups"),
     ("shepherd",         "Verdicts, caveats, and dependencies"),
     ("release",          "Release notes management"),

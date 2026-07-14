@@ -27,14 +27,20 @@ expecting them to survive from this one — they won't.
 **Session-ID resolution:** Downstream session wrappers
 (`session-heartbeat`, `yoke sessions checkpoint`, `yoke sessions checkpoint-read`,
 claim release) resolve the session ID internally from the `YOKE_SESSION_ID`
-environment variable — no explicit `--session-id` needed. Only `session-begin`
-and `yoke sessions offer` pass `--session-id` explicitly (for establishment and
-validation). Set `YOKE_SESSION_ID` in each Bash call's environment using the
-literal value captured from the init output.
+environment variable — no explicit `--session-id` needed. Only the session
+establishment call (`yoke sessions begin`, invoked internally by the init
+wrapper) and `yoke sessions offer` pass `--session-id` explicitly (for
+establishment and validation). Set `YOKE_SESSION_ID` in each Bash call's
+environment using the literal value captured from the init output.
 
 Run `yoke_core.tools.session_init` as a single foreground Bash call. This is internal session-bootstrap plumbing with no registered `yoke` wrapper; run it only inside `/yoke do`.
-The wrapper owns all session identity resolution + the idempotent
-`session-begin` invocation internally. It also resolves the canonical
+The wrapper owns all session identity resolution + the idempotent session
+establishment call internally. Establishment routes through the
+transport-keyed `yoke sessions begin` adapter, which is connection-keyed
+exactly like `yoke sessions offer`: an https active connection relays the
+registration to the connected server (so a prod-over-https bootstrap
+registers on that authority), while a non-prod local-postgres connection
+dispatches in-process. It also resolves the canonical
 model from the session row's model field (see your `harness_sessions`
 packet stanza, preserving any `[variant]` suffix written by SessionStart)
 and falls back to `runtime.harness.hook_helpers_model.detect_model` on a
@@ -57,16 +63,19 @@ The wrapper emits these keys, one per line, in stable order:
 - `MAX_CHAIN_STEPS` — read from machine config (default `3`)
 
 The wrapper exits non-zero if the cwd is not inside a git repository or if
-`session-begin` fails; otherwise exits 0 and the printed values are stable
-for the duration of the `/yoke do` invocation.
+`yoke sessions begin` fails; on failure it forwards the underlying handler's
+actionable message (missing project id, transport misconfiguration,
+`SessionError`) to stderr before the exit-code line. Otherwise it exits 0
+and the printed values are stable for the duration of the `/yoke do`
+invocation.
 
 Run the registered `yoke sessions offer` wrapper to get a `NextAction`. The shared offer path
 emits canonical `HarnessSessionOffered` and `NextActionChosen` events internally --
 the loop does not emit these events directly.
 
 The session MUST already be active before calling `yoke sessions offer` (created by
-the `session-begin` call above). The offer path validates, heartbeats,
-schedules, and claims — it does NOT create sessions.
+the `yoke sessions begin` establishment call above). The offer path validates,
+heartbeats, schedules, and claims — it does NOT create sessions.
 
 This MUST run in the **same Bash call** as the init block above (or substitute
 `{_executor}`, `{_provider}`, `{_lane}`, and `{_workspace}` with literal
@@ -108,7 +117,7 @@ Parse the JSON from stdout **in the prompt context** — do not capture it into 
 ```
 
 `yoke sessions offer` itself does not need `--model` — it resolves the canonical
-model from the session row's model field (same DB row `session-begin`
+model from the session row's model field (same DB row `yoke sessions begin`
 populated above; see your `harness_sessions` packet stanza) with the
 `detect_model` fallback.
 

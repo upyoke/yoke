@@ -1,6 +1,6 @@
 # Conduct — Integration Simulation Gate (S6h)
 
-Integration simulation stage of the conduct epic flow. Runs after all epic tasks reach `done`, `reviewed-implementation`, `merged`, or `completed`. Dispatches the Simulator to verify cross-task integration before handing off to `/yoke polish`. The result is persisted to `qa_runs` (via `yoke workflow-item epic-task simulation-upsert`) so the polish gate can trust the recorded simulation evidence. **Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_SIMULATOR_REPROMPTS`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_project`, `_workspace`.
+Integration simulation stage of the conduct epic flow. Runs after all epic tasks reach `done`, `reviewed-implementation`, `merged`, or `completed`. Dispatches the Simulator to verify cross-task integration before handing off to `/yoke polish`. The result is persisted to `qa_runs` (via `yoke workflow-item epic-task simulation-upsert`) so the polish gate can trust the recorded simulation evidence. **Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_SIMULATOR_REPROMPTS`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_project`, `_workspace`.
 
 ---
 

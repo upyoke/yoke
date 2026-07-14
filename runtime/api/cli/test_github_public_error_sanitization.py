@@ -148,7 +148,7 @@ def test_noninteractive_onboard_sanitizes_user_token_error(
         "--non-interactive",
         "--config", str(tmp_path / "home" / "config.json"),
         "--env", "stage",
-        "--api-url", "https://api.stage.upyoke.com",
+        "--api-url", "https://yoke.example.test",
         "server-token",
         "--yes",
         "--skip-identity-check",

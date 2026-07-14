@@ -10,7 +10,7 @@ overlap on deterministic rendered output.
 Scope (v0): Yoke agent packet outputs emitted by
 :mod:`yoke_core.domain.agents_render` for the canonical ``AGENTS``
 list. Non-packet generated surfaces (BOARD, event-catalog, function
-inventory, designs) are not in scope for this slice.
+inventory) are not in scope for this slice.
 
 Public surface:
 

@@ -307,6 +307,45 @@ def test_managed_secret_invalid_password_refreshes_then_uses_previous(monkeypatc
     ]
 
 
+def test_connected_managed_secret_refreshes_then_uses_previous(monkeypatch):
+    attempts = []
+    monkeypatch.delenv(db_backend.PG_DSN_ENV, raising=False)
+    monkeypatch.delenv(db_backend.PG_DSN_FILE_ENV, raising=False)
+    monkeypatch.delenv(cloud_db_secret_dsn.DB_SECRET_ARN_ENV, raising=False)
+    monkeypatch.setattr(
+        "yoke_core.domain.yoke_connected_env.managed_secret_selected",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.yoke_connected_env.resolve_previous_postgres_dsn",
+        lambda: "dbname=connected-previous",
+    )
+    monkeypatch.setattr(
+        db_backend,
+        "resolve_pg_dsn",
+        lambda: "dbname=connected-refreshed",
+    )
+    monkeypatch.setattr(cloud_db_secret_dsn, "clear_cache", lambda: None)
+
+    def opener(dsn):
+        attempts.append(dsn)
+        if dsn != "dbname=connected-previous":
+            raise psycopg.errors.InvalidPassword("password rejected")
+        return "CONNECTED-PREVIOUS"
+
+    assert (
+        db_backend._open_with_managed_rotation_recovery(
+            opener, "dbname=connected-cached"
+        )
+        == "CONNECTED-PREVIOUS"
+    )
+    assert attempts == [
+        "dbname=connected-cached",
+        "dbname=connected-refreshed",
+        "dbname=connected-previous",
+    ]
+
+
 def test_managed_secret_does_not_fallback_for_other_connection_errors(monkeypatch):
     monkeypatch.delenv(db_backend.PG_DSN_ENV, raising=False)
     monkeypatch.delenv(db_backend.PG_DSN_FILE_ENV, raising=False)

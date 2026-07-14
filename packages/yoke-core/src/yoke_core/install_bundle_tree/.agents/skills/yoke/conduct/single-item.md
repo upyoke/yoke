@@ -1,16 +1,8 @@
 # Single-Item Mode
 
-Invoked by the conduct router when `YOK-N` is provided. This file is a **thin index** — execution is delegated to bounded phase files. **Inherited from router:** `SCRIPT_DIR`, `MAX_TESTER_REPROMPTS`, all parsed arguments. **Cross-references:** `dispatch-context.md` (steps 5m, 5n, 5p), `error-handling.md` (halt conditions).
+Invoked by the conduct router when `YOK-N` is provided. This file is a **thin index** — execution is delegated to bounded phase files. **Inherited from router:** `MAX_TESTER_REPROMPTS` and all parsed arguments. **Cross-references:** `dispatch-context.md` (steps 5m, 5n, 5p), `error-handling.md` (halt conditions).
 
 When invoked with `YOK-N`, conduct operates on a single backlog item.
-
-> **Conduct Shell Reminder:** Every Bash tool call is a **fresh shell**. Variables
-> like `$SCRIPT_DIR` set in one Bash call do NOT exist in the next. In long sessions with many
-> subagent dispatches, it is easy to forget this and paste literal `$SCRIPT_DIR` into a Bash
-> call — which resolves to empty string, producing `/python3 -m yoke_core.cli.db_router`. Critical verdict-processing
-> commands below use inline `SCRIPT_DIR="$(git rev-parse --show-toplevel)/.agents/skills/yoke/scripts"`
-> as a safety net. When writing any new Bash call, always define SCRIPT_DIR inline or use the
-> absolute path from MAIN_ROOT.
 
 ## Phase Files
 

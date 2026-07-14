@@ -8,6 +8,7 @@ from pathlib import Path
 DEFAULT_LIMIT = 350
 FILE_LINE_LIMIT_KEY = "file_line_limit"
 PROJECT_EXCEPTIONS_REL = ".yoke/file-line-exceptions"
+TRACKED_GENERATED_VIEWS: tuple[str, ...] = ("docs/atlas.md",)
 
 # Rendered strategy views are untracked local renders (gitignored via the
 # seeded contract), so they never enter authored-file enforcement and no
@@ -24,6 +25,10 @@ class FileLinePolicy:
 
 def default_exception_globs() -> tuple[str, ...]:
     return DEFAULT_EXCEPTION_GLOBS
+
+
+def tracked_generated_views() -> tuple[str, ...]:
+    return TRACKED_GENERATED_VIEWS
 
 
 def project_limit(repo_root: Path | str) -> int:
@@ -61,8 +66,10 @@ __all__ = (
     "FILE_LINE_LIMIT_KEY",
     "FileLinePolicy",
     "PROJECT_EXCEPTIONS_REL",
+    "TRACKED_GENERATED_VIEWS",
     "default_exception_globs",
     "project_exception_globs",
     "project_limit",
     "resolve_file_line_policy",
+    "tracked_generated_views",
 )

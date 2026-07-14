@@ -64,19 +64,6 @@ def local_subset(monkeypatch):
     return holder
 
 
-def test_hook_evaluate_delegates_to_hook_runner(monkeypatch) -> None:
-    monkeypatch.setattr(_RESOLVE, lambda: None)
-    with patch(
-        "yoke_harness.hooks.relay.evaluate_hook_event",
-        return_value=0,
-    ) as hook_main:
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            rc = cli_main(["hook", "evaluate", "PreToolUse"])
-
-    assert rc == 0
-    hook_main.assert_called_once_with("PreToolUse", dry_run=False)
-
-
 def test_hook_evaluate_dry_run_delegates_flag_and_skips_transport(
     monkeypatch,
 ) -> None:

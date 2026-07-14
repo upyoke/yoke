@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 from runtime.api.fixtures import pg_testdb
+from yoke_cli.transport.response_limits import BUNDLE_JSON_RESPONSE_LIMIT_BYTES
 from yoke_core.domain import install_bundle, install_bundle_tree_sync
 
 
@@ -132,46 +134,44 @@ def test_pyproject_package_data_covers_every_source_dir() -> None:
         )
 
 
-def test_full_skill_suite_duplicated_under_both_harness_dirs(conn) -> None:
+def test_full_skill_suite_has_canonical_and_harness_copies(conn) -> None:
     bundle = install_bundle.build_bundle(1, conn)
-
+    assert len(json.dumps(bundle).encode("utf-8")) < BUNDLE_JSON_RESPONSE_LIMIT_BYTES
     by_path = {e["path"]: e["content"] for e in bundle["files"]}
-    claude_skills = sorted(
-        p for p in by_path if p.startswith(".claude/skills/yoke/")
-    )
-    codex_skills = sorted(
-        p for p in by_path if p.startswith(".codex/skills/yoke/")
-    )
-    assert claude_skills, "bundle must carry skill files"
-    # Every Claude skill file has a byte-identical Codex twin.
-    assert [p.replace(".claude/", ".codex/", 1) for p in claude_skills] == (
-        codex_skills
-    )
-    for p in claude_skills:
-        assert by_path[p] == by_path[p.replace(".claude/", ".codex/", 1)]
-
-    # The FULL lifecycle suite ships — a managed project must be able to run
-    # every command, not only onboarding.
-    rels = {p[len(".claude/skills/yoke/"):] for p in claude_skills}
-    assert "SKILL.md" in rels
-    assert "onboard-project/SKILL.md" in rels
-    for lifecycle in (
-        "conduct/SKILL.md",
-        "shepherd/SKILL.md",
-        "usher/SKILL.md",
-        "refine/SKILL.md",
-        "advance/SKILL.md",
-    ):
-        assert lifecycle in rels, f"managed projects need {lifecycle}"
-
-    # Parity with the canonical source skill tree (every file, no omissions).
+    prefixes = {
+        "canonical": ".agents/skills/yoke/",
+        "claude": ".claude/skills/yoke/",
+        "codex": ".codex/skills/yoke/",
+    }
+    skills = {
+        name: sorted(p for p in by_path if p.startswith(prefix))
+        for name, prefix in prefixes.items()
+    }
+    canonical_skills = skills["canonical"]
+    assert canonical_skills, "bundle must carry canonical skill files"
+    canonical_rels = [p.removeprefix(prefixes["canonical"]) for p in canonical_skills]
+    for harness in ("claude", "codex"):
+        expected = [f"{prefixes[harness]}{rel}" for rel in canonical_rels]
+        assert expected == skills[harness]
+    for canonical_path, rel in zip(canonical_skills, canonical_rels):
+        for harness in ("claude", "codex"):
+            assert by_path[canonical_path] == by_path[f"{prefixes[harness]}{rel}"]
+    rels = set(canonical_rels)
     source = install_bundle.server_tree_root() / install_bundle.SKILLS_SOURCE
     source_rels = {
-        p.relative_to(source).as_posix()
-        for p in source.rglob("*")
-        if p.is_file()
+        p.relative_to(source).as_posix() for p in source.rglob("*") if p.is_file()
     }
     assert rels == source_rels
+    skill_ref = r"\.agents/skills/yoke/[A-Za-z0-9_./-]+\.md"
+    referenced = {
+        ref
+        for path in canonical_skills
+        for ref in re.findall(skill_ref, by_path[path])
+    }
+    assert sorted(referenced - set(by_path)) == []
+    shipped_skill_text = "\n".join(by_path[path] for path in canonical_skills)
+    assert ".agents/skills/yoke/scripts" not in shipped_skill_text
+    assert "SCRIPT_DIR" not in shipped_skill_text
 
 
 def test_server_tree_root_honors_declared_env_override(

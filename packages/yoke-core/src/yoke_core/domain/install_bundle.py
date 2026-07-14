@@ -6,10 +6,10 @@ deterministically from the server's OWN code tree plus the ``projects`` row.
 The bundle carries:
 
 * **Skills** — the full Yoke skill tree copied verbatim from
-  ``.agents/skills/yoke/`` into both harness skill dirs
-  (``.claude/skills/yoke/<rel>`` and ``.codex/skills/yoke/<rel>``), so a
-  managed project can run every lifecycle command (``/yoke conduct``,
-  ``/yoke shepherd``, ``/yoke usher`` …), not only ``/yoke onboard-project``.
+  ``.agents/skills/yoke/`` into that same canonical project path plus both
+  harness discovery dirs (``.claude/skills/yoke/<rel>`` and
+  ``.codex/skills/yoke/<rel>``). Skill-to-skill references therefore resolve
+  identically in the Yoke source repo and every installed managed project.
 * **Agent adapters** — the rendered subagent bodies the lifecycle dispatch
   needs: ``.claude/agents/yoke-*.md`` (plus the ``references/`` tree) and
   ``.codex/agents/yoke-*.toml``, copied from the server tree's committed
@@ -38,8 +38,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.engine_version import (
+    UNRESOLVED_SCM_FALLBACK_VERSION,
+    installed_engine_version,
+)
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
-FALLBACK_VERSION = "0.1.0"
 
 # Server-tree source dirs (relative to the tree root).
 SKILLS_SOURCE = ".agents/skills/yoke"
@@ -61,6 +64,7 @@ INSTALL_BUNDLE_SOURCE_DIRS = (
 )
 
 # Project-repo destination dirs.
+CANONICAL_SKILLS_DEST = SKILLS_SOURCE
 CLAUDE_SKILLS_DEST = ".claude/skills/yoke"
 CODEX_SKILLS_DEST = ".codex/skills/yoke"
 CLAUDE_AGENTS_DEST = ".claude/agents"
@@ -77,13 +81,8 @@ class ProjectNotFoundError(InstallBundleError):
 
 
 def yoke_version() -> str:
-    """Installed ``yoke`` package version, or the source-tree fallback."""
-    try:
-        from importlib.metadata import version
-
-        return version("yoke")
-    except Exception:
-        return FALLBACK_VERSION
+    """Installed engine version, or the shared unresolved-source fallback."""
+    return installed_engine_version() or UNRESOLVED_SCM_FALLBACK_VERSION
 
 
 def server_tree_root() -> Path:
@@ -145,12 +144,13 @@ def _read_text(path: Path) -> Optional[str]:
 
 
 def _skill_files(root: Path) -> List[Dict[str, str]]:
-    """The full Yoke skill tree, duplicated verbatim under both harness dirs.
+    """Emit the full skill tree under its canonical and discovery paths.
 
     Every file under ``.agents/skills/yoke/`` is emitted as a real file entry
-    at both ``.claude/skills/yoke/<rel>`` and ``.codex/skills/yoke/<rel>`` (the
-    harnesses do not diverge at the skill layer; field-note/generated blocks
-    are already rendered in the source bytes, so the copy is verbatim).
+    at the same canonical path and at both harness discovery paths. The three
+    copies are byte-identical: the canonical copy makes absolute intra-skill
+    references portable, while the harness copies make the root skill
+    discoverable without relying on symlink support in installed projects.
     """
     source = root / SKILLS_SOURCE
     if not source.is_dir():
@@ -165,6 +165,9 @@ def _skill_files(root: Path) -> List[Dict[str, str]]:
                 f"skill source is missing or non-text: {path}"
             )
         rel = path.relative_to(source).as_posix()
+        files.append(
+            {"path": f"{CANONICAL_SKILLS_DEST}/{rel}", "content": content}
+        )
         files.append({"path": f"{CLAUDE_SKILLS_DEST}/{rel}", "content": content})
         files.append({"path": f"{CODEX_SKILLS_DEST}/{rel}", "content": content})
     return files
