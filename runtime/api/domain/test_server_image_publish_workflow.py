@@ -139,6 +139,11 @@ def test_build_uses_exact_tag_version_and_pushes_only_by_digest():
     assert 'sha_tag="${source_sha:0:12}"' in build
     assert 'echo "sha_ref=$repository:$sha_tag"' in build
     assert 'echo "latest_ref=$repository:latest"' in build
+    assert "Verify installed release metadata from the pushed image" in build
+    assert 'image_ref="$REPOSITORY@$PUSHED_DIGEST"' in build
+    assert 'version("yoke-core")' in build
+    assert '"$actual_version" != "$EXPECTED_VERSION"' in build
+    assert '"$actual_build" != "$EXPECTED_BUILD"' in build
 
 
 def test_digest_is_attested_before_any_named_reference_is_published():

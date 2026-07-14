@@ -295,7 +295,7 @@ def exec_core_container_deploy(
         try:
             wait_container_healthy(runner, env, f"{env.deploy_namespace}-core", emit)
             request_id = str(uuid.uuid4())
-            verify_origin_health(runner, env, request_id, emit)
+            verify_origin_health(runner, env, request_id, tag, emit)
         except RemoteConvergenceError:
             # The swap completed but a health gate failed: one bounded
             # rollback to the pre-swap image, then the original failure

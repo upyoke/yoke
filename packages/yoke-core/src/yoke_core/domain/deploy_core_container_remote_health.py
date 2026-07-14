@@ -62,9 +62,10 @@ def verify_origin_health(
     runner: CommandRunner,
     env: DeployEnvironment,
     request_id: str,
+    expected_build: str,
     emit: Callable[[str], None],
 ) -> None:
-    """Assert nginx health, request-id propagation, and schema readiness."""
+    """Assert request routing, schema readiness, and exact release identity."""
     check = run_remote(
         runner,
         env,
@@ -97,7 +98,23 @@ def verify_origin_health(
         raise RemoteConvergenceError(
             "[core-deploy] origin health did not report schema_ready=true" + detail
         )
-    emit(f"  [core-deploy] origin health ok (request-id {request_id} echoed)")
+    served_build = payload.get("build")
+    engine_version = payload.get("engine_version")
+    if (
+        served_build != expected_build
+        or not isinstance(engine_version, str)
+        or not engine_version
+    ):
+        raise RemoteConvergenceError(
+            "[core-deploy] origin health release identity mismatch: "
+            f"build={served_build!r} engine_version={engine_version!r}, "
+            f"expected build={expected_build!r} with a non-empty engine version"
+        )
+    emit(
+        "  [core-deploy] origin health ok "
+        f"(request-id {request_id} echoed, build {served_build}, "
+        f"engine {engine_version})"
+    )
 
 
 def _http_body(raw: str) -> str:
