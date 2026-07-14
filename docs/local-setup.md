@@ -109,7 +109,9 @@ yoke universe export --out ~/backups/universe.dump
 yoke self-host import ~/backups/universe.dump --dir /path/to/fresh/yoke-server
 ```
 
-The artifact is a pg_dump custom-format archive (compressed,
+Validate archives before moving or uploading them; bounded and disposable
+round-trip recipes are in [Universe portability](universe-portability.md). The
+artifact is a pg_dump custom-format archive (compressed,
 `pg_restore --list`-able). Export requires holding the database DSN, so
 it is sanctioned for the non-prod local universe: an https (hosted or
 self-hosted) connection refuses with guidance, and prod-flagged Postgres
@@ -167,10 +169,8 @@ diagnostic to run after setup or when a project command cannot resolve context.
 
 ### 4. Optional Machine GitHub Connection
 
-Connect the Yoke GitHub App when this machine should run GitHub product
-commands. Local Yoke bundles the public identity of **Yoke by upyoke.com**, so
-the default command opens device authorization and discovers accessible App
-installations and repositories without App flags.
+Connect a GitHub App only for GitHub product commands; backlog-only local use needs
+none. Use optional **Yoke by upyoke.com** or provide a complete five-field profile.
 
 ```bash
 yoke github connect

@@ -250,6 +250,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # client-local file operation gated on DSN possession, not a
     # dispatcher function id.
     _p("yoke universe export", "local_universe.export", REASON_TOOL_SHAPED),
+    _p("yoke universe validate", "local_universe.validate", REASON_TOOL_SHAPED),
     # Self-host mode: bundle materialization writes compose files on the
     # caller's machine; connect verifies a server then writes machine
     # config + a token secret file. Both run before/without an active

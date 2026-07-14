@@ -47,7 +47,6 @@ _CI_KEYS = {
 _RUNNER_FLEET_KEYS = {
     "runner_fleet_aws_capability", "runner_fleet_aws_region",
     "runner_fleet_github_capability",
-    "runner_fleet_github_app_environment",
     "runner_fleet_repo", "runner_fleet_labels_json",
     "runner_fleet_variable_name", "runner_fleet_routing_enabled",
     "runner_fleet_github_repo_owner", "runner_fleet_github_repo_name",
@@ -214,7 +213,7 @@ class TestGatherPulumiValues:
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert len(result) == 68
+        assert len(result) == 67
         assert result["vps_iam_instance_profile_name"] == "buzz-origin-profile"
         assert result["origin_id"] == "buzzinfraDistributionOrigin18BAD744B"
         assert result["distribution_bucket_name"] == "buzz-distribution-prod"

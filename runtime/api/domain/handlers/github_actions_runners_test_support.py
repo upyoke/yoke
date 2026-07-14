@@ -33,27 +33,25 @@ _APP_SECRET_ARN = (
 )
 
 
+def _runner_app(
+    *, api_url: str = "https://api.github.com",
+) -> dict[str, str]:
+    return {
+        "issuer": "Iv1.runner-fleet",
+        "api_url": api_url,
+        "private_key_secret_arn": _APP_SECRET_ARN,
+    }
+
+
 def _renderer_settings(
     *,
     runner_settings: dict[str, Any] | None = None,
     github_permissions: dict[str, str] | None = None,
-    environment_settings: dict[str, Any] | None = None,
 ) -> ProjectRendererSettings:
-    selected_environment_settings = (
-        {
-            "github_app": {
-                "issuer": "Iv1.runner-fleet",
-                "api_url": "https://api.github.com",
-                "private_key_secret_arn": _APP_SECRET_ARN,
-            },
-        }
-        if environment_settings is None
-        else environment_settings
-    )
     environment = RendererEnvironmentSettings(
         id="yoke-api-stage",
         name="stage",
-        settings=selected_environment_settings,
+        settings={},
     )
     return ProjectRendererSettings(
         project="yoke",
@@ -85,7 +83,7 @@ def _renderer_settings(
                 {
                     "repo": "upyoke/yoke",
                     "github_capability": "github",
-                    "github_app_environment": "yoke-api-stage",
+                    "github_app": _runner_app(),
                     "routing_enabled": True,
                 }
                 if runner_settings is None
@@ -166,7 +164,7 @@ def _configure_runner_capability(
     settings = {
         "repo": "upyoke/yoke",
         "github_capability": "github",
-        "github_app_environment": "yoke-api-stage",
+        "github_app": _runner_app(),
         "routing_enabled": routing_enabled,
     }
     monkeypatch.setattr(

@@ -2,9 +2,9 @@
 
 The optional runner fleet is privileged and fail-safe. Its capability must
 explicitly select the canonical `github` binding and an exact
-`github_app_environment`; no product-binding, primary, prod, or stage fallback
-is inferred. The environment must carry `settings.github_app` on the binding's
-API origin. The installation needs `administration: write`,
+`github_app`; no product-binding, primary, prod, or stage fallback
+is inferred. The capability-owned App must use the binding's API origin. The
+installation needs `administration: write`,
 `repository_hooks: write`, and `actions_variables: write`; Variables write is
 also required while disabling routing so Pulumi can delete its variable.
 

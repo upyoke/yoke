@@ -20,16 +20,21 @@ not currently store a GitHub user authorization on an actor. A Yoke actor token
 signs the machine into Yoke; the GitHub App user authorization separately lets
 the local CLI prove a GitHub user identity and perform local repository work.
 
-For a local universe, the CLI contains the non-secret public identity of
-**Yoke by upyoke.com**, so the normal command needs no App flags:
+GitHub integration is optional. A local universe running backlog-only installs
+no App and grants upyoke no repository access. For users who choose GitHub
+automation, the CLI contains the non-secret public identity of **Yoke by
+upyoke.com**, so the convenience path needs no App flags:
 
 ```bash
 yoke github connect
 yoke github status
 ```
 
-An operator intentionally using another App for a local universe may supply a
-complete public profile. An HTTPS hosted or team-server connection instead uses
+Installing an upyoke-owned App is a real trust boundary: even though device
+authorization and API calls travel directly between the local CLI and GitHub,
+the App owner retains App authority over repositories selected in GitHub. A
+local or self-host operator who does not want that trust relationship supplies
+their own complete App profile. An HTTPS hosted or team-server connection uses
 the complete public profile advertised by that service and ignores ambient App
 metadata.
 

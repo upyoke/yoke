@@ -100,7 +100,7 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         "Requires github and aws-admin.",
         '[{"key":"repo","description":"GitHub repo slug owner/name","secret":false},'
         '{"key":"github_capability","description":"Explicit canonical GitHub binding selector","secret":false},'
-        '{"key":"github_app_environment","description":"Environment holding the GitHub App deployment identity","secret":false},'
+        '{"key":"github_app","description":"Operator GitHub App issuer, API origin, and private-key secret ARN","secret":false},'
         '{"key":"runner_labels","description":"Required runs-on labels","secret":false},'
         '{"key":"variable_name","description":"Actions variable holding the runs-on array","secret":false},'
         '{"key":"routing_enabled","description":"Reconcile the self-hosted Actions route","secret":false},'

@@ -18,6 +18,8 @@ ACTOR_TABLES: dict[str, dict] = {
             "component name when kind is system-attributed. Human-readable "
             "names live in actor_labels as surface-specific projections: "
             "display for generic actor views, github_label for GitHub sync."
+            " actors has NO org_id column; resolve an actor's organization "
+            "membership through actor_org_roles.org_id."
         ),
     },
     "actor_labels": {

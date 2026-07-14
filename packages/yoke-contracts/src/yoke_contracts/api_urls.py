@@ -15,6 +15,7 @@ from __future__ import annotations
 HOSTED_PROD_URL = "https://api.upyoke.com"
 HOSTED_STAGE_URL = "https://api.stage.upyoke.com"
 HOSTED_PLATFORM_URL = "https://app.upyoke.com"
+HOSTED_STAGE_PLATFORM_URL = "https://app.stage.upyoke.com"
 
 API_VERSION_PREFIX = "/v1"
 AUTH_IDENTITY_PATH = f"{API_VERSION_PREFIX}/auth/identity"
@@ -40,5 +41,6 @@ __all__ = [
     "HOSTED_PROD_URL",
     "HOSTED_STAGE_URL",
     "HOSTED_PLATFORM_URL",
+    "HOSTED_STAGE_PLATFORM_URL",
     "join_api_url",
 ]

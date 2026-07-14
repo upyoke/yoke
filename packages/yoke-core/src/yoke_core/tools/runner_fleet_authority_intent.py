@@ -66,7 +66,6 @@ def authority_intent_envelope(
         "aws_capability": aws_capability,
         "aws_region": aws_region,
         "github_capability": values["runner_fleet_github_capability"],
-        "github_app_environment": values["runner_fleet_github_app_environment"],
         "repo": values["runner_fleet_repo"],
         "repo_owner": values["runner_fleet_github_repo_owner"],
         "repo_name": values["runner_fleet_github_repo_name"],

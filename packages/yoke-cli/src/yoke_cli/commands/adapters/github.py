@@ -46,7 +46,7 @@ __all__ = [
 
 GITHUB_CONNECT_USAGE = (
     "yoke github connect [--replace] [--add-installation] [--config PATH] [--json] "
-    "[self-host operator override: --client-id ID --app-slug SLUG "
+    "[local/self-host bring-your-own App: --client-id ID --app-slug SLUG "
     "--app-id ID --api-url URL --web-url URL]"
 )
 
@@ -72,8 +72,10 @@ def github_connect(args: List[str]) -> int:
         description=(
             "Start the machine-level Yoke GitHub App authorization flow. "
             "An HTTPS Yoke service advertises its App identity; the local Yoke "
-            "product carries a bundled profile. Local/source-development "
-            "operators may instead provide one complete five-field override. "
+            "product offers an optional bundled upyoke-owned profile. Installing "
+            "that App grants its owner access within the repositories selected "
+            "on GitHub. Local and self-host operators may instead bring their "
+            "own App with one complete five-field profile. "
             "This never accepts or stores manual GitHub credentials."
         ),
     )
@@ -81,18 +83,18 @@ def github_connect(args: List[str]) -> int:
         "--client-id",
         default=None,
         help=(
-            "Local/source-development override; provide together with app slug, "
+            "Local/self-host App profile; provide together with app slug, "
             "app id, API URL, and web URL."
         ),
     )
     parser.add_argument(
         "--app-slug",
         default=None,
-        help="Local/source-development override; requires the other four App fields.",
+        help="Local/self-host App profile; requires the other four App fields.",
     )
     parser.add_argument(
         "--app-id", type=int, default=None,
-        help="Local/source-development override; requires the other four App fields.",
+        help="Local/self-host App profile; requires the other four App fields.",
     )
     parser.add_argument(
         "--replace",
@@ -110,12 +112,12 @@ def github_connect(args: List[str]) -> int:
     parser.add_argument(
         "--api-url",
         default=None,
-        help="Local/source-development override; requires the other four App fields.",
+        help="Local/self-host App profile; requires the other four App fields.",
     )
     parser.add_argument(
         "--web-url",
         default=None,
-        help="Local/source-development override; requires the other four App fields.",
+        help="Local/self-host App profile; requires the other four App fields.",
     )
     parser.add_argument("--config", dest="config_path", default=None)
     add_json_arg(parser)
