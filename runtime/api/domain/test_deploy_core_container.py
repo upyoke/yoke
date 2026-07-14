@@ -155,7 +155,8 @@ class _HappyRemoteRunner(FakeRunner):
                 "HTTP/1.1 200 OK\n"
                 f"x-request-id: {req_id}\n\n"
                 '{"status":"ok","schema_ready":true,'
-                '"schema_missing_tables":[]}',
+                '"schema_missing_tables":[],"build":"abc123def456",'
+                '"engine_version":"0.1.1+launch.25"}',
                 "",
             )
         return CommandResult(0, "", "")

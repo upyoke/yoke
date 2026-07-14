@@ -152,6 +152,26 @@ jobs:
             YOKE_BUILD_SHA=${{ steps.image.outputs.sha_tag }}
             YOKE_ENGINE_VERSION=${{ needs.validate-tag.outputs.release_version }}
 
+      - name: Verify installed release metadata from the pushed image
+        env:
+          EXPECTED_BUILD: ${{ steps.image.outputs.sha_tag }}
+          EXPECTED_VERSION: ${{ needs.validate-tag.outputs.release_version }}
+          PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
+          REPOSITORY: ${{ steps.image.outputs.repository }}
+        run: |
+          image_ref="$REPOSITORY@$PUSHED_DIGEST"
+          docker pull --platform linux/amd64 "$image_ref"
+          metadata="$(docker run --rm --platform linux/amd64 \
+            --entrypoint python "$image_ref" -c \
+            'import os; from importlib.metadata import version; print(version("yoke-core")); print(os.environ.get("YOKE_BUILD_SHA", ""))')"
+          actual_version="$(sed -n '1p' <<< "$metadata")"
+          actual_build="$(sed -n '2p' <<< "$metadata")"
+          if [[ "$actual_version" != "$EXPECTED_VERSION" || "$actual_build" != "$EXPECTED_BUILD" ]]; then
+            echo "pushed image metadata mismatch: version=$actual_version build=$actual_build expected version=$EXPECTED_VERSION build=$EXPECTED_BUILD" >&2
+            exit 1
+          fi
+          echo "pushed image metadata verified: version=$actual_version build=$actual_build"
+
   attest:
     name: attest-content-addressed-image
     needs: build

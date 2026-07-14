@@ -160,7 +160,11 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "FROM python:3.13-slim AS runtime" in dockerfile
     assert "COPY .git_archival.txt ./" in dockerfile
     assert 'ARG YOKE_ENGINE_VERSION=""' in dockerfile
+    assert dockerfile.count('ARG YOKE_ENGINE_VERSION=""') == 2
     assert "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE" in dockerfile
+    assert "YOKE_EXPECTED_ENGINE_VERSION" in dockerfile
+    assert "UNRESOLVED_SCM_FALLBACK_VERSION as fallback" in dockerfile
+    assert "installed yoke-core version" in dockerfile
     assert (
         "python -m pip wheel --no-deps --wheel-dir /wheels "
         "./packages/yoke-harness" in dockerfile

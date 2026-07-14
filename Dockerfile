@@ -49,6 +49,7 @@ FROM python:3.13-slim AS runtime
 # The git short sha this image was built from; /v1/health serves it as
 # `build` so deploy gates can assert WHICH code is answering.
 ARG YOKE_BUILD_SHA=""
+ARG YOKE_ENGINE_VERSION=""
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -85,6 +86,13 @@ COPY --from=builder /wheels /wheels
 RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
         yoke yoke-contracts yoke-cli yoke-harness yoke-core \
     && rm -rf /wheels
+
+# Every image consumer inherits this build-time release-identity gate. An
+# explicit release version must match the installed wheel metadata exactly;
+# snapshot/operator builds that omit it still may not ship setuptools-scm's
+# unresolved fallback while advertising a source build SHA.
+RUN YOKE_EXPECTED_ENGINE_VERSION="$YOKE_ENGINE_VERSION" python -c \
+    "import os; from importlib.metadata import version; from yoke_contracts.engine_version import UNRESOLVED_SCM_FALLBACK_VERSION as fallback; actual=version('yoke-core'); expected=os.environ.get('YOKE_EXPECTED_ENGINE_VERSION', ''); build=os.environ.get('YOKE_BUILD_SHA', ''); assert actual and (not expected or actual == expected), f'installed yoke-core version {actual!r} does not match expected {expected!r}'; assert not build or actual != fallback, f'build {build!r} installed unresolved yoke-core fallback {actual!r}'"
 
 # Fail the image build unless the installed product resolver can execute both
 # portability clients with all runtime shared-library dependencies present.
