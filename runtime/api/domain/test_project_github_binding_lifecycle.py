@@ -270,7 +270,15 @@ def test_deleted_installation_cannot_be_reactivated_by_delayed_event(
 
 
 def test_registered_lifecycle_dispatch_reaches_real_domain(binding_db) -> None:
-    actor_id = _project_owner_actor(binding_db, "yoke")
+    actor_id = _project_owner_actor(binding_db, "buzz")
+    conn = pg_testdb.connect_test_database(binding_db)
+    try:
+        conn.execute(
+            "UPDATE projects SET slug='control-plane' WHERE slug='yoke'"
+        )
+        conn.commit()
+    finally:
+        conn.close()
     reset_registry_for_tests()
     register_all_handlers()
     try:
