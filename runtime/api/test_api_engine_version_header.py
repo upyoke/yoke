@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from yoke_contracts.engine_version import ENGINE_VERSION_HEADER
+from yoke_contracts.engine_version import (
+    ENGINE_VERSION_HEADER,
+    UNRESOLVED_SCM_FALLBACK_VERSION,
+)
 
 
 def _client_with_engine_version(monkeypatch, value: str) -> TestClient:
@@ -25,6 +28,7 @@ def _client_with_engine_version(monkeypatch, value: str) -> TestClient:
 
 def test_functions_call_response_carries_engine_version_header(monkeypatch):
     client = _client_with_engine_version(monkeypatch, "9.9.9")
+    assert client.app.version == "9.9.9"
     # Unauthenticated: the middleware stamps the header on the denial too,
     # so skew is detectable even before credentials are set up.
     resp = client.post("/v1/functions/call", json={})
@@ -41,6 +45,7 @@ def test_health_response_carries_engine_version_header(monkeypatch):
 
 def test_source_run_omits_engine_version_header(monkeypatch):
     client = _client_with_engine_version(monkeypatch, "")
+    assert client.app.version == UNRESOLVED_SCM_FALLBACK_VERSION
     resp = client.get("/v1/health")
     assert resp.status_code == 200
     assert ENGINE_VERSION_HEADER not in resp.headers
