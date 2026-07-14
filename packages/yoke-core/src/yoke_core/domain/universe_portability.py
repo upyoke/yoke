@@ -17,8 +17,7 @@ from typing import Callable, Mapping, MutableMapping, Optional, Sequence
 import psycopg
 from psycopg import conninfo, pq, sql
 
-from yoke_core.domain import universe_archive_output
-from yoke_core.domain import postgres_binaries, postgres_cluster
+from yoke_core.domain import postgres_binaries, postgres_cluster, universe_archive_output
 
 
 _log = logging.getLogger("yoke.universe.portability")
@@ -1454,7 +1453,7 @@ def converge_and_validate_restored_universe(
     timeout_s: float = DEFAULT_ARCHIVE_TIMEOUT_S,
 ) -> dict[str, object]:
     """Converge an imported DB and prove org identity + exact current schema."""
-    from yoke_core.domain import db_backend
+    from yoke_core.domain import db_backend, universe_capability_compatibility
     from yoke_core.domain.actor_permissions import seed_roles_and_permissions
     from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
     from yoke_core.domain.schema_fingerprint import (
@@ -1514,6 +1513,7 @@ def converge_and_validate_restored_universe(
                 "the restored universe is missing required tables after"
                 " convergence: " + ", ".join(missing)
             )
+        universe_capability_compatibility.validate_restored_capabilities(conn)
         actual_fingerprint = fingerprint_portable_postgres_schema(conn)
         if actual_fingerprint != expected_schema_fingerprint:
             raise ArchiveCompatibilityError(
