@@ -41,12 +41,12 @@ CAPABILITY_SETTINGS_COMMANDS = (
 )
 
 _GET_RECIPE = (
-    "python3 -m yoke_core.domain.projects capability-get-settings "
-    "<project> <type>"
+    "yoke projects capability-settings get --project <project> "
+    "--cap-type <type>"
 )
 _MERGE_RECIPE = (
-    "python3 -m yoke_core.domain.projects capability-merge-settings "
-    "<project> <type> --set key.path=value"
+    "yoke projects capability-settings merge --project <project> "
+    "--cap-type <type> --set key.path=value"
 )
 
 

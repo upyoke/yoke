@@ -1,0 +1,105 @@
+"""CLI envelope tests for project capability-settings functions."""
+
+from __future__ import annotations
+
+import io
+from contextlib import redirect_stderr, redirect_stdout
+from unittest.mock import patch
+
+from yoke_cli.main import main as cli_main
+from yoke_contracts.api.function_call import (
+    FunctionCallRequest,
+    FunctionCallResponse,
+)
+
+
+def _run(*argv: str):
+    captured = []
+
+    def dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
+        captured.append(request)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={"settings_json": '{"canonical":true}'},
+        )
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with (
+        patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
+        patch(
+            "yoke_core.domain.yoke_function_dispatch.dispatch",
+            side_effect=dispatch,
+        ),
+        patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
+        redirect_stdout(stdout),
+        redirect_stderr(stderr),
+    ):
+        rc = cli_main(list(argv))
+    return rc, stdout.getvalue(), stderr.getvalue(), captured
+
+
+def test_get_dispatches_and_prints_exact_cas_base():
+    rc, out, _err, calls = _run(
+        "projects",
+        "capability-settings",
+        "get",
+        "--project",
+        "yoke",
+        "--cap-type",
+        "docker",
+    )
+    assert rc == 0
+    assert out == '{"canonical":true}\n'
+    assert calls[0].function == "projects.capability_settings.get"
+    assert calls[0].payload == {"project": "yoke", "cap_type": "docker"}
+
+
+def test_set_carries_exact_base_and_document():
+    rc, _out, _err, calls = _run(
+        "projects",
+        "capability-settings",
+        "set",
+        "--project",
+        "yoke",
+        "--cap-type",
+        "docker",
+        "--settings-json",
+        '{"host":"new"}',
+        "--base",
+        '{"host":"old"}',
+    )
+    assert rc == 0
+    assert calls[0].function == "projects.capability_settings.set"
+    assert calls[0].payload == {
+        "project": "yoke",
+        "cap_type": "docker",
+        "settings_json": '{"host":"new"}',
+        "create": False,
+        "base_settings_json": '{"host":"old"}',
+    }
+
+
+def test_merge_parses_json_values_and_raw_strings():
+    rc, _out, _err, calls = _run(
+        "projects",
+        "capability-settings",
+        "merge",
+        "--project",
+        "yoke",
+        "--cap-type",
+        "docker",
+        "--set",
+        "deploy.auto_on_push=true",
+        "--set",
+        "registry=ecr",
+    )
+    assert rc == 0
+    assert calls[0].function == "projects.capability_settings.merge"
+    assert calls[0].payload["assignments"] == {
+        "deploy.auto_on_push": True,
+        "registry": "ecr",
+    }
