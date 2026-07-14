@@ -181,9 +181,6 @@ fi
  a regression even if total failure counts match. See step 5a in the
  Tester agent definition for the full procedure.
 
- Scripts directory: {MAIN_ROOT}/.agents/skills/yoke/scripts
- IMPORTANT: Use this absolute path for ALL script calls. Shell variables do NOT persist across Bash tool calls.
-
 	 Review the engineer's work against the acceptance criteria in the spec.
 	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the ticket, plan, phase, task, AC, branch, worktree, or batch that produced them.
 	 Run tests. Return a verdict line:
@@ -232,9 +229,6 @@ fi
  {_attempt_diff_stat_{_id}}
  Per-attempt diff ({_attempt_diff_line_count_{_id}} lines) written to: {_attempt_diff_file_{_id}}
  Read this file for line-level detail.
-
- Scripts directory: {MAIN_ROOT}/.agents/skills/yoke/scripts
- IMPORTANT: Use this absolute path for ALL script calls. Shell variables do NOT persist across Bash tool calls.
 
 	 Regression detection: When checking "no regressions" or "existing tests
 	 still pass," compare failing test NAMES between main and the branch —

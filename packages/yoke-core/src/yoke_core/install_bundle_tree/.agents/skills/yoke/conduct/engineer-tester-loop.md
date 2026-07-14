@@ -1,6 +1,6 @@
 # Conduct — Engineer/Tester Loop (S6g)
 
-The Engineer/Tester execution phase of the conduct epic flow. Covers the Engineer dispatch, submission gate, Tester dispatch, verdict processing, retry logic, and auto-chaining to the next task. **Inherited from entry-activation:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `N`, `_task_ids`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block.
+The Engineer/Tester execution phase of the conduct epic flow. Covers the Engineer dispatch, submission gate, Tester dispatch, verdict processing, retry logic, and auto-chaining to the next task. **Inherited from entry-activation:** `MAIN_ROOT`, `_epic_id`, `N`, `_task_ids`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block.
 
 ---
 

@@ -2,7 +2,7 @@
 
 Amend Cycle. Invoked from `simulation-autofix-patching.md` when code-level gaps remain. Creates a fix task, dispatches Engineer/Tester, and re-simulates. Maximum 1 amend cycle.
 
-**Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `_item_id`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `_code_level_gaps`.
+**Inherited:** `MAIN_ROOT`, `_epic_id`, `_item_id`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `_code_level_gaps`.
 
 **Returns:** `AUTOFIX_CLEAN` or `AUTOFIX_HALTED`.
 
@@ -210,7 +210,6 @@ _task_list=$(python3 -m yoke_core.cli.db_router query \
 ```
  Run integration simulation for epic {_epic_id} (YOK-{_item_id}).
  Repository root: {MAIN_ROOT}
- Scripts directory: {MAIN_ROOT}/.agents/skills/yoke/scripts
  All tasks completed testing successfully including auto-created fix task {_fix_task_num}.
  This is the final re-simulation after the amend cycle.
  Trace execution paths across tasks to find any remaining integration gaps.

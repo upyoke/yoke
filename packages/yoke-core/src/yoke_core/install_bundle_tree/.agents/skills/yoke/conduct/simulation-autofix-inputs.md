@@ -2,7 +2,7 @@
 
 Invoked from `simulation-autofix.md` Phase 1 start. Covers initialization, gap severity classification, pre-routing by fix level, and context gathering for the Architect.
 
-**Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `_item_id`, `_worktree_path`, `_worktree_branch`, `_simulator_output`, `_max_attempts`, `MAX_ARCHITECT_FIX_ITERATIONS`.
+**Inherited:** `MAIN_ROOT`, `_epic_id`, `_item_id`, `_worktree_path`, `_worktree_branch`, `_simulator_output`, `_max_attempts`, `MAX_ARCHITECT_FIX_ITERATIONS`.
 
 **Constants:** `MAX_ARCHITECT_FIX_ITERATIONS=3`.
 

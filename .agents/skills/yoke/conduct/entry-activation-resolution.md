@@ -2,7 +2,7 @@
 
 Invoked from `entry-activation.md` S6. Covers Epic resolve, sync gate, fan-out enumeration of dispatchable tasks, same-worktree protection, dependency verification, and per-task activation with ephemeral environment lifecycle.
 
-**Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `N`, `_epic_id`, `_task_ids`, `_task_id`, `_max_attempts`, `_no_chain`, `PROJECT`. `_task_ids` is a newline-separated list of dispatchable tasks for this invocation; `_task_id` is the primary entry — typically the first member of `_task_ids` and used by single-task downstream prose. Multi-task batches consume `_task_ids` plus per-task lane variables named `_worktree_branch_${_task_id}` and `_worktree_path_${_task_id}`.
+**Inherited:** `MAIN_ROOT`, `N`, `_epic_id`, `_task_ids`, `_task_id`, `_max_attempts`, `_no_chain`, `PROJECT`. `_task_ids` is a newline-separated list of dispatchable tasks for this invocation; `_task_id` is the primary entry — typically the first member of `_task_ids` and used by single-task downstream prose. Multi-task batches consume `_task_ids` plus per-task lane variables named `_worktree_branch_${_task_id}` and `_worktree_path_${_task_id}`.
 
 ---
 

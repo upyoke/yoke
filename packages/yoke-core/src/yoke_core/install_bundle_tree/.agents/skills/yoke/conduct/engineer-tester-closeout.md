@@ -2,7 +2,7 @@
 
 Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester artifact capture, ephemeral teardown, temp file cleanup, verdict parsing, the Tester output gate, and verdict branching (PASS auto-chain / FAIL retry / FAIL exhausted).
 
-**Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `ATTEMPT_BASELINE`, `_max_attempts`, `_no_chain`, `_attempt`, `_tester_output_failures`, `_full_diff_file`, `_task_diff_file` (if size-gated), `_attempt_diff_file` (if size-gated), `_env_id` (if ephemeral env).
+**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `ATTEMPT_BASELINE`, `_max_attempts`, `_no_chain`, `_attempt`, `_tester_output_failures`, `_full_diff_file`, `_task_diff_file` (if size-gated), `_attempt_diff_file` (if size-gated), `_env_id` (if ephemeral env).
 
 ---
 

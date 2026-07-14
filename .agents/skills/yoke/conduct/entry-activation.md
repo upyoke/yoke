@@ -1,6 +1,6 @@
 # Conduct — Entry & Activation (S1–S6f)
 
-Entry and activation stage of the conduct epic flow. Covers argument parsing, environment resolution, gates, epic sync, task auto-resolve, and task activation. **Inherited from router:** `SCRIPT_DIR`, `MAX_TESTER_REPROMPTS`, all parsed arguments.
+Entry and activation stage of the conduct epic flow. Covers argument parsing, environment resolution, gates, epic sync, task auto-resolve, and task activation. **Inherited from router:** `MAX_TESTER_REPROMPTS` and all parsed arguments.
 
 ---
 
@@ -18,10 +18,6 @@ Set defaults: `_max_attempts={--max-attempts value, default 5}`, `_no_chain={tru
 
 ```bash
 MAIN_ROOT=$(python3 -m yoke_core.domain.worktree paths main)
-```
-
-**Resolve SCRIPT_DIR to absolute path** (prevents breakage when cwd changes to worktrees):
-```bash
 ```
 
 **Resolve project from the item** — read the public project slug via the item getter:

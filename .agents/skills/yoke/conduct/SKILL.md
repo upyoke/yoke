@@ -69,25 +69,11 @@ The retained internal QA waiver path is **operator-debug only**, not normal prod
 
 ## Constants
 
-<!-- NOTE: $SCRIPT_DIR is set once here but DOES NOT persist across Bash tool calls.
- Each Bash invocation is a fresh shell. In long conduct sessions (many engineer/tester
- dispatches, context pressure), Claude may copy literal `$SCRIPT_DIR` into late Bash calls
- instead of substituting the resolved value — producing `/python3 -m yoke_core.cli.db_router` (empty prefix).
- Mitigations: (1) entry-activation.md step S2 resolves SCRIPT_DIR to an absolute path via
- MAIN_ROOT. (2) Critical verdict-processing snippets use inline resolution
- (`SCRIPT_DIR="$(git rev-parse --show-toplevel)/.agents/skills/yoke/scripts"`)
- as a safety net. Do NOT copy bare $SCRIPT_DIR patterns into subagent dispatch prompts —
- subagents must inline full absolute paths.. -->
 ```
 MAX_TESTER_REPROMPTS=2
 MAX_SIMULATOR_REPROMPTS=2
 MAX_ARCHITECT_FIX_ITERATIONS=3
 ```
-
-**CRITICAL — Absolute path resolution:** `SCRIPT_DIR` starts as a relative path. After `MAIN_ROOT` is resolved (entry-activation step S2), **immediately** update it to an absolute path:
-```bash
-```
-This prevents path breakage when the conduct skill `cd`s into worktrees. All subsequent `$SCRIPT_DIR` references will resolve correctly regardless of cwd.
 
 **Tester output gate fallback chain:** When the Tester returns no parseable verdict, `MAX_TESTER_REPROMPTS` controls the escalation chain:
 - **Initial attempt:** Full prompt with diff (inlined if <=300 lines, externalized to temp file if >300 lines). See `engineer-tester-loop.md` step 7. If verdict found, done.

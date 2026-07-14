@@ -75,7 +75,7 @@ The record is created with `status=pending` (the default). Store `_env_id` for u
 
 #### E2. Trigger Ephemeral Environment Workflow
 
-**Guard:** If `$SCRIPT_DIR/python3 -m yoke_core.domain.github_actions` does not exist, skip E2-E3 and log:
+**Guard:** If the `python3 -m yoke_core.domain.github_actions` adapter is unavailable, skip E2-E3 and log:
 ```
 Note: python3 -m yoke_core.domain.github_actions not available — ephemeral env record created but workflow not triggered
 ```

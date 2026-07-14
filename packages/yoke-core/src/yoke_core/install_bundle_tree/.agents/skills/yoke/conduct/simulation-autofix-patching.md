@@ -2,7 +2,7 @@
 
 Invoked from `simulation-autofix-inputs.md` AF3 handoff. Covers Architect dispatch in fix mode, writing fixes to DB, tracking code-level gaps, change summary display, short-circuit logic, and re-simulation with verdict evaluation.
 
-**Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `_item_id`, `_worktree_path`, `_worktree_branch`, `_simulator_output`, `_max_attempts`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_fix_iteration`, `_code_level_gaps`, `_sim_report`, task content block.
+**Inherited:** `MAIN_ROOT`, `_epic_id`, `_item_id`, `_worktree_path`, `_worktree_branch`, `_simulator_output`, `_max_attempts`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_fix_iteration`, `_code_level_gaps`, `_sim_report`, task content block.
 
 ---
 
@@ -98,7 +98,6 @@ _code_only_count = rows marked "requires /yoke amend"
 ```
  Run integration simulation for epic {_epic_id} (YOK-{_item_id}).
  Repository root: {MAIN_ROOT}
- Scripts directory: {MAIN_ROOT}/.agents/skills/yoke/scripts
  All tasks completed testing successfully. Re-simulating after Architect fix iteration {_fix_iteration}.
  Trace execution paths across tasks to find remaining cross-task integration gaps.
  IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: YOK-{_item_id}. Persistence rejects bodies whose attested epic does not match YOK-{_item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
