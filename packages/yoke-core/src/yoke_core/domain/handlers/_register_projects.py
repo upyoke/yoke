@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import projects_upsert as _projects_upsert
 from yoke_core.domain.handlers import (
+    projects_capability_settings as _capability_settings,
+)
+from yoke_core.domain.handlers import (
     projects_github_sync_mode_repair as _sync_mode_repair,
 )
 
@@ -30,6 +33,47 @@ def register(registry) -> None:
             side_effects=["projects_upsert", "project_capabilities_insert"],
             emitted_event_names=["YokeFunctionCalled"],
             guardrails=[], adapter_status="live", claim_required_kind=None,
+            ambient_session_required=False,
+        )
+    registry.register(
+        "projects.capability_settings.get",
+        _capability_settings.handle_capability_settings_get,
+        _capability_settings.CapabilitySettingsGetRequest,
+        _capability_settings.CapabilitySettingsResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.projects_capability_settings",
+        target_kinds=["global"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["non_sensitive_settings_only"], adapter_status="live",
+        claim_required_kind=None, ambient_session_required=False,
+    )
+    for function_id, handler, request_model in (
+        (
+            "projects.capability_settings.set",
+            _capability_settings.handle_capability_settings_set,
+            _capability_settings.CapabilitySettingsSetRequest,
+        ),
+        (
+            "projects.capability_settings.merge",
+            _capability_settings.handle_capability_settings_merge,
+            _capability_settings.CapabilitySettingsMergeRequest,
+        ),
+    ):
+        registry.register(
+            function_id, handler, request_model,
+            _capability_settings.CapabilitySettingsResponse,
+            stability="stable",
+            owner_module=(
+                "yoke_core.domain.handlers.projects_capability_settings"
+            ),
+            target_kinds=["global"],
+            side_effects=["project_capabilities_settings_write"],
+            emitted_event_names=["YokeFunctionCalled"],
+            guardrails=[
+                "value_compare_and_swap", "typed_capability_validation",
+                "github_binding_owned",
+            ],
+            adapter_status="live", claim_required_kind=None,
             ambient_session_required=False,
         )
     registry.register(

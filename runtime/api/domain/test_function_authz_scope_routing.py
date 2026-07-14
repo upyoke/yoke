@@ -257,6 +257,26 @@ def test_board_data_get_resolves_project_from_payload_scope(conn):
     assert denied.error is not None
 
 
+def test_payload_named_project_target_hint_must_match_payload(conn):
+    buzz = resolve_project_id(conn, "buzz")
+    buzz_owner = _project_owner(conn, buzz)
+    entry = _entry("projects.update")
+
+    denied = check_dispatch_permission(
+        conn,
+        entry,
+        FunctionCallRequest(
+            function="projects.update",
+            actor=ActorContext(actor_id=str(buzz_owner), session_id="s-1"),
+            target=TargetRef(kind="global", project_id="yoke"),
+            payload={"slug": "buzz", "name": "Buzz"},
+        ),
+    )
+
+    assert denied.error is not None
+    assert denied.error.error.code == "permission_denied"
+
+
 def test_unclassified_side_effecting_function_fails_closed(conn):
     actor_id = _new_actor(conn)
     entry = _entry("totally.unknown.sideeffecting.op")

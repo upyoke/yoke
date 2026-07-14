@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-14T15:08:47Z_
+_Audit generated_at: 2026-07-14T18:19:20Z_
 
 ## 1. Summary
 
-- Function ids registered: **195**
+- Function ids registered: **198**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **194** (194 carry usable `--help`)
-- Operation tracker: **194 wrapped**, 70 permanent, 0 pending
+- `yoke` CLI subcommands: **197** (197 carry usable `--help`)
+- Operation tracker: **197 wrapped**, 70 permanent, 0 pending
 - Skill-body recipes: 217 total (180 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **194** (operation tracker confirms 194 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **197** (operation tracker confirms 197 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -126,6 +126,9 @@ Wrapped `yoke <subcommand>` adapters: **194** (operation tracker confirms 194 wr
 | projects | `yoke projects capability has` | `projects.capability.has` | ok |
 | projects | `yoke projects capability-secret set` | `projects.capability_secret.set` | ok |
 | projects | `yoke projects capability secret set` | `projects.capability_secret.set` | ok |
+| projects | `yoke projects capability-settings get` | `projects.capability_settings.get` | ok |
+| projects | `yoke projects capability-settings merge` | `projects.capability_settings.merge` | ok |
+| projects | `yoke projects capability-settings set` | `projects.capability_settings.set` | ok |
 | projects | `yoke projects checkout-context` | `projects.checkout_context.run` | ok |
 | projects | `yoke projects create` | `projects.create` | ok |
 | projects | `yoke projects get` | `projects.get` | ok |
