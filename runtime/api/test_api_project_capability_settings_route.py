@@ -7,6 +7,11 @@ import json
 import pytest
 
 from runtime.api.api_items_test_helpers import _client_for_db, make_test_db_fixture
+from runtime.api.fixtures.file_test_db import connect_test_db
+from yoke_core.domain.actor_permissions import ROLE_OWNER, grant_actor_project_role
+from yoke_core.domain.actors import seed_human_actor
+from yoke_core.domain.api_tokens import mint_token
+from yoke_core.domain.project_identity import resolve_project_id
 
 
 @pytest.fixture()
@@ -20,19 +25,52 @@ def client(capability_db):
         yield authed
 
 
-def _call(client, function: str, payload: dict):
+def _call(
+    client,
+    function: str,
+    payload: dict,
+    *,
+    target_project: str | None = None,
+    headers: dict[str, str] | None = None,
+):
+    target = {"kind": "global"}
+    if target_project is not None:
+        target["project_id"] = target_project
     return client.post(
         "/v1/functions/call",
         json={
             "function": function,
             "version": "v1",
             "actor": {"actor_id": "test", "session_id": ""},
-            "target": {"kind": "global"},
+            "target": target,
             "payload": payload,
             "preconditions": {},
             "options": {},
         },
+        headers=headers,
     )
+
+
+def _project_owner_headers(db_path: str, project: str) -> dict[str, str]:
+    conn = connect_test_db(db_path)
+    try:
+        actor_id = seed_human_actor(conn)
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=resolve_project_id(conn, project),
+            role_name=ROLE_OWNER,
+            granted_by_actor_id=actor_id,
+        )
+        token = mint_token(
+            conn,
+            actor_id=actor_id,
+            name=f"capability-settings-owner-{project}",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"Authorization": f"Bearer {token.raw_token}"}
 
 
 def _set(client, settings_json: str, **extra):
@@ -184,3 +222,85 @@ def test_https_github_full_document_write_remains_binding_owned(client):
     body = response.json()
     assert body["error"]["code"] == "validation_error"
     assert "binding-owned" in body["error"]["message"]
+
+
+def test_https_read_target_cannot_override_payload_project(
+    client,
+    capability_db,
+):
+    conn = connect_test_db(capability_db["db_path"])
+    try:
+        conn.execute(
+            "INSERT INTO project_capabilities "
+            "(project_id, type, settings, created_at) "
+            "VALUES (%s, 'docker', '{\"host\":\"buzz-private\"}', "
+            "'2026-01-01T00:00:00Z')",
+            (resolve_project_id(conn, "buzz"),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    headers = _project_owner_headers(capability_db["db_path"], "yoke")
+
+    response = _call(
+        client,
+        "projects.capability_settings.get",
+        {"project": "buzz", "cap_type": "docker"},
+        target_project="yoke",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"
+
+
+@pytest.mark.parametrize(
+    ("function_id", "payload"),
+    [
+        (
+            "projects.capability_settings.set",
+            {
+                "project": "buzz",
+                "cap_type": "docker",
+                "settings_json": '{"host":"must-not-land"}',
+                "create": True,
+            },
+        ),
+        (
+            "projects.capability_settings.merge",
+            {
+                "project": "buzz",
+                "cap_type": "docker",
+                "assignments": {"host": "must-not-land"},
+            },
+        ),
+    ],
+)
+def test_https_mutation_target_cannot_override_payload_project(
+    client,
+    capability_db,
+    function_id,
+    payload,
+):
+    headers = _project_owner_headers(capability_db["db_path"], "yoke")
+
+    response = _call(
+        client,
+        function_id,
+        payload,
+        target_project="yoke",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"
+    conn = connect_test_db(capability_db["db_path"])
+    try:
+        row = conn.execute(
+            "SELECT settings FROM project_capabilities "
+            "WHERE project_id=%s AND type='docker'",
+            (resolve_project_id(conn, "buzz"),),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row is None

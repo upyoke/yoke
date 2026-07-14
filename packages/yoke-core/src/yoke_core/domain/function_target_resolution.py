@@ -85,9 +85,13 @@ def resolve_project_context(
 
 
 # Functions whose target project lives in the payload (not the target ref):
-# projects.update names it by ``slug``; board reads name it by ``scope``.
+# project writes name it by ``slug`` or ``project``; board reads name it by
+# ``scope``. A supplied target-ref hint must agree with that payload authority.
 _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
     "projects.update",
+    "projects.capability_settings.get",
+    "projects.capability_settings.set",
+    "projects.capability_settings.merge",
     "board.data.get",
     "board.rebuild.run",
 })
@@ -167,7 +171,8 @@ def _resolve_named_project_context(
     """Resolve a project op's target from a payload field that names the project.
 
     Covers ops that carry their target project in the payload rather than the
-    target ref — ``projects.*`` by ``slug``, ``board.*`` by ``scope``.
+    target ref — ``projects.*`` by ``slug``/``project``, ``board.*`` by
+    ``scope``. A target-ref project is only a consistency hint and must match.
     """
     ref = (
         request.payload.get("slug")
@@ -181,6 +186,9 @@ def _resolve_named_project_context(
         project_id = _resolve_authorized_project_id(
             conn, str(ref), visible_project_ids,
         )
+        target_ref = str(request.target.project_id or "").strip()
+        if target_ref and resolve_project_id(conn, target_ref) != project_id:
+            return None
     except AmbiguousProjectRefError:
         raise
     except LookupError:
