@@ -140,6 +140,44 @@ def test_connect_without_token_uses_hosted_browser_org_authority(
     assert "ABCD-2345" in output.err
 
 
+def test_connect_stage_platform_url_uses_stage_browser_authority(
+    monkeypatch,
+    machine_home,
+    capsys,
+):
+    _stub_http(monkeypatch)
+    seen: list[str] = []
+
+    def authorize(platform_url, **_kwargs):
+        seen.append(platform_url)
+        return hosted_machine_authorization.HostedMachineCredential(
+            api_url="https://app.stage.upyoke.com/api/orgs/yoke-stage",
+            org="yoke-stage",
+            token=_TOKEN,
+        )
+
+    monkeypatch.setattr(hosted_machine_authorization, "authorize", authorize)
+
+    assert (
+        commands.connect(
+            [
+                "https://app.stage.upyoke.com",
+                "--name",
+                "stage",
+                "--no-activate",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    assert seen == ["https://app.stage.upyoke.com"]
+    config = _config(machine_home)
+    assert config["connections"]["stage"]["api_url"] == (
+        "https://app.stage.upyoke.com/api/orgs/yoke-stage"
+    )
+    assert json.loads(capsys.readouterr().out)["activated"] is False
+
+
 def test_connect_custom_name_and_no_activate(
     monkeypatch,
     machine_home,
@@ -258,7 +296,7 @@ def test_connect_token_file_source(monkeypatch, machine_home, tmp_path, capsys):
 def test_connect_refuses_tokenless_self_host_url(machine_home, capsys):
     assert commands.connect(["http://127.0.0.1:8765"]) == 2
     err = capsys.readouterr().err
-    assert "omit URL for hosted browser sign-in" in err
+    assert "official hosted platform URL" in err
     assert not (machine_home / "config.json").exists()
 
 

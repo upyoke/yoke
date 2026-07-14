@@ -2,14 +2,14 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-13T18:00:27Z_
+_Audit generated_at: 2026-07-14T15:08:47Z_
 
 ## 1. Summary
 
 - Function ids registered: **195**
 - Internal dispatch-only functions without CLI adapters: **1**
 - `yoke` CLI subcommands: **194** (194 carry usable `--help`)
-- Operation tracker: **194 wrapped**, 69 permanent, 0 pending
+- Operation tracker: **194 wrapped**, 70 permanent, 0 pending
 - Skill-body recipes: 217 total (180 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
@@ -257,6 +257,7 @@ Wrapped `yoke <subcommand>` adapters: **194** (operation tracker confirms 194 wr
 | local_universe.postgres | `yoke local-postgres status` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres stop` | tool_shaped |
 | local_universe.ui | `yoke ui` | tool_shaped |
+| local_universe.validate | `yoke universe validate` | tool_shaped |
 | merge | `yoke merge audit` | tool_shaped |
 | onboard | `yoke onboard project` | tool_shaped |
 | onboard | `yoke onboard` | tool_shaped |

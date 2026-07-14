@@ -189,7 +189,6 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         "aws_capability": "aws-admin",
         "aws_region": "us-east-1",
         "github_capability": "github",
-        "github_app_environment": "buzz-api-stage",
         "repo": "upyoke/yoke",
         "repo_owner": "upyoke",
         "repo_name": "yoke",

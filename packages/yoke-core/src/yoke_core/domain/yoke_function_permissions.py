@@ -13,9 +13,8 @@ from yoke_core.domain.actor_permissions import (
     require_org_permission,
     require_permission,
 )
-from yoke_core.domain.actor_project_visibility import (
-    actor_project_ids_with_permission,
-)
+from yoke_core.domain.actor_project_visibility import actor_project_ids_with_permission
+from yoke_core.domain.control_plane_authority import require_control_plane_permission
 from yoke_core.domain.function_authz_scope import (
     ACTOR_SESSION,
     CLIENT_LOCAL,
@@ -81,8 +80,18 @@ def check_dispatch_permission(
     if spec.scope == ACTOR_SESSION:
         return DispatchPermission(spec.permission_key, None, None)
     if spec.scope == CONTROL_PLANE:
-        project_id = resolve_project_id(conn, "yoke")
-        project_slug = "yoke"
+        try:
+            require_control_plane_permission(
+                conn,
+                actor_id=actor_id,
+                permission_key=spec.permission_key,
+            )
+        except PermissionDenied as exc:
+            return DispatchPermission(
+                spec.permission_key, None, None,
+                error=_error_response(request, entry, "permission_denied", str(exc)),
+            )
+        return DispatchPermission(spec.permission_key, None, None)
     elif spec.scope == ORG:
         org_id = resolve_org_context(conn, request)
         if org_id is None:
@@ -241,18 +250,17 @@ def _doctor_dispatch_permission(
             )
         return DispatchPermission(PERM_ITEMS_READ, project_id, project_slug)
 
-    project_id = resolve_project_id(conn, "yoke")
     try:
-        require_permission(
-            conn, actor_id=actor_id, project_id=project_id,
+        require_control_plane_permission(
+            conn, actor_id=actor_id,
             permission_key=PERM_DB_READ_RAW,
         )
     except PermissionDenied as exc:
         return DispatchPermission(
-            PERM_DB_READ_RAW, project_id, "yoke",
+            PERM_DB_READ_RAW, None, None,
             error=_error_response(request, entry, "permission_denied", str(exc)),
         )
-    return DispatchPermission(PERM_DB_READ_RAW, project_id, "yoke")
+    return DispatchPermission(PERM_DB_READ_RAW, None, None)
 
 
 def _is_project_safe_doctor_quick(payload: dict[str, Any] | None) -> bool:

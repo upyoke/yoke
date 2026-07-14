@@ -7,13 +7,16 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from yoke_contracts.github_actions_runner_fleet import (
     CAPABILITY_TYPE,
     DEFAULT_RUNNER_LABELS,
     DEFAULT_RUNS_ON_VARIABLE,
 )
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
+from yoke_core.domain.github_actions_runner_fleet_app import (
+    RunnerFleetGitHubAppSettings,
+)
 
 
 DEFAULT_PROVIDER = "aws-ec2"
@@ -131,6 +134,8 @@ class RunnerFleetNetworkSettings(BaseModel):
 class RunnerFleetSettings(BaseModel):
     """Non-secret project capability settings for a CI runner fleet."""
 
+    model_config = ConfigDict(extra="forbid")
+
     repo: Optional[str] = None
     runner_labels: List[str] = Field(
         default_factory=lambda: list(DEFAULT_RUNNER_LABELS)
@@ -141,7 +146,7 @@ class RunnerFleetSettings(BaseModel):
     desired_runner_count: int = Field(DEFAULT_DESIRED_RUNNER_COUNT, ge=1)
     max_runner_count: int = Field(DEFAULT_MAX_RUNNER_COUNT, ge=1)
     github_capability: Optional[str] = None
-    github_app_environment: Optional[str] = None
+    github_app: Optional[RunnerFleetGitHubAppSettings] = None
     aws_capability: str = DEFAULT_AWS_CAPABILITY
     instance: RunnerFleetInstanceSettings = Field(
         default_factory=RunnerFleetInstanceSettings
@@ -211,18 +216,6 @@ class RunnerFleetSettings(BaseModel):
                 f"must be {GITHUB_CAPABILITY_TYPE!r}; runner fleets require "
                 "the binding-owned GitHub capability"
             )
-        return cleaned
-
-    @field_validator("github_app_environment")
-    @classmethod
-    def _clean_github_app_environment(
-        cls, value: Optional[str],
-    ) -> Optional[str]:
-        if value is None:
-            return None
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("must be non-empty when provided")
         return cleaned
 
     @field_validator("provider")

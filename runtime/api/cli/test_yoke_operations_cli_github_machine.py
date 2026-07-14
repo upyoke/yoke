@@ -30,8 +30,8 @@ def test_github_machine_help_and_registry(capsys) -> None:
     connect_out = capsys.readouterr().out
     assert "yoke github connect" in connect_out
     assert "HTTPS Yoke service advertises its App identity" in connect_out
-    assert "local Yoke product carries a bundled profile" in connect_out
-    assert "complete five-field override" in connect_out
+    assert "local Yoke product offers an optional bundled" in connect_out
+    assert "complete five-field profile" in connect_out
     for flag in (
         "--client-id", "--app-slug", "--app-id", "--api-url", "--web-url",
         "--replace", "--add-installation",

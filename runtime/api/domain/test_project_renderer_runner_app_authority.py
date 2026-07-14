@@ -1,4 +1,4 @@
-"""Explicit environment authority for runner-fleet GitHub App credentials."""
+"""Capability-owned GitHub App authority for runner-fleet rendering."""
 
 from __future__ import annotations
 
@@ -7,10 +7,7 @@ from dataclasses import replace
 import pytest
 
 from yoke_core.domain import project_renderer_pulumi
-from yoke_core.domain.project_renderer_settings import (
-    ProjectRendererSettings,
-    RendererEnvironmentSettings,
-)
+from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 from runtime.api.domain.test_project_renderer_pulumi import _settings_from_context
 
 
@@ -44,77 +41,45 @@ def _github(permissions: dict[str, str] | None = None) -> dict[str, object]:
 
 
 def _settings(
-    *, selector: str | None, stage_app: dict[str, str] | None = None,
+    *, github_app: dict[str, str] | None,
 ) -> ProjectRendererSettings:
     base = _settings_from_context(
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
     )
-    assert base.primary_environment is not None
-    stage_settings = {}
-    if stage_app is not None:
-        stage_settings["github_app"] = stage_app
-    stage = RendererEnvironmentSettings(
-        id="buzz-api-stage", name="stage", settings=stage_settings,
-    )
     capabilities = dict(base.capabilities)
     capabilities["github"] = _github()
-    runner = {
+    runner: dict[str, object] = {
         "github_capability": "github",
         "routing_enabled": True,
     }
-    if selector is not None:
-        runner["github_app_environment"] = selector
+    if github_app is not None:
+        runner["github_app"] = github_app
     capabilities["github-actions-runner-fleet"] = runner
-    return replace(
-        base,
-        environments=(base.primary_environment, stage),
-        capabilities=capabilities,
-    )
+    return replace(base, capabilities=capabilities)
 
 
-def test_enabled_runner_fleet_requires_explicit_app_environment(tmp_path):
-    settings = _settings(selector=None, stage_app=_app())
+def test_enabled_runner_fleet_requires_explicit_app_authority(tmp_path):
+    settings = _settings(github_app=None)
 
-    with pytest.raises(ValueError, match="requires github_app_environment"):
+    with pytest.raises(ValueError, match="requires github_app"):
         project_renderer_pulumi.gather_pulumi_values(
             "buzz", tmp_path, settings,
         )
 
 
-def test_runner_fleet_selects_non_primary_environment_by_name(tmp_path):
-    settings = _settings(selector="stage", stage_app=_app("Iv1.stage-app"))
+def test_runner_fleet_uses_capability_owned_app_authority(tmp_path):
+    settings = _settings(github_app=_app("Iv1.runner-fleet-app"))
 
     values = project_renderer_pulumi.gather_pulumi_values(
         "buzz", tmp_path, settings,
     )
 
-    assert values["runner_fleet_github_app_issuer"] == "Iv1.stage-app"
-
-
-def test_runner_fleet_rejects_unknown_app_environment(tmp_path):
-    settings = _settings(selector="missing", stage_app=_app())
-
-    with pytest.raises(ValueError, match="did not match an environment id or name"):
-        project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, settings,
-        )
-
-
-def test_runner_fleet_rejects_ambiguous_app_environment(tmp_path):
-    settings = _settings(selector="stage", stage_app=_app())
-    alias = RendererEnvironmentSettings(
-        id="stage", name="preview", settings={"github_app": _app()},
-    )
-    settings = replace(settings, environments=(*settings.environments, alias))
-
-    with pytest.raises(ValueError, match="must match exactly one environment"):
-        project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, settings,
-        )
+    assert values["runner_fleet_github_app_issuer"] == "Iv1.runner-fleet-app"
+    assert values["runner_fleet_github_private_key_secret_arn"] == _APP_SECRET_ARN
 
 
 def test_enabled_runner_fleet_requires_repository_hooks_write(tmp_path):
-    settings = _settings(selector="stage", stage_app=_app())
+    settings = _settings(github_app=_app())
     capabilities = dict(settings.capabilities)
     capabilities["github"] = _github({
         "administration": "write",
@@ -129,7 +94,7 @@ def test_enabled_runner_fleet_requires_repository_hooks_write(tmp_path):
 
 
 def test_enabled_runner_fleet_requires_actions_variables_write(tmp_path):
-    settings = _settings(selector="stage", stage_app=_app())
+    settings = _settings(github_app=_app())
     capabilities = dict(settings.capabilities)
     capabilities["github"] = _github({
         "administration": "write",
@@ -146,7 +111,7 @@ def test_enabled_runner_fleet_requires_actions_variables_write(tmp_path):
 
 
 def test_runner_fleet_refuses_noncanonical_github_capability(tmp_path):
-    settings = _settings(selector="stage", stage_app=_app())
+    settings = _settings(github_app=_app())
     capabilities = dict(settings.capabilities)
     custom_github = _github()
     custom_github.update({"repo_owner": "other-org", "repo_name": "runners"})
@@ -168,7 +133,7 @@ def test_runner_fleet_refuses_noncanonical_github_capability(tmp_path):
 def test_disabled_routing_still_requires_permission_to_delete_variable(
     tmp_path,
 ):
-    settings = _settings(selector="stage", stage_app=_app())
+    settings = _settings(github_app=_app())
     capabilities = dict(settings.capabilities)
     capabilities["github"] = _github({
         "administration": "write",

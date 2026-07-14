@@ -41,7 +41,7 @@ def classify_runner_route(
         return (
             "configure_runner_fleet",
             "Configure the github-actions-runner-fleet capability with an "
-            "explicit github_capability and github_app_environment, then "
+            "explicit github_capability and github_app, then "
             "apply its runner-fleet Pulumi stack; do not set the routing "
             "variable directly.",
         )

@@ -10,9 +10,10 @@ matching scope:
 * ``ORG``            — checked against the op's target org (org admin). Org-entity
                        and cross-project registry ops: create a project,
                        deployment flows/runs.
-* ``CONTROL_PLANE``  — checked against the ``yoke`` project (yoke admin: the
-                       org admin of yoke's org, or yoke's owner). Whole-DB /
-                       whole-instance diagnostics: raw db read, doctor.
+* ``CONTROL_PLANE``  — checked against the universe's sole organization and
+                       requires its org admin grant. Whole-DB / whole-instance
+                       diagnostics: raw db read, doctor. Project slugs never
+                       confer control-plane authority.
 * ``ACTOR_SESSION``  — the actor operating on its own session/orchestration;
                        allowed for any authenticated actor (the session id binds
                        the work to the caller).

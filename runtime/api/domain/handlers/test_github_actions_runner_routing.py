@@ -1,5 +1,7 @@
 """Routing-state coverage for the GitHub Actions runner status handler."""
 
+import json
+
 from yoke_core.domain import github_actions_rest, github_variables_rest
 from yoke_core.domain.handlers import github_actions_runners
 from yoke_core.domain.handlers.github_actions_runners import (
@@ -10,6 +12,7 @@ from runtime.api.domain.handlers.github_actions_runners_test_support import (
     _configure_runner_capability,
     _make_request,
     _runner,
+    _runner_app,
     _runner_capability_absent,
 )
 
@@ -125,16 +128,21 @@ class TestRunnersStatusRouting:
         self,
         monkeypatch,
     ):
-        raw_settings = (
-            '{"repo":"upyoke/yoke","github_capability":"github",'
-            '"github_app_environment":"yoke-api-stage",'
-            '"runner_labels":["self-hosted",'
-            '"Linux","X64","fast-ci"],"variable_name":"CUSTOM_RUNS_ON",'
-            '"routing_enabled":true,'
-            '"desired_runner_count":1,"max_runner_count":1,'
-            '"instance":{"instance_type":"c7i.8xlarge",'
-            '"architecture":"x64","root_volume_gb":800}}'
-        )
+        raw_settings = json.dumps({
+            "repo": "upyoke/yoke",
+            "github_capability": "github",
+            "github_app": _runner_app(),
+            "runner_labels": ["self-hosted", "Linux", "X64", "fast-ci"],
+            "variable_name": "CUSTOM_RUNS_ON",
+            "routing_enabled": True,
+            "desired_runner_count": 1,
+            "max_runner_count": 1,
+            "instance": {
+                "instance_type": "c7i.8xlarge",
+                "architecture": "x64",
+                "root_volume_gb": 800,
+            },
+        })
         monkeypatch.setattr(
             github_actions_runners,
             "cmd_capability_get_settings",
@@ -192,11 +200,12 @@ class TestRunnersStatusRouting:
         monkeypatch.setattr(
             github_actions_runners,
             "cmd_capability_get_settings",
-            lambda project, cap_type: (
-                '{"repo":"upyoke/yoke","github_capability":"github",'
-                '"github_app_environment":"yoke-api-stage",'
-                '"routing_enabled":true}'
-            ),
+            lambda project, cap_type: json.dumps({
+                "repo": "upyoke/yoke",
+                "github_capability": "github",
+                "github_app": _runner_app(),
+                "routing_enabled": True,
+            }),
         )
         monkeypatch.setattr(
             github_actions_rest,

@@ -24,6 +24,7 @@ from runtime.api.domain.handlers.github_actions_runners_test_support import (
     _make_request,
     _renderer_settings,
     _runner,
+    _runner_app,
     _runner_capability_absent,
 )
 
@@ -165,7 +166,7 @@ class TestRunnersStatus:
             outcome.result_payload["message"]
         )
 
-    def test_configured_route_requires_explicit_app_environment(
+    def test_configured_route_requires_explicit_app_authority(
         self, monkeypatch,
     ):
         monkeypatch.setattr(
@@ -187,9 +188,9 @@ class TestRunnersStatus:
 
         assert outcome.primary_success is True
         assert outcome.result_payload["github_capability"] == "github"
-        assert outcome.result_payload["github_app_environment"] is None
+        assert outcome.result_payload["github_app_configured"] is False
         assert outcome.result_payload["action"] == "configure_runner_fleet"
-        assert "github_app_environment" in outcome.result_payload["message"]
+        assert "github_app" in outcome.result_payload["message"]
 
     @pytest.mark.parametrize(
         ("renderer_settings", "expected_error"),
@@ -198,14 +199,12 @@ class TestRunnersStatus:
                 _renderer_settings(runner_settings={
                     "repo": "upyoke/yoke",
                     "github_capability": "github",
-                    "github_app_environment": "missing",
+                    "github_app": _runner_app(
+                        api_url="https://github.example.com/api/v3",
+                    ),
                     "routing_enabled": True,
                 }),
-                "did not match an environment",
-            ),
-            (
-                _renderer_settings(environment_settings={}),
-                "selected environment's settings.github_app",
+                "API URL must match",
             ),
             (
                 _renderer_settings(github_permissions={

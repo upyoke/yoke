@@ -89,7 +89,7 @@ def test_template_bundle_serves_sorted_raw_files(client) -> None:
     assert all(isinstance(entry["content"], str) for entry in bundle["files"])
 
 
-def test_source_dev_admin_opt_in_requires_yoke_project_admin(
+def test_source_dev_admin_opt_in_requires_org_admin(
     client, templates_db
 ) -> None:
     route = f"/v1/templates/webapp?{TEMPLATE_SOURCE_DEV_ADMIN_QUERY_PARAM}=true"
@@ -98,7 +98,7 @@ def test_source_dev_admin_opt_in_requires_yoke_project_admin(
     assert response.status_code == 403
     detail = response.json()["error"]
     assert detail["code"] == "permission_denied"
-    assert "project.admin" in detail["message"]
+    assert "org.admin" in detail["message"]
 
 
 def test_template_bundle_unknown_name_is_typed_404(client) -> None:

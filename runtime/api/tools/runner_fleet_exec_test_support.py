@@ -60,7 +60,11 @@ def _write_snapshot(
         capabilities[aws_capability] = {"region": region}
     runner_settings = {
         "github_capability": "github",
-        "github_app_environment": "buzz-api-stage",
+        "github_app": {
+            "issuer": "Iv1.runner-fleet",
+            "api_url": "https://api.github.com",
+            "private_key_secret_arn": _SECRET_ARN,
+        },
     }
     if aws_capability != "aws-admin":
         runner_settings["aws_capability"] = aws_capability
@@ -96,7 +100,6 @@ def _runner_values(
         "runner_fleet_aws_capability": "aws-admin",
         "runner_fleet_aws_region": "us-east-1",
         "runner_fleet_github_capability": "github",
-        "runner_fleet_github_app_environment": "buzz-api-stage",
         "runner_fleet_repo": "upyoke/yoke",
         "runner_fleet_github_repo_owner": "upyoke",
         "runner_fleet_github_repo_name": "yoke",

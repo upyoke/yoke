@@ -17,7 +17,7 @@ from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import server_connect
-from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -51,8 +51,9 @@ def connect(args: List[str]) -> int:
         nargs="?",
         default=None,
         help=(
-            "Self-hosted server URL when using an explicit token. Omit it for "
-            "ordinary hosted browser sign-in."
+            "Hosted platform URL for browser sign-in, or a self-hosted server "
+            "URL when using an explicit token. Omit it for ordinary production "
+            "hosted browser sign-in."
         ),
     )
     parser.add_argument(
@@ -103,10 +104,19 @@ def connect(args: List[str]) -> int:
         return usage_error(
             f"a server URL is required with an explicit token: {CONNECT_USAGE}"
         )
-    if not explicit_token and parsed.url:
+    hosted_platform_urls = {
+        HOSTED_PLATFORM_URL.rstrip("/"),
+        HOSTED_STAGE_PLATFORM_URL.rstrip("/"),
+    }
+    if (
+        not explicit_token
+        and parsed.url
+        and parsed.url.rstrip("/") not in hosted_platform_urls
+    ):
         return usage_error(
-            "omit URL for hosted browser sign-in, or provide --token-file/"
-            f"--token-stdin for a self-hosted server: {CONNECT_USAGE}"
+            "use an official hosted platform URL for browser sign-in, or "
+            "provide --token-file/--token-stdin for a self-hosted server: "
+            f"{CONNECT_USAGE}"
         )
     if not explicit_token:
         return _connect_hosted(parsed)

@@ -68,7 +68,6 @@ def _authority_from_args(
         "aws_capability": str(getattr(args, "aws_capability")),
         "aws_region": str(getattr(args, "aws_region")),
         "github_capability": str(getattr(args, "github_capability")),
-        "github_app_environment": str(getattr(args, "github_app_environment")),
         "repo": str(getattr(args, "github_repo")),
         "repo_owner": str(getattr(args, "github_repo_owner")),
         "repo_name": str(getattr(args, "github_repo_name")),
