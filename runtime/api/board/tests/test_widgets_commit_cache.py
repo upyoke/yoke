@@ -41,14 +41,14 @@ def _init_repo_with_commits(repo_dir, commits: "list[tuple[str, str, str]]"):
 
 
 class TestColdPopulate:
-    def test_cold_populates_lines_strategy_and_count(self, tmp_path):
+    def test_cold_populates_lines_and_count(self, tmp_path):
         repo = tmp_path / "repo"
         today = date.today()
         d1 = (today - timedelta(days=2)).isoformat()
         d2 = (today - timedelta(days=1)).isoformat()
         _init_repo_with_commits(repo, [
             (d1, "src/foo.py", "x = 1\n"),
-            (d2, "strategy/plan.md", "title\nbody\n"),
+            (d2, "src/bar.py", "title\nbody\n"),
         ])
 
         cache = cache_mod.get_commit_data([str(repo)])
@@ -60,10 +60,6 @@ class TestColdPopulate:
         lines = cache_mod.lines_per_day([str(repo)], days=14)
         assert lines[d1] == 1
         assert lines[d2] == 2
-
-        sml = cache_mod.strategy_lines_per_day([str(repo)], days=14)
-        assert sml.get(d1, 0) == 0
-        assert sml[d2] == 2
 
     def test_cold_populate_uses_generous_timeout(self, tmp_path, monkeypatch):
         # Cold path: cheap hash listing under the tight list timeout, then the
@@ -105,7 +101,7 @@ class TestColdPopulate:
         # Seed an existing entry so the refresh takes the warm --no-walk branch.
         cache_path.write_text(
             '{"old111": {"day": "2026-06-01", "lines": 1, '
-            f'"strategy_lines": 0, "repo": "{repo}"}}}}'
+            f'"repo": "{repo}"}}}}'
         )
         monkeypatch.setattr(cache_mod, "_cache_path", lambda: cache_path)
         cache_mod._reset_memo_for_tests()
