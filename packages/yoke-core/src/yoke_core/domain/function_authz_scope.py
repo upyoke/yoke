@@ -105,9 +105,13 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.resolve_by_github_repo": AuthzSpec(ACTOR_SESSION, None),
     "projects.checkout_context.run": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.github_binding.bind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    # Hosted lifecycle deliveries mutate one verified project binding. The
+    # HTTP boundary separately requires the hosted service token; dispatch
+    # authority follows payload.project so tenant universes never depend on a
+    # project literally named ``yoke``.
     "projects.github_binding.lifecycle": AuthzSpec(
-        CONTROL_PLANE,
-        PERM_DB_READ_RAW,
+        PROJECT,
+        PERM_PROJECT_ADMIN,
     ),
     "projects.github_binding.unbind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.github_binding.status": AuthzSpec(PROJECT, PERM_ITEMS_READ),
