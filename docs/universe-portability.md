@@ -30,10 +30,17 @@ The source-dev/admin cutover boundary is explicit and recoverable:
 
 ```text
 yoke --env prod-db-admin source-authority quiesce begin \
-  --service-stop-receipt SERVICE_STOP_ID --json
-yoke --env prod-db-admin source-authority quiesce status --json
-yoke --env prod-db-admin source-authority export --out /secure/source.dump --json
-yoke --env prod-db-admin source-authority quiesce end --json
+  --service-stop-receipt SERVICE_STOP_ID \
+  --credential-file /secure/source-cutover.json --json
+yoke source-authority quiesce status \
+  --credential-file /secure/source-cutover.json --json
+yoke source-authority export --out /secure/source.dump \
+  --credential-file /secure/source-cutover.json --json
+yoke source-authority quiesce abort \
+  --credential-file /secure/source-cutover.json --json
+yoke source-authority quiesce retire \
+  --credential-file /secure/source-cutover.json \
+  --retirement-receipt RETIREMENT_GATE_ID --json
 ```
 
 Stop the old API/sync/webhook service first and pass its attended stop receipt.
@@ -49,15 +56,24 @@ The owner must have the effective privileges of `pg_signal_backend` and
 `pg_read_all_stats`; `NOINHERIT` membership alone is insufficient. Unexpected
 superusers or inherited owner membership also block the operation.
 
+The owner-only credential bundle binds the old database OID, administrator,
+fence receipt, original credential, and rotated cutover credential. After
+canonical machine authority switches to hosted production, `status`, `export`,
+`abort`, and `retire` continue to address the old source exclusively through
+that bundle; they do not re-resolve the canonical production connection.
+
 `export` opens one read-only `REPEATABLE READ` transaction, exports its
 PostgreSQL snapshot, and binds the compact receipt, detailed receipt, and
 `pg_dump --snapshot` archive to that same view. It then proves the durable
-fence again from a fresh connection. `end` transactionally replays the saved,
+fence again from a fresh connection. `abort` transactionally replays the saved,
 `acldefault`-expanded effective `CONNECT` policy and removes the owner-only
 control schema. The receipt preserves whether the original physical ACL was
 `NULL`; PostgreSQL's supported grant/revoke DDL restores the exact effective
 NULL-default semantics, though it need not reproduce the internal NULL storage
-sentinel.
+sentinel. After every recorded retirement gate passes, `retire` preserves the
+control-state evidence, sets the source administrator to `NOLOGIN`, clears its
+password, proves both retained credentials are rejected, and removes the local
+credential bundle.
 
 The export writes two owner-only JSON artifacts beside the archive. The compact
 `.source-freeze-intent.json` is the exact `yoke.source-freeze/v1` cross-service

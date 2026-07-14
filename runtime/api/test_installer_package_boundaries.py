@@ -117,6 +117,13 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "packages/yoke-cli/src/yoke_cli/commands/usher_reconcile.py",
         "yoke_core.engines.usher_reconcile_github",
     ): ("source_dev_admin", "sanctioned usher recovery source-dev/admin command"),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/source_authority.py",
+        "yoke_core.domain.source_authority_cutover",
+    ): (
+        "source_dev_admin",
+        "attended source-authority credential cutoff and export boundary",
+    ),
     ("packages/yoke-cli/src/yoke_cli/commands/universe_validate.py",
      "yoke_core.domain.universe_archive_validation"):
         ("client_local_validation", "validate a local archive before upload"),

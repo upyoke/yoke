@@ -90,7 +90,8 @@ def fence_state(conn: object) -> dict[str, Any] | None:
     if exists is None:
         return None
     row = conn.execute(sql.SQL(
-        "SELECT policy, frozen_at, service_stop_receipt FROM {}.{} "
+        "SELECT policy, frozen_at, service_stop_receipt, "
+        "retired_at, retirement_receipt FROM {}.{} "
         "WHERE singleton"
     ).format(
         sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(FENCE_STATE_TABLE),
@@ -102,6 +103,8 @@ def fence_state(conn: object) -> dict[str, Any] | None:
         "policy": policy,
         "frozen_at": str(row[1]),
         "service_stop_receipt": str(row[2]),
+        "retired_at": None if row[3] is None else str(row[3]),
+        "retirement_receipt": None if row[4] is None else str(row[4]),
     }
 
 
@@ -129,7 +132,8 @@ def create_fence_state(
         "CREATE TABLE {}.{} ("
         "singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton), "
         "policy jsonb NOT NULL, frozen_at text NOT NULL, "
-        "service_stop_receipt text NOT NULL)"
+        "service_stop_receipt text NOT NULL, retired_at text, "
+        "retirement_receipt text)"
     ).format(
         sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(FENCE_STATE_TABLE),
     ))
@@ -152,6 +156,17 @@ def drop_fence_state(conn: object) -> None:
     conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(
         sql.Identifier(FENCE_STATE_SCHEMA),
     ))
+
+
+def mark_source_retired(
+    conn: object, *, retired_at: str, retirement_receipt: str,
+) -> None:
+    conn.execute(sql.SQL(
+        "UPDATE {}.{} SET retired_at=%s, retirement_receipt=%s "
+        "WHERE singleton AND retired_at IS NULL"
+    ).format(
+        sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(FENCE_STATE_TABLE),
+    ), (retired_at, retirement_receipt))
 
 
 def clear_connect_grants(conn: object, database: str) -> None:

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain import source_authority_cutover as cutover
+from yoke_core.domain import source_authority_cutover_lifecycle as lifecycle
 from yoke_core.domain import source_authority_receipts as receipts
 
 
@@ -39,9 +40,15 @@ class _Conn:
         self.commits += 1
 
 
-def test_begin_sets_database_boundary_drains_and_proves_stability(monkeypatch):
-    conn = _Conn()
-    monkeypatch.setattr(cutover, "_admin_connection", lambda _dsn: conn)
+def test_begin_sets_database_boundary_drains_and_proves_stability(
+    monkeypatch, tmp_path: Path,
+):
+    original = _Conn()
+    rotated = _Conn()
+    connections = iter((original, rotated))
+    monkeypatch.setattr(
+        cutover, "_admin_connection", lambda _dsn: next(connections),
+    )
     staged = {"database": "source", "database_oid": 7, "staged": True}
     proved = {
         "database": "source", "database_oid": 7, "active": True,
@@ -54,7 +61,7 @@ def test_begin_sets_database_boundary_drains_and_proves_stability(monkeypatch):
     )
 
     def prove(_conn):
-        assert conn.commits == 1
+        assert original.commits == 1
         return proved
 
     monkeypatch.setattr(
@@ -71,8 +78,35 @@ def test_begin_sets_database_boundary_drains_and_proves_stability(monkeypatch):
             "capability_secrets": {"schema": "secrets", "types": {}, "sha256": "s"},
         },
     )
+    bundle = SimpleNamespace(
+        path=tmp_path / "cutover.json", database="source", database_oid=7,
+        admin_role="3", service_stop_receipt="service-stopped",
+        original_dsn="secret-dsn", cutover_dsn="rotated-dsn",
+        original_rolcanlogin=True,
+    )
+    monkeypatch.setattr(
+        cutover.source_credentials, "prepare_or_load", lambda *_a, **_kw: bundle,
+    )
+    monkeypatch.setattr(
+        cutover.role_credentials, "role_login_state", lambda *_a: True,
+    )
+    monkeypatch.setattr(
+        cutover.role_credentials, "rotate_role_password", lambda *_a: None,
+    )
+    monkeypatch.setattr(
+        cutover, "_validate_bundle_authority", lambda *_a: {
+            "frozen_at": "then", "service_stop_receipt": "service-stopped",
+        },
+    )
+    monkeypatch.setattr(cutover, "_connection_or_none", lambda _dsn: None)
+    monkeypatch.setattr(
+        cutover, "_assert_connection_rejected", lambda *_a, **_kw: None,
+    )
 
-    report = cutover.begin(service_stop_receipt="service-stopped", dsn="secret-dsn")
+    report = cutover.begin(
+        service_stop_receipt="service-stopped",
+        credential_file=bundle.path, dsn="secret-dsn",
+    )
 
     assert report["quiesced"] is True
     assert report["terminated_connections"] == 3
@@ -80,12 +114,13 @@ def test_begin_sets_database_boundary_drains_and_proves_stability(monkeypatch):
         "rdsadmin"
     ]
     assert report["stable_watermarks"] is True
-    assert conn.commits == 1
+    assert original.commits == 1
     assert "secret-dsn" not in str(report)
-    assert conn.closed is True
+    assert original.closed is True
+    assert rotated.closed is True
 
 
-def test_begin_refuses_existing_boundary(monkeypatch):
+def test_begin_refuses_existing_boundary(monkeypatch, tmp_path: Path):
     conn = _Conn()
     monkeypatch.setattr(cutover, "_admin_connection", lambda _dsn: conn)
     monkeypatch.setattr(
@@ -100,45 +135,79 @@ def test_begin_refuses_existing_boundary(monkeypatch):
             )
         ),
     )
+    monkeypatch.setattr(
+        cutover.role_credentials, "role_login_state", lambda *_a: True,
+    )
+    monkeypatch.setattr(
+        cutover.source_credentials, "prepare_or_load",
+        lambda *_a, **_kw: SimpleNamespace(),
+    )
 
     with pytest.raises(cutover.SourceAuthorityCutoverError, match="already quiesced"):
-        cutover.begin(service_stop_receipt="service-stopped", dsn="secret-dsn")
+        cutover.begin(
+            service_stop_receipt="service-stopped",
+            credential_file=tmp_path / "cutover.json", dsn="secret-dsn",
+        )
 
 
-def test_end_requires_boundary_and_recovers(monkeypatch):
+def test_abort_restores_policy_and_original_credential(monkeypatch, tmp_path: Path):
     conn = _Conn()
-    monkeypatch.setattr(cutover, "_admin_connection", lambda _dsn: conn)
+    proof = _Conn()
+    bundle = SimpleNamespace(
+        path=tmp_path / "cutover.json", database="source", database_oid=7,
+        admin_role="admin", service_stop_receipt="stopped",
+        original_dsn="secret-dsn", cutover_dsn="rotated-dsn",
+        original_rolcanlogin=True,
+    )
+    monkeypatch.setattr(lifecycle, "load_bundle", lambda *_a, **_kw: bundle)
+    connections = iter((conn, proof))
     monkeypatch.setattr(
-        cutover.connect_fence, "fence_state",
+        lifecycle, "connection_or_none", lambda _dsn: next(connections),
+    )
+    monkeypatch.setattr(
+        lifecycle.connect_fence, "fence_state",
         lambda _conn: {
             "policy": {}, "frozen_at": "then",
             "service_stop_receipt": "stopped",
         },
     )
     monkeypatch.setattr(
-        cutover.connect_fence, "restore_connect_fence",
+        lifecycle.connect_fence, "restore_connect_fence",
         lambda _conn: {
             "active": False, "database": "source", "database_oid": 7,
             "effective_connect_policy_restored": True,
         },
     )
     monkeypatch.setattr(
-        cutover, "_database_identity",
+        lifecycle, "database_identity",
         lambda _conn: {"database": "source", "database_oid": 7, "org": "yoke"},
     )
     monkeypatch.setattr(
-        cutover, "authority_receipt", lambda _conn, **_kw: {
+        lifecycle, "authority_receipt", lambda _conn, **_kw: {
             "receipt_digest": "stable", "tables": {}, "strategy_rows": [],
             "project_capabilities": {"schema": "caps", "types": {}, "sha256": "c"},
             "capability_secrets": {"schema": "secrets", "types": {}, "sha256": "s"},
         },
     )
+    monkeypatch.setattr(
+        lifecycle, "validate_bundle_authority", lambda *_a: {
+            "frozen_at": "then", "service_stop_receipt": "stopped",
+        },
+    )
+    monkeypatch.setattr(
+        lifecycle.role_credentials, "restore_role_credential", lambda *_a: None,
+    )
+    deleted = []
+    monkeypatch.setattr(
+        lifecycle.source_credentials, "delete_bundle", deleted.append,
+    )
 
-    report = cutover.end(dsn="secret-dsn")
+    report = cutover.abort(credential_file=bundle.path)
 
     assert report["quiesced"] is False
     assert report["admin_fence"]["effective_connect_policy_restored"] is True
     assert conn.commits == 1
+    assert deleted == [bundle]
 
 
 def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
@@ -147,7 +216,29 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
     conn = _Conn()
     archive = tmp_path / "source.dump"
     archive.write_bytes(b"PGDMPportable")
+    from yoke_core.domain import source_authority_export_cutover as export_cutover
+
+    monkeypatch.setattr(
+        export_cutover, "authority_receipt", lambda _conn, **_kw: {
+            "receipt_digest": "stable", "tables": {}, "strategy_rows": [],
+            "project_capabilities": {"schema": "caps", "types": {}, "sha256": "c"},
+            "capability_secrets": {"schema": "secrets", "types": {}, "sha256": "s"},
+        },
+    )
+
     monkeypatch.setattr(cutover, "_admin_connection", lambda _dsn: conn)
+    bundle = SimpleNamespace(
+        database="source", database_oid=7, admin_role="admin",
+        service_stop_receipt="service-stopped", original_dsn="secret-dsn",
+        cutover_dsn="rotated-dsn",
+    )
+    monkeypatch.setattr(cutover, "_load_bundle", lambda *_a, **_kw: bundle)
+    monkeypatch.setattr(
+        cutover, "_validate_bundle_authority", lambda *_a: {
+            "frozen_at": "2026-07-14T00:00:00Z",
+            "service_stop_receipt": "service-stopped", "policy": {},
+        },
+    )
     fence_active = {"active": True, "unauthorized_sessions": []}
     monkeypatch.setattr(
         cutover.connect_fence, "connect_fence_status", lambda _conn: fence_active,
@@ -167,18 +258,22 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
         },
     )
     monkeypatch.setattr(
-        cutover.universe_export, "export_universe",
+        export_cutover.universe_export, "export_universe",
         lambda **_kwargs: {
             "artifact": str(archive), "bytes": archive.stat().st_size,
             "format": "pg_dump-custom", "org": "yoke",
         },
     )
     inspection = SimpleNamespace(
-        archive_sha256=cutover._file_sha256(archive), size_bytes=archive.stat().st_size,
+        archive_sha256=export_cutover.file_sha256(archive),
+        size_bytes=archive.stat().st_size,
         catalog_tables=("items",), catalog_sequences=("items_id_seq",),
         catalog_digest="catalog", table_entries=2,
     )
-    monkeypatch.setattr(cutover.universe_portability, "inspect_archive", lambda _p: inspection)
+    monkeypatch.setattr(
+        export_cutover.universe_portability, "inspect_archive",
+        lambda _p: inspection,
+    )
     monkeypatch.setattr(
         cutover, "_database_identity",
         lambda _conn: {"database": "source", "database_oid": 7, "org": "yoke"},
@@ -192,7 +287,9 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
 
     conn.execute = execute
 
-    report = cutover.export_quiesced(out=archive, dsn="secret-dsn")
+    report = cutover.export_quiesced(
+        out=archive, credential_file=tmp_path / "cutover.json",
+    )
 
     assert report["stable_watermarks"] is True
     assert report["source_authority"]["receipt_digest"] == "stable"
@@ -213,7 +310,9 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
         lambda _conn: {"active": False},
     )
     with pytest.raises(cutover.SourceAuthorityCutoverError, match="active quiesce"):
-        cutover.export_quiesced(out=archive, dsn="secret-dsn")
+        cutover.export_quiesced(
+            out=archive, credential_file=tmp_path / "cutover.json",
+        )
 
 
 def test_cross_repo_freeze_intent_fixture_has_exact_contract():

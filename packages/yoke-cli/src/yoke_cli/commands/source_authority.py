@@ -8,17 +8,18 @@ import json
 import sys
 from typing import Callable, Dict, List, Tuple
 
-import psycopg
-
 from yoke_cli.commands._helpers import parse_or_usage_error
 
 
 AdapterFn = Callable[[List[str]], int]
 QUIESCE_USAGE = (
-    "yoke source-authority quiesce {begin,status,end} "
-    "[--service-stop-receipt ID] [--json]"
+    "yoke source-authority quiesce {begin,status,abort,retire} "
+    "--credential-file PATH [--service-stop-receipt ID] "
+    "[--retirement-receipt ID] [--json]"
 )
-EXPORT_USAGE = "yoke source-authority export --out PATH [--json]"
+EXPORT_USAGE = (
+    "yoke source-authority export --out PATH --credential-file PATH [--json]"
+)
 
 
 def source_authority_quiesce(args: List[str]) -> int:
@@ -27,11 +28,16 @@ def source_authority_quiesce(args: List[str]) -> int:
         description=(
             "Attended prod-admin write-freeze boundary. begin commits an "
             "owner-only database CONNECT fence and drains existing sessions; "
-            "status proves current watermarks; end recovers write service."
+            "status proves current watermarks; abort recovers write service; "
+            "retire permanently disables the obsolete source login."
         ),
     )
-    parser.add_argument("operation", choices=("begin", "status", "end"))
+    parser.add_argument(
+        "operation", choices=("begin", "status", "abort", "retire"),
+    )
+    parser.add_argument("--credential-file", required=True)
     parser.add_argument("--service-stop-receipt", default=None)
+    parser.add_argument("--retirement-receipt", default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, QUIESCE_USAGE)
     if parsed is None:
@@ -43,10 +49,18 @@ def source_authority_quiesce(args: List[str]) -> int:
             file=sys.stderr,
         )
         return 2
-    kwargs = (
-        {"service_stop_receipt": parsed.service_stop_receipt}
-        if parsed.operation == "begin" else {}
-    )
+    if parsed.operation == "retire" and not parsed.retirement_receipt:
+        print(
+            "error: retire requires --retirement-receipt from the recorded "
+            "retirement gates",
+            file=sys.stderr,
+        )
+        return 2
+    kwargs = {"credential_file": parsed.credential_file}
+    if parsed.operation == "begin":
+        kwargs["service_stop_receipt"] = parsed.service_stop_receipt
+    if parsed.operation == "retire":
+        kwargs["retirement_receipt"] = parsed.retirement_receipt
     return _run(parsed.operation, json_mode=parsed.json_mode, **kwargs)
 
 
@@ -60,24 +74,21 @@ def source_authority_export(args: List[str]) -> int:
         ),
     )
     parser.add_argument("--out", required=True)
+    parser.add_argument("--credential-file", required=True)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, EXPORT_USAGE)
     if parsed is None:
         return 2
-    return _run("export_quiesced", out=parsed.out, json_mode=parsed.json_mode)
+    return _run(
+        "export_quiesced", out=parsed.out,
+        credential_file=parsed.credential_file, json_mode=parsed.json_mode,
+    )
 
 
 def _run(operation: str, *, json_mode: bool, **kwargs: object) -> int:
     engine = importlib.import_module("yoke_core.domain.source_authority_cutover")
     try:
         report = getattr(engine, operation)(**kwargs)
-    except psycopg.Error:
-        print(
-            "error: source authority database operation failed; inspect the "
-            "PostgreSQL service and selected prod-db-admin connection",
-            file=sys.stderr,
-        )
-        return 1
     except (OSError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
