@@ -39,7 +39,7 @@ class TestProjectsCliWiring:
         assert rc == 2
         err = capsys.readouterr().err
         assert "--base is required" in err
-        assert "capability-get-settings" in err
+        assert "yoke projects capability-settings get" in err
 
     def test_cli_stale_base_exits_1_with_conflict(
         self, cap_db: str, capsys

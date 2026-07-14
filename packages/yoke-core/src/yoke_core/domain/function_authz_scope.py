@@ -172,6 +172,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     # Machine-local config / repo writes — gated by machine possession.
     "auth.set.run": AuthzSpec(CLIENT_LOCAL, None),
     "connection.set.run": AuthzSpec(CLIENT_LOCAL, None),
+    "connection.remove.run": AuthzSpec(CLIENT_LOCAL, None),
     "env.use.run": AuthzSpec(CLIENT_LOCAL, None),
     "config.example.run": AuthzSpec(CLIENT_LOCAL, None),
     "config.stamp_project_env.run": AuthzSpec(CLIENT_LOCAL, None),

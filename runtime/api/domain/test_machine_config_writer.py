@@ -126,6 +126,94 @@ class TestSetActiveEnv:
             writer.set_active_env("ghost")
 
 
+class TestRemoveConnection:
+    def test_removes_inactive_alias_owned_secret_and_mappings(self, home, tmp_path):
+        _seed_https(home, tmp_path, env="prod")
+        _seed_https(home, tmp_path, env="hosted-prod")
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        writer.set_active_env("hosted-prod")
+        writer.register_project(repo, 7)
+        secret = home / "secrets" / "prod.token"
+
+        report = writer.remove_connection("prod")
+
+        assert report["credential_removed"] is True
+        assert "prod" not in _config(home)["connections"]
+        assert not secret.exists()
+
+    def test_refuses_active_or_non_owned_authority(self, home, tmp_path):
+        _seed_https(home, tmp_path, env="prod")
+        with pytest.raises(MachineConfigWriteError, match="active authority"):
+            writer.remove_connection("prod")
+
+        _seed_https(home, tmp_path, env="hosted-prod")
+        writer.set_active_env("hosted-prod")
+        payload = _config(home)
+        external = tmp_path / "external.token"
+        external.write_text("secret")
+        payload["connections"]["prod"]["credential_source"]["path"] = str(external)
+        (home / "config.json").write_text(json.dumps(payload), encoding="utf-8")
+        (home / "config.json").chmod(0o600)
+        with pytest.raises(MachineConfigWriteError, match="outside Yoke-owned"):
+            writer.remove_connection("prod")
+
+    def test_keeps_credential_referenced_by_canonical_connection(
+        self, home, tmp_path,
+    ):
+        _seed_https(home, tmp_path, env="prod")
+        _seed_https(home, tmp_path, env="canonical")
+        writer.set_active_env("canonical")
+        payload = _config(home)
+        canonical_source = payload["connections"]["canonical"]["credential_source"]
+        payload["connections"]["prod"]["credential_source"] = canonical_source
+        (home / "config.json").write_text(json.dumps(payload), encoding="utf-8")
+        (home / "config.json").chmod(0o600)
+
+        report = writer.remove_connection("prod")
+
+        assert report["credential_removed"] is False
+        assert report["credential_retained_shared"] is True
+        assert Path(canonical_source["path"]).is_file()
+        assert "canonical" in _config(home)["connections"]
+
+    def test_recovers_legacy_retiring_tombstone_before_config_write(
+        self, home, tmp_path,
+    ):
+        _seed_https(home, tmp_path, env="prod")
+        _seed_https(home, tmp_path, env="canonical")
+        writer.set_active_env("canonical")
+        secret = home / "secrets" / "prod.token"
+        tombstone = secret.with_name(secret.name + ".retiring")
+        secret.replace(tombstone)
+
+        report = writer.remove_connection("prod")
+
+        assert report["credential_removed"] is True
+        assert not tombstone.exists()
+        assert "prod" not in _config(home)["connections"]
+
+    def test_recovers_tombstone_after_config_write(self, home, tmp_path):
+        _seed_https(home, tmp_path, env="prod")
+        _seed_https(home, tmp_path, env="canonical")
+        writer.set_active_env("canonical")
+        secret = home / "secrets" / "prod.token"
+        from yoke_cli.config import writer_connection_remove as retirement
+
+        tombstone = retirement._retirement_tombstone("prod")
+        secret.replace(tombstone)
+        payload = _config(home)
+        payload["connections"].pop("prod")
+        (home / "config.json").write_text(json.dumps(payload), encoding="utf-8")
+        (home / "config.json").chmod(0o600)
+
+        report = writer.remove_connection("prod")
+
+        assert report["already_removed"] is True
+        assert report["credential_removed"] is True
+        assert not tombstone.exists()
+
+
 class TestSetCredential:
     def test_token_stdin_stores_secret_owner_only(
         self, home, tmp_path, monkeypatch,

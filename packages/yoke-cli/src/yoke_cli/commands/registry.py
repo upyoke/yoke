@@ -227,6 +227,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("env.use.run", _adapters.env_use),
     ("connection", "set"):
         ("connection.set.run", _adapters.connection_set),
+    ("connection", "remove"):
+        ("connection.remove.run", _adapters.connection_remove),
     ("auth", "set"):
         ("auth.set.run", _adapters.auth_set),
     ("project", "register"): ("project.register.run", _adapters.project_register),

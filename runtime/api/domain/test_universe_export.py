@@ -70,7 +70,13 @@ def test_export_produces_pg_restore_listable_artifact(tmp_path):
     out_dir = tmp_path / "exports"
     out_dir.mkdir()
     emitted: list[str] = []
-    with _schema_loaded_universe() as (_conn, dsn):
+    with _schema_loaded_universe() as (conn, dsn):
+        conn.execute(
+            "INSERT INTO capability_secrets "
+            "(project_id, type, key, value, source, created_at) "
+            "VALUES (1, 'github', 'token', 'must-not-export', 'literal', now())"
+        )
+        conn.commit()
         report = ux.export_universe(dsn=dsn, out=out_dir, emit=emitted.append)
 
     artifact = Path(report["artifact"])
@@ -91,6 +97,8 @@ def test_export_produces_pg_restore_listable_artifact(tmp_path):
     assert listing.returncode == 0, listing.stderr
     assert "organizations" in listing.stdout
     assert "actors" in listing.stdout
+    assert "TABLE DATA public capability_secrets" not in listing.stdout
+    assert "SEQUENCE SET public capability_secrets_id_seq" not in listing.stdout
 
 
 def test_export_honors_explicit_out_file_path(tmp_path):
@@ -197,14 +205,19 @@ def test_export_delegates_to_env_credential_dumper(monkeypatch, tmp_path):
             dsn=received_dsn,
             destination=received_destination,
             timeout_s=kwargs["timeout_s"],
+            snapshot=kwargs["snapshot"],
         )
         destination.write_bytes(b"PGDMP")
         return SimpleNamespace(size_bytes=5)
 
     monkeypatch.setattr(ux.universe_portability, "dump_universe", safe_dump)
-    report = ux.export_universe(dsn=dsn, out=destination)
+    report = ux.export_universe(
+        dsn=dsn, out=destination, snapshot="00000003-0000001B-1",
+        org_slug="portable",
+    )
     assert observed["dsn"] == dsn
     assert observed["destination"] == destination
+    assert observed["snapshot"] == "00000003-0000001B-1"
     assert report["bytes"] == 5
 
 

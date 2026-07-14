@@ -39,10 +39,14 @@ GITHUB_ACTIONS_SUBCOMMAND_REGISTRY: Dict[
         ("github_actions.runners.status", github_actions_runners_status),
     ("github-actions", "secret", "set"):
         ("github_actions.secret.set", _adapters.github_actions_secret_set),
+    ("github-actions", "secret", "delete"):
+        ("github_actions.secret.delete", _adapters.github_actions_secret_delete),
     ("github-actions", "variable", "get"):
         ("github_actions.variable.get", _adapters.github_actions_variable_get),
     ("github-actions", "variable", "set"):
         ("github_actions.variable.set", _adapters.github_actions_variable_set),
+    ("github-actions", "variable", "delete"):
+        ("github_actions.variable.delete", _adapters.github_actions_variable_delete),
 }
 
 

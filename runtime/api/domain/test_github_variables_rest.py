@@ -131,3 +131,21 @@ def test_set_repo_variable_404_on_create_propagates(monkeypatch):
         mod.set_repo_variable(
             "owner/missing", "GATE", "x", token="ghs_variables_transport_test"
         )
+
+
+def test_delete_repo_variable_uses_delete(monkeypatch):
+    received = _install_fake_urlopen(monkeypatch, [_FakeResponse(204, b"")])
+    mod.delete_repo_variable("owner/repo", "OLD", token="ghs_delete_test")
+    assert received[0]["method"] == "DELETE"
+    assert received[0]["url"].endswith("/repos/owner/repo/actions/variables/OLD")
+
+
+@pytest.mark.parametrize("name", ["../secrets/X", "A/B", "-BAD", "A%2FB"])
+def test_variable_set_get_delete_reject_path_injection(name):
+    for operation in (
+        lambda: mod.set_repo_variable("owner/repo", name, "x", token="unused"),
+        lambda: mod.get_repo_variable("owner/repo", name, token="unused"),
+        lambda: mod.delete_repo_variable("owner/repo", name, token="unused"),
+    ):
+        with pytest.raises(ValueError, match="config name"):
+            operation()

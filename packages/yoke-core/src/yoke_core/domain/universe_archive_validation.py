@@ -7,6 +7,7 @@ from pathlib import Path
 from yoke_core.domain import db_backend, universe_portability
 from yoke_core.domain.schema_fingerprint import fingerprint_portable_postgres_schema
 from yoke_core.domain.schema_readiness import missing_readiness_tables
+from yoke_core.domain.source_authority_cutover import authority_receipt
 
 
 class ArchiveValidationError(RuntimeError):
@@ -56,6 +57,9 @@ def validate_archive_roundtrip(
         ]
         fingerprint = fingerprint_portable_postgres_schema(conn)
         content_counts = universe_portability.user_content_counts(conn)
+        restored_authority = authority_receipt(
+            conn, include_content_digests=True,
+        )
     finally:
         conn.close()
     return {
@@ -65,6 +69,7 @@ def validate_archive_roundtrip(
         "projects": projects,
         "schema_fingerprint": fingerprint,
         "content_counts": content_counts,
+        "authority": restored_authority,
     }
 
 
@@ -78,6 +83,8 @@ def _inspection_receipt(
         "dumped_from_postgres": str(inspection.dumped_from_postgres),
         "dumped_by_pg_dump": str(inspection.dumped_by_pg_dump),
         "table_entries": int(inspection.table_entries),
+        "sha256": str(inspection.archive_sha256),
+        "catalog": universe_portability.archive_catalog_receipt(inspection),
     }
 
 
