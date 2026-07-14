@@ -12,16 +12,23 @@
   font-family: var(--yoke-font-sans);
   color: var(--yoke-ink);
   background: var(--yoke-bg);
+  /* Opt native form controls (chooser, buttons) into the active theme so they
+     don't render with a light UA appearance on the dark bar. The hosted shell
+     inherits this from the platform document; standalone needs it declared. */
+  color-scheme: light dark;
 }
 
-/* Top bar: brand lockup left, project chooser + org context right. */
+/* Top bar: brand lockup left, project chooser + org context right. A compact
+   56px bar with a bottom rule, matching the shared app-header frame. */
 .universe-app-root .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
+  gap: 0.875rem;
+  min-height: 3.5rem;
+  padding: 0 1.125rem;
   border-bottom: 1px solid var(--yoke-border);
+  background: var(--yoke-bg);
 }
 
 .universe-app-root .brand {
@@ -29,14 +36,18 @@
   align-items: center;
   color: var(--yoke-ink);
 }
-.universe-app-root .brand svg { height: 1.6rem; width: auto; display: block; }
+.universe-app-root .brand svg { height: 1.625rem; width: auto; display: block; }
 
 .universe-app-root .context-side {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
-.universe-app-root .org-context { color: var(--yoke-muted); font-size: 0.9rem; }
+.universe-app-root .org-context {
+  color: var(--yoke-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
 
 .universe-app-root .capability-actions {
   display: inline-flex;
@@ -44,24 +55,23 @@
   gap: 0.5rem;
 }
 
-.universe-app-root .capability-action {
-  font-family: inherit;
-  font-size: 0.85rem;
-  color: var(--yoke-ink);
-  background: var(--yoke-bg);
-  border: 1px solid var(--yoke-border);
-  border-radius: var(--yoke-radius);
-  padding: 0.3rem 0.5rem;
-}
-
+/* Right-side chrome reads as the shared chip control: bordered, tokenized,
+   with a hover wash. Chooser and capability buttons share one rule. */
+.universe-app-root .capability-action,
 .universe-app-root .project-chooser {
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 500;
   color: var(--yoke-ink);
   background: var(--yoke-bg);
   border: 1px solid var(--yoke-border);
-  border-radius: var(--yoke-radius);
-  padding: 0.3rem 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.34rem 0.6rem;
+  transition: background-color 120ms ease;
+}
+.universe-app-root .capability-action:hover,
+.universe-app-root .project-chooser:hover {
+  background: color-mix(in srgb, var(--yoke-border) 30%, transparent);
 }
 .universe-app-root .project-chooser:disabled { opacity: 0.5; }
 
