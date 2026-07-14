@@ -131,7 +131,7 @@ def export_universe(
     """
     resolved_dsn = dsn if dsn is not None else resolve_export_dsn()
     selected_org = str(org_slug or _org_slug(resolved_dsn))
-    dest = _resolve_destination(out, selected_org)
+    dest = resolve_export_destination(out, selected_org)
     emit(f"  [universe-export] dumping org {selected_org!r} universe -> {dest}")
     timeout = runtime_settings.get_seconds(
         EXPORT_TIMEOUT_SETTING,
@@ -198,7 +198,7 @@ def _org_slug(dsn: str) -> str:
     return str(row[0]).strip()
 
 
-def _resolve_destination(
+def resolve_export_destination(
     out: Optional[Union[str, Path]],
     org_slug: str,
 ) -> Path:
@@ -227,5 +227,6 @@ __all__ = [
     "UniverseExportError",
     "default_artifact_name",
     "export_universe",
+    "resolve_export_destination",
     "resolve_export_dsn",
 ]

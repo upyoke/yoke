@@ -41,20 +41,12 @@ def prepare_or_load(
     """Create once before commit, or reuse the same precommit crash artifact."""
     selected = credential_file.selected_path(path)
     if selected.exists() or selected.is_symlink():
-        bundle = load_bound(
-            selected, original_dsn=original_dsn,
+        return _load_expected(
+            selected, original_dsn=original_dsn, database=database,
+            database_oid=database_oid, admin_role=admin_role,
             service_stop_receipt=service_stop_receipt,
+            original_rolcanlogin=original_rolcanlogin,
         )
-        expected = (database, int(database_oid), admin_role, original_rolcanlogin)
-        actual = (
-            bundle.database, bundle.database_oid, bundle.admin_role,
-            bundle.original_rolcanlogin,
-        )
-        if actual != expected:
-            raise SourceCredentialError(
-                "existing cutover credential belongs to another source authority"
-            )
-        return bundle
     original = conninfo.conninfo_to_dict(original_dsn)
     original_password = str(original.get("password") or "")
     if not original_password:
@@ -82,8 +74,34 @@ def prepare_or_load(
             "cutover_dsn": cutover_dsn,
         },
     }
-    credential_file.write_atomic_owner_only(selected, payload)
-    return _decode(selected, payload)
+    if credential_file.write_atomic_owner_only(selected, payload):
+        return _decode(selected, payload)
+    return _load_expected(
+        selected, original_dsn=original_dsn, database=database,
+        database_oid=database_oid, admin_role=admin_role,
+        service_stop_receipt=service_stop_receipt,
+        original_rolcanlogin=original_rolcanlogin,
+    )
+
+
+def _load_expected(
+    path: Path, *, original_dsn: str, database: str, database_oid: int,
+    admin_role: str, service_stop_receipt: str, original_rolcanlogin: bool,
+) -> SourceCredentialBundle:
+    bundle = load_bound(
+        path, original_dsn=original_dsn,
+        service_stop_receipt=service_stop_receipt,
+    )
+    expected = (database, int(database_oid), admin_role, original_rolcanlogin)
+    actual = (
+        bundle.database, bundle.database_oid, bundle.admin_role,
+        bundle.original_rolcanlogin,
+    )
+    if actual != expected:
+        raise SourceCredentialError(
+            "existing cutover credential belongs to another source authority"
+        )
+    return bundle
 
 
 def load_bound(

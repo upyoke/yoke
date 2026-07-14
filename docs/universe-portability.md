@@ -57,23 +57,29 @@ The owner must have the effective privileges of `pg_signal_backend` and
 superusers or inherited owner membership also block the operation.
 
 The owner-only credential bundle binds the old database OID, administrator,
-fence receipt, original credential, and rotated cutover credential. After
-canonical machine authority switches to hosted production, `status`, `export`,
+fence receipt, original credential, and rotated cutover credential. During
+rotation, the already-live cutover session proves the stored SCRAM/MD5 verifier
+matches only the cutover secret; connection-error text is not cutoff evidence.
+After canonical machine authority switches to hosted production, `status`, `export`,
 `abort`, and `retire` continue to address the old source exclusively through
 that bundle; they do not re-resolve the canonical production connection.
 
 `export` opens one read-only `REPEATABLE READ` transaction, exports its
 PostgreSQL snapshot, and binds the compact receipt, detailed receipt, and
 `pg_dump --snapshot` archive to that same view. It then proves the durable
-fence again from a fresh connection. `abort` transactionally replays the saved,
+fence again and requires an exact fresh full-authority receipt from a new
+connection; a committed writer that appeared and exited during the dump still
+invalidates publication. `abort` transactionally replays the saved,
 `acldefault`-expanded effective `CONNECT` policy and removes the owner-only
 control schema. The receipt preserves whether the original physical ACL was
 `NULL`; PostgreSQL's supported grant/revoke DDL restores the exact effective
 NULL-default semantics, though it need not reproduce the internal NULL storage
 sentinel. After every recorded retirement gate passes, `retire` preserves the
 control-state evidence, sets the source administrator to `NOLOGIN`, clears its
-password, proves both retained credentials are rejected, and removes the local
-credential bundle.
+password, proves that state through the still-live administrator session, and
+removes the local credential bundle. A persisted transaction marker plus an
+exact single-host `NOLOGIN` response supports crash recovery; generic password,
+network, TLS, timeout, and multi-host text never counts as cutoff evidence.
 
 The export writes two owner-only JSON artifacts beside the archive. The compact
 `.source-freeze-intent.json` is the exact `yoke.source-freeze/v1` cross-service
@@ -83,6 +89,12 @@ contains a DSN, token, or secret. Compact begin/status receipts use bounded
 count/max/schema/catalog/sequence/strategy queries. The export and disposable
 round-trip each perform one streaming, fixed-batch content-digest pass so a
 large events table is never loaded or sorted in client memory.
+
+The dump is staged under an owner-only hidden name while one stable publication
+lock is held. Both receipt sidecars are persisted first and the archive name is
+linked last as the commit marker, so no final-looking archive exists without
+its receipts. A later invocation holding the same lock removes only validated
+orphan sidecars and exact tokenized staging files left by a process crash.
 
 Capability settings and capability secrets use separate secret-free receipt
 planes grouped by capability type and project. The replacement may overlay only

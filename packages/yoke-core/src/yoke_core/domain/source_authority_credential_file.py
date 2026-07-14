@@ -21,33 +21,49 @@ def selected_path(path: str | Path) -> Path:
     return selected
 
 
-def write_atomic_owner_only(path: Path, payload: dict[str, Any]) -> None:
+def write_atomic_owner_only(path: Path, payload: dict[str, Any]) -> bool:
+    """Publish a new owner-only file without ever replacing a winner.
+
+    The hard-link operation is the atomic no-clobber boundary.  A concurrent
+    publisher that loses receives ``False`` and can safely load the already
+    fsynced winning file.  A check followed by ``os.replace`` is deliberately
+    insufficient here because two attended ``begin`` processes may overlap.
+    """
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     require_owner_only_directory(path.parent)
-    if path.exists() or path.is_symlink():
-        raise SourceCredentialError("cutover credential path already exists")
     temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
-    write_new_owner_only(temporary, payload)
     try:
-        os.replace(temporary, path)
+        write_new_owner_only(temporary, payload)
+        try:
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError:
+            # The winner fsynced file contents before linking, but may not yet
+            # have persisted the directory entry.  The loser must not load
+            # and commit database state until that shared entry is durable.
+            fsync_directory(path.parent)
+            require_owner_only_regular(path)
+            return False
         fsync_directory(path.parent)
+        require_owner_only_regular(path)
+        return True
     finally:
         if temporary.exists():
             temporary.unlink()
-    require_owner_only_regular(path)
+            fsync_directory(path.parent)
 
 
 def replace_atomic_owner_only(path: Path, payload: dict[str, Any]) -> None:
     require_owner_only_regular(path)
     require_owner_only_directory(path.parent)
     temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
-    write_new_owner_only(temporary, payload)
     try:
+        write_new_owner_only(temporary, payload)
         os.replace(temporary, path)
         fsync_directory(path.parent)
     finally:
         if temporary.exists():
             temporary.unlink()
+            fsync_directory(path.parent)
     require_owner_only_regular(path)
 
 

@@ -16,10 +16,6 @@ class SourceAuthorityCutoverError(RuntimeError):
 
 
 _AUTHENTICATION_REJECTION_SQLSTATES = frozenset({"28000", "28P01"})
-_LIBPQ_LOGIN_REFUSAL = re.compile(
-    r'FATAL:\s+(?:password authentication failed for user "[^"]+"|'
-    r'role "[^"]+" is not permitted to log in)(?:\n|$)'
-)
 
 
 def admin_connection(dsn: str) -> object:
@@ -88,17 +84,80 @@ def connection_or_none(dsn: str) -> object | None:
 
         if (
             isinstance(exc, PsycopgError)
-            and (
-                getattr(exc, "sqlstate", None)
-                in _AUTHENTICATION_REJECTION_SQLSTATES
-                or (
-                    getattr(exc, "sqlstate", None) is None
-                    and _LIBPQ_LOGIN_REFUSAL.search(str(exc)) is not None
-                )
-            )
+            and getattr(exc, "sqlstate", None)
+            in _AUTHENTICATION_REJECTION_SQLSTATES
         ):
             return None
         raise
+
+
+def retirement_connection_or_none(
+    dsn: str, *, role: str,
+) -> object | None:
+    """Accept an exact single-host NOLOGIN refusal for crash recovery only."""
+    try:
+        return admin_connection(dsn)
+    except Exception as exc:
+        from psycopg import Error as PsycopgError
+
+        if not isinstance(exc, PsycopgError):
+            raise
+        if getattr(exc, "sqlstate", None) in _AUTHENTICATION_REJECTION_SQLSTATES:
+            return None
+        if (
+            getattr(exc, "sqlstate", None) is None
+            and _single_host_dsn(dsn)
+            and _exact_nologin_refusal(str(exc), role=role)
+        ):
+            return None
+        raise
+
+
+def _single_host_dsn(dsn: str) -> bool:
+    from psycopg import conninfo
+
+    parsed = conninfo.conninfo_to_dict(dsn)
+    hosts = str(parsed.get("host") or parsed.get("hostaddr") or "")
+    ports = str(parsed.get("port") or "")
+    return "," not in hosts and "," not in ports
+
+
+def _exact_nologin_refusal(message: str, *, role: str) -> bool:
+    message = re.sub(r"[ \t]+", " ", message)
+    refusal = f'FATAL: role "{role}" is not permitted to log in'
+    lowered = message.lower()
+    excluded = (
+        "password authentication failed", "ssl error", "tls", "timeout",
+        "timed out", "connection refused", "could not connect",
+    )
+    return (
+        message.rstrip().endswith(refusal)
+        and message.count(refusal) == 1
+        and lowered.count("connection to server") <= 1
+        and not any(marker in lowered for marker in excluded)
+    )
+
+
+def prove_original_credential_cutoff(
+    live_conn: object,
+    bundle: source_credentials.SourceCredentialBundle,
+) -> dict[str, str]:
+    """Prove rotation without using a connection failure as evidence.
+
+    The already-live cutover connection proves the stored SCRAM/MD5 verifier
+    matches the cutover secret and not the original one.  Network, TLS,
+    timeout, and multi-host text never enter this proof.
+    """
+    from yoke_core.domain import source_authority_role_credentials
+
+    verifier = source_authority_role_credentials.prove_role_password_rotation(
+        live_conn, bundle,
+    )
+    return {
+        "method": "live-role-password-verifier",
+        "connection_rejection": "not-used-as-evidence",
+        "verifier": verifier,
+    }
 
 
 def assert_connection_rejected(dsn: str, *, message: str) -> None:
@@ -121,5 +180,7 @@ def validated_receipt(value: str, *, label: str) -> str:
 __all__ = [
     "SourceAuthorityCutoverError", "admin_connection",
     "assert_connection_rejected", "connection_or_none", "database_identity",
-    "load_bundle", "validate_bundle_authority", "validated_receipt",
+    "load_bundle", "prove_original_credential_cutoff",
+    "retirement_connection_or_none", "validate_bundle_authority",
+    "validated_receipt",
 ]

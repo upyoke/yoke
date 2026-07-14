@@ -12,10 +12,10 @@ from yoke_core.domain import source_authority_role_credentials as role_credentia
 from yoke_core.domain.source_authority_connect_policy import mark_source_retired
 from yoke_core.domain.source_authority_cutover_support import (
     SourceAuthorityCutoverError,
-    assert_connection_rejected,
     connection_or_none,
     database_identity,
     load_bundle,
+    retirement_connection_or_none,
     validate_bundle_authority,
     validated_receipt,
 )
@@ -28,7 +28,19 @@ def abort(
     """Abort migration and atomically restore credential plus CONNECT policy."""
     bundle = load_bundle(credential_file, original_dsn=dsn)
     original_dsn = bundle.original_dsn
-    conn = connection_or_none(bundle.cutover_dsn)
+    cutover_probe_inconclusive = False
+    try:
+        conn = connection_or_none(bundle.cutover_dsn)
+    except Exception as exc:
+        from psycopg import Error as PsycopgError
+
+        if not isinstance(exc, PsycopgError) or getattr(exc, "sqlstate", None):
+            raise
+        # A text-only cutover failure is not rejection evidence.  The restored
+        # original authority and absent fence can independently prove that an
+        # earlier abort committed before local bundle cleanup.
+        conn = None
+        cutover_probe_inconclusive = True
     if conn is None:
         restored = connection_or_none(original_dsn)
         if restored is None:
@@ -36,14 +48,29 @@ def abort(
                 "neither cutover nor original credential authenticates"
             )
         try:
-            if connect_fence.fence_state(restored) is not None:
+            identity = database_identity(restored)
+            current_role = str(
+                restored.execute("SELECT current_user").fetchone()[0]
+            )
+            if (
+                identity["database"] != bundle.database
+                or identity["database_oid"] != bundle.database_oid
+                or current_role != bundle.admin_role
+                or connect_fence.fence_state(restored) is not None
+            ):
                 raise SourceAuthorityCutoverError(
-                    "original credential authenticates while fence state remains"
+                    "original credential does not prove a completed abort"
                 )
         finally:
             restored.close()
         source_credentials.delete_bundle(bundle)
-        return {"operation": "abort", "quiesced": False, "recovered": True}
+        return {
+            "operation": "abort", "quiesced": False, "recovered": True,
+            "cutover_connection_rejection": (
+                "not-used-as-evidence"
+                if cutover_probe_inconclusive else "authentication-sqlstate"
+            ),
+        }
     try:
         validate_bundle_authority(conn, bundle)
         database = database_identity(conn)
@@ -88,12 +115,21 @@ def retire(
         )
     except source_credentials.SourceCredentialError as exc:
         raise SourceAuthorityCutoverError(str(exc)) from exc
-    conn = connection_or_none(bundle.cutover_dsn)
-    if conn is None:
-        assert_connection_rejected(
-            original_dsn,
-            message="original credential authenticates after retirement",
+    if bundle.retirement_phase == "transaction_started":
+        conn = retirement_connection_or_none(
+            bundle.cutover_dsn, role=bundle.admin_role,
         )
+    else:
+        conn = connection_or_none(bundle.cutover_dsn)
+    if conn is None:
+        original = retirement_connection_or_none(
+            original_dsn, role=bundle.admin_role,
+        )
+        if original is not None:
+            original.close()
+            raise SourceAuthorityCutoverError(
+                "original credential authenticates after retirement"
+            )
         if bundle.retirement_phase != "transaction_started":
             raise SourceAuthorityCutoverError(
                 "both source credentials are rejected before a validated "
@@ -126,19 +162,14 @@ def retire(
         if (
             state is None or state["retired_at"] != chosen_retired_at
             or state["retirement_receipt"] != receipt
-            or role_credentials.role_login_state(conn, bundle.admin_role)
         ):
             raise SourceAuthorityCutoverError(
                 "source retirement evidence did not validate"
             )
-        assert_connection_rejected(
-            bundle.cutover_dsn,
-            message="cutover credential still authenticates after retirement",
-        )
-        assert_connection_rejected(
-            original_dsn,
-            message="original credential still authenticates after retirement",
-        )
+        try:
+            role_credentials.prove_role_retired(conn, bundle)
+        except source_credentials.SourceCredentialError as exc:
+            raise SourceAuthorityCutoverError(str(exc)) from exc
         source_credentials.delete_bundle(bundle)
         return {
             "operation": "retire", "quiesced": True, "retired": True,

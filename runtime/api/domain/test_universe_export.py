@@ -130,19 +130,21 @@ def test_resolve_destination_routes_directory_vs_file(tmp_path):
     existing.mkdir()
 
     # Existing directory (no trailing separator) -> directory mode.
-    dest = ux._resolve_destination(existing, "default")
+    dest = ux.resolve_export_destination(existing, "default")
     assert dest.parent == existing
     assert dest.name.endswith(ux.ARTIFACT_SUFFIX)
 
     # Trailing separator on a nonexistent directory -> directory mode,
     # created with parents.
-    dest = ux._resolve_destination(f"{tmp_path / 'made' / 'deep'}/", "default")
+    dest = ux.resolve_export_destination(
+        f"{tmp_path / 'made' / 'deep'}/", "default",
+    )
     assert (tmp_path / "made" / "deep").is_dir()
     assert dest.parent == tmp_path / "made" / "deep"
 
     # Anything else -> file mode; the parent is created for the dump.
     explicit = tmp_path / "files" / "x.dump"
-    assert ux._resolve_destination(explicit, "default") == explicit
+    assert ux.resolve_export_destination(explicit, "default") == explicit
     assert explicit.parent.is_dir()
     assert not explicit.exists()
 

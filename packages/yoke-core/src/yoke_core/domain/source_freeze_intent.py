@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 from pathlib import Path
 from typing import Any
 
@@ -62,12 +63,20 @@ def freeze_intent(
 
 def write_owner_only_json(path: Path, payload: dict[str, Any]) -> None:
     """Atomically write a secret-free receipt with owner-only permissions."""
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8",
-    )
-    tmp.chmod(0o600)
-    os.replace(tmp, path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
+    raw = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    descriptor = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=True) as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(tmp, path)
+        _fsync_directory(path.parent)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
 
 
 def file_sha256(path: Path) -> str:
@@ -80,6 +89,14 @@ def file_sha256(path: Path) -> str:
 
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 __all__ = [

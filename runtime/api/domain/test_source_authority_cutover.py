@@ -100,7 +100,8 @@ def test_begin_sets_database_boundary_drains_and_proves_stability(
     )
     monkeypatch.setattr(cutover, "_connection_or_none", lambda _dsn: None)
     monkeypatch.setattr(
-        cutover, "_assert_connection_rejected", lambda *_a, **_kw: None,
+        cutover, "_prove_original_credential_cutoff",
+        lambda *_a, **_kw: {"method": "test-verifier"},
     )
 
     report = cutover.begin(
@@ -215,7 +216,6 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
 ):
     conn = _Conn()
     archive = tmp_path / "source.dump"
-    archive.write_bytes(b"PGDMPportable")
     from yoke_core.domain import source_authority_export_cutover as export_cutover
 
     monkeypatch.setattr(
@@ -257,22 +257,30 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
             "capability_secrets": {"schema": "secrets", "types": {}, "sha256": "s"},
         },
     )
-    monkeypatch.setattr(
-        export_cutover.universe_export, "export_universe",
-        lambda **_kwargs: {
-            "artifact": str(archive), "bytes": archive.stat().st_size,
+    def export_universe(**kwargs):
+        staged = Path(kwargs["out"])
+        staged.write_bytes(b"PGDMPportable")
+        return {
+            "artifact": str(staged), "bytes": staged.stat().st_size,
             "format": "pg_dump-custom", "org": "yoke",
-        },
+        }
+
+    monkeypatch.setattr(
+        export_cutover.universe_export, "export_universe", export_universe,
     )
-    inspection = SimpleNamespace(
-        archive_sha256=export_cutover.file_sha256(archive),
-        size_bytes=archive.stat().st_size,
-        catalog_tables=("items",), catalog_sequences=("items_id_seq",),
-        catalog_digest="catalog", table_entries=2,
-    )
+
+    def inspect(staged):
+        staged = Path(staged)
+        return SimpleNamespace(
+            archive_sha256=export_cutover.file_sha256(staged),
+            size_bytes=staged.stat().st_size,
+            catalog_tables=("items",), catalog_sequences=("items_id_seq",),
+            catalog_digest="catalog", table_entries=2,
+        )
+
     monkeypatch.setattr(
         export_cutover.universe_portability, "inspect_archive",
-        lambda _p: inspection,
+        inspect,
     )
     monkeypatch.setattr(
         cutover, "_database_identity",

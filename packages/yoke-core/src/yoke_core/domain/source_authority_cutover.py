@@ -20,10 +20,10 @@ from yoke_core.domain import source_authority_role_credentials as role_credentia
 from yoke_core.domain.source_authority_cutover_support import (
     SourceAuthorityCutoverError,
     admin_connection as _admin_connection,
-    assert_connection_rejected as _assert_connection_rejected,
     connection_or_none as _connection_or_none,
     database_identity as _database_identity,
     load_bundle as _load_bundle,
+    prove_original_credential_cutoff as _prove_original_credential_cutoff,
     validate_bundle_authority as _validate_bundle_authority,
     validated_receipt as _validated_receipt,
 )
@@ -217,10 +217,8 @@ def _complete_begin(
     conn: object, *, bundle: source_credentials.SourceCredentialBundle,
     resumed_after_commit: bool,
 ) -> dict[str, Any]:
-    _assert_connection_rejected(
-        bundle.original_dsn,
-        message="old source credential still authenticates after rotation",
-    )
+    _validate_bundle_authority(conn, bundle)
+    cutoff_proof = _prove_original_credential_cutoff(conn, bundle)
     fence = connect_fence.drain_and_prove_connect_fence(conn)
     state = _validate_bundle_authority(conn, bundle)
     first = authority_receipt(conn)
@@ -241,6 +239,7 @@ def _complete_begin(
             "cutover_credential_active": True,
             "rotation_committed_before_drain": True,
             "resumed_after_commit": resumed_after_commit,
+            "proof": cutoff_proof,
         },
         "authority": second,
     }

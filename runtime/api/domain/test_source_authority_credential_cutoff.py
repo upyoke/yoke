@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+import threading
 import uuid
 
 import psycopg
@@ -10,8 +12,6 @@ from psycopg import conninfo, sql
 
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import source_authority_credentials as credentials
-from yoke_core.domain import source_authority_cutover as cutover
-from yoke_core.domain import source_authority_cutover_lifecycle as lifecycle
 from yoke_core.domain import source_authority_cutover_support as support
 from yoke_core.domain import source_authority_role_credentials as role_credentials
 
@@ -40,6 +40,81 @@ def test_bundle_is_owner_only_bound_and_idempotent(tmp_path: Path):
     assert repeated.original_dsn == bundle.original_dsn
     assert bundle.path.stat().st_mode & 0o777 == 0o600
     assert "original-secret" not in repr(bundle)
+
+
+def test_simultaneous_bundle_creation_loads_one_atomic_winner(
+    monkeypatch, tmp_path: Path,
+):
+    path = tmp_path / "cutover.json"
+    barrier = threading.Barrier(2)
+    publish = credentials.credential_file.write_atomic_owner_only
+
+    def synchronized_publish(selected, payload):
+        barrier.wait(timeout=5)
+        return publish(selected, payload)
+
+    monkeypatch.setattr(
+        credentials.credential_file,
+        "write_atomic_owner_only",
+        synchronized_publish,
+    )
+
+    def prepare():
+        return credentials.prepare_or_load(
+            path,
+            original_dsn=(
+                "host=source.example dbname=yoke user=source_admin "
+                "password=original-secret"
+            ),
+            database="yoke", database_oid=42, admin_role="source_admin",
+            service_stop_receipt="service-stopped", original_rolcanlogin=True,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        bundles = list(executor.map(lambda _index: prepare(), range(2)))
+
+    assert bundles[0].cutover_dsn == bundles[1].cutover_dsn
+    assert credentials.load_bound(path).cutover_dsn == bundles[0].cutover_dsn
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert not list(tmp_path.glob(".*.tmp"))
+
+
+def test_losing_bundle_publisher_fsyncs_winner_directory(
+    monkeypatch, tmp_path: Path,
+):
+    path = tmp_path / "cutover.json"
+    assert credentials.credential_file.write_atomic_owner_only(
+        path, {"winner": True},
+    ) is True
+    fsyncs = []
+    monkeypatch.setattr(
+        credentials.credential_file, "fsync_directory", fsyncs.append,
+    )
+
+    assert credentials.credential_file.write_atomic_owner_only(
+        path, {"winner": False},
+    ) is False
+    assert fsyncs == [tmp_path, tmp_path]
+
+
+def test_bundle_publish_write_error_removes_secret_temporary(
+    monkeypatch, tmp_path: Path,
+):
+    write = credentials.credential_file.write_new_owner_only
+
+    def fail_after_write(path, payload):
+        write(path, payload)
+        raise OSError("simulated credential storage failure")
+
+    monkeypatch.setattr(
+        credentials.credential_file, "write_new_owner_only", fail_after_write,
+    )
+
+    with pytest.raises(OSError, match="credential storage failure"):
+        credentials.credential_file.write_atomic_owner_only(
+            tmp_path / "cutover.json", {"secret": "redacted"},
+        )
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_retirement_intent_is_fsynced_and_reused_before_database_commit(
@@ -130,9 +205,9 @@ def test_real_role_rotation_and_nologin_rejection(tmp_path: Path):
         ).fetchone()
         role = f"source_cutover_{uuid.uuid4().hex[:12]}"
         conn.execute(
-            sql.SQL("CREATE ROLE {} LOGIN PASSWORD 'initial-server-secret'").format(
-                sql.Identifier(role)
-            )
+            sql.SQL(
+                "CREATE ROLE {} LOGIN SUPERUSER PASSWORD 'initial-server-secret'"
+            ).format(sql.Identifier(role))
         )
         conn.commit()
         base = conninfo.conninfo_to_dict(os.environ["YOKE_PG_DSN"])
@@ -155,6 +230,13 @@ def test_real_role_rotation_and_nologin_rejection(tmp_path: Path):
                 "SELECT rolpassword FROM pg_authid WHERE rolname=%s", (role,),
             ).fetchone()[0]
             assert rotated and rotated != before
+            live = psycopg.connect(bundle.cutover_dsn)
+            try:
+                assert role_credentials.prove_role_password_rotation(
+                    live, bundle,
+                ) in {"SCRAM-SHA-256", "md5"}
+            finally:
+                live.close()
 
             role_credentials.restore_role_credential(conn, bundle)
             conn.commit()
@@ -169,7 +251,10 @@ def test_real_role_rotation_and_nologin_rejection(tmp_path: Path):
                 "SELECT rolcanlogin, rolpassword FROM pg_authid WHERE rolname=%s",
                 (role,),
             ).fetchone() == (False, None)
-            assert support.connection_or_none(bundle.cutover_dsn) is None
+            role_credentials.prove_role_retired(conn, bundle)
+            assert support.retirement_connection_or_none(
+                bundle.cutover_dsn, role=role,
+            ) is None
         finally:
             conn.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role)))
             conn.commit()
@@ -196,96 +281,48 @@ def test_availability_error_is_never_reclassified_as_login_refusal(monkeypatch):
         )
 
 
-def test_retire_recovers_after_commit_before_bundle_delete(
-    monkeypatch, tmp_path: Path,
+@pytest.mark.parametrize(
+    "message",
+    (
+        'FATAL: password authentication failed for user "source_admin"',
+        'connection failed: TLS negotiation failed',
+        'connection to server at "one" failed\n'
+        'connection to server at "two" failed: '
+        'FATAL: role "source_admin" is not permitted to log in',
+    ),
+)
+def test_text_only_connection_failures_are_not_general_cutoff_proof(
+    monkeypatch, message,
 ):
-    bundle = _bundle(tmp_path)
-
-    class Connection:
-        def __init__(self):
-            self.commits = 0
-            self.closed = False
-
-        def commit(self):
-            self.commits += 1
-
-        def close(self):
-            self.closed = True
-
-    conn = Connection()
-    probes = iter((conn, None))
-    monkeypatch.setattr(lifecycle, "connection_or_none", lambda _dsn: next(probes))
-    monkeypatch.setattr(lifecycle, "validate_bundle_authority", lambda *_a: {})
     monkeypatch.setattr(
-        lifecycle, "database_identity",
-        lambda _conn: {"database": "yoke", "database_oid": 42, "org": "yoke"},
-    )
-    monkeypatch.setattr(
-        lifecycle, "authority_receipt", lambda _conn: {"receipt_digest": "a" * 64},
-    )
-    monkeypatch.setattr(lifecycle, "mark_source_retired", lambda *_a, **_kw: None)
-    monkeypatch.setattr(
-        lifecycle.role_credentials, "retire_role_credential", lambda *_a: None,
-    )
-    monkeypatch.setattr(
-        lifecycle.role_credentials, "role_login_state", lambda *_a: False,
+        support, "admin_connection",
+        lambda _dsn: (_ for _ in ()).throw(psycopg.OperationalError(message)),
     )
 
-    def state(_conn):
-        selected = credentials.load_bound(bundle.path)
-        return {
-            "retired_at": selected.retired_at,
-            "retirement_receipt": selected.retirement_receipt,
-        }
-
-    monkeypatch.setattr(lifecycle.connect_fence, "fence_state", state)
-    monkeypatch.setattr(lifecycle, "assert_connection_rejected", lambda *_a, **_kw: None)
-    delete = credentials.delete_bundle
-    delete_calls = 0
-
-    def crash_once(selected):
-        nonlocal delete_calls
-        delete_calls += 1
-        if delete_calls == 1:
-            raise OSError("simulated crash before local cleanup")
-        delete(selected)
-
-    monkeypatch.setattr(lifecycle.source_credentials, "delete_bundle", crash_once)
-
-    with pytest.raises(OSError, match="simulated crash"):
-        cutover.retire(
-            credential_file=bundle.path,
-            retirement_receipt="retirement-gates-green",
-        )
-    assert conn.commits == 1
-    assert bundle.path.exists()
-
-    report = cutover.retire(
-        credential_file=bundle.path,
-        retirement_receipt="retirement-gates-green",
-    )
-
-    assert report["recovered_after_commit"] is True
-    assert report["retired_at"]
-    assert not bundle.path.exists()
-
-
-def test_both_rejected_before_validated_retirement_is_indeterminate(
-    monkeypatch, tmp_path: Path,
-):
-    bundle = _bundle(tmp_path)
-    monkeypatch.setattr(lifecycle, "connection_or_none", lambda _dsn: None)
-    monkeypatch.setattr(lifecycle, "assert_connection_rejected", lambda *_a, **_kw: None)
-
-    with pytest.raises(
-        cutover.SourceAuthorityCutoverError,
-        match="before a validated retirement transaction",
-    ):
-        cutover.retire(
-            credential_file=bundle.path,
-            retirement_receipt="retirement-gates-green",
+    with pytest.raises(psycopg.OperationalError):
+        support.connection_or_none(
+            "host=source.example dbname=yoke user=source_admin password=unused"
         )
 
-    prepared = credentials.load_bound(bundle.path)
-    assert prepared.retirement_phase == "intent"
-    assert prepared.retirement_receipt == "retirement-gates-green"
+
+def test_retirement_fallback_accepts_only_single_host_exact_nologin(
+    monkeypatch,
+):
+    refusal = (
+        'connection failed: connection to server at "source.example", '
+        'port 5432 failed: FATAL: role "source_admin" is not permitted to log in'
+    )
+    monkeypatch.setattr(
+        support, "admin_connection",
+        lambda _dsn: (_ for _ in ()).throw(psycopg.OperationalError(refusal)),
+    )
+
+    assert support.retirement_connection_or_none(
+        "host=source.example dbname=yoke user=source_admin password=unused",
+        role="source_admin",
+    ) is None
+    with pytest.raises(psycopg.OperationalError):
+        support.retirement_connection_or_none(
+            "host=one,two dbname=yoke user=source_admin password=unused",
+            role="source_admin",
+        )
