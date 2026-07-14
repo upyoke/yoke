@@ -83,13 +83,21 @@ _GITHUB_OIDC_THUMBPRINTS = [
 def _github_trust_policy_json(
     provider_arn: str,
     github_repo: str,
-    allowed_branches: tuple[str, ...],
+    *,
+    allowed_branches: tuple[str, ...] = (),
+    allowed_environments: tuple[str, ...] = (),
 ) -> str:
-    """Trust only exact branch-ref subjects from the configured repository."""
+    """Trust only exact branch or environment subjects for one repository."""
     subjects = [
         f"repo:{github_repo}:ref:refs/heads/{branch}"
         for branch in allowed_branches
     ]
+    subjects.extend(
+        f"repo:{github_repo}:environment:{environment}"
+        for environment in allowed_environments
+    )
+    if not subjects:
+        raise ValueError("GitHub OIDC trust requires at least one exact subject")
     return json.dumps(
         {
             "Version": "2012-10-17",
@@ -245,7 +253,9 @@ class WebappRegistryStack(pulumi.ComponentResource):
             ),
             assume_role_policy=pulumi.Output.from_input(provider_arn).apply(
                 lambda arn: _github_trust_policy_json(
-                    arn, args.github_repo, ("main",)
+                    arn,
+                    args.github_repo,
+                    allowed_branches=("main",),
                 )
             ),
             tags=tags,
@@ -268,7 +278,10 @@ class WebappRegistryStack(pulumi.ComponentResource):
             ),
             assume_role_policy=pulumi.Output.from_input(provider_arn).apply(
                 lambda arn: _github_trust_policy_json(
-                    arn, args.github_repo, ("main", "stage")
+                    arn,
+                    args.github_repo,
+                    allowed_branches=("main",),
+                    allowed_environments=("stage", "production"),
                 )
             ),
             tags=tags,
