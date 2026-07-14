@@ -18,7 +18,6 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "  webapp-infra:project_name: {{project_name}}\n"
         "  webapp-infra:aws_capability: {{runner_fleet_aws_capability}}\n"
         "  webapp-infra:github_capability: {{runner_fleet_github_capability}}\n"
-        "  webapp-infra:github_app_environment: {{runner_fleet_github_app_environment}}\n"
         "  webapp-infra:github_repo: {{runner_fleet_repo}}\n"
         "  webapp-infra:github_repo_owner: {{runner_fleet_github_repo_owner}}\n"
         "  webapp-infra:github_repo_name: {{runner_fleet_github_repo_name}}\n"
@@ -76,7 +75,6 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "runner_fleet_aws_region": "us-east-1",
         "runner_fleet_repo": "upyoke/yoke",
         "runner_fleet_github_capability": "github",
-        "runner_fleet_github_app_environment": "buzz-api-stage",
         "runner_fleet_github_repo_owner": "upyoke",
         "runner_fleet_github_repo_name": "yoke",
         "runner_fleet_github_installation_id": "123456",

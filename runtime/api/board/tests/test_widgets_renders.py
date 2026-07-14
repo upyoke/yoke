@@ -20,6 +20,7 @@ from yoke_contracts.board.widgets import (
 )
 from runtime.api.board.tests.conftest import (
     insert_activity_day,
+    insert_event,
     insert_item_raw,
     insert_transition,
 )
@@ -163,6 +164,36 @@ class TestRenderVelocityMeter:
         )
         assert del_spark[-1] != baseline, (
             "seeded done transition must light today's delivery slot"
+        )
+
+    def test_strategy_row_reads_doc_write_events(self, test_db_path):
+        """The strategy row is sourced from the DB write-event stream, not
+        git: a StrategyDocReplaced event today lights the last slot, and a
+        different project's event does not bleed into the yoke row."""
+        from yoke_contracts.board.widgets_velocity_meter import (
+            render_velocity_meter,
+        )
+
+        now = _now_iso()
+        today = now[:10]
+        insert_item_raw(test_db_path, [
+            (1, "epic-1", "implementing", "epic", "yoke", 0, now, now),
+        ])
+        insert_event(
+            test_db_path, "StrategyDocReplaced", "yoke",
+            f"{today}T09:00:00Z", {"old_bytes": 100, "new_bytes": 4200},
+        )
+        insert_event(
+            test_db_path, "StrategyDocCreated", "buzz",
+            f"{today}T09:00:00Z", {"new_bytes": 9000},
+        )
+        with BoardDB(test_db_path) as db:
+            rows = render_velocity_meter(db, BoardConfig(), "yoke")
+        assert rows is not None and len(rows) == 4
+        assert "120d strategy" in rows[3]
+        sml_spark = rows[3].split(" ")[1]
+        assert sml_spark[-1] != "▁", (
+            "a strategy-doc write event today must light the strategy slot"
         )
 
 

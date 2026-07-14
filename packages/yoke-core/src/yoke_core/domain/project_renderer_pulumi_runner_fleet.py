@@ -24,8 +24,6 @@ from yoke_contracts.github_app_installation_permissions import (
 from . import json_helper
 from .github_app_deployment import (
     GitHubAppDeploymentConfig,
-    GitHubAppDeploymentConfigError,
-    github_app_config_from_environment_settings,
 )
 from .github_actions_runner_fleet_capability import (
     CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
@@ -56,8 +54,7 @@ def runner_fleet_values(
         required=enabled,
     )
     app = _github_app(
-        settings,
-        environment_selector=runner_fleet.github_app_environment,
+        runner_fleet,
         required=enabled,
     )
     bound_repo = _bound_repo(github)
@@ -78,7 +75,7 @@ def runner_fleet_values(
             ) from exc
         if app is None or app.api_url != bound_api_url:
             raise ValueError(
-                "runner-fleet selected environment GitHub App API URL must "
+                "runner-fleet GitHub App API URL must "
                 "match the verified repository binding"
             )
         permissions = github.get("permissions")
@@ -107,9 +104,6 @@ def runner_fleet_values(
         "runner_fleet_aws_capability": runner_fleet.aws_capability,
         "runner_fleet_aws_region": runner_aws_region,
         "runner_fleet_github_capability": runner_fleet.github_capability or "",
-        "runner_fleet_github_app_environment": (
-            runner_fleet.github_app_environment or ""
-        ),
         "runner_fleet_repo": bound_repo or _stringify(
             runner_fleet.repo, fallback_repo,
         ),
@@ -209,51 +203,22 @@ def _github_binding(
 
 
 def _github_app(
-    settings: ProjectRendererSettings,
+    runner_fleet: RunnerFleetSettings,
     *,
-    environment_selector: str | None,
     required: bool,
 ) -> GitHubAppDeploymentConfig | None:
     if not required:
         return None
-    if not environment_selector:
+    if runner_fleet.github_app is None:
         raise ValueError(
-            "runner-fleet stack requires github_app_environment in the "
+            "runner-fleet stack requires github_app in the "
             "github-actions-runner-fleet capability settings"
         )
-    environments = [
-        environment
-        for environment in settings.environments
-        if environment_selector in {environment.id, environment.name}
-    ]
-    if not environments:
-        raise ValueError(
-            "runner-fleet github_app_environment did not match an environment "
-            f"id or name: {environment_selector!r}"
-        )
-    if len(environments) != 1:
-        raise ValueError(
-            "runner-fleet github_app_environment must match exactly one "
-            f"environment id or name; {environment_selector!r} matched "
-            f"{len(environments)}"
-        )
-    environment = environments[0]
-    try:
-        app = github_app_config_from_environment_settings(
-            environment.settings,
-            env_hint=(
-                f"environment {environment.name!r} ({environment.id!r})"
-            ),
-        )
-    except GitHubAppDeploymentConfigError as exc:
-        raise ValueError(f"runner-fleet GitHub App configuration is invalid: {exc}") from exc
-    if app is None:
-        raise ValueError(
-            "runner-fleet stack requires the selected environment's "
-            "settings.github_app with issuer, api_url, and "
-            "private_key_secret_arn"
-        )
-    return app
+    return GitHubAppDeploymentConfig(
+        issuer=runner_fleet.github_app.issuer,
+        api_url=runner_fleet.github_app.api_url,
+        private_key_secret_arn=runner_fleet.github_app.private_key_secret_arn,
+    )
 
 
 def _bound_repo(github: Dict[str, object]) -> str:
@@ -302,6 +267,6 @@ def _validate_enabled_values(values: Dict[str, str]) -> None:
         secret_arn,
     ) is None:
         raise ValueError(
-            "runner-fleet selected environment github_app."
+            "runner-fleet github_app."
             "private_key_secret_arn must be a complete AWS Secrets Manager ARN"
         )

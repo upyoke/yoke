@@ -28,6 +28,21 @@ def _with_capabilities(base: ProjectRendererSettings, capabilities: dict):
     )
 
 
+def _runner_app(
+    *,
+    api_url: str = "https://api.github.com",
+    private_key_secret_arn: str = (
+        "arn:aws:secretsmanager:us-east-1:123456789012:"
+        "secret:yoke-github-app-AbCdEf"
+    ),
+) -> dict[str, str]:
+    return {
+        "issuer": "Iv1.runner-fleet",
+        "api_url": api_url,
+        "private_key_secret_arn": private_key_secret_arn,
+    }
+
+
 def test_github_ci_keys_from_capability(tmp_path):
     base = _settings_from_context("buzz", {"projectName": "buzz"})
     capabilities = dict(base.capabilities)
@@ -77,14 +92,6 @@ def test_runner_fleet_keys_from_capability(tmp_path):
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
     )
     assert base.primary_environment is not None
-    base.primary_environment.settings["github_app"] = {
-        "issuer": "Iv1.runner-fleet",
-        "api_url": "https://api.github.com",
-        "private_key_secret_arn": (
-            "arn:aws:secretsmanager:us-east-1:123456789012:"
-            "secret:yoke-github-app-AbCdEf"
-        ),
-    }
     base.primary_environment.settings["capabilities"] = ["vps"]
     base.primary_environment.settings["pulumi"] = {
         "activation_state": "active",
@@ -106,7 +113,7 @@ def test_runner_fleet_keys_from_capability(tmp_path):
     capabilities["github-actions-runner-fleet"] = {
         "repo": "acme-org/buzz",
         "github_capability": "github",
-        "github_app_environment": base.primary_environment.id,
+        "github_app": _runner_app(),
         "runner_labels": [
             "self-hosted", "Linux", "ARM64", "yoke-github-actions",
         ],
@@ -165,7 +172,7 @@ def test_enabled_runner_fleet_requires_explicit_github_capability(tmp_path):
         project_renderer_pulumi.gather_pulumi_values("buzz", root, base)
 
 
-def test_enabled_runner_fleet_requires_environment_app_config(tmp_path):
+def test_enabled_runner_fleet_requires_capability_app_config(tmp_path):
     base = _settings_from_context(
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
     )
@@ -182,14 +189,12 @@ def test_enabled_runner_fleet_requires_environment_app_config(tmp_path):
             "repository_hooks": "write",
         },
     }
-    assert base.primary_environment is not None
     capabilities["github-actions-runner-fleet"] = {
         "github_capability": "github",
-        "github_app_environment": base.primary_environment.id,
     }
     root = _make_project_root(tmp_path, "buzz")
 
-    with pytest.raises(ValueError, match="settings.github_app"):
+    with pytest.raises(ValueError, match="requires github_app"):
         project_renderer_pulumi.gather_pulumi_values(
             "buzz", root, _with_capabilities(base, capabilities),
         )
@@ -199,12 +204,6 @@ def test_enabled_runner_fleet_rejects_unsafe_secret_arn(tmp_path):
     base = _settings_from_context(
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
     )
-    assert base.primary_environment is not None
-    base.primary_environment.settings["github_app"] = {
-        "issuer": "Iv1.runner-fleet",
-        "api_url": "https://api.github.com",
-        "private_key_secret_arn": "arn:aws:secretsmanager:unsafe\nconfig: value",
-    }
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org",
@@ -220,7 +219,11 @@ def test_enabled_runner_fleet_rejects_unsafe_secret_arn(tmp_path):
     }
     capabilities["github-actions-runner-fleet"] = {
         "github_capability": "github",
-        "github_app_environment": base.primary_environment.id,
+        "github_app": _runner_app(
+            private_key_secret_arn=(
+                "arn:aws:secretsmanager:unsafe\nconfig: value"
+            ),
+        ),
     }
     root = _make_project_root(tmp_path, "buzz")
 
@@ -234,15 +237,6 @@ def test_enabled_runner_fleet_rejects_repo_override(tmp_path):
     base = _settings_from_context(
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
     )
-    assert base.primary_environment is not None
-    base.primary_environment.settings["github_app"] = {
-        "issuer": "Iv1.runner-fleet",
-        "api_url": "https://api.github.com",
-        "private_key_secret_arn": (
-            "arn:aws:secretsmanager:us-east-1:123456789012:"
-            "secret:yoke-github-app-AbCdEf"
-        ),
-    }
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org", "repo_name": "buzz",
@@ -257,7 +251,7 @@ def test_enabled_runner_fleet_rejects_repo_override(tmp_path):
     capabilities["github-actions-runner-fleet"] = {
         "repo": "other/repo",
         "github_capability": "github",
-        "github_app_environment": base.primary_environment.id,
+        "github_app": _runner_app(),
     }
     root = _make_project_root(tmp_path, "buzz")
 
@@ -267,19 +261,10 @@ def test_enabled_runner_fleet_rejects_repo_override(tmp_path):
         )
 
 
-def test_enabled_runner_fleet_rejects_environment_origin_mismatch(tmp_path):
+def test_enabled_runner_fleet_rejects_app_origin_mismatch(tmp_path):
     base = _settings_from_context(
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
     )
-    assert base.primary_environment is not None
-    base.primary_environment.settings["github_app"] = {
-        "issuer": "Iv1.runner-fleet",
-        "api_url": "https://github.example/api/v3",
-        "private_key_secret_arn": (
-            "arn:aws:secretsmanager:us-east-1:123456789012:"
-            "secret:yoke-github-app-AbCdEf"
-        ),
-    }
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org", "repo_name": "buzz",
@@ -293,7 +278,9 @@ def test_enabled_runner_fleet_rejects_environment_origin_mismatch(tmp_path):
     }
     capabilities["github-actions-runner-fleet"] = {
         "github_capability": "github",
-        "github_app_environment": base.primary_environment.id,
+        "github_app": _runner_app(
+            api_url="https://github.example/api/v3",
+        ),
     }
 
     with pytest.raises(ValueError, match="must match the verified"):
@@ -306,15 +293,6 @@ def test_enabled_runner_fleet_requires_administration_write(tmp_path):
     base = _settings_from_context(
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
     )
-    assert base.primary_environment is not None
-    base.primary_environment.settings["github_app"] = {
-        "issuer": "Iv1.runner-fleet",
-        "api_url": "https://api.github.com",
-        "private_key_secret_arn": (
-            "arn:aws:secretsmanager:us-east-1:123456789012:"
-            "secret:yoke-github-app-AbCdEf"
-        ),
-    }
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org", "repo_name": "buzz",
@@ -328,7 +306,7 @@ def test_enabled_runner_fleet_requires_administration_write(tmp_path):
     }
     capabilities["github-actions-runner-fleet"] = {
         "github_capability": "github",
-        "github_app_environment": base.primary_environment.id,
+        "github_app": _runner_app(),
     }
 
     with pytest.raises(ValueError, match="Administration: write"):

@@ -16,11 +16,12 @@ from fastapi.routing import APIRouter
 from yoke_contracts.template_bundle import TEMPLATE_SOURCE_DEV_ADMIN_QUERY_PARAM
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.domain.actor_permissions import (
-    PERM_PROJECT_ADMIN,
+    PERM_ORG_ADMIN,
     PermissionDenied,
-    require_permission,
 )
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.control_plane_authority import (
+    require_control_plane_permission,
+)
 from yoke_core.domain.template_bundle import (
     TemplateAccessDeniedError,
     TemplateNotFoundError,
@@ -83,12 +84,10 @@ def _require_source_dev_admin_template_permission(
     conn = _main.get_db_readonly()
     try:
         try:
-            yoke_project_id = resolve_project_id(conn, "yoke")
-            require_permission(
+            require_control_plane_permission(
                 conn,
                 actor_id=auth.actor_id,
-                project_id=yoke_project_id,
-                permission_key=PERM_PROJECT_ADMIN,
+                permission_key=PERM_ORG_ADMIN,
             )
         except PermissionDenied as exc:
             return JSONResponse(

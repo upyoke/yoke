@@ -7,8 +7,8 @@ Locks the security-critical invariants:
     project only — never org-scoped permissions, never another project,
   * the org-target check requires an org admin (a project owner, even yoke's,
     is not one),
-  * headline regression: a control-plane permission checked against the yoke
-    project denies a buzz owner while allowing the yoke owner / org admin.
+  * project grants remain project-scoped even for permissions such as raw DB
+    read; whole-universe dispatch separately requires org-admin authority.
 """
 
 from __future__ import annotations
@@ -113,7 +113,7 @@ def test_project_owner_wildcard_own_project_and_grantable_perms_only(conn):
     assert not _allowed(conn, buzz_owner, yoke, PERM_ITEMS_WRITE)
 
 
-def test_control_plane_regression_buzz_owner_denied_on_yoke(conn):
+def test_raw_db_permission_project_grants_do_not_cross_projects(conn):
     yoke = resolve_project_id(conn, "yoke")
     buzz = resolve_project_id(conn, "buzz")
     buzz_owner = _new_actor(conn)

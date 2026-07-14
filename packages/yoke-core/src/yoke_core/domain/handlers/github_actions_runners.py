@@ -99,7 +99,7 @@ class RunnersStatusResponse(BaseModel):
     capability_render_ready: bool
     configuration_error: Optional[str] = None
     github_capability: Optional[str] = None
-    github_app_environment: Optional[str] = None
+    github_app_configured: bool
     provider: str
     desired_runner_count: int
     max_runner_count: int
@@ -164,7 +164,7 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
     variable_name = (payload.variable_name or settings.variable_name).strip()
     required = _clean_labels(payload.required_labels or settings.runner_labels)
     selectors_configured = bool(
-        settings.github_capability and settings.github_app_environment
+        settings.github_capability and settings.github_app
     )
     configuration_error = None
     if capability_configured and selectors_configured:
@@ -222,7 +222,7 @@ def handle_runners_status(request: FunctionCallRequest) -> HandlerOutcome:
         capability_render_ready=capability_render_ready,
         configuration_error=configuration_error,
         github_capability=settings.github_capability,
-        github_app_environment=settings.github_app_environment,
+        github_app_configured=settings.github_app is not None,
         provider=settings.provider,
         desired_runner_count=settings.desired_runner_count,
         max_runner_count=settings.max_runner_count,

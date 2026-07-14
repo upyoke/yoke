@@ -1,8 +1,8 @@
 # GitHub App Operations
 
-This runbook owns Yoke's GitHub App registration, installation scope,
-private-key custody, hosted and self-hosted bootstrap,
-rotation, verification, and incident response. Product flows never ask users to paste a GitHub credential.
+This runbook owns Yoke's GitHub App registration, installation scope, private-key
+custody, hosted and self-hosted bootstrap, rotation, verification, and incident response.
+Product flows never ask users to paste a GitHub credential.
 
 ## Ownership Boundary
 
@@ -79,11 +79,12 @@ broker, OIDC role split, explicit App-key denies, and origin-owned key retrieval
 
 ## Registration Checklist
 
-Use a manual registration or a prefilled registration URL. Production hosted Yoke
-uses the public product App; CLI device flow and the privileged Development App
-remain separate operator boundaries. Use a manifest only when a trusted HTTPS
-redirect immediately places returned secrets in the operator store; never save
-returned credentials as manifest JSON or add a callback that does not exist.
+Use a manual registration or a prefilled registration URL. Each hosted environment
+uses a distinct product App because user authorization and webhooks are registration-wide.
+Local product mode may use the bundled identity. The privileged Development App remains
+a separate operator boundary. Use a manifest only when a trusted HTTPS redirect
+immediately places returned secrets in the operator store; never save returned
+credentials as manifest JSON or add a callback that does not exist.
 
 Set or review these fields:
 
@@ -94,12 +95,12 @@ Set or review these fields:
 | Homepage | The operator's real HTTPS product or control-plane homepage |
 | Description | GitHub automation for Yoke projects |
 | Visibility | Private for owner-only/internal use; public only for an App intended for third-party installation |
-| User callback URLs | Product App: `https://app.upyoke.com/api/github/oauth/callback`. Leave empty for a device-flow-only registration. |
-| Setup URL | Product App: `https://app.upyoke.com/api/github/setup` with redirect-on-update enabled. |
-| Request authorization on install | Off; Yoke starts user authorization explicitly |
+| User callback URLs | Hosted Product App: its exact Platform origin plus `/api/github/oauth/callback`. Leave empty for a device-flow-only registration. |
+| Setup URL | Leave empty; repository updates arrive through webhooks. Redirect on update stays off. |
+| Request authorization on install | On; installation and user authorization return through one signed OAuth flow |
 | Device Flow | On |
 | Expire user authorization tokens | On |
-| App-level webhook | Product App: active at `https://app.upyoke.com/api/github/webhooks`, using a product-owned webhook secret in Platform secret custody. |
+| App-level webhook | Hosted Product App: active at its exact Platform origin plus `/api/github/webhooks`, using an environment-owned webhook secret in Platform secret custody. |
 | Optional webhook events | Leave the checklist entirely unchecked. GitHub sends `github_app_authorization`, `installation`, and `installation_repositories` automatically; they are not optional subscriptions, so public App metadata correctly reports `events: []`. |
 
 The runner fleet uses a Pulumi-managed **repository webhook**. It is not the
@@ -330,11 +331,10 @@ rotation and revocation lifecycle.
 
 ## Incident Response
 
-For suspected private-key disclosure, generate and distribute a replacement,
-then revoke the affected GitHub key as soon as the new path is verified. If the
-risk does not permit an overlap window, revoke immediately and accept temporary
-automation downtime. Review installation repository scope and permissions;
-suspend or uninstall affected installations when containment requires it.
+For suspected private-key disclosure, generate and distribute a replacement, then revoke
+the affected GitHub key once the new path is verified. If risk does not permit an overlap
+window, revoke immediately and accept temporary downtime. Review repository scope and
+permissions; suspend or uninstall affected installations when containment requires it.
 
 Rotate the runner repository-webhook HMAC through Pulumi so GitHub's webhook
 configuration and the Lambda verifier change together. Do not edit only the SSM

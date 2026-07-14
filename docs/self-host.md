@@ -1,9 +1,9 @@
 # Self-Host Yoke
 
-Run the Yoke API server on your own host: one `docker compose` bundle
-carrying the published server image plus a Postgres 17 database. Your
-data stays on hardware you control; engineers point their CLIs at your
-server instead of the hosted platform.
+Run the Yoke API server on your own host: one `docker compose` bundle carrying
+the published server image plus a Postgres 17 database. Your data stays on
+hardware you control; engineers point their CLIs at your server instead of the
+hosted platform.
 
 ## Quickstart
 
@@ -218,8 +218,9 @@ provider is never trusted).
 
 ## GitHub App server automation
 
-GitHub automation on a self-hosted control plane uses one GitHub App private
-key for the server. Project rows store only verified installation/repository
+GitHub automation uses an operator-owned App and key dedicated to the self-hosted
+server, never an upyoke Product App or Yoke Development. Configure its URLs on the
+server's HTTPS origin. Project rows store verified installation/repository
 bindings; the App private key is never stored in `capability_secrets` or any
 per-project setting.
 
@@ -317,13 +318,12 @@ state, or project-engine databases.
 
 ## Upgrades
 
-The server image is versioned by tag; on every boot the entrypoint
-converges the full idempotent core schema before serving (all tables,
-indexes, AND additive columns), so every net-new additive table or column
-the deployed code expects self-propagates to your already-born database —
-no manual migration step is needed for additive schema. (Data-transforming
-changes — backfills, drops, rewrites — still go through Yoke's governed
-migration runner.) An upgrade is therefore a pull plus a restart:
+The server image is versioned by tag; on every boot the entrypoint converges the full
+idempotent core schema before serving (all tables, indexes, AND additive columns), so
+every net-new additive table or column the deployed code expects self-propagates to
+your already-born database — no manual migration step is needed for additive schema.
+(Data-transforming changes — backfills, drops, rewrites — still go through Yoke's
+governed migration runner.) An upgrade is therefore a pull plus a restart:
 
 ```bash
 cd yoke-server

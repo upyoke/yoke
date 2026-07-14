@@ -1,10 +1,10 @@
 """Unified per-commit cache for board velocity widgets.
 
 One ``git log --all --numstat`` per repo populates a hash-keyed cache
-that captures total lines, strategy-doc lines, and commit metadata.
-The activity sparkline, the streak/lifetime metric, and the four
-velocity-meter rows all read from this single cache; warm rebuilds
-hit memory only after the first call within a process.
+that captures total lines and commit metadata. The activity sparkline,
+the streak/lifetime metric, and the git-derived velocity-meter rows all
+read from this single cache; warm rebuilds hit memory only after the
+first call within a process.
 """
 
 from __future__ import annotations
@@ -17,20 +17,9 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from yoke_contracts.project_contract.strategy_docs_paths import STRATEGY_DIR_REL
-
 # Cap the on-disk cache horizon. Large enough to cover most project
 # ages; entries older than this fall off.
 _PRUNE_DAYS = 730  # 2 years
-
-_STRATEGY_PREFIX = STRATEGY_DIR_REL + "/"
-# Commit-history matching spans the rendered-view move: commits that
-# touched the pre-move repo-root location must keep counting as strategy
-# activity (supported historical paths, not live references).
-_STRATEGY_LEGACY_PREFIX = "strategy/"
-_STRATEGY_EXACT = frozenset({
-    "MISSION.md", "LANDSCAPE.md", "VISION.md", "MASTER-PLAN.md",
-})
 
 _CACHE_BASENAME = ".commit-cache.json"
 _LIST_TIMEOUT_SECONDS = 2
@@ -92,18 +81,10 @@ def _cache_path() -> Path:
     return machine_config.cache_dir() / _CACHE_BASENAME
 
 
-def _is_strategy_path(path: str) -> bool:
-    return (
-        path.startswith(_STRATEGY_PREFIX)
-        or path.startswith(_STRATEGY_LEGACY_PREFIX)
-        or path in _STRATEGY_EXACT
-    )
-
-
 def get_commit_data(repos: List[str]) -> Dict[str, Dict]:
     """Return the per-hash commit cache for *repos*.
 
-    Cache entries: ``{hash: {day, lines, strategy_lines, repo}}``.
+    Cache entries: ``{hash: {day, lines, repo}}``.
     Memoized per process by ``sorted(repos)`` so the sparkline,
     streak, lifetime, and velocity-meter widgets all share one fetch.
     """
@@ -220,14 +201,12 @@ def _ingest_numstat(repo: str, stdout: str, cache: Dict[str, Dict]) -> None:
     current_hash: Optional[str] = None
     current_day: Optional[str] = None
     current_lines = 0
-    current_strategy = 0
 
     def flush() -> None:
         if current_hash and current_hash not in cache:
             cache[current_hash] = {
                 "day": current_day,
                 "lines": current_lines,
-                "strategy_lines": current_strategy,
                 "repo": repo,
             }
 
@@ -238,7 +217,6 @@ def _ingest_numstat(repo: str, stdout: str, cache: Dict[str, Dict]) -> None:
             current_hash = parts[1] if len(parts) > 1 else None
             current_day = parts[2] if len(parts) > 2 else None
             current_lines = 0
-            current_strategy = 0
             continue
         if not current_hash or "\t" not in line:
             continue
@@ -246,10 +224,7 @@ def _ingest_numstat(repo: str, stdout: str, cache: Dict[str, Dict]) -> None:
         if path.endswith(".csv"):
             continue
         if added.isdigit() and deleted.isdigit():
-            n = int(added) + int(deleted)
-            current_lines += n
-            if _is_strategy_path(path):
-                current_strategy += n
+            current_lines += int(added) + int(deleted)
     flush()
 
 
@@ -283,11 +258,6 @@ def commits_per_day(repos: List[str], days: int) -> Dict[str, int]:
 def lines_per_day(repos: List[str], days: int) -> Dict[str, int]:
     """Per-day total line changes over the last *days* days."""
     return _per_day(repos, days, "lines")
-
-
-def strategy_lines_per_day(repos: List[str], days: int) -> Dict[str, int]:
-    """Per-day strategy-doc line changes over the last *days* days."""
-    return _per_day(repos, days, "strategy_lines")
 
 
 def _reset_memo_for_tests() -> None:

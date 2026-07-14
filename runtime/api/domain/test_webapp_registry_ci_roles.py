@@ -32,7 +32,8 @@ def test_github_oidc_roles_split_infrastructure_from_delivery(monkeypatch):
     assert infra_subjects == ["repo:upyoke/platform:ref:refs/heads/main"]
     assert delivery_subjects == [
         "repo:upyoke/platform:ref:refs/heads/main",
-        "repo:upyoke/platform:ref:refs/heads/stage",
+        "repo:upyoke/platform:environment:stage",
+        "repo:upyoke/platform:environment:production",
     ]
     attachment = recorder.single("githubActionsInfrastructureViewOnly")
     assert attachment.kwargs["role"] == "yoke-ci-github"

@@ -3,6 +3,8 @@
 import ast
 import json
 
+import pytest
+
 from yoke_core.domain.project_renderer_pulumi import render_pulumi_stack_yaml
 from runtime.api.domain.test_project_renderer_pulumi_registry_ci import _repo_root
 
@@ -52,7 +54,7 @@ class TestGithubTrustPolicy:
                 "arn:aws:iam::123456789012:oidc-provider/"
                 "token.actions.githubusercontent.com",
                 "acme-org/acme",
-                ("main",),
+                allowed_branches=("main",),
             )
         )
         (statement,) = policy["Statement"]
@@ -69,23 +71,35 @@ class TestGithubTrustPolicy:
         }
         assert "StringLike" not in condition
 
-    def test_feature_and_pull_request_subjects_are_not_trusted(self):
+    def test_delivery_subjects_include_exact_environments_without_wildcards(self):
         namespace = _exec_pure_policy_builder()
         policy = json.loads(
             namespace["_github_trust_policy_json"](
                 "arn:aws:iam::123456789012:oidc-provider/"
                 "token.actions.githubusercontent.com",
                 "acme-org/acme",
-                ("main", "stage"),
+                allowed_branches=("main",),
+                allowed_environments=("stage", "production"),
             )
         )
         subjects = policy["Statement"][0]["Condition"]["StringEquals"][
             "token.actions.githubusercontent.com:sub"
         ]
         assert "repo:acme-org/acme:ref:refs/heads/main" in subjects
-        assert "repo:acme-org/acme:ref:refs/heads/stage" in subjects
+        assert "repo:acme-org/acme:environment:stage" in subjects
+        assert "repo:acme-org/acme:environment:production" in subjects
         assert all("pull_request" not in subject for subject in subjects)
         assert all("feature" not in subject for subject in subjects)
+        assert all("*" not in subject for subject in subjects)
+
+    def test_empty_subject_roster_is_rejected(self):
+        namespace = _exec_pure_policy_builder()
+        with pytest.raises(ValueError, match="at least one exact subject"):
+            namespace["_github_trust_policy_json"](
+                "arn:aws:iam::123456789012:oidc-provider/"
+                "token.actions.githubusercontent.com",
+                "acme-org/acme",
+            )
 
     def test_thumbprint_list_is_nonempty(self):
         namespace = _exec_pure_policy_builder()

@@ -428,7 +428,7 @@ WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.p
 - **`path_claim_amendments`** — `id, claim_id, amended_at, amendment_kind, payload, reason`
   - Append-only history of widen / narrow / cancel-amendment operations on a path_claims row. amendment_kind names the operation; payload is JSON (e.g. {'added': [target_id, ...]}); reason is the operator-authored rationale.
 - **`actors`** — `id, kind, system_component, created_at`
-  - Actor identity referenced by work_claims.actor_id, path_claims.actor_id, and similar foreign keys. kind is 'human' or 'system'; system_component is the bound component name when kind is system-attributed. Human-readable names live in actor_labels as surface-specific projections: display for generic actor views, github_label for GitHub sync.
+  - Actor identity referenced by work_claims.actor_id, path_claims.actor_id, and similar foreign keys. kind is 'human' or 'system'; system_component is the bound component name when kind is system-attributed. Human-readable names live in actor_labels as surface-specific projections: display for generic actor views, github_label for GitHub sync. actors has NO org_id column; resolve an actor's organization membership through actor_org_roles.org_id.
 - **`actor_labels`** — `id, actor_id, surface, label, created_at`
   - Surface-specific actor labels. surface='display' is the generic actor-facing display projection; surface='github_label' is the GitHub sync projection. The table is constrained to one label per actor per surface and one actor per surface/label pair.
 

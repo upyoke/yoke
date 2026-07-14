@@ -9,8 +9,8 @@ Enforcement applies only when a verified numeric actor is present (the cloud
 boundary sets it from the token; a missing actor is local/advisory context and
 is permissive). With an actor:
 
-  * control-plane  -> checked against the ``yoke`` project, ignoring the
-    request's target project (the headline closed hole),
+  * control-plane  -> checked against the universe's sole organization; only
+    its org admin is allowed and project slugs confer no authority,
   * org            -> checked against the target org (org admin),
   * project        -> the op's real target project, with NO fallback: an
     existing target resolves to its real project and is checked; an
@@ -157,26 +157,6 @@ def _payload_request(actor_id, function_id: str, payload: dict) -> FunctionCallR
         target=TargetRef(kind="global"),
         payload=payload,
     )
-
-
-def test_control_plane_op_routes_to_yoke_ignoring_target_project(conn):
-    yoke = resolve_project_id(conn, "yoke")
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _project_owner(conn, buzz)
-    yoke_owner = _project_owner(conn, yoke)
-    org_admin = _org_admin(conn, _org_of(conn, yoke))
-    entry = _entry("db.read.run", side_effects=False)
-
-    # Target names buzz, but a control-plane op is always checked against yoke.
-    denied = check_dispatch_permission(conn, entry, _request(buzz_owner, "db.read.run", project="buzz"))
-    assert denied.error is not None
-    assert denied.error.error.code == "permission_denied"
-
-    allowed = check_dispatch_permission(conn, entry, _request(yoke_owner, "db.read.run", project="buzz"))
-    assert allowed.error is None
-    assert allowed.project_slug == "yoke"
-
-    assert check_dispatch_permission(conn, entry, _request(org_admin, "db.read.run")).error is None
 
 
 def test_projects_list_allows_project_owner_for_actor_visible_handler_filter(conn):

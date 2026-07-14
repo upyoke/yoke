@@ -234,7 +234,6 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
         aws_capability=config.require("aws_capability"),
         aws_region=aws_config.require("region"),
         github_capability=config.require("github_capability"),
-        github_app_environment=config.require("github_app_environment"),
         github_repo=config.require("github_repo"),
         github_repo_owner=config.require("github_repo_owner"),
         github_repo_name=config.require("github_repo_name"),

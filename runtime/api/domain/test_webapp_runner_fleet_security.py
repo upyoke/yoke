@@ -238,7 +238,6 @@ def test_runner_network_derives_standalone_ssh_target_from_stack_output(
         (
             {
                 "github_capability": "other",
-                "github_app_environment": "other-stage",
                 "github_repo_owner": "other-org",
                 "github_repo_name": "other-repo",
                 "github_private_key_secret_arn": (
@@ -248,7 +247,6 @@ def test_runner_network_derives_standalone_ssh_target_from_stack_output(
             },
             {
                 "github_capability": "github",
-                "github_app_environment": "yoke-api-stage",
                 "repo_owner": "upyoke",
                 "repo_name": "yoke",
                 "private_key_secret_arn": (

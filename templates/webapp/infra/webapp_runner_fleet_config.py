@@ -16,7 +16,6 @@ class WebappRunnerFleetArgs:
     aws_capability: str
     aws_region: str
     github_capability: str
-    github_app_environment: str
     github_repo: str
     github_repo_owner: str
     github_repo_name: str
