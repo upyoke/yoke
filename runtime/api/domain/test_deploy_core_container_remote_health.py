@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from runtime.api.domain.test_deploy_core_container import _env
@@ -31,10 +33,48 @@ class TestOriginHealthGate:
         )
 
         with pytest.raises(RemoteConvergenceError) as exc:
-            verify_origin_health(runner, _env(), request_id, lambda _line: None)
+            verify_origin_health(
+                runner, _env(), request_id, "abc123def456", lambda _line: None
+            )
 
         assert "schema_ready=true" in str(exc.value)
         assert "items" in str(exc.value)
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {
+                "status": "ok",
+                "schema_ready": True,
+                "build": "stale1234567",
+                "engine_version": "0.1.1+launch.25",
+            },
+            {
+                "status": "ok",
+                "schema_ready": True,
+                "build": "abc123def456",
+                "engine_version": "",
+            },
+        ],
+    )
+    def test_requires_exact_build_and_advertised_engine_version(self, payload):
+        request_id = "rid-release"
+        runner = FakeRunner(
+            [
+                CommandResult(
+                    0,
+                    "HTTP/1.1 200 OK\n"
+                    f"x-request-id: {request_id}\n\n"
+                    + json.dumps(payload),
+                    "",
+                )
+            ]
+        )
+
+        with pytest.raises(RemoteConvergenceError, match="release identity mismatch"):
+            verify_origin_health(
+                runner, _env(), request_id, "abc123def456", lambda _line: None
+            )
 
 
 class TestRuntimeDatabaseSecretPreflight:
