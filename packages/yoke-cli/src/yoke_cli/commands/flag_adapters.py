@@ -35,6 +35,11 @@ from yoke_cli.commands.adapters.claims import (
     claims_work_acquire, claims_work_release,
 )
 from yoke_cli.commands.adapters.organizations import organizations_get
+from yoke_cli.commands.adapters.projects_capability_settings import (
+    projects_capability_settings_get,
+    projects_capability_settings_merge,
+    projects_capability_settings_set,
+)
 from yoke_cli.commands.adapters.identity import (
     identity_autojoin_set,
     identity_invite_create,
@@ -327,6 +332,8 @@ __all__ = [
     "doctor_run", "projects_get", "projects_list",
     "projects_resolve_by_github_repo", "projects_create", "projects_update",
     "projects_capability_has", "projects_capability_secret_set",
+    "projects_capability_settings_get", "projects_capability_settings_set",
+    "projects_capability_settings_merge",
     "projects_checkout_context", "projects_github_binding_bind", "projects_github_binding_status", "projects_github_binding_unbind",
     "projects_github_sync_mode_repair", "organizations_get",
     "identity_invite_create", "identity_invite_list",

@@ -131,6 +131,11 @@ from yoke_cli.commands.adapters.project_structure_read import (
 from yoke_cli.commands.adapters.projects_secret import (
     PROJECTS_CAPABILITY_SECRET_SET_USAGE,
 )
+from yoke_cli.commands.adapters.projects_capability_settings import (
+    PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
+    PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,
+    PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
+)
 from yoke_cli.commands.adapters.project_github_binding import (
     PROJECTS_GITHUB_BINDING_BIND_USAGE, PROJECTS_GITHUB_BINDING_STATUS_USAGE, PROJECTS_GITHUB_BINDING_UNBIND_USAGE, PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
 )
@@ -280,6 +285,11 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.create": PROJECTS_CREATE_USAGE,
     "projects.update": PROJECTS_UPDATE_USAGE,
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
+    "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
+    "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
+    "projects.capability_settings.merge": (
+        PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE
+    ),
     "projects.capability_secret.set": PROJECTS_CAPABILITY_SECRET_SET_USAGE,
     "projects.checkout_context.run": PROJECTS_CHECKOUT_CONTEXT_USAGE,
     "projects.github_binding.bind": PROJECTS_GITHUB_BINDING_BIND_USAGE, "projects.github_binding.unbind": PROJECTS_GITHUB_BINDING_UNBIND_USAGE, "projects.github_binding.status": PROJECTS_GITHUB_BINDING_STATUS_USAGE,
