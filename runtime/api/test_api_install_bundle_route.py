@@ -61,8 +61,10 @@ def test_install_bundle_serves_files_and_hooks(client) -> None:
     assert bundle["project_slug"] == "buzz"
     paths = [entry["path"] for entry in bundle["files"]]
     assert paths == sorted(paths)
+    assert any(p.startswith(".agents/skills/yoke/") for p in paths)
     assert any(p.startswith(".claude/skills/yoke/") for p in paths)
     assert any(p.startswith(".codex/skills/yoke/") for p in paths)
+    assert ".agents/skills/yoke/idea/SKILL.md" in paths
     # The full operating layer ships: lifecycle skills + rendered subagents.
     assert ".claude/skills/yoke/conduct/SKILL.md" in paths
     assert ".codex/skills/yoke/shepherd/SKILL.md" in paths

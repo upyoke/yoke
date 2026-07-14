@@ -2,7 +2,7 @@
 
 Invoked by `simulation-gate.md` (S6h Branch 3) when the integration simulation returns GAPS FOUND and `--no-auto-fix` is NOT set.
 
-**Inherited from caller:** `SCRIPT_DIR` (must be absolute — resolved by caller after `MAIN_ROOT`), `MAIN_ROOT`, `_epic_id`, `_item_id` (numeric YOK-N number), `_worktree_path`, `_worktree_branch`, `_simulator_output` (raw Simulator output from the initial simulation), `_max_attempts` (for Engineer/Tester dispatch).
+**Inherited from caller:** `MAIN_ROOT`, `_epic_id`, `_item_id` (numeric YOK-N number), `_worktree_path`, `_worktree_branch`, `_simulator_output` (raw Simulator output from the initial simulation), `_max_attempts` (for Engineer/Tester dispatch).
 
 **Return values:** `AUTOFIX_CLEAN` (gaps resolved) or `AUTOFIX_HALTED` (gaps remain after exhausting all fix attempts).
 

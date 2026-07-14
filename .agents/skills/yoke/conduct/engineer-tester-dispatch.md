@@ -2,7 +2,7 @@
 
 Invoked from `engineer-tester-loop.md` S6g. Covers loop initialization, branch-ahead detection, attempt baseline, Engineer dispatch with submission gate, and Tester dispatch with diff size-gating.
 
-**Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block, `_attempt`, `_tester_output_failures`.
+**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block, `_attempt`, `_tester_output_failures`.
 
 ---
 

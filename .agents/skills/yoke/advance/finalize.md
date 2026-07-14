@@ -4,7 +4,7 @@
 
 Called by the advance router after all gates and phase-specific work complete. Updates status, syncs GitHub, commits, and reports.
 
-**Context variables** (set by router): `{N}`, `{NNN}` (zero-padded), `_title`, `_status` (old), `_target` (new), `--env` value, `SCRIPT_DIR`, `WORKTREE_PATH` (absolute path to item worktree, set by worktree phase or re-entry; empty/unset when advancing on main or with `--no-worktree`)
+**Context variables** (set by router): `{N}`, `{NNN}` (zero-padded), `_title`, `_status` (old), `_target` (new), `--env` value, `WORKTREE_PATH` (absolute path to item worktree, set by worktree phase or re-entry; empty/unset when advancing on main or with `--no-worktree`)
 
 ---
 

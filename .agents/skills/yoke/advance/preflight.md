@@ -4,7 +4,7 @@
 
 Called by the advance router after identity/lifecycle resolution for non-implementing transitions. Runs the hard-block dependency gate, AC presence gate, active reconciliation gate, epic-specific gates, and the merge verification gate.
 
-**Context variables** (set by router): `{N}`, `_type`, `_status`, `_target`, `--force` flag, `SCRIPT_DIR`
+**Context variables** (set by router): `{N}`, `_type`, `_status`, `_target`, `--force` flag
 
 ---
 

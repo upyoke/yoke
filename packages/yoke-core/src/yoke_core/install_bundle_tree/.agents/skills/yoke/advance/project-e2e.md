@@ -6,7 +6,7 @@ Called by the advance router when target is `reviewed-implementation`, `implemen
 
 Because E2E hits a real backend, this gate injects the ephemeral URL (or, when configured, a staging URL) via `BASE_URL` so the suite targets the deployment that matches the current worktree.
 
-**Context variables** (set by router): `{N}`, `_item_project`, `SCRIPT_DIR`
+**Context variables** (set by router): `{N}`, `_item_project`
 
 **This gate is re-entrant:** Retrying the same `/yoke advance YOK-{N} <target>` boundary re-executes the E2E command. A new passing run satisfies the gate.
 

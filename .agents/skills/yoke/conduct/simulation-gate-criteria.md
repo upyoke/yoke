@@ -2,7 +2,7 @@
 
 Invoked from `simulation-gate.md` S6h after the skip check. Covers Simulator dispatch (standard and compressed modes), scope estimation, the Simulator output gate (auto-retry with escalating strategies), and simulation result persistence/verification.
 
-**Inherited:** `SCRIPT_DIR`, `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_SIMULATOR_REPROMPTS`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_project`, `_workspace`.
+**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_SIMULATOR_REPROMPTS`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_project`, `_workspace`.
 
 **Produces:** `_local_result` (`CLEAN` or `GAPS FOUND`) and `_verified_verdict` (after persistence).
 
@@ -52,7 +52,6 @@ Log: `[S6] Scope: {_sim_task_count} tasks, ~{_total_kb}KB → {standard|compress
 ```
  Run integration simulation for epic {_epic_id} (YOK-{N}).
  Repository root: {MAIN_ROOT}
- Scripts directory: {MAIN_ROOT}/.agents/skills/yoke/scripts
  All tasks passed testing. Trace execution paths across tasks to find cross-task integration gaps.
  IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: YOK-{N}. Persistence rejects bodies whose attested epic does not match YOK-{N} (exit 16) or that omit the EPIC line entirely (exit 17).
  Worktree-State Authority: a task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's worktree_path / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
@@ -82,8 +81,6 @@ This prompt-supplied evidence is allowed; simulator-initiated `git log` or
 ```
  Run integration simulation for epic {_epic_id} (YOK-{N}).
  Repository root: {MAIN_ROOT}
- Scripts directory: {MAIN_ROOT}/.agents/skills/yoke/scripts
-
  ## Phase: INTEGRATION — COMPRESSED CONTEXT ({_sim_task_count} tasks)
  IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: YOK-{N}. Persistence rejects bodies whose attested epic does not match YOK-{N} (exit 16) or that omit the EPIC line entirely (exit 17).
  Worktree-State Authority: a task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's worktree_path / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
