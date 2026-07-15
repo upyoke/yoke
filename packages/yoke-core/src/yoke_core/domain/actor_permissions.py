@@ -35,7 +35,6 @@ PERM_DB_READ_RAW = "db.read.raw"
 PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH = "github_actions.workflow.dispatch"
 PERM_GITHUB_ACTIONS_RUN_READ = "github_actions.run.read"
 PERM_GITHUB_ACTIONS_VARIABLE_READ = "github_actions.variable.read"
-PERM_RUNNER_FLEET_TOKEN_ISSUE = "runner_fleet.token.issue"
 # Org-scoped permissions (never carried by a project role).
 PERM_ORG_ADMIN = "org.admin"  # renamed from "system.admin"
 PERM_PROJECT_CREATE = "project.create"
@@ -60,7 +59,7 @@ ROLE_DESCRIPTIONS = {
     ROLE_VIEWER: "Read-only access.",
     ROLE_DEPLOYMENT_CI: "Trigger deployment workflows and read their status.",
     ROLE_INFRASTRUCTURE_CI: (
-        "Read infrastructure settings and mint read-only runner preview tokens."
+        "Read infrastructure settings for preview workflows."
     ),
     ROLE_ADMIN: "Org-wide administration across all of the org's projects.",
 }
@@ -89,9 +88,6 @@ PERMISSION_DESCRIPTIONS = {
     PERM_GITHUB_ACTIONS_VARIABLE_READ: (
         "Read GitHub Actions variables used to route project deployments."
     ),
-    PERM_RUNNER_FLEET_TOKEN_ISSUE: (
-        "Mint a short-lived, repository-scoped runner-fleet preview token."
-    ),
     PERM_ORG_ADMIN: "Administer the org and all of its projects.",
     PERM_PROJECT_CREATE: "Create new projects in the org.",
 }
@@ -113,7 +109,6 @@ _PROJECT_OWNER_PERMS = (
     PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
     PERM_GITHUB_ACTIONS_RUN_READ,
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
-    PERM_RUNNER_FLEET_TOKEN_ISSUE,
 )
 
 ROLE_PERMISSION_KEYS = {
@@ -138,7 +133,6 @@ ROLE_PERMISSION_KEYS = {
     ),
     ROLE_INFRASTRUCTURE_CI: (
         PERM_PROJECT_RENDER_READ,
-        PERM_RUNNER_FLEET_TOKEN_ISSUE,
     ),
     # Org role — every permission, incl. org-scoped ones.
     ROLE_ADMIN: tuple(PERMISSION_DESCRIPTIONS),
@@ -333,7 +327,6 @@ __all__ = [
     "PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH",
     "PERM_GITHUB_ACTIONS_RUN_READ",
     "PERM_GITHUB_ACTIONS_VARIABLE_READ",
-    "PERM_RUNNER_FLEET_TOKEN_ISSUE",
     "PERM_ORG_ADMIN",
     "PERM_PROJECT_CREATE",
     "grant_actor_org_role",

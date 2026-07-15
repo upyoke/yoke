@@ -59,7 +59,7 @@ def test_launch_template_uses_selected_size_and_disposable_root(monkeypatch):
         "enable --now yoke-actions-runner.service"
     )
     assert "set-desired-capacity" not in user_data
-    assert "GITHUB_BROKER_FUNCTION=runnerFleetGithubBroker.name" in user_data
+    assert "GITHUB_BROKER_FUNCTION=yoke-runner-fleet-token-broker" in user_data
     assert "GITHUB_WEB_URL=https://github.com" in user_data
     assert "/etc/yoke-runner-fleet.json" not in user_data
     assert "Environment=GITHUB_BROKER_FUNCTION" not in user_data

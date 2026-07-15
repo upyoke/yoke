@@ -104,6 +104,7 @@ def _runner_values(
         "runner_fleet_github_repo_owner": "upyoke",
         "runner_fleet_github_repo_name": "yoke",
         "runner_fleet_github_private_key_secret_arn": _SECRET_ARN,
+        "runner_fleet_token_broker_function": "buzz-runner-fleet-token-broker",
         "runner_fleet_github_app_issuer": "Iv1.runner-fleet",
         "runner_fleet_github_installation_id": "123456",
         "runner_fleet_github_repository_id": "789012",

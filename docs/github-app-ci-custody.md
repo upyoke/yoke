@@ -5,24 +5,25 @@ keys outside GitHub Actions.
 
 ## Runner-Fleet Token Broker
 
-Infrastructure CI uses a dedicated `infrastructure_ci` actor and run-scoped
-HTTPS connection. `yoke runner-fleet exec` posts the canonical renderer-
-authority digest to
-`POST /v1/projects/<project>/runner-fleet-token`. The route requires
-`runner_fleet.token.issue`, rebuilds the digest from current DB authority, and
-returns only a short-lived installation token scoped to the bound repository
-with `repository_hooks:read` and `actions_variables:read`. Local
+Infrastructure CI uses a dedicated `infrastructure_ci` actor to read the
+secret-free renderer snapshot, then its GitHub-OIDC AWS role invokes the exact
+runner broker Lambda named in that validated authority intent. The broker owns
+the App-key read, verifies the intent digest and repository/App identity
+against its deployed environment, and returns only a short-lived installation
+token scoped to the bound repository with `repository_hooks:read` and
+`actions_variables:read`. Local
 operator-attended applies mint a separate process-only token with write scope;
 CI can refresh/preview GitHub resources but cannot mutate them. The registry
 stack uses the same boundary to own its two non-secret workflow role-routing
 variables; manual repository-variable edits are drift.
 
-Responses are `Cache-Control: no-store`; clients refuse redirects, cacheable
-responses, a different repository binding, and response bodies that do not
-match the typed contract. Error reporting never includes a broker body.
+The client bounds Lambda responses and refuses function errors, invalid
+payloads, expired grants, and a different repository binding. Error reporting
+never includes a broker body or token.
 
-The generic function-call dispatcher is intentionally not used because its
-results are ledgered and emitted as telemetry. In GitHub Actions, broker use is
+The tenant API and generic function-call dispatcher are intentionally not token
+brokers: their results can be ledgered or emitted as telemetry, and the tenant
+does not own the operator App key. In GitHub Actions, AWS broker use is
 mandatory and `aws_capability_env` selects authenticated OIDC credentials
 before any machine-config or capability-store lookup. Missing broker or OIDC
 authority fails closed; CI cannot select the local PEM path. Local operator
@@ -34,7 +35,8 @@ administration.
 The registry stack owns two exact-branch GitHub OIDC roles:
 
 - infrastructure: Platform `main` only, Pulumi preview authority only
-  (`ViewOnlyAccess` plus exact state reads), with explicit
+  (`ViewOnlyAccess`, exact state reads, and invocation of the exact runner
+  broker Lambda), with explicit
   secret-value and privilege-escalation denies;
 - delivery: Platform `main` and `stage` only, action/resource-scoped delivery
   permissions, plus the same explicit deny.

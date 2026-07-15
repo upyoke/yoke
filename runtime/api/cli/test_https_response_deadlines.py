@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import urllib.error
 
 import pytest
@@ -15,8 +14,6 @@ from runtime.api.cli.https_relay_security_test_support import (
 )
 from yoke_cli.transport import https as relay_module
 from yoke_cli.transport import response_deadline_read
-from yoke_cli.transport import runner_fleet_token
-from yoke_cli.transport.https import HttpsConnection, TransportError
 
 
 class _MutableClock:
@@ -66,15 +63,6 @@ class _SlowTrickleResponse:
 
     def settimeout(self, seconds: float) -> None:
         self.socket_timeouts.append(seconds)
-
-
-class _Opener:
-    def __init__(self, response: _SlowTrickleResponse) -> None:
-        self.response = response
-
-    def open(self, _request, timeout):
-        assert timeout == 1.0
-        return self.response
 
 
 def _bind_clock(monkeypatch, clock: _MutableClock) -> None:
@@ -163,27 +151,3 @@ def test_https_relay_error_body_rejects_slow_trickle(monkeypatch) -> None:
 
     _assert_relay_deadline(response)
     assert error_stream.read_calls == 2
-
-
-def test_runner_fleet_token_response_rejects_slow_trickle(monkeypatch) -> None:
-    clock = _MutableClock()
-    response = _SlowTrickleResponse(clock, headers={"Cache-Control": "no-store"})
-    _bind_clock(monkeypatch, clock)
-    monkeypatch.setattr(runner_fleet_token, "_OPENER", _Opener(response))
-    intent = json.dumps(
-        {
-            "schema": 1,
-            "authority": {"repo": "upyoke/platform"},
-            "sha256": "a" * 64,
-        }
-    )
-
-    with pytest.raises(TransportError, match="exceeded the time limit"):
-        runner_fleet_token.fetch_runner_fleet_token(
-            HttpsConnection("https://api.upyoke.com", "infrastructure-token"),
-            project="platform",
-            authority_intent=intent,
-            timeout_seconds=1.0,
-        )
-
-    assert response.read_calls == 2

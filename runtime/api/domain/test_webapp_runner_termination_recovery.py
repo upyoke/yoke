@@ -39,7 +39,7 @@ def _driver(parameters: str, setup: str) -> str:
           let status = 200;
           let body = {{}};
           if (url.includes("/access_tokens")) {{
-            body = {{ token: "installation-secret" }};
+            body = {{ token: "installation-secret", expires_at: "2099-01-01T00:00:00Z" }};
           }} else if (url.includes("/actions/runners?")) {{
             const runners = globalThis.__runnerPresent ? [{json.dumps({
                 "id": 101,
