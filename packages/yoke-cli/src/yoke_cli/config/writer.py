@@ -26,6 +26,7 @@ from yoke_cli.config.writer_credentials import (
     CredentialWriteError,
     credential_from_inputs,
 )
+from yoke_cli.config.writer_connection_remove import remove_connection
 from yoke_contracts.machine_config import schema as contract
 
 
@@ -292,5 +293,5 @@ def set_runtime_paths(
 
 __all__ = ["MachineConfigWriteError", "clear_github", "register_project",
            "stamp_untagged_project_envs", "set_github",
-           "set_runtime_paths", "set_active_env", "set_connection",
+           "remove_connection", "set_runtime_paths", "set_active_env", "set_connection",
            "set_credential"]

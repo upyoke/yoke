@@ -231,10 +231,12 @@ PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_cli.main 
   - `yoke check file-line --staged`
   - Sanctioned local lint tool (not function-call backed). The default cap is 350 lines and projects may set the DB-backed `project-policy.file_line_limit`; comparison is `new <= limit` (so the limit itself is allowed). Rules: new files over the limit fail; existing under-cap files crossing upward fail; existing over-cap files growing further fail. When near the cap, prefer compressing the same file (collapse multi-line returns, drop one-line `__all__` lists, fold duplicate teaching) or split into a sibling module. `.yoke/file-line-exceptions` is for intentionally unsplittable artifacts or non-authored data; do NOT add hard-rule files like AGENTS.md / CLAUDE.md. The pre-tool `hint_file_line_limit_approach` advisory warns on Write that would push a tracked authored file over the cap.
 - _Run pytest with background watcher (main session)_
-  - `python3 -m yoke_core.tools.watch_pytest --print-streaming-pair -- runtime/api/
+  - `python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/
+# Canonical full Yoke gate. For a harness background stream:
+python3 -m yoke_core.tools.watch_pytest --print-streaming-pair -- runtime/api/ runtime/harness/ tests/
 # Paste the printed pair into the harness's background + progress-tail surfaces.
 # After completion: tail -80 <raw-capture> (the helper-resolved path the wrapper printed)`
-  - Parallel by default (-n auto); pass --no-parallel after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background.
+  - This exact three-suite target is the canonical full Yoke gate; it injects xdist `-n auto`. Pass --no-parallel after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background.
 - _Run pytest foreground inside one tool call (subagent)_
   - `python3 -m yoke_core.tools.watch_pytest -- runtime/api/test_my_module.py -q
 # Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`

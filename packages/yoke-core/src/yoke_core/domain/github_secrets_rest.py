@@ -23,9 +23,12 @@ from typing import Iterable
 
 from nacl.public import PublicKey, SealedBox
 
+from yoke_core.domain.github_actions_identifiers import (
+    config_name_path,
+    repository_api_path,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
-    RestTransportError,
     request_with_retry,
 )
 
@@ -37,7 +40,9 @@ from yoke_core.domain.gh_rest_transport import (
 
 def fetch_public_key(repo: str, *, token: str) -> tuple[str, str]:
     """Return ``(key_id, base64_public_key)`` for ``repo`` (e.g. "owner/name")."""
-    req = RestRequest(method="GET", path=f"/repos/{repo}/actions/secrets/public-key")
+    req = RestRequest(
+        method="GET", path=f"{repository_api_path(repo)}/actions/secrets/public-key",
+    )
     resp = request_with_retry(req, token=token)
     body = resp.body or {}
     return str(body["key_id"]), str(body["key"])
@@ -59,11 +64,13 @@ def set_repo_secret(repo: str, name: str, value: str, *, token: str) -> None:
 
     Raises :class:`RestTransportError` (or a subclass) on terminal failure.
     """
+    repo_path = repository_api_path(repo)
+    name_path = config_name_path(name)
     key_id, key_b64 = fetch_public_key(repo, token=token)
     encrypted = encrypt_secret(key_b64, value)
     req = RestRequest(
         method="PUT",
-        path=f"/repos/{repo}/actions/secrets/{name}",
+        path=f"{repo_path}/actions/secrets/{name_path}",
         body={"encrypted_value": encrypted, "key_id": key_id},
     )
     request_with_retry(req, token=token)
@@ -73,7 +80,7 @@ def list_repo_secret_names(repo: str, *, token: str) -> list[str]:
     """Return the list of Actions secret names configured on ``repo``."""
     req = RestRequest(
         method="GET",
-        path=f"/repos/{repo}/actions/secrets",
+        path=f"{repository_api_path(repo)}/actions/secrets",
         query={"per_page": "100"},
     )
     resp = request_with_retry(req, token=token)
@@ -84,7 +91,22 @@ def list_repo_secret_names(repo: str, *, token: str) -> list[str]:
 
 def repo_secret_exists(repo: str, name: str, *, token: str) -> bool:
     """Return True iff ``name`` is set as an Actions secret on ``repo``."""
+    config_name_path(name)
     return name in list_repo_secret_names(repo, token=token)
+
+
+def delete_repo_secret(repo: str, name: str, *, token: str) -> None:
+    """Delete one named Actions secret through project-bound GitHub authority."""
+    request_with_retry(
+        RestRequest(
+            method="DELETE",
+            path=(
+                f"{repository_api_path(repo)}/actions/secrets/"
+                f"{config_name_path(name)}"
+            ),
+        ),
+        token=token,
+    )
 
 
 __all__ = [
@@ -92,5 +114,6 @@ __all__ = [
     "fetch_public_key",
     "list_repo_secret_names",
     "repo_secret_exists",
+    "delete_repo_secret",
     "set_repo_secret",
 ]

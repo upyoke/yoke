@@ -11,10 +11,12 @@ GitHub App auth — no host GitHub CLI binary required:
   in-process and over the https relay).
 - ``secret set`` -> ``github_actions.secret.set`` (sealed-box repo
   secret create-or-update; direct value by default, file/stdin optional).
+- ``secret delete`` -> ``github_actions.secret.delete`` (audited retirement).
 - ``variable get`` -> ``github_actions.variable.get`` (read-only
   arming-gate probe)
 - ``variable set`` -> ``github_actions.variable.set`` (repo variable
   upsert; plaintext value flag).
+- ``variable delete`` -> ``github_actions.variable.delete`` (audited retirement).
 """
 
 from __future__ import annotations

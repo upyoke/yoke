@@ -14,6 +14,11 @@ from typing import Any, Dict, Optional
 import pytest
 
 from yoke_core.domain.handlers import github_actions_set
+from yoke_core.domain.handlers import github_actions_delete
+from yoke_core.domain.handlers.github_actions_delete import (
+    handle_secret_delete,
+    handle_variable_delete,
+)
 from yoke_core.domain.handlers.github_actions_set import (
     handle_secret_set,
     handle_variable_set,
@@ -101,6 +106,13 @@ class TestSecretSet:
         assert not outcome.primary_success
         assert outcome.error.code == "invalid_payload"
         assert "value" in outcome.error.message
+
+    def test_rejects_path_injection_name(self):
+        outcome = handle_secret_set(
+            _secret_request({"repo": "o/r", "name": "../X", "value": "v"})
+        )
+        assert not outcome.primary_success
+        assert outcome.error.code == "invalid_payload"
 
     def test_validation_error_does_not_echo_value(self):
         # A wrong-typed value must not be reflected back by pydantic.
@@ -246,15 +258,66 @@ class TestVariableSet:
         assert outcome.error.code == "project_auth_error"
 
 
+@pytest.mark.parametrize(
+    ("function_id", "handler", "helper_path"),
+    [
+        (
+            "github_actions.secret.delete", handle_secret_delete,
+            "yoke_core.domain.github_secrets_rest.delete_repo_secret",
+        ),
+        (
+            "github_actions.variable.delete", handle_variable_delete,
+            "yoke_core.domain.github_variables_rest.delete_repo_variable",
+        ),
+    ],
+)
+def test_delete_uses_bound_project_authority(
+    monkeypatch, _resolver_ok, function_id, handler, helper_path,
+):
+    calls = []
+    monkeypatch.setattr(
+        helper_path,
+        lambda repo, name, *, token: calls.append((repo, name, token)),
+    )
+    outcome = handler(_make_request(
+        function_id,
+        {"repo": "upyoke/yoke", "name": "OBSOLETE_CUTOVER_VALUE"},
+    ))
+    assert outcome.primary_success
+    assert calls == [("upyoke/yoke", "OBSOLETE_CUTOVER_VALUE", "ghs_test_token")]
+    assert outcome.result_payload["result"] == "deleted"
+
+
+@pytest.mark.parametrize("handler", [handle_secret_delete, handle_variable_delete])
+def test_delete_rejects_path_injection_name(handler):
+    outcome = handler(_make_request(
+        "github_actions.secret.delete",
+        {"repo": "upyoke/yoke", "name": "../OTHER_ENDPOINT"},
+    ))
+    assert not outcome.primary_success
+    assert outcome.error.code == "invalid_payload"
+
+
 class TestRegistration:
     def test_registration_entries_present(self):
-        ids = {entry["function_id"] for entry in github_actions_set.REGISTRATIONS}
+        ids = {
+            entry["function_id"]
+            for entry in (
+                *github_actions_set.REGISTRATIONS,
+                *github_actions_delete.REGISTRATIONS,
+            )
+        }
         assert ids == {
+            "github_actions.secret.delete",
             "github_actions.secret.set",
+            "github_actions.variable.delete",
             "github_actions.variable.set",
         }
 
     def test_registrations_are_global_targeted(self):
-        for entry in github_actions_set.REGISTRATIONS:
+        for entry in (
+            *github_actions_set.REGISTRATIONS,
+            *github_actions_delete.REGISTRATIONS,
+        ):
             assert entry["target_kinds"] == ["global"]
             assert entry["claim_required_kind"] is None

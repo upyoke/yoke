@@ -50,6 +50,18 @@ class ConnectionSetResponse(BaseModel):
     config: str
 
 
+class ConnectionRemoveRequest(BaseModel):
+    env: str
+    config_path: Optional[str] = None
+
+
+class ConnectionRemoveResponse(BaseModel):
+    removed_env: str
+    credential_removed: bool
+    project_mappings_removed: int
+    config: str
+
+
 class AuthSetRequest(BaseModel):
     env: str
     token_file: Optional[str] = None
@@ -109,6 +121,13 @@ def handle_connection_set(request: FunctionCallRequest) -> HandlerOutcome:
     ))
 
 
+def handle_connection_remove(request: FunctionCallRequest) -> HandlerOutcome:
+    payload = request.payload or {}
+    return _outcome(lambda: machine_config_writer.remove_connection(
+        str(payload.get("env") or ""), path=payload.get("config_path"),
+    ))
+
+
 def handle_auth_set(request: FunctionCallRequest) -> HandlerOutcome:
     payload = request.payload or {}
     return _outcome(lambda: machine_config_writer.set_credential(
@@ -157,6 +176,8 @@ __all__ = [
     "AuthSetResponse",
     "ConnectionSetRequest",
     "ConnectionSetResponse",
+    "ConnectionRemoveRequest",
+    "ConnectionRemoveResponse",
     "EnvUseRequest",
     "EnvUseResponse",
     "ProjectRegisterRequest",
@@ -165,6 +186,7 @@ __all__ = [
     "StampProjectEnvResponse",
     "handle_auth_set",
     "handle_connection_set",
+    "handle_connection_remove",
     "handle_env_use",
     "handle_project_register",
     "handle_stamp_project_env",

@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-14T18:19:20Z_
+_Audit generated_at: 2026-07-14T19:11:37Z_
 
 ## 1. Summary
 
-- Function ids registered: **198**
+- Function ids registered: **201**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **197** (197 carry usable `--help`)
-- Operation tracker: **197 wrapped**, 70 permanent, 0 pending
+- `yoke` CLI subcommands: **200** (200 carry usable `--help`)
+- Operation tracker: **200 wrapped**, 72 permanent, 0 pending
 - Skill-body recipes: 217 total (180 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **197** (operation tracker confirms 197 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **200** (operation tracker confirms 200 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -43,6 +43,7 @@ Wrapped `yoke <subcommand>` adapters: **197** (operation tracker confirms 197 wr
 | conduct | `yoke conduct epic-task update-status` | `conduct.epic_task.update_status` | ok |
 | config | `yoke config example` | `config.example.run` | ok |
 | config | `yoke config stamp-project-env` | `config.stamp_project_env.run` | ok |
+| connection | `yoke connection remove` | `connection.remove.run` | ok |
 | connection | `yoke connection set` | `connection.set.run` | ok |
 | db | `yoke db read` | `db.read.run` | ok |
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
@@ -66,7 +67,9 @@ Wrapped `yoke <subcommand>` adapters: **197** (operation tracker confirms 197 wr
 | github_actions | `yoke github-actions run jobs-count` | `github_actions.run.jobs_count` | ok |
 | github_actions | `yoke github-actions jobs-count` | `github_actions.run.jobs_count` | ok |
 | github_actions | `yoke github-actions runners status` | `github_actions.runners.status` | ok |
+| github_actions | `yoke github-actions secret delete` | `github_actions.secret.delete` | ok |
 | github_actions | `yoke github-actions secret set` | `github_actions.secret.set` | ok |
+| github_actions | `yoke github-actions variable delete` | `github_actions.variable.delete` | ok |
 | github_actions | `yoke github-actions variable get` | `github_actions.variable.get` | ok |
 | github_actions | `yoke github-actions variable set` | `github_actions.variable.set` | ok |
 | github_actions | `yoke github-actions wait-run` | `github_actions.wait_run` | ok |
@@ -277,6 +280,8 @@ Wrapped `yoke <subcommand>` adapters: **197** (operation tracker confirms 197 wr
 | self_host | `yoke self-host init` | tool_shaped |
 | self_host.connect | `yoke connect` | tool_shaped |
 | self_host.import | `yoke self-host import` | tool_shaped |
+| source_authority.export | `yoke source-authority export` | tool_shaped |
+| source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped |
 | tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped |

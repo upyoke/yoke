@@ -41,6 +41,11 @@ def test_roundtrip_emits_non_secret_restore_receipts(
         "user_content_counts",
         lambda _conn: {"items": 7},
     )
+    monkeypatch.setattr(
+        validator,
+        "authority_receipt",
+        lambda _conn, **_kwargs: {"receipt_digest": "whole-authority"},
+    )
 
     report = validator.validate_archive_roundtrip(
         archive,
@@ -55,6 +60,7 @@ def test_roundtrip_emits_non_secret_restore_receipts(
     assert report["schema_fingerprint"] == "fingerprint"
     assert report["content_counts"] == {"items": 7}
     assert report["roundtrip"] is True
+    assert report["authority"] == {"receipt_digest": "whole-authority"}
     conn.close.assert_called_once_with()
 
 

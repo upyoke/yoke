@@ -28,6 +28,7 @@ CONNECTION_SET_USAGE = (
     "[CREDENTIAL | --token-file PATH | --token-stdin | --dsn DSN | "
     "--dsn-file PATH | --dsn-stdin] [--config PATH]"
 )
+CONNECTION_REMOVE_USAGE = "yoke connection remove ENV [--config PATH]"
 AUTH_SET_USAGE = (
     "yoke auth set ENV [CREDENTIAL | --token-file PATH | --token-stdin | "
     "--dsn DSN | --dsn-file PATH | --dsn-stdin] [--config PATH]"
@@ -88,6 +89,24 @@ def connection_set(args: List[str]) -> int:
         )
     writer = _writer()
     return _run(lambda: _connection_set(writer, parsed))
+
+
+def connection_remove(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke connection remove",
+        description=(
+            "Retire an inactive machine connection alias and its Yoke-owned "
+            "credential. Active authority and non-owned credential files are refused."
+        ),
+    )
+    parser.add_argument("env")
+    parser.add_argument("--config", dest="config_path", default=None)
+    attach_field_note_footer(parser)
+    parsed = parse_or_usage_error(parser, args, CONNECTION_REMOVE_USAGE)
+    if parsed is None:
+        return 2
+    writer = _writer()
+    return _run(lambda: writer.remove_connection(parsed.env, path=parsed.config_path))
 
 
 def auth_set(args: List[str]) -> int:
@@ -308,6 +327,7 @@ __all__ = [
     "auth_set",
     "config_stamp_project_env",
     "connection_set",
+    "connection_remove",
     "env_use",
     "project_register",
 ]

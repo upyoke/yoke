@@ -38,7 +38,7 @@ from yoke_cli.commands.adapters.project_onboard import (
     ONBOARD_PROJECT_USAGE,
 )
 from yoke_cli.commands.adapters.config_write import (
-    AUTH_SET_USAGE, CONNECTION_SET_USAGE,
+    AUTH_SET_USAGE, CONNECTION_REMOVE_USAGE, CONNECTION_SET_USAGE,
     ENV_USE_USAGE, PROJECT_REGISTER_USAGE,
     STAMP_PROJECT_ENV_USAGE,
 )
@@ -344,6 +344,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "onboard.checklist.init": ONBOARD_CHECKLIST_INIT_USAGE,
     "env.use.run": ENV_USE_USAGE,
     "connection.set.run": CONNECTION_SET_USAGE,
+    "connection.remove.run": CONNECTION_REMOVE_USAGE,
     "auth.set.run": AUTH_SET_USAGE,
     "project.register.run": PROJECT_REGISTER_USAGE,
     "project.install.run": PROJECT_INSTALL_USAGE,

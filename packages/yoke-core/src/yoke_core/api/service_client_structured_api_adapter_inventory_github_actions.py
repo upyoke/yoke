@@ -99,6 +99,14 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         ),
     ),
     AdapterEntry(
+        function_id="github_actions.secret.delete",
+        cli_invocation=(
+            "yoke github-actions secret delete <owner/repo> <secret-name> "
+            "--project <project>"
+        ),
+        notes="Audited post-window repo-secret retirement through bound GitHub App authority.",
+    ),
+    AdapterEntry(
         function_id="github_actions.variable.get",
         cli_invocation=(
             "yoke github-actions variable get <owner/repo> <variable-name> "
@@ -116,6 +124,14 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "<variable-name> --value VALUE --project <project>"
         ),
         notes="bearer-token repo-variable upsert via github_variables_rest.",
+    ),
+    AdapterEntry(
+        function_id="github_actions.variable.delete",
+        cli_invocation=(
+            "yoke github-actions variable delete <owner/repo> <variable-name> "
+            "--project <project>"
+        ),
+        notes="Audited post-window repo-variable retirement through bound GitHub App authority.",
     ),
 )
 
