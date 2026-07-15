@@ -5,7 +5,7 @@ Consumers **copy** from here — the marketing site (platform repo) copies from 
 pinned checkout of this repo; the universe app and the webapp template copy locally.
 The managed webapp copy lives under
 `templates/webapp/scaffold/app/web/public/brand/`; its global stylesheet loads
-that copied `theme.css`, and parity tests refuse consumer drift.
+the copied `theme.css` and `shell.css`, and parity tests refuse consumer drift.
 Never fork the mark; change it here and let consumers follow.
 
 ## What the mark means
@@ -27,11 +27,12 @@ execution** work items. Strategy foundation -> parallel execution.
 - `favicon/*.png`, `favicon/favicon.ico` — raster derivatives materialized from the
   SVGs (browsers/social need raster). Regenerate them if you change the mark.
 - `theme.css` — design tokens (CSS variables). The single knob for color/type/radius.
+- `shell.css` — the shared application-header frame and its structural tokens.
 
 ## Customizing
 
 Everything here is provisional and meant to be changed: edit the SVGs directly,
-swap the wordmark font, or retune `theme.css`. The raster derivatives are the only
+swap the wordmark font, or retune the shared CSS. The raster derivatives are the only
 generated outputs — re-export them from the SVGs after a change.
 
 ## Deferred

@@ -44,9 +44,13 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
 
   assert.equal(mounted.contractVersion, UNIVERSE_APP_CONTRACT_VERSION);
   assert.ok(root.classList.contains("universe-app-root"));
-  assert.deepEqual(root.children.map((node) => node.className), [
-    "topbar", "shell",
-  ]);
+  const [topbar, shellNode] = root.children;
+  assert.ok(topbar.classList.contains("topbar"));
+  // The header wears the shared frame from shell.css rather than restating
+  // its own height — the drift that made the app's bar and the marketing
+  // site's 32px apart.
+  assert.ok(topbar.classList.contains("yoke-app-header"));
+  assert.ok(shellNode.classList.contains("shell"));
   assert.equal(byClass(root, "capability-actions").length, 0);
   const functionFetches = fetches.filter((entry) => entry.init);
   assert.ok(functionFetches.length >= 3);
@@ -298,11 +302,11 @@ test("a synchronously throwing client still returns a cleanup handle", async (t)
 
 test("route helpers are deterministic and platform-neutral", () => {
   assert.deepEqual(parseUniverseRoute("#/strategy?project=abc%201"), {
-    view: "strategy", project: "abc 1",
+    view: "strategy", detail: null, project: "abc 1",
   });
   // An unrecognised view falls back to the first destination in the nav.
   assert.deepEqual(parseUniverseRoute("#/unknown"), {
-    view: "overview", project: null,
+    view: "overview", detail: null, project: null,
   });
   assert.equal(buildUniverseRoute("strategy", "abc 1"),
     "#/strategy?project=abc%201");
@@ -323,7 +327,7 @@ test("every nav destination declares how it takes project scope", () => {
   // slot, so the workbench's own nav does not route them at all.
   for (const hosted of ["#/members", "#/billing"]) {
     assert.deepEqual(parseUniverseRoute(hosted), {
-      view: "overview", project: null,
+      view: "overview", detail: null, project: null,
     });
   }
 });

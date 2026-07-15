@@ -33,8 +33,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-background px-4 gap-2">
-      <div className="flex items-center gap-2">
+    <header className="yoke-app-header">
+      <div className="yoke-header-brand">
         {onMenuClick && (
           <Button
             variant="ghost"
@@ -51,25 +51,29 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         </span>
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="gap-2">
-            <User className="h-4 w-4" />
-            <span className="hidden sm:inline">{user?.name || user?.email || "Account"}</span>
-            <ChevronDown className="h-4 w-4 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>
-            {user?.email}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="yoke-header-context">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="gap-2">
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">
+                {user?.name || user?.email || "Account"}
+              </span>
+              <ChevronDown className="h-4 w-4 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>
+              {user?.email}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }

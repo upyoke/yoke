@@ -19,31 +19,34 @@
 }
 
 /* Top bar: brand lockup left, org context right. Scope is not a top-bar
-   concern — each view carries its own project picker. A compact 56px bar with
-   a bottom rule, matching the shared app-header frame. */
-.universe-app-root .topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.875rem;
-  min-height: 3.5rem;
-  padding: 0 1.125rem;
-  border-bottom: 1px solid var(--yoke-border);
-  background: var(--yoke-bg);
-}
+   concern — each view carries its own project picker.
 
-.universe-app-root .brand {
+   The frame itself is not declared here. The header element carries the
+   shared `.yoke-app-header` class from shell.css alongside `.topbar`, and the
+   marketing site carries the same one; restating the height here is how the
+   two drifted 32px apart in the first place. Only what is specific to the
+   workbench stays below. */
+.universe-app-root .brand svg { height: 1.625rem; width: auto; display: block; }
+/* Who you are acting as. Present only when a host names one. */
+.universe-app-root .actor-chip {
   display: inline-flex;
   align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--yoke-ink);
 }
-.universe-app-root .brand svg { height: 1.625rem; width: auto; display: block; }
-
-.universe-app-root .context-side {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.universe-app-root .actor-kind {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--yoke-muted);
+  border: 1px solid var(--yoke-border);
+  border-radius: 0.4rem;
+  padding: 0.05rem 0.3rem;
 }
+
 .universe-app-root .org-context {
   color: var(--yoke-muted);
   font-size: 0.78rem;
@@ -81,6 +84,36 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
+}
+
+/* The way back out of a drill-in, sitting where that view's picker sits. */
+.universe-app-root .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+.universe-app-root .breadcrumb-parent { color: var(--yoke-accent); text-decoration: none; }
+.universe-app-root .breadcrumb-parent:hover { text-decoration: underline; }
+.universe-app-root .breadcrumb-sep,
+.universe-app-root .breadcrumb-here { color: var(--yoke-muted); }
+
+/* The cell that opens a row's drill-in. A real link: middle-click works. */
+.universe-app-root .row-link { color: var(--yoke-accent); text-decoration: none; }
+.universe-app-root .row-link:hover { text-decoration: underline; }
+
+/* The item's rendered body, shown as the text it is. */
+.universe-app-root .item-body {
+  margin: 1rem 0 0;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--yoke-muted) 8%, transparent);
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  font-family: var(--yoke-font-mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-x: auto;
 }
 
 /* Two-column shell: left nav, main content. */
@@ -192,6 +225,8 @@
 .universe-app-root .nav-link:focus-visible,
 .universe-app-root .capability-action:focus-visible,
 .universe-app-root .project-chooser:focus-visible,
+.universe-app-root .row-link:focus-visible,
+.universe-app-root .breadcrumb-parent:focus-visible,
 .universe-app-root .raw-toggle:focus-visible {
   outline: 2px solid var(--yoke-accent);
   outline-offset: 2px;

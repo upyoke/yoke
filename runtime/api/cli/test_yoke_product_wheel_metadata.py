@@ -55,6 +55,8 @@ def test_yoke_core_wheel_carries_universe_app_runtime_and_types(
         "yoke_core/ui/static/contract-version.js",
         "yoke_core/ui/static/mount-options.js",
         "yoke_core/ui/static/universe_navigation.js",
+        "yoke_core/ui/static/universe_views.js",
+        "yoke_core/ui/static/shell.css",
         "yoke_core/ui/contracts/universe-app.ts",
         "yoke_core/ui/contracts/universe-app.d.ts",
         "yoke_core/ui/contracts/tsconfig.json",

@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import url("/brand/theme.css");
+@import url("/brand/shell.css");
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
