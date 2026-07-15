@@ -17,15 +17,15 @@ dependencies (pydantic, textual, pyfiglet, and their transitive closure) are
 ## Install Command
 
 ```bash
-uv tool install yoke-cli --with yoke-harness --with yoke-core \
-  --index-url https://api.upyoke.com/simple/ \
-  --extra-index-url https://pypi.org/simple/
+curl -fsSL https://upyoke.com/install | sh
 ```
 
-`--index-url` points at Yoke's PEP 503 index (the product wheels);
-`--extra-index-url` lets uv resolve every third-party dependency from PyPI. Each
-product wheel link carries a `#sha256=<hex>` fragment so uv verifies wheel
-integrity on download.
+The public installer resolves the channel once, pins all four Yoke product
+packages to that version, and gives uv a generated private-index configuration.
+Direct multi-index `uv tool install` commands are not a supported install
+surface: their index precedence can select a public namesake before the Yoke
+package index. Each product wheel link carries a `#sha256=<hex>` fragment so uv
+verifies wheel integrity on download.
 
 ## Build Release Artifacts
 
