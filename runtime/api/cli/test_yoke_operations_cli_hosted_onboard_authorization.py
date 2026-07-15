@@ -13,6 +13,7 @@ from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_destinations
+from yoke_contracts.api_urls import HOSTED_PROD_API_URL
 from yoke_contracts.machine_config.schema import DEFAULT_TRANSPORT
 
 
@@ -53,9 +54,9 @@ def test_resolve_choice_routes_flags_overrides_and_resumes() -> None:
         onboard_destinations.DESTINATION_SERVER,
         "https://api.mycompany.com",
     )
-    assert resolve(connect_url="https://api.upyoke.com") == (
+    assert resolve(connect_url=HOSTED_PROD_API_URL) == (
         onboard_destinations.DESTINATION_HOSTED,
-        "https://api.upyoke.com",
+        HOSTED_PROD_API_URL,
     )
     assert resolve(override_value="local") == (
         onboard_destinations.DESTINATION_LOCAL,
@@ -167,7 +168,7 @@ def test_hosted_api_url_rejects_manual_token_without_touching_local_connection(
             "--env",
             "prod",
             "--api-url",
-            "https://api.upyoke.com",
+            HOSTED_PROD_API_URL,
             "--yes",
             "--skip-identity-check",
             "--json",
@@ -203,7 +204,7 @@ def test_resume_reuses_hosted_browser_approved_credential(
         {
             "config_path": str(config),
             "env_name": "prod",
-            "api_url": "https://api.upyoke.com",
+            "api_url": HOSTED_PROD_API_URL,
             "destination": "hosted",
             "token_file": str(token_file),
             "token_source_kind": "file",
@@ -225,7 +226,7 @@ def test_resume_reuses_hosted_browser_approved_credential(
 
     assert rc == 0
     payload = json.loads(config.read_text(encoding="utf-8"))
-    assert payload["connections"]["prod"]["api_url"] == "https://api.upyoke.com"
+    assert payload["connections"]["prod"]["api_url"] == HOSTED_PROD_API_URL
     managed_token = Path(payload["connections"]["prod"]["credential_source"]["path"])
     assert managed_token != token_file
     assert (
