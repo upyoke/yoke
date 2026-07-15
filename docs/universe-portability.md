@@ -66,9 +66,12 @@ The owner must have the effective privileges of `pg_signal_backend` and
 superusers or inherited owner membership also block the operation.
 
 The owner-only credential bundle binds the old database OID, administrator,
-fence receipt, original credential, and rotated cutover credential. During
-rotation, the already-live cutover session proves the stored SCRAM/MD5 verifier
-matches only the cutover secret; connection-error text is not cutoff evidence.
+fence receipt, original credential, and rotated cutover credential. Rotation
+proves the original credential connected before the committed `ALTER ROLE`,
+the generated cutover secret is distinct, and a fresh cutover-secret connection
+succeeds afterward. PostgreSQL stores one password verifier per role, so this
+proves supersession without reading provider-restricted password catalogs;
+connection-error text is not cutoff evidence.
 After canonical machine authority switches to hosted production, `status`, `export`,
 `abort`, and `retire` continue to address the old source exclusively through
 that bundle; they do not re-resolve the canonical production connection.
