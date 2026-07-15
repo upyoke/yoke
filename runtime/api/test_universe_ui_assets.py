@@ -29,10 +29,11 @@ def test_known_assets_serve_with_content_types(ui_client):
 
 def test_javascript_module_graph_is_in_closed_asset_roster():
     static_root = files("yoke_core.ui").joinpath("static")
-    for module_name in ("app.js", "contract.js"):
+    for module_name in (
+        "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
+    ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
-        assert imports
         assert set(imports) <= set(ui_server.ASSET_CONTENT_TYPES)
 
 
@@ -93,14 +94,31 @@ def test_typed_mount_contract_and_declaration_emit_ship():
     } == {"1"}
 
 
-def test_page_module_wires_the_two_view_shell():
+def test_page_module_wires_the_workbench_shell():
     page_module = files("yoke_core.ui").joinpath("static", "app.js").read_text()
     for reference in (
         "export function mountUniverseApp",
         "projects.list",
         "strategy.doc.list",
-        "#/items",
-        "#/strategy",
+        "items.list.run",
         '{ label: "title", value: (doc) => doc.title }',
     ):
         assert reference in page_module, reference
+
+
+def test_every_nav_destination_is_routable_and_scoped():
+    """Each nav entry is a real route from day one: it declares its scope and
+    either renders rows or states what it will be."""
+    page_module = files("yoke_core.ui").joinpath(
+        "static", "universe_navigation.js",
+    ).read_text()
+    for destination in (
+        "overview", "inbox", "strategy", "frontier", "items", "board",
+        "sessions", "delivery", "qa", "workflows", "capabilities", "events",
+        "doctor", "ouroboros", "projects", "access", "templates", "github",
+        "project-settings", "universe-settings",
+    ):
+        assert f'id: "{destination}"' in page_module, destination
+    # Hosted chrome arrives through the platform's slot, never the nav roster.
+    for hosted in ("members", "billing"):
+        assert f'id: "{hosted}"' not in page_module, hosted

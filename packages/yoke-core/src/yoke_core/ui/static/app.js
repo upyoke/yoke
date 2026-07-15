@@ -7,10 +7,17 @@
 // Another same-realm host may inject its own function client, opaque generic
 // capabilities/actions, and named slot nodes without forking this app.
 //
-// Two views, hash-routed: `#/items` and `#/strategy`, each carrying the
-// selected project as `?project=<id>` so a shared link restores both the
-// view and the scope. The left nav is data-driven (see NAV) — adding a
-// route is one more array entry, with no per-view branching in the markup.
+// Views are hash-routed as `#/<view>?project=<id>` so a shared link restores
+// both the view and the scope. The left nav is data-driven (see NAV) — adding
+// a route is one more array entry, with no per-view branching in the markup.
+//
+// Scope is per-screen: each view remembers its own project and declares how it
+// takes scope (see SCOPE_*). Live scoped views carry their own picker; stubs do
+// not render a control that cannot act.
+//
+// Members and Billing are deliberately absent from NAV. They are hosted
+// chrome the platform injects through the `navigationEnd` slot; the workbench
+// itself has no notion of an account.
 
 import {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -22,11 +29,24 @@ import {
   renderCapabilityActions,
   validateMountRoot,
 } from "./mount-options.js";
+import {
+  buildUniverseRoute,
+  createScopePicker,
+  knownProjectId,
+  NAV,
+  navEntry,
+  parseUniverseRoute,
+  renderStubView,
+  SCOPE_NONE,
+  scopeForEntry,
+  universeNavScope,
+} from "./universe_navigation.js";
 
 export {
   UNIVERSE_APP_CONTRACT_VERSION,
   createHttpFunctionClient,
 } from "./contract.js";
+export { buildUniverseRoute, parseUniverseRoute, universeNavScope };
 
 const WORDMARK_ASSET_URL = new URL("./yoke-wordmark.svg", import.meta.url);
 
@@ -168,29 +188,10 @@ function renderStrategyView(context, main, projectId) {
   );
 }
 
-// The nav roster. Each entry renders one view into <main>; the markup maps
-// over this array, so a future {id:"runs",...} is a one-line addition.
-const NAV = [
-  { id: "items", label: "Items", render: renderItemsView },
-  { id: "strategy", label: "Strategy", render: renderStrategyView },
-];
-
-export function parseUniverseRoute(hash) {
-  // "#/items?project=3" -> { view: "items", project: "3" }.
-  const raw = String(hash || "").replace(/^#\/?/, "");
-  const [viewPart, queryPart] = raw.split("?");
-  const view = NAV.some((entry) => entry.id === viewPart)
-    ? viewPart : NAV[0].id;
-  const project = new URLSearchParams(queryPart || "").get("project");
-  return { view, project };
-}
-
-export function buildUniverseRoute(view, project) {
-  const resolvedView = NAV.some((entry) => entry.id === view)
-    ? view : NAV[0].id;
-  const query = project ? `?project=${encodeURIComponent(project)}` : "";
-  return `#/${resolvedView}${query}`;
-}
+const VIEW_RENDERERS = {
+  items: renderItemsView,
+  strategy: renderStrategyView,
+};
 
 function emptyUniversePanel(documentNode) {
   const panel = section(documentNode, "Universe");
@@ -229,14 +230,12 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const brand = el(documentNode, "div", "brand");
   brand.style.color = "var(--yoke-ink)";
-  const chooser = el(documentNode, "select", "project-chooser");
   const orgContext = el(documentNode, "span", "org-context", "…");
   const contextSide = el(documentNode, "div", "context-side");
   const capabilityActions = renderCapabilityActions(
     documentNode, capabilities,
   );
   if (capabilityActions) contextSide.appendChild(capabilityActions);
-  contextSide.appendChild(chooser);
   contextSide.appendChild(orgContext);
   const header = el(documentNode, "header", "topbar");
   appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
@@ -280,64 +279,66 @@ export function mountUniverseApp(rootNode, options = {}) {
     .catch(() => { if (mounted) orgContext.textContent = ""; });
 
   let projects = [];
-
-  function resolveRoute() {
-    const { view, project } = parseUniverseRoute(windowNode.location.hash);
-    const known = projects.some((row) => String(row.id) === String(project));
-    const resolved = known
-      ? project
-      : (projects[0] ? String(projects[0].id) : null);
-    return { view, project: resolved };
-  }
+  // Each visited scoped view remembers its own project.
+  const scopeSelections = new Map();
 
   function renderRoute() {
-    const { view, project } = resolveRoute();
-    if (chooser.value !== (project || "")) chooser.value = project || "";
-    for (const entry of NAV) {
-      const link = navLinks.get(entry.id);
-      link.href = buildUniverseRoute(entry.id, project);
-      link.classList.toggle("active", entry.id === view);
+    const route = parseUniverseRoute(windowNode.location.hash);
+    const entry = navEntry(route.view);
+    const project = scopeForEntry(
+      entry, route.project, projects, scopeSelections,
+    );
+
+    for (const navItem of NAV) {
+      const link = navLinks.get(navItem.id);
+      link.href = buildUniverseRoute(
+        navItem.id,
+        navItem.scope === SCOPE_NONE
+          ? null
+          : (knownProjectId(
+            projects, scopeSelections.get(navItem.id),
+          ) || project),
+      );
+      link.classList.toggle("active", navItem.id === entry.id);
+    }
+
+    const renderer = VIEW_RENDERERS[entry.id];
+    if (!renderer) {
+      renderStubView(context, main, entry);
+      return;
+    }
+    if (entry.scope === SCOPE_NONE) {
+      renderer(context, main, null);
+      return;
     }
     if (project === null) {
       main.replaceChildren(emptyUniversePanel(documentNode));
       return;
     }
-    (NAV.find((entry) => entry.id === view) || NAV[0]).render(
-      context, main, project,
-    );
+    // The picker is the view's own chrome, so it sits in the content column
+    // above a host the view owns outright and re-renders into at will.
+    const viewHost = el(documentNode, "div", "view-host");
+    main.replaceChildren(createScopePicker({
+      documentNode, entry, project, projects, renderRoute, scopeSelections,
+      windowNode,
+    }), viewHost);
+    renderer(context, viewHost, project);
   }
 
-  chooser.addEventListener("change", () => {
-    const route = parseUniverseRoute(windowNode.location.hash);
-    windowNode.location.hash = buildUniverseRoute(route.view, chooser.value);
-  });
   windowNode.addEventListener("hashchange", renderRoute);
 
   Promise.resolve().then(() => callFunction(
     client, "projects.list", { fields: ["id", "slug", "name"] },
   ))
     .then((callResult) => {
-      if (!mounted) return;
       const result = (callResult.envelope && callResult.envelope.result) || {};
       projects = result.rows || [];
-      chooser.replaceChildren();
-      chooser.disabled = projects.length === 0;
-      for (const project of projects) {
-        const option = el(
-          documentNode, "option", null,
-          project.name || project.slug || String(project.id),
-        );
-        option.value = String(project.id);
-        chooser.appendChild(option);
-      }
-      renderRoute();
     })
-    .catch(() => {
-      if (!mounted) return;
-      projects = [];
-      chooser.disabled = true;
-      renderRoute();
-    });
+    // A roster that fails to load leaves the universe empty. The catch stays
+    // on the fetch alone: folding the first render into it would report any
+    // view's render error as "no projects yet".
+    .catch(() => { projects = []; })
+    .then(() => { if (mounted) renderRoute(); });
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
