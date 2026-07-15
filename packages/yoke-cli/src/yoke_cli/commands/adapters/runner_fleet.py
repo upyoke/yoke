@@ -50,7 +50,6 @@ def runner_fleet_exec(args: List[str]) -> int:
         return 2
 
     try:
-        from yoke_cli.transport.https import resolve_https_connection
         from yoke_cli.transport.runner_fleet_token import (
             fetch_runner_fleet_token,
         )
@@ -58,15 +57,12 @@ def runner_fleet_exec(args: List[str]) -> int:
         executor = importlib.import_module(
             "yoke_core.tools.runner_fleet_exec"
         )
-        connection = resolve_https_connection()
-        hosted_token_loader = None
-        if connection is not None:
-            def hosted_token_loader(project, authority_intent):
-                return fetch_runner_fleet_token(
-                    connection,
-                    project=project,
-                    authority_intent=authority_intent,
-                )
+        def hosted_token_loader(project, authority_intent, aws_env):
+            return fetch_runner_fleet_token(
+                project=project,
+                authority_intent=authority_intent,
+                aws_env=aws_env,
+            )
         return int(executor.execute_runner_fleet_command(
             parsed.project,
             parsed.settings_file,

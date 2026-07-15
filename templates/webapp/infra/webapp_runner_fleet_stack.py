@@ -175,12 +175,10 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
                 name=self.instance_profile.name,
             ),
             vpc_security_group_ids=[self.security_group.id],
-            user_data=self.github_broker_function.name.apply(
-                lambda function_name: _user_data(
-                    args=args,
-                    region=region,
-                    github_broker_function=function_name,
-                )
+            user_data=_user_data(
+                args=args,
+                region=region,
+                github_broker_function=args.token_broker_function,
             ),
             block_device_mappings=[
                 aws.ec2.LaunchTemplateBlockDeviceMappingArgs(

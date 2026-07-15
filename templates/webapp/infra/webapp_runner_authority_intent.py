@@ -77,6 +77,7 @@ def _authority_from_args(
         "api_url": str(getattr(args, "github_api_url")),
         "web_url": str(getattr(args, "github_web_url")),
         "private_key_secret_arn": str(getattr(args, "github_private_key_secret_arn")),
+        "token_broker_function": str(getattr(args, "token_broker_function")),
         "runner_labels": [str(label) for label in getattr(args, "runner_labels")],
         "runner_variable_name": str(getattr(args, "runner_variable_name")),
         "routing_enabled": bool(getattr(args, "routing_enabled")),

@@ -42,16 +42,14 @@ def test_adapter_forwards_snapshot_and_child_command(monkeypatch, tmp_path):
     )
 
     assert rc == 9
-    assert calls == [
-        (
-            (
-                "buzz",
-                Path(snapshot),
-                ["pulumi", "up", "--yes"],
-            ),
-            {"hosted_token_loader": None},
-        ),
-    ]
+    assert len(calls) == 1
+    positional, keyword = calls[0]
+    assert positional == (
+        "buzz",
+        Path(snapshot),
+        ["pulumi", "up", "--yes"],
+    )
+    assert callable(keyword["hosted_token_loader"])
 
 
 def test_adapter_requires_child_command(capsys, tmp_path):

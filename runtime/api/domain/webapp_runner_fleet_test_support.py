@@ -181,6 +181,7 @@ def _runner_stack(
         github_api_url=github_api_url,
         github_web_url=github_web_url,
         github_private_key_secret_arn=_PRIVATE_KEY_SECRET_ARN,
+        token_broker_function="yoke-runner-fleet-token-broker",
         runner_labels=[
             "self-hosted",
             "Linux",
@@ -219,6 +220,7 @@ def _runner_stack(
         "api_url": args.github_api_url,
         "web_url": args.github_web_url,
         "private_key_secret_arn": args.github_private_key_secret_arn,
+        "token_broker_function": args.token_broker_function,
         "runner_labels": list(args.runner_labels),
         "runner_variable_name": args.runner_variable_name,
         "routing_enabled": args.routing_enabled,

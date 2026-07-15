@@ -111,7 +111,7 @@ async function responseJson(response, operation) {
   return body;
 }
 
-async function installationToken() {
+async function installationToken(permissions) {
   const response = await fetch(
     `${apiBase}/app/installations/${installationId}/access_tokens`,
     {
@@ -123,13 +123,17 @@ async function installationToken() {
         "Content-Type": "application/json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
-      body: `{"repository_ids":[${repositoryId}],` +
-        `"permissions":{"administration":"write"}}`,
+      body: JSON.stringify({
+        repository_ids: [Number(repositoryId)],
+        permissions,
+      }),
     },
   );
   const body = await responseJson(response, "installation-token request");
-  if (!body.token) throw new Error("GitHub installation-token response omitted token");
-  return body.token;
+  if (!body.token || !body.expires_at) {
+    throw new Error("GitHub installation-token response omitted token expiry");
+  }
+  return { token: body.token, expires_at: body.expires_at };
 }
 
 function repositoryApi(path) {
@@ -144,12 +148,42 @@ async function githubRequest(path, { method = "GET", allowNotFound = false } = {
     redirect: "error",
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${await installationToken()}`,
+      Authorization: `Bearer ${(
+        await installationToken({ administration: "write" })
+      ).token}`,
       "X-GitHub-Api-Version": "2022-11-28",
     },
   });
   if (allowNotFound && response.status === 404) return {};
   return responseJson(response, `${method} ${path}`);
+}
+
+export async function providerToken(authority) {
+  const expected = {
+    repo: `${repoOwner}/${repoName}`,
+    repo_owner: repoOwner,
+    repo_name: repoName,
+    installation_id: installationId,
+    repository_id: repositoryId,
+    app_issuer: appIssuer,
+    api_url: apiBase,
+  };
+  if (!authority || typeof authority !== "object" || Array.isArray(authority)) {
+    throw new Error("runner provider authority is invalid");
+  }
+  const mismatched = Object.entries(expected)
+    .filter(([key, value]) => String(authority[key] || "") !== value)
+    .map(([key]) => key);
+  if (mismatched.length) {
+    throw new Error(
+      `runner provider authority mismatch: ${mismatched.sort().join(", ")}`,
+    );
+  }
+  const grant = await installationToken({
+    actions_variables: "read",
+    repository_hooks: "read",
+  });
+  return { ...grant, repository: expected.repo };
 }
 
 export async function registrationToken() {
