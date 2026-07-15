@@ -121,6 +121,9 @@ def runner_fleet_values(
         "runner_fleet_github_private_key_secret_arn": (
             app.private_key_secret_arn if app else ""
         ),
+        "runner_fleet_token_broker_function": (
+            runner_fleet_token_broker_function_name(settings)
+        ),
         "runner_fleet_labels_json": json_helper.dumps_compact(
             runner_fleet.runner_labels
         ),
@@ -150,6 +153,13 @@ def runner_fleet_values(
     if enabled:
         _validate_enabled_values(values)
     return values
+
+
+def runner_fleet_token_broker_function_name(
+    settings: ProjectRendererSettings,
+) -> str:
+    """Return the stable AWS broker function bound into runner authority."""
+    return f"{settings.deploy_namespace}-runner-fleet-token-broker"
 
 
 def runner_fleet_stack_name(settings: ProjectRendererSettings) -> str:

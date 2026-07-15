@@ -1,6 +1,8 @@
 // AUTO-GENERATED template source: templates/webapp/infra/webapp_runner_github_broker.mjs. Do not hand-edit rendered copies; refresh through Yoke template/onboarding surfaces.
 /** Instance-bound bootstrap and external lifecycle management for CI runners. */
 
+import { createHash, timingSafeEqual } from "node:crypto";
+
 import {
   DeleteParameterCommand,
   GetParametersByPathCommand,
@@ -9,6 +11,7 @@ import {
 import {
   deleteRunner,
   listRunners,
+  providerToken,
   runnerLabels,
   runnerPrefix,
 } from "./webapp_runner_github_api.mjs";
@@ -62,6 +65,32 @@ function positiveInteger(value, name) {
 }
 
 function nowSeconds() { return Math.floor(Date.now() / 1000); }
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalJson(value[key])}`
+    ).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function verifiedProviderAuthority(event) {
+  const authority = event.authority;
+  const supplied = String(event.authority_sha256 || "");
+  if (!authority || typeof authority !== "object" || Array.isArray(authority) ||
+      !/^[a-f0-9]{64}$/.test(supplied)) {
+    throw new Error("runner provider authority intent is invalid");
+  }
+  const actual = createHash("sha256")
+    .update(canonicalJson(authority), "utf8").digest();
+  const expected = Buffer.from(supplied, "hex");
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+    throw new Error("runner provider authority intent digest is invalid");
+  }
+  return authority;
+}
 
 function runnerName(instanceId) { return `${runnerPrefix}${instanceId}`; }
 
@@ -258,6 +287,9 @@ async function reapFleet() {
 export async function handler(event) {
   const action = event && typeof event === "object" ? event.action : "";
   if (brokerMode === "bootstrap") {
+    if (action === "provider_token") {
+      return providerToken(verifiedProviderAuthority(event));
+    }
     if (action === "bootstrap") return bootstrapRunnerHost(event.instance_id);
     if (action === "register") return registerRunner(event.instance_id);
     if (action === "ready") {

@@ -54,6 +54,7 @@ _RUNNER_FLEET_KEYS = {
     "runner_fleet_github_app_issuer", "runner_fleet_github_api_url",
     "runner_fleet_github_web_url",
     "runner_fleet_github_private_key_secret_arn",
+    "runner_fleet_token_broker_function",
     "runner_fleet_instance_type", "runner_fleet_architecture",
     "runner_fleet_root_volume_gb", "runner_fleet_runner_count",
     "runner_fleet_max_runner_count", "runner_fleet_idle_shutdown_minutes",
@@ -213,7 +214,6 @@ class TestGatherPulumiValues:
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert len(result) == 67
         assert result["vps_iam_instance_profile_name"] == "buzz-origin-profile"
         assert result["origin_id"] == "buzzinfraDistributionOrigin18BAD744B"
         assert result["distribution_bucket_name"] == "buzz-distribution-prod"

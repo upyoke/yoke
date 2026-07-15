@@ -25,6 +25,7 @@ class WebappRunnerFleetArgs:
     github_api_url: str
     github_web_url: str
     github_private_key_secret_arn: str
+    token_broker_function: str
     runner_labels: Sequence[str]
     runner_variable_name: str
     routing_enabled: bool

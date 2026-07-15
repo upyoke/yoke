@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -56,6 +57,81 @@ def _run_driver(tmp_path: Path, body: str) -> dict:
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
+def test_provider_token_verifies_digest_and_deployed_identity(tmp_path):
+    _write_node_fixture(tmp_path)
+    authority = {
+        "repo": "acme/service",
+        "repo_owner": "acme",
+        "repo_name": "service",
+        "installation_id": "123456",
+        "repository_id": "789012",
+        "app_issuer": "Iv1.runner",
+        "api_url": "https://api.github.com",
+    }
+    canonical = json.dumps(authority, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode()).hexdigest()
+    invalid_digest = "0" * 64
+    payload = _run_driver(tmp_path, f"""
+        import {{ generateKeyPairSync }} from "node:crypto";
+        globalThis.__privateKey = generateKeyPairSync("rsa", {{ modulusLength: 2048 }})
+          .privateKey.export({{ type: "pkcs8", format: "pem" }});
+        globalThis.__parameters = new Map();
+        {_environment("bootstrap")}
+        const calls = [];
+        globalThis.fetch = async (url, options = {{}}) => {{
+          calls.push({{ url, body: JSON.parse(options.body || "{{}}") }});
+          return {{ ok: true, status: 200, async text() {{ return JSON.stringify({{
+            token: "installation-secret", expires_at: "2099-01-01T00:00:00Z",
+          }}); }} }};
+        }};
+        const {{ handler }} = await import("./webapp_runner_github_broker.mjs");
+        const authority = {json.dumps(authority)};
+        const grant = await handler({{
+          action: "provider_token", authority,
+          authority_sha256: "{digest}",
+        }});
+        let digestError = "";
+        try {{
+          await handler({{
+            action: "provider_token", authority, authority_sha256: "{invalid_digest}",
+          }});
+        }} catch (error) {{ digestError = error.message; }}
+        let identityError = "";
+        const wrong = {{ ...authority, repository_id: "999999" }};
+        const canonical = JSON.stringify(Object.fromEntries(
+          Object.entries(wrong).sort(([left], [right]) => left.localeCompare(right)),
+        ));
+        const {{ createHash }} = await import("node:crypto");
+        try {{
+          await handler({{
+            action: "provider_token", authority: wrong,
+            authority_sha256: createHash("sha256").update(canonical).digest("hex"),
+          }});
+        }} catch (error) {{ identityError = error.message; }}
+        console.log(JSON.stringify({{
+          grant: {{ ...grant, token: "[redacted]" }}, calls,
+          digestError, identityError,
+        }}));
+    """)
+
+    assert payload["grant"] == {
+        "token": "[redacted]",
+        "expires_at": "2099-01-01T00:00:00Z",
+        "repository": "acme/service",
+    }
+    assert payload["calls"][0]["body"] == {
+        "repository_ids": [789012],
+        "permissions": {
+            "actions_variables": "read",
+            "repository_hooks": "read",
+        },
+    }
+    assert "digest is invalid" in payload["digestError"]
+    assert "repository_id" in payload["identityError"]
+    assert len(payload["calls"]) == 1
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
 def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
     _write_node_fixture(tmp_path)
     payload = _run_driver(tmp_path, f"""
@@ -79,7 +155,9 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
           const tokenRequest = url.includes("/access_tokens");
           calls.push({{ url, body: options.body || "", redirect: options.redirect }});
           let body = {{}};
-          if (tokenRequest) body = {{ token: "installation-secret" }};
+          if (tokenRequest) body = {{
+            token: "installation-secret", expires_at: "2099-01-01T00:00:00Z",
+          }};
           else if (url.endsWith("/registration-token")) {{
             body = {{ token: "registration-token" }};
           }} else if (url.endsWith("/actions/runners/downloads")) {{
@@ -177,7 +255,9 @@ def test_reaper_paginates_before_keeping_a_busy_runner(tmp_path):
           calls.push(url);
           const page = new URL(url).searchParams.get("page");
           let body = {{}};
-          if (url.includes("/access_tokens")) body = {{ token: "installation-secret" }};
+          if (url.includes("/access_tokens")) body = {{
+            token: "installation-secret", expires_at: "2099-01-01T00:00:00Z",
+          }};
           else if (page === "1") body = {{
             total_count: 101,
             runners: Array.from({{ length: 100 }}, (_, index) => ({{
@@ -240,7 +320,7 @@ def test_stale_completed_runner_replaces_host_when_rearm_never_returns(
         {_environment("reaper")}
         globalThis.fetch = async (url) => {{
           const body = url.includes("/access_tokens")
-            ? {{ token: "installation-secret" }}
+            ? {{ token: "installation-secret", expires_at: "2099-01-01T00:00:00Z" }}
             : {{ total_count: 0, runners: [] }};
           return {{ ok: true, status: 200,
             async text() {{ return JSON.stringify(body); }} }};

@@ -199,6 +199,7 @@ def create_runner_github_broker(
     )
     bootstrap_function = aws.lambda_.Function(
         "runnerFleetGithubBroker",
+        name=args.token_broker_function,
         role=bootstrap_role.arn,
         runtime=RUNNER_GITHUB_LAMBDA_RUNTIME,
         handler="index.handler",
@@ -215,6 +216,18 @@ def create_runner_github_broker(
                 bootstrap_secret, bootstrap_runtime,
             ]),
         ),
+    )
+    aws.iam.RolePolicy(
+        "runnerFleetGithubBrokerInvoke",
+        role=f"{args.deploy_namespace}-ci-github",
+        policy=bootstrap_function.arn.apply(
+            lambda function_arn: _policy([{
+                "Effect": "Allow",
+                "Action": "lambda:InvokeFunction",
+                "Resource": function_arn,
+            }])
+        ),
+        opts=child_opts,
     )
 
     reaper_role, reaper_secret = _create_lambda_role(

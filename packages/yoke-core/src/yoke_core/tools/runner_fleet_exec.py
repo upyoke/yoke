@@ -73,7 +73,9 @@ def execute_runner_fleet_command(
     ),
     secret_loader: Callable[..., str] = load_secret_string,
     token_minter: Callable[..., Any] = mint_installation_token,
-    hosted_token_loader: Callable[[str, str], str] | None = None,
+    hosted_token_loader: Callable[
+        [str, str, Mapping[str, str]], str
+    ] | None = None,
     child_factory: Callable[..., Any] = subprocess.Popen,
     out: TextIO | None = None,
     err: TextIO | None = None,
@@ -126,11 +128,13 @@ def execute_runner_fleet_command(
         if hosted_token_loader is None:
             raise RunnerFleetExecError(
                 "hosted runner-fleet token authority is required; configure "
-                "an HTTPS infrastructure-ci connection"
+                "the AWS runner broker"
             )
         try:
             token = str(
-                hosted_token_loader(selected_project, authority_intent) or ""
+                hosted_token_loader(
+                    selected_project, authority_intent, aws_env,
+                ) or ""
             ).strip()
         except Exception as exc:
             raise RunnerFleetExecError(
