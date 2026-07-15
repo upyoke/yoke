@@ -83,6 +83,36 @@
   margin-bottom: 1rem;
 }
 
+/* The way back out of a drill-in, sitting where that view's picker sits. */
+.universe-app-root .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+.universe-app-root .breadcrumb-parent { color: var(--yoke-accent); text-decoration: none; }
+.universe-app-root .breadcrumb-parent:hover { text-decoration: underline; }
+.universe-app-root .breadcrumb-sep,
+.universe-app-root .breadcrumb-here { color: var(--yoke-muted); }
+
+/* The cell that opens a row's drill-in. A real link: middle-click works. */
+.universe-app-root .row-link { color: var(--yoke-accent); text-decoration: none; }
+.universe-app-root .row-link:hover { text-decoration: underline; }
+
+/* The item's rendered body, shown as the text it is. */
+.universe-app-root .item-body {
+  margin: 1rem 0 0;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--yoke-muted) 8%, transparent);
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  font-family: var(--yoke-font-mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 /* Two-column shell: left nav, main content. */
 .universe-app-root .shell {
   display: flex;
@@ -192,6 +222,8 @@
 .universe-app-root .nav-link:focus-visible,
 .universe-app-root .capability-action:focus-visible,
 .universe-app-root .project-chooser:focus-visible,
+.universe-app-root .row-link:focus-visible,
+.universe-app-root .breadcrumb-parent:focus-visible,
 .universe-app-root .raw-toggle:focus-visible {
   outline: 2px solid var(--yoke-accent);
   outline-offset: 2px;

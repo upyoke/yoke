@@ -83,20 +83,32 @@ export function universeNavScope(view) {
   return navEntry(view).scope;
 }
 
+// `#/<view>[/<detail>][?project=<id>]`. The optional second segment is a
+// drill-in: one row of the view, reached from that row and carrying a
+// breadcrumb back. A drill-in is never a nav destination of its own — it has
+// no entry, and its parent view stays the active one.
 export function parseUniverseRoute(hash) {
   const raw = String(hash || "").replace(/^#\/?/, "");
-  const [viewPart, queryPart] = raw.split("?");
+  const [pathPart, queryPart] = raw.split("?");
+  const [viewPart, detailPart] = pathPart.split("/");
   const view = NAV.some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
   const project = new URLSearchParams(queryPart || "").get("project");
-  return { view, project };
+  // An unknown view falls back to the first destination, and its detail
+  // segment falls with it rather than being carried onto a view that never
+  // asked for one.
+  const detail = (view === viewPart && detailPart)
+    ? decodeURIComponent(detailPart) : null;
+  return { view, detail, project };
 }
 
-export function buildUniverseRoute(view, project) {
+export function buildUniverseRoute(view, project, detail = null) {
   const resolvedView = NAV.some((entry) => entry.id === view)
     ? view : NAV[0].id;
+  const detailPart = (resolvedView === view && detail)
+    ? `/${encodeURIComponent(detail)}` : "";
   const query = project ? `?project=${encodeURIComponent(project)}` : "";
-  return `#/${resolvedView}${query}`;
+  return `#/${resolvedView}${detailPart}${query}`;
 }
 
 export function knownProjectId(projects, candidate) {

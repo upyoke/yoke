@@ -104,7 +104,9 @@ function renderError(body, callResult) {
 
 // Render `rows` as a table whose `columns` each name a header label and a
 // per-row cell accessor. Empty rows render the view's own empty message.
-function renderTable(body, rows, columns, emptyText) {
+// `rowHref`, when given, makes the first cell of each row the link that opens
+// that row's drill-in — a real href, so it can be opened in a new tab.
+function renderTable(body, rows, columns, emptyText, rowHref) {
   const documentNode = body.ownerDocument;
   if (rows.length === 0) {
     body.appendChild(el(documentNode, "p", "empty", emptyText));
@@ -118,10 +120,15 @@ function renderTable(body, rows, columns, emptyText) {
   table.appendChild(head);
   for (const row of rows) {
     const tr = el(documentNode, "tr");
-    for (const column of columns) {
-      tr.appendChild(el(
-        documentNode, "td", null, String(column.value(row) ?? ""),
-      ));
+    for (const [index, column] of columns.entries()) {
+      const text = String(column.value(row) ?? "");
+      const cell = el(documentNode, "td", null, rowHref && index === 0 ? undefined : text);
+      if (rowHref && index === 0) {
+        const link = el(documentNode, "a", "row-link", text);
+        link.href = rowHref(row);
+        cell.appendChild(link);
+      }
+      tr.appendChild(cell);
     }
     table.appendChild(tr);
   }
@@ -189,7 +196,8 @@ function renderItemsView(context, main, projectId) {
             isBlocked(row) ? (row.blocked_reason || "blocked") : ""
           ),
         },
-      ], "no items yet");
+      ], "no items yet",
+      (row) => buildUniverseRoute("items", String(projectId), String(row.id)));
     },
   );
 }
@@ -253,6 +261,71 @@ function renderStrategyView(context, main, projectId) {
   );
 }
 
+// One item, whichever workflow type it is. `body` is a virtual field the
+// engine renders on demand from the item's structured fields, so the detail
+// view asks for it rather than reassembling it here.
+function renderItemDetailView(context, main, projectId, itemRef) {
+  const documentNode = context.document;
+  const panel = section(documentNode, `Item ${itemRef}`);
+  main.replaceChildren(panel);
+  loadSection(
+    context, panel,
+    "items.get.run",
+    {},
+    (body, callResult) => {
+      const fields = (callResult.envelope.result || {}).fields || {};
+      const summary = el(documentNode, "table", "items");
+      // A detail view is one row read downward; the same label/value pairs the
+      // table shows across, so type still travels with status.
+      for (const [label, value] of [
+        ["type", fields.type], ["status", fields.status],
+        ["priority", fields.priority], ["flow", fields.flow],
+        ["project", fields.project], ["created", fields.created_at],
+      ]) {
+        const tr = el(documentNode, "tr");
+        tr.appendChild(el(documentNode, "th", null, label));
+        tr.appendChild(el(documentNode, "td", null, String(value ?? "")));
+        summary.appendChild(tr);
+      }
+      body.appendChild(summary);
+
+      const rendered = String(fields.body || "").trim();
+      const bodyBlock = el(
+        documentNode, rendered ? "pre" : "p", rendered ? "item-body" : "empty",
+        rendered || "no body yet",
+      );
+      body.appendChild(bodyBlock);
+
+      // An epic's tasks are its own decomposition, so they belong on the epic
+      // rather than on a screen of their own.
+      if (fields.type === "epic") {
+        const tasks = section(documentNode, "Tasks");
+        main.appendChild(tasks);
+        loadSection(
+          context, tasks,
+          "epic_tasks.list.run",
+          { epic: Number(fields.id) },
+          (taskBody, taskResult) => {
+            const rows = (taskResult.envelope.result || {}).tasks || [];
+            renderTable(taskBody, rows, [
+              { label: "#", value: (row) => row.task_num },
+              { label: "title", value: (row) => row.title },
+              { label: "status", value: (row) => row.status },
+            ], "no tasks yet");
+          },
+        );
+      }
+    },
+    { kind: "item", item_ref: String(itemRef), project_id: String(projectId) },
+  );
+}
+
+// A drill-in belongs to the view whose row opened it; the view stays active in
+// the nav and the breadcrumb is the way back.
+const DETAIL_RENDERERS = {
+  items: renderItemDetailView,
+};
+
 // A destination is live exactly when it has a renderer here; every other NAV
 // entry renders its `summary` under Coming soon.
 const VIEW_RENDERERS = {
@@ -261,6 +334,18 @@ const VIEW_RENDERERS = {
   events: renderEventsView,
   projects: renderProjectsView,
 };
+
+// The way back out of a drill-in, naming the view it belongs to. It carries
+// the view's project so returning lands on the same rows the row came from.
+function createBreadcrumb(documentNode, entry, project, detail) {
+  const bar = el(documentNode, "div", "breadcrumb");
+  const back = el(documentNode, "a", "breadcrumb-parent", entry.label);
+  back.href = buildUniverseRoute(entry.id, project);
+  bar.appendChild(back);
+  bar.appendChild(el(documentNode, "span", "breadcrumb-sep", "/"));
+  bar.appendChild(el(documentNode, "span", "breadcrumb-here", String(detail)));
+  return bar;
+}
 
 function emptyUniversePanel(documentNode) {
   const panel = section(documentNode, "Universe");
@@ -374,6 +459,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       link.classList.toggle("active", navItem.id === entry.id);
     }
 
+    const detailRenderer = route.detail ? DETAIL_RENDERERS[entry.id] : null;
     const renderer = VIEW_RENDERERS[entry.id];
     if (!renderer) {
       renderStubView(context, main, entry);
@@ -385,6 +471,17 @@ export function mountUniverseApp(rootNode, options = {}) {
     }
     if (project === null) {
       main.replaceChildren(emptyUniversePanel(documentNode));
+      return;
+    }
+    if (detailRenderer) {
+      // A drill-in swaps the view's picker for a breadcrumb: re-scoping a
+      // single row to another project is nonsense, and the way out is back.
+      const detailHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(
+        createBreadcrumb(documentNode, entry, project, route.detail),
+        detailHost,
+      );
+      detailRenderer(context, detailHost, project, route.detail);
       return;
     }
     // The picker is the view's own chrome, so it sits in the content column

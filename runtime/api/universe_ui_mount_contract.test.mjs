@@ -187,6 +187,67 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.ok(secondRoot.classList.contains("universe-app-root"));
 });
 
+test("an epic's detail carries its tasks; an issue's does not", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const drillInto = async (type) => {
+    const documentNode = new FakeDocument();
+    documentNode.defaultView.location.hash = "#/items/7?project=1";
+    const root = documentNode.createElement("div");
+    const requests = [];
+    const client = {
+      async call(request) {
+        requests.push(request);
+        if (request.function === "organizations.get") {
+          return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+        }
+        if (request.function === "projects.list") {
+          return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+        }
+        if (request.function === "items.get.run") {
+          return {
+            status: 200,
+            envelope: {
+              success: true,
+              result: { item_id: 7, fields: { id: "7", type, status: "planned", title: "t", body: "# Spec" } },
+            },
+          };
+        }
+        if (request.function === "epic_tasks.list.run") {
+          return {
+            status: 200,
+            envelope: { success: true, result: { epic_id: 7, tasks: [{ task_num: 1, title: "first", status: "done" }] } },
+          };
+        }
+        throw new Error(`unexpected function ${request.function}`);
+      },
+    };
+    const mounted = mountUniverseApp(root, { client });
+    await settle();
+    const text = allNodes(root).map((n) => n.textContent || "").join(" ");
+    const detailRequest = requests.find((r) => r.function === "items.get.run");
+    const out = {
+      askedForTasks: requests.some((r) => r.function === "epic_tasks.list.run"),
+      target: detailRequest.target,
+      showsTask: text.includes("first"),
+    };
+    mounted.unmount();
+    return out;
+  };
+
+  const epic = await drillInto("epic");
+  // The ref is opaque to the app; the dispatcher resolves it server-side.
+  assert.deepEqual(epic.target, { kind: "item", item_ref: "7", project_id: "1" });
+  assert.equal(epic.askedForTasks, true);
+  assert.equal(epic.showsTask, true);
+
+  // An issue has no decomposition, so nothing asks for one.
+  const issue = await drillInto("issue");
+  assert.equal(issue.askedForTasks, false);
+});
+
 test("an unblocked item reports no blocking reason", async (t) => {
   // `blocked` crosses the wire as the string "0"/"1". Both are truthy, so a
   // bare truthiness read marks every item blocked and the column says so
@@ -228,14 +289,23 @@ test("an unblocked item reports no blocking reason", async (t) => {
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
+  // The id cell holds the drill-in link, so its text lives on the anchor.
+  const cellText = (node) => (
+    node.textContent || (node.children[0] && node.children[0].textContent) || ""
+  );
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
-    .map((node) => node.textContent);
+    .map(cellText);
   // The unblocked row's blocked cell is empty; the blocked row names why.
   assert.deepEqual(cells, [
     "1", "issue", "runs", "idea", "medium", "",
     "2", "epic", "waits", "idea", "high", "upstream schema",
   ]);
+  // Each row opens its own drill-in, carrying the view's project.
+  const rowLinks = allNodes(root)
+    .filter((node) => node.classList && node.classList.contains("row-link"))
+    .map((node) => node.href);
+  assert.deepEqual(rowLinks, ["#/items/1?project=1", "#/items/2?project=1"]);
   // Type must travel with status: one type's "idea" is not another's.
   assert.ok(requestedFields.includes("type"));
   assert.ok(requestedFields.includes("blocked_reason"));
@@ -353,15 +423,33 @@ test("a synchronously throwing client still returns a cleanup handle", async (t)
 
 test("route helpers are deterministic and platform-neutral", () => {
   assert.deepEqual(parseUniverseRoute("#/strategy?project=abc%201"), {
-    view: "strategy", project: "abc 1",
+    view: "strategy", detail: null, project: "abc 1",
   });
   // An unrecognised view falls back to the first destination in the nav.
   assert.deepEqual(parseUniverseRoute("#/unknown"), {
-    view: "overview", project: null,
+    view: "overview", detail: null, project: null,
   });
   assert.equal(buildUniverseRoute("strategy", "abc 1"),
     "#/strategy?project=abc%201");
   assert.equal(buildUniverseRoute("unknown", null), "#/overview");
+});
+
+test("a drill-in route survives the round trip and never outlives its view", () => {
+  assert.deepEqual(parseUniverseRoute("#/items/42?project=3"), {
+    view: "items", detail: "42", project: "3",
+  });
+  assert.equal(buildUniverseRoute("items", "3", "42"), "#/items/42?project=3");
+  // Refs are opaque: one carrying a slash or a space still round-trips.
+  const odd = "YOK 7/a";
+  assert.equal(
+    parseUniverseRoute(buildUniverseRoute("items", "3", odd)).detail, odd,
+  );
+  // An unknown view falls back to the first destination, and its detail
+  // segment must not ride along onto a view that never asked for one.
+  assert.deepEqual(parseUniverseRoute("#/unknown/42"), {
+    view: "overview", detail: null, project: null,
+  });
+  assert.equal(buildUniverseRoute("unknown", null, "42"), "#/overview");
 });
 
 test("every nav destination declares how it takes project scope", () => {
@@ -378,7 +466,7 @@ test("every nav destination declares how it takes project scope", () => {
   // slot, so the workbench's own nav does not route them at all.
   for (const hosted of ["#/members", "#/billing"]) {
     assert.deepEqual(parseUniverseRoute(hosted), {
-      view: "overview", project: null,
+      view: "overview", detail: null, project: null,
     });
   }
 });
