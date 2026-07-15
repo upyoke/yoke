@@ -7,10 +7,17 @@
 // Another same-realm host may inject its own function client, opaque generic
 // capabilities/actions, and named slot nodes without forking this app.
 //
-// Two views, hash-routed: `#/items` and `#/strategy`, each carrying the
-// selected project as `?project=<id>` so a shared link restores both the
-// view and the scope. The left nav is data-driven (see NAV) — adding a
-// route is one more array entry, with no per-view branching in the markup.
+// Views are hash-routed as `#/<view>?project=<id>` so a shared link restores
+// both the view and the scope. The left nav is data-driven (see NAV) — adding
+// a route is one more array entry, with no per-view branching in the markup.
+//
+// Scope is per-screen: each view remembers its own project and declares how it
+// takes scope (see SCOPE_*). Live scoped views carry their own picker; stubs do
+// not render a control that cannot act.
+//
+// Members and Billing are deliberately absent from NAV. They are hosted
+// chrome the platform injects through the `navigationEnd` slot; the workbench
+// itself has no notion of an account.
 
 import {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -168,12 +175,115 @@ function renderStrategyView(context, main, projectId) {
   );
 }
 
-// The nav roster. Each entry renders one view into <main>; the markup maps
-// over this array, so a future {id:"runs",...} is a one-line addition.
+// MULTI views narrow cross-project rows; SINGLE views bind to one project;
+// NONE views describe the registry or universe itself.
+const SCOPE_MULTI = "multi";
+const SCOPE_SINGLE = "single";
+const SCOPE_NONE = "none";
+
+// Ordered work arc. Entries with `render` are live; the others keep their
+// stable route and show `summary` under `Coming soon`.
 const NAV = [
-  { id: "items", label: "Items", render: renderItemsView },
-  { id: "strategy", label: "Strategy", render: renderStrategyView },
+  {
+    id: "overview", label: "Overview", scope: SCOPE_MULTI,
+    summary: "The universe at a glance, across every project.",
+  },
+  {
+    id: "inbox", label: "Inbox", scope: SCOPE_MULTI,
+    summary: "What needs you to know about it or act on it.",
+  },
+  {
+    id: "strategy", label: "Strategy", scope: SCOPE_MULTI,
+    render: renderStrategyView,
+  },
+  {
+    id: "frontier", label: "Frontier", scope: SCOPE_MULTI,
+    summary: "What runs next and why, and what a waiting item waits on.",
+  },
+  { id: "items", label: "Items", scope: SCOPE_MULTI, render: renderItemsView },
+  {
+    id: "board", label: "Board", scope: SCOPE_MULTI,
+    summary: "Your .yoke/BOARD.md, as the board itself renders it.",
+  },
+  {
+    id: "sessions", label: "Sessions", scope: SCOPE_MULTI,
+    summary: "Each running session: its execution lane and its mode.",
+  },
+  {
+    id: "delivery", label: "Delivery", scope: SCOPE_MULTI,
+    summary: "Environments, flows and runs, with databases and infrastructure.",
+  },
+  {
+    id: "qa", label: "QA", scope: SCOPE_MULTI,
+    summary: "Quality gates and the evidence they collected.",
+  },
+  {
+    id: "workflows", label: "Workflows", scope: SCOPE_SINGLE,
+    summary: "What done means for a type of work, and the parts that compose it.",
+  },
+  {
+    id: "capabilities", label: "Capabilities", scope: SCOPE_MULTI,
+    summary: "What Yoke can reach on your behalf, and when it last verified it.",
+  },
+  {
+    id: "events", label: "Events", scope: SCOPE_MULTI,
+    summary: "What happened, in the order it happened.",
+  },
+  {
+    id: "doctor", label: "Doctor", scope: SCOPE_MULTI,
+    summary: "The health checks and what they found.",
+  },
+  {
+    id: "ouroboros", label: "Ouroboros", scope: SCOPE_MULTI,
+    summary: "What the system noticed about itself and what came of it.",
+  },
+  {
+    id: "projects", label: "Projects", scope: SCOPE_NONE,
+    summary: "Every project in this universe.",
+  },
+  {
+    id: "access", label: "Access", scope: SCOPE_NONE,
+    summary: "Who and what may act here, at the universe and per project.",
+  },
+  {
+    id: "templates", label: "Templates", scope: SCOPE_NONE,
+    summary: "The templates projects are rendered from.",
+  },
+  {
+    id: "github", label: "GitHub", scope: SCOPE_SINGLE,
+    summary: "How this project binds to its repository, and how they sync.",
+  },
+  {
+    id: "project-settings", label: "Project settings", scope: SCOPE_SINGLE,
+    summary: "Settings for one project.",
+  },
+  {
+    id: "universe-settings", label: "Universe settings", scope: SCOPE_NONE,
+    summary: "Settings for this universe, including export and import.",
+  },
 ];
+
+function navEntry(view) {
+  return NAV.find((entry) => entry.id === view) || NAV[0];
+}
+
+export function universeNavScope(view) {
+  return navEntry(view).scope;
+}
+
+// A stub states what the screen will be without exposing inert controls.
+function renderStubView(context, main, entry) {
+  const documentNode = context.document;
+  const panel = el(documentNode, "section", "panel");
+  const header = el(documentNode, "div", "panel-header");
+  header.appendChild(el(documentNode, "h2", null, entry.label));
+  panel.appendChild(header);
+  const body = el(documentNode, "div", "panel-body");
+  body.appendChild(el(documentNode, "p", "stub-headline", "Coming soon"));
+  body.appendChild(el(documentNode, "p", "stub-summary", entry.summary));
+  panel.appendChild(body);
+  main.replaceChildren(panel);
+}
 
 export function parseUniverseRoute(hash) {
   // "#/items?project=3" -> { view: "items", project: "3" }.
@@ -229,14 +339,12 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const brand = el(documentNode, "div", "brand");
   brand.style.color = "var(--yoke-ink)";
-  const chooser = el(documentNode, "select", "project-chooser");
   const orgContext = el(documentNode, "span", "org-context", "…");
   const contextSide = el(documentNode, "div", "context-side");
   const capabilityActions = renderCapabilityActions(
     documentNode, capabilities,
   );
   if (capabilityActions) contextSide.appendChild(capabilityActions);
-  contextSide.appendChild(chooser);
   contextSide.appendChild(orgContext);
   const header = el(documentNode, "header", "topbar");
   appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
@@ -280,64 +388,103 @@ export function mountUniverseApp(rootNode, options = {}) {
     .catch(() => { if (mounted) orgContext.textContent = ""; });
 
   let projects = [];
+  // Each visited scoped view remembers its own project.
+  const scopeSelections = new Map();
 
-  function resolveRoute() {
-    const { view, project } = parseUniverseRoute(windowNode.location.hash);
-    const known = projects.some((row) => String(row.id) === String(project));
-    const resolved = known
-      ? project
-      : (projects[0] ? String(projects[0].id) : null);
-    return { view, project: resolved };
+  function defaultProject() {
+    return projects[0] ? String(projects[0].id) : null;
+  }
+
+  function knownProject(candidate) {
+    return projects.some((row) => String(row.id) === String(candidate))
+      ? String(candidate) : null;
+  }
+
+  // The hash wins when it names a project this universe has, because a shared
+  // link must land where it says. Otherwise the view falls back to what it was
+  // last left on, then to the first project.
+  function scopeFor(entry, routeProject) {
+    if (entry.scope === SCOPE_NONE) return null;
+    const resolved = knownProject(routeProject) ||
+      knownProject(scopeSelections.get(entry.id)) || defaultProject();
+    if (resolved !== null) scopeSelections.set(entry.id, resolved);
+    return resolved;
+  }
+
+  function createScopePicker(entry, project) {
+    const bar = el(documentNode, "div", "scope-bar");
+    const picker = el(documentNode, "select", "project-chooser");
+    picker.setAttribute("aria-label", "Project");
+    for (const row of projects) {
+      const option = el(
+        documentNode, "option", null,
+        row.name || row.slug || String(row.id),
+      );
+      option.value = String(row.id);
+      picker.appendChild(option);
+    }
+    picker.value = project;
+    picker.addEventListener("change", () => {
+      scopeSelections.set(entry.id, picker.value);
+      windowNode.location.hash = buildUniverseRoute(entry.id, picker.value);
+      // A same-view scope change rewrites the query, and an unchanged view
+      // means no hashchange fires; render directly so the rows follow the
+      // picker rather than the heading moving alone.
+      renderRoute();
+    });
+    bar.appendChild(picker);
+    return bar;
   }
 
   function renderRoute() {
-    const { view, project } = resolveRoute();
-    if (chooser.value !== (project || "")) chooser.value = project || "";
-    for (const entry of NAV) {
-      const link = navLinks.get(entry.id);
-      link.href = buildUniverseRoute(entry.id, project);
-      link.classList.toggle("active", entry.id === view);
+    const route = parseUniverseRoute(windowNode.location.hash);
+    const entry = navEntry(route.view);
+    const project = scopeFor(entry, route.project);
+
+    for (const navItem of NAV) {
+      const link = navLinks.get(navItem.id);
+      link.href = buildUniverseRoute(
+        navItem.id,
+        navItem.scope === SCOPE_NONE
+          ? null
+          : (knownProject(scopeSelections.get(navItem.id)) || project),
+      );
+      link.classList.toggle("active", navItem.id === entry.id);
+    }
+
+    if (!entry.render) {
+      renderStubView(context, main, entry);
+      return;
+    }
+    if (entry.scope === SCOPE_NONE) {
+      entry.render(context, main, null);
+      return;
     }
     if (project === null) {
       main.replaceChildren(emptyUniversePanel(documentNode));
       return;
     }
-    (NAV.find((entry) => entry.id === view) || NAV[0]).render(
-      context, main, project,
-    );
+    // The picker is the view's own chrome, so it sits in the content column
+    // above a host the view owns outright and re-renders into at will.
+    const viewHost = el(documentNode, "div", "view-host");
+    main.replaceChildren(createScopePicker(entry, project), viewHost);
+    entry.render(context, viewHost, project);
   }
 
-  chooser.addEventListener("change", () => {
-    const route = parseUniverseRoute(windowNode.location.hash);
-    windowNode.location.hash = buildUniverseRoute(route.view, chooser.value);
-  });
   windowNode.addEventListener("hashchange", renderRoute);
 
   Promise.resolve().then(() => callFunction(
     client, "projects.list", { fields: ["id", "slug", "name"] },
   ))
     .then((callResult) => {
-      if (!mounted) return;
       const result = (callResult.envelope && callResult.envelope.result) || {};
       projects = result.rows || [];
-      chooser.replaceChildren();
-      chooser.disabled = projects.length === 0;
-      for (const project of projects) {
-        const option = el(
-          documentNode, "option", null,
-          project.name || project.slug || String(project.id),
-        );
-        option.value = String(project.id);
-        chooser.appendChild(option);
-      }
-      renderRoute();
     })
-    .catch(() => {
-      if (!mounted) return;
-      projects = [];
-      chooser.disabled = true;
-      renderRoute();
-    });
+    // A roster that fails to load leaves the universe empty. The catch stays
+    // on the fetch alone: folding the first render into it would report any
+    // view's render error as "no projects yet".
+    .catch(() => { projects = []; })
+    .then(() => { if (mounted) renderRoute(); });
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;

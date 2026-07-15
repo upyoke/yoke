@@ -6,6 +6,7 @@ import {
   buildUniverseRoute,
   mountUniverseApp,
   parseUniverseRoute,
+  universeNavScope,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
   FakeDocument,
@@ -299,10 +300,30 @@ test("route helpers are deterministic and platform-neutral", () => {
   assert.deepEqual(parseUniverseRoute("#/strategy?project=abc%201"), {
     view: "strategy", project: "abc 1",
   });
+  // An unrecognised view falls back to the first destination in the nav.
   assert.deepEqual(parseUniverseRoute("#/unknown"), {
-    view: "items", project: null,
+    view: "overview", project: null,
   });
   assert.equal(buildUniverseRoute("strategy", "abc 1"),
     "#/strategy?project=abc%201");
-  assert.equal(buildUniverseRoute("unknown", null), "#/items");
+  assert.equal(buildUniverseRoute("unknown", null), "#/overview");
+});
+
+test("every nav destination declares how it takes project scope", () => {
+  for (const view of ["items", "strategy", "overview", "inbox", "frontier"]) {
+    assert.equal(universeNavScope(view), "multi");
+  }
+  for (const view of ["workflows", "github", "project-settings"]) {
+    assert.equal(universeNavScope(view), "single");
+  }
+  for (const view of ["projects", "access", "templates", "universe-settings"]) {
+    assert.equal(universeNavScope(view), "none");
+  }
+  // Members and Billing are hosted chrome the platform injects through a
+  // slot, so the workbench's own nav does not route them at all.
+  for (const hosted of ["#/members", "#/billing"]) {
+    assert.deepEqual(parseUniverseRoute(hosted), {
+      view: "overview", project: null,
+    });
+  }
 });
