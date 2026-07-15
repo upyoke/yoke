@@ -95,16 +95,10 @@ yoke onboard
 yoke status
 ```
 
-The installer auto-launches `yoke onboard` when interactive. The manual,
-advanced equivalent of the install step is a direct uv invocation using one
-resolved channel version for every Yoke product package:
-
-```bash
-uv tool install yoke-cli==<version> --python '>=3.10' --reinstall --with yoke-contracts==<version> --with yoke-harness==<version> --with yoke-core==<version> --index-url https://api.upyoke.com/simple/ --extra-index-url https://pypi.org/simple/
-```
-
-To upgrade later, rerun the curl installer, or rerun the same lockstep uv
-command with the new channel version.
+The installer auto-launches `yoke onboard` when interactive. To upgrade later,
+rerun the same curl installer. It resolves one channel version for every Yoke
+product package and supplies uv with the protected index configuration; direct
+multi-index `uv tool install` commands are not a supported install surface.
 
 **Prefer everything on your own machine?** Local mode is free and needs no
 signup or token: `yoke init --local` fetches an embedded Postgres, births a
