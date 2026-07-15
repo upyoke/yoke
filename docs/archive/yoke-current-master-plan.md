@@ -448,7 +448,7 @@ INSERT INTO capability_templates VALUES (
 -- Seed: Buzz capabilities
 INSERT INTO project_capabilities (project, type, config) VALUES (
   'buzz', 'ssh',
-  '{"user":"openclaw","host":"45.55.157.144","key_path":"~/.ssh/id_rsa"}'
+  '{"user":"example","host":"203.0.113.10","key_path":"~/.ssh/id_rsa"}'
 );
 
 INSERT INTO project_capabilities (project, type, config) VALUES (

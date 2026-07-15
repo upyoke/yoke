@@ -14,10 +14,10 @@ def test_hosted_control_apis_are_distinct_from_distribution_hosts() -> None:
     assert DISTRIBUTION_PROD_URL == "https://api.upyoke.com"
     assert DISTRIBUTION_STAGE_URL == "https://api.stage.upyoke.com"
     assert HOSTED_PROD_API_URL == (
-        "https://app.upyoke.com/api/orgs/yoke-production"
+        "https://app.upyoke.com/api/orgs/upyoke"
     )
     assert HOSTED_STAGE_API_URL == (
-        "https://app.stage.upyoke.com/api/orgs/yoke-stage"
+        "https://app.stage.upyoke.com/api/orgs/upyoke"
     )
     assert urlsplit(DISTRIBUTION_PROD_URL).netloc != urlsplit(
         HOSTED_PROD_API_URL
@@ -29,8 +29,8 @@ def test_hosted_control_apis_are_distinct_from_distribution_hosts() -> None:
 
 def test_versioned_paths_join_to_tenant_scoped_control_api() -> None:
     assert join_api_url(HOSTED_PROD_API_URL, HEALTH_PATH) == (
-        "https://app.upyoke.com/api/orgs/yoke-production/v1/health"
+        "https://app.upyoke.com/api/orgs/upyoke/v1/health"
     )
     assert join_api_url(HOSTED_STAGE_API_URL, HEALTH_PATH) == (
-        "https://app.stage.upyoke.com/api/orgs/yoke-stage/v1/health"
+        "https://app.stage.upyoke.com/api/orgs/upyoke/v1/health"
     )

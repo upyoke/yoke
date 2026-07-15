@@ -48,6 +48,10 @@ class ServerConnectError(RuntimeError):
     verification failure."""
 
 
+class ServerIdentityError(RuntimeError):
+    """The configured credential could not prove an actor identity."""
+
+
 def connect_server(
     url: str,
     *,
@@ -63,7 +67,18 @@ def connect_server(
         raise ServerConnectError("token is empty")
 
     health = _verify_health(api_url, timeout_s=timeout_s)
-    identity = _verify_identity(api_url, token=token, timeout_s=timeout_s)
+    try:
+        identity = verify_server_identity(
+            api_url,
+            token=token,
+            timeout_s=timeout_s,
+        )
+    except ServerIdentityError as exc:
+        raise ServerConnectError(
+            f"{exc}; nothing was persisted — paste the server's initial admin "
+            "token (first boot prints it: docker compose logs core), or mint a "
+            "new one"
+        ) from exc
 
     try:
         connection = writer.set_connection(
@@ -86,7 +101,7 @@ def connect_server(
         "active_env": connection.get("active_env") if not activate else env,
         "activated": activate,
         "health": _health_summary(health),
-        "identity": _identity_summary(identity),
+        "identity": server_identity_summary(identity),
         "config": connection.get("config"),
     }
 
@@ -144,9 +159,15 @@ def _verify_health(api_url: str, *, timeout_s: float) -> Mapping[str, Any]:
     return payload
 
 
-def _verify_identity(
-    api_url: str, *, token: str, timeout_s: float
+def verify_server_identity(
+    api_url: str, *, token: str, timeout_s: float = _DEFAULT_TIMEOUT_S,
 ) -> Mapping[str, Any]:
+    """Return the actor identity proved by ``token`` at ``api_url``.
+
+    This is the shared read-only probe used by both connection setup and
+    status diagnostics. Error text is safe to display and never includes the
+    bearer token.
+    """
     identity_url = join_api_url(api_url, AUTH_IDENTITY_PATH)
     safe_identity_url = safe_diagnostic_text(
         identity_url,
@@ -159,14 +180,12 @@ def _verify_identity(
             timeout_s=timeout_s,
         )
     except _HttpFailure as exc:
-        raise ServerConnectError(
-            f"token verification failed ({safe_identity_url}): {exc}; nothing "
-            "was persisted — paste the server's initial admin token (first "
-            "boot prints it: docker compose logs core), or mint a new one"
+        raise ServerIdentityError(
+            f"token verification failed ({safe_identity_url}): {exc}"
         ) from exc
     if not isinstance(payload, Mapping):
-        raise ServerConnectError(
-            f"{safe_identity_url} did not return a JSON object; nothing was persisted"
+        raise ServerIdentityError(
+            f"{safe_identity_url} did not return a JSON object"
         )
     return payload
 
@@ -201,7 +220,8 @@ def _health_summary(health: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _identity_summary(identity: Mapping[str, Any]) -> Dict[str, Any]:
+def server_identity_summary(identity: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return the non-secret identity fields safe for diagnostics."""
     actor = identity.get("actor")
     actor = actor if isinstance(actor, Mapping) else {}
     token_info = identity.get("token")
@@ -215,5 +235,8 @@ def _identity_summary(identity: Mapping[str, Any]) -> Dict[str, Any]:
 __all__ = [
     "DEFAULT_ENV_NAME",
     "ServerConnectError",
+    "ServerIdentityError",
     "connect_server",
+    "server_identity_summary",
+    "verify_server_identity",
 ]
