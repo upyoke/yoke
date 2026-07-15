@@ -172,7 +172,33 @@ function renderEventsView(context, main, projectId) {
   );
 }
 
-// The registry of projects is already in hand from the roster nav pickers use.
+// What the system noticed about itself, and what came of it. `reviewed_at` is
+// the second half of that sentence: an observation nobody has looked at yet is
+// not the same as one that has been through curation, and a row that hid the
+// difference would make the loop look closed when it is still open.
+function renderOuroborosView(context, main, projectId) {
+  const panel = section(context.document, "Ouroboros");
+  main.replaceChildren(panel);
+  loadSection(
+    context, panel,
+    "ouroboros.entry.list",
+    { project: String(projectId) },
+    (body, callResult) => {
+      const rows = (callResult.envelope.result || {}).entries || [];
+      renderTable(body, rows, [
+        { label: "when", value: (row) => row.timestamp },
+        { label: "category", value: (row) => row.category },
+        { label: "agent", value: (row) => row.agent },
+        { label: "context", value: (row) => row.context },
+        {
+          label: "reviewed",
+          value: (row) => (row.reviewed_at ? row.reviewed_at : ""),
+        },
+      ], "nothing noticed yet");
+    },
+  );
+}
+
 function renderProjectsView(context, main) {
   const panel = section(context.document, "Projects");
   main.replaceChildren(panel);
@@ -270,5 +296,6 @@ export const VIEW_RENDERERS = {
   items: renderItemsView,
   strategy: renderStrategyView,
   events: renderEventsView,
+  ouroboros: renderOuroborosView,
   projects: renderProjectsView,
 };
