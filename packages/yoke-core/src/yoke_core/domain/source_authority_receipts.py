@@ -10,6 +10,7 @@ from psycopg import sql
 
 from yoke_core.domain.schema_fingerprint import fingerprint_portable_postgres_schema
 from yoke_core.domain.source_authority_overlay_receipts import (
+    batched_server_cursor_rows,
     capability_secrets_receipt,
     filter_typed_receipt,
     project_capabilities_receipt,
@@ -158,25 +159,17 @@ def streaming_table_digest(conn: object, table: str) -> str:
     multiset digest independent of physical/restore order. A named cursor
     bounds each client fetch; compact status/begin receipts never call this.
     """
-    cursor = conn.cursor(name=f"source_cutover_{table[:40]}")
-    try:
-        cursor.execute(
-            sql.SQL("SELECT row_to_json(t)::text FROM {} AS t").format(
-                sql.Identifier(table)
-            )
-        )
-        aggregate = 0
-        modulus = 1 << 256
-        while True:
-            rows = cursor.fetchmany(1000)
-            if not rows:
-                break
-            for row in rows:
-                row_digest = hashlib.sha256(str(row[0]).encode("utf-8")).digest()
-                aggregate = (aggregate + int.from_bytes(row_digest, "big")) % modulus
-        return aggregate.to_bytes(32, "big").hex()
-    finally:
-        cursor.close()
+    query = sql.SQL("SELECT row_to_json(t)::text FROM {} AS t").format(
+        sql.Identifier(table)
+    )
+    aggregate = 0
+    modulus = 1 << 256
+    for row in batched_server_cursor_rows(
+        conn, f"source_cutover_{table[:40]}", query, batch_size=1000,
+    ):
+        row_digest = hashlib.sha256(str(row[0]).encode("utf-8")).digest()
+        aggregate = (aggregate + int.from_bytes(row_digest, "big")) % modulus
+    return aggregate.to_bytes(32, "big").hex()
 
 
 def _strategy_receipts(conn: object) -> list[dict[str, Any]]:
