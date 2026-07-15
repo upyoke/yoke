@@ -100,23 +100,61 @@ export interface UniverseAppSlots {
     readonly contentBefore?: UniverseSlotContent;
     readonly contentAfter?: UniverseSlotContent;
 }
+/**
+ * Whoever is acting, as the engine models them: an `actors` row is only an
+ * id and a kind. A human actor has no name in the engine at all — a name
+ * belongs to an account, and accounts are the host's, not the universe's.
+ * That is why `label` is host-owned and optional rather than a field the app
+ * could read for itself.
+ */
+export interface UniverseActor {
+    readonly id: number;
+    readonly kind: "human" | "system";
+    /** Host-supplied display text. Absent where the host has no name to give. */
+    readonly label?: string;
+    /** Names the component a system actor acts as; absent for a human. */
+    readonly systemComponent?: string | null;
+}
 export interface UniverseAppOptions {
     readonly client?: UniverseFunctionClient;
     readonly capabilities?: UniverseCapabilities;
     readonly slots?: UniverseAppSlots;
+    /**
+     * Who the viewer is acting as. Host-supplied because only a host with a
+     * sign-in door knows: the local server admits a loopback token, not an
+     * actor, so local mounts without one and the chrome that names you
+     * vanishes rather than guessing.
+     */
+    readonly currentActor?: UniverseActor;
 }
 export interface UniverseAppMount {
     readonly contractVersion: typeof UNIVERSE_APP_CONTRACT_VERSION;
     unmount(): void;
 }
-export type UniverseRouteView = "items" | "strategy";
+/**
+ * Every destination in the workbench. Members and Billing are absent on
+ * purpose: they are hosted chrome a host injects through `navigationEnd`,
+ * not views the universe app routes.
+ */
+export type UniverseRouteView = "overview" | "inbox" | "strategy" | "frontier" | "items" | "board" | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events" | "doctor" | "ouroboros" | "projects" | "access" | "templates" | "github" | "project-settings" | "universe-settings";
 export interface UniverseRoute {
     readonly view: UniverseRouteView;
+    /** The drill-in row within the view, when the route names one. */
+    readonly detail: string | null;
     readonly project: string | null;
 }
+/**
+ * How a view takes project scope. `multi` narrows rows to a project;
+ * `single` binds to exactly one because a second would make the view
+ * nonsense rather than longer; `none` describes the registry or the
+ * universe itself, which no project narrows.
+ */
+export type UniverseScope = "multi" | "single" | "none";
 /** Canonical value; the runtime module is emitted from this source. */
-export declare const UNIVERSE_APP_CONTRACT_VERSION: 1;
+export declare const UNIVERSE_APP_CONTRACT_VERSION: 2;
 export declare function createHttpFunctionClient(options?: HttpFunctionClientOptions): UniverseFunctionClient;
 export declare function parseUniverseRoute(hash: string): UniverseRoute;
-export declare function buildUniverseRoute(view: UniverseRouteView | string, project?: string | null): string;
+export declare function buildUniverseRoute(view: UniverseRouteView | string, project?: string | null, detail?: string | null): string;
+/** The scope a view takes: see `UniverseScope`. */
+export declare function universeNavScope(view: string): UniverseScope;
 export declare function mountUniverseApp(rootNode: HTMLElement, options?: UniverseAppOptions): UniverseAppMount;

@@ -335,6 +335,26 @@ const VIEW_RENDERERS = {
   projects: renderProjectsView,
 };
 
+// Whoever the viewer is acting as. The engine models an actor as an id and a
+// kind and nothing else — a human actor has no name there, because a name
+// belongs to an account and accounts are the host's. So the chip shows the
+// host's label when it has one and falls back to the id, which is the only
+// thing the universe itself knows.
+function createActorChip(documentNode, actor) {
+  const chip = el(documentNode, "span", "actor-chip");
+  const name = actor.label || `actor ${actor.id}`;
+  chip.appendChild(el(documentNode, "span", "actor-name", name));
+  // A system actor is not a person, and a screen that lets the two look alike
+  // invites reading automated work as somebody's.
+  if (actor.kind === "system") {
+    chip.appendChild(el(
+      documentNode, "span", "actor-kind",
+      actor.systemComponent || "system",
+    ));
+  }
+  return chip;
+}
+
 // The way back out of a drill-in, naming the view it belongs to. It carries
 // the view's project so returning lands on the same rows the row came from.
 function createBreadcrumb(documentNode, entry, project, detail) {
@@ -394,6 +414,12 @@ export function mountUniverseApp(rootNode, options = {}) {
     documentNode, capabilities,
   );
   if (capabilityActions) contextSide.appendChild(capabilityActions);
+  // A host with a sign-in door names the viewer; a local universe admits a
+  // loopback token rather than an actor, so it supplies none and the chip is
+  // simply absent — never a greyed-out chip that names nobody.
+  if (options.currentActor) {
+    contextSide.appendChild(createActorChip(documentNode, options.currentActor));
+  }
   contextSide.appendChild(orgContext);
   const header = el(documentNode, "header", "topbar");
   appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);

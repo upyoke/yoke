@@ -187,6 +187,42 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.ok(secondRoot.classList.contains("universe-app-root"));
 });
 
+test("the actor chip names the viewer, and is absent when nobody does", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const mountWith = (currentActor) => {
+    const documentNode = new FakeDocument();
+    const root = documentNode.createElement("div");
+    const mounted = mountUniverseApp(root, {
+      client: injectedClient(),
+      ...(currentActor ? { currentActor } : {}),
+    });
+    const chip = allNodes(root).find(
+      (node) => node.classList && node.classList.contains("actor-chip"),
+    );
+    const text = chip
+      ? allNodes(chip).map((n) => n.textContent || "").filter(Boolean)
+      : null;
+    mounted.unmount();
+    return text;
+  };
+
+  // A host that knows the viewer's name shows it.
+  assert.deepEqual(mountWith({ id: 2, kind: "human", label: "Ben" }), ["Ben"]);
+  // The engine has no name for a human actor, so without a host label the id
+  // is the only truthful thing to show.
+  assert.deepEqual(mountWith({ id: 2, kind: "human" }), ["actor 2"]);
+  // A system actor is marked as one and names the component it acts as.
+  assert.deepEqual(
+    mountWith({ id: 3, kind: "system", systemComponent: "skill-simulate" }),
+    ["actor 3", "skill-simulate"],
+  );
+  // A local universe admits a token, not an actor: no chip at all.
+  assert.equal(mountWith(null), null);
+});
+
 test("an epic's detail carries its tasks; an issue's does not", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });

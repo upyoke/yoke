@@ -87,11 +87,14 @@ def test_typed_mount_contract_and_declaration_emit_ship():
     assert source_value is not None
     assert declaration_value is not None
     assert runtime_value is not None
-    assert {
+    # The three emits must agree on the version; which number it is belongs to
+    # the TypeScript source, not to this assertion. Pinning the literal here
+    # would fail every bump on principle.
+    assert len({
         source_value.group(1),
         declaration_value.group(1),
         runtime_value.group(1),
-    } == {"1"}
+    }) == 1
 
 
 def test_page_module_wires_the_workbench_shell():

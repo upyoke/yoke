@@ -44,6 +44,26 @@
   align-items: center;
   gap: 0.5rem;
 }
+/* Who you are acting as. Present only when a host names one. */
+.universe-app-root .actor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--yoke-ink);
+}
+.universe-app-root .actor-kind {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--yoke-muted);
+  border: 1px solid var(--yoke-border);
+  border-radius: 0.4rem;
+  padding: 0.05rem 0.3rem;
+}
+
 .universe-app-root .org-context {
   color: var(--yoke-muted);
   font-size: 0.78rem;
