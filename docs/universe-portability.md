@@ -29,6 +29,8 @@ Ordinary `yoke universe export` continues to refuse a prod-flagged connection.
 The source-dev/admin cutover boundary is explicit and recoverable:
 
 ```text
+yoke --env prod-db-admin dev db-admin setup prod --project platform \
+  --prod --yes --json
 yoke --env prod-db-admin source-authority quiesce begin \
   --service-stop-receipt SERVICE_STOP_ID \
   --credential-file /secure/source-cutover.json --json
@@ -42,6 +44,13 @@ yoke source-authority quiesce retire \
   --credential-file /secure/source-cutover.json \
   --retirement-receipt RETIREMENT_GATE_ID --json
 ```
+
+The explicit `--prod` marker is mandatory. It records production authority in
+the machine connection without inferring safety policy from an environment
+name, database name, or DSN; the source-authority boundary refuses profiles
+that omit it. `--project platform` selects the project that owns Yoke's
+deployment environments and infrastructure, while `prod` selects that
+project's Production environment.
 
 Stop the old API/sync/webhook service first and pass its attended stop receipt.
 `begin` transactionally replaces every ordinary login's database `CONNECT`
