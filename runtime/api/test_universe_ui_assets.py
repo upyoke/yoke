@@ -31,6 +31,7 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
     static_root = files("yoke_core.ui").joinpath("static")
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
+        "universe_views.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
@@ -98,15 +99,24 @@ def test_typed_mount_contract_and_declaration_emit_ship():
 
 
 def test_page_module_wires_the_workbench_shell():
-    page_module = files("yoke_core.ui").joinpath("static", "app.js").read_text()
+    """The mount and the roster read live in the shell; each view's own read
+    lives with that view. Assert each against the module that owns it, so a
+    reference moving house fails loudly rather than silently passing."""
+    static_root = files("yoke_core.ui").joinpath("static")
+    shell = static_root.joinpath("app.js").read_text()
+    for reference in ("export function mountUniverseApp", "projects.list"):
+        assert reference in shell, reference
+
+    views = static_root.joinpath("universe_views.js").read_text()
     for reference in (
-        "export function mountUniverseApp",
-        "projects.list",
         "strategy.doc.list",
         "items.list.run",
+        "items.get.run",
+        "epic_tasks.list.run",
+        "events.query.run",
         '{ label: "title", value: (doc) => doc.title }',
     ):
-        assert reference in page_module, reference
+        assert reference in views, reference
 
 
 def test_every_nav_destination_is_routable_and_scoped():

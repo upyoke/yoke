@@ -69,6 +69,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "contract-version.js": "text/javascript; charset=utf-8",
     "mount-options.js": "text/javascript; charset=utf-8",
     "universe_navigation.js": "text/javascript; charset=utf-8",
+    "universe_views.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
     "theme.css": "text/css; charset=utf-8",
     "yoke.svg": "image/svg+xml",
