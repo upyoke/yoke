@@ -55,6 +55,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "items.list.run",
     "epic_tasks.list.run",
     "strategy.doc.list",
+    "ouroboros.entry.list",
     "board.data.get",
     "events.query.run",
 })
