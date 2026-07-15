@@ -18,7 +18,9 @@ def project_capabilities_receipt(conn: object) -> dict[str, Any]:
         "FROM project_capabilities ORDER BY type, project_id"
     )
     types: dict[str, dict[str, Any]] = {}
-    for row in _batched_rows(conn, "source_project_capabilities", query):
+    for row in batched_server_cursor_rows(
+        conn, "source_project_capabilities", query,
+    ):
         project_id = int(row[0])
         capability_type = str(row[1])
         canonical = {
@@ -67,7 +69,9 @@ def capability_secrets_receipt(conn: object) -> dict[str, Any]:
             "count": current_count, "sha256": current_digest.hexdigest(),
         }
 
-    for row in _batched_rows(conn, "source_capability_secrets", query):
+    for row in batched_server_cursor_rows(
+        conn, "source_capability_secrets", query,
+    ):
         project_id = int(row[0])
         secret_type = str(row[1])
         row_key = (secret_type, str(project_id))
@@ -132,22 +136,36 @@ def _canonical_bytes(value: Any) -> bytes:
     ).encode("utf-8")
 
 
-def _batched_rows(conn: object, cursor_name: str, query: str):
-    """Yield a server-side cursor in fixed batches inside the caller snapshot."""
-    cursor = conn.cursor(name=cursor_name)
-    try:
-        cursor.execute(query)
-        while True:
-            rows = cursor.fetchmany(256)
-            if not rows:
-                return
-            yield from rows
-    finally:
-        cursor.close()
+def batched_server_cursor_rows(
+    conn: object,
+    cursor_name: str,
+    query: object,
+    *,
+    batch_size: int = 256,
+):
+    """Yield fixed batches from a named cursor inside an explicit transaction.
+
+    PostgreSQL named cursors issue ``DECLARE CURSOR``, which is invalid on an
+    autocommit connection unless the declaration is enclosed in a transaction.
+    ``Connection.transaction()`` also nests safely inside an existing snapshot,
+    so every caller gets the same bounded-memory behavior in both modes.
+    """
+    with conn.transaction():
+        cursor = conn.cursor(name=cursor_name)
+        try:
+            cursor.execute(query)
+            while True:
+                rows = cursor.fetchmany(batch_size)
+                if not rows:
+                    return
+                yield from rows
+        finally:
+            cursor.close()
 
 
 __all__ = [
     "CAPABILITY_SECRETS_SCHEMA", "PROJECT_CAPABILITIES_SCHEMA",
-    "capability_secrets_receipt", "filter_typed_receipt",
+    "batched_server_cursor_rows", "capability_secrets_receipt",
+    "filter_typed_receipt",
     "project_capabilities_receipt",
 ]

@@ -375,14 +375,45 @@ def test_full_table_digest_streams_in_bounded_batches():
         def close(self):
             self.closed = True
 
+    class Transaction:
+        def __init__(self):
+            self.entered = False
+            self.exited = False
+
+        def __enter__(self):
+            self.entered = True
+
+        def __exit__(self, *_exc):
+            self.exited = True
+
     cursor = Cursor()
-    conn = SimpleNamespace(cursor=lambda **_kwargs: cursor)
+    transaction = Transaction()
+    conn = SimpleNamespace(
+        autocommit=True,
+        cursor=lambda **_kwargs: cursor,
+        transaction=lambda: transaction,
+    )
 
     digest = receipts.streaming_table_digest(conn, "events")
 
     assert re.fullmatch(r"[0-9a-f]{64}", digest)
     assert cursor.fetch_sizes == [1000, 1000]
     assert cursor.closed is True
+    assert transaction.entered is True
+    assert transaction.exited is True
+
+
+def test_authority_streaming_receipts_support_autocommit(test_db):
+    test_db.commit()
+    test_db.autocommit = True
+
+    digest = receipts.streaming_table_digest(test_db, "actors")
+    capabilities = receipts.project_capabilities_receipt(test_db)
+    secrets = receipts.capability_secrets_receipt(test_db)
+
+    assert re.fullmatch(r"[0-9a-f]{64}", digest)
+    assert capabilities["schema"] == "yoke.project-capabilities/v1"
+    assert secrets["schema"] == "yoke.capability-secrets/v1"
 
 
 def test_portable_authority_digest_preserves_environment_tables(
@@ -486,6 +517,20 @@ def test_capability_receipts_are_secret_free_and_detect_type_mismatch():
     class Conn:
         def __init__(self):
             self.cursors = []
+            self.transactions = 0
+
+        class Transaction:
+            def __init__(self, conn):
+                self.conn = conn
+
+            def __enter__(self):
+                self.conn.transactions += 1
+
+            def __exit__(self, *_exc):
+                return None
+
+        def transaction(self):
+            return self.Transaction(self)
 
         def cursor(self, *, name):
             if name == "source_project_capabilities":
@@ -517,6 +562,7 @@ def test_capability_receipts_are_secret_free_and_detect_type_mismatch():
     assert "token" not in json.dumps(secrets)
     assert all(cursor.fetch_sizes == [256, 256] for cursor in conn.cursors)
     assert all(cursor.closed for cursor in conn.cursors)
+    assert conn.transactions == 2
 
     changed = json.loads(json.dumps(nonselected))
     changed["types"]["policy"]["projects"]["2"] = "0" * 64
