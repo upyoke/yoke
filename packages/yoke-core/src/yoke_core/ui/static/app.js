@@ -150,20 +150,85 @@ async function loadSection(
   panel.renderEnvelope(callResult, ok ? renderBody : renderError);
 }
 
+// `blocked` arrives as the string "0"/"1", which makes both values truthy —
+// read it as a number, never as a bare condition.
+function isBlocked(row) {
+  return Number(row.blocked) === 1;
+}
+
 function renderItemsView(context, main, projectId) {
   const panel = section(context.document, "Items");
   main.replaceChildren(panel);
   loadSection(
     context, panel,
     "items.list.run",
-    { fields: ["id", "title", "status"], project: String(projectId) },
+    {
+      // The function serves a far wider allowlist than the three fields this
+      // table began with; every name here returns today.
+      fields: [
+        "id", "title", "type", "status", "priority", "blocked", "blocked_reason",
+      ],
+      project: String(projectId),
+    },
     (body, callResult) => {
       const rows = (callResult.envelope.result || {}).rows || [];
       renderTable(body, rows, [
         { label: "id", value: (row) => row.id },
+        // Type rides beside status because a status word means nothing without
+        // it: each workflow type owns its own status set, and the same word in
+        // two types is two different states.
+        { label: "type", value: (row) => row.type },
         { label: "title", value: (row) => row.title },
         { label: "status", value: (row) => row.status },
+        { label: "priority", value: (row) => row.priority },
+        {
+          label: "blocked",
+          // A bare "yes" states the fact and withholds the answer; the reason
+          // is the only part anyone can act on.
+          value: (row) => (
+            isBlocked(row) ? (row.blocked_reason || "blocked") : ""
+          ),
+        },
       ], "no items yet");
+    },
+  );
+}
+
+function renderEventsView(context, main, projectId) {
+  const panel = section(context.document, "Events");
+  main.replaceChildren(panel);
+  loadSection(
+    context, panel,
+    "events.query.run",
+    { project: String(projectId) },
+    (body, callResult) => {
+      const rows = (callResult.envelope.result || {}).rows || [];
+      renderTable(body, rows, [
+        { label: "when", value: (row) => row.created_at },
+        { label: "event", value: (row) => row.event_name },
+        { label: "kind", value: (row) => row.event_kind },
+        { label: "severity", value: (row) => row.severity },
+        // Whoever the event names: a human actor when there is one, otherwise
+        // the service that emitted it.
+        { label: "source", value: (row) => row.actor_id || row.service },
+      ], "no events yet");
+    },
+  );
+}
+
+// The registry of projects. Every row is already in hand from the roster the
+// nav pickers read, so this view re-renders rather than re-fetches.
+function renderProjectsView(context, main) {
+  const panel = section(context.document, "Projects");
+  main.replaceChildren(panel);
+  panel.renderEnvelope(
+    { status: 200, envelope: { success: true, result: { rows: context.projects() } } },
+    (body) => {
+      renderTable(body, context.projects(), [
+        { label: "id", value: (row) => row.id },
+        { label: "name", value: (row) => row.name },
+        { label: "slug", value: (row) => row.slug },
+      ], "no projects yet");
     },
   );
 }
@@ -188,9 +253,13 @@ function renderStrategyView(context, main, projectId) {
   );
 }
 
+// A destination is live exactly when it has a renderer here; every other NAV
+// entry renders its `summary` under Coming soon.
 const VIEW_RENDERERS = {
   items: renderItemsView,
   strategy: renderStrategyView,
+  events: renderEventsView,
+  projects: renderProjectsView,
 };
 
 function emptyUniversePanel(documentNode) {
@@ -222,10 +291,14 @@ export function mountUniverseApp(rootNode, options = {}) {
   const resolvedSlots = materializeSlots(slots, rootNode);
   const mountedSlotNodes = [];
   let mounted = true;
+  let projects = [];
   const context = {
     client,
     document: documentNode,
     isMounted: () => mounted,
+    // The roster the scope pickers already hold, so a view that only lists
+    // projects costs no second call.
+    projects: () => projects,
   };
 
   const brand = el(documentNode, "div", "brand");
@@ -278,7 +351,6 @@ export function mountUniverseApp(rootNode, options = {}) {
     })
     .catch(() => { if (mounted) orgContext.textContent = ""; });
 
-  let projects = [];
   // Each visited scoped view remembers its own project.
   const scopeSelections = new Map();
 

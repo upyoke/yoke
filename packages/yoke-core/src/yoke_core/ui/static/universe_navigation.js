@@ -43,10 +43,7 @@ export const NAV = [
     id: "capabilities", label: "Capabilities", scope: SCOPE_MULTI,
     summary: "What Yoke can reach on your behalf, and when it last verified it.",
   },
-  {
-    id: "events", label: "Events", scope: SCOPE_MULTI,
-    summary: "What happened, in the order it happened.",
-  },
+  { id: "events", label: "Events", scope: SCOPE_MULTI },
   {
     id: "doctor", label: "Doctor", scope: SCOPE_MULTI,
     summary: "The health checks and what they found.",
@@ -55,10 +52,7 @@ export const NAV = [
     id: "ouroboros", label: "Ouroboros", scope: SCOPE_MULTI,
     summary: "What the system noticed about itself and what came of it.",
   },
-  {
-    id: "projects", label: "Projects", scope: SCOPE_NONE,
-    summary: "Every project in this universe.",
-  },
+  { id: "projects", label: "Projects", scope: SCOPE_NONE },
   {
     id: "access", label: "Access", scope: SCOPE_NONE,
     summary: "Who and what may act here, at the universe and per project.",

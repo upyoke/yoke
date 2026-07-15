@@ -187,6 +187,61 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.ok(secondRoot.classList.contains("universe-app-root"));
 });
 
+test("an unblocked item reports no blocking reason", async (t) => {
+  // `blocked` crosses the wire as the string "0"/"1". Both are truthy, so a
+  // bare truthiness read marks every item blocked and the column says so
+  // while the engine disagrees.
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/items";
+  const root = documentNode.createElement("div");
+  let requestedFields = null;
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+      }
+      if (request.function === "items.list.run") {
+        requestedFields = request.payload.fields;
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              rows: [
+                { id: 1, title: "runs", type: "issue", status: "idea", priority: "medium", blocked: "0", blocked_reason: "" },
+                { id: 2, title: "waits", type: "epic", status: "idea", priority: "high", blocked: "1", blocked_reason: "upstream schema" },
+              ],
+            },
+          },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  const cells = allNodes(root)
+    .filter((node) => node.tagName === "TD")
+    .map((node) => node.textContent);
+  // The unblocked row's blocked cell is empty; the blocked row names why.
+  assert.deepEqual(cells, [
+    "1", "issue", "runs", "idea", "medium", "",
+    "2", "epic", "waits", "idea", "high", "upstream schema",
+  ]);
+  // Type must travel with status: one type's "idea" is not another's.
+  assert.ok(requestedFields.includes("type"));
+  assert.ok(requestedFields.includes("blocked_reason"));
+  mounted.unmount();
+});
+
 test("strategy rows render slug, title, and status", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
