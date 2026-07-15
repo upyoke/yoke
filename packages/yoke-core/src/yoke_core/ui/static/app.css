@@ -19,31 +19,14 @@
 }
 
 /* Top bar: brand lockup left, org context right. Scope is not a top-bar
-   concern — each view carries its own project picker. A compact 56px bar with
-   a bottom rule, matching the shared app-header frame. */
-.universe-app-root .topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.875rem;
-  min-height: 3.5rem;
-  padding: 0 1.125rem;
-  border-bottom: 1px solid var(--yoke-border);
-  background: var(--yoke-bg);
-}
+   concern — each view carries its own project picker.
 
-.universe-app-root .brand {
-  display: inline-flex;
-  align-items: center;
-  color: var(--yoke-ink);
-}
+   The frame itself is not declared here. The header element carries the
+   shared `.yoke-app-header` class from shell.css alongside `.topbar`, and the
+   marketing site carries the same one; restating the height here is how the
+   two drifted 32px apart in the first place. Only what is specific to the
+   workbench stays below. */
 .universe-app-root .brand svg { height: 1.625rem; width: auto; display: block; }
-
-.universe-app-root .context-side {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
 /* Who you are acting as. Present only when a host names one. */
 .universe-app-root .actor-chip {
   display: inline-flex;

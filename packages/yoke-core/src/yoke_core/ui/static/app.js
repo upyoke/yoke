@@ -139,10 +139,10 @@ export function mountUniverseApp(rootNode, options = {}) {
     projects: () => projects,
   };
 
-  const brand = el(documentNode, "div", "brand");
+  const brand = el(documentNode, "div", "brand yoke-header-brand");
   brand.style.color = "var(--yoke-ink)";
   const orgContext = el(documentNode, "span", "org-context", "…");
-  const contextSide = el(documentNode, "div", "context-side");
+  const contextSide = el(documentNode, "div", "context-side yoke-header-context");
   const capabilityActions = renderCapabilityActions(
     documentNode, capabilities,
   );
@@ -154,7 +154,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     contextSide.appendChild(createActorChip(documentNode, options.currentActor));
   }
   contextSide.appendChild(orgContext);
-  const header = el(documentNode, "header", "topbar");
+  const header = el(documentNode, "header", "topbar yoke-app-header");
   appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(brand);
   header.appendChild(contextSide);

@@ -61,7 +61,9 @@ def test_shell_static_references_are_host_prefix_safe():
     shell = files("yoke_core.ui").joinpath("static", "index.html").read_text()
     assert 'class="local-universe-page"' in shell
     assert '="/assets/' not in shell
-    for asset_name in ("app.js", "app.css", "theme.css", "favicon.svg"):
+    for asset_name in (
+        "app.js", "app.css", "shell.css", "theme.css", "favicon.svg",
+    ):
         assert f"./assets/{asset_name}" in shell
 
 
