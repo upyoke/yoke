@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from yoke_contracts.api_urls import HOSTED_PROD_URL
+from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 
 from yoke_core.tools import (
     package_index,
@@ -260,7 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--output-root", type=Path, required=True)
-    parser.add_argument("--base-url", default=HOSTED_PROD_URL)
+    parser.add_argument("--base-url", default=DISTRIBUTION_PROD_URL)
     parser.add_argument("--channel", default="latest")
     parser.add_argument("--generated-at", default=None)
     parser.add_argument("--uv", dest="uv_executable", default=None)

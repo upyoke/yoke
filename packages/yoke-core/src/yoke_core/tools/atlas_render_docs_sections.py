@@ -102,7 +102,8 @@ def _render_curl_floor() -> List[str]:
         " curl is the operator floor when no CLI is installed:",
         "",
         "```bash",
-        "API=https://api.stage.upyoke.com   # the active env's api_url",
+        "API=https://app.stage.upyoke.com/api/orgs/yoke-stage"
+        "   # the active env's api_url",
         "TOKEN_FILE=~/.yoke/secrets/stage.token",
         "",
         "cat > /tmp/envelope.json <<'EOF'",

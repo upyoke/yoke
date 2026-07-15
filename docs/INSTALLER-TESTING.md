@@ -848,7 +848,7 @@ YOKE_ENV=prod yoke status
 Interactive fallback for configuring prod without touching a project:
 
 ```bash
-yoke onboard --env prod --api-url https://api.upyoke.com/v1 \
+yoke onboard --env prod --api-url https://app.upyoke.com/api/orgs/yoke-production \
   --token-file /tmp/yoke-prod.token --project-mode machine-only --yes
 yoke env use prod
 ```

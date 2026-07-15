@@ -1,19 +1,17 @@
-"""Helpers for composing public Yoke API URLs.
+"""Helpers for composing public Yoke API and distribution URLs.
 
-Hosted-platform endpoints: upyoke.com is the operator-hosted platform and the
-official package distribution channel. The same hosts serve the platform API
-and the distribution channel (``/install``, ``/dist/*``, ``/simple/``). API
-connectivity is mode-aware — the machine-config connection entry is the
-authority in every deployment mode, and only the hosted sign-in flow defaults
-to these endpoints. Package distribution defaults to the hosted channel in
-every mode, always with an override path (installer ``--base-url`` /
-``YOKE_INSTALL_BASE_URL``, release tooling ``--base-url``).
+Hosted control APIs live behind the Platform tenant proxy. Package and
+installer distribution remains on the dedicated ``api.*`` hosts. Keeping the
+two authorities explicit prevents onboarding or machine-config generation from
+mistaking the immutable package channel for a writable Yoke control plane.
 """
 
 from __future__ import annotations
 
-HOSTED_PROD_URL = "https://api.upyoke.com"
-HOSTED_STAGE_URL = "https://api.stage.upyoke.com"
+DISTRIBUTION_PROD_URL = "https://api.upyoke.com"
+DISTRIBUTION_STAGE_URL = "https://api.stage.upyoke.com"
+HOSTED_PROD_API_URL = "https://app.upyoke.com/api/orgs/yoke-production"
+HOSTED_STAGE_API_URL = "https://app.stage.upyoke.com/api/orgs/yoke-stage"
 HOSTED_PLATFORM_URL = "https://app.upyoke.com"
 HOSTED_STAGE_PLATFORM_URL = "https://app.stage.upyoke.com"
 
@@ -38,8 +36,10 @@ __all__ = [
     "FUNCTIONS_CALL_PATH",
     "FUNCTIONS_REGISTRY_PATH",
     "HEALTH_PATH",
-    "HOSTED_PROD_URL",
-    "HOSTED_STAGE_URL",
+    "DISTRIBUTION_PROD_URL",
+    "DISTRIBUTION_STAGE_URL",
+    "HOSTED_PROD_API_URL",
+    "HOSTED_STAGE_API_URL",
     "HOSTED_PLATFORM_URL",
     "HOSTED_STAGE_PLATFORM_URL",
     "join_api_url",
