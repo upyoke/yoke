@@ -31,7 +31,7 @@ the one machine config file is the whole registry.
   "active_env": "prod",
   "connections": {
     "prod":  {"transport": "local-postgres", "credential_source": {...}, "postgres": {...}},
-    "stage": {"transport": "https", "api_url": "https://api.stage.upyoke.com",
+    "stage": {"transport": "https", "api_url": "https://app.stage.upyoke.com/api/orgs/yoke-stage",
                "credential_source": {"kind": "token_file", "path": "~/.yoke/secrets/stage.token"}}
   }
 }

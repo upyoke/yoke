@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
-from yoke_contracts.api_urls import HOSTED_PROD_URL, HOSTED_STAGE_URL
+from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL, DISTRIBUTION_STAGE_URL
 
 from yoke_core.domain import json_helper
 from yoke_core.tools.installer_cold_start_proof_core import (
@@ -68,8 +68,8 @@ class _Endpoint:
 
 
 ENDPOINTS: tuple[_Endpoint, ...] = (
-    _Endpoint("prod", HOSTED_PROD_URL, "stable"),
-    _Endpoint("stage", HOSTED_STAGE_URL, "latest"),
+    _Endpoint("prod", DISTRIBUTION_PROD_URL, "stable"),
+    _Endpoint("stage", DISTRIBUTION_STAGE_URL, "latest"),
 )
 
 

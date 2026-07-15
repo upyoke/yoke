@@ -39,7 +39,7 @@ from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
     SelectionList,
     Stepper,
 )
-from yoke_contracts.api_urls import HOSTED_PROD_URL  # noqa: E402
+from yoke_contracts.api_urls import HOSTED_PROD_API_URL  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
@@ -217,7 +217,7 @@ def test_stored_connection_shows_confirmation_picker(tmp_path: Path) -> None:
                 "connections": {
                     "prod": {
                         "transport": "https",
-                        "api_url": HOSTED_PROD_URL,
+                        "api_url": HOSTED_PROD_API_URL,
                         "credential_source": {
                             "kind": "token_file",
                             "path": str(token),
@@ -236,7 +236,7 @@ def test_stored_connection_shows_confirmation_picker(tmp_path: Path) -> None:
             text = _body_text(app)
             assert "Use this saved Yoke connection?" in text
             assert "Use existing hosted prod connection" in text
-            assert HOSTED_PROD_URL in text
+            assert HOSTED_PROD_API_URL in text
 
     asyncio.run(scenario())
 

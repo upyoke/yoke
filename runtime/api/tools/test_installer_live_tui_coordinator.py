@@ -1560,8 +1560,14 @@ def test_seed_known_recipes_adds_terminal_and_state_recipes(
     assert "state-env-switch-install-refresh.log" in env_switch["command"]
     assert "YOKE_ENV=prod" in env_switch["command"]
     assert '"active_env": "stage"' not in env_switch["expected_text"]
-    assert '"api_url": "https://api.stage.upyoke.com"' in env_switch["expected_text"]
-    assert '"api_url": "https://api.upyoke.com"' in env_switch["expected_text"]
+    assert (
+        f'"api_url": "{coordinator.HOSTED_STAGE_API_URL}"'
+        in env_switch["expected_text"]
+    )
+    assert (
+        f'"api_url": "{coordinator.HOSTED_PROD_API_URL}"'
+        in env_switch["expected_text"]
+    )
 
     repeat = json_helper.load_path(recipe_dir / "STATE-007.json")
     assert isinstance(repeat, dict)
