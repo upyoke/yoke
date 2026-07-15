@@ -211,6 +211,12 @@ def test_real_role_rotation_and_nologin_rejection(tmp_path: Path):
         )
         conn.commit()
         base = conninfo.conninfo_to_dict(os.environ["YOKE_PG_DSN"])
+        # The strict retirement proof deliberately refuses psycopg's
+        # no-SQLSTATE aggregate from several resolved addresses. Pin this
+        # real-authentication test to one loopback target so it exercises the
+        # server's explicit 28P01 rejection instead of an aggregate wrapper.
+        if base.get("host") == "localhost":
+            base["hostaddr"] = "127.0.0.1"
         original_dsn = conninfo.make_conninfo(
             **{**base, "user": role, "password": "original-secret"}
         )
