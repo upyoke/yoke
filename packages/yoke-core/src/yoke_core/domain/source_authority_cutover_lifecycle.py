@@ -167,15 +167,20 @@ def retire(
                 "source retirement evidence did not validate"
             )
         try:
-            role_credentials.prove_role_retired(conn, bundle)
+            retirement_proof = role_credentials.prove_role_retired(
+                conn, bundle,
+            )
         except source_credentials.SourceCredentialError as exc:
             raise SourceAuthorityCutoverError(str(exc)) from exc
         source_credentials.delete_bundle(bundle)
         return {
             "operation": "retire", "quiesced": True, "retired": True,
             "database": database, "retired_at": chosen_retired_at,
-            "retirement_receipt": receipt, "login_disabled": True,
-            "password_cleared": True, "authority": before,
+            "retirement_receipt": receipt,
+            "login_disabled": retirement_proof["login_disabled"],
+            "password_cleared": retirement_proof["password_cleared"],
+            "credential_proof": retirement_proof["method"],
+            "authority": before,
         }
     finally:
         conn.close()

@@ -80,6 +80,15 @@ pytest_plugins = [
 ]
 
 
+@pytest.fixture
+def cluster_role_authority():
+    """Serialize only tests whose PostgreSQL role state is cluster-global."""
+    from runtime.api.fixtures import pg_testdb
+
+    with pg_testdb.cluster_role_authority():
+        yield
+
+
 @pytest.fixture(autouse=True)
 def _block_live_github_rest_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make tests fail fast before they can hit live GitHub REST."""

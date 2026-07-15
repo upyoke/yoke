@@ -13,7 +13,7 @@ from yoke_core.domain import source_authority_connect_fence as fence
 
 
 def test_noinherit_membership_does_not_attest_effective_drain_privileges(
-    monkeypatch,
+    monkeypatch, cluster_role_authority,
 ):
     suffix = uuid.uuid4().hex[:10]
     admin_role = f"yoke_noinherit_admin_{suffix}"
