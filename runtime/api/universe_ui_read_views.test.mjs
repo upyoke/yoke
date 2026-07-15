@@ -178,6 +178,58 @@ test("an unblocked item reports no blocking reason", async (t) => {
   mounted.unmount();
 });
 
+test("Ouroboros reads observations and keeps review state visible", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/ouroboros?project=1";
+  const root = documentNode.createElement("div");
+  const requests = [];
+  const client = {
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+      }
+      if (request.function === "ouroboros.entry.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              entries: [
+                { timestamp: "now", category: "observation", agent: "tester", context: "open", reviewed_at: null },
+                { timestamp: "then", category: "failed", agent: "doctor", context: "closed", reviewed_at: "later" },
+              ],
+            },
+          },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  assert.deepEqual(
+    requests.find((request) => request.function === "ouroboros.entry.list"),
+    { function: "ouroboros.entry.list", payload: { project: "1" } },
+  );
+  const cells = allNodes(root)
+    .filter((node) => node.tagName === "TD")
+    .map((node) => node.textContent || "");
+  assert.deepEqual(cells, [
+    "now", "observation", "tester", "open", "",
+    "then", "failed", "doctor", "closed", "later",
+  ]);
+  mounted.unmount();
+});
+
 test("a drill-in route survives the round trip and never outlives its view", () => {
   assert.deepEqual(parseUniverseRoute("#/items/42?project=3"), {
     view: "items", detail: "42", project: "3",

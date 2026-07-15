@@ -48,10 +48,7 @@ export const NAV = [
     id: "doctor", label: "Doctor", scope: SCOPE_MULTI,
     summary: "The health checks and what they found.",
   },
-  {
-    id: "ouroboros", label: "Ouroboros", scope: SCOPE_MULTI,
-    summary: "What the system noticed about itself and what came of it.",
-  },
+  { id: "ouroboros", label: "Ouroboros", scope: SCOPE_MULTI },
   { id: "projects", label: "Projects", scope: SCOPE_NONE },
   {
     id: "access", label: "Access", scope: SCOPE_NONE,
