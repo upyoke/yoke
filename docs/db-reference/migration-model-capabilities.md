@@ -192,10 +192,10 @@ surface; the authoritative DB location names a Postgres stack/output source:
 {
   "kind": "postgres",
   "location": {
-    "stack": "yoke-prod",
-    "state_backend": "s3://yoke-pulumi-state?region=us-east-1",
-    "region": "us-east-1",
-    "database_name": "yoke_prod",
+    "stack": "<production-stack>",
+    "state_backend": "<capability-resolved-state-backend>",
+    "region": "<aws-region>",
+    "database_name": "<database-name>",
     "endpoint_output": "databaseClusterEndpoint",
     "secret_arn_output": "databaseSecretArn"
   }

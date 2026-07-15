@@ -23,7 +23,21 @@ def render_human(report: Mapping[str, Any]) -> str:
     if isinstance(server, Mapping) and server.get("relevant"):
         if server.get("reachable") is True:
             engine = server.get("engine_version") or "<not advertised>"
-            lines.append(f"  server: engine={engine}")
+            authority = server.get("authority") or "<unknown>"
+            actor = server.get("actor") or {}
+            actor_label = (
+                actor.get("label") or actor.get("id") or "<unverified>"
+                if isinstance(actor, Mapping)
+                else "<unverified>"
+            )
+            identity = (
+                str(actor_label)
+                if server.get("identity_verified") is True
+                else "<unverified>"
+            )
+            lines.append(
+                f"  server: engine={engine} authority={authority} identity={identity}"
+            )
         elif server.get("reachable") is False:
             lines.append("  server: unreachable (engine version unknown)")
         else:

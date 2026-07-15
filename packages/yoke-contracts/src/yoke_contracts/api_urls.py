@@ -10,8 +10,8 @@ from __future__ import annotations
 
 DISTRIBUTION_PROD_URL = "https://api.upyoke.com"
 DISTRIBUTION_STAGE_URL = "https://api.stage.upyoke.com"
-HOSTED_PROD_API_URL = "https://app.upyoke.com/api/orgs/yoke-production"
-HOSTED_STAGE_API_URL = "https://app.stage.upyoke.com/api/orgs/yoke-stage"
+HOSTED_PROD_API_URL = "https://app.upyoke.com/api/orgs/upyoke"
+HOSTED_STAGE_API_URL = "https://app.stage.upyoke.com/api/orgs/upyoke"
 HOSTED_PLATFORM_URL = "https://app.upyoke.com"
 HOSTED_STAGE_PLATFORM_URL = "https://app.stage.upyoke.com"
 

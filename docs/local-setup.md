@@ -157,7 +157,7 @@ yoke onboard --local --non-interactive --yes   # machine-local universe
 yoke onboard --yes \
   --config ~/.yoke/config.json \
   --env prod \
-  --api-url https://app.upyoke.com/api/orgs/yoke-production \
+  --api-url https://app.upyoke.com/api/orgs/upyoke \
   --token-stdin
 yoke status
 ```

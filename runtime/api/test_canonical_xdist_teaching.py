@@ -6,7 +6,7 @@ from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
 
 
 CANONICAL_WATCH_PYTEST = (
-    "python3 -m yoke_core.tools.watch_pytest -- "
+    "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
     "runtime/api/ runtime/harness/ tests/"
 )
 

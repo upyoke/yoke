@@ -200,7 +200,7 @@ After every advance, emit this structured block. It survives context compaction 
 - **Transition:** `{_status}` → `{_target}`
 - **Worktree:** {WORKTREE_PATH or "none (main branch)"}
 - **Project:** {_item_project}
-- **Test command:** {_cmd_full or "python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/" (yoke default)}
+- **Test command:** {_cmd_full or "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/" (yoke default)}
 - **Advance to reviewed-implementation:** `/yoke advance YOK-{N} reviewed-implementation`
 - **Phase docs already loaded:** preflight, worktree, environment, finalize, implementing
 - **Do-loop context (if inside /yoke do):** step {step}/{MAX_CHAIN_STEPS}, chainable={chainable}. Whether this advance is a completed handler depends on `{_target}` — do NOT treat every advance as a finished chain step.

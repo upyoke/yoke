@@ -283,8 +283,8 @@ All paths below are repo-relative from the repo root.
 - Machine config: `~/.yoke/config.json`. Project-local Yoke surfaces: `.yoke/`. Docs: `docs/`. Item design specifications live in `items.design_spec`.
 
 ## Testing
-- The generic runner is the source-dev `python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet.
-- The canonical verification target for Yoke code is `python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/`; it injects xdist `-n auto` unless `--no-parallel` or an explicit `-n` override is passed. Use raw pytest only for narrow debugging, not final Yoke verification.
+- The generic runner is the source-dev `uv run --frozen python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet. `uv run --frozen` makes a clean worktree use its locked development dependencies and its own source packages without requiring an activated virtualenv.
+- The canonical verification target for Yoke code is `uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/`; it injects xdist `-n auto` unless `--no-parallel` or an explicit `-n` override is passed. Use raw pytest only for narrow debugging, not final Yoke verification.
 - Harness coverage is Python-owned under files such as `runtime/harness/codex/test_codex_entry.py`, `runtime/harness/test_hook_runner_runner.py`, `runtime/harness/test_hook_runner_telemetry.py`, `runtime/api/test_service_client.py`, and `runtime/api/test_sessions.py`.
 - Never set `YOKE_DRY_RUN=1` in tests; the suites mock their own GitHub side effects.
 - **No hardcoded drifting IDs in tests.** Tests must never contain literal `YOK-N`-style ticket IDs that drift over time. Use variables, dynamically generated values, or pattern matchers instead.
