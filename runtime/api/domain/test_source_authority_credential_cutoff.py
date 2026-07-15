@@ -180,6 +180,28 @@ def test_password_update_uses_bound_argument_and_redacts_failures(tmp_path: Path
     )
 
 
+def test_rotation_proof_uses_cutover_reconnect_without_password_catalog(
+    tmp_path: Path,
+) -> None:
+    bundle = _bundle(tmp_path)
+
+    class Result:
+        @staticmethod
+        def fetchone():
+            return (bundle.admin_role,)
+
+    class Connection:
+        @staticmethod
+        def execute(statement, params=None):
+            assert statement == "SELECT current_user"
+            assert params is None
+            return Result()
+
+    assert role_credentials.prove_role_password_rotation(
+        Connection(), bundle,
+    ) == "postgres-single-verifier-cutover-reconnect"
+
+
 @pytest.mark.parametrize(
     "error_type", (
         psycopg.errors.InvalidPassword,
@@ -242,7 +264,7 @@ def test_real_role_rotation_and_nologin_rejection(
             try:
                 assert role_credentials.prove_role_password_rotation(
                     live, bundle,
-                ) in {"SCRAM-SHA-256", "md5"}
+                ) == "postgres-single-verifier-cutover-reconnect"
             finally:
                 live.close()
 

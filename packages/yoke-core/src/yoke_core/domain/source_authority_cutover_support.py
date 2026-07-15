@@ -144,19 +144,22 @@ def prove_original_credential_cutoff(
 ) -> dict[str, str]:
     """Prove rotation without using a connection failure as evidence.
 
-    The already-live cutover connection proves the stored SCRAM/MD5 verifier
-    matches the cutover secret and not the original one.  Network, TLS,
-    timeout, and multi-host text never enter this proof.
+    The original connection succeeded before the committed ``ALTER ROLE``;
+    this fresh cutover connection succeeds afterward with a distinct generated
+    secret. PostgreSQL's single role verifier makes the old credential
+    superseded. Network, TLS, timeout, provider-restricted password catalogs,
+    and connection-error text never enter this proof.
     """
     from yoke_core.domain import source_authority_role_credentials
 
-    verifier = source_authority_role_credentials.prove_role_password_rotation(
+    reconnect = source_authority_role_credentials.prove_role_password_rotation(
         live_conn, bundle,
     )
     return {
-        "method": "live-role-password-verifier",
+        "method": "committed-rotation-plus-cutover-reconnect",
         "connection_rejection": "not-used-as-evidence",
-        "verifier": verifier,
+        "postgres_role_password_model": "single-verifier",
+        "reconnect": reconnect,
     }
 
 
