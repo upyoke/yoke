@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from types import SimpleNamespace
 
 from yoke_cli import operation_inventory
@@ -50,6 +51,49 @@ def test_adapter_forwards_snapshot_and_child_command(monkeypatch, tmp_path):
         ["pulumi", "up", "--yes"],
     )
     assert callable(keyword["hosted_token_loader"])
+
+
+def test_adapter_exposes_audited_local_bootstrap_authority(monkeypatch, tmp_path):
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+    machine_loader = object()
+
+    def execute(*args, **kwargs):
+        assert os.environ["YOKE_RUNNER_FLEET_TOKEN_SOURCE"] == "local"
+        calls.append((args, kwargs))
+        return 0
+
+    executor = SimpleNamespace(
+        RUNNER_FLEET_TOKEN_SOURCE_ENV="YOKE_RUNNER_FLEET_TOKEN_SOURCE",
+        aws_machine_capability_env=machine_loader,
+        execute_runner_fleet_command=execute,
+    )
+
+    def import_module(name):
+        if name == "yoke_core.tools.runner_fleet_exec":
+            return executor
+        raise AssertionError(name)
+
+    monkeypatch.setattr(runner_fleet.importlib, "import_module", import_module)
+    monkeypatch.setenv("YOKE_RUNNER_FLEET_TOKEN_SOURCE", "hosted")
+    snapshot = tmp_path / "stack-config.json"
+
+    rc = runner_fleet.runner_fleet_exec(
+        [
+            "--project",
+            "platform",
+            "--settings-file",
+            str(snapshot),
+            "--bootstrap-local-authority",
+            "--",
+            "pulumi",
+            "preview",
+        ]
+    )
+
+    assert rc == 0
+    assert calls[0][1]["aws_env_loader"] is machine_loader
+    assert callable(calls[0][1]["hosted_token_loader"])
+    assert os.environ["YOKE_RUNNER_FLEET_TOKEN_SOURCE"] == "hosted"
 
 
 def test_adapter_requires_child_command(capsys, tmp_path):

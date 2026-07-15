@@ -10,8 +10,10 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
 
-def _ts(offset_seconds: int = 0) -> str:
-    when = datetime.now(timezone.utc) + timedelta(seconds=offset_seconds)
+def _ts(offset_seconds: int = 0, *, anchor: datetime | None = None) -> str:
+    when = (anchor or datetime.now(timezone.utc)) + timedelta(
+        seconds=offset_seconds
+    )
     return when.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -60,6 +62,7 @@ def _run(conn) -> RecordCollector:
 
 
 def test_manual_skip_hop_warns_on_sub_minute_sequence(tmp_path):
+    anchor = datetime.now(timezone.utc)
     with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
         conn = connect_test_db(db_path)
         try:
@@ -68,9 +71,12 @@ def test_manual_skip_hop_warns_on_sub_minute_sequence(tmp_path):
                 42,
                 "reviewed-implementation",
                 "polishing-implementation",
-                _ts(-30),
+                _ts(-30, anchor=anchor),
             )
-            _record(conn, 42, "polishing-implementation", "implemented", _ts(-5))
+            _record(
+                conn, 42, "polishing-implementation", "implemented",
+                _ts(-5, anchor=anchor),
+            )
             conn.commit()
 
             rec = _run(conn)
@@ -83,6 +89,7 @@ def test_manual_skip_hop_warns_on_sub_minute_sequence(tmp_path):
 
 
 def test_manual_skip_hop_passes_when_gap_is_longer_than_one_minute(tmp_path):
+    anchor = datetime.now(timezone.utc)
     with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
         conn = connect_test_db(db_path)
         try:
@@ -91,9 +98,12 @@ def test_manual_skip_hop_passes_when_gap_is_longer_than_one_minute(tmp_path):
                 43,
                 "reviewed-implementation",
                 "polishing-implementation",
-                _ts(-300),
+                _ts(-300, anchor=anchor),
             )
-            _record(conn, 43, "polishing-implementation", "implemented", _ts(-120))
+            _record(
+                conn, 43, "polishing-implementation", "implemented",
+                _ts(-120, anchor=anchor),
+            )
             conn.commit()
 
             rec = _run(conn)
@@ -106,6 +116,7 @@ def test_manual_skip_hop_passes_when_gap_is_longer_than_one_minute(tmp_path):
 def test_manual_skip_hop_ignores_sanctioned_skip_polish_source(tmp_path):
     """The --skip-polish surface stamps its own source; only raw
     backlog-registry pairs are the anti-pattern."""
+    anchor = datetime.now(timezone.utc)
     with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
         conn = connect_test_db(db_path)
         try:
@@ -114,11 +125,12 @@ def test_manual_skip_hop_ignores_sanctioned_skip_polish_source(tmp_path):
                 44,
                 "reviewed-implementation",
                 "polishing-implementation",
-                _ts(-30),
+                _ts(-30, anchor=anchor),
                 source="skip-polish",
             )
             _record(
-                conn, 44, "polishing-implementation", "implemented", _ts(-5),
+                conn, 44, "polishing-implementation", "implemented",
+                _ts(-5, anchor=anchor),
                 source="skip-polish",
             )
             conn.commit()

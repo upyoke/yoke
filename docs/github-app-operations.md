@@ -118,17 +118,15 @@ Baseline repository permissions are:
 - Variables: write
 - Workflows: write
 
-Administration and Webhooks (`repository_hooks`) write are privileged runner
-fleet extensions. GitHub App permissions apply to the registration and are
-presented to every installation; they are not independently optional per
-repository. The currently supported compatibility topology is one App for the
-canonical project `github` binding, with these privileged extensions added
-when that project runs a fleet. Baseline product operations still mint tokens
-without Administration or Webhooks; runner operations mint separate,
-repository-scoped tokens with only their required permissions. A second
-operator-only App is the intended stronger isolation boundary, but verified
-multi-binding support has not landed: do not configure a second registration
-as a runner capability selector yet.
+Administration and Webhooks (`repository_hooks`) write belong to the privileged
+runner fleet authority, not the customer-facing Product App. GitHub App
+permissions apply to the registration and are presented to every installation;
+they are not independently optional per repository. Configure the runner fleet
+with an explicit capability selector for a dedicated operator-only App binding,
+limited to the repository that hosts the fleet. Baseline product operations use
+the canonical project `github` binding without Administration or Webhooks;
+runner operations use the selected privileged binding and mint separate,
+repository-scoped tokens with only their required permissions.
 
 CLI device authorization uses the public client id without a client secret. Hosted
 OAuth needs a product-owned client secret; store it and the distinct webhook secret

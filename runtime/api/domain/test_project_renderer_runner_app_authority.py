@@ -110,24 +110,22 @@ def test_enabled_runner_fleet_requires_actions_variables_write(tmp_path):
         )
 
 
-def test_runner_fleet_refuses_noncanonical_github_capability(tmp_path):
+def test_runner_fleet_uses_explicit_privileged_github_capability(tmp_path):
     settings = _settings(github_app=_app())
     capabilities = dict(settings.capabilities)
     custom_github = _github()
-    custom_github.update({"repo_owner": "other-org", "repo_name": "runners"})
     capabilities["github-automation"] = custom_github
     runner = dict(capabilities["github-actions-runner-fleet"])
     runner["github_capability"] = "github-automation"
     capabilities["github-actions-runner-fleet"] = runner
     settings = replace(settings, capabilities=capabilities)
 
-    with pytest.raises(
-        ValueError,
-        match="(?s)github_capability.*must be 'github'",
-    ):
-        project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, settings,
-        )
+    values = project_renderer_pulumi.gather_pulumi_values(
+        "buzz", tmp_path, settings,
+    )
+
+    assert values["runner_fleet_github_capability"] == "github-automation"
+    assert values["runner_fleet_github_installation_id"] == "123456"
 
 
 def test_disabled_routing_still_requires_permission_to_delete_variable(

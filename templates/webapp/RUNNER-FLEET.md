@@ -1,10 +1,11 @@
 # GitHub Actions Runner Fleet
 
 The optional runner fleet is privileged and fail-safe. Its capability must
-explicitly select the canonical `github` binding and an exact
-`github_app`; no product-binding, primary, prod, or stage fallback
-is inferred. The capability-owned App must use the binding's API origin. The
-installation needs `administration: write`,
+explicitly select a verified repository binding and an exact `github_app`; no
+product-binding, primary, prod, or stage fallback is inferred. Use a dedicated
+operator-only GitHub App capability when the product App does not carry runner
+administration permissions. The capability-owned App must use the binding's
+API origin. The installation needs `administration: write`,
 `repository_hooks: write`, and `actions_variables: write`; Variables write is
 also required while disabling routing so Pulumi can delete its variable.
 
