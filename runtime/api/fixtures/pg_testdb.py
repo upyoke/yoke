@@ -38,6 +38,10 @@ AMBIENT_DB_PREFIX = "yoke_test_ambient_"
 
 _BASE_DSN: "str | None" = None
 
+# Session-level advisory locks are scoped to a database. All cooperating role
+# tests acquire this key through the shared ``postgres`` maintenance database.
+_CLUSTER_ROLE_AUTHORITY_LOCK_ID = 0x596F6B65526F6C65
+
 
 def _apply_schema(conn) -> None:
     from runtime.api.fixtures.schema_ddl import apply_fixture_schema
@@ -83,6 +87,34 @@ def _admin_execute(sql: str) -> None:
     # the maintenance database.
     with psycopg.connect(_with_dbname(_base_dsn(), "postgres"), autocommit=True) as admin:
         admin.execute(sql)
+
+
+@contextlib.contextmanager
+def cluster_role_authority():
+    """Isolate tests that mutate or attest cluster-global PostgreSQL roles.
+
+    Disposable databases isolate schema and data, but roles are shared by the
+    whole cluster. A narrow maintenance-database advisory lock lets xdist keep
+    all unrelated tests parallel while preventing a temporary role in one
+    worker from invalidating another worker's privileged-role inventory.
+    """
+    maintenance = _with_dbname(_base_dsn(), "postgres")
+    with psycopg.connect(maintenance, autocommit=True) as authority:
+        authority.execute(
+            "SELECT pg_advisory_lock(%s)",
+            (_CLUSTER_ROLE_AUTHORITY_LOCK_ID,),
+        )
+        try:
+            yield
+        finally:
+            unlocked = authority.execute(
+                "SELECT pg_advisory_unlock(%s)",
+                (_CLUSTER_ROLE_AUTHORITY_LOCK_ID,),
+            ).fetchone()
+            if unlocked != (True,):
+                raise RuntimeError(
+                    "PostgreSQL cluster-role test authority was not held"
+                )
 
 
 def create_test_database(template: "str | None" = None) -> str:
@@ -213,6 +245,7 @@ def setup_ambient_test_db() -> str:
 
 __all__ = [
     "TEST_DB_PREFIX",
+    "cluster_role_authority",
     "create_test_database",
     "drop_test_database",
     "drop_database_on_close",

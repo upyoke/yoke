@@ -197,7 +197,9 @@ def test_explicit_login_refusal_is_accepted_as_cutoff_proof(
     assert support.connection_or_none("password-bearing-dsn") is None
 
 
-def test_real_role_rotation_and_nologin_rejection(tmp_path: Path):
+def test_real_role_rotation_and_nologin_rejection(
+    tmp_path: Path, cluster_role_authority,
+):
     with pg_testdb.test_database() as conn:
         database, database_oid = conn.execute(
             "SELECT current_database(), oid FROM pg_database "
@@ -257,10 +259,16 @@ def test_real_role_rotation_and_nologin_rejection(tmp_path: Path):
                 "SELECT rolcanlogin, rolpassword FROM pg_authid WHERE rolname=%s",
                 (role,),
             ).fetchone() == (False, None)
-            role_credentials.prove_role_retired(conn, bundle)
-            assert support.retirement_connection_or_none(
-                bundle.cutover_dsn, role=role,
-            ) is None
+            assert role_credentials.prove_role_retired(conn, bundle) == {
+                "method": "live-role-catalog-state",
+                "login_disabled": True,
+                "password_cleared": True,
+            }
+            # The failed login is a behavior check, not retirement evidence:
+            # some libpq builds expose the server rejection only through an
+            # OperationalError with no SQLSTATE.
+            with pytest.raises(psycopg.OperationalError):
+                psycopg.connect(bundle.cutover_dsn)
         finally:
             conn.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role)))
             conn.commit()
@@ -332,3 +340,60 @@ def test_retirement_fallback_accepts_only_single_host_exact_nologin(
             "host=one,two dbname=yoke user=source_admin password=unused",
             role="source_admin",
         )
+
+
+@pytest.mark.parametrize(
+    "message",
+    (
+        'connection failed: connection to server at "source.example", '
+        'port 5432 failed: FATAL: password authentication failed for user '
+        '"source_admin"',
+        "connection failed: TLS negotiation failed",
+        "connection failed: connection timed out",
+        'connection failed: TLS negotiation failed: FATAL: role '
+        '"source_admin" is not permitted to log in',
+    ),
+)
+def test_retirement_fallback_rejects_unstructured_failures(
+    monkeypatch, message,
+):
+    failure = psycopg.OperationalError(message)
+    assert failure.sqlstate is None
+    monkeypatch.setattr(
+        support, "admin_connection",
+        lambda _dsn: (_ for _ in ()).throw(failure),
+    )
+
+    with pytest.raises(psycopg.OperationalError) as caught:
+        support.retirement_connection_or_none(
+            "host=source.example dbname=yoke user=source_admin password=unused",
+            role="source_admin",
+        )
+    assert caught.value is failure
+
+
+@pytest.mark.parametrize(
+    "role_state",
+    (
+        (True, None),
+        (False, "SCRAM-SHA-256$redacted"),
+    ),
+)
+def test_live_retirement_proof_requires_disabled_login_and_cleared_password(
+    tmp_path: Path, role_state,
+):
+    bundle = _bundle(tmp_path)
+
+    class Result:
+        def fetchone(self):
+            return role_state
+
+    class Connection:
+        def execute(self, _statement, _params):
+            return Result()
+
+    with pytest.raises(
+        credentials.SourceCredentialError,
+        match="does not prove permanent credential retirement",
+    ):
+        role_credentials.prove_role_retired(Connection(), bundle)

@@ -19,6 +19,14 @@ class _Result:
         return self._row
 
 
+def _retirement_proof() -> dict[str, object]:
+    return {
+        "method": "live-role-catalog-state",
+        "login_disabled": True,
+        "password_cleared": True,
+    }
+
+
 def test_retire_reuses_precommit_marker_after_failure_before_commit(
     monkeypatch, tmp_path: Path,
 ):
@@ -62,7 +70,8 @@ def test_retire_reuses_precommit_marker_after_failure_before_commit(
         lifecycle.role_credentials, "retire_role_credential", lambda *_a: None,
     )
     monkeypatch.setattr(
-        lifecycle.role_credentials, "prove_role_retired", lambda *_a: None,
+        lifecycle.role_credentials, "prove_role_retired",
+        lambda *_a: _retirement_proof(),
     )
 
     def state(_conn):
@@ -90,6 +99,9 @@ def test_retire_reuses_precommit_marker_after_failure_before_commit(
     )
 
     assert report["retired_at"] == prepared.retired_at
+    assert report["credential_proof"] == "live-role-catalog-state"
+    assert report["login_disabled"] is True
+    assert report["password_cleared"] is True
     assert retirement_attempts[0] == retirement_attempts[1]
     assert second.commits == 1
     assert not bundle.path.exists()
@@ -128,7 +140,8 @@ def test_retire_recovers_after_commit_before_bundle_delete(
         lifecycle.role_credentials, "retire_role_credential", lambda *_a: None,
     )
     monkeypatch.setattr(
-        lifecycle.role_credentials, "prove_role_retired", lambda *_a: None,
+        lifecycle.role_credentials, "prove_role_retired",
+        lambda *_a: _retirement_proof(),
     )
 
     def state(_conn):
