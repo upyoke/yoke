@@ -12,6 +12,8 @@ import copy
 import json
 from typing import Any
 
+from yoke_contracts.api_urls import HOSTED_PROD_API_URL, HOSTED_STAGE_API_URL
+
 
 def canonical_example_payload() -> dict[str, Any]:
     """Return the code-owned example payload for ``yoke config example``."""
@@ -22,7 +24,7 @@ def canonical_example_payload() -> dict[str, Any]:
             "prod": {
                 "transport": _contract().TRANSPORT_HTTPS,
                 _contract().PROD_FLAG_KEY: True,
-                "api_url": "https://app.upyoke.com/api/orgs/yoke-production",
+                "api_url": HOSTED_PROD_API_URL,
                 "credential_source": {
                     "kind": "token_file",
                     "path": "~/.yoke/secrets/prod.token",
@@ -59,7 +61,7 @@ def canonical_example_payload() -> dict[str, Any]:
             "stage": {
                 "transport": _contract().TRANSPORT_HTTPS,
                 _contract().PROD_FLAG_KEY: False,
-                "api_url": "https://app.stage.upyoke.com/api/orgs/yoke-stage",
+                "api_url": HOSTED_STAGE_API_URL,
                 "credential_source": {
                     "kind": "token_file",
                     "path": "~/.yoke/secrets/stage.token",
@@ -75,7 +77,7 @@ def canonical_example_payload() -> dict[str, Any]:
             "app_id": 12345,
             "client_id": "Iv1.example",
             "profile_source": _contract().GITHUB_PROFILE_SOURCE_SERVICE,
-            "profile_service_api_url": "https://app.upyoke.com/api/orgs/yoke-production",
+            "profile_service_api_url": HOSTED_PROD_API_URL,
             "authorization": {
                 "kind": _contract().GITHUB_AUTH_KIND_USER_AUTHORIZATION,
                 "refresh_credential_ref": (

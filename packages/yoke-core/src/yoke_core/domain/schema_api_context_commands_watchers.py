@@ -42,10 +42,10 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run pytest with background watcher (main session)",
         "recipe": (
-            "python3 -m yoke_core.tools.watch_pytest -- "
+            "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
             "runtime/api/ runtime/harness/ tests/\n"
             "# Canonical full Yoke gate. For a harness background stream:\n"
-            "python3 -m yoke_core.tools.watch_pytest "
+            "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
             "--print-streaming-pair -- runtime/api/ runtime/harness/ tests/\n"
             "# Paste the printed pair into the harness's "
             "background + progress-tail surfaces.\n"
@@ -62,14 +62,17 @@ WATCHERS_COMMANDS: list[dict] = [
             "paths; --raw-capture <path> is the operator carve-out for "
             "pinning to a known location. Subagents must run the foreground "
             "variant below — backgrounded watchers from subagent context "
-            "are denied by lint-subagent-background."
+            "are denied by lint-subagent-background. `uv run --frozen` "
+            "materializes the locked dev environment in a clean worktree, "
+            "so the wrapper and application dependencies are importable "
+            "without ambient PYTHONPATH or virtualenv activation."
         ),
     },
     {
         "topic": "core",
         "purpose": "Run pytest foreground inside one tool call (subagent)",
         "recipe": (
-            "python3 -m yoke_core.tools.watch_pytest -- "
+            "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
             "runtime/api/test_my_module.py -q\n"
             "# Blocks within the same tool call; the wrapper mints raw + "
             "progress captures via project_scratch_dir.watcher_capture_path "
@@ -86,7 +89,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run doctor with background watcher (main session)",
         "recipe": (
-            "python3 -m yoke_core.tools.watch_doctor "
+            "uv run --frozen python3 -m yoke_core.tools.watch_doctor "
             "--print-streaming-pair -- --quick\n"
             "# Paste the printed pair into the harness's "
             "background + progress-tail surfaces."
@@ -102,7 +105,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": ("Run done_transition / merge_worktree with watcher (main session)"),
         "recipe": (
-            "python3 -m yoke_core.tools.watch_merge "
+            "uv run --frozen python3 -m yoke_core.tools.watch_merge "
             "--print-streaming-pair merge-worktree -- YOK-N\n"
             "# Subcommands: done-transition <args>, merge-worktree <args>"
         ),
@@ -175,7 +178,7 @@ WATCHERS_COMMANDS: list[dict] = [
             "Run pytest with explicit raw-capture path (post-completion inspection)"
         ),
         "recipe": (
-            "python3 -m yoke_core.tools.watch_pytest "
+            "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
             "--raw-capture <PATH> -- "
             "runtime/api/test_my_module.py -q\n"
             "tail -80 <PATH>"
@@ -193,11 +196,11 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run doctor focused on specific HC rules",
         "recipe": (
-            "python3 -m yoke_core.tools.watch_doctor -- --quick\n"
-            "python3 -m yoke_core.tools.watch_doctor -- "
+            "uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --quick\n"
+            "uv run --frozen python3 -m yoke_core.tools.watch_doctor -- "
             "--only HC-event-registry-coverage,"
             "HC-event-callsite-registry-sync\n"
-            "python3 -m yoke_core.tools.watch_doctor -- --full --json"
+            "uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --full --json"
         ),
         "notes": (
             "--quick = fast subset; --only takes a comma-separated list "

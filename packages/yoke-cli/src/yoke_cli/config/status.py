@@ -9,7 +9,6 @@ source-dev runtime is present instead of treating those envs as refused.
 from __future__ import annotations
 
 import importlib.util
-import json
 import os
 import shutil
 import sys
@@ -17,8 +16,7 @@ from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.api_urls import HEALTH_PATH, join_api_url
-from yoke_cli.config import install_binding, machine_config
+from yoke_cli.config import install_binding, machine_config, status_server
 from yoke_cli.config.status_credentials import (
     credential_status as _credential_status,
 )
@@ -38,10 +36,6 @@ PRODUCT_RUNTIME_PACKAGES = (
     "yoke-harness",
     ENGINE_DISTRIBUTION_NAME,
 )
-
-#: Timeout for the one ``GET /v1/health`` probe an https ``yoke status`` runs.
-SERVER_HEALTH_TIMEOUT_S = 3.0
-
 
 def build_status(
     *,
@@ -101,7 +95,12 @@ def build_status(
     issues.extend(runtime.pop("issues"))
     db = _db_status(connection, runtime=runtime, check_reachability=check_reachability)
     issues.extend(db.pop("issues"))
-    server = _server_status(connection, check_reachability=check_reachability)
+    server = status_server.server_status(
+        connection,
+        config_path=selected_path,
+        explicit_env=explicit_env,
+        check_reachability=check_reachability,
+    )
     issues.extend(server.pop("issues"))
     env = ambient_env_status()
     ok = not any(issue["severity"] == "error" for issue in issues)
@@ -273,61 +272,6 @@ def _db_status(
         "relevant": True,
         "ok": True,
         "action": "local_postgres_admin_env",
-        "issues": [],
-    }
-
-
-def _fetch_server_health(
-    api_url: str, *, timeout_s: float = SERVER_HEALTH_TIMEOUT_S,
-) -> Mapping[str, Any] | None:
-    """One ``GET /v1/health`` against the active env; ``None`` on any failure."""
-    import urllib.request
-
-    url = join_api_url(api_url, HEALTH_PATH)
-    try:
-        with urllib.request.urlopen(url, timeout=timeout_s) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except Exception:  # noqa: BLE001 - unreachable server degrades, never raises
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
-def _server_status(
-    connection: Mapping[str, Any], *, check_reachability: bool,
-) -> dict[str, Any]:
-    """The active https server's advertised engine version, via one health call.
-
-    Irrelevant for local-postgres transports (there is no server). Degrades
-    gracefully: an unreachable server yields ``reachable=False`` plus a
-    warning issue — never an error, never an exception.
-    """
-    if str(connection.get("transport") or "") != contract.TRANSPORT_HTTPS:
-        return {"relevant": False, "reachable": None, "engine_version": "",
-                "issues": []}
-    api_url = str(connection.get("api_url") or "")
-    if not api_url or not check_reachability:
-        return {"relevant": True, "reachable": None, "engine_version": "",
-                "issues": []}
-    payload = _fetch_server_health(api_url)
-    if payload is None:
-        return {
-            "relevant": True,
-            "reachable": False,
-            "engine_version": "",
-            "issues": [
-                _issue(
-                    "warning",
-                    "server_unreachable",
-                    f"health probe failed against {api_url}",
-                    "Check the api_url and network; the server may be down.",
-                )
-            ],
-        }
-    return {
-        "relevant": True,
-        "reachable": True,
-        "engine_version": str(payload.get("engine_version") or ""),
-        "build": str(payload.get("build") or ""),
         "issues": [],
     }
 
