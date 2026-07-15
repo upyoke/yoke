@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.api_urls import HOSTED_STAGE_URL
+from yoke_contracts.api_urls import HOSTED_STAGE_API_URL
 
 from yoke_core.tools.product_cli_no_checkout_smoke_steps import (
     STATUS_FAIL,
@@ -35,7 +35,7 @@ from yoke_core.tools.checkout_clean_room_smoke_helpers import (
     tail,
 )
 
-DEFAULT_API_URL = HOSTED_STAGE_URL
+DEFAULT_API_URL = HOSTED_STAGE_API_URL
 SMOKE_SESSION_ID = "product-cli-no-checkout-smoke"
 TOKEN_FILE_NAME = "smoke.token"
 

@@ -22,7 +22,7 @@ def canonical_example_payload() -> dict[str, Any]:
             "prod": {
                 "transport": _contract().TRANSPORT_HTTPS,
                 _contract().PROD_FLAG_KEY: True,
-                "api_url": "https://api.upyoke.com",
+                "api_url": "https://app.upyoke.com/api/orgs/yoke-production",
                 "credential_source": {
                     "kind": "token_file",
                     "path": "~/.yoke/secrets/prod.token",
@@ -59,7 +59,7 @@ def canonical_example_payload() -> dict[str, Any]:
             "stage": {
                 "transport": _contract().TRANSPORT_HTTPS,
                 _contract().PROD_FLAG_KEY: False,
-                "api_url": "https://api.stage.upyoke.com",
+                "api_url": "https://app.stage.upyoke.com/api/orgs/yoke-stage",
                 "credential_source": {
                     "kind": "token_file",
                     "path": "~/.yoke/secrets/stage.token",
@@ -75,7 +75,7 @@ def canonical_example_payload() -> dict[str, Any]:
             "app_id": 12345,
             "client_id": "Iv1.example",
             "profile_source": _contract().GITHUB_PROFILE_SOURCE_SERVICE,
-            "profile_service_api_url": "https://api.upyoke.com",
+            "profile_service_api_url": "https://app.upyoke.com/api/orgs/yoke-production",
             "authorization": {
                 "kind": _contract().GITHUB_AUTH_KIND_USER_AUTHORIZATION,
                 "refresh_credential_ref": (

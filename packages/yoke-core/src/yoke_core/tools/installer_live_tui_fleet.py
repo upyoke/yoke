@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
-from yoke_contracts.api_urls import HOSTED_PROD_URL, HOSTED_STAGE_URL
+from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL, DISTRIBUTION_STAGE_URL
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.deploy_remote import aws_capability_env
@@ -25,7 +25,7 @@ from yoke_core.domain.deploy_remote import aws_capability_env
 DEFAULT_PROJECT = "yoke"
 DEFAULT_REGION = "us-east-1"
 DEFAULT_ENDPOINT = "stage"
-DEFAULT_BASE_URL = HOSTED_STAGE_URL
+DEFAULT_BASE_URL = DISTRIBUTION_STAGE_URL
 DEFAULT_DISTRO = "amazon-linux-2023"
 DEFAULT_ARCH = "x86_64"
 DEFAULT_SSH_USER = "ec2-user"
@@ -690,7 +690,7 @@ def _base_url_for_endpoint(endpoint: str) -> str:
     if endpoint == "stage":
         return DEFAULT_BASE_URL
     if endpoint == "prod":
-        return HOSTED_PROD_URL
+        return DISTRIBUTION_PROD_URL
     if endpoint.startswith("https://"):
         return endpoint.rstrip("/")
     raise ValueError(f"unsupported endpoint: {endpoint}")

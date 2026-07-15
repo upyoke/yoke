@@ -338,7 +338,7 @@ _No outstanding follow-ups — the harness has nothing to recommend._
 Every registered function id above accepts the same `FunctionCallRequest` envelope at the active env's `/v1/functions/call`. The `yoke` CLI is the default surface; curl is the operator floor when no CLI is installed:
 
 ```bash
-API=https://api.stage.upyoke.com   # the active env's api_url
+API=https://app.stage.upyoke.com/api/orgs/yoke-stage   # the active env's api_url
 TOKEN_FILE=~/.yoke/secrets/stage.token
 
 cat > /tmp/envelope.json <<'EOF'
