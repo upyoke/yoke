@@ -58,7 +58,7 @@ def _fetch(runners: list[dict]) -> str:
     return f"""
         globalThis.fetch = async (url) => {{
           const body = url.includes("/access_tokens")
-            ? {{ token: "installation-secret" }} : {listing};
+            ? {{ token: "installation-secret", expires_at: "2099-01-01T00:00:00Z" }} : {listing};
           return {{ ok: true, status: 200,
             async text() {{ return JSON.stringify(body); }} }};
         }};

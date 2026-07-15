@@ -15,6 +15,7 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     broker = recorder.single("runnerFleetGithubBroker")
     assert broker.kwargs["runtime"] == "nodejs22.x"
     assert broker.kwargs["handler"] == "index.handler"
+    assert broker.kwargs["name"] == "yoke-runner-fleet-token-broker"
     variables = broker.kwargs["environment"].kwargs["variables"]
     assert variables["GITHUB_INSTALLATION_ID"] == "123456"
     assert variables["GITHUB_REPOSITORY_ID"] == "789012"
@@ -33,9 +34,9 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     termination_source = broker.kwargs["code"].kwargs["assets"][
         "webapp_runner_termination.mjs"
     ].kwargs["text"]
-    assert 'permissions":{"administration":"write"}' in api_source
-    assert "repository_hooks" not in api_source
-    assert "actions_variables" not in api_source
+    assert 'administration: "write"' in api_source
+    assert 'repository_hooks: "read"' in api_source
+    assert 'actions_variables: "read"' in api_source
     assert "repository_ids" in api_source
     assert 'brokerMode === "bootstrap"' in source
     assert 'brokerMode === "reaper"' in source
@@ -58,6 +59,11 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
 
     secret_policy = recorder.single("runnerFleetGithubBootstrapSecretRead")
     assert "secretsmanager:GetSecretValue" in secret_policy.kwargs["policy"]
+    ci_invoke = recorder.single("runnerFleetGithubBrokerInvoke")
+    assert ci_invoke.kwargs["role"] == "yoke-ci-github"
+    assert "lambda:InvokeFunction" in ci_invoke.kwargs["policy"]
+    assert "runnerFleetGithubBroker.arn" in ci_invoke.kwargs["policy"]
+    assert "secretsmanager" not in ci_invoke.kwargs["policy"]
     invoke_policy = recorder.single("runnerFleetInstanceRuntime")
     assert "lambda:InvokeFunction" in invoke_policy.kwargs["policy"]
     assert "secretsmanager" not in invoke_policy.kwargs["policy"]

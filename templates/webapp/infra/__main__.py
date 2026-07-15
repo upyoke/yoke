@@ -243,6 +243,7 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
         github_api_url=config.require("github_api_url"),
         github_web_url=config.require("github_web_url"),
         github_private_key_secret_arn=config.require("github_private_key_secret_arn"),
+        token_broker_function=config.require("token_broker_function"),
         runner_labels=[str(label) for label in labels],
         runner_variable_name=config.require("runner_variable_name"),
         routing_enabled=config.require_bool("routing_enabled"),

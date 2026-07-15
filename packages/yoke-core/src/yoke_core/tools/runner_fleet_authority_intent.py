@@ -75,6 +75,7 @@ def authority_intent_envelope(
         "api_url": values["runner_fleet_github_api_url"],
         "web_url": values["runner_fleet_github_web_url"],
         "private_key_secret_arn": values["runner_fleet_github_private_key_secret_arn"],
+        "token_broker_function": values["runner_fleet_token_broker_function"],
         "runner_labels": labels,
         "runner_variable_name": values["runner_fleet_variable_name"],
         "routing_enabled": routing_text == "true",
