@@ -194,7 +194,9 @@ def test_restore_refuses_unreplayable_grantor(monkeypatch):
         )
 
 
-def test_real_postgres_fence_blocks_ordinary_role_then_restores(monkeypatch):
+def test_real_postgres_fence_blocks_ordinary_role_then_restores(
+    monkeypatch, cluster_role_authority,
+):
     from psycopg import conninfo, sql
     from runtime.api.fixtures import pg_testdb
 

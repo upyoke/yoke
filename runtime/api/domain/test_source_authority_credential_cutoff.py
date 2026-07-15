@@ -197,7 +197,9 @@ def test_explicit_login_refusal_is_accepted_as_cutoff_proof(
     assert support.connection_or_none("password-bearing-dsn") is None
 
 
-def test_real_role_rotation_and_nologin_rejection(tmp_path: Path):
+def test_real_role_rotation_and_nologin_rejection(
+    tmp_path: Path, cluster_role_authority,
+):
     with pg_testdb.test_database() as conn:
         database, database_oid = conn.execute(
             "SELECT current_database(), oid FROM pg_database "
