@@ -13,7 +13,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
-from yoke_contracts.api_urls import HOSTED_PROD_URL, HOSTED_STAGE_URL
+from yoke_contracts.api_urls import (
+    DISTRIBUTION_PROD_URL,
+    HOSTED_PROD_API_URL,
+    HOSTED_STAGE_API_URL,
+)
 
 from yoke_core.domain import json_helper
 from yoke_core.tools import installer_live_tui_fleet as fleet
@@ -177,7 +181,7 @@ MANUAL_GITHUB_APP_RECIPE_IDS = {
     "STATE-002",
     "STATE-007",
 }
-PROD_BASE_URL = HOSTED_PROD_URL
+PROD_BASE_URL = DISTRIBUTION_PROD_URL
 PROD_TOKEN_FILE_ENV = "YOKE_INSTALLER_LIVE_PROD_TOKEN_FILE"
 REMOTE_PROD_TOKEN_PATH = "/tmp/yoke-prod.token"
 REMOTE_STAGE_TOKEN_PATH = "/tmp/yoke-stage.token"
@@ -3132,9 +3136,9 @@ def _state_recipe_template(
             "execution_mode": "ssh-command",
             "actions": [{"step": "000-env-switch"}],
             "expected_text": [
-                f'"api_url": "{HOSTED_STAGE_URL}"',
+                f'"api_url": "{HOSTED_STAGE_API_URL}"',
                 '"env": "stage"',
-                f'"api_url": "{HOSTED_PROD_URL}"',
+                f'"api_url": "{HOSTED_PROD_API_URL}"',
                 '"env": "prod"',
             ],
             "post_checks": ["secret_free", "no_text:Traceback"],
@@ -3777,8 +3781,8 @@ def _state_env_switch_command(base_url: str) -> str:
         "  'temp_root':'~/.yoke/tmp',\n"
         "  'cache_dir':'~/.yoke/cache',\n"
         "  'connections':{\n"
-        "    'stage':{'transport':'https','prod':False,'api_url':'" + HOSTED_STAGE_URL + "','credential_source':{'kind':'token_file','path':str(stage)}},\n"
-        "    'prod':{'transport':'https','prod':True,'api_url':'" + HOSTED_PROD_URL + "','credential_source':{'kind':'token_file','path':str(prod)}},\n"
+        "    'stage':{'transport':'https','prod':False,'api_url':'" + HOSTED_STAGE_API_URL + "','credential_source':{'kind':'token_file','path':str(stage)}},\n"
+        "    'prod':{'transport':'https','prod':True,'api_url':'" + HOSTED_PROD_API_URL + "','credential_source':{'kind':'token_file','path':str(prod)}},\n"
         "  },\n"
         "}\n"
         "config.write_text(json.dumps(payload,indent=2,sort_keys=True)+'\\n',encoding='utf-8')\n"

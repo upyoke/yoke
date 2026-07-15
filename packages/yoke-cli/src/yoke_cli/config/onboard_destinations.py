@@ -18,8 +18,8 @@ import urllib.parse
 
 from yoke_contracts.api_urls import (
     HOSTED_PLATFORM_URL,
-    HOSTED_PROD_URL,
-    HOSTED_STAGE_URL,
+    HOSTED_PROD_API_URL,
+    HOSTED_STAGE_API_URL,
 )
 
 DESTINATION_LOCAL = "local"
@@ -47,7 +47,9 @@ ENV_STAGE = "stage"
 #: keeps the same default label unless overridden).
 DEFAULT_SIGN_IN_ENV = ENV_PRODUCTION
 
-_HOSTED_URLS = frozenset(url.rstrip("/") for url in (HOSTED_PROD_URL, HOSTED_STAGE_URL))
+_HOSTED_URLS = frozenset(
+    url.rstrip("/") for url in (HOSTED_PROD_API_URL, HOSTED_STAGE_API_URL)
+)
 
 
 def is_hosted_url(api_url: object) -> bool:

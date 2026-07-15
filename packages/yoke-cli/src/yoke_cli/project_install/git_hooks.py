@@ -28,14 +28,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
-from yoke_contracts.api_urls import HOSTED_PROD_URL
+from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 
 GIT_HOOK_NAMES = ("pre-commit", "post-commit")
 
 # Reinstall hint printed when a hooked commit runs on a machine whose `yoke`
 # launcher is missing. The official distribution channel is the default; a
 # machine installed from another channel reruns its own installer command.
-INSTALL_COMMAND_HINT = f"curl -fsSL {HOSTED_PROD_URL}/install | bash"
+INSTALL_COMMAND_HINT = f"curl -fsSL {DISTRIBUTION_PROD_URL}/install | bash"
 
 PRE_COMMIT_MARKER = "yoke-pre-commit"
 PRE_COMMIT_SHIM = (
