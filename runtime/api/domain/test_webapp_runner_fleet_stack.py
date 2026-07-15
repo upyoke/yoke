@@ -168,6 +168,26 @@ def test_runner_network_omits_ssh_without_deployment_stacks(monkeypatch):
     assert not hasattr(recorder, "stack_references")
 
 
+def test_runner_network_deduplicates_same_ssh_destination(monkeypatch):
+    recorder, _stack = _runner_stack(
+        monkeypatch,
+        stack_reference_outputs={
+            "yoke-prod": {"originElasticIpAddress": "203.0.113.10"},
+            "yoke-stage": {"originElasticIpAddress": "203.0.113.10"},
+        },
+    )
+    egress = recorder.single("runnerFleetSecurityGroup").kwargs["egress"]
+    ssh_rules = [rule for rule in egress if rule.kwargs["from_port"] == 22]
+
+    assert [rule.kwargs["cidr_blocks"] for rule in ssh_rules] == [
+        ["203.0.113.10/32"],
+    ]
+    assert ssh_rules[0].kwargs["description"] == (
+        "SSH to deployment stack yoke-prod"
+    )
+    assert recorder.stack_references == ["yoke-prod", "yoke-stage"]
+
+
 def test_runner_network_rejects_non_ipv4_stack_output(monkeypatch):
     with pytest.raises(RuntimeError, match="must use an IPv4 Elastic IP"):
         _runner_stack(

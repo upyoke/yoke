@@ -25,6 +25,20 @@ class _FakeOutput:
             for part in parts
         )
 
+    @staticmethod
+    def all(*args, **kwargs):
+        def unwrap(value):
+            return value.value if isinstance(value, _FakeOutput) else value
+
+        if args and kwargs:
+            raise TypeError("Output.all accepts positional or keyword inputs")
+        resolved = (
+            [unwrap(value) for value in args]
+            if args
+            else {key: unwrap(value) for key, value in kwargs.items()}
+        )
+        return _FakeOutput(resolved)
+
 
 def _make_dynamic_module(recorder):
     dynamic = types.ModuleType("pulumi.dynamic")
