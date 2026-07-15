@@ -71,21 +71,20 @@ def create_runner_network(
             pulumi.ResourceOptions(depends_on=[route]),
         ),
     )
-    egress = [
-        _egress("HTTPS package and GitHub access", "tcp", 443, "0.0.0.0/0"),
-        _egress("HTTP package repositories", "tcp", 80, "0.0.0.0/0"),
-        _egress("VPC DNS over UDP", "udp", 53, "10.253.0.2/32"),
-        _egress("VPC DNS over TCP", "tcp", 53, "10.253.0.2/32"),
-    ]
-    for stack_name, output_name in deployment_ssh_stack_outputs.items():
-        egress.append(
-            _egress(
-                f"SSH to deployment stack {stack_name}",
-                "tcp",
-                22,
-                _deployment_ssh_cidr(stack_name, output_name),
-            )
+    deployment_cidrs = {
+        stack_name: _deployment_ssh_cidr(stack_name, output_name)
+        for stack_name, output_name in deployment_ssh_stack_outputs.items()
+    }
+    egress: pulumi.Input[list[aws.ec2.SecurityGroupEgressArgs]]
+    if deployment_cidrs:
+        egress = pulumi.Output.all(**deployment_cidrs).apply(
+            lambda resolved: [
+                *_base_egress(),
+                *_unique_deployment_ssh_egress(resolved),
+            ]
         )
+    else:
+        egress = _base_egress()
     security_group = aws.ec2.SecurityGroup(
         "runnerFleetSecurityGroup",
         vpc_id=vpc.id,
@@ -121,6 +120,36 @@ def _exact_ipv4_cidr(raw_address: object) -> str:
             "runner-fleet deployment bastion must use an IPv4 Elastic IP"
         )
     return f"{address}/32"
+
+
+def _base_egress() -> list[aws.ec2.SecurityGroupEgressArgs]:
+    return [
+        _egress("HTTPS package and GitHub access", "tcp", 443, "0.0.0.0/0"),
+        _egress("HTTP package repositories", "tcp", 80, "0.0.0.0/0"),
+        _egress("VPC DNS over UDP", "udp", 53, "10.253.0.2/32"),
+        _egress("VPC DNS over TCP", "tcp", 53, "10.253.0.2/32"),
+    ]
+
+
+def _unique_deployment_ssh_egress(
+    stack_cidrs: Mapping[str, str],
+) -> list[aws.ec2.SecurityGroupEgressArgs]:
+    """Return one AWS rule for each distinct network destination."""
+    rules: list[aws.ec2.SecurityGroupEgressArgs] = []
+    seen: set[str] = set()
+    for stack_name, cidr in stack_cidrs.items():
+        if cidr in seen:
+            continue
+        seen.add(cidr)
+        rules.append(
+            _egress(
+                f"SSH to deployment stack {stack_name}",
+                "tcp",
+                22,
+                cidr,
+            )
+        )
+    return rules
 
 
 def _egress(
