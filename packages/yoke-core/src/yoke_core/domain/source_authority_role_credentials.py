@@ -84,8 +84,13 @@ def prove_role_password_rotation(
 
 def prove_role_retired(
     conn: object, bundle: SourceCredentialBundle,
-) -> None:
-    """Prove the committed role state through the still-live admin session."""
+) -> dict[str, object]:
+    """Prove committed retirement through the still-live catalog authority.
+
+    Connection-time authentication errors are reported differently across
+    libpq builds.  The authenticated session instead reads the authoritative
+    role catalog after commit, without returning password-verifier material.
+    """
     row = conn.execute(
         "SELECT rolcanlogin, rolpassword FROM pg_authid WHERE rolname=%s",
         (bundle.admin_role,),
@@ -94,6 +99,11 @@ def prove_role_retired(
         raise SourceCredentialError(
             "live source role does not prove permanent credential retirement"
         )
+    return {
+        "method": "live-role-catalog-state",
+        "login_disabled": True,
+        "password_cleared": True,
+    }
 
 
 def _password_matches_verifier(password: str, role: str, verifier: str) -> bool:
