@@ -15,6 +15,7 @@ WEBAPP_BRAND = WEBAPP / "public" / "brand"
 
 BRAND_FILES = (
     Path("theme.css"),
+    Path("shell.css"),
     Path("logo/yoke.svg"),
     Path("logo/yoke-wordmark.svg"),
     Path("favicon/favicon.svg"),
@@ -37,6 +38,7 @@ def test_managed_webapp_brand_copy_matches_canonical_source(relative: Path):
     ("source", "consumer"),
     (
         ("theme.css", "theme.css"),
+        ("shell.css", "shell.css"),
         ("logo/yoke.svg", "yoke.svg"),
         ("logo/yoke-wordmark.svg", "yoke-wordmark.svg"),
         ("favicon/favicon.svg", "favicon.svg"),
@@ -51,6 +53,15 @@ def test_universe_ui_brand_copy_matches_canonical_source(
     assert (UI / consumer).read_bytes() == (BRAND / source).read_bytes()
 
 
-def test_managed_webapp_loads_the_canonical_theme_copy():
+def test_managed_webapp_loads_and_uses_the_canonical_frame():
     globals_css = (WEBAPP / "src" / "app" / "globals.css").read_text()
     assert '@import url("/brand/theme.css");' in globals_css
+    assert '@import url("/brand/shell.css");' in globals_css
+
+    top_bar = (WEBAPP / "src" / "components" / "top-bar.tsx").read_text()
+    for class_name in (
+        "yoke-app-header",
+        "yoke-header-brand",
+        "yoke-header-context",
+    ):
+        assert class_name in top_bar

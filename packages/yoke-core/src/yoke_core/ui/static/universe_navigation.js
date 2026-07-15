@@ -43,10 +43,7 @@ export const NAV = [
     id: "capabilities", label: "Capabilities", scope: SCOPE_MULTI,
     summary: "What Yoke can reach on your behalf, and when it last verified it.",
   },
-  {
-    id: "events", label: "Events", scope: SCOPE_MULTI,
-    summary: "What happened, in the order it happened.",
-  },
+  { id: "events", label: "Events", scope: SCOPE_MULTI },
   {
     id: "doctor", label: "Doctor", scope: SCOPE_MULTI,
     summary: "The health checks and what they found.",
@@ -55,10 +52,7 @@ export const NAV = [
     id: "ouroboros", label: "Ouroboros", scope: SCOPE_MULTI,
     summary: "What the system noticed about itself and what came of it.",
   },
-  {
-    id: "projects", label: "Projects", scope: SCOPE_NONE,
-    summary: "Every project in this universe.",
-  },
+  { id: "projects", label: "Projects", scope: SCOPE_NONE },
   {
     id: "access", label: "Access", scope: SCOPE_NONE,
     summary: "Who and what may act here, at the universe and per project.",
@@ -89,20 +83,32 @@ export function universeNavScope(view) {
   return navEntry(view).scope;
 }
 
+// `#/<view>[/<detail>][?project=<id>]`. The optional second segment is a
+// drill-in: one row of the view, reached from that row and carrying a
+// breadcrumb back. A drill-in is never a nav destination of its own — it has
+// no entry, and its parent view stays the active one.
 export function parseUniverseRoute(hash) {
   const raw = String(hash || "").replace(/^#\/?/, "");
-  const [viewPart, queryPart] = raw.split("?");
+  const [pathPart, queryPart] = raw.split("?");
+  const [viewPart, detailPart] = pathPart.split("/");
   const view = NAV.some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
   const project = new URLSearchParams(queryPart || "").get("project");
-  return { view, project };
+  // An unknown view falls back to the first destination, and its detail
+  // segment falls with it rather than being carried onto a view that never
+  // asked for one.
+  const detail = (view === viewPart && detailPart)
+    ? decodeURIComponent(detailPart) : null;
+  return { view, detail, project };
 }
 
-export function buildUniverseRoute(view, project) {
+export function buildUniverseRoute(view, project, detail = null) {
   const resolvedView = NAV.some((entry) => entry.id === view)
     ? view : NAV[0].id;
+  const detailPart = (resolvedView === view && detail)
+    ? `/${encodeURIComponent(detail)}` : "";
   const query = project ? `?project=${encodeURIComponent(project)}` : "";
-  return `#/${resolvedView}${query}`;
+  return `#/${resolvedView}${detailPart}${query}`;
 }
 
 export function knownProjectId(projects, candidate) {

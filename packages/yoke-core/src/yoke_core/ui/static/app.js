@@ -41,6 +41,9 @@ import {
   scopeForEntry,
   universeNavScope,
 } from "./universe_navigation.js";
+import {
+  DETAIL_RENDERERS, section, VIEW_RENDERERS,
+} from "./universe_views.js";
 
 export {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -65,133 +68,37 @@ function callFunction(client, functionId, payload, target) {
   return client.call(request);
 }
 
-// One titled section with a raw-JSON toggle showing the exact function-call
-// response envelope the section rendered from.
-function section(documentNode, title) {
-  const wrap = el(documentNode, "section", "panel");
-  const header = el(documentNode, "div", "panel-header");
-  header.appendChild(el(documentNode, "h2", null, title));
-  const toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
-  toggle.type = "button";
-  header.appendChild(toggle);
-  wrap.appendChild(header);
-
-  const body = el(documentNode, "div", "panel-body", "loading…");
-  wrap.appendChild(body);
-
-  const raw = el(documentNode, "pre", "raw-json");
-  raw.hidden = true;
-  wrap.appendChild(raw);
-  toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
-
-  wrap.renderEnvelope = (call_result, renderBody) => {
-    raw.textContent = JSON.stringify(call_result.envelope, null, 2);
-    body.replaceChildren();
-    renderBody(body, call_result);
-  };
-  return wrap;
-}
-
-function renderError(body, callResult) {
-  const envelope = callResult.envelope || {};
-  const detail = (envelope.error && envelope.error.message) ||
-    "request failed";
-  body.appendChild(el(
-    body.ownerDocument, "p", "error",
-    `read failed (HTTP ${callResult.status}): ${detail}`,
-  ));
-}
-
-// Render `rows` as a table whose `columns` each name a header label and a
-// per-row cell accessor. Empty rows render the view's own empty message.
-function renderTable(body, rows, columns, emptyText) {
-  const documentNode = body.ownerDocument;
-  if (rows.length === 0) {
-    body.appendChild(el(documentNode, "p", "empty", emptyText));
-    return;
+// Whoever the viewer is acting as. The engine models an actor as an id and a
+// kind and nothing else — a human actor has no name there, because a name
+// belongs to an account and accounts are the host's. So the chip shows the
+// host's label when it has one and falls back to the id, which is the only
+// thing the universe itself knows.
+function createActorChip(documentNode, actor) {
+  const chip = el(documentNode, "span", "actor-chip");
+  const name = actor.label || `actor ${actor.id}`;
+  chip.appendChild(el(documentNode, "span", "actor-name", name));
+  // A system actor is not a person, and a screen that lets the two look alike
+  // invites reading automated work as somebody's.
+  if (actor.kind === "system") {
+    chip.appendChild(el(
+      documentNode, "span", "actor-kind",
+      actor.systemComponent || "system",
+    ));
   }
-  const table = el(documentNode, "table", "items");
-  const head = el(documentNode, "tr");
-  for (const column of columns) {
-    head.appendChild(el(documentNode, "th", null, column.label));
-  }
-  table.appendChild(head);
-  for (const row of rows) {
-    const tr = el(documentNode, "tr");
-    for (const column of columns) {
-      tr.appendChild(el(
-        documentNode, "td", null, String(column.value(row) ?? ""),
-      ));
-    }
-    table.appendChild(tr);
-  }
-  body.appendChild(table);
+  return chip;
 }
 
-async function loadSection(
-  context, panel, functionId, payload, renderBody, target,
-) {
-  let callResult;
-  try {
-    callResult = await callFunction(
-      context.client, functionId, payload, target,
-    );
-  } catch (fetchError) {
-    // Network-level failure (server gone, connection refused): status 0
-    // marks "no HTTP response" and the panel shows the failure instead
-    // of sticking at "loading…".
-    callResult = {
-      status: 0,
-      envelope: { success: false, error: { message: String(fetchError) } },
-    };
-  }
-  if (!context.isMounted()) return;
-  const ok = callResult.status === 200 && callResult.envelope.success;
-  panel.renderEnvelope(callResult, ok ? renderBody : renderError);
+// The way back out of a drill-in, naming the view it belongs to. It carries
+// the view's project so returning lands on the same rows the row came from.
+function createBreadcrumb(documentNode, entry, project, detail) {
+  const bar = el(documentNode, "div", "breadcrumb");
+  const back = el(documentNode, "a", "breadcrumb-parent", entry.label);
+  back.href = buildUniverseRoute(entry.id, project);
+  bar.appendChild(back);
+  bar.appendChild(el(documentNode, "span", "breadcrumb-sep", "/"));
+  bar.appendChild(el(documentNode, "span", "breadcrumb-here", String(detail)));
+  return bar;
 }
-
-function renderItemsView(context, main, projectId) {
-  const panel = section(context.document, "Items");
-  main.replaceChildren(panel);
-  loadSection(
-    context, panel,
-    "items.list.run",
-    { fields: ["id", "title", "status"], project: String(projectId) },
-    (body, callResult) => {
-      const rows = (callResult.envelope.result || {}).rows || [];
-      renderTable(body, rows, [
-        { label: "id", value: (row) => row.id },
-        { label: "title", value: (row) => row.title },
-        { label: "status", value: (row) => row.status },
-      ], "no items yet");
-    },
-  );
-}
-
-function renderStrategyView(context, main, projectId) {
-  const panel = section(context.document, "Strategy");
-  main.replaceChildren(panel);
-  loadSection(
-    context, panel,
-    "strategy.doc.list",
-    {},
-    (body, callResult) => {
-      const docs = (callResult.envelope.result || {}).docs || [];
-      renderTable(body, docs, [
-        { label: "slug", value: (doc) => doc.slug },
-        { label: "title", value: (doc) => doc.title },
-        { label: "status", value: (doc) => (doc.archived ? "archived" : "active") },
-      ], "no strategy docs yet");
-    },
-    // Strategy docs are project-scoped through the target, not the payload.
-    { kind: "global", project_id: String(projectId) },
-  );
-}
-
-const VIEW_RENDERERS = {
-  items: renderItemsView,
-  strategy: renderStrategyView,
-};
 
 function emptyUniversePanel(documentNode) {
   const panel = section(documentNode, "Universe");
@@ -222,22 +129,32 @@ export function mountUniverseApp(rootNode, options = {}) {
   const resolvedSlots = materializeSlots(slots, rootNode);
   const mountedSlotNodes = [];
   let mounted = true;
+  let projects = [];
   const context = {
     client,
     document: documentNode,
     isMounted: () => mounted,
+    // The roster the scope pickers already hold, so a view that only lists
+    // projects costs no second call.
+    projects: () => projects,
   };
 
-  const brand = el(documentNode, "div", "brand");
+  const brand = el(documentNode, "div", "brand yoke-header-brand");
   brand.style.color = "var(--yoke-ink)";
   const orgContext = el(documentNode, "span", "org-context", "…");
-  const contextSide = el(documentNode, "div", "context-side");
+  const contextSide = el(documentNode, "div", "context-side yoke-header-context");
   const capabilityActions = renderCapabilityActions(
     documentNode, capabilities,
   );
   if (capabilityActions) contextSide.appendChild(capabilityActions);
+  // A host with a sign-in door names the viewer; a local universe admits a
+  // loopback token rather than an actor, so it supplies none and the chip is
+  // simply absent — never a greyed-out chip that names nobody.
+  if (options.currentActor) {
+    contextSide.appendChild(createActorChip(documentNode, options.currentActor));
+  }
   contextSide.appendChild(orgContext);
-  const header = el(documentNode, "header", "topbar");
+  const header = el(documentNode, "header", "topbar yoke-app-header");
   appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(brand);
   header.appendChild(contextSide);
@@ -278,7 +195,6 @@ export function mountUniverseApp(rootNode, options = {}) {
     })
     .catch(() => { if (mounted) orgContext.textContent = ""; });
 
-  let projects = [];
   // Each visited scoped view remembers its own project.
   const scopeSelections = new Map();
 
@@ -302,6 +218,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       link.classList.toggle("active", navItem.id === entry.id);
     }
 
+    const detailRenderer = route.detail ? DETAIL_RENDERERS[entry.id] : null;
     const renderer = VIEW_RENDERERS[entry.id];
     if (!renderer) {
       renderStubView(context, main, entry);
@@ -313,6 +230,17 @@ export function mountUniverseApp(rootNode, options = {}) {
     }
     if (project === null) {
       main.replaceChildren(emptyUniversePanel(documentNode));
+      return;
+    }
+    if (detailRenderer) {
+      // A drill-in swaps the view's picker for a breadcrumb: re-scoping a
+      // single row to another project is nonsense, and the way out is back.
+      const detailHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(
+        createBreadcrumb(documentNode, entry, project, route.detail),
+        detailHost,
+      );
+      detailRenderer(context, detailHost, project, route.detail);
       return;
     }
     // The picker is the view's own chrome, so it sits in the content column
