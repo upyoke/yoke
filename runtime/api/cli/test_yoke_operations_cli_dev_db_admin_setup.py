@@ -144,6 +144,58 @@ def test_dev_db_admin_setup_apply_uses_managed_secret_and_removes_snapshot(
     }
 
 
+def test_dev_db_admin_setup_can_mark_production_admin_authority(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    from yoke_cli.config import db_admin_setup as config
+
+    machine_home = tmp_path / "machine-home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(machine_home))
+    config_path = machine_home / "config.json"
+    monkeypatch.setattr(
+        config,
+        "_resolve_environment",
+        lambda project, env_name: _env(project=project, env_name=env_name),
+    )
+    monkeypatch.setattr(
+        config,
+        "_resolve_environment_dsn",
+        lambda env, emit=None: (
+            "host=prod.cluster.internal port=5432 user=yoke_admin "
+            "password=top-secret dbname=yoke_prod",
+            {
+                "databaseClusterEndpoint": "prod.cluster.internal",
+                "databaseSecretArn": (
+                    "arn:aws:secretsmanager:us-east-1:123456789012:secret:yoke-prod"
+                ),
+            },
+        ),
+    )
+
+    rc = yoke_operations_cli.main(
+        [
+            "dev",
+            "db-admin",
+            "setup",
+            "prod",
+            "--prod",
+            "--config",
+            str(config_path),
+            "--yes",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "top-secret" not in captured.out
+    assert "top-secret" not in captured.err
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    assert payload["connections"]["prod-db-admin"]["prod"] is True
+
+
 def test_dev_db_admin_setup_refuses_render_only(monkeypatch, capsys) -> None:
     from yoke_cli.config import db_admin_setup as config
 

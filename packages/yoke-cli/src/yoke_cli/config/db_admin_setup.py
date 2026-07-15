@@ -56,6 +56,7 @@ def build_report(
     apply: bool,
     set_active_env: bool,
     allow_render_only: bool,
+    prod: bool = False,
     emit: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """Plan or apply one machine-local db-admin profile."""
@@ -124,6 +125,7 @@ def build_report(
         config_path=config_path,
         postgres=postgres,
         authority=authority,
+        prod=prod,
         set_active_env=set_active_env,
     )
     superseded_removed = machine_config_file.remove_file(superseded_secret_path)
@@ -254,6 +256,7 @@ def _write_connection(
     config_path: str | Path | None,
     postgres: Mapping[str, Any],
     authority: Mapping[str, Any],
+    prod: bool,
     set_active_env: bool,
 ) -> dict[str, Any]:
     cfg_path = machine_config.config_path(config_path)
@@ -270,7 +273,7 @@ def _write_connection(
                     )
                 entry = {
                     "transport": "local-postgres",
-                    contract.PROD_FLAG_KEY: False,
+                    contract.PROD_FLAG_KEY: bool(prod),
                     "credential_source": dict(credential_source),
                     "postgres": dict(postgres),
                     "authority": dict(authority),

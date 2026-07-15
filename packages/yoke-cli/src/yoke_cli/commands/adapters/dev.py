@@ -36,7 +36,8 @@ DEV_PATH_SNAPSHOT_PREWARM_USAGE = (
 DEV_DB_ADMIN_SETUP_USAGE = (
     "yoke dev db-admin setup ENV [--project PROJECT] [--admin-env ENV] "
     "[--local-port PORT] [--secret-name NAME] [--set-active-env] "
-    "[--allow-render-only] [--yes | --dry-run] [--json]"
+    "[--allow-render-only] [--prod | --non-prod] "
+    "[--yes | --dry-run] [--json]"
 )
 PROJECT_ID_ENV = "YOKE_PROJECT_ID"
 DEFAULT_PROJECT_ID = "yoke"
@@ -179,10 +180,13 @@ def dev_db_admin_setup(args: List[str]) -> int:
     parser.add_argument("--secret-name", default=None)
     parser.add_argument("--set-active-env", action="store_true")
     parser.add_argument("--allow-render-only", action="store_true")
+    production = parser.add_mutually_exclusive_group()
+    production.add_argument("--prod", dest="prod", action="store_true")
+    production.add_argument("--non-prod", dest="prod", action="store_false")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--yes", dest="apply", action="store_true")
     mode.add_argument("--dry-run", dest="dry_run", action="store_true")
-    parser.set_defaults(apply=False, dry_run=False)
+    parser.set_defaults(apply=False, dry_run=False, prod=False)
     add_json_arg(parser)
     attach_field_note_footer(parser)
     parsed = parse_or_usage_error(parser, args, DEV_DB_ADMIN_SETUP_USAGE)
@@ -199,6 +203,7 @@ def dev_db_admin_setup(args: List[str]) -> int:
             apply=parsed.apply,
             set_active_env=parsed.set_active_env,
             allow_render_only=parsed.allow_render_only,
+            prod=parsed.prod,
         )
     except db_admin_setup_config.DbAdminSetupError as exc:
         print(f"error: {exc}", file=sys.stderr)
