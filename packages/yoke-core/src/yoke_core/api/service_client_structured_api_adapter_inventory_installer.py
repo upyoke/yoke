@@ -15,6 +15,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     _read_entry(function_id="status.run", cli_invocation="yoke status [--json]", notes="Reports machine config, resolver, board, and runtime health."),
     AdapterEntry(function_id="env.use.run", cli_invocation="yoke env use ENV", notes="Machine-local: flips active_env in ~/.yoke/config.json."),
     AdapterEntry(function_id="connection.set.run", cli_invocation="yoke connection set ENV [CREDENTIAL|DSN] [...]", notes="Machine-local connection update; direct credential/DSN is the default and secrets land in ~/.yoke/secrets."),
+    AdapterEntry(function_id="connection.remove.run", cli_invocation="yoke connection remove ENV", notes="Owner-only inactive alias retirement with Yoke-owned credential cleanup; active authority and non-owned secret paths are refused."),
     AdapterEntry(function_id="auth.set.run", cli_invocation="yoke auth set ENV CREDENTIAL", notes="Machine-local credential rotation; direct credential is the default, with --token-file/--token-stdin/--dsn/--dsn-file/--dsn-stdin for scripted inputs."),
     AdapterEntry(function_id="project.register.run", cli_invocation="yoke project register REPO_ROOT --project-id N", notes="Machine-local checkout -> (env, project id) mapping."),
     AdapterEntry(function_id="config.stamp_project_env.run", cli_invocation="yoke config stamp-project-env", notes="Machine-local: stamps untagged projects entries with the selected connection env (default active_env)."),

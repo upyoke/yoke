@@ -1,13 +1,22 @@
-"""Validated GitHub Actions identifiers used in REST path segments."""
+"""Validation and URL quoting for GitHub Actions repository config paths."""
 
 from __future__ import annotations
 
 import re
 from typing import Annotated
+from urllib.parse import quote
 
 from pydantic import AfterValidator
 
 
+REPO_SLUG_PATTERN = (
+    r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?"
+    r"/[A-Za-z0-9_.-]{1,100}$"
+)
+CONFIG_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]{0,99}$"
+
+_REPO_SLUG_RE = re.compile(REPO_SLUG_PATTERN)
+_CONFIG_NAME_RE = re.compile(CONFIG_NAME_PATTERN)
 _WORKFLOW_SEGMENT = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
@@ -40,9 +49,28 @@ WorkflowIdentifier = Annotated[str, AfterValidator(validate_workflow_identifier)
 WorkflowRunId = Annotated[str, AfterValidator(validate_run_id)]
 
 
+def repository_api_path(repo: str) -> str:
+    """Return a validated, segment-quoted ``/repos/owner/name`` path."""
+    if _REPO_SLUG_RE.fullmatch(repo) is None:
+        raise ValueError("GitHub repository must be a canonical owner/name slug")
+    owner, name = repo.split("/", 1)
+    if name in {".", ".."}:
+        raise ValueError("GitHub repository name is not canonical")
+    return f"/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+
+
+def config_name_path(name: str) -> str:
+    """Return one validated, URL-quoted Actions secret/variable name."""
+    if _CONFIG_NAME_RE.fullmatch(name) is None:
+        raise ValueError(
+            "GitHub Actions config name must start with a letter or underscore "
+            "and contain only letters, digits, and underscores"
+        )
+    return quote(name, safe="")
+
+
 __all__ = [
-    "WorkflowIdentifier",
-    "WorkflowRunId",
-    "validate_run_id",
-    "validate_workflow_identifier",
+    "CONFIG_NAME_PATTERN", "REPO_SLUG_PATTERN", "config_name_path",
+    "repository_api_path", "validate_run_id", "validate_workflow_identifier",
+    "WorkflowIdentifier", "WorkflowRunId",
 ]

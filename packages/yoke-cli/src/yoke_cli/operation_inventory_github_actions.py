@@ -23,8 +23,10 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Repo secret/variable writers arm CI and rotate configuration without a
     # host GitHub CLI or a bearer token in the operator shell.
     _w("yoke github-actions secret set", "github_actions"),
+    _w("yoke github-actions secret delete", "github_actions"),
     _w("yoke github-actions variable get", "github_actions"),
     _w("yoke github-actions variable set", "github_actions"),
+    _w("yoke github-actions variable delete", "github_actions"),
 )
 
 

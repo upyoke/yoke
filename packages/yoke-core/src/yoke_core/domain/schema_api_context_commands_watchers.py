@@ -42,15 +42,19 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run pytest with background watcher (main session)",
         "recipe": (
+            "python3 -m yoke_core.tools.watch_pytest -- "
+            "runtime/api/ runtime/harness/ tests/\n"
+            "# Canonical full Yoke gate. For a harness background stream:\n"
             "python3 -m yoke_core.tools.watch_pytest "
-            "--print-streaming-pair -- runtime/api/\n"
+            "--print-streaming-pair -- runtime/api/ runtime/harness/ tests/\n"
             "# Paste the printed pair into the harness's "
             "background + progress-tail surfaces.\n"
             "# After completion: tail -80 <raw-capture> "
             "(the helper-resolved path the wrapper printed)"
         ),
         "notes": (
-            "Parallel by default (-n auto); pass --no-parallel after `--` "
+            "This exact three-suite target is the canonical full Yoke gate; "
+            "it injects xdist `-n auto`. Pass --no-parallel after `--` "
             "for sequential order-sensitive debugging. The wrapper mints "
             "the raw + progress capture pair via "
             "yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair "

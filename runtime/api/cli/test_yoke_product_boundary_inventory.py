@@ -81,6 +81,14 @@ def test_dynamic_import_classification_is_loaded_from_boundary_facts():
             "source_dev_admin",
         ),
     }
+    source_authority = rows["yoke source-authority quiesce"]
+    assert (
+        "yoke_core.domain.source_authority_cutover",
+        "source_dev_admin",
+    ) in {
+        (edge.target, edge.classification)
+        for edge in source_authority.import_edges
+    }
 
 
 def test_local_universe_dispatch_edges_stay_product_path():

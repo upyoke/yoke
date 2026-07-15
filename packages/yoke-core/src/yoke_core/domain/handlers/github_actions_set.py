@@ -1,4 +1,4 @@
-"""Handlers for ``github_actions.secret.set`` / ``github_actions.variable.set``.
+"""Handlers for GitHub Actions secret/variable set and delete operations.
 
 bearer-token GitHub Actions repo-config writers so CI arming and
 rotation recipes run with no host GitHub CLI binary:
@@ -9,6 +9,8 @@ rotation recipes run with no host GitHub CLI binary:
 - ``github_actions.variable.set`` routes through
   :func:`yoke_core.domain.github_variables_rest.set_repo_variable`
   (PATCH-then-POST upsert).
+- the matching ``*.delete`` functions provide authenticated post-window
+  retirement without host GitHub credentials.
 
 Secret hygiene: the secret value travels only inside the function-call
 payload (the dispatcher records payload byte count + sha256 checksum,
@@ -34,11 +36,15 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_VARIABLES_WRITE_PERMISSION_LEVELS,
 )
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
+from yoke_core.domain.github_actions_identifiers import (
+    CONFIG_NAME_PATTERN,
+    repository_api_path,
+)
 
 
 class SecretSetRequest(BaseModel):
-    repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
-    name: str = Field(..., min_length=1, description="Actions secret name.")
+    repo: str = Field(..., min_length=3)
+    name: str = Field(..., pattern=CONFIG_NAME_PATTERN)
     value: str = Field(
         ..., min_length=1,
         description="Secret value; never logged, never echoed in responses.",
@@ -57,8 +63,8 @@ class SecretSetResponse(BaseModel):
 
 
 class VariableSetRequest(BaseModel):
-    repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
-    name: str = Field(..., min_length=1, description="Actions variable name.")
+    repo: str = Field(..., min_length=3)
+    name: str = Field(..., pattern=CONFIG_NAME_PATTERN)
     value: str = Field(..., description="Variable value (non-secret plaintext).")
     project: str = Field(
         ...,
@@ -146,11 +152,14 @@ def _validate_and_resolve_auth(
         return None, None, _bad_request(safe_validation_message(exc))
 
     repo = getattr(payload, "repo", None)
-    if repo is not None and "/" not in repo:
-        return None, None, _bad_request(
-            f"repo must be owner/name, got {repo!r}",
-            jsonpath="$.payload.repo",
-        )
+    if repo is not None:
+        try:
+            repository_api_path(repo)
+        except ValueError:
+            return None, None, _bad_request(
+                f"repo must be canonical owner/name, got {repo!r}",
+                jsonpath="$.payload.repo",
+            )
 
     from yoke_core.domain.project_github_auth import (
         MissingPermission,

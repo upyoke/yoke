@@ -173,6 +173,33 @@ def test_repo_secret_exists_true_and_false(monkeypatch):
     )
 
 
+def test_delete_repo_secret_uses_delete(monkeypatch):
+    received = _install_fake_urlopen(monkeypatch, [_FakeResponse(204, b"")])
+    mod.delete_repo_secret("owner/repo", "OLD", token="ghs_delete_test")
+    assert received[0]["method"] == "DELETE"
+    assert received[0]["url"].endswith("/repos/owner/repo/actions/secrets/OLD")
+
+
+@pytest.mark.parametrize("name", ["../variables/X", "A/B", "-BAD", "A%2FB"])
+def test_secret_paths_reject_noncanonical_names(name, monkeypatch):
+    monkeypatch.setattr(
+        mod, "request_with_retry",
+        lambda *_args, **_kwargs: pytest.fail("invalid name reached transport"),
+    )
+    with pytest.raises(ValueError, match="config name"):
+        mod.delete_repo_secret("owner/repo", name, token="unused")
+    with pytest.raises(ValueError, match="config name"):
+        mod.set_repo_secret("owner/repo", name, "value", token="unused")
+    with pytest.raises(ValueError, match="config name"):
+        mod.repo_secret_exists("owner/repo", name, token="unused")
+
+
+@pytest.mark.parametrize("repo", ["owner/repo/extra", "../repo", "owner/%2F"])
+def test_secret_paths_reject_noncanonical_repositories(repo):
+    with pytest.raises(ValueError, match="repository"):
+        mod.fetch_public_key(repo, token="unused")
+
+
 def test_set_repo_secret_propagates_transport_errors(monkeypatch):
     import urllib.error
 

@@ -173,6 +173,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke onboard checklist init", "onboard"),
     _w("yoke env use", "env"),
     _w("yoke connection set", "connection"),
+    _w("yoke connection remove", "connection"),
     _w("yoke auth set", "auth"),
     _w("yoke project register", "project"),
     _w("yoke project install", "project"),
@@ -254,6 +255,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # dispatcher function id.
     _p("yoke universe export", "local_universe.export", REASON_TOOL_SHAPED),
     _p("yoke universe validate", "local_universe.validate", REASON_TOOL_SHAPED),
+    _p("yoke source-authority quiesce", "source_authority.quiesce", REASON_TOOL_SHAPED),
+    _p("yoke source-authority export", "source_authority.export", REASON_TOOL_SHAPED),
     # Self-host mode: bundle materialization writes compose files on the
     # caller's machine; connect verifies a server then writes machine
     # config + a token secret file. Both run before/without an active

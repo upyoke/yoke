@@ -113,6 +113,8 @@ def export_universe(
     *,
     out: Optional[Union[str, Path]] = None,
     dsn: Optional[str] = None,
+    snapshot: Optional[str] = None,
+    org_slug: Optional[str] = None,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
     """Dump the active universe's database to one custom-format artifact.
@@ -128,9 +130,9 @@ def export_universe(
     path, size, org slug, and archive format.
     """
     resolved_dsn = dsn if dsn is not None else resolve_export_dsn()
-    org_slug = _org_slug(resolved_dsn)
-    dest = _resolve_destination(out, org_slug)
-    emit(f"  [universe-export] dumping org {org_slug!r} universe -> {dest}")
+    selected_org = str(org_slug or _org_slug(resolved_dsn))
+    dest = resolve_export_destination(out, selected_org)
+    emit(f"  [universe-export] dumping org {selected_org!r} universe -> {dest}")
     timeout = runtime_settings.get_seconds(
         EXPORT_TIMEOUT_SETTING,
         DEFAULT_EXPORT_TIMEOUT_S,
@@ -140,6 +142,7 @@ def export_universe(
             resolved_dsn,
             dest,
             timeout_s=timeout,
+            snapshot=snapshot,
         )
     except universe_portability.UniversePortabilityError as exc:
         if isinstance(exc.__cause__, FileNotFoundError):
@@ -159,7 +162,7 @@ def export_universe(
         "artifact": str(dest),
         "bytes": size_bytes,
         "format": ARTIFACT_FORMAT,
-        "org": org_slug,
+        "org": selected_org,
     }
 
 
@@ -195,7 +198,7 @@ def _org_slug(dsn: str) -> str:
     return str(row[0]).strip()
 
 
-def _resolve_destination(
+def resolve_export_destination(
     out: Optional[Union[str, Path]],
     org_slug: str,
 ) -> Path:
@@ -224,5 +227,6 @@ __all__ = [
     "UniverseExportError",
     "default_artifact_name",
     "export_universe",
+    "resolve_export_destination",
     "resolve_export_dsn",
 ]

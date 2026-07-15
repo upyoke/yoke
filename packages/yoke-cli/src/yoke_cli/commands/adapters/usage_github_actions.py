@@ -10,6 +10,10 @@ from yoke_cli.commands.adapters.github_actions import (
     GITHUB_ACTIONS_VARIABLE_GET_USAGE,
     GITHUB_ACTIONS_VARIABLE_SET_USAGE,
 )
+from yoke_cli.commands.adapters.github_actions_delete import (
+    GITHUB_ACTIONS_SECRET_DELETE_USAGE,
+    GITHUB_ACTIONS_VARIABLE_DELETE_USAGE,
+)
 from yoke_cli.commands.adapters.github_actions_run_wait import (
     GITHUB_ACTIONS_WAIT_RUN_USAGE,
 )
@@ -33,8 +37,10 @@ USAGE_BY_FUNCTION_ID: Dict[str, str] = {
     "github_actions.wait_run": GITHUB_ACTIONS_WAIT_RUN_USAGE,
     "github_actions.runners.status": GITHUB_ACTIONS_RUNNERS_STATUS_USAGE,
     "github_actions.secret.set": GITHUB_ACTIONS_SECRET_SET_USAGE,
+    "github_actions.secret.delete": GITHUB_ACTIONS_SECRET_DELETE_USAGE,
     "github_actions.variable.get": GITHUB_ACTIONS_VARIABLE_GET_USAGE,
     "github_actions.variable.set": GITHUB_ACTIONS_VARIABLE_SET_USAGE,
+    "github_actions.variable.delete": GITHUB_ACTIONS_VARIABLE_DELETE_USAGE,
 }
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import hashlib
 import math
 import os
 import re
@@ -18,6 +19,7 @@ import psycopg
 from psycopg import conninfo, pq, sql
 
 from yoke_core.domain import postgres_binaries, postgres_cluster, universe_archive_output
+from yoke_core.domain.source_authority_connect_policy import FENCE_STATE_SCHEMA
 
 
 _log = logging.getLogger("yoke.universe.portability")
@@ -45,6 +47,7 @@ _SETVAL_RE = re.compile(
     r"(?:::\w+)?\s*,\s*(-?\d+)\s*,\s*(true|false)\);\r?\n$"
 )
 _SAFE_RESTORE_OBJECT_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
+_EXPORTED_SNAPSHOT_RE = re.compile(r"^[0-9A-Fa-f]+(?:-[0-9A-Fa-f]+)+$")
 _RESTORE_SET_RE = re.compile(
     r"^SET (?:statement_timeout|lock_timeout|"
     r"idle_in_transaction_session_timeout|transaction_timeout|"
@@ -133,8 +136,10 @@ _DUMPED_BY_RE = re.compile(r"^;\s+Dumped by pg_dump version:\s+(.+)$", re.M)
 # trusted schema owns every object and column; this manifest names only
 # previously shipped, lossless schema evolutions that the loader may bridge.
 # Any unlisted table or column drift remains a compatibility error.
-_ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset()
-_ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset()
+_ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset({"capability_secrets"})
+_ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset({"capability_secrets_id_seq"})
+_ARCHIVE_FORBIDDEN_TABLE_DATA = frozenset({"capability_secrets"})
+_ARCHIVE_FORBIDDEN_SEQUENCE_DATA = frozenset({"capability_secrets_id_seq"})
 _ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
     "project_github_repo_bindings": frozenset(
         {"last_sync_at", "last_sync_outcome", "last_sync_error"}
@@ -246,6 +251,10 @@ class ArchiveInspection:
     dumped_from_postgres: str
     dumped_by_pg_dump: str
     table_entries: int
+    archive_sha256: str = ""
+    catalog_tables: tuple[str, ...] = ()
+    catalog_sequences: tuple[str, ...] = ()
+    catalog_digest: str = ""
 
 
 def _postgres_executable(name: str) -> str:
@@ -444,6 +453,20 @@ def _validate_catalog(catalog: str) -> int:
         if not line or line.startswith(";"):
             continue
         kind, _namespace = _toc_kind_and_namespace(line)
+        if kind == "TABLE DATA" and any(
+            f" TABLE DATA public {table} " in line
+            for table in _ARCHIVE_FORBIDDEN_TABLE_DATA
+        ):
+            raise ArchiveInvalidError(
+                "the universe archive contains environment-owned secret data"
+            )
+        if kind == "SEQUENCE SET" and any(
+            f" SEQUENCE SET public {sequence} " in line
+            for sequence in _ARCHIVE_FORBIDDEN_SEQUENCE_DATA
+        ):
+            raise ArchiveInvalidError(
+                "the universe archive contains environment-owned secret sequence data"
+            )
         if kind in ("TABLE", "TABLE DATA"):
             table_entries += 1
         if kind == "TABLE" and " TABLE public organizations " in line:
@@ -525,8 +548,40 @@ def _inspect_archive(
         dumped_from_postgres=dumped_from.group(1).strip(),
         dumped_by_pg_dump=dumped_by.group(1).strip(),
         table_entries=table_entries,
+        archive_sha256=_file_sha256(archive),
+        catalog_tables=tuple(sorted(_catalog_data_targets(catalog)[0])),
+        catalog_sequences=tuple(sorted(_catalog_data_targets(catalog)[1])),
+        catalog_digest=_catalog_digest(catalog),
     )
     return inspection, catalog
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(_PUMP_CHUNK_BYTES), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _catalog_digest(catalog: str) -> str:
+    tables, sequences = _catalog_data_targets(catalog)
+    canonical = "\n".join(sorted(tables)) + "\n--sequences--\n" + "\n".join(
+        sorted(sequences)
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def archive_catalog_receipt(inspection: ArchiveInspection) -> dict[str, object]:
+    """Return the exact portable data catalog without archive contents."""
+    return {
+        "archive_sha256": inspection.archive_sha256,
+        "bytes": inspection.size_bytes,
+        "tables": list(inspection.catalog_tables),
+        "sequences": list(inspection.catalog_sequences),
+        "catalog_digest": inspection.catalog_digest,
+        "table_entries": inspection.table_entries,
+    }
 
 
 def inspect_archive(
@@ -553,12 +608,17 @@ def dump_universe(
     max_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
     timeout_s: int = DEFAULT_ARCHIVE_TIMEOUT_S,
     pg_dump: Optional[str] = None,
+    snapshot: Optional[str] = None,
 ) -> ArchiveInspection:
     """Create and inspect one portable dump, deleting every failed artifact."""
     dest = Path(destination)
     dest.parent.mkdir(parents=True, exist_ok=True)
     executable = pg_dump or _postgres_executable("pg_dump")
+    if snapshot is not None and _EXPORTED_SNAPSHOT_RE.fullmatch(snapshot) is None:
+        raise UniversePortabilityError("exported PostgreSQL snapshot id is invalid")
     client_env = postgres_client_env(dsn)
+    if snapshot is not None:
+        client_env["PGAPPNAME"] = "yoke-source-authority-pg-dump"
     try:
         archive_output = universe_archive_output.prepare_private_archive_output(dest)
     except universe_archive_output.PrivateArchiveOutputError as exc:
@@ -567,15 +627,20 @@ def dump_universe(
     stderr_tail = bytearray()
     pump_errors: list[BaseException] = []
     try:
-        process = subprocess.Popen(
-            [
+        argv = [
                 executable,
                 "--format=custom",
                 "--no-owner",
                 "--no-privileges",
                 "--no-comments",
                 "--no-security-labels",
-            ],
+                "--exclude-table=public.capability_secrets",
+                f"--exclude-schema={FENCE_STATE_SCHEMA}",
+            ]
+        if snapshot is not None:
+            argv.append(f"--snapshot={snapshot}")
+        process = subprocess.Popen(
+            argv,
             env=client_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1542,6 +1607,7 @@ __all__ = [
     "UniversePortabilityError",
     "USER_CONTENT_TABLES",
     "all_table_row_counts",
+    "archive_catalog_receipt",
     "converge_and_validate_restored_universe",
     "dump_universe",
     "inspect_archive",

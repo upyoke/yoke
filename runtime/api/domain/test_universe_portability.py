@@ -17,6 +17,7 @@ from yoke_core.domain import universe_portability as portability
 from yoke_core.domain.schema_fingerprint import (
     fingerprint_portable_postgres_schema,
 )
+from yoke_core.domain.source_authority_receipts import authority_receipt
 
 
 @contextmanager
@@ -145,6 +146,21 @@ def test_catalog_allowlist_omits_executable_schema_and_refuses_unknown(tmp_path)
     )
     with pytest.raises(portability.ArchiveInvalidError, match="outside public"):
         portability._validate_catalog(foreign_schema)
+
+    secret_data = catalog.replace(
+        "TABLE DATA public organizations",
+        "TABLE DATA public capability_secrets",
+    )
+    with pytest.raises(portability.ArchiveInvalidError, match="secret data"):
+        portability._validate_catalog(secret_data)
+
+    secret_sequence = catalog.replace(
+        "4; 0 4 TABLE DATA public organizations yoke",
+        "4; 0 4 TABLE DATA public organizations yoke\n"
+        "5; 0 5 SEQUENCE SET public capability_secrets_id_seq yoke",
+    )
+    with pytest.raises(portability.ArchiveInvalidError, match="secret sequence"):
+        portability._validate_catalog(secret_sequence)
 
 
 def test_catalog_reader_has_a_hard_memory_ceiling(monkeypatch):
@@ -380,6 +396,70 @@ def test_server_side_dump_enforces_size_while_streaming(tmp_path):
     assert not destination.exists()
 
 
+def test_dump_rejects_snapshot_option_injection_before_subprocess(tmp_path):
+    with pytest.raises(portability.UniversePortabilityError, match="snapshot id"):
+        portability.dump_universe(
+            "dbname=unused", tmp_path / "unsafe.dump",
+            snapshot="valid --file=/tmp/injected",
+        )
+
+
+def test_real_dump_uses_one_exported_repeatable_read_snapshot(tmp_path):
+    from runtime.api.fixtures import pg_testdb
+    from yoke_core.domain import source_authority_connect_policy as fence_policy
+
+    with _canonical_test_universe() as (source, source_dsn):
+        admin_role = str(source.execute("SELECT current_user").fetchone()[0])
+        fence_policy.create_fence_state(
+            source,
+            original={
+                "schema": fence_policy.FENCE_POLICY_SCHEMA,
+                "admin_role": admin_role,
+            },
+            frozen_at="2026-07-14T00:00:00Z",
+            service_stop_receipt="service-stopped",
+        )
+        source.execute(
+            "INSERT INTO projects "
+            "(id, slug, name, public_item_prefix, created_at) "
+            "VALUES (87001, 'snapshot-before', 'Before', 'SNP', now())"
+        )
+        source.commit()
+        source.execute(
+            "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+        )
+        snapshot = str(source.execute(
+            "SELECT pg_export_snapshot()"
+        ).fetchone()[0])
+        with psycopg.connect(source_dsn) as writer:
+            writer.execute(
+                "INSERT INTO projects "
+                "(id, slug, name, public_item_prefix, created_at) "
+                "VALUES (87002, 'snapshot-after', 'After', 'SNA', now())"
+            )
+        archive = tmp_path / "exported-snapshot.dump"
+        portability.dump_universe(source_dsn, archive, snapshot=snapshot)
+        catalog = portability._archive_catalog(
+            archive,
+            executable=portability._postgres_executable("pg_restore"),
+            timeout_s=portability.DEFAULT_ARCHIVE_TIMEOUT_S,
+        )
+        assert fence_policy.FENCE_STATE_SCHEMA not in catalog
+        source.rollback()
+
+        target_db = pg_testdb.create_test_database()
+        target_dsn = pg_testdb.dsn_for_test_database(target_db)
+        try:
+            portability.restore_universe(archive, target_dsn)
+            with psycopg.connect(target_dsn) as target:
+                assert target.execute(
+                    "SELECT id FROM projects WHERE id IN (87001, 87002) "
+                    "ORDER BY id"
+                ).fetchall() == [(87001,)]
+        finally:
+            pg_testdb.drop_test_database(target_db)
+
+
 def test_real_restore_omits_uploaded_function_and_trigger(tmp_path):
     from runtime.api.fixtures import pg_testdb
 
@@ -437,7 +517,15 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
             "88001, 1, 'duplicate', 'POR-2', 'Preserve close history', "
             "'trusted body')"
         )
+        source.execute(
+            "INSERT INTO capability_secrets "
+            "(project_id, type, key, value, source, created_at) VALUES "
+            "(88001, 'github', 'token', 'must-not-restore', 'literal', now())"
+        )
         source.commit()
+        source_authority = authority_receipt(
+            source, include_content_digests=True,
+        )
         archive = Path(
             universe_export.export_universe(dsn=source_dsn, out=tmp_path)["artifact"]
         )
@@ -467,6 +555,17 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
                 assert target.execute(
                     "SELECT design_spec FROM items WHERE id = 88003"
                 ).fetchone() == ("trusted body",)
+                assert target.execute(
+                    "SELECT COUNT(*) FROM capability_secrets"
+                ).fetchone() == (0,)
+                restored_authority = authority_receipt(
+                    target, include_content_digests=True,
+                )
+                assert restored_authority["receipt_digest"] == (
+                    source_authority["receipt_digest"]
+                )
+                assert source_authority["capability_secrets"]["types"]
+                assert restored_authority["capability_secrets"]["types"] == {}
                 actual_rows = _postgres_schema_rows(target)
                 assert actual_rows == expected_rows, {
                     "missing": sorted(set(expected_rows) - set(actual_rows)),

@@ -186,6 +186,10 @@ from yoke_cli.commands.adapters.github_actions import (
     github_actions_variable_get,
     github_actions_variable_set,
 )
+from yoke_cli.commands.adapters.github_actions_delete import (
+    github_actions_secret_delete,
+    github_actions_variable_delete,
+)
 from yoke_cli.commands.adapters.github_actions_run_wait import (
     github_actions_wait_run,
 )
@@ -269,7 +273,7 @@ from yoke_cli.commands.adapters.project_onboard import (
     project_import,
 )
 from yoke_cli.commands.adapters.config_write import (
-    auth_set, config_stamp_project_env, connection_set,
+    auth_set, config_stamp_project_env, connection_remove, connection_set,
     env_use, project_register,
 )
 from yoke_cli.commands.adapters.install import (

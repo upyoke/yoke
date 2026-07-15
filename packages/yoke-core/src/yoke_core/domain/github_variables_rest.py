@@ -13,6 +13,10 @@ caller — never through host GitHub CLI credentials.
 
 from __future__ import annotations
 
+from yoke_core.domain.github_actions_identifiers import (
+    config_name_path,
+    repository_api_path,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
     RestRequest,
@@ -29,10 +33,12 @@ def set_repo_variable(repo: str, name: str, value: str, *, token: str) -> str:
     (or a subclass) on terminal failure.
     """
     body = {"name": name, "value": value}
+    repo_path = repository_api_path(repo)
+    name_path = config_name_path(name)
     patch = RestRequest(
         method="PATCH",
         replay_safe=True,
-        path=f"/repos/{repo}/actions/variables/{name}",
+        path=f"{repo_path}/actions/variables/{name_path}",
         body=body,
     )
     try:
@@ -42,7 +48,7 @@ def set_repo_variable(repo: str, name: str, value: str, *, token: str) -> str:
         pass
     post = RestRequest(
         method="POST",
-        path=f"/repos/{repo}/actions/variables",
+        path=f"{repo_path}/actions/variables",
         body=body,
     )
     request_with_retry(post, token=token)
@@ -58,7 +64,10 @@ def get_repo_variable(repo: str, name: str, *, token: str):
     """
     get = RestRequest(
         method="GET",
-        path=f"/repos/{repo}/actions/variables/{name}",
+        path=(
+            f"{repository_api_path(repo)}/actions/variables/"
+            f"{config_name_path(name)}"
+        ),
     )
     try:
         response = request_with_retry(get, token=token)
@@ -69,4 +78,18 @@ def get_repo_variable(repo: str, name: str, *, token: str):
     return value if isinstance(value, str) else None
 
 
-__all__ = ["get_repo_variable", "set_repo_variable"]
+def delete_repo_variable(repo: str, name: str, *, token: str) -> None:
+    """Delete one named Actions variable through project-bound authority."""
+    request_with_retry(
+        RestRequest(
+            method="DELETE",
+            path=(
+                f"{repository_api_path(repo)}/actions/variables/"
+                f"{config_name_path(name)}"
+            ),
+        ),
+        token=token,
+    )
+
+
+__all__ = ["delete_repo_variable", "get_repo_variable", "set_repo_variable"]
