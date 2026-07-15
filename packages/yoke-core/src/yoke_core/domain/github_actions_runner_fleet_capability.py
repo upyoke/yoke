@@ -13,7 +13,6 @@ from yoke_contracts.github_actions_runner_fleet import (
     DEFAULT_RUNNER_LABELS,
     DEFAULT_RUNS_ON_VARIABLE,
 )
-from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 from yoke_core.domain.github_actions_runner_fleet_app import (
     RunnerFleetGitHubAppSettings,
 )
@@ -211,10 +210,10 @@ class RunnerFleetSettings(BaseModel):
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("must be non-empty when provided")
-        if cleaned != GITHUB_CAPABILITY_TYPE:
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", cleaned) is None:
             raise ValueError(
-                f"must be {GITHUB_CAPABILITY_TYPE!r}; runner fleets require "
-                "the binding-owned GitHub capability"
+                "must be a capability name containing only letters, numbers, "
+                "periods, underscores, and hyphens"
             )
         return cleaned
 

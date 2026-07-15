@@ -259,9 +259,11 @@ Run `--preflight-only` first to check readiness without making changes:
 yoke onboard checklist --run-id <run-id>
 ```
 
-The optional runner fleet requires explicit canonical GitHub binding and App
-environment selectors plus `administration: write`, `repository_hooks: write`,
-and `actions_variables: write`. Its short-lived token, digested authority
+The optional runner fleet requires an explicit privileged GitHub repository
+binding and App authority plus `administration: write`,
+`repository_hooks: write`, and `actions_variables: write`. This may be a
+dedicated operator-only App so the product App stays least-privileged. Its
+short-lived token, digested authority
 envelope, ingress ordering, existing-variable adoption, fail-safe routing, and
 stable `runnerFleetRoutingVariable` ownership are specified in
 [RUNNER-FLEET.md](RUNNER-FLEET.md); direct variable writes are drift.

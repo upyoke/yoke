@@ -16,7 +16,10 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.deploy_remote import aws_capability_env
+from yoke_core.domain.deploy_remote import (
+    aws_capability_env,
+    aws_machine_capability_env,
+)
 from yoke_core.domain.github_app_installation_tokens import (
     mint_installation_token,
 )
@@ -342,5 +345,6 @@ __all__ = [
     "RUNNER_FLEET_GITHUB_TOKEN_ENV",
     "RUNNER_FLEET_TOKEN_SOURCE_ENV",
     "RunnerFleetExecError",
+    "aws_machine_capability_env",
     "execute_runner_fleet_command",
 ]
