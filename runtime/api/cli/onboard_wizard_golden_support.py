@@ -220,6 +220,18 @@ def render(app: OnboardWizardApp,
             await drive(app, pilot)
             await pilot.pause()
             await pilot.pause()
+            # A body swap focuses its interactive control. Textual schedules
+            # the corresponding scroll separately, so make that final viewport
+            # state explicit before taking an exact-byte screenshot.
+            focused = app.focused
+            if focused is not None:
+                body = app.query_one("#onboard-body")
+                body.scroll_to_widget(
+                    focused,
+                    animate=False,
+                    immediate=True,
+                )
+                await pilot.pause()
             return app.export_screenshot(title=title)
 
     with golden_color_env():
