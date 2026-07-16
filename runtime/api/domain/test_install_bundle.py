@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -18,6 +19,32 @@ PACKAGED_ROOT = REPO_ROOT / install_bundle_tree_sync.PACKAGED_TREE_REL
 # Single source of truth — the same tuple the materializer and drift HC consume.
 INSTALL_BUNDLE_SOURCE_DIRS = install_bundle.INSTALL_BUNDLE_SOURCE_DIRS
 PYPROJECT = REPO_ROOT / "packages/yoke-core/pyproject.toml"
+
+
+def _assert_same_file(source: Path, packaged: Path) -> None:
+    source_bytes = source.read_bytes()
+    packaged_bytes = packaged.read_bytes()
+    if source_bytes == packaged_bytes:
+        return
+    shared_length = min(len(source_bytes), len(packaged_bytes))
+    first_difference = next(
+        (
+            offset
+            for offset in range(shared_length)
+            if source_bytes[offset] != packaged_bytes[offset]
+        ),
+        shared_length,
+    )
+    pytest.fail(
+        "install bundle content drift: "
+        f"{source.relative_to(REPO_ROOT).as_posix()} != "
+        f"{packaged.relative_to(REPO_ROOT).as_posix()}; "
+        f"first_difference={first_difference}, "
+        f"source_bytes={len(source_bytes)}, packaged_bytes={len(packaged_bytes)}, "
+        f"source_sha256={hashlib.sha256(source_bytes).hexdigest()}, "
+        f"packaged_sha256={hashlib.sha256(packaged_bytes).hexdigest()}",
+        pytrace=False,
+    )
 
 
 @pytest.fixture()
@@ -109,9 +136,30 @@ def test_packaged_install_bundle_tree_matches_source_inputs() -> None:
         )
         assert packaged_files == source_files
         for file_rel in source_files:
-            assert (packaged / file_rel).read_bytes() == (
-                source / file_rel
-            ).read_bytes()
+            _assert_same_file(source / file_rel, packaged / file_rel)
+
+
+def test_bundle_file_drift_reports_metadata_without_dumping_contents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "runtime.api.domain.test_install_bundle.REPO_ROOT", tmp_path,
+    )
+    source = tmp_path / "source" / "agent.md"
+    packaged = tmp_path / "packaged" / "agent.md"
+    source.parent.mkdir()
+    packaged.parent.mkdir()
+    source.write_text("source-private-content", encoding="utf-8")
+    packaged.write_text("packaged-private-content", encoding="utf-8")
+
+    with pytest.raises(pytest.fail.Exception) as raised:
+        _assert_same_file(source, packaged)
+
+    message = str(raised.value)
+    assert "first_difference=" in message
+    assert "source_sha256=" in message
+    assert "packaged_sha256=" in message
+    assert "private-content" not in message
 
 
 def test_detect_drift_agrees_the_snapshot_is_in_sync() -> None:
