@@ -452,8 +452,15 @@
   font-size: 12.5px;
 }
 
-/* Identifier cells (health-check slugs) read as the machine names they
-   are. */
+/* One muted line of view-level context above a view's panels. */
+.universe-app-root .view-note {
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+  margin: 0 0 14px;
+}
+
+/* Identifier cells (health-check slugs, flow ids) read as the machine
+   names they are. */
 .universe-app-root table.items td.mono {
   font-family: var(--yoke-font-mono);
   font-size: 12px;
@@ -476,6 +483,7 @@
   font-size: 13px;
   font-weight: 600;
 }
+
 
 /* Stat tile: one number that matters, on the raised surface. Hosts and
    future overview panels compose rows of these. */

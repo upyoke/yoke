@@ -297,6 +297,7 @@ from yoke_cli.commands.adapters.sessions_read import sessions_list
 from yoke_cli.commands.adapters.projects_capabilities_read import (
     projects_capabilities_list,
 )
+from yoke_cli.commands.adapters.workflows_read import workflows_definition_get
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 
 __all__ = [
@@ -385,5 +386,6 @@ __all__ = [
     "sessions_offer", "sessions_ownership_guard", "sessions_list",
     "charge_schedule",
     "frontier_list",
+    "workflows_definition_get",
     "ADAPTER_USAGE",
 ]

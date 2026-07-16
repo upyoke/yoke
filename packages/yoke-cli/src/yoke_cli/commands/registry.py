@@ -253,6 +253,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("templates.list.run", _adapters.templates_list),
     ("templates", "fetch"):
         ("templates.fetch.run", _adapters.templates_fetch),
+    ("workflows", "definition", "get"):
+        ("workflows.definition.get", _adapters.workflows_definition_get),
 }
 
 SUBCOMMAND_REGISTRY.update(PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY)
