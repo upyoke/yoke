@@ -14,8 +14,8 @@
   line-height: 1.45;
   color: var(--yoke-ink);
   background: var(--yoke-bg);
-  /* Opt native form controls (chooser, buttons) into the active theme so they
-     don't render with a light UA appearance on the dark bar. The hosted shell
+  /* Opt native form controls (buttons) into the active theme so they don't
+     render with a light UA appearance on the dark bar. The hosted shell
      inherits this from the platform document; standalone needs it declared. */
   color-scheme: light dark;
 }
@@ -86,16 +86,16 @@
 }
 
 /* The view's own scope picker, sitting above that view's rows. It renders
-   only where it can act, so it needs no disabled state. A native select
-   wearing the selected-chip look: accent lozenge, white text. */
+   only where it can act, so it needs no disabled state. A row of chips:
+   selected ones wear the accent lozenge, the rest stay quiet until hovered. */
 .universe-app-root .scope-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
   margin-bottom: 18px;
 }
-.universe-app-root .scope-bar::before {
-  content: "Project";
+.universe-app-root .scope-label {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -103,20 +103,31 @@
   font-weight: 600;
   margin-right: 3px;
 }
-.universe-app-root .project-chooser {
+.universe-app-root .scope-chip {
   font-family: inherit;
   font-size: 12px;
   font-weight: 550;
-  color: #fff;
-  background: var(--yoke-accent);
-  border: 1px solid transparent;
-  border-radius: 20px;
   padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--yoke-border);
+  background: var(--yoke-bg);
+  color: var(--yoke-ink-2);
   cursor: pointer;
-  transition: filter 120ms ease;
+  transition: background-color 120ms ease, color 120ms ease;
 }
-.universe-app-root .project-chooser:hover {
-  filter: brightness(1.06);
+.universe-app-root .scope-chip:hover {
+  background: var(--yoke-hover);
+  color: var(--yoke-ink);
+}
+.universe-app-root .scope-chip.on {
+  background: var(--yoke-accent);
+  color: #fff;
+  border-color: transparent;
+}
+.universe-app-root .scope-hint {
+  font-size: 11px;
+  color: var(--yoke-muted);
+  margin-left: 6px;
 }
 
 /* Tabs: facets of one concept, never a second nav level. An underline strip
@@ -488,7 +499,7 @@
 .universe-app-root .nav-link:focus-visible,
 .universe-app-root .tab-link:focus-visible,
 .universe-app-root .capability-action:focus-visible,
-.universe-app-root .project-chooser:focus-visible,
+.universe-app-root .scope-chip:focus-visible,
 .universe-app-root .row-link:focus-visible,
 .universe-app-root .breadcrumb-parent:focus-visible,
 .universe-app-root .raw-toggle:focus-visible {

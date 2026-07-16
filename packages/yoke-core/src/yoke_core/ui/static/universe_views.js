@@ -19,7 +19,8 @@ function callFunction(client, functionId, payload, target) {
 }
 
 // One titled section with a raw-JSON toggle showing the exact function-call
-// response envelope the section rendered from.
+// response envelope(s) the section rendered from — a lone envelope for a
+// single read, the array of them when a scope fanned out into several.
 export function section(documentNode, title) {
   const wrap = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
@@ -37,10 +38,19 @@ export function section(documentNode, title) {
   wrap.appendChild(raw);
   toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
 
-  wrap.renderEnvelope = (callResult, renderBody) => {
-    raw.textContent = JSON.stringify(callResult.envelope, null, 2);
+  wrap.renderEnvelopes = (callResults, renderBody) => {
+    const envelopes = callResults.map((callResult) => callResult.envelope);
+    raw.textContent = JSON.stringify(
+      envelopes.length === 1 ? envelopes[0] : envelopes, null, 2,
+    );
     body.replaceChildren();
-    renderBody(body, callResult);
+    renderBody(body, callResults);
+  };
+  wrap.renderEnvelope = (callResult, renderBody) => {
+    wrap.renderEnvelopes(
+      [callResult],
+      (bodyNode, callResults) => renderBody(bodyNode, callResults[0]),
+    );
   };
   return wrap;
 }
@@ -152,28 +162,99 @@ async function loadSection(
   panel.renderEnvelope(callResult, ok ? renderBody : renderError);
 }
 
+// A multi view's scope resolves into per-call project buckets. "all" is one
+// unfiltered call (bucket null) when the read serves the whole universe, or
+// one call per roster project when the read refuses without one; a project
+// set is always one call per member.
+function scopeBuckets(scope, projects, requiresProject) {
+  if (scope !== "all") return scope;
+  return requiresProject ? projects.map((row) => String(row.id)) : [null];
+}
+
+// One call per bucket, rendered once after every call settles. A failed
+// bucket fails the whole section — silently dropping one would render a
+// partial universe as if it were the whole one.
+async function loadScopedSection(context, panel, calls, renderRows) {
+  const callResults = await Promise.all(calls.map(async (call) => {
+    try {
+      return await callFunction(
+        context.client, call.functionId, call.payload, call.target,
+      );
+    } catch (fetchError) {
+      // Network-level failure (server gone, connection refused): status 0
+      // marks "no HTTP response" so the panel shows the failure instead
+      // of sticking at "loading…".
+      return {
+        status: 0,
+        envelope: { success: false, error: { message: String(fetchError) } },
+      };
+    }
+  }));
+  if (!context.isMounted()) return;
+  const failed = callResults.find(
+    (callResult) => !(callResult.status === 200 && callResult.envelope.success),
+  );
+  panel.renderEnvelopes(
+    callResults,
+    failed ? (body) => renderError(body, failed) : renderRows,
+  );
+}
+
+// Bucket results merged in call order.
+function mergedRows(callResults, extract) {
+  return callResults.flatMap(
+    (callResult) => extract(callResult.envelope.result || {}) || [],
+  );
+}
+
+// A table scoped to exactly one project needs no project column; "all" and
+// multi-member sets label every row with the project it belongs to. The
+// column sits beside the leading identifier so a row link stays the first
+// cell.
+function withProjectColumn(columns, scope, valueOf) {
+  if (Array.isArray(scope) && scope.length === 1) return columns;
+  return [
+    columns[0],
+    { label: "project", value: valueOf },
+    ...columns.slice(1),
+  ];
+}
+
 // `blocked` arrives as the string "0"/"1", which makes both values truthy —
 // read it as a number, never as a bare condition.
 function isBlocked(row) {
   return Number(row.blocked) === 1;
 }
 
-function renderItemsView(context, main, projectId) {
+function renderItemsView(context, main, scope) {
   const panel = section(context.document, "Items");
   main.replaceChildren(panel);
-  loadSection(
+  const projects = context.projects();
+  const buckets = scopeBuckets(scope, projects, false);
+  const idBySlug = new Map(
+    projects.map((row) => [String(row.slug), String(row.id)]),
+  );
+  const fields = [
+    "id", "title", "type", "status", "priority", "blocked",
+    "blocked_reason", "project",
+  ];
+  // A row's drill-in carries the row's own project: at exactly one project
+  // the scope id is that project; otherwise the roster maps the served slug
+  // back to the id the route speaks.
+  const rowProject = (row) => (
+    (Array.isArray(scope) && scope.length === 1)
+      ? scope[0]
+      : (idBySlug.get(String(row.project)) || String(row.project))
+  );
+  loadScopedSection(
     context, panel,
-    "items.list.run",
-    {
-      fields: [
-        "id", "title", "type", "status", "priority", "blocked",
-        "blocked_reason",
-      ],
-      project: String(projectId),
-    },
-    (body, callResult) => {
-      const rows = (callResult.envelope.result || {}).rows || [];
-      renderTable(body, rows, [
+    buckets.map((bucket) => ({
+      functionId: "items.list.run",
+      payload: bucket === null ? { fields } : { fields, project: bucket },
+    })),
+    (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.rows);
+      renderTable(body, rows, withProjectColumn([
         { label: "id", value: (row) => row.id },
         { label: "type", value: (row) => row.type },
         { label: "title", value: (row) => row.title },
@@ -185,28 +266,33 @@ function renderItemsView(context, main, projectId) {
             isBlocked(row) ? (row.blocked_reason || "blocked") : ""
           ),
         },
-      ], "no items yet",
-      (row) => buildUniverseRoute("items", String(projectId), String(row.id)));
+      ], scope, (row) => row.project), "no items yet",
+      (row) => buildUniverseRoute("items", rowProject(row), String(row.id)));
     },
   );
 }
 
-function renderEventsView(context, main, projectId) {
+function renderEventsView(context, main, scope) {
   const panel = section(context.document, "Events");
   main.replaceChildren(panel);
-  loadSection(
+  const buckets = scopeBuckets(scope, context.projects(), false);
+  loadScopedSection(
     context, panel,
-    "events.query.run",
-    { project: String(projectId) },
-    (body, callResult) => {
-      const rows = (callResult.envelope.result || {}).rows || [];
-      renderTable(body, rows, [
+    buckets.map((bucket) => ({
+      functionId: "events.query.run",
+      payload: bucket === null ? {} : { project: bucket },
+    })),
+    (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.rows);
+      // Each event row carries the slug of the project it was recorded
+      // against — a universe-level event carries none and shows none.
+      renderTable(body, rows, withProjectColumn([
         { label: "when", value: (row) => row.created_at },
         { label: "event", value: (row) => row.event_name },
         { label: "kind", value: (row) => row.event_kind },
         { label: "severity", value: (row) => row.severity, pill: true },
         { label: "source", value: (row) => row.actor_id || row.service },
-      ], "no events yet");
+      ], scope, (row) => row.project), "no events yet");
     },
   );
 }
@@ -215,16 +301,21 @@ function renderEventsView(context, main, projectId) {
 // the second half of that sentence: an observation nobody has looked at yet is
 // not the same as one that has been through curation, and a row that hid the
 // difference would make the loop look closed when it is still open.
-function renderOuroborosView(context, main, projectId) {
+function renderOuroborosView(context, main, scope) {
   const panel = section(context.document, "Ouroboros");
   main.replaceChildren(panel);
-  loadSection(
+  const buckets = scopeBuckets(scope, context.projects(), false);
+  loadScopedSection(
     context, panel,
-    "ouroboros.entry.list",
-    { project: String(projectId) },
-    (body, callResult) => {
-      const rows = (callResult.envelope.result || {}).entries || [];
-      renderTable(body, rows, [
+    buckets.map((bucket) => ({
+      functionId: "ouroboros.entry.list",
+      payload: bucket === null ? {} : { project: bucket },
+    })),
+    (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.entries);
+      // Each entry carries the slug of the project it observed — a
+      // universe-level observation carries none and shows none.
+      renderTable(body, rows, withProjectColumn([
         { label: "when", value: (row) => row.timestamp },
         { label: "category", value: (row) => row.category, pill: true },
         { label: "agent", value: (row) => row.agent },
@@ -233,7 +324,7 @@ function renderOuroborosView(context, main, projectId) {
           label: "reviewed",
           value: (row) => (row.reviewed_at ? row.reviewed_at : ""),
         },
-      ], "nothing noticed yet");
+      ], scope, (row) => row.project), "nothing noticed yet");
     },
   );
 }
@@ -253,26 +344,41 @@ function renderProjectsView(context, main) {
   );
 }
 
-function renderStrategyView(context, main, projectId) {
+function renderStrategyView(context, main, scope) {
   const panel = section(context.document, "Strategy");
   main.replaceChildren(panel);
-  loadSection(
+  const projects = context.projects();
+  // The strategy read refuses without a project, so "all" fans out into one
+  // call per roster project rather than one unfiltered call.
+  const buckets = scopeBuckets(scope, projects, true);
+  const slugById = new Map(
+    projects.map((row) => [String(row.id), row.slug || String(row.id)]),
+  );
+  loadScopedSection(
     context, panel,
-    "strategy.doc.list",
-    {},
-    (body, callResult) => {
-      const docs = (callResult.envelope.result || {}).docs || [];
-      renderTable(body, docs, [
+    buckets.map((bucket) => ({
+      functionId: "strategy.doc.list",
+      payload: {},
+      // Strategy docs are project-scoped through the target, not the payload.
+      target: { kind: "global", project_id: String(bucket) },
+    })),
+    (body, callResults) => {
+      // The read carries no per-row project, so each row wears the label of
+      // the bucket that requested it — never a guess.
+      const docs = callResults.flatMap((callResult, index) => (
+        ((callResult.envelope.result || {}).docs || []).map((doc) => ({
+          ...doc, project: slugById.get(buckets[index]) || buckets[index],
+        }))
+      ));
+      renderTable(body, docs, withProjectColumn([
         { label: "slug", value: (doc) => doc.slug },
         { label: "title", value: (doc) => doc.title },
         {
           label: "status", pill: true,
           value: (doc) => (doc.archived ? "archived" : "active"),
         },
-      ], "no strategy docs yet");
+      ], scope, (doc) => doc.project), "no strategy docs yet");
     },
-    // Strategy docs are project-scoped through the target, not the payload.
-    { kind: "global", project_id: String(projectId) },
   );
 }
 
@@ -343,16 +449,20 @@ function renderItemDetailView(context, main, projectId, itemRef) {
 // alive it is (engine-derived liveness — the executor-aware TTL numbers
 // live in the engine, never here), and what Yoke directed it to do (the
 // stored execution lane and mode).
-function renderSessionsView(context, main, projectId) {
+function renderSessionsView(context, main, scope) {
   const panel = section(context.document, "Sessions");
   main.replaceChildren(panel);
-  loadSection(
+  const buckets = scopeBuckets(scope, context.projects(), false);
+  loadScopedSection(
     context, panel,
-    "sessions.list",
-    { project: String(projectId) },
-    (body, callResult) => {
-      const rows = (callResult.envelope.result || {}).rows || [];
-      renderTable(body, rows, [
+    buckets.map((bucket) => ({
+      functionId: "sessions.list",
+      payload: bucket === null ? {} : { project: bucket },
+    })),
+    (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.rows);
+      // Each session row carries the slug of the project it works in.
+      renderTable(body, rows, withProjectColumn([
         { label: "session", value: (row) => row.session_id },
         {
           label: "actor",
@@ -372,7 +482,7 @@ function renderSessionsView(context, main, projectId) {
         },
         { label: "item", value: (row) => row.current_item },
         { label: "last activity", value: (row) => row.activity_at },
-      ], "no sessions yet");
+      ], scope, (row) => row.project), "no sessions yet");
     },
   );
 }
@@ -382,26 +492,30 @@ function renderSessionsView(context, main, projectId) {
 // keeps status "executing" and so stays a running pill, never a failed one),
 // and the stage shows as the text the engine recorded — the stage roster
 // belongs to the flow definition, so nothing here hardcodes its shape.
-function renderDeliveryRunsView(context, main, projectId) {
+function renderDeliveryRunsView(context, main, scope) {
   const panel = section(context.document, "Runs");
   main.replaceChildren(panel);
-  loadSection(
+  const buckets = scopeBuckets(scope, context.projects(), false);
+  loadScopedSection(
     context, panel,
-    "deployment_runs.list",
-    { project: String(projectId) },
-    (body, callResult) => {
+    buckets.map((bucket) => ({
+      functionId: "deployment_runs.list",
+      payload: bucket === null ? {} : { project: bucket },
+    })),
+    (body, callResults) => {
       // The engine lists oldest-first; a runs screen answers "what just
       // happened", so presentation flips to newest-first.
-      const rows = ((callResult.envelope.result || {}).rows || [])
+      const rows = mergedRows(callResults, (result) => result.rows)
         .slice().reverse();
-      renderTable(body, rows, [
+      // Each run row carries the slug of the project whose flow ran.
+      renderTable(body, rows, withProjectColumn([
         { label: "run", value: (row) => row.id },
         { label: "flow", value: (row) => row.flow },
         { label: "target", value: (row) => row.target_env },
         { label: "stage", value: (row) => row.current_stage },
         { label: "status", value: (row) => row.status, pill: true },
         { label: "created", value: (row) => row.created_at },
-      ], "no runs yet");
+      ], scope, (row) => row.project), "no runs yet");
     },
   );
 }
