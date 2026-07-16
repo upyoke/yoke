@@ -51,6 +51,7 @@ SESSION_COOKIE_NAME = "yoke_ui_session"
 UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "organizations.get",
     "projects.list",
+    "projects.capabilities.list",
     "items.get.run",
     "items.list.run",
     "epic_tasks.list.run",

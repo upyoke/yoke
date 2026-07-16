@@ -210,6 +210,9 @@ from yoke_cli.commands.adapters.sessions import (
 )
 from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
+from yoke_cli.commands.adapters.projects_capabilities_read import (
+    PROJECTS_CAPABILITIES_LIST_USAGE,
+)
 
 __all__ = ["ADAPTER_USAGE"]
 
@@ -293,6 +296,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.create": PROJECTS_CREATE_USAGE,
     "projects.update": PROJECTS_UPDATE_USAGE,
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
+    "projects.capabilities.list": PROJECTS_CAPABILITIES_LIST_USAGE,
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
     "projects.capability_settings.merge": PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,

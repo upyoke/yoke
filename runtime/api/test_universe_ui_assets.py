@@ -148,6 +148,7 @@ def test_page_module_wires_the_workbench_shell():
         "sessions.list",
         "doctor.last_run.get",
         "frontier.list",
+        "projects.capabilities.list",
         '{ label: "title", value: (doc) => doc.title }',
     ):
         assert reference in views, reference

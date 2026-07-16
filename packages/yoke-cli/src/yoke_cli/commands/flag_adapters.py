@@ -294,6 +294,9 @@ from yoke_cli.commands.adapters.sessions import (
 )
 from yoke_cli.commands.adapters.frontier_read import frontier_list
 from yoke_cli.commands.adapters.sessions_read import sessions_list
+from yoke_cli.commands.adapters.projects_capabilities_read import (
+    projects_capabilities_list,
+)
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 
 __all__ = [
@@ -335,7 +338,8 @@ __all__ = [
     "ephemeral_env_update",
     "doctor_run", "doctor_last_run_get", "projects_get", "projects_list",
     "projects_resolve_by_github_repo", "projects_create", "projects_update",
-    "projects_capability_has", "projects_capability_secret_set",
+    "projects_capability_has", "projects_capabilities_list",
+    "projects_capability_secret_set",
     "projects_capability_settings_get", "projects_capability_settings_set",
     "projects_capability_settings_merge",
     "projects_checkout_context", "projects_github_binding_bind", "projects_github_binding_status", "projects_github_binding_unbind",

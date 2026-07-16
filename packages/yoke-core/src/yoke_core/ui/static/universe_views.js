@@ -108,6 +108,13 @@ const STATE_PILL_FAMILIES = {
   activation: "crit",
   integration: "warn",
   closure: "idle",
+  // Capability vocabulary. A capability someone configured but nothing has
+  // ever verified must read as loudly as a broken one — warn, never idle.
+  provider_access: "run",
+  declared_model: "idle",
+  verified: "good",
+  configured_unverified: "warn",
+  declared: "idle",
 };
 
 // A state value rendered as a tinted lozenge with a leading dot, colored by
@@ -137,8 +144,8 @@ function renderError(body, callResult) {
 // that row's drill-in — a real href, so it can be opened in a new tab.
 // A column with its own `href` accessor links that cell the same way (for
 // views whose linking cell is not the first). A column marked `pill: true`
-// renders its value as a state pill; `mono: true` renders it in the
-// machine-name (monospace) cell dress; `code: true` renders it as a `code`
+// renders its value as a state pill; `mono: true` renders it in the code
+// face (stored identifiers, not prose); `code: true` renders it as a `code`
 // element — deliberately copyable text, never a button.
 function renderTable(body, rows, columns, emptyText, rowHref) {
   const documentNode = body.ownerDocument;
@@ -156,7 +163,7 @@ function renderTable(body, rows, columns, emptyText, rowHref) {
     const tr = el(documentNode, "tr");
     for (const [index, column] of columns.entries()) {
       const text = String(column.value(row) ?? "");
-      const cell = el(documentNode, "td");
+      const cell = el(documentNode, "td", column.mono ? "mono" : null);
       if (rowHref && index === 0) {
         const link = el(documentNode, "a", "row-link", text);
         link.href = rowHref(row);
@@ -172,7 +179,6 @@ function renderTable(body, rows, columns, emptyText, rowHref) {
         if (text) cell.appendChild(el(documentNode, "code", null, text));
       } else {
         cell.textContent = text;
-        if (column.mono) cell.classList.add("mono");
       }
       tr.appendChild(cell);
     }
@@ -765,6 +771,37 @@ function renderDoctorView(context, main, scope) {
   );
 }
 
+// What Yoke can reach on a project's behalf, and how honestly it can claim
+// so. The engine owns the vocabulary end to end: the capability column shows
+// the STORED type string (never an invented label), kind/state arrive
+// derived, and the verified stamp is whichever source the engine trusts for
+// that type (the GitHub row wears its repo-binding freshness). A NULL stamp
+// renders as the word "never" — configured-but-never-verified is a warning,
+// not a resting state.
+function renderCapabilitiesView(context, main, scope) {
+  const panel = section(context.document, "Capabilities");
+  main.replaceChildren(panel);
+  const buckets = scopeBuckets(scope, context.projects(), false);
+  loadScopedSection(
+    context, panel,
+    buckets.map((bucket) => ({
+      functionId: "projects.capabilities.list",
+      payload: bucket === null ? {} : { project: bucket },
+    })),
+    (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.rows);
+      // Each capability row carries the slug of the project declaring it.
+      renderTable(body, rows, withProjectColumn([
+        { label: "capability", value: (row) => row.type, mono: true },
+        { label: "kind", value: (row) => row.kind, pill: true },
+        { label: "settings", value: (row) => row.settings_summary || "—" },
+        { label: "verified", value: (row) => row.verified_at || "never" },
+        { label: "state", value: (row) => row.state, pill: true },
+      ], scope, (row) => row.project), "no capabilities declared yet");
+    },
+  );
+}
+
 // Drill-ins remain children of the view whose row opened them.
 export const DETAIL_RENDERERS = { items: renderItemDetailView };
 
@@ -782,6 +819,7 @@ export const VIEW_RENDERERS = {
   items: renderItemsView,
   strategy: renderStrategyView,
   sessions: renderSessionsView,
+  capabilities: renderCapabilitiesView,
   events: renderEventsView,
   doctor: renderDoctorView,
   ouroboros: renderOuroborosView,
