@@ -58,6 +58,25 @@ def _ui_server():
         raise UniverseUiError(_ENGINE_MISSING_MESSAGE) from exc
 
 
+def _converge_universe_schema() -> None:
+    """Converge the local universe's schema before serving it.
+
+    The UI server is a server booting against this universe, and every
+    boot is a schema-reconciliation point: a universe born before a
+    newer additive table would otherwise answer reads with undefined-
+    relation errors until some other boot converges it. Same fail-hard
+    contract as the API server — a UI over a half-converged universe
+    would lie about what exists.
+    """
+    try:
+        entrypoint = importlib.import_module(
+            "yoke_core.api.server_entrypoint",
+        )
+    except ModuleNotFoundError as exc:
+        raise UniverseUiError(_ENGINE_MISSING_MESSAGE) from exc
+    entrypoint.ensure_core_schema()
+
+
 def _refuse_for_connection_mode() -> Optional[str]:
     """Refusal text when the active connection cannot serve a local UI.
 
@@ -154,11 +173,18 @@ def ui(args: List[str]) -> int:
         return 1
 
     try:
+        _converge_universe_schema()
         server = _ui_server()
         host = server.resolve_ui_host(parsed.host)
         port = server.resolve_ui_port(parsed.port, host=host)
     except (UniverseUiError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(
+            f"error: the local universe's schema could not converge: {exc}",
+            file=sys.stderr,
+        )
         return 1
     token = server.mint_session_token()
     url = server.private_url(port, token, host=host)
