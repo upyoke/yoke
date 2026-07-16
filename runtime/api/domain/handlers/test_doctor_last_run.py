@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from yoke_core.domain import doctor_last_run_read
+from yoke_core.domain import last_doctor_run_read
 from yoke_core.domain.handlers.doctor_last_run import (
     handle_doctor_last_run_get,
 )
@@ -152,7 +152,7 @@ class TestLastRunSelection:
         assert outcome.result_payload == {"never_run": True}
 
     def test_scan_pages_past_newer_non_matching_rows(self, test_db, monkeypatch):
-        monkeypatch.setattr(doctor_last_run_read, "SCAN_BATCH_SIZE", 1)
+        monkeypatch.setattr(last_doctor_run_read, "SCAN_BATCH_SIZE", 1)
         _insert_run(
             test_db, event_id="evt-done", created_at="2026-01-01T00:00:00Z",
             result=_doctor_result(),

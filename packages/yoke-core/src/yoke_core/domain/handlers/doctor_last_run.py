@@ -3,7 +3,7 @@
 Doctor results persist only as the ``YokeFunctionCalled`` journal
 envelope of the ``doctor.run.run`` call; the scan, completeness rule
 (``done: true`` only), and shrink-truncation honesty live in
-:mod:`yoke_core.domain.doctor_last_run_read`.
+:mod:`yoke_core.domain.last_doctor_run_read`.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def handle_doctor_last_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             ),
         )
 
-    from yoke_core.domain.doctor_last_run_read import last_doctor_run
+    from yoke_core.domain.last_doctor_run_read import last_doctor_run
 
     try:
         result = last_doctor_run(project=project or None)
