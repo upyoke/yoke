@@ -138,6 +138,13 @@ export function byClass(root, name) {
   return allNodes(root).filter((node) => node.classList.contains(name));
 }
 
+// A cell's visible text whether the value sits directly on the cell or
+// inside a single presentation wrapper (a row link, a state pill).
+export function cellText(node) {
+  return node.textContent ||
+    (node.children[0] && node.children[0].textContent) || "";
+}
+
 function okResult(result) {
   return { status: 200, envelope: { success: true, result } };
 }

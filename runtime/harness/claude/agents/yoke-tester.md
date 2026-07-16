@@ -508,9 +508,6 @@ yoke workflow-item epic-dispatch-chain get --epic 1704 --worktree branch-name`
 - _List configured project test commands_
   - `yoke project-structure command-definitions list --project <project>`
   - Registered read project_structure.command_definitions.list (works over https). Prints scope=command lines in canonical scope order; empty stdout means no project test commands are configured. Deploy default: yoke project-structure deploy-defaults get --project <project> (project_structure.deploy_defaults.get); empty stdout means no default; do not invoke the raw deploy_defaults module.
-- _Read or CAS-merge deployment environment settings_
-  - `yoke projects environment-settings merge --project <project> --environment-id <id> --set pulumi.activation_state=render_only`
-  - Registered projects.environment_settings.get/merge surfaces work over local, self-hosted, and hosted transports. The server verifies that environments.site belongs to the named project and performs a read-merge-CAS loop. The similarly named environment-merge-settings domain command is local-only and must not be used for an HTTPS authority.
 - _Update an ephemeral environment row field_
   - `yoke ephemeral-env update <env-id> status healthy`
   - Registered write ephemeral_env.update (works over https). Use for status, workflow_run_id, url, and deployed_sha updates on ephemeral_environments rows; the handler preserves cmd_update semantics including stopped_at auto-set for terminal statuses. Do not teach the retained domain-update command for lifecycle writes.

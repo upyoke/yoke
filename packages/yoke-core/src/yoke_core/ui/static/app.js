@@ -171,7 +171,11 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const navLinks = new Map();
   for (const entry of NAV) {
-    const link = el(documentNode, "a", "nav-link", entry.label);
+    // Glyph and label are separate spans so the glyph column stays fixed
+    // and long labels ellipsize instead of wrapping under it.
+    const link = el(documentNode, "a", "nav-link");
+    link.appendChild(el(documentNode, "span", "ico", entry.icon));
+    link.appendChild(el(documentNode, "span", "txt", entry.label));
     navLinks.set(entry.id, link);
     navEl.appendChild(link);
   }
