@@ -138,17 +138,14 @@
       return notice;
     }
 
-    // contentAfter — the GitHub connection panel.
-    function sampleGithubConnection() {
-      const container = el("section", "hosted-github-connection");
-      container.appendChild(el("h2", null, "Connect your work to GitHub"));
-      container.appendChild(el(
-        "p", null,
-        "Install the Yoke GitHub App, choose repository access, and bind a project.",
-      ));
-      const link = el("a", "button", "Connect GitHub");
-      link.href = `/orgs/${SAMPLE_ORG.slug}/github/repositories`;
-      container.appendChild(link);
+    // contentAfter — the platform ships a hidden reserved node here
+    // (data-platform-slot="github-connection"); mirror that shape so the
+    // harness verifies the frame the platform actually injects.
+    function sampleReservedContentAfter() {
+      const container = el("div", null);
+      container.hidden = true;
+      container.setAttribute("aria-hidden", "true");
+      container.dataset.platformSlot = "github-connection";
       return container;
     }
 
@@ -172,7 +169,7 @@
         topbarEnd: sampleUserMenu(),
         navigationEnd: sampleOrgLinks(),
         contentBefore: sampleContentNotice(),
-        contentAfter: sampleGithubConnection(),
+        contentAfter: sampleReservedContentAfter(),
       },
     });
   </script>

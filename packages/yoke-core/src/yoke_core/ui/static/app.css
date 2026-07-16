@@ -59,32 +59,6 @@
   font-weight: 500;
 }
 
-.universe-app-root .capability-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* Chrome controls read as the shared chip: bordered, tokenized, with a hover
-   wash. */
-.universe-app-root .capability-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--yoke-ink);
-  background: var(--yoke-bg);
-  border: 1px solid var(--yoke-border);
-  border-radius: 8px;
-  padding: 5px 10px;
-  transition: background-color 140ms ease;
-}
-.universe-app-root .capability-action:hover {
-  background: var(--yoke-hover);
-}
-
 /* The view's own scope picker, sitting above that view's rows. It renders
    only where it can act, so it needs no disabled state. A row of chips:
    selected ones wear the accent lozenge, the rest stay quiet until hovered. */
@@ -474,6 +448,34 @@
   border: 1px solid var(--yoke-border);
   border-radius: 6px;
   padding: 2px 7px;
+}
+
+/* Host capability actions, rendered inside the Universe settings panel.
+   Each is a real control that acts on click, dressed as the shared chip:
+   bordered, tokenized, with a hover wash. */
+.universe-app-root .capability-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.universe-app-root .capability-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--yoke-ink);
+  background: var(--yoke-bg);
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.universe-app-root .capability-action:hover {
+  background: var(--yoke-hover);
 }
 
 /* Per-project heading inside a report that fanned out over a project

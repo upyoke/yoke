@@ -27,12 +27,24 @@ def test_known_assets_serve_with_content_types(ui_client):
         assert response.headers["content-type"] == content_type
 
 
+def test_assets_and_shell_are_served_with_revalidation_header(ui_client):
+    # `no-cache` (revalidate, not `no-store`): browsers must recheck the
+    # server after an upgrade instead of running stale modules from cache.
+    for asset_name in ui_server.ASSET_CONTENT_TYPES:
+        response = ui_client.get(f"/assets/{asset_name}?token={TOKEN}")
+        assert response.status_code == 200, asset_name
+        assert response.headers["cache-control"] == "no-cache", asset_name
+    shell = ui_client.get(f"/?token={TOKEN}")  # follows the 303
+    assert shell.status_code == 200
+    assert shell.headers["cache-control"] == "no-cache"
+
+
 def test_javascript_module_graph_is_in_closed_asset_roster():
     static_root = files("yoke_core.ui").joinpath("static")
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
         "universe_view_support.js", "universe_views.js",
-        "universe_views_workflows.js",
+        "universe_views_settings.js", "universe_views_workflows.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
@@ -76,13 +88,13 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
     harness = files("yoke_core.ui").joinpath(
         "static", "hosted-frame-harness.html",
     ).read_text()
-    for platform_class in (
+    for platform_marker in (
         "hosted-org-switcher",
         "hosted-user-menu",
         "hosted-org-links",
-        "hosted-github-connection",
+        'dataset.platformSlot = "github-connection"',
     ):
-        assert platform_class in harness, platform_class
+        assert platform_marker in harness, platform_marker
     # Every mount slot the platform fills is occupied here too.
     for slot_name in (
         "topbarStart", "topbarEnd", "navigationEnd",
