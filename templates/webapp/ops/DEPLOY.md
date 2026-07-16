@@ -245,6 +245,13 @@ AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} \
 `pulumi stack --show-urns` lists every resource with its current state; pair
 with `pulumi refresh --stack <stack>` to reconcile drift against AWS.
 
+An environment with distribution settings also converges the complete GitHub
+Actions publishing contract from the same Pulumi state: base URL, bucket,
+CloudFront distribution ID, and origin ID. Existing repository variables must
+be imported into the matching environment stack before apply, using the exact
+provider and parent references emitted by `pulumi preview --import-file`; a
+manual repository-variable value is not an independent authority.
+
 ### Check cert status
 
 ```sh

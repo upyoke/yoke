@@ -230,6 +230,17 @@ module so an accidental `pulumi destroy` cannot delete the hosted zone or
 certificate, and apply `pulumi state protect --stack <stack> <urn>` to existing
 state entries that were imported in earlier sessions.
 
+When an environment has distribution publishing configured, that environment
+stack also owns four non-secret repository variables: its public base URL,
+bucket, CloudFront distribution ID, and exact origin ID. For a repository that
+already has those variables, generate a Pulumi preview import file for the
+environment stack and adopt the four
+`github:index/actionsVariable:ActionsVariable` records before the first apply;
+preserve each generated parent and provider reference and use the provider ID
+`<repository-name>:<variable-name>`. A clean post-import preview must show no
+replacement or deletion. Do not leave these release inputs as manually managed
+repository settings.
+
 #### 8. Pulumi up
 
 Apply each live stack through the Yoke-owned deploy flow when available. For
