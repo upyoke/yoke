@@ -1,12 +1,8 @@
-// Host-neutral rendering for the optional mount seam. This stays separate
-// from the workbench views so the one-argument local mount remains small.
-
-function el(documentNode, tag, className, text) {
-  const node = documentNode.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
+// Host-neutral plumbing for the optional mount seam: root validation, slot
+// materialization, and unmount bookkeeping. This stays separate from the
+// workbench views so the one-argument local mount remains small. Host
+// capability actions are not chrome — the Universe settings view renders
+// them (universe_views_settings.js).
 
 const MOUNT_ROOT_CLASS = "universe-app-root";
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
@@ -67,69 +63,6 @@ export function materializeSlots(slots, rootNode) {
     resolved[name] = content;
   }
   return resolved;
-}
-
-function invokeAction(action, option) {
-  // Invoke during the originating DOM event so host actions that require
-  // transient user activation (for example a file picker) retain it. Surface
-  // both synchronous throws and rejected async handlers without coupling the
-  // workbench to host-specific error concepts.
-  let result;
-  try {
-    result = action.onInvoke(option);
-  } catch (error) {
-    globalThis.console.error("universe capability action failed", error);
-    return;
-  }
-  Promise.resolve(result).catch((error) => {
-    globalThis.console.error("universe capability action failed", error);
-  });
-}
-
-export function renderCapabilityActions(documentNode, capabilities) {
-  const actions = Array.isArray(capabilities.actions)
-    ? capabilities.actions : [];
-  if (actions.length === 0) return null;
-
-  const strip = el(documentNode, "div", "capability-actions");
-  for (const action of actions) {
-    if (!action || typeof action.onInvoke !== "function") continue;
-    const options = Array.isArray(action.options) ? action.options : [];
-    if (options.length === 0) {
-      const button = el(
-        documentNode, "button", "capability-action", String(action.label || ""),
-      );
-      button.type = "button";
-      button.addEventListener("click", () => invokeAction(action));
-      strip.appendChild(button);
-      continue;
-    }
-
-    const select = el(documentNode, "select", "capability-action");
-    select.setAttribute("aria-label", String(action.label || "action"));
-    const prompt = el(
-      documentNode, "option", null, String(action.label || "Choose"),
-    );
-    prompt.value = "";
-    prompt.disabled = true;
-    prompt.selected = true;
-    select.appendChild(prompt);
-    for (const [index, option] of options.entries()) {
-      const optionNode = el(
-        documentNode, "option", null, String(option.label || option.id || ""),
-      );
-      optionNode.value = String(index);
-      select.appendChild(optionNode);
-    }
-    select.addEventListener("change", () => {
-      if (select.value === "") return;
-      const selected = options[Number(select.value)];
-      select.value = "";
-      if (selected !== undefined) invokeAction(action, selected);
-    });
-    strip.appendChild(select);
-  }
-  return strip.children.length > 0 ? strip : null;
 }
 
 export function appendSlot(container, slot, mountedSlotNodes) {

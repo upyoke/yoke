@@ -16,6 +16,7 @@ import {
   statePill,
   withProjectColumn,
 } from "./universe_view_support.js";
+import { renderUniverseSettingsView } from "./universe_views_settings.js";
 import { renderWorkflowsView } from "./universe_views_workflows.js";
 
 export { section } from "./universe_view_support.js";
@@ -563,4 +564,5 @@ export const VIEW_RENDERERS = {
   ouroboros: renderOuroborosView,
   projects: renderProjectsView,
   workflows: renderWorkflowsView,
+  "universe-settings": renderUniverseSettingsView,
 };

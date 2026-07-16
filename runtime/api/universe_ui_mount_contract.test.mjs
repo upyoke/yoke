@@ -130,7 +130,9 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   await settle();
 
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 2);
-  assert.equal(byClass(firstRoot, "capability-actions").length, 1);
+  // Host actions are not chrome: a mount carrying them draws nothing until
+  // the Universe settings view asks for them, and the topbar never does.
+  assert.equal(byClass(firstRoot, "capability-actions").length, 0);
   assert.equal(byClass(secondRoot, "capability-actions").length, 0);
   const firstHeader = byClass(firstRoot, "topbar")[0];
   const firstBrand = byClass(firstRoot, "yoke-header-brand")[0];
@@ -168,17 +170,40 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   });
   assert.equal(assetFetches.length, 2);
 
-  const [button, select] = byClass(firstRoot, "capability-action");
-  button.dispatchEvent(new Event("click"));
+  // Universe settings renders the host actions as real buttons in the view:
+  // the optionless action wears its own label, the optioned one wears one
+  // button per option. The topbar stays bare either way.
+  documentNode.defaultView.location.hash = "#/universe-settings";
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
+  assert.equal(byClass(firstHeader, "capability-actions").length, 0);
+  const firstContent = byClass(firstRoot, "content")[0];
+  assert.equal(byClass(firstContent, "capability-actions").length, 1);
+  const buttons = byClass(firstRoot, "capability-action");
+  assert.deepEqual(buttons.map((node) => node.tagName),
+    ["BUTTON", "BUTTON", "BUTTON"]);
+  assert.deepEqual(buttons.map((node) => node.textContent),
+    ["Refresh", "One", "Two"]);
+  // The capabilities bag on the second mount carries no actions, so its
+  // settings view draws no controls at all.
+  assert.equal(byClass(secondRoot, "capability-action").length, 0);
+  // Invocation happens inside the originating click, so host actions that
+  // need transient user activation (a file picker) keep it.
+  buttons[0].dispatchEvent(new Event("click"));
   assert.equal(invoked.length, 1);
-  select.value = "1";
-  select.dispatchEvent(new Event("change"));
+  buttons[2].dispatchEvent(new Event("click"));
   assert.equal(invoked.length, 2);
   await settle();
   assert.equal(invoked[0][0], "refresh");
   assert.equal(invoked[0][1], undefined);
   assert.equal(invoked[1][0], "choose");
   assert.equal(invoked[1][1].id, "two");
+
+  // Back on a scoped view so the teardown half below exercises a route
+  // that reads through each mount's own client.
+  documentNode.defaultView.location.hash = "#/strategy";
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
 
   const firstCallsBeforeUnmount = firstClient.requests.length;
   const secondCallsBeforeHash = secondClient.requests.length;
