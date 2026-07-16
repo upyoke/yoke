@@ -25,7 +25,8 @@ export const NAV = [
   },
   {
     id: "sessions", icon: "◈", label: "Sessions", scope: SCOPE_MULTI,
-    summary: "Each running session: its execution lane and its mode.",
+    summary:
+      "Each session: who runs it, what it holds, and how alive it is.",
   },
   {
     id: "delivery", icon: "⬈", label: "Delivery", scope: SCOPE_MULTI,

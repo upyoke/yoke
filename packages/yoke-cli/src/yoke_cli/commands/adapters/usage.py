@@ -205,6 +205,7 @@ from yoke_cli.commands.adapters.sessions import (
     SESSIONS_OWNERSHIP_GUARD_USAGE,
     SESSIONS_TOUCH_USAGE,
 )
+from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
 
 __all__ = ["ADAPTER_USAGE"]
 
@@ -239,6 +240,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "db_claim.amend": DB_CLAIM_AMEND_USAGE,
     "db.read.run": DB_READ_USAGE,
     "sessions.begin": SESSIONS_BEGIN_USAGE,
+    "sessions.list": SESSIONS_LIST_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
     "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,

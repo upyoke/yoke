@@ -196,6 +196,44 @@ class TestFunctionProxy:
         assert scoped.json()["success"] is True
         assert scoped.json()["result"]["rows"] == []
 
+    def test_sessions_list_is_admitted_and_returns_derived_rows(
+        self,
+        ui_client,
+        test_db,
+    ):
+        # The Sessions view scopes through the payload (a project id from
+        # the roster) and relies on the proxy's global-target default.
+        from yoke_core.domain.db_helpers import iso8601_now
+
+        now = iso8601_now()
+        test_db.execute(
+            "INSERT INTO harness_sessions ("
+            "session_id, executor, provider, model, workspace, project_id, "
+            "mode, offered_at, last_heartbeat"
+            ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                "s-ui", "claude-code", "anthropic", "test-model",
+                "/tmp/workspace", 1, "wait", now, now,
+            ),
+        )
+        test_db.commit()
+        response = self._call(
+            ui_client,
+            {"function": "sessions.list", "payload": {"project": "1"}},
+        )
+        assert response.status_code == 200
+        envelope = response.json()
+        assert envelope["success"] is True
+        rows = envelope["result"]["rows"]
+        assert [row["session_id"] for row in rows] == ["s-ui"]
+        # Liveness arrives derived — the TTL numbers live in the engine,
+        # never in the browser.
+        assert rows[0]["liveness"] == "active"
+        assert rows[0]["claims"] == []
+        for field in ("session_id", "liveness", "execution_lane", "mode",
+                      "actor_label", "claims"):
+            assert field in envelope["result"]["fields"]
+
     def test_strategy_doc_list_with_project_target_reaches_handler(
         self,
         ui_client,

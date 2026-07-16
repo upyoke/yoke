@@ -58,6 +58,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "ouroboros.entry.list",
     "board.data.get",
     "deployment_runs.list",
+    "sessions.list",
     "events.query.run",
 })
 
