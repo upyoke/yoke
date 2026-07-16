@@ -118,8 +118,6 @@ def _execute(
         deploy_pipeline, "connect", return_value=mock.Mock(),
     ), mock.patch.object(
         deploy_pipeline, "query_scalar", return_value=0,
-    ), mock.patch.object(
-        deploy_pipeline, "_converge_seeded_flow_config",
     ):
         rc = deploy_pipeline.run_pipeline(
             run_id, from_stage=from_stage, sd="/tmp/sd",

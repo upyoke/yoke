@@ -7,6 +7,10 @@ import json
 from yoke_contracts.github_workflow_dispatch import (
     WORKFLOW_DISPATCH_CORRELATION_INPUT,
 )
+from yoke_core.domain.deployment_flow_state import (
+    FLOW_STATUS_ACTIVE,
+    FLOW_STATUS_DISABLED,
+)
 
 
 def _github_workflow_stage(
@@ -25,6 +29,35 @@ def _github_workflow_stage(
     return stage
 
 
+def _hosted_release_stages(
+    *,
+    workflow: str,
+    target_environment: str,
+    release_mode: str,
+    product_bridge: bool,
+) -> str:
+    inputs = {
+        "target_environment": target_environment,
+        "release_mode": release_mode,
+    }
+    if product_bridge:
+        inputs["product_sha"] = "{head_sha}"
+    else:
+        inputs["platform_ref"] = "{head_sha}"
+    return json.dumps([
+        {"name": "merged", "executor": "auto"},
+        _github_workflow_stage(
+            "hosted-release",
+            workflow,
+            correlated=True,
+            ref="main",
+            inputs=inputs,
+            reconcile_by_head_sha=False,
+        ),
+        {"name": "complete", "executor": "auto"},
+    ])
+
+
 SEED_FLOWS = [
     {
         "id": "yoke-internal", "project": "yoke", "name": "Internal",
@@ -36,6 +69,7 @@ SEED_FLOWS = [
             {"name": "complete", "executor": "auto"},
         ]),
         "on_failure": "halt", "target_env": None,
+        "status": FLOW_STATUS_ACTIVE,
         "done_description": "Merged to main",
     },
     {
@@ -58,6 +92,7 @@ SEED_FLOWS = [
             {"name": "complete", "executor": "auto"},
         ]),
         "on_failure": "halt", "target_env": "prod",
+        "status": FLOW_STATUS_DISABLED,
         "done_description": "Yoke core deployed to prod, health check passed, and installer distribution published",
     },
     {
@@ -78,7 +113,60 @@ SEED_FLOWS = [
             {"name": "complete", "executor": "auto"},
         ]),
         "on_failure": "halt", "target_env": "stage",
+        "status": FLOW_STATUS_DISABLED,
         "done_description": "Yoke core deployed to stage, health check passed, and stage installer distribution published",
+    },
+    {
+        "id": "yoke-hosted-production",
+        "project": "yoke",
+        "name": "Production",
+        "description": (
+            "Release an annotated Yoke version through the Platform production train"
+        ),
+        "stages": _hosted_release_stages(
+            workflow="platform-release-bridge.yml",
+            target_environment="production",
+            release_mode="normal",
+            product_bridge=True,
+        ),
+        "on_failure": "halt",
+        "target_env": "production",
+        "status": FLOW_STATUS_ACTIVE,
+        "done_description": "Yoke release completed through the hosted production train",
+    },
+    {
+        "id": "yoke-hosted-production-hotfix",
+        "project": "yoke",
+        "name": "Production Hotfix",
+        "description": (
+            "Release an annotated Yoke hotfix through the Platform production train"
+        ),
+        "stages": _hosted_release_stages(
+            workflow="platform-release-bridge.yml",
+            target_environment="production",
+            release_mode="hotfix",
+            product_bridge=True,
+        ),
+        "on_failure": "halt",
+        "target_env": "production",
+        "status": FLOW_STATUS_ACTIVE,
+        "done_description": "Yoke hotfix completed through the hosted production train",
+    },
+    {
+        "id": "yoke-hosted-stage",
+        "project": "yoke",
+        "name": "Stage",
+        "description": "Release an annotated Yoke version through the Platform stage train",
+        "stages": _hosted_release_stages(
+            workflow="platform-release-bridge.yml",
+            target_environment="stage",
+            release_mode="normal",
+            product_bridge=True,
+        ),
+        "on_failure": "halt",
+        "target_env": "stage",
+        "status": FLOW_STATUS_ACTIVE,
+        "done_description": "Yoke release completed through the hosted stage train",
     },
     {
         "id": "yoke-ephemeral-deploy", "project": "yoke", "name": "Ephemeral Deploy",
@@ -88,7 +176,56 @@ SEED_FLOWS = [
             {"name": "complete", "executor": "auto"},
         ]),
         "on_failure": "halt", "target_env": "ephemeral",
+        "status": FLOW_STATUS_ACTIVE,
         "done_description": "Yoke core preview environment deployed",
+    },
+    {
+        "id": "platform-production",
+        "project": "platform",
+        "name": "Production",
+        "description": "Release Platform main through the hosted production train",
+        "stages": _hosted_release_stages(
+            workflow="platform-release.yml",
+            target_environment="production",
+            release_mode="normal",
+            product_bridge=False,
+        ),
+        "on_failure": "halt",
+        "target_env": "production",
+        "status": FLOW_STATUS_ACTIVE,
+        "done_description": "Platform release completed through the hosted production train",
+    },
+    {
+        "id": "platform-production-hotfix",
+        "project": "platform",
+        "name": "Production Hotfix",
+        "description": "Release a Platform hotfix through the hosted production train",
+        "stages": _hosted_release_stages(
+            workflow="platform-release.yml",
+            target_environment="production",
+            release_mode="hotfix",
+            product_bridge=False,
+        ),
+        "on_failure": "halt",
+        "target_env": "production",
+        "status": FLOW_STATUS_ACTIVE,
+        "done_description": "Platform hotfix completed through the hosted production train",
+    },
+    {
+        "id": "platform-stage",
+        "project": "platform",
+        "name": "Stage",
+        "description": "Release Platform main through the hosted stage train",
+        "stages": _hosted_release_stages(
+            workflow="platform-release.yml",
+            target_environment="stage",
+            release_mode="normal",
+            product_bridge=False,
+        ),
+        "on_failure": "halt",
+        "target_env": "stage",
+        "status": FLOW_STATUS_ACTIVE,
+        "done_description": "Platform release completed through the hosted stage train",
     },
     {
         "id": "buzz-prod-release", "project": "buzz", "name": "Prod Release",
@@ -102,6 +239,7 @@ SEED_FLOWS = [
             {"name": "complete", "executor": "auto"},
         ]),
         "on_failure": "halt", "target_env": "production",
+        "status": FLOW_STATUS_ACTIVE,
         "done_description": "Deployed to production and smoke checks passed",
     },
     {
@@ -117,6 +255,7 @@ SEED_FLOWS = [
             ),
         ]),
         "on_failure": "halt", "target_env": "production",
+        "status": FLOW_STATUS_ACTIVE,
         "done_description": "Hotfix deployed to production",
     },
     {
@@ -127,6 +266,7 @@ SEED_FLOWS = [
             {"name": "complete", "executor": "auto"},
         ]),
         "on_failure": "halt", "target_env": None,
+        "status": FLOW_STATUS_ACTIVE,
         "done_description": "Merged to main",
     },
 ]

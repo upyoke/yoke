@@ -1,0 +1,137 @@
+name: platform-release-bridge
+run-name: "${{ inputs.release_mode }} ${{ inputs.target_environment }} yoke@${{ inputs.product_sha }} [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "Hosted environment to release"
+        required: true
+        type: choice
+        options:
+          - stage
+          - production
+      release_mode:
+        description: "Normal release or production hotfix"
+        required: true
+        type: choice
+        options:
+          - normal
+          - hotfix
+      product_sha:
+        description: "Merged Yoke commit carrying an annotated release tag"
+        required: true
+        type: string
+      yoke_dispatch_id:
+        description: "Opaque Yoke dispatch correlation token"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch-platform-release:
+    name: dispatch and await Platform release
+    runs-on: ubuntu-24.04
+    env:
+      YOKE_API_BASE: "https://app.upyoke.com/api/orgs/upyoke"
+      YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
+    steps:
+      - name: Checkout the merged Yoke source and release tags
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.product_sha }}
+
+      - name: Resolve the unique annotated release tag
+        id: release
+        env:
+          PRODUCT_SHA: ${{ inputs.product_sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+
+          sha = os.environ["PRODUCT_SHA"]
+          tags = subprocess.run(
+              ["git", "tag", "--points-at", sha],
+              check=True,
+              text=True,
+              capture_output=True,
+          ).stdout.splitlines()
+          release_pattern = re.compile(
+              r"^v(?:0|[1-9][0-9]*)\."
+              r"(?:0|[1-9][0-9]*)\."
+              r"(?:0|[1-9][0-9]*)\+launch\."
+              r"(?:0|[1-9][0-9]*)$"
+          )
+          annotated = []
+          for tag in tags:
+              if not release_pattern.fullmatch(tag):
+                  continue
+              object_type = subprocess.run(
+                  ["git", "cat-file", "-t", f"refs/tags/{tag}"],
+                  check=True,
+                  text=True,
+                  capture_output=True,
+              ).stdout.strip()
+              if object_type == "tag":
+                  annotated.append(tag)
+          if len(annotated) != 1:
+              raise SystemExit(
+                  "product_sha must carry exactly one annotated "
+                  f"vX.Y.Z+launch.N release tag; found {annotated!r}"
+              )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"tag={annotated[0]}\n")
+          PY
+
+      - name: Install this release's Yoke client
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+      - name: Install the checked-out Yoke packages
+        run: |
+          python3 -m pip install \
+            -e packages/yoke-contracts \
+            -e packages/yoke-cli \
+            -e packages/yoke-harness \
+            -e packages/yoke-core \
+            -e .
+
+      - name: Configure the scoped hosted control-plane connection
+        run: |
+          export YOKE_MACHINE_HOME="$RUNNER_TEMP/yoke-platform-release-bridge"
+          echo "YOKE_MACHINE_HOME=$YOKE_MACHINE_HOME" >> "$GITHUB_ENV"
+          echo "YOKE_ENV=prod" >> "$GITHUB_ENV"
+          printf '%s' "$YOKE_PLATFORM_RELEASE_API_TOKEN" | yoke connection set prod \
+            --transport https \
+            --prod \
+            --api-url "$YOKE_API_BASE" \
+            --token-stdin >/dev/null
+
+      - name: Dispatch and await the Platform train
+        env:
+          PRODUCT_REF: ${{ steps.release.outputs.tag }}
+          RELEASE_MODE: ${{ inputs.release_mode }}
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          OUTER_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
+        run: |
+          request_id="bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${OUTER_DISPATCH_ID}"
+          platform_run_id="$(yoke github-actions trigger \
+            upyoke/platform platform-release.yml \
+            --ref main \
+            --input "target_environment=$TARGET_ENVIRONMENT" \
+            --input "product_ref=$PRODUCT_REF" \
+            --input "release_mode=$RELEASE_MODE" \
+            --request-id "$request_id" \
+            --correlation-input yoke_dispatch_id \
+            --project platform)"
+          echo "Platform release run: https://github.com/upyoke/platform/actions/runs/$platform_run_id"
+          yoke github-actions wait-run \
+            upyoke/platform "$platform_run_id" \
+            --project platform \
+            --timeout 10800

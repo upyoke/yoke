@@ -126,11 +126,14 @@ PROJECT_TABLES: dict[str, dict] = {
             ("created_at", "TEXT"),
             ("target_env", "TEXT"),
             ("done_description", "TEXT"),
+            ("status", "TEXT"),
         ],
         "notes": (
             "Deployment-flow definitions keyed by TEXT `id`. Project "
             "lookup uses numeric `project_id`; join projects for the slug. "
-            "The human flow name is `name`. "
+            "The human flow name is `name`. `status` is `active` or "
+            "`disabled`; disabled definitions remain readable for historical "
+            "runs but cannot be assigned or start new runs. "
             "`stages` is a JSON-array column whose elements define the "
             "ordered pipeline steps. Canonical lookup: `SELECT id, "
             "stages FROM deployment_flows WHERE id = ?;` then "

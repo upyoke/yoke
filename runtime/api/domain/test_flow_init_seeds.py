@@ -21,6 +21,12 @@ class TestSeedFlows:
             "yoke-prod-release",
             "yoke-stage-release",
             "yoke-ephemeral-deploy",
+            "yoke-hosted-production",
+            "yoke-hosted-production-hotfix",
+            "yoke-hosted-stage",
+            "platform-production",
+            "platform-production-hotfix",
+            "platform-stage",
             "buzz-prod-release",
             "buzz-prod-hotfix",
             "buzz-internal",
@@ -64,6 +70,7 @@ class TestSeedFlows:
         }
         assert publish["reconcile_by_head_sha"] is False
         assert publish["qa_kind"] == "distribution_publish"
+        assert flow["status"] == "disabled"
 
     def test_stage_release_skips_governed_migration(self):
         flow = next(
@@ -83,6 +90,39 @@ class TestSeedFlows:
             "source_sha": "{head_sha}",
         }
         assert publish["reconcile_by_head_sha"] is False
+        assert flow["status"] == "disabled"
+
+    def test_project_local_hosted_flows_cover_stage_production_and_hotfix(self):
+        by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
+        expected = {
+            "yoke-hosted-stage": ("yoke", "stage", "normal", True),
+            "yoke-hosted-production": (
+                "yoke", "production", "normal", True,
+            ),
+            "yoke-hosted-production-hotfix": (
+                "yoke", "production", "hotfix", True,
+            ),
+            "platform-stage": ("platform", "stage", "normal", False),
+            "platform-production": (
+                "platform", "production", "normal", False,
+            ),
+            "platform-production-hotfix": (
+                "platform", "production", "hotfix", False,
+            ),
+        }
+        for flow_id, (project, environment, mode, is_bridge) in expected.items():
+            flow = by_id[flow_id]
+            assert flow["project"] == project
+            assert flow["status"] == "active"
+            stage = next(
+                stage for stage in json.loads(flow["stages"])
+                if stage.get("executor") == "github-actions-workflow"
+            )
+            assert stage["inputs"]["target_environment"] == environment
+            assert stage["inputs"]["release_mode"] == mode
+            assert ("product_sha" in stage["inputs"]) is is_bridge
+            assert ("platform_ref" in stage["inputs"]) is (not is_bridge)
+            assert stage["dispatch_correlation_input"] == "yoke_dispatch_id"
 
     def test_ephemeral_flow_targets_ephemeral(self):
         flow = next(
@@ -152,6 +192,9 @@ class TestSeedFlowsRequireProjects:
                 conn.execute(
                     "INSERT INTO projects (id, slug) VALUES (42, 'buzz')"
                 )
+                conn.execute(
+                    "INSERT INTO projects (id, slug) VALUES (43, 'platform')"
+                )
                 conn.commit()
                 flow_cmd_init(conn)
                 rows = conn.execute(
@@ -160,7 +203,11 @@ class TestSeedFlowsRequireProjects:
                 by_id = {str(r[0]): int(r[1]) for r in rows}
                 assert set(by_id) == {f["id"] for f in _SEED_FLOWS}
                 for flow in _SEED_FLOWS:
-                    expected = 41 if flow["project"] == "yoke" else 42
+                    expected = {
+                        "yoke": 41,
+                        "buzz": 42,
+                        "platform": 43,
+                    }[flow["project"]]
                     assert by_id[str(flow["id"])] == expected
                 buzz_stages = json.loads(conn.execute(
                     "SELECT stages FROM deployment_flows "
@@ -169,51 +216,6 @@ class TestSeedFlowsRequireProjects:
                 assert all(
                     "dispatch_correlation_input" not in stage
                     for stage in buzz_stages
-                )
-            finally:
-                conn.close()
-
-    def test_existing_buzz_seed_is_backfilled_to_trigger_once(self, tmp_path):
-        from yoke_core.domain import db_backend
-        from runtime.api.fixtures.file_test_db import init_test_db
-
-        def _apply() -> None:
-            conn = db_backend.connect()
-            try:
-                self._init_min_schema(conn)
-                conn.execute("INSERT INTO projects (id, slug) VALUES (42, 'buzz')")
-                conn.commit()
-            finally:
-                conn.close()
-
-        with init_test_db(tmp_path, apply_schema=_apply):
-            conn = db_backend.connect()
-            try:
-                flow_cmd_init(conn)
-                row = conn.execute(
-                    "SELECT stages FROM deployment_flows "
-                    "WHERE id = 'buzz-prod-release'"
-                ).fetchone()
-                stages = json.loads(row[0])
-                for stage in stages:
-                    if stage.get("executor") == "github-actions-workflow":
-                        stage["dispatch_correlation_input"] = "yoke_dispatch_id"
-                conn.execute(
-                    "UPDATE deployment_flows SET stages = %s "
-                    "WHERE id = 'buzz-prod-release'",
-                    (json.dumps(stages),),
-                )
-                conn.commit()
-
-                flow_cmd_init(conn)
-                converged = json.loads(conn.execute(
-                    "SELECT stages FROM deployment_flows "
-                    "WHERE id = 'buzz-prod-release'"
-                ).fetchone()[0])
-                assert all(
-                    "dispatch_correlation_input" not in stage
-                    for stage in converged
-                    if stage.get("executor") == "github-actions-workflow"
                 )
             finally:
                 conn.close()

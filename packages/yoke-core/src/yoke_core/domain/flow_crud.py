@@ -14,11 +14,16 @@ from yoke_core.domain.flow_cross_reference import (
     _validate_flow_stages_cross_reference,
 )
 from yoke_core.domain.flow_validation import validate_stages
+from yoke_core.domain.deployment_flow_state import (
+    FLOW_STATUS_ACTIVE,
+    assert_flow_definition_mutable,
+    validate_flow_status,
+)
 from yoke_core.domain.project_identity import resolve_project
 
 _FLOW_FIELDS = frozenset({
     "id", "project", "name", "description", "stages",
-    "on_failure", "created_at", "target_env", "done_description",
+    "on_failure", "created_at", "target_env", "done_description", "status",
 })
 
 _SELECT_COLS = (
@@ -83,7 +88,10 @@ def cmd_get(conn, flow_id: str, field: Optional[str] = None) -> str:
         return _format_row(row)
 
 
-def cmd_list(conn, project: Optional[str] = None) -> str:
+def cmd_list(
+    conn, project: Optional[str] = None, *, include_disabled: bool = False,
+) -> str:
+    status_clause = "" if include_disabled else " AND df.status='active'"
     if project:
         ident = resolve_project(conn, project)
         assert ident is not None
@@ -91,14 +99,15 @@ def cmd_list(conn, project: Optional[str] = None) -> str:
             conn,
             f"SELECT {_SELECT_COLS} FROM deployment_flows df "
             "JOIN projects p ON p.id = df.project_id "
-            "WHERE df.project_id=%s ORDER BY df.id ASC",
+            f"WHERE df.project_id=%s{status_clause} ORDER BY df.id ASC",
             (ident.id,),
         )
     else:
         rows = query_rows(
             conn,
             f"SELECT {_SELECT_COLS} FROM deployment_flows df "
-            "JOIN projects p ON p.id = df.project_id ORDER BY df.id ASC",
+            "JOIN projects p ON p.id = df.project_id "
+            f"WHERE 1=1{status_clause} ORDER BY df.id ASC",
         )
     return "\n".join(_format_row(row) for row in rows)
 
@@ -122,6 +131,7 @@ def cmd_update_stages(
     live flow row can never hold an undispatchable stage shape.
     """
     validate_stages(stages_json)
+    assert_flow_definition_mutable(conn, flow_id)
     row = query_one(
         conn,
         "SELECT project_id FROM deployment_flows WHERE id=%s",
@@ -145,6 +155,22 @@ def cmd_update_stages(
     return f"Updated stages for deployment flow: {flow_id}"
 
 
+def cmd_set_status(conn, flow_id: str, status: str) -> str:
+    """Enable or disable a flow without removing its definition or history."""
+    normalized = validate_flow_status(status)
+    exists = query_scalar(
+        conn, "SELECT 1 FROM deployment_flows WHERE id=%s", (flow_id,)
+    )
+    if exists is None:
+        raise LookupError(f"deployment flow '{flow_id}' not found")
+    conn.execute(
+        "UPDATE deployment_flows SET status=%s WHERE id=%s",
+        (normalized, flow_id),
+    )
+    conn.commit()
+    return f"Deployment flow '{flow_id}' is now {normalized}"
+
+
 def cmd_delete(conn, flow_id: str, repoint_items_to: Optional[str] = None) -> str:
     """Delete a flow; optionally repoint items that referenced it first.
 
@@ -157,6 +183,7 @@ def cmd_delete(conn, flow_id: str, repoint_items_to: Optional[str] = None) -> st
     )
     if exists is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
+    assert_flow_definition_mutable(conn, flow_id)
 
     referencing = query_scalar(
         conn,
@@ -172,8 +199,8 @@ def cmd_delete(conn, flow_id: str, repoint_items_to: Optional[str] = None) -> st
             )
         target = query_scalar(
             conn,
-            "SELECT 1 FROM deployment_flows WHERE id=%s",
-            (repoint_items_to,),
+            "SELECT 1 FROM deployment_flows WHERE id=%s AND status=%s",
+            (repoint_items_to, FLOW_STATUS_ACTIVE),
         )
         if target is None:
             raise LookupError(

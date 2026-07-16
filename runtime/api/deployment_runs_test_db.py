@@ -38,7 +38,8 @@ _MINIMAL_SCHEMA_DDL = """
         project_id INTEGER NOT NULL REFERENCES projects(id),
         name TEXT,
         stages TEXT,
-        target_env TEXT
+        target_env TEXT,
+        status TEXT NOT NULL DEFAULT 'active'
     );
     INSERT INTO deployment_flows (id, project_id, name, stages, target_env)
     VALUES ('flow-main', 1, 'Main Flow',

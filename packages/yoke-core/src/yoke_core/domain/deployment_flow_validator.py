@@ -6,6 +6,7 @@ from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 
 
 def _p(conn: Any) -> str:
@@ -49,6 +50,25 @@ def list_registered_flow_ids(
     return out
 
 
+def list_active_flow_ids(conn: Any, project: Optional[str] = None) -> List[str]:
+    """Return active flow ids available for new item assignments."""
+    if project:
+        ident = resolve_project(conn, project, required=False)
+        if ident is None:
+            return []
+        rows = conn.execute(
+            f"SELECT id FROM deployment_flows WHERE project_id = {_p(conn)} "
+            f"AND status = {_p(conn)} ORDER BY id",
+            (ident.id, FLOW_STATUS_ACTIVE),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            f"SELECT id FROM deployment_flows WHERE status = {_p(conn)} ORDER BY id",
+            (FLOW_STATUS_ACTIVE,),
+        ).fetchall()
+    return [str(row["id"] if hasattr(row, "keys") else row[0]) for row in rows]
+
+
 def validate_and_lookup_flow_project(
     conn: Any,
     flow_id: Optional[str],
@@ -79,18 +99,29 @@ def validate_and_lookup_flow_project(
         return None, None
 
     row = conn.execute(
-        "SELECT p.slug AS project FROM deployment_flows df "
+        "SELECT p.slug AS project, df.status FROM deployment_flows df "
         "JOIN projects p ON p.id = df.project_id "
         f"WHERE df.id = {_p(conn)}",
         (flow_id,),
     ).fetchone()
     if row is not None:
+        status = str(row["status"] if hasattr(row, "keys") else row[1])
+        if status != FLOW_STATUS_ACTIVE:
+            flows = list_active_flow_ids(conn, project)
+            suffix = (
+                f" Active flows: {', '.join(flows)}."
+                if flows else " No active deployment flows are registered."
+            )
+            return None, (
+                f"deployment_flow '{flow_id}' is {status} and cannot be assigned."
+                f"{suffix}"
+            )
         try:
             return row["project"], None
         except (TypeError, IndexError, KeyError):
             return row[0], None
 
-    flows = list_registered_flow_ids(conn, project)
+    flows = list_active_flow_ids(conn, project)
     if flows:
         if project:
             suffix = (
@@ -111,6 +142,7 @@ def validate_and_lookup_flow_project(
 
 
 __all__ = (
+    "list_active_flow_ids",
     "list_registered_flow_ids",
     "normalize_deployment_flow_value",
     "validate_and_lookup_flow_project",
