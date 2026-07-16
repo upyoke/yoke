@@ -51,6 +51,7 @@ SESSION_COOKIE_NAME = "yoke_ui_session"
 UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "organizations.get",
     "projects.list",
+    "projects.capabilities.list",
     "items.get.run",
     "items.list.run",
     "epic_tasks.list.run",
@@ -59,7 +60,10 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "board.data.get",
     "deployment_runs.list",
     "sessions.list",
+    "frontier.list",
     "events.query.run",
+    "doctor.last_run.get",
+    "workflows.definition.get",
 })
 
 #: Packaged static assets the server may serve, with their content types.
@@ -76,7 +80,9 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "contract-version.js": "text/javascript; charset=utf-8",
     "mount-options.js": "text/javascript; charset=utf-8",
     "universe_navigation.js": "text/javascript; charset=utf-8",
+    "universe_view_support.js": "text/javascript; charset=utf-8",
     "universe_views.js": "text/javascript; charset=utf-8",
+    "universe_views_workflows.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
     "shell.css": "text/css; charset=utf-8",
     "theme.css": "text/css; charset=utf-8",

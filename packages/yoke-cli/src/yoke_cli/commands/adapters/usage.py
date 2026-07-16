@@ -44,7 +44,10 @@ from yoke_cli.commands.adapters.config_write import (
 )
 from yoke_cli.commands.adapters.db_claim import DB_CLAIM_AMEND_USAGE
 from yoke_cli.commands.adapters.db import DB_READ_USAGE
-from yoke_cli.commands.adapters.doctor import DOCTOR_RUN_USAGE
+from yoke_cli.commands.adapters.doctor import (
+    DOCTOR_LAST_RUN_GET_USAGE,
+    DOCTOR_RUN_USAGE,
+)
 from yoke_cli.commands.adapters.deployment import (
     DEPLOYMENT_FLOWS_GET_USAGE,
     DEPLOYMENT_FLOWS_STAGES_USAGE,
@@ -205,7 +208,14 @@ from yoke_cli.commands.adapters.sessions import (
     SESSIONS_OWNERSHIP_GUARD_USAGE,
     SESSIONS_TOUCH_USAGE,
 )
+from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
+from yoke_cli.commands.adapters.projects_capabilities_read import (
+    PROJECTS_CAPABILITIES_LIST_USAGE,
+)
+from yoke_cli.commands.adapters.workflows_read import (
+    WORKFLOWS_DEFINITION_GET_USAGE,
+)
 
 __all__ = ["ADAPTER_USAGE"]
 
@@ -241,12 +251,14 @@ ADAPTER_USAGE: Dict[str, str] = {
     "db.read.run": DB_READ_USAGE,
     "sessions.begin": SESSIONS_BEGIN_USAGE,
     "sessions.list": SESSIONS_LIST_USAGE,
+    "workflows.definition.get": WORKFLOWS_DEFINITION_GET_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
     "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,
     "sessions.offer": SESSIONS_OFFER_USAGE,
     "sessions.ownership_guard": SESSIONS_OWNERSHIP_GUARD_USAGE,
     "charge.schedule": CHARGE_SCHEDULE_USAGE,
+    "frontier.list": FRONTIER_LIST_USAGE,
     "agents.render.run": AGENTS_RENDER_USAGE,
     "agents.render.check": AGENTS_RENDER_CHECK_USAGE,
     "packets.render.run": PACKETS_RENDER_USAGE,
@@ -274,6 +286,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "qa.run.get": QA_RUN_GET_USAGE,
     "qa.gate_summary.run": QA_GATE_SUMMARY_USAGE,
     "doctor.run.run": DOCTOR_RUN_USAGE,
+    "doctor.last_run.get": DOCTOR_LAST_RUN_GET_USAGE,
     "deployment_flows.get": DEPLOYMENT_FLOWS_GET_USAGE,
     "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
@@ -287,6 +300,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.create": PROJECTS_CREATE_USAGE,
     "projects.update": PROJECTS_UPDATE_USAGE,
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
+    "projects.capabilities.list": PROJECTS_CAPABILITIES_LIST_USAGE,
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
     "projects.capability_settings.merge": PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,

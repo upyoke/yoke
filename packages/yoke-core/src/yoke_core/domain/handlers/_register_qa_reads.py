@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import (
+    doctor_last_run as _doctor_last_run,
     items_listing as _items_listing,
     reads as _reads,
     reads_misc as _reads_misc,
@@ -76,6 +77,16 @@ def register(registry) -> None:
         _reads_misc.DoctorRunRequest, _reads_misc.DoctorRunResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.reads_misc",
+        target_kinds=["global"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
+        "doctor.last_run.get", _doctor_last_run.handle_doctor_last_run_get,
+        _doctor_last_run.DoctorLastRunGetRequest,
+        _doctor_last_run.DoctorLastRunGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.doctor_last_run",
         target_kinds=["global"], side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,

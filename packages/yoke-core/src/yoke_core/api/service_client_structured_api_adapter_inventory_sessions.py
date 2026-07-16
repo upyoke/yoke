@@ -52,6 +52,14 @@ SESSION_ADAPTERS = [
         function_id="charge.schedule",
         cli_invocation="yoke charge schedule [--project P] [--wip-cap N]",
     ),
+    _read_entry(
+        function_id="frontier.list",
+        cli_invocation="yoke frontier list [--project P] [--wip-cap N]",
+        notes=(
+            "The schedule as a pure read: ranked ready rows with engine-owned "
+            "ranks and blocked rows naming their gate points; emits no events."
+        ),
+    ),
 ]
 
 

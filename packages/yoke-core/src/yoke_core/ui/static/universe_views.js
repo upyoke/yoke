@@ -1,245 +1,24 @@
 // Read-only workbench view renderers. The app shell owns mounting and routing;
 // this module owns function-backed panels and their row/detail presentation.
+// The presentation primitives (sections, tables, pills, scoped loaders) live
+// in universe_view_support.js.
 
 import { buildUniverseRoute } from "./universe_navigation.js";
+import {
+  el,
+  loadScopedPanels,
+  loadScopedSection,
+  loadSection,
+  mergedRows,
+  renderTable,
+  scopeBuckets,
+  section,
+  statePill,
+  withProjectColumn,
+} from "./universe_view_support.js";
+import { renderWorkflowsView } from "./universe_views_workflows.js";
 
-function el(documentNode, tag, className, text) {
-  const node = documentNode.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function callFunction(client, functionId, payload, target) {
-  const request = { function: functionId, payload: payload || {} };
-  // Preserve the local proxy envelope: omit target unless a view supplies
-  // one, so global-target reads keep their server-side default.
-  if (target) request.target = target;
-  return client.call(request);
-}
-
-// One titled section with a raw-JSON toggle showing the exact function-call
-// response envelope(s) the section rendered from — a lone envelope for a
-// single read, the array of them when a scope fanned out into several.
-export function section(documentNode, title) {
-  const wrap = el(documentNode, "section", "panel");
-  const header = el(documentNode, "div", "panel-header");
-  const heading = el(documentNode, "h2", null, title);
-  header.appendChild(heading);
-  const toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
-  toggle.type = "button";
-  header.appendChild(toggle);
-  wrap.appendChild(header);
-
-  // The muted count beside the title. Numbers are facts the engine owns: a
-  // view passes the total its read served when it carries one, the length
-  // of a complete row set it just fetched otherwise, and null when neither
-  // holds — a panel with no honest number shows none.
-  let countNode = null;
-  wrap.setCount = (count) => {
-    if (count === null || count === undefined) {
-      if (countNode) {
-        heading.removeChild(countNode);
-        countNode = null;
-      }
-      return;
-    }
-    if (!countNode) {
-      countNode = el(documentNode, "span", "panel-count");
-      heading.appendChild(countNode);
-    }
-    countNode.textContent = `· ${count}`;
-  };
-
-  const body = el(documentNode, "div", "panel-body", "loading…");
-  wrap.appendChild(body);
-
-  const raw = el(documentNode, "pre", "raw-json");
-  raw.hidden = true;
-  wrap.appendChild(raw);
-  toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
-
-  wrap.renderEnvelopes = (callResults, renderBody) => {
-    const envelopes = callResults.map((callResult) => callResult.envelope);
-    raw.textContent = JSON.stringify(
-      envelopes.length === 1 ? envelopes[0] : envelopes, null, 2,
-    );
-    body.replaceChildren();
-    renderBody(body, callResults);
-  };
-  wrap.renderEnvelope = (callResult, renderBody) => {
-    wrap.renderEnvelopes(
-      [callResult],
-      (bodyNode, callResults) => renderBody(bodyNode, callResults[0]),
-    );
-  };
-  return wrap;
-}
-
-// Semantic color family per state value. Status vocabularies belong to
-// workflow types, so this map is a coloring hint and never a gate: any value
-// it has not seen renders as a neutral idle pill rather than breaking.
-const STATE_PILL_FAMILIES = {
-  implementing: "run",
-  "reviewing-implementation": "run",
-  "reviewed-implementation": "run",
-  "polishing-implementation": "run",
-  release: "run",
-  new: "run",
-  executing: "run",
-  implemented: "good",
-  done: "good",
-  active: "good",
-  succeeded: "good",
-  blocked: "crit",
-  failed: "crit",
-  error: "crit",
-  critical: "crit",
-  unclear: "warn",
-  warn: "warn",
-  warning: "warn",
-  stale: "warn",
-};
-
-// A state value rendered as a tinted lozenge with a leading dot, colored by
-// its semantic family. Empty values render nothing at all.
-function statePill(documentNode, value) {
-  const text = String(value ?? "");
-  if (!text) return null;
-  const family = STATE_PILL_FAMILIES[text.toLowerCase()] || "idle";
-  const pill = el(documentNode, "span", `pill ${family}`, text);
-  pill.setAttribute("data-state", text);
-  return pill;
-}
-
-function renderError(body, callResult) {
-  const envelope = callResult.envelope || {};
-  const detail = (envelope.error && envelope.error.message) ||
-    "request failed";
-  body.appendChild(el(
-    body.ownerDocument, "p", "error",
-    `read failed (HTTP ${callResult.status}): ${detail}`,
-  ));
-}
-
-// Render `rows` as a table whose `columns` each name a header label and a
-// per-row cell accessor. Empty rows render the view's own empty message.
-// `rowHref`, when given, makes the first cell of each row the link that opens
-// that row's drill-in — a real href, so it can be opened in a new tab.
-// A column marked `pill: true` renders its value as a state pill.
-function renderTable(body, rows, columns, emptyText, rowHref) {
-  const documentNode = body.ownerDocument;
-  if (rows.length === 0) {
-    body.appendChild(el(documentNode, "p", "empty", emptyText));
-    return;
-  }
-  const table = el(documentNode, "table", "items");
-  const head = el(documentNode, "tr");
-  for (const column of columns) {
-    head.appendChild(el(documentNode, "th", null, column.label));
-  }
-  table.appendChild(head);
-  for (const row of rows) {
-    const tr = el(documentNode, "tr");
-    for (const [index, column] of columns.entries()) {
-      const text = String(column.value(row) ?? "");
-      const cell = el(documentNode, "td");
-      if (rowHref && index === 0) {
-        const link = el(documentNode, "a", "row-link", text);
-        link.href = rowHref(row);
-        cell.appendChild(link);
-      } else if (column.pill) {
-        const pill = statePill(documentNode, text);
-        if (pill) cell.appendChild(pill);
-      } else {
-        cell.textContent = text;
-      }
-      tr.appendChild(cell);
-    }
-    table.appendChild(tr);
-  }
-  body.appendChild(table);
-}
-
-async function loadSection(
-  context, panel, functionId, payload, renderBody, target,
-) {
-  let callResult;
-  try {
-    callResult = await callFunction(
-      context.client, functionId, payload, target,
-    );
-  } catch (fetchError) {
-    // Network-level failure (server gone, connection refused): status 0
-    // marks "no HTTP response" and the panel shows the failure instead
-    // of sticking at "loading…".
-    callResult = {
-      status: 0,
-      envelope: { success: false, error: { message: String(fetchError) } },
-    };
-  }
-  if (!context.isMounted()) return;
-  const ok = callResult.status === 200 && callResult.envelope.success;
-  panel.renderEnvelope(callResult, ok ? renderBody : renderError);
-}
-
-// A multi view's scope resolves into per-call project buckets. "all" is one
-// unfiltered call (bucket null) when the read serves the whole universe, or
-// one call per roster project when the read refuses without one; a project
-// set is always one call per member.
-function scopeBuckets(scope, projects, requiresProject) {
-  if (scope !== "all") return scope;
-  return requiresProject ? projects.map((row) => String(row.id)) : [null];
-}
-
-// One call per bucket, rendered once after every call settles. A failed
-// bucket fails the whole section — silently dropping one would render a
-// partial universe as if it were the whole one.
-async function loadScopedSection(context, panel, calls, renderRows) {
-  const callResults = await Promise.all(calls.map(async (call) => {
-    try {
-      return await callFunction(
-        context.client, call.functionId, call.payload, call.target,
-      );
-    } catch (fetchError) {
-      // Network-level failure (server gone, connection refused): status 0
-      // marks "no HTTP response" so the panel shows the failure instead
-      // of sticking at "loading…".
-      return {
-        status: 0,
-        envelope: { success: false, error: { message: String(fetchError) } },
-      };
-    }
-  }));
-  if (!context.isMounted()) return;
-  const failed = callResults.find(
-    (callResult) => !(callResult.status === 200 && callResult.envelope.success),
-  );
-  panel.renderEnvelopes(
-    callResults,
-    failed ? (body) => renderError(body, failed) : renderRows,
-  );
-}
-
-// Bucket results merged in call order.
-function mergedRows(callResults, extract) {
-  return callResults.flatMap(
-    (callResult) => extract(callResult.envelope.result || {}) || [],
-  );
-}
-
-// A table scoped to exactly one project needs no project column; "all" and
-// multi-member sets label every row with the project it belongs to. The
-// column sits beside the leading identifier so a row link stays the first
-// cell.
-function withProjectColumn(columns, scope, valueOf) {
-  if (Array.isArray(scope) && scope.length === 1) return columns;
-  return [
-    columns[0],
-    { label: "project", value: valueOf },
-    ...columns.slice(1),
-  ];
-}
+export { section } from "./universe_view_support.js";
 
 // `blocked` arrives as the string "0"/"1", which makes both values truthy —
 // read it as a number, never as a bare condition.
@@ -536,6 +315,76 @@ function renderSessionsView(context, main, scope) {
   );
 }
 
+// What runs next and why, and what a waiting item waits on. One read serves
+// both panels: the engine's ranked ready steps — rank is the engine's own,
+// never a display index — and one blocked row per unsatisfied dependency
+// edge across every gate point (activation stops a start, integration only
+// orders the landing, closure holds the closeout), plus the non-edge waits
+// (operator blocks) whose gate cell is honestly empty. There is no progress
+// column: no per-item done/total exists in the engine, so none is invented
+// here. Frontier rows point at items — the item cell links to the items
+// drill-in rather than making the row a frontier drill-in of its own.
+function renderFrontierView(context, main, scope) {
+  const documentNode = context.document;
+  const readyPanel = section(documentNode, "Ready");
+  const blockedPanel = section(documentNode, "Blocked");
+  main.replaceChildren(readyPanel, blockedPanel);
+  const projects = context.projects();
+  const buckets = scopeBuckets(scope, projects, false);
+  const idBySlug = new Map(
+    projects.map((row) => [String(row.slug), String(row.id)]),
+  );
+  // A row's item link carries the row's own project: at exactly one project
+  // the scope id is that project; otherwise the roster maps the served slug
+  // back to the id the route speaks.
+  const rowProject = (row) => (
+    (Array.isArray(scope) && scope.length === 1)
+      ? scope[0]
+      : (idBySlug.get(String(row.project)) || String(row.project))
+  );
+  // The items drill-in speaks bare numeric refs; frontier rows carry YOK-N.
+  const itemHref = (row) => buildUniverseRoute(
+    "items", rowProject(row), String(row.item_id).replace(/^YOK-/, ""),
+  );
+  // Exactly one project needs no project column; the column keeps its
+  // declared position (beside type), so the shared leading-cell insertion
+  // helper does not apply here.
+  const scopedColumns = (columns) => (
+    (Array.isArray(scope) && scope.length === 1)
+      ? columns.filter((column) => column.label !== "project")
+      : columns
+  );
+  loadScopedPanels(context, [
+    [readyPanel, (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.ready_rows);
+      renderTable(body, rows, scopedColumns([
+        { label: "rank", value: (row) => row.rank },
+        { label: "item", value: (row) => row.item_id, href: itemHref },
+        { label: "type", value: (row) => row.item_type },
+        { label: "project", value: (row) => row.project },
+        { label: "status", value: (row) => row.status, pill: true },
+        { label: "priority", value: (row) => row.priority },
+        { label: "next step", value: (row) => row.next_step },
+        { label: "run command", value: (row) => row.run_command, code: true },
+        { label: "why ready", value: (row) => row.why_ready },
+      ]), "nothing ready to run");
+    }],
+    [blockedPanel, (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.blocked_rows);
+      renderTable(body, rows, scopedColumns([
+        { label: "item", value: (row) => row.item_id },
+        { label: "project", value: (row) => row.project },
+        { label: "waiting on", value: (row) => row.blocking_item, code: true },
+        { label: "gate", value: (row) => row.gate_point, pill: true },
+        { label: "why", value: (row) => row.why },
+      ]), "nothing waiting");
+    }],
+  ], buckets.map((bucket) => ({
+    functionId: "frontier.list",
+    payload: bucket === null ? {} : { project: bucket },
+  })));
+}
+
 // Each run of a flow against a target environment. The engine owns the run's
 // vocabulary: status colors through the pill hint (a run halted for approval
 // keeps status "executing" and so stays a running pill, never a failed one),
@@ -572,6 +421,125 @@ function renderDeliveryRunsView(context, main, scope) {
   );
 }
 
+// The stat-tile row above a report: one number that matters per tile. A
+// count the journal could not preserve renders as an em dash, never a
+// made-up zero.
+function statRow(documentNode, stats) {
+  const row = el(documentNode, "div", "stat-row");
+  for (const [label, value] of stats) {
+    const tile = el(documentNode, "div", "stat");
+    tile.appendChild(el(
+      documentNode, "div", "n",
+      value === null || value === undefined ? "—" : String(value),
+    ));
+    tile.appendChild(el(documentNode, "div", "l", label));
+    row.appendChild(tile);
+  }
+  return row;
+}
+
+// One doctor report body: fact line, stat tiles, then the checks table.
+// The three degraded states render honestly — never ran (with the command
+// to run, as copyable text), truncated in the journal, or a plain report.
+function renderDoctorReport(body, result) {
+  const documentNode = body.ownerDocument;
+  if (result.never_run) {
+    body.appendChild(el(
+      documentNode, "p", "empty", "doctor has not run yet",
+    ));
+    const hint = el(documentNode, "p", "fact-line", "run it with ");
+    hint.appendChild(el(
+      documentNode, "code", null, "yoke doctor run --quick",
+    ));
+    body.appendChild(hint);
+    return;
+  }
+  const facts = [`last run ${result.ran_at}`];
+  if (result.scope) facts.push(`scope ${result.scope}`);
+  body.appendChild(el(documentNode, "p", "fact-line", facts.join(" · ")));
+  body.appendChild(statRow(documentNode, [
+    ["total", result.total],
+    ["passing", result.pass_count],
+    ["warnings", result.warn_count],
+    ["failing", result.fail_count],
+  ]));
+  if (result.truncated) {
+    body.appendChild(el(
+      documentNode, "p", "empty",
+      "detail truncated in the journal; run doctor again for a fresh report",
+    ));
+    return;
+  }
+  renderTable(body, result.results || [], [
+    { label: "check", value: (row) => row.hc, mono: true },
+    { label: "name", value: (row) => row.name },
+    { label: "result", value: (row) => row.severity, pill: true },
+  ], "no checks recorded");
+}
+
+// The last completed doctor run — doctor findings persist nowhere but the
+// events journal, so this reads the journal, not a table of runs. "all"
+// serves the newest run regardless of project in one call; a project set
+// asks per member and labels each report with the project it answers for.
+function renderDoctorView(context, main, scope) {
+  const panel = section(context.document, "Doctor");
+  main.replaceChildren(panel);
+  const projects = context.projects();
+  const buckets = scopeBuckets(scope, projects, false);
+  const nameById = new Map(projects.map(
+    (row) => [String(row.id), row.name || row.slug || String(row.id)],
+  ));
+  loadScopedSection(
+    context, panel,
+    buckets.map((bucket) => ({
+      functionId: "doctor.last_run.get",
+      payload: bucket === null ? {} : { project: bucket },
+    })),
+    (body, callResults) => {
+      callResults.forEach((callResult, index) => {
+        if (buckets.length > 1) {
+          body.appendChild(el(
+            body.ownerDocument, "h3", "report-heading",
+            nameById.get(buckets[index]) || String(buckets[index]),
+          ));
+        }
+        renderDoctorReport(body, callResult.envelope.result || {});
+      });
+    },
+  );
+}
+
+// What Yoke can reach on a project's behalf, and how honestly it can claim
+// so. The engine owns the vocabulary end to end: the capability column shows
+// the STORED type string (never an invented label), kind/state arrive
+// derived, and the verified stamp is whichever source the engine trusts for
+// that type (the GitHub row wears its repo-binding freshness). A NULL stamp
+// renders as the word "never" — configured-but-never-verified is a warning,
+// not a resting state.
+function renderCapabilitiesView(context, main, scope) {
+  const panel = section(context.document, "Capabilities");
+  main.replaceChildren(panel);
+  const buckets = scopeBuckets(scope, context.projects(), false);
+  loadScopedSection(
+    context, panel,
+    buckets.map((bucket) => ({
+      functionId: "projects.capabilities.list",
+      payload: bucket === null ? {} : { project: bucket },
+    })),
+    (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.rows);
+      // Each capability row carries the slug of the project declaring it.
+      renderTable(body, rows, withProjectColumn([
+        { label: "capability", value: (row) => row.type, mono: true },
+        { label: "kind", value: (row) => row.kind, pill: true },
+        { label: "settings", value: (row) => row.settings_summary || "—" },
+        { label: "verified", value: (row) => row.verified_at || "never" },
+        { label: "state", value: (row) => row.state, pill: true },
+      ], scope, (row) => row.project), "no capabilities declared yet");
+    },
+  );
+}
+
 // Drill-ins remain children of the view whose row opened them.
 export const DETAIL_RENDERERS = { items: renderItemDetailView };
 
@@ -585,10 +553,14 @@ export const TAB_RENDERERS = {
 
 // A destination is live exactly when it has a renderer here.
 export const VIEW_RENDERERS = {
+  frontier: renderFrontierView,
   items: renderItemsView,
   strategy: renderStrategyView,
   sessions: renderSessionsView,
+  capabilities: renderCapabilitiesView,
   events: renderEventsView,
+  doctor: renderDoctorView,
   ouroboros: renderOuroborosView,
   projects: renderProjectsView,
+  workflows: renderWorkflowsView,
 };

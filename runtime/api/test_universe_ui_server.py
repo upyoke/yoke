@@ -234,6 +234,33 @@ class TestFunctionProxy:
                       "actor_label", "claims"):
             assert field in envelope["result"]["fields"]
 
+    def test_workflows_definition_is_admitted_and_serves_the_definition(
+        self,
+        ui_client,
+        test_db,
+    ):
+        # The Workflows view scopes through the payload (a project id from
+        # the roster) and relies on the proxy's global-target default.
+        response = self._call(
+            ui_client,
+            {"function": "workflows.definition.get", "payload": {}},
+        )
+        assert response.status_code == 200
+        envelope = response.json()
+        assert envelope["success"] is True
+        result = envelope["result"]
+        assert result["family"] == "software-delivery"
+        by_type = {row["type"]: row for row in result["types"]}
+        assert set(by_type) == {"issue", "epic"}
+        # Stages arrive raw and complete; gates name served families.
+        assert len(by_type["issue"]["stages"]) == 10
+        assert len(by_type["epic"]["stages"]) == 14
+        assert all(
+            gate["at_status"] and gate["gate"]
+            for row in result["types"] for gate in row["gates"]
+        )
+        assert result["flows"] == []
+
     def test_strategy_doc_list_with_project_target_reaches_handler(
         self,
         ui_client,

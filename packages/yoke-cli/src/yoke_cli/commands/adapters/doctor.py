@@ -1,8 +1,10 @@
-"""``yoke doctor run`` flag adapter.
+"""``yoke doctor run`` and ``yoke doctor last-run get`` flag adapters.
 
-Covers ``doctor.run.run`` — machine-callable Doctor surface. Exactly
-one scope flag (``--quick`` | ``--full`` | ``--only NAMES``) is required;
-the explicit-scope rule mirrors the human CLI and is enforced server-side.
+``doctor.run.run`` is the machine-callable Doctor surface. Exactly one
+scope flag (``--quick`` | ``--full`` | ``--only NAMES``) is required;
+the explicit-scope rule mirrors the human CLI and is enforced
+server-side. ``doctor.last_run.get`` serves the most recent completed
+run recorded in the events journal without re-running any checks.
 """
 
 from __future__ import annotations
@@ -27,7 +29,10 @@ from yoke_contracts.api.function_call import (
 )
 
 
-__all__ = ["doctor_run", "DOCTOR_RUN_USAGE"]
+__all__ = [
+    "doctor_run", "DOCTOR_RUN_USAGE",
+    "doctor_last_run_get", "DOCTOR_LAST_RUN_GET_USAGE",
+]
 
 
 DOCTOR_RUN_READ_TIMEOUT_S = 300.0
@@ -37,6 +42,34 @@ DOCTOR_RUN_USAGE = (
     "yoke doctor run (--quick | --full | --only NAMES) [--fix] "
     "[--project NAME] [--db-path PATH] [--session-id S] [--json]"
 )
+
+DOCTOR_LAST_RUN_GET_USAGE = (
+    "yoke doctor last-run get [--project NAME] [--session-id S] [--json]"
+)
+
+
+def doctor_last_run_get(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke doctor last-run get",
+        description=DOCTOR_LAST_RUN_GET_USAGE,
+    )
+    parser.add_argument(
+        "--project", default=None,
+        help="Serve only a run recorded for this project (slug or id).",
+    )
+    add_session_arg(parser); add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, DOCTOR_LAST_RUN_GET_USAGE)
+    if parsed is None:
+        return 2
+    payload: Dict[str, Any] = {}
+    if parsed.project:
+        payload["project"] = parsed.project
+    return dispatch_and_emit(
+        function_id="doctor.last_run.get",
+        target=TargetRef(kind="global"),
+        payload=payload,
+        session_id=parsed.session_id, json_mode=parsed.json_mode,
+    )
 
 
 def doctor_run(args: List[str]) -> int:

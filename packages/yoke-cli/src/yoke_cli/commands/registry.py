@@ -87,6 +87,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("sessions", "ownership-guard"):
         ("sessions.ownership_guard", _adapters.sessions_ownership_guard),
     ("charge", "schedule"): ("charge.schedule", _adapters.charge_schedule),
+    ("frontier", "list"): ("frontier.list", _adapters.frontier_list),
     ("agents", "render"):
         ("agents.render.run", _adapters.agents_render),
     ("agents", "render", "check"):
@@ -138,6 +139,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("qa", "run", "get"): ("qa.run.get", _adapters.qa_run_get),
     ("qa", "gate-summary"): ("qa.gate_summary.run", _adapters.qa_gate_summary),
     ("doctor", "run"): ("doctor.run.run", _adapters.doctor_run),
+    ("doctor", "last-run", "get"):
+        ("doctor.last_run.get", _adapters.doctor_last_run_get),
     ("projects", "get"): ("projects.get", _adapters.projects_get),
     ("projects", "list"): ("projects.list", _adapters.projects_list),
     ("projects", "resolve-by-github-repo"):
@@ -147,6 +150,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "update"): ("projects.update", _adapters.projects_update),
     ("projects", "capability", "has"):
         ("projects.capability.has", _adapters.projects_capability_has),
+    ("projects", "capabilities", "list"):
+        ("projects.capabilities.list", _adapters.projects_capabilities_list),
     ("projects", "capability-settings", "get"):
         ("projects.capability_settings.get",
          _adapters.projects_capability_settings_get),
@@ -248,6 +253,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("templates.list.run", _adapters.templates_list),
     ("templates", "fetch"):
         ("templates.fetch.run", _adapters.templates_fetch),
+    ("workflows", "definition", "get"):
+        ("workflows.definition.get", _adapters.workflows_definition_get),
 }
 
 SUBCOMMAND_REGISTRY.update(PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY)

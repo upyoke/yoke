@@ -73,7 +73,9 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions checkpoint-read", "sessions"),
     _w("yoke sessions offer", "sessions"),
     _w("yoke sessions ownership-guard", "sessions"),
+    _w("yoke workflows definition get", "workflows"),
     _w("yoke charge schedule", "charge"),
+    _w("yoke frontier list", "frontier"),
     # render.
     _w("yoke agents render", "agents.render"),
     _w("yoke agents render check", "agents.render"),
@@ -110,6 +112,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke qa gate-summary", "qa"),
     # doctor + projects + project_structure.
     _w("yoke doctor run", "doctor"),
+    _w("yoke doctor last-run get", "doctor"),
     # Deployment flow/run reads, run update, and the target-env resolver
     # used by usher ride the dispatcher instead of pending db_router
     # fallbacks.
@@ -125,6 +128,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects create", "projects"),
     _w("yoke projects update", "projects"),
     _w("yoke projects capability has", "projects.capability"),
+    _w("yoke projects capabilities list", "projects.capability"),
     _w("yoke projects capability-settings get", "projects.capability_settings"), _w("yoke projects capability-settings set", "projects.capability_settings"),
     _w("yoke projects capability-settings merge", "projects.capability_settings"),
     _w("yoke projects environment-settings get", "projects.environment_settings"), _w("yoke projects environment-settings merge", "projects.environment_settings"),
