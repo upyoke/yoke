@@ -392,3 +392,16 @@ def test_probe_reports_refused_connection_as_down(monkeypatch):
     failure = cer_t._probe_failure("host=127.0.0.1 port=6547 dbname=d")
     assert failure is not None
     assert "OSError" in failure
+
+
+def test_server_answered_refusal_is_not_a_tunnel_error(managed_env, monkeypatch):
+    """An auth refusal propagates to credential recovery instead of
+    triggering a pointless tunnel restart + 'unreachable' rewrap."""
+    class _AuthRefused(Exception):
+        pass
+
+    exc = _AuthRefused(
+        'connection failed: FATAL: password authentication failed for '
+        'user "u"'
+    )
+    assert cer.is_local_tunnel_connection_error(exc) is False

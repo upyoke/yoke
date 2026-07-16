@@ -82,7 +82,7 @@ _SERVER_ANSWERED_SIGNATURES = (
 )
 
 
-def _server_answered(exc: Exception) -> bool:
+def server_answered(exc: Exception) -> bool:
     sqlstate = str(getattr(exc, "sqlstate", "") or "")
     if sqlstate:
         return sqlstate in _SERVER_ANSWERED_SQLSTATES
@@ -111,7 +111,7 @@ def _probe_failure(dsn: str) -> Optional[str]:
         _probe_postgres(dsn)
         return None
     except Exception as exc:  # noqa: BLE001 -- classify, then report as down
-        if _server_answered(exc):
+        if server_answered(exc):
             return None
         first_line = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
         return redact(f"{type(exc).__name__}: {first_line}"[:300])
