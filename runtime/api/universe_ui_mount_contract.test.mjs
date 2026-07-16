@@ -52,6 +52,11 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
   // site's 32px apart.
   assert.ok(topbar.classList.contains("yoke-app-header"));
   assert.ok(shellNode.classList.contains("shell"));
+  // With no host chrome in the header, the app names the org itself.
+  const orgContextNodes = byClass(root, "org-context");
+  assert.equal(orgContextNodes.length, 1);
+  assert.equal(orgContextNodes[0].textContent, "Local");
+  assert.ok(orgContextNodes[0].parentNode.classList.contains("context-side"));
   assert.equal(byClass(root, "capability-actions").length, 0);
   const functionFetches = fetches.filter((entry) => entry.init);
   assert.ok(functionFetches.length >= 3);
@@ -144,6 +149,12 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.equal(firstHeader.children[1], topbarStartSlot);
   assert.equal(firstHeader.children[firstHeader.children.length - 1],
     topbarEndSlot);
+  // A header the host already stamps with its own org chrome must not name
+  // the org a second time; the slotless mount beside it keeps naming it.
+  assert.equal(byClass(firstRoot, "org-context").length, 0);
+  const secondOrgContext = byClass(secondRoot, "org-context");
+  assert.equal(secondOrgContext.length, 1);
+  assert.equal(secondOrgContext[0].textContent, "second org");
   const firstNavigation = byClass(firstRoot, "sidenav")[0];
   assert.equal(firstNavigation.children[0], navigationStartSlot);
   assert.equal(
@@ -221,6 +232,49 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   secondMount.unmount();
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
   assert.ok(secondRoot.classList.contains("universe-app-root"));
+});
+
+test("a host-filled topbarStart suppresses the app's own org context", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const documentNode = new FakeDocument();
+  const hostedRoot = documentNode.createElement("div");
+  const hostedClient = injectedClient("hosted");
+  const hostedMount = mountUniverseApp(hostedRoot, {
+    client: hostedClient,
+    currentActor: { id: 2, kind: "human", label: "ben" },
+    slots: { topbarStart: documentNode.createElement("aside") },
+  });
+  const localRoot = documentNode.createElement("div");
+  const localClient = injectedClient("local");
+  const localMount = mountUniverseApp(localRoot, {
+    client: localClient,
+    slots: { topbarEnd: documentNode.createElement("aside") },
+  });
+  await settle();
+
+  // Host org chrome in topbarStart replaces the app's own org naming — and
+  // the org read exists only to fill that naming, so it is skipped too. The
+  // actor chip is engine identity, not org chrome, and stays.
+  assert.equal(byClass(hostedRoot, "org-context").length, 0);
+  assert.equal(byClass(hostedRoot, "actor-chip").length, 1);
+  assert.ok(hostedClient.requests.every(
+    (request) => request.function !== "organizations.get",
+  ));
+  // Only topbarStart carries host org chrome: any other filled slot leaves
+  // the app naming the org exactly as a slotless mount does.
+  const localOrgContext = byClass(localRoot, "org-context");
+  assert.equal(localOrgContext.length, 1);
+  assert.equal(localOrgContext[0].textContent, "local org");
+  assert.ok(localClient.requests.some(
+    (request) => request.function === "organizations.get",
+  ));
+
+  hostedMount.unmount();
+  localMount.unmount();
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
 });
 
 test("strategy rows render slug, title, owner, last write, size, and status", async (t) => {

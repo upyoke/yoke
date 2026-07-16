@@ -177,7 +177,17 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const brand = el(documentNode, "div", "brand yoke-header-brand");
   brand.style.color = "var(--yoke-ink)";
-  const orgContext = el(documentNode, "span", "org-context", "…");
+  // The app names the universe's org itself only when no host does: a
+  // topbarStart option is host org chrome arriving (the hosted platform puts
+  // its org switcher there), and one header must not name the org twice. The
+  // option's presence alone is the signal — a function-valued slot is never
+  // invoked to decide. The actor chip is engine identity, not org chrome,
+  // so it stays either way.
+  const hostFillsTopbarStart =
+    slots.topbarStart !== undefined && slots.topbarStart !== null;
+  const orgContext = hostFillsTopbarStart
+    ? null
+    : el(documentNode, "span", "org-context", "…");
   const contextSide = el(documentNode, "div", "context-side yoke-header-context");
   // A host with a sign-in door names the viewer; a local universe admits a
   // loopback token rather than an actor, so it supplies none and the chip is
@@ -185,7 +195,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   if (options.currentActor) {
     contextSide.appendChild(createActorChip(documentNode, options.currentActor));
   }
-  contextSide.appendChild(orgContext);
+  if (orgContext) contextSide.appendChild(orgContext);
   const header = el(documentNode, "header", "topbar yoke-app-header");
   header.appendChild(brand);
   appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
@@ -223,13 +233,17 @@ export function mountUniverseApp(rootNode, options = {}) {
     .then((svg) => { if (mounted) brand.innerHTML = svg; })
     .catch(() => { if (mounted) brand.textContent = "Yoke"; });
 
-  Promise.resolve().then(() => callFunction(client, "organizations.get", {}))
-    .then((callResult) => {
-      if (!mounted) return;
-      const org = (callResult.envelope && callResult.envelope.result) || {};
-      orgContext.textContent = org.name || "(unnamed org)";
-    })
-    .catch(() => { if (mounted) orgContext.textContent = ""; });
+  // The org read exists only to fill the app's own org naming, so a
+  // suppressed org-context skips the call entirely.
+  if (orgContext) {
+    Promise.resolve().then(() => callFunction(client, "organizations.get", {}))
+      .then((callResult) => {
+        if (!mounted) return;
+        const org = (callResult.envelope && callResult.envelope.result) || {};
+        orgContext.textContent = org.name || "(unnamed org)";
+      })
+      .catch(() => { if (mounted) orgContext.textContent = ""; });
+  }
 
   // Each visited scoped view remembers its own project.
   const scopeSelections = new Map();
