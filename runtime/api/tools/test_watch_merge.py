@@ -16,6 +16,7 @@ Covers:
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -178,12 +179,14 @@ class TestPrintStreamingPair:
         )
         assert rc == 0
         out = capsys.readouterr().out
-        assert "python3 -m yoke_core.tools.watch_merge" in out
+        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
+        assert f"{anchor} yoke_core.tools.watch_merge" in out
+        assert "PYTHONPATH" not in out
         # Sub-command argv preserved in the printed Bash invocation.
         assert "done-transition" in out
         # Progress tail auto-exits via watch_tail; post-completion inspection
         # still uses tail -80 against the raw capture.
-        assert "python3 -m yoke_core.tools.watch_tail" in out
+        assert f"{anchor} yoke_core.tools.watch_tail" in out
         assert ".progress." in out
         assert "tail -80" in out
         assert ".raw." in out
