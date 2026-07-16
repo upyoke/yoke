@@ -119,6 +119,31 @@
   filter: brightness(1.06);
 }
 
+/* Tabs: facets of one concept, never a second nav level. An underline strip
+   above the view's own chrome — the active facet takes the accent, the rest
+   stay muted until hovered. */
+.universe-app-root .tab-bar {
+  display: flex;
+  gap: 2px;
+  margin: -2px 0 16px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .tab-link {
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--yoke-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.universe-app-root .tab-link:hover { color: var(--yoke-ink); }
+.universe-app-root .tab-link.active {
+  color: var(--yoke-accent);
+  border-bottom-color: var(--yoke-accent);
+}
+
 /* The way back out of a drill-in, sitting where that view's picker sits. */
 .universe-app-root .breadcrumb {
   display: flex;
@@ -457,6 +482,7 @@
 
 /* Keyboard focus is always visible on the interactive surfaces. */
 .universe-app-root .nav-link:focus-visible,
+.universe-app-root .tab-link:focus-visible,
 .universe-app-root .capability-action:focus-visible,
 .universe-app-root .project-chooser:focus-visible,
 .universe-app-root .row-link:focus-visible,

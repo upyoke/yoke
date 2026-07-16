@@ -116,6 +116,7 @@ def test_page_module_wires_the_workbench_shell():
         "items.get.run",
         "epic_tasks.list.run",
         "events.query.run",
+        "deployment_runs.list",
         '{ label: "title", value: (doc) => doc.title }',
     ):
         assert reference in views, reference
