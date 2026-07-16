@@ -44,7 +44,10 @@ from yoke_cli.commands.adapters.config_write import (
 )
 from yoke_cli.commands.adapters.db_claim import DB_CLAIM_AMEND_USAGE
 from yoke_cli.commands.adapters.db import DB_READ_USAGE
-from yoke_cli.commands.adapters.doctor import DOCTOR_RUN_USAGE
+from yoke_cli.commands.adapters.doctor import (
+    DOCTOR_LAST_RUN_GET_USAGE,
+    DOCTOR_RUN_USAGE,
+)
 from yoke_cli.commands.adapters.deployment import (
     DEPLOYMENT_FLOWS_GET_USAGE,
     DEPLOYMENT_FLOWS_STAGES_USAGE,
@@ -274,6 +277,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "qa.run.get": QA_RUN_GET_USAGE,
     "qa.gate_summary.run": QA_GATE_SUMMARY_USAGE,
     "doctor.run.run": DOCTOR_RUN_USAGE,
+    "doctor.last_run.get": DOCTOR_LAST_RUN_GET_USAGE,
     "deployment_flows.get": DEPLOYMENT_FLOWS_GET_USAGE,
     "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,

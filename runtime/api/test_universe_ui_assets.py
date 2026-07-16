@@ -146,6 +146,7 @@ def test_page_module_wires_the_workbench_shell():
         "events.query.run",
         "deployment_runs.list",
         "sessions.list",
+        "doctor.last_run.get",
         '{ label: "title", value: (doc) => doc.title }',
     ):
         assert reference in views, reference

@@ -412,6 +412,38 @@
 .universe-app-root .error { color: var(--yoke-crit); }
 .universe-app-root .empty { color: var(--yoke-muted); font-style: italic; }
 
+/* One quiet line of scalar facts above a report body. */
+.universe-app-root .fact-line {
+  margin: 0 0 14px;
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+}
+
+/* Identifier cells (health-check slugs) read as the machine names they
+   are. */
+.universe-app-root table.items td.mono {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+}
+
+/* Copyable command text: dressed as text to copy, never as a control. */
+.universe-app-root code {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+  background: var(--yoke-surface-2);
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
+/* Per-project heading inside a report that fanned out over a project
+   set: each block names the project it answers for. */
+.universe-app-root .report-heading {
+  margin: 18px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* Stat tile: one number that matters, on the raised surface. Hosts and
    future overview panels compose rows of these. */
 .universe-app-root .stat-row {
