@@ -67,6 +67,10 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
 #: traversal structurally impossible.
 ASSET_CONTENT_TYPES: Dict[str, str] = {
     "index.html": "text/html; charset=utf-8",
+    # Developer page, not a product route: mounts the same app with sample
+    # platform chrome shaped like the hosted shell's slots, so frame defects
+    # that only show with occupied slots are visible on a laptop.
+    "hosted-frame-harness.html": "text/html; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
     "contract.js": "text/javascript; charset=utf-8",
     "contract-version.js": "text/javascript; charset=utf-8",

@@ -220,6 +220,10 @@
   text-decoration: none;
   font-size: 13px;
   font-weight: 500;
+  /* Nav rows are 30px chrome, not body text: the body's reading
+     line-height (1.45) would add 3px per row and visibly loosen the
+     whole rail. */
+  line-height: normal;
   transition: background-color 120ms ease, color 120ms ease;
 }
 .universe-app-root .nav-link:hover {
