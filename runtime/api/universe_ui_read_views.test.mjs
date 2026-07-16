@@ -228,6 +228,83 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   mounted.unmount();
 });
 
+test("Sessions shows the session: actor, liveness, lane, mode, and what it holds", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  const root = documentNode.createElement("div");
+  const requests = [];
+  const client = {
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+      }
+      if (request.function === "sessions.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              rows: [
+                {
+                  session_id: "s-run", liveness: "active",
+                  execution_lane: "primary", mode: "charge",
+                  actor_id: 2, actor_kind: "human", actor_label: "Ben",
+                  claims: [
+                    { target_kind: "item", target: "YOK-41" },
+                    { target_kind: "process", target: "feed" },
+                  ],
+                  current_item: "YOK-41", activity_at: "now",
+                },
+                {
+                  session_id: "s-idle", liveness: "stale",
+                  execution_lane: "primary", mode: "wait",
+                  actor_id: 1, actor_kind: "system",
+                  actor_label: "yoke-core",
+                  claims: [], current_item: null, activity_at: "then",
+                },
+              ],
+            },
+          },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  assert.deepEqual(
+    requests.find((request) => request.function === "sessions.list"),
+    { function: "sessions.list", payload: { project: "1" } },
+  );
+  const cells = allNodes(root)
+    .filter((node) => node.tagName === "TD")
+    .map(cellText);
+  assert.deepEqual(cells, [
+    "s-run", "Ben", "active", "primary", "charge", "YOK-41, feed",
+    "YOK-41", "now",
+    "s-idle", "yoke-core · system", "stale", "primary", "wait", "",
+    "", "then",
+  ]);
+  // Liveness colors through the semantic pill families: alive reads good,
+  // stale reads warn — derived states, never re-encoded thresholds.
+  const pills = allNodes(root)
+    .filter((node) => node.classList && node.classList.contains("pill"));
+  assert.deepEqual(
+    pills.map((pill) => pill.className),
+    ["pill good", "pill warn"],
+  );
+  mounted.unmount();
+});
+
 test("a drill-in route survives the round trip and never outlives its view", () => {
   assert.deepEqual(parseUniverseRoute("#/items/42?project=3"), {
     view: "items", tab: null, detail: "42", project: "3",

@@ -67,6 +67,7 @@ const STATE_PILL_FAMILIES = {
   unclear: "warn",
   warn: "warn",
   warning: "warn",
+  stale: "warn",
 };
 
 // A state value rendered as a tinted lozenge with a leading dot, colored by
@@ -336,6 +337,46 @@ function renderItemDetailView(context, main, projectId, itemRef) {
   );
 }
 
+// The session, not the item: who runs (the actor, honestly labelled by the
+// engine so a system actor never reads as a person), what it holds (its
+// active work-claims, rendered server-side from the typed targets), how
+// alive it is (engine-derived liveness — the executor-aware TTL numbers
+// live in the engine, never here), and what Yoke directed it to do (the
+// stored execution lane and mode).
+function renderSessionsView(context, main, projectId) {
+  const panel = section(context.document, "Sessions");
+  main.replaceChildren(panel);
+  loadSection(
+    context, panel,
+    "sessions.list",
+    { project: String(projectId) },
+    (body, callResult) => {
+      const rows = (callResult.envelope.result || {}).rows || [];
+      renderTable(body, rows, [
+        { label: "session", value: (row) => row.session_id },
+        {
+          label: "actor",
+          value: (row) => {
+            const label = row.actor_label ||
+              (row.actor_id == null ? "" : `actor ${row.actor_id}`);
+            return row.actor_kind === "system" ? `${label} · system` : label;
+          },
+        },
+        { label: "liveness", value: (row) => row.liveness, pill: true },
+        { label: "lane", value: (row) => row.execution_lane },
+        { label: "mode", value: (row) => row.mode },
+        {
+          label: "holds",
+          value: (row) => (row.claims || [])
+            .map((claim) => claim.target).join(", "),
+        },
+        { label: "item", value: (row) => row.current_item },
+        { label: "last activity", value: (row) => row.activity_at },
+      ], "no sessions yet");
+    },
+  );
+}
+
 // Each run of a flow against a target environment. The engine owns the run's
 // vocabulary: status colors through the pill hint (a run halted for approval
 // keeps status "executing" and so stays a running pill, never a failed one),
@@ -380,6 +421,7 @@ export const TAB_RENDERERS = {
 export const VIEW_RENDERERS = {
   items: renderItemsView,
   strategy: renderStrategyView,
+  sessions: renderSessionsView,
   events: renderEventsView,
   ouroboros: renderOuroborosView,
   projects: renderProjectsView,
