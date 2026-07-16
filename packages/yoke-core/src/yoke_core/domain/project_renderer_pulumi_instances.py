@@ -108,6 +108,7 @@ def _raw_stack_instance_from_environment(
         ),
         "distribution_bucket_name": distribution_bucket_name,
         "distribution_origin_id": distribution_origin_id,
+        "distribution_base_url": str(distribution.get("base_url", "") or ""),
         "ephemeral_preview_domain": _ephemeral_preview_domain(settings, env),
         "github_app_private_key_secret_arn": github_app.get(
             "private_key_secret_arn", ""

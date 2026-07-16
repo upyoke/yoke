@@ -58,7 +58,10 @@ def test_preserves_operator_state_and_warns_on_config_divergence(
 
 def test_default_distribution_origin_id_uses_deploy_namespace_not_project():
     env = _environment_settings("yoke-stage", "stage")
-    env.settings["distribution"] = {"bucket_name": "yoke-stage-artifacts"}
+    env.settings["distribution"] = {
+        "bucket_name": "yoke-stage-artifacts",
+        "base_url": "https://api.stage.example.com",
+    }
     settings = ProjectRendererSettings(
         project="platform",
         deploy_namespace="yoke",
@@ -74,4 +77,7 @@ def test_default_distribution_origin_id_uses_deploy_namespace_not_project():
 
     assert instances[0].config["distribution_origin_id"] == (
         "yoke-stage-distribution-static"
+    )
+    assert instances[0].config["distribution_base_url"] == (
+        "https://api.stage.example.com"
     )

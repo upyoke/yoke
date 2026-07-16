@@ -49,6 +49,9 @@ def _make_project_tree(tmp_path, project: str):
         '  webapp-infra:api_origin_port: "{{api_origin_port}}"\n'
         "  webapp-infra:distribution_bucket_name: {{distribution_bucket_name}}\n"
         "  webapp-infra:distribution_origin_id: {{distribution_origin_id}}\n"
+        "  webapp-infra:distribution_base_url: {{distribution_base_url}}\n"
+        "  webapp-infra:github_repo: {{github_repo_slug}}\n"
+        "  webapp-infra:github_api_url: {{github_api_url}}\n"
         "  webapp-infra:vps_instance_type: {{vps_instance_type}}\n"
         '  webapp-infra:vps_root_volume_gb: "{{vps_root_volume_gb}}"\n'
         "  webapp-infra:vps_ssh_key_name: {{vps_ssh_key_name}}\n"
@@ -75,6 +78,14 @@ def _make_project_tree(tmp_path, project: str):
     (infra / "webapp_database_stack.py").write_text("# database stack\n")
     (infra / "webapp_api_stack.py").write_text("# api stack\n")
     (infra / "webapp_environment_stack.py").write_text("# environment stack\n")
+    (infra / "webapp_distribution_stack.py").write_text("# distribution stack\n")
+    (infra / "webapp_distribution_github_variables.py").write_text(
+        "# distribution variables\n"
+    )
+    (infra / "webapp_environment_origin_policy.py").write_text("# origin policy\n")
+    (infra / "webapp_github_repository_provider.py").write_text(
+        "# github provider\n"
+    )
     (infra / "requirements.txt").write_text("pulumi>=3.0.0\n")
 
     proj = root / "projects" / project
@@ -204,6 +215,7 @@ class TestGatherPulumiStackInstances:
                     ),
                     "distribution_bucket_name": "",
                     "distribution_origin_id": "",
+                    "distribution_base_url": "",
                     "ephemeral_preview_domain": "",
                     "github_app_private_key_secret_arn": "",
                     "github_app_kms_key_arn": "",

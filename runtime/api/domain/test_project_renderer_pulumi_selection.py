@@ -53,6 +53,7 @@ def test_selected_environment_skips_unrelated_runner_fleet_requirements(
     assert "Pulumi.platform-runner-fleet.yaml" not in names
     assert "webapp_environment_stack.py" in names
     assert "webapp_distribution_stack.py" in names
+    assert "webapp_distribution_github_variables.py" in names
     assert "webapp_runner_fleet_stack.py" not in names
     assert "webapp_runner_github_api.mjs" not in names
 

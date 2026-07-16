@@ -10,6 +10,7 @@ ENVIRONMENT_PROGRAM_FILES = (
     "webapp_database_stack.py",
     "webapp_api_stack.py",
     "webapp_distribution_stack.py",
+    "webapp_distribution_github_variables.py",
     "webapp_environment_stack.py",
     "webapp_environment_origin_policy.py",
 )

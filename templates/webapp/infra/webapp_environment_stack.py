@@ -59,6 +59,9 @@ class WebappEnvironmentArgs:
     database_allowed_security_group_ids: list[str] = field(default_factory=list)
     distribution_bucket_name: str = ""
     distribution_origin_id: str = ""
+    distribution_base_url: str = ""
+    github_repo: str = ""
+    github_api_url: str = "https://api.github.com"
     database_seconds_until_auto_pause: int = DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
     # Name of the project's shared ECR repository the origin pulls images
     # from. Empty (default) composes ``f"{deploy_namespace}-core"`` — the same
@@ -83,6 +86,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
     origin_instance_profile: aws.iam.InstanceProfile
     artifacts_bucket: aws.s3.BucketV2
     ephemeral_wildcard_record: Optional[aws.route53.Record]
+    distribution_repository_variables: tuple[object, ...]
 
     def __init__(
         self,
@@ -273,6 +277,34 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
             ),
             opts=child_opts,
         )
+        self.distribution_repository_variables = ()
+        if args.distribution_bucket_name:
+            if not args.distribution_base_url:
+                raise ValueError(
+                    "distribution_base_url is required when distribution publishing is enabled"
+                )
+            if not args.github_repo:
+                raise ValueError(
+                    "github_repo is required when distribution publishing is enabled"
+                )
+            from webapp_distribution_github_variables import (
+                create_distribution_variables,
+            )
+
+            self.distribution_repository_variables = create_distribution_variables(
+                deploy_namespace=args.deploy_namespace,
+                environment=args.environment,
+                github_repo=args.github_repo,
+                github_api_url=args.github_api_url,
+                base_url=args.distribution_base_url,
+                bucket=args.distribution_bucket_name,
+                cloudfront_id=self.api.distribution.id,
+                origin_id=(
+                    args.distribution_origin_id
+                    or f"{args.deploy_namespace}-{args.environment}-distribution-static"
+                ),
+                child_opts=child_opts,
+            )
 
         # Wildcard preview DNS: every <branch-slug>.<preview_domain> resolves
         # straight to this environment's origin box.
@@ -301,6 +333,10 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
             "containerRepositoryName": container_repository_name,
             "artifactsBucketName": artifacts_bucket_name,
             "ephemeralPreviewDomain": args.ephemeral_preview_domain,
+            "distributionRepositoryVariableNames": [
+                variable.variable_name
+                for variable in self.distribution_repository_variables
+            ],
         }
         for key, value in outputs.items():
             pulumi.export(key, value)
