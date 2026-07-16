@@ -30,7 +30,9 @@ TEMPLATES_FETCH_USAGE = (
 )
 
 _LIST_HELP = """\
-Discover the templates the active env serves (name, description, file count).
+Discover the served templates (name, description, file count). An https
+env GETs the listing from the env's server; a non-prod local env serves
+it in-process from this install's code tree.
 
 Example:
   yoke templates list
@@ -38,7 +40,9 @@ Example:
 
 _FETCH_HELP = """\
 Fetch one template's files RAW ({{placeholders}} intact) into --dest
-(default: cwd). Existing files are skipped and reported unless --force.
+(default: cwd). An https env GETs the bundle from the env's server; a
+non-prod local env builds it in-process from this install's code tree.
+Existing files are skipped and reported unless --force.
 Templates marked source-dev/admin require the explicit --source-dev-admin
 opt-in and should only be fetched from an operator-approved flow.
 
