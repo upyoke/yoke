@@ -106,6 +106,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.capability_settings.merge": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN,
     ),
+    "projects.environment_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "projects.environment_settings.merge": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN,
+    ),
     "projects.capability.has": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.resolve_by_github_repo": AuthzSpec(ACTOR_SESSION, None),

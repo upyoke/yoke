@@ -11,6 +11,9 @@ from yoke_core.domain.handlers import (
     projects_capability_settings as _capability_settings,
 )
 from yoke_core.domain.handlers import (
+    projects_environment_settings as _environment_settings,
+)
+from yoke_core.domain.handlers import (
     projects_github_sync_mode_repair as _sync_mode_repair,
 )
 
@@ -76,6 +79,36 @@ def register(registry) -> None:
             adapter_status="live", claim_required_kind=None,
             ambient_session_required=False,
         )
+    registry.register(
+        "projects.environment_settings.get",
+        _environment_settings.handle_environment_settings_get,
+        _environment_settings.EnvironmentSettingsGetRequest,
+        _environment_settings.EnvironmentSettingsResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.projects_environment_settings",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["project_environment_match"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "projects.environment_settings.merge",
+        _environment_settings.handle_environment_settings_merge,
+        _environment_settings.EnvironmentSettingsMergeRequest,
+        _environment_settings.EnvironmentSettingsResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.projects_environment_settings",
+        target_kinds=["global"],
+        side_effects=["environments_settings_write"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["value_compare_and_swap", "project_environment_match"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
     registry.register(
         "projects.github_sync_mode.repair",
         _sync_mode_repair.handle_projects_github_sync_mode_repair,

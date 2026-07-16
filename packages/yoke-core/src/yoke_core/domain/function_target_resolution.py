@@ -92,6 +92,8 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
     "projects.capability_settings.get",
     "projects.capability_settings.set",
     "projects.capability_settings.merge",
+    "projects.environment_settings.get",
+    "projects.environment_settings.merge",
     "board.data.get",
     "board.rebuild.run",
 })
