@@ -45,22 +45,6 @@ PROJECT_COMMANDS: list[dict] = [
     },
     {
         "topic": "project",
-        "purpose": "Read or CAS-merge deployment environment settings",
-        "recipe": (
-            "yoke projects environment-settings merge --project <project> "
-            "--environment-id <id> --set pulumi.activation_state=render_only"
-        ),
-        "notes": (
-            "Registered projects.environment_settings.get/merge surfaces "
-            "work over local, self-hosted, and hosted transports. The server "
-            "verifies that environments.site belongs to the named project "
-            "and performs a read-merge-CAS loop. The similarly named "
-            "environment-merge-settings domain command is local-only and "
-            "must not be used for an HTTPS authority."
-        ),
-    },
-    {
-        "topic": "project",
         "purpose": "Update an ephemeral environment row field",
         "recipe": "yoke ephemeral-env update <env-id> status healthy",
         "notes": (
