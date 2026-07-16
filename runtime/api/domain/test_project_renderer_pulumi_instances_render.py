@@ -24,6 +24,8 @@ def _render(tmp_path, monkeypatch, stacks, environments):
             "aws_region": "us-east-1",
             "domain_name": "example.com",
             "project_name": "yoke",
+            "github_repo_slug": "",
+            "github_api_url": "https://api.github.com",
         },
         root,
         project_root,

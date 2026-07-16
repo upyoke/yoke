@@ -43,7 +43,7 @@ def test_environment_owns_every_distribution_publish_variable(monkeypatch):
         bucket="upyoke-distribution-stage",
         cloudfront_id="E1849QD64JHXVC",
         origin_id="yoke-stage-distribution-static",
-        child_opts=types.SimpleNamespace(),
+        child_opts=module.pulumi.ResourceOptions(),
     )
 
     assert variables == tuple(recorder.resources)

@@ -162,24 +162,38 @@ def test_converge_preserves_disabled_flow_and_historical_run(
     with init_test_db(tmp_path) as db_path:
         conn = connect_test_db(db_path)
         try:
+            converge_core_schema(conn)
             conn.execute(
                 "UPDATE deployment_flows SET status = 'disabled' "
                 "WHERE id = 'yoke-internal'"
             )
             conn.execute(
+                "CREATE TABLE deployment_runs ("
+                "id TEXT PRIMARY KEY, "
+                "project_id INTEGER NOT NULL REFERENCES projects(id), "
+                "flow TEXT NOT NULL REFERENCES deployment_flows(id), "
+                "target_env TEXT, status TEXT, current_stage TEXT)"
+            )
+            conn.execute(
+                "CREATE TABLE deployment_run_items ("
+                "run_id TEXT REFERENCES deployment_runs(id), item_id INTEGER)"
+            )
+            conn.execute(
+                "CREATE TABLE deployment_run_qa ("
+                "run_id TEXT REFERENCES deployment_runs(id), "
+                "check_name TEXT, status TEXT, updated_at TEXT)"
+            )
+            conn.execute(
                 "INSERT INTO deployment_runs "
-                "(id, project, flow, target_env, status, current_stage, "
-                "created_by, created_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                "(id, project_id, flow, status, current_stage) "
+                "VALUES (%s, (SELECT id FROM projects WHERE slug = %s), "
+                "%s, %s, %s)",
                 (
                     "run-20260716-999",
                     "yoke",
                     "yoke-internal",
-                    "production",
-                    "completed",
+                    "succeeded",
                     "complete",
-                    "operator",
-                    "2026-07-16T00:00:00Z",
                 ),
             )
             conn.commit()
