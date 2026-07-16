@@ -29,18 +29,18 @@ def test_existing_seed_stage_is_replaced_in_place():
     conn = _Conn([
         {"name": "merged", "executor": "auto"},
         {
-            "name": "artifact-publish",
+            "name": "distribution-publish",
             "executor": "github-actions-workflow",
-            "workflow": "artifact-publish.yml",
+            "workflow": "yoke-distribution-publish.yml",
             "inputs": {"source_sha": "{head_sha}"},
             "reconcile_by_head_sha": True,
         },
         {"name": "complete", "executor": "auto"},
     ])
     seed_stage = {
-        "name": "artifact-publish",
+        "name": "distribution-publish",
         "executor": "github-actions-workflow",
-        "workflow": "artifact-publish.yml",
+        "workflow": "yoke-distribution-publish.yml",
         "inputs": {"source_sha": "{head_sha}"},
         "reconcile_by_head_sha": False,
     }
@@ -48,15 +48,15 @@ def test_existing_seed_stage_is_replaced_in_place():
     ensure_seed_stage(
         conn,
         seed_flows=[{
-            "id": "example-release",
+            "id": "yoke-prod-release",
             "stages": json.dumps([
                 {"name": "merged", "executor": "auto"},
                 seed_stage,
                 {"name": "complete", "executor": "auto"},
             ]),
         }],
-        flow_id="example-release",
-        stage_name="artifact-publish",
+        flow_id="yoke-prod-release",
+        stage_name="distribution-publish",
         before_stage="complete",
     )
 

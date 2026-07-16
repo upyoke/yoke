@@ -14,10 +14,12 @@ class TestSeedFlows:
         for flow in _SEED_FLOWS:
             validate_stages(flow["stages"])  # raises on invalid
 
-    def test_seed_ids_are_the_builtin_project_set(self):
+    def test_seed_ids_are_the_cloud_runtime_set(self):
         ids = {flow["id"] for flow in _SEED_FLOWS}
         assert ids == {
             "yoke-internal",
+            "yoke-prod-release",
+            "yoke-stage-release",
             "yoke-ephemeral-deploy",
             "buzz-prod-release",
             "buzz-prod-hotfix",
@@ -29,6 +31,58 @@ class TestSeedFlows:
             for stage in json.loads(flow["stages"]):
                 if "executor" in stage:
                     assert stage["executor"] in VALID_EXECUTORS
+
+    def test_prod_release_carries_governed_migration_and_core_deploy(self):
+        flow = next(f for f in _SEED_FLOWS if f["id"] == "yoke-prod-release")
+        stages = json.loads(flow["stages"])
+        assert stages[0] == {
+            "kind": "migration_apply",
+            "model_name": "primary",
+            "lifecycle_phase": "implementing",
+        }
+        executors = [s.get("executor") for s in stages if "executor" in s]
+        assert executors == [
+            "auto",
+            "environment-activate",
+            "core-container-deploy",
+            "health-check",
+            "github-actions-workflow",
+            "auto",
+        ]
+        assert flow["target_env"] == "prod"
+        health = next(s for s in stages if s.get("executor") == "health-check")
+        assert "url" not in health  # env-resolved, never hardcoded
+        publish = next(
+            s for s in stages if s.get("name") == "distribution-publish"
+        )
+        assert publish["workflow"] == "yoke-distribution-publish.yml"
+        assert publish["ref"] == "main"
+        assert publish["inputs"] == {
+            "channel": "stable",
+            "target_env": "prod",
+            "source_sha": "{head_sha}",
+        }
+        assert publish["reconcile_by_head_sha"] is False
+        assert publish["qa_kind"] == "distribution_publish"
+
+    def test_stage_release_skips_governed_migration(self):
+        flow = next(
+            f for f in _SEED_FLOWS if f["id"] == "yoke-stage-release"
+        )
+        stages = json.loads(flow["stages"])
+        assert all(s.get("kind") != "migration_apply" for s in stages)
+        assert flow["target_env"] == "stage"
+        publish = next(
+            s for s in stages if s.get("name") == "distribution-publish"
+        )
+        assert publish["workflow"] == "yoke-distribution-publish.yml"
+        assert publish["ref"] == "stage"
+        assert publish["inputs"] == {
+            "channel": "latest",
+            "target_env": "stage",
+            "source_sha": "{head_sha}",
+        }
+        assert publish["reconcile_by_head_sha"] is False
 
     def test_ephemeral_flow_targets_ephemeral(self):
         flow = next(

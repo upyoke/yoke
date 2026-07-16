@@ -26,8 +26,9 @@ from yoke_core.domain import (
 from yoke_core.domain.db_mutation_gate_shared import GateOutcome
 
 
-# The kind stage carries no "name"/"executor" keys on the flow row.
-MIGRATION_STAGES = json.dumps([
+# Mirrors the yoke-prod-release seed shape: the kind stage carries no
+# "name"/"executor" keys on the flow row.
+PROD_STAGES = json.dumps([
     {"kind": "migration_apply", "model_name": "primary",
      "lifecycle_phase": "implementing"},
     {"name": "merged", "executor": "auto"},
@@ -42,7 +43,7 @@ def _execute(
     from_stage="",
     current_stage="",
     run_status="created",
-    stages=MIGRATION_STAGES,
+    stages=PROD_STAGES,
 ):
     """Run the real pipeline with every DB seam mocked; return observables."""
     run_id = "run-mig-001"
@@ -53,7 +54,7 @@ def _execute(
         if args[:2] == ("runs", "get"):
             # id|project|flow|target_env|lineage|status|current_stage
             return (
-                f"{run_id}|example|example-release|production|"
+                f"{run_id}|yoke|yoke-prod-release|prod|"
                 f"|{run_status}|{current_stage}"
             )
         if args[:2] == ("runs", "items"):
@@ -117,6 +118,8 @@ def _execute(
         deploy_pipeline, "connect", return_value=mock.Mock(),
     ), mock.patch.object(
         deploy_pipeline, "query_scalar", return_value=0,
+    ), mock.patch.object(
+        deploy_pipeline, "_converge_seeded_flow_config",
     ):
         rc = deploy_pipeline.run_pipeline(
             run_id, from_stage=from_stage, sd="/tmp/sd",
@@ -154,7 +157,7 @@ class TestKindStageParsing:
     """_parse_stages derives stable addressing for kind-typed stages."""
 
     def test_parse_stages_derives_kind_stage_keys(self):
-        parsed = deploy_pipeline._parse_stages(MIGRATION_STAGES)
+        parsed = deploy_pipeline._parse_stages(PROD_STAGES)
         assert parsed[0]["name"] == "migration-apply"
         assert parsed[0]["executor"] == "migration_apply"
         assert parsed[0]["kind"] == "migration_apply"
