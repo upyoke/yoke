@@ -269,6 +269,27 @@
   padding: 24px 30px 40px;
 }
 
+/* Every routed view opens with its name and one orienting sentence. The
+   head belongs to the route, not the view — a drill-in trades it for the
+   breadcrumb, and a tabbed view keeps one head above the facet strip. */
+.universe-app-root .page-head {
+  display: flex;
+  margin-bottom: 20px;
+}
+.universe-app-root .page-head .title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  color: var(--yoke-ink);
+}
+.universe-app-root .page-head .subtitle {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 13px;
+  color: var(--yoke-muted);
+}
+
 /* One titled card per read: bordered surface, its own header bar, rows
    flush to the card edge. Elevation arrives only on hover. */
 .universe-app-root .panel {
@@ -295,6 +316,12 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--yoke-ink);
+}
+/* The panel's honest total, sitting quietly beside its title. */
+.universe-app-root .panel-count {
+  margin-left: 5px;
+  font-weight: 500;
+  color: var(--yoke-muted);
 }
 .universe-app-root .panel-body {
   padding: 13px 15px;
@@ -438,9 +465,9 @@
   margin-top: 2px;
 }
 
-/* A destination that exists but has nothing to read yet: a dashed,
-   hatched placeholder that states what it will be — badge, name, one
-   sentence, and skeleton bars. Nothing pretends to act. */
+/* A destination that exists but has nothing to read yet: a dashed, hatched
+   placeholder holding a badge and skeleton bars. The name and sentence live
+   in the page head above it, and nothing here pretends to act. */
 .universe-app-root .stub-panel {
   border: 1.5px dashed var(--yoke-border);
   border-radius: 14px;
@@ -467,17 +494,10 @@
   padding: 4px 11px;
   border-radius: 20px;
 }
-.universe-app-root .stub-panel h2 {
-  font-size: 19px;
-  font-weight: 620;
-  margin: 16px 0 6px;
-  letter-spacing: -0.01em;
-  color: var(--yoke-ink);
-}
 .universe-app-root .stub-panel .stub-summary {
   color: var(--yoke-muted);
   max-width: 52ch;
-  margin: 0 auto;
+  margin: 12px auto 0;
   font-size: 13px;
 }
 .universe-app-root .stub-panel .preview {

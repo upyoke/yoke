@@ -68,7 +68,8 @@ function twoProjectClient() {
             result: {
               docs: [{
                 slug: `PLAN-${request.target.project_id}`,
-                title: "plan", archived: false,
+                title: "plan", updated_at: "today", updated_by: "ben",
+                bytes: 10, archived: false,
               }],
             },
           },
@@ -183,6 +184,8 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
       ),
       target: detailRequest.target,
       showsTask: text.includes("first"),
+      breadcrumbs: byClass(root, "breadcrumb").length,
+      pageHeads: byClass(root, "page-head").length,
     };
     mounted.unmount();
     return result;
@@ -194,6 +197,9 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
   });
   assert.equal(epic.askedForTasks, true);
   assert.equal(epic.showsTask, true);
+  // The breadcrumb is a drill-in's whole head — no page head beside it.
+  assert.equal(epic.breadcrumbs, 1);
+  assert.equal(epic.pageHeads, 0);
 
   const issue = await drillInto("issue");
   assert.equal(issue.askedForTasks, false);
@@ -254,6 +260,9 @@ test("an unblocked item reports no blocking reason", async (t) => {
   assert.ok(itemsRequest.payload.fields.includes("blocked_reason"));
   assert.ok(itemsRequest.payload.fields.includes("project"));
   assert.ok(!("project" in itemsRequest.payload));
+  // A read that served no total earns no header count — rows.length never
+  // stands in for the engine's number.
+  assert.equal(byClass(root, "panel-count").length, 0);
   mounted.unmount();
 });
 
@@ -383,6 +392,8 @@ test("Sessions shows the session: actor, liveness, lane, mode, and what it holds
     pills.map((pill) => pill.className),
     ["pill good", "pill warn"],
   );
+  // The read served its complete set, so the panel counts the merged rows.
+  assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
   mounted.unmount();
 });
 
@@ -511,9 +522,12 @@ test("strategy at All fans out one call per roster project", async (t) => {
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "PLAN-1", "alpha", "plan", "active",
-    "PLAN-2", "beta", "plan", "active",
+    "PLAN-1", "alpha", "plan", "ben", "today", "10", "active",
+    "PLAN-2", "beta", "plan", "ben", "today", "10", "active",
   ]);
+  // The buckets each served a complete corpus: the merged length is the
+  // fetched total.
+  assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
   mounted.unmount();
 });
 
@@ -624,6 +638,158 @@ test("a multi view still reads an empty universe, unfiltered", async (t) => {
     .map((node) => node.textContent || "").join(" ");
   assert.ok(text.includes("no items yet"));
   assert.ok(!text.includes("no projects yet"));
+  mounted.unmount();
+});
+
+test("every routed view opens with its page head, and only summarized entries get a subtitle", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  const root = documentNode.createElement("div");
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+      }
+      if (request.function === "sessions.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [] } } };
+      }
+      if (request.function === "items.list.run") {
+        return { status: 200, envelope: { success: true, result: { rows: [] } } };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  // The head names the view and carries its NAV summary as the subtitle.
+  const heads = byClass(root, "page-head");
+  assert.equal(heads.length, 1);
+  const title = byClass(heads[0], "title")[0];
+  assert.equal(title.tagName, "H1");
+  assert.equal(title.textContent, "Sessions");
+  assert.equal(
+    byClass(heads[0], "subtitle")[0].textContent,
+    "Each session: who runs it, what it holds, and how alive it is.",
+  );
+  // The head leads the content column, above the view's own picker.
+  const content = byClass(root, "content")[0];
+  assert.ok(content.children[0].classList.contains("page-head"));
+  assert.ok(content.children[1].classList.contains("scope-bar"));
+
+  // An entry with no summary renders no empty subtitle node at all.
+  documentNode.defaultView.location.hash = "#/items?project=1";
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
+  const itemsHead = byClass(root, "page-head")[0];
+  assert.equal(byClass(itemsHead, "title")[0].textContent, "Items");
+  assert.equal(byClass(itemsHead, "subtitle").length, 0);
+  mounted.unmount();
+});
+
+test("a stub view's name and summary render once, in the page head", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/inbox";
+  const root = documentNode.createElement("div");
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  const head = byClass(root, "page-head")[0];
+  assert.equal(byClass(head, "title")[0].textContent, "Inbox");
+  assert.equal(
+    byClass(head, "subtitle")[0].textContent,
+    "What needs you to know about it or act on it.",
+  );
+  // The stub keeps its badge and skeleton, and repeats neither the name
+  // nor the sentence the head already carries.
+  const stub = byClass(root, "stub-panel")[0];
+  const stubText = allNodes(stub)
+    .map((node) => node.textContent || "").join(" ");
+  assert.ok(stubText.includes("Coming soon"));
+  assert.ok(!stubText.includes("Inbox"));
+  assert.ok(!allNodes(stub).some(
+    (node) => node.tagName === "H1" || node.tagName === "H2",
+  ));
+  assert.equal(byClass(stub, "stub-summary").length, 0);
+  mounted.unmount();
+});
+
+test("the items count is the served total, summed across buckets — never rows.length", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/items?project=1,2";
+  const root = documentNode.createElement("div");
+  const itemRow = (id, project) => ({
+    id, title: "t", type: "issue", status: "idea", priority: "medium",
+    blocked: "0", blocked_reason: "", project,
+  });
+  // Each bucket serves one row of a larger total, so the served counts and
+  // the merged rows.length deliberately disagree.
+  const servedByBucket = {
+    1: { rows: [itemRow(11, "alpha")], count: 3 },
+    2: { rows: [itemRow(21, "beta")], count: 4 },
+  };
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              rows: [
+                { id: 1, slug: "alpha", name: "Alpha" },
+                { id: 2, slug: "beta", name: "Beta" },
+              ],
+            },
+          },
+        };
+      }
+      if (request.function === "items.list.run") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: servedByBucket[request.payload.project],
+          },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  // Two rows render, but the engine attested seven: the served number wins.
+  assert.equal(
+    allNodes(root).filter((node) => node.tagName === "TD").length > 0, true,
+  );
+  assert.equal(byClass(root, "panel-count")[0].textContent, "· 7");
   mounted.unmount();
 });
 

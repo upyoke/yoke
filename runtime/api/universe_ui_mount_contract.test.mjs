@@ -198,7 +198,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.ok(secondRoot.classList.contains("universe-app-root"));
 });
 
-test("strategy rows render slug, title, and status", async (t) => {
+test("strategy rows render slug, title, owner, last write, size, and status", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -221,7 +221,18 @@ test("strategy rows render slug, title, and status", async (t) => {
           envelope: {
             success: true,
             result: {
-              docs: [{ slug: "MISSION", title: "Mission statement", archived: false }],
+              docs: [
+                {
+                  slug: "MISSION", title: "Mission statement",
+                  updated_at: "2026-07-01", updated_by: "ben",
+                  bytes: 2048, archived: false,
+                },
+                {
+                  slug: "VISION", title: "Vision",
+                  updated_at: "2026-06-30", updated_by: null,
+                  bytes: 512, archived: true,
+                },
+              ],
             },
           },
         };
@@ -234,13 +245,17 @@ test("strategy rows render slug, title, and status", async (t) => {
   await settle();
 
   // At the "all" default the docs read fans out per project, and each row
-  // wears the slug of the project bucket that requested it.
+  // wears the slug of the project bucket that requested it. The values pass
+  // through as served: an unresolved editor renders empty, and the size is
+  // the raw byte number the engine owns.
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TH" || node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "slug", "project", "title", "status",
-    "MISSION", "yoke", "Mission statement", "active",
+    "slug", "project", "title", "owner", "last write", "size", "status",
+    "MISSION", "yoke", "Mission statement", "ben", "2026-07-01", "2048",
+    "active",
+    "VISION", "yoke", "Vision", "", "2026-06-30", "512", "archived",
   ]);
   assert.ok(requests.some((request) => request.function === "strategy.doc.list"));
   mounted.unmount();

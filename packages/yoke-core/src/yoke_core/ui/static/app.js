@@ -95,6 +95,22 @@ function createActorChip(documentNode, actor) {
   return chip;
 }
 
+// Every routed view opens with its name and, when its NAV entry carries
+// one, the entry's one-sentence summary. The head belongs to the route, not
+// the view — renderers stay unaware of it, a drill-in trades it for the
+// breadcrumb, and a tabbed view keeps one head (the view's, one concept)
+// above the facet strip while the tabs below it change.
+function createPageHead(documentNode, entry) {
+  const head = el(documentNode, "div", "page-head");
+  const heading = el(documentNode, "div", "h");
+  heading.appendChild(el(documentNode, "h1", "title", entry.label));
+  if (entry.summary) {
+    heading.appendChild(el(documentNode, "p", "subtitle", entry.summary));
+  }
+  head.appendChild(heading);
+  return head;
+}
+
 // The way back out of a drill-in, naming the view it belongs to. It carries
 // the view's project so returning lands on the same rows the row came from.
 function createBreadcrumb(documentNode, entry, project, detail) {
@@ -243,19 +259,21 @@ export function mountUniverseApp(rootNode, options = {}) {
       const tabBar = createTabBar(
         documentNode, entry, tab.id, serializeScope(scope),
       );
+      const pageHead = createPageHead(documentNode, entry);
       const tabRenderer = (TAB_RENDERERS[entry.id] || {})[tab.id];
       if (!tabRenderer) {
-        // An unbuilt facet is honest the same way an unbuilt destination is:
-        // it says what it will be, and carries no picker — a scope control
-        // over nothing filters nothing.
+        // An unbuilt facet is honest the same way an unbuilt destination is,
+        // and it carries no picker — a scope control over nothing filters
+        // nothing. The facet's own what-it-will-be line renders inside the
+        // stub: the page head names the view, not the tab.
         const stubHost = el(documentNode, "div", "view-host");
-        main.replaceChildren(tabBar, stubHost);
-        renderStubView(context, stubHost, tab);
+        main.replaceChildren(pageHead, tabBar, stubHost);
+        renderStubView(context, stubHost, tab.summary);
         return;
       }
       if (entry.scope === SCOPE_NONE) {
         const viewHost = el(documentNode, "div", "view-host");
-        main.replaceChildren(tabBar, viewHost);
+        main.replaceChildren(pageHead, tabBar, viewHost);
         tabRenderer(context, viewHost, null);
         return;
       }
@@ -263,13 +281,16 @@ export function mountUniverseApp(rootNode, options = {}) {
       // read over an empty universe is honest, an unscoped single view has
       // nothing to configure.
       if (scope === null) {
-        main.replaceChildren(tabBar, emptyUniversePanel(documentNode));
+        main.replaceChildren(
+          pageHead, tabBar, emptyUniversePanel(documentNode),
+        );
         return;
       }
       // A built tab carries its own picker, below the facet strip: scope
       // belongs to the data, and only this facet's data takes it here.
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(
+        pageHead,
         tabBar,
         createScopePicker({
           documentNode, entry, scope, projects, renderRoute,
@@ -284,23 +305,30 @@ export function mountUniverseApp(rootNode, options = {}) {
     const detailRenderer = route.detail ? DETAIL_RENDERERS[entry.id] : null;
     const renderer = VIEW_RENDERERS[entry.id];
     if (!renderer) {
-      renderStubView(context, main, entry);
+      const stubHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(createPageHead(documentNode, entry), stubHost);
+      renderStubView(context, stubHost);
       return;
     }
     if (entry.scope === SCOPE_NONE) {
-      renderer(context, main, null);
+      const viewHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(createPageHead(documentNode, entry), viewHost);
+      renderer(context, viewHost, null);
       return;
     }
     // Only a single-scope view needs a project to exist (see the tab path).
     if (scope === null) {
-      main.replaceChildren(emptyUniversePanel(documentNode));
+      main.replaceChildren(
+        createPageHead(documentNode, entry), emptyUniversePanel(documentNode),
+      );
       return;
     }
     const detailProject = detailRenderer
       ? drillInProject(scope, projects) : null;
     if (detailRenderer && detailProject !== null) {
-      // A drill-in swaps the view's picker for a breadcrumb: re-scoping a
-      // single row to another project is nonsense, and the way out is back.
+      // A drill-in swaps the view's picker for a breadcrumb, and the
+      // breadcrumb is a drill-in's whole head: re-scoping a single row to
+      // another project is nonsense, and the way out is back.
       const detailHost = el(documentNode, "div", "view-host");
       main.replaceChildren(
         createBreadcrumb(
@@ -314,10 +342,14 @@ export function mountUniverseApp(rootNode, options = {}) {
     // The picker is the view's own chrome, so it sits in the content column
     // above a host the view owns outright and re-renders into at will.
     const viewHost = el(documentNode, "div", "view-host");
-    main.replaceChildren(createScopePicker({
-      documentNode, entry, scope, projects, renderRoute, scopeSelections,
-      windowNode,
-    }), viewHost);
+    main.replaceChildren(
+      createPageHead(documentNode, entry),
+      createScopePicker({
+        documentNode, entry, scope, projects, renderRoute, scopeSelections,
+        windowNode,
+      }),
+      viewHost,
+    );
     renderer(context, viewHost, scope);
   }
 

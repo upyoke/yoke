@@ -126,12 +126,17 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   // Tabs are real links that carry the view's scope.
   assert.equal(activeTabs[0].href, "#/delivery/flows?project=1");
 
-  // The honest stub: Coming soon, what it will be, and no scope control.
+  // The honest stub: Coming soon, no scope control, and the FACET's own
+  // what-it-will-be line — the page head names the view, not the tab, so
+  // the tab summary must render here or nowhere.
   assert.equal(byClass(root, "stub-panel").length, 1);
-  const text = allNodes(root)
+  const stubText = allNodes(byClass(root, "stub-panel")[0])
     .map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("Coming soon"));
-  assert.ok(text.includes("The pipeline definitions runs execute."));
+  assert.ok(stubText.includes("Coming soon"));
+  assert.ok(stubText.includes("The pipeline definitions runs execute."));
+  assert.ok(!allNodes(byClass(root, "stub-panel")[0]).some(
+    (node) => node.tagName === "H1" || node.tagName === "H2",
+  ));
   assert.equal(byClass(root, "scope-bar").length, 0);
   assert.equal(byClass(root, "scope-chip").length, 0);
 
@@ -143,6 +148,43 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   // The deep link survives untouched.
   assert.equal(
     documentNode.defaultView.location.hash, "#/delivery/flows?project=1",
+  );
+  mounted.unmount();
+});
+
+test("a tabbed view's page head names the view, sits above the strip, and holds still across facets", async (t) => {
+  const client = deliveryClient();
+  const { documentNode, root, mounted } = await mountAt(
+    t, "#/delivery/runs?project=1", client,
+  );
+
+  const headOf = (node) => {
+    const content = byClass(node, "content")[0];
+    // The head leads the content column, above the facet strip.
+    assert.ok(content.children[0].classList.contains("page-head"));
+    assert.ok(content.children[1].classList.contains("tab-bar"));
+    return content.children[0];
+  };
+
+  const liveHead = headOf(root);
+  assert.equal(byClass(liveHead, "title")[0].textContent, "Delivery");
+  assert.equal(
+    byClass(liveHead, "subtitle")[0].textContent,
+    "Environments, flows and runs, with databases and infrastructure.",
+  );
+
+  // Switching to another facet — a stub one, even — re-renders the same
+  // head: one concept, one name, whatever the strip below shows.
+  documentNode.defaultView.location.hash = "#/delivery/environments?project=1";
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
+  assert.equal(byClass(root, "stub-panel").length, 1);
+  const stubHead = headOf(root);
+  assert.equal(byClass(root, "page-head").length, 1);
+  assert.equal(byClass(stubHead, "title")[0].textContent, "Delivery");
+  assert.equal(
+    byClass(stubHead, "subtitle")[0].textContent,
+    "Environments, flows and runs, with databases and infrastructure.",
   );
   mounted.unmount();
 });
