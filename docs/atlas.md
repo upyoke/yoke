@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-14T19:11:37Z_
+_Audit generated_at: 2026-07-16T12:04:22Z_
 
 ## 1. Summary
 
-- Function ids registered: **201**
+- Function ids registered: **203**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **200** (200 carry usable `--help`)
-- Operation tracker: **200 wrapped**, 72 permanent, 0 pending
+- `yoke` CLI subcommands: **202** (202 carry usable `--help`)
+- Operation tracker: **202 wrapped**, 71 permanent, 0 pending
 - Skill-body recipes: 217 total (180 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **200** (operation tracker confirms 200 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **202** (operation tracker confirms 202 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -134,6 +134,8 @@ Wrapped `yoke <subcommand>` adapters: **200** (operation tracker confirms 200 wr
 | projects | `yoke projects capability-settings set` | `projects.capability_settings.set` | ok |
 | projects | `yoke projects checkout-context` | `projects.checkout_context.run` | ok |
 | projects | `yoke projects create` | `projects.create` | ok |
+| projects | `yoke projects environment-settings get` | `projects.environment_settings.get` | ok |
+| projects | `yoke projects environment-settings merge` | `projects.environment_settings.merge` | ok |
 | projects | `yoke projects get` | `projects.get` | ok |
 | projects | `yoke projects github-binding bind` | `projects.github_binding.bind` | ok |
 | projects | `yoke projects github-binding status` | `projects.github_binding.status` | ok |
@@ -287,7 +289,6 @@ Wrapped `yoke <subcommand>` adapters: **200** (operation tracker confirms 200 wr
 | tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped |
 | tools.session_init | `python3 -m yoke_core.tools.session_init` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_advance` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_deploy` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_doctor` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_inventory` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_lifecycle` | tool_shaped |

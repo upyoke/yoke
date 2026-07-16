@@ -77,27 +77,6 @@ WARNING: No active deployment run found for YOK-N. Falling back to item-only dep
 The pipeline may not resume correctly without a run — verify manually.
 ```
 
-1b. **Surface ephemeral preview URL:** Check whether an `ephemeral-verify` stage preceded the approval gate. Stage progression is run state — read it from the run row (the events ledger is telemetry-only and is not consulted):
-
-```sh
-python3 -m yoke_core.cli.db_router query "SELECT status, current_stage FROM deployment_runs WHERE id = '$_run_id'"
-```
-
-When the flow includes an `ephemeral-verify` stage that already completed, the stage printed the preview URL as an `EPHEMERAL_URL=` line in the deploy pipeline output — grep the `watch_deploy` raw capture from the run that just halted for approval:
-
-```sh
-grep "EPHEMERAL_URL=" <watch_deploy-raw-capture> | tail -1
-```
-
-If found, include it prominently in the approval prompt:
-
-```
-Ephemeral environment verified at {preview_url}
-Review the preview before approving production deployment.
-```
-
-If the flow has no ephemeral-verify stage or no capture is at hand (e.g., hotfix flows, internal flows), skip this step silently.
-
 2. **Record the approval event** via `yoke events emit`:
 
 ```sh

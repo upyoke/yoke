@@ -128,25 +128,6 @@ def test_core_topic_includes_dependency_wrappers() -> None:
     assert "yoke shepherd dependency-remove" not in body
 
 
-def test_core_topic_pins_itemless_deploy_to_product_checkout() -> None:
-    body = sac.render_topic_packet("core")
-    fetch = 'git -C "$source_checkout" fetch origin "$target_branch"'
-    detach = 'git -C "$source_checkout" checkout --detach FETCH_HEAD'
-    watched = 'watch_deploy --product-src "$source_checkout" -- {run-id}'
-    assert fetch in body
-    assert detach in body
-    assert "rev-parse --short" not in body
-    assert "$source_checkout/packages/yoke-core/src" in body
-    assert watched in body
-    assert "canonical 12-character registry tag" in body
-    assert "YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env>" in body
-    assert "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1" in body
-    assert "never leave authority selection implicit" in body
-    assert (
-        body.index(fetch) < body.index(detach) < body.index(watched)
-    )
-
-
 def test_every_role_packet_teaches_worktree_source_pythonpath() -> None:
     body = sac.render_topic_packet("core")
     for token in (

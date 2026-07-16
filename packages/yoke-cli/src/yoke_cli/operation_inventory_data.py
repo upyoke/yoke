@@ -280,8 +280,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
        "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_merge",
        "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_deploy",
-       "tools.watch", REASON_TOOL_SHAPED),
     # The remaining agent-facing watcher surfaces.
     # watch_advance / watch_lifecycle / watch_session_offer are
     # taught in conduct's dispatch-context-artifacts.md; watch_tail is the

@@ -81,7 +81,7 @@ Pick `{component-name}` to name the failing surface specifically (`"buzz GitHub 
 
 When: transient failure, cause resolved. Re-run pipeline (reads `current_stage`, strips `-failed`, retries):
 ```bash
-python3 -m yoke_core.tools.watch_deploy -- {run-id}
+python3 -m yoke_core.domain.deploy_pipeline {run-id}
 ```
 
 ### Option B: Skip a stage
@@ -89,7 +89,7 @@ python3 -m yoke_core.tools.watch_deploy -- {run-id}
 When: non-critical stage or manually verified. Update stage, re-run:
 ```bash
 yoke deployment-runs update {run-id} current_stage {next-stage-name}
-python3 -m yoke_core.tools.watch_deploy -- {run-id}
+python3 -m yoke_core.domain.deploy_pipeline {run-id}
 ```
 
 ### Option C: Manual completion
