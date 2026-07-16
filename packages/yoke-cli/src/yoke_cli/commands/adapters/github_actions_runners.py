@@ -95,7 +95,6 @@ def github_actions_runners_status(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        local_only=True,
     )
 
 
