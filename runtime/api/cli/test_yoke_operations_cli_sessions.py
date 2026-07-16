@@ -146,3 +146,63 @@ def test_charge_schedule_dispatches() -> None:
     assert req.function == "charge.schedule"
     assert req.target.kind == "global"
     assert req.payload == {"project": "yoke", "wip_cap": 7}
+
+
+def test_registry_maps_sessions_list_to_function_id() -> None:
+    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
+
+    assert SUBCOMMAND_REGISTRY[("sessions", "list")][0] == "sessions.list"
+
+
+def test_sessions_list_dispatches_filters_and_prints_pipe_rows() -> None:
+    def stub(request: FunctionCallRequest) -> FunctionCallResponse:
+        _CAPTURED_REQUESTS.append(request)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={
+                "fields": ["session_id", "liveness", "mode", "claims"],
+                "rows": [
+                    {
+                        "session_id": "s-1",
+                        "liveness": "active",
+                        "mode": "charge",
+                        "claims": [
+                            {"target_kind": "item", "target": "YOK-41"},
+                            {"target_kind": "process", "target": "feed"},
+                        ],
+                    },
+                ],
+            },
+        )
+
+    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
+        with patch(
+            "yoke_core.domain.yoke_function_dispatch.dispatch",
+            side_effect=stub,
+        ):
+            with patch(
+                "yoke_cli.commands._helpers.ensure_handlers_loaded"
+            ):
+                out = io.StringIO()
+                err = io.StringIO()
+                with redirect_stdout(out), redirect_stderr(err):
+                    rc = cli_main([
+                        "sessions", "list",
+                        "--project", "yoke",
+                        "--liveness", "active",
+                        "--limit", "5",
+                    ])
+
+    assert rc == 0
+    assert out.getvalue() == "s-1|active|charge|YOK-41,feed\n"
+    req = _CAPTURED_REQUESTS[-1]
+    assert req.function == "sessions.list"
+    assert req.target.kind == "global"
+    assert req.payload == {
+        "project": "yoke",
+        "liveness": "active",
+        "limit": 5,
+    }

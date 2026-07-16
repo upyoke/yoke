@@ -1,11 +1,14 @@
-"""Fresh-database restore entrypoint for self-host universe imports.
+"""Destination-database restore entrypoint for self-host universe imports.
 
-The host-side ``yoke self-host import`` adapter streams a portable archive
-into this module's stdin inside the server image.  The archive is staged in
-an owner-only temporary file because ``pg_restore`` requires a seekable input.
-The trusted portability restore owns schema validation and data loading; this
-module adds the destination-specific credential handoff before that restore
-transaction commits.
+The host-side ``yoke self-host import`` adapter streams a one-file
+portable universe archive (:mod:`yoke_core.domain.universe_archive`) into
+this module's stdin inside the server image. The archive is staged in an
+owner-only temporary file, its enclosed freeze receipt is verified
+against the enclosed dump payload — checksum verification is derived
+from the artifact, never asked of the operator — and the trusted
+portability restore then owns schema validation and data loading. This
+module adds the destination-specific credential handoff before that
+restore transaction commits.
 
 Hosted credentials are intentionally non-portable: archives contain only
 their hashes, while the raw values remain with the departing platform.  Every
@@ -29,6 +32,7 @@ import psycopg
 from yoke_core.domain import (
     db_backend,
     json_helper,
+    universe_archive,
     universe_import_credentials,
     universe_portability,
     universe_startup_lock,
@@ -46,7 +50,7 @@ def _stage_archive(stream: BinaryIO, *, max_bytes: int) -> Path:
     """Copy stdin to one private seekable file under a hard size ceiling."""
     descriptor, raw_path = tempfile.mkstemp(
         prefix="yoke-self-host-import-",
-        suffix=".dump",
+        suffix=universe_archive.ARTIFACT_SUFFIX,
     )
     path = Path(raw_path)
     try:
@@ -86,19 +90,44 @@ def import_from_stream(
     archive = _stage_archive(stream, max_bytes=max_bytes)
     credential: universe_import_credentials.ImportedCredential | None = None
 
-    def finalize(conn: psycopg.Connection) -> None:
-        nonlocal credential
-        credential = universe_import_credentials.replace_imported_credentials(conn)
-
     resolved_dsn = dsn or db_backend.resolve_pg_dsn()
     try:
-        with universe_startup_lock.exclusive_import_guard(resolved_dsn):
-            inspection = universe_portability.restore_universe(
-                archive,
-                resolved_dsn,
-                max_bytes=max_bytes,
-                finalize=finalize,
+        with universe_archive.unpacked_universe_archive(
+            archive,
+            max_dump_bytes=max_bytes,
+        ) as (dump, receipt):
+            binding = universe_archive.verify_receipt_binds_dump(receipt, dump)
+            receipt_org = str(
+                receipt.get("freeze_intent", {})
+                .get("database", {})
+                .get("org")
+                or ""
             )
+
+            def finalize(conn: psycopg.Connection) -> None:
+                nonlocal credential
+                credential = (
+                    universe_import_credentials.replace_imported_credentials(
+                        conn
+                    )
+                )
+                # Inside the restore transaction: a receipt whose intent
+                # names a different org than the restored data rolls the
+                # whole restore back.
+                if receipt_org and receipt_org != credential.org_slug:
+                    raise UniverseImportError(
+                        "the archive freeze receipt names org "
+                        f"{receipt_org!r} but the enclosed universe is org "
+                        f"{credential.org_slug!r}"
+                    )
+
+            with universe_startup_lock.exclusive_import_guard(resolved_dsn):
+                inspection = universe_portability.restore_universe(
+                    dump,
+                    resolved_dsn,
+                    max_bytes=max_bytes,
+                    finalize=finalize,
+                )
     finally:
         archive.unlink(missing_ok=True)
     if credential is None:
@@ -115,6 +144,7 @@ def import_from_stream(
         "revoked_web_session_count": credential.revoked_web_session_count,
         "archive": {
             "bytes": inspection.size_bytes,
+            "sha256": binding["sha256"],
             "dumped_from_postgres": inspection.dumped_from_postgres,
             "dumped_by_pg_dump": inspection.dumped_by_pg_dump,
             "table_entries": inspection.table_entries,
@@ -153,7 +183,7 @@ def _build_parser() -> argparse.ArgumentParser:
     mode.add_argument(
         "--stdin",
         action="store_true",
-        help="Read the custom-format universe archive from stdin.",
+        help="Read the portable universe tar archive from stdin.",
     )
     mode.add_argument(
         "--recover-credential",
@@ -175,6 +205,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 if args.recover_credential
                 else import_from_stream(sys.stdin.buffer)
             )
+    except universe_archive.UniverseArchiveError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     except universe_portability.UniversePortabilityError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

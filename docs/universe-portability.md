@@ -1,27 +1,51 @@
 # Universe portability
 
-Use the custom-format universe archive to move a local or self-hosted universe
-without exposing its database credentials.
+A universe IS a database: export is a dump, import is a restore-and-switch.
+The portable artifact is ONE tar file, `<org-slug>-universe-<utc-timestamp>.tar`,
+carrying exactly two members at its root:
 
-Validate the bounded archive structure and table-data catalog before moving or
-uploading a file:
+- `universe.dump` — the `pg_dump` custom-format payload
+  (compressed, `pg_restore --list`-able).
+- `freeze-receipt.json` — the freeze receipt whose `freeze_intent.archive`
+  block binds that exact payload by SHA-256 and byte count.
+
+The receipt travels inside the artifact, so every importer — local CLI,
+self-host bundle, hosted platform — derives checksum verification from the
+file itself. Humans move one file between machines and modes and are never
+asked for a hash or receipt text. The format owner is
+`yoke_core.domain.universe_archive` (pack, unpack, receipt build, and
+verification); every mode shares those helpers.
+
+Validate the receipt binding, bounded archive structure, and table-data
+catalog before moving a file:
 
 ```bash
-yoke universe validate ~/backups/universe.dump
+yoke universe validate ~/backups/acme-universe-20260714T120000Z.tar
 ```
 
-Release and migration rehearsals may also restore into an explicitly empty,
+Release and migration rehearsals may also restore into an explicitly
 disposable Postgres database. Point `YOKE_PG_DSN_VALIDATION` at that scratch
 database, attest that it is disposable, and request the round trip:
 
 ```bash
 YOKE_UNIVERSE_VALIDATION_DISPOSABLE=1 \
-  yoke universe validate ~/backups/universe.dump --roundtrip
+  yoke universe validate ~/backups/acme-universe-20260714T120000Z.tar --roundtrip
 ```
 
-The command refuses a non-empty target and emits organization, project, schema,
-and content-count receipts without printing credentials. Never use a production
+The round trip replaces whatever the disposable database holds — exactly like
+a real import destination — and emits organization, project, schema, and
+content-count receipts without printing credentials. Never use a production
 database as the validation target.
+
+## Import: one file, one consent
+
+`yoke self-host import ARCHIVE` asks the operator exactly two things: which
+archive, and consent to replace the destination universe (`--yes` for
+non-interactive runs). Everything else — checksum, receipt verification,
+catalog compatibility — is derived from the archive. The destination is reset
+and restored through one path whether it was brand-new or held a prior
+universe; replacing the current universe is the operator's call, which is why
+the consent stays.
 
 ## Attended production source cutover
 
@@ -36,7 +60,7 @@ yoke --env prod-db-admin source-authority quiesce begin \
   --credential-file /secure/source-cutover.json --json
 yoke source-authority quiesce status \
   --credential-file /secure/source-cutover.json --json
-yoke source-authority export --out /secure/source.dump \
+yoke source-authority export --out /secure/source.tar \
   --credential-file /secure/source-cutover.json --json
 yoke source-authority quiesce abort \
   --credential-file /secure/source-cutover.json --json
@@ -93,20 +117,20 @@ removes the local credential bundle. A persisted transaction marker plus an
 exact single-host `NOLOGIN` response supports crash recovery; generic password,
 network, TLS, timeout, and multi-host text never counts as cutoff evidence.
 
-The export writes two owner-only JSON artifacts beside the archive. The compact
-`.source-freeze-intent.json` is the exact `yoke.source-freeze/v1` cross-service
-contract suitable for the `x-yoke-source-freeze-intent` request header; the
-larger `.source-freeze-receipt.json` is the detailed audit sidecar. Neither
-contains a DSN, token, or secret. Compact begin/status receipts use bounded
-count/max/schema/catalog/sequence/strategy queries. The export and disposable
-round-trip each perform one streaming, fixed-batch content-digest pass so a
-large events table is never loaded or sorted in client memory.
+The export writes exactly one artifact: the tar described at the top of this
+page. Its `freeze-receipt.json` member carries the compact
+`yoke.source-freeze/v1` intent (under `freeze_intent`), the detailed authority
+audit receipt (under `source_authority`), and the archive data catalog (under
+`catalog`); a replacement service reads all of them from inside the archive.
+None contains a DSN, token, or secret. Compact begin/status receipts use
+bounded count/max/schema/catalog/sequence/strategy queries. The export and
+disposable round-trip each perform one streaming, fixed-batch content-digest
+pass so a large events table is never loaded or sorted in client memory.
 
-The dump is staged under an owner-only hidden name while one stable publication
-lock is held. Both receipt sidecars are persisted first and the archive name is
-linked last as the commit marker, so no final-looking archive exists without
-its receipts. A later invocation holding the same lock removes only validated
-orphan sidecars and exact tokenized staging files left by a process crash.
+The dump payload is staged under an owner-only hidden sibling name, the tar is
+assembled receipt-first in a private temporary file, and the final archive
+name appears atomically (`os.replace`), so no partial or receipt-less artifact
+ever exists under the destination name.
 
 Capability settings and capability secrets use separate secret-free receipt
 planes grouped by capability type and project. The replacement may overlay only
@@ -117,7 +141,7 @@ catalog proves table-data omission, and the replacement must reject any source
 secret type not explicitly environment-owned before restoring the preserved
 destination secrets. The whole-authority digest therefore canonicalizes this
 one plane to its restored-empty value; the populated source plane remains in
-the sidecar and compact intent as distinct overlay evidence. Environment,
+the detailed receipt and compact intent as distinct overlay evidence. Environment,
 preview-environment, and site rows remain in whole-authority equality. The
 normalization receipt records the owner for every excluded table: destination
 convergence, destination rebinding, destination overlay, a separate receipt

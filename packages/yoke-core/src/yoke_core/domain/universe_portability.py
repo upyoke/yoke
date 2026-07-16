@@ -618,7 +618,7 @@ def dump_universe(
         raise UniversePortabilityError("exported PostgreSQL snapshot id is invalid")
     client_env = postgres_client_env(dsn)
     if snapshot is not None:
-        client_env["PGAPPNAME"] = "yoke-source-authority-pg-dump"
+        client_env["PGAPPNAME"] = "yoke-universe-export-pg-dump"
     try:
         archive_output = universe_archive_output.prepare_private_archive_output(dest)
     except universe_archive_output.PrivateArchiveOutputError as exc:
@@ -748,8 +748,73 @@ def _archive_pump(
         source.close()  # type: ignore[attr-defined]
 
 
+def _reset_restore_target(conn: object) -> None:
+    """Drop every current-schema object so one restore path always runs.
+
+    The destination is either brand-new or holds a universe the operator
+    consented to replace; both become the same catalog-empty starting
+    state here, so restore never branches on (or reports) an
+    empty-versus-occupied destination.
+    """
+    relations = conn.execute(  # type: ignore[attr-defined]
+        "SELECT cls.relname::text, cls.relkind::text"
+        " FROM pg_catalog.pg_class cls"
+        " JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace"
+        " WHERE ns.nspname = current_schema()"
+        " AND cls.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')"
+        " ORDER BY cls.relname"
+    ).fetchall()
+    drop_templates = {
+        "r": "DROP TABLE IF EXISTS {} CASCADE",
+        "p": "DROP TABLE IF EXISTS {} CASCADE",
+        "v": "DROP VIEW IF EXISTS {} CASCADE",
+        "m": "DROP MATERIALIZED VIEW IF EXISTS {} CASCADE",
+        "S": "DROP SEQUENCE IF EXISTS {} CASCADE",
+        "f": "DROP FOREIGN TABLE IF EXISTS {} CASCADE",
+    }
+    for name, kind in relations:
+        conn.execute(  # type: ignore[attr-defined]
+            sql.SQL(drop_templates[str(kind)]).format(
+                sql.Identifier(str(name))
+            )
+        )
+    routines = conn.execute(  # type: ignore[attr-defined]
+        "SELECT proc.oid::regprocedure::text, proc.prokind::text"
+        " FROM pg_catalog.pg_proc proc"
+        " JOIN pg_catalog.pg_namespace ns ON ns.oid = proc.pronamespace"
+        " WHERE ns.nspname = current_schema()"
+        " ORDER BY proc.proname"
+    ).fetchall()
+    for signature, kind in routines:
+        # regprocedure text is catalog-rendered with quoted identifiers,
+        # so it is safe to inline into trusted DDL.
+        verb = "DROP AGGREGATE" if str(kind) == "a" else "DROP ROUTINE"
+        conn.execute(  # type: ignore[attr-defined]
+            f"{verb} IF EXISTS {signature} CASCADE"
+        )
+    conn.commit()  # type: ignore[attr-defined]
+    remaining = conn.execute(  # type: ignore[attr-defined]
+        "SELECT object_name FROM ("
+        " SELECT cls.relname::text AS object_name"
+        " FROM pg_catalog.pg_class cls"
+        " JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace"
+        " WHERE ns.nspname = current_schema()"
+        " UNION ALL"
+        " SELECT proc.proname::text AS object_name"
+        " FROM pg_catalog.pg_proc proc"
+        " JOIN pg_catalog.pg_namespace ns ON ns.oid = proc.pronamespace"
+        " WHERE ns.nspname = current_schema()"
+        ") objects LIMIT 1"
+    ).fetchone()
+    if remaining is not None:
+        raise UniversePortabilityError(
+            "the restore destination holds an object the reset does not"
+            f" cover: {remaining[0]}"
+        )
+
+
 def _prepare_trusted_restore_schema(dsn: str, *, timeout_s: float) -> None:
-    """Require a catalog-empty DB and materialize schema from deployed code."""
+    """Reset the destination and materialize schema from deployed code."""
 
     from yoke_core.domain import db_backend
     from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
@@ -768,23 +833,7 @@ def _prepare_trusted_restore_schema(dsn: str, *, timeout_s: float) -> None:
     bounded_dsn = conninfo.make_conninfo(**parsed)
     conn = db_backend.connect_psycopg(bounded_dsn)
     try:
-        existing = conn.execute(
-            "SELECT object_name FROM ("
-            " SELECT cls.relname::text AS object_name"
-            " FROM pg_catalog.pg_class cls"
-            " JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace"
-            " WHERE ns.nspname = current_schema()"
-            " UNION ALL"
-            " SELECT proc.proname::text AS object_name"
-            " FROM pg_catalog.pg_proc proc"
-            " JOIN pg_catalog.pg_namespace ns ON ns.oid = proc.pronamespace"
-            " WHERE ns.nspname = current_schema()"
-            ") objects LIMIT 1"
-        ).fetchone()
-        if existing is not None:
-            raise UniversePortabilityError(
-                "the restore target database is not catalog-empty"
-            )
+        _reset_restore_target(conn)
     finally:
         conn.close()
 
@@ -821,12 +870,12 @@ def restore_universe(
 ) -> ArchiveInspection:
     """Restore archive data into a fresh deployed-code schema transactionally.
 
-    The caller must supply a catalog-empty database. This function first
-    materializes the current trusted schema, clears only its bootstrap rows,
-    and then enables TABLE DATA/SEQUENCE SET entries. Uploaded DDL is never
-    executed, and no clean/drop flags can overwrite an existing universe.
-    A trusted deployed-code ``finalize`` callback, when supplied, runs after
-    data and constraints validate but before the restore transaction commits.
+    The destination is reset first — any prior universe the operator
+    consented to replace is dropped — then the current trusted schema is
+    materialized, its bootstrap rows cleared, and only TABLE DATA/SEQUENCE
+    SET entries enabled. Uploaded DDL is never executed. A trusted
+    deployed-code ``finalize`` callback, when supplied, runs after data
+    and constraints validate but before the restore transaction commits.
     """
     deadline = time.monotonic() + timeout_s
     inspection, catalog = _inspect_archive(

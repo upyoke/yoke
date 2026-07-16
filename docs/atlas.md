@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-16T12:04:22Z_
+_Audit generated_at: 2026-07-16T13:30:34Z_
 
 ## 1. Summary
 
-- Function ids registered: **203**
+- Function ids registered: **204**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **202** (202 carry usable `--help`)
-- Operation tracker: **202 wrapped**, 71 permanent, 0 pending
+- `yoke` CLI subcommands: **203** (203 carry usable `--help`)
+- Operation tracker: **203 wrapped**, 72 permanent, 0 pending
 - Skill-body recipes: 217 total (180 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **202** (operation tracker confirms 202 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -170,6 +170,7 @@ Wrapped `yoke <subcommand>` adapters: **202** (operation tracker confirms 202 wr
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
+| sessions | `yoke sessions list` | `sessions.list` | ok |
 | sessions | `yoke sessions offer` | `sessions.offer` | ok |
 | sessions | `yoke sessions ownership-guard` | `sessions.ownership_guard` | ok |
 | sessions | `yoke sessions touch` | `sessions.touch` | ok |

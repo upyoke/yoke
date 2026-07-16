@@ -12,9 +12,10 @@ fetched lazily and started under ``~/.yoke/``, control-plane schema
 bootstrapped, org identity card and the one human actor ensured, and the
 machine config pointed at the new universe. ``yoke local-postgres
 start|stop|status`` manage the embedded server on its own. ``yoke
-universe export`` dumps the universe database to one portable
-``pg_restore``-compatible artifact — the leave/graduate half of
-dump-and-restore between deployment modes.
+universe export`` dumps the universe database to one self-contained
+portable archive (a tar carrying the database dump and its freeze
+receipt) — the leave/graduate half of dump-and-restore between
+deployment modes.
 """
 
 from __future__ import annotations
@@ -106,10 +107,11 @@ def universe_export(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke universe export",
         description=(
-            "Dump the active universe's database to one portable pg_dump "
-            "custom-format artifact (pg_restore-compatible, compressed) — "
-            "the leave/graduate half of moving a universe between "
-            "deployment modes. Requires holding the database DSN: "
+            "Export the active universe's database to one self-contained "
+            "portable archive: a tar carrying the pg_dump payload and the "
+            "freeze receipt that binds it, so the importer verifies the "
+            "file by itself — the leave/graduate half of moving a universe "
+            "between deployment modes. Requires holding the database DSN: "
             "sanctioned for a non-prod local-postgres connection. An https "
             "connection refuses because this machine holds no DSN: hosted "
             "org admins use the dashboard's Move universe action, while a "
@@ -122,7 +124,7 @@ def universe_export(args: List[str]) -> int:
         help=(
             "Output file or directory; a trailing / always means a "
             "directory (created when missing). Default: "
-            "<org-slug>-universe-<utc-timestamp>.dump in the current "
+            "<org-slug>-universe-<utc-timestamp>.tar in the current "
             "directory."
         ),
     )

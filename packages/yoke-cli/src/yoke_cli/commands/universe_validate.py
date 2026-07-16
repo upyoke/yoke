@@ -24,10 +24,12 @@ def universe_validate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke universe validate",
         description=(
-            "Validate a portable universe archive before upload. The default "
-            "runs bounded format and catalog checks without a database. "
-            "--roundtrip additionally restores into the explicitly disposable "
-            f"database named by {VALIDATION_DSN_ENV}; it is a source-dev/admin "
+            "Validate a portable universe archive before moving it. The "
+            "default verifies the freeze receipt inside the archive against "
+            "its dump payload and runs bounded format and catalog checks "
+            "without a database. --roundtrip additionally restores into "
+            "(replacing the contents of) the explicitly disposable database "
+            f"named by {VALIDATION_DSN_ENV}; it is a source-dev/admin "
             "release and migration rehearsal surface. The destructive scratch "
             f"restore also requires {ROUNDTRIP_CONFIRM_ENV}=1."
         ),
@@ -66,6 +68,12 @@ def universe_validate(args: List[str]) -> int:
             f"bytes: {report['bytes']} table entries: "
             f"{report['table_entries']}"
         )
+        if report.get("receipt_verified"):
+            receipt = report.get("receipt") or {}
+            print(
+                "freeze receipt: verified "
+                f"(org={receipt.get('org')} frozen_at={receipt.get('frozen_at')})"
+            )
         if report.get("roundtrip"):
             print(
                 f"round-trip: valid org={report['organization']} "

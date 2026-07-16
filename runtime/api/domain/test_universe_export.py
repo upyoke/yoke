@@ -1,16 +1,18 @@
-"""Tests for the universe-export engine surface.
+"""Tests for the universe-export engine's one-file tar artifact.
 
 The real-artifact tests run pg_dump/pg_restore from ``PATH`` against the
 test cluster (an isolated machine home keeps the embedded-binaries
-resolver empty); authority-refusal tests drive the machine-config
-connection contract through a temp config.
+resolver empty). The active-connection sanction contract lives in
+``test_universe_export_authority.py``.
 """
 
 from __future__ import annotations
 
 import contextlib
 import os
+import re
 import subprocess
+import tarfile
 from types import SimpleNamespace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,9 +20,9 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.machine_config import runtime as machine_runtime
+from yoke_core.domain import universe_archive
 from yoke_core.domain import universe_export as ux
-from yoke_core.domain import yoke_connected_env
-from yoke_core.domain.json_helper import dumps_pretty
+from yoke_core.domain.source_freeze_intent import file_sha256
 
 
 @pytest.fixture(autouse=True)
@@ -44,29 +46,29 @@ def _schema_loaded_universe():
         yield conn, os.environ[db_backend.PG_DSN_ENV]
 
 
-def _write_machine_config(machine_home: Path, payload: dict) -> None:
-    machine_home.mkdir(parents=True, exist_ok=True)
-    (machine_home / "config.json").write_text(
-        dumps_pretty(payload),
-        encoding="utf-8",
+def _unpack(artifact: Path, work_dir: Path) -> tuple[Path, dict]:
+    return universe_archive.unpack_universe_archive(
+        artifact,
+        work_dir,
+        max_dump_bytes=1 << 30,
     )
 
 
 def test_default_artifact_name_embeds_slug_and_utc_timestamp():
     moment = datetime(2026, 7, 6, 12, 34, 56, tzinfo=timezone.utc)
     assert ux.default_artifact_name("default", moment) == (
-        "default-universe-20260706T123456Z.dump"
+        "default-universe-20260706T123456Z.tar"
     )
 
 
 def test_default_artifact_name_sanitizes_hostile_slug():
     moment = datetime(2026, 7, 6, 12, 34, 56, tzinfo=timezone.utc)
     name = ux.default_artifact_name("my org/../etc", moment)
-    assert name == "my-org-..-etc-universe-20260706T123456Z.dump"
+    assert name == "my-org-..-etc-universe-20260706T123456Z.tar"
     assert "/" not in name
 
 
-def test_export_produces_pg_restore_listable_artifact(tmp_path):
+def test_export_produces_one_receipt_carrying_tar_artifact(tmp_path):
     out_dir = tmp_path / "exports"
     out_dir.mkdir()
     emitted: list[str] = []
@@ -89,8 +91,27 @@ def test_export_produces_pg_restore_listable_artifact(tmp_path):
     assert report["org"] == "default"
     assert any("universe-export" in line for line in emitted)
 
+    with tarfile.open(artifact, mode="r:") as reader:
+        # Receipt first: streaming readers verify intent before the payload.
+        assert [member.name for member in reader.getmembers()] == [
+            universe_archive.ARCHIVE_MEMBER_RECEIPT,
+            universe_archive.ARCHIVE_MEMBER_DUMP,
+        ]
+
+    dump, receipt = _unpack(artifact, tmp_path / "unpacked")
+    # The receipt travels inside the artifact and binds the exact payload.
+    intent = receipt["freeze_intent"]
+    assert intent["schema"] == "yoke.source-freeze/v1"
+    assert intent["database"]["org"] == "default"
+    assert intent["archive"]["sha256"] == file_sha256(dump) == report["sha256"]
+    assert intent["archive"]["bytes"] == dump.stat().st_size
+    assert intent["zero_writable_app_sessions"] is False
+    assert intent["receipt_id"] == report["receipt_id"]
+    assert receipt["catalog"]["archive_sha256"] == intent["archive"]["sha256"]
+    assert receipt["source_authority"]["receipt_digest"]
+
     listing = subprocess.run(
-        ["pg_restore", "--list", str(artifact)],
+        ["pg_restore", "--list", str(dump)],
         capture_output=True,
         text=True,
     )
@@ -101,8 +122,19 @@ def test_export_produces_pg_restore_listable_artifact(tmp_path):
     assert "SEQUENCE SET public capability_secrets_id_seq" not in listing.stdout
 
 
+def test_export_leaves_no_staged_payload_beside_the_artifact(tmp_path):
+    out_dir = tmp_path / "exports"
+    out_dir.mkdir()
+    with _schema_loaded_universe() as (_conn, dsn):
+        report = ux.export_universe(dsn=dsn, out=out_dir)
+
+    assert [entry.name for entry in out_dir.iterdir()] == [
+        Path(report["artifact"]).name
+    ]
+
+
 def test_export_honors_explicit_out_file_path(tmp_path):
-    dest = tmp_path / "nested" / "graduation.dump"
+    dest = tmp_path / "nested" / "graduation.tar"
     with _schema_loaded_universe() as (_conn, dsn):
         report = ux.export_universe(dsn=dsn, out=dest)
 
@@ -142,8 +174,8 @@ def test_resolve_destination_routes_directory_vs_file(tmp_path):
     assert (tmp_path / "made" / "deep").is_dir()
     assert dest.parent == tmp_path / "made" / "deep"
 
-    # Anything else -> file mode; the parent is created for the dump.
-    explicit = tmp_path / "files" / "x.dump"
+    # Anything else -> file mode; the parent is created for the artifact.
+    explicit = tmp_path / "files" / "x.tar"
     assert ux.resolve_export_destination(explicit, "default") == explicit
     assert explicit.parent.is_dir()
     assert not explicit.exists()
@@ -170,12 +202,12 @@ def test_export_raises_typed_error_when_pg_dump_missing(monkeypatch, tmp_path):
     assert "yoke local-postgres start" in message
 
 
-def test_export_prefers_embedded_pg_dump_and_cleans_failed_artifact(
+def test_export_prefers_embedded_pg_dump_and_cleans_failed_staging(
     tmp_path,
 ):
     """A fake embedded pg_dump proves installed-binaries-first resolution;
-    its failure exit proves the stderr surfacing + truncated-artifact
-    cleanup contract."""
+    its failure exit proves the stderr surfacing plus staged-payload and
+    artifact cleanup contract."""
     from yoke_core.domain import postgres_binaries
 
     bin_dir = postgres_binaries.version_dir() / "bin"
@@ -187,143 +219,106 @@ def test_export_prefers_embedded_pg_dump_and_cleans_failed_artifact(
         encoding="utf-8",
     )
     fake_pg_dump.chmod(0o755)
-    dest = tmp_path / "x.dump"
+    out_dir = tmp_path / "exports"
+    out_dir.mkdir()
+    dest = out_dir / "x.tar"
     with _schema_loaded_universe() as (_conn, dsn):
         with pytest.raises(ux.UniverseExportError) as excinfo:
             ux.export_universe(dsn=dsn, out=dest)
     assert "redacted" in str(excinfo.value)
     assert not dest.exists()
+    assert list(out_dir.iterdir()) == []
 
 
-def test_export_delegates_to_env_credential_dumper(monkeypatch, tmp_path):
-    """The local command must never rebuild a pg_dump argv containing a DSN."""
-    dsn = "postgresql://alice:secret@db.example/yoke"
-    destination = tmp_path / "safe.dump"
+def test_export_binds_dump_and_receipt_to_one_exported_snapshot(
+    monkeypatch, tmp_path,
+):
+    """The engine derives the snapshot itself and hands pg_dump exactly
+    that snapshot; the receipt is computed on the same frozen view."""
     observed: dict[str, object] = {}
-    monkeypatch.setattr(ux, "_org_slug", lambda _dsn: "portable")
 
-    def safe_dump(received_dsn, received_destination, **kwargs):
+    def fake_dump(dsn, destination, **kwargs):
         observed.update(
-            dsn=received_dsn,
-            destination=received_destination,
+            dsn=dsn,
+            destination=Path(destination),
             timeout_s=kwargs["timeout_s"],
             snapshot=kwargs["snapshot"],
         )
-        destination.write_bytes(b"PGDMP")
-        return SimpleNamespace(size_bytes=5)
+        Path(destination).write_bytes(b"PGDMP")
+        return SimpleNamespace(
+            size_bytes=5,
+            archive_sha256=file_sha256(Path(destination)),
+            catalog_digest="d" * 64,
+            catalog_tables=("organizations",),
+            catalog_sequences=(),
+            table_entries=1,
+            path=Path(destination),
+        )
 
-    monkeypatch.setattr(ux.universe_portability, "dump_universe", safe_dump)
-    report = ux.export_universe(
-        dsn=dsn, out=destination, snapshot="00000003-0000001B-1",
-        org_slug="portable",
-    )
+    monkeypatch.setattr(ux.universe_portability, "dump_universe", fake_dump)
+    dest = tmp_path / "snapshot-bound.tar"
+    with _schema_loaded_universe() as (_conn, dsn):
+        report = ux.export_universe(dsn=dsn, out=dest)
+
     assert observed["dsn"] == dsn
-    assert observed["destination"] == destination
-    assert observed["snapshot"] == "00000003-0000001B-1"
-    assert report["bytes"] == 5
-
-
-def _enable_connected_env(monkeypatch) -> None:
-    monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
-    monkeypatch.delenv(yoke_connected_env.DISABLE_ENV, raising=False)
-
-
-def test_resolve_export_dsn_refuses_https_connection_in_mode_language(
-    monkeypatch,
-    tmp_path,
-):
-    _enable_connected_env(monkeypatch)
-    _write_machine_config(
-        tmp_path / "machine-home",
-        {
-            "schema_version": 1,
-            "active_env": "prod",
-            "connections": {
-                "prod": {
-                    "transport": "https",
-                    "api_url": "https://api.example",
-                    "credential_source": {
-                        "kind": "token_file",
-                        "path": str(tmp_path / "token"),
-                    },
-                },
-            },
-        },
+    assert re.fullmatch(
+        r"[0-9A-Fa-f]+(?:-[0-9A-Fa-f]+)+", str(observed["snapshot"])
     )
-
-    with pytest.raises(ux.UniverseExportError) as excinfo:
-        ux.resolve_export_dsn()
-
-    message = str(excinfo.value)
-    assert "DSN possession" in message
-    assert "hosted" in message
-    assert "Move universe" in message
-    assert "self-host" in message
-    assert "yoke init --local" in message
+    assert observed["timeout_s"] == ux.DEFAULT_EXPORT_TIMEOUT_S
+    dump, receipt = _unpack(dest, tmp_path / "unpacked")
+    assert dump.read_bytes() == b"PGDMP"
+    assert receipt["freeze_intent"]["archive"]["sha256"] == report["sha256"]
 
 
-def test_resolve_export_dsn_refuses_prod_flagged_postgres(monkeypatch, tmp_path):
-    _enable_connected_env(monkeypatch)
-    dsn_file = tmp_path / "prod.dsn"
-    dsn_file.write_text("host=/prod-sock user=yoke dbname=yoke\n", encoding="utf-8")
-    _write_machine_config(
-        tmp_path / "machine-home",
-        {
-            "schema_version": 1,
-            "active_env": "prod-db-admin",
-            "connections": {
-                "prod-db-admin": {
-                    "transport": "local-postgres",
-                    "prod": True,
-                    "credential_source": {
-                        "kind": "dsn_file",
-                        "path": str(dsn_file),
-                    },
-                },
-            },
-        },
+def test_export_refuses_when_universe_changes_mid_dump(monkeypatch, tmp_path):
+    """A write landing between the before/after authority receipts is a
+    refusal, and no artifact or staging file survives it."""
+    from yoke_core.domain import source_authority_receipts
+
+    def mutating_dump(dsn, destination, **_kwargs):
+        import psycopg
+
+        with psycopg.connect(dsn, autocommit=True) as writer:
+            writer.execute(
+                "INSERT INTO projects "
+                "(id, slug, name, public_item_prefix, created_at) "
+                "VALUES (91001, 'mid-dump', 'Mid dump', 'MID', now())"
+            )
+        Path(destination).write_bytes(b"PGDMP")
+        return SimpleNamespace(
+            size_bytes=5,
+            archive_sha256="a" * 64,
+            catalog_digest="d" * 64,
+            catalog_tables=("organizations",),
+            catalog_sequences=(),
+            table_entries=1,
+            path=Path(destination),
+        )
+
+    receipts: list[str] = []
+    original_receipt = source_authority_receipts.authority_receipt
+
+    def tracking_receipt(conn, **kwargs):
+        # The export's snapshot connection sees a frozen view, so make the
+        # after-receipt read from a fresh connection to observe the write.
+        import psycopg
+
+        from yoke_core.domain import db_backend
+
+        receipts.append("called")
+        if len(receipts) == 1:
+            return original_receipt(conn, **kwargs)
+        with psycopg.connect(os.environ[db_backend.PG_DSN_ENV]) as fresh:
+            return original_receipt(fresh, **kwargs)
+
+    monkeypatch.setattr(ux.universe_portability, "dump_universe", mutating_dump)
+    monkeypatch.setattr(
+        source_authority_receipts, "authority_receipt", tracking_receipt,
     )
-
-    with pytest.raises(ux.UniverseExportError) as excinfo:
-        ux.resolve_export_dsn()
-
-    message = str(excinfo.value)
-    assert "prod-flagged" in message
-    assert "operator-only" in message
-
-
-def test_resolve_export_dsn_returns_nonprod_local_postgres_dsn(
-    monkeypatch,
-    tmp_path,
-):
-    _enable_connected_env(monkeypatch)
-    dsn_file = tmp_path / "local.dsn"
-    dsn_file.write_text("host=/sock user=yoke dbname=yoke\n", encoding="utf-8")
-    _write_machine_config(
-        tmp_path / "machine-home",
-        {
-            "schema_version": 1,
-            "active_env": "local",
-            "connections": {
-                "local": {
-                    "transport": "local-postgres",
-                    "prod": False,
-                    "credential_source": {
-                        "kind": "dsn_file",
-                        "path": str(dsn_file),
-                    },
-                },
-            },
-        },
-    )
-
-    assert ux.resolve_export_dsn() == "host=/sock user=yoke dbname=yoke"
-
-
-def test_resolve_export_dsn_teaches_init_when_unconfigured(monkeypatch, tmp_path):
-    _enable_connected_env(monkeypatch)
-    # No config.json under the isolated machine home: no binding at all.
-    with pytest.raises(ux.UniverseExportError) as excinfo:
-        ux.resolve_export_dsn()
-
-    assert "yoke init --local" in str(excinfo.value)
+    out_dir = tmp_path / "exports"
+    out_dir.mkdir()
+    dest = out_dir / "changed.tar"
+    with _schema_loaded_universe() as (_conn, dsn):
+        with pytest.raises(ux.UniverseExportError, match="changed while"):
+            ux.export_universe(dsn=dsn, out=dest)
+    assert list(out_dir.iterdir()) == []

@@ -38,6 +38,13 @@ SESSION_ADAPTERS = [
         ),
     ),
     _read_entry(
+        function_id="sessions.list",
+        cli_invocation=(
+            "yoke sessions list [--project P] [--liveness active|stale|ended] "
+            "[--limit N]"
+        ),
+    ),
+    _read_entry(
         function_id="sessions.ownership_guard",
         cli_invocation="yoke sessions ownership-guard --item YOK-N",
     ),
