@@ -44,7 +44,8 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
         "universe_view_support.js", "universe_views.js",
-        "universe_views_settings.js", "universe_views_workflows.js",
+        "universe_views_github.js", "universe_views_settings.js",
+        "universe_views_workflows.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
@@ -170,6 +171,9 @@ def test_page_module_wires_the_workbench_shell():
         "universe_views_workflows.js",
     ).read_text()
     assert "workflows.definition.get" in workflows_view
+
+    github_view = static_root.joinpath("universe_views_github.js").read_text()
+    assert "projects.github_binding.status" in github_view
 
 
 def test_every_nav_destination_is_routable_and_scoped():
