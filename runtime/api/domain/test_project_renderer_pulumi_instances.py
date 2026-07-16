@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain import project_renderer_pulumi
 from yoke_core.domain import project_renderer_pulumi_instances
 from yoke_core.domain.project_renderer_pulumi_instances import (
     PulumiStackInstance,
     gather_pulumi_stack_instances,
     instance_template_values,
+)
+from yoke_core.domain.project_renderer_runner_deployment_network import (
+    STANDALONE_VPS_ELASTIC_IP_OUTPUT,
+    STANDALONE_VPS_SECURITY_GROUP_OUTPUT,
 )
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
@@ -54,9 +60,11 @@ def _make_project_tree(tmp_path, project: str):
         "{{distribution_repository_variable_namespace}}\n"
         "  webapp-infra:github_repo: {{github_repo_slug}}\n"
         "  webapp-infra:github_api_url: {{github_api_url}}\n"
-        "  webapp-infra:vps_instance_type: {{vps_instance_type}}\n"
-        '  webapp-infra:vps_root_volume_gb: "{{vps_root_volume_gb}}"\n'
-        "  webapp-infra:vps_ssh_key_name: {{vps_ssh_key_name}}\n"
+        "  webapp-infra:origin_vps_stack_name: {{origin_vps_stack_name}}\n"
+        "  webapp-infra:origin_vps_elastic_ip_output: "
+        "{{origin_vps_elastic_ip_output}}\n"
+        "  webapp-infra:origin_vps_security_group_output: "
+        "{{origin_vps_security_group_output}}\n"
         "  webapp-infra:database_name: {{database_name}}\n"
         "  webapp-infra:database_master_username: {{database_master_username}}\n"
         "  webapp-infra:database_engine_version: {{database_engine_version}}\n"
@@ -138,13 +146,6 @@ def _environment_settings(
                 "origin": f"origin.{host_prefix}example.com",
                 "origin_port": 80,
             },
-            "servers": [
-                {
-                    "instance_type": "t4g.medium",
-                    "root_volume_gb": 40,
-                    "aws_key_pair_name": f"yoke-{environment}",
-                }
-            ],
             "database": {
                 "name": f"yoke_{environment}",
                 "master_username": "yoke_admin",
@@ -154,7 +155,11 @@ def _environment_settings(
                 "backup_retention_days": 7,
                 "allowed_security_group_ids": ["sg-tenant-provisioner"],
             },
-            "pulumi": {"stack_name": name, "activation_state": activation_state},
+            "pulumi": {
+                "stack_name": name,
+                "origin_vps_stack_name": f"{name}-origin",
+                "activation_state": activation_state,
+            },
             "capabilities": ["database", "vps", "api"],
         },
     )
@@ -202,9 +207,13 @@ class TestGatherPulumiStackInstances:
                     "origin_host": "origin.example.com",
                     "hosted_zone_id": "ZHOSTEDZONE123",
                     "api_origin_port": "80",
-                    "vps_instance_type": "t4g.medium",
-                    "vps_root_volume_gb": "40",
-                    "vps_ssh_key_name": "yoke-prod",
+                    "origin_vps_stack_name": "yoke-prod-origin",
+                    "origin_vps_elastic_ip_output": (
+                        STANDALONE_VPS_ELASTIC_IP_OUTPUT
+                    ),
+                    "origin_vps_security_group_output": (
+                        STANDALONE_VPS_SECURITY_GROUP_OUTPUT
+                    ),
                     "database_name": "yoke_prod",
                     "database_master_username": "yoke_admin",
                     "database_engine_version": "16.3",
@@ -249,3 +258,13 @@ class TestGatherPulumiStackInstances:
         root, _ = _make_project_tree(tmp_path, "yoke")
 
         assert gather_pulumi_stack_instances("yoke", root) == []
+
+    def test_requires_origin_vps_stack_binding(self):
+        environment = _environment_settings("yoke-prod", "prod")
+        del environment.settings["pulumi"]["origin_vps_stack_name"]
+        settings = _settings_with_environments("yoke", ["domain"], [environment])
+
+        with pytest.raises(ValueError, match="origin_vps_stack_name"):
+            project_renderer_pulumi_instances.pulumi_stack_instances_from_settings(
+                settings
+            )

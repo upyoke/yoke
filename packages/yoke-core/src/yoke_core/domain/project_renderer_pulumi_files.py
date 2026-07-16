@@ -6,7 +6,6 @@ SHARED_PROGRAM_FILES = (
     "webapp_github_repository_provider.py",
 )
 ENVIRONMENT_PROGRAM_FILES = (
-    "webapp_vps_stack.py",
     "webapp_database_stack.py",
     "webapp_api_stack.py",
     "webapp_distribution_stack.py",
