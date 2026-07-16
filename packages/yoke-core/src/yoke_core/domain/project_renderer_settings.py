@@ -10,6 +10,9 @@ from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.project_identity import resolve_project
 
 
+PULUMI_STATE_CAPABILITY_TYPE = "pulumi-state"
+
+
 @dataclass(frozen=True)
 class RendererEnvironmentSettings:
     """One environment row plus its structured settings."""
@@ -245,19 +248,25 @@ def _load_project_renderer_settings(
         )
     )
     primary_environment = select_primary_environment(environments)
+    capabilities = _capability_settings(conn, ident.id)
+    pulumi_state = capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {})
 
     return ProjectRendererSettings(
         project=ident.slug,
-        # Defaults to the project slug — resources are named after the project
-        # unless a site explicitly overrides it (the rare case where the deploy
-        # is owned by a project whose name differs from its resource namespace).
-        deploy_namespace=_stringify(site_settings.get("deploy_namespace"), ident.slug),
+        # Capability authority survives retirement of site/environment deployment
+        # rows. The site fallback keeps existing projects stable until their
+        # infrastructure state is moved to the capability.
+        deploy_namespace=_stringify(
+            pulumi_state.get("deploy_namespace")
+            or site_settings.get("deploy_namespace"),
+            ident.slug,
+        ),
         display_name=display_name,
         site_id=site_id,
         site_settings=site_settings,
         primary_environment=primary_environment,
         environments=environments,
-        capabilities=_capability_settings(conn, ident.id),
+        capabilities=capabilities,
     )
 
 

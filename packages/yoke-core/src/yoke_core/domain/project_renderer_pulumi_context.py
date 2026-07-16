@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict
 
 from .project_renderer_settings import (
+    PULUMI_STATE_CAPABILITY_TYPE,
     ProjectRendererSettings,
     load_project_renderer_settings,
     primary_domain,
@@ -35,11 +36,13 @@ def _pulumi_context_from_settings(settings) -> Dict[str, object]:
     server = primary_server(settings)
     site_pulumi = settings.site_settings.get("pulumi", {})
     site_cdn = settings.site_settings.get("cdn", {})
-    state = settings.capabilities.get("pulumi-state", {})
+    state = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {})
 
     data: Dict[str, object] = {}
     if isinstance(site_pulumi, dict):
         data.update(site_pulumi)
+    if isinstance(state, dict) and "stacks" in state:
+        data["stacks"] = state["stacks"]
     if isinstance(site_cdn, dict):
         data["originId"] = site_cdn.get("origin_id", "")
         data["distributionBucketName"] = site_cdn.get(
