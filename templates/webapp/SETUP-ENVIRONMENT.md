@@ -7,8 +7,9 @@ Full AWS, Pulumi, CloudFront, and nginx setup.
 After instantiating the scaffold (steps 1-13 above), you can optionally
 provision domain, CDN, origin, and managed Postgres infrastructure using the
 included Pulumi-Python stacks. Legacy stacks keep a custom domain with HTTPS and
-CloudFront in front of a VPS; environment stack instances compose database,
-origin, and API edge resources for a specific env.
+CloudFront in front of a VPS; environment stack instances reference a separately
+applied standalone VPS stack and compose its origin with database and API edge
+resources for a specific env.
 
 ### How It Works
 
@@ -33,8 +34,10 @@ Projects that need a cloud data plane declare `stackInstances`. Each instance
 renders `infra/Pulumi.<instance>.yaml` from the environment-stack template and
 can be marked `renderOnly` when the file should exist for review but must not be
 initialized or applied yet. The environment stack discovers the AWS account's
-default VPC and subnets during Pulumi execution, then wires the VPS security
-group to Aurora; operators do not paste subnet ids into tracked project config.
+default VPC and subnets during Pulumi execution, then reads the separately
+applied standalone VPS stack's Elastic IP and security-group outputs through a
+Pulumi StackReference and wires that security group to Aurora; operators do not
+paste subnet ids or origin addresses into tracked project config.
 
 ### Pulumi Stack Config
 
@@ -57,6 +60,9 @@ variant); `pulumi up` exits non-zero if any is missing.
 | `vps_ssh_key_name` | string | vps | EC2 key-pair name for SSH access | `{{project_name}}-pulumi` |
 | `stack_kind` | string | env | Dispatches composed env stacks | `environment` |
 | `environment` | string | env | Stable env label | `prod` |
+| `origin_vps_stack_name` | string | env | Pulumi stack name of the separately applied standalone VPS serving this environment | `{{project_name}}-vps` |
+| `origin_vps_elastic_ip_output` | string | env | Renderer-owned Elastic IP output name on the standalone VPS stack | `vpsElasticIpAddress` |
+| `origin_vps_security_group_output` | string | env | Renderer-owned security-group output name on the standalone VPS stack | `vpsSecurityGroupId` |
 | `api_host` | string | env | API hostname served by CloudFront | `api.example.com` |
 | `api_origin_port` | int | env | HTTP port exposed by the origin | `80` |
 | `database_name` | string | env | Initial Postgres database name | `app_prod` |

@@ -82,6 +82,9 @@ Key reference (every entry maps to a `config.require(...)` / `config.require_int
 | `vps_ssh_key_name` | string | vps | EC2 key-pair name for SSH. |
 | `stack_kind` | string | env | `environment` dispatches the composed env stack. |
 | `environment` | string | env | Stable env label such as `prod` or `stage`. |
+| `origin_vps_stack_name` | string | env | Pulumi stack name of the separately applied standalone VPS serving this environment. |
+| `origin_vps_elastic_ip_output` | string | env | Renderer-owned Elastic IP output name on the standalone VPS stack. |
+| `origin_vps_security_group_output` | string | env | Renderer-owned security-group output name on the standalone VPS stack. |
 | `api_host` / `origin_host` | string | env | Public API hostname and sibling origin hostname. |
 | `api_origin_port` | int | env | Origin listener port behind CloudFront. |
 | `database_*` | mixed | env | Database name, master username, engine version, ACU range, and backup retention. |
@@ -260,10 +263,11 @@ AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi up --sta
 ```
 
 Apply takes 3-5 minutes for legacy infra stacks; environment stacks can take
-longer because Aurora, EC2, ACM validation, CloudFront, and DNS all converge in
-one stack. If an environment apply partially succeeds, keep the same stack state,
-fix config/template drift, run `pulumi preview --stack <stack>`, and rerun
-`pulumi up --stack <stack> --yes`.
+longer because Aurora, ACM validation, CloudFront, and DNS converge while the
+origin EC2 box remains owned by the separately applied standalone VPS stack and
+is resolved through a StackReference. If an environment apply partially
+succeeds, keep the same stack state, fix config/template drift, run
+`pulumi preview --stack <stack>`, and rerun `pulumi up --stack <stack> --yes`.
 
 #### 9. Verify all 4 URL variants
 
