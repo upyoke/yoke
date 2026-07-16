@@ -18,7 +18,6 @@ from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _table_exists,
 )
-from yoke_core.domain.deployment_flow_seed_stage import ensure_seed_metadata, ensure_seed_stage
 from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS as _SEED_FLOWS
 
 
@@ -143,25 +142,6 @@ def cmd_init(conn) -> str:
             (json.dumps(merged), flow["id"]),
         )
 
-    ensure_seed_stage(
-        conn,
-        seed_flows=_SEED_FLOWS,
-        flow_id="yoke-prod-release",
-        stage_name="distribution-publish",
-        before_stage="complete",
-    )
-    ensure_seed_stage(
-        conn,
-        seed_flows=_SEED_FLOWS,
-        flow_id="yoke-stage-release",
-        stage_name="distribution-publish",
-        before_stage="complete",
-    )
-    ensure_seed_metadata(
-        conn,
-        seed_flows=_SEED_FLOWS,
-        flow_ids=("yoke-prod-release", "yoke-stage-release"),
-    )
     _remove_buzz_dispatch_correlation(conn)
 
     conn.commit()

@@ -39,48 +39,6 @@ SEED_FLOWS = [
         "done_description": "Merged to main",
     },
     {
-        "id": "yoke-prod-release", "project": "yoke", "name": "Prod Release",
-        "description": "Deploy Yoke core and public installer distribution to prod",
-        "stages": json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
-            {"name": "env-activate", "executor": "environment-activate"},
-            {"name": "core-deploy", "executor": "core-container-deploy"},
-            {"name": "health-check", "executor": "health-check"},
-            _github_workflow_stage(
-                "distribution-publish", "yoke-distribution-publish.yml",
-                correlated=True,
-                ref="main", inputs={"channel": "stable", "target_env": "prod",
-                                    "source_sha": "{head_sha}"},
-                reconcile_by_head_sha=False, qa_kind="distribution_publish",
-            ),
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": "prod",
-        "done_description": "Yoke core deployed to prod, health check passed, and installer distribution published",
-    },
-    {
-        "id": "yoke-stage-release", "project": "yoke", "name": "Stage Release",
-        "description": "Deploy Yoke core and public installer distribution to stage (stage data is throwaway; no governed migration stage)",
-        "stages": json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "env-activate", "executor": "environment-activate"},
-            {"name": "core-deploy", "executor": "core-container-deploy"},
-            {"name": "health-check", "executor": "health-check"},
-            _github_workflow_stage(
-                "distribution-publish", "yoke-distribution-publish.yml",
-                correlated=True,
-                ref="stage", inputs={"channel": "latest", "target_env": "stage",
-                                     "source_sha": "{head_sha}"},
-                reconcile_by_head_sha=False, qa_kind="distribution_publish",
-            ),
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": "stage",
-        "done_description": "Yoke core deployed to stage, health check passed, and stage installer distribution published",
-    },
-    {
         "id": "yoke-ephemeral-deploy", "project": "yoke", "name": "Ephemeral Deploy",
         "description": "Deploy a branch/SHA Yoke core preview environment through the shared ephemeral substrate (unmerged worktree branches; no merged gate)",
         "stages": json.dumps([
