@@ -202,6 +202,65 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         )
         self.assertTrue(outcome.result_payload["updated"])
 
+    def test_run_create_returns_created_run(self):
+        created_row = (
+            "run-20260616-002|yoke|yoke-hosted-production|production|"
+            "||created||2026-06-16T00:00:00Z|||operator"
+        )
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
+            return_value="run-20260616-002",
+        ) as cmd_create, patch(
+            "yoke_core.domain.deployment_runs_crud_query.cmd_get",
+            return_value=created_row,
+        ):
+            outcome = deployment_runs.handle_deployment_run_create(
+                _request(
+                    function="deployment_runs.create",
+                    payload={
+                        "project": "yoke",
+                        "flow": "yoke-hosted-production",
+                        "created_by": "operator",
+                    },
+                ),
+            )
+        self.assertTrue(outcome.primary_success)
+        cmd_create.assert_called_once_with(
+            "yoke", "yoke-hosted-production",
+            target_env=None, created_by="operator",
+        )
+        self.assertEqual(
+            outcome.result_payload["run_id"], "run-20260616-002",
+        )
+        self.assertEqual(outcome.result_payload["flow"], "yoke-hosted-production")
+
+    def test_run_create_rejects_inactive_flow(self):
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
+            side_effect=ValueError(
+                "deployment flow 'old-flow' is disabled and cannot start "
+                "new runs"
+            ),
+        ):
+            outcome = deployment_runs.handle_deployment_run_create(
+                _request(
+                    function="deployment_runs.create",
+                    payload={"project": "yoke", "flow": "old-flow"},
+                ),
+            )
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "run_create_rejected")
+
+    def test_run_create_requires_project_and_flow(self):
+        outcome = deployment_runs.handle_deployment_run_create(
+            _request(
+                function="deployment_runs.create",
+                payload={"project": "", "flow": "yoke-hosted-production"},
+            ),
+        )
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+
     def test_resolve_target_env_returns_raw_value(self):
         with patch(
             "yoke_core.domain.deployment_runs_preview.cmd_resolve_target_env",
@@ -234,6 +293,7 @@ class TestDeploymentHandlerRegistration(unittest.TestCase):
             self.assertIn("deployment_flows.get", ids)
             self.assertIn("deployment_flows.set_status", ids)
             self.assertIn("deployment_flows.stages", ids)
+            self.assertIn("deployment_runs.create", ids)
             self.assertIn("deployment_runs.get", ids)
             self.assertIn("deployment_runs.list", ids)
             self.assertIn("deployment_runs.update", ids)

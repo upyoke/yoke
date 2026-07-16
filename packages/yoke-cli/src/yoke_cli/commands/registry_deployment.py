@@ -17,6 +17,8 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("deployment_flows.stages", _adapters.deployment_flows_stages),
     ("deployment-flows", "set-status"):
         ("deployment_flows.set_status", _adapters.deployment_flows_set_status),
+    ("deployment-runs", "create"):
+        ("deployment_runs.create", _adapters.deployment_runs_create),
     ("deployment-runs", "get"):
         ("deployment_runs.get", _adapters.deployment_runs_get),
     ("deployment-runs", "list"):

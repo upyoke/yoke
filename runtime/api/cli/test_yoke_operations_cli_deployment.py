@@ -183,3 +183,46 @@ def test_resolve_target_env_dispatches_and_prints_raw_value() -> None:
         "project": "yoke",
         "flow": "yoke-hosted-production",
     }
+
+
+def test_registry_maps_deployment_run_create() -> None:
+    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
+
+    assert SUBCOMMAND_REGISTRY[("deployment-runs", "create")][0] == (
+        "deployment_runs.create"
+    )
+
+
+def test_deployment_run_create_dispatches_and_prints_run_id() -> None:
+    def stub(request: FunctionCallRequest) -> FunctionCallResponse:
+        _CAPTURED_REQUESTS.append(request)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={
+                "run_id": "run-20260616-009",
+                "project": "yoke",
+                "flow": "yoke-hosted-production",
+                "target_env": "production",
+                "status": "created",
+            },
+        )
+
+    rc, out, err = _run_capture(
+        stub,
+        "deployment-runs", "create", "yoke", "yoke-hosted-production",
+        "--created-by", "operator",
+    )
+
+    assert rc == 0, err
+    assert out.strip() == "run-20260616-009"
+    request = _CAPTURED_REQUESTS[-1]
+    assert request.function == "deployment_runs.create"
+    assert request.target.kind == "global"
+    assert request.payload == {
+        "project": "yoke",
+        "flow": "yoke-hosted-production",
+        "created_by": "operator",
+    }

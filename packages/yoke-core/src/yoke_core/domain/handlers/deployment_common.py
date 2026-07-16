@@ -64,6 +64,21 @@ class DeploymentRunGetResponse(BaseModel):
     run: Optional[Dict[str, Any]] = None
 
 
+class DeploymentRunCreateRequest(BaseModel):
+    project: str
+    flow: str
+    target_env: Optional[str] = None
+    created_by: str = "operator"
+
+
+class DeploymentRunCreateResponse(BaseModel):
+    run_id: str
+    project: str
+    flow: str
+    target_env: Optional[str] = None
+    status: str
+
+
 class DeploymentRunListRequest(BaseModel):
     project: Optional[str] = None
     status: Optional[str] = None

@@ -27,6 +27,10 @@ DEPLOYMENT_FLOWS_SET_STATUS_USAGE = (
 DEPLOYMENT_RUNS_GET_USAGE = (
     "yoke deployment-runs get RUN-ID [FIELD] [--session-id S] [--json]"
 )
+DEPLOYMENT_RUNS_CREATE_USAGE = (
+    "yoke deployment-runs create PROJECT FLOW [--target-env ENV] "
+    "[--created-by WHO] [--session-id S] [--json]"
+)
 DEPLOYMENT_RUNS_LIST_USAGE = (
     "yoke deployment-runs list [--project P] [--status STATUS] "
     "[--session-id S] [--json]"
@@ -166,6 +170,44 @@ def deployment_runs_get(args: List[str]) -> int:
         function_id="deployment_runs.get",
         target=_run_target(parsed.run_id),
         payload={"field": parsed.field},
+        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+def deployment_runs_create(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke deployment-runs create",
+        description=(
+            "Create a zero-member environment deployment run. Item-bound "
+            "delivery uses `yoke usher` / runs start-for-item instead."
+        ),
+    )
+    parser.add_argument("project")
+    parser.add_argument("flow")
+    parser.add_argument("--target-env", dest="target_env", default=None)
+    parser.add_argument("--created-by", dest="created_by", default="operator")
+    add_session_arg(parser); add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_CREATE_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        result = response.result or {}
+        print(result.get("run_id") or "", file=stdout)
+        return None
+
+    payload = {
+        "project": parsed.project,
+        "flow": parsed.flow,
+        "created_by": parsed.created_by,
+    }
+    if parsed.target_env is not None:
+        payload["target_env"] = parsed.target_env
+    return dispatch_and_emit(
+        function_id="deployment_runs.create",
+        target=TargetRef(kind="global"),
+        payload=payload,
         session_id=parsed.session_id, json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )

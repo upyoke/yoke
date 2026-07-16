@@ -60,6 +60,71 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_deployment_run_create(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    """Create a zero-member environment deployment run.
+
+    Item-bound delivery keeps using ``runs start-for-item``; this surface
+    exists for attended environment administration and recovery, where the
+    run must exist in the control plane before the pipeline is driven —
+    previously only reachable through direct database administration.
+    """
+    invalid = require_global(request, "deployment_runs.create")
+    if invalid is not None:
+        return invalid
+    payload = request.payload or {}
+    project = payload.get("project")
+    flow = payload.get("flow")
+    target_env = payload.get("target_env")
+    created_by = payload.get("created_by") or "operator"
+    for key, value, required in (
+        ("project", project, True),
+        ("flow", flow, True),
+        ("target_env", target_env, False),
+        ("created_by", created_by, True),
+    ):
+        if required and (not isinstance(value, str) or not value.strip()):
+            return error(
+                "payload_invalid",
+                f"{key} must be a non-empty string",
+                jsonpath=f"$.payload.{key}",
+            )
+        if not required and value is not None and not isinstance(value, str):
+            return error(
+                "payload_invalid",
+                f"{key} must be a string when present",
+                jsonpath=f"$.payload.{key}",
+            )
+
+    from yoke_core.domain.deployment_runs_crud_mutate import cmd_create_run
+    from yoke_core.domain.deployment_runs_crud_query import cmd_get
+    from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
+
+    try:
+        created_run_id = cmd_create_run(
+            project.strip(),
+            flow.strip(),
+            target_env=(target_env or "").strip() or None,
+            created_by=created_by.strip(),
+        )
+    except LookupError as exc:
+        return error("not_found", str(exc), jsonpath="$.payload.flow")
+    except ValueError as exc:
+        return error("run_create_rejected", str(exc), jsonpath="$.payload")
+    created = pipe_to_dict(cmd_get(created_run_id), RUN_FIELDS)
+    return HandlerOutcome(
+        result_payload={
+            "run_id": created_run_id,
+            "project": created.get("project") or project.strip(),
+            "flow": created.get("flow") or flow.strip(),
+            "target_env": created.get("target_env") or None,
+            "status": created.get("status") or "created",
+        },
+        primary_success=True,
+    )
+
+
 def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     invalid = require_global(request, "deployment_runs.list")
     if invalid is not None:
