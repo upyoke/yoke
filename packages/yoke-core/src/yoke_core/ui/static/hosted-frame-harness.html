@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yoke — hosted-frame harness</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./theme.css">
+  <link rel="stylesheet" href="./shell.css">
+  <link rel="stylesheet" href="./app.css">
+  <style>
+    /* Harness chrome only — never the product. The bar exists so nobody can
+       mistake this page for the app: everything below it is the real frame
+       with sample platform chrome occupying the mount slots. */
+    .harness-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      height: 34px;
+      background: #111318;
+      color: #e7e9ee;
+      border-bottom: 1px solid #2a2e37;
+      font-family: var(--yoke-font-sans);
+      font-size: 12px;
+    }
+    .harness-meta .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--yoke-warn);
+    }
+    .harness-meta b { font-weight: 600; }
+    .harness-meta span { opacity: .75; }
+    /* The harness's own stand-in for a host's contentBefore block. Quiet
+       panel dress so a frame check reads layout, not a styling defect. */
+    .harness-content-notice {
+      margin: 16px 30px 0;
+      padding: 10px 14px;
+      border: 1px solid var(--yoke-border);
+      border-radius: var(--yoke-radius);
+      background: var(--yoke-surface);
+      color: var(--yoke-muted);
+      font-size: 12.5px;
+    }
+  </style>
+</head>
+<body class="local-universe-page">
+  <div class="harness-meta">
+    <span class="dot"></span>
+    <b>Hosted-frame harness</b>
+    <span>sample platform chrome in every mount slot · real local reads · not the product</span>
+  </div>
+  <div id="universe-root"></div>
+  <script type="module">
+    // The hosted frame, verifiable without a pin: this page mounts the same
+    // app as index.html but fills the mount slots with nodes shaped exactly
+    // like the platform's hosted chrome (same class names, same structure —
+    // see the platform's createHostedSlots). A frame defect that only shows
+    // with occupied slots shows here, on a laptop, before anything ships.
+    import { mountUniverseApp } from "./app.js";
+
+    const SAMPLE_ORG = { slug: "acme", name: "Acme (sample)" };
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    // topbarStart — the platform's org switcher.
+    function sampleOrgSwitcher() {
+      const label = el("label", "hosted-org-switcher");
+      label.appendChild(el("span", null, "Organization"));
+      const select = document.createElement("select");
+      select.setAttribute("aria-label", "Organization");
+      for (const name of ["Acme (sample)", "Second Org (sample)"]) {
+        const option = el("option", null, name);
+        select.appendChild(option);
+      }
+      label.appendChild(select);
+      return label;
+    }
+
+    // topbarEnd — the platform's user menu: an avatar-mark chip whose full
+    // name rides the accessible label and the opened panel.
+    function sampleUserMenu() {
+      const details = el("details", "hosted-user-menu");
+      const summary = el("summary");
+      summary.setAttribute("aria-label", "Ben (sample)");
+      summary.appendChild(el("span", "hosted-user-avatar", "B"));
+      details.appendChild(summary);
+      const panel = el("div", "hosted-user-menu-panel");
+      panel.appendChild(el("p", null, "Ben (sample) · ben@example.com"));
+      const dashboard = el("a", null, "All organizations");
+      dashboard.href = "/dashboard";
+      panel.appendChild(dashboard);
+      const form = document.createElement("form");
+      form.addEventListener("submit", (event) => event.preventDefault());
+      const signOut = el("button", null, "Sign out");
+      signOut.type = "submit";
+      form.appendChild(signOut);
+      panel.appendChild(form);
+      details.appendChild(panel);
+      return details;
+    }
+
+    // navigationEnd — the platform's injected org links (admin set), each
+    // wearing the workbench nav-link anatomy (glyph box + label) the way
+    // the platform's slot builder emits them.
+    function sampleOrgLinks() {
+      const container = el("div", "hosted-org-links");
+      const links = [
+        ["hosted-project-link", "✚", "New project", "projects/new"],
+        ["hosted-github-link", "⎇", "GitHub", "github/repositories"],
+        ["hosted-tenant-replacement-link", "⇅", "Import universe", "tenant-replacement"],
+        ["hosted-member-link", "⚉", "Manage members", "members"],
+        ["hosted-billing-link", "❒", "Billing", "billing"],
+      ];
+      for (const [className, glyph, text, route] of links) {
+        const link = el("a", `${className} nav-link`);
+        link.href = `/orgs/${SAMPLE_ORG.slug}/${route}`;
+        link.appendChild(el("span", "ico", glyph));
+        link.appendChild(el("span", "txt", text));
+        container.appendChild(link);
+      }
+      return container;
+    }
+
+    // contentBefore — the platform ships a hidden reserved node here today;
+    // the harness keeps a visible sample block instead so the stacked
+    // content column is exercised, not just tolerated.
+    function sampleContentNotice() {
+      const notice = el(
+        "p", "harness-content-notice",
+        "Sample notice occupying the contentBefore slot.",
+      );
+      notice.setAttribute("role", "status");
+      return notice;
+    }
+
+    // contentAfter — the GitHub connection panel.
+    function sampleGithubConnection() {
+      const container = el("section", "hosted-github-connection");
+      container.appendChild(el("h2", null, "Connect your work to GitHub"));
+      container.appendChild(el(
+        "p", null,
+        "Install the Yoke GitHub App, choose repository access, and bind a project.",
+      ));
+      const link = el("a", "button", "Connect GitHub");
+      link.href = `/orgs/${SAMPLE_ORG.slug}/github/repositories`;
+      container.appendChild(link);
+      return container;
+    }
+
+    mountUniverseApp(document.getElementById("universe-root"), {
+      currentActor: { id: 2, kind: "human", label: "ben" },
+      capabilities: {
+        flags: ["hosted-shell"],
+        actions: [{
+          label: "Move universe",
+          options: [
+            { id: "download", label: "Download universe" },
+            { id: "import", label: "Import universe" },
+          ],
+          onInvoke(option) {
+            globalThis.console.log("harness capability action", option);
+          },
+        }],
+      },
+      slots: {
+        topbarStart: sampleOrgSwitcher(),
+        topbarEnd: sampleUserMenu(),
+        navigationEnd: sampleOrgLinks(),
+        contentBefore: sampleContentNotice(),
+        contentAfter: sampleGithubConnection(),
+      },
+    });
+  </script>
+</body>
+</html>

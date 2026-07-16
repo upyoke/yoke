@@ -7,16 +7,18 @@
 // Another same-realm host may inject its own function client, opaque generic
 // capabilities/actions, and named slot nodes without forking this app.
 //
-// Views are hash-routed as `#/<view>[/<segment>]?project=<id>` so a shared
-// link restores the view, its facet, and the scope. The left nav is
+// Views are hash-routed as `#/<view>[/<segment>]?project=<id>[,<id>…]` so a
+// shared link restores the view, its facet, and the scope. The left nav is
 // data-driven (see NAV) — adding a route is one more array entry, with no
 // per-view branching in the markup. The second segment means what the view
 // declares: a tab (one facet of the view's concept, from the entry's `tabs`
 // roster) or a drill-in (one row, with a breadcrumb back) — never both.
 //
-// Scope is per-screen: each view remembers its own project and declares how it
-// takes scope (see SCOPE_*). Live scoped views carry their own picker; stubs do
-// not render a control that cannot act.
+// Scope is per-screen: each view remembers its own scope and declares how it
+// takes it (see SCOPE_*). A multi view reads the whole universe ("all", no
+// query) or a set of projects; a single view configures exactly one. Live
+// scoped views carry their own chip picker; stubs do not render a control
+// that cannot act.
 //
 // Members and Billing are deliberately absent from NAV. They are hosted
 // chrome the platform injects through the `navigationEnd` slot; the workbench
@@ -36,13 +38,14 @@ import {
   buildUniverseRoute,
   createScopePicker,
   createTabBar,
-  knownProjectId,
   NAV,
   navEntry,
   parseUniverseRoute,
+  rememberedScopeParam,
   renderStubView,
   SCOPE_NONE,
   scopeForEntry,
+  serializeScope,
   universeNavScope,
 } from "./universe_navigation.js";
 import {
@@ -104,6 +107,16 @@ function createBreadcrumb(documentNode, entry, project, detail) {
   return bar;
 }
 
+// A drill-in shows one row, and a row lives in exactly one project. Row
+// links carry that id, so the resolved set normally has one member; a
+// hand-written wider route lands on its first member, and an empty universe
+// resolves to nothing — no project can hold the row.
+function drillInProject(scope, projects) {
+  if (Array.isArray(scope)) return scope[0];
+  if (scope === "all") return projects[0] ? String(projects[0].id) : null;
+  return scope;
+}
+
 function emptyUniversePanel(documentNode) {
   const panel = section(documentNode, "Universe");
   panel.renderEnvelope(
@@ -159,8 +172,8 @@ export function mountUniverseApp(rootNode, options = {}) {
   }
   contextSide.appendChild(orgContext);
   const header = el(documentNode, "header", "topbar yoke-app-header");
-  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(brand);
+  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(contextSide);
   appendSlot(header, resolvedSlots.topbarEnd, mountedSlotNodes);
 
@@ -209,19 +222,16 @@ export function mountUniverseApp(rootNode, options = {}) {
   function renderRoute() {
     const route = parseUniverseRoute(windowNode.location.hash);
     const entry = navEntry(route.view);
-    const project = scopeForEntry(
+    const scope = scopeForEntry(
       entry, route.project, projects, scopeSelections,
     );
 
     for (const navItem of NAV) {
       const link = navLinks.get(navItem.id);
+      // Each destination's link carries the scope that screen remembers for
+      // itself — an "all" or never-visited multi view links with no query.
       link.href = buildUniverseRoute(
-        navItem.id,
-        navItem.scope === SCOPE_NONE
-          ? null
-          : (knownProjectId(
-            projects, scopeSelections.get(navItem.id),
-          ) || project),
+        navItem.id, rememberedScopeParam(navItem, projects, scopeSelections),
       );
       link.classList.toggle("active", navItem.id === entry.id);
     }
@@ -230,7 +240,9 @@ export function mountUniverseApp(rootNode, options = {}) {
       // The segment is a tab facet: parse already resolved it to one of the
       // entry's declared tabs, so the strip and the body agree by construction.
       const tab = entry.tabs.find((item) => item.id === route.tab);
-      const tabBar = createTabBar(documentNode, entry, tab.id, project);
+      const tabBar = createTabBar(
+        documentNode, entry, tab.id, serializeScope(scope),
+      );
       const tabRenderer = (TAB_RENDERERS[entry.id] || {})[tab.id];
       if (!tabRenderer) {
         // An unbuilt facet is honest the same way an unbuilt destination is:
@@ -247,7 +259,10 @@ export function mountUniverseApp(rootNode, options = {}) {
         tabRenderer(context, viewHost, null);
         return;
       }
-      if (project === null) {
+      // Only a single-scope view needs a project to exist: an unfiltered
+      // read over an empty universe is honest, an unscoped single view has
+      // nothing to configure.
+      if (scope === null) {
         main.replaceChildren(tabBar, emptyUniversePanel(documentNode));
         return;
       }
@@ -257,12 +272,12 @@ export function mountUniverseApp(rootNode, options = {}) {
       main.replaceChildren(
         tabBar,
         createScopePicker({
-          documentNode, entry, project, projects, renderRoute,
+          documentNode, entry, scope, projects, renderRoute,
           scopeSelections, segment: tab.id, windowNode,
         }),
         viewHost,
       );
-      tabRenderer(context, viewHost, project);
+      tabRenderer(context, viewHost, scope);
       return;
     }
 
@@ -276,29 +291,34 @@ export function mountUniverseApp(rootNode, options = {}) {
       renderer(context, main, null);
       return;
     }
-    if (project === null) {
+    // Only a single-scope view needs a project to exist (see the tab path).
+    if (scope === null) {
       main.replaceChildren(emptyUniversePanel(documentNode));
       return;
     }
-    if (detailRenderer) {
+    const detailProject = detailRenderer
+      ? drillInProject(scope, projects) : null;
+    if (detailRenderer && detailProject !== null) {
       // A drill-in swaps the view's picker for a breadcrumb: re-scoping a
       // single row to another project is nonsense, and the way out is back.
       const detailHost = el(documentNode, "div", "view-host");
       main.replaceChildren(
-        createBreadcrumb(documentNode, entry, project, route.detail),
+        createBreadcrumb(
+          documentNode, entry, serializeScope(scope), route.detail,
+        ),
         detailHost,
       );
-      detailRenderer(context, detailHost, project, route.detail);
+      detailRenderer(context, detailHost, detailProject, route.detail);
       return;
     }
     // The picker is the view's own chrome, so it sits in the content column
     // above a host the view owns outright and re-renders into at will.
     const viewHost = el(documentNode, "div", "view-host");
     main.replaceChildren(createScopePicker({
-      documentNode, entry, project, projects, renderRoute, scopeSelections,
+      documentNode, entry, scope, projects, renderRoute, scopeSelections,
       windowNode,
     }), viewHost);
-    renderer(context, viewHost, project);
+    renderer(context, viewHost, scope);
   }
 
   windowNode.addEventListener("hashchange", renderRoute);

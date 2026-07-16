@@ -133,7 +133,7 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   assert.ok(text.includes("Coming soon"));
   assert.ok(text.includes("The pipeline definitions runs execute."));
   assert.equal(byClass(root, "scope-bar").length, 0);
-  assert.equal(byClass(root, "project-chooser").length, 0);
+  assert.equal(byClass(root, "scope-chip").length, 0);
 
   // A stub reads nothing beyond the shell's own roster calls.
   assert.deepEqual(
@@ -205,8 +205,14 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
     { function: "deployment_runs.list", payload: { project: "1" } },
   );
 
-  // A built tab carries its own picker.
-  assert.equal(byClass(root, "project-chooser").length, 1);
+  // A built tab carries its own picker: the All chip plus one per project,
+  // with the routed project's chip marked selected.
+  assert.equal(byClass(root, "scope-bar").length, 1);
+  const chips = byClass(root, "scope-chip");
+  assert.deepEqual(chips.map((chip) => chip.textContent), ["All", "Yoke"]);
+  assert.deepEqual(
+    chips.map((chip) => chip.classList.contains("on")), [false, true],
+  );
   assert.equal(byClass(root, "stub-panel").length, 0);
 
   // Newest run first; the stage is text the engine owns, never a bar.
@@ -237,6 +243,58 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
   mounted.unmount();
 });
 
+test("Runs at All reads unfiltered and labels each run's own project", async (t) => {
+  const requests = [];
+  const client = {
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") {
+        return okEnvelope({ name: "Yoke" });
+      }
+      if (request.function === "projects.list") {
+        return okEnvelope({
+          rows: [
+            { id: 1, slug: "yoke", name: "Yoke" },
+            { id: 2, slug: "buzz", name: "Buzz" },
+          ],
+        });
+      }
+      if (request.function === "deployment_runs.list") {
+        return okEnvelope({
+          rows: [{
+            id: "run-20260101-001", project: "buzz",
+            flow: "buzz-prod-release", target_env: "prod",
+            release_lineage: null, status: "succeeded",
+            current_stage: "complete", created_at: "then",
+            started_at: null, completed_at: null, created_by: "usher",
+          }],
+        });
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const { root, mounted } = await mountAt(t, "#/delivery/runs", client);
+
+  // "all" is one unfiltered call over the whole universe.
+  assert.deepEqual(
+    requests.find((request) => request.function === "deployment_runs.list"),
+    { function: "deployment_runs.list", payload: {} },
+  );
+  const headers = allNodes(root)
+    .filter((node) => node.tagName === "TH")
+    .map((node) => node.textContent);
+  assert.deepEqual(headers, [
+    "run", "project", "flow", "target", "stage", "status", "created",
+  ]);
+  const firstCells = allNodes(root)
+    .filter((node) => node.tagName === "TD")
+    .slice(0, 2)
+    .map((node) => node.textContent ||
+      (node.children[0] && node.children[0].textContent) || "");
+  assert.deepEqual(firstCells, ["run-20260101-001", "buzz"]);
+  mounted.unmount();
+});
+
 test("every unbuilt Delivery tab renders the stub treatment and never a picker", async (t) => {
   for (const tabId of [
     "environments", "flows", "databases", "infrastructure",
@@ -246,7 +304,7 @@ test("every unbuilt Delivery tab renders the stub treatment and never a picker",
       t, `#/delivery/${tabId}?project=1`, client,
     );
     assert.equal(byClass(root, "stub-panel").length, 1, tabId);
-    assert.equal(byClass(root, "project-chooser").length, 0, tabId);
+    assert.equal(byClass(root, "scope-chip").length, 0, tabId);
     assert.ok(
       !client.requests.some(
         (request) => request.function === "deployment_runs.list",

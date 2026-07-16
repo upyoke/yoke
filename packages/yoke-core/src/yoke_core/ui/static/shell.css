@@ -35,11 +35,16 @@
 }
 
 /* The mark sits at the frame's start. It inherits ink so the wordmark's
-   currentColor follows the theme rather than being restated per consumer. */
+   currentColor follows the theme rather than being restated per consumer.
+   `margin-right: auto` pins it hard left and consumes the row's free space
+   itself, so everything appended after it (host-injected slots included)
+   clusters to the right regardless of how many slot nodes land between the
+   mark and the frame's own context group. */
 .yoke-app-header .yoke-header-brand {
   display: inline-flex;
   align-items: center;
   color: var(--yoke-ink);
+  margin-right: auto;
 }
 
 /* Whatever a consumer puts opposite the mark — nav, account, org, actor. */
