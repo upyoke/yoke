@@ -291,6 +291,7 @@ from yoke_cli.commands.adapters.sessions import (
     sessions_ownership_guard,
     sessions_touch,
 )
+from yoke_cli.commands.adapters.sessions_read import sessions_list
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 
 __all__ = [
@@ -375,6 +376,7 @@ __all__ = [
     "project_snapshot_sync",
     "templates_list", "templates_fetch",
     "sessions_begin", "sessions_touch", "sessions_checkpoint", "sessions_checkpoint_read",
-    "sessions_offer", "sessions_ownership_guard", "charge_schedule",
+    "sessions_offer", "sessions_ownership_guard", "sessions_list",
+    "charge_schedule",
     "ADAPTER_USAGE",
 ]
