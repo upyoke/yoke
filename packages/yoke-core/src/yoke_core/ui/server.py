@@ -60,6 +60,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "deployment_runs.list",
     "sessions.list",
     "events.query.run",
+    "doctor.last_run.get",
 })
 
 #: Packaged static assets the server may serve, with their content types.

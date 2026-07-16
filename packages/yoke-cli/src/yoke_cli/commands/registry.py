@@ -138,6 +138,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("qa", "run", "get"): ("qa.run.get", _adapters.qa_run_get),
     ("qa", "gate-summary"): ("qa.gate_summary.run", _adapters.qa_gate_summary),
     ("doctor", "run"): ("doctor.run.run", _adapters.doctor_run),
+    ("doctor", "last-run", "get"):
+        ("doctor.last_run.get", _adapters.doctor_last_run_get),
     ("projects", "get"): ("projects.get", _adapters.projects_get),
     ("projects", "list"): ("projects.list", _adapters.projects_list),
     ("projects", "resolve-by-github-repo"):

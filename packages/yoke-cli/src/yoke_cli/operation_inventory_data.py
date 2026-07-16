@@ -110,6 +110,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke qa gate-summary", "qa"),
     # doctor + projects + project_structure.
     _w("yoke doctor run", "doctor"),
+    _w("yoke doctor last-run get", "doctor"),
     # Deployment flow/run reads, run update, and the target-env resolver
     # used by usher ride the dispatcher instead of pending db_router
     # fallbacks.

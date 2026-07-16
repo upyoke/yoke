@@ -140,6 +140,7 @@ from yoke_cli.commands.adapters.qa_read import (
     qa_requirement_get, qa_requirement_list, qa_run_get, qa_run_list,
 )
 from yoke_cli.commands.adapters.doctor import (
+    doctor_last_run_get,
     doctor_run,
 )
 from yoke_cli.commands.adapters.deployment import (
@@ -331,7 +332,7 @@ __all__ = [
     "deployment_runs_get", "deployment_runs_list",
     "deployment_runs_update", "deployment_runs_resolve_target_env",
     "ephemeral_env_update",
-    "doctor_run", "projects_get", "projects_list",
+    "doctor_run", "doctor_last_run_get", "projects_get", "projects_list",
     "projects_resolve_by_github_repo", "projects_create", "projects_update",
     "projects_capability_has", "projects_capability_secret_set",
     "projects_capability_settings_get", "projects_capability_settings_set",
