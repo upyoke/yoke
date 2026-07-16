@@ -205,6 +205,7 @@ from yoke_cli.commands.adapters.sessions import (
     SESSIONS_OWNERSHIP_GUARD_USAGE,
     SESSIONS_TOUCH_USAGE,
 )
+from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
 
 __all__ = ["ADAPTER_USAGE"]
@@ -247,6 +248,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "sessions.offer": SESSIONS_OFFER_USAGE,
     "sessions.ownership_guard": SESSIONS_OWNERSHIP_GUARD_USAGE,
     "charge.schedule": CHARGE_SCHEDULE_USAGE,
+    "frontier.list": FRONTIER_LIST_USAGE,
     "agents.render.run": AGENTS_RENDER_USAGE,
     "agents.render.check": AGENTS_RENDER_CHECK_USAGE,
     "packets.render.run": PACKETS_RENDER_USAGE,

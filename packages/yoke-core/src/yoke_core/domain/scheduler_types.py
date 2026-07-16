@@ -171,6 +171,8 @@ class ScheduledStep:
         status: Current canonical status.
         title: Item title.
         priority: Priority level.
+        project: Slug of the project the item belongs to (empty when the
+            producing path predates project labelling).
         next_step: Scheduler-level action for this item.
         rank: Zero-based position in the deterministic ranking.
         claim_state: Claim evaluation relative to the offering session.
@@ -191,6 +193,7 @@ class ScheduledStep:
     title: str
     priority: str
     next_step: NextStep
+    project: str = ""
     rank: int = 0
     claim_state: ClaimState = ClaimState.UNCLAIMED
     gate_evaluations: List[GateEvaluation] = field(default_factory=list)

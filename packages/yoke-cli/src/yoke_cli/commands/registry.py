@@ -87,6 +87,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("sessions", "ownership-guard"):
         ("sessions.ownership_guard", _adapters.sessions_ownership_guard),
     ("charge", "schedule"): ("charge.schedule", _adapters.charge_schedule),
+    ("frontier", "list"): ("frontier.list", _adapters.frontier_list),
     ("agents", "render"):
         ("agents.render.run", _adapters.agents_render),
     ("agents", "render", "check"):

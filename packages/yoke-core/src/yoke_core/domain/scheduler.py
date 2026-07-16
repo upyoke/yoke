@@ -86,6 +86,18 @@ def _query_exceptional_items(
         return []
 
 
+def _project_slug_or_id(conn: Any, project_id: Any) -> str:
+    """Resolve a project id to its slug, falling back to the raw id text."""
+    if project_id is None:
+        return ""
+    from .project_identity import resolve_project_slug
+
+    try:
+        return resolve_project_slug(conn, int(project_id))
+    except Exception:
+        return str(project_id)
+
+
 # ---------------------------------------------------------------------------
 # Main entry point — compute_schedule
 # ---------------------------------------------------------------------------
@@ -97,6 +109,7 @@ def compute_schedule(
     wip_cap: int = 5,
     session_id: Optional[str] = None,
     workspace: Optional[str] = None,
+    emit_events: bool = True,
 ) -> SchedulerResult:
     """Compute the shared frontier-step schedule across a project scope.
 
@@ -110,6 +123,11 @@ def compute_schedule(
         wip_cap: Maximum number of conduct-eligible items.
         session_id: Optional session ID for claim-state evaluation.
         workspace: Optional workspace path for SML file checks.
+        emit_events: ``False`` suppresses the ``FrontierStepSelected``,
+            ``FrontierComputed``, and ``DependencyGateEvaluated``
+            telemetry writes so pure reads (e.g. a browser poll) leave no
+            event rows behind; the default preserves emission for every
+            existing caller.
 
     Returns:
         A ``SchedulerResult`` with the full scheduling context.
@@ -123,6 +141,7 @@ def compute_schedule(
         project_scope=project_scope,
         wip_cap=wip_cap,
         session_id=session_id,
+        emit_events=emit_events,
     )
 
     # 2. Compute SML state
@@ -161,6 +180,7 @@ def compute_schedule(
             title=fi.title,
             priority=fi.priority,
             next_step=step_result.next_step,
+            project=fi.project,
             rank=rank_idx,
             claim_state=claims.get(fi.item_id, ClaimState.UNCLAIMED),
             explanation=f"Ranked #{rank_idx + 1}: {step_result.next_step.value} for {fi.item_type} in {fi.status}",
@@ -203,6 +223,7 @@ def compute_schedule(
             title=fi.title,
             priority=fi.priority,
             next_step=NextStep.WAIT,
+            project=fi.project,
             claim_state=claims.get(fi.item_id, ClaimState.UNCLAIMED),
             gate_evaluations=gate_evals,
             explanation=f"Blocked: {'; '.join(fi.blocked_reasons)}" if fi.blocked_reasons else "Blocked",
@@ -227,6 +248,7 @@ def compute_schedule(
             title=ei.get("title", ""),
             priority=ei.get("priority", "medium"),
             next_step=NextStep.WAIT,
+            project=_project_slug_or_id(conn, ei.get("project_id")),
             explanation=f"Exceptional: item is in {ei.get('status', 'failed')} status",
             created_at=ei.get("created_at", ""),
         ))
@@ -241,6 +263,7 @@ def compute_schedule(
             title=fi.title,
             priority=fi.priority,
             next_step=NextStep.WAIT,
+            project=fi.project,
             explanation="Frozen — excluded from scheduling",
             created_at=fi.created_at,
         ))
@@ -281,7 +304,8 @@ def compute_schedule(
     )
 
     # Emit FrontierStepSelected telemetry
-    _emit_frontier_step_selected(conn, result, session_id)
+    if emit_events:
+        _emit_frontier_step_selected(conn, result, session_id)
 
     return result
 

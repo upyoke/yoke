@@ -291,6 +291,7 @@ from yoke_cli.commands.adapters.sessions import (
     sessions_ownership_guard,
     sessions_touch,
 )
+from yoke_cli.commands.adapters.frontier_read import frontier_list
 from yoke_cli.commands.adapters.sessions_read import sessions_list
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 
@@ -378,5 +379,6 @@ __all__ = [
     "sessions_begin", "sessions_touch", "sessions_checkpoint", "sessions_checkpoint_read",
     "sessions_offer", "sessions_ownership_guard", "sessions_list",
     "charge_schedule",
+    "frontier_list",
     "ADAPTER_USAGE",
 ]
