@@ -9,6 +9,7 @@ import {
 import {
   FakeDocument,
   allNodes,
+  cellText,
   injectedClient,
   response,
   settle,
@@ -159,9 +160,6 @@ test("an unblocked item reports no blocking reason", async (t) => {
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  const cellText = (node) => (
-    node.textContent || (node.children[0] && node.children[0].textContent) || ""
-  );
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
     .map(cellText);
@@ -222,7 +220,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   );
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
-    .map((node) => node.textContent || "");
+    .map(cellText);
   assert.deepEqual(cells, [
     "now", "observation", "tester", "open", "",
     "then", "failed", "doctor", "closed", "later",

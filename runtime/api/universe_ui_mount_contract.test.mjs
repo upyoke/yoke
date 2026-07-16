@@ -13,6 +13,7 @@ import {
   FakeNode,
   allNodes,
   byClass,
+  cellText,
   injectedClient,
   response,
   settle,
@@ -228,7 +229,7 @@ test("strategy rows render slug, title, and status", async (t) => {
 
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TH" || node.tagName === "TD")
-    .map((node) => node.textContent);
+    .map(cellText);
   assert.deepEqual(cells, [
     "slug", "title", "status", "MISSION", "Mission statement", "active",
   ]);
