@@ -81,12 +81,16 @@
       return label;
     }
 
-    // topbarEnd — the platform's user menu.
+    // topbarEnd — the platform's user menu: an avatar-mark chip whose full
+    // name rides the accessible label and the opened panel.
     function sampleUserMenu() {
       const details = el("details", "hosted-user-menu");
-      details.appendChild(el("summary", null, "Ben (sample)"));
+      const summary = el("summary");
+      summary.setAttribute("aria-label", "Ben (sample)");
+      summary.appendChild(el("span", "hosted-user-avatar", "B"));
+      details.appendChild(summary);
       const panel = el("div", "hosted-user-menu-panel");
-      panel.appendChild(el("p", null, "ben@example.com"));
+      panel.appendChild(el("p", null, "Ben (sample) · ben@example.com"));
       const dashboard = el("a", null, "All organizations");
       dashboard.href = "/dashboard";
       panel.appendChild(dashboard);
