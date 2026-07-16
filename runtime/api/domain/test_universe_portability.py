@@ -12,7 +12,6 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from yoke_core.domain import universe_export
 from yoke_core.domain import universe_portability as portability
 from yoke_core.domain.schema_fingerprint import (
     fingerprint_portable_postgres_schema,
@@ -370,11 +369,10 @@ def test_inspection_rejects_tampered_real_archive(tmp_path):
     from runtime.api.fixtures import pg_testdb
     from yoke_core.domain import db_backend
 
+    artifact = tmp_path / "portable.dump"
     with pg_testdb.test_database():
         dsn = os.environ[db_backend.PG_DSN_ENV]
-        artifact = Path(
-            universe_export.export_universe(dsn=dsn, out=tmp_path)["artifact"]
-        )
+        portability.dump_universe(dsn, artifact)
     raw = bytearray(artifact.read_bytes())
     # Preserve PGDMP so the external catalog parser, not only our magic check,
     # must reject the corruption.
@@ -526,9 +524,8 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
         source_authority = authority_receipt(
             source, include_content_digests=True,
         )
-        archive = Path(
-            universe_export.export_universe(dsn=source_dsn, out=tmp_path)["artifact"]
-        )
+        archive = tmp_path / "portable.dump"
+        portability.dump_universe(source_dsn, archive)
 
         target_db = pg_testdb.create_test_database()
         target_dsn = pg_testdb.dsn_for_test_database(target_db)
@@ -588,10 +585,10 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
             )
             assert result["org"] == "default"
 
-            # A restore into the now-nonempty target fails in its single
-            # transaction; the first successful data remains intact.
-            with pytest.raises(portability.UniversePortabilityError):
-                portability.restore_universe(archive, target_dsn)
+            # Restoring into the now-occupied target takes the same single
+            # path: the destination is reset and replaced, so the operator
+            # never sees an empty-versus-occupied distinction.
+            portability.restore_universe(archive, target_dsn)
             with psycopg.connect(target_dsn) as target:
                 assert target.execute(
                     "SELECT name FROM projects WHERE id = 88001"

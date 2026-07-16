@@ -211,12 +211,15 @@ def test_abort_restores_policy_and_original_credential(monkeypatch, tmp_path: Pa
     assert deleted == [bundle]
 
 
-def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
+def test_quiesced_export_emits_one_receipt_carrying_tar_and_refuses_mutable_source(
     monkeypatch, tmp_path: Path,
 ):
+    import tarfile
+
     conn = _Conn()
-    archive = tmp_path / "source.dump"
+    archive = tmp_path / "source.tar"
     from yoke_core.domain import source_authority_export_cutover as export_cutover
+    from yoke_core.domain import universe_archive
 
     monkeypatch.setattr(
         export_cutover, "authority_receipt", lambda _conn, **_kw: {
@@ -257,21 +260,12 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
             "capability_secrets": {"schema": "secrets", "types": {}, "sha256": "s"},
         },
     )
-    def export_universe(**kwargs):
-        staged = Path(kwargs["out"])
+
+    def dump_universe(_dsn, destination, **_kwargs):
+        staged = Path(destination)
         staged.write_bytes(b"PGDMPportable")
-        return {
-            "artifact": str(staged), "bytes": staged.stat().st_size,
-            "format": "pg_dump-custom", "org": "yoke",
-        }
-
-    monkeypatch.setattr(
-        export_cutover.universe_export, "export_universe", export_universe,
-    )
-
-    def inspect(staged):
-        staged = Path(staged)
         return SimpleNamespace(
+            path=staged,
             archive_sha256=export_cutover.file_sha256(staged),
             size_bytes=staged.stat().st_size,
             catalog_tables=("items",), catalog_sequences=("items_id_seq",),
@@ -279,8 +273,7 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
         )
 
     monkeypatch.setattr(
-        export_cutover.universe_portability, "inspect_archive",
-        inspect,
+        export_cutover.universe_portability, "dump_universe", dump_universe,
     )
     monkeypatch.setattr(
         cutover, "_database_identity",
@@ -304,6 +297,7 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
     assert report["snapshot_proof"]["isolation"] == "repeatable-read-read-only"
     assert len(report["sha256"]) == 64
     assert report["freeze_intent"]["schema"] == "yoke.source-freeze/v1"
+    assert report["freeze_intent"]["zero_writable_app_sessions"] is True
     assert "capability_secrets" not in report["catalog"]["tables"]
     assert set(report["freeze_intent"]) == {
         "schema", "receipt_id", "database", "frozen_at", "authority_digest",
@@ -313,14 +307,37 @@ def test_quiesced_export_emits_hashes_and_refuses_mutable_source(
     }
     assert "secret-dsn" not in str(report)
 
+    # One artifact, no sidecars: the receipt travels inside the tar.
+    assert report["artifact"] == str(archive)
+    assert report["bytes"] == archive.stat().st_size
+    assert sorted(entry.name for entry in tmp_path.iterdir()) == [
+        archive.name,
+    ]
+    with tarfile.open(archive, mode="r:") as reader:
+        # Receipt first: streaming readers verify intent before the payload.
+        assert [member.name for member in reader.getmembers()] == [
+            universe_archive.ARCHIVE_MEMBER_RECEIPT,
+            universe_archive.ARCHIVE_MEMBER_DUMP,
+        ]
+    dump, receipt = universe_archive.unpack_universe_archive(
+        archive, tmp_path / "unpacked", max_dump_bytes=1 << 20,
+    )
+    assert dump.read_bytes() == b"PGDMPportable"
+    assert receipt["freeze_intent"] == report["freeze_intent"]
+    assert universe_archive.verify_receipt_binds_dump(receipt, dump)[
+        "sha256"
+    ] == report["sha256"]
+
     monkeypatch.setattr(
         cutover.connect_fence, "connect_fence_status",
         lambda _conn: {"active": False},
     )
+    archive.unlink()
     with pytest.raises(cutover.SourceAuthorityCutoverError, match="active quiesce"):
         cutover.export_quiesced(
             out=archive, credential_file=tmp_path / "cutover.json",
         )
+    assert not archive.exists()
 
 
 def test_cross_repo_freeze_intent_fixture_has_exact_contract():

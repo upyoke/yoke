@@ -11,7 +11,7 @@ from yoke_core.domain import universe_export as ux
 
 
 def test_export_replaces_existing_archive_with_owner_only_file(tmp_path: Path):
-    destination = tmp_path / "graduation.dump"
+    destination = tmp_path / "graduation.tar"
     destination.write_bytes(b"prior archive")
     destination.chmod(0o644)
 
@@ -23,9 +23,9 @@ def test_export_replaces_existing_archive_with_owner_only_file(tmp_path: Path):
 
 
 def test_export_refuses_symlink_destination_without_touching_target(tmp_path: Path):
-    protected = tmp_path / "protected.dump"
+    protected = tmp_path / "protected.tar"
     protected.write_bytes(b"must remain")
-    destination = tmp_path / "graduation.dump"
+    destination = tmp_path / "graduation.tar"
     destination.symlink_to(protected)
 
     with _schema_loaded_universe() as (_connection, dsn):
@@ -37,9 +37,9 @@ def test_export_refuses_symlink_destination_without_touching_target(tmp_path: Pa
 
 
 def test_export_refuses_hardlink_destination_without_touching_source(tmp_path: Path):
-    protected = tmp_path / "protected.dump"
+    protected = tmp_path / "protected.tar"
     protected.write_bytes(b"must remain")
-    destination = tmp_path / "graduation.dump"
+    destination = tmp_path / "graduation.tar"
     os.link(protected, destination)
 
     with _schema_loaded_universe() as (_connection, dsn):

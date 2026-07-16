@@ -31,10 +31,10 @@ def _stub_export_engine(report=None, error: str | None = None):
         out_dir = Path(out).expanduser() if out else Path("/cwd")
         payload.setdefault(
             "artifact",
-            str(out_dir / "default-universe-20260706T000000Z.dump"),
+            str(out_dir / "default-universe-20260706T000000Z.tar"),
         )
         payload.setdefault("bytes", 4096)
-        payload.setdefault("format", "pg_dump-custom")
+        payload.setdefault("format", "universe-tar")
         payload.setdefault("org", "default")
         return payload
 
@@ -55,9 +55,9 @@ def test_export_json_reports_artifact(monkeypatch, machine_home, tmp_path, capsy
 
     report = json.loads(capsys.readouterr().out)
     assert report["artifact"].startswith(str(tmp_path))
-    assert report["artifact"].endswith(".dump")
+    assert report["artifact"].endswith(".tar")
     assert report["org"] == "default"
-    assert report["format"] == "pg_dump-custom"
+    assert report["format"] == "universe-tar"
 
 
 def test_export_human_summary_names_artifact_org_and_format(
@@ -70,7 +70,7 @@ def test_export_human_summary_names_artifact_org_and_format(
     out = capsys.readouterr().out
     assert "universe export: " in out
     assert "org: default" in out
-    assert "format: pg_dump-custom" in out
+    assert "format: universe-tar" in out
 
 
 def test_export_engine_refusal_is_reported_cleanly(
