@@ -213,7 +213,7 @@ test("strategy rows render slug, title, and status", async (t) => {
         return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
       }
       if (request.function === "projects.list") {
-        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] } } };
       }
       if (request.function === "strategy.doc.list") {
         return {
@@ -233,11 +233,14 @@ test("strategy rows render slug, title, and status", async (t) => {
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
+  // At the "all" default the docs read fans out per project, and each row
+  // wears the slug of the project bucket that requested it.
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TH" || node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "slug", "title", "status", "MISSION", "Mission statement", "active",
+    "slug", "project", "title", "status",
+    "MISSION", "yoke", "Mission statement", "active",
   ]);
   assert.ok(requests.some((request) => request.function === "strategy.doc.list"));
   mounted.unmount();

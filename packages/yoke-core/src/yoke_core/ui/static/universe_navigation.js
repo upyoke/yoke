@@ -107,9 +107,11 @@ export function universeNavScope(view) {
   return navEntry(view).scope;
 }
 
-// `#/<view>[/<segment>][?project=<id>]`. The optional second segment belongs
-// to the view, and each view declares what it means — one meaning, never
-// both:
+// `#/<view>[/<segment>][?project=<id>[,<id>…]]`. The query value stays a raw
+// string here — `scopeForEntry` interprets it against the view's declared
+// scope kind (a multi view reads a comma-joined set, a single view one id).
+// The optional second segment belongs to the view, and each view declares
+// what it means — one meaning, never both:
 //  * a view with a `tabs` roster reads it as a tab: one facet of the view's
 //    single concept. An absent or unknown segment resolves to the first tab,
 //    so `#/delivery` lands on the default facet without a hash rewrite.
@@ -145,7 +147,11 @@ export function buildUniverseRoute(view, project, segment = null) {
     ? view : NAV[0].id;
   const segmentPart = (resolvedView === view && segment)
     ? `/${encodeURIComponent(segment)}` : "";
-  const query = project ? `?project=${encodeURIComponent(project)}` : "";
+  // Commas separate the members of a project set and stay literal so the
+  // route reads the way it was written; everything else percent-encodes.
+  const query = project
+    ? `?project=${encodeURIComponent(project).replace(/%2C/g, ",")}`
+    : "";
   return `#/${resolvedView}${segmentPart}${query}`;
 }
 
@@ -154,13 +160,62 @@ export function knownProjectId(projects, candidate) {
     ? String(candidate) : null;
 }
 
+// The comma-joined route form as a set of ids the roster knows. Unknown ids
+// drop out rather than filtering rows to nothing; an all-unknown or empty
+// value reads as no selection at all.
+function knownProjectSet(projects, candidate) {
+  const members = String(candidate || "").split(",")
+    .map((member) => knownProjectId(projects, member.trim()))
+    .filter((member, index, all) =>
+      member !== null && all.indexOf(member) === index);
+  return members.length ? members : null;
+}
+
+// What a multi view last held, revalidated against the current roster: a
+// remembered set whose projects have all vanished is no selection at all.
+function rememberedMultiScope(projects, remembered) {
+  if (remembered === "all") return "all";
+  if (!Array.isArray(remembered)) return null;
+  return knownProjectSet(projects, remembered.join(","));
+}
+
+// The route encoding of a resolved scope: absent for "all" (an unfiltered
+// universe needs no parameter), comma-joined ids for a set, and a single
+// view's project string unchanged.
+export function serializeScope(scope) {
+  if (scope === null || scope === "all") return null;
+  return Array.isArray(scope) ? scope.join(",") : String(scope);
+}
+
+// A multi view's scope is the whole universe ("all") or an array of project
+// ids; a single view's is one project id. Either way the resolved value is
+// stored per view, so each screen remembers its own scope.
 export function scopeForEntry(entry, routeProject, projects, selections) {
   if (entry.scope === SCOPE_NONE) return null;
+  if (entry.scope === SCOPE_MULTI) {
+    const resolved = knownProjectSet(projects, routeProject) ||
+      rememberedMultiScope(projects, selections.get(entry.id)) ||
+      "all";
+    selections.set(entry.id, resolved);
+    return resolved;
+  }
   const resolved = knownProjectId(projects, routeProject) ||
     knownProjectId(projects, selections.get(entry.id)) ||
     (projects[0] ? String(projects[0].id) : null);
   if (resolved !== null) selections.set(entry.id, resolved);
   return resolved;
+}
+
+// What a nav link's href carries for its destination: the scope that view
+// last held, serialized — nothing when it holds "all" or was never visited
+// (the view resolves its own default on arrival).
+export function rememberedScopeParam(entry, projects, selections) {
+  if (entry.scope === SCOPE_NONE) return null;
+  const remembered = selections.get(entry.id);
+  if (entry.scope === SCOPE_MULTI) {
+    return serializeScope(rememberedMultiScope(projects, remembered) || "all");
+  }
+  return knownProjectId(projects, remembered);
 }
 
 function el(documentNode, tag, className, text) {
@@ -190,33 +245,68 @@ export function renderStubView(context, main, entry) {
   main.replaceChildren(panel);
 }
 
+// Toggle one project inside a multi view's scope: from "all" the set starts
+// empty, so the first click narrows to that one project; removing the last
+// member widens back to "all". Members keep roster order so the route
+// encoding of the same set is always the same string.
+function toggledScope(scope, projectId, projects) {
+  const members = new Set(scope === "all" ? [] : scope);
+  if (members.has(projectId)) members.delete(projectId);
+  else members.add(projectId);
+  if (members.size === 0) return "all";
+  return projects.map((row) => String(row.id))
+    .filter((rosterId) => members.has(rosterId));
+}
+
+// The scope control above a live scoped view: a row of chips. A multi view
+// gets an "All" chip plus one per project and set-toggle semantics; a single
+// view gets one chip per project with radio semantics.
 export function createScopePicker(options) {
   const {
-    documentNode, entry, project, projects, renderRoute, scopeSelections,
+    documentNode, entry, scope, projects, renderRoute, scopeSelections,
     segment, windowNode,
   } = options;
+  const multi = entry.scope === SCOPE_MULTI;
   const bar = el(documentNode, "div", "scope-bar");
-  const picker = el(documentNode, "select", "project-chooser");
-  picker.setAttribute("aria-label", "Project");
-  for (const row of projects) {
-    const option = el(
-      documentNode, "option", null,
-      row.name || row.slug || String(row.id),
-    );
-    option.value = String(row.id);
-    picker.appendChild(option);
-  }
-  picker.value = project;
-  picker.addEventListener("change", () => {
-    scopeSelections.set(entry.id, picker.value);
+  bar.appendChild(el(
+    documentNode, "span", "scope-label", multi ? "Projects" : "Project",
+  ));
+
+  const apply = (next) => {
+    scopeSelections.set(entry.id, next);
     // Re-scoping stays on the same facet: the segment (a tab, when the
-    // view declares tabs) survives the project change.
+    // view declares tabs) survives the scope change.
     windowNode.location.hash = buildUniverseRoute(
-      entry.id, picker.value, segment || null,
+      entry.id, serializeScope(next), segment || null,
     );
     renderRoute();
-  });
-  bar.appendChild(picker);
+  };
+
+  const chip = (label, selected, onClick) => {
+    const button = el(documentNode, "button", "scope-chip", label);
+    button.type = "button";
+    button.classList.toggle("on", selected);
+    button.addEventListener("click", onClick);
+    bar.appendChild(button);
+  };
+
+  if (multi) chip("All", scope === "all", () => apply("all"));
+  for (const row of projects) {
+    const projectId = String(row.id);
+    const selected = multi
+      ? Array.isArray(scope) && scope.includes(projectId)
+      : String(scope) === projectId;
+    chip(row.name || row.slug || projectId, selected, () => {
+      apply(multi ? toggledScope(scope, projectId, projects) : projectId);
+    });
+  }
+
+  bar.appendChild(el(
+    documentNode, "span", "scope-hint",
+    multi
+      ? "all / one / some · this screen remembers its own"
+      : "one project — this screen configures a single target",
+  ));
   return bar;
 }
 
