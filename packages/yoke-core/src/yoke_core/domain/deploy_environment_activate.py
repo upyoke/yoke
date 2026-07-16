@@ -44,7 +44,16 @@ def _emit(line: str) -> None:
 
 def _instance_name_tag(env: DeployEnvironment) -> str:
     # Matches the Name tag webapp_vps_stack.py assigns: "{stack}/VpsInstance".
-    return f"{env.stack_name}/VpsInstance"
+    if not env.origin_vps_stack_name:
+        environment_id = f"{env.site_id}-{env.env_name}"
+        raise EnvironmentActivateError(
+            f"Environment {env.env_name!r} pulumi.origin_vps_stack_name for "
+            f"{env.project} is required to locate its standalone VPS instance. "
+            "Set it via: yoke projects environment-settings merge --project "
+            f"{env.project} --environment-id {environment_id} --set "
+            "pulumi.origin_vps_stack_name=<standalone-vps-stack-name>"
+        )
+    return f"{env.origin_vps_stack_name}/VpsInstance"
 
 
 def _describe_origin_instance(
