@@ -127,6 +127,79 @@ def test_converge_is_idempotent(tmp_path: Path) -> None:
             conn.close()
 
 
+def test_converge_adds_flow_status_and_missing_builtin_definitions(
+    tmp_path: Path,
+) -> None:
+    """A release boot makes new flow configuration usable without DB repair."""
+    with init_test_db(tmp_path) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            conn.execute(
+                "DELETE FROM deployment_flows "
+                "WHERE id = 'yoke-hosted-production'"
+            )
+            conn.execute("ALTER TABLE deployment_flows DROP COLUMN status")
+            conn.commit()
+
+            converge_core_schema(conn)
+
+            assert _column_exists(conn, "deployment_flows", "status") is True
+            row = conn.execute(
+                "SELECT df.status, p.slug AS project "
+                "FROM deployment_flows df "
+                "JOIN projects p ON p.id = df.project_id "
+                "WHERE df.id = 'yoke-hosted-production'"
+            ).fetchone()
+            assert row == {"status": "active", "project": "yoke"}
+        finally:
+            conn.close()
+
+
+def test_converge_preserves_disabled_flow_and_historical_run(
+    tmp_path: Path,
+) -> None:
+    """Catalog convergence never re-enables definitions or purges run history."""
+    with init_test_db(tmp_path) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            conn.execute(
+                "UPDATE deployment_flows SET status = 'disabled' "
+                "WHERE id = 'yoke-internal'"
+            )
+            conn.execute(
+                "INSERT INTO deployment_runs "
+                "(id, project, flow, target_env, status, current_stage, "
+                "created_by, created_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    "run-20260716-999",
+                    "yoke",
+                    "yoke-internal",
+                    "production",
+                    "completed",
+                    "complete",
+                    "operator",
+                    "2026-07-16T00:00:00Z",
+                ),
+            )
+            conn.commit()
+
+            converge_core_schema(conn)
+
+            status = conn.execute(
+                "SELECT status FROM deployment_flows "
+                "WHERE id = 'yoke-internal'"
+            ).fetchone()[0]
+            run_count = conn.execute(
+                "SELECT COUNT(*) FROM deployment_runs "
+                "WHERE id = 'run-20260716-999'"
+            ).fetchone()[0]
+            assert status == "disabled"
+            assert int(run_count) == 1
+        finally:
+            conn.close()
+
+
 def test_converge_restores_github_repository_identity_index(
     tmp_path: Path,
 ) -> None:

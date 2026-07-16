@@ -18,8 +18,8 @@ from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS as _SEED_FLOWS
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 
 
-def cmd_init(conn) -> str:
-    # Create table
+def _ensure_flow_schema(conn) -> None:
+    """Create the flow registry and its strictly additive columns."""
     conn.execute("""\
         CREATE TABLE IF NOT EXISTS deployment_flows (
             id TEXT PRIMARY KEY,
@@ -55,6 +55,15 @@ def cmd_init(conn) -> str:
     )
     _add_column_if_not_exists(conn, "items", "deploy_stage", "TEXT DEFAULT NULL")
 
+
+def _seed_missing_flow_definitions(conn) -> None:
+    """Insert code-owned flow definitions that are absent from a universe.
+
+    Existing rows are deliberately left untouched: a disabled definition must
+    stay disabled, historical runs must keep resolving their original flow,
+    and project-authored customizations are not silently rewritten on boot.
+    """
+
     # Seed flows — only for projects that exist in this universe. A fresh
     # universe seeds no project rows, so it gets no flow rows either; the
     # flow definitions converge on installs whose registry carries the
@@ -80,6 +89,23 @@ def cmd_init(conn) -> str:
              flow.get("status", "active"),
              iso8601_now()),
         )
+
+
+def converge_flow_catalog(conn) -> None:
+    """Converge additive flow schema and missing built-in definitions.
+
+    This is the existing-universe boot path.  It is safe to run repeatedly and
+    never deletes a definition, changes a definition's status, or touches a
+    deployment run.
+    """
+    _ensure_flow_schema(conn)
+    _seed_missing_flow_definitions(conn)
+    conn.commit()
+
+
+def cmd_init(conn) -> str:
+    _ensure_flow_schema(conn)
+    _seed_missing_flow_definitions(conn)
 
     # Backfill target_env and done_description for existing rows
     backfills = [
