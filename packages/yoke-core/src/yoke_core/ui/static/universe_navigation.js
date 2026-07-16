@@ -225,14 +225,13 @@ function el(documentNode, tag, className, text) {
   return node;
 }
 
-export function renderStubView(context, main, entry) {
+// An unbuilt destination says only that it is coming: the page head above
+// the stub is the single place a view's name and summary render, so the
+// panel repeating either would show the same words twice at two sizes.
+export function renderStubView(context, main) {
   const documentNode = context.document;
   const panel = el(documentNode, "section", "stub-panel");
   panel.appendChild(el(documentNode, "span", "badge", "◷ Coming soon"));
-  panel.appendChild(el(documentNode, "h2", null, entry.label));
-  if (entry.summary) {
-    panel.appendChild(el(documentNode, "p", "stub-summary", entry.summary));
-  }
   // A skeleton of what will stand here — bars, not controls, so nothing
   // pretends to act.
   const preview = el(documentNode, "div", "preview");

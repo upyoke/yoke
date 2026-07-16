@@ -24,11 +24,32 @@ function callFunction(client, functionId, payload, target) {
 export function section(documentNode, title) {
   const wrap = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
-  header.appendChild(el(documentNode, "h2", null, title));
+  const heading = el(documentNode, "h2", null, title);
+  header.appendChild(heading);
   const toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
   toggle.type = "button";
   header.appendChild(toggle);
   wrap.appendChild(header);
+
+  // The muted count beside the title. Numbers are facts the engine owns: a
+  // view passes the total its read served when it carries one, the length
+  // of a complete row set it just fetched otherwise, and null when neither
+  // holds — a panel with no honest number shows none.
+  let countNode = null;
+  wrap.setCount = (count) => {
+    if (count === null || count === undefined) {
+      if (countNode) {
+        heading.removeChild(countNode);
+        countNode = null;
+      }
+      return;
+    }
+    if (!countNode) {
+      countNode = el(documentNode, "span", "panel-count");
+      heading.appendChild(countNode);
+    }
+    countNode.textContent = `· ${count}`;
+  };
 
   const body = el(documentNode, "div", "panel-body", "loading…");
   wrap.appendChild(body);
@@ -254,6 +275,17 @@ function renderItemsView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.rows);
+      // The served `count` is each bucket's authoritative total, summed
+      // across a fan-out. Never rows.length: when the two disagree, the
+      // engine's number is the fact.
+      const servedCounts = callResults.map(
+        (callResult) => (callResult.envelope.result || {}).count,
+      );
+      panel.setCount(
+        servedCounts.every((count) => typeof count === "number")
+          ? servedCounts.reduce((total, count) => total + count, 0)
+          : null,
+      );
       renderTable(body, rows, withProjectColumn([
         { label: "id", value: (row) => row.id },
         { label: "type", value: (row) => row.type },
@@ -284,6 +316,8 @@ function renderEventsView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.rows);
+      // No header count here: only a served total or a known-complete set
+      // earns one, and this read attests neither.
       // Each event row carries the slug of the project it was recorded
       // against — a universe-level event carries none and shows none.
       renderTable(body, rows, withProjectColumn([
@@ -313,6 +347,9 @@ function renderOuroborosView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.entries);
+      // Every bucket served its complete set, so the merged length is the
+      // fetched total.
+      panel.setCount(rows.length);
       // Each entry carries the slug of the project it observed — a
       // universe-level observation carries none and shows none.
       renderTable(body, rows, withProjectColumn([
@@ -370,9 +407,18 @@ function renderStrategyView(context, main, scope) {
           ...doc, project: slugById.get(buckets[index]) || buckets[index],
         }))
       ));
+      // Every bucket served its complete corpus, so the merged length is
+      // the fetched total.
+      panel.setCount(docs.length);
       renderTable(body, docs, withProjectColumn([
         { label: "slug", value: (doc) => doc.slug },
         { label: "title", value: (doc) => doc.title },
+        // The engine resolves the last editor to a label when it knows
+        // one; an unattributed doc shows nothing, never a placeholder.
+        { label: "owner", value: (doc) => doc.updated_by },
+        { label: "last write", value: (doc) => doc.updated_at },
+        // Raw bytes exactly as served — the number is the engine's.
+        { label: "size", value: (doc) => doc.bytes },
         {
           label: "status", pill: true,
           value: (doc) => (doc.archived ? "archived" : "active"),
@@ -461,6 +507,9 @@ function renderSessionsView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.rows);
+      // Every bucket served its complete set, so the merged length is the
+      // fetched total.
+      panel.setCount(rows.length);
       // Each session row carries the slug of the project it works in.
       renderTable(body, rows, withProjectColumn([
         { label: "session", value: (row) => row.session_id },
@@ -507,6 +556,9 @@ function renderDeliveryRunsView(context, main, scope) {
       // happened", so presentation flips to newest-first.
       const rows = mergedRows(callResults, (result) => result.rows)
         .slice().reverse();
+      // Every bucket served its complete set, so the merged length is the
+      // fetched total.
+      panel.setCount(rows.length);
       // Each run row carries the slug of the project whose flow ran.
       renderTable(body, rows, withProjectColumn([
         { label: "run", value: (row) => row.id },
