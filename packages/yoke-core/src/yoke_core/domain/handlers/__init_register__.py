@@ -26,6 +26,7 @@ import threading
 from yoke_core.domain import yoke_function_registry
 
 from yoke_core.domain.handlers import (
+    _register_capabilities_read,
     _register_claims,
     _register_db_read,
     _register_deployment,
@@ -80,6 +81,7 @@ _DOMAIN_REGISTRARS = (
     _register_project_snapshot,
     _register_project_github_binding,
     _register_projects,
+    _register_capabilities_read,
     _register_organizations,
     _register_identity,
     _register_qa_crud,

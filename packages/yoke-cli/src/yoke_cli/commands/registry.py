@@ -147,6 +147,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "update"): ("projects.update", _adapters.projects_update),
     ("projects", "capability", "has"):
         ("projects.capability.has", _adapters.projects_capability_has),
+    ("projects", "capabilities", "list"):
+        ("projects.capabilities.list", _adapters.projects_capabilities_list),
     ("projects", "capability-settings", "get"):
         ("projects.capability_settings.get",
          _adapters.projects_capability_settings_get),

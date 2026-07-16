@@ -331,6 +331,12 @@
   border-bottom: 1px solid var(--yoke-border);
   vertical-align: middle;
 }
+/* Cells holding stored identifiers (capability types, keys) wear the code
+   face: the value IS the vocabulary, so it dresses like code. */
+.universe-app-root table.items td.mono {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+}
 .universe-app-root table.items tr:last-child :is(th, td) {
   border-bottom: 0;
 }
