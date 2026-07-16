@@ -115,6 +115,19 @@ const STATE_PILL_FAMILIES = {
   verified: "good",
   configured_unverified: "warn",
   declared: "idle",
+  // GitHub repository-binding vocabulary: binding and installation
+  // lifecycle states, permission verdicts, automation availability, and
+  // sync outcomes. A suspended or deleted installation is a severed
+  // credential channel and must read as loudly as a failure.
+  pending: "warn",
+  unavailable: "warn",
+  suspended: "crit",
+  deleted: "crit",
+  satisfied: "good",
+  missing: "crit",
+  unknown: "warn",
+  available: "good",
+  success: "good",
 };
 
 // A state value rendered as a tinted lozenge with a leading dot, colored by
