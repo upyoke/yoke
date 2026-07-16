@@ -7,9 +7,12 @@
 // Another same-realm host may inject its own function client, opaque generic
 // capabilities/actions, and named slot nodes without forking this app.
 //
-// Views are hash-routed as `#/<view>?project=<id>` so a shared link restores
-// both the view and the scope. The left nav is data-driven (see NAV) — adding
-// a route is one more array entry, with no per-view branching in the markup.
+// Views are hash-routed as `#/<view>[/<segment>]?project=<id>` so a shared
+// link restores the view, its facet, and the scope. The left nav is
+// data-driven (see NAV) — adding a route is one more array entry, with no
+// per-view branching in the markup. The second segment means what the view
+// declares: a tab (one facet of the view's concept, from the entry's `tabs`
+// roster) or a drill-in (one row, with a breadcrumb back) — never both.
 //
 // Scope is per-screen: each view remembers its own project and declares how it
 // takes scope (see SCOPE_*). Live scoped views carry their own picker; stubs do
@@ -32,6 +35,7 @@ import {
 import {
   buildUniverseRoute,
   createScopePicker,
+  createTabBar,
   knownProjectId,
   NAV,
   navEntry,
@@ -42,7 +46,7 @@ import {
   universeNavScope,
 } from "./universe_navigation.js";
 import {
-  DETAIL_RENDERERS, section, VIEW_RENDERERS,
+  DETAIL_RENDERERS, section, TAB_RENDERERS, VIEW_RENDERERS,
 } from "./universe_views.js";
 
 export {
@@ -220,6 +224,46 @@ export function mountUniverseApp(rootNode, options = {}) {
           ) || project),
       );
       link.classList.toggle("active", navItem.id === entry.id);
+    }
+
+    if (entry.tabs) {
+      // The segment is a tab facet: parse already resolved it to one of the
+      // entry's declared tabs, so the strip and the body agree by construction.
+      const tab = entry.tabs.find((item) => item.id === route.tab);
+      const tabBar = createTabBar(documentNode, entry, tab.id, project);
+      const tabRenderer = (TAB_RENDERERS[entry.id] || {})[tab.id];
+      if (!tabRenderer) {
+        // An unbuilt facet is honest the same way an unbuilt destination is:
+        // it says what it will be, and carries no picker — a scope control
+        // over nothing filters nothing.
+        const stubHost = el(documentNode, "div", "view-host");
+        main.replaceChildren(tabBar, stubHost);
+        renderStubView(context, stubHost, tab);
+        return;
+      }
+      if (entry.scope === SCOPE_NONE) {
+        const viewHost = el(documentNode, "div", "view-host");
+        main.replaceChildren(tabBar, viewHost);
+        tabRenderer(context, viewHost, null);
+        return;
+      }
+      if (project === null) {
+        main.replaceChildren(tabBar, emptyUniversePanel(documentNode));
+        return;
+      }
+      // A built tab carries its own picker, below the facet strip: scope
+      // belongs to the data, and only this facet's data takes it here.
+      const viewHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(
+        tabBar,
+        createScopePicker({
+          documentNode, entry, project, projects, renderRoute,
+          scopeSelections, segment: tab.id, windowNode,
+        }),
+        viewHost,
+      );
+      tabRenderer(context, viewHost, project);
+      return;
     }
 
     const detailRenderer = route.detail ? DETAIL_RENDERERS[entry.id] : null;

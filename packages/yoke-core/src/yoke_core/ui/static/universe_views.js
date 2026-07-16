@@ -337,6 +337,12 @@ function renderItemDetailView(context, main, projectId, itemRef) {
 // Drill-ins remain children of the view whose row opened them.
 export const DETAIL_RENDERERS = { items: renderItemDetailView };
 
+// Tab renderers, keyed view id → tab id. A tab is live exactly when it has a
+// renderer here; a declared tab without one renders the honest stub. A view
+// appears here only when its NAV entry declares tabs — the same second route
+// segment cannot also be a drill-in.
+export const TAB_RENDERERS = {};
+
 // A destination is live exactly when it has a renderer here.
 export const VIEW_RENDERERS = {
   items: renderItemsView,

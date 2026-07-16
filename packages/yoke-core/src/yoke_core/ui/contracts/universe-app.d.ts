@@ -137,8 +137,18 @@ export interface UniverseAppMount {
  * not views the universe app routes.
  */
 export type UniverseRouteView = "overview" | "inbox" | "strategy" | "frontier" | "items" | "board" | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events" | "doctor" | "ouroboros" | "projects" | "access" | "templates" | "github" | "project-settings" | "universe-settings";
+/**
+ * A view's optional second route segment means what the view declares — a
+ * tab (one facet of the view's single concept) or a drill-in (one row of the
+ * view), never both. Parsing resolves the declaration: a tab-declaring view
+ * always carries a resolved `tab` (absent and unknown segments resolve to
+ * its first tab, without rewriting the hash) and never a `detail`; every
+ * other view may carry a `detail` and never a `tab`.
+ */
 export interface UniverseRoute {
     readonly view: UniverseRouteView;
+    /** The resolved tab facet, for a view that declares tabs. */
+    readonly tab: string | null;
     /** The drill-in row within the view, when the route names one. */
     readonly detail: string | null;
     readonly project: string | null;
@@ -151,10 +161,12 @@ export interface UniverseRoute {
  */
 export type UniverseScope = "multi" | "single" | "none";
 /** Canonical value; the runtime module is emitted from this source. */
-export declare const UNIVERSE_APP_CONTRACT_VERSION: 2;
+export declare const UNIVERSE_APP_CONTRACT_VERSION: 3;
 export declare function createHttpFunctionClient(options?: HttpFunctionClientOptions): UniverseFunctionClient;
 export declare function parseUniverseRoute(hash: string): UniverseRoute;
-export declare function buildUniverseRoute(view: UniverseRouteView | string, project?: string | null, detail?: string | null): string;
+/** `segment` is the view's second path segment: a tab id for a view that
+ * declares tabs, a drill-in row for any other view. */
+export declare function buildUniverseRoute(view: UniverseRouteView | string, project?: string | null, segment?: string | null): string;
 /** The scope a view takes: see `UniverseScope`. */
 export declare function universeNavScope(view: string): UniverseScope;
 export declare function mountUniverseApp(rootNode: HTMLElement, options?: UniverseAppOptions): UniverseAppMount;
