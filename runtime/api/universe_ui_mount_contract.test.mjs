@@ -303,11 +303,11 @@ test("a synchronously throwing client still returns a cleanup handle", async (t)
 
 test("route helpers are deterministic and platform-neutral", () => {
   assert.deepEqual(parseUniverseRoute("#/strategy?project=abc%201"), {
-    view: "strategy", detail: null, project: "abc 1",
+    view: "strategy", tab: null, detail: null, project: "abc 1",
   });
   // An unrecognised view falls back to the first destination in the nav.
   assert.deepEqual(parseUniverseRoute("#/unknown"), {
-    view: "overview", detail: null, project: null,
+    view: "overview", tab: null, detail: null, project: null,
   });
   assert.equal(buildUniverseRoute("strategy", "abc 1"),
     "#/strategy?project=abc%201");
@@ -328,7 +328,7 @@ test("every nav destination declares how it takes project scope", () => {
   // slot, so the workbench's own nav does not route them at all.
   for (const hosted of ["#/members", "#/billing"]) {
     assert.deepEqual(parseUniverseRoute(hosted), {
-      view: "overview", detail: null, project: null,
+      view: "overview", tab: null, detail: null, project: null,
     });
   }
 });

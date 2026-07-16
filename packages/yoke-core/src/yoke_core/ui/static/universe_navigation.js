@@ -30,6 +30,32 @@ export const NAV = [
   {
     id: "delivery", icon: "⬈", label: "Delivery", scope: SCOPE_MULTI,
     summary: "Environments, flows and runs, with databases and infrastructure.",
+    // Delivery is one concept asked five ways, so its second route segment
+    // names a tab rather than a drill-in row.
+    tabs: [
+      {
+        id: "runs", label: "Runs",
+        summary: "Each run of a flow against a target environment.",
+      },
+      {
+        id: "environments", label: "Environments",
+        summary: "The deploy targets runs ship to.",
+      },
+      {
+        id: "flows", label: "Flows",
+        summary: "The pipeline definitions runs execute.",
+      },
+      {
+        id: "databases", label: "Databases",
+        summary:
+          "Declared database models, their posture, and the apply records.",
+      },
+      {
+        id: "infrastructure", label: "Infrastructure",
+        summary:
+          "What backs an environment, with drift from the template as the signal.",
+      },
+    ],
   },
   {
     id: "qa", icon: "◉", label: "QA", scope: SCOPE_MULTI,
@@ -80,32 +106,46 @@ export function universeNavScope(view) {
   return navEntry(view).scope;
 }
 
-// `#/<view>[/<detail>][?project=<id>]`. The optional second segment is a
-// drill-in: one row of the view, reached from that row and carrying a
-// breadcrumb back. A drill-in is never a nav destination of its own — it has
-// no entry, and its parent view stays the active one.
+// `#/<view>[/<segment>][?project=<id>]`. The optional second segment belongs
+// to the view, and each view declares what it means — one meaning, never
+// both:
+//  * a view with a `tabs` roster reads it as a tab: one facet of the view's
+//    single concept. An absent or unknown segment resolves to the first tab,
+//    so `#/delivery` lands on the default facet without a hash rewrite.
+//  * every other view reads it as a drill-in: one row of the view, reached
+//    from that row and carrying a breadcrumb back.
+// Neither a tab nor a drill-in is a nav destination of its own — it has no
+// entry, and its parent view stays the active one.
 export function parseUniverseRoute(hash) {
   const raw = String(hash || "").replace(/^#\/?/, "");
   const [pathPart, queryPart] = raw.split("?");
-  const [viewPart, detailPart] = pathPart.split("/");
+  const [viewPart, segmentPart] = pathPart.split("/");
   const view = NAV.some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
   const project = new URLSearchParams(queryPart || "").get("project");
+  const tabs = navEntry(view).tabs;
+  if (tabs) {
+    // Tab ids are plain words, so the raw segment compares directly; an
+    // encoded or unknown one simply resolves to the default facet.
+    const tab = tabs.some((item) => item.id === segmentPart)
+      ? segmentPart : tabs[0].id;
+    return { view, tab, detail: null, project };
+  }
   // An unknown view falls back to the first destination, and its detail
   // segment falls with it rather than being carried onto a view that never
   // asked for one.
-  const detail = (view === viewPart && detailPart)
-    ? decodeURIComponent(detailPart) : null;
-  return { view, detail, project };
+  const detail = (view === viewPart && segmentPart)
+    ? decodeURIComponent(segmentPart) : null;
+  return { view, tab: null, detail, project };
 }
 
-export function buildUniverseRoute(view, project, detail = null) {
+export function buildUniverseRoute(view, project, segment = null) {
   const resolvedView = NAV.some((entry) => entry.id === view)
     ? view : NAV[0].id;
-  const detailPart = (resolvedView === view && detail)
-    ? `/${encodeURIComponent(detail)}` : "";
+  const segmentPart = (resolvedView === view && segment)
+    ? `/${encodeURIComponent(segment)}` : "";
   const query = project ? `?project=${encodeURIComponent(project)}` : "";
-  return `#/${resolvedView}${detailPart}${query}`;
+  return `#/${resolvedView}${segmentPart}${query}`;
 }
 
 export function knownProjectId(projects, candidate) {
@@ -152,7 +192,7 @@ export function renderStubView(context, main, entry) {
 export function createScopePicker(options) {
   const {
     documentNode, entry, project, projects, renderRoute, scopeSelections,
-    windowNode,
+    segment, windowNode,
   } = options;
   const bar = el(documentNode, "div", "scope-bar");
   const picker = el(documentNode, "select", "project-chooser");
@@ -168,9 +208,27 @@ export function createScopePicker(options) {
   picker.value = project;
   picker.addEventListener("change", () => {
     scopeSelections.set(entry.id, picker.value);
-    windowNode.location.hash = buildUniverseRoute(entry.id, picker.value);
+    // Re-scoping stays on the same facet: the segment (a tab, when the
+    // view declares tabs) survives the project change.
+    windowNode.location.hash = buildUniverseRoute(
+      entry.id, picker.value, segment || null,
+    );
     renderRoute();
   });
   bar.appendChild(picker);
+  return bar;
+}
+
+// The facet strip under a tabbed view's chrome: real links, so a tab is
+// shareable and middle-clickable like any route. Each link carries the
+// view's project so switching facets keeps the scope.
+export function createTabBar(documentNode, entry, activeTabId, project) {
+  const bar = el(documentNode, "div", "tab-bar");
+  for (const tab of entry.tabs) {
+    const link = el(documentNode, "a", "tab-link", tab.label);
+    link.href = buildUniverseRoute(entry.id, project, tab.id);
+    link.classList.toggle("active", tab.id === activeTabId);
+    bar.appendChild(link);
+  }
   return bar;
 }

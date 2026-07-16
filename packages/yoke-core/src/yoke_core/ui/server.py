@@ -57,6 +57,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "strategy.doc.list",
     "ouroboros.entry.list",
     "board.data.get",
+    "deployment_runs.list",
     "events.query.run",
 })
 
