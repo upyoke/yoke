@@ -136,6 +136,7 @@ from yoke_cli.commands.adapters.projects_capability_settings import (
     PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,
     PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
 )
+from yoke_cli.commands.adapters import projects_environment_settings as _environment_settings_usage
 from yoke_cli.commands.adapters.project_github_binding import (
     PROJECTS_GITHUB_BINDING_BIND_USAGE, PROJECTS_GITHUB_BINDING_STATUS_USAGE, PROJECTS_GITHUB_BINDING_UNBIND_USAGE, PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
 )
@@ -276,8 +277,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
     "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
     "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
-    "deployment_runs.resolve_target_env":
-        DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
+    "deployment_runs.resolve_target_env": DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
     "ephemeral_env.update": EPHEMERAL_ENV_UPDATE_USAGE,
     "projects.get": PROJECTS_GET_USAGE,
     "projects.list": PROJECTS_LIST_USAGE,
@@ -287,9 +287,9 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
-    "projects.capability_settings.merge": (
-        PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE
-    ),
+    "projects.capability_settings.merge": PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,
+    "projects.environment_settings.get": _environment_settings_usage.GET_USAGE,
+    "projects.environment_settings.merge": _environment_settings_usage.MERGE_USAGE,
     "projects.capability_secret.set": PROJECTS_CAPABILITY_SECRET_SET_USAGE,
     "projects.checkout_context.run": PROJECTS_CHECKOUT_CONTEXT_USAGE,
     "projects.github_binding.bind": PROJECTS_GITHUB_BINDING_BIND_USAGE, "projects.github_binding.unbind": PROJECTS_GITHUB_BINDING_UNBIND_USAGE, "projects.github_binding.status": PROJECTS_GITHUB_BINDING_STATUS_USAGE,
