@@ -61,16 +61,24 @@ protection command.
 
 ## Move an existing universe here
 
-Create a fresh bundle, but do not start its `core` service. Protect the
-portable archive as private control-plane data, then import it from outside or
-inside the bundle directory:
+Point the import at a bundle (a fresh one, or an existing one whose universe
+you are replacing), but do not start its `core` service. Protect the portable
+archive as private control-plane data, then import it from outside or inside
+the bundle directory:
 
 ```bash
 yoke self-host init --dir /path/to/yoke-server
-chmod 600 ~/Downloads/acme-universe.dump
-yoke self-host import ~/Downloads/acme-universe.dump \
+chmod 600 ~/Downloads/acme-universe-20260714T120000Z.tar
+yoke self-host import ~/Downloads/acme-universe-20260714T120000Z.tar \
   --dir /path/to/yoke-server
 ```
+
+The archive is one tar carrying the database dump and its freeze receipt
+(see [Universe portability](universe-portability.md)); checksum verification
+is derived from the receipt inside it. The command asks exactly one thing
+beyond the file: consent to replace whatever universe the bundle's database
+currently holds (type `replace` at the prompt, or pass `--yes` for
+non-interactive runs).
 
 The command requires Docker with Compose, validates the existing bundle, and
 refuses while its `core` service is running. It opens the archive without
@@ -79,12 +87,10 @@ no group or world access. Compose starts only the database, then streams the
 archive over stdin to a one-off process in the pinned server image; the host
 archive is never bind-mounted into a container.
 
-The destination database must be catalog-empty. Uploaded DDL is never run:
-Yoke creates the trusted schema from the destination image, validates the
-bounded custom-format archive, and restores only approved table data and
-sequence values. A failure after schema preparation leaves that attempted
-fresh database ineligible for another restore; discard that unused destination
-volume and retry with a new one rather than overwriting it.
+Uploaded DDL is never run: Yoke resets the destination, creates the trusted
+schema from the destination image, validates the bounded archive, and restores
+only approved table data and sequence values inside one transaction. A failed
+or interrupted attempt is simply replaced by the next run.
 
 A whole-universe archive can contain portable capability secrets in raw form,
 alongside hashed API and browser credential records. Keep the archive

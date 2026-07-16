@@ -97,22 +97,26 @@ yoke local-postgres stop
 Your universe is portable. `yoke universe export` dumps the whole
 database to one self-contained artifact — the leave/graduate half of
 moving a universe between deployment modes, since one schema runs
-everywhere and the move is dump-and-restore. A fresh self-host bundle accepts
+everywhere and the move is dump-and-restore. A self-host bundle accepts
 that artifact with `yoke self-host import`:
 
 ```bash
-yoke universe export --out ~/backups/universe.dump
-yoke self-host import ~/backups/universe.dump --dir /path/to/fresh/yoke-server
+yoke universe export --out ~/backups/
+yoke self-host import ~/backups/<org>-universe-<stamp>.tar \
+  --dir /path/to/yoke-server
 ```
 
 Validate archives before moving or uploading them; bounded and disposable
 round-trip recipes are in [Universe portability](universe-portability.md). The
-artifact is a pg_dump custom-format archive (compressed,
-`pg_restore --list`-able). Export requires holding the database DSN, so
-it is sanctioned for the non-prod local universe: an https (hosted or
-self-hosted) connection refuses with guidance, and prod-flagged Postgres
-connections stay operator-only.
-Self-host import requires a stopped `core`, a catalog-empty database, and an owner-only archive; it atomically revokes imported tokens and browser sessions before minting one fresh org-admin token. See [Self-Host Yoke](self-host.md) for recovery details.
+artifact is one tar carrying the pg_dump custom-format payload and the freeze
+receipt that binds it, so the importer verifies the file by itself. Export
+requires holding the database DSN, so it is sanctioned for the non-prod local
+universe: an https (hosted or self-hosted) connection refuses with guidance,
+and prod-flagged Postgres connections stay operator-only.
+Self-host import requires a stopped `core`, an owner-only archive, and one
+consent to replace the destination universe; it atomically revokes imported
+tokens and browser sessions before minting one fresh org-admin token. See
+[Self-Host Yoke](self-host.md) for recovery details.
 
 The `yoke onboard` wizard below drives the same birth machinery when its
 deployment-destination picker answers "This machine" (or with `--local` /

@@ -105,7 +105,10 @@ signup or token: `yoke init --local` fetches an embedded Postgres, births a
 complete machine-local universe under `~/.yoke/`, and points the machine
 config at it. When you want to leave or graduate to another deployment
 mode, `yoke universe export` dumps the whole universe to one portable
-`pg_restore`-compatible artifact; `yoke self-host import <archive> --dir <bundle>` restores it and rotates imported platform-held credentials into one newly shown admin token. See
+tar artifact carrying the database dump and its freeze receipt;
+`yoke self-host import <archive> --dir <bundle>` restores it after one
+replace confirmation and rotates imported platform-held credentials into one
+newly shown admin token. See
 [docs/local-setup.md](docs/local-setup.md) ("Local Mode").
 
 Optionally connect the Yoke GitHub App for product commands that need to

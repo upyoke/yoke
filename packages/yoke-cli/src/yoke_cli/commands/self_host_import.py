@@ -1,4 +1,4 @@
-"""Tool-shaped adapter for restoring a universe into a fresh self-host DB."""
+"""Tool-shaped adapter restoring a universe archive into a self-host DB."""
 
 from __future__ import annotations
 
@@ -21,7 +21,8 @@ from yoke_cli.self_host import bundle
 
 AdapterFn = Callable[[List[str]], int]
 
-IMPORT_USAGE = "yoke self-host import ARCHIVE [--dir D] [--json]"
+IMPORT_USAGE = "yoke self-host import ARCHIVE [--dir D] [--yes] [--json]"
+_CONSENT_WORD = "replace"
 _RECOVERY_COMMAND = f"docker compose run --rm core {RECOVER_IMPORT_CREDENTIAL_ARG}"
 _CORE_IMPORT_COMMAND = (IMPORT_UNIVERSE_ARG,)
 _SUBPROCESS_RUN = subprocess.run
@@ -220,23 +221,61 @@ def _print_summary(payload: Dict[str, object], directory: Path) -> None:
     print(border)
 
 
+def _confirm_replace(directory: Path, *, assume_yes: bool) -> None:
+    """One consent gate: the operator owns destroying the current universe.
+
+    The archive already carries its own freeze receipt, so nothing else is
+    asked — which file and this consent are the only operator decisions.
+    """
+    if assume_yes:
+        return
+    if not sys.stdin.isatty():
+        raise SelfHostImportError(
+            "importing replaces the universe the bundle's database "
+            "currently holds; pass --yes to consent when running "
+            "non-interactively"
+        )
+    print(
+        f"This import replaces the universe held by the bundle at "
+        f"{directory}."
+    )
+    try:
+        response = input(f"Type '{_CONSENT_WORD}' to continue: ")
+    except EOFError:
+        response = ""
+    if response.strip().lower() != _CONSENT_WORD:
+        raise SelfHostImportError(
+            "import cancelled: the destination was not confirmed for "
+            "replacement"
+        )
+
+
 def self_host_import(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke self-host import",
         description=(
-            "Restore a portable universe archive into the catalog-empty "
-            "database of an existing self-host bundle. The core service must "
-            "be stopped. Imported platform-held API tokens and browser "
-            "sessions are revoked, and one fresh org-admin token is shown "
-            "exactly once."
+            "Restore a portable universe archive (one .tar carrying the "
+            "database dump and its freeze receipt) into an existing "
+            "self-host bundle, replacing whatever universe the bundle's "
+            "database currently holds after one confirmation. The core "
+            "service must be stopped. Checksum verification is derived "
+            "from the receipt inside the archive. Imported platform-held "
+            "API tokens and browser sessions are revoked, and one fresh "
+            "org-admin token is shown exactly once."
         ),
     )
-    parser.add_argument("archive", help="Owner-only pg_dump custom-format archive.")
+    parser.add_argument("archive", help="Owner-only portable universe .tar archive.")
     parser.add_argument(
         "--dir",
         dest="directory",
         default=None,
         help=f"Existing bundle directory (default: ./{bundle.DEFAULT_BUNDLE_DIR}).",
+    )
+    parser.add_argument(
+        "--yes",
+        dest="assume_yes",
+        action="store_true",
+        help="Consent to replacing the destination universe without a prompt.",
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, IMPORT_USAGE)
@@ -244,6 +283,7 @@ def self_host_import(args: List[str]) -> int:
         return 2
     try:
         directory = bundle.validate_existing_bundle(directory=parsed.directory)
+        _confirm_replace(directory, assume_yes=parsed.assume_yes)
         with _open_archive(Path(parsed.archive).expanduser()) as archive:
             payload = _execute_import(directory, archive)
     except (bundle.SelfHostBundleError, SelfHostImportError) as exc:
