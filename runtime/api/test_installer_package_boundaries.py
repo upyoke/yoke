@@ -175,6 +175,14 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py",
+        "yoke_core.api.server_entrypoint",
+    ): (
+        "local_engine_activation",
+        "the local-universe UI boot converges the embedded engine schema "
+        "before serving",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py",
         "yoke_core.ui.server",
     ): (
         "local_engine_activation",

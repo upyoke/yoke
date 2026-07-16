@@ -5,7 +5,8 @@
 // host-owned node. The default options preserve `yoke ui`: same-origin
 // cookie-authenticated calls to /api/functions/call and no outer slots.
 // Another same-realm host may inject its own function client, opaque generic
-// capabilities/actions, and named slot nodes without forking this app.
+// capabilities/actions, named slot nodes, and per-view sections without
+// forking this app.
 //
 // Views are hash-routed as `#/<view>[/<segment>]?project=<id>[,<id>…]` so a
 // shared link restores the view, its facet, and the scope. The left nav is
@@ -20,9 +21,11 @@
 // scoped views carry their own chip picker; stubs do not render a control
 // that cannot act.
 //
-// Members and Billing are deliberately absent from NAV. They are hosted
-// chrome the platform injects through the `navigationEnd` slot; the workbench
-// itself has no notion of an account.
+// Members and Billing sit in NAV as host-fed destinations in the one flat
+// arc: the workbench routes them and draws their page head, but their body
+// is the host's `sections` entry, and each nav entry shows exactly when its
+// section is supplied. The workbench itself still has no notion of an
+// account — the content stays host-owned.
 
 import {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -30,8 +33,8 @@ import {
 } from "./contract.js";
 import {
   appendSlot, attachMountRootClass,
-  createUnmountHandle, detachMountedSlots, materializeSlots,
-  validateMountRoot,
+  createUnmountHandle, detachMountedSlots, materializeSections,
+  materializeSlots, validateMountRoot,
 } from "./mount-options.js";
 import {
   buildUniverseRoute,
@@ -158,7 +161,14 @@ export function mountUniverseApp(rootNode, options = {}) {
   }
   const capabilities = options.capabilities || {};
   const slots = options.slots || {};
-  const resolvedSlots = materializeSlots(slots, rootNode);
+  // Slots and sections share one duplicate ledger: a node placed as both a
+  // slot and a section is one Element asked to stand in two places.
+  const hostContentNodes = new Set();
+  const resolvedSlots = materializeSlots(slots, rootNode, hostContentNodes);
+  const resolvedSections = materializeSections(
+    options.sections || {}, rootNode, hostContentNodes,
+  );
+  const sectionNodes = Object.values(resolvedSections);
   const mountedSlotNodes = [];
   let mounted = true;
   let projects = [];
@@ -213,6 +223,10 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const navLinks = new Map();
   for (const entry of NAV) {
+    // A host-fed destination is only reachable through the content its host
+    // supplies, so its entry joins the arc exactly when that section does —
+    // never a dead link to an empty screen.
+    if (entry.hostFed && !resolvedSections[entry.id]) continue;
     // Glyph and label are separate spans so the glyph column stays fixed
     // and long labels ellipsize instead of wrapping under it.
     const link = el(documentNode, "a", "nav-link");
@@ -248,7 +262,19 @@ export function mountUniverseApp(rootNode, options = {}) {
   // Each visited scoped view remembers its own project.
   const scopeSelections = new Map();
 
+  // A host section renders inside the view host, after whatever the view
+  // renders for itself — one seam every view shares, so the host never
+  // reaches into a renderer's own output.
+  function appendViewSection(entry, viewHost) {
+    const sectionNode = resolvedSections[entry.id];
+    if (sectionNode) viewHost.appendChild(sectionNode);
+  }
+
   function renderRoute() {
+    // A section the previous route mounted leaves before the new route
+    // renders, so the host's node reference never strands inside a
+    // discarded subtree.
+    detachMountedSlots(rootNode, sectionNodes);
     const route = parseUniverseRoute(windowNode.location.hash);
     const entry = navEntry(route.view);
     const scope = scopeForEntry(
@@ -257,12 +283,25 @@ export function mountUniverseApp(rootNode, options = {}) {
 
     for (const navItem of NAV) {
       const link = navLinks.get(navItem.id);
+      // A host-fed destination without its section built no link at all.
+      if (!link) continue;
       // Each destination's link carries the scope that screen remembers for
       // itself — an "all" or never-visited multi view links with no query.
       link.href = buildUniverseRoute(
         navItem.id, rememberedScopeParam(navItem, projects, scopeSelections),
       );
       link.classList.toggle("active", navItem.id === entry.id);
+    }
+
+    if (entry.hostFed) {
+      // The page head still belongs to the route; only the body is the
+      // host's. A deep link whose host supplied nothing states honestly
+      // that the screen is not here — this mount cannot render it.
+      const viewHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(createPageHead(documentNode, entry), viewHost);
+      if (resolvedSections[entry.id]) appendViewSection(entry, viewHost);
+      else renderStubView(context, viewHost);
+      return;
     }
 
     if (entry.tabs) {
@@ -282,12 +321,14 @@ export function mountUniverseApp(rootNode, options = {}) {
         const stubHost = el(documentNode, "div", "view-host");
         main.replaceChildren(pageHead, tabBar, stubHost);
         renderStubView(context, stubHost, tab.summary);
+        appendViewSection(entry, stubHost);
         return;
       }
       if (entry.scope === SCOPE_NONE) {
         const viewHost = el(documentNode, "div", "view-host");
         main.replaceChildren(pageHead, tabBar, viewHost);
         tabRenderer(context, viewHost, null);
+        appendViewSection(entry, viewHost);
         return;
       }
       // Only a single-scope view needs a project to exist: an unfiltered
@@ -312,6 +353,7 @@ export function mountUniverseApp(rootNode, options = {}) {
         viewHost,
       );
       tabRenderer(context, viewHost, scope);
+      appendViewSection(entry, viewHost);
       return;
     }
 
@@ -321,12 +363,14 @@ export function mountUniverseApp(rootNode, options = {}) {
       const stubHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), stubHost);
       renderStubView(context, stubHost);
+      appendViewSection(entry, stubHost);
       return;
     }
     if (entry.scope === SCOPE_NONE) {
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), viewHost);
       renderer(context, viewHost, null);
+      appendViewSection(entry, viewHost);
       return;
     }
     // Only a single-scope view needs a project to exist (see the tab path).
@@ -341,7 +385,8 @@ export function mountUniverseApp(rootNode, options = {}) {
     if (detailRenderer && detailProject !== null) {
       // A drill-in swaps the view's picker for a breadcrumb, and the
       // breadcrumb is a drill-in's whole head: re-scoping a single row to
-      // another project is nonsense, and the way out is back.
+      // another project is nonsense, and the way out is back. The view's
+      // host section stays out too — it belongs to the view, not to one row.
       const detailHost = el(documentNode, "div", "view-host");
       main.replaceChildren(
         createBreadcrumb(
@@ -364,6 +409,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       viewHost,
     );
     renderer(context, viewHost, scope);
+    appendViewSection(entry, viewHost);
   }
 
   windowNode.addEventListener("hashchange", renderRoute);
@@ -384,7 +430,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
     windowNode.removeEventListener("hashchange", renderRoute);
-    detachMountedSlots(rootNode, mountedSlotNodes);
+    detachMountedSlots(rootNode, [...mountedSlotNodes, ...sectionNodes]);
     rootNode.replaceChildren();
     detachRootClass();
   });

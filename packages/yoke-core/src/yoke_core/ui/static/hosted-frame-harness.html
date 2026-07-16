@@ -106,15 +106,15 @@
 
     // navigationEnd — the platform's injected org links (admin set), each
     // wearing the workbench nav-link anatomy (glyph box + label) the way
-    // the platform's slot builder emits them.
+    // the platform's slot builder emits them. Members and Billing are not
+    // links here: they are host-fed views the sections below light in the
+    // workbench's own nav arc.
     function sampleOrgLinks() {
       const container = el("div", "hosted-org-links");
       const links = [
         ["hosted-project-link", "✚", "New project", "projects/new"],
         ["hosted-github-link", "⎇", "GitHub", "github/repositories"],
         ["hosted-tenant-replacement-link", "⇅", "Import universe", "tenant-replacement"],
-        ["hosted-member-link", "⚉", "Manage members", "members"],
-        ["hosted-billing-link", "❒", "Billing", "billing"],
       ];
       for (const [className, glyph, text, route] of links) {
         const link = el("a", `${className} nav-link`);
@@ -149,6 +149,21 @@
       return container;
     }
 
+    // sections — the platform's host-fed screens. Supplying these lights
+    // the Members and Billing entries in the workbench's own nav arc; the
+    // panels wear the workbench panel anatomy so the framed screens read
+    // like the rest of the app.
+    function sampleHostSection(title, text) {
+      const panel = el("section", "panel");
+      const header = el("div", "panel-header");
+      header.appendChild(el("h2", null, title));
+      panel.appendChild(header);
+      const body = el("div", "panel-body");
+      body.appendChild(el("p", null, text));
+      panel.appendChild(body);
+      return panel;
+    }
+
     mountUniverseApp(document.getElementById("universe-root"), {
       currentActor: { id: 2, kind: "human", label: "ben" },
       capabilities: {
@@ -170,6 +185,16 @@
         navigationEnd: sampleOrgLinks(),
         contentBefore: sampleContentNotice(),
         contentAfter: sampleReservedContentAfter(),
+      },
+      sections: {
+        members: sampleHostSection(
+          "Members",
+          "Sample member roster supplied by the host platform.",
+        ),
+        billing: sampleHostSection(
+          "Billing",
+          "Sample billing summary supplied by the host platform.",
+        ),
       },
     });
   </script>

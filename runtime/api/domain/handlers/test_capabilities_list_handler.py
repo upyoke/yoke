@@ -66,16 +66,17 @@ def _insert_github_binding(
     installation_id: str = "inst-1",
     binding_verified_at: str | None = None,
     installation_verified_at: str | None = None,
+    installation_status: str = "active",
 ) -> None:
     now = _iso()
     conn.execute(
         "INSERT INTO github_app_installations ("
         "installation_id, account_id, account_login, account_type, "
-        "last_verified_at, created_at, updated_at"
-        ") VALUES (%s, %s, %s, %s, %s, %s, %s) "
+        "status, last_verified_at, created_at, updated_at"
+        ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
         "ON CONFLICT (installation_id) DO NOTHING",
         (installation_id, "acct-1", "example-org", "Organization",
-         installation_verified_at, now, now),
+         installation_status, installation_verified_at, now, now),
     )
     conn.execute(
         "INSERT INTO project_github_repo_bindings ("
@@ -153,6 +154,48 @@ class TestGithubFreshnessOverlay:
         assert by_type["github"]["state"] == "verified"
         assert by_type["aws-admin"]["state"] == "configured_unverified"
         assert by_type["aws-admin"]["verified_at"] is None
+
+    def test_suspended_installation_never_reads_verified(self, test_db):
+        # Both stamps were earned through the installation's credential
+        # channel; a suspended installation severs it, so neither stamp
+        # overlays — the row must agree with the binding status read's
+        # automation-unavailable verdict instead of contradicting it.
+        _insert_capability(test_db, "github")
+        _insert_github_binding(
+            test_db, binding_verified_at=_iso(10),
+            installation_verified_at=_iso(3),
+            installation_status="suspended",
+        )
+        rows = list_capabilities()
+        assert rows[0]["verified_at"] is None
+        assert rows[0]["verified_source"] is None
+        assert rows[0]["state"] == "configured_unverified"
+
+    def test_deleted_installation_never_reads_verified(self, test_db):
+        _insert_capability(test_db, "github")
+        _insert_github_binding(
+            test_db, binding_verified_at=_iso(10),
+            installation_verified_at=_iso(3),
+            installation_status="deleted",
+        )
+        rows = list_capabilities()
+        assert rows[0]["verified_at"] is None
+        assert rows[0]["state"] == "configured_unverified"
+
+    def test_suspension_gates_only_the_overlay_source(self, test_db):
+        # The capability row's own stamp is a different provenance: it
+        # never flowed through the installation, so a suspended
+        # installation does not erase it.
+        stamp = _iso(30)
+        _insert_capability(test_db, "github", verified_at=stamp)
+        _insert_github_binding(
+            test_db, binding_verified_at=_iso(5),
+            installation_status="suspended",
+        )
+        rows = list_capabilities()
+        assert rows[0]["verified_at"] == stamp
+        assert rows[0]["verified_source"] == "capability"
+        assert rows[0]["state"] == "verified"
 
 
 class TestScopeAndSummary:

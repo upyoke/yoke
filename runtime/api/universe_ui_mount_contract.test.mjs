@@ -383,6 +383,139 @@ test("mount rejects non-elements and rolls back throwing slot factories", () => 
     /requires an HTML element root/);
 });
 
+test("host-fed sections light their nav entries and render as the view", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/members";
+  const root = documentNode.createElement("div");
+  const membersPanel = documentNode.createElement("section");
+  const billingPanel = documentNode.createElement("section");
+  const mounted = mountUniverseApp(root, {
+    client: injectedClient("host"),
+    // One section arrives as an element, the other through a factory: both
+    // shapes of UniverseSlotContent materialize the same way.
+    sections: { members: membersPanel, billing: () => billingPanel },
+  });
+  await settle();
+
+  // Both host-fed entries join the one flat nav arc as ordinary links.
+  const navLabels = byClass(root, "nav-link")
+    .map((link) => link.children[1] && link.children[1].textContent);
+  assert.ok(navLabels.includes("Members"));
+  assert.ok(navLabels.includes("Billing"));
+
+  // The routed host-fed view mounts the host's node as the whole body under
+  // the entry's own page head — no picker, no stub.
+  assert.ok(allNodes(root).includes(membersPanel));
+  assert.equal(byClass(root, "title")[0].textContent, "Members");
+  assert.equal(byClass(root, "scope-bar").length, 0);
+  assert.equal(byClass(root, "stub-panel").length, 0);
+  assert.ok(membersPanel.parentNode.classList.contains("view-host"));
+
+  // Routing to the other host-fed view swaps sections and releases the
+  // outgoing node completely — it never strands in a discarded subtree.
+  documentNode.defaultView.location.hash = "#/billing";
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
+  assert.ok(allNodes(root).includes(billingPanel));
+  assert.equal(membersPanel.parentNode, null);
+  assert.equal(byClass(root, "title")[0].textContent, "Billing");
+
+  // Unmount detaches the mounted section, leaving the node reusable.
+  mounted.unmount();
+  assert.equal(billingPanel.parentNode, null);
+  assert.equal(membersPanel.parentNode, null);
+});
+
+test("a host-fed deep link without its section stays honest", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/members";
+  const root = documentNode.createElement("div");
+  const mounted = mountUniverseApp(root, { client: injectedClient("local") });
+  await settle();
+
+  // No supplied section, no nav entry: the arc carries no dead links.
+  const navLabels = byClass(root, "nav-link")
+    .map((link) => link.children[1] && link.children[1].textContent);
+  assert.ok(!navLabels.includes("Members"));
+  assert.ok(!navLabels.includes("Billing"));
+
+  // The deep link still routes — the page head names the destination and
+  // the body is the coming-soon stub, not a blank or a crash.
+  assert.equal(byClass(root, "title")[0].textContent, "Members");
+  assert.equal(byClass(root, "stub-panel").length, 1);
+
+  mounted.unmount();
+});
+
+test("a section for a workbench view appends after the view's own output", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/strategy";
+  const root = documentNode.createElement("div");
+  const extra = documentNode.createElement("aside");
+  const mounted = mountUniverseApp(root, {
+    client: injectedClient("host"),
+    sections: { strategy: extra },
+  });
+  await settle();
+
+  // The view renders itself first; the host's section lands after it,
+  // inside the same view host.
+  const viewHost = byClass(root, "view-host")[0];
+  assert.ok(viewHost.children.length >= 2);
+  assert.ok(viewHost.children[0].classList.contains("panel"));
+  assert.equal(viewHost.children[viewHost.children.length - 1], extra);
+
+  // A section never turns a workbench view into a nav toggle: strategy's
+  // entry was in the arc before the section and stays exactly once.
+  const strategyLinks = byClass(root, "nav-link").filter(
+    (link) => link.children[1] && link.children[1].textContent === "Strategy",
+  );
+  assert.equal(strategyLinks.length, 1);
+
+  // Leaving the view releases the section node; unmount keeps it released.
+  documentNode.defaultView.location.hash = "#/items";
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
+  assert.equal(extra.parentNode, null);
+  mounted.unmount();
+  assert.equal(extra.parentNode, null);
+});
+
+test("mount rejects section content the way it rejects slot content", () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const node = documentNode.createElement("section");
+  const fragment = new FakeNode(documentNode, "fragment", 11);
+  const client = injectedClient("unused");
+
+  assert.throws(() => mountUniverseApp(root, {
+    client, sections: { members: fragment },
+  }), /section content must be an Element/);
+  assert.throws(() => mountUniverseApp(root, {
+    client, sections: { members: node, billing: node },
+  }), /cannot occupy two universe app slots or sections/);
+  // The duplicate ledger spans slots and sections: one Element cannot stand
+  // in a slot and a section at once.
+  assert.throws(() => mountUniverseApp(root, {
+    client, slots: { contentAfter: node }, sections: { members: node },
+  }), /cannot occupy two universe app slots or sections/);
+  assert.equal(root.children.length, 0);
+  assert.equal(node.parentNode, null);
+  assert.equal(client.requests.length, 0);
+});
+
 test("a synchronously throwing client still returns a cleanup handle", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -427,11 +560,12 @@ test("every nav destination declares how it takes project scope", () => {
   for (const view of ["projects", "access", "templates", "universe-settings"]) {
     assert.equal(universeNavScope(view), "none");
   }
-  // Members and Billing are hosted chrome the platform injects through a
-  // slot, so the workbench's own nav does not route them at all.
-  for (const hosted of ["#/members", "#/billing"]) {
-    assert.deepEqual(parseUniverseRoute(hosted), {
-      view: "overview", tab: null, detail: null, project: null,
+  // Members and Billing are host-fed views: the workbench routes them like
+  // any destination, and no project narrows a host-owned screen.
+  for (const hostFed of ["members", "billing"]) {
+    assert.equal(universeNavScope(hostFed), "none");
+    assert.deepEqual(parseUniverseRoute(`#/${hostFed}`), {
+      view: hostFed, tab: null, detail: null, project: null,
     });
   }
 });

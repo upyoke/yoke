@@ -44,7 +44,8 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
         "universe_view_support.js", "universe_views.js",
-        "universe_views_settings.js", "universe_views_workflows.js",
+        "universe_views_github.js", "universe_views_settings.js",
+        "universe_views_workflows.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
@@ -171,20 +172,26 @@ def test_page_module_wires_the_workbench_shell():
     ).read_text()
     assert "workflows.definition.get" in workflows_view
 
+    github_view = static_root.joinpath("universe_views_github.js").read_text()
+    assert "projects.github_binding.status" in github_view
+
 
 def test_every_nav_destination_is_routable_and_scoped():
     """Each nav entry is a real route from day one: it declares its scope and
-    either renders rows or states what it will be."""
+    either renders rows, states what it will be, or renders host content."""
     page_module = files("yoke_core.ui").joinpath(
         "static", "universe_navigation.js",
     ).read_text()
     for destination in (
         "overview", "inbox", "strategy", "frontier", "items", "board",
         "sessions", "delivery", "qa", "workflows", "capabilities", "events",
-        "doctor", "ouroboros", "projects", "access", "templates", "github",
-        "project-settings", "universe-settings",
+        "doctor", "ouroboros", "projects", "access", "members", "billing",
+        "templates", "github", "project-settings", "universe-settings",
     ):
         assert f'id: "{destination}"' in page_module, destination
-    # Hosted chrome arrives through the platform's slot, never the nav roster.
-    for hosted in ("members", "billing"):
-        assert f'id: "{hosted}"' not in page_module, hosted
+    # Host-fed screens sit in the same flat nav arc as every other view, and
+    # the flag ties each entry's visibility to a host-supplied section.
+    for host_fed in ("members", "billing"):
+        entry_start = page_module.index(f'id: "{host_fed}"')
+        entry_end = page_module.index("}", entry_start)
+        assert "hostFed: true" in page_module[entry_start:entry_end], host_fed
