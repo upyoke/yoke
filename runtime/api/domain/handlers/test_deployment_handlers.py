@@ -5,11 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock, patch
 
-from yoke_core.domain.handlers import (
-    deployment_flows,
-    deployment_receipts,
-    deployment_runs,
-)
+from yoke_core.domain.handlers import deployment_flows, deployment_runs
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -118,9 +114,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         with patch(
             "yoke_core.domain.deployment_runs_crud_query.cmd_get",
             return_value=None,
-        ), patch(
-            "yoke_core.domain.deployment_receipts.get_run_receipt",
-        ) as archived_get:
+        ):
             outcome = deployment_runs.handle_deployment_run_get(
                 _request(
                     function="deployment_runs.get",
@@ -129,7 +123,6 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "not_found")
-        archived_get.assert_not_called()
 
     def test_run_list_uses_project_and_status_filters(self):
         raw = "run-20260616-001|yoke|flow|prod||created||now|||operator"
@@ -202,84 +195,6 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertEqual(outcome.result_payload["target_env"], "prod")
 
 
-class TestDeploymentReceiptHandlers(unittest.TestCase):
-    def test_run_receipt_get_is_archive_only_global_read(self):
-        receipt = {
-            "run_id": "run-archive-001",
-            "payload": {"run": {"id": "run-archive-001"}},
-            "digest_verified": True,
-        }
-        with patch(
-            "yoke_core.domain.deployment_receipts.get_run_receipt",
-            return_value=receipt,
-        ):
-            outcome = deployment_receipts.handle_run_receipt_get(
-                _request(
-                    function="deployment_run_receipts.get",
-                    payload={"run_id": "run-archive-001"},
-                )
-            )
-        self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["receipt"], receipt)
-
-    def test_flow_receipt_get_does_not_require_active_definition(self):
-        receipt = {
-            "flow_id": "retired-flow",
-            "payload": {"flow": {"id": "retired-flow"}},
-            "digest_verified": True,
-        }
-        with patch(
-            "yoke_core.domain.deployment_receipts.get_flow_receipt",
-            return_value=receipt,
-        ):
-            outcome = deployment_receipts.handle_flow_receipt_get(
-                _request(
-                    function="deployment_flow_receipts.get",
-                    payload={"flow_id": "retired-flow"},
-                )
-            )
-        self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["receipt"], receipt)
-
-    def test_receipt_digest_failure_is_explicit(self):
-        from yoke_core.domain import deployment_receipts as receipt_domain
-
-        with patch(
-            "yoke_core.domain.deployment_receipts.get_run_receipt",
-            side_effect=receipt_domain.DeploymentReceiptIntegrityError(
-                "stored deployment receipt payload digest does not match"
-            ),
-        ):
-            outcome = deployment_receipts.handle_run_receipt_get(
-                _request(
-                    function="deployment_run_receipts.get",
-                    payload={"run_id": "run-archive-001"},
-                )
-            )
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "receipt_invalid")
-
-    def test_run_receipt_list_passes_archive_filters(self):
-        with patch(
-            "yoke_core.domain.deployment_receipts.list_run_receipts",
-            return_value=[{"run_id": "run-archive-001"}],
-        ) as list_receipts:
-            outcome = deployment_receipts.handle_run_receipt_list(
-                _request(
-                    function="deployment_run_receipts.list",
-                    payload={
-                        "project": "platform",
-                        "flow": "retired-flow",
-                        "status": "succeeded",
-                    },
-                )
-            )
-        self.assertTrue(outcome.primary_success)
-        list_receipts.assert_called_once_with(
-            project="platform", flow="retired-flow", status="succeeded"
-        )
-
-
 class TestDeploymentHandlerRegistration(unittest.TestCase):
     def test_deployment_function_ids_are_registered(self):
         from yoke_core.domain.handlers.__init_register__ import (
@@ -297,13 +212,6 @@ class TestDeploymentHandlerRegistration(unittest.TestCase):
             self.assertIn("deployment_runs.list", ids)
             self.assertIn("deployment_runs.update", ids)
             self.assertIn("deployment_runs.resolve_target_env", ids)
-            self.assertIn("deployment_flow_receipts.get", ids)
-            self.assertIn("deployment_flow_receipts.list", ids)
-            self.assertIn("deployment_run_receipts.get", ids)
-            self.assertIn("deployment_run_receipts.list", ids)
-            receipt_get = registry.lookup("deployment_run_receipts.get")
-            self.assertEqual(list(receipt_get.side_effects), [])
-            self.assertEqual(list(receipt_get.target_kinds), ["global"])
             update = registry.lookup("deployment_runs.update")
             self.assertEqual(
                 list(update.side_effects), ["deployment_runs_update"],

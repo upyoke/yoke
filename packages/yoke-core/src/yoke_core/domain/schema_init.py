@@ -4,9 +4,6 @@ from yoke_core.domain.actor_permissions import seed_roles_and_permissions
 from yoke_core.domain.actors import seed_canonical_actors
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.events_schema import ensure_event_schema
-from yoke_core.domain.deployment_receipt_schema import (
-    ensure_deployment_receipt_schema,
-)
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
 from yoke_core.domain.flow_init import create_or_replace_item_progress_view
 from yoke_core.domain.github_app_schema import create_github_app_tables
@@ -57,7 +54,6 @@ def converge_core_schema(conn) -> None:
     creation steps precede it.
     """
     create_core_tables(conn)
-    ensure_deployment_receipt_schema(conn)
     create_actor_identity_tables(conn)
     ensure_event_schema(conn)
     create_work_claim_active_uniques(conn)
