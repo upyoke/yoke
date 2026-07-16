@@ -8,6 +8,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_core.domain import json_helper
 from yoke_core.domain.handlers import db_read
 from yoke_core.domain.handlers.db_read import DbReadRunRequest
 from yoke_core.domain.handlers.db_read_sql import validate_read_only_sql
@@ -53,6 +54,42 @@ def test_runner_returns_columns_rows_and_truncation() -> None:
     assert result.rows == [[1, "one"], [2, "two"]]
     assert result.row_count == 2
     assert result.truncated is True
+
+
+def test_runner_redacts_sensitive_settings_even_when_column_is_aliased() -> None:
+    settings = json_helper.dumps_compact({
+        "database": {"name": "example_prod"},
+        "pulumi": {
+            "encrypted_key": "opaque-ciphertext",
+            "secrets_provider": "provider-reference",
+        },
+        "github_app": {
+            "private_key_secret_arn": "secret-resource-reference",
+        },
+    })
+    with pg_testdb.test_database() as conn:
+        conn.execute(
+            "CREATE TABLE diagnostic_settings "
+            "(settings TEXT, encrypted_key TEXT, branch TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO diagnostic_settings "
+            "(settings, encrypted_key, branch) VALUES (%s, %s, %s)",
+            (settings, "direct-ciphertext", "main"),
+        )
+        conn.commit()
+
+        result = db_read.run_db_read(DbReadRunRequest(sql=(
+            "SELECT settings AS config, encrypted_key, branch "
+            "FROM diagnostic_settings"
+        )))
+
+    redacted = json_helper.loads_text(result.rows[0][0])
+    assert redacted["database"]["name"] == "example_prod"
+    assert redacted["pulumi"]["encrypted_key"] == "<redacted>"
+    assert redacted["pulumi"]["secrets_provider"] == "<redacted>"
+    assert redacted["github_app"]["private_key_secret_arn"] == "<redacted>"
+    assert result.rows[0][1:] == ["<redacted>", "main"]
 
 
 def test_handler_returns_typed_refusal_for_mutation() -> None:
