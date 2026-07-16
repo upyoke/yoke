@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 import hashlib
-import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_core.domain import universe_export, universe_portability
-from yoke_core.domain.source_authority_export_artifacts import (
-    SourceExportArtifactError,
-    cleanup_staged,
-    prepare_artifact_set,
-    publish_artifact_set,
+from yoke_core.domain import (
+    runtime_settings,
+    universe_archive,
+    universe_export,
+    universe_portability,
 )
 from yoke_core.domain.source_authority_receipts import authority_receipt
-from yoke_core.domain.source_freeze_intent import (
-    file_sha256,
-    freeze_intent,
-)
+from yoke_core.domain.source_freeze_intent import file_sha256
 
 
 def export_quiesced(
@@ -29,7 +26,7 @@ def export_quiesced(
 
     bundle = cutover._load_bundle(credential_file, original_dsn=dsn)
     resolved = bundle.cutover_dsn
-    artifact_set = None
+    staged_dump: Path | None = None
     try:
         conn = cutover._admin_connection(resolved)
         try:
@@ -43,19 +40,24 @@ def export_quiesced(
                 )
             state = cutover._validate_bundle_authority(conn, bundle)
             database = cutover._database_identity(conn)
-            artifact_set = prepare_artifact_set(
-                out, org_slug=database["org"],
+            dest = universe_export.resolve_export_destination(
+                out, database["org"],
             )
             frozen_at = state["frozen_at"]
             snapshot_id = str(
                 conn.execute("SELECT pg_export_snapshot()").fetchone()[0]
             )
             before = authority_receipt(conn)
-            report = universe_export.export_universe(
-                out=artifact_set.staged, dsn=resolved, snapshot=snapshot_id,
-                org_slug=database["org"],
+            staged_dump = _staged_dump(dest)
+            inspection = universe_portability.dump_universe(
+                resolved,
+                staged_dump,
+                timeout_s=runtime_settings.get_seconds(
+                    universe_export.EXPORT_TIMEOUT_SETTING,
+                    universe_export.DEFAULT_EXPORT_TIMEOUT_S,
+                ),
+                snapshot=snapshot_id,
             )
-            inspection = universe_portability.inspect_archive(report["artifact"])
             fence_after_dump = cutover.connect_fence.connect_fence_status(conn)
             if not fence_after_dump["active"]:
                 raise cutover.SourceAuthorityCutoverError(
@@ -72,7 +74,7 @@ def export_quiesced(
                 "source authority changed during quiesced universe export"
             )
         catalog = universe_portability.archive_catalog_receipt(inspection)
-        archive_sha = file_sha256(artifact_set.staged)
+        archive_sha = file_sha256(staged_dump)
         if str(catalog["archive_sha256"]) != archive_sha:
             raise cutover.SourceAuthorityCutoverError(
                 "archive checksum changed between validation and receipt binding"
@@ -100,25 +102,22 @@ def export_quiesced(
             raise cutover.SourceAuthorityCutoverError(
                 "source authority changed after the exported snapshot"
             )
-        intent = freeze_intent(
-            database=database, frozen_at=frozen_at, authority=fresh_receipt,
-            archive={
-                "sha256": archive_sha,
-                "bytes": int(report["bytes"]),
-                "catalog_digest": str(catalog["catalog_digest"]),
-            },
+        receipt = universe_archive.build_freeze_receipt(
+            database=database,
+            frozen_at=frozen_at,
+            authority=fresh_receipt,
+            inspection=inspection,
+            zero_writable_app_sessions=True,
         )
-        receipt = {
-            "freeze_intent": intent,
-            "source_authority": fresh_receipt,
-            "catalog": catalog,
-        }
-        publish_artifact_set(
-            artifact_set, intent=intent, receipt=receipt,
+        intent = receipt["freeze_intent"]
+        artifact_bytes = universe_archive.pack_universe_archive(
+            staged_dump, receipt, dest,
         )
         return {
-            **report,
-            "artifact": str(artifact_set.final),
+            "artifact": str(dest),
+            "bytes": artifact_bytes,
+            "format": universe_export.ARTIFACT_FORMAT,
+            "org": database["org"],
             "sha256": intent["archive"]["sha256"],
             "catalog": catalog,
             "source_authority": fresh_receipt,
@@ -134,19 +133,27 @@ def export_quiesced(
                 "connect_fence": fence_after_receipt,
             },
             "freeze_intent": intent,
-            "freeze_intent_header": json.dumps(
-                intent, sort_keys=True, separators=(",", ":"),
-            ),
-            "freeze_intent_path": str(artifact_set.final_intent),
-            "receipt_sidecar_path": str(artifact_set.final_receipt),
         }
     except cutover.connect_fence.SourceConnectFenceError as exc:
         raise cutover.SourceAuthorityCutoverError(str(exc)) from exc
-    except SourceExportArtifactError as exc:
+    except universe_archive.UniverseArchiveError as exc:
         raise cutover.SourceAuthorityCutoverError(str(exc)) from exc
     finally:
-        if artifact_set is not None:
-            cleanup_staged(artifact_set)
+        if staged_dump is not None:
+            staged_dump.unlink(missing_ok=True)
+
+
+def _staged_dump(destination: Path) -> Path:
+    """A private sibling file holding the dump before it is packed."""
+    descriptor, raw_path = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        suffix=".dump",
+        dir=destination.parent,
+    )
+    os.close(descriptor)
+    staged = Path(raw_path)
+    staged.chmod(0o600)
+    return staged
 
 
 __all__ = ["export_quiesced"]

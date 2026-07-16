@@ -1,10 +1,11 @@
-"""Tests for the fresh-database ``yoke self-host import`` adapter."""
+"""Tests for the one-file, one-consent ``yoke self-host import`` adapter."""
 
 from __future__ import annotations
 
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -25,8 +26,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 def import_files(tmp_path):
     directory = tmp_path / "server"
     bundle.write_bundle(directory=str(directory))
-    archive = tmp_path / "universe.dump"
-    archive.write_bytes(b"PGDMP test archive")
+    archive = tmp_path / "universe.tar"
+    archive.write_bytes(b"portable universe tar")
     archive.chmod(0o600)
     return directory.resolve(), archive
 
@@ -66,7 +67,7 @@ def test_import_runs_exact_compose_sequence_and_prints_one_time_token(
         return _completed(argv, returncode=returncode, stdout=stdout, stderr=stderr)
 
     monkeypatch.setattr(command, "_SUBPROCESS_RUN", fake_run)
-    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 0
+    assert command.self_host_import([str(archive), "--dir", str(directory), "--yes"]) == 0
     output = capsys.readouterr().out
     assert "yoke_v1_ReplacementCredential" in output
     assert "shown once" in output
@@ -112,7 +113,7 @@ def test_import_json_mode_emits_machine_readable_credential(
     )
     monkeypatch.setattr(command, "_SUBPROCESS_RUN", lambda *_a, **_k: next(responses))
     assert (
-        command.self_host_import([str(archive), "--dir", str(directory), "--json"]) == 0
+        command.self_host_import([str(archive), "--dir", str(directory), "--yes", "--json"]) == 0
     )
     assert json.loads(capsys.readouterr().out)["token_id"] == 11
 
@@ -128,7 +129,7 @@ def test_import_refuses_running_core_before_starting_database(
         return _completed(argv, stdout=b'[{"State":"running"}]\n')
 
     monkeypatch.setattr(command, "_SUBPROCESS_RUN", running)
-    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
+    assert command.self_host_import([str(archive), "--dir", str(directory), "--yes"]) == 1
     assert len(calls) == 1
     assert "core service is not stopped" in capsys.readouterr().err
 
@@ -145,7 +146,7 @@ def test_import_refuses_non_stopped_core_states(
             argv, stdout=json.dumps([{"State": state}]).encode()
         ),
     )
-    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
+    assert command.self_host_import([str(archive), "--dir", str(directory), "--yes"]) == 1
     assert state in capsys.readouterr().err
 
 
@@ -162,15 +163,15 @@ def test_failed_container_never_echoes_its_stdout_secret(
                 [],
                 returncode=1,
                 stdout=b"yoke_v1_MustNeverEscape",
-                stderr=b"destination is not catalog-empty",
+                stderr=b"the freeze receipt does not match the dump payload",
             ),
         ]
     )
     monkeypatch.setattr(command, "_SUBPROCESS_RUN", lambda *_a, **_k: next(responses))
-    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
+    assert command.self_host_import([str(archive), "--dir", str(directory), "--yes"]) == 1
     output = capsys.readouterr()
     assert "yoke_v1_MustNeverEscape" not in output.out + output.err
-    assert "not catalog-empty" in output.err
+    assert "does not match" in output.err
 
 
 def test_malformed_success_teaches_safe_credential_recovery(
@@ -186,7 +187,7 @@ def test_malformed_success_teaches_safe_credential_recovery(
         ]
     )
     monkeypatch.setattr(command, "_SUBPROCESS_RUN", lambda *_a, **_k: next(responses))
-    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
+    assert command.self_host_import([str(archive), "--dir", str(directory), "--yes"]) == 1
     error = capsys.readouterr().err
     assert "yoke_v1_Hidden" not in error
     assert RECOVER_IMPORT_CREDENTIAL_ARG in error
@@ -202,7 +203,7 @@ def test_import_requires_owner_only_single_link_archive(
         "_SUBPROCESS_RUN",
         lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("compose must not run")),
     )
-    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
+    assert command.self_host_import([str(archive), "--dir", str(directory), "--yes"]) == 1
     assert "chmod 600" in capsys.readouterr().err
 
 
@@ -222,16 +223,66 @@ def test_import_refuses_bundle_with_git_tracked_secrets(
         "_SUBPROCESS_RUN",
         lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("compose must not run")),
     )
-    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
+    assert command.self_host_import([str(archive), "--dir", str(directory), "--yes"]) == 1
     assert "Git already tracks" in capsys.readouterr().err
 
 
+def test_import_requires_consent_when_non_interactive(
+    import_files, monkeypatch, capsys
+):
+    directory, archive = import_files
+    monkeypatch.setattr(command.sys, "stdin", SimpleNamespace(isatty=lambda: False))
+    monkeypatch.setattr(
+        command,
+        "_SUBPROCESS_RUN",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("compose must not run")),
+    )
+    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
+    error = capsys.readouterr().err
+    assert "replaces the universe" in error
+    assert "--yes" in error
+
+
+def test_import_prompt_collects_typed_replace_consent(
+    import_files, monkeypatch, capsys
+):
+    directory, archive = import_files
+    monkeypatch.setattr(command.sys, "stdin", SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr("builtins.input", lambda _prompt: "replace")
+    responses = iter(
+        [
+            _completed([], stdout=b""),
+            _completed([]),
+            _completed([], stdout=b""),
+            _completed([], stdout=json.dumps(_success_payload()).encode()),
+        ]
+    )
+    monkeypatch.setattr(command, "_SUBPROCESS_RUN", lambda *_a, **_k: next(responses))
+    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 0
+    assert "yoke_v1_ReplacementCredential" in capsys.readouterr().out
+
+
+def test_import_prompt_refusal_cancels_before_any_compose_call(
+    import_files, monkeypatch, capsys
+):
+    directory, archive = import_files
+    monkeypatch.setattr(command.sys, "stdin", SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr("builtins.input", lambda _prompt: "no")
+    monkeypatch.setattr(
+        command,
+        "_SUBPROCESS_RUN",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("compose must not run")),
+    )
+    assert command.self_host_import([str(archive), "--dir", str(directory)]) == 1
+    assert "cancelled" in capsys.readouterr().err
+
+
 def test_tool_shaped_resolution():
-    resolved = resolve_tool_shaped(["self-host", "import", "universe.dump"])
+    resolved = resolve_tool_shaped(["self-host", "import", "universe.tar"])
     assert resolved is not None
     adapter, remaining = resolved
     assert adapter is command.self_host_import
-    assert remaining == ["universe.dump"]
+    assert remaining == ["universe.tar"]
 
 
 def test_product_boundary_classifies_import_as_product_client():

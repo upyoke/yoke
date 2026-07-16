@@ -182,13 +182,14 @@ def universe_export(
     out: Optional[str] = None,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
-    """Dump the active universe to a portable artifact through the engine.
+    """Export the active universe to one portable archive via the engine.
 
     The engine owns the whole operation: the DSN-possession authority
     check on the active connection, the directory-vs-file routing of
     ``out`` (a trailing path separator means a directory, so the raw
     string passes through untouched), the org-slug/timestamp default
-    filename, and the ``pg_dump`` custom-format invocation.
+    filename, the snapshot-bound ``pg_dump`` invocation, and packing the
+    dump plus its freeze receipt into one tar artifact.
     """
     engine = _export_engine()
     try:

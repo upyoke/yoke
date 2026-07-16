@@ -1,16 +1,19 @@
-"""Self-host universe import credential-handoff coverage."""
+"""Self-host universe import coverage: one-file archive in, one credential out."""
 
 from __future__ import annotations
 
 import io
 import os
 from contextlib import contextmanager
+from pathlib import Path
 
 import psycopg
 import pytest
 
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import json_helper
+from yoke_core.domain import universe_archive
+from yoke_core.domain import universe_export
 from yoke_core.domain import universe_import_credentials as credentials
 from yoke_core.domain import universe_import_cli as importer
 from yoke_core.domain import universe_portability
@@ -39,13 +42,18 @@ def _canonical_universe():
         pg_testdb.drop_test_database(name)
 
 
+def _exported_archive(source_dsn: str, tmp_path: Path) -> Path:
+    return Path(
+        universe_export.export_universe(dsn=source_dsn, out=tmp_path)["artifact"]
+    )
+
+
 def test_import_stream_rotates_every_credential_and_returns_one_admin(tmp_path):
     with _canonical_universe() as (source, source_dsn):
         first = bootstrap_admin_token(source)
         second = mint_token(source, actor_id=first.actor_id, name="doorman:portable")
         web_session = mint_web_session(source, actor_id=first.actor_id)
-        archive = tmp_path / "portable.dump"
-        universe_portability.dump_universe(source_dsn, archive)
+        archive = _exported_archive(source_dsn, tmp_path)
 
         target_name = pg_testdb.create_test_database()
         target_dsn = pg_testdb.dsn_for_test_database(target_name)
@@ -56,6 +64,8 @@ def test_import_stream_rotates_every_credential_and_returns_one_admin(tmp_path):
             assert result["org"] == "default"
             assert result["revoked_token_count"] == 2
             assert result["revoked_web_session_count"] == 1
+            # Checksum verification is derived from the enclosed receipt.
+            assert len(str(result["archive"]["sha256"])) == 64
             raw_token = str(result["raw_token"])
             assert raw_token.startswith("yoke_v1_")
 
@@ -88,6 +98,72 @@ def test_import_stream_rotates_every_credential_and_returns_one_admin(tmp_path):
             pg_testdb.drop_test_database(target_name)
 
 
+def test_import_replaces_whatever_universe_the_destination_holds(tmp_path):
+    """Empty and lived-in destinations take one identical restore path."""
+    with _canonical_universe() as (source, source_dsn):
+        bootstrap_admin_token(source)
+        source.execute(
+            "INSERT INTO projects "
+            "(id, slug, name, public_item_prefix, created_at) "
+            "VALUES (92001, 'incoming', 'Incoming', 'INC', now())"
+        )
+        source.commit()
+        archive = _exported_archive(source_dsn, tmp_path)
+
+        with _canonical_universe() as (target, target_dsn):
+            bootstrap_admin_token(target)
+            target.execute(
+                "INSERT INTO projects "
+                "(id, slug, name, public_item_prefix, created_at) "
+                "VALUES (92002, 'previous', 'Previous', 'PRV', now())"
+            )
+            target.commit()
+            target.close()
+
+            with archive.open("rb") as stream:
+                result = importer.import_from_stream(stream, dsn=target_dsn)
+            assert result["ok"] is True
+
+            with psycopg.connect(target_dsn) as restored:
+                slugs = {
+                    str(row[0])
+                    for row in restored.execute(
+                        "SELECT slug FROM projects"
+                    ).fetchall()
+                }
+                assert "incoming" in slugs
+                assert "previous" not in slugs
+
+
+def test_import_refuses_mismatched_receipt_before_touching_destination(tmp_path):
+    with _canonical_universe() as (source, source_dsn):
+        bootstrap_admin_token(source)
+        artifact = _exported_archive(source_dsn, tmp_path)
+    with universe_archive.unpacked_universe_archive(
+        artifact,
+        max_dump_bytes=universe_portability.DEFAULT_MAX_ARCHIVE_BYTES,
+    ) as (dump, receipt):
+        receipt["freeze_intent"]["archive"]["sha256"] = "0" * 64
+        forged = tmp_path / "forged.tar"
+        universe_archive.pack_universe_archive(dump, receipt, forged)
+
+    target_name = pg_testdb.create_test_database()
+    target_dsn = pg_testdb.dsn_for_test_database(target_name)
+    try:
+        with forged.open("rb") as stream:
+            with pytest.raises(
+                universe_archive.UniverseArchiveError, match="does not match"
+            ):
+                importer.import_from_stream(stream, dsn=target_dsn)
+        with psycopg.connect(target_dsn) as target:
+            assert target.execute(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                "WHERE table_schema = current_schema()"
+            ).fetchone() == (0,)
+    finally:
+        pg_testdb.drop_test_database(target_name)
+
+
 def test_credential_handoff_rolls_back_as_one_transaction():
     with _canonical_universe() as (conn, _dsn):
         original = bootstrap_admin_token(conn)
@@ -113,7 +189,7 @@ def test_credential_handoff_rolls_back_as_one_transaction():
 def test_staged_archive_is_private_and_removed_after_size_refusal(
     tmp_path, monkeypatch
 ):
-    staged = tmp_path / "staged.dump"
+    staged = tmp_path / "staged.tar"
 
     def make_stage(*_args, **_kwargs):
         descriptor = os.open(staged, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
@@ -184,8 +260,7 @@ def test_archive_with_control_character_org_slug_rolls_back_before_output(tmp_pa
             ("unsafe\ncredential-summary",),
         )
         source.commit()
-        archive = tmp_path / "unsafe-slug.dump"
-        universe_portability.dump_universe(source_dsn, archive)
+        archive = _exported_archive(source_dsn, tmp_path)
 
         target_name = pg_testdb.create_test_database()
         target_dsn = pg_testdb.dsn_for_test_database(target_name)
