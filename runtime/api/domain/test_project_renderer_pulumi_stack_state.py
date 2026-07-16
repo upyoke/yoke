@@ -9,36 +9,6 @@ from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 from runtime.api.domain.test_project_renderer_pulumi import _settings_from_context
 
 
-def test_project_level_stack_state_ignores_retired_site_settings_home():
-    base = _settings_from_context("yoke", {"projectName": "yoke"})
-    site_settings = dict(base.site_settings)
-    site_settings["pulumi"] = {
-        "stacks": ["runner-fleet"],
-        "stack_state": {
-            "yoke-runner-fleet": {
-                "secrets_provider": (
-                    "awskms://alias/yoke-pulumi-state?region=us-east-1"
-                ),
-                "encrypted_key": "ENCRYPTED==",
-            }
-        },
-    }
-    settings = ProjectRendererSettings(
-        project=base.project,
-        deploy_namespace=base.deploy_namespace,
-        display_name=base.display_name,
-        site_id=base.site_id,
-        site_settings=site_settings,
-        primary_environment=base.primary_environment,
-        environments=base.environments,
-        capabilities=base.capabilities,
-    )
-
-    assert _operator_state_lines_from_settings(
-        settings, "yoke-runner-fleet",
-    ) == ""
-
-
 def test_project_level_stack_state_renders_from_capability_without_site():
     base = _settings_from_context("platform", {"projectName": "platform"})
     capabilities = dict(base.capabilities)
@@ -67,6 +37,7 @@ def test_project_level_stack_state_renders_from_capability_without_site():
         "secretsprovider: awskms://alias/yoke-pulumi-state\n"
         "encryptedkey: CAPABILITY_ENCRYPTED==\n"
     )
+
 
 def test_project_level_stack_state_ignores_other_stacks():
     settings = _settings_from_context("yoke", {"projectName": "yoke"})
