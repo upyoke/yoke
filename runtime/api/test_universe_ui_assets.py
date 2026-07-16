@@ -88,13 +88,13 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
     harness = files("yoke_core.ui").joinpath(
         "static", "hosted-frame-harness.html",
     ).read_text()
-    for platform_class in (
+    for platform_marker in (
         "hosted-org-switcher",
         "hosted-user-menu",
         "hosted-org-links",
-        "hosted-github-connection",
+        'dataset.platformSlot = "github-connection"',
     ):
-        assert platform_class in harness, platform_class
+        assert platform_marker in harness, platform_marker
     # Every mount slot the platform fills is occupied here too.
     for slot_name in (
         "topbarStart", "topbarEnd", "navigationEnd",
