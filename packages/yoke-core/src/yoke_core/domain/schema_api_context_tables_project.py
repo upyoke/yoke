@@ -92,7 +92,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "`environments.site = sites.id` and "
             "`sites.project_id = projects.id`. Deployment metadata such as "
             "git branch, hosts, database, and Pulumi settings lives in the "
-            "JSON `settings` column."
+            "JSON `settings` column. Agent reads and CAS-safe writes use `yoke projects environment-settings get|merge --project <slug> --environment-id <id>`; the local-only `environment-merge-settings` domain command cannot reach an HTTPS authority."
         ),
     },
     "project_structure": {
