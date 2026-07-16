@@ -152,20 +152,34 @@
   overflow-x: auto;
 }
 
-/* Two-column shell: left rail, main content. */
+/* Two-column shell: left rail, one content column. The shell holds up to
+   four children — the rail, a host-injected node before the main view, the
+   main view, and a host-injected node after it — so it is a grid whose
+   second column stacks everything that is not the rail. Slot nodes are
+   host-owned elements of any tag, hence the structural :not() placement
+   rather than named classes. The trailing filler row keeps the rail
+   full-height when the stacked content runs short. */
 .universe-app-root .shell {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-rows: repeat(3, auto) 1fr;
   gap: 0;
   padding: 0;
   min-height: calc(100vh - var(--yoke-header-height));
+}
+.universe-app-root .shell > * {
+  grid-column: 2;
+  min-width: 0;
+}
+.universe-app-root .shell > .sidenav {
+  grid-column: 1;
+  grid-row: 1 / -1;
 }
 
 .universe-app-root .sidenav {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  flex: 0 0 auto;
   width: 236px;
   padding: 12px 10px;
   background: var(--yoke-surface);
@@ -211,7 +225,6 @@
 }
 
 .universe-app-root .content {
-  flex: 1;
   min-width: 0;
   padding: 24px 30px 40px;
 }
