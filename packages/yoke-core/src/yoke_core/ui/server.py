@@ -66,6 +66,11 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "workflows.definition.get",
 })
 
+#: ``Cache-Control`` for the app shell and static assets: ``no-cache``
+#: makes browsers revalidate on every load, so an upgraded server never
+#: keeps stale modules running from cache.
+ASSET_CACHE_CONTROL = "no-cache"
+
 #: Packaged static assets the server may serve, with their content types.
 #: A closed name→type map (no filesystem paths from the request) keeps
 #: traversal structurally impossible.
@@ -231,14 +236,21 @@ def create_ui_app(token: str):
             return redirect
         # No (valid) query token here means the session cookie admitted
         # the request through the gate; serve the shell directly.
-        return HTMLResponse(_asset_bytes("index.html").decode("utf-8"))
+        return HTMLResponse(
+            _asset_bytes("index.html").decode("utf-8"),
+            headers={"Cache-Control": ASSET_CACHE_CONTROL},
+        )
 
     @app.get("/assets/{asset_name}")
     def asset(asset_name: str) -> Response:
         content_type = ASSET_CONTENT_TYPES.get(asset_name)
         if content_type is None:
             raise HTTPException(status_code=404, detail="unknown asset")
-        return Response(_asset_bytes(asset_name), media_type=content_type)
+        return Response(
+            _asset_bytes(asset_name),
+            media_type=content_type,
+            headers={"Cache-Control": ASSET_CACHE_CONTROL},
+        )
 
     @app.post("/api/functions/call")
     def call_function(envelope: Dict[str, Any]) -> JSONResponse:
@@ -315,6 +327,7 @@ def serve_ui(
 
 
 __all__ = [
+    "ASSET_CACHE_CONTROL",
     "ASSET_CONTENT_TYPES",
     "DEFAULT_UI_PORT",
     "SESSION_COOKIE_NAME",

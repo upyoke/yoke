@@ -27,6 +27,18 @@ def test_known_assets_serve_with_content_types(ui_client):
         assert response.headers["content-type"] == content_type
 
 
+def test_assets_and_shell_are_served_with_revalidation_header(ui_client):
+    # `no-cache` (revalidate, not `no-store`): browsers must recheck the
+    # server after an upgrade instead of running stale modules from cache.
+    for asset_name in ui_server.ASSET_CONTENT_TYPES:
+        response = ui_client.get(f"/assets/{asset_name}?token={TOKEN}")
+        assert response.status_code == 200, asset_name
+        assert response.headers["cache-control"] == "no-cache", asset_name
+    shell = ui_client.get(f"/?token={TOKEN}")  # follows the 303
+    assert shell.status_code == 200
+    assert shell.headers["cache-control"] == "no-cache"
+
+
 def test_javascript_module_graph_is_in_closed_asset_roster():
     static_root = files("yoke_core.ui").joinpath("static")
     for module_name in (
