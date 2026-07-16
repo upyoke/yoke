@@ -31,7 +31,6 @@ import {
 import {
   appendSlot, attachMountRootClass,
   createUnmountHandle, detachMountedSlots, materializeSlots,
-  renderCapabilityActions,
   validateMountRoot,
 } from "./mount-options.js";
 import {
@@ -170,16 +169,16 @@ export function mountUniverseApp(rootNode, options = {}) {
     // The roster the scope pickers already hold, so a view that only lists
     // projects costs no second call.
     projects: () => projects,
+    // Host capability data, read by the views that render what a host can
+    // do (Universe settings draws its Portability controls from the actions
+    // bag). The topbar carries no capability controls.
+    capabilities,
   };
 
   const brand = el(documentNode, "div", "brand yoke-header-brand");
   brand.style.color = "var(--yoke-ink)";
   const orgContext = el(documentNode, "span", "org-context", "…");
   const contextSide = el(documentNode, "div", "context-side yoke-header-context");
-  const capabilityActions = renderCapabilityActions(
-    documentNode, capabilities,
-  );
-  if (capabilityActions) contextSide.appendChild(capabilityActions);
   // A host with a sign-in door names the viewer; a local universe admits a
   // loopback token rather than an actor, so it supplies none and the chip is
   // simply absent — never a greyed-out chip that names nobody.
