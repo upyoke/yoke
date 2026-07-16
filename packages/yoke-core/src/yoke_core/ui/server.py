@@ -59,6 +59,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "board.data.get",
     "deployment_runs.list",
     "sessions.list",
+    "frontier.list",
     "events.query.run",
     "doctor.last_run.get",
 })

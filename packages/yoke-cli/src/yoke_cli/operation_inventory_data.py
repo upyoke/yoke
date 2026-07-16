@@ -74,6 +74,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions offer", "sessions"),
     _w("yoke sessions ownership-guard", "sessions"),
     _w("yoke charge schedule", "charge"),
+    _w("yoke frontier list", "frontier"),
     # render.
     _w("yoke agents render", "agents.render"),
     _w("yoke agents render check", "agents.render"),

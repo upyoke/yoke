@@ -140,11 +140,16 @@ def evaluate_batch_gates(
     *,
     session_id: Optional[str] = None,
     project: Optional[str] = None,
+    emit_events: bool = True,
 ) -> Dict[str, List[BlockerDetail]]:
     """Batch-evaluate all dependencies at a gate point. Returns a dict
     mapping ``dependent_item`` -> list of ``BlockerDetail`` for each item
     with unsatisfied blockers; items with no unsatisfied blockers are
     absent from the dict.
+
+    ``emit_events=False`` suppresses the ``DependencyGateEvaluated``
+    telemetry write so pure reads (e.g. a browser poll) leave no event
+    rows behind; the default preserves emission for every existing caller.
     """
     GatePoint.from_db(gate_point)
 
@@ -186,13 +191,14 @@ def evaluate_batch_gates(
             blocks.setdefault(dep_item, []).append(detail)
 
     # Emit DependencyGateEvaluated batch summary
-    _emit_batch_gate_evaluated(
-        gate_point,
-        total_rows,
-        blocks,
-        session_id=session_id,
-        project=project,
-    )
+    if emit_events:
+        _emit_batch_gate_evaluated(
+            gate_point,
+            total_rows,
+            blocks,
+            session_id=session_id,
+            project=project,
+        )
 
     return blocks
 

@@ -102,6 +102,12 @@ const STATE_PILL_FAMILIES = {
   pass: "good",
   fail: "crit",
   skip: "idle",
+  // Dependency gate points: an activation gate stops work from starting,
+  // an integration gate only orders the landing, a closure gate merely
+  // holds the closeout milestone.
+  activation: "crit",
+  integration: "warn",
+  closure: "idle",
 };
 
 // A state value rendered as a tinted lozenge with a leading dot, colored by
@@ -129,8 +135,11 @@ function renderError(body, callResult) {
 // per-row cell accessor. Empty rows render the view's own empty message.
 // `rowHref`, when given, makes the first cell of each row the link that opens
 // that row's drill-in — a real href, so it can be opened in a new tab.
-// A column marked `pill: true` renders its value as a state pill; one marked
-// `mono: true` renders it in the machine-name (monospace) cell dress.
+// A column with its own `href` accessor links that cell the same way (for
+// views whose linking cell is not the first). A column marked `pill: true`
+// renders its value as a state pill; `mono: true` renders it in the
+// machine-name (monospace) cell dress; `code: true` renders it as a `code`
+// element — deliberately copyable text, never a button.
 function renderTable(body, rows, columns, emptyText, rowHref) {
   const documentNode = body.ownerDocument;
   if (rows.length === 0) {
@@ -152,9 +161,15 @@ function renderTable(body, rows, columns, emptyText, rowHref) {
         const link = el(documentNode, "a", "row-link", text);
         link.href = rowHref(row);
         cell.appendChild(link);
+      } else if (column.href) {
+        const link = el(documentNode, "a", "row-link", text);
+        link.href = column.href(row);
+        cell.appendChild(link);
       } else if (column.pill) {
         const pill = statePill(documentNode, text);
         if (pill) cell.appendChild(pill);
+      } else if (column.code) {
+        if (text) cell.appendChild(el(documentNode, "code", null, text));
       } else {
         cell.textContent = text;
         if (column.mono) cell.classList.add("mono");
@@ -197,10 +212,10 @@ function scopeBuckets(scope, projects, requiresProject) {
   return requiresProject ? projects.map((row) => String(row.id)) : [null];
 }
 
-// One call per bucket, rendered once after every call settles. A failed
-// bucket fails the whole section — silently dropping one would render a
-// partial universe as if it were the whole one.
-async function loadScopedSection(context, panel, calls, renderRows) {
+// One call per bucket, settled together. A failed bucket fails the whole
+// read — silently dropping one would render a partial universe as if it
+// were the whole one.
+async function settledScopedCalls(context, calls) {
   const callResults = await Promise.all(calls.map(async (call) => {
     try {
       return await callFunction(
@@ -216,14 +231,29 @@ async function loadScopedSection(context, panel, calls, renderRows) {
       };
     }
   }));
-  if (!context.isMounted()) return;
   const failed = callResults.find(
     (callResult) => !(callResult.status === 200 && callResult.envelope.success),
   );
-  panel.renderEnvelopes(
-    callResults,
-    failed ? (body) => renderError(body, failed) : renderRows,
-  );
+  return { callResults, failed };
+}
+
+// One fan-out serving several panels: each panel shows the same envelopes
+// behind its raw-JSON toggle, and a failed bucket fails them all — the
+// panels are facets of one read, so none can honestly render rows while
+// another shows the failure.
+async function loadScopedPanels(context, panelRenderers, calls) {
+  const { callResults, failed } = await settledScopedCalls(context, calls);
+  if (!context.isMounted()) return;
+  for (const [panel, renderRows] of panelRenderers) {
+    panel.renderEnvelopes(
+      callResults,
+      failed ? (body) => renderError(body, failed) : renderRows,
+    );
+  }
+}
+
+async function loadScopedSection(context, panel, calls, renderRows) {
+  return loadScopedPanels(context, [[panel, renderRows]], calls);
 }
 
 // Bucket results merged in call order.
@@ -541,6 +571,76 @@ function renderSessionsView(context, main, scope) {
   );
 }
 
+// What runs next and why, and what a waiting item waits on. One read serves
+// both panels: the engine's ranked ready steps — rank is the engine's own,
+// never a display index — and one blocked row per unsatisfied dependency
+// edge across every gate point (activation stops a start, integration only
+// orders the landing, closure holds the closeout), plus the non-edge waits
+// (operator blocks) whose gate cell is honestly empty. There is no progress
+// column: no per-item done/total exists in the engine, so none is invented
+// here. Frontier rows point at items — the item cell links to the items
+// drill-in rather than making the row a frontier drill-in of its own.
+function renderFrontierView(context, main, scope) {
+  const documentNode = context.document;
+  const readyPanel = section(documentNode, "Ready");
+  const blockedPanel = section(documentNode, "Blocked");
+  main.replaceChildren(readyPanel, blockedPanel);
+  const projects = context.projects();
+  const buckets = scopeBuckets(scope, projects, false);
+  const idBySlug = new Map(
+    projects.map((row) => [String(row.slug), String(row.id)]),
+  );
+  // A row's item link carries the row's own project: at exactly one project
+  // the scope id is that project; otherwise the roster maps the served slug
+  // back to the id the route speaks.
+  const rowProject = (row) => (
+    (Array.isArray(scope) && scope.length === 1)
+      ? scope[0]
+      : (idBySlug.get(String(row.project)) || String(row.project))
+  );
+  // The items drill-in speaks bare numeric refs; frontier rows carry YOK-N.
+  const itemHref = (row) => buildUniverseRoute(
+    "items", rowProject(row), String(row.item_id).replace(/^YOK-/, ""),
+  );
+  // Exactly one project needs no project column; the column keeps its
+  // declared position (beside type), so the shared leading-cell insertion
+  // helper does not apply here.
+  const scopedColumns = (columns) => (
+    (Array.isArray(scope) && scope.length === 1)
+      ? columns.filter((column) => column.label !== "project")
+      : columns
+  );
+  loadScopedPanels(context, [
+    [readyPanel, (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.ready_rows);
+      renderTable(body, rows, scopedColumns([
+        { label: "rank", value: (row) => row.rank },
+        { label: "item", value: (row) => row.item_id, href: itemHref },
+        { label: "type", value: (row) => row.item_type },
+        { label: "project", value: (row) => row.project },
+        { label: "status", value: (row) => row.status, pill: true },
+        { label: "priority", value: (row) => row.priority },
+        { label: "next step", value: (row) => row.next_step },
+        { label: "run command", value: (row) => row.run_command, code: true },
+        { label: "why ready", value: (row) => row.why_ready },
+      ]), "nothing ready to run");
+    }],
+    [blockedPanel, (body, callResults) => {
+      const rows = mergedRows(callResults, (result) => result.blocked_rows);
+      renderTable(body, rows, scopedColumns([
+        { label: "item", value: (row) => row.item_id },
+        { label: "project", value: (row) => row.project },
+        { label: "waiting on", value: (row) => row.blocking_item, code: true },
+        { label: "gate", value: (row) => row.gate_point, pill: true },
+        { label: "why", value: (row) => row.why },
+      ]), "nothing waiting");
+    }],
+  ], buckets.map((bucket) => ({
+    functionId: "frontier.list",
+    payload: bucket === null ? {} : { project: bucket },
+  })));
+}
+
 // Each run of a flow against a target environment. The engine owns the run's
 // vocabulary: status colors through the pill hint (a run halted for approval
 // keeps status "executing" and so stays a running pill, never a failed one),
@@ -678,6 +778,7 @@ export const TAB_RENDERERS = {
 
 // A destination is live exactly when it has a renderer here.
 export const VIEW_RENDERERS = {
+  frontier: renderFrontierView,
   items: renderItemsView,
   strategy: renderStrategyView,
   sessions: renderSessionsView,
