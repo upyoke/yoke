@@ -45,6 +45,39 @@ export function section(documentNode, title) {
   return wrap;
 }
 
+// Semantic color family per state value. Status vocabularies belong to
+// workflow types, so this map is a coloring hint and never a gate: any value
+// it has not seen renders as a neutral idle pill rather than breaking.
+const STATE_PILL_FAMILIES = {
+  implementing: "run",
+  "reviewing-implementation": "run",
+  "reviewed-implementation": "run",
+  "polishing-implementation": "run",
+  release: "run",
+  new: "run",
+  implemented: "good",
+  done: "good",
+  active: "good",
+  blocked: "crit",
+  failed: "crit",
+  error: "crit",
+  critical: "crit",
+  unclear: "warn",
+  warn: "warn",
+  warning: "warn",
+};
+
+// A state value rendered as a tinted lozenge with a leading dot, colored by
+// its semantic family. Empty values render nothing at all.
+function statePill(documentNode, value) {
+  const text = String(value ?? "");
+  if (!text) return null;
+  const family = STATE_PILL_FAMILIES[text.toLowerCase()] || "idle";
+  const pill = el(documentNode, "span", `pill ${family}`, text);
+  pill.setAttribute("data-state", text);
+  return pill;
+}
+
 function renderError(body, callResult) {
   const envelope = callResult.envelope || {};
   const detail = (envelope.error && envelope.error.message) ||
@@ -59,6 +92,7 @@ function renderError(body, callResult) {
 // per-row cell accessor. Empty rows render the view's own empty message.
 // `rowHref`, when given, makes the first cell of each row the link that opens
 // that row's drill-in — a real href, so it can be opened in a new tab.
+// A column marked `pill: true` renders its value as a state pill.
 function renderTable(body, rows, columns, emptyText, rowHref) {
   const documentNode = body.ownerDocument;
   if (rows.length === 0) {
@@ -75,14 +109,16 @@ function renderTable(body, rows, columns, emptyText, rowHref) {
     const tr = el(documentNode, "tr");
     for (const [index, column] of columns.entries()) {
       const text = String(column.value(row) ?? "");
-      const cell = el(
-        documentNode, "td", null,
-        rowHref && index === 0 ? undefined : text,
-      );
+      const cell = el(documentNode, "td");
       if (rowHref && index === 0) {
         const link = el(documentNode, "a", "row-link", text);
         link.href = rowHref(row);
         cell.appendChild(link);
+      } else if (column.pill) {
+        const pill = statePill(documentNode, text);
+        if (pill) cell.appendChild(pill);
+      } else {
+        cell.textContent = text;
       }
       tr.appendChild(cell);
     }
@@ -138,7 +174,7 @@ function renderItemsView(context, main, projectId) {
         { label: "id", value: (row) => row.id },
         { label: "type", value: (row) => row.type },
         { label: "title", value: (row) => row.title },
-        { label: "status", value: (row) => row.status },
+        { label: "status", value: (row) => row.status, pill: true },
         { label: "priority", value: (row) => row.priority },
         {
           label: "blocked",
@@ -165,7 +201,7 @@ function renderEventsView(context, main, projectId) {
         { label: "when", value: (row) => row.created_at },
         { label: "event", value: (row) => row.event_name },
         { label: "kind", value: (row) => row.event_kind },
-        { label: "severity", value: (row) => row.severity },
+        { label: "severity", value: (row) => row.severity, pill: true },
         { label: "source", value: (row) => row.actor_id || row.service },
       ], "no events yet");
     },
@@ -187,7 +223,7 @@ function renderOuroborosView(context, main, projectId) {
       const rows = (callResult.envelope.result || {}).entries || [];
       renderTable(body, rows, [
         { label: "when", value: (row) => row.timestamp },
-        { label: "category", value: (row) => row.category },
+        { label: "category", value: (row) => row.category, pill: true },
         { label: "agent", value: (row) => row.agent },
         { label: "context", value: (row) => row.context },
         {
@@ -226,7 +262,10 @@ function renderStrategyView(context, main, projectId) {
       renderTable(body, docs, [
         { label: "slug", value: (doc) => doc.slug },
         { label: "title", value: (doc) => doc.title },
-        { label: "status", value: (doc) => (doc.archived ? "archived" : "active") },
+        {
+          label: "status", pill: true,
+          value: (doc) => (doc.archived ? "archived" : "active"),
+        },
       ], "no strategy docs yet");
     },
     // Strategy docs are project-scoped through the target, not the payload.
@@ -254,7 +293,12 @@ function renderItemDetailView(context, main, projectId, itemRef) {
       ]) {
         const tr = el(documentNode, "tr");
         tr.appendChild(el(documentNode, "th", null, label));
-        tr.appendChild(el(documentNode, "td", null, String(value ?? "")));
+        const cell = el(documentNode, "td");
+        const pill = label === "status"
+          ? statePill(documentNode, value) : null;
+        if (pill) cell.appendChild(pill);
+        else cell.textContent = String(value ?? "");
+        tr.appendChild(cell);
         summary.appendChild(tr);
       }
       body.appendChild(summary);
@@ -278,7 +322,7 @@ function renderItemDetailView(context, main, projectId, itemRef) {
             renderTable(taskBody, rows, [
               { label: "#", value: (row) => row.task_num },
               { label: "title", value: (row) => row.title },
-              { label: "status", value: (row) => row.status },
+              { label: "status", value: (row) => row.status, pill: true },
             ], "no tasks yet");
           },
         );

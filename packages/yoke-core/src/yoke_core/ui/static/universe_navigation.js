@@ -6,68 +6,68 @@ export const SCOPE_NONE = "none";
 
 export const NAV = [
   {
-    id: "overview", label: "Overview", scope: SCOPE_MULTI,
+    id: "overview", icon: "⊞", label: "Overview", scope: SCOPE_MULTI,
     summary: "The universe at a glance, across every project.",
   },
   {
-    id: "inbox", label: "Inbox", scope: SCOPE_MULTI,
+    id: "inbox", icon: "✉", label: "Inbox", scope: SCOPE_MULTI,
     summary: "What needs you to know about it or act on it.",
   },
-  { id: "strategy", label: "Strategy", scope: SCOPE_MULTI },
+  { id: "strategy", icon: "❖", label: "Strategy", scope: SCOPE_MULTI },
   {
-    id: "frontier", label: "Frontier", scope: SCOPE_MULTI,
+    id: "frontier", icon: "⚡", label: "Frontier", scope: SCOPE_MULTI,
     summary: "What runs next and why, and what a waiting item waits on.",
   },
-  { id: "items", label: "Items", scope: SCOPE_MULTI },
+  { id: "items", icon: "≣", label: "Items", scope: SCOPE_MULTI },
   {
-    id: "board", label: "Board", scope: SCOPE_MULTI,
+    id: "board", icon: "▦", label: "Board", scope: SCOPE_MULTI,
     summary: "Your .yoke/BOARD.md, as the board itself renders it.",
   },
   {
-    id: "sessions", label: "Sessions", scope: SCOPE_MULTI,
+    id: "sessions", icon: "◈", label: "Sessions", scope: SCOPE_MULTI,
     summary: "Each running session: its execution lane and its mode.",
   },
   {
-    id: "delivery", label: "Delivery", scope: SCOPE_MULTI,
+    id: "delivery", icon: "⬈", label: "Delivery", scope: SCOPE_MULTI,
     summary: "Environments, flows and runs, with databases and infrastructure.",
   },
   {
-    id: "qa", label: "QA", scope: SCOPE_MULTI,
+    id: "qa", icon: "◉", label: "QA", scope: SCOPE_MULTI,
     summary: "Quality gates and the evidence they collected.",
   },
   {
-    id: "workflows", label: "Workflows", scope: SCOPE_SINGLE,
+    id: "workflows", icon: "⚗", label: "Workflows", scope: SCOPE_SINGLE,
     summary: "What done means for a type of work, and the parts that compose it.",
   },
   {
-    id: "capabilities", label: "Capabilities", scope: SCOPE_MULTI,
+    id: "capabilities", icon: "⚿", label: "Capabilities", scope: SCOPE_MULTI,
     summary: "What Yoke can reach on your behalf, and when it last verified it.",
   },
-  { id: "events", label: "Events", scope: SCOPE_MULTI },
+  { id: "events", icon: "≋", label: "Events", scope: SCOPE_MULTI },
   {
-    id: "doctor", label: "Doctor", scope: SCOPE_MULTI,
+    id: "doctor", icon: "♥", label: "Doctor", scope: SCOPE_MULTI,
     summary: "The health checks and what they found.",
   },
-  { id: "ouroboros", label: "Ouroboros", scope: SCOPE_MULTI },
-  { id: "projects", label: "Projects", scope: SCOPE_NONE },
+  { id: "ouroboros", icon: "∞", label: "Ouroboros", scope: SCOPE_MULTI },
+  { id: "projects", icon: "▤", label: "Projects", scope: SCOPE_NONE },
   {
-    id: "access", label: "Access", scope: SCOPE_NONE,
+    id: "access", icon: "⚇", label: "Access", scope: SCOPE_NONE,
     summary: "Who and what may act here, at the universe and per project.",
   },
   {
-    id: "templates", label: "Templates", scope: SCOPE_NONE,
+    id: "templates", icon: "◫", label: "Templates", scope: SCOPE_NONE,
     summary: "The templates projects are rendered from.",
   },
   {
-    id: "github", label: "GitHub", scope: SCOPE_SINGLE,
+    id: "github", icon: "⎇", label: "GitHub", scope: SCOPE_SINGLE,
     summary: "How this project binds to its repository, and how they sync.",
   },
   {
-    id: "project-settings", label: "Project settings", scope: SCOPE_SINGLE,
+    id: "project-settings", icon: "⚙", label: "Project settings", scope: SCOPE_SINGLE,
     summary: "Settings for one project.",
   },
   {
-    id: "universe-settings", label: "Universe settings", scope: SCOPE_NONE,
+    id: "universe-settings", icon: "⛭", label: "Universe settings", scope: SCOPE_NONE,
     summary: "Settings for this universe, including export and import.",
   },
 ];
