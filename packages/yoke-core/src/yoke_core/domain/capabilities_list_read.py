@@ -15,7 +15,12 @@ happened. GitHub verification freshness genuinely lives on
 ``project_github_repo_bindings.last_verified_at``, so rows of the
 stored ``github`` type overlay the newest of those stamps as the row's
 ``verified_at`` surrogate, with ``verified_source`` naming where the
-stamp came from.
+stamp came from. The overlay only counts bindings whose installation is
+currently active: both stamps are earned through the installation's
+credential channel, so once that channel is suspended, deleted, or
+gone, neither attests anything Yoke can still reach and the capability
+must not read ``verified`` against the binding-status read's own
+unavailable verdict.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ from yoke_core.domain import db_helpers, json_helper
 from yoke_core.domain.migration_model_capability_validation import (
     CAPABILITY_TYPE as MIGRATION_MODEL_CAPABILITY_TYPE,
 )
+from yoke_core.domain.project_github_binding_state import INSTALLATION_ACTIVE
 from yoke_core.domain.project_identity import resolve_project_id
 
 
@@ -153,20 +159,27 @@ def summarize_settings(cap_type: str, settings_json: Any) -> str:
 
 
 def _github_freshness_by_project(conn: Any) -> Dict[int, str]:
-    """Newest GitHub verification stamp per project.
+    """Newest GitHub verification stamp per project, gated on a live channel.
 
     The stamps live on the App installation and the repo binding, not on
-    the capability row. Timestamps are uniform ISO-8601 text, so the
-    lexicographic MAX/GREATEST matches chronological order.
+    the capability row. Both were earned through the installation's
+    credential channel, so a binding whose installation is suspended,
+    deleted, pending, or missing contributes neither stamp: the binding
+    status read reports automation unavailable for exactly those
+    installations, and a capability row reading ``verified`` against that
+    verdict would contradict it. Timestamps are uniform ISO-8601 text, so
+    the lexicographic MAX/GREATEST matches chronological order.
     """
     rows = conn.execute(
         "SELECT b.project_id, "
         "NULLIF(MAX(GREATEST(COALESCE(b.last_verified_at, ''), "
         "COALESCE(i.last_verified_at, ''))), '') AS last_verified_at "
         "FROM project_github_repo_bindings b "
-        "LEFT JOIN github_app_installations i "
+        "JOIN github_app_installations i "
         "ON i.installation_id = b.installation_id "
+        "AND i.status = %s "
         "GROUP BY b.project_id",
+        (INSTALLATION_ACTIVE,),
     ).fetchall()
     freshness: Dict[int, str] = {}
     for raw in rows:
