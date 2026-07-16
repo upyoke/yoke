@@ -81,6 +81,19 @@ export const NAV = [
     id: "access", icon: "⚇", label: "Access", scope: SCOPE_NONE,
     summary: "Who and what may act here, at the universe and per project.",
   },
+  // Host-fed destinations: the workbench routes them and draws their page
+  // head, but their body is a host-supplied section, so each entry shows in
+  // the nav exactly when the host supplies its content.
+  {
+    id: "members", icon: "⚉", label: "Members", scope: SCOPE_NONE,
+    summary: "The people in your organization, managed by the hosting platform.",
+    hostFed: true,
+  },
+  {
+    id: "billing", icon: "❒", label: "Billing", scope: SCOPE_NONE,
+    summary: "Your plan and payments, managed by the hosting platform.",
+    hostFed: true,
+  },
   {
     id: "templates", icon: "◫", label: "Templates", scope: SCOPE_NONE,
     summary: "The templates projects are rendered from.",

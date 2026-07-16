@@ -1,6 +1,6 @@
 // Host-neutral plumbing for the optional mount seam: root validation, slot
-// materialization, and unmount bookkeeping. This stays separate from the
-// workbench views so the one-argument local mount remains small. Host
+// and section materialization, and unmount bookkeeping. This stays separate
+// from the workbench views so the one-argument local mount remains small. Host
 // capability actions are not chrome — the Universe settings view renders
 // them (universe_views_settings.js).
 
@@ -43,24 +43,49 @@ export function createUnmountHandle(contractVersion, cleanup) {
   };
 }
 
-export function materializeSlots(slots, rootNode) {
+// One validation for every host-supplied content node, slot or section: an
+// Element (or a factory yielding one), never the mount root or its ancestor,
+// and never the same node twice — the shared `seen` set makes a node placed
+// as both a slot and a section one collision, not two placements.
+function materializeContent(candidate, rootNode, seen, kind) {
+  const content = typeof candidate === "function" ? candidate() : candidate;
+  if (content === undefined || content === null) return null;
+  if (content.nodeType !== 1) {
+    throw new TypeError(`universe app ${kind} content must be an Element`);
+  }
+  if (content === rootNode || content.contains(rootNode)) {
+    throw new TypeError(
+      `${kind} content cannot be the mount root or its ancestor`,
+    );
+  }
+  if (seen.has(content)) {
+    throw new TypeError(
+      "one Element cannot occupy two universe app slots or sections",
+    );
+  }
+  seen.add(content);
+  return content;
+}
+
+export function materializeSlots(slots, rootNode, seen = new Set()) {
   const resolved = {};
-  const seen = new Set();
   for (const name of SLOT_NAMES) {
-    const slot = slots[name];
-    const content = typeof slot === "function" ? slot() : slot;
-    if (content === undefined || content === null) continue;
-    if (content.nodeType !== 1) {
-      throw new TypeError("universe app slot content must be an Element");
-    }
-    if (content === rootNode || content.contains(rootNode)) {
-      throw new TypeError("slot content cannot be the mount root or its ancestor");
-    }
-    if (seen.has(content)) {
-      throw new TypeError("one Element cannot occupy two universe app slots");
-    }
-    seen.add(content);
-    resolved[name] = content;
+    const content = materializeContent(slots[name], rootNode, seen, "slot");
+    if (content !== null) resolved[name] = content;
+  }
+  return resolved;
+}
+
+// Per-view host content. Keys are view ids — an open record rather than a
+// closed roster, because the views a host may feed belong to the navigation
+// module, not to this plumbing.
+export function materializeSections(sections, rootNode, seen = new Set()) {
+  const resolved = {};
+  for (const name of Object.keys(sections)) {
+    const content = materializeContent(
+      sections[name], rootNode, seen, "section",
+    );
+    if (content !== null) resolved[name] = content;
   }
   return resolved;
 }
