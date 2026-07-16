@@ -77,6 +77,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("db_claim.amend", _adapters.db_claim_amend),
     ("db", "read"): ("db.read.run", _adapters.db_read),
     ("sessions", "begin"): ("sessions.begin", _adapters.sessions_begin),
+    ("sessions", "list"): ("sessions.list", _adapters.sessions_list),
     ("sessions", "touch"): ("sessions.touch", _adapters.sessions_touch),
     ("sessions", "checkpoint"):
         ("sessions.checkpoint", _adapters.sessions_checkpoint),

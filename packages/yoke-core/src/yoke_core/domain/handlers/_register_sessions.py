@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import sessions_begin as _sb
+from yoke_core.domain.handlers import sessions_list as _sl
 from yoke_core.domain.handlers import sessions_orchestration as _so
 
 
 def register(registry) -> None:
+    registry.register(
+        "sessions.list", _sl.handle_sessions_list,
+        _sl.SessionsListRequest, _sl.SessionsListResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.sessions_list",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
     registry.register(
         "sessions.touch", _so.handle_touch,
         _so.TouchRequest, _so.TouchResponse,
