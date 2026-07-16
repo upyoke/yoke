@@ -51,7 +51,7 @@ class WebappEnvironmentArgs:
     # environment's origin.
     origin_vps_stack_name: str
     # Output names on the standalone VPS stack. The renderer supplies these
-    # so their single authority remains the yoke_core constants.
+    # so their single authority remains its shared output-name constants.
     origin_vps_elastic_ip_output: str
     origin_vps_security_group_output: str
     database_name: str
