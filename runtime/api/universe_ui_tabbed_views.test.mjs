@@ -165,6 +165,78 @@ test("a tabbed route with no segment renders its first tab without rewriting the
   mounted.unmount();
 });
 
+test("Runs fills from deployment runs, newest first, with grounded status pills", async (t) => {
+  const requests = [];
+  const runRow = (id, status, stage) => ({
+    id, project: "yoke", flow: "yoke-prod-release", target_env: "prod",
+    release_lineage: null, status, current_stage: stage,
+    created_at: `${id}-created`, started_at: null, completed_at: null,
+    created_by: "usher",
+  });
+  const client = {
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") {
+        return okEnvelope({ name: "Yoke" });
+      }
+      if (request.function === "projects.list") {
+        return okEnvelope({ rows: [{ id: 1, name: "Yoke" }] });
+      }
+      if (request.function === "deployment_runs.list") {
+        // Engine order: oldest first.
+        return okEnvelope({
+          rows: [
+            runRow("run-20260101-001", "succeeded", "complete"),
+            runRow("run-20260102-001", "failed", "test-failed"),
+            runRow("run-20260103-001", "created", null),
+            runRow("run-20260103-002", "executing", "ci-gate"),
+          ],
+        });
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const { root, mounted } = await mountAt(t, "#/delivery/runs?project=1", client);
+
+  // The read carries the view's scope in the payload and keeps the proxy's
+  // server-side global target default.
+  assert.deepEqual(
+    requests.find((request) => request.function === "deployment_runs.list"),
+    { function: "deployment_runs.list", payload: { project: "1" } },
+  );
+
+  // A built tab carries its own picker.
+  assert.equal(byClass(root, "project-chooser").length, 1);
+  assert.equal(byClass(root, "stub-panel").length, 0);
+
+  // Newest run first; the stage is text the engine owns, never a bar.
+  const firstCells = allNodes(root)
+    .filter((node) => node.tagName === "TD")
+    .slice(0, 6)
+    .map((node) => node.textContent ||
+      (node.children[0] && node.children[0].textContent) || "");
+  assert.deepEqual(firstCells, [
+    "run-20260103-002", "yoke-prod-release", "prod", "ci-gate",
+    "executing", "run-20260103-002-created",
+  ]);
+
+  // Grounded status vocabulary maps to semantic pill families; values the
+  // hint has not seen (created) wear neutral idle.
+  const pillFamilies = Object.fromEntries(
+    byClass(root, "pill").map((node) => [
+      node.attributes.get("data-state"),
+      node.className.replace("pill", "").trim(),
+    ]),
+  );
+  assert.deepEqual(pillFamilies, {
+    executing: "run",
+    succeeded: "good",
+    failed: "crit",
+    created: "idle",
+  });
+  mounted.unmount();
+});
+
 test("every unbuilt Delivery tab renders the stub treatment and never a picker", async (t) => {
   for (const tabId of [
     "environments", "flows", "databases", "infrastructure",

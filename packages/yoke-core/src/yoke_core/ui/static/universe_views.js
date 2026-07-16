@@ -55,9 +55,11 @@ const STATE_PILL_FAMILIES = {
   "polishing-implementation": "run",
   release: "run",
   new: "run",
+  executing: "run",
   implemented: "good",
   done: "good",
   active: "good",
+  succeeded: "good",
   blocked: "crit",
   failed: "crit",
   error: "crit",
@@ -334,6 +336,35 @@ function renderItemDetailView(context, main, projectId, itemRef) {
   );
 }
 
+// Each run of a flow against a target environment. The engine owns the run's
+// vocabulary: status colors through the pill hint (a run halted for approval
+// keeps status "executing" and so stays a running pill, never a failed one),
+// and the stage shows as the text the engine recorded — the stage roster
+// belongs to the flow definition, so nothing here hardcodes its shape.
+function renderDeliveryRunsView(context, main, projectId) {
+  const panel = section(context.document, "Runs");
+  main.replaceChildren(panel);
+  loadSection(
+    context, panel,
+    "deployment_runs.list",
+    { project: String(projectId) },
+    (body, callResult) => {
+      // The engine lists oldest-first; a runs screen answers "what just
+      // happened", so presentation flips to newest-first.
+      const rows = ((callResult.envelope.result || {}).rows || [])
+        .slice().reverse();
+      renderTable(body, rows, [
+        { label: "run", value: (row) => row.id },
+        { label: "flow", value: (row) => row.flow },
+        { label: "target", value: (row) => row.target_env },
+        { label: "stage", value: (row) => row.current_stage },
+        { label: "status", value: (row) => row.status, pill: true },
+        { label: "created", value: (row) => row.created_at },
+      ], "no runs yet");
+    },
+  );
+}
+
 // Drill-ins remain children of the view whose row opened them.
 export const DETAIL_RENDERERS = { items: renderItemDetailView };
 
@@ -341,7 +372,9 @@ export const DETAIL_RENDERERS = { items: renderItemDetailView };
 // renderer here; a declared tab without one renders the honest stub. A view
 // appears here only when its NAV entry declares tabs — the same second route
 // segment cannot also be a drill-in.
-export const TAB_RENDERERS = {};
+export const TAB_RENDERERS = {
+  delivery: { runs: renderDeliveryRunsView },
+};
 
 // A destination is live exactly when it has a renderer here.
 export const VIEW_RENDERERS = {
