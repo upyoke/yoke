@@ -199,10 +199,12 @@ jobs:
             echo "validated release artifact contains no wheels" >&2
             exit 1
           fi
+          release_notes="$RUNNER_TEMP/release-notes.md"
+          jq -r '.message // ""' <<< "$tag_object" > "$release_notes"
           gh release create "$TAG_NAME" \
             "${wheels[@]}" \
             "$ARTIFACT_DIR/release-records.json" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "Yoke $RELEASE_VERSION" \
-            --notes-from-tag
+            --notes-file "$release_notes"

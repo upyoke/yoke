@@ -113,7 +113,8 @@ def test_release_creation_uses_tag_notes_and_validated_assets():
     assert '"${wheels[@]}"' in text
     assert '"$ARTIFACT_DIR/release-records.json"' in text
     assert "--verify-tag" in text
-    assert "--notes-from-tag" in text
+    assert "jq -r '.message // \"\"' <<< \"$tag_object\"" in text
+    assert '--notes-file "$release_notes"' in text
 
 
 def test_public_operator_doc_teaches_current_release_and_verification():
