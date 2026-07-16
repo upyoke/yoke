@@ -73,7 +73,7 @@ def test_explicit_dsn_noops_and_never_starts_ssh(monkeypatch):
     monkeypatch.setenv(cer_c.PG_DSN_ENV, "host=127.0.0.1 port=6547 dbname=x")
     probes: list = []
     restarts: list = []
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: probes.append(dsn) or True)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
     monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: restarts.append(spec))
 
     result = cer.ensure_ready(force=True)
@@ -97,7 +97,7 @@ def test_explicit_dsn_file_also_noops(monkeypatch, tmp_path):
 def test_healthy_probe_returns_ok_without_restart(managed_env, monkeypatch):
     probes: list = []
     restarts: list = []
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: probes.append(dsn) or True)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
     monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: restarts.append(spec))
 
     result = cer.ensure_ready(force=True)
@@ -111,7 +111,7 @@ def test_healthy_probe_returns_ok_without_restart(managed_env, monkeypatch):
 
 # --- 3. probe fails then restart succeeds ----------------------------------
 def test_probe_fail_then_restart_succeeds(managed_env, monkeypatch):
-    results = iter([False, False, False, False, True])
+    results = iter(["down (test)", "down (test)", "down (test)", "down (test)", None])
     probes: list = []
     restarts: list = []
 
@@ -119,7 +119,7 @@ def test_probe_fail_then_restart_succeeds(managed_env, monkeypatch):
         probes.append(dsn)
         return next(results)
 
-    monkeypatch.setattr(cer_t, "_probe", fake_probe)
+    monkeypatch.setattr(cer_t, "_probe_failure", fake_probe)
     monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: restarts.append(spec))
     monkeypatch.setattr(cer_t.time, "sleep", lambda delay: None)
 
@@ -133,7 +133,7 @@ def test_probe_fail_then_restart_succeeds(managed_env, monkeypatch):
 
 # --- 4. restart fails -> raises ConnectedEnvUnavailable, redacted ----------
 def test_restart_then_still_down_raises_redacted(managed_env, monkeypatch):
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: False)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
     monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: None)  # "started" but still down
 
     with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
@@ -141,13 +141,15 @@ def test_restart_then_still_down_raises_redacted(managed_env, monkeypatch):
 
     msg = str(excinfo.value)
     assert "unreachable" in msg.lower()
+    # The final verdict names the last probe cause.
+    assert "cause=down (test)" in msg
     # Redaction: the DSN body must never leak into the loud error.
     assert "dbname=test_db" not in msg
     assert "password" not in msg.lower()
 
 
 def test_restart_process_failure_propagates(managed_env, monkeypatch):
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: False)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
 
     def boom(spec):
         raise cer.ConnectedEnvUnavailable(
@@ -173,7 +175,7 @@ def test_redact_masks_password_and_credentials():
 # --- cache -----------------------------------------------------------------
 def test_cache_serves_second_call_without_reprobe(managed_env, monkeypatch):
     probes: list = []
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: probes.append(dsn) or True)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
     monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: None)
 
     first = cer.ensure_ready(force=False)
@@ -189,7 +191,7 @@ def test_cache_serves_second_call_without_reprobe(managed_env, monkeypatch):
 
 def test_reset_cache_forces_reprobe(managed_env, monkeypatch):
     probes: list = []
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: probes.append(dsn) or True)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
     cer.ensure_ready(force=False)
     cer.reset_cache()
     cer.ensure_ready(force=False)
@@ -199,7 +201,7 @@ def test_reset_cache_forces_reprobe(managed_env, monkeypatch):
 # --- status ----------------------------------------------------------------
 def test_status_reports_down_without_restarting(managed_env, monkeypatch):
     restarts: list = []
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: False)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
     monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: restarts.append(spec))
 
     result = cer.status()
@@ -207,10 +209,13 @@ def test_status_reports_down_without_restarting(managed_env, monkeypatch):
     assert result.ok is False
     assert result.action == cer_c.ACTION_PROBE_FAILED
     assert restarts == []  # status never restarts
+    # A failed probe names its cause so an auth/TLS refusal is
+    # distinguishable from a dead forward without a manual psycopg probe.
+    assert "cause=down (test)" in (result.redacted_detail or "")
 
 
 def test_status_ok_when_probe_healthy(managed_env, monkeypatch):
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: True)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: None)
     result = cer.status()
     assert result.ok
     assert result.action == cer_c.ACTION_PROBE_OK
@@ -224,7 +229,7 @@ def test_remote_postgres_is_unmanaged_noop(tmp_path, monkeypatch):
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(binding))
     monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
     probes: list = []
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: probes.append(dsn) or True)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
 
     result = cer.ensure_ready(force=True)
 
@@ -252,7 +257,7 @@ def test_managed_without_tunnel_block_raises_clear(tmp_path, monkeypatch):
     binding = _write_binding(tmp_path, with_tunnel=False)  # loopback, no tunnel
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(binding))
     monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: False)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
 
     with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
         cer.ensure_ready(force=True)
@@ -335,10 +340,55 @@ def test_cli_unknown_command_returns_usage_error(capsys):
 
 
 def test_cli_activate_unavailable_returns_nonzero_redacted(managed_env, monkeypatch, capsys):
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: False)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
     monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: None)
     rc = cer.main(["activate"])
     assert rc == 1
     err = capsys.readouterr().err
     assert "UNAVAILABLE" in err
     assert "dbname=test_db" not in err
+
+
+# --- probe classification ----------------------------------------------------
+def test_probe_counts_server_answered_refusal_as_reachable(monkeypatch):
+    """An auth/database refusal proves the forward works; reachability is the
+    only concern of this layer. Credential freshness (rotation windows)
+    belongs to connection acquisition."""
+    monkeypatch.setattr(
+        cer_t, "_port_is_listening", lambda host, port, timeout=1.0: True)
+
+    def raise_auth(dsn, **kwargs):
+        raise RuntimeError(
+            'connection failed: FATAL: password authentication failed '
+            'for user "u"'
+        )
+
+    monkeypatch.setattr(cer_t, "_probe_postgres", raise_auth)
+    assert cer_t._probe_failure("host=127.0.0.1 port=6547 dbname=d") is None
+
+
+def test_probe_counts_sqlstate_auth_refusal_as_reachable(monkeypatch):
+    monkeypatch.setattr(
+        cer_t, "_port_is_listening", lambda host, port, timeout=1.0: True)
+
+    class _AuthRefused(Exception):
+        sqlstate = "28P01"
+
+    def raise_auth(dsn, **kwargs):
+        raise _AuthRefused("server said no")
+
+    monkeypatch.setattr(cer_t, "_probe_postgres", raise_auth)
+    assert cer_t._probe_failure("host=127.0.0.1 port=6547 dbname=d") is None
+
+
+def test_probe_reports_refused_connection_as_down(monkeypatch):
+    monkeypatch.setattr(
+        cer_t, "_port_is_listening", lambda host, port, timeout=1.0: True)
+
+    def raise_refused(dsn, **kwargs):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(cer_t, "_probe_postgres", raise_refused)
+    failure = cer_t._probe_failure("host=127.0.0.1 port=6547 dbname=d")
+    assert failure is not None
+    assert "OSError" in failure

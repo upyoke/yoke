@@ -75,7 +75,7 @@ def test_find_tunnel_pids_raises_on_pgrep_usage_failure(monkeypatch):
 
 def test_transient_probe_failure_recovers_before_restart(monkeypatch):
     spec = _spec()
-    results = iter([False, False, True])
+    results = iter(["down (test)", "down (test)", None])
     restarts: list[object] = []
     sleeps: list[float] = []
 
@@ -91,7 +91,7 @@ def test_transient_probe_failure_recovers_before_restart(monkeypatch):
             local_port=6547,
         ),
     )
-    monkeypatch.setattr(tunnel, "_probe", lambda dsn: next(results))
+    monkeypatch.setattr(tunnel, "_probe_failure", lambda dsn: next(results))
     monkeypatch.setattr(tunnel, "_restart_tunnel", lambda spec: restarts.append(spec))
     monkeypatch.setattr(tunnel.time, "sleep", lambda delay: sleeps.append(delay))
 

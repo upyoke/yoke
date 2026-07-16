@@ -311,3 +311,35 @@ def test_github_actions_fails_closed_without_hosted_token_connection(
             aws_env_loader=lambda *args, **kwargs: {"AWS_REGION": "us-east-1"},
             secret_loader=lambda *args, **kwargs: pytest.fail("loaded App PEM"),
         )
+
+
+def test_hosted_token_loader_failure_names_the_cause(
+    tmp_path,
+    monkeypatch,
+):
+    snapshot = _write_snapshot(tmp_path / "stack-config.json")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(
+        runner_fleet_exec,
+        "runner_fleet_values",
+        lambda *args, **kwargs: _runner_values(),
+    )
+
+    def broken_broker(project, authority_intent, aws_env):
+        raise RuntimeError(
+            "ResourceNotFoundException: function missing-broker not found"
+        )
+
+    with pytest.raises(
+        runner_fleet_exec.RunnerFleetExecError,
+        match="unavailable .RuntimeError: ResourceNotFoundException",
+    ):
+        runner_fleet_exec.execute_runner_fleet_command(
+            "buzz",
+            snapshot,
+            ["pulumi", "preview"],
+            aws_env_loader=lambda *args, **kwargs: {"AWS_REGION": "us-east-1"},
+            secret_loader=lambda *args, **kwargs: pytest.fail("loaded App PEM"),
+            token_minter=lambda **kwargs: pytest.fail("minted token locally"),
+            hosted_token_loader=broken_broker,
+        )

@@ -95,10 +95,10 @@ def test_yoke_env_override_selects_managed_tunnel_connector(
 
 def test_yoke_env_override_self_heals_dead_tunnel(
         https_default_env, monkeypatch):
-    results = iter([False, False, False, False, True])
+    results = iter(["down (test)", "down (test)", "down (test)", "down (test)", None])
     restarts: list = []
     monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: next(results))
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: next(results))
     monkeypatch.setattr(cer_t, "_restart_tunnel",
                         lambda spec: restarts.append(spec))
     monkeypatch.setattr(cer_t.time, "sleep", lambda delay: None)
@@ -117,7 +117,7 @@ def test_https_active_env_without_override_is_unmanaged(
     monkeypatch.delenv("YOKE_ENV", raising=False)
     probes: list = []
     restarts: list = []
-    monkeypatch.setattr(cer_t, "_probe", lambda dsn: probes.append(dsn) or True)
+    monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
     monkeypatch.setattr(cer_t, "_restart_tunnel",
                         lambda spec: restarts.append(spec))
 
