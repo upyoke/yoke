@@ -67,6 +67,34 @@ def test_shell_static_references_are_host_prefix_safe():
         assert f"./assets/{asset_name}" in shell
 
 
+def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
+    """The harness page exists so the hosted frame is verifiable without a
+    pin. It only does that job if its sample chrome wears the exact class
+    names the platform's hosted shell injects — a harness with invented
+    names verifies a frame nobody ships."""
+    harness = files("yoke_core.ui").joinpath(
+        "static", "hosted-frame-harness.html",
+    ).read_text()
+    for platform_class in (
+        "hosted-org-switcher",
+        "hosted-user-menu",
+        "hosted-org-links",
+        "hosted-github-connection",
+    ):
+        assert platform_class in harness, platform_class
+    # Every mount slot the platform fills is occupied here too.
+    for slot_name in (
+        "topbarStart", "topbarEnd", "navigationEnd",
+        "contentBefore", "contentAfter",
+    ):
+        assert f"{slot_name}:" in harness, slot_name
+    # The page names itself a harness so it cannot pass for the product,
+    # and it exercises the identity chip and a capability action.
+    assert "Hosted-frame harness" in harness
+    assert "currentActor" in harness
+    assert "Move universe" in harness
+
+
 def test_typed_mount_contract_and_declaration_emit_ship():
     ui_root = files("yoke_core.ui")
     contract_root = ui_root.joinpath("contracts")
