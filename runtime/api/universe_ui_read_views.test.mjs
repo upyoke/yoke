@@ -9,6 +9,7 @@ import {
 import {
   FakeDocument,
   allNodes,
+  cellText,
   injectedClient,
   response,
   settle,
@@ -159,9 +160,6 @@ test("an unblocked item reports no blocking reason", async (t) => {
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  const cellText = (node) => (
-    node.textContent || (node.children[0] && node.children[0].textContent) || ""
-  );
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
     .map(cellText);
@@ -222,7 +220,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   );
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
-    .map((node) => node.textContent || "");
+    .map(cellText);
   assert.deepEqual(cells, [
     "now", "observation", "tester", "open", "",
     "then", "failed", "doctor", "closed", "later",
@@ -232,7 +230,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
 
 test("a drill-in route survives the round trip and never outlives its view", () => {
   assert.deepEqual(parseUniverseRoute("#/items/42?project=3"), {
-    view: "items", detail: "42", project: "3",
+    view: "items", tab: null, detail: "42", project: "3",
   });
   assert.equal(buildUniverseRoute("items", "3", "42"), "#/items/42?project=3");
   const odd = "YOK 7/a";
@@ -240,7 +238,7 @@ test("a drill-in route survives the round trip and never outlives its view", () 
     parseUniverseRoute(buildUniverseRoute("items", "3", odd)).detail, odd,
   );
   assert.deepEqual(parseUniverseRoute("#/unknown/42"), {
-    view: "overview", detail: null, project: null,
+    view: "overview", tab: null, detail: null, project: null,
   });
   assert.equal(buildUniverseRoute("unknown", null, "42"), "#/overview");
 });

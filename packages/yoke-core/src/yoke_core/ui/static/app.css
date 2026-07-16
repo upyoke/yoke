@@ -1,7 +1,7 @@
-/* Scaffold styling for the universe app shell. Colors, fonts, and radius
+/* Workbench chrome for the universe app shell. Colors, fonts, and radius
    come from the shared design tokens in theme.css, so light/dark follows
-   theme.css's prefers-color-scheme block for free — nothing is hardcoded
-   here. Structure, brand, and states are real; visual polish is rough. */
+   theme.css's tiers for free — nothing is hardcoded here. Panels read as
+   raised cards on the page background; the left nav reads as a rail. */
 
 .local-universe-page {
   margin: 0;
@@ -10,12 +10,18 @@
 
 .universe-app-root {
   font-family: var(--yoke-font-sans);
+  font-size: 14px;
+  line-height: 1.45;
   color: var(--yoke-ink);
   background: var(--yoke-bg);
   /* Opt native form controls (chooser, buttons) into the active theme so they
      don't render with a light UA appearance on the dark bar. The hosted shell
      inherits this from the platform document; standalone needs it declared. */
   color-scheme: light dark;
+}
+.universe-app-root,
+.universe-app-root * {
+  box-sizing: border-box;
 }
 
 /* Top bar: brand lockup left, org context right. Scope is not a top-bar
@@ -32,24 +38,24 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.78rem;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--yoke-ink);
 }
 .universe-app-root .actor-kind {
-  font-size: 0.68rem;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--yoke-muted);
   border: 1px solid var(--yoke-border);
-  border-radius: 0.4rem;
-  padding: 0.05rem 0.3rem;
+  border-radius: 5px;
+  padding: 1px 5px;
 }
 
 .universe-app-root .org-context {
   color: var(--yoke-muted);
-  font-size: 0.78rem;
+  font-size: 12.5px;
   font-weight: 500;
 }
 
@@ -60,30 +66,82 @@
 }
 
 /* Chrome controls read as the shared chip: bordered, tokenized, with a hover
-   wash. The per-view scope picker and capability buttons share one rule. */
-.universe-app-root .capability-action,
-.universe-app-root .project-chooser {
+   wash. */
+.universe-app-root .capability-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--yoke-ink);
   background: var(--yoke-bg);
   border: 1px solid var(--yoke-border);
-  border-radius: 0.5rem;
-  padding: 0.34rem 0.6rem;
-  transition: background-color 120ms ease;
+  border-radius: 8px;
+  padding: 5px 10px;
+  transition: background-color 140ms ease;
 }
-.universe-app-root .capability-action:hover,
-.universe-app-root .project-chooser:hover {
-  background: color-mix(in srgb, var(--yoke-border) 30%, transparent);
+.universe-app-root .capability-action:hover {
+  background: var(--yoke-hover);
 }
+
 /* The view's own scope picker, sitting above that view's rows. It renders
-   only where it can act, so it needs no disabled state. */
+   only where it can act, so it needs no disabled state. A native select
+   wearing the selected-chip look: accent lozenge, white text. */
 .universe-app-root .scope-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+.universe-app-root .scope-bar::before {
+  content: "Project";
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--yoke-muted);
+  font-weight: 600;
+  margin-right: 3px;
+}
+.universe-app-root .project-chooser {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  color: #fff;
+  background: var(--yoke-accent);
+  border: 1px solid transparent;
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+.universe-app-root .project-chooser:hover {
+  filter: brightness(1.06);
+}
+
+/* Tabs: facets of one concept, never a second nav level. An underline strip
+   above the view's own chrome — the active facet takes the accent, the rest
+   stay muted until hovered. */
+.universe-app-root .tab-bar {
+  display: flex;
+  gap: 2px;
+  margin: -2px 0 16px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .tab-link {
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--yoke-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.universe-app-root .tab-link:hover { color: var(--yoke-ink); }
+.universe-app-root .tab-link.active {
+  color: var(--yoke-accent);
+  border-bottom-color: var(--yoke-accent);
 }
 
 /* The way back out of a drill-in, sitting where that view's picker sits. */
@@ -91,10 +149,10 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin-bottom: 1rem;
-  font-size: 0.85rem;
+  margin-bottom: 18px;
+  font-size: 12.5px;
 }
-.universe-app-root .breadcrumb-parent { color: var(--yoke-accent); text-decoration: none; }
+.universe-app-root .breadcrumb-parent { color: var(--yoke-accent); text-decoration: none; font-weight: 550; }
 .universe-app-root .breadcrumb-parent:hover { text-decoration: underline; }
 .universe-app-root .breadcrumb-sep,
 .universe-app-root .breadcrumb-here { color: var(--yoke-muted); }
@@ -103,126 +161,328 @@
 .universe-app-root .row-link { color: var(--yoke-accent); text-decoration: none; }
 .universe-app-root .row-link:hover { text-decoration: underline; }
 
-/* The item's rendered body, shown as the text it is. */
+/* The item's rendered body, shown as the text it is: a code-editor inset —
+   the page background framed inside the surface card, mono at reading
+   density. The file IS the artifact, so it dresses like one. */
 .universe-app-root .item-body {
-  margin: 1rem 0 0;
-  padding: 0.75rem;
-  background: color-mix(in srgb, var(--yoke-muted) 8%, transparent);
+  padding: 12px 14px;
+  background: var(--yoke-bg);
   border: 1px solid var(--yoke-border);
   border-radius: var(--yoke-radius);
   font-family: var(--yoke-font-mono);
-  font-size: 0.8rem;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--yoke-ink-2);
   white-space: pre-wrap;
   overflow-x: auto;
 }
 
-/* Two-column shell: left nav, main content. */
+/* Two-column shell: left rail, one content column. The shell holds up to
+   four children — the rail, a host-injected node before the main view, the
+   main view, and a host-injected node after it — so it is a grid whose
+   second column stacks everything that is not the rail. Slot nodes are
+   host-owned elements of any tag, hence the structural :not() placement
+   rather than named classes. The trailing filler row keeps the rail
+   full-height when the stacked content runs short. */
 .universe-app-root .shell {
-  display: flex;
-  align-items: flex-start;
-  gap: 1.5rem;
-  padding: 1.5rem;
-  max-width: 64rem;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-rows: repeat(3, auto) 1fr;
+  gap: 0;
+  padding: 0;
+  min-height: calc(100vh - var(--yoke-header-height));
+}
+.universe-app-root .shell > * {
+  grid-column: 2;
+  min-width: 0;
+}
+.universe-app-root .shell > .sidenav {
+  grid-column: 1;
+  grid-row: 1 / -1;
 }
 
 .universe-app-root .sidenav {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  /* Wide enough that the longest destination stays on one line. */
-  min-width: 11rem;
+  gap: 3px;
+  width: 236px;
+  padding: 12px 10px;
+  background: var(--yoke-surface);
+  border-right: 1px solid var(--yoke-border);
 }
 .universe-app-root .nav-link {
-  display: block;
-  padding: 0.4rem 0.75rem;
-  border-radius: var(--yoke-radius);
-  color: var(--yoke-muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--yoke-ink-2);
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 120ms ease, color 120ms ease;
 }
-.universe-app-root .nav-link:hover { color: var(--yoke-ink); }
-.universe-app-root .nav-link.active {
+.universe-app-root .nav-link:hover {
+  background: var(--yoke-hover);
   color: var(--yoke-ink);
-  background: color-mix(in srgb, var(--yoke-accent) 14%, transparent);
-  font-weight: 600;
+}
+.universe-app-root .nav-link.active {
+  background: var(--yoke-accent-weak);
+  color: var(--yoke-accent);
+}
+/* Nav glyphs sit in a fixed box so the labels align into a column. */
+.universe-app-root .nav-link .ico {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--yoke-muted);
+  font-size: 13px;
+  line-height: 1;
+}
+.universe-app-root .nav-link.active .ico { color: var(--yoke-accent); }
+.universe-app-root .nav-link .txt {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.universe-app-root .content { flex: 1; min-width: 0; }
+.universe-app-root .content {
+  min-width: 0;
+  padding: 24px 30px 40px;
+}
 
+/* One titled card per read: bordered surface, its own header bar, rows
+   flush to the card edge. Elevation arrives only on hover. */
 .universe-app-root .panel {
-  background: var(--yoke-bg);
+  background: var(--yoke-surface);
   border: 1px solid var(--yoke-border);
   border-radius: var(--yoke-radius);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
+  overflow: hidden;
+  margin-bottom: 14px;
+  transition: box-shadow 140ms ease;
+}
+.universe-app-root .panel:hover {
+  box-shadow: var(--yoke-shadow);
 }
 .universe-app-root .panel-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--yoke-border);
 }
 .universe-app-root .panel-header h2 {
-  margin: 0 0 0.5rem;
-  font-size: 0.85rem;
+  margin: 0;
+  font-size: 13px;
   font-weight: 600;
+  color: var(--yoke-ink);
+}
+.universe-app-root .panel-body {
+  padding: 13px 15px;
+}
+/* Tables sit flush to the card so their hairlines span edge to edge; any
+   sibling of a flush table (the rendered body, an empty note) keeps the
+   card's inset for itself. */
+.universe-app-root .panel-body:has(> table.items) {
+  padding: 0;
+}
+.universe-app-root .panel-body:has(> table.items) > :not(table.items) {
+  margin: 13px 15px;
+}
+
+.universe-app-root table.items {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+.universe-app-root table.items th {
+  text-align: left;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--yoke-muted);
+  font-weight: 600;
+  padding: 9px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+  white-space: nowrap;
 }
-
-.universe-app-root table.items { border-collapse: collapse; width: 100%; }
-.universe-app-root table.items th,
 .universe-app-root table.items td {
   text-align: left;
-  padding: 0.4rem 0.75rem 0.4rem 0;
+  padding: 10px 15px;
   border-bottom: 1px solid var(--yoke-border);
-  font-size: 0.95rem;
+  vertical-align: middle;
 }
-.universe-app-root table.items th {
-  color: var(--yoke-muted);
-  font-weight: 600;
+.universe-app-root table.items tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+.universe-app-root table.items:not(.kv) tr:has(td):hover {
+  background: var(--yoke-hover);
+}
+
+/* Key/value grid: label cells become a quiet left column with an internal
+   rule, values read at body size. Rows are facts, so no hover. */
+.universe-app-root table.kv th {
+  width: 170px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 11px 15px;
+  border-right: 1px solid var(--yoke-border);
+  white-space: nowrap;
+}
+.universe-app-root table.kv td {
+  padding: 11px 15px;
 }
 
 .universe-app-root .raw-toggle {
   border: 1px solid var(--yoke-border);
-  background: transparent;
+  background: var(--yoke-bg);
   color: var(--yoke-muted);
-  border-radius: var(--yoke-radius);
-  font-size: 0.75rem;
-  padding: 0.15rem 0.5rem;
-  cursor: pointer;
-}
-.universe-app-root .raw-toggle:hover { color: var(--yoke-ink); }
-
-.universe-app-root .raw-json {
-  background: color-mix(in srgb, var(--yoke-muted) 10%, transparent);
-  border: 1px solid var(--yoke-border);
-  border-radius: var(--yoke-radius);
-  padding: 0.75rem;
-  overflow-x: auto;
-  font-family: var(--yoke-font-mono);
-  font-size: 0.8rem;
-}
-
-.universe-app-root .error { color: #b00020; }
-.universe-app-root .empty { color: var(--yoke-muted); font-style: italic; }
-
-/* A destination that exists but has nothing to read yet: what it will be,
-   stated plainly, and nothing that pretends to act. */
-.universe-app-root .stub-headline {
-  margin: 0 0 0.35rem;
-  font-size: 0.95rem;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 600;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.universe-app-root .raw-toggle:hover {
+  background: var(--yoke-hover);
   color: var(--yoke-ink);
 }
-.universe-app-root .stub-summary {
+
+.universe-app-root .raw-json {
   margin: 0;
-  font-size: 0.95rem;
+  background: var(--yoke-surface-2);
+  border: 0;
+  border-top: 1px solid var(--yoke-border);
+  border-radius: 0;
+  padding: 12px 15px;
+  overflow-x: auto;
+  font-family: var(--yoke-font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--yoke-ink-2);
+}
+
+/* State pills: a 6px leading dot in a tinted lozenge, colored by the
+   value's semantic family. Unknown values wear the neutral idle pair. */
+.universe-app-root .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.universe-app-root .pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.universe-app-root .pill.run { color: var(--yoke-run); background: var(--yoke-run-bg); }
+.universe-app-root .pill.good { color: var(--yoke-good); background: var(--yoke-good-bg); }
+.universe-app-root .pill.warn { color: var(--yoke-warn); background: var(--yoke-warn-bg); }
+.universe-app-root .pill.crit { color: var(--yoke-crit); background: var(--yoke-crit-bg); }
+.universe-app-root .pill.idle { color: var(--yoke-idle); background: var(--yoke-idle-bg); }
+
+.universe-app-root .error { color: var(--yoke-crit); }
+.universe-app-root .empty { color: var(--yoke-muted); font-style: italic; }
+
+/* Stat tile: one number that matters, on the raised surface. Hosts and
+   future overview panels compose rows of these. */
+.universe-app-root .stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.universe-app-root .stat {
+  background: var(--yoke-surface);
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  padding: 13px 15px;
+}
+.universe-app-root .stat .n {
+  font-size: 23px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.universe-app-root .stat .l {
+  font-size: 11.5px;
   color: var(--yoke-muted);
+  margin-top: 2px;
+}
+
+/* A destination that exists but has nothing to read yet: a dashed,
+   hatched placeholder that states what it will be — badge, name, one
+   sentence, and skeleton bars. Nothing pretends to act. */
+.universe-app-root .stub-panel {
+  border: 1.5px dashed var(--yoke-border);
+  border-radius: 14px;
+  padding: 40px 30px;
+  text-align: center;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 9px,
+    var(--yoke-surface) 9px,
+    var(--yoke-surface) 18px
+  );
+}
+.universe-app-root .stub-panel .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--yoke-warn);
+  background: var(--yoke-warn-bg);
+  padding: 4px 11px;
+  border-radius: 20px;
+}
+.universe-app-root .stub-panel h2 {
+  font-size: 19px;
+  font-weight: 620;
+  margin: 16px 0 6px;
+  letter-spacing: -0.01em;
+  color: var(--yoke-ink);
+}
+.universe-app-root .stub-panel .stub-summary {
+  color: var(--yoke-muted);
+  max-width: 52ch;
+  margin: 0 auto;
+  font-size: 13px;
+}
+.universe-app-root .stub-panel .preview {
+  margin-top: 22px;
+  display: grid;
+  gap: 9px;
+  max-width: 440px;
+  margin-inline: auto;
+  text-align: left;
+  opacity: 0.55;
+}
+.universe-app-root .stub-panel .ln {
+  height: 11px;
+  border-radius: 5px;
+  background: var(--yoke-surface-2);
 }
 
 /* Keyboard focus is always visible on the interactive surfaces. */
 .universe-app-root .nav-link:focus-visible,
+.universe-app-root .tab-link:focus-visible,
 .universe-app-root .capability-action:focus-visible,
 .universe-app-root .project-chooser:focus-visible,
 .universe-app-root .row-link:focus-visible,

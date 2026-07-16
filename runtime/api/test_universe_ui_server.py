@@ -160,6 +160,42 @@ class TestFunctionProxy:
         assert isinstance(rows, list)
         assert any(row.get("slug") == "yoke" for row in rows)
 
+    def test_deployment_runs_list_returns_well_formed_rows(
+        self,
+        ui_client,
+        test_db,
+    ):
+        # The Runs view scopes through the payload (a project id from the
+        # roster) and relies on the proxy's global-target default.
+        response = self._call(
+            ui_client,
+            {"function": "deployment_runs.list", "payload": {}},
+        )
+        assert response.status_code == 200
+        envelope = response.json()
+        assert envelope["success"] is True
+        assert envelope["result"]["rows"] == []
+        for field in ("id", "flow", "target_env", "status", "current_stage"):
+            assert field in envelope["result"]["fields"]
+
+        projects = self._call(
+            ui_client,
+            {
+                "function": "projects.list",
+                "payload": {"fields": ["id", "slug", "name"]},
+            },
+        ).json()["result"]["rows"]
+        scoped = self._call(
+            ui_client,
+            {
+                "function": "deployment_runs.list",
+                "payload": {"project": str(projects[0]["id"])},
+            },
+        )
+        assert scoped.status_code == 200
+        assert scoped.json()["success"] is True
+        assert scoped.json()["result"]["rows"] == []
+
     def test_strategy_doc_list_with_project_target_reaches_handler(
         self,
         ui_client,
