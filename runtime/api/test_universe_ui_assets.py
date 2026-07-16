@@ -79,7 +79,6 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
         "hosted-org-switcher",
         "hosted-user-menu",
         "hosted-org-links",
-        "hosted-upload-eligibility-notice",
         "hosted-github-connection",
     ):
         assert platform_class in harness, platform_class

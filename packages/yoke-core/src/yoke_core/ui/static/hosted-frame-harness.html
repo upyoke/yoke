@@ -30,6 +30,17 @@
     }
     .harness-meta b { font-weight: 600; }
     .harness-meta span { opacity: .75; }
+    /* The harness's own stand-in for a host's contentBefore block. Quiet
+       panel dress so a frame check reads layout, not a styling defect. */
+    .harness-content-notice {
+      margin: 16px 30px 0;
+      padding: 10px 14px;
+      border: 1px solid var(--yoke-border);
+      border-radius: var(--yoke-radius);
+      background: var(--yoke-surface);
+      color: var(--yoke-muted);
+      font-size: 12.5px;
+    }
   </style>
 </head>
 <body class="local-universe-page">
@@ -89,30 +100,35 @@
       return details;
     }
 
-    // navigationEnd — the platform's injected org links (admin set).
+    // navigationEnd — the platform's injected org links (admin set), each
+    // wearing the workbench nav-link anatomy (glyph box + label) the way
+    // the platform's slot builder emits them.
     function sampleOrgLinks() {
       const container = el("div", "hosted-org-links");
       const links = [
-        ["hosted-project-link", "New project", "projects/new"],
-        ["hosted-github-link", "GitHub", "github/repositories"],
-        ["hosted-tenant-replacement-link", "Replace tenant", "tenant-replacement"],
-        ["hosted-member-link", "Manage members", "members"],
-        ["hosted-billing-link", "Billing", "billing"],
+        ["hosted-project-link", "✚", "New project", "projects/new"],
+        ["hosted-github-link", "⎇", "GitHub", "github/repositories"],
+        ["hosted-tenant-replacement-link", "⇅", "Import universe", "tenant-replacement"],
+        ["hosted-member-link", "⚉", "Manage members", "members"],
+        ["hosted-billing-link", "❒", "Billing", "billing"],
       ];
-      for (const [className, text, route] of links) {
-        const link = el("a", `${className} nav-link`, text);
+      for (const [className, glyph, text, route] of links) {
+        const link = el("a", `${className} nav-link`);
         link.href = `/orgs/${SAMPLE_ORG.slug}/${route}`;
+        link.appendChild(el("span", "ico", glyph));
+        link.appendChild(el("span", "txt", text));
         container.appendChild(link);
       }
       return container;
     }
 
-    // contentBefore — the upload notice, in its visible (ineligible) state so
-    // the stacked content column is exercised, not just tolerated.
-    function sampleUploadNotice() {
+    // contentBefore — the platform ships a hidden reserved node here today;
+    // the harness keeps a visible sample block instead so the stacked
+    // content column is exercised, not just tolerated.
+    function sampleContentNotice() {
       const notice = el(
-        "p", "hosted-upload-eligibility-notice",
-        "Sample notice: universe upload is unavailable for this workspace.",
+        "p", "harness-content-notice",
+        "Sample notice occupying the contentBefore slot.",
       );
       notice.setAttribute("role", "status");
       return notice;
@@ -140,7 +156,7 @@
           label: "Move universe",
           options: [
             { id: "download", label: "Download universe" },
-            { id: "upload", label: "Upload universe" },
+            { id: "import", label: "Import universe" },
           ],
           onInvoke(option) {
             globalThis.console.log("harness capability action", option);
@@ -151,7 +167,7 @@
         topbarStart: sampleOrgSwitcher(),
         topbarEnd: sampleUserMenu(),
         navigationEnd: sampleOrgLinks(),
-        contentBefore: sampleUploadNotice(),
+        contentBefore: sampleContentNotice(),
         contentAfter: sampleGithubConnection(),
       },
     });
