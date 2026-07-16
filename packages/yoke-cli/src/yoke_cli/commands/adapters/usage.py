@@ -212,6 +212,7 @@ from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
 from yoke_cli.commands.adapters.projects_capabilities_read import (
     PROJECTS_CAPABILITIES_LIST_USAGE,
+)
 from yoke_cli.commands.adapters.workflows_read import (
     WORKFLOWS_DEFINITION_GET_USAGE,
 )

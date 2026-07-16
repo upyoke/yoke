@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-16T17:14:50Z_
+_Audit generated_at: 2026-07-16T17:45:04Z_
 
 ## 1. Summary
 
-- Function ids registered: **205**
+- Function ids registered: **208**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **204** (204 carry usable `--help`)
-- Operation tracker: **204 wrapped**, 72 permanent, 0 pending
+- `yoke` CLI subcommands: **207** (207 carry usable `--help`)
+- Operation tracker: **207 wrapped**, 72 permanent, 0 pending
 - Skill-body recipes: 217 total (180 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **204** (operation tracker confirms 204 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **207** (operation tracker confirms 207 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -53,6 +53,7 @@ Wrapped `yoke <subcommand>` adapters: **204** (operation tracker confirms 204 wr
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
 | deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
 | deployment_runs | `yoke deployment-runs update` | `deployment_runs.update` | ok |
+| doctor | `yoke doctor last-run get` | `doctor.last_run.get` | ok |
 | doctor | `yoke doctor run` | `doctor.run.run` | ok |
 | env | `yoke env use` | `env.use.run` | ok |
 | ephemeral_env | `yoke ephemeral-env update` | `ephemeral_env.update` | ok |
@@ -62,6 +63,7 @@ Wrapped `yoke <subcommand>` adapters: **204** (operation tracker confirms 204 wr
 | events | `yoke events emit` | `events.emit` | ok |
 | events | `yoke events query` | `events.query.run` | ok |
 | events | `yoke events tail` | `events.tail.run` | ok |
+| frontier | `yoke frontier list` | `frontier.list` | ok |
 | github | `yoke github pr create` | `github.pr.create` | ok |
 | github_actions | `yoke github-actions check-ci` | `github_actions.check_ci` | ok |
 | github_actions | `yoke github-actions run jobs-count` | `github_actions.run.jobs_count` | ok |
@@ -126,6 +128,7 @@ Wrapped `yoke <subcommand>` adapters: **204** (operation tracker confirms 204 wr
 | project_structure | `yoke project-structure command-definitions list` | `project_structure.command_definitions.list` | ok |
 | project_structure | `yoke project-structure deploy-defaults get` | `project_structure.deploy_defaults.get` | ok |
 | project_structure | `yoke project-structure patch apply` | `project_structure.patch.apply` | ok |
+| projects | `yoke projects capabilities list` | `projects.capabilities.list` | ok |
 | projects | `yoke projects capability has` | `projects.capability.has` | ok |
 | projects | `yoke projects capability-secret set` | `projects.capability_secret.set` | ok |
 | projects | `yoke projects capability secret set` | `projects.capability_secret.set` | ok |
