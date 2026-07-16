@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-16T13:30:34Z_
+_Audit generated_at: 2026-07-16T17:14:50Z_
 
 ## 1. Summary
 
-- Function ids registered: **204**
+- Function ids registered: **205**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **203** (203 carry usable `--help`)
-- Operation tracker: **203 wrapped**, 72 permanent, 0 pending
+- `yoke` CLI subcommands: **204** (204 carry usable `--help`)
+- Operation tracker: **204 wrapped**, 72 permanent, 0 pending
 - Skill-body recipes: 217 total (180 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **204** (operation tracker confirms 204 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -223,6 +223,7 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | workflow_item | `yoke workflow-item epic-task split` | `workflow_item.epic_task.split` | ok |
 | workflow_item | `yoke workflow-item epic-task submission-receipt-get` | `workflow_item.epic_task.submission_receipt_get` | ok |
 | workflow_item | `yoke workflow-item epic-task update-status` | `workflow_item.epic_task.update_status` | ok |
+| workflows | `yoke workflows definition get` | `workflows.definition.get` | ok |
 
 ## 3. Permanent command-shaped boundary roster
 

@@ -206,6 +206,9 @@ from yoke_cli.commands.adapters.sessions import (
     SESSIONS_TOUCH_USAGE,
 )
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
+from yoke_cli.commands.adapters.workflows_read import (
+    WORKFLOWS_DEFINITION_GET_USAGE,
+)
 
 __all__ = ["ADAPTER_USAGE"]
 
@@ -241,6 +244,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "db.read.run": DB_READ_USAGE,
     "sessions.begin": SESSIONS_BEGIN_USAGE,
     "sessions.list": SESSIONS_LIST_USAGE,
+    "workflows.definition.get": WORKFLOWS_DEFINITION_GET_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
     "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,

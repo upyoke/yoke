@@ -60,6 +60,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "deployment_runs.list",
     "sessions.list",
     "events.query.run",
+    "workflows.definition.get",
 })
 
 #: Packaged static assets the server may serve, with their content types.
@@ -76,7 +77,9 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "contract-version.js": "text/javascript; charset=utf-8",
     "mount-options.js": "text/javascript; charset=utf-8",
     "universe_navigation.js": "text/javascript; charset=utf-8",
+    "universe_view_support.js": "text/javascript; charset=utf-8",
     "universe_views.js": "text/javascript; charset=utf-8",
+    "universe_views_workflows.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
     "shell.css": "text/css; charset=utf-8",
     "theme.css": "text/css; charset=utf-8",

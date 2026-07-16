@@ -412,6 +412,19 @@
 .universe-app-root .error { color: var(--yoke-crit); }
 .universe-app-root .empty { color: var(--yoke-muted); font-style: italic; }
 
+/* One muted line of view-level context above a view's panels. */
+.universe-app-root .view-note {
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+  margin: 0 0 14px;
+}
+
+/* Identifier cells (flow ids, hashes) read in the mono voice. */
+.universe-app-root table.items td.mono {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+}
+
 /* Stat tile: one number that matters, on the raised surface. Hosts and
    future overview panels compose rows of these. */
 .universe-app-root .stat-row {

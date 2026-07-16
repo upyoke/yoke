@@ -58,6 +58,7 @@ from yoke_core.domain.handlers import (
     _register_sessions,
     _register_strategy,
     _register_templates,
+    _register_workflows,
 )
 
 _DOMAIN_REGISTRARS = (
@@ -93,6 +94,7 @@ _DOMAIN_REGISTRARS = (
     _register_github,
     _register_scratch,
     _register_strategy,
+    _register_workflows,
 )
 
 _REGISTRATION_LOCK = threading.Lock()

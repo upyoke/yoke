@@ -31,7 +31,8 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
     static_root = files("yoke_core.ui").joinpath("static")
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
-        "universe_views.js",
+        "universe_view_support.js", "universe_views.js",
+        "universe_views_workflows.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
@@ -149,6 +150,11 @@ def test_page_module_wires_the_workbench_shell():
         '{ label: "title", value: (doc) => doc.title }',
     ):
         assert reference in views, reference
+
+    workflows_view = static_root.joinpath(
+        "universe_views_workflows.js",
+    ).read_text()
+    assert "workflows.definition.get" in workflows_view
 
 
 def test_every_nav_destination_is_routable_and_scoped():
