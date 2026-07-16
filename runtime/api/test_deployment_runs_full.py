@@ -97,6 +97,18 @@ class TestCreateRun:
         val = dr.cmd_get(rid, field="created_by", db_path=db_path)
         assert val == "system"
 
+    def test_disabled_flow_cannot_start_a_new_run(self, db_path):
+        from runtime.api.fixtures.file_test_db import connect_test_db
+
+        with connect_test_db(db_path) as conn:
+            conn.execute(
+                "UPDATE deployment_flows SET status='disabled' "
+                "WHERE id='yoke-internal'"
+            )
+            conn.commit()
+        with pytest.raises(ValueError, match="disabled"):
+            dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+
     def test_create_resolves_flow_target_env(self, db_path):
         """When no target_env is given, should resolve from flow's target_env."""
         rid = dr.cmd_create_run("buzz", "buzz-standard", db_path=db_path)

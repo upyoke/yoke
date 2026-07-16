@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -21,6 +22,7 @@ class EnvironmentSettingsGetRequest(BaseModel):
 
     project: str
     environment_id: str
+    paths: list[str]
 
 
 class EnvironmentSettingsMergeRequest(BaseModel):
@@ -31,11 +33,17 @@ class EnvironmentSettingsMergeRequest(BaseModel):
     assignments: Dict[str, Any]
 
 
-class EnvironmentSettingsResponse(BaseModel):
+class EnvironmentSettingsProjectionResponse(BaseModel):
     project: str
     environment_id: str
-    settings_json: str
-    message: Optional[str] = None
+    values: Dict[str, Any]
+
+
+class EnvironmentSettingsMergeResponse(BaseModel):
+    project: str
+    environment_id: str
+    changed_paths: list[str]
+    message: str
 
 
 def handle_environment_settings_get(
@@ -61,7 +69,18 @@ def handle_environment_settings_get(
         settings_json = cmd_environment_get_settings(parsed.environment_id)
     except LookupError as exc:
         return _failure("not_found", str(exc), "$.payload.environment_id")
-    return _success(parsed.project, parsed.environment_id, settings_json)
+    try:
+        values = _project_scalar_paths(settings_json, parsed.paths)
+    except ValueError as exc:
+        return _failure("projection_invalid", str(exc), "$.payload.paths")
+    return HandlerOutcome(
+        primary_success=True,
+        result_payload={
+            "project": parsed.project,
+            "environment_id": parsed.environment_id,
+            "values": values,
+        },
+    )
 
 
 def handle_environment_settings_merge(
@@ -80,7 +99,6 @@ def handle_environment_settings_merge(
         return mismatch
 
     from yoke_core.domain.projects_environments_settings import (
-        cmd_environment_get_settings,
         cmd_environment_merge_settings,
     )
 
@@ -88,7 +106,6 @@ def handle_environment_settings_merge(
         message = cmd_environment_merge_settings(
             parsed.environment_id, parsed.assignments
         )
-        settings_json = cmd_environment_get_settings(parsed.environment_id)
     except SettingsConflictError as exc:
         return _failure(
             "settings_conflict", str(exc), "$.payload.assignments"
@@ -97,11 +114,14 @@ def handle_environment_settings_merge(
         return _failure("not_found", str(exc), "$.payload.environment_id")
     except ValueError as exc:
         return _failure("validation_error", str(exc), "$.payload.assignments")
-    return _success(
-        parsed.project,
-        parsed.environment_id,
-        settings_json,
-        message=message,
+    return HandlerOutcome(
+        primary_success=True,
+        result_payload={
+            "project": parsed.project,
+            "environment_id": parsed.environment_id,
+            "changed_paths": sorted(parsed.assignments),
+            "message": message,
+        },
     )
 
 
@@ -138,22 +158,37 @@ def _environment_project_mismatch(
     return None
 
 
-def _success(
-    project: str,
-    environment_id: str,
-    settings_json: str,
-    *,
-    message: Optional[str] = None,
-) -> HandlerOutcome:
-    return HandlerOutcome(
-        primary_success=True,
-        result_payload={
-            "project": project,
-            "environment_id": environment_id,
-            "settings_json": settings_json,
-            "message": message,
-        },
-    )
+def _project_scalar_paths(
+    settings_json: str, paths: list[str]
+) -> dict[str, Any]:
+    """Return only explicitly named scalar leaves from one settings object."""
+    if not paths:
+        raise ValueError("at least one JSON path is required")
+    try:
+        document = json.loads(settings_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("stored environment settings are not valid JSON") from exc
+    if not isinstance(document, dict):
+        raise ValueError("stored environment settings must be a JSON object")
+    values: dict[str, Any] = {}
+    for path in paths:
+        normalized = str(path or "").strip()
+        parts = normalized.split(".")
+        if not normalized or any(not part for part in parts):
+            raise ValueError(f"invalid JSON path {path!r}")
+        value: Any = document
+        for part in parts:
+            if not isinstance(value, dict) or part not in value:
+                value = None
+                break
+            value = value[part]
+        if isinstance(value, (dict, list)):
+            raise ValueError(
+                f"JSON path {normalized!r} selects a container; name one "
+                "scalar leaf instead"
+            )
+        values[normalized] = value
+    return values
 
 
 def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:
@@ -166,7 +201,8 @@ def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:
 __all__ = [
     "EnvironmentSettingsGetRequest",
     "EnvironmentSettingsMergeRequest",
-    "EnvironmentSettingsResponse",
+    "EnvironmentSettingsMergeResponse",
+    "EnvironmentSettingsProjectionResponse",
     "handle_environment_settings_get",
     "handle_environment_settings_merge",
 ]

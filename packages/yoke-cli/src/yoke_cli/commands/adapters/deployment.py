@@ -20,6 +20,10 @@ DEPLOYMENT_FLOWS_GET_USAGE = (
 DEPLOYMENT_FLOWS_STAGES_USAGE = (
     "yoke deployment-flows stages FLOW-ID [--session-id S] [--json]"
 )
+DEPLOYMENT_FLOWS_SET_STATUS_USAGE = (
+    "yoke deployment-flows set-status FLOW-ID active|disabled "
+    "[--session-id S] [--json]"
+)
 DEPLOYMENT_RUNS_GET_USAGE = (
     "yoke deployment-runs get RUN-ID [FIELD] [--session-id S] [--json]"
 )
@@ -97,6 +101,41 @@ def deployment_flows_stages(args: List[str]) -> int:
         target=TargetRef(kind="global"),
         payload={"flow_id": parsed.flow_id},
         session_id=parsed.session_id, json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+def deployment_flows_set_status(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke deployment-flows set-status",
+        description=(
+            "Enable or disable a deployment flow without removing its "
+            "definition or historical runs."
+        ),
+    )
+    parser.add_argument("flow_id")
+    parser.add_argument("status", choices=("active", "disabled"))
+    add_session_arg(parser); add_json_arg(parser)
+    parsed = parse_or_usage_error(
+        parser, args, DEPLOYMENT_FLOWS_SET_STATUS_USAGE
+    )
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        del stderr
+        result = response.result or {}
+        print(
+            f"{result.get('flow_id', '')}|{result.get('status', '')}",
+            file=stdout,
+        )
+
+    return dispatch_and_emit(
+        function_id="deployment_flows.set_status",
+        target=TargetRef(kind="global"),
+        payload={"flow_id": parsed.flow_id, "status": parsed.status},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -228,12 +267,14 @@ def deployment_runs_resolve_target_env(args: List[str]) -> int:
 
 __all__ = [
     "DEPLOYMENT_FLOWS_GET_USAGE",
+    "DEPLOYMENT_FLOWS_SET_STATUS_USAGE",
     "DEPLOYMENT_FLOWS_STAGES_USAGE",
     "DEPLOYMENT_RUNS_GET_USAGE",
     "DEPLOYMENT_RUNS_LIST_USAGE",
     "DEPLOYMENT_RUNS_UPDATE_USAGE",
     "DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE",
     "deployment_flows_get",
+    "deployment_flows_set_status",
     "deployment_flows_stages",
     "deployment_runs_get",
     "deployment_runs_list",

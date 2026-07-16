@@ -113,10 +113,9 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # doctor + projects + project_structure.
     _w("yoke doctor run", "doctor"),
     _w("yoke doctor last-run get", "doctor"),
-    # Deployment flow/run reads, run update, and the target-env resolver
-    # used by usher ride the dispatcher instead of pending db_router
-    # fallbacks.
+    # Deployment flow/run operations and the target-env resolver.
     _w("yoke deployment-flows get", "deployment_flows"),
+    _w("yoke deployment-flows set-status", "deployment_flows"),
     _w("yoke deployment-flows stages", "deployment_flows"),
     _w("yoke deployment-runs get", "deployment_runs"),
     _w("yoke deployment-runs list", "deployment_runs"),
@@ -284,8 +283,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("python3 -m yoke_core.tools.watch_doctor",
        "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_merge",
-       "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_deploy",
        "tools.watch", REASON_TOOL_SHAPED),
     # The remaining agent-facing watcher surfaces.
     # watch_advance / watch_lifecycle / watch_session_offer are

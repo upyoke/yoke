@@ -25,7 +25,7 @@ def wired(monkeypatch):
         if args[:2] == ("items", "get") and len(args) > 3 and args[3] == "deploy_stage":
             return item_state["deploy_stage"]
         if args[:2] == ("runs", "get"):
-            return "run-X|yoke|yoke-prod-release|prod|abc|failed|prod-deploy|2026-05-19T00:00:00Z"
+            return "run-X|yoke|yoke-hosted-production|production|abc|failed|hosted-release|2026-05-19T00:00:00Z"
         return ""
 
     def fake_flow_db(*args, sd=None):

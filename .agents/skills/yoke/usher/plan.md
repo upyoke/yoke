@@ -51,7 +51,7 @@ Dependencies (hard-block edges from item_dependencies — authoritative source):
 
 Deployment routing:
  Route A (internal -- no run):
- YOK-{id}: {flow or 'yoke-internal'} -> watch_merge done-transition --skip-deploy
+ YOK-{id}: {flow or 'no deployment flow'} -> watch_merge done-transition --skip-deploy
 
  Route B (deployment runs):
  Run 1: project={project}, flow={flow}, target={target_env}

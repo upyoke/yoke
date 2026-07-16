@@ -6,15 +6,19 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-from .project_renderer_settings import ProjectRendererSettings, _first_mapping
+from .project_renderer_settings import (
+    PULUMI_STATE_CAPABILITY_TYPE,
+    ProjectRendererSettings,
+    _first_mapping,
+)
 
 
 # Top-level YAML keys written by `pulumi stack init --secrets-provider`. They
 # own the stack's encryption boundary and must survive template re-renders.
 _PULUMI_OPERATOR_STATE_KEYS = ("secretsprovider:", "encryptedkey:")
 
-# Durable settings homes for the same state: ``sites.settings.pulumi`` for
-# project-level stacks and ``environments.settings.pulumi`` for env stacks.
+# Durable settings home for project-level stacks is the ``pulumi-state``
+# capability. Environment settings retain environment-stack state.
 _PULUMI_STATE_SETTINGS_KEYS = (
     ("secrets_provider", "secretsprovider"),
     ("encrypted_key", "encryptedkey"),
@@ -42,12 +46,17 @@ def _operator_state_lines_from_settings(
     Fresh renders land in per-run scratch dirs, so there is no existing
     stack YAML for :func:`_preserve_operator_state_lines` to read and the
     secrets-provider configuration silently vanishes. Project-level stack
-    state lives under ``sites.settings.pulumi.stack_state``; environment
-    stack state lives on the matching environment row.
+    state lives under the ``pulumi-state`` capability; environment stack state
+    lives on the matching environment row.
     """
-    pulumi_site = _first_mapping(settings.site_settings.get("pulumi"))
-    stack_state = _first_mapping(pulumi_site.get("stack_state"))
-    lines = _state_lines_from_mapping(_first_mapping(stack_state.get(stack_name)))
+    capability_state = _first_mapping(
+        settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {}).get(
+            "stack_state"
+        )
+    )
+    lines = _state_lines_from_mapping(
+        _first_mapping(capability_state.get(stack_name))
+    )
     if lines:
         return lines
     for env in settings.environments:

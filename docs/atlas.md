@@ -294,7 +294,6 @@ Wrapped `yoke <subcommand>` adapters: **207** (operation tracker confirms 207 wr
 | tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped |
 | tools.session_init | `python3 -m yoke_core.tools.session_init` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_advance` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_deploy` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_doctor` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_inventory` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_lifecycle` | tool_shaped |

@@ -50,6 +50,7 @@ from yoke_cli.commands.adapters.doctor import (
 )
 from yoke_cli.commands.adapters.deployment import (
     DEPLOYMENT_FLOWS_GET_USAGE,
+    DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
     DEPLOYMENT_FLOWS_STAGES_USAGE,
     DEPLOYMENT_RUNS_GET_USAGE,
     DEPLOYMENT_RUNS_LIST_USAGE,
@@ -66,6 +67,9 @@ from yoke_cli.commands.adapters.events import (
 )
 from yoke_cli.commands.adapters.github import (
     GITHUB_CONNECT_USAGE, GITHUB_DISCONNECT_USAGE, GITHUB_PR_CREATE_USAGE, GITHUB_STATUS_USAGE,
+)
+from yoke_cli.commands.adapters.github_release import (
+    GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
 )
 from yoke_cli.commands.adapters.usage_github_actions import (
     USAGE_BY_FUNCTION_ID as GITHUB_ACTIONS_USAGE_BY_ID,
@@ -288,11 +292,13 @@ ADAPTER_USAGE: Dict[str, str] = {
     "doctor.run.run": DOCTOR_RUN_USAGE,
     "doctor.last_run.get": DOCTOR_LAST_RUN_GET_USAGE,
     "deployment_flows.get": DEPLOYMENT_FLOWS_GET_USAGE,
+    "deployment_flows.set_status": DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
     "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
     "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
     "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
     "deployment_runs.resolve_target_env": DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
+    "github.release.create_next_tag": GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
     "ephemeral_env.update": EPHEMERAL_ENV_UPDATE_USAGE,
     "projects.get": PROJECTS_GET_USAGE,
     "projects.list": PROJECTS_LIST_USAGE,

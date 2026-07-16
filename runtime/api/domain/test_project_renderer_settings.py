@@ -15,6 +15,41 @@ from yoke_core.domain.project_renderer_values import _values_from_settings
 
 
 class TestProjectRendererSettingsLoader:
+    def test_capability_owns_deploy_namespace_without_site_rows(self):
+        db_name = pg_testdb.create_test_database()
+        conn = pg_testdb.drop_database_on_close(
+            pg_testdb.connect_test_database(db_name), db_name,
+        )
+        try:
+            conn.execute(
+                "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE, "
+                "name TEXT, public_item_prefix TEXT DEFAULT 'YOK')"
+            )
+            conn.execute(
+                "CREATE TABLE project_capabilities (project_id INTEGER, type TEXT, "
+                "settings TEXT)"
+            )
+            conn.execute(
+                "INSERT INTO projects (id, slug, name) VALUES (%s, %s, %s)",
+                (3, "platform", "Platform"),
+            )
+            conn.execute(
+                "INSERT INTO project_capabilities (project_id, type, settings) "
+                "VALUES (%s, %s, %s)",
+                (3, "pulumi-state", json.dumps({
+                    "deploy_namespace": "yoke",
+                    "stacks": ["registry", "runner-fleet"],
+                })),
+            )
+
+            settings = _load_project_renderer_settings(conn, "platform")
+
+            assert settings.deploy_namespace == "yoke"
+            assert settings.site_id == ""
+            assert settings.environments == ()
+        finally:
+            conn.close()
+
     def test_loads_db_settings_homes_and_maps_renderer_values(self):
         db_name = pg_testdb.create_test_database()
         conn = pg_testdb.drop_database_on_close(

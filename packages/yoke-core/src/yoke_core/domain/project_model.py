@@ -126,7 +126,7 @@ def _deployment_flows(conn: Any, project_id: int) -> List[Dict[str, Any]]:
     p = _p(conn)
     rows = query_rows(
         conn,
-        "SELECT id, name, COALESCE(stages, '[]') AS stages "
+        "SELECT id, name, COALESCE(stages, '[]') AS stages, status "
         f"FROM deployment_flows WHERE project_id={p} ORDER BY id",
         (project_id,),
     )
@@ -136,7 +136,12 @@ def _deployment_flows(conn: Any, project_id: int) -> List[Dict[str, Any]]:
             stages = json.loads(row["stages"] or "[]")
         except (TypeError, ValueError):
             stages = []
-        out.append({"id": row["id"], "name": row["name"], "stages": stages})
+        out.append({
+            "id": row["id"],
+            "name": row["name"],
+            "stages": stages,
+            "status": row["status"],
+        })
     return out
 
 

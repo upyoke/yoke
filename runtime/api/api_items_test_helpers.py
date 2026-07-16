@@ -46,7 +46,8 @@ CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,
     description TEXT, stages TEXT NOT NULL, on_failure TEXT DEFAULT 'halt',
     created_at TEXT NOT NULL, target_env TEXT DEFAULT NULL,
-    done_description TEXT DEFAULT NULL, UNIQUE(project_id, name)
+    done_description TEXT DEFAULT NULL,
+    status TEXT NOT NULL DEFAULT 'active', UNIQUE(project_id, name)
 );
 CREATE TABLE deployment_runs (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, flow TEXT NOT NULL,

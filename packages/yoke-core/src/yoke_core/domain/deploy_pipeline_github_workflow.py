@@ -119,7 +119,7 @@ def _dispatch_github_actions_workflow(
         print(f"Error: {sha_error}", file=sys.stderr)
         return 1, sha_error
     workflow_inputs = _resolve_workflow_inputs(
-        raw_workflow_inputs, head_sha=head_sha,
+        raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
     )
 
     ga_run_id = ""

@@ -1,0 +1,146 @@
+name: platform-release-bridge
+run-name: "${{ inputs.release_mode }} ${{ inputs.target_environment }} yoke@${{ inputs.product_sha }} [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "Hosted environment to release"
+        required: true
+        type: choice
+        options:
+          - stage
+          - production
+      release_mode:
+        description: "Normal release or production hotfix"
+        required: true
+        type: choice
+        options:
+          - normal
+          - hotfix
+      product_sha:
+        description: "Merged Yoke commit to publish as the next annotated release"
+        required: true
+        type: string
+      deployment_run_id:
+        description: "Yoke deployment run that owns this promotion"
+        required: true
+        type: string
+      yoke_dispatch_id:
+        description: "Opaque Yoke dispatch correlation token"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  dispatch-platform-release:
+    name: dispatch and await Platform release
+    runs-on: ubuntu-24.04
+    env:
+      YOKE_API_BASE: "https://app.upyoke.com/api/orgs/upyoke"
+      YOKE_RELEASE_API_TOKEN: ${{ secrets.YOKE_RELEASE_API_TOKEN }}
+      YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
+    steps:
+      - name: Checkout the merged Yoke source and release tags
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.product_sha }}
+
+      - name: Install this commit's Yoke client
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+      - name: Install the checked-out Yoke packages
+        run: |
+          python3 -m pip install \
+            -e packages/yoke-contracts \
+            -e packages/yoke-cli \
+            -e packages/yoke-harness \
+            -e packages/yoke-core \
+            -e .
+
+      - name: Configure scoped Yoke release authority
+        run: |
+          export YOKE_MACHINE_HOME="$RUNNER_TEMP/yoke-platform-release-bridge"
+          echo "YOKE_MACHINE_HOME=$YOKE_MACHINE_HOME" >> "$GITHUB_ENV"
+          echo "YOKE_ENV=prod" >> "$GITHUB_ENV"
+          printf '%s' "$YOKE_RELEASE_API_TOKEN" | yoke connection set prod \
+            --transport https \
+            --prod \
+            --api-url "$YOKE_API_BASE" \
+            --token-stdin >/dev/null
+
+      - name: Create or recover the immutable annotated release tag
+        id: release
+        env:
+          PRODUCT_SHA: ${{ inputs.product_sha }}
+          DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
+        run: |
+          release_tag="$(yoke github release create-next-tag \
+            upyoke/yoke "$PRODUCT_SHA" \
+            --summary "Automated hosted release for deployment run $DEPLOYMENT_RUN_ID." \
+            --project yoke)"
+          test -n "$release_tag"
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $release_tag"
+
+      - name: Await the wheel and server-image release factories
+        env:
+          PRODUCT_SHA: ${{ inputs.product_sha }}
+        run: |
+          for workflow in yoke-release.yml yoke-server-image.yml; do
+            run_id=""
+            for attempt in $(seq 1 60); do
+              if run_id="$(yoke github-actions find-run \
+                upyoke/yoke "$workflow" "$PRODUCT_SHA" \
+                --project yoke 2>/dev/null)"; then
+                break
+              fi
+              sleep 5
+            done
+            if [ -z "$run_id" ] || [ "$run_id" = "not_found" ]; then
+              echo "release workflow did not appear: $workflow" >&2
+              exit 1
+            fi
+            echo "$workflow run: https://github.com/upyoke/yoke/actions/runs/$run_id"
+            yoke github-actions wait-run \
+              upyoke/yoke "$run_id" \
+              --project yoke \
+              --timeout 3600
+          done
+
+      - name: Switch to scoped Platform promotion authority
+        run: |
+          printf '%s' "$YOKE_PLATFORM_RELEASE_API_TOKEN" | yoke connection set prod \
+            --transport https \
+            --prod \
+            --api-url "$YOKE_API_BASE" \
+            --token-stdin >/dev/null
+
+      - name: Dispatch and await Platform pin promotion and release
+        env:
+          PRODUCT_REF: ${{ steps.release.outputs.tag }}
+          RELEASE_MODE: ${{ inputs.release_mode }}
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          OUTER_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
+        run: |
+          request_id="bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${OUTER_DISPATCH_ID}"
+          platform_run_id="$(yoke github-actions trigger \
+            upyoke/platform yoke-release-promote.yml \
+            --ref main \
+            --input "target_environment=$TARGET_ENVIRONMENT" \
+            --input "product_ref=$PRODUCT_REF" \
+            --input "release_mode=$RELEASE_MODE" \
+            --request-id "$request_id" \
+            --correlation-input yoke_dispatch_id \
+            --project platform)"
+          echo "Platform release run: https://github.com/upyoke/platform/actions/runs/$platform_run_id"
+          yoke github-actions wait-run \
+            upyoke/platform "$platform_run_id" \
+            --project platform \
+            --timeout 10800

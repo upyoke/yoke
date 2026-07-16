@@ -193,7 +193,7 @@ class TestProjectStructureDeployDefaultsGet(unittest.TestCase):
     def test_returns_configured_default_flow(self):
         with patch(
             "yoke_core.domain.deploy_defaults.get_default_flow",
-            return_value="yoke-prod-release",
+            return_value="yoke-hosted-production",
         ):
             req = _command_request(
                 "project_structure.deploy_defaults.get",
@@ -203,7 +203,7 @@ class TestProjectStructureDeployDefaultsGet(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["project_id"], "yoke")
         self.assertEqual(
-            outcome.result_payload["deployment_flow"], "yoke-prod-release"
+            outcome.result_payload["deployment_flow"], "yoke-hosted-production"
         )
 
     def test_absent_default_is_successful_none(self):

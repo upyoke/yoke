@@ -9,17 +9,13 @@ from __future__ import annotations
 
 import json
 
-from yoke_contracts.github_workflow_dispatch import (
-    WORKFLOW_DISPATCH_CORRELATION_INPUT,
-)
-
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _table_exists,
 )
-from yoke_core.domain.deployment_flow_seed_stage import ensure_seed_metadata, ensure_seed_stage
 from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS as _SEED_FLOWS
+from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 
 
 def cmd_init(conn) -> str:
@@ -33,6 +29,7 @@ def cmd_init(conn) -> str:
             stages TEXT NOT NULL,
             on_failure TEXT DEFAULT 'halt',
             created_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
             UNIQUE(project_id, name)
         )""")
 
@@ -43,6 +40,9 @@ def cmd_init(conn) -> str:
     # checks the live column set first and only ALTERs when missing.
     _add_column_if_not_exists(conn, "deployment_flows", "target_env", "TEXT DEFAULT NULL")
     _add_column_if_not_exists(conn, "deployment_flows", "done_description", "TEXT DEFAULT NULL")
+    _add_column_if_not_exists(
+        conn, "deployment_flows", "status", "TEXT NOT NULL DEFAULT 'active'"
+    )
 
     # Add deployment_flow / deploy_stage to items (idempotent).
     # NOTE: SQLite silently drops the inline `REFERENCES` clause on
@@ -69,13 +69,15 @@ def cmd_init(conn) -> str:
     for flow in seeded_flows:
         conn.execute(
             "INSERT INTO deployment_flows "
-            "(id, project_id, name, description, stages, on_failure, target_env, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+            "(id, project_id, name, description, stages, on_failure, target_env, "
+            "status, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT(id) DO NOTHING",
             (
              flow["id"], project_ids[str(flow["project"])],
              flow["name"], flow["description"],
              flow["stages"], flow["on_failure"], flow.get("target_env"),
+             flow.get("status", "active"),
              iso8601_now()),
         )
 
@@ -98,13 +100,10 @@ def cmd_init(conn) -> str:
                 (flow["done_description"], flow["id"]),
             )
 
-    # Bootstrap backfill: ensure each flow that ships a
-    # ``migration_apply`` stage in the seed actually has it on the live
-    # row. Existing rows from before governed-DB-mutation landed need the stage
-    # prepended idempotently.  This is the runtime side of §11.4 — the
-    # bootstrap exception that installs the contract that governs future
-    # migrations on the project.
+    # Ensure a seed's governed migration stage is present on its live row.
     for flow in _SEED_FLOWS:
+        if flow["status"] != FLOW_STATUS_ACTIVE:
+            continue
         try:
             seed_stages = json.loads(flow["stages"])
         except (json.JSONDecodeError, TypeError, KeyError):
@@ -143,66 +142,12 @@ def cmd_init(conn) -> str:
             (json.dumps(merged), flow["id"]),
         )
 
-    ensure_seed_stage(
-        conn,
-        seed_flows=_SEED_FLOWS,
-        flow_id="yoke-prod-release",
-        stage_name="distribution-publish",
-        before_stage="complete",
-    )
-    ensure_seed_stage(
-        conn,
-        seed_flows=_SEED_FLOWS,
-        flow_id="yoke-stage-release",
-        stage_name="distribution-publish",
-        before_stage="complete",
-    )
-    ensure_seed_metadata(
-        conn,
-        seed_flows=_SEED_FLOWS,
-        flow_ids=("yoke-prod-release", "yoke-stage-release"),
-    )
-    _remove_buzz_dispatch_correlation(conn)
-
     conn.commit()
 
     # Create item_progress_view
     create_or_replace_item_progress_view(conn)
 
     return "Deployment flows initialized"
-
-
-def _remove_buzz_dispatch_correlation(conn) -> None:
-    """Restore trigger-once semantics until Buzz workflows ship the input."""
-    for flow_id in ("buzz-prod-release", "buzz-prod-hotfix"):
-        row = conn.execute(
-            "SELECT stages FROM deployment_flows WHERE id = %s",
-            (flow_id,),
-        ).fetchone()
-        if row is None:
-            continue
-        raw = row[0] if not hasattr(row, "keys") else row["stages"]
-        try:
-            stages = json.loads(raw) if raw else []
-        except (json.JSONDecodeError, TypeError):
-            continue
-        if not isinstance(stages, list):
-            continue
-        changed = False
-        for stage in stages:
-            if (
-                isinstance(stage, dict)
-                and stage.get("executor") == "github-actions-workflow"
-                and stage.get("dispatch_correlation_input")
-                == WORKFLOW_DISPATCH_CORRELATION_INPUT
-            ):
-                stage.pop("dispatch_correlation_input")
-                changed = True
-        if changed:
-            conn.execute(
-                "UPDATE deployment_flows SET stages = %s WHERE id = %s",
-                (json.dumps(stages), flow_id),
-            )
 
 
 def create_or_replace_item_progress_view(conn) -> None:

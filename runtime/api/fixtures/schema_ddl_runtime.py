@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS deployment_flows (
     created_at TEXT NOT NULL,
     target_env TEXT DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
     UNIQUE(project_id, name)
 );
 

@@ -16,7 +16,7 @@ of patching code.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping
+from typing import Any, Dict, Mapping
 
 from yoke_core.domain.github_app_deployment import (
     GitHubAppDeploymentConfig,
@@ -268,37 +268,3 @@ def declared_env_branch(project: str, env_name: str) -> str:
     git = _env_mapping(env.settings, "git")
     branch = git.get("branch")
     return branch if isinstance(branch, str) else ""
-
-
-def auto_deploy_envs_for_branch(project: str, branch: str) -> List[str]:
-    """Return env names of *project* that auto-deploy on a push to *branch*.
-
-    An environment qualifies when its ``environments.settings`` BOTH
-    declare ``git.branch == branch`` AND ``deploy.auto_on_push == true``
-    (strict JSON boolean; absent or any other value = false). Per-env
-    policy is DB truth — the operator flips it with
-    ``python3 -m yoke_core.domain.projects environment-merge-settings
-    <env-id> --set deploy.auto_on_push=true``. An empty *branch* never
-    matches: envs with no declared branch are the ephemeral tier, not
-    push targets.
-    """
-    if not branch:
-        return []
-    return auto_deploy_envs_from_settings(
-        load_project_renderer_settings(project), branch
-    )
-
-
-def auto_deploy_envs_from_settings(
-    settings: ProjectRendererSettings, branch: str
-) -> List[str]:
-    """Pure projection of the per-env auto-deploy-on-push policy."""
-    matched: List[str] = []
-    if not branch:
-        return matched
-    for env in settings.environments:
-        git = _env_mapping(env.settings, "git")
-        deploy = _env_mapping(env.settings, "deploy")
-        if git.get("branch") == branch and deploy.get("auto_on_push") is True:
-            matched.append(env.name)
-    return matched

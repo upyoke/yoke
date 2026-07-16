@@ -2,9 +2,9 @@
 
 Step 8: Route merged items through deployment pipelines. Skip if `--merge-only`.
 
-**Events for verification.** Item-bound runs can be checked with `yoke events query --event-name DeploymentRunStageCompleted --item {N}` before advancing to done. Item-less environment runs have no item id; check them by run id in deployment-run state and run-level events instead.
-
-**Local command-shaped deploy surfaces.** On machines whose active env is HTTPS `prod`, prepend `YOKE_ENV=prod-db-admin` when invoking retained `db_router runs ...` creation/preview forms or the retained `watch_deploy` wrapper; those are local-runtime command-shaped surfaces that need the local-Postgres admin env. Run/flow reads, run updates, and target-env resolution use the dispatcher-backed deployment flow/run wrappers.
+**Run state for verification.** Check item-bound delivery through
+`yoke deployment-runs get {run-id}`; events are audit telemetry, not the
+success authority.
 
 **Context variables** (set by prior phases): merged items, `_MERGE_ONLY`, `_pre_merge_verified`, `_eph_next_stage`
 
@@ -17,12 +17,18 @@ If `_MERGE_ONLY`: report merge-only complete, **stop**.
 For each merged item, read `deployment_flow` and `project` through the typed `items.get` function (typed reads, not shell `items get`).
 
 Two categories:
-- **Internal flow:** `deployment_flow` is `yoke-internal`, `buzz-internal`, empty, or null
+- **Internal flow:** `deployment_flow` is empty/null or ends in the registered
+  project convention `-internal`
 - **Deployment flow:** grouped by `(project, deployment_flow)`
+
+Usher does not know project-specific flow ids or release topology. It executes
+the item's active registered flow exactly as defined; disabled flows cannot be
+assigned or start a run.
 
 ## Step 8b: Route A — Internal flow items (no run)
 
-The done-transition engine is a retained Yoke-internal boundary; run it through the merge watcher, then handle exit codes:
+The done-transition engine is the project-agnostic internal-delivery boundary;
+run it through the merge watcher, then handle exit codes:
 
 ```bash
 python3 -m yoke_core.tools.watch_merge done-transition -- {N} --skip-deploy
@@ -48,7 +54,7 @@ Exit-code dispatch:
 - **Exit 3:** Simulation gate failure (epic) or merge conflicts requiring agent resolution. Revert to `implemented`, halt batch. Report: `[Route A] YOK-{N}: done-transition blocked by simulation gate or conflicts (exit 3). Reverted to implemented.`
 - **Exit 4:** User files at risk — **HARD STOP**. Revert to `implemented`. Report: `[Route A] YOK-{N}: user files at risk (exit 4). Reverted to implemented. Manual review required.`
 - **Exit 7:** Deployment flow guard. The item has a deployment flow that requires pipeline execution, but `--skip-deploy` was passed. Revert to `implemented`. Report: `[Route A] YOK-{N}: deployment flow guard (exit 7). This item needs Route B (deployment pipeline), not Route A. Reverted to implemented. Re-run usher without --skip-deploy or verify the item's deployment_flow field.`
-- **Exit 8:** Empty worktree branch — the item's worktree branch has no commits diverging from main. This is the evidence-only guard. Revert to `implemented`. Report: `[Route A] YOK-{N}: empty worktree branch (exit 8). This is an evidence-only item with no code changes. Reverted to implemented.`
+- **Exit 8:** Empty worktree branch — the item's worktree branch has no commits diverging from the project's default branch. This is the evidence-only guard. Revert to `implemented`. Report: `[Route A] YOK-{N}: empty worktree branch (exit 8). This is an evidence-only item with no code changes. Reverted to implemented.`
   **Recovery:** The canonical remediation is the evidence-only path — the item should have been advanced with `--no-worktree` (which sets `worktree = NULL`), or the operator should clear the worktree field by calling `items.scalar.update` with `payload.field="worktree"`, `payload.value=null`. Then re-run `/yoke usher YOK-{N}`.
 - **Exit 99:** Self-modifying bootstrap — the underlying done-transition engine re-executes itself. This is handled internally by the launcher and should never surface to usher. If it does, treat as unexpected and apply the catch-all below.
 - **Any other non-zero exit (catch-all):** Unexpected failure. Revert to `implemented` so the item is never stranded in `release`. Report: `[Route A] YOK-{N}: unexpected done-transition failure (exit {code}). Reverted to implemented. Investigate the done-transition output above.`
@@ -77,44 +83,24 @@ Preview-flow side decisions wrap the composed call (these are not folded into `s
 
 The target-env resolver is `yoke deployment-runs resolve-target-env`; the other internal per-step forms (`runs create-run`, `runs add-item`, `runs validate-composition`) remain operator/debug surfaces. Prefer the composed call for item-bound delivery.
 
-### Environment-level deploys (no item)
-
-If the operator asks for a Yoke prod/stage environment redeploy without an attached backlog item, do **not** route through `start-for-item` and do **not** invent an item. Resolve the target branch SHA from an explicit Yoke product-source checkout, create a zero-item deployment run under the project that owns the deployment environments and flows, and execute that run id with both the product checkout and resolved image tag:
-
-```bash
-target_env=prod
-target_branch=main
-source_checkout=<source-checkout>
-deploy_owner_project=<deploy-owner-project>
-git -C "$source_checkout" fetch origin "$target_branch"
-deploy_image_tag="$(git -C "$source_checkout" rev-parse --short=12 FETCH_HEAD)"
-YOKE_ENV=prod-db-admin python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
-YOKE_ENV=prod-db-admin python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id} --image-tag "$deploy_image_tag"
-```
-
-`yoke-prod-release` / `yoke-stage-release` are deployment-flow ids; the first command prints the concrete `run-...` id. The deploy-owner project may differ from the Yoke product project after environment/flow re-parenting; it remains the run authority, while `--product-src` pins the code, build context, and product release metadata to the checkout that supplied the image tag. Zero rows in `deployment_run_items` are valid for these environment-level runs. `deploy_pipeline` skips item branch verification and item status writes, while the flow still gates the declared environment branch (`main` for prod, `stage` for stage), runs env activation, deploys the explicitly tagged core image, checks public health, and records `deployment_runs.current_stage` / `status`. Every retry or `--from-stage` resume of this item-less run must repeat the same `--product-src "$source_checkout"` and `--image-tag "$deploy_image_tag"` arguments.
-
 ### 8c8: Run-level QA seeding
-**Do NOT manually seed** — the retained deploy pipeline invoked by `python3 -m yoke_core.tools.watch_deploy` calls the internal deploy QA recorder automatically.
+**Do NOT manually seed** — `yoke_core.domain.deploy_pipeline` calls the internal deploy QA recorder automatically.
 
 ### 8c9: Execute deployment pipeline
 
-**Branch ancestry check** (defense in depth) — verify branch is ancestor of the flow's gate branch: the target env's declared deploy branch (`environments.settings.git.branch` — `main` for prod flows, `stage` for stage flows), or `main` when the flow has no env-declared branch. The pipeline enforces the same gate internally (`resolve_flow_gate_branch`).
+**Branch ancestry check** (defense in depth) — verify the merged item commit is
+an ancestor of the branch selected by the flow's project/environment policy.
+The pipeline owns that resolution and enforces the same gate internally
+(`resolve_flow_gate_branch`); Usher must not hardcode a project branch.
 
-**Long-running execution:** `deploy_pipeline` polls external CI systems and can run for several minutes (default timeout: 30 min). Use the shared deploy watcher so agents do not hand-author filters. Under Codex/native shell, run it foreground and let the PTY stream. Under Claude Code, run `watch_deploy --print-streaming-pair` and paste the printed background/progress pair into the harness surfaces. Await completion; do not poll. The full anti-polling rule lives in `runtime/harness/claude/rules/session.md` and is enforced by `runtime/api/domain/lint_long_command_polling.py`.
+**Long-running execution:** `deploy_pipeline` polls external CI systems and can run for several minutes (default timeout: 30 min). Execute it through the harness long-command surface, await completion, and do not poll. The full anti-polling rule lives in `runtime/harness/claude/rules/session.md` and is enforced by `runtime/api/domain/lint_long_command_polling.py`.
 
 ```bash
-# Codex/native shell:
 if [ "$_pre_merge_verified" = "1" ] && [ -n "$_eph_next_stage" ]; then
- YOKE_ENV=prod-db-admin python3 -m yoke_core.tools.watch_deploy -- {run-id} --from-stage "$_eph_next_stage"
+ python3 -m yoke_core.domain.deploy_pipeline {run-id} --from-stage "$_eph_next_stage"
 else
- YOKE_ENV=prod-db-admin python3 -m yoke_core.tools.watch_deploy -- {run-id}
+ python3 -m yoke_core.domain.deploy_pipeline {run-id}
 fi
-```
-
-```bash
-# Claude Code:
-YOKE_ENV=prod-db-admin python3 -m yoke_core.tools.watch_deploy --print-streaming-pair -- {run-id}
 ```
 
 **Exit 0:** Run done-transition for each item: `python3 -m yoke_core.tools.watch_merge done-transition -- {N} --skip-deploy`
@@ -139,7 +125,7 @@ What `/yoke approve` does internally (canonical recipe — do not duplicate inli
 3. Prompts via `AskUserQuestion` ("Yes, approve and continue" / "No, pause for later"). Pause → report paused state, continue to next group.
 4. Emits `DeploymentApprovalGranted` via `yoke events emit`.
 5. Updates `runs current_stage` and dual-writes each member item's `deploy_stage` via `items.scalar.update`.
-6. Re-invokes `python3 -m yoke_core.tools.watch_deploy -- {run-id} --from-stage {next-stage}` to resume the pipeline.
+6. Re-invokes `python3 -m yoke_core.domain.deploy_pipeline {run-id} --from-stage {next-stage}` to resume the pipeline.
 
 The re-invoked pipeline may surface another exit 2 — re-invoke `/yoke approve YOK-{N}` for each successive gate until the pipeline completes (exit 0), fails (exit 1), or the operator pauses (exit 3).
 

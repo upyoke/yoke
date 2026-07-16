@@ -52,7 +52,7 @@ def _find_request(
         or {
             "project": "platform",
             "repo": "upyoke/platform",
-            "workflow": "yoke-env-deploy.yml",
+            "workflow": "platform-release-bridge.yml",
             "head_sha": "abc123",
         },
     )
@@ -114,7 +114,7 @@ class TestWorkflowFindRun:
         request = _find_request({
             "project": "platform",
             "repo": "upyoke/platform",
-            "workflow": "yoke-env-deploy.yml",
+            "workflow": "platform-release-bridge.yml",
             "branch": "stage",
             "event": "workflow_dispatch",
             "exclude_run_id": "11",
@@ -133,7 +133,7 @@ class TestWorkflowFindRun:
         assert calls == [
             (
                 "/repos/upyoke/platform/actions/workflows/"
-                "yoke-env-deploy.yml/runs",
+                "platform-release-bridge.yml/runs",
                 {
                     "per_page": "10",
                     "branch": "stage",

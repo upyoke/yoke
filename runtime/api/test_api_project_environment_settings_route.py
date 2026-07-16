@@ -71,7 +71,9 @@ def _call(client, function: str, payload: dict):
     )
 
 
-def test_https_merge_retires_environment_and_returns_canonical_document(client):
+def test_https_merge_returns_changed_paths_without_the_settings_document(
+    client, environment_db,
+):
     response = _call(
         client,
         "projects.environment_settings.merge",
@@ -85,16 +87,62 @@ def test_https_merge_retires_environment_and_returns_canonical_document(client):
         },
     )
     assert response.status_code == 200
-    stored = json.loads(response.json()["result"]["settings_json"])
+    result = response.json()["result"]
+    assert result["changed_paths"] == ["pulumi.activation_state", "servers"]
+    assert "settings_json" not in result
+    with connect_test_db(environment_db["db_path"]) as conn:
+        stored = json.loads(
+            conn.execute(
+                "SELECT settings FROM environments WHERE id=%s",
+                ("yoke-api-prod",),
+            ).fetchone()[0]
+        )
     assert stored["pulumi"]["activation_state"] == "render_only"
     assert stored["servers"] == []
+
+
+def test_https_get_returns_only_explicit_scalar_paths(client):
+    response = _call(
+        client,
+        "projects.environment_settings.get",
+        {
+            "project": "yoke",
+            "environment_id": "yoke-api-prod",
+            "paths": ["pulumi.activation_state", "git.branch"],
+        },
+    )
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["values"] == {
+        "pulumi.activation_state": "active",
+        "git.branch": None,
+    }
+    assert "settings_json" not in result
+
+
+def test_https_get_refuses_container_projection(client):
+    response = _call(
+        client,
+        "projects.environment_settings.get",
+        {
+            "project": "yoke",
+            "environment_id": "yoke-api-prod",
+            "paths": ["pulumi"],
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "projection_invalid"
 
 
 def test_https_refuses_project_environment_mismatch(client):
     response = _call(
         client,
         "projects.environment_settings.get",
-        {"project": "yoke", "environment_id": "buzz-api-prod"},
+        {
+            "project": "yoke",
+            "environment_id": "buzz-api-prod",
+            "paths": ["git.branch"],
+        },
     )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "project_mismatch"

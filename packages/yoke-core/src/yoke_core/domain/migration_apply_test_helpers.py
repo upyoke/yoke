@@ -17,7 +17,7 @@ import pytest
 
 from runtime.api.conftest import insert_item
 from yoke_core.domain import db_backend
-from yoke_core.domain.migration_model_capability import yoke_primary_seed
+from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from yoke_core.domain.migration_apply_targets import (
     POSTGRES_VALIDATION_ENV_SUFFIX,
 )
@@ -197,7 +197,7 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
                 "YOK", "2026-04-23T00:00:00Z",
             ),
         )
-        seed = yoke_primary_seed()
+        seed = governed_postgres_test_seed()
         seed["models"]["primary"]["runner"]["config"]["modules_dir"] = (
             "runtime/api/domain/migrations"
         )

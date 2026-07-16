@@ -149,7 +149,7 @@ class TestInterleavedWriters:
         with pytest.raises(SettingsConflictError, match="settings_conflict"):
             pes.cmd_environment_set_settings(
                 _STAGE_ID,
-                '{"deploy": {"auto_on_push": true}}',
+                '{"hosts": {"api": "new.example"}}',
                 base_b,
                 db_path=env_db,
             )
@@ -180,15 +180,15 @@ class TestMergeSettings:
     def test_sequential_key_merges_compose(self, env_db: str) -> None:
         # The incident's two writers as merges: both land, nothing erased.
         pes.cmd_environment_merge_settings(
-            _STAGE_ID, {"pulumi.encrypted_key": "k1"}, db_path=env_db
+            _STAGE_ID, {"pulumi.stack_name": "stage-stack"}, db_path=env_db
         )
         pes.cmd_environment_merge_settings(
-            _STAGE_ID, {"deploy.auto_on_push": True}, db_path=env_db
+            _STAGE_ID, {"hosts.api": "api.stage.example"}, db_path=env_db
         )
         final = _settings(env_db)
-        assert final["pulumi"]["encrypted_key"] == "k1"
+        assert final["pulumi"]["stack_name"] == "stage-stack"
         assert final["pulumi"]["activation_state"] == "render_only"
-        assert final["deploy"]["auto_on_push"] is True
+        assert final["hosts"]["api"] == "api.stage.example"
 
     def test_merge_retries_once_when_base_moves(
         self, env_db: str, monkeypatch: pytest.MonkeyPatch
@@ -206,10 +206,10 @@ class TestMergeSettings:
 
         monkeypatch.setattr(pes, "_read_settings_text", contended_read)
         pes.cmd_environment_merge_settings(
-            _STAGE_ID, {"deploy.auto_on_push": True}, db_path=env_db
+            _STAGE_ID, {"hosts.api": "api.stage.example"}, db_path=env_db
         )
         final = _settings(env_db)
-        assert final["deploy"]["auto_on_push"] is True
+        assert final["hosts"]["api"] == "api.stage.example"
         assert final["pulumi"]["activation_state"] == "render_only"
         assert calls["n"] >= 2
 
@@ -225,7 +225,7 @@ class TestMergeSettings:
         )
         with pytest.raises(SettingsConflictError, match="settings_conflict"):
             pes.cmd_environment_merge_settings(
-                _STAGE_ID, {"deploy.auto_on_push": True}, db_path=env_db
+                _STAGE_ID, {"hosts.api": "api.stage.example"}, db_path=env_db
             )
 
     def test_merge_missing_row_is_loud(self, env_db: str) -> None:
@@ -291,13 +291,13 @@ class TestProjectsCliWiring:
     def test_cli_merge_sets_key_path(self, env_db: str, capsys) -> None:
         rc = projects.main(
             ["environment-merge-settings", _STAGE_ID,
-             "--set", "deploy.auto_on_push=true",
+             "--set", "hosts.api=api.stage.example",
              "--set", "pulumi.activation_state=active"]
         )
         assert rc == 0
         capsys.readouterr()
         final = _settings(env_db)
-        assert final["deploy"]["auto_on_push"] is True
+        assert final["hosts"]["api"] == "api.stage.example"
         assert final["pulumi"]["activation_state"] == "active"
 
     def test_cli_missing_row_exits_1(self, env_db: str, capsys) -> None:

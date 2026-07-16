@@ -96,7 +96,51 @@ def handle_deployment_flow_stages(request: FunctionCallRequest) -> HandlerOutcom
     )
 
 
+def handle_deployment_flow_set_status(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    invalid = require_global(request, "deployment_flows.set_status")
+    if invalid is not None:
+        return invalid
+    payload = request.payload or {}
+    resolved_flow_id = flow_id(payload, "deployment_flows.set_status")
+    if isinstance(resolved_flow_id, HandlerOutcome):
+        return resolved_flow_id
+    status = payload.get("status")
+    if not isinstance(status, str):
+        return error(
+            "payload_invalid", "status must be active or disabled",
+            jsonpath="$.payload.status",
+        )
+
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.flow import cmd_set_status
+
+    conn = connect()
+    try:
+        try:
+            cmd_set_status(conn, resolved_flow_id, status)
+        except LookupError as exc:
+            return error(
+                "not_found", str(exc), jsonpath="$.payload.flow_id",
+            )
+        except ValueError as exc:
+            return error(
+                "invalid_status", str(exc), jsonpath="$.payload.status",
+            )
+    finally:
+        conn.close()
+    return HandlerOutcome(
+        result_payload={
+            "flow_id": resolved_flow_id,
+            "status": status.strip().lower(),
+        },
+        primary_success=True,
+    )
+
+
 __all__ = [
     "handle_deployment_flow_get",
+    "handle_deployment_flow_set_status",
     "handle_deployment_flow_stages",
 ]

@@ -1,6 +1,6 @@
 # smoke.yml — Post-deploy smoke test
 #
-# Manual dispatch only. Verifies API health and web frontend are responding.
+# The owning Yoke deployment run dispatches this post-deploy verification.
 #
 # Template variables:
 #   {{PROJECT_NAME_UPPER}} — uppercase project name (e.g., ACME) for secret names
@@ -17,10 +17,9 @@ on:
   workflow_dispatch:
     inputs:
       yoke_dispatch_id:
-        description: 'Opaque Yoke dispatch correlation token (leave blank for manual runs)'
-        required: false
+        description: 'Opaque Yoke dispatch correlation token for the owning deployment run'
+        required: true
         type: string
-        default: ''
       commit_sha:
         description: 'Expected commit SHA to verify against deployed version'
         required: false

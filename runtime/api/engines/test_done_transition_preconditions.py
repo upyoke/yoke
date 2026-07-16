@@ -28,7 +28,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _seed_registered_flow(db_path, flow_id="yoke-prod-release", project="yoke"):
+def _seed_registered_flow(db_path, flow_id="yoke-hosted-production", project="yoke"):
     conn = connect_dt_db(db_path)
     p = _p(conn)
     conn.execute(
@@ -48,17 +48,17 @@ class TestAC1DeployedToRequired:
         _insert_item(
             db_path,
             701,
-            deployment_flow="yoke-prod-release",
+            deployment_flow="yoke-hosted-production",
             deploy_stage="complete",
             deployed_to=None,
         )
 
         allowed, reason = check_done_preconditions(
-            701, "yoke-prod-release", "issue",
+            701, "yoke-hosted-production", "issue",
         )
 
         assert allowed is False
-        assert reason == "deployed_to is empty for deployment_flow=yoke-prod-release"
+        assert reason == "deployed_to is empty for deployment_flow=yoke-hosted-production"
 
     def test_non_empty_deployed_to_allows(self, dt_db):
         db_path, _ = dt_db
@@ -66,13 +66,13 @@ class TestAC1DeployedToRequired:
         _insert_item(
             db_path,
             702,
-            deployment_flow="yoke-prod-release",
+            deployment_flow="yoke-hosted-production",
             deploy_stage="complete",
             deployed_to="prod-us-east",
         )
 
         allowed, reason = check_done_preconditions(
-            702, "yoke-prod-release", "issue",
+            702, "yoke-hosted-production", "issue",
         )
 
         assert allowed is True
@@ -84,17 +84,17 @@ class TestAC1DeployedToRequired:
         _insert_item(
             db_path,
             703,
-            deployment_flow="yoke-prod-release",
+            deployment_flow="yoke-hosted-production",
             deploy_stage="complete",
             deployed_to="null",
         )
 
         allowed, reason = check_done_preconditions(
-            703, "yoke-prod-release", "issue",
+            703, "yoke-hosted-production", "issue",
         )
 
         assert allowed is False
-        assert reason == "deployed_to is empty for deployment_flow=yoke-prod-release"
+        assert reason == "deployed_to is empty for deployment_flow=yoke-hosted-production"
 
 
 class TestAC2DeployStageRequired:
@@ -106,17 +106,17 @@ class TestAC2DeployStageRequired:
         _insert_item(
             db_path,
             711,
-            deployment_flow="yoke-prod-release",
+            deployment_flow="yoke-hosted-production",
             deploy_stage=None,
             deployed_to="prod",
         )
 
         allowed, reason = check_done_preconditions(
-            711, "yoke-prod-release", "issue",
+            711, "yoke-hosted-production", "issue",
         )
 
         assert allowed is False
-        assert reason == "deploy_stage is null for deployment_flow=yoke-prod-release"
+        assert reason == "deploy_stage is null for deployment_flow=yoke-hosted-production"
 
     def test_non_null_deploy_stage_allows(self, dt_db):
         db_path, _ = dt_db
@@ -124,13 +124,13 @@ class TestAC2DeployStageRequired:
         _insert_item(
             db_path,
             712,
-            deployment_flow="yoke-prod-release",
+            deployment_flow="yoke-hosted-production",
             deploy_stage="complete",
             deployed_to="prod",
         )
 
         allowed, reason = check_done_preconditions(
-            712, "yoke-prod-release", "issue",
+            712, "yoke-hosted-production", "issue",
         )
 
         assert allowed is True

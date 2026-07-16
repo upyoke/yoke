@@ -22,7 +22,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain import db_backend, db_helpers, json_helper
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.handlers.db_read_sql import (
     DbReadRefusal,
@@ -133,7 +133,10 @@ def run_db_read(spec: DbReadRunRequest) -> DbReadRunResponse:
         fetched = cursor.fetchmany(row_cap + 1)
         truncated = len(fetched) > row_cap
         rows = [
-            [_json_safe(value) for value in row]
+            [
+                _json_safe(value, column_name=columns[index])
+                for index, value in enumerate(row)
+            ]
             for row in fetched[:row_cap]
         ]
         return DbReadRunResponse(
@@ -158,9 +161,13 @@ def _column_name(description: Any) -> str:
     return str(description[0])
 
 
-def _json_safe(value: Any) -> Any:
-    if value is None or isinstance(value, (str, bool, int)):
+def _json_safe(value: Any, *, column_name: str = "") -> Any:
+    if _is_sensitive_key(column_name):
+        return "<redacted>" if value is not None else None
+    if value is None or isinstance(value, (bool, int)):
         return value
+    if isinstance(value, str):
+        return _redact_json_text(value)
     if isinstance(value, float):
         return value if math.isfinite(value) else str(value)
     if isinstance(value, Decimal):
@@ -173,10 +180,49 @@ def _json_safe(value: Any) -> Any:
         except UnicodeDecodeError:
             return base64.b64encode(value).decode("ascii")
     if isinstance(value, dict):
-        return {str(k): _json_safe(v) for k, v in value.items()}
+        return {
+            str(key): (
+                "<redacted>"
+                if _is_sensitive_key(str(key)) and item is not None
+                else _json_safe(item)
+            )
+            for key, item in value.items()
+        }
     if isinstance(value, (list, tuple)):
         return [_json_safe(v) for v in value]
     return str(value)
+
+
+_SENSITIVE_KEY_TOKENS = (
+    "credential",
+    "dsn",
+    "encryptedkey",
+    "password",
+    "passwd",
+    "privatekey",
+    "secret",
+    "token",
+)
+
+
+def _is_sensitive_key(key: str) -> bool:
+    normalized = "".join(
+        character for character in key.lower() if character.isalnum()
+    )
+    return any(token in normalized for token in _SENSITIVE_KEY_TOKENS)
+
+
+def _redact_json_text(value: str) -> str:
+    stripped = value.lstrip()
+    if not stripped.startswith(("{", "[")):
+        return value
+    try:
+        decoded = json_helper.loads_text(value)
+    except (TypeError, ValueError):
+        return value
+    if not isinstance(decoded, (dict, list)):
+        return value
+    return json_helper.dumps_compact(_json_safe(decoded))
 
 
 _TABLE_REF_RE = re.compile(

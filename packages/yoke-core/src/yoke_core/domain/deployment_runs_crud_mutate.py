@@ -20,6 +20,7 @@ from yoke_core.domain.deployment_runs_schema import (
     VALID_STATUSES,
 )
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
 
 
 def cmd_next_id(db_path: Optional[str] = None) -> str:
@@ -52,13 +53,11 @@ def cmd_create_run(
     conn = connect(db_path)
     try:
         project_id = resolve_project_id(conn, project)
+        _flow_project_id, flow_default = require_flow_for_new_run(
+            conn, flow, project_id=project_id,
+        )
         # If no target_env, resolve from flow's target_env column
         if not target_env:
-            flow_default = query_scalar(
-                conn,
-                "SELECT COALESCE(target_env, '') FROM deployment_flows WHERE id=%s",
-                (flow,),
-            )
             if flow_default:
                 target_env = flow_default
 

@@ -35,6 +35,7 @@ PERM_DB_READ_RAW = "db.read.raw"
 PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH = "github_actions.workflow.dispatch"
 PERM_GITHUB_ACTIONS_RUN_READ = "github_actions.run.read"
 PERM_GITHUB_ACTIONS_VARIABLE_READ = "github_actions.variable.read"
+PERM_GITHUB_RELEASE_CREATE = "github.release.create"
 # Org-scoped permissions (never carried by a project role).
 PERM_ORG_ADMIN = "org.admin"  # renamed from "system.admin"
 PERM_PROJECT_CREATE = "project.create"
@@ -57,7 +58,10 @@ ROLE_DESCRIPTIONS = {
     ROLE_OWNER: "Project admin and normal operator work.",
     ROLE_OPERATOR: "Normal Yoke operations for a project.",
     ROLE_VIEWER: "Read-only access.",
-    ROLE_DEPLOYMENT_CI: "Trigger deployment workflows and read their status.",
+    ROLE_DEPLOYMENT_CI: (
+        "Create immutable release tags, trigger deployment workflows, and "
+        "read their status."
+    ),
     ROLE_INFRASTRUCTURE_CI: (
         "Read infrastructure settings for preview workflows."
     ),
@@ -88,6 +92,9 @@ PERMISSION_DESCRIPTIONS = {
     PERM_GITHUB_ACTIONS_VARIABLE_READ: (
         "Read GitHub Actions variables used to route project deployments."
     ),
+    PERM_GITHUB_RELEASE_CREATE: (
+        "Create the next immutable annotated release tag for the project."
+    ),
     PERM_ORG_ADMIN: "Administer the org and all of its projects.",
     PERM_PROJECT_CREATE: "Create new projects in the org.",
 }
@@ -109,6 +116,7 @@ _PROJECT_OWNER_PERMS = (
     PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
     PERM_GITHUB_ACTIONS_RUN_READ,
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
+    PERM_GITHUB_RELEASE_CREATE,
 )
 
 ROLE_PERMISSION_KEYS = {
@@ -130,6 +138,7 @@ ROLE_PERMISSION_KEYS = {
         PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
         PERM_GITHUB_ACTIONS_RUN_READ,
         PERM_GITHUB_ACTIONS_VARIABLE_READ,
+        PERM_GITHUB_RELEASE_CREATE,
     ),
     ROLE_INFRASTRUCTURE_CI: (
         PERM_PROJECT_RENDER_READ,
@@ -327,6 +336,7 @@ __all__ = [
     "PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH",
     "PERM_GITHUB_ACTIONS_RUN_READ",
     "PERM_GITHUB_ACTIONS_VARIABLE_READ",
+    "PERM_GITHUB_RELEASE_CREATE",
     "PERM_ORG_ADMIN",
     "PERM_PROJECT_CREATE",
     "grant_actor_org_role",

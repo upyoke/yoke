@@ -2,7 +2,7 @@
 
 Extracted from `dispatch-context.md`. Contains artifact formats, output capture, QA lifecycle management, and commit patterns used during and after dispatch.
 
-**Watcher capture paths.** When conduct invokes a Yoke watcher (`watch_pytest`, `watch_merge`, `watch_doctor`, `watch_advance`, `watch_deploy`, `watch_lifecycle`, `watch_session_offer`) the raw + progress captures land under the helper-resolved `<scratch_root>/watcher-captures/` — they are minted by `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair(...)` (or `watcher_capture_path(...)` for one stream) and the wrapper prints the resolved paths through `--print-streaming-pair`. Read the path the wrapper printed; do not hardcode an OS-temp watcher-capture literal in dispatch artifacts. The operator carve-out for pinning the capture file is `--raw-capture <path>` (CI / artifact collection).
+**Watcher capture paths.** When conduct invokes a Yoke watcher (`watch_pytest`, `watch_merge`, `watch_doctor`, `watch_advance`, `watch_lifecycle`, `watch_session_offer`) the raw + progress captures land under the helper-resolved `<scratch_root>/watcher-captures/` — they are minted by `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair(...)` (or `watcher_capture_path(...)` for one stream) and the wrapper prints the resolved paths through `--print-streaming-pair`. Read the path the wrapper printed; do not hardcode an OS-temp watcher-capture literal in dispatch artifacts. The operator carve-out for pinning the capture file is `--raw-capture <path>` (CI / artifact collection).
 
 ---
 

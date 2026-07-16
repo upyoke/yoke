@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.deployment_flow_validator import (
+    list_active_flow_ids,
     list_registered_flow_ids,
     normalize_deployment_flow_value,
     validate_and_lookup_flow_project,
@@ -23,11 +24,12 @@ def _seed_conn():
     )
     conn.execute(
         "CREATE TEMP TABLE deployment_flows "
-        "(id TEXT PRIMARY KEY, project_id INTEGER NOT NULL)"
+        "(id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, "
+        "status TEXT NOT NULL DEFAULT 'active')"
     )
     for row in [
         ("yoke-internal", 1),
-        ("yoke-prod-release", 1),
+        ("yoke-hosted-production", 1),
         ("buzz-internal", 2),
         ("buzz-prod-release", 2),
     ]:
@@ -40,16 +42,16 @@ def test_list_registered_flow_ids_no_filter_returns_all_sorted():
     assert list_registered_flow_ids(conn) == [
         "buzz-internal",
         "buzz-prod-release",
+        "yoke-hosted-production",
         "yoke-internal",
-        "yoke-prod-release",
     ]
 
 
 def test_list_registered_flow_ids_filtered_by_project():
     conn = _seed_conn()
     assert list_registered_flow_ids(conn, "yoke") == [
+        "yoke-hosted-production",
         "yoke-internal",
-        "yoke-prod-release",
     ]
     assert list_registered_flow_ids(conn, "buzz") == [
         "buzz-internal",
@@ -60,6 +62,22 @@ def test_list_registered_flow_ids_filtered_by_project():
 def test_list_registered_flow_ids_unknown_project_is_empty():
     conn = _seed_conn()
     assert list_registered_flow_ids(conn, "unknown") == []
+
+
+def test_disabled_flows_remain_registered_but_are_not_assignable():
+    conn = _seed_conn()
+    conn.execute(
+        "UPDATE deployment_flows SET status='disabled' "
+        "WHERE id='yoke-hosted-production'"
+    )
+    assert "yoke-hosted-production" in list_registered_flow_ids(conn, "yoke")
+    assert "yoke-hosted-production" not in list_active_flow_ids(conn, "yoke")
+    flow_project, err = validate_and_lookup_flow_project(
+        conn, "yoke-hosted-production", "yoke"
+    )
+    assert flow_project is None
+    assert "disabled" in str(err)
+    assert "yoke-internal" in str(err)
 
 
 def test_validate_returns_none_for_none_value():

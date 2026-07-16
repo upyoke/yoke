@@ -30,11 +30,12 @@ def test_only_release_tag_pushes_trigger_the_factory():
     assert "workflow_dispatch" not in trigger
 
 
-def test_publish_gate_and_global_serialization_are_fail_closed():
+def test_every_validated_release_builds_in_one_serial_publication_lane():
     text = _text()
-    assert "vars.YOKE_PUBLISH_SERVER_IMAGE == 'true'" in text
+    build = text.split("  build:\n", 1)[1].split("\n  attest:\n", 1)[0]
+    assert "needs: validate-tag" in build
+    assert "packages: write" in build
     assert "group: yoke-server-image-publication" in text
-    assert "group: ${{ github.workflow }}-${{ github.ref }}" not in text
     assert "cancel-in-progress: false" in text
 
 

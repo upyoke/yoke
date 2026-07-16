@@ -145,6 +145,7 @@ from yoke_cli.commands.adapters.doctor import (
 )
 from yoke_cli.commands.adapters.deployment import (
     deployment_flows_get,
+    deployment_flows_set_status,
     deployment_flows_stages,
     deployment_runs_get,
     deployment_runs_list,
@@ -177,6 +178,9 @@ from yoke_cli.commands.adapters.project_github_binding import (
 )
 from yoke_cli.commands.adapters.github import (
     github_connect, github_disconnect, github_pr_create, github_status,
+)
+from yoke_cli.commands.adapters.github_release import (
+    github_release_create_next_tag,
 )
 from yoke_cli.commands.adapters.github_actions import (
     github_actions_check_ci,
@@ -333,7 +337,8 @@ __all__ = [
     "qa_requirement_list", "qa_requirement_get", "qa_requirement_add",
     "qa_requirement_add_batch", "qa_run_list", "qa_run_get",
     "qa_gate_summary",
-    "deployment_flows_get", "deployment_flows_stages",
+    "deployment_flows_get", "deployment_flows_set_status",
+    "deployment_flows_stages",
     "deployment_runs_get", "deployment_runs_list",
     "deployment_runs_update", "deployment_runs_resolve_target_env",
     "ephemeral_env_update",
@@ -371,7 +376,8 @@ __all__ = [
     "strategy_carry_summary", "strategy_carry_mark",
     "strategy_checkpoint_record", "strategy_checkpoint_latest",
     "strategy_master_plan_check",
-    "github_connect", "github_disconnect", "github_pr_create", "github_status",
+    "github_connect", "github_disconnect", "github_pr_create",
+    "github_release_create_next_tag", "github_status",
     "hook_evaluate", "scratch_dispatch_inputs",
     "config_example", "config_stamp_project_env",
     "status", "dev_setup", "dev_db_admin_setup", "dev_path_snapshot_prewarm",

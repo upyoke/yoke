@@ -23,7 +23,7 @@ from yoke_core.domain.db_mutation_gate_test_helpers import (
     _seed_project,
     _write_module,
 )
-from yoke_core.domain.migration_model_capability import yoke_primary_seed
+from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from runtime.api.fixtures.backlog import insert_item
 
 
@@ -46,7 +46,7 @@ class TestJointGate:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         if seed_capability:
-            _seed_capability(conn, "yoke", yoke_primary_seed())
+            _seed_capability(conn, "yoke", governed_postgres_test_seed())
         if seed_flow:
             _seed_flow_with_migration_apply(conn, "yoke")
         kwargs: Dict[str, Any] = {"project": "yoke"}

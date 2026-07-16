@@ -1,35 +1,27 @@
-"""Seed defaults and model lookup helpers for migration_model capability."""
+"""Model construction and lookup helpers for migration_model capability."""
 
 from __future__ import annotations
 
-import copy
 from typing import Any, Dict, Mapping
 
 from yoke_core.domain.migration_model_capability_validation import (
-    DEFAULT_CONNECTION_ENV_VAR, canonical_json,
+    DEFAULT_CONNECTION_ENV_VAR,
 )
 
-def yoke_primary_seed() -> Dict[str, Any]:
-    """Return the canonical Yoke-project ``migration_model`` capability seed.
 
-    Single source of truth for the Yoke-project bootstrap shape (§11.4).
-    Used by ``projects_restart.cmd_init`` when seeding the default
-    capabilities and by tests that assert on the bootstrap seed.
+def governed_postgres_seed(location: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return a governed Postgres migration model for ``location``.
+
+    Database authority belongs to the caller's current capability settings;
+    this helper deliberately has no environment-specific fallback.
     """
-    return copy.deepcopy({
+    return {
         "default_model": "primary",
         "models": {
             "primary": {
                 "authoritative_db": {
                     "kind": "postgres",
-                    "location": {
-                        "stack": "yoke-prod",
-                        "state_backend": "s3://yoke-pulumi-state?region=us-east-1",
-                        "region": "us-east-1",
-                        "database_name": "yoke_prod",
-                        "endpoint_output": "databaseClusterEndpoint",
-                        "secret_arn_output": "databaseSecretArn",
-                    },
+                    "location": dict(location),
                 },
                 "validation_surface": {
                     "kind": "external_validation",
@@ -47,24 +39,7 @@ def yoke_primary_seed() -> Dict[str, Any]:
                 },
             },
         },
-    })
-
-
-def yoke_primary_postgres_seed(location: Mapping[str, Any]) -> Dict[str, Any]:
-    """Return the Yoke primary model with Postgres as authority.
-
-    The caller supplies the location block so this helper does not bake Yoke
-    prod stack literals into generic seed code.
-    """
-    seed = yoke_primary_seed()
-    seed["models"]["primary"]["authoritative_db"] = {
-        "kind": "postgres",
-        "location": dict(location),
     }
-    return seed
-
-
-YOKE_PRIMARY_SEED_JSON = canonical_json(yoke_primary_seed())
 
 
 def resolve_model(

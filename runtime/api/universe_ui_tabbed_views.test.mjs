@@ -210,7 +210,7 @@ test("a tabbed route with no segment renders its first tab without rewriting the
 test("Runs fills from deployment runs, newest first, with grounded status pills", async (t) => {
   const requests = [];
   const runRow = (id, status, stage) => ({
-    id, project: "yoke", flow: "yoke-prod-release", target_env: "prod",
+    id, project: "yoke", flow: "yoke-hosted-production", target_env: "production",
     release_lineage: null, status, current_stage: stage,
     created_at: `${id}-created`, started_at: null, completed_at: null,
     created_by: "usher",
@@ -264,7 +264,7 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
     .map((node) => node.textContent ||
       (node.children[0] && node.children[0].textContent) || "");
   assert.deepEqual(firstCells, [
-    "run-20260103-002", "yoke-prod-release", "prod", "ci-gate",
+    "run-20260103-002", "yoke-hosted-production", "production", "ci-gate",
     "executing", "run-20260103-002-created",
   ]);
 
