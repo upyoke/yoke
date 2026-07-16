@@ -159,8 +159,8 @@ export function mountUniverseApp(rootNode, options = {}) {
   }
   contextSide.appendChild(orgContext);
   const header = el(documentNode, "header", "topbar yoke-app-header");
-  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(brand);
+  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(contextSide);
   appendSlot(header, resolvedSlots.topbarEnd, mountedSlotNodes);
 

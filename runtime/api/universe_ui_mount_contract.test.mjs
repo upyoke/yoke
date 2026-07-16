@@ -133,7 +133,13 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.equal(byClass(firstRoot, "capability-actions").length, 1);
   assert.equal(byClass(secondRoot, "capability-actions").length, 0);
   const firstHeader = byClass(firstRoot, "topbar")[0];
-  assert.equal(firstHeader.children[0], topbarStartSlot);
+  const firstBrand = byClass(firstRoot, "yoke-header-brand")[0];
+  // The mark sits hard left no matter what a host injects beside it — a
+  // host-supplied topbarStart slot must never be able to push the brand
+  // toward center (this was live on stage: the platform's org switcher did
+  // exactly that because the slot rendered before the brand).
+  assert.equal(firstHeader.children[0], firstBrand);
+  assert.equal(firstHeader.children[1], topbarStartSlot);
   assert.equal(firstHeader.children[firstHeader.children.length - 1],
     topbarEndSlot);
   const firstNavigation = byClass(firstRoot, "sidenav")[0];
