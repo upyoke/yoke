@@ -141,7 +141,7 @@ from yoke_cli.commands.adapters.project_github_binding import (
     PROJECTS_GITHUB_BINDING_BIND_USAGE, PROJECTS_GITHUB_BINDING_STATUS_USAGE, PROJECTS_GITHUB_BINDING_UNBIND_USAGE, PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
 )
 from yoke_cli.commands.adapters import strategy_event_usage as _strategy_event_usage
-from yoke_cli.commands.adapters import qa as _qa_usage
+from yoke_cli.commands.adapters import deployment_receipts as _deployment_receipt_usage, qa as _qa_usage
 from yoke_cli.commands.adapters import shepherd_writes as _shepherd_writes
 from yoke_cli.commands.adapters.qa import (
     QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
@@ -356,6 +356,6 @@ ADAPTER_USAGE: Dict[str, str] = {
 }
 # Post-cap families export their own id -> usage maps; merge keeps one surface.
 ADAPTER_USAGE.update(READINESS_USAGE_BY_ID)
-ADAPTER_USAGE.update(_qa_usage.USAGE_BY_FUNCTION_ID)
+ADAPTER_USAGE.update(_qa_usage.USAGE_BY_FUNCTION_ID | _deployment_receipt_usage.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_shepherd_writes.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_strategy_event_usage.USAGE_BY_FUNCTION_ID)

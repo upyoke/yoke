@@ -5,12 +5,25 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters import deployment_receipts as _receipt_adapters
 
 
 AdapterFn = Callable[[List[str]], int]
 
 
 DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    ("deployment-flow-receipts", "get"):
+        ("deployment_flow_receipts.get",
+         _receipt_adapters.deployment_flow_receipts_get),
+    ("deployment-flow-receipts", "list"):
+        ("deployment_flow_receipts.list",
+         _receipt_adapters.deployment_flow_receipts_list),
+    ("deployment-run-receipts", "get"):
+        ("deployment_run_receipts.get",
+         _receipt_adapters.deployment_run_receipts_get),
+    ("deployment-run-receipts", "list"):
+        ("deployment_run_receipts.list",
+         _receipt_adapters.deployment_run_receipts_list),
     ("deployment-flows", "get"):
         ("deployment_flows.get", _adapters.deployment_flows_get),
     ("deployment-flows", "stages"):
