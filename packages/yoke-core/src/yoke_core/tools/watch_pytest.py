@@ -279,7 +279,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             wrapper_args=pytest_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            env_prefix=_source_pythonpath.shell_prefix(source_root),
         )
         return 0
 

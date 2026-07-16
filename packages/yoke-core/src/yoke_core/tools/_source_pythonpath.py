@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -49,14 +48,6 @@ def with_source_pythonpath(
     return out
 
 
-def shell_prefix(root: Path) -> str:
-    path = os.pathsep.join(source_entries(root))
-    return (
-        f"PYTHONPATH={shlex.quote(path)}"
-        '${PYTHONPATH:+:"$PYTHONPATH"}'
-    )
-
-
 def import_origin_refusal(
     root: Path,
     *,
@@ -98,7 +89,6 @@ __all__ = [
     "PACKAGE_SRC_RELS",
     "import_origin_refusal",
     "repo_root",
-    "shell_prefix",
     "source_entries",
     "with_source_pythonpath",
 ]

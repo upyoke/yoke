@@ -10,6 +10,8 @@ worked example).
 from __future__ import annotations
 
 import io
+import os
+import shlex
 from contextlib import redirect_stdout
 
 import pytest
@@ -214,6 +216,10 @@ class TestPrintStreamingPair:
     def test_streaming_pair_canonical_form(self) -> None:
         rendered = self._capture_pair(["--print-streaming-pair", "--", "--quick"])
         assert " -- --quick" in rendered
+        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
+        assert f"{anchor} yoke_core.tools.watch_doctor" in rendered
+        assert f"{anchor} yoke_core.tools.watch_tail" in rendered
+        assert "PYTHONPATH" not in rendered
 
     def test_streaming_pair_bare_form_normalizes_to_canonical(self) -> None:
         # The bg command in the pair is what gets pasted into Bash; it
