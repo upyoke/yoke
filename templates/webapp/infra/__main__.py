@@ -278,6 +278,9 @@ def _environment_args_from_config(deploy_namespace: str, stack_name: str):
         distribution_bucket_name=config.get("distribution_bucket_name") or "",
         distribution_origin_id=config.get("distribution_origin_id") or "",
         distribution_base_url=config.get("distribution_base_url") or "",
+        distribution_repository_variable_namespace=(
+            config.get("distribution_repository_variable_namespace") or ""
+        ),
         github_repo=config.get("github_repo") or "",
         github_api_url=config.get("github_api_url") or "https://api.github.com",
         vps_instance_type=config.require("vps_instance_type"),

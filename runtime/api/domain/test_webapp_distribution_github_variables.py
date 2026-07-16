@@ -35,7 +35,7 @@ def test_environment_owns_every_distribution_publish_variable(monkeypatch):
     recorder, module = _load_variables(monkeypatch)
 
     variables = module.create_distribution_variables(
-        deploy_namespace="yoke",
+        variable_namespace="yoke",
         environment="stage",
         github_repo="upyoke/platform",
         github_api_url="https://api.github.com",

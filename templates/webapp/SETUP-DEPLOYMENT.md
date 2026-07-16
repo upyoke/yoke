@@ -233,6 +233,10 @@ state entries that were imported in earlier sessions.
 When an environment has distribution publishing configured, that environment
 stack also owns four non-secret repository variables: its public base URL,
 bucket, CloudFront distribution ID, and exact origin ID. For a repository that
+hosts a different product than the deploy-owner project, set
+`distribution.repository_variable_namespace` explicitly to the product prefix
+consumed by its release workflow; the renderer never guesses this cross-project
+authority from the deploy namespace. For a repository that
 already has those variables, generate a Pulumi preview import file for the
 environment stack and adopt the four
 `github:index/actionsVariable:ActionsVariable` records before the first apply;

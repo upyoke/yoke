@@ -60,6 +60,7 @@ class WebappEnvironmentArgs:
     distribution_bucket_name: str = ""
     distribution_origin_id: str = ""
     distribution_base_url: str = ""
+    distribution_repository_variable_namespace: str = ""
     github_repo: str = ""
     github_api_url: str = "https://api.github.com"
     database_seconds_until_auto_pause: int = DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
@@ -287,12 +288,17 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
                 raise ValueError(
                     "github_repo is required when distribution publishing is enabled"
                 )
+            if not args.distribution_repository_variable_namespace:
+                raise ValueError(
+                    "distribution_repository_variable_namespace is required when "
+                    "distribution publishing is enabled"
+                )
             from webapp_distribution_github_variables import (
                 create_distribution_variables,
             )
 
             self.distribution_repository_variables = create_distribution_variables(
-                deploy_namespace=args.deploy_namespace,
+                variable_namespace=args.distribution_repository_variable_namespace,
                 environment=args.environment,
                 github_repo=args.github_repo,
                 github_api_url=args.github_api_url,

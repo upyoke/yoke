@@ -50,6 +50,8 @@ def _make_project_tree(tmp_path, project: str):
         "  webapp-infra:distribution_bucket_name: {{distribution_bucket_name}}\n"
         "  webapp-infra:distribution_origin_id: {{distribution_origin_id}}\n"
         "  webapp-infra:distribution_base_url: {{distribution_base_url}}\n"
+        "  webapp-infra:distribution_repository_variable_namespace: "
+        "{{distribution_repository_variable_namespace}}\n"
         "  webapp-infra:github_repo: {{github_repo_slug}}\n"
         "  webapp-infra:github_api_url: {{github_api_url}}\n"
         "  webapp-infra:vps_instance_type: {{vps_instance_type}}\n"
@@ -216,6 +218,7 @@ class TestGatherPulumiStackInstances:
                     "distribution_bucket_name": "",
                     "distribution_origin_id": "",
                     "distribution_base_url": "",
+                    "distribution_repository_variable_namespace": "",
                     "ephemeral_preview_domain": "",
                     "github_app_private_key_secret_arn": "",
                     "github_app_kms_key_arn": "",

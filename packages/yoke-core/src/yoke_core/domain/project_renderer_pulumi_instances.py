@@ -76,6 +76,14 @@ def _raw_stack_instance_from_environment(
     render_only = bool(pulumi.get("render_only")) or activation_state == "render_only"
     distribution_bucket_name = str(distribution.get("bucket_name", "") or "")
     distribution_origin_id = str(distribution.get("origin_id", "") or "")
+    distribution_variable_namespace = str(
+        distribution.get("repository_variable_namespace", "") or ""
+    )
+    if distribution_bucket_name and not distribution_variable_namespace:
+        raise ValueError(
+            f"Environment {env.name!r} distribution.repository_variable_namespace "
+            f"for {settings.project} is required when distribution publishing is enabled."
+        )
     if distribution_bucket_name and not distribution_origin_id:
         distribution_origin_id = _default_distribution_origin_id(
             settings.deploy_namespace,
@@ -109,6 +117,9 @@ def _raw_stack_instance_from_environment(
         "distribution_bucket_name": distribution_bucket_name,
         "distribution_origin_id": distribution_origin_id,
         "distribution_base_url": str(distribution.get("base_url", "") or ""),
+        "distribution_repository_variable_namespace": (
+            distribution_variable_namespace
+        ),
         "ephemeral_preview_domain": _ephemeral_preview_domain(settings, env),
         "github_app_private_key_secret_arn": github_app.get(
             "private_key_secret_arn", ""

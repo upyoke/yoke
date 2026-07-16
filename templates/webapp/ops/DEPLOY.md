@@ -247,7 +247,10 @@ with `pulumi refresh --stack <stack>` to reconcile drift against AWS.
 
 An environment with distribution settings also converges the complete GitHub
 Actions publishing contract from the same Pulumi state: base URL, bucket,
-CloudFront distribution ID, and origin ID. Existing repository variables must
+CloudFront distribution ID, and origin ID. The environment setting
+`distribution.repository_variable_namespace` explicitly names the product
+prefix consumed by the release workflow, which may differ from the project
+that owns the deployment stack. Existing repository variables must
 be imported into the matching environment stack before apply, using the exact
 provider and parent references emitted by `pulumi preview --import-file`; a
 manual repository-variable value is not an independent authority.

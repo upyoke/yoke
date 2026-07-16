@@ -79,7 +79,7 @@ def _fake_sibling_modules(recorder):
 
     def _create_distribution_variables(**kwargs):
         recorder.distribution_variable_kwargs = kwargs
-        prefix = f"{kwargs['deploy_namespace']}_{kwargs['environment']}_distribution"
+        prefix = f"{kwargs['variable_namespace']}_{kwargs['environment']}_distribution"
         return tuple(
             types.SimpleNamespace(variable_name=f"{prefix}_{suffix}".upper())
             for suffix in ("base_url", "bucket", "cloudfront_id", "origin_id")
@@ -235,13 +235,14 @@ class TestEnvironmentOriginRuntimeSubstrate:
             distribution_bucket_name="example-distribution-prod",
             distribution_origin_id="yoke-prod-distribution-static",
             distribution_base_url="https://api.example.com",
+            distribution_repository_variable_namespace="yoke",
             github_repo="acme/yoke",
         )
         api = recorder.single("api")
         assert api.args.distribution_bucket_name == "example-distribution-prod"
         assert api.args.distribution_origin_id == "yoke-prod-distribution-static"
         assert recorder.distribution_variable_kwargs == {
-            "deploy_namespace": "yoke",
+            "variable_namespace": "yoke",
             "environment": "prod",
             "github_repo": "acme/yoke",
             "github_api_url": "https://api.github.com",

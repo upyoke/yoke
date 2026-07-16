@@ -11,8 +11,8 @@ import pulumi_github as github
 from webapp_github_repository_provider import create_repository_provider
 
 
-def _variable_prefix(deploy_namespace: str, environment: str) -> str:
-    parts = (deploy_namespace, environment, "distribution")
+def _variable_prefix(variable_namespace: str, environment: str) -> str:
+    parts = (variable_namespace, environment, "distribution")
     normalized = [re.sub(r"[^A-Za-z0-9]+", "_", part).strip("_").upper() for part in parts]
     if any(not part for part in normalized):
         raise pulumi.RunError(
@@ -23,7 +23,7 @@ def _variable_prefix(deploy_namespace: str, environment: str) -> str:
 
 def create_distribution_variables(
     *,
-    deploy_namespace: str,
+    variable_namespace: str,
     environment: str,
     github_repo: str,
     github_api_url: str,
@@ -49,7 +49,7 @@ def create_distribution_variables(
         child_opts,
         pulumi.ResourceOptions(provider=provider),
     )
-    prefix = _variable_prefix(deploy_namespace, environment)
+    prefix = _variable_prefix(variable_namespace, environment)
     definitions = (
         ("BaseUrl", f"{prefix}_BASE_URL", base_url),
         ("Bucket", f"{prefix}_BUCKET", bucket),
