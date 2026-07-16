@@ -34,15 +34,17 @@ def _pulumi_context_from_settings(settings) -> Dict[str, object]:
     """Project DB settings into the legacy Pulumi context field names."""
     domain = primary_domain(settings)
     server = primary_server(settings)
-    site_pulumi = settings.site_settings.get("pulumi", {})
     site_cdn = settings.site_settings.get("cdn", {})
     state = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {})
+    registry = settings.capabilities.get("container-registry", {})
 
     data: Dict[str, object] = {}
-    if isinstance(site_pulumi, dict):
-        data.update(site_pulumi)
-    if isinstance(state, dict) and "stacks" in state:
-        data["stacks"] = state["stacks"]
+    if isinstance(state, dict):
+        data["stacks"] = state.get("stacks", [])
+        data["pulumiInfraStackName"] = state.get("infra_stack_name", "")
+        data["pulumiVpsStackName"] = state.get("vps_stack_name", "")
+    if isinstance(registry, dict):
+        data["containerRepositoryName"] = registry.get("repository", "")
     if isinstance(site_cdn, dict):
         data["originId"] = site_cdn.get("origin_id", "")
         data["distributionBucketName"] = site_cdn.get(

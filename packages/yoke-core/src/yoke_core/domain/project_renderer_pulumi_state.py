@@ -18,8 +18,7 @@ from .project_renderer_settings import (
 _PULUMI_OPERATOR_STATE_KEYS = ("secretsprovider:", "encryptedkey:")
 
 # Durable settings home for project-level stacks is the ``pulumi-state``
-# capability. Site settings remain a cutover fallback; environment settings
-# retain environment-stack state until those stacks are retired.
+# capability. Environment settings retain environment-stack state.
 _PULUMI_STATE_SETTINGS_KEYS = (
     ("secrets_provider", "secretsprovider"),
     ("encrypted_key", "encryptedkey"),
@@ -58,11 +57,6 @@ def _operator_state_lines_from_settings(
     lines = _state_lines_from_mapping(
         _first_mapping(capability_state.get(stack_name))
     )
-    if lines:
-        return lines
-    pulumi_site = _first_mapping(settings.site_settings.get("pulumi"))
-    stack_state = _first_mapping(pulumi_site.get("stack_state"))
-    lines = _state_lines_from_mapping(_first_mapping(stack_state.get(stack_name)))
     if lines:
         return lines
     for env in settings.environments:

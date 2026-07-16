@@ -253,12 +253,10 @@ def _load_project_renderer_settings(
 
     return ProjectRendererSettings(
         project=ident.slug,
-        # Capability authority survives retirement of site/environment deployment
-        # rows. The site fallback keeps existing projects stable until their
-        # infrastructure state is moved to the capability.
+        # Project-level infrastructure identity belongs to the capability,
+        # independently of deployable site/environment rows.
         deploy_namespace=_stringify(
-            pulumi_state.get("deploy_namespace")
-            or site_settings.get("deploy_namespace"),
+            pulumi_state.get("deploy_namespace"),
             ident.slug,
         ),
         display_name=display_name,

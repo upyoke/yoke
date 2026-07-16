@@ -9,7 +9,7 @@ from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 from runtime.api.domain.test_project_renderer_pulumi import _settings_from_context
 
 
-def test_project_level_stack_state_renders_from_site_settings():
+def test_project_level_stack_state_ignores_retired_site_settings_home():
     base = _settings_from_context("yoke", {"projectName": "yoke"})
     site_settings = dict(base.site_settings)
     site_settings["pulumi"] = {
@@ -36,10 +36,7 @@ def test_project_level_stack_state_renders_from_site_settings():
 
     assert _operator_state_lines_from_settings(
         settings, "yoke-runner-fleet",
-    ) == (
-        "secretsprovider: awskms://alias/yoke-pulumi-state?region=us-east-1\n"
-        "encryptedkey: ENCRYPTED==\n"
-    )
+    ) == ""
 
 
 def test_project_level_stack_state_renders_from_capability_without_site():

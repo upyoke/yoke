@@ -30,7 +30,11 @@ from .github_actions_runner_fleet_capability import (
     RunnerFleetSettings,
     validate as validate_runner_fleet_settings,
 )
-from .project_renderer_settings import ProjectRendererSettings, _stringify
+from .project_renderer_settings import (
+    PULUMI_STATE_CAPABILITY_TYPE,
+    ProjectRendererSettings,
+    _stringify,
+)
 from .project_renderer_runner_deployment_network import (
     deployment_ssh_stack_outputs,
 )
@@ -164,12 +168,8 @@ def runner_fleet_token_broker_function_name(
 
 def runner_fleet_stack_name(settings: ProjectRendererSettings) -> str:
     """Return the exact declared Pulumi state name for the runner stack."""
-    pulumi_settings = settings.site_settings.get("pulumi", {})
-    configured = (
-        _stringify(pulumi_settings.get("pulumiRunnerFleetStackName"))
-        if isinstance(pulumi_settings, Mapping)
-        else ""
-    )
+    pulumi_settings = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {})
+    configured = _stringify(pulumi_settings.get("runner_fleet_stack_name"))
     return configured or f"{settings.deploy_namespace}-runner-fleet"
 
 
