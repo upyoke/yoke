@@ -80,11 +80,9 @@ integration-gate ordering across `_ready_items`:
 _plan_json=$(python3 -m yoke_core.api.service_client plan-candidates integration "$_ready_items")
 ```
 
-If the internal API service client is not available or the API is down, fall back to the activation-gate
-dependency query:
-```bash
-python3 -m yoke_core.cli.db_router query "SELECT dependent_item, blocking_item, gate_point, satisfaction, rationale FROM item_dependencies WHERE gate_point = 'integration' AND dependent_item IN ({ids})"
-```
+If the planning API is unavailable, halt with the returned error. Dependency
+ordering is release authority and must not be reconstructed through a second
+read path.
 
 Build directed graph, topological sort. Dependencies merge first.
 
@@ -96,57 +94,43 @@ YOK-N deferred: must merge after YOK-N — {rationale from dependency row}
 
 **Circular dependency (HARD BLOCK):** If cycle detected → stop.
 
-**Merge order conflict (ADVISORY):** Compare `git diff --name-only main...{branch}` for adjacent items. If shared files, warn about rebase need.
+**Merge order conflict (ADVISORY):** Compare each item branch with its
+project's registered `default_branch`; if adjacent items share files, warn
+about rebase need.
 
 Present merge order.
 
 ## Step 4b: Pre-Merge CI Check (ADVISORY)
 
-Resolve the project + workflow filename from the items being ushered —
-both literals (`--project yoke`, `ci.yml`) are gone from this skill.
-The project is read from the first ready item; the workflow filename is
+Resolve the project + workflow filename from the items being ushered. The
+project is read from the first ready item; the workflow filename is
 read from the per-project `ci_workflow_file` capability (declared per
 project through the capability settings surfaces). When the capability is
 absent (e.g. a project that has not yet declared it), the advisory
 check skips silently — `HC-projects-ci-workflow-configured` is the
 nudge that surfaces the missing configuration.
 
-```bash
-_usher_project=""
-for _ip_item in $_ready_items; do
- _usher_project=$(yoke items get "$_ip_item" project 2>/dev/null) || true
- if [ -n "$_usher_project" ] && [ "$_usher_project" != "null" ]; then
- break
- fi
-done
+Resolve these values through typed functions, never a project literal or raw
+registry query:
 
-if [ -n "$_usher_project" ]; then
- _repo=$(yoke projects github-binding status --project "$_usher_project" \
- --field github_repo)
- _workflow_settings=$(python3 -m yoke_core.cli.db_router query \
- "SELECT settings FROM project_capabilities WHERE project_id=(SELECT id FROM projects WHERE slug='$_usher_project') AND type='ci_workflow_file'" 2>/dev/null) || true
- _workflow_file=""
- if [ -n "$_workflow_settings" ]; then
- _workflow_file=$(printf '%s' "$_workflow_settings" \
- | python3 -c 'import json,sys; print(json.load(sys.stdin).get("workflow_file",""))' 2>/dev/null) || true
- fi
- if [ -n "$_repo" ] && [ -n "$_workflow_file" ]; then
- yoke github-actions check-ci "$_repo" "$_workflow_file" --branch main \
- --project "$_usher_project"
- fi
-fi
-```
+1. Read the first ready item's `project` with `items.get`.
+2. Read that project's `github_repo` with `projects.github_binding.status`.
+3. Read `workflow_file` from `projects.capability_settings.get` with
+   `cap_type="ci_workflow_file"`.
+4. Read the project's `default_branch` with `projects.get` and
+   `payload.field="default_branch"`.
+5. If all four values exist, call `yoke github-actions check-ci REPO WORKFLOW
+   --branch DEFAULT_BRANCH --project PROJECT`; otherwise skip this advisory.
 
 The GitHub action resolves the project's verified App binding and uses a
-short-lived installation token; no host `gh` binary is needed. The recipe reads
-the verified binding for the repo slug and the `ci_workflow_file` capability
-for the workflow filename, so the call works from any checkout for any
-registered project. Run `yoke github-actions check-ci --help` for flag detail.
+short-lived installation token; no host `gh` binary is needed. The recipe uses
+only registered project policy, so it works from any checkout. Run `yoke
+github-actions check-ci --help` for flag detail.
 
 If the result reports `"state": "failed"`:
 ```
-GATE [advisory]: Main branch CI is failing.
-Remediation: Consider fixing main CI first.
+GATE [advisory]: The project default-branch CI is failing.
+Remediation: Consider fixing default-branch CI first.
 ```
 
 `state` ∈ `{passed, failed, running, no_runs}` — passing, running, or

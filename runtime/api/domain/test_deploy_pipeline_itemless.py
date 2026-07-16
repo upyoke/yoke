@@ -27,7 +27,7 @@ class TestItemLessRun:
     """
 
     def test_item_less_run_executes_to_success(self, capsys, monkeypatch):
-        monkeypatch.setenv("YOKE_RELEASE_CONTROL_PLANE_ENV", "prod")
+        monkeypatch.setenv("YOKE_ENV", "prod")
         run_id = "run-env-001"
         stages = json.dumps([
             {"name": "merged", "executor": "auto"},

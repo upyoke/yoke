@@ -26,8 +26,7 @@ from yoke_core.domain import (
 from yoke_core.domain.db_mutation_gate_shared import GateOutcome
 
 
-# Mirrors the yoke-prod-release seed shape: the kind stage carries no
-# "name"/"executor" keys on the flow row.
+# The governed kind stage carries no "name"/"executor" keys on the flow row.
 PROD_STAGES = json.dumps([
     {"kind": "migration_apply", "model_name": "primary",
      "lifecycle_phase": "implementing"},
@@ -54,7 +53,7 @@ def _execute(
         if args[:2] == ("runs", "get"):
             # id|project|flow|target_env|lineage|status|current_stage
             return (
-                f"{run_id}|yoke|yoke-prod-release|prod|"
+                f"{run_id}|yoke|governed-production|production|"
                 f"|{run_status}|{current_stage}"
             )
         if args[:2] == ("runs", "items"):

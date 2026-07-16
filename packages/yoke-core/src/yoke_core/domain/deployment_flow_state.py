@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.schema_common import _table_exists
 
 
 FLOW_STATUS_ACTIVE = "active"
@@ -25,7 +26,7 @@ def require_flow_for_new_run(
     """Return project and target env when a flow accepts new runs."""
     p = _p(conn)
     row = conn.execute(
-        "SELECT project_id, COALESCE(status, 'active'), "
+        "SELECT project_id, status, "
         "COALESCE(target_env, '') FROM deployment_flows "
         f"WHERE id = {p}",
         (flow_id,),
@@ -33,7 +34,7 @@ def require_flow_for_new_run(
     if row is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
     flow_project_id = int(row[0])
-    status = str(row[1] or FLOW_STATUS_ACTIVE)
+    status = str(row[1])
     target_env = str(row[2] or "")
     if project_id is not None and flow_project_id != project_id:
         raise ValueError(
@@ -49,13 +50,12 @@ def require_flow_for_new_run(
 def assert_flow_definition_mutable(conn: Any, flow_id: str) -> None:
     """Refuse edits that would reinterpret an existing run's history."""
     p = _p(conn)
-    try:
-        row = conn.execute(
-            f"SELECT COUNT(*) FROM deployment_runs WHERE flow = {p}",
-            (flow_id,),
-        ).fetchone()
-    except db_backend.operational_error_types(conn):
+    if not _table_exists(conn, "deployment_runs"):
         return
+    row = conn.execute(
+        f"SELECT COUNT(*) FROM deployment_runs WHERE flow = {p}",
+        (flow_id,),
+    ).fetchone()
     run_count = int(row[0] or 0) if row is not None else 0
     if run_count:
         raise ValueError(

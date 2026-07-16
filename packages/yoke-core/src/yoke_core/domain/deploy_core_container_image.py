@@ -157,11 +157,9 @@ def _wait_for_prewarmed_image(
         f"never appeared within {budget_s}s ({max_attempts} polls). CI "
         "deploys never build images — the prewarm workflow "
         "(.github/workflows/yoke-core-image.yml) owns the buildx/QEMU "
-        "arm64 build for every push to main/stage; check its run for tag "
-        f"{tag} (failed or still running). Once the image exists, re-fire "
-        "this deploy via the yoke-env-deploy workflow_dispatch lane (no "
-        "new commit — an empty commit mints a NEW sha the prewarm never "
-        "built)."
+        "arm64 build; check its run for tag "
+        f"{tag} (failed or still running). Once the image exists, resume "
+        "the deployment run that owns this stage."
     )
 
 

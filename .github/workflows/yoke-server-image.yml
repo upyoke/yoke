@@ -5,9 +5,8 @@ name: yoke-server-image
 # .env references by default (see yoke_contracts.server_image). Stays
 # with the product repo when it becomes public.
 #
-# Dormant until armed: the build job is gated on the repository variable
-# YOKE_PUBLISH_SERVER_IMAGE == 'true'. Publication is tag-driven so a branch
-# push can never move latest to a setuptools-scm development version.
+# Publication is tag-driven, so every validated release publishes the complete
+# image set while branch pushes can never move latest to a development version.
 #
 # Fork safety: only annotated release tags whose commit is reachable from
 # current main can enter the build. Validation has read-only repository scope;
@@ -84,7 +83,6 @@ jobs:
   build:
     name: build-content-addressed-image
     needs: validate-tag
-    if: ${{ vars.YOKE_PUBLISH_SERVER_IMAGE == 'true' }}
     permissions:
       contents: read
       packages: write

@@ -93,13 +93,13 @@ def test_merge_parses_json_values_and_raw_strings():
         "--cap-type",
         "docker",
         "--set",
-        "deploy.auto_on_push=true",
+        "runtime.network=bridge",
         "--set",
         "registry=ecr",
     )
     assert rc == 0
     assert calls[0].function == "projects.capability_settings.merge"
     assert calls[0].payload["assignments"] == {
-        "deploy.auto_on_push": True,
+        "runtime.network": "bridge",
         "registry": "ecr",
     }

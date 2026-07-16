@@ -2,7 +2,9 @@
 
 Step 8: Route merged items through deployment pipelines. Skip if `--merge-only`.
 
-**Events for verification.** Item-bound runs can be checked with `yoke events query --event-name DeploymentRunStageCompleted --item {N}` before advancing to done.
+**Run state for verification.** Check item-bound delivery through
+`yoke deployment-runs get {run-id}`; events are audit telemetry, not the
+success authority.
 
 **Context variables** (set by prior phases): merged items, `_MERGE_ONLY`, `_pre_merge_verified`, `_eph_next_stage`
 
@@ -15,12 +17,18 @@ If `_MERGE_ONLY`: report merge-only complete, **stop**.
 For each merged item, read `deployment_flow` and `project` through the typed `items.get` function (typed reads, not shell `items get`).
 
 Two categories:
-- **Internal flow:** `deployment_flow` is `yoke-internal`, `buzz-internal`, empty, or null
+- **Internal flow:** `deployment_flow` is empty/null or ends in the registered
+  project convention `-internal`
 - **Deployment flow:** grouped by `(project, deployment_flow)`
+
+Usher does not know project-specific flow ids or release topology. It executes
+the item's active registered flow exactly as defined; disabled flows cannot be
+assigned or start a run.
 
 ## Step 8b: Route A — Internal flow items (no run)
 
-The done-transition engine is a retained Yoke-internal boundary; run it through the merge watcher, then handle exit codes:
+The done-transition engine is the project-agnostic internal-delivery boundary;
+run it through the merge watcher, then handle exit codes:
 
 ```bash
 python3 -m yoke_core.tools.watch_merge done-transition -- {N} --skip-deploy
@@ -46,7 +54,7 @@ Exit-code dispatch:
 - **Exit 3:** Simulation gate failure (epic) or merge conflicts requiring agent resolution. Revert to `implemented`, halt batch. Report: `[Route A] YOK-{N}: done-transition blocked by simulation gate or conflicts (exit 3). Reverted to implemented.`
 - **Exit 4:** User files at risk — **HARD STOP**. Revert to `implemented`. Report: `[Route A] YOK-{N}: user files at risk (exit 4). Reverted to implemented. Manual review required.`
 - **Exit 7:** Deployment flow guard. The item has a deployment flow that requires pipeline execution, but `--skip-deploy` was passed. Revert to `implemented`. Report: `[Route A] YOK-{N}: deployment flow guard (exit 7). This item needs Route B (deployment pipeline), not Route A. Reverted to implemented. Re-run usher without --skip-deploy or verify the item's deployment_flow field.`
-- **Exit 8:** Empty worktree branch — the item's worktree branch has no commits diverging from main. This is the evidence-only guard. Revert to `implemented`. Report: `[Route A] YOK-{N}: empty worktree branch (exit 8). This is an evidence-only item with no code changes. Reverted to implemented.`
+- **Exit 8:** Empty worktree branch — the item's worktree branch has no commits diverging from the project's default branch. This is the evidence-only guard. Revert to `implemented`. Report: `[Route A] YOK-{N}: empty worktree branch (exit 8). This is an evidence-only item with no code changes. Reverted to implemented.`
   **Recovery:** The canonical remediation is the evidence-only path — the item should have been advanced with `--no-worktree` (which sets `worktree = NULL`), or the operator should clear the worktree field by calling `items.scalar.update` with `payload.field="worktree"`, `payload.value=null`. Then re-run `/yoke usher YOK-{N}`.
 - **Exit 99:** Self-modifying bootstrap — the underlying done-transition engine re-executes itself. This is handled internally by the launcher and should never surface to usher. If it does, treat as unexpected and apply the catch-all below.
 - **Any other non-zero exit (catch-all):** Unexpected failure. Revert to `implemented` so the item is never stranded in `release`. Report: `[Route A] YOK-{N}: unexpected done-transition failure (exit {code}). Reverted to implemented. Investigate the done-transition output above.`
@@ -80,7 +88,10 @@ The target-env resolver is `yoke deployment-runs resolve-target-env`; the other 
 
 ### 8c9: Execute deployment pipeline
 
-**Branch ancestry check** (defense in depth) — verify branch is ancestor of the flow's gate branch: the target env's declared deploy branch (`environments.settings.git.branch` — `main` for prod flows, `stage` for stage flows), or `main` when the flow has no env-declared branch. The pipeline enforces the same gate internally (`resolve_flow_gate_branch`).
+**Branch ancestry check** (defense in depth) — verify the merged item commit is
+an ancestor of the branch selected by the flow's project/environment policy.
+The pipeline owns that resolution and enforces the same gate internally
+(`resolve_flow_gate_branch`); Usher must not hardcode a project branch.
 
 **Long-running execution:** `deploy_pipeline` polls external CI systems and can run for several minutes (default timeout: 30 min). Execute it through the harness long-command surface, await completion, and do not poll. The full anti-polling rule lives in `runtime/harness/claude/rules/session.md` and is enforced by `runtime/api/domain/lint_long_command_polling.py`.
 

@@ -32,6 +32,20 @@ def register(registry) -> None:
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
     registry.register(
+        "deployment_flows.set_status",
+        _flows.handle_deployment_flow_set_status,
+        _models.DeploymentFlowSetStatusRequest,
+        _models.DeploymentFlowSetStatusResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_flows",
+        target_kinds=["global"],
+        side_effects=["deployment_flows_status_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["history_preserved"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
         "deployment_runs.get", _runs.handle_deployment_run_get,
         _models.DeploymentRunGetRequest,
         _models.DeploymentRunGetResponse,

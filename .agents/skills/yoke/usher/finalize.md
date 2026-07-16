@@ -75,7 +75,12 @@ File a follow-up so the underlying infra issue is tracked separately from this r
 Then return here and pick a recovery option below to unstick the current run.
 ```
 
-Pick `{component-name}` to name the failing surface specifically (`"buzz GitHub Actions deploy_key secret"`, `"prod SSH host key"`, `"AWS deploy credentials"`) — generic phrasing like `"CI"` or `"infra"` does not help the operator recognize what to fix. Code-class halts (a stage script raising an exception against this repo's code) are NOT infrastructure-class; surface no suggestion for those and fall through to the recovery options.
+Pick `{component-name}` to name the failing surface specifically (for example,
+`"repository Actions deploy credential"`, `"production SSH host key"`, or
+`"cloud deploy credentials"`) — generic phrasing like `"CI"` or `"infra"` does
+not help the operator recognize what to fix. Code-class halts (a stage script
+raising an exception against this repo's code) are NOT infrastructure-class;
+surface no suggestion for those and fall through to the recovery options.
 
 ### Option A: Retry failed stage
 
@@ -84,25 +89,7 @@ When: transient failure, cause resolved. Re-run pipeline (reads `current_stage`,
 python3 -m yoke_core.domain.deploy_pipeline {run-id}
 ```
 
-### Option B: Skip a stage
-
-When: non-critical stage or manually verified. Update stage, re-run:
-```bash
-yoke deployment-runs update {run-id} current_stage {next-stage-name}
-python3 -m yoke_core.domain.deploy_pipeline {run-id}
-```
-
-### Option C: Manual completion
-
-When: unrecoverable but manually verified. Both steps required in order:
-```bash
-yoke deployment-runs update {run-id} status succeeded
-python3 -m yoke_core.tools.watch_merge done-transition -- {N} --skip-deploy
-```
-
-> **Warning:** Always use `--skip-deploy` when manually completing. Setting `status=succeeded` without it creates contradictory state.
-
-### Option D: Abort the run
+### Option B: Abort the run
 
 ```bash
 yoke deployment-runs update {run-id} status failed

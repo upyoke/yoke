@@ -30,12 +30,16 @@ def resolve_workflow_inputs(
     values: Dict[str, str],
     *,
     head_sha: str,
+    run_id: str = "",
 ) -> Dict[str, str]:
-    """Resolve supported source-SHA placeholders in workflow inputs."""
+    """Resolve supported deployment-run placeholders in workflow inputs."""
     replacements = {
         "{head_sha}": head_sha,
         "$head_sha": head_sha,
         "${head_sha}": head_sha,
+        "{run_id}": run_id,
+        "$run_id": run_id,
+        "${run_id}": run_id,
     }
     return {
         key: replacements.get(value, value)

@@ -15,8 +15,18 @@ from yoke_contracts.api.function_call import (
 
 FLOW_ROW_FIELDS = (
     "id", "project", "name", "description", "stages", "on_failure",
-    "created_at",
+    "created_at", "target_env", "done_description", "status",
 )
+
+
+class DeploymentFlowSetStatusRequest(BaseModel):
+    flow_id: str
+    status: str
+
+
+class DeploymentFlowSetStatusResponse(BaseModel):
+    flow_id: str
+    status: str
 
 
 class DeploymentFlowGetRequest(BaseModel):

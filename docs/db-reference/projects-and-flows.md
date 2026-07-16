@@ -196,6 +196,7 @@ on_failure TEXT DEFAULT 'halt' -- failure policy: 'halt' stops the pipeline
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 target_env TEXT DEFAULT NULL -- target deployment environment; auto-sets deployed_to on pipeline completion
 done_description TEXT DEFAULT NULL -- per-flow "done means..." contract; human-readable definition of what "done" means for this flow
+status TEXT NOT NULL DEFAULT 'active' -- 'active' accepts assignments/runs; 'disabled' is history-only
 UNIQUE(project, name)
 ```
 
@@ -205,15 +206,19 @@ Stage objects come in two shapes. Executor-shaped stages require `name` (string)
 
 **`health-check` executor type:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's `target_env` environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
-Flows are managed via `python3 -m yoke_core.domain.flow` (`init`, `create`, `get`, `list`, `stages`, `delete`; also routed as `python3 -m yoke_core.cli.db_router flows <subcmd>`). `flow delete <id> [--repoint-items-to <flow-id>]` removes a flow; it refuses while items still reference the flow unless `--repoint-items-to` retargets them.
+Read definitions with `yoke deployment-flows get` / `stages`. Change lifecycle state with `yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents new assignments and runs while preserving the definition and every historical run. A definition referenced by a run is immutable and cannot be deleted or rewritten.
 
 Seed data: `python3 -m yoke_core.cli.db_router flows init` seeds flow definitions only for projects already present in the universe (a fresh universe gets none). The definitions:
 - `yoke-internal` — Script/doc changes, no deployment: `migration_apply (primary, implementing) -> merged (auto) -> complete (auto)` (no target_env, done="Merged to main")
-- `yoke-prod-release` — Yoke core container to prod: `migration_apply (primary, implementing) -> merged (auto) -> env-activate (environment-activate) -> core-deploy (core-container-deploy) -> health-check (health-check) -> complete (auto)` (target_env=prod, done="Yoke core container deployed to prod and public health check passed")
-- `yoke-stage-release` — Yoke core container to stage, same as prod minus the migration stage (stage data is throwaway): `merged (auto) -> env-activate (environment-activate) -> core-deploy (core-container-deploy) -> health-check (health-check) -> complete (auto)` (target_env=stage, done="Yoke core container deployed to stage and public health check passed")
-- `yoke-ephemeral-deploy` — Branch/SHA Yoke core preview environment: `merged (auto) -> ephemeral-deploy (ephemeral-deploy) -> complete (auto)` (target_env=ephemeral, done="Yoke core preview environment deployed")
+- `yoke-hosted-stage` — Yoke item → annotated release → Platform promotion boundary → complete Stage train.
+- `yoke-hosted-production` — Yoke item → annotated release → Stage proof → stable-channel promotion → complete Production train.
+- `yoke-hosted-production-hotfix` — Yoke item → annotated release → direct Production hotfix train.
+- `platform-stage` — Platform item → complete Stage train at the merged Platform commit.
+- `platform-production` — Platform item → complete Production train at the merged Platform commit.
+- `platform-production-hotfix` — Platform item → direct Production hotfix train at the merged Platform commit.
+- `yoke-ephemeral-deploy` — Branch/SHA Yoke core preview environment: `ephemeral-deploy (ephemeral-deploy) -> complete (auto)` (target_env=ephemeral, done="Yoke core preview environment deployed")
 - `buzz-prod-release` — v1 production deploy with smoke test: `start (auto) -> prod-deploy (github-actions-workflow, buzz-deploy.yml) -> smoke (github-actions-workflow, buzz-smoke.yml) -> complete (auto)` (4 stages, target_env=production, done="Deployed to production and smoke checks passed"). No staging stages — Buzz v1 has no staging environment.
 - `buzz-prod-hotfix` — Direct to production with smoke test (4 stages, target_env=production, done="Hotfix deployed to production")
 - `buzz-internal` — Doc or config change, no deployment (2 auto stages, no target_env, done="Merged to main")
 
-`yoke-prod-release` and `yoke-stage-release` are flow ids, not run ids. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`.
+Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.

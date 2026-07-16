@@ -164,22 +164,22 @@ def test_resolve_target_env_dispatches_and_prints_raw_value() -> None:
             request_id=request.request_id,
             result={
                 "project": "yoke",
-                "flow": "yoke-prod-release",
-                "target_env": "prod",
+                "flow": "yoke-hosted-production",
+                "target_env": "production",
             },
         )
 
     rc, out, _err = _run_capture(
         stub,
         "deployment-runs", "resolve-target-env",
-        "yoke", "yoke-prod-release",
+        "yoke", "yoke-hosted-production",
     )
     assert rc == 0
-    assert out == "prod\n"
+    assert out == "production\n"
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "deployment_runs.resolve_target_env"
     assert req.target.kind == "global"
     assert req.payload == {
         "project": "yoke",
-        "flow": "yoke-prod-release",
+        "flow": "yoke-hosted-production",
     }

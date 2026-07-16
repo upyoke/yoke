@@ -19,20 +19,22 @@ def test_bridge_is_project_local_and_correlation_visible() -> None:
         "target_environment",
         "release_mode",
         "product_sha",
+        "deployment_run_id",
         "yoke_dispatch_id",
     ):
         assert f"      {input_name}:" in text
     assert "[yoke-dispatch:${{ inputs.yoke_dispatch_id }}]" in text
-    assert "permissions:\n  contents: read" in text
+    assert "permissions:\n  actions: read\n  contents: read" in text
 
 
-def test_bridge_requires_one_annotated_release_tag_for_the_product_sha() -> None:
+def test_bridge_creates_or_recovers_one_annotated_release_tag() -> None:
     text = _text()
 
-    assert '["git", "tag", "--points-at", sha]' in text
-    assert '["git", "cat-file", "-t", f"refs/tags/{tag}"]' in text
-    assert 'if object_type == "tag"' in text
-    assert "product_sha must carry exactly one annotated" in text
+    assert "yoke github release create-next-tag" in text
+    assert 'upyoke/yoke "$PRODUCT_SHA"' in text
+    assert "secrets.YOKE_RELEASE_API_TOKEN" in text
+    assert "yoke-release.yml yoke-server-image.yml" in text
+    assert "yoke github-actions find-run" in text
 
 
 def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None:
@@ -40,7 +42,7 @@ def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None
 
     assert "secrets.YOKE_PLATFORM_RELEASE_API_TOKEN" in text
     assert "yoke github-actions trigger" in text
-    assert "upyoke/platform platform-release.yml" in text
+    assert "upyoke/platform yoke-release-promote.yml" in text
     assert "--project platform" in text
     assert "yoke github-actions wait-run" in text
     assert "personal access token" not in text.lower()

@@ -38,7 +38,7 @@ def _request(*, request_id="dispatch-1", payload=None, actor="7"):
     body = payload or {
         "project": "platform",
         "repo": "upyoke/platform",
-        "workflow": "yoke-env-deploy.yml",
+        "workflow": "platform-release-bridge.yml",
         "ref": "stage",
         "inputs": {"environment": "stage", "image_tag": "abc123"},
         "correlation_input": "yoke_dispatch_id",

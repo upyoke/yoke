@@ -1,6 +1,6 @@
-# hotfix.yml — Production hotfix deploy via manual dispatch
+# hotfix.yml — Production hotfix deploy invoked by the project hotfix flow
 #
-# Triggers on manual dispatch only (no push trigger).
+# The Yoke deployment run dispatches this workflow with its correlation id.
 # Deploys via rsync + docker compose rebuild on the VPS.
 # Requires a "production" GitHub environment with optional reviewer gate.
 #
@@ -28,10 +28,9 @@ on:
   workflow_dispatch:
     inputs:
       yoke_dispatch_id:
-        description: 'Opaque Yoke dispatch correlation token (leave blank for manual runs)'
-        required: false
+        description: 'Opaque Yoke dispatch correlation token for the owning deployment run'
+        required: true
         type: string
-        default: ''
       force_rebuild:
         description: 'Force full clean rebuild (skip fast-path even if production is healthy)'
         required: false

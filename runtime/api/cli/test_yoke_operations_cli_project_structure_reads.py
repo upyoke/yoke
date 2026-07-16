@@ -200,7 +200,7 @@ class TestProjectStructureCommandDefinitions:
                 request_id=request.request_id,
                 result={
                     "project_id": "yoke",
-                    "deployment_flow": "yoke-prod-release",
+                    "deployment_flow": "yoke-hosted-production",
                 },
             )
 
@@ -210,7 +210,7 @@ class TestProjectStructureCommandDefinitions:
             "--project", "yoke",
         )
         assert rc == 0
-        assert out == "yoke-prod-release\n"
+        assert out == "yoke-hosted-production\n"
 
     def test_deploy_defaults_get_absent_default_prints_empty_stdout(self) -> None:
         def stub(request: FunctionCallRequest) -> FunctionCallResponse:

@@ -33,7 +33,7 @@ def _seed_flows(db_path: str) -> None:
         )
         for row in [
             ("yoke-internal", 1, "YokeInternal"),
-            ("yoke-prod-release", 1, "YokeProdRelease"),
+            ("yoke-hosted-production", 1, "YokeHostedProduction"),
             ("buzz-internal", 2, "BuzzInternal"),
         ]:
             conn.execute(flow_sql, row)

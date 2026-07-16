@@ -40,6 +40,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_GITHUB_ACTIONS_RUN_READ,
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
     PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
+    PERM_GITHUB_RELEASE_CREATE,
     PERM_HOOKS_EVALUATE,
     PERM_ITEMS_READ,
     PERM_ITEMS_WRITE,
@@ -130,6 +131,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     "project_structure.command_definitions.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "github.pr.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "github.release.create_next_tag": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_RELEASE_CREATE,
+    ),
     # Hosted deploy runners may trigger and observe the project's deployment
     # workflows without receiving project administration. Every other
     # github_actions.* function keeps the project-admin prefix default below.

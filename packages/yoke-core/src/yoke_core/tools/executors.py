@@ -15,7 +15,7 @@ Each executor returns an integer exit code:
   (the deployed core's DB carries its expected schema surface).
 - ``exec_ephemeral_verify`` -> ``0`` with ``EPHEMERAL_URL=<url>`` printed on
   success, ``1`` otherwise.  Preserves the stdout contract that
-  :func:`yoke_core.domain.deploy_pipeline._dispatch_ephemeral_verify`
+  :func:`yoke_core.domain.deploy_pipeline_executors._dispatch_ephemeral_verify`
   parses for ``EPHEMERAL_URL=``.
 
 The module is also usable as a CLI for ad-hoc invocation:

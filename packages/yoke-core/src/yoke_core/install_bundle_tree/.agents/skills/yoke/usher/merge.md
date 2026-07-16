@@ -13,7 +13,7 @@ If `_DEPLOY_ONLY`, skip entirely to deploy phase.
 <!--
  BRANCH CLEANUP ORDERING CONTRACT
  1. Step 7c: Pre-merge ephemeral verification (before merge, gates it)
- 2. Step 7d: `watch_merge merge-worktree` merges branch into main
+ 2. Step 7d: `watch_merge merge-worktree` merges the branch into the project's registered default branch
  3. Step 8: `watch_merge done-transition --skip-deploy` runs cleanup
  DO NOT reorder these steps.
 -->
@@ -226,12 +226,14 @@ Then halt the entire usher batch — do NOT proceed to later items in the merge-
 
 ### 7f. Post-Merge CI Check (ADVISORY)
 
-After all merges complete, check main CI:
+After all merges complete, repeat the same project-policy resolution from Step
+4b: `github_repo` from `projects.github_binding.status`, `workflow_file` from
+the `ci_workflow_file` capability, and `default_branch` from `projects.get`.
+When all values exist, run:
+
 ```bash
-_repo=$(yoke projects github-binding status --project "$_usher_project" \
- --field github_repo)
-yoke github-actions check-ci "$_repo" ci.yml --branch main \
- --project "$_usher_project"
+yoke github-actions check-ci "{repo}" "{workflow_file}" \
+ --branch "{default_branch}" --project "{project}"
 ```
 
 The command resolves the project's verified App binding and uses a short-lived

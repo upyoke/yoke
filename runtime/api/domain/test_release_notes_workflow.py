@@ -1,4 +1,4 @@
-"""Executable public-release and authored-note workflow contract."""
+"""Executable public-release and immutable tag-note workflow contract."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def test_release_authority_is_isolated_to_final_hosted_job():
     assert "YOKE_LINUX_RUNS_ON" not in text
 
 
-def test_tag_must_have_local_version_reach_main_and_have_authored_notes():
+def test_tag_must_have_local_version_reach_main_and_have_tag_notes():
     text = _text()
     assert "canonical_tag_re='^v" in text
     assert '[[ ! "$TAG_NAME" =~ $canonical_tag_re ]]' in text
@@ -53,10 +53,10 @@ def test_tag_must_have_local_version_reach_main_and_have_authored_notes():
     assert '"ahead" && "$main_relation" != "identical"' in text
     assert 'echo "source_sha=$source_sha"' in text
     assert 'echo "tag_object_sha=$tag_object_sha"' in text
-    assert 'notes_path="docs/releases/$TAG_NAME.md"' in text
-    assert '! -f "$notes_path" || -L "$notes_path" || ! -s "$notes_path"' in text
-    assert 'expected_heading="# Yoke ${TAG_NAME#v}"' in text
-    assert '[[ "$heading" != "$expected_heading" ]]' in text
+    assert 'tag_message="$(jq -r' in text
+    assert 'expected_heading="Yoke ${TAG_NAME#v}"' in text
+    assert '"${tag_message%%$\'\\n\'*}" != "$expected_heading"' in text
+    assert "docs/releases/$TAG_NAME.md" not in text
 
 
 def test_release_reuses_attested_wheel_factory_with_only_signing_scope():
@@ -113,13 +113,12 @@ def test_release_creation_uses_tag_notes_and_validated_assets():
     assert '"${wheels[@]}"' in text
     assert '"$ARTIFACT_DIR/release-records.json"' in text
     assert "--verify-tag" in text
-    assert '--notes-file "docs/releases/$TAG_NAME.md"' in text
+    assert "--notes-from-tag" in text
 
 
-def test_public_operator_doc_starts_future_only_and_teaches_verification():
+def test_public_operator_doc_teaches_current_release_and_verification():
     text = _DOC.read_text(encoding="utf-8")
-    assert "deliberately not backfilled" in text
-    assert "docs/releases/vX.Y.Z+local.N.md" in text
+    assert "yoke-hosted-production" in text
     assert "Treat release tags as immutable" in text
     assert "gh attestation verify ./yoke_core-*.whl" in text
     assert "oci://ghcr.io/upyoke/yoke-server@sha256:<digest>" in text

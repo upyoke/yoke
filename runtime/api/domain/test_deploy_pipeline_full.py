@@ -93,32 +93,17 @@ class TestResolveQaKind:
 # ===========================================================================
 
 
-class TestDeployPipelineShim:
+class TestDeployPipeline:
 
-    def test_executor_helpers_remain_importable_from_deploy_pipeline(self):
-        assert deploy_pipeline._dispatch_executor.__module__.endswith("deploy_pipeline_executors")
-        assert deploy_pipeline._dispatch_ephemeral_verify.__module__.endswith("deploy_pipeline_executors")
-        assert deploy_pipeline._dispatch_github_actions_workflow.__module__.endswith("deploy_pipeline_github_workflow")
-
-    def test_release_control_plane_env_prefers_explicit_label(self, monkeypatch):
-        monkeypatch.setenv("YOKE_RELEASE_CONTROL_PLANE_ENV", "stage-db-admin")
-        monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
-        monkeypatch.setenv("YOKE_PG_DSN", "postgres://example")
-
-        assert deploy_pipeline._release_control_plane_env() == "stage"
-
-    def test_release_control_plane_env_falls_back_to_active_env(self, monkeypatch):
-        monkeypatch.delenv("YOKE_RELEASE_CONTROL_PLANE_ENV", raising=False)
+    def test_release_control_plane_uses_active_environment(self, monkeypatch):
         monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
 
         assert deploy_pipeline._release_control_plane_env() == "prod"
 
-    def test_release_control_plane_env_describes_bare_dsn(self, monkeypatch):
-        monkeypatch.delenv("YOKE_RELEASE_CONTROL_PLANE_ENV", raising=False)
+    def test_release_control_plane_reports_unbound_environment(self, monkeypatch):
         monkeypatch.delenv("YOKE_ENV", raising=False)
-        monkeypatch.setenv("YOKE_PG_DSN", "postgres://example")
 
-        assert deploy_pipeline._release_control_plane_env() == "dsn"
+        assert deploy_pipeline._release_control_plane_env() == "unbound"
 
 
 class TestDeployPipelineProjectSettings:

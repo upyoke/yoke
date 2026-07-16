@@ -29,7 +29,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _seed_registered_flow(db_path, flow_id="yoke-prod-release", project="yoke"):
+def _seed_registered_flow(db_path, flow_id="yoke-hosted-production", project="yoke"):
     conn = connect_dt_db(db_path)
     p = _p(conn)
     conn.execute(
@@ -78,14 +78,14 @@ class TestAC3LatestRunNotFailed:
         _insert_item(
             db_path,
             721,
-            deployment_flow="yoke-prod-release",
+            deployment_flow="yoke-hosted-production",
             deploy_stage="complete",
             deployed_to="prod",
         )
         _seed_deploy_run(db_path, 721, "failed")
 
         allowed, reason = check_done_preconditions(
-            721, "yoke-prod-release", "issue",
+            721, "yoke-hosted-production", "issue",
         )
 
         assert allowed is False
@@ -97,14 +97,14 @@ class TestAC3LatestRunNotFailed:
         _insert_item(
             db_path,
             722,
-            deployment_flow="yoke-prod-release",
+            deployment_flow="yoke-hosted-production",
             deploy_stage="complete",
             deployed_to="prod",
         )
         _seed_deploy_run(db_path, 722, "succeeded")
 
         allowed, reason = check_done_preconditions(
-            722, "yoke-prod-release", "issue",
+            722, "yoke-hosted-production", "issue",
         )
 
         assert allowed is True

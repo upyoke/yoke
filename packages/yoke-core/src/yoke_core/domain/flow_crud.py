@@ -28,7 +28,7 @@ _FLOW_FIELDS = frozenset({
 
 _SELECT_COLS = (
     "df.id, p.slug AS project, df.name, df.description, df.stages, "
-    "df.on_failure, df.created_at"
+    "df.on_failure, df.created_at, df.target_env, df.done_description, df.status"
 )
 
 

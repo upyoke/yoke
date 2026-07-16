@@ -218,6 +218,9 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("strategy.seed_defaults.run", _adapters.strategy_seed_defaults),
     ("github", "pr", "create"):
         ("github.pr.create", _adapters.github_pr_create),
+    ("github", "release", "create-next-tag"):
+        ("github.release.create_next_tag",
+         _adapters.github_release_create_next_tag),
     ("scratch", "dispatch-inputs"):
         ("scratch.dispatch_inputs", _adapters.scratch_dispatch_inputs),
     ("config", "example"):

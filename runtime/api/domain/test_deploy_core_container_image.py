@@ -272,7 +272,7 @@ class TestEnsureImageWaitMode:
         message = str(exc.value)
         assert "wait exhausted" in message
         assert ".github/workflows/yoke-core-image.yml" in message
-        assert "workflow_dispatch" in message
+        assert "deployment run that owns this stage" in message
         # The runner-build path is unreachable: probes only, no docker.
         assert len(runner.calls) == 4
         for call in runner.calls:

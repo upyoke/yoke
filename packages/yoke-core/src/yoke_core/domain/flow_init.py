@@ -15,7 +15,7 @@ from yoke_core.domain.schema_common import (
     _table_exists,
 )
 from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS as _SEED_FLOWS
-from yoke_core.domain.deployment_flow_state import FLOW_STATUS_DISABLED
+from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 
 
 def cmd_init(conn) -> str:
@@ -81,17 +81,6 @@ def cmd_init(conn) -> str:
              iso8601_now()),
         )
 
-    # Lifecycle state is independent of definition history: disabling a flow
-    # prevents new runs while its original row and stages remain available to
-    # every run that already references it.
-    for flow in seeded_flows:
-        if flow.get("status") != FLOW_STATUS_DISABLED:
-            continue
-        conn.execute(
-            "UPDATE deployment_flows SET status=%s WHERE id=%s",
-            (FLOW_STATUS_DISABLED, flow["id"]),
-        )
-
     # Backfill target_env and done_description for existing rows
     backfills = [
         ("target_env", "production", "buzz-prod-release"),
@@ -111,14 +100,9 @@ def cmd_init(conn) -> str:
                 (flow["done_description"], flow["id"]),
             )
 
-    # Bootstrap backfill: ensure each flow that ships a
-    # ``migration_apply`` stage in the seed actually has it on the live
-    # row. Existing rows from before governed-DB-mutation landed need the stage
-    # prepended idempotently.  This is the runtime side of §11.4 — the
-    # bootstrap exception that installs the contract that governs future
-    # migrations on the project.
+    # Ensure a seed's governed migration stage is present on its live row.
     for flow in _SEED_FLOWS:
-        if flow.get("status") == FLOW_STATUS_DISABLED:
+        if flow["status"] != FLOW_STATUS_ACTIVE:
             continue
         try:
             seed_stages = json.loads(flow["stages"])

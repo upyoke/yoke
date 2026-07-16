@@ -59,8 +59,8 @@ Extracted from [README.md](README.md). Included packages, CI/CD topology, adding
 | API Dockerfile | `app/Dockerfile` | Python container with entrypoint |
 | Web Dockerfile | `app/web/Dockerfile` | Node.js container for Next.js |
 | CI | `.github/workflows/ci.yml` | pytest + npm build on push/PR |
-| Deploy | `ops/deploy.yml` | Manual production deploy |
-| Hotfix | `ops/hotfix.yml` | Manual dispatch for direct-to-prod hotfix |
+| Deploy | `ops/deploy.yml` | Production workflow invoked by the project's normal release flow |
+| Hotfix | `ops/hotfix.yml` | Direct-to-production workflow invoked by the project's hotfix flow |
 | Smoke | `ops/smoke.yml` | Post-deploy smoke test |
 | Ephemeral deploy | `ops/ephemeral-deploy.yml` | Deploy preview env on branch push |
 | Ephemeral teardown | `ops/ephemeral-teardown.yml` | Tear down preview env on PR merge/close |
@@ -89,10 +89,12 @@ PR merged / branch deleted
 Push to main (after PR merge)
   └── CI (ci.yml)                     — pytest + npm build
 
-Manual dispatch
-  ├── Deploy (deploy.yml)             — rsync to VPS, docker compose up
-  │    └── Smoke (smoke.yml)          — post-deploy health gate (dispatched by Yoke)
-  └── Hotfix (hotfix.yml)             — direct-to-prod deploy (bypasses PR)
+Yoke deployment run
+  ├── Normal production flow
+  │    ├── Deploy (deploy.yml)         — rsync to VPS, docker compose up
+  │    └── Smoke (smoke.yml)          — post-deploy health gate
+  └── Production hotfix flow
+       └── Hotfix (hotfix.yml)         — direct-to-prod deploy
 ```
 
 ### Ephemeral environments
@@ -112,7 +114,9 @@ Ephemeral environments are:
 
 The environment URL is available in the GitHub Actions run output.
 
-**Note:** CI and ephemeral workflows trigger on git events (push/PR). Yoke's `deployment_flows` table tracks the manual deploy and smoke pipeline, while ephemeral environments happen independently at the CI layer.
+**Note:** CI and ephemeral workflows trigger on git events (push/PR). Normal
+and hotfix delivery start from the work item's project-local Yoke deployment
+flow, which dispatches and correlates the repository workflows.
 
 ### Why build steps repeat
 

@@ -1,8 +1,5 @@
 """Deployment pipeline orchestration — stage iteration, executor dispatch, CI gates.
 
-Canonical Python owner of the deployment pipeline. Retired the
-``deploy-pipeline.sh`` thin launcher; invoke this module directly instead.
-
 CLI usage::
 
     python3 -m yoke_core.domain.deploy_pipeline <run-id|item-id> [--product-repo-path PATH] [--timeout M] [--from-stage S] [--fresh]
@@ -21,9 +18,7 @@ from typing import List, Optional
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.deploy_pipeline_executors import (
-    _dispatch_ephemeral_verify,  # noqa: F401 - compatibility re-export
     _dispatch_executor,
-    _dispatch_github_actions_workflow,  # noqa: F401 - compatibility re-export
 )
 from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
@@ -46,9 +41,6 @@ EXIT_SUCCESS = 0
 EXIT_STAGE_FAILED = 1
 EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
-_RELEASE_CONTROL_PLANE_ENV_VAR = "YOKE_RELEASE_CONTROL_PLANE_ENV"
-
-
 def _normalize_release_control_plane_env(value: str) -> str:
     """Return the environment label for release-run metadata authority."""
     label = value.strip()
@@ -59,18 +51,10 @@ def _normalize_release_control_plane_env(value: str) -> str:
 
 def _release_control_plane_env() -> str:
     """Describe where deployment run metadata is being written."""
-    explicit = os.environ.get(_RELEASE_CONTROL_PLANE_ENV_VAR, "")
-    if explicit.strip():
-        return _normalize_release_control_plane_env(explicit)
-
     active_env = os.environ.get("YOKE_ENV", "")
     if active_env.strip():
         return _normalize_release_control_plane_env(active_env)
-
-    if os.environ.get("YOKE_PG_DSN", "").strip():
-        return "dsn"
-
-    return "ambient"
+    return "unbound"
 
 
 def run_pipeline(
