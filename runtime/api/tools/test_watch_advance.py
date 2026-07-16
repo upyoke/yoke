@@ -10,6 +10,8 @@ passthrough, and the ``--print-streaming-pair`` shape.
 from __future__ import annotations
 
 import io
+import os
+import shlex
 import sys
 
 import pytest
@@ -153,12 +155,14 @@ class TestPrintStreamingPair:
         out = capsys.readouterr().out
         # Background command line uses the wrapper module + explicit
         # captures + the underlying args after ``--``.
-        assert "yoke_core.tools.watch_advance" in out
+        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
+        assert f"{anchor} yoke_core.tools.watch_advance" in out
+        assert "PYTHONPATH" not in out
         assert "--raw-capture" in out
         assert "--progress-capture" in out
         assert "--item YOK-1" in out
         # Progress-tail line uses watch_tail against the progress capture.
-        assert "yoke_core.tools.watch_tail" in out
+        assert f"{anchor} yoke_core.tools.watch_tail" in out
         # Post-completion inspection.
         assert "tail -80" in out
 
