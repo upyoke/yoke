@@ -69,6 +69,10 @@ def _write_snapshot(
     if aws_capability != "aws-admin":
         runner_settings["aws_capability"] = aws_capability
     capabilities["github-actions-runner-fleet"] = runner_settings
+    if stack_name is not None:
+        capabilities["pulumi-state"] = {
+            "runner_fleet_stack_name": stack_name,
+        }
     payload = {
         "config_schema": schema,
         "project_id": 42,
@@ -78,11 +82,7 @@ def _write_snapshot(
             "deploy_namespace": project,
             "display_name": project.title(),
             "site_id": f"{project}-site",
-            "site_settings": (
-                {"pulumi": {"pulumiRunnerFleetStackName": stack_name}}
-                if stack_name is not None
-                else {}
-            ),
+            "site_settings": {},
             "environments": [],
             "capabilities": capabilities,
         },
