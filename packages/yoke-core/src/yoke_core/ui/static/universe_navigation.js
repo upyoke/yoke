@@ -228,10 +228,17 @@ function el(documentNode, tag, className, text) {
 // An unbuilt destination says only that it is coming: the page head above
 // the stub is the single place a view's name and summary render, so the
 // panel repeating either would show the same words twice at two sizes.
-export function renderStubView(context, main) {
+// `summary`, when given, is the line saying what this stub will be. A
+// destination stub omits it — the page head above already carries the
+// entry's own summary — but a tab stub must state its facet here, because
+// the page head names the view, not the facet.
+export function renderStubView(context, main, summary) {
   const documentNode = context.document;
   const panel = el(documentNode, "section", "stub-panel");
   panel.appendChild(el(documentNode, "span", "badge", "◷ Coming soon"));
+  if (summary) {
+    panel.appendChild(el(documentNode, "p", "stub-summary", summary));
+  }
   // A skeleton of what will stand here — bars, not controls, so nothing
   // pretends to act.
   const preview = el(documentNode, "div", "preview");

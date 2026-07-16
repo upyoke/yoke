@@ -494,6 +494,12 @@
   padding: 4px 11px;
   border-radius: 20px;
 }
+.universe-app-root .stub-panel .stub-summary {
+  color: var(--yoke-muted);
+  max-width: 52ch;
+  margin: 12px auto 0;
+  font-size: 13px;
+}
 .universe-app-root .stub-panel .preview {
   margin-top: 22px;
   display: grid;

@@ -264,10 +264,11 @@ export function mountUniverseApp(rootNode, options = {}) {
       if (!tabRenderer) {
         // An unbuilt facet is honest the same way an unbuilt destination is,
         // and it carries no picker — a scope control over nothing filters
-        // nothing.
+        // nothing. The facet's own what-it-will-be line renders inside the
+        // stub: the page head names the view, not the tab.
         const stubHost = el(documentNode, "div", "view-host");
         main.replaceChildren(pageHead, tabBar, stubHost);
-        renderStubView(context, stubHost);
+        renderStubView(context, stubHost, tab.summary);
         return;
       }
       if (entry.scope === SCOPE_NONE) {

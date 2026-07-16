@@ -126,12 +126,14 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   // Tabs are real links that carry the view's scope.
   assert.equal(activeTabs[0].href, "#/delivery/flows?project=1");
 
-  // The honest stub: Coming soon, and no scope control. The view's name
-  // and sentence live in the page head — the stub repeats neither.
+  // The honest stub: Coming soon, no scope control, and the FACET's own
+  // what-it-will-be line — the page head names the view, not the tab, so
+  // the tab summary must render here or nowhere.
   assert.equal(byClass(root, "stub-panel").length, 1);
   const stubText = allNodes(byClass(root, "stub-panel")[0])
     .map((node) => node.textContent || "").join(" ");
   assert.ok(stubText.includes("Coming soon"));
+  assert.ok(stubText.includes("The pipeline definitions runs execute."));
   assert.ok(!allNodes(byClass(root, "stub-panel")[0]).some(
     (node) => node.tagName === "H1" || node.tagName === "H2",
   ));
