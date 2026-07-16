@@ -23,7 +23,7 @@ from yoke_core.domain.db_mutation_gate_implementing import (
     CONNECTED_POSTGRES_AUDIT_TOKEN,
 )
 from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
-from yoke_core.domain.migration_model_capability import yoke_primary_seed
+from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from runtime.api.test_backlog import (
     _conn,
     _patch_externals,
@@ -63,7 +63,7 @@ def regression_db(tmp_db: str, tmp_path: Path):
             f"VALUES ({p}, {p}, {p}, {p})",
             (1, "yoke", "Yoke", "2026-04-24T00:00:00Z"),
         )
-        seed_json = json.dumps(yoke_primary_seed(), sort_keys=True)
+        seed_json = json.dumps(governed_postgres_test_seed(), sort_keys=True)
         conn.execute(
             "INSERT INTO project_capabilities "
             "(project, type, settings, created_at) "

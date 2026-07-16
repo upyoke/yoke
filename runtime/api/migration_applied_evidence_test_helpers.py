@@ -26,7 +26,7 @@ import pytest
 from runtime.api.conftest import insert_item
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain import backlog_updates
-from yoke_core.domain.migration_model_capability import yoke_primary_seed
+from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.test_backlog import (
     _conn,
@@ -107,7 +107,7 @@ def regression_db(tmp_db: str, tmp_path: Path):
             (1, "yoke", "Yoke", "YOK",
              "2026-04-23T00:00:00Z"),
         )
-        seed_json = json.dumps(yoke_primary_seed(), sort_keys=True)
+        seed_json = json.dumps(governed_postgres_test_seed(), sort_keys=True)
         conn.execute(
             "INSERT INTO project_capabilities "
             "(project_id, type, settings, created_at) "

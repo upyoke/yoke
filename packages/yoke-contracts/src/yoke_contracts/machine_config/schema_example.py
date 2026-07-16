@@ -50,11 +50,11 @@ def canonical_example_payload() -> dict[str, Any]:
                 },
                 "authority": {
                     "kind": "aws_aurora_postgres",
-                    "infra_dir": "infra/pulumi/yoke-cloud",
+                    "infra_dir": "infra/pulumi/app-cloud",
                     "location": {
-                        "stack": "yoke-prod",
+                        "stack": "app-prod",
                         "region": "us-east-1",
-                        "database_name": "yoke_prod",
+                        "database_name": "app_prod",
                     },
                 },
             },

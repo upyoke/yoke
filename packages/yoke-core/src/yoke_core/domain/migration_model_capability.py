@@ -33,8 +33,7 @@ from __future__ import annotations
 
 from yoke_core.domain.migration_apply_runners import UnknownRunnerKind
 from yoke_core.domain.migration_model_capability_defaults import (
-    YOKE_PRIMARY_SEED_JSON, resolve_model, yoke_primary_postgres_seed,
-    yoke_primary_seed,
+    governed_postgres_seed, resolve_model,
 )
 from yoke_core.domain.migration_model_capability_validation import (
     CAPABILITY_TYPE, DEFAULT_CONNECTION_ENV_VAR,
@@ -51,13 +50,11 @@ __all__ = [
     "MigrationModelCapabilityError",
     "RECIPE_WEBAPP_SQLITE_EMPTY",
     "RUNNER_KIND_GOVERNED_MODULE",
-    "YOKE_PRIMARY_SEED_JSON",
     "UnknownRunnerKind",
     "UnknownValidationRecipe",
     "canonical_json",
+    "governed_postgres_seed",
     "resolve_model",
-    "yoke_primary_postgres_seed",
-    "yoke_primary_seed",
     "validate",
     "validate_json_string",
 ]

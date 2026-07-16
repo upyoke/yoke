@@ -23,11 +23,9 @@ from yoke_core.domain.db_mutation_gate_test_helpers import (
     gate_db_context,
     seed_audit_row,
 )
-from yoke_core.domain.migration_model_capability import (
-    YOKE_PRIMARY_SEED_JSON,
-    yoke_primary_seed,
-)
+from yoke_core.domain.migration_model_capability import validate
 from runtime.api.fixtures.backlog import insert_item
+from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 
 
 @pytest.fixture
@@ -43,7 +41,7 @@ class TestPolishGate:
     def _stage_with_completed_audit(self, gate_db, *, backup_path: str | None) -> tuple[int, str]:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", yoke_primary_seed())
+        _seed_capability(conn, "yoke", governed_postgres_test_seed())
         _seed_flow_with_migration_apply(conn, "yoke")
         modules_dir = "runtime/api/domain/migrations"
         _write_module(repo_path, modules_dir, "demo_module")
@@ -265,11 +263,8 @@ class TestPolishGateTestResults:
 # ---------------------------------------------------------------------------
 
 
-def test_yoke_primary_seed_round_trips_through_capability_validator() -> None:
-    parsed = json.loads(YOKE_PRIMARY_SEED_JSON)
-    from yoke_core.domain.migration_model_capability import validate
-
-    normalized = validate(parsed)
+def test_governed_postgres_seed_round_trips_through_capability_validator() -> None:
+    normalized = validate(governed_postgres_test_seed())
     assert normalized["default_model"] == "primary"
     assert "primary" in normalized["models"]
     primary = normalized["models"]["primary"]
