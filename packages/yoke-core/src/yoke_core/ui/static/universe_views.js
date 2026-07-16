@@ -285,7 +285,9 @@ function renderItemDetailView(context, main, projectId, itemRef) {
     {},
     (body, callResult) => {
       const fields = (callResult.envelope.result || {}).fields || {};
-      const summary = el(documentNode, "table", "items");
+      // The summary is a key/value grid, not a row list — the kv class
+      // swaps the column-header table dress for label/value cell rules.
+      const summary = el(documentNode, "table", "items kv");
       for (const [label, value] of [
         ["type", fields.type], ["status", fields.status],
         ["priority", fields.priority], ["flow", fields.flow],

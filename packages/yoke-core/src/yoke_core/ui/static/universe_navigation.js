@@ -130,14 +130,22 @@ function el(documentNode, tag, className, text) {
 }
 
 export function renderStubView(context, main, entry) {
-  const panel = el(context.document, "section", "panel");
-  const header = el(context.document, "div", "panel-header");
-  header.appendChild(el(context.document, "h2", null, entry.label));
-  panel.appendChild(header);
-  const body = el(context.document, "div", "panel-body");
-  body.appendChild(el(context.document, "p", "stub-headline", "Coming soon"));
-  body.appendChild(el(context.document, "p", "stub-summary", entry.summary));
-  panel.appendChild(body);
+  const documentNode = context.document;
+  const panel = el(documentNode, "section", "stub-panel");
+  panel.appendChild(el(documentNode, "span", "badge", "◷ Coming soon"));
+  panel.appendChild(el(documentNode, "h2", null, entry.label));
+  if (entry.summary) {
+    panel.appendChild(el(documentNode, "p", "stub-summary", entry.summary));
+  }
+  // A skeleton of what will stand here — bars, not controls, so nothing
+  // pretends to act.
+  const preview = el(documentNode, "div", "preview");
+  for (const width of ["60%", "", "80%", "40%"]) {
+    const bar = el(documentNode, "div", "ln");
+    if (width) bar.style.width = width;
+    preview.appendChild(bar);
+  }
+  panel.appendChild(preview);
   main.replaceChildren(panel);
 }
 
