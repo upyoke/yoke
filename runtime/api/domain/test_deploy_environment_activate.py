@@ -65,6 +65,12 @@ class TestEnsureInstanceRunning:
     def test_instance_name_uses_standalone_vps_stack(self):
         assert _instance_name_tag(_env()) == "yoke-platform-vps/VpsInstance"
 
+    def test_instance_name_uses_leaf_of_qualified_stack_reference(self):
+        env = _env(
+            origin_vps_stack_name="acme/webapp-infra/yoke-platform-vps"
+        )
+        assert _instance_name_tag(env) == "yoke-platform-vps/VpsInstance"
+
     def test_missing_origin_stack_names_settings_remediation(self):
         with pytest.raises(EnvironmentActivateError) as exc:
             _instance_name_tag(_env(origin_vps_stack_name=""))
