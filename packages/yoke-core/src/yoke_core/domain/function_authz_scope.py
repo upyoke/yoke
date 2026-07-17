@@ -112,6 +112,9 @@ _BY_ID: dict[str, AuthzSpec] = {
         PROJECT, PERM_PROJECT_ADMIN,
     ),
     "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.pulumi_state.checkpoint_import": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN,
+    ),
     "projects.pulumi_stack_config.get": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN,
     ),

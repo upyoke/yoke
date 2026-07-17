@@ -145,7 +145,10 @@ from yoke_cli.commands.adapters.projects_capability_settings import (
     PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
 )
 from yoke_cli.commands.adapters import projects_environment_settings as _environment_settings_usage
-from yoke_cli.commands.adapters.projects_pulumi_state import PULUMI_STATE_MIGRATE_USAGE
+from yoke_cli.commands.adapters.projects_pulumi_state import (
+    PULUMI_STATE_CHECKPOINT_IMPORT_USAGE,
+    PULUMI_STATE_MIGRATE_USAGE,
+)
 from yoke_cli.commands.adapters.projects_pulumi_stack_config import PULUMI_STACK_CONFIG_GET_USAGE
 from yoke_cli.commands.adapters.project_github_binding import (
     PROJECTS_GITHUB_BINDING_BIND_USAGE, PROJECTS_GITHUB_BINDING_STATUS_USAGE, PROJECTS_GITHUB_BINDING_UNBIND_USAGE, PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
@@ -317,6 +320,9 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.environment_settings.get": _environment_settings_usage.GET_USAGE,
     "projects.environment_settings.merge": _environment_settings_usage.MERGE_USAGE,
     "projects.pulumi_state.migrate": PULUMI_STATE_MIGRATE_USAGE,
+    "projects.pulumi_state.checkpoint_import": (
+        PULUMI_STATE_CHECKPOINT_IMPORT_USAGE
+    ),
     "projects.pulumi_stack_config.get": PULUMI_STACK_CONFIG_GET_USAGE,
     "projects.capability_secret.set": PROJECTS_CAPABILITY_SECRET_SET_USAGE,
     "projects.checkout_context.run": PROJECTS_CHECKOUT_CONTEXT_USAGE,

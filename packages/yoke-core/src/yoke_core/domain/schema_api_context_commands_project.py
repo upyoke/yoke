@@ -77,4 +77,20 @@ PROJECT_COMMANDS: list[dict] = [
             "surfaces are closed."
         ),
     },
+    {
+        "topic": "project",
+        "purpose": "Register a live Pulumi checkpoint's operator state",
+        "recipe": (
+            "yoke projects pulumi-state checkpoint-import --project <project> "
+            "--stack <stack> --checkpoint-file <owner-only-export> [--apply]"
+        ),
+        "notes": (
+            "Use this typed dry-run-default boundary when an already-live "
+            "stack has no legacy site settings to migrate. The CLI reads the "
+            "0600 checkpoint locally, extracts only the awskms provider and "
+            "encrypted data key, and returns a redacted receipt. Never copy "
+            "another stack's operator state or write stack_state through raw "
+            "SQL or generic capability-settings surfaces."
+        ),
+    },
 ]

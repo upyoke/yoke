@@ -170,6 +170,9 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "pulumi-state", "migrate"):
         ("projects.pulumi_state.migrate",
          _adapters.projects_pulumi_state_migrate),
+    ("projects", "pulumi-state", "checkpoint-import"):
+        ("projects.pulumi_state.checkpoint_import",
+         _adapters.projects_pulumi_state_checkpoint_import),
     ("projects", "pulumi-stack-config", "get"):
         ("projects.pulumi_stack_config.get",
          _adapters.projects_pulumi_stack_config_get),

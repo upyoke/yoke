@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError
+from pydantic import BaseModel, ConfigDict, SecretStr, StrictBool, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -15,6 +13,10 @@ from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 from yoke_core.domain.projects_pulumi_state_migration import (
     PulumiStateMigrationError,
     migrate_pulumi_state,
+)
+from yoke_core.domain.projects_pulumi_state_checkpoint_import import (
+    PulumiCheckpointImportError,
+    import_checkpoint_state,
 )
 
 
@@ -44,6 +46,30 @@ class PulumiStateMigrateResponse(BaseModel):
     receipt_digest: str
 
 
+class PulumiStateCheckpointImportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: str
+    stack_name: str
+    secrets_provider: SecretStr
+    encrypted_key: SecretStr
+    apply: StrictBool = False
+
+
+class PulumiStateCheckpointImportResponse(BaseModel):
+    project: str
+    capability_type: str
+    stack_name: str
+    mode: str
+    destination_path: str
+    changed_paths: list[str]
+    destination_verified: bool
+    sensitive_paths: list[str]
+    applied: bool
+    entry_digest: str
+    receipt_digest: str
+
+
 def handle_pulumi_state_migrate(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -67,6 +93,28 @@ def handle_pulumi_state_migrate(
     return HandlerOutcome(primary_success=True, result_payload=receipt)
 
 
+def handle_pulumi_state_checkpoint_import(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    try:
+        parsed = PulumiStateCheckpointImportRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _failure(
+            "payload_invalid", safe_validation_message(exc), "$.payload"
+        )
+    try:
+        receipt = import_checkpoint_state(
+            project=parsed.project,
+            stack_name=parsed.stack_name,
+            secrets_provider=parsed.secrets_provider.get_secret_value(),
+            encrypted_key=parsed.encrypted_key.get_secret_value(),
+            apply=parsed.apply,
+        )
+    except PulumiCheckpointImportError as exc:
+        return _failure(exc.code, str(exc), "$.payload")
+    return HandlerOutcome(primary_success=True, result_payload=receipt)
+
+
 def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -75,7 +123,10 @@ def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:
 
 
 __all__ = [
+    "PulumiStateCheckpointImportRequest",
+    "PulumiStateCheckpointImportResponse",
     "PulumiStateMigrateRequest",
     "PulumiStateMigrateResponse",
+    "handle_pulumi_state_checkpoint_import",
     "handle_pulumi_state_migrate",
 ]

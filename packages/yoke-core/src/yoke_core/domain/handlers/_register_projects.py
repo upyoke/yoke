@@ -134,6 +134,24 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     registry.register(
+        "projects.pulumi_state.checkpoint_import",
+        _pulumi_state.handle_pulumi_state_checkpoint_import,
+        _pulumi_state.PulumiStateCheckpointImportRequest,
+        _pulumi_state.PulumiStateCheckpointImportResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.projects_pulumi_state",
+        target_kinds=["global"],
+        side_effects=["project_capabilities_settings_write"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "dry_run_default", "checkpoint_file_source", "redacted_receipt",
+            "exact_stack_entry", "conflict_refusal",
+        ],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
         "projects.pulumi_state.migrate",
         _pulumi_state.handle_pulumi_state_migrate,
         _pulumi_state.PulumiStateMigrateRequest,
