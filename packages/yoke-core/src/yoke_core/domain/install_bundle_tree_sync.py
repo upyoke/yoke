@@ -1,8 +1,9 @@
 """Materialize + drift-check the packaged install-bundle source tree.
 
 ``yoke_core.install_bundle_tree`` is a committed, byte-exact snapshot of the
-repo-root source dirs the install bundle serves — the Yoke skill tree, the
-rendered Claude and Codex agent adapters, and the shared Claude session rules
+repo-root source dirs served through ``server_tree_root()`` — the Yoke skill
+tree, the rendered Claude and Codex agent adapters, the shared Claude session
+rules, and the template library
 (:data:`install_bundle.INSTALL_BUNDLE_SOURCE_DIRS`). setuptools cannot ship
 files from outside the ``yoke_core`` package as package-data, so the wheel
 carries this in-package copy; :func:`install_bundle.server_tree_root` falls
@@ -41,7 +42,10 @@ from typing import Dict, List, Optional, Sequence
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
-from yoke_core.domain.install_bundle import INSTALL_BUNDLE_SOURCE_DIRS
+from yoke_core.domain.install_bundle import (
+    INSTALL_BUNDLE_SOURCE_DIRS,
+    is_bundle_junk_path,
+)
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
 )
@@ -51,6 +55,11 @@ from yoke_core.domain.workspace_authority import (
 # pyproject ``[tool.setuptools.package-data] "yoke_core.install_bundle_tree"``
 # location so the tracked tree and the wheel package-data resolve one place.
 PACKAGED_TREE_REL = Path(PACKAGED_INSTALL_BUNDLE_TREE_REL)
+
+# Snapshot files that legitimately exist outside every declared source dir:
+# the marker that makes ``yoke_core.install_bundle_tree`` an importable
+# package. Everything else outside the declared subtrees is stray.
+PACKAGED_TREE_ALLOWED_EXTRAS = ("__init__.py",)
 
 
 class InstallBundleTreeError(RuntimeError):
@@ -62,7 +71,24 @@ def _relative_files(root: Path) -> List[str]:
 
     Matches the enumeration the drift invariant and ``build_bundle`` use:
     ``rglob('*')`` + ``is_file()`` dereferences symlinks, so a symlinked source
-    file is enumerated (and later materialized) as a regular file.
+    file is enumerated (and later materialized) as a regular file. Cache junk
+    (``is_bundle_junk_path``) is excluded so bytecode compiled next to
+    importable template sources never enters the mirror comparison.
+    """
+    if not root.is_dir():
+        return []
+    return sorted(
+        p.relative_to(root).as_posix()
+        for p in root.rglob("*")
+        if p.is_file() and not is_bundle_junk_path(p)
+    )
+
+
+def _relative_files_raw(root: Path) -> List[str]:
+    """Like :func:`_relative_files` but junk-inclusive.
+
+    The sync removal pass enumerates the packaged side with this so junk that
+    somehow landed in the snapshot is deleted rather than becoming invisible.
     """
     if not root.is_dir():
         return []
@@ -71,6 +97,22 @@ def _relative_files(root: Path) -> List[str]:
         for p in root.rglob("*")
         if p.is_file()
     )
+
+
+def _stray_packaged_files(packaged: Path) -> List[str]:
+    """Packaged files outside every declared source-dir subtree.
+
+    The per-dir comparisons only see files under declared prefixes, so a
+    file parked elsewhere in the snapshot would otherwise ship in the wheel
+    unnoticed.
+    """
+    prefixes = tuple(f"{rel}/" for rel in INSTALL_BUNDLE_SOURCE_DIRS)
+    return [
+        rel
+        for rel in _relative_files(packaged)
+        if not rel.startswith(prefixes)
+        and rel not in PACKAGED_TREE_ALLOWED_EXTRAS
+    ]
 
 
 def detect_drift(*, target_root: Path) -> List[str]:
@@ -97,6 +139,8 @@ def detect_drift(*, target_root: Path) -> List[str]:
         for name in sorted(source_set & packed_set):
             if (packed / name).read_bytes() != (source / name).read_bytes():
                 drift.append(f"content drift: {rel}/{name}")
+    for stray in _stray_packaged_files(packaged):
+        drift.append(f"stray packaged file (outside declared source dirs): {stray}")
     return drift
 
 
@@ -121,7 +165,7 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
         packed = packaged / rel
         source_files = _relative_files(source)
         source_set = set(source_files)
-        for extra in _relative_files(packed):
+        for extra in _relative_files_raw(packed):
             if extra in source_set:
                 continue
             removed.append(f"{rel}/{extra}")
@@ -141,6 +185,12 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
                 tmp = dst.with_suffix(dst.suffix + ".tmp")
                 tmp.write_bytes(data)
                 os.replace(str(tmp), str(dst))
+    for stray in _stray_packaged_files(packaged):
+        removed.append(stray)
+        if not dry_run:
+            target = packaged / stray
+            assert_target_under_session_work_authority(target)
+            target.unlink()
     return {"written": written, "removed": removed}
 
 

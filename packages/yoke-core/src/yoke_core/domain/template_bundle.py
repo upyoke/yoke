@@ -28,10 +28,12 @@ from yoke_contracts.template_bundle import (
     TEMPLATE_PRODUCT_BOUNDARY_PRODUCT,
     TEMPLATE_PRODUCT_BOUNDARY_SOURCE_DEV_ADMIN,
 )
-from yoke_core.domain.install_bundle import server_tree_root, yoke_version
-
-# Server-tree source dir (relative to the tree root).
-TEMPLATES_SOURCE = "templates"
+from yoke_core.domain.install_bundle import (
+    TEMPLATES_SOURCE,
+    is_bundle_junk_path,
+    server_tree_root,
+    yoke_version,
+)
 
 # Optional per-template metadata file carrying description and boundary metadata.
 TEMPLATE_META_FILENAME = "template.json"
@@ -53,7 +55,12 @@ def _templates_root() -> Path:
     root = server_tree_root() / TEMPLATES_SOURCE
     if not root.is_dir():
         raise TemplateBundleError(
-            f"templates source dir is missing from the server tree: {root}"
+            f"templates source dir is missing from the server tree: {root}; "
+            "a product wheel serves it from the packaged install-bundle tree "
+            "(regenerate with `python3 -m "
+            "yoke_core.domain.install_bundle_tree_sync sync` and rebuild the "
+            "wheel), or point YOKE_SERVER_TREE_ROOT at a tree that carries "
+            f"{TEMPLATES_SOURCE}/"
         )
     return root
 
@@ -105,7 +112,11 @@ def _collect_files(template_dir: Path) -> Tuple[List[Dict[str, str]], int]:
     """Every text file under ``template_dir`` plus the binary-skip count."""
     files: List[Dict[str, str]] = []
     skipped = 0
-    for path in sorted(p for p in template_dir.rglob("*") if p.is_file()):
+    for path in sorted(
+        p
+        for p in template_dir.rglob("*")
+        if p.is_file() and not is_bundle_junk_path(p)
+    ):
         content = _read_text(path)
         if content is None:
             skipped += 1  # binary / non-UTF-8 — never shipped, but counted

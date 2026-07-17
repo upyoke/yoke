@@ -82,4 +82,9 @@ where = ["src"]
     "runtime/harness/claude/agents/**/*",
     "runtime/harness/claude/rules/**/*",
     "runtime/harness/codex/agents/**/*",
+    "templates/**/*",
+    # Glob `*` skips dotfiles, so scaffold entries like .gitignore, .gitkeep,
+    # and .github/workflows need explicit hidden-component patterns.
+    "templates/**/.*",
+    "templates/**/.*/**/*",
 ]

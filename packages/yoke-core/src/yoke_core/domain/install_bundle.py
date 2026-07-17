@@ -49,6 +49,10 @@ SKILLS_SOURCE = ".agents/skills/yoke"
 CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
 CLAUDE_RULES_SOURCE = "runtime/harness/claude/rules"
+# Served by the sibling template surface (:mod:`template_bundle`) through the
+# same :func:`server_tree_root` resolver, so product wheels must package it
+# alongside the bundle sources.
+TEMPLATES_SOURCE = "templates"
 
 # The full set of repo-root source dirs the packaged install-bundle tree
 # (``yoke_core.install_bundle_tree``) snapshots. Single source of truth for the
@@ -61,7 +65,27 @@ INSTALL_BUNDLE_SOURCE_DIRS = (
     CLAUDE_AGENTS_SOURCE,
     CLAUDE_RULES_SOURCE,
     CODEX_AGENTS_SOURCE,
+    TEMPLATES_SOURCE,
 )
+
+# Machine-generated cache droppings excluded from every bundle enumeration.
+# Template sources are importable Python, so any test or tool that imports
+# them compiles __pycache__ bytecode next to the sources; those artifacts
+# must never ship in bundles, the packaged snapshot, or drift comparisons.
+_JUNK_DIR_NAMES = frozenset({"__pycache__"})
+_JUNK_FILE_NAMES = frozenset({".DS_Store"})
+_JUNK_FILE_SUFFIXES = (".pyc", ".pyo")
+
+
+def is_bundle_junk_path(path: Path) -> bool:
+    """True for cache/junk artifacts every bundle surface must skip."""
+
+    if any(part in _JUNK_DIR_NAMES for part in path.parts):
+        return True
+    if path.name in _JUNK_FILE_NAMES:
+        return True
+    return path.name.endswith(_JUNK_FILE_SUFFIXES)
+
 
 # Project-repo destination dirs.
 CANONICAL_SKILLS_DEST = SKILLS_SOURCE
@@ -158,7 +182,11 @@ def _skill_files(root: Path) -> List[Dict[str, str]]:
             f"skills source dir is missing from the server tree: {source}"
         )
     files: List[Dict[str, str]] = []
-    for path in sorted(p for p in source.rglob("*") if p.is_file()):
+    for path in sorted(
+        p
+        for p in source.rglob("*")
+        if p.is_file() and not is_bundle_junk_path(p)
+    ):
         content = _read_text(path)
         if content is None:
             raise InstallBundleError(
@@ -192,7 +220,11 @@ def _agent_files(root: Path) -> List[Dict[str, str]]:
         files.append(_agent_entry(path, f"{CLAUDE_AGENTS_DEST}/{path.name}"))
     references = claude_dir / "references"
     if references.is_dir():
-        for path in sorted(p for p in references.rglob("*") if p.is_file()):
+        for path in sorted(
+            p
+            for p in references.rglob("*")
+            if p.is_file() and not is_bundle_junk_path(p)
+        ):
             rel = path.relative_to(references).as_posix()
             files.append(
                 _agent_entry(path, f"{CLAUDE_AGENTS_DEST}/references/{rel}")
@@ -230,7 +262,11 @@ def _rules_files(root: Path) -> List[Dict[str, str]]:
         raise InstallBundleError(
             f"claude rules source dir is missing from the server tree: {source}"
         )
-    for path in sorted(p for p in source.rglob("*") if p.is_file()):
+    for path in sorted(
+        p
+        for p in source.rglob("*")
+        if p.is_file() and not is_bundle_junk_path(p)
+    ):
         rel = path.relative_to(source).as_posix()
         files.append(_agent_entry(path, f"{CLAUDE_RULES_DEST}/{rel}"))
     return files
@@ -339,6 +375,7 @@ def build_bundle(project_id: int, conn) -> Dict[str, Any]:
 __all__ = [
     "BUNDLE_SCHEMA",
     "INSTALL_BUNDLE_SOURCE_DIRS",
+    "is_bundle_junk_path",
     "InstallBundleError",
     "ProjectNotFoundError",
     "build_bundle",

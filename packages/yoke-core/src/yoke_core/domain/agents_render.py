@@ -330,6 +330,12 @@ def write_all_and_record(
     helper returns ``0`` and the renderer flow continues. Dry-runs
     skip registration so a check-only invocation never mutates
     ``path_context_values``.
+
+    A non-dry-run write also re-syncs the packaged install-bundle
+    snapshot: the render rewrites several of its source dirs (Claude
+    agents, Codex agents, Claude rules), so chaining the idempotent
+    :func:`install_bundle_tree_sync.sync` here keeps the wheel-packaged
+    copy byte-identical instead of drifting until the next manual sync.
     """
     results = write_all(target_root=target_root, dry_run=dry_run)
     if not dry_run:
@@ -337,6 +343,10 @@ def write_all_and_record(
             record_render_relationships_to_canonical_db,
         )
         record_render_relationships_to_canonical_db()
+        from yoke_core.domain.install_bundle_tree_sync import (
+            sync as sync_install_bundle_tree,
+        )
+        sync_install_bundle_tree(target_root=target_root)
     return results
 
 
