@@ -122,7 +122,7 @@ def _make_row(command: str, function_id: str | None, edges: tuple[ImportEdge, ..
 
 def _disposition(command: str, edges: Sequence[ImportEdge], operation: ops.OperationEntry | None) -> str:
     classes = {edge.classification for edge in edges}
-    if command in _HOOKS or command.startswith("helper yoke_cli.hooks."):
+    if command in _HOOKS:
         return HOOK_LOCAL_SUBSET
     if command in _SOURCE_DEV:
         return SOURCE_DEV_ADMIN
