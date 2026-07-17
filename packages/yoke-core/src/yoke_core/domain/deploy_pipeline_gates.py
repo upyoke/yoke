@@ -13,6 +13,7 @@ import os
 import sys
 from typing import List, Optional, Tuple
 
+from yoke_core.domain import json_helper
 from yoke_core.domain.deploy_pipeline_reporting import (
     _github_actions,
     _run_cmd,
@@ -168,44 +169,92 @@ def _check_ci_gate(
     ]
     if head_sha:
         check_args.extend(["--head-sha", head_sha])
-    check_args.extend(["--wait", "--timeout", str(timeout_sec)])
+    check_args.extend(["--wait", "--timeout", str(timeout_sec), "--json"])
     r = _github_actions(
         *check_args,
         project=project, sd=sd, timeout=timeout_sec + 30,
     )
-    output = (r.stdout + r.stderr).strip()
+    output = "\n".join(
+        part.strip() for part in (r.stdout, r.stderr) if part.strip()
+    )
+    envelope = _function_response_envelope(output)
 
-    if r.returncode == 0:
-        if "no_runs" in output:
-            if head_sha:
-                return False, (
-                    "\nBLOCKED: Cannot deploy — no CI run exists for exact "
-                    f"release commit {head_sha} on {branch}.\n"
-                )
-            return True, f"  CI gate: no CI runs found on {branch} — skipping"
+    if envelope is None:
+        detail = f"\n\nGitHub Actions detail:\n{output}" if output else ""
+        return False, (
+            "\nBLOCKED: Cannot deploy — the GitHub Actions adapter omitted "
+            f"its required typed response (exit {r.returncode}).{detail}\n\n"
+            "The release fails closed because non-JSON or truncated output "
+            "cannot prove a CI conclusion.\n"
+        )
+
+    if envelope.get("success") is not True:
+        error = envelope.get("error")
+        if isinstance(error, dict):
+            code = str(error.get("code") or "unknown_error")
+            detail = str(error.get("message") or "").strip()
+            failure = f"{code}: {detail}" if detail else code
+        else:
+            failure = "unknown_error"
+        return False, (
+            "\nBLOCKED: Cannot deploy — CI could not be verified; "
+            f"the GitHub Actions adapter returned {failure}.\n\n"
+            "This is an authorization or transport failure, not a "
+            "failing test conclusion.\n"
+        )
+
+    result = envelope.get("result")
+    state = str(result.get("state") or "") if isinstance(result, dict) else ""
+    if state == "passed":
         return True, f"  CI gate: {subject} CI passed"
-
-    if r.returncode == 1:
-        return False, (
-            f"\nBLOCKED: Cannot deploy — {branch} branch CI has failed.\n\n"
-            "Remediation:\n"
-            f"  1. Fix the failing CI on {branch}\n"
-            "  2. Re-run the deployment pipeline\n"
-        )
-
-    if r.returncode == 3:
-        return False, (
-            f"\nBLOCKED: Cannot deploy — {branch} branch CI timed out ({timeout_sec}s).\n\n"
-            "Remediation:\n"
-            "  1. Wait for CI to complete, then re-run the deployment pipeline\n"
-            "  2. Or increase --timeout if the CI workflow normally takes longer\n"
-        )
-
-    detail = f"\n\nGitHub Actions detail:\n{output}" if output else ""
+    if state == "failed":
+        return False, _failed_ci_message(branch)
+    if state == "timeout":
+        return False, _timed_out_ci_message(branch, timeout_sec)
+    if state == "no_runs":
+        if head_sha:
+            return False, (
+                "\nBLOCKED: Cannot deploy — no CI run exists for exact "
+                f"release commit {head_sha} on {branch}.\n"
+            )
+        return True, f"  CI gate: no CI runs found on {branch} — skipping"
     return False, (
-        f"\nBLOCKED: Cannot deploy — CI verification returned unexpected "
-        f"exit code {r.returncode}.{detail}\n\n"
+        "\nBLOCKED: Cannot deploy — the GitHub Actions wait adapter "
+        f"returned non-terminal state {state or '<empty>'!r}.\n\n"
+        "The release remains blocked without treating in-progress CI as "
+        "a test failure.\n"
+    )
+
+
+def _function_response_envelope(output: str) -> Optional[dict]:
+    """Return the typed function response embedded in adapter output."""
+    for raw_line in reversed(output.splitlines()):
+        line = raw_line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            parsed = json_helper.loads_text(line)
+        except ValueError:
+            continue
+        if isinstance(parsed, dict) and "success" in parsed:
+            return parsed
+    return None
+
+
+def _failed_ci_message(branch: str) -> str:
+    return (
+        f"\nBLOCKED: Cannot deploy — {branch} branch CI has failed.\n\n"
         "Remediation:\n"
-        "  1. Repair the project's GitHub App binding/auth or CI query failure\n"
-        "  2. Re-run the deployment pipeline after CI can be verified\n"
+        f"  1. Fix the failing CI on {branch}\n"
+        "  2. Re-run the deployment pipeline\n"
+    )
+
+
+def _timed_out_ci_message(branch: str, timeout_sec: int) -> str:
+    return (
+        f"\nBLOCKED: Cannot deploy — {branch} branch CI timed out "
+        f"({timeout_sec}s).\n\n"
+        "Remediation:\n"
+        "  1. Wait for CI to complete, then re-run the deployment pipeline\n"
+        "  2. Or increase --timeout if the CI workflow normally takes longer\n"
     )
