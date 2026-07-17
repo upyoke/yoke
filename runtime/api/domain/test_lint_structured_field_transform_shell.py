@@ -101,14 +101,15 @@ class TestEvaluateCommandAllows(unittest.TestCase):
         cmd = "python3 -m yoke_core.cli.db_router items get 42 spec | head -20"
         self.assertIsNone(lint.evaluate_command(cmd))
 
-    def test_bypass_token(self) -> None:
+    def test_canonical_direct_stdin_write(self) -> None:
         cmd = (
-            "python3 -m yoke_core.cli.db_router items get 42 spec > /tmp/old.md "
-            "&& python3 transform.py /tmp/old.md > /tmp/new.md "
-            "&& cat /tmp/new.md | python3 -m yoke_core.cli.db_router "
-            "items update 42 spec --stdin "
-            "# lint:no-structured-transform-check"
+            'printf "%s" "intended full content" '
+            "| yoke items structured-field replace YOK-42 --field spec --stdin"
         )
+        self.assertIsNone(lint.evaluate_command(cmd))
+
+    def test_canonical_read_only_section_get(self) -> None:
+        cmd = "yoke items section get YOK-42 --section 'Progress Log'"
         self.assertIsNone(lint.evaluate_command(cmd))
 
 
@@ -173,6 +174,37 @@ class TestEvaluateCommandBlocks(unittest.TestCase):
         reason = lint.evaluate_command(cmd)
         self.assertIsNotNone(reason)
 
+    def test_canonical_get_redirect_then_structured_field_replace(self) -> None:
+        cmd = (
+            "yoke items get YOK-42 spec > /tmp/old.md && "
+            "python3 transform.py /tmp/old.md > /tmp/new.md && "
+            "cat /tmp/new.md | yoke items structured-field replace YOK-42 "
+            "--field spec --stdin"
+        )
+        reason = lint.evaluate_command(cmd)
+        self.assertIsNotNone(reason)
+
+    def test_canonical_section_get_then_section_upsert_content_file(self) -> None:
+        cmd = (
+            "yoke items section get YOK-42 --section 'Progress Log' "
+            "> /tmp/progress.md && "
+            "python3 transform.py /tmp/progress.md > /tmp/progress-new.md && "
+            "yoke items section upsert YOK-42 --section 'Progress Log' "
+            "--content-file /tmp/progress-new.md"
+        )
+        reason = lint.evaluate_command(cmd)
+        self.assertIsNotNone(reason)
+
+    def test_bypass_token_does_not_suppress_detection(self) -> None:
+        cmd = (
+            "python3 -m yoke_core.cli.db_router items get 42 spec > /tmp/old.md "
+            "&& python3 transform.py /tmp/old.md > /tmp/new.md "
+            "&& cat /tmp/new.md | python3 -m yoke_core.cli.db_router "
+            "items update 42 spec --stdin "
+            "# lint:no-structured-transform-check"
+        )
+        self.assertIsNotNone(lint.evaluate_command(cmd))
+
 
 class TestEvaluate(unittest.TestCase):
     def test_evaluate_blocks_on_match(self) -> None:
@@ -211,9 +243,9 @@ class TestEvaluate(unittest.TestCase):
         decision = lint.evaluate(record)
         self.assertIs(decision.outcome, Outcome.NOOP)
 
-    def test_evaluate_audits_bypass_token_still_returns_noop(self) -> None:
-        # AC-T3: suppression-token is audit-only; evaluate returns NOOP (the
-        # rule does NOT unblock — it audits then declines to deny).
+    def test_evaluate_bypass_token_audit_only_still_denies(self) -> None:
+        # Suppression-token is audit-only; evaluate still denies with
+        # outcome=suppression_attempted recorded.
         cmd = (
             "items get 42 spec > /tmp/old.md && "
             "items update 42 spec --stdin < /tmp/new.md "
@@ -226,9 +258,19 @@ class TestEvaluate(unittest.TestCase):
             lambda _payload, _reason, *, outcome="denied": calls.append(outcome),
         ):
             decision = lint.evaluate(_record_for(_payload(cmd)))
-        # Suppression-token semantics preserved: emits audit-only event, no deny.
-        self.assertIs(decision.outcome, Outcome.NOOP)
+        self.assertIs(decision.outcome, Outcome.DENY)
+        self.assertTrue(decision.block)
+        self.assertIs(decision.next, Next.STOP)
+        self.assertEqual(
+            decision.audit_fields["audit_outcome"], "suppression_attempted")
         self.assertEqual(calls, ["suppression_attempted"])
+
+    def test_evaluate_token_on_safe_command_noop_no_event(self) -> None:
+        with mock.patch.object(lint, "_emit_denial") as emit_mock:
+            decision = lint.evaluate(_record_for(
+                _payload("git status # lint:no-structured-transform-check")))
+        self.assertIs(decision.outcome, Outcome.NOOP)
+        emit_mock.assert_not_called()
 
 
 if __name__ == "__main__":

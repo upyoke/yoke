@@ -10,8 +10,8 @@ not the caller's cwd.
 The structural fix is to refuse the ``Write`` call before the bad file
 lands. The deny reason teaches the canonical alternatives: place the
 script under ``runtime/api/tools/<name>.py`` (in-tree, supports imports
-natively), or use the CLI adapter / HTTP function-call surface for the
-underlying operation (no Python authoring needed).
+natively), or use the registered ``yoke <subcommand>`` CLI adapter for
+the underlying operation (no Python authoring needed).
 
 Allowed shapes the lint stays out of:
 
@@ -84,16 +84,12 @@ _DENY_REASON = (
     "or transitional `runtime.*` modules cannot find the Yoke package "
     "unless the environment was explicitly bootstrapped.\n\n"
     "Clean alternatives (preferred order):\n"
-    "  1. CLI adapter — most one-off DB writes need no Python at all:\n"
-    "       cat /tmp/content.md | python3 -m yoke_core.cli.db_router "
-    "items update YOK-N <field> --stdin\n"
-    "  2. HTTP function-call surface — for any registered function id:\n"
-    "       python3 -m yoke_core.tools.api_server start\n"
-    "       curl -sS -X POST http://localhost:8000/v1/functions/call "
-    "-H 'Content-Type: application/json' --data-binary @/tmp/envelope.json\n"
-    "  3. In-tree Python — place the script under runtime/api/tools/<name>.py "
+    "  1. Registered CLI adapter — most one-off DB writes need no Python at all:\n"
+    "       printf '%s' \"$content\" | yoke items structured-field replace "
+    "YOK-N --field <field> --stdin\n"
+    "  2. In-tree Python — place the script under runtime/api/tools/<name>.py "
     "where the package layout supports imports natively.\n"
-    "  4. Editable install — `pip install -e /Users/<...>/yoke` once; "
+    "  3. Editable install — `pip install -e /Users/<...>/yoke` once; "
     "scripts then run from any cwd.\n\n"
     "For ephemeral scratch files (capture, payload, sentinel) Yoke code "
     "needs alongside the script, prefer the helper-resolved root from "
@@ -178,8 +174,6 @@ def _content_imports_runtime(content: str) -> bool:
 def evaluate_fields(file_path: str, content: str) -> Optional[str]:
     """Return a denial reason when the Write would create a /tmp/*.py
     that imports ``runtime.*``."""
-    if _BYPASS_TOKEN in content:
-        return None
     if not _is_tmp_python_path(file_path):
         return None
     if _under_tmp_yoke_checkout(file_path):
@@ -223,24 +217,18 @@ def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None
 
 
 def evaluate(record: HookContext) -> HookDecision:
-    """Typed entry. Wraps :func:`evaluate_payload` + bypass-token audit."""
+    """Typed entry. Wraps :func:`evaluate_payload`; the bypass token is
+    audit-only — the rule still denies."""
     payload = record.payload if isinstance(record.payload, dict) else {}
     file_path, content = _extract_write_fields(payload)
-    if _BYPASS_TOKEN in content:
-        clean = content.replace(_BYPASS_TOKEN, "")
-        if evaluate_fields(file_path, clean):
-            _emit_denial(payload,
-                "[outcome=suppression_attempted] tmp-runtime-import lint "
-                "suppressed via token",
-                outcome="suppression_attempted")
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = evaluate_fields(file_path, content)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+    outcome = ("suppression_attempted" if _BYPASS_TOKEN in content else "denied")
     envelope = json.dumps(_build_deny_response(reason))
-    _emit_denial(payload, reason)
+    _emit_denial(payload, reason, outcome=outcome)
     return HookDecision(outcome=Outcome.DENY, message=envelope,
-        audit_fields={"reason": reason, "audit_outcome": "denied"},
+        audit_fields={"reason": reason, "audit_outcome": outcome},
         block=True, next=Next.STOP)
 
 

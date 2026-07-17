@@ -74,6 +74,15 @@ class TestParseGitInvocations(unittest.TestCase):
         self.assertEqual(len(out), 2)
         self.assertEqual(out[1][0][0], "reset")
 
+    def test_newline_separated(self):
+        out = ldg._parse_git_invocations("echo x\ngit reset --hard")
+        self.assertEqual(out, [(["reset", "--hard"], "")])
+
+    def test_newline_separated_multiple_git(self):
+        out = ldg._parse_git_invocations("git status\ngit stash drop")
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[1][0], ["stash", "drop"])
+
     def test_env_prefix(self):
         self.assertEqual(ldg._parse_git_invocations("FOO=bar git reset --hard"),
             [(["reset", "--hard"], "")])
@@ -121,18 +130,41 @@ class TestClassifyShape(unittest.TestCase):
     def test_checkout_clean_branch(self):
         self.assertIsNone(ldg._classify_shape(["checkout", "main"]))
 
+    def test_checkout_dot_pathspec(self):
+        self.assertEqual(ldg._classify_shape(["checkout", "."]), "checkout_path_discard")
+        self.assertEqual(ldg._classify_shape(["checkout", "HEAD", "."]), "checkout_path_discard")
+        self.assertEqual(ldg._classify_shape(["checkout", "./sub/"]), "checkout_path_discard")
+
     def test_restore_worktree(self):
         self.assertEqual(ldg._classify_shape(["restore", "--worktree", "foo.txt"]), "restore_worktree_path")
         self.assertEqual(ldg._classify_shape(["restore", "foo.txt"]), "restore_worktree_path")
 
     def test_restore_staged_only(self):
         self.assertIsNone(ldg._classify_shape(["restore", "--staged", "foo.txt"]))
+        self.assertIsNone(ldg._classify_shape(["restore", "-S", "foo.txt"]))
+
+    def test_restore_staged_and_worktree(self):
+        self.assertEqual(
+            ldg._classify_shape(["restore", "-S", "-W", "foo.txt"]),
+            "restore_worktree_path",
+        )
 
     def test_worktree_remove(self):
         self.assertEqual(
             ldg._classify_shape(["worktree", "remove", ".worktrees/a"]),
             "worktree_remove",
         )
+
+
+class TestPathArgs(unittest.TestCase):
+    def test_staged_short_flag_takes_no_value(self):
+        self.assertEqual(ldg._path_args(["restore", "-S", "a.txt"]), ["a.txt"])
+
+    def test_source_flags_consume_value(self):
+        self.assertEqual(
+            ldg._path_args(["restore", "-s", "HEAD~1", "a.txt"]), ["a.txt"])
+        self.assertEqual(
+            ldg._path_args(["restore", "--source", "HEAD~1", "a.txt"]), ["a.txt"])
 
 
 class TestEvaluatePayload(unittest.TestCase):
@@ -198,6 +230,37 @@ class TestEvaluatePayload(unittest.TestCase):
         _modify(repo, "a.txt", "v2\n")
         # b.txt is unmodified — checkout of b.txt should allow
         self.assertIsNone(self._eval(f"git -C {repo} checkout -- b.txt"))
+
+    def test_newline_separated_reset_hard_blocks(self):
+        repo = self._dirty()
+        result = self._eval(f"echo preparing\ngit -C {repo} reset --hard HEAD~1")
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], "deny")
+        self.assertIn("a.txt", result[1])
+
+    def test_checkout_dot_modified_blocks(self):
+        repo = self._dirty()
+        result = self._eval(f"git -C {repo} checkout .")
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], "deny")
+        self.assertIn("a.txt", result[1])
+
+    def test_checkout_ref_then_dot_modified_blocks(self):
+        repo = self._dirty()
+        result = self._eval(f"git -C {repo} checkout HEAD .")
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], "deny")
+
+    def test_checkout_existing_path_modified_blocks(self):
+        repo = self._dirty()
+        result = self._eval(f"git -C {repo} checkout a.txt")
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], "deny")
+        self.assertIn("a.txt", result[1])
+
+    def test_checkout_branch_name_dirty_allows(self):
+        repo = self._dirty()
+        self.assertIsNone(self._eval(f"git -C {repo} checkout main"))
 
     def test_AC3_restore_worktree_modified_blocks(self):
         repo = self._dirty()
@@ -283,6 +346,18 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._dirty()
         _git_run(repo, "add", "a.txt")
         self.assertIsNone(self._eval(f"git -C {repo} restore --staged a.txt"))
+
+    def test_restore_staged_short_flag_allows(self):
+        repo = self._dirty()
+        _git_run(repo, "add", "a.txt")
+        self.assertIsNone(self._eval(f"git -C {repo} restore -S a.txt"))
+
+    def test_restore_staged_and_worktree_blocks(self):
+        repo = self._dirty()
+        result = self._eval(f"git -C {repo} restore -S -W a.txt")
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], "deny")
+        self.assertIn("a.txt", result[1])
 
     def test_worktree_remove_dirty_linked_worktree_blocks(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})

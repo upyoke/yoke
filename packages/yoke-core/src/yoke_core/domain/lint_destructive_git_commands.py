@@ -6,7 +6,9 @@ import re
 import shlex
 from typing import Tuple
 
-_SEP_RE = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
+# Newline is a statement separator too — a multi-line Bash body must not
+# collapse into one statement (matches lint_pipe_to_truncator._SEGMENT_SPLIT).
+_SEP_RE = re.compile(r"\s*(?:&&|\|\||;|\||\n)\s*")
 _ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
