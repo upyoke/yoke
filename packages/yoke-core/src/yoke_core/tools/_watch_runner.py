@@ -188,6 +188,13 @@ def run_watcher(
             # Launch errors must reach all surfaces, including raw.
             raw_f.write(err_line)
             _emit_immediate(err_line, progress_f=progress_f, out=out)
+            # Armed followers (watch_tail) exit only on the sentinel, so
+            # the launch-error path must still write the exit footer.
+            footer = (
+                f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} "
+                f"raw={raw_capture}\n"
+            )
+            _emit_immediate(footer, progress_f=progress_f, out=out)
             return WRAPPER_LAUNCH_ERROR
 
         assert proc.stdout is not None

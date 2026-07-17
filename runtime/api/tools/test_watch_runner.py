@@ -341,8 +341,18 @@ class TestRunWatcherLaunchError:
         # Launch errors must reach all three surfaces — they are fatal
         # and the operator needs them visible everywhere.
         assert "launch_error" in raw.read_text(encoding="utf-8")
-        assert "launch_error" in progress.read_text(encoding="utf-8")
+        progress_text = progress.read_text(encoding="utf-8")
+        assert "launch_error" in progress_text
         assert "launch_error" in stdout.getvalue()
+        # The exit sentinel still lands so armed followers (watch_tail)
+        # terminate instead of following forever.
+        expected_sentinel = (
+            f"# watch_bad exit={_watch_runner.WRAPPER_LAUNCH_ERROR} raw={raw}"
+        )
+        assert progress_text.splitlines()[-1] == expected_sentinel
+        assert expected_sentinel in stdout.getvalue()
+        # Wrapper footers never enter the raw capture.
+        assert "exit=" not in raw.read_text(encoding="utf-8")
 
 
 # Streaming-pair emission contract lives in the 350-cap sibling

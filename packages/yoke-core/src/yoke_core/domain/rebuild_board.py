@@ -103,7 +103,7 @@ def resolve_main_repo_root(repo_arg: str | None = None) -> Path:
     raise FileNotFoundError("Could not find project repo root.")
 
 
-def try_resolve_main_repo_root(repo_arg: Optional[str] = None) -> Optional[Path]:
+def try_resolve_main_repo_root(repo_arg: str | None = None) -> Path | None:
     """Like :func:`resolve_main_repo_root` but returns ``None`` when no local
     checkout exists, instead of raising.
 

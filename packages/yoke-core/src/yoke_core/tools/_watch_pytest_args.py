@@ -27,7 +27,7 @@ BARE_RUNTIME_REJECTION_MESSAGE = (
     "'pytest_plugins' in a non-top-level conftest is no longer "
     "supported\".\n"
     "Full-suite shape: python3 -m yoke_core.tools.watch_pytest -- "
-    "runtime/api/ runtime/harness/"
+    "runtime/api/ runtime/harness/ tests/"
 )
 
 # Match the bare interpreter names operators most commonly retype, plus

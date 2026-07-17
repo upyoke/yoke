@@ -64,7 +64,10 @@ Mutation commands (return structured JSON for shell adapters to apply):
         with next_stage, run_id, member_item_ids, and field_writes.
 
 Environment:
-    YOKE_DB  -- path to the SQLite database (required for DB-accessing commands)
+    YOKE_PG_DSN / YOKE_PG_DSN_FILE -- explicit Postgres DSN (or a file
+        containing one) for DB-accessing commands. When neither is set,
+        ``yoke_core.domain.db_backend`` resolves the DSN from the active
+        connected-env binding.
 """
 
 from __future__ import annotations

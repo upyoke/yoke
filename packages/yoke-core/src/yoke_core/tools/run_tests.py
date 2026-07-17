@@ -42,7 +42,7 @@ from yoke_core.tools._pytest_parallel import (
 from yoke_core.tools import _source_pythonpath
 
 
-DEFAULT_TESTPATHS: tuple[str, ...] = ("runtime/api",)
+DEFAULT_TESTPATHS: tuple[str, ...] = ("runtime/api", "runtime/harness", "tests")
 
 
 def _repo_root(start: Path | None = None) -> Path:
@@ -194,7 +194,10 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument(
         "paths",
         nargs="*",
-        help="Optional test paths (defaults to runtime/api).",
+        help=(
+            "Optional test paths (defaults to "
+            f"{' '.join(DEFAULT_TESTPATHS)})."
+        ),
     )
     parser.add_argument(
         "-k",
