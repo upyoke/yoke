@@ -132,6 +132,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects capability-settings get", "projects.capability_settings"), _w("yoke projects capability-settings set", "projects.capability_settings"),
     _w("yoke projects capability-settings merge", "projects.capability_settings"),
     _w("yoke projects environment-settings get", "projects.environment_settings"), _w("yoke projects environment-settings merge", "projects.environment_settings"),
+    _w("yoke projects pulumi-state migrate", "projects.pulumi_state"),
+    _w("yoke projects pulumi-stack-config get", "projects.pulumi_stack_config"),
     _w("yoke projects capability-secret set", "projects.capability"),
     _w("yoke projects capability secret set", "projects.capability"),
     _w("yoke projects github-binding bind", "projects.github_binding"), _w("yoke projects github-binding unbind", "projects.github_binding"), _w("yoke projects github-binding status", "projects.github_binding"),

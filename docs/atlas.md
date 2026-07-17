@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-16T17:45:04Z_
+_Audit generated_at: 2026-07-17T00:18:53Z_
 
 ## 1. Summary
 
-- Function ids registered: **208**
+- Function ids registered: **213**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **207** (207 carry usable `--help`)
-- Operation tracker: **207 wrapped**, 72 permanent, 0 pending
-- Skill-body recipes: 217 total (180 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **212** (212 carry usable `--help`)
+- Operation tracker: **210 wrapped**, 71 permanent, 0 pending
+- Skill-body recipes: 214 total (177 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **207** (operation tracker confirms 207 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 210 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -48,7 +48,9 @@ Wrapped `yoke <subcommand>` adapters: **207** (operation tracker confirms 207 wr
 | db | `yoke db read` | `db.read.run` | ok |
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
+| deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
 | deployment_flows | `yoke deployment-flows stages` | `deployment_flows.stages` | ok |
+| deployment_runs | `yoke deployment-runs create` | `deployment_runs.create` | ok |
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
 | deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
@@ -65,6 +67,7 @@ Wrapped `yoke <subcommand>` adapters: **207** (operation tracker confirms 207 wr
 | events | `yoke events tail` | `events.tail.run` | ok |
 | frontier | `yoke frontier list` | `frontier.list` | ok |
 | github | `yoke github pr create` | `github.pr.create` | ok |
+| github | `yoke github release create-next-tag` | `github.release.create_next_tag` | ok |
 | github_actions | `yoke github-actions check-ci` | `github_actions.check_ci` | ok |
 | github_actions | `yoke github-actions run jobs-count` | `github_actions.run.jobs_count` | ok |
 | github_actions | `yoke github-actions jobs-count` | `github_actions.run.jobs_count` | ok |
@@ -145,6 +148,8 @@ Wrapped `yoke <subcommand>` adapters: **207** (operation tracker confirms 207 wr
 | projects | `yoke projects github-binding unbind` | `projects.github_binding.unbind` | ok |
 | projects | `yoke projects github-sync-mode repair` | `projects.github_sync_mode.repair` | ok |
 | projects | `yoke projects list` | `projects.list` | ok |
+| projects | `yoke projects pulumi-stack-config get` | `projects.pulumi_stack_config.get` | ok |
+| projects | `yoke projects pulumi-state migrate` | `projects.pulumi_state.migrate` | ok |
 | projects | `yoke projects resolve-by-github-repo` | `projects.resolve_by_github_repo` | ok |
 | projects | `yoke projects update` | `projects.update` | ok |
 | qa | `yoke qa artifact add` | `qa.artifact.add` | ok |

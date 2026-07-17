@@ -9,6 +9,10 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
         from yoke_core.domain.migration_model_capability import validate_json_string
         return validate_json_string(raw_json)
 
+    if cap_type == "pulumi-state":
+        from yoke_core.domain.pulumi_state_capability import validate_json_string
+        return validate_json_string(raw_json)
+
     from yoke_core.domain.github_actions_runner_fleet_capability import (
         CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
     )
