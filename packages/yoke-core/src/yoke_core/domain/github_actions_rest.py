@@ -170,7 +170,7 @@ def latest_workflow_run(
     authorized.  Keeping the branch filter as well prevents a commit from a
     differently named ref from satisfying a branch-bound release policy.
     """
-    query = {"branch": branch, "per_page": "1"}
+    query = {"branch": branch, "per_page": "100"}
     if head_sha:
         query["head_sha"] = head_sha
     data = rest_get(
@@ -189,12 +189,26 @@ def latest_workflow_run(
         )
     if not runs:
         return None
-    first = runs[0]
-    if not isinstance(first, dict):
+    if not all(isinstance(run, dict) for run in runs):
         raise RestTransportError(
             "GitHub workflow-runs response contained a malformed run"
         )
-    return first
+
+    def _integer_field(run: Dict[str, Any], field: str) -> int:
+        try:
+            return int(run.get(field) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _newest_key(run: Dict[str, Any]) -> Tuple[int, int, str, int]:
+        return (
+            _integer_field(run, "run_number"),
+            _integer_field(run, "run_attempt"),
+            str(run.get("created_at") or ""),
+            _integer_field(run, "id"),
+        )
+
+    return max(runs, key=_newest_key)
 
 
 __all__ = [

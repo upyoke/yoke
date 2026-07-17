@@ -195,6 +195,46 @@ class TestLatestWorkflowRun:
         # branch filter is applied via query string.
         assert "branch=main" in calls[0]
 
+    def test_selects_newest_run_when_exact_sha_has_duplicates(self, monkeypatch):
+        payload = {
+            "workflow_runs": [
+                {
+                    "id": 100,
+                    "run_number": 8,
+                    "run_attempt": 1,
+                    "status": "completed",
+                    "conclusion": "failure",
+                    "created_at": "2026-07-17T16:00:00Z",
+                },
+                {
+                    "id": 102,
+                    "run_number": 9,
+                    "run_attempt": 2,
+                    "status": "in_progress",
+                    "conclusion": None,
+                    "created_at": "2026-07-17T16:05:00Z",
+                },
+                {
+                    "id": 101,
+                    "run_number": 9,
+                    "run_attempt": 1,
+                    "status": "completed",
+                    "conclusion": "failure",
+                    "created_at": "2026-07-17T16:05:00Z",
+                },
+            ]
+        }
+        with _fake_urls(monkeypatch, [payload]) as calls:
+            result = github_actions_rest.latest_workflow_run(
+                "o/r", "ci.yml", branch="main",
+                head_sha="deadbeef", token="ghs_x",
+            )
+
+        assert result is not None
+        assert result["id"] == 102
+        assert result["status"] == "in_progress"
+        assert "per_page=100" in calls[0]
+
     def test_returns_none_on_empty_runs(self, monkeypatch):
         with _fake_urls(monkeypatch, [{"workflow_runs": []}]):
             result = github_actions_rest.latest_workflow_run(
