@@ -71,7 +71,7 @@ def run_pipeline(
     sd = sd or _resolve_script_dir()
 
     run_id, project, flow_id = "", "", ""
-    run_status, current_stage = "", ""
+    run_status, current_stage, release_lineage = "", "", ""
     member_items: List[str] = []
 
     if primary_arg.startswith("run-"):
@@ -84,6 +84,7 @@ def run_pipeline(
         fields = run_row.split("|")
         project = fields[1] if len(fields) > 1 else ""
         flow_id = fields[2] if len(fields) > 2 else ""
+        release_lineage = fields[4] if len(fields) > 4 else ""
         run_status = fields[5] if len(fields) > 5 else ""
         current_stage = fields[6] if len(fields) > 6 else ""
 
@@ -244,6 +245,7 @@ def run_pipeline(
             image_tag=image_tag,
             target_env=target_env,
             gate_branch=gate_branch,
+            release_lineage=release_lineage,
             sd=sd,
         )
 

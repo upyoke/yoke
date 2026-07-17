@@ -39,7 +39,7 @@ class TestItemLessRun:
             db_calls.append(args)
             if args[:2] == ("runs", "get"):
                 # id|project|flow|target_env|lineage|status|current_stage
-                return f"{run_id}|yoke|flow-env|stage||created|"
+                return f"{run_id}|yoke|flow-env|stage|{'d' * 40}|created|"
             return ""
 
         def fake_flow_db(*args, sd=None):
@@ -56,6 +56,7 @@ class TestItemLessRun:
                 stage["name"], kwargs["project_repo_path"],
                 kwargs["product_repo_path"],
                 kwargs["image_tag"],
+                kwargs["release_lineage"],
             ))
             return 0, ""
 
@@ -119,8 +120,8 @@ class TestItemLessRun:
         # run row's current_stage is written per stage plus the final
         # marker, and status moves executing -> succeeded.
         assert dispatched == [
-            ("merged", "/repo", "/pinned/product", "abc123def456"),
-            ("complete", "/repo", "/pinned/product", "abc123def456"),
+            ("merged", "/repo", "/pinned/product", "abc123def456", "d" * 40),
+            ("complete", "/repo", "/pinned/product", "abc123def456", "d" * 40),
         ]
         checkout_lookup.assert_called_once()
         stage_updates = [

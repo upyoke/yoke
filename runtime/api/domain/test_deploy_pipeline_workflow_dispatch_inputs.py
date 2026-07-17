@@ -52,6 +52,7 @@ class TestInputBearingWorkflowDispatch:
                     timeout_min=30,
                     fresh=False,
                     gate_branch="main",
+                    release_lineage="a" * 40,
                     sd="/tmp/sd",
                 )
             )
@@ -108,6 +109,7 @@ class TestInputBearingWorkflowDispatch:
                 timeout_min=30,
                 fresh=False,
                 gate_branch="main",
+                release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
 
@@ -124,7 +126,7 @@ class TestInputBearingWorkflowDispatch:
                 "--input",
                 "channel=stable",
                 "--input",
-                "source_sha=abc1234",
+                f"source_sha={'a' * 40}",
                 "--input",
                 "target_env=prod",
                 "--request-id",
@@ -181,6 +183,7 @@ class TestInputBearingWorkflowDispatch:
                 timeout_min=30,
                 fresh=False,
                 gate_branch="main",
+                release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
 
@@ -197,7 +200,7 @@ class TestInputBearingWorkflowDispatch:
                 "--input",
                 "channel=stable",
                 "--input",
-                "source_sha=abc1234",
+                f"source_sha={'a' * 40}",
                 "--input",
                 "target_env=prod",
                 "--request-id",
@@ -254,6 +257,7 @@ class TestInputBearingWorkflowDispatch:
                 timeout_min=30,
                 fresh=False,
                 gate_branch="main",
+                release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
 
@@ -307,6 +311,7 @@ class TestInputBearingWorkflowDispatch:
                 timeout_min=30,
                 fresh=False,
                 gate_branch="stage",
+                release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
 
@@ -322,7 +327,7 @@ class TestInputBearingWorkflowDispatch:
                 "--input",
                 "channel=latest",
                 "--input",
-                "source_sha=abc1234",
+                f"source_sha={'a' * 40}",
                 "--input",
                 "target_env=stage",
                 "--request-id",

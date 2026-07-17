@@ -126,6 +126,7 @@ def test_stale_failed_run_scope_reaches_workflow_dispatch_request_id() -> None:
             timeout_min=30,
             fresh=False,
             gate_branch="main",
+            release_lineage="a" * 40,
             sd="/tmp/sd",
         )
 
@@ -169,6 +170,7 @@ def test_each_explicit_fresh_invocation_gets_a_new_request_scope() -> None:
                 timeout_min=30,
                 fresh=True,
                 gate_branch="main",
+                release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
             assert result == (0, "")

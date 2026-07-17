@@ -298,7 +298,7 @@ class TestDispatchGuards:
             run_id="run-1", member_items=[], github_repo="",
             project="yoke", project_repo_path="", branch="",
             first_item="", timeout_min=30, fresh=False, target_env="",
-            gate_branch="main", sd="/tmp/sd",
+            gate_branch="main", release_lineage="", sd="/tmp/sd",
         )
         assert (rc, diag) == (1, "")
         assert "unknown stage kind 'weird_kind'" in capsys.readouterr().err

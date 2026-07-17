@@ -7,6 +7,7 @@ dispatch table stays small; the dispatcher delegates the
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 import uuid
@@ -53,6 +54,7 @@ def _dispatch_github_actions_workflow(
     timeout_min: int,
     fresh: bool,
     gate_branch: str,
+    release_lineage: str,
     product_repo_path: str = "",
     image_tag: str = "",
     sd: Optional[str] = None,
@@ -110,13 +112,14 @@ def _dispatch_github_actions_workflow(
         return 1, ""
 
     publish_product = name == "distribution-publish" and product_repo_path
-    project_head_sha, sha_error = _resolve_publish_sha(
+    project_head_sha, lineage_error = _resolve_release_lineage_sha(
+        release_lineage,
         project_repo_path,
-        gate_branch,
     )
-    if sha_error:
-        print(f"Error: {sha_error}", file=sys.stderr)
-        return 1, sha_error
+    if lineage_error:
+        diagnostic = lineage_error
+        print(f"Error: {diagnostic}", file=sys.stderr)
+        return 1, diagnostic
     wait_for_ci = config.get("wait_for_ci", True)
     if not isinstance(wait_for_ci, bool):
         diagnostic = "github-actions-workflow wait_for_ci must be a boolean"
@@ -272,6 +275,58 @@ def _dispatch_github_actions_workflow(
 
     print(f"Error: could not trigger or find workflow run for '{workflow}'", file=sys.stderr)
     return 1, f"could not trigger or find workflow run for '{workflow}'"
+
+
+def _resolve_release_lineage_sha(
+    release_lineage: str,
+    project_repo_path: str,
+) -> tuple[str, str]:
+    """Resolve a run's immutable lineage without consulting a branch head.
+
+    Current runs bind directly to a full commit SHA. Historical release runs
+    bind to an annotated release tag; for those, use only the remote tag's
+    peeled commit. A lightweight tag is refused because it lacks the governed
+    annotated-release boundary expected by the hosted release train.
+    """
+    lineage = release_lineage.strip()
+    if not lineage:
+        return "", (
+            "github-actions-workflow requires the deployment run to carry "
+            "an immutable release_lineage commit SHA or annotated release tag"
+        )
+    if re.fullmatch(r"[0-9a-f]{40}", lineage):
+        return lineage, ""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+~-]{0,127}", lineage):
+        return "", (
+            "deployment run release_lineage is neither an exact 40-character "
+            "lowercase Git commit SHA nor a safe annotated release tag"
+        )
+
+    repo = project_repo_path or "."
+    peeled_ref = f"refs/tags/{lineage}^{{}}"
+    result = _run_cmd(
+        [
+            "git", "-C", repo, "ls-remote", "origin",
+            f"refs/tags/{lineage}", peeled_ref,
+        ]
+    )
+    if result.returncode != 0:
+        return "", (
+            f"could not resolve annotated release tag '{lineage}' from origin"
+        )
+    peeled = [
+        fields[0]
+        for raw_line in result.stdout.splitlines()
+        if len(fields := raw_line.split()) == 2
+        and fields[1] == peeled_ref
+        and re.fullmatch(r"[0-9a-f]{40}", fields[0])
+    ]
+    if len(set(peeled)) != 1:
+        return "", (
+            f"release_lineage '{lineage}' does not resolve to exactly one "
+            "annotated release-tag commit on origin"
+        )
+    return peeled[0], ""
 
 
 def _resolve_publish_sha(
