@@ -215,7 +215,7 @@ export interface UniverseAppMount {
  * its body, and its nav entry appears exactly when that section is supplied.
  */
 export type UniverseRouteView =
-  | "overview" | "inbox" | "strategy" | "frontier" | "items" | "board"
+  | "overview" | "inbox" | "strategy" | "frontier" | "items"
   | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events"
   | "doctor" | "ouroboros" | "projects" | "access" | "members" | "billing"
   | "templates" | "github" | "project" | "organization";
@@ -246,7 +246,7 @@ export interface UniverseRoute {
 export type UniverseScope = "multi" | "single" | "none";
 
 /** Canonical value; the runtime module is emitted from this source. */
-export const UNIVERSE_APP_CONTRACT_VERSION = 5 as const;
+export const UNIVERSE_APP_CONTRACT_VERSION = 6 as const;
 
 export declare function createHttpFunctionClient(
   options?: HttpFunctionClientOptions,

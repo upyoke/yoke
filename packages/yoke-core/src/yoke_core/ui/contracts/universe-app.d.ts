@@ -172,7 +172,7 @@ export interface UniverseAppMount {
  * their content is host-owned: each renders the host's `sections` entry as
  * its body, and its nav entry appears exactly when that section is supplied.
  */
-export type UniverseRouteView = "overview" | "inbox" | "strategy" | "frontier" | "items" | "board" | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events" | "doctor" | "ouroboros" | "projects" | "access" | "members" | "billing" | "templates" | "github" | "project" | "organization";
+export type UniverseRouteView = "overview" | "inbox" | "strategy" | "frontier" | "items" | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events" | "doctor" | "ouroboros" | "projects" | "access" | "members" | "billing" | "templates" | "github" | "project" | "organization";
 /**
  * A view's optional second route segment means what the view declares — a
  * tab (one facet of the view's single concept) or a drill-in (one row of the
@@ -197,7 +197,7 @@ export interface UniverseRoute {
  */
 export type UniverseScope = "multi" | "single" | "none";
 /** Canonical value; the runtime module is emitted from this source. */
-export declare const UNIVERSE_APP_CONTRACT_VERSION: 5;
+export declare const UNIVERSE_APP_CONTRACT_VERSION: 6;
 export declare function createHttpFunctionClient(options?: HttpFunctionClientOptions): UniverseFunctionClient;
 export declare function parseUniverseRoute(hash: string): UniverseRoute;
 /** `segment` is the view's second path segment: a tab id for a view that

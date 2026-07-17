@@ -201,6 +201,9 @@ def test_yoke_db_sh_has_no_live_prose_residue():
     tolerated_paths = _AUTHORIZED_DECLARATION_PATHS + (
         # Enforcement + audit code that legitimately names the retired wrapper
         # for parser/detector purposes. These are not operator-facing prose.
+        # The timing profile stores collected node ids, including parameterized
+        # parser fixtures that intentionally exercise the retired command shape.
+        ".test_durations",
         "runtime/api/domain/runs.py",
         "runtime/api/domain/agent_stop_test_helpers.py",
         "runtime/api/domain/test_agent_stop.py",

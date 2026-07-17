@@ -8,10 +8,11 @@ gate module under the authored-file line budget while the goldens stay one flat
 ``__snapshots__`` tree the parity test owns end to end.
 
 Determinism: Textual renders to a virtual terminal of a fixed size, so the SVG
-is identical on macOS, Linux, CI, and EC2. Two build-dependent tokens are
-normalized before write/compare — the build version (``{{VERSION}}``) and the
-Rich element-id prefix (an adler32 of the rendered glyphs) — so the gate asserts
-exact layout + copy + color + glyphs, not the build.
+is identical on macOS, Linux, CI, and EC2. Build-dependent tokens and unused
+Rich style-registry entries are normalized before write/compare — the build
+version (``{{VERSION}}``), the Rich element-id prefix (an adler32 of the
+rendered glyphs), and style declarations with no rendered element — so the gate
+asserts exact layout + copy + color + glyphs, not process-global registry state.
 """
 
 from __future__ import annotations
@@ -39,6 +40,10 @@ TERMINAL_SIZE = (100, 32)
 
 _TERMINAL_ID_RE = re.compile(r"terminal-\d+")
 _VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:\.dev\d+\+g[0-9a-f]+(?:\.d\d+)?)?")
+_TERMINAL_STYLE_RE = re.compile(
+    r"^[ \t]*\.terminal-YOKE-(r\d+) \{[^}\n]*\}\n", re.MULTILINE,
+)
+_TERMINAL_CLASS_RE = re.compile(r'class="terminal-YOKE-(r\d+)"')
 
 
 @contextmanager
@@ -65,6 +70,11 @@ def golden_color_env():
 def _normalize(svg: str) -> str:
     svg = _TERMINAL_ID_RE.sub("terminal-YOKE", svg)
     svg = _VERSION_RE.sub("{{VERSION}}", svg)
+    used_styles = set(_TERMINAL_CLASS_RE.findall(svg))
+    svg = _TERMINAL_STYLE_RE.sub(
+        lambda match: match.group(0) if match.group(1) in used_styles else "",
+        svg,
+    )
     return svg
 
 
@@ -75,7 +85,7 @@ def assert_golden(name: str, svg: str) -> None:
         SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         path.write_text(captured, encoding="utf-8")
         return
-    expected = path.read_text(encoding="utf-8")
+    expected = _normalize(path.read_text(encoding="utf-8"))
     assert captured == expected, (
         f"{name}.svg drifted from its blessed golden. Re-bless with "
         f"YOKE_WIZARD_GOLDEN_UPDATE=1 if the change is approved. "

@@ -20,10 +20,6 @@ export const NAV = [
   },
   { id: "items", icon: "≣", label: "Items", scope: SCOPE_MULTI },
   {
-    id: "board", icon: "▦", label: "Board", scope: SCOPE_MULTI,
-    summary: "Your .yoke/BOARD.md, as the board itself renders it.",
-  },
-  {
     id: "sessions", icon: "◈", label: "Sessions", scope: SCOPE_MULTI,
     summary:
       "Each session: who runs it, what it holds, and how alive it is.",

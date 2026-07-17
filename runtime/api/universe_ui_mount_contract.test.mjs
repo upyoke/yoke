@@ -675,9 +675,14 @@ test("route helpers are deterministic and platform-neutral", () => {
   assert.deepEqual(parseUniverseRoute("#/unknown"), {
     view: "overview", tab: null, detail: null, project: null,
   });
+  // Board rendering remains a CLI/local artifact; it is not a web route.
+  assert.deepEqual(parseUniverseRoute("#/board"), {
+    view: "overview", tab: null, detail: null, project: null,
+  });
   assert.equal(buildUniverseRoute("strategy", "abc 1"),
     "#/strategy?project=abc%201");
   assert.equal(buildUniverseRoute("unknown", null), "#/overview");
+  assert.equal(buildUniverseRoute("board", null), "#/overview");
 });
 
 test("every nav destination declares how it takes project scope", () => {

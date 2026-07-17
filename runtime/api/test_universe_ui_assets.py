@@ -183,12 +183,13 @@ def test_every_nav_destination_is_routable_and_scoped():
         "static", "universe_navigation.js",
     ).read_text()
     for destination in (
-        "overview", "inbox", "strategy", "frontier", "items", "board",
+        "overview", "inbox", "strategy", "frontier", "items",
         "sessions", "delivery", "qa", "workflows", "capabilities", "events",
         "doctor", "ouroboros", "projects", "access", "members", "billing",
         "templates", "github", "project", "organization",
     ):
         assert f'id: "{destination}"' in page_module, destination
+    assert 'id: "board"' not in page_module
     # Host-fed screens sit in the same flat nav arc as every other view, and
     # the flag ties each entry's visibility to a host-supplied section.
     for host_fed in ("members", "billing"):
