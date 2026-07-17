@@ -35,17 +35,12 @@ yoke sessions touch \
  --mode doctor
 ```
 
-Register an exclusive work claim to prevent concurrent doctor sessions.
-Call `claims.work.acquire` with a process-keyed target.
+Register an exclusive work claim to prevent concurrent doctor sessions and
+retain the returned `claim_id` for the release invariant:
 
-```json
-{
-  "function": "claims.work.acquire",
-  "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "process", "process_key": "DOCTOR", "conflict_group": "yoke"},
-  "intent": "doctor_run",
-  "payload": {"target": {"kind": "process", "process_key": "DOCTOR", "conflict_group": "yoke"}, "reason": "doctor_run"}
-}
+```bash
+yoke claims work acquire --process DOCTOR --project {project} \
+  --reason doctor_run --json
 ```
 
 If the response carries `error.code="claim_conflict"` (another session
@@ -57,24 +52,25 @@ Then **stop immediately.** Do not run the doctor engine or produce any output.
 
 **Release invariant:** Once the `DOCTOR` claim is acquired, every remaining exit path MUST release it. If you need to stop before the normal completion path, call:
 
-```json
-{
-  "function": "claims.work.release",
-  "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "claim", "claim_id": <claim_id>},
-  "intent": "doctor_stop",
-  "payload": {"claim_id": <claim_id>, "reason": "released"}
-}
+```bash
+yoke claims work release --claim-id <claim_id> --reason doctor_stop --json
 ```
 
 Do not leave the `DOCTOR` claim active after any post-claim stop.
 
 1. **Run the health check engine:**
 
- Invoke doctor through the watcher wrapper `python3 -m yoke_core.tools.watch_doctor`
- — per AGENTS.md `## Command Output — Hard Rule`, every doctor run goes through
- the watcher to avoid the `2>&1 > file` redirection trap that silently strips
- stderr to the void (observed live cascading into multi-tool recovery loops).
+ Inspect `yoke status --json` and select the engine from
+ `connection.transport`:
+
+ - **`https`** — invoke `yoke doctor run` directly. The registered adapter
+   chunks the run into bounded server requests and skips source-tree-only HCs;
+   do not invoke the local watcher against a hosted connection.
+ - **`local-postgres`** — invoke doctor through the watcher wrapper
+   `python3 -m yoke_core.tools.watch_doctor`. Per AGENTS.md `## Command Output
+   — Hard Rule`, local Doctor runs go through the watcher to preserve the raw
+   report and streaming progress.
+
  Pass bare doctor args after `--`:
  - **`--full`** for operator-invoked `/yoke doctor` — runs every HC including
    GitHub-dependent ones. This is the right scope when the operator wants a
@@ -89,11 +85,19 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
  - If `--fix` was specified, pass `--fix`
  - Otherwise, the engine uses its default path (`ouroboros/health/health-{YYYYMMDD}.md`)
 
- For `/yoke doctor` the canonical invocation is `--full`:
+ For `/yoke doctor` the canonical scope is `--full`:
 
- ```
+ ```bash
+ # Hosted HTTPS authority
+ yoke doctor run --full --project {project} [--fix] --json
+
+ # Local Postgres authority
  python3 -m yoke_core.tools.watch_doctor -- --full --project {project} [--file {path}] [--fix]
  ```
+
+ `--file` applies only to the local watcher. The hosted adapter returns the
+ complete typed report in its response envelope; display that response rather
+ than claiming a local report file was created.
 
  Without a scope flag the engine exits 2 with a teachable error naming the
  three options. This is intentional: every caller must make an explicit
@@ -115,7 +119,8 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 
  **If `--fix` was NOT specified:** Skip auto-repair and continue to step 5 so the `DOCTOR` claim is released before final output.
 
- **If `--fix` was specified:** Most repair happens **inside** the engine — `python3 -m yoke_core.tools.watch_doctor -- --fix` already applied fixes during step 1. The engine handles:
+ **If `--fix` was specified:** Most repair happens **inside** the selected
+ engine — the Step 1 command already applied fixes. The engine handles:
 
 - **Bidirectional GitHub sync** (orphan reconciliation; title, body, label, state, and frozen drift) via internal delegation to the resync engine in doctor format. Pushes local truth to GitHub and creates/closes/migrates issues as needed.
  - **Stale remote branches** of done or cancelled items, after proving the
@@ -153,30 +158,30 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 
 4. **If `--fix` was applied, re-run the doctor engine:**
 
- After applying fixes, re-run `python3 -m yoke_core.tools.watch_doctor -- <same scope flags as step 1>` to verify the fixes took effect. Display the updated summary.
+ After applying fixes, re-run the same transport-selected command from Step 1
+ with the same scope to verify the fixes took effect. Display the updated
+ summary.
 
 5. **Release DOCTOR Claim:**
 
  Release the exclusive work claim so the session can end naturally or be reused.
 
- ```json
- {
-   "function": "claims.work.release",
-   "actor": {"session_id": "<this-session>"},
-   "target": {"kind": "claim", "claim_id": <claim_id>},
-   "intent": "doctor_complete",
-   "payload": {"claim_id": <claim_id>, "reason": "completed"}
- }
+ ```bash
+ yoke claims work release --claim-id <claim_id> \
+   --reason doctor_complete --json
  ```
 
  **Important:** This MUST run regardless of whether `--fix` was applied or whether there were failures. Read-only doctor runs without `--fix` still come here before final output. A release failure is logged via the response envelope but does not block the report.
 
 6. **Final output:**
 
- Display the report file path:
+ For a local run, display the report file path:
  ```
  Ouroboros health report saved to: {path}
  ```
+
+ For a hosted run, state that the typed report was returned by the configured
+ HTTPS authority; do not invent a filesystem path.
 
  If there were failures that could not be auto-fixed:
  ```
