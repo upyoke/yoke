@@ -335,9 +335,10 @@ export function mountUniverseApp(rootNode, options = {}) {
       // read over an empty universe is honest, an unscoped single view has
       // nothing to configure.
       if (scope === null) {
-        main.replaceChildren(
-          pageHead, tabBar, emptyUniversePanel(documentNode),
-        );
+        const emptyHost = el(documentNode, "div", "view-host");
+        emptyHost.appendChild(emptyUniversePanel(documentNode));
+        appendViewSection(entry, emptyHost);
+        main.replaceChildren(pageHead, tabBar, emptyHost);
         return;
       }
       // A built tab carries its own picker, below the facet strip: scope
@@ -375,9 +376,10 @@ export function mountUniverseApp(rootNode, options = {}) {
     }
     // Only a single-scope view needs a project to exist (see the tab path).
     if (scope === null) {
-      main.replaceChildren(
-        createPageHead(documentNode, entry), emptyUniversePanel(documentNode),
-      );
+      const emptyHost = el(documentNode, "div", "view-host");
+      emptyHost.appendChild(emptyUniversePanel(documentNode));
+      appendViewSection(entry, emptyHost);
+      main.replaceChildren(createPageHead(documentNode, entry), emptyHost);
       return;
     }
     const detailProject = detailRenderer
