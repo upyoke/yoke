@@ -1,8 +1,4 @@
-"""DB-command guard tests for operators, DB paths, and ``!=`` checks.
-
-Kept under the legacy ``test_lint_sqlite_cmd*.py`` filename glob for stable
-verification while importing the neutral DB-command runner/helper.
-"""
+"""DB-command guard tests for operators, DB paths, and comparison checks."""
 
 from __future__ import annotations
 

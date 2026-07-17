@@ -12,7 +12,7 @@ def normalize_observe_db_path(db_path: Optional[str]) -> Optional[str]:
         return None
     try:
         from yoke_core.domain import yoke_connected_env
-        from yoke_core.domain.yoke_connected_env_sqlite import (
+        from yoke_core.domain.yoke_connected_env_retired_db import (
             retired_yoke_db_path_reason,
         )
 

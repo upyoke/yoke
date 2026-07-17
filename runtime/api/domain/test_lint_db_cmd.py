@@ -1,14 +1,7 @@
-"""Legacy lint_sqlite_cmd tests for the DB-command guard.
-
-The filename and legacy module checks remain stable for telemetry/history, but
-ordinary runner coverage imports the neutral ``lint_db_cmd`` implementation.
-
-Shared helpers live in ``lint_db_cmd_test_helpers``.
-"""
+"""DB-command guard tests."""
 
 from __future__ import annotations
 
-from yoke_core.domain import lint_db_cmd, lint_sqlite_cmd
 from yoke_core.domain.lint_db_cmd import run_hook
 from yoke_core.domain.lint_db_cmd_test_helpers import (
     _assert_allows,
@@ -20,12 +13,6 @@ from yoke_core.domain.lint_db_cmd_test_helpers import (
 
 def test_invalid_payload_allows_by_default() -> None:
     assert run_hook("{not-json") == ""
-
-
-def test_legacy_sqlite_hook_uses_neutral_db_policy_implementation() -> None:
-    assert lint_sqlite_cmd.HOOK_POLICY_SOURCE is lint_db_cmd.HOOK_POLICY_SOURCE
-    assert lint_sqlite_cmd.run_hook is lint_db_cmd.run_hook
-    assert lint_sqlite_cmd.LEGACY_HOOK_ID == "lint-sqlite-cmd"
 
 
 def test_direct_sqlite_invocation_is_denied() -> None:

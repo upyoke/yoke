@@ -1,17 +1,17 @@
 ---
-title: sqlite-named-guard-surface-rename — audit + deferral
+title: sqlite-named-guard-surface-rename — audit, migration, and retirement
 decision_type: prep-audit
-status: compat-layer-started
+status: legacy-fronts-retired
 primary_surfaces:
-  - runtime/api/domain/lint_sqlite_cmd.py (+ lint_sqlite_rules*, lint_sqlite_runner, test_lint_sqlite_cmd*)
-  - runtime/api/domain/db_error_hook_sqlite.py
+  - yoke_core.domain.lint_db_cmd (+ lint_db_rules*, lint_db_runner, test_lint_db_cmd*)
+  - yoke_core.domain.db_error_hook_query_failure
 secondary_surface:
-  - runtime/api/domain/yoke_connected_env_sqlite.py
+  - yoke_core.domain.yoke_connected_env_retired_db
 out_of_scope:
   - runtime/api/domain/db_backend_sqlite_compat.py
 ---
 
-# Renaming SQLite-named guard surfaces — audit and deferral
+# Renaming SQLite-named guard surfaces — audit, migration, and retirement
 
 ## What this records
 
@@ -28,11 +28,33 @@ thinking SQLite is an active backend.
 
 This record began as the **audit + deferral decision**: the rename of the two
 primary surfaces was too wide / too coupled to land safely as a blind cleanup.
-The first safe step has now landed as a compatibility layer: neutral
-implementation modules exist, while the deployed hook path and telemetry ids
-remain stable. The blocker list and per-surface unblock conditions below still
-define what must be true before the legacy names can be purged. In particular,
-raw-`sqlite3` command denial is fully preserved.
+Neutral implementation modules first landed behind compatibility fronts. On
+2026-07-17 the unblock conditions were re-verified and the fronts were retired
+in one coordinated purge. Raw-`sqlite3` command denial remains fully preserved.
+
+## 2026-07-17 retirement
+
+- The universal hook chain already named `yoke_core.domain.lint_db_cmd`; all
+  remaining `lint_sqlite_*` module and helper fronts were deleted.
+- The test family moved to behavior-based `test_lint_db_cmd*` filenames, and
+  live docs, doctor allowlists, lint-policy aliases, and hook regression tests
+  now name only the neutral owner.
+- The emitted `lint-sqlite-cmd` hook/check/field-note id remains unchanged. It
+  is sourced from one contracts constant and rendered as an explicit telemetry
+  compatibility id in `.yoke/lint-config`; it is not an import alias.
+- `db_error_hook_query_failure` now recognizes line-anchored Postgres
+  `UndefinedColumn` / `UndefinedTable` and `ERROR: ... does not exist` shapes as
+  well as the existing SQLite shapes. The compatibility module and detector
+  symbol were deleted.
+- The connected-environment implementation moved to
+  `yoke_connected_env_retired_db`; callers now name the retired authority guard
+  by its behavior rather than by a supported backend.
+- The sqlite3-shaped Postgres facade remains out of scope because its name still
+  describes a live emulation contract.
+
+The remaining sections preserve the 2026-06-02 audit rationale that made the
+two-step migration necessary. References to compatibility fronts below describe
+that historical state, not the current tree.
 
 ## 2026-06-02 compatibility step
 
@@ -65,7 +87,7 @@ A rename was treated as "safe to land now" only if all held:
    commit (the `HC-obsoleted-terms` single-commit-purge contract).
 4. It does **not weaken** any raw-SQLite denial path.
 
-No primary surface clears all four today. Details follow.
+At audit time, no primary surface cleared all four. Details follow.
 
 ## Surface 1 — `lint_sqlite_cmd` cluster + the `lint-sqlite-cmd` denial id
 
@@ -104,7 +126,7 @@ A module-only rename that keeps `check_id="lint-sqlite-cmd"` produces a
 module/id mismatch that is *worse* than the status quo; an id rename breaks the
 event audit trail and the Atlas tables.
 
-**Recommended unblock (future ticket).**
+**Completion criteria (satisfied 2026-07-17).**
 - Target name: `lint_db_cmd` (or `lint_command_policy`, reflecting that the
   engine is the general Bash-command policy, not a SQLite linter).
 - Keep `lint-sqlite-cmd` as a **compatibility alias** for the denial `check_id`,
@@ -139,23 +161,17 @@ documents that it is named `db_error_hook` (not `sqlite3_error_hook`) to avoid
 tripping the `sqlite3` filename guard. The remaining `_sqlite` seam name reflects
 the still-current sqlite-dialect detection, not stale support.
 
-**Recommended unblock (future ticket).** Bundle with the facade-removal /
-SQL-dialect conversion work: in one slice, rename the module + function to a
+**Completion criteria (satisfied 2026-07-17).** In one slice, rename the module + function to a
 Postgres-neutral name (e.g. `db_error_hook_query_failure` /
 `detect_db_query_failure`) **and** retarget `_SCHEMA_HINT_RE` and the token gates
 to Postgres error text, updating the three referencing files together.
 
 ## Surface 3 (secondary) — `yoke_connected_env_sqlite`
 
-Not a primary surface for this slice. `sqlite_guard_reason_for_env` /
-`retired_yoke_db_reason` / `retired_yoke_db_path_reason` already read as
-forbid-raw guards — the words "retired" and "guard" are in the names, so the
-clarity gain from a rename is low, while the blast radius is moderate (five
-importers across `runtime/harness/hook_helpers_session_id.py`,
-`runtime/harness/codex/codex_db_resolution.py`,
-`runtime/api/fixtures/canonical_db.py`, `runtime/api/domain/yoke_connected_env.py`,
-`runtime/api/domain/observe_db.py`). Deferred as low-value; fold into Surface 1's
-ticket only if a broader naming sweep is in flight.
+The real guard implementation moved to `yoke_connected_env_retired_db`, and its
+five importers moved with it. The public connected-environment wrapper now uses
+`retired_db_guard_reason`; messages still say SQLite because the refused
+authority is specifically the retired local SQLite file.
 
 ## Out of scope — `db_backend_sqlite_compat.py`
 

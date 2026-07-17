@@ -89,11 +89,11 @@ PATH_ALLOWLIST_ALL_PATTERNS: tuple[str, ...] = (
 
 # Path prefixes exempt from the ``yoke-db.sh`` pattern only.
 YOKE_DB_AUDIT_PATHS: tuple[str, ...] = (
-    # The sqlite-lint detectors and their tests name the retired
+    # The DB-command detectors and their tests name the retired
     # yoke-db.sh wrapper literally so the lint can identify legacy
     # command shapes in tracked content.
-    "runtime/api/domain/lint_sqlite_rules",
-    "runtime/api/domain/test_lint_sqlite_cmd",
+    "runtime/api/domain/lint_db_rules",
+    "runtime/api/domain/test_lint_db_cmd",
     # tc-label test passes the retired script name to a checker to assert
     # the numeric-HC filename rule rejects it.
     "runtime/api/domain/test_lint_tc_label.py",

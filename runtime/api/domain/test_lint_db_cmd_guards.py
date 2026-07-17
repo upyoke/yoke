@@ -1,8 +1,4 @@
-"""DB-command guard tests for claude CLI, scripts, awk, heredocs, Python.
-
-Kept under the legacy ``test_lint_sqlite_cmd*.py`` filename glob for stable
-verification while importing the neutral DB-command helper.
-"""
+"""DB-command guard tests for CLI, scripts, awk, heredocs, and Python."""
 
 from __future__ import annotations
 

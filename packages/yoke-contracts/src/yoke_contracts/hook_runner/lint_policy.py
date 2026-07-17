@@ -20,6 +20,7 @@ ALLOW_WARN_TOKEN = "# allow-warn"
 CONFIG_RELPATH = (".yoke", "lint-config")
 SNAPSHOT_PAYLOAD_KEY = "_yoke_lint_config"
 REMOTE_CLAUDE_CLI_GUARD = "lint_db_cmd_remote_claude_cli"
+DB_COMMAND_STABLE_CHECK_ID = "lint-sqlite-cmd"
 _MODULE_PREFIX = "yoke_core.domain."
 
 
@@ -33,13 +34,13 @@ class GuardSpec:
     description: str
     aliases: Tuple[str, ...] = ()
     module_aliases: Tuple[str, ...] = ()
+    compatibility_id: str = ""
 
 
 GUARD_CATALOG: Tuple[GuardSpec, ...] = (
     GuardSpec("lint_db_cmd", f"{_MODULE_PREFIX}lint_db_cmd", False,
               "Refuse raw sqlite3 CLI against the control-plane DB.",
-              aliases=("lint_sqlite_cmd",),
-              module_aliases=(f"{_MODULE_PREFIX}lint_sqlite_cmd",)),
+              compatibility_id=DB_COMMAND_STABLE_CHECK_ID),
     GuardSpec(REMOTE_CLAUDE_CLI_GUARD,
               f"{_MODULE_PREFIX}lint_db_cmd.remote_claude_cli", False,
               "Refuse Claude CLI invocations embedded in remote SSH commands."),
@@ -247,13 +248,17 @@ def render_lint_config() -> str:
         if spec.aliases:
             aliases = ", ".join(spec.aliases)
             lines.append(f"# Legacy stable config aliases still accepted: {aliases}")
+        if spec.compatibility_id:
+            lines.append(
+                f"# Stable telemetry compatibility id: {spec.compatibility_id}"
+            )
         lines.append(f"{spec.guard}={DENY}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 
 __all__ = [
-    "ALLOW_WARN_TOKEN", "CONFIG_RELPATH", "DENY", "GUARD_CATALOG",
+    "ALLOW_WARN_TOKEN", "CONFIG_RELPATH", "DB_COMMAND_STABLE_CHECK_ID", "DENY", "GUARD_CATALOG",
     "GuardSpec", "REMOTE_CLAUDE_CLI_GUARD", "SNAPSHOT_PAYLOAD_KEY", "WARN",
     "config_path_for_root", "entries_from_snapshot", "find_workspace_root",
     "is_registered", "parse_file", "parse_text", "render_lint_config",

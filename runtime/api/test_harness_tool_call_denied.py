@@ -5,7 +5,7 @@ Every Yoke-owned PreToolUse deny path emits exactly one
 command/args snippet, the lint identifier, and the deny reason. AC-2: when
 multiple lints would deny the same call, only the first denier emits (no
 duplicate rows per attempt). AC-7: the DB-command guard
-(``lint_db_cmd`` plus the legacy ``lint_sqlite_cmd`` compatibility surface)
+(``lint_db_cmd``)
 shares the same ``emit_denial_event`` contract as the other Python deniers.
 
 These tests drive representative lints end-to-end — denier invoked → deny
