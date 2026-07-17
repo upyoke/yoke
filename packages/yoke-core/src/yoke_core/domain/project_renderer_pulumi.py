@@ -128,7 +128,9 @@ def render_pulumi_artifacts(
     )
     instances = gather_pulumi_stack_instances(project, project_root, settings)
     vps_targets = (
-        gather_standalone_vps_targets(settings) if pulumi_stack is not None else []
+        gather_standalone_vps_targets(settings, stack_name=pulumi_stack)
+        if pulumi_stack is not None
+        else []
     )
     stack_types, instances, vps_targets = select_pulumi_targets(
         pulumi_stack, declared_stack_types, instances, vps_targets,

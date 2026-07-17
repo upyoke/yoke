@@ -75,9 +75,10 @@ def _make_project_tree(tmp_path, project: str):
         "  webapp-infra:database_allowed_security_group_ids: "
         "{{database_allowed_security_group_ids}}\n"
         "  webapp-infra:ephemeral_preview_domain: {{ephemeral_preview_domain}}\n"
-        "  webapp-infra:github_app_private_key_secret_arn: "
-        "{{github_app_private_key_secret_arn}}\n"
-        "  webapp-infra:github_app_kms_key_arn: {{github_app_kms_key_arn}}\n"
+        '  webapp-infra:github_app_private_key_secret_arn: '
+        '"{{github_app_private_key_secret_arn}}"\n'
+        '  webapp-infra:github_app_kms_key_arn: '
+        '"{{github_app_kms_key_arn}}"\n'
         '  webapp-infra:render_only: "{{render_only}}"\n'
     )
     (infra / "__main__.py").write_text("# pulumi entrypoint\n")

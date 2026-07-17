@@ -102,9 +102,10 @@ def apply_key_path_assignments(
 ) -> Dict[str, Any]:
     """Return a copy of ``doc`` with each dot-path assignment applied.
 
-    Intermediate objects are created on demand; an existing non-object
-    intermediate refuses loudly instead of being clobbered. Keys that
-    themselves contain dots cannot be addressed through this surface.
+    Intermediate objects are created on demand. Numeric segments address
+    existing list entries; out-of-range entries and scalar intermediates
+    refuse loudly instead of being clobbered. Keys that themselves contain
+    dots cannot be addressed through this surface.
     """
     merged = copy.deepcopy(doc)
     for path, value in assignments.items():
@@ -113,20 +114,73 @@ def apply_key_path_assignments(
             raise ValueError(
                 f"Error: invalid key path {path!r}: empty segment"
             )
-        node = merged
+        node: Any = merged
         for part in parts[:-1]:
-            child = node.get(part)
-            if child is None:
-                child = {}
-                node[part] = child
-            elif not isinstance(child, dict):
+            if isinstance(node, dict):
+                child = node.get(part)
+                if child is None:
+                    child = {}
+                    node[part] = child
+            elif isinstance(node, list):
+                index = _array_index(part, path)
+                if index >= len(node):
+                    raise ValueError(
+                        f"Error: cannot set {path!r}: array index {index} "
+                        "is out of range"
+                    )
+                child = node[index]
+            else:
                 raise ValueError(
                     f"Error: cannot set {path!r}: {part!r} holds a "
-                    "non-object value"
+                    "non-object/non-list value"
                 )
             node = child
-        node[parts[-1]] = value
+        if isinstance(node, dict):
+            node[parts[-1]] = value
+        elif isinstance(node, list):
+            index = _array_index(parts[-1], path)
+            if index >= len(node):
+                raise ValueError(
+                    f"Error: cannot set {path!r}: array index {index} "
+                    "is out of range"
+                )
+            node[index] = value
+        else:
+            raise ValueError(
+                f"Error: cannot set {path!r}: parent holds a "
+                "non-object/non-list value"
+            )
     return merged
+
+
+def read_key_path(document: Dict[str, Any], path: str) -> Any:
+    """Read one dot path, treating numeric segments as list indexes."""
+    parts = path.split(".")
+    if not path or any(not part for part in parts):
+        raise ValueError(f"invalid JSON path {path!r}")
+    value: Any = document
+    for part in parts:
+        if isinstance(value, dict):
+            if part not in value:
+                return None
+            value = value[part]
+        elif isinstance(value, list):
+            index = _array_index(part, path)
+            if index >= len(value):
+                return None
+            value = value[index]
+        else:
+            return None
+    return value
+
+
+def _array_index(part: str, path: str) -> int:
+    if not part.isdigit():
+        raise ValueError(
+            f"invalid JSON path {path!r}: {part!r} must be a non-negative "
+            "array index"
+        )
+    return int(part)
 
 
 def cas_merge_loop(

@@ -15,6 +15,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.settings_cas import SettingsConflictError
+from yoke_core.domain.settings_cas import read_key_path
 
 
 class EnvironmentSettingsGetRequest(BaseModel):
@@ -161,7 +162,7 @@ def _environment_project_mismatch(
 def _project_scalar_paths(
     settings_json: str, paths: list[str]
 ) -> dict[str, Any]:
-    """Return only explicitly named scalar leaves from one settings object."""
+    """Return named scalar leaves; numeric segments traverse array entries."""
     if not paths:
         raise ValueError("at least one JSON path is required")
     try:
@@ -173,15 +174,7 @@ def _project_scalar_paths(
     values: dict[str, Any] = {}
     for path in paths:
         normalized = str(path or "").strip()
-        parts = normalized.split(".")
-        if not normalized or any(not part for part in parts):
-            raise ValueError(f"invalid JSON path {path!r}")
-        value: Any = document
-        for part in parts:
-            if not isinstance(value, dict) or part not in value:
-                value = None
-                break
-            value = value[part]
+        value = read_key_path(document, normalized)
         if isinstance(value, (dict, list)):
             raise ValueError(
                 f"JSON path {normalized!r} selects a container; name one "

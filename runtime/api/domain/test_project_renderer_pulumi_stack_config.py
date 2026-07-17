@@ -160,6 +160,26 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
     }
 
 
+def test_selected_environment_ignores_unrelated_incomplete_vps(monkeypatch):
+    settings = _settings()
+    settings.primary_environment.settings["servers"] = {}
+    _stub_settings(monkeypatch, settings)
+
+    payload = build_pulumi_stack_config(object(), "acme", "acme-stage")
+
+    assert payload["stack_kind"] == "environment"
+    assert payload["render_values"]["environment"] == "stage"
+
+
+def test_selected_vps_still_requires_its_server_inputs(monkeypatch):
+    settings = _settings()
+    settings.environments[1].settings["servers"] = {}
+    _stub_settings(monkeypatch, settings)
+
+    with pytest.raises(ValueError, match="servers.instance_type"):
+        build_pulumi_stack_config(object(), "acme", "acme-stage-vps")
+
+
 @pytest.mark.parametrize(
     ("stack", "instance_type", "root_volume_gb", "key_name", "encrypted_key"),
     [

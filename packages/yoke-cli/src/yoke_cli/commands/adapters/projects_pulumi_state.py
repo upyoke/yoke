@@ -145,7 +145,10 @@ def _read_checkpoint_operator_state(path: Path) -> tuple[str, str]:
         if fd >= 0:
             os.close(fd)
     try:
-        state = document["deployment"]["secrets_providers"]["state"]
+        deployment = document.get("deployment")
+        if deployment is None:
+            deployment = document["checkpoint"]["latest"]
+        state = deployment["secrets_providers"]["state"]
         secrets_provider = state["url"]
         encrypted_key = state["encryptedkey"]
     except (KeyError, TypeError) as exc:

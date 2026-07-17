@@ -33,7 +33,13 @@ def projects_environment_settings_get(args: List[str]) -> int:
         prog="yoke projects environment-settings get"
     )
     _add_identity_args(parser)
-    parser.add_argument("--path", dest="paths", action="append", required=True)
+    parser.add_argument(
+        "--path",
+        dest="paths",
+        action="append",
+        required=True,
+        help="Dot path to one scalar; numeric segments address array entries.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GET_USAGE)
@@ -56,7 +62,11 @@ def projects_environment_settings_merge(args: List[str]) -> int:
     )
     _add_identity_args(parser)
     parser.add_argument(
-        "--set", dest="assignments", action="append", required=True
+        "--set",
+        dest="assignments",
+        action="append",
+        required=True,
+        help="KEY.PATH=VALUE; numeric path segments address array entries.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

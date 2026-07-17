@@ -113,7 +113,9 @@ def build_pulumi_stack_config(
     )
     stack_types = gather_pulumi_stacks(ident.slug, project_root, settings)
     instances = gather_pulumi_stack_instances(ident.slug, project_root, settings)
-    vps_targets = gather_standalone_vps_targets(settings)
+    vps_targets = gather_standalone_vps_targets(
+        settings, stack_name=selected_stack
+    )
     selected_types, selected_instances, selected_vps_targets = select_pulumi_targets(
         selected_stack,
         stack_types,

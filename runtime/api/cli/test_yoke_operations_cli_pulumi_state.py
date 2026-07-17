@@ -12,6 +12,9 @@ from unittest.mock import patch
 from yoke_cli.commands.adapters.projects_pulumi_stack_config import (
     projects_pulumi_stack_config_get,
 )
+from yoke_cli.commands.adapters.projects_pulumi_state import (
+    _read_checkpoint_operator_state,
+)
 from yoke_cli.commands.adapters import pulumi
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import (
@@ -132,6 +135,22 @@ def test_checkpoint_import_refuses_readable_or_malformed_file(tmp_path):
         ])
     assert rc == 2
     assert "secrets-provider state" in stderr.getvalue()
+
+
+def test_checkpoint_import_reads_backend_checkpoint_shape(tmp_path):
+    checkpoint = tmp_path / "checkpoint.json"
+    checkpoint.write_text(json.dumps({
+        "checkpoint": {"latest": {"secrets_providers": {"state": {
+            "url": "awskms://alias/yoke-pulumi",
+            "encryptedkey": "encrypted-sensitive-material",
+        }}}}
+    }))
+    checkpoint.chmod(0o600)
+
+    assert _read_checkpoint_operator_state(checkpoint) == (
+        "awskms://alias/yoke-pulumi",
+        "encrypted-sensitive-material",
+    )
 
 
 def test_stack_config_adapter_writes_0600_without_body_output(tmp_path):

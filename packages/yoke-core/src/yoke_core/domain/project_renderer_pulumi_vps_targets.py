@@ -25,11 +25,17 @@ class PulumiStandaloneVpsTarget:
 
 def gather_standalone_vps_targets(
     settings: ProjectRendererSettings,
+    *,
+    stack_name: str | None = None,
 ) -> list[PulumiStandaloneVpsTarget]:
-    """Project every environment-declared origin VPS into a render target."""
+    """Project matching environment-declared origin VPS render targets."""
     targets: list[PulumiStandaloneVpsTarget] = []
     by_name: dict[str, PulumiStandaloneVpsTarget] = {}
     for environment in settings.environments:
+        if stack_name is not None:
+            pulumi = _first_mapping(environment.settings.get("pulumi"))
+            if str(pulumi.get("origin_vps_stack_name") or "").strip() != stack_name:
+                continue
         target = _target_from_environment(settings, environment)
         if target is None:
             continue
