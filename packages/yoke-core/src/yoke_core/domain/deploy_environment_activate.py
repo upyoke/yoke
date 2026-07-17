@@ -89,8 +89,8 @@ def _describe_origin_instance(
     if not rows:
         raise EnvironmentActivateError(
             f"[env-activate] no EC2 instance tagged "
-            f"'{_instance_name_tag(env)}' exists; apply the environment "
-            f"stack ({env.stack_name}) before activating"
+            f"'{_instance_name_tag(env)}' exists; apply the standalone origin "
+            f"VPS stack ({env.origin_vps_stack_name}) before activating"
         )
     if len(rows) > 1:
         ids = ", ".join(str(r[0]) for r in rows)

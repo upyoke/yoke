@@ -102,7 +102,12 @@ class TestEnsureInstanceRunning:
         runner = FakeRunner([_describe([])])
         with pytest.raises(EnvironmentActivateError) as exc:
             ensure_instance_running(runner, _env(), {}, lambda _l: None)
-        assert "yoke-platform-vps" in str(exc.value)
+        message = str(exc.value)
+        assert (
+            "apply the standalone origin VPS stack (yoke-platform-vps) "
+            "before activating"
+        ) in message
+        assert "environment stack (yoke-prod)" not in message
 
     def test_duplicate_instances_refused(self):
         runner = FakeRunner(
