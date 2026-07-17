@@ -31,6 +31,7 @@ RUNNER_FLEET_PROGRAM_FILES = (
     "webapp_runner_aws_state.mjs",
     "webapp_runner_github_api.mjs",
     "webapp_runner_github_broker.mjs",
+    "webapp_runner_parallel_reaper.mjs",
     "webapp_runner_registration.mjs",
     "webapp_runner_termination.mjs",
 )
