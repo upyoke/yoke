@@ -2,8 +2,9 @@
 
 Three invariants checked against the live registries:
 
-1. Every ``status="wrapped"`` row in the tracker has BOTH a matching
-   function-registry entry AND a CLI-registry adapter.
+1. Every ``status="wrapped"`` row in the tracker has a CLI-registry adapter
+   and either a matching function-registry entry or an explicit client-local
+   authorization classification.
 2. Every ``status="pending"`` row's ``shell_form`` parses as a valid
    Yoke-owned multi-module invocation (the operator-debug shape that
    future handler-registration slices will wrap).
@@ -71,6 +72,8 @@ def _wrapped_cli_tokens_for(shell_form: str) -> Tuple[str, ...]:
 
 
 def _check_wrapped(inv, sub_reg, fn_ids) -> List[str]:
+    from yoke_core.domain.function_authz_scope import is_explicit_client_local
+
     issues: List[str] = []
     for entry in inv.by_status(inv.WRAPPED):
         if not entry.shell_form.startswith("yoke "):
@@ -86,7 +89,11 @@ def _check_wrapped(inv, sub_reg, fn_ids) -> List[str]:
             )
             continue
         registered_fn_id, _ = sub_reg[cli_tokens]
-        if fn_ids is not None and registered_fn_id not in fn_ids:
+        if (
+            fn_ids is not None
+            and registered_fn_id not in fn_ids
+            and not is_explicit_client_local(registered_fn_id)
+        ):
             issues.append(
                 f"wrapped row {entry.shell_form!r} -> function id "
                 f"{registered_fn_id!r} not present in dispatcher registry"
@@ -151,7 +158,7 @@ def hc_fallback_registry_coherence(
     rec.record(
         _DEFAULT_HC_NAME, _DEFAULT_HC_DESCRIPTION, "PASS",
         f"{wrapped_count} wrapped + {pending_count} pending rows "
-        "coherent with function + CLI registries",
+        "coherent with function/client-local + CLI registries",
     )
 
 
