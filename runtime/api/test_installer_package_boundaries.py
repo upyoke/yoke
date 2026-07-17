@@ -224,6 +224,34 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "explicit runner-fleet credential-scoped child-process helper",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py",
+        "yoke_core.domain.project_renderer_values",
+    ): (
+        "client_local_execution",
+        "stack-scoped Pulumi execution resolves its installed template root locally",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py",
+        "yoke_core.tools.pulumi_exec",
+    ): (
+        "client_local_execution",
+        "stack-scoped Pulumi execution runs the capability-authorized local child",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/pulumi_stack_config_loader.py",
+        "yoke_core.domain.db_helpers",
+    ): (
+        "local_engine_activation",
+        "local-postgres stack config materialization reads the bound local universe",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/pulumi_stack_config_loader.py",
+        "yoke_core.domain.project_renderer_pulumi_stack_config",
+    ): (
+        "local_engine_activation",
+        "local-postgres stack config materialization uses the installed engine renderer",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/project_install/source_dev.py",
         "yoke_core.domain.project_install_source_link",
     ): ("source_dev_admin", "explicit source-link setup branch only"),
