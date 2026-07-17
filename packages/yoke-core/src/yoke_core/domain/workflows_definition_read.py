@@ -41,6 +41,7 @@ FLOW_FIELDS = (
     "id",
     "name",
     "target_env",
+    "status",
     "on_failure",
     "stage_names",
     "project",
@@ -102,7 +103,7 @@ def get_workflows_definition(
             clause = "WHERE df.project_id = %s "
             params = (resolve_project_id(conn, project),)
         rows = conn.execute(
-            "SELECT df.id, df.name, df.target_env, df.on_failure, "
+            "SELECT df.id, df.name, df.target_env, df.status, df.on_failure, "
             "df.stages, p.slug AS project "
             "FROM deployment_flows df "
             "JOIN projects p ON p.id = df.project_id "
@@ -117,6 +118,7 @@ def get_workflows_definition(
                 "id": row.get("id"),
                 "name": row.get("name"),
                 "target_env": row.get("target_env"),
+                "status": row.get("status"),
                 "on_failure": row.get("on_failure"),
                 "stage_names": _stage_names(row.get("stages")),
                 "project": row.get("project"),

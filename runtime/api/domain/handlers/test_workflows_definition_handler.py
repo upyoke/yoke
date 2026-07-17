@@ -151,6 +151,7 @@ class TestFlows:
         assert [flow["id"] for flow in scoped] == ["alpha-release"]
         assert scoped[0]["name"] == "Alpha Release"
         assert scoped[0]["target_env"] == "prod"
+        assert scoped[0]["status"] == "active"
         assert scoped[0]["on_failure"] == "halt"
         assert scoped[0]["project"] == "yoke"
         # Kind-shaped stages identify by kind, executor-shaped by name.

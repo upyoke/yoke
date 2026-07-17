@@ -84,7 +84,8 @@ test("Workflows renders the three panels from one served definition", async (t) 
   const client = workflowsClient([
     {
       id: "demo-release", name: "Demo Release", target_env: "prod",
-      on_failure: "halt", stage_names: ["build", "verify"], project: "yoke",
+      status: "disabled", on_failure: "halt",
+      stage_names: ["build", "verify"], project: "yoke",
     },
   ]);
   const { root, mounted } = await mountWorkflows(t, client);
@@ -120,8 +121,8 @@ test("Workflows renders the three panels from one served definition", async (t) 
     // says so, not because this module knows either word.
     "plan", "plan_walkthrough",
     "review", "evidence_check",
-    // Flows: id | name | target env | joined stage names | on failure.
-    "demo-release", "Demo Release", "prod", "build → verify", "halt",
+    // Flows: id | name | target env | status | joined stages | on failure.
+    "demo-release", "Demo Release", "prod", "disabled", "build → verify", "halt",
   ]);
 
   // The flow id cell wears the identifier (mono) treatment.
