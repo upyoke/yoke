@@ -171,6 +171,39 @@ test("the stat tiles fill from the reads, and never invent a number", async (t) 
   mounted.unmount();
 });
 
+test("the Delivery summary keeps the engine's newest-first receipt order", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/overview?project=1";
+  const root = documentNode.createElement("div");
+  const runs = ["023", "022", "021", "020", "019", "018"].map((suffix) => ({
+    id: `run-20260717-${suffix}`,
+    flow: "yoke-hosted-stage-no-ci-gate",
+    target_env: "stage",
+    current_stage: "complete",
+    status: "succeeded",
+    created_at: `2026-07-17T${suffix}:00:00Z`,
+  }));
+
+  const mounted = mountUniverseApp(root, {
+    client: overviewClient({ "deployment_runs.list": { rows: runs } }),
+  });
+  await settle();
+
+  const deliveryPanel = byClass(root, "panel")[3];
+  const receiptRows = allNodes(deliveryPanel)
+    .filter((node) => node.tagName === "TR")
+    .slice(1)
+    .map((row) => cellText(row.children[0]));
+  assert.deepEqual(receiptRows, [
+    "run-20260717-023", "run-20260717-022", "run-20260717-021",
+    "run-20260717-020", "run-20260717-019",
+  ]);
+  mounted.unmount();
+});
+
 test("a doctor run that never ran leaves the checks tile an em dash", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });

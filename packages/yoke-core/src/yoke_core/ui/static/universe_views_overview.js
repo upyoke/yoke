@@ -140,8 +140,8 @@ function loadSessions(context, panel, scope, tiles) {
   );
 }
 
-// What is shipping. The engine lists runs oldest-first; an overview answers
-// "what just happened", so this shows the newest few.
+// What is shipping. The engine bounds run history and returns the newest
+// receipts first, so the overview keeps that order before taking its summary.
 function loadDelivery(context, panel, scope) {
   const buckets = scopeBuckets(scope, context.projects(), false);
   loadScopedSection(
@@ -151,8 +151,7 @@ function loadDelivery(context, panel, scope) {
       payload: bucket === null ? {} : { project: bucket },
     })),
     (body, callResults) => {
-      const rows = mergedRows(callResults, (result) => result.rows)
-        .slice().reverse();
+      const rows = mergedRows(callResults, (result) => result.rows);
       panel.setCount(rows.length);
       renderTable(body, rows.slice(0, SUMMARY_ROW_LIMIT), withProjectColumn([
         { label: "run", value: (row) => row.id, mono: true },
