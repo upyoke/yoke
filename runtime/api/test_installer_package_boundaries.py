@@ -153,6 +153,27 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "universe export dumps the machine-held database via the engine",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py",
+        "yoke_core.domain.local_universe_import",
+    ): (
+        "local_engine_activation",
+        "local import restores only the active non-production local universe",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/universe_export_download.py",
+        "yoke_core.domain.universe_export",
+    ): (
+        "self_host_export_limits",
+        "self-host HTTPS export reuses the engine-owned export time bound",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/universe_export_download.py",
+        "yoke_core.domain.universe_portability",
+    ): (
+        "self_host_export_limits",
+        "self-host HTTPS export reuses the engine-owned archive size bound",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/local_universe.py",
         "yoke_core.domain.db_backend",
     ): (

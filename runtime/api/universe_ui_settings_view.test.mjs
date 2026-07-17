@@ -54,14 +54,12 @@ test("without host actions the Portability panel is copyable text, not controls"
   assert.deepEqual(codes.map((node) => node.textContent), [
     "yoke universe export",
     "yoke universe validate <archive>",
+    "yoke universe import <archive>",
   ]);
   assert.ok(!allNodes(view).some((node) => node.tagName === "BUTTON"));
   assert.equal(byClass(root, "capability-actions").length, 0);
   const text = allNodes(view).map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes(
-    "Importing into a local universe is not available yet",
-  ));
-  assert.ok(text.includes("hosted import lives in the host dashboard"));
+  assert.ok(text.includes("Replace this local universe"));
   mounted.unmount();
 });
 

@@ -1,11 +1,11 @@
 """Tool-shaped ``yoke init`` / ``yoke local-postgres`` / ``yoke universe``
 commands.
 
-Client-local machine operations with NO dispatcher function id: they
-create and manage the machine's own universe, so there is no control
-plane to dispatch through until they have run. Like the other tool-shaped
-families they resolve via the tool-shaped table after SUBCOMMAND_REGISTRY
-misses.
+Tool-shaped product operations with NO dispatcher function id: local setup and
+import manage the machine's own universe, while export either uses that direct
+database authority or streams from an authenticated self-host server. Like the
+other tool-shaped families they resolve via the tool-shaped table after
+SUBCOMMAND_REGISTRY misses.
 
 ``yoke init --local`` is the birth path for local mode: embedded Postgres
 fetched lazily and started under ``~/.yoke/``, control-plane schema
@@ -28,6 +28,12 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config import local_universe_setup as setup
+from yoke_cli.config import onboard_destinations
+from yoke_cli.config.universe_export_download import (
+    UniverseExportDownloadError,
+    download_universe,
+)
+from yoke_cli.transport.https import TransportError, resolve_https_connection
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -36,6 +42,7 @@ INIT_USAGE = (
 )
 
 EXPORT_USAGE = "yoke universe export [--out PATH] [--json]"
+IMPORT_USAGE = "yoke universe import ARCHIVE [--yes] [--json]"
 DEMO_SEED_USAGE = (
     "yoke local demo seed [--project PROJECT] [--count N] [--config PATH] [--json]"
 )
@@ -47,6 +54,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke local-postgres stop": "yoke local-postgres stop [--json]",
     "yoke local-postgres status": "yoke local-postgres status [--json]",
     "yoke universe export": EXPORT_USAGE,
+    "yoke universe import": IMPORT_USAGE,
 }
 
 
@@ -111,11 +119,10 @@ def universe_export(args: List[str]) -> int:
             "portable archive: a tar carrying the pg_dump payload and the "
             "freeze receipt that binds it, so the importer verifies the "
             "file by itself — the leave/graduate half of moving a universe "
-            "between deployment modes. Requires holding the database DSN: "
-            "sanctioned for a non-prod local-postgres connection. An https "
-            "connection refuses because this machine holds no DSN: hosted "
-            "org admins use the dashboard's Move universe action, while a "
-            "self-host operator owns the server backup authority. "
+            "between deployment modes. A non-prod local connection uses its "
+            "machine-held DSN; a self-host HTTPS connection streams from the "
+            "authenticated server export endpoint. Hosted org admins use "
+            "Platform's coordinated dashboard download. "
             "Prod-flagged Postgres connections stay operator-only."
         ),
     )
@@ -134,8 +141,18 @@ def universe_export(args: List[str]) -> int:
         return 2
     emit = _emit_for(parsed.json_mode)
     try:
-        report = setup.universe_export(out=parsed.out, emit=emit)
-    except setup.LocalUniverseSetupError as exc:
+        connection = resolve_https_connection()
+        if connection is not None and not onboard_destinations.is_hosted_url(
+            connection.api_url
+        ):
+            report = download_universe(connection, out=parsed.out)
+        else:
+            report = setup.universe_export(out=parsed.out, emit=emit)
+    except (
+        setup.LocalUniverseSetupError,
+        TransportError,
+        UniverseExportDownloadError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:
@@ -144,6 +161,60 @@ def universe_export(args: List[str]) -> int:
         print(f"universe export: {report.get('artifact')}")
         print(f"org: {report.get('org')}")
         print(f"format: {report.get('format')} bytes: {report.get('bytes')}")
+    return 0
+
+
+def universe_import(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke universe import",
+        description=(
+            "Replace the active machine-local universe from one portable "
+            "archive. The archive carries its own checksum receipt; deployed "
+            "code supplies the schema, imported remote credentials are "
+            "revoked, and the machine owner receives local admin authority."
+        ),
+    )
+    parser.add_argument("archive")
+    parser.add_argument(
+        "--yes",
+        dest="assume_yes",
+        action="store_true",
+        help="Consent to replacing the active local universe without a prompt.",
+    )
+    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parsed = parse_or_usage_error(parser, args, IMPORT_USAGE)
+    if parsed is None:
+        return 2
+    if not parsed.assume_yes:
+        if not sys.stdin.isatty():
+            print(
+                "error: importing replaces the active local universe; pass "
+                "--yes to consent when running non-interactively",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            response = input(
+                "This import replaces the active local universe. "
+                "Type 'replace' to continue: "
+            )
+        except EOFError:
+            response = ""
+        if response.strip().lower() != "replace":
+            print("error: import cancelled", file=sys.stderr)
+            return 1
+    try:
+        report = setup.universe_import(archive=parsed.archive)
+    except setup.LocalUniverseSetupError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if parsed.json_mode:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"universe imported: {report.get('org')}")
+        print(f"local owner: {report.get('actor_label')}")
+        archive = report.get("archive") or {}
+        print(f"archive: {archive.get('path')}")
     return 0
 
 
@@ -319,6 +390,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("local-postgres", "stop"): local_postgres_stop,
     ("local-postgres", "status"): local_postgres_status,
     ("universe", "export"): universe_export,
+    ("universe", "import"): universe_import,
 }
 
 
@@ -331,4 +403,5 @@ __all__ = [
     "local_postgres_status",
     "local_postgres_stop",
     "universe_export",
+    "universe_import",
 ]

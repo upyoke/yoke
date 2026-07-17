@@ -39,13 +39,15 @@ database as the validation target.
 
 ## Import: one file, one consent
 
-`yoke self-host import ARCHIVE` asks the operator exactly two things: which
+`yoke universe import ARCHIVE` and `yoke self-host import ARCHIVE` ask the
+operator exactly two things: which
 archive, and consent to replace the destination universe (`--yes` for
 non-interactive runs). Everything else — checksum, receipt verification,
 catalog compatibility — is derived from the archive. The destination is reset
 and restored through one path whether it was brand-new or held a prior
 universe; replacing the current universe is the operator's call, which is why
-the consent stays.
+the consent stays. Local import addresses only the active `local` connection;
+self-host import addresses an explicitly selected Compose bundle.
 
 ## Attended production source cutover
 

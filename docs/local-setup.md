@@ -102,6 +102,7 @@ that artifact with `yoke self-host import`:
 
 ```bash
 yoke universe export --out ~/backups/
+yoke universe import ~/backups/<org>-universe-<stamp>.tar
 yoke self-host import ~/backups/<org>-universe-<stamp>.tar \
   --dir /path/to/yoke-server
 ```
@@ -110,10 +111,14 @@ Validate archives before moving or uploading them; bounded and disposable
 round-trip recipes are in [Universe portability](universe-portability.md). The
 artifact is one tar carrying the pg_dump custom-format payload and the freeze
 receipt that binds it, so the importer verifies the file by itself. Export
-requires holding the database DSN, so it is sanctioned for the non-prod local
-universe: an https (hosted or self-hosted) connection refuses with guidance,
-and prod-flagged Postgres connections stay operator-only.
-Self-host import requires a stopped `core`, an owner-only archive, and one
+uses direct DSN authority for the non-prod local universe and the authenticated
+server export endpoint for a self-host HTTPS connection. Hosted connections use
+Platform's coordinated dashboard download; prod-flagged Postgres connections
+stay operator-only.
+Local import replaces the active `local` universe after one explicit consent,
+revokes imported remote credentials, and grants the machine owner local admin
+authority. Local and self-host imports require an owner-only archive. Self-host
+import also requires a stopped `core` and one
 consent to replace the destination universe; it atomically revokes imported
 tokens and browser sessions before minting one fresh org-admin token. See
 [Self-Host Yoke](self-host.md) for recovery details.

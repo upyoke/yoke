@@ -18,6 +18,7 @@ import pytest
 from yoke_cli.commands import local_universe as commands
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.config import local_universe_setup as setup
+from yoke_cli.transport.https import HttpsConnection
 
 
 def _stub_export_engine(report=None, error: str | None = None):
@@ -95,3 +96,51 @@ def test_tool_shaped_resolution_covers_universe_export():
     adapter, remaining = resolved
     assert adapter is commands.universe_export
     assert remaining == ["--json"]
+
+
+def test_export_uses_self_host_https_download(monkeypatch, capsys, tmp_path):
+    connection = HttpsConnection(
+        api_url="https://yoke.example.test",
+        token="token",
+        env="self-host",
+    )
+    calls = []
+    monkeypatch.setattr(commands, "resolve_https_connection", lambda: connection)
+    monkeypatch.setattr(
+        commands,
+        "download_universe",
+        lambda selected, *, out: calls.append((selected, out)) or {
+            "artifact": str(tmp_path / "acme.tar"),
+            "bytes": 12,
+            "format": "universe-tar",
+            "org": "acme",
+        },
+    )
+
+    assert commands.universe_export(["--out", str(tmp_path), "--json"]) == 0
+    assert calls == [(connection, str(tmp_path))]
+    assert json.loads(capsys.readouterr().out)["org"] == "acme"
+
+
+def test_hosted_export_stays_on_platform_guidance(monkeypatch, capsys):
+    connection = HttpsConnection(
+        api_url="https://app.stage.upyoke.com/api/orgs/acme",
+        token="token",
+        env="stage",
+    )
+    monkeypatch.setattr(commands, "resolve_https_connection", lambda: connection)
+    monkeypatch.setattr(
+        setup,
+        "_export_engine",
+        lambda: _stub_export_engine(error="hosted org admins use the dashboard"),
+    )
+    monkeypatch.setattr(
+        commands,
+        "download_universe",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("hosted export must not use self-host endpoint")
+        ),
+    )
+
+    assert commands.universe_export([]) == 1
+    assert "dashboard" in capsys.readouterr().err

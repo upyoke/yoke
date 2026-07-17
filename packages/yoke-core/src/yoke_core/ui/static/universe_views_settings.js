@@ -66,10 +66,10 @@ function appendLocalCommands(documentNode, body) {
     "Check an archive's format and freeze receipt:",
     "yoke universe validate <archive>",
   ));
-  body.appendChild(el(
-    documentNode, "p", "empty",
-    "Importing into a local universe is not available yet; hosted import " +
-      "lives in the host dashboard.",
+  body.appendChild(commandLine(
+    documentNode,
+    "Replace this local universe from a portable archive:",
+    "yoke universe import <archive>",
   ));
 }
 

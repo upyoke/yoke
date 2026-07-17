@@ -2,14 +2,14 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-17T12:29:30Z_
+_Audit generated_at: 2026-07-17T12:57:39Z_
 
 ## 1. Summary
 
 - Function ids registered: **215**
 - Internal dispatch-only functions without CLI adapters: **1**
 - `yoke` CLI subcommands: **214** (214 carry usable `--help`)
-- Operation tracker: **214 wrapped**, 72 permanent, 0 pending
+- Operation tracker: **214 wrapped**, 73 permanent, 0 pending
 - Skill-body recipes: 213 total (176 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
@@ -272,7 +272,6 @@ Wrapped `yoke <subcommand>` adapters: **214** (operation tracker confirms 214 wr
 | github | `yoke github disconnect` | tool_shaped |
 | github | `yoke github status` | tool_shaped |
 | local_universe | `yoke init` | tool_shaped |
-| local_universe.export | `yoke universe export` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres start` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres status` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres stop` | tool_shaped |
@@ -309,6 +308,8 @@ Wrapped `yoke <subcommand>` adapters: **214** (operation tracker confirms 214 wr
 | tools.watch | `python3 -m yoke_core.tools.watch_pytest` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_session_offer` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_tail` | tool_shaped |
+| universe.export | `yoke universe export` | tool_shaped |
+| universe.import | `yoke universe import` | tool_shaped |
 | usher | `yoke usher reconcile-github` | tool_shaped |
 | worktree | `python3 -m yoke_core.domain.worktree create` | tool_shaped |
 
