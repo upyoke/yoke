@@ -88,27 +88,13 @@ def test_accessors_return_expected_absolute_shapes(
         / "test-run"
         / "dispatch-inputs"
     )
+    # Hook markers and the harness runtime cache are cross-process
+    # coordination surfaces: no session/run segments.
     assert scratch.hook_marker_path("done") == (
-        tmp_path
-        / "root"
-        / "yoke"
-        / "sessions"
-        / "test-session"
-        / "runs"
-        / "test-run"
-        / "hook-markers"
-        / "done"
+        tmp_path / "root" / "yoke" / "hook-markers" / "done"
     )
     assert scratch.harness_runtime_cache_path("model.json") == (
-        tmp_path
-        / "root"
-        / "yoke"
-        / "sessions"
-        / "test-session"
-        / "runs"
-        / "test-run"
-        / "harness-runtime-cache"
-        / "model.json"
+        tmp_path / "root" / "yoke" / "harness-runtime-cache" / "model.json"
     )
     assert scratch.watcher_capture_path("pytest", "raw", "abc").name == (
         "yoke-pytest.raw.abc.log"
@@ -148,6 +134,29 @@ def test_accessors_return_expected_absolute_shapes(
     ):
         assert path.is_absolute()
         assert path.exists() if path.is_dir() else path.parent.exists()
+
+
+def test_coordination_paths_are_stable_across_session_and_run_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fire-once markers and the runtime cache must resolve identically from
+    every hook process of a session, whatever ambient identity says."""
+    _patch_checkout_project(monkeypatch)
+    _set_identity(monkeypatch)
+    monkeypatch.delenv("YOKE_PROJECT", raising=False)
+    monkeypatch.setenv(scratch.ENV_KEY, str(tmp_path / "root"))
+
+    first = (
+        scratch.hook_marker_path("codex-prompt-abc"),
+        scratch.harness_runtime_cache_path("codex-runtime-abc.json"),
+    )
+    monkeypatch.setenv("YOKE_SESSION_ID", "other-session")
+    monkeypatch.setenv("YOKE_RUN_ID", "other-run")
+
+    assert (
+        scratch.hook_marker_path("codex-prompt-abc"),
+        scratch.harness_runtime_cache_path("codex-runtime-abc.json"),
+    ) == first
 
 
 def test_mint_watcher_capture_pair_shares_nonce(
