@@ -18,6 +18,7 @@ QA_BROWSER_SETUP_USAGE = (
     "yoke qa browser setup [--dry-run] [--port PORT] [--headed] "
     "[--idle-timeout SECONDS] [--json]"
 )
+MILLISECONDS_PER_SECOND = 1000
 
 
 def qa_browser_status(args: List[str]) -> int:
@@ -129,7 +130,11 @@ def qa_browser_setup(args: List[str]) -> int:
                 "daemon": browser_client.daemon_start(
                     port=parsed.port,
                     headed=parsed.headed,
-                    idle_timeout=parsed.idle_timeout,
+                    idle_timeout=(
+                        parsed.idle_timeout * MILLISECONDS_PER_SECOND
+                        if parsed.idle_timeout is not None
+                        else None
+                    ),
                 ),
             }
     except RuntimeError as exc:
