@@ -59,7 +59,6 @@ def dispatch_decision_engine(
     routing_config,
     effective_policy,
     session_id: str,
-    workspace: str,
     step: int,
     resolve_monkeypatchable: Callable[[str], Any],
 ) -> Tuple[Any, Optional[Dict[str, Any]]]:
@@ -101,7 +100,7 @@ def dispatch_decision_engine(
             }
 
         schedule = compute_schedule(
-            conn, project_scope=project_scope, session_id=session_id, workspace=workspace,
+            conn, project_scope=project_scope, session_id=session_id,
         )
         try:
             drift = resolve_monkeypatchable("assess_post_delivery_drift")(conn, project_scope)

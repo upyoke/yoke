@@ -9,7 +9,8 @@ helpers live in ``test_session_offer_schemas.py``.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+from yoke_core.domain.scheduler_types import SMLState
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,6 +25,15 @@ from runtime.api.test_constants import TEST_MODEL_ID
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _sml_state_patch(coherent: bool = True):
+    """Pin scheduler SML coherence for offer tests (fixture DBs carry no
+    strategy_docs table; coherence is read from live strategy_docs rows)."""
+    return patch(
+        "yoke_core.domain.scheduler._compute_sml_state",
+        return_value=SMLState(coherent=coherent),
+    )
 
 
 class TestSessionOffer:
@@ -79,11 +89,7 @@ class TestSessionOffer:
     def test_offer_returns_next_action(self):
         """AC-1: POST /v1/sessions/offer returns a NextAction JSON."""
         self._ensure_active_session("test-session-001")
-        with patch("yoke_core.domain.scheduler.Path") as mock_path:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
+        with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -96,12 +102,8 @@ class TestSessionOffer:
     def test_offer_charge_with_runnable_items(self):
         """AC-4: Session-offer exposes routed issue scheduling truth."""
         self._ensure_active_session("test-session-001")
-        with patch("yoke_core.domain.scheduler.Path") as mock_path, \
+        with _sml_state_patch(), \
              patch("yoke_core.api.main.release_item_claim_for_execution") as mock_release:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -173,12 +175,8 @@ class TestSessionOffer:
         finally:
             conn.close()
 
-        with patch("yoke_core.domain.scheduler.Path") as mock_path, \
+        with _sml_state_patch(), \
              patch("yoke_core.api.main.release_item_claim_for_execution"):
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -191,11 +189,8 @@ class TestSessionOffer:
     def test_offer_drift_review_failure_returns_escalate(self):
         """drift-review failures surface escalate instead of 500."""
         self._ensure_active_session("test-session-001")
-        with patch("yoke_core.domain.scheduler.Path") as mock_path, \
+        with _sml_state_patch(), \
              patch("yoke_core.api.main.assess_post_delivery_drift", side_effect=RuntimeError("boom")):
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -217,12 +212,9 @@ class TestSessionOffer:
             delivered_items=["YOK-999"],
         )
 
-        with patch("yoke_core.domain.scheduler.Path") as mock_path, \
+        with _sml_state_patch(), \
              patch("yoke_core.api.main.assess_post_delivery_drift", return_value=drift), \
              patch("yoke_core.api.main.emit_drift_review_completed") as mock_emit:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -243,10 +235,7 @@ class TestSessionOffer:
     def test_offer_strategize_without_sml_charges_available_work(self):
         """DB process policy skips strategize and charges available work."""
         self._ensure_active_session("test-session-001")
-        with patch("yoke_core.domain.scheduler.Path") as mock_path:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = False
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
+        with _sml_state_patch(coherent=False):
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -266,11 +255,7 @@ class TestSessionOffer:
         conn.commit()
         conn.close()
 
-        with patch("yoke_core.domain.scheduler.Path") as mock_path:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
+        with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -289,11 +274,7 @@ class TestSessionOffer:
         conn.commit()
         conn.close()
 
-        with patch("yoke_core.domain.scheduler.Path") as mock_path:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
+        with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -306,11 +287,7 @@ class TestSessionOffer:
     def test_offer_response_includes_chainable(self):
         """Response JSON always includes the chainable field."""
         self._ensure_active_session("test-session-001")
-        with patch("yoke_core.domain.scheduler.Path") as mock_path:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
+        with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200

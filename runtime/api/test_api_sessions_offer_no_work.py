@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+from yoke_core.domain.scheduler_types import SMLState
 
 from fastapi.testclient import TestClient
 
@@ -13,6 +14,15 @@ from runtime.api.test_service_client_sessions_offer_no_work import (
     _seed_stale_holder_with_recent_activity,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+
+
+def _sml_state_patch(coherent: bool = True):
+    """Pin scheduler SML coherence for offer tests (fixture DBs carry no
+    strategy_docs table; coherence is read from live strategy_docs rows)."""
+    return patch(
+        "yoke_core.domain.scheduler._compute_sml_state",
+        return_value=SMLState(coherent=coherent),
+    )
 
 
 def test_api_action_hint_no_work_returns_wait_with_holder(session_offer_db):
@@ -38,11 +48,7 @@ def test_api_action_hint_no_work_returns_wait_with_holder(session_offer_db):
         "workspace": session_offer_db["tmp_dir"],
         "execution_lane": "DARIUS",
     }
-    with patch("yoke_core.domain.scheduler.Path") as mock_path:
-        mock_file = MagicMock()
-        mock_file.is_file.return_value = True
-        mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-        mock_path.return_value.__truediv__ = lambda self, name: mock_file
+    with _sml_state_patch():
         client = TestClient(app)
         client.headers.update(session_offer_db["auth_headers"])
         resp = client.post("/v1/sessions/offer", json=payload)

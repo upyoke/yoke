@@ -104,7 +104,6 @@ def recompute_and_pin_for_claim(
     session_id: str,
     project_scope: List[int],
     wip_cap: int,
-    workspace: str,
     execution_lane: str,
     supported_paths: Optional[List[str]],
     lane_allowed_paths: Optional[Dict[str, List[str]]],
@@ -125,7 +124,7 @@ def recompute_and_pin_for_claim(
 
     schedule = compute_schedule(
         conn, project_scope=project_scope, wip_cap=wip_cap,
-        session_id=session_id, workspace=workspace,
+        session_id=session_id,
     )
     schedule = _filter_schedule_for_offer(
         schedule, execution_lane=execution_lane,

@@ -1,12 +1,11 @@
-"""Shared schema strings, scheduler_db fixture, and SML helpers used by
-the scheduler test sibling modules. Imported, not pytest-collected."""
+"""Shared schema strings, scheduler_db fixture, and strategy-doc seeding
+used by the scheduler test sibling modules. Imported, not pytest-collected."""
 from __future__ import annotations
-
-import os
 
 import pytest
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.test_dependency_schema import (
@@ -99,6 +98,21 @@ CREATE TABLE path_claims (
 );
 """
 
+# SML coherence reads live (non-archived) strategy_docs rows; the
+# fixture carries the table so ``_compute_sml_state`` never hits the
+# missing-relation fallback (which on Postgres would roll back
+# uncommitted rows a test seeded before calling ``compute_schedule``).
+STRATEGY_DOCS_SCHEMA = """
+CREATE TABLE strategy_docs (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER NOT NULL,
+    slug TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    archived_at TEXT
+);
+"""
+
 SCHEMA = (
     ITEMS_SCHEMA
     + ITEM_DEPENDENCIES_SCHEMA
@@ -107,6 +121,7 @@ SCHEMA = (
     + PROJECTS_SCHEMA
     + EVENTS_SCHEMA
     + PATH_CLAIMS_SCHEMA
+    + STRATEGY_DOCS_SCHEMA
 )
 
 
@@ -148,8 +163,8 @@ def scheduler_db(tmp_path):
     """Create a temporary DB with all tables needed for scheduler tests.
 
     ``YOKE_PG_DSN`` is repointed to a disposable per-test Postgres database
-    for the fixture's lifetime, then restored and dropped on teardown. The
-    yielded ``tmp_dir`` is the workspace root for the SML helpers.
+    for the fixture's lifetime, then restored and dropped on teardown.
+    Default strategy-doc rows are seeded so SML coherence reads True.
     """
     tmp_dir = str(tmp_path)
     with init_test_db(tmp_path, apply_schema=_apply_scheduler_schema) as db_path:
@@ -178,6 +193,7 @@ def scheduler_db(tmp_path):
                 (item_id, title, item_type, status, priority, item_id),
             )
 
+        seed_strategy_docs(conn, project_id=1)
         conn.commit()
 
         try:
@@ -186,12 +202,13 @@ def scheduler_db(tmp_path):
             conn.close()
 
 
-def _create_sml_files(tmp_dir):
-    """Create SML files in the workspace with future timestamps."""
-    strategy_dir = os.path.join(tmp_dir, ".yoke", "strategy")
-    os.makedirs(strategy_dir, exist_ok=True)
-    for fname in ("MISSION.md", "LANDSCAPE.md", "VISION.md", "MASTER-PLAN.md"):
-        fpath = os.path.join(strategy_dir, fname)
-        with open(fpath, "w") as f:
-            f.write(f"# {fname}\n")
-        os.utime(fpath, (9999999999, 9999999999))
+def seed_strategy_docs(conn, project_id: int) -> None:
+    """Seed live default strategy-doc rows so SML coherence reads True."""
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    for offset, slug in enumerate(DEFAULT_STRATEGY_DOC_SLUGS):
+        conn.execute(
+            """INSERT INTO strategy_docs
+               (id, project_id, slug, content, updated_at)
+               VALUES ({p}, {p}, {p}, {p}, '2026-03-01')""".format(p=p),
+            (project_id * 100 + offset, project_id, slug, f"# {slug}\n"),
+        )

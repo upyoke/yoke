@@ -221,7 +221,6 @@ def run_session_offer(
             routing_config=routing_config,
             effective_policy=effective_policy,
             session_id=session_id,
-            workspace=workspace,
             step=step,
             resolve_monkeypatchable=_resolve_monkeypatchable,
         )
