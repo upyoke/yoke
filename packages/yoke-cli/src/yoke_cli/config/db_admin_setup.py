@@ -18,7 +18,7 @@ from yoke_contracts.machine_config import schema as contract
 
 DEFAULT_PROJECT = "yoke"
 DEFAULT_LOCAL_HOST = "127.0.0.1"
-DEFAULT_ADMIN_ENV_SUFFIX = "-db-admin"
+DEFAULT_ADMIN_ENV_SUFFIX = contract.DB_ADMIN_ENV_SUFFIX
 DEFAULT_LOCAL_PORTS = {
     "prod": 6547,
     "stage": 6548,
@@ -39,7 +39,8 @@ def admin_env_name(env_name: str) -> str:
 def secret_name(project: str, env_name: str) -> str:
     return (
         f"{_safe_label(project, what='project')}-"
-        f"{_safe_label(env_name, what='environment')}-db-admin"
+        f"{_safe_label(env_name, what='environment')}"
+        f"{contract.DB_ADMIN_ENV_SUFFIX}"
     )
 
 

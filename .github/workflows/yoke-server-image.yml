@@ -292,6 +292,30 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Attest the untagged image digest
+        id: attest_attempt_1
+        continue-on-error: true
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-name: ${{ needs.validate-tag.outputs.repository }}
+          subject-digest: ${{ needs.assemble.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+
+      - name: Retry the image attestation after a registry transport failure
+        id: attest_attempt_2
+        if: steps.attest_attempt_1.outcome != 'success'
+        continue-on-error: true
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-name: ${{ needs.validate-tag.outputs.repository }}
+          subject-digest: ${{ needs.assemble.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+
+      - name: Make the final image attestation attempt
+        if: >-
+          steps.attest_attempt_1.outcome != 'success' &&
+          steps.attest_attempt_2.outcome != 'success'
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
         with:
           subject-name: ${{ needs.validate-tag.outputs.repository }}

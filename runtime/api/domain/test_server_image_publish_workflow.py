@@ -199,6 +199,19 @@ def test_digest_is_attested_before_any_named_reference_is_published():
     assert "create-storage-record: false" in text
 
 
+def test_digest_attestation_retries_transport_failures_before_publication():
+    text = _text()
+    attest = text.split("  attest:\n", 1)[1].split("\n  publish-tags:\n", 1)[0]
+    assert attest.count("uses: actions/attest@") == 3
+    assert "id: attest_attempt_1" in attest
+    assert "id: attest_attempt_2" in attest
+    assert attest.count("continue-on-error: true") == 2
+    assert "steps.attest_attempt_1.outcome != 'success'" in attest
+    assert "steps.attest_attempt_2.outcome != 'success'" in attest
+    assert attest.count("subject-digest: ${{ needs.assemble.outputs.digest }}") == 3
+    assert attest.count("push-to-registry: true") == 3
+
+
 def test_conflicting_sha12_is_refused_and_both_tags_are_verified():
     text = _text()
     assert '"$existing_digest" != "$PUSHED_DIGEST"' in text

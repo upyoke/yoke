@@ -97,9 +97,9 @@ The pipeline owns that resolution and enforces the same gate internally
 
 ```bash
 if [ "$_pre_merge_verified" = "1" ] && [ -n "$_eph_next_stage" ]; then
- python3 -m yoke_core.domain.deploy_pipeline {run-id} --from-stage "$_eph_next_stage"
+ yoke --env prod-db-admin deployment-runs execute {run-id} --from-stage "$_eph_next_stage"
 else
- python3 -m yoke_core.domain.deploy_pipeline {run-id}
+ yoke --env prod-db-admin deployment-runs execute {run-id}
 fi
 ```
 

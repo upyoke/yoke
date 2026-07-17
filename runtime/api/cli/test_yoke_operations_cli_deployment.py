@@ -259,3 +259,41 @@ def test_deployment_run_create_dispatches_and_prints_run_id() -> None:
         "flow": "yoke-hosted-production",
         "created_by": "operator",
     }
+
+
+def test_deployment_run_execute_is_a_client_local_tool() -> None:
+    from yoke_cli.commands.tool_shaped import resolve_tool_shaped
+
+    resolved = resolve_tool_shaped([
+        "deployment-runs", "execute", "run-20260616-009", "--timeout", "90",
+    ])
+    assert resolved is not None
+    adapter, remaining = resolved
+    assert adapter.__name__ == "deployment_runs_execute"
+    assert remaining == ["run-20260616-009", "--timeout", "90"]
+
+
+def test_deployment_run_execute_requires_explicit_db_admin_env() -> None:
+    rc, _out, err = _run_capture(
+        _stub_ok, "deployment-runs", "execute", "run-20260616-009",
+    )
+    assert rc == 2
+    assert "--env prod-db-admin" in err
+
+
+def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None:
+    with patch(
+        "yoke_core.domain.deploy_pipeline.main",
+        return_value=0,
+    ) as pipeline:
+        rc, _out, err = _run_capture(
+            _stub_ok,
+            "--env", "prod-db-admin",
+            "deployment-runs", "execute", "run-20260616-009",
+            "--from-stage", "hosted-release",
+        )
+
+    assert rc == 0, err
+    pipeline.assert_called_once_with([
+        "run-20260616-009", "--from-stage", "hosted-release",
+    ])

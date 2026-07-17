@@ -35,6 +35,10 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
+from yoke_contracts.machine_config.schema import (
+    DB_ADMIN_ENV_SUFFIX,
+    ENV_OVERRIDE,
+)
 
 
 EXIT_SUCCESS = 0
@@ -44,14 +48,14 @@ EXIT_USAGE = 3
 def _normalize_release_control_plane_env(value: str) -> str:
     """Return the environment label for release-run metadata authority."""
     label = value.strip()
-    if label.endswith("-db-admin"):
-        return label[: -len("-db-admin")]
+    if label.endswith(DB_ADMIN_ENV_SUFFIX):
+        return label[: -len(DB_ADMIN_ENV_SUFFIX)]
     return label
 
 
 def _release_control_plane_env() -> str:
     """Describe where deployment run metadata is being written."""
-    active_env = os.environ.get("YOKE_ENV", "")
+    active_env = os.environ.get(ENV_OVERRIDE, "")
     if active_env.strip():
         return _normalize_release_control_plane_env(active_env)
     return "unbound"
@@ -274,6 +278,8 @@ def run_pipeline(
                 run_id, s_name, "pass", script_dir=sd,
             )
         else:
+            if exec_diag:
+                print(f"Executor diagnostic: {exec_diag}", file=sys.stderr)
             failure_ctx = {"run_id": run_id, "stage": s_name, "result": "failed", "exit_code": exec_rc}
             if exec_diag:
                 failure_ctx["executor_diagnostic"] = exec_diag

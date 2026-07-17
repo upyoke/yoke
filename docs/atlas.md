@@ -2,15 +2,15 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-17T16:26:35Z_
+_Audit generated_at: 2026-07-17T23:04:04Z_
 
 ## 1. Summary
 
 - Function ids registered: **215**
 - Internal dispatch-only functions without CLI adapters: **1**
 - `yoke` CLI subcommands: **215** (215 carry usable `--help`)
-- Operation tracker: **214 wrapped**, 73 permanent, 0 pending
-- Skill-body recipes: 216 total (178 template-skipped, 0 failing)
+- Operation tracker: **214 wrapped**, 74 permanent, 0 pending
+- Skill-body recipes: 217 total (179 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
@@ -264,6 +264,7 @@ Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wr
 | deployment_runs | `python3 -m yoke_core.domain.deploy_pipeline` | tool_shaped |
 | deployment_runs | `python3 -m yoke_core.domain.environment_bootstrap` | tool_shaped |
 | deployment_runs | `python3 -m yoke_core.tools.verify_env_auth_boundary` | tool_shaped |
+| deployment_runs | `yoke deployment-runs execute` | tool_shaped |
 | dev | `yoke dev db-admin setup` | tool_shaped |
 | dev | `yoke dev path-snapshot-prewarm` | tool_shaped |
 | dev | `yoke dev setup` | tool_shaped |

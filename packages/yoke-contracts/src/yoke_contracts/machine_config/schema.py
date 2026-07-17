@@ -58,6 +58,7 @@ from yoke_contracts.machine_config.schema_connections import (
 )
 
 SCHEMA_VERSION = 1
+DB_ADMIN_ENV_SUFFIX = "-db-admin"
 DEFAULT_CONFIG_NAME = "config.json"
 DEFAULT_BOARD_PATH = ".yoke/BOARD.md"
 DEFAULT_CACHE_DIR_NAME = "cache"

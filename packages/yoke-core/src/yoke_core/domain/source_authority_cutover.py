@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_core.domain import db_backend
+from yoke_contracts.machine_config.schema import DB_ADMIN_ENV_SUFFIX
 from yoke_core.domain import source_authority_connect_fence as connect_fence
 from yoke_core.domain import source_authority_credentials as source_credentials
 from yoke_core.domain import source_authority_role_credentials as role_credentials
@@ -62,7 +63,7 @@ def resolve_prod_admin_dsn() -> str:
         raise SourceAuthorityCutoverError("no machine connection is selected")
     if (
         env.backend != "postgres"
-        or not env.environment.endswith("-db-admin")
+        or not env.environment.endswith(DB_ADMIN_ENV_SUFFIX)
         or not connection_is_prod(env.config)
     ):
         raise SourceAuthorityCutoverError(

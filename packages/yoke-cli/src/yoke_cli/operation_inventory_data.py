@@ -314,6 +314,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # function call. Flow admin (delete) is operator break-glass.
     _p("python3 -m yoke_core.domain.deploy_pipeline",
        "deployment_runs", REASON_TOOL_SHAPED),
+    _p("yoke deployment-runs execute",
+       "deployment_runs", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.domain.flow delete",
        "deployment_flows", REASON_OPERATOR_BREAK_GLASS),
     # Environment DB bootstrap — env-lifecycle command-shaped boundary

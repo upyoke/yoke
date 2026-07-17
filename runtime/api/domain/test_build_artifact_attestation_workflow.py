@@ -90,6 +90,19 @@ def test_signer_attests_exact_validated_wheels_after_transfer():
     assert "subject-path: ${{ env.RELEASE_DIR }}" not in text
 
 
+def test_signer_retries_transient_attestation_transport_failures():
+    signer = _text().split("  attest:\n", 1)[1]
+    assert signer.count("uses: actions/attest@") == 3
+    assert "id: attest_attempt_1" in signer
+    assert "id: attest_attempt_2" in signer
+    assert signer.count("continue-on-error: true") == 2
+    assert "steps.attest_attempt_1.outcome != 'success'" in signer
+    assert "steps.attest_attempt_2.outcome != 'success'" in signer
+    assert signer.count(
+        "subject-path: ${{ runner.temp }}/validated-release/wheels/*.whl"
+    ) == 3
+
+
 def test_validated_identity_drives_reusable_outputs_and_upload_name():
     text = _text()
     assert 'json.load(open(sys.argv[1], encoding="utf-8"))["version"]' in text
