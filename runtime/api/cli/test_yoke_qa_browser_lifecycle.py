@@ -294,7 +294,7 @@ class TestSetupAdapter:
 
         assert rc == 0
         daemon_start.assert_called_once_with(
-            port=9876, headed=True, idle_timeout=60,
+            port=9876, headed=True, idle_timeout=60_000,
         )
         payload = json.loads(out.getvalue())
         assert payload["prerequisite_actions"] == [

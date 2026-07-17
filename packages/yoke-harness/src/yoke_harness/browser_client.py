@@ -92,8 +92,9 @@ def daemon_request(
     if not selected.endpoint or not selected.token:
         raise RuntimeError("daemon not running (invalid state)")
 
+    request_url = f"{selected.endpoint}{path}"
     request = Request(
-        f"{selected.endpoint}{path}",
+        request_url,
         data=json.dumps(body or {}).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
@@ -112,36 +113,25 @@ def daemon_request(
             opener=urlopen,
         )
     except BoundedJsonHttpError as exc:
-        raise RuntimeError(f"daemon request failed: {exc}") from None
+        raise RuntimeError(
+            f"daemon request failed (endpoint={request_url}, pid={selected.pid}): {exc}"
+        ) from None
     payload = response.payload if response.payload is not None else {}
     if not isinstance(payload, dict):
         raise RuntimeError("daemon request failed: response is not a JSON object")
     return payload
 
 
-def daemon_status() -> Dict[str, Any]:
-    state = DaemonState.load()
-    if state is None:
-        return {"status": "not_running"}
-    if daemon_running(state):
-        return {
-            "status": "running",
-            "health": state.health,
-            "endpoint": state.endpoint,
-            "pid": state.pid,
-        }
-    return {
-        "status": "crashed",
-        "health": "crashed",
-        "endpoint": state.endpoint,
-        "pid": state.pid,
-    }
-
-
-def daemon_health() -> Dict[str, Any]:
-    if not daemon_running():
-        raise RuntimeError("daemon not running")
-    return daemon_request("/api/health", timeout=10)
+from yoke_harness.browser_client_health import (  # noqa: E402
+    daemon_health,
+    daemon_status,
+    probe_daemon_health as _probe_daemon_health,
+)
+from yoke_harness.browser_client_actions import (  # noqa: E402
+    execute_step,
+    parse_viewport,
+    snapshot_screenshot,
+)
 
 
 def daemon_start(
@@ -151,7 +141,18 @@ def daemon_start(
 ) -> Dict[str, Any]:
     state = DaemonState.load()
     if state and daemon_running(state):
-        return {"status": "already_running", "endpoint": state.endpoint}
+        try:
+            daemon_health(state=state, timeout=1)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                "browser daemon process is alive but its health endpoint is "
+                f"not ready (endpoint={state.endpoint}, pid={state.pid}): {exc}"
+            ) from None
+        return {
+            "status": "already_running",
+            "endpoint": state.endpoint,
+            "pid": state.pid,
+        }
 
     browser = _browser_dir()
     daemon_js = browser / "src" / "daemon.js"
@@ -261,10 +262,24 @@ def daemon_start(
             env=env,
         )
 
+    last_readiness_error = "state file not ready"
     for _ in range(10):
         current = DaemonState.load()
-        if current and current.health == "healthy":
-            return {"status": "started", "endpoint": current.endpoint, "pid": proc.pid}
+        if current and current.pid != proc.pid:
+            last_readiness_error = (
+                f"state pid {current.pid} does not match launched pid {proc.pid}"
+            )
+        elif current and current.health == "healthy":
+            try:
+                _probe_daemon_health(current, timeout=1)
+            except RuntimeError as exc:
+                last_readiness_error = str(exc)
+            else:
+                return {
+                    "status": "started",
+                    "endpoint": current.endpoint,
+                    "pid": proc.pid,
+                }
         try:
             proc.wait(timeout=0)
             stderr_content = log_file.read_text(encoding="utf-8") if log_file.exists() else ""
@@ -275,7 +290,12 @@ def daemon_start(
 
     proc.kill()
     stderr_content = log_file.read_text(encoding="utf-8") if log_file.exists() else ""
-    raise RuntimeError(f"timeout waiting for daemon to become healthy\n{stderr_content}")
+    detail = f"last readiness error: {last_readiness_error}"
+    if stderr_content:
+        detail += f"\ndaemon stderr:\n{stderr_content}"
+    raise RuntimeError(
+        f"timeout waiting for browser daemon health endpoint to become ready\n{detail}"
+    )
 
 
 def daemon_stop() -> str:
@@ -298,39 +318,6 @@ def daemon_stop() -> str:
         pass
     _state_file_path().unlink(missing_ok=True)
     return "stopped"
-
-
-def execute_step(
-    step_json: Dict[str, Any],
-    base_url: str,
-    output_dir: Optional[str] = None,
-) -> Dict[str, Any]:
-    body: Dict[str, Any] = {"step": step_json, "baseUrl": base_url}
-    if output_dir:
-        body["outputDir"] = output_dir
-    return daemon_request("/api/exec/step", body)
-
-
-def parse_viewport(viewport: str) -> tuple[int, int]:
-    parts = viewport.lower().split("x")
-    if len(parts) != 2:
-        raise ValueError(f"Invalid viewport format: {viewport!r} (expected WxH)")
-    return int(parts[0]), int(parts[1])
-
-
-def snapshot_screenshot(
-    url: str,
-    annotate: bool = False,
-    output_path: Optional[str] = None,
-    viewport: Optional[str] = None,
-) -> Dict[str, Any]:
-    body: Dict[str, Any] = {"url": url, "annotate": annotate}
-    if output_path:
-        body["outputPath"] = output_path
-    if viewport:
-        width, height = parse_viewport(viewport)
-        body["viewport"] = {"width": width, "height": height}
-    return daemon_request("/api/snapshot/screenshot", body)
 
 
 __all__ = [
