@@ -37,6 +37,8 @@ from yoke_cli.commands.adapters.claims import (
 from yoke_cli.commands.adapters.organizations import organizations_get
 from yoke_cli.commands.adapters.projects_capability_settings import projects_capability_settings_get, projects_capability_settings_merge, projects_capability_settings_set
 from yoke_cli.commands.adapters.projects_environment_settings import projects_environment_settings_get, projects_environment_settings_merge
+from yoke_cli.commands.adapters.projects_pulumi_state import projects_pulumi_state_migrate
+from yoke_cli.commands.adapters.projects_pulumi_stack_config import projects_pulumi_stack_config_get
 from yoke_cli.commands.adapters.identity import (
     identity_autojoin_set,
     identity_invite_create,
@@ -348,7 +350,8 @@ __all__ = [
     "projects_capability_has", "projects_capabilities_list",
     "projects_capability_secret_set",
     "projects_capability_settings_get", "projects_capability_settings_set",
-    "projects_capability_settings_merge",
+    "projects_capability_settings_merge", "projects_pulumi_state_migrate",
+    "projects_pulumi_stack_config_get",
     "projects_checkout_context", "projects_github_binding_bind", "projects_github_binding_status", "projects_github_binding_unbind",
     "projects_github_sync_mode_repair", "organizations_get",
     "identity_invite_create", "identity_invite_list",

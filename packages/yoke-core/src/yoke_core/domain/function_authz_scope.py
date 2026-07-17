@@ -48,6 +48,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_ADMIN,
     PERM_PROJECT_CREATE,
     PERM_PROJECT_INSTALL,
+    PERM_PROJECT_RENDER_READ,
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.yoke_function_registry import RegistryEntry
@@ -110,6 +111,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.environment_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment_settings.merge": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN,
+    ),
+    "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.pulumi_stack_config.get": AuthzSpec(
+        PROJECT, PERM_PROJECT_RENDER_READ,
     ),
     "projects.capability.has": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),

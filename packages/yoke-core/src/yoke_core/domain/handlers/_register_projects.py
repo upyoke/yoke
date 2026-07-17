@@ -16,6 +16,10 @@ from yoke_core.domain.handlers import (
 from yoke_core.domain.handlers import (
     projects_github_sync_mode_repair as _sync_mode_repair,
 )
+from yoke_core.domain.handlers import projects_pulumi_state as _pulumi_state
+from yoke_core.domain.handlers import (
+    projects_pulumi_stack_config as _pulumi_stack_config,
+)
 
 _PROJECT_WRITE_SURFACES = (
     ("projects.create", _projects_upsert.handle_projects_create),
@@ -125,6 +129,46 @@ def register(registry) -> None:
         side_effects=["projects_update"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["dry_run_default", "explicit_apply_required"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "projects.pulumi_state.migrate",
+        _pulumi_state.handle_pulumi_state_migrate,
+        _pulumi_state.PulumiStateMigrateRequest,
+        _pulumi_state.PulumiStateMigrateResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.projects_pulumi_state",
+        target_kinds=["global"],
+        side_effects=[
+            "sites_settings_write", "project_capabilities_settings_write",
+        ],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "dry_run_default", "exact_stack_set", "redacted_receipt",
+            "transactional_move",
+        ],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "projects.pulumi_stack_config.get",
+        _pulumi_stack_config.handle_pulumi_stack_config_get,
+        _pulumi_stack_config.PulumiStackConfigGetRequest,
+        _pulumi_stack_config.PulumiStackConfigGetResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.projects_pulumi_stack_config"
+        ),
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "exact_stack_scope", "declared_sensitive_paths",
+            "no_unrelated_settings",
+        ],
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,

@@ -131,7 +131,11 @@ def _dispatch(
         del stderr
         if not response.success:
             return None
-        settings_json = str((response.result or {}).get("settings_json") or "")
+        result = response.result or {}
+        if result.get("changed_paths") is not None:
+            stdout.write(",".join(result.get("changed_paths") or []) + "\n")
+            return None
+        settings_json = str(result.get("settings_json") or "")
         stdout.write(settings_json)
         if not settings_json.endswith("\n"):
             stdout.write("\n")

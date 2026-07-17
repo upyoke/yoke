@@ -84,18 +84,21 @@ def run_redacted_child(
     child_factory: Callable[..., Any] = subprocess.Popen,
     out: TextIO,
     err: TextIO,
+    cwd: os.PathLike[str] | str | None = None,
 ) -> RedactedChildResult:
     """Run a non-interactive child and forward both streams concurrently."""
     try:
-        process = child_factory(
-            list(command),
-            env=dict(env),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=0,
-            start_new_session=True,
-        )
+        child_kwargs = {
+            "env": dict(env),
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "bufsize": 0,
+            "start_new_session": True,
+        }
+        if cwd is not None:
+            child_kwargs["cwd"] = os.fspath(cwd)
+        process = child_factory(list(command), **child_kwargs)
     except FileNotFoundError:
         raise
     except Exception as exc:

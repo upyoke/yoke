@@ -94,6 +94,8 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
     "projects.capability_settings.merge",
     "projects.environment_settings.get",
     "projects.environment_settings.merge",
+    "projects.pulumi_state.migrate",
+    "projects.pulumi_stack_config.get",
     "board.data.get",
     "board.rebuild.run",
 })

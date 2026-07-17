@@ -167,6 +167,12 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "environment-settings", "merge"):
         ("projects.environment_settings.merge",
          _adapters.projects_environment_settings_merge),
+    ("projects", "pulumi-state", "migrate"):
+        ("projects.pulumi_state.migrate",
+         _adapters.projects_pulumi_state_migrate),
+    ("projects", "pulumi-stack-config", "get"):
+        ("projects.pulumi_stack_config.get",
+         _adapters.projects_pulumi_stack_config_get),
     ("projects", "capability-secret", "set"):
         ("projects.capability_secret.set", _adapters.projects_capability_secret_set),
     ("projects", "checkout-context"):

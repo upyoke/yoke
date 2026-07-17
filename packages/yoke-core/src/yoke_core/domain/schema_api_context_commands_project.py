@@ -55,4 +55,22 @@ PROJECT_COMMANDS: list[dict] = [
             "Do not teach the retained domain-update command for lifecycle writes."
         ),
     },
+    {
+        "topic": "project",
+        "purpose": "Migrate legacy Pulumi operator state",
+        "recipe": (
+            "yoke projects pulumi-state migrate --project <project> "
+            "--site-id <site> --stack <stack> [--apply]"
+        ),
+        "notes": (
+            "Registered projects.pulumi_state.migrate is dry-run-default, "
+            "requires the exact source stack set, and returns redacted "
+            "metadata only. Fetch one stack with `yoke projects "
+            "pulumi-stack-config get --project <project> --stack <stack> "
+            "--output <file>`; execute it with `yoke pulumi exec --project "
+            "<project> --stack <stack> -- preview` (also allows refresh and "
+            "safe file-form import). Generic capability get/full-set and "
+            "stack_state merge are intentionally closed."
+        ),
+    },
 ]

@@ -20,6 +20,7 @@ from yoke_cli.commands.adapters.path_doctor import (
     path_verify,
 )
 from yoke_cli.commands.adapters.runner_fleet import runner_fleet_exec
+from yoke_cli.commands.adapters.pulumi import pulumi_exec
 from yoke_cli.commands.git_hook import AdapterFn
 from yoke_cli.commands.flag_adapters import (
     dev_db_admin_setup,
@@ -51,6 +52,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("project", "create"): project_create,
     ("project", "import"): project_import,
     ("runner-fleet", "exec"): runner_fleet_exec,
+    ("pulumi", "exec"): pulumi_exec,
 }
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
@@ -72,6 +74,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke runner-fleet exec": (
         "yoke runner-fleet exec --project PROJECT "
         "--settings-file STACK_CONFIG_JSON -- <command...>"
+    ),
+    "yoke pulumi exec": (
+        "yoke pulumi exec --project NAME --stack STACK -- "
+        "<preview|refresh|import args>"
     ),
 }
 
