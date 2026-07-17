@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-17T00:18:53Z_
+_Audit generated_at: 2026-07-17T00:55:39Z_
 
 ## 1. Summary
 
 - Function ids registered: **213**
 - Internal dispatch-only functions without CLI adapters: **1**
 - `yoke` CLI subcommands: **212** (212 carry usable `--help`)
-- Operation tracker: **210 wrapped**, 71 permanent, 0 pending
+- Operation tracker: **212 wrapped**, 72 permanent, 0 pending
 - Skill-body recipes: 214 total (177 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 210 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -281,6 +281,7 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 210 wr
 | onboard | `yoke onboard` | tool_shaped |
 | project | `yoke project create` | tool_shaped |
 | project | `yoke project import` | tool_shaped |
+| pulumi | `yoke pulumi exec` | tool_shaped |
 | qa.browser | `yoke qa browser run` | tool_shaped |
 | qa.browser | `yoke qa browser screenshot` | tool_shaped |
 | qa.browser | `yoke qa browser setup` | tool_shaped |
