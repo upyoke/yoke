@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+from yoke_core.domain.scheduler_types import SMLState
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,6 +18,15 @@ from runtime.api.test_constants import TEST_MODEL_ID
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _sml_state_patch(coherent: bool = True):
+    """Pin scheduler SML coherence for offer tests (fixture DBs carry no
+    strategy_docs table; coherence is read from live strategy_docs rows)."""
+    return patch(
+        "yoke_core.domain.scheduler._compute_sml_state",
+        return_value=SMLState(coherent=coherent),
+    )
 
 
 class TestSessionOfferLanes:
@@ -97,14 +107,10 @@ class TestSessionOfferLanes:
             call_order.append("next_action")
             return None
 
-        with patch("yoke_core.domain.scheduler.Path") as mock_path, \
+        with _sml_state_patch(), \
              patch("yoke_core.api.main.decide_next_action", side_effect=_force_strategize), \
              patch("yoke_core.api.main.release_item_claim_for_execution", side_effect=_record_release), \
              patch("yoke_core.api.main.emit_next_action_chosen", side_effect=_record_next_action):
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
             resp = self.client.post(
                 "/v1/sessions/offer",
                 json=self._make_offer(session_id=session_id),
@@ -134,11 +140,7 @@ class TestSessionOfferLanes:
             model="gpt-5.4",
             execution_lane="ALTMAN",
         )
-        with patch("yoke_core.domain.scheduler.Path") as mock_path:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
+        with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json={
                 "session_id": "test-session-config-lane",
                 "executor": "codex",
@@ -167,11 +169,7 @@ class TestSessionOfferLanes:
             executor="claude-code",
             execution_lane="DARIUS",
         )
-        with patch("yoke_core.domain.scheduler.Path") as mock_path:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
+        with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json={
                 "session_id": "test-session-default-alias",
                 "executor": "claude-code",
@@ -203,12 +201,8 @@ class TestSessionOfferLanes:
             model="gpt-5.4",
             execution_lane="ALTMAN",
         )
-        with patch("yoke_core.domain.scheduler.Path") as mock_path, \
+        with _sml_state_patch(), \
              patch("yoke_core.api.main.emit_post_decision_telemetry") as mock_emit:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
             resp = self.client.post("/v1/sessions/offer", json={
                 "session_id": "test-session-telemetry-lane",
                 "executor": "codex",

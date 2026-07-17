@@ -157,9 +157,14 @@ function renderSyncFacts(body, result) {
   }
 }
 
+// Panel titles name the project, not just the noun: a host may stand its own
+// organization-wide GitHub panels above this view (its account, its App
+// installations, every project's binding), and "Installation" over one of
+// those and "Installation" over this one would read as the same fact twice
+// rather than the org's set and this project's one.
 export function renderGithubView(context, main, scope) {
   const documentNode = context.document;
-  const bindingPanel = section(documentNode, "Repository binding");
+  const bindingPanel = section(documentNode, "This project's repository");
   main.replaceChildren(bindingPanel);
   loadSection(
     context, bindingPanel,
@@ -177,9 +182,9 @@ export function renderGithubView(context, main, scope) {
       // bound project — an unbound one has no installation, no permission
       // verdict, and no receipts to stand a panel on.
       for (const [title, renderFacts] of [
-        ["App installation", renderInstallationFacts],
+        ["Installation behind this binding", renderInstallationFacts],
         ["Permissions & automation", renderAccessFacts],
-        ["Sync", renderSyncFacts],
+        ["Sync receipts", renderSyncFacts],
       ]) {
         const panel = section(documentNode, title);
         main.appendChild(panel);

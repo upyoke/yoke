@@ -219,7 +219,6 @@ def session_offer_with_ownership(
         project_scope=scope,
         wip_cap=wip_cap,
         session_id=session_id,
-        workspace=workspace,
     )
     schedule = _filter_schedule_for_offer(
         schedule,
@@ -238,7 +237,6 @@ def session_offer_with_ownership(
         step=step,
         project_scope=scope,
         wip_cap=wip_cap,
-        workspace=workspace,
         authoritative_lane=authoritative_lane,
         supported_paths=_supported,
         lane_allowed_paths=lane_allowed_paths,

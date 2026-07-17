@@ -10,7 +10,7 @@ writes machine-local config. ``yoke universe export`` rides the same lane:
 the dump mechanics and DSN-possession authority check are owned by
 ``yoke_core.domain.universe_export``.
 
-The engine import is dynamic on purpose: the client packages hold no
+The engine imports are dynamic on purpose: the client packages hold no
 static import authority over the engine. Local mode is the one lane where
 a product install *runs* the engine — activation is explicit, through
 this module, never ambient.
@@ -54,6 +54,13 @@ def _engine():
 def _export_engine():
     try:
         return importlib.import_module("yoke_core.domain.universe_export")
+    except ModuleNotFoundError as exc:
+        raise LocalUniverseSetupError(_ENGINE_MISSING_MESSAGE) from exc
+
+
+def _import_engine():
+    try:
+        return importlib.import_module("yoke_core.domain.local_universe_import")
     except ModuleNotFoundError as exc:
         raise LocalUniverseSetupError(_ENGINE_MISSING_MESSAGE) from exc
 
@@ -198,6 +205,15 @@ def universe_export(
         raise LocalUniverseSetupError(str(exc)) from exc
 
 
+def universe_import(*, archive: str) -> Dict[str, Any]:
+    """Replace the active local universe from one portable archive."""
+    engine = _import_engine()
+    try:
+        return dict(engine.import_universe(archive))
+    except RuntimeError as exc:
+        raise LocalUniverseSetupError(str(exc)) from exc
+
+
 def _ensure_local_connection(
     dsn: str,
     *,
@@ -273,5 +289,6 @@ __all__ = [
     "postgres_status",
     "postgres_stop",
     "run_local_init",
+    "universe_import",
     "universe_export",
 ]

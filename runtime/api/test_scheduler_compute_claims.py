@@ -10,7 +10,6 @@ from yoke_core.domain.scheduler import (
     compute_schedule,
 )
 from runtime.api.scheduler_test_fixtures import (  # noqa: F401
-    _create_sml_files,
     _item_num,
     scheduler_db,
 )
@@ -22,7 +21,7 @@ def _iso(minutes_ago: int) -> str:
     )
 
 
-def _claim_top_item(conn, tmp_dir, *, session_id: str, executor: str, minutes_ago: int) -> str:
+def _claim_top_item(conn, *, session_id: str, executor: str, minutes_ago: int) -> str:
     seen_at = _iso(minutes_ago)
     conn.execute(
         """INSERT INTO harness_sessions
@@ -33,8 +32,7 @@ def _claim_top_item(conn, tmp_dir, *, session_id: str, executor: str, minutes_ag
     # ``compute_schedule`` may roll back optional-probe failures; keep the
     # owner session durable before using it to choose the item to claim.
     conn.commit()
-    _create_sml_files(tmp_dir)
-    baseline = compute_schedule(conn, project_scope=["yoke"], workspace=tmp_dir)
+    baseline = compute_schedule(conn, project_scope=["yoke"])
     assert baseline.selected_step is not None
     top_item = baseline.selected_step.item_id
     conn.execute(
@@ -51,7 +49,6 @@ def test_claude_desktop_19_minute_claim_is_live(scheduler_db):
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(
         conn,
-        scheduler_db["tmp_dir"],
         session_id="claude-owner",
         executor="claude-desktop",
         minutes_ago=19,
@@ -60,7 +57,7 @@ def test_claude_desktop_19_minute_claim_is_live(scheduler_db):
     claims = _evaluate_claim_states(conn, [top_item])
     assert claims[top_item] == ClaimState.CLAIMED_BY_OTHER_LIVE
 
-    result = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+    result = compute_schedule(conn, project_scope=["yoke"])
     if result.selected_step is not None:
         assert result.selected_step.item_id != top_item
 
@@ -69,7 +66,6 @@ def test_codex_45_minute_claim_uses_executor_ttl_override(scheduler_db):
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(
         conn,
-        scheduler_db["tmp_dir"],
         session_id="codex-owner",
         executor="codex-desktop",
         minutes_ago=45,
@@ -78,7 +74,7 @@ def test_codex_45_minute_claim_uses_executor_ttl_override(scheduler_db):
     claims = _evaluate_claim_states(conn, [top_item])
     assert claims[top_item] == ClaimState.CLAIMED_BY_OTHER_LIVE
 
-    result = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+    result = compute_schedule(conn, project_scope=["yoke"])
     if result.selected_step is not None:
         assert result.selected_step.item_id != top_item
 
@@ -87,7 +83,6 @@ def test_codex_65_minute_claim_is_stale_and_selectable(scheduler_db):
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(
         conn,
-        scheduler_db["tmp_dir"],
         session_id="codex-stale",
         executor="codex-desktop",
         minutes_ago=65,
@@ -96,6 +91,6 @@ def test_codex_65_minute_claim_is_stale_and_selectable(scheduler_db):
     claims = _evaluate_claim_states(conn, [top_item])
     assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
 
-    result = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+    result = compute_schedule(conn, project_scope=["yoke"])
     assert result.selected_step is not None
     assert result.selected_step.item_id == top_item

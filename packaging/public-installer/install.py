@@ -18,6 +18,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 DEFAULT_BASE_URL = "https://api.upyoke.com"
+STAGE_BASE_URL = "https://api.stage.upyoke.com"
 DEFAULT_CHANNEL = "stable"
 GUTTER_ICON = "☀"
 PLAIN_GUTTER_ICON = "*"
@@ -259,9 +260,20 @@ class Installer:
         channel_url = (
             f"{self.options.base_url}/dist/channels/{self.options.channel}.json"
         )
-        channel = _loads_json(
-            self.fetcher(channel_url), f"{self.options.channel} channel"
-        )
+        try:
+            channel_bytes = self.fetcher(channel_url)
+        except InstallError as exc:
+            if (
+                self.options.channel == "latest"
+                and self.options.base_url == DEFAULT_BASE_URL
+            ):
+                raise InstallError(
+                    f"{exc}. The latest channel is published from "
+                    f"{STAGE_BASE_URL}; use that installer origin for "
+                    "pre-stable releases"
+                ) from exc
+            raise
+        channel = _loads_json(channel_bytes, f"{self.options.channel} channel")
         version = channel.get("version")
         if not isinstance(version, str) or not version:
             raise InstallError(
@@ -299,8 +311,14 @@ class Installer:
         )
         print(f"  {_paint(str(exc), 'dim', enabled=self.color)}", file=self.stdout)
         print("Try again:", file=self.stdout)
+        retry_base_url = self.options.base_url
+        if (
+            self.options.channel == "latest"
+            and self.options.base_url == DEFAULT_BASE_URL
+        ):
+            retry_base_url = STAGE_BASE_URL
         retry = _paint(
-            _rerun_command(self.options.base_url), "bright", enabled=self.color
+            _rerun_command(retry_base_url), "bright", enabled=self.color
         )
         print(f"  {retry}", file=self.stdout, flush=True)
 

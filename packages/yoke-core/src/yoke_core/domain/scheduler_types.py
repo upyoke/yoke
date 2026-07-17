@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.strategy_docs_defaults import (
-    DEFAULT_STRATEGY_DOC_SLUGS,
-)
-from yoke_core.domain.strategy_docs_paths import strategy_view_rel_path
-
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -108,20 +103,17 @@ def is_assignable_claim_state(state: ClaimState) -> bool:
 # SML state
 # ---------------------------------------------------------------------------
 
-SML_FILES = tuple(
-    strategy_view_rel_path(slug) for slug in DEFAULT_STRATEGY_DOC_SLUGS
-)
-
-
 @dataclass(frozen=True)
 class SMLState:
     """Strategic Markdown Layer state for scheduling decisions.
 
     Attributes:
-        coherent: True when all four SML files exist.  This is the sole
-            hard-truth SML precondition kept in the public contract.
-            ``stale`` and ``basis`` were removed — the post-delivery
-            drift-review model replaces ambient stale-bit decisioning.
+        coherent: True when every project in scope carries all default
+            strategy docs as live (non-archived) ``strategy_docs`` rows.
+            This is the sole hard-truth SML precondition kept in the
+            public contract. ``stale`` and ``basis`` were removed — the
+            post-delivery drift-review model replaces ambient stale-bit
+            decisioning.
     """
 
     coherent: bool = True

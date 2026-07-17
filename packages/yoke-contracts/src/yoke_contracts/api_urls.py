@@ -20,6 +20,7 @@ AUTH_IDENTITY_PATH = f"{API_VERSION_PREFIX}/auth/identity"
 FUNCTIONS_CALL_PATH = f"{API_VERSION_PREFIX}/functions/call"
 FUNCTIONS_REGISTRY_PATH = f"{API_VERSION_PREFIX}/functions/registry"
 HEALTH_PATH = f"{API_VERSION_PREFIX}/health"
+UNIVERSE_EXPORT_PATH = f"{API_VERSION_PREFIX}/universe/export"
 
 
 def join_api_url(api_url: str, path: str) -> str:
@@ -36,6 +37,7 @@ __all__ = [
     "FUNCTIONS_CALL_PATH",
     "FUNCTIONS_REGISTRY_PATH",
     "HEALTH_PATH",
+    "UNIVERSE_EXPORT_PATH",
     "DISTRIBUTION_PROD_URL",
     "DISTRIBUTION_STAGE_URL",
     "HOSTED_PROD_API_URL",

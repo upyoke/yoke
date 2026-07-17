@@ -43,6 +43,14 @@ def resolve_project_context(
         return _resolve_named_project_context(
             conn, request, visible_project_ids=visible_project_ids,
         )
+    if request.target.claim_id is not None:
+        claim_context = _resolve_work_claim_project_context(
+            conn,
+            int(request.target.claim_id),
+            visible_project_ids=visible_project_ids,
+        )
+        if claim_context is not None:
+            return claim_context
     process_context = _resolve_process_target_project_context(
         conn, request, visible_project_ids=visible_project_ids,
     )
@@ -82,6 +90,55 @@ def resolve_project_context(
     # project — a project-scoped op that cannot name its target is denied
     # upstream (no "fall back to yoke" guess).
     return None
+
+
+def _resolve_work_claim_project_context(
+    conn: Any,
+    claim_id: int,
+    *,
+    visible_project_ids: Collection[int] | None = None,
+) -> tuple[int, str] | None:
+    """Resolve project authority from a server-held work-claim row.
+
+    Exact claim release requests intentionally carry only ``work_claims.id``;
+    the client must not pre-read tenant state just to manufacture an authz
+    hint. Item and epic-task claims resolve through their owning item. Process
+    claims encode their registered per-project conflict group as
+    ``<group>:<project>``.
+    """
+    p = _p(conn)
+    row = conn.execute(
+        "SELECT target_kind, item_id, epic_id, conflict_group "
+        f"FROM work_claims WHERE id = {p}",
+        (claim_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    target_kind = str(row[0])
+    if target_kind in {"item", "epic_task"}:
+        item_id = row[1] if target_kind == "item" else row[2]
+        project_row = conn.execute(
+            "SELECT p.id, p.slug FROM items i "
+            "JOIN projects p ON p.id = i.project_id "
+            f"WHERE i.id = {p}",
+            (int(item_id),),
+        ).fetchone()
+        if project_row is None:
+            return None
+        return int(project_row[0]), str(project_row[1])
+    if target_kind != "process":
+        return None
+    conflict_group = str(row[3] or "")
+    _, separator, project_ref = conflict_group.rpartition(":")
+    if not separator or not project_ref:
+        return None
+    try:
+        project_id = _resolve_authorized_project_id(
+            conn, project_ref, visible_project_ids,
+        )
+    except (AmbiguousProjectRefError, LookupError):
+        return None
+    return project_id, _slug_for_project_id(conn, project_id)
 
 
 # Functions whose target project lives in the payload (not the target ref):

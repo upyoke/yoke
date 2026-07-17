@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-17T00:55:39Z_
+_Audit generated_at: 2026-07-17T14:31:10Z_
 
 ## 1. Summary
 
-- Function ids registered: **213**
+- Function ids registered: **215**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **212** (212 carry usable `--help`)
-- Operation tracker: **212 wrapped**, 72 permanent, 0 pending
-- Skill-body recipes: 214 total (177 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **215** (215 carry usable `--help`)
+- Operation tracker: **215 wrapped**, 72 permanent, 0 pending
+- Skill-body recipes: 216 total (178 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 215 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -50,6 +50,7 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wr
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
 | deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
 | deployment_flows | `yoke deployment-flows stages` | `deployment_flows.stages` | ok |
+| deployment_runs | `yoke deployment-runs approve` | `deployment_runs.approve` | ok |
 | deployment_runs | `yoke deployment-runs create` | `deployment_runs.create` | ok |
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
@@ -149,6 +150,7 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wr
 | projects | `yoke projects github-sync-mode repair` | `projects.github_sync_mode.repair` | ok |
 | projects | `yoke projects list` | `projects.list` | ok |
 | projects | `yoke projects pulumi-stack-config get` | `projects.pulumi_stack_config.get` | ok |
+| projects | `yoke projects pulumi-state checkpoint-import` | `projects.pulumi_state.checkpoint_import` | ok |
 | projects | `yoke projects pulumi-state migrate` | `projects.pulumi_state.migrate` | ok |
 | projects | `yoke projects resolve-by-github-repo` | `projects.resolve_by_github_repo` | ok |
 | projects | `yoke projects update` | `projects.update` | ok |
@@ -178,6 +180,7 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wr
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
+| sessions | `yoke sessions init` | `sessions.init` | ok |
 | sessions | `yoke sessions list` | `sessions.list` | ok |
 | sessions | `yoke sessions offer` | `sessions.offer` | ok |
 | sessions | `yoke sessions ownership-guard` | `sessions.ownership_guard` | ok |
@@ -270,7 +273,6 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wr
 | github | `yoke github disconnect` | tool_shaped |
 | github | `yoke github status` | tool_shaped |
 | local_universe | `yoke init` | tool_shaped |
-| local_universe.export | `yoke universe export` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres start` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres status` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres stop` | tool_shaped |
@@ -298,7 +300,6 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wr
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped |
 | tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped |
-| tools.session_init | `python3 -m yoke_core.tools.session_init` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_advance` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_doctor` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_inventory` | tool_shaped |
@@ -307,6 +308,8 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wr
 | tools.watch | `python3 -m yoke_core.tools.watch_pytest` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_session_offer` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_tail` | tool_shaped |
+| universe.export | `yoke universe export` | tool_shaped |
+| universe.import | `yoke universe import` | tool_shaped |
 | usher | `yoke usher reconcile-github` | tool_shaped |
 | worktree | `python3 -m yoke_core.domain.worktree create` | tool_shaped |
 

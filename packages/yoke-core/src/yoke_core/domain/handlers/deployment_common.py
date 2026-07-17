@@ -103,6 +103,24 @@ class DeploymentRunUpdateResponse(BaseModel):
     updated: bool
 
 
+class DeploymentRunApproveRequest(BaseModel):
+    note: Optional[str] = None
+    run_id: Optional[str] = None
+
+
+class DeploymentRunApproveResponse(BaseModel):
+    run_id: str
+    project: str
+    approved_stage: str
+    next_stage: str
+    approved_at: str
+    approver_actor_id: Optional[str] = None
+    approver_session_id: Optional[str] = None
+    note: Optional[str] = None
+    member_item_ids: List[int]
+    event_id: Optional[str] = None
+
+
 class DeploymentRunResolveTargetEnvRequest(BaseModel):
     project: str
     flow: str

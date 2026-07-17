@@ -114,6 +114,23 @@ Save that command's `raw_token`, then start the service. Recovery atomically
 revokes every prior import/recovery credential before minting its replacement,
 so it is safe to repeat if another one-time result is lost.
 
+## Export over the server connection
+
+After `yoke connect` selects this self-host server, an org administrator can
+stream a portable archive without acquiring its database DSN:
+
+```bash
+yoke universe export --out ~/backups/
+```
+
+The CLI sends its bearer token only to the configured server, refuses
+redirects, requires the archive media type, enforces the portability size and
+time bounds, and publishes the owner-only destination file atomically. The
+generated Compose bundle marks the runtime with
+`YOKE_SERVER_MODE=self-host`; without that explicit marker the core endpoint
+is hidden. Hosted Platform tenants continue through Platform's
+fleet-coordinated download route instead of this self-host boundary.
+
 By default the API publishes on loopback only (`127.0.0.1:8765`). To
 serve your network, edit `YOKE_API_PUBLISH` in `.env` (for example
 `0.0.0.0:8765`) and put TLS in front — see the operator notes below.
@@ -348,9 +365,10 @@ Self-hosting trades the hosted platform's operations for control:
 - **Uptime is yours.** The bundle restarts containers on failure
   (`restart: unless-stopped`), but host maintenance, monitoring, and
   capacity are on you.
-- **Backups are yours.** All state lives in the `pgdata` volume; back it
-  up with your regular Postgres tooling (`pg_dump` against the `db`
-  service, or volume snapshots) before upgrades and on a schedule.
+- **Backups are yours.** All state lives in the `pgdata` volume; use
+  `yoke universe export` for portable archives and retain regular Postgres or
+  volume snapshots for infrastructure-level recovery before upgrades and on a
+  schedule.
 - **TLS is yours.** The server speaks plain HTTP; anything beyond
   loopback belongs behind a TLS-terminating reverse proxy you operate,
   with the API published only where you intend engineers to reach it.

@@ -20,6 +20,7 @@ from yoke_contracts.api_urls import (
     HOSTED_PLATFORM_URL,
     HOSTED_PROD_API_URL,
     HOSTED_STAGE_API_URL,
+    HOSTED_STAGE_PLATFORM_URL,
 )
 
 DESTINATION_LOCAL = "local"
@@ -50,6 +51,10 @@ DEFAULT_SIGN_IN_ENV = ENV_PRODUCTION
 _HOSTED_URLS = frozenset(
     url.rstrip("/") for url in (HOSTED_PROD_API_URL, HOSTED_STAGE_API_URL)
 )
+_HOSTED_PLATFORM_URLS = tuple(
+    urllib.parse.urlsplit(url)
+    for url in (HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL)
+)
 
 
 def is_hosted_url(api_url: object) -> bool:
@@ -58,13 +63,16 @@ def is_hosted_url(api_url: object) -> bool:
     if value in _HOSTED_URLS:
         return True
     parsed = urllib.parse.urlsplit(value)
-    platform = urllib.parse.urlsplit(HOSTED_PLATFORM_URL)
-    return (
+    return any(
         parsed.scheme == platform.scheme
         and parsed.netloc == platform.netloc
         and not parsed.query
         and not parsed.fragment
-        and (not parsed.path or bool(re.fullmatch(r"/api/orgs/[^/]+", parsed.path)))
+        and (
+            not parsed.path
+            or bool(re.fullmatch(r"/api/orgs/[^/]+", parsed.path))
+        )
+        for platform in _HOSTED_PLATFORM_URLS
     )
 
 

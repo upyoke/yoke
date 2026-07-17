@@ -19,7 +19,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 **Events at every decision.** The decision engine emits `HarnessSessionOffered` and `NextActionChosen` events for a full audit trail. When investigating unexpected routing, query `yoke events query --event-name NextActionChosen --since "1 hour ago"` for the session's decision history.
 
-**Model is server-resolved.** The model identifier is canonicalized by SessionStart (and the registration hook fallback) into the session row's model field (see your `harness_sessions` packet stanza) — including any `[variant]` suffix such as `[1m]`. The `/yoke do` loop never substitutes a model value into a command line; `session_init` reads the canonical row and `yoke sessions offer` either accepts an explicit `--model` (rare) or defaults to the same DB lookup. The LLM agent is not part of the model resolution chain.
+**Model is server-resolved.** The model identifier is canonicalized by SessionStart (and the registration hook fallback) into the session row's model field (see your `harness_sessions` packet stanza) — including any `[variant]` suffix such as `[1m]`. The `/yoke do` loop never substitutes a model value into a command line; `yoke sessions init` reads the canonical row and `yoke sessions offer` either accepts an explicit `--model` (rare) or defaults to the same DB lookup. The LLM agent is not part of the model resolution chain.
 
 ## Steps
 

@@ -44,7 +44,7 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
         "universe_view_support.js", "universe_views.js",
-        "universe_views_github.js", "universe_views_settings.js",
+        "universe_views_github.js", "universe_views_organization.js",
         "universe_views_workflows.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
@@ -186,7 +186,7 @@ def test_every_nav_destination_is_routable_and_scoped():
         "overview", "inbox", "strategy", "frontier", "items", "board",
         "sessions", "delivery", "qa", "workflows", "capabilities", "events",
         "doctor", "ouroboros", "projects", "access", "members", "billing",
-        "templates", "github", "project-settings", "universe-settings",
+        "templates", "github", "project", "organization",
     ):
         assert f'id: "{destination}"' in page_module, destination
     # Host-fed screens sit in the same flat nav arc as every other view, and

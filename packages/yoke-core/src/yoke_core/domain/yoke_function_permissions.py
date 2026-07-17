@@ -62,6 +62,16 @@ def check_dispatch_permission(
     actor_id = _numeric_actor_id(request.actor.actor_id)
     if actor_id is None:
         return DispatchPermission(spec.permission_key, None, None)
+    if (
+        entry.function_id == "claims.work.holder_list"
+        and request.payload.get("session_id") == request.actor.session_id
+        and request.payload.get("item_id") is None
+        and request.target.item_id is None
+    ):
+        # A session may inspect its own active claim inventory without naming a
+        # single project. Cross-session and item-targeted reads retain their
+        # normal project-scoped authorization below.
+        return DispatchPermission(None, None, None)
     if entry.function_id == "doctor.run.run":
         return _doctor_dispatch_permission(conn, entry, request, actor_id)
     if entry.function_id == "board.data.get":

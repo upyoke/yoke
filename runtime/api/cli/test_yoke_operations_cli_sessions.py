@@ -58,6 +58,24 @@ def test_sessions_touch_dispatches() -> None:
     assert req.payload == {"mode": "charge"}
 
 
+def test_sessions_init_uses_yoke_runtime_interpreter() -> None:
+    from yoke_cli.commands.adapters import sessions as sessions_adapter
+
+    with patch.object(sessions_adapter.subprocess, "run") as run:
+        run.return_value.returncode = 0
+
+        assert cli_main(["sessions", "init"]) == 0
+
+    run.assert_called_once_with(
+        [
+            sessions_adapter.sys.executable,
+            "-m",
+            "yoke_core.tools.session_init",
+        ],
+        check=False,
+    )
+
+
 def test_sessions_checkpoint_dispatches() -> None:
     assert _run(
         "sessions", "checkpoint",

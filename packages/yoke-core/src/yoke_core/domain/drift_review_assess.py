@@ -120,7 +120,7 @@ def _normalize_project_scope(project_scope) -> List[str]:
     """Coerce legacy and current drift-review scope shapes to a list."""
     if isinstance(project_scope, str):
         return [project_scope]
-    scope = list(project_scope) if project_scope else []
+    scope = [str(project) for project in project_scope] if project_scope else []
     return scope or ["yoke"]
 
 

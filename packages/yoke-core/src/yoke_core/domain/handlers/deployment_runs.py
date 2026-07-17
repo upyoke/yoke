@@ -197,6 +197,55 @@ def handle_deployment_run_update(request: FunctionCallRequest) -> HandlerOutcome
     )
 
 
+def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcome:
+    """Approve the exact run's current Yoke-owned approval stage."""
+    resolved_run_id = run_id(request, "deployment_runs.approve")
+    if isinstance(resolved_run_id, HandlerOutcome):
+        return resolved_run_id
+    payload = request.payload or {}
+    note = payload.get("note")
+    if note is not None and (not isinstance(note, str) or len(note) > 2000):
+        return error(
+            "payload_invalid",
+            "note must be a string of at most 2000 characters when present",
+            jsonpath="$.payload.note",
+        )
+
+    from yoke_core.domain.deployment_run_approval import (
+        RunApprovalRejected,
+        approve_run,
+        emit_run_approval,
+    )
+
+    try:
+        approval = approve_run(resolved_run_id)
+    except LookupError as exc:
+        return error("not_found", str(exc), jsonpath="$.target.workflow_run_id")
+    except RunApprovalRejected as exc:
+        return error("invalid_state", str(exc))
+    event_id = emit_run_approval(
+        approval,
+        actor_id=request.actor.actor_id,
+        session_id=request.actor.session_id,
+        note=note,
+    )
+    return HandlerOutcome(
+        result_payload={
+            "run_id": approval.run_id,
+            "project": approval.project,
+            "approved_stage": approval.approved_stage,
+            "next_stage": approval.next_stage,
+            "approved_at": approval.approved_at,
+            "approver_actor_id": request.actor.actor_id,
+            "approver_session_id": request.actor.session_id,
+            "note": note,
+            "member_item_ids": list(approval.member_item_ids),
+            "event_id": event_id,
+        },
+        primary_success=True,
+    )
+
+
 def handle_deployment_run_resolve_target_env(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -247,6 +296,7 @@ def handle_deployment_run_resolve_target_env(
 
 
 __all__ = [
+    "handle_deployment_run_approve",
     "handle_deployment_run_get",
     "handle_deployment_run_list",
     "handle_deployment_run_update",

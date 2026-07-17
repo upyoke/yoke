@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from yoke_core.domain.actor_permissions import (
     PERM_CLAIMS_ACQUIRE,
+    PERM_CLAIMS_RELEASE,
     PERM_DB_READ_RAW,
     PERM_EVENTS_READ,
     PERM_EVENTS_WRITE,
@@ -372,6 +373,100 @@ def test_process_work_claim_resolves_project_from_payload_target():
         assert unresolvable.error.error is not None
         assert unresolvable.error.error.code == "permission_denied"
         assert unresolvable.project_id is None
+    finally:
+        conn.close()
+
+
+def _seed_session(conn, *, session_id: str, project_id: int) -> None:
+    conn.execute(
+        "INSERT INTO harness_sessions "
+        "(session_id, executor, provider, model, workspace, project_id, "
+        "offered_at, last_heartbeat) VALUES "
+        "(%s, 'codex', 'openai', 'gpt', '/tmp/work', %s, 'now', 'now')",
+        (session_id, project_id),
+    )
+
+
+def test_exact_process_claim_release_resolves_server_held_project():
+    conn = _conn()
+    try:
+        actor_id = seed_human_actor(conn)
+        yoke_id = resolve_project_id(conn, "yoke")
+        grant_actor_project_role(
+            conn,
+            actor_id=actor_id,
+            project_id=yoke_id,
+            role_name=ROLE_OWNER,
+            granted_by_actor_id=actor_id,
+        )
+        _seed_session(conn, session_id="s-release", project_id=yoke_id)
+        claim_id = int(
+            conn.execute(
+                "INSERT INTO work_claims "
+                "(session_id, target_kind, process_key, conflict_group, "
+                "claimed_at, last_heartbeat) VALUES "
+                "('s-release', 'process', 'DOCTOR', 'doctor:yoke', "
+                "'now', 'now') RETURNING id"
+            ).fetchone()[0]
+        )
+        entry = _entry("claims.work.release")
+        request = FunctionCallRequest(
+            function=entry.function_id,
+            actor=ActorContext(
+                actor_id=str(actor_id), session_id="s-release",
+            ),
+            target=TargetRef(kind="claim", claim_id=claim_id),
+            payload={"claim_id": claim_id, "reason": "completed"},
+        )
+
+        allowed = check_dispatch_permission(conn, entry, request)
+
+        assert permission_key_for(entry) == PERM_CLAIMS_RELEASE
+        assert allowed.error is None
+        assert allowed.project_id == yoke_id
+        assert allowed.project_slug == "yoke"
+    finally:
+        conn.close()
+
+
+def test_session_scoped_claim_release_needs_no_single_project_target():
+    conn = _conn()
+    try:
+        actor_id = seed_human_actor(conn)
+        entry = _entry("claims.work.release_session_scoped")
+        request = FunctionCallRequest(
+            function=entry.function_id,
+            actor=ActorContext(actor_id=str(actor_id), session_id="s-release"),
+            target=TargetRef(kind="global"),
+            payload={},
+        )
+
+        allowed = check_dispatch_permission(conn, entry, request)
+
+        assert allowed.error is None
+        assert allowed.permission_key is None
+        assert allowed.project_id is None
+    finally:
+        conn.close()
+
+
+def test_holder_list_allows_calling_session_without_project_target():
+    conn = _conn()
+    try:
+        actor_id = seed_human_actor(conn)
+        entry = _read_entry("claims.work.holder_list")
+        request = FunctionCallRequest(
+            function=entry.function_id,
+            actor=ActorContext(actor_id=str(actor_id), session_id="s-current"),
+            target=TargetRef(kind="global"),
+            payload={"session_id": "s-current"},
+        )
+
+        allowed = check_dispatch_permission(conn, entry, request)
+
+        assert allowed.error is None
+        assert allowed.permission_key is None
+        assert allowed.project_id is None
     finally:
         conn.close()
 

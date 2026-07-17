@@ -202,6 +202,39 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         )
         self.assertTrue(outcome.result_payload["updated"])
 
+    def test_run_approve_advances_exact_workflow_run(self):
+        from yoke_core.domain.deployment_run_approval import RunApproval
+
+        approval = RunApproval(
+            run_id="run-20260616-001",
+            project="yoke",
+            approved_stage="production-approval",
+            next_stage="production",
+            approved_at="2026-06-16T01:02:03Z",
+            member_item_ids=(19, 20),
+        )
+        with patch(
+            "yoke_core.domain.deployment_run_approval.approve_run",
+            return_value=approval,
+        ) as approve, patch(
+            "yoke_core.domain.deployment_run_approval.emit_run_approval",
+            return_value="event-1",
+        ) as emit:
+            outcome = deployment_runs.handle_deployment_run_approve(
+                _request(
+                    function="deployment_runs.approve",
+                    target=self._run_target(),
+                    payload={"note": "stage verified"},
+                ),
+            )
+
+        self.assertTrue(outcome.primary_success)
+        approve.assert_called_once_with("run-20260616-001")
+        emit.assert_called_once()
+        self.assertEqual(outcome.result_payload["next_stage"], "production")
+        self.assertEqual(outcome.result_payload["member_item_ids"], [19, 20])
+        self.assertEqual(outcome.result_payload["event_id"], "event-1")
+
     def test_run_create_returns_created_run(self):
         created_row = (
             "run-20260616-002|yoke|yoke-hosted-production|production|"
@@ -294,6 +327,7 @@ class TestDeploymentHandlerRegistration(unittest.TestCase):
             self.assertIn("deployment_flows.set_status", ids)
             self.assertIn("deployment_flows.stages", ids)
             self.assertIn("deployment_runs.create", ids)
+            self.assertIn("deployment_runs.approve", ids)
             self.assertIn("deployment_runs.get", ids)
             self.assertIn("deployment_runs.list", ids)
             self.assertIn("deployment_runs.update", ids)
@@ -301,6 +335,11 @@ class TestDeploymentHandlerRegistration(unittest.TestCase):
             update = registry.lookup("deployment_runs.update")
             self.assertEqual(
                 list(update.side_effects), ["deployment_runs_update"],
+            )
+            approve = registry.lookup("deployment_runs.approve")
+            self.assertEqual(
+                list(approve.side_effects),
+                ["deployment_runs_update", "items_deploy_stage_update"],
             )
             flow_status = registry.lookup("deployment_flows.set_status")
             self.assertEqual(

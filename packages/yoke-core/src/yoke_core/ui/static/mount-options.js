@@ -1,8 +1,8 @@
 // Host-neutral plumbing for the optional mount seam: root validation, slot
 // and section materialization, and unmount bookkeeping. This stays separate
 // from the workbench views so the one-argument local mount remains small. Host
-// capability actions are not chrome — the Universe settings view renders
-// them (universe_views_settings.js).
+// capability data and actions are not chrome — the Organization view
+// interprets its declared mode and control surfaces.
 
 const MOUNT_ROOT_CLASS = "universe-app-root";
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
@@ -76,16 +76,41 @@ export function materializeSlots(slots, rootNode, seen = new Set()) {
   return resolved;
 }
 
+const SECTION_PLACEMENTS = ["inView", "beforeScope"];
+
+// A section entry is a bare node/factory (the `inView` shorthand) or a spec
+// naming its content and placement. Content is told apart first, by being a
+// node or a factory — a spec is only ever a plain options object. Asking
+// instead whether the entry carries a `content` key would misread a
+// <template>, which owns a `content` property of its own.
+function sectionSpec(entry) {
+  const isContent = entry === undefined || entry === null ||
+    typeof entry === "function" || typeof entry.nodeType === "number";
+  if (isContent) return { content: entry };
+  const placement = entry.placement ?? "inView";
+  if (!SECTION_PLACEMENTS.includes(placement)) {
+    throw new TypeError(
+      `universe app section placement must be one of ${
+        SECTION_PLACEMENTS.join(", ")}`,
+    );
+  }
+  return { content: entry.content, placement };
+}
+
 // Per-view host content. Keys are view ids — an open record rather than a
 // closed roster, because the views a host may feed belong to the navigation
-// module, not to this plumbing.
+// module, not to this plumbing. Each resolved entry keeps its placement
+// beside its node, so the renderer never re-reads the host's option bag.
 export function materializeSections(sections, rootNode, seen = new Set()) {
   const resolved = {};
   for (const name of Object.keys(sections)) {
+    const spec = sectionSpec(sections[name]);
     const content = materializeContent(
-      sections[name], rootNode, seen, "section",
+      spec.content, rootNode, seen, "section",
     );
-    if (content !== null) resolved[name] = content;
+    if (content !== null) {
+      resolved[name] = { content, placement: spec.placement ?? "inView" };
+    }
   }
   return resolved;
 }

@@ -179,11 +179,16 @@ _BY_ID: dict[str, AuthzSpec] = {
     "onboard.checklist.run": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     # Actor/session: the caller operating on its own session/orchestration.
     "sessions.begin": AuthzSpec(ACTOR_SESSION, None),
+    "sessions.init": AuthzSpec(CLIENT_LOCAL, None),
     "sessions.touch": AuthzSpec(ACTOR_SESSION, None),
     "sessions.offer": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint_read": AuthzSpec(ACTOR_SESSION, None),
     "sessions.ownership_guard": AuthzSpec(ACTOR_SESSION, None),
+    # The handler releases only rows owned by request.actor.session_id.  It may
+    # span projects, so forcing a single PROJECT scope is both unnecessary and
+    # impossible for a session that legitimately holds more than one claim.
+    "claims.work.release_session_scoped": AuthzSpec(ACTOR_SESSION, None),
     "charge.schedule": AuthzSpec(ACTOR_SESSION, None),
     # Machine-local config / repo writes — gated by machine possession.
     "auth.set.run": AuthzSpec(CLIENT_LOCAL, None),

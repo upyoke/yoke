@@ -284,9 +284,10 @@ class FrontierState:
             ``None`` when no blocked step carries intrinsic reasons.
         exceptional_items: Item IDs in ``failed`` status that require
             operator attention (contribute to escalate).
-        sml_coherent: True when all four SML rendered views (the
-            ``scheduler_types.SML_FILES`` paths under ``.yoke/strategy/``)
-            exist.  This is the sole hard-truth SML precondition.
+        sml_coherent: True when every project in scope carries all
+            default strategy docs as live (non-archived)
+            ``strategy_docs`` rows.  This is the sole hard-truth SML
+            precondition.
         drift_review: Result of the project-scoped post-delivery drift
             review, or None if the trigger did not fire.  When present,
             it is a dict with ``classification`` (``neither``,

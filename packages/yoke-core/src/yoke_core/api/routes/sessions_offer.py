@@ -208,7 +208,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
                     "pre_status": checkpoint.get("pre_status"),
                 }
             schedule = compute_schedule(
-                conn, project_scope=project_scope, session_id=req.session_id, workspace=req.workspace,
+                conn, project_scope=project_scope, session_id=req.session_id,
             )
             try:
                 drift = _main.assess_post_delivery_drift(conn, project_scope)
