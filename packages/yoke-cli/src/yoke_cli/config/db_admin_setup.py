@@ -101,7 +101,7 @@ def build_report(
                 "target": f"{project}/{env_name}",
             },
             {
-                "action": "resolve-cloud-postgres-dsn",
+                "action": "resolve-non-secret-cloud-database-binding",
                 "target": env.stack_name,
             },
             {

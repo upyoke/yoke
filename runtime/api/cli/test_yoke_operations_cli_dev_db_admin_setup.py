@@ -99,6 +99,12 @@ def test_dev_db_admin_setup_dry_run_plans_without_resolving_secret(
     assert payload["declared_deploy_database"] == "yoke_stage"
     assert payload["control_plane_database"] == "yoke_tenant_4"
     assert payload["control_plane_env"] == "stage"
+    assert [step["action"] for step in payload["plan"]["steps"]] == [
+        "resolve-deploy-environment",
+        "resolve-non-secret-cloud-database-binding",
+        "configure-managed-secret-authority",
+        "remove-superseded-dsn-snapshot",
+    ]
     assert payload["plan"]["superseded_secret_path"].endswith(
         "secrets/yoke-stage-db-admin.dsn"
     )
