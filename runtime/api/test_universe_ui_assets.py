@@ -45,7 +45,7 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
         "universe_view_support.js", "universe_views.js",
         "universe_views_github.js", "universe_views_organization.js",
-        "universe_views_workflows.js",
+        "universe_views_overview.js", "universe_views_workflows.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)

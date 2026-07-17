@@ -481,8 +481,8 @@
 }
 
 
-/* Stat tile: one number that matters, on the raised surface. Hosts and
-   future overview panels compose rows of these. */
+/* Stat tile: one number that matters, on the raised surface. Hosts and the
+   Overview compose rows of these. */
 .universe-app-root .stat-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -505,6 +505,26 @@
   font-size: 11.5px;
   color: var(--yoke-muted);
   margin-top: 2px;
+}
+
+/* The Overview's summary panels: each is a peek at a full screen and links
+   out to it. The link sits flush at the panel's foot, a full-width row with
+   its own top rule, so "open the whole thing" reads as the panel's floor. */
+.universe-app-root .overview-open {
+  display: block;
+  padding: 10px 15px;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--yoke-accent);
+  text-decoration: none;
+}
+.universe-app-root .overview-open:hover {
+  background: var(--yoke-hover);
+}
+.universe-app-root .overview-open:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: -2px;
 }
 
 /* A destination that exists but has nothing to read yet: a dashed, hatched

@@ -14,10 +14,12 @@ import {
   scopeBuckets,
   section,
   statePill,
+  whoColumn,
   withProjectColumn,
 } from "./universe_view_support.js";
 import { renderGithubView } from "./universe_views_github.js";
 import { renderOrganizationView } from "./universe_views_organization.js";
+import { renderOverviewView } from "./universe_views_overview.js";
 import { renderWorkflowsView } from "./universe_views_workflows.js";
 
 export { section } from "./universe_view_support.js";
@@ -285,6 +287,9 @@ function renderSessionsView(context, main, scope) {
   const panel = section(context.document, "Sessions");
   main.replaceChildren(panel);
   const buckets = scopeBuckets(scope, context.projects(), false);
+  // Who runs a session is the actor by default; a host that names accounts
+  // (a hosted org) turns the same column into the member it maps to.
+  const who = whoColumn(context.capabilities);
   loadScopedSection(
     context, panel,
     buckets.map((bucket) => ({
@@ -299,14 +304,7 @@ function renderSessionsView(context, main, scope) {
       // Each session row carries the slug of the project it works in.
       renderTable(body, rows, withProjectColumn([
         { label: "session", value: (row) => row.session_id },
-        {
-          label: "actor",
-          value: (row) => {
-            const label = row.actor_label ||
-              (row.actor_id == null ? "" : `actor ${row.actor_id}`);
-            return row.actor_kind === "system" ? `${label} · system` : label;
-          },
-        },
+        { label: who.label, value: who.value },
         { label: "liveness", value: (row) => row.liveness, pill: true },
         { label: "lane", value: (row) => row.execution_lane },
         { label: "mode", value: (row) => row.mode },
@@ -594,6 +592,7 @@ export const TAB_RENDERERS = {
 
 // A destination is live exactly when it has a renderer here.
 export const VIEW_RENDERERS = {
+  overview: renderOverviewView,
   frontier: renderFrontierView,
   items: renderItemsView,
   strategy: renderStrategyView,

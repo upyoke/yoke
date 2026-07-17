@@ -294,3 +294,34 @@ export function withProjectColumn(columns, scope, valueOf) {
     ...columns.slice(1),
   ];
 }
+
+// Who runs a session, mode-shaped by what the host can name. The engine models
+// an actor as an id and a kind and nothing else — a human actor has no name
+// there, because a name belongs to an account and accounts are the host's. So
+// the column's identity follows the host's `data.memberDirectory` capability:
+// an actor-id → account-label map a host supplies only where accounts exist
+// (it rides the same opaque `capabilities.data` bag as portability).
+//   * absent (a local or self-hosted universe has actors, not accounts) — the
+//     column is "actor" and shows the engine's honest label, a system actor
+//     marked so it never reads as a person;
+//   * present (a hosted org, whose members map to actors at first sign-in) —
+//     the column is "member" and shows the account, falling back to the actor
+//     label for a machine actor (a CI token) the directory does not name.
+// The directory never invents a mapping: an unnamed actor keeps its engine
+// identity rather than borrowing someone else's.
+export function whoColumn(capabilities) {
+  const directory =
+    (capabilities && capabilities.data && capabilities.data.memberDirectory) ||
+    null;
+  const named = directory && Object.keys(directory).length > 0;
+  const actorLabel = (row) => {
+    const label = row.actor_label ||
+      (row.actor_id == null ? "" : `actor ${row.actor_id}`);
+    return row.actor_kind === "system" ? `${label} · system` : label;
+  };
+  if (!named) return { label: "actor", value: actorLabel };
+  return {
+    label: "member",
+    value: (row) => directory[String(row.actor_id)] || actorLabel(row),
+  };
+}
