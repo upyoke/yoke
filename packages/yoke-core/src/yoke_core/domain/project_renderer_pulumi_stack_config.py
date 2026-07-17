@@ -78,9 +78,9 @@ _RENDER_KEYS_BY_KIND = {
         "domain_name", "environment", "ephemeral_preview_domain",
         "github_api_url", "github_app_kms_key_arn",
         "github_app_private_key_secret_arn", "github_repo_slug",
-        "hosted_zone_id", "kms_key_alias", "origin_host", "render_only",
-        "stack_instance_name", "vps_instance_type", "vps_root_volume_gb",
-        "vps_ssh_key_name",
+        "hosted_zone_id", "kms_key_alias", "origin_host",
+        "origin_vps_elastic_ip_output", "origin_vps_security_group_output",
+        "origin_vps_stack_name", "render_only", "stack_instance_name",
     }),
 }
 

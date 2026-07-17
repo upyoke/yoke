@@ -26,6 +26,7 @@ def _environment(name: str) -> RendererEnvironmentSettings:
             },
             "pulumi": {
                 "stack_name": f"acme-{name}",
+                "origin_vps_stack_name": f"acme-{name}-vps",
                 "secrets_provider": f"awskms://alias/acme-{name}",
                 "encrypted_key": f"encrypted-{name}",
             },
@@ -110,6 +111,14 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
     assert payload["config_schema"] == 2
     assert payload["stack_kind"] == "environment"
     assert payload["render_values"]["origin_host"] == "origin.stage.acme.test"
+    assert payload["render_values"]["origin_vps_stack_name"] == "acme-stage-vps"
+    assert payload["render_values"]["origin_vps_elastic_ip_output"] == (
+        "vpsElasticIpAddress"
+    )
+    assert payload["render_values"]["origin_vps_security_group_output"] == (
+        "vpsSecurityGroupId"
+    )
+    assert "vps_ssh_key_name" not in payload["render_values"]
     assert payload["operator_state"] == {
         "secrets_provider": "awskms://alias/acme-stage",
         "encrypted_key": "encrypted-stage",
