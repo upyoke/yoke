@@ -614,9 +614,36 @@ test("mount rejects section content the way it rejects slot content", () => {
   assert.throws(() => mountUniverseApp(root, {
     client, slots: { contentAfter: node }, sections: { members: node },
   }), /cannot occupy two universe app slots or sections/);
+  // A placement the contract does not define is refused by name rather than
+  // silently falling back to the default.
+  assert.throws(() => mountUniverseApp(root, {
+    client, sections: { members: { content: node, placement: "sideways" } },
+  }), /placement must be one of inView, beforeScope/);
   assert.equal(root.children.length, 0);
   assert.equal(node.parentNode, null);
   assert.equal(client.requests.length, 0);
+});
+
+test("a section entry is told from a spec by being a node, not by its keys", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/members";
+  const root = documentNode.createElement("div");
+  // A <template> owns a `content` property of its own, so an entry sniffed
+  // for a `content` key would read this Element as a placement spec and hand
+  // mount its DocumentFragment instead of the element the host supplied.
+  const template = documentNode.createElement("template");
+  template.content = new FakeNode(documentNode, "fragment", 11);
+
+  const mounted = mountUniverseApp(root, {
+    client: injectedClient("unused"), sections: { members: template },
+  });
+  await settle();
+
+  assert.ok(allNodes(root).includes(template));
+  mounted.unmount();
 });
 
 test("a synchronously throwing client still returns a cleanup handle", async (t) => {

@@ -79,13 +79,14 @@ export function materializeSlots(slots, rootNode, seen = new Set()) {
 const SECTION_PLACEMENTS = ["inView", "beforeScope"];
 
 // A section entry is a bare node/factory (the `inView` shorthand) or a spec
-// naming its content and placement. A spec is told apart by carrying its own
-// `content` key: an Element never does, and a factory is a function.
+// naming its content and placement. Content is told apart first, by being a
+// node or a factory — a spec is only ever a plain options object. Asking
+// instead whether the entry carries a `content` key would misread a
+// <template>, which owns a `content` property of its own.
 function sectionSpec(entry) {
-  if (entry === undefined || entry === null) return { content: entry };
-  if (typeof entry !== "object" || !("content" in entry)) {
-    return { content: entry };
-  }
+  const isContent = entry === undefined || entry === null ||
+    typeof entry === "function" || typeof entry.nodeType === "number";
+  if (isContent) return { content: entry };
   const placement = entry.placement ?? "inView";
   if (!SECTION_PLACEMENTS.includes(placement)) {
     throw new TypeError(
