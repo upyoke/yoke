@@ -7,7 +7,7 @@ from typing import Any, Mapping
 
 from yoke_core.domain.project_github_binding_payload import normalize_github_repo
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.project_renderer_pulumi import (
+from yoke_core.domain.project_renderer_pulumi_values import (
     _domain_mx_records_json,
     _domain_txt_records_json,
     gather_pulumi_values,
@@ -24,6 +24,10 @@ from yoke_core.domain.project_renderer_pulumi_selection import (
 )
 from yoke_core.domain.project_renderer_pulumi_stack_types import (
     gather_pulumi_stacks,
+)
+from yoke_core.domain.project_renderer_pulumi_vps_targets import (
+    gather_standalone_vps_targets,
+    standalone_vps_template_values,
 )
 from yoke_core.domain.project_renderer_settings import (
     PULUMI_STATE_CAPABILITY_TYPE,
@@ -109,16 +113,23 @@ def build_pulumi_stack_config(
     )
     stack_types = gather_pulumi_stacks(ident.slug, project_root, settings)
     instances = gather_pulumi_stack_instances(ident.slug, project_root, settings)
-    selected_types, selected_instances = select_pulumi_targets(
+    vps_targets = gather_standalone_vps_targets(settings)
+    selected_types, selected_instances, selected_vps_targets = select_pulumi_targets(
         selected_stack,
         stack_types,
         instances,
+        vps_targets,
         settings=settings,
         values=values,
     )
     if selected_instances:
         stack_kind = "environment"
         render_values = instance_template_values(selected_instances[0], values)
+    elif selected_vps_targets:
+        stack_kind = "vps"
+        render_values = standalone_vps_template_values(
+            selected_vps_targets[0], values
+        )
     else:
         stack_kind = selected_types[0]
         render_values = _legacy_render_values(
