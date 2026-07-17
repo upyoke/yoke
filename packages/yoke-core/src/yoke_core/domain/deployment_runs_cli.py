@@ -107,7 +107,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
         elif args.command == "list":
-            result = cmd_list(project=args.project, status=args.status)
+            result = cmd_list(
+                project=args.project,
+                status=args.status,
+                limit=args.limit,
+            )
             if result:
                 print(result)
             return 0

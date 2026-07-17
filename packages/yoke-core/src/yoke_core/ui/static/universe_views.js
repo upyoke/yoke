@@ -134,8 +134,7 @@ function renderOuroborosView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.entries);
-      // Every bucket served its complete set, so the merged length is the
-      // fetched total.
+      // The count is the bounded receipt set fetched for this scope.
       panel.setCount(rows.length);
       // Each entry carries the slug of the project it observed — a
       // universe-level observation carries none and shows none.
@@ -409,10 +408,8 @@ function renderDeliveryRunsView(context, main, scope) {
       payload: bucket === null ? {} : { project: bucket },
     })),
     (body, callResults) => {
-      // The engine lists oldest-first; a runs screen answers "what just
-      // happened", so presentation flips to newest-first.
-      const rows = mergedRows(callResults, (result) => result.rows)
-        .slice().reverse();
+      // The engine bounds run history and returns the newest receipts first.
+      const rows = mergedRows(callResults, (result) => result.rows);
       // Every bucket served its complete set, so the merged length is the
       // fetched total.
       panel.setCount(rows.length);

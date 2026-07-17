@@ -225,13 +225,13 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
         return okEnvelope({ rows: [{ id: 1, name: "Yoke" }] });
       }
       if (request.function === "deployment_runs.list") {
-        // Engine order: oldest first.
+        // Engine order: newest first.
         return okEnvelope({
           rows: [
-            runRow("run-20260101-001", "succeeded", "complete"),
-            runRow("run-20260102-001", "failed", "test-failed"),
-            runRow("run-20260103-001", "created", null),
             runRow("run-20260103-002", "executing", "ci-gate"),
+            runRow("run-20260103-001", "created", null),
+            runRow("run-20260102-001", "failed", "test-failed"),
+            runRow("run-20260101-001", "succeeded", "complete"),
           ],
         });
       }

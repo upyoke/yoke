@@ -130,13 +130,13 @@ def test_deployment_runs_list_prints_pipe_rows() -> None:
         )
 
     rc, out, _err = _run_capture(
-        stub, "deployment-runs", "list", "--project", "yoke",
+        stub, "deployment-runs", "list", "--project", "yoke", "--limit", "7",
     )
     assert rc == 0
     assert out == "run-20260616-001|yoke|created\n"
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "deployment_runs.list"
-    assert req.payload == {"project": "yoke"}
+    assert req.payload == {"project": "yoke", "limit": 7}
 
 
 def test_deployment_run_update_dispatches_and_prints_nothing() -> None:

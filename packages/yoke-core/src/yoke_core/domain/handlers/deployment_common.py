@@ -82,11 +82,13 @@ class DeploymentRunCreateResponse(BaseModel):
 class DeploymentRunListRequest(BaseModel):
     project: Optional[str] = None
     status: Optional[str] = None
+    limit: Optional[int] = None
 
 
 class DeploymentRunListResponse(BaseModel):
     fields: List[str]
     rows: List[Dict[str, Any]]
+    limit: int
 
 
 class DeploymentRunUpdateRequest(BaseModel):

@@ -158,12 +158,44 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             outcome = deployment_runs.handle_deployment_run_list(
                 _request(
                     function="deployment_runs.list",
-                    payload={"project": "yoke", "status": "created"},
+                    payload={
+                        "project": "yoke",
+                        "status": "created",
+                        "limit": 7,
+                    },
                 ),
             )
         self.assertTrue(outcome.primary_success)
-        cmd_list.assert_called_once_with(project="yoke", status="created")
+        cmd_list.assert_called_once_with(
+            project="yoke", status="created", limit=7,
+        )
         self.assertEqual(outcome.result_payload["rows"][0]["project"], "yoke")
+        self.assertEqual(outcome.result_payload["limit"], 7)
+
+    def test_run_list_defaults_to_bounded_recent_history(self):
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_query.cmd_list",
+            return_value="",
+        ) as cmd_list:
+            outcome = deployment_runs.handle_deployment_run_list(
+                _request(function="deployment_runs.list", payload={}),
+            )
+
+        self.assertTrue(outcome.primary_success)
+        cmd_list.assert_called_once_with(project=None, status=None, limit=20)
+        self.assertEqual(outcome.result_payload["limit"], 20)
+
+    def test_run_list_rejects_invalid_limit(self):
+        outcome = deployment_runs.handle_deployment_run_list(
+            _request(
+                function="deployment_runs.list",
+                payload={"limit": 1001},
+            ),
+        )
+
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+        self.assertEqual(outcome.error.jsonpath, "$.payload.limit")
 
     def test_run_update_maps_invalid_field(self):
         with patch(

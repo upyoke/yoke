@@ -33,7 +33,7 @@ DEPLOYMENT_RUNS_CREATE_USAGE = (
 )
 DEPLOYMENT_RUNS_LIST_USAGE = (
     "yoke deployment-runs list [--project P] [--status STATUS] "
-    "[--session-id S] [--json]"
+    "[--limit N] [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_UPDATE_USAGE = (
     "yoke deployment-runs update RUN-ID FIELD VALUE [--force] "
@@ -229,6 +229,12 @@ def deployment_runs_list(args: List[str]) -> int:
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--status", default=None)
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of recent runs to return.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_LIST_USAGE)
@@ -247,6 +253,8 @@ def deployment_runs_list(args: List[str]) -> int:
         payload["project"] = parsed.project
     if parsed.status is not None:
         payload["status"] = parsed.status
+    if parsed.limit is not None:
+        payload["limit"] = parsed.limit
     return dispatch_and_emit(
         function_id="deployment_runs.list",
         target=TargetRef(kind="global"),

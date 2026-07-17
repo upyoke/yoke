@@ -132,6 +132,7 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     payload = request.payload or {}
     project = payload.get("project")
     status = payload.get("status")
+    limit = payload.get("limit")
     for key, value in (("project", project), ("status", status)):
         if value is not None and not isinstance(value, str):
             return error(
@@ -139,15 +140,33 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
                 f"{key} must be a string when present",
                 jsonpath=f"$.payload.{key}",
             )
+    if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int)):
+        return error(
+            "payload_invalid",
+            "limit must be an integer when present",
+            jsonpath="$.payload.limit",
+        )
 
-    from yoke_core.domain.deployment_runs_crud_query import cmd_list
+    from yoke_core.domain.deployment_runs_crud_query import (
+        DEFAULT_RUN_LIST_LIMIT,
+        MAX_RUN_LIST_LIMIT,
+        cmd_list,
+    )
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
-    raw = cmd_list(project=project, status=status)
+    resolved_limit = DEFAULT_RUN_LIST_LIMIT if limit is None else limit
+    if resolved_limit < 1 or resolved_limit > MAX_RUN_LIST_LIMIT:
+        return error(
+            "payload_invalid",
+            f"limit must be from 1 to {MAX_RUN_LIST_LIMIT}",
+            jsonpath="$.payload.limit",
+        )
+    raw = cmd_list(project=project, status=status, limit=resolved_limit)
     return HandlerOutcome(
         result_payload={
             "fields": list(RUN_FIELDS),
             "rows": pipe_rows(raw, RUN_FIELDS),
+            "limit": resolved_limit,
         },
         primary_success=True,
     )
