@@ -15,9 +15,12 @@ The shared fixture ``db_path`` is provided by
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 
 from yoke_core.domain import deployment_runs as dr
+from yoke_core.domain import deployment_runs_crud_mutate as mutate
 from yoke_core.domain.schema_common import _get_tables
 from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
     _conn,
@@ -56,6 +59,22 @@ class TestNextId:
         rid2 = dr.cmd_next_id(db_path=db_path)
         assert rid2.endswith("-002")
 
+    def test_preview_is_non_reserving(self, db_path):
+        assert dr.cmd_next_id(db_path=db_path) == dr.cmd_next_id(db_path=db_path)
+
+    def test_uses_max_suffix_after_gap(self, db_path):
+        first = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        third = first[:-3] + "003"
+        conn = _conn(db_path)
+        conn.execute(
+            "UPDATE deployment_runs SET id=%s WHERE id=%s",
+            (third, first),
+        )
+        conn.commit()
+        conn.close()
+
+        assert dr.cmd_next_id(db_path=db_path).endswith("-004")
+
 
 class TestCreateRun:
     """cmd_create_run with various parameters."""
@@ -69,6 +88,38 @@ class TestCreateRun:
         fields = result.split("|")
         assert fields[1] == "yoke"
         assert fields[5] == "created"
+
+    def test_create_allocates_and_inserts_on_one_connection(
+        self,
+        db_path,
+        monkeypatch,
+    ):
+        real_connect = mutate.connect
+        calls = []
+
+        def tracked_connect(path=None):
+            calls.append(path)
+            return real_connect(path)
+
+        monkeypatch.setattr(mutate, "connect", tracked_connect)
+
+        mutate.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+
+        assert calls == [db_path]
+
+    def test_concurrent_creates_receive_distinct_ids(self, db_path):
+        def create(_index):
+            return dr.cmd_create_run(
+                "yoke",
+                "yoke-internal",
+                db_path=db_path,
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            run_ids = list(executor.map(create, range(2)))
+
+        assert len(set(run_ids)) == 2
+        assert sorted(run_id[-3:] for run_id in run_ids) == ["001", "002"]
 
     def test_create_with_target_env(self, db_path):
         rid = dr.cmd_create_run(
