@@ -493,6 +493,45 @@ test("a section for a workbench view appends after the view's own output", async
   assert.equal(extra.parentNode, null);
 });
 
+test("host sections remain visible when a single-scope view has no project", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  for (const view of ["github", "workflows"]) {
+    const documentNode = new FakeDocument();
+    documentNode.defaultView.location.hash = `#/${view}`;
+    const root = documentNode.createElement("div");
+    const hostSection = documentNode.createElement("aside");
+    const client = {
+      async call(request) {
+        if (request.function === "organizations.get") {
+          return { status: 200, envelope: { success: true, result: { name: "Empty" } } };
+        }
+        if (request.function === "projects.list") {
+          return { status: 200, envelope: { success: true, result: { rows: [] } } };
+        }
+        throw new Error(`unexpected function ${request.function}`);
+      },
+    };
+    const mounted = mountUniverseApp(root, {
+      client, sections: { [view]: hostSection },
+    });
+    await settle();
+
+    // Project scope governs the engine-owned read, not the host's section.
+    // Org-plane controls such as the hosted GitHub connection must remain
+    // reachable before the universe has its first project.
+    assert.equal(byClass(root, "empty")[0].textContent, "no projects yet");
+    assert.ok(allNodes(root).includes(hostSection));
+    const viewHost = byClass(root, "view-host")[0];
+    assert.equal(viewHost.children[viewHost.children.length - 1], hostSection);
+
+    mounted.unmount();
+    assert.equal(hostSection.parentNode, null);
+  }
+});
+
 test("mount rejects section content the way it rejects slot content", () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
