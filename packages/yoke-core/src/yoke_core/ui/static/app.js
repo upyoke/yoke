@@ -168,7 +168,8 @@ export function mountUniverseApp(rootNode, options = {}) {
   const resolvedSections = materializeSections(
     options.sections || {}, rootNode, hostContentNodes,
   );
-  const sectionNodes = Object.values(resolvedSections);
+  const sectionNodes = Object.values(resolvedSections)
+    .map((hostSection) => hostSection.content);
   const mountedSlotNodes = [];
   let mounted = true;
   let projects = [];
@@ -180,7 +181,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // projects costs no second call.
     projects: () => projects,
     // Host capability data, read by the views that render what a host can
-    // do (Universe settings draws its Portability controls from the actions
+    // do (the Organization view draws its Portability controls from the actions
     // bag). The topbar carries no capability controls.
     capabilities,
   };
@@ -264,10 +265,25 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   // A host section renders inside the view host, after whatever the view
   // renders for itself — one seam every view shares, so the host never
-  // reaches into a renderer's own output.
-  function appendViewSection(entry, viewHost) {
-    const sectionNode = resolvedSections[entry.id];
-    if (sectionNode) viewHost.appendChild(sectionNode);
+  // reaches into a renderer's own output. `scoped` marks the pages that drew
+  // a picker: only there does a `beforeScope` section belong somewhere else,
+  // and `beforeScopeSections` has already lifted it above that control. A
+  // page with no picker has no control for it to sit above, so both
+  // placements land here and no section can silently go unplaced.
+  function appendViewSection(entry, viewHost, { scoped = false } = {}) {
+    const hostSection = resolvedSections[entry.id];
+    if (!hostSection) return;
+    if (scoped && hostSection.placement === "beforeScope") return;
+    viewHost.appendChild(hostSection.content);
+  }
+
+  // The host section the view's scope does not govern, placed above the scope
+  // control so the picker never appears to filter facts it cannot touch. A
+  // view whose section is `inView` contributes nothing here.
+  function beforeScopeSections(entry) {
+    const hostSection = resolvedSections[entry.id];
+    return (hostSection && hostSection.placement === "beforeScope")
+      ? [hostSection.content] : [];
   }
 
   function renderRoute() {
@@ -299,7 +315,10 @@ export function mountUniverseApp(rootNode, options = {}) {
       // that the screen is not here — this mount cannot render it.
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), viewHost);
-      if (resolvedSections[entry.id]) appendViewSection(entry, viewHost);
+      // A host-fed view renders no body of its own and carries no picker, so
+      // its section is the whole body at either placement.
+      const hostSection = resolvedSections[entry.id];
+      if (hostSection) viewHost.appendChild(hostSection.content);
       else renderStubView(context, viewHost);
       return;
     }
@@ -347,6 +366,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       main.replaceChildren(
         pageHead,
         tabBar,
+        ...beforeScopeSections(entry),
         createScopePicker({
           documentNode, entry, scope, projects, renderRoute,
           scopeSelections, segment: tab.id, windowNode,
@@ -354,7 +374,7 @@ export function mountUniverseApp(rootNode, options = {}) {
         viewHost,
       );
       tabRenderer(context, viewHost, scope);
-      appendViewSection(entry, viewHost);
+      appendViewSection(entry, viewHost, { scoped: true });
       return;
     }
 
@@ -404,6 +424,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     const viewHost = el(documentNode, "div", "view-host");
     main.replaceChildren(
       createPageHead(documentNode, entry),
+      ...beforeScopeSections(entry),
       createScopePicker({
         documentNode, entry, scope, projects, renderRoute, scopeSelections,
         windowNode,
@@ -411,7 +432,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       viewHost,
     );
     renderer(context, viewHost, scope);
-    appendViewSection(entry, viewHost);
+    appendViewSection(entry, viewHost, { scoped: true });
   }
 
   windowNode.addEventListener("hashchange", renderRoute);

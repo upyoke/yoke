@@ -101,7 +101,7 @@ test("tab routes round-trip; absent and unknown segments resolve to the first ta
 test("a deep-linked unbuilt tab renders its stub under the active nav item, with no picker", async (t) => {
   const client = deliveryClient();
   const { documentNode, root, mounted } = await mountAt(
-    t, "#/delivery/flows?project=1", client,
+    t, "#/delivery/environments?project=1", client,
   );
 
   // Delivery stays the active destination; the tab never becomes one.
@@ -122,9 +122,9 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   const activeTabs = tabLinks
     .filter((node) => node.classList.contains("active"));
   assert.equal(activeTabs.length, 1);
-  assert.equal(activeTabs[0].textContent, "Flows");
+  assert.equal(activeTabs[0].textContent, "Environments");
   // Tabs are real links that carry the view's scope.
-  assert.equal(activeTabs[0].href, "#/delivery/flows?project=1");
+  assert.equal(activeTabs[0].href, "#/delivery/environments?project=1");
 
   // The honest stub: Coming soon, no scope control, and the FACET's own
   // what-it-will-be line — the page head names the view, not the tab, so
@@ -133,7 +133,7 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   const stubText = allNodes(byClass(root, "stub-panel")[0])
     .map((node) => node.textContent || "").join(" ");
   assert.ok(stubText.includes("Coming soon"));
-  assert.ok(stubText.includes("The pipeline definitions runs execute."));
+  assert.ok(stubText.includes("The deploy targets runs ship to."));
   assert.ok(!allNodes(byClass(root, "stub-panel")[0]).some(
     (node) => node.tagName === "H1" || node.tagName === "H2",
   ));
@@ -147,7 +147,7 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   );
   // The deep link survives untouched.
   assert.equal(
-    documentNode.defaultView.location.hash, "#/delivery/flows?project=1",
+    documentNode.defaultView.location.hash, "#/delivery/environments?project=1",
   );
   mounted.unmount();
 });
@@ -338,9 +338,7 @@ test("Runs at All reads unfiltered and labels each run's own project", async (t)
 });
 
 test("every unbuilt Delivery tab renders the stub treatment and never a picker", async (t) => {
-  for (const tabId of [
-    "environments", "flows", "databases", "infrastructure",
-  ]) {
+  for (const tabId of ["environments", "databases", "infrastructure"]) {
     const client = deliveryClient();
     const { root, mounted } = await mountAt(
       t, `#/delivery/${tabId}?project=1`, client,

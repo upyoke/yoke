@@ -136,14 +136,36 @@ export interface UniverseAppSlots {
 }
 
 /**
+ * Where a view's host section sits, which is a claim about what governs it:
+ *
+ * * `inView` (the default) — content the view's scope governs. It renders
+ *   inside the view body, under the scope control, after whatever the view
+ *   renders for itself.
+ * * `beforeScope` — content the view's scope does NOT govern, because it is
+ *   about something wider than one project (a hosted org's GitHub connection
+ *   is one). It renders above the scope control, so the picker never appears
+ *   to filter facts it cannot touch.
+ *
+ * A scope-less view has no picker to sit above, so both placements put the
+ * section in the same place; the declaration still records which it is.
+ */
+export type UniverseViewSectionPlacement = "inView" | "beforeScope";
+
+export interface UniverseViewSectionSpec {
+  readonly content: UniverseSlotContent;
+  readonly placement?: UniverseViewSectionPlacement;
+}
+
+/**
  * Host-supplied content for specific screens. Keys are view ids; a supplied
- * section renders inside that view, and its content stays host-owned the way
- * slot content does. For a host-fed view — one the workbench routes but does
- * not render itself — the view's nav entry appears exactly when its section
- * is supplied.
+ * section renders in that view at its declared placement, and its content
+ * stays host-owned the way slot content does. A bare node or factory is the
+ * shorthand for `inView`. For a host-fed view — one the workbench routes but
+ * does not render itself — the view's nav entry appears exactly when its
+ * section is supplied, and the section is that view's whole body.
  */
 export type UniverseViewSections =
-  Readonly<Record<string, UniverseSlotContent>>;
+  Readonly<Record<string, UniverseSlotContent | UniverseViewSectionSpec>>;
 
 /**
  * Whoever is acting, as the engine models them: an `actors` row is only an
@@ -196,7 +218,7 @@ export type UniverseRouteView =
   | "overview" | "inbox" | "strategy" | "frontier" | "items" | "board"
   | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events"
   | "doctor" | "ouroboros" | "projects" | "access" | "members" | "billing"
-  | "templates" | "github" | "project-settings" | "universe-settings";
+  | "templates" | "github" | "project" | "organization";
 
 /**
  * A view's optional second route segment means what the view declares — a

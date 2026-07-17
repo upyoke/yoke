@@ -1,11 +1,15 @@
-// The Universe settings screen. Its Portability panel is where a universe
-// moves between homes. Hosted, the host passes real move actions through the
-// mount contract's capabilities bag, and each renders as a button that acts
-// on click. Locally, the UI server is a closed read-only allowlist with no
-// write path, so no control here could act — the honest affordance is each
-// CLI command as text to copy.
+// The Organization screen: which organization this universe belongs to, and
+// how the universe moves between homes.
+//
+// Identity comes from `organizations.get` — the engine's org card is a slug, a
+// name, and a creation stamp and nothing more, so those three are what the
+// panel shows. Portability is where a universe moves: hosted, the host passes
+// real move actions through the mount contract's capabilities bag, and each
+// renders as a button that acts on click. Locally, the UI server is a closed
+// read-only allowlist with no write path, so no control here could act — the
+// honest affordance is each CLI command as text to copy.
 
-import { el } from "./universe_view_support.js";
+import { el, loadSection, section } from "./universe_view_support.js";
 
 function invokeAction(action, option) {
   // Invoke during the originating DOM event so host actions that require
@@ -73,19 +77,49 @@ function appendLocalCommands(documentNode, body) {
   ));
 }
 
-export function renderUniverseSettingsView(context, main) {
+// The engine's org card, verbatim. A universe holds exactly one organization,
+// so this reads without a scope and the screen carries no picker.
+function renderIdentityPanel(context, main) {
   const documentNode = context.document;
-  // A hand-built panel rather than the shared section(): no function read
-  // backs this screen, so there is no response envelope for the raw-JSON
-  // toggle to show, and a toggle over nothing would be one more control
-  // that lies.
+  const panel = section(documentNode, "Identity");
+  main.appendChild(panel);
+  loadSection(
+    context, panel, "organizations.get", {},
+    (body, callResult) => {
+      const org = callResult.envelope.result || {};
+      const table = el(documentNode, "table", "items kv");
+      for (const [label, value] of [
+        ["name", org.name],
+        ["url name", org.slug],
+        ["created", org.created_at],
+      ]) {
+        const row = el(documentNode, "tr");
+        row.appendChild(el(documentNode, "th", null, label));
+        row.appendChild(el(documentNode, "td", null, String(value ?? "")));
+        table.appendChild(row);
+      }
+      body.appendChild(table);
+    },
+  );
+}
+
+// A hand-built panel rather than the shared section(): no function read backs
+// portability, so there is no response envelope for a raw-JSON toggle to show,
+// and a toggle over nothing would be one more control that lies.
+function renderPortabilityPanel(context, main) {
+  const documentNode = context.document;
   const panel = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
   header.appendChild(el(documentNode, "h2", null, "Portability"));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
+  body.appendChild(el(
+    documentNode, "p", "fact-line",
+    "A universe is portable: it exports to one archive, and that archive " +
+      "imports into another home.",
+  ));
   panel.appendChild(body);
-  main.replaceChildren(panel);
+  main.appendChild(panel);
 
   const capabilities = context.capabilities || {};
   const actions = (Array.isArray(capabilities.actions)
@@ -93,4 +127,10 @@ export function renderUniverseSettingsView(context, main) {
   ).filter((action) => action && typeof action.onInvoke === "function");
   if (actions.length > 0) appendHostActions(documentNode, body, actions);
   else appendLocalCommands(documentNode, body);
+}
+
+export function renderOrganizationView(context, main) {
+  main.replaceChildren();
+  renderIdentityPanel(context, main);
+  renderPortabilityPanel(context, main);
 }

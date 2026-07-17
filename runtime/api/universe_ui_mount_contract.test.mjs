@@ -136,7 +136,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
 
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 2);
   // Host actions are not chrome: a mount carrying them draws nothing until
-  // the Universe settings view asks for them, and the topbar never does.
+  // the Organization view asks for them, and the topbar never does.
   assert.equal(byClass(firstRoot, "capability-actions").length, 0);
   assert.equal(byClass(secondRoot, "capability-actions").length, 0);
   const firstHeader = byClass(firstRoot, "topbar")[0];
@@ -181,10 +181,10 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   });
   assert.equal(assetFetches.length, 2);
 
-  // Universe settings renders the host actions as real buttons in the view:
+  // Organization renders the host actions as real buttons in the view:
   // the optionless action wears its own label, the optioned one wears one
   // button per option. The topbar stays bare either way.
-  documentNode.defaultView.location.hash = "#/universe-settings";
+  documentNode.defaultView.location.hash = "#/organization";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   assert.equal(byClass(firstHeader, "capability-actions").length, 0);
@@ -498,9 +498,12 @@ test("host sections remain visible when a single-scope view has no project", asy
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
-  for (const view of ["github", "workflows"]) {
+  // GitHub is the single-scope view that renders an engine-backed read, so
+  // it is the one that reaches the empty-universe panel; a scope-less or
+  // unbuilt view never gets there.
+  for (const placement of ["inView", "beforeScope"]) {
     const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = `#/${view}`;
+    documentNode.defaultView.location.hash = "#/github";
     const root = documentNode.createElement("div");
     const hostSection = documentNode.createElement("aside");
     const client = {
@@ -515,21 +518,82 @@ test("host sections remain visible when a single-scope view has no project", asy
       },
     };
     const mounted = mountUniverseApp(root, {
-      client, sections: { [view]: hostSection },
+      client, sections: { github: { content: hostSection, placement } },
     });
     await settle();
 
     // Project scope governs the engine-owned read, not the host's section.
     // Org-plane controls such as the hosted GitHub connection must remain
-    // reachable before the universe has its first project.
-    assert.equal(byClass(root, "empty")[0].textContent, "no projects yet");
-    assert.ok(allNodes(root).includes(hostSection));
+    // reachable before the universe has its first project — at either
+    // placement, because an empty universe draws no picker for a
+    // `beforeScope` section to sit above.
+    assert.equal(byClass(root, "empty")[0].textContent, "no projects yet", placement);
+    assert.ok(allNodes(root).includes(hostSection), placement);
     const viewHost = byClass(root, "view-host")[0];
-    assert.equal(viewHost.children[viewHost.children.length - 1], hostSection);
+    assert.equal(
+      viewHost.children[viewHost.children.length - 1], hostSection, placement,
+    );
 
     mounted.unmount();
-    assert.equal(hostSection.parentNode, null);
+    assert.equal(hostSection.parentNode, null, placement);
   }
+});
+
+test("a beforeScope section sits above the picker, an inView section below", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const mountWith = async (placement) => {
+    const documentNode = new FakeDocument();
+    documentNode.defaultView.location.hash = "#/github?project=1";
+    const root = documentNode.createElement("div");
+    const hostSection = documentNode.createElement("aside");
+    const client = {
+      async call(request) {
+        if (request.function === "organizations.get") {
+          return { status: 200, envelope: { success: true, result: { name: "Org" } } };
+        }
+        if (request.function === "projects.list") {
+          return {
+            status: 200,
+            envelope: { success: true, result: { rows: [{ id: 1, slug: "a", name: "A" }] } },
+          };
+        }
+        return { status: 200, envelope: { success: true, result: { bound: false } } };
+      },
+    };
+    const mounted = mountUniverseApp(root, {
+      client, sections: { github: { content: hostSection, placement } },
+    });
+    await settle();
+    return { root, hostSection, mounted };
+  };
+
+  // The hosted org's GitHub connection is not a project's fact, so the
+  // picker must not appear to filter it: the section stands above the
+  // control, between the page head and the chips.
+  const above = await mountWith("beforeScope");
+  const aboveContent = byClass(above.root, "content")[0];
+  const aboveOrder = aboveContent.children.map((node) => node.className);
+  assert.deepEqual(aboveOrder, ["page-head", "", "scope-bar", "view-host"]);
+  assert.equal(aboveContent.children[1], above.hostSection);
+  assert.ok(!allNodes(byClass(above.root, "view-host")[0])
+    .includes(above.hostSection));
+  above.mounted.unmount();
+
+  // The default placement is unchanged: scoped content stays in the view,
+  // under the picker, after whatever the view rendered for itself.
+  const below = await mountWith("inView");
+  const belowContent = byClass(below.root, "content")[0];
+  assert.deepEqual(
+    belowContent.children.map((node) => node.className),
+    ["page-head", "scope-bar", "view-host"],
+  );
+  const belowHost = byClass(below.root, "view-host")[0];
+  assert.equal(belowHost.children[belowHost.children.length - 1],
+    below.hostSection);
+  below.mounted.unmount();
 });
 
 test("mount rejects section content the way it rejects slot content", () => {
@@ -593,10 +657,12 @@ test("every nav destination declares how it takes project scope", () => {
   for (const view of ["items", "strategy", "overview", "inbox", "frontier"]) {
     assert.equal(universeNavScope(view), "multi");
   }
-  for (const view of ["workflows", "github", "project-settings"]) {
+  for (const view of ["github", "project"]) {
     assert.equal(universeNavScope(view), "single");
   }
-  for (const view of ["projects", "access", "templates", "universe-settings"]) {
+  // Workflows serves the engine's universe-wide lifecycle definition, so no
+  // project narrows it and it draws no picker.
+  for (const view of ["projects", "access", "templates", "organization", "workflows"]) {
     assert.equal(universeNavScope(view), "none");
   }
   // Members and Billing are host-fed views: the workbench routes them like
