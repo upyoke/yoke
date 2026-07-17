@@ -297,7 +297,7 @@ from yoke_cli.commands.adapters.templates import (
 )
 from yoke_cli.commands.adapters.sessions import (
     charge_schedule,
-    sessions_begin, sessions_checkpoint,
+    sessions_begin, sessions_checkpoint, sessions_init,
     sessions_checkpoint_read,
     sessions_offer,
     sessions_ownership_guard,
@@ -397,7 +397,7 @@ __all__ = [
     "project_install", "project_refresh", "project_uninstall",
     "project_snapshot_sync",
     "templates_list", "templates_fetch",
-    "sessions_begin", "sessions_touch", "sessions_checkpoint", "sessions_checkpoint_read",
+    "sessions_init", "sessions_begin", "sessions_touch", "sessions_checkpoint", "sessions_checkpoint_read",
     "sessions_offer", "sessions_ownership_guard", "sessions_list",
     "charge_schedule",
     "frontier_list",

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -19,6 +21,7 @@ from yoke_contracts.api.function_call import TargetRef
 SESSIONS_TOUCH_USAGE = (
     "yoke sessions touch [--mode MODE] [--session-id S] [--json]"
 )
+SESSIONS_INIT_USAGE = "yoke sessions init"
 SESSIONS_CHECKPOINT_USAGE = (
     "yoke sessions checkpoint --step N --action ACTION --chainable BOOL "
     "[--item-id I] [--task-num N] [--outcome O] [--status S] "
@@ -47,6 +50,26 @@ CHARGE_SCHEDULE_USAGE = (
 
 def _chainable(raw: str) -> bool:
     return str(raw).strip().lower() in ("true", "1", "yes")
+
+
+def sessions_init(args: List[str]) -> int:
+    """Run session bootstrap with the interpreter that owns ``yoke``.
+
+    The bootstrap helper spans CLI, core, and harness packages. Invoking it
+    through an ambient ``python3`` is unreliable for packaged installs, while
+    this wrapper guarantees the sibling runtime packages are importable.
+    """
+    parser = argparse.ArgumentParser(
+        prog="yoke sessions init", description=SESSIONS_INIT_USAGE,
+    )
+    parsed = parse_or_usage_error(parser, args, SESSIONS_INIT_USAGE)
+    if parsed is None:
+        return 2
+    completed = subprocess.run(
+        [sys.executable, "-m", "yoke_core.tools.session_init"],
+        check=False,
+    )
+    return int(completed.returncode)
 
 
 def sessions_touch(args: List[str]) -> int:
