@@ -129,6 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
     sfi.add_argument("--flow", default=None)
     sfi.add_argument("--target-env", default=None)
     sfi.add_argument("--release-lineage", default=None)
+    sfi.add_argument("--project-repo-path", default="")
     sfi.add_argument("--created-by", default="operator")
 
     return p

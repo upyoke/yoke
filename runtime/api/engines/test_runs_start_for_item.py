@@ -174,7 +174,7 @@ def test_stage_run_without_lineage_binds_exact_remote_head_before_create():
         result = start_for_item(42)
 
     assert result.ok is True
-    resolve_head.assert_called_once_with("yoke", "stage")
+    resolve_head.assert_called_once_with("yoke", "stage", "")
     assert create_m.call_args.kwargs["release_lineage"] == remote_sha
 
 

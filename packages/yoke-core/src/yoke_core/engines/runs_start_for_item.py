@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Optional
 
 from yoke_core.domain.deployment_runs_crud_mutate import (
@@ -101,28 +102,56 @@ def _lookup_item_project_and_flow(item_id: int) -> tuple:
 def _resolve_remote_release_head(
     project: str,
     target_env: str,
+    project_repo_path: str = "",
 ) -> tuple[str, str]:
     """Read the current flow gate-branch commit from the project remote."""
     from yoke_core.domain.deploy_pipeline_gates import resolve_flow_gate_branch
     from yoke_core.domain.deploy_pipeline_github_workflow import (
         _resolve_publish_sha,
     )
+    from yoke_core.domain.deploy_pipeline_reporting import _run_cmd
     from yoke_core.domain.project_checkout_locations import (
         checkout_for_project,
     )
     from yoke_core.domain import db_helpers
 
-    conn = db_helpers.connect()
-    try:
-        checkout = checkout_for_project(conn, project)
-    finally:
-        conn.close()
-    if checkout is None:
-        return "", (
-            f"project '{project}' has no checkout for release-lineage validation"
-        )
+    checkout = None
+    if project_repo_path:
+        candidate = Path(project_repo_path).expanduser().resolve()
+        top_level = _run_cmd([
+            "git", "-C", str(candidate), "rev-parse", "--show-toplevel",
+        ])
+        if top_level.returncode != 0 or not top_level.stdout.strip():
+            return "", (
+                f"project_repo_path '{candidate}' is not a Git checkout"
+            )
+        resolved_top_level = Path(top_level.stdout.strip()).resolve()
+        if resolved_top_level != candidate:
+            return "", (
+                f"project_repo_path '{candidate}' is not the checkout top-level "
+                f"'{resolved_top_level}'"
+            )
+        status = _run_cmd([
+            "git", "-C", str(candidate), "status", "--porcelain",
+        ])
+        if status.returncode != 0 or status.stdout.strip():
+            return "", (
+                f"project_repo_path '{candidate}' must be a clean Git checkout"
+            )
+        project_repo_path = str(candidate)
+    else:
+        conn = db_helpers.connect()
+        try:
+            checkout = checkout_for_project(conn, project)
+        finally:
+            conn.close()
+        if checkout is None:
+            return "", (
+                f"project '{project}' has no checkout for release-lineage "
+                "validation; pass project_repo_path explicitly"
+            )
 
-    repo_path = str(checkout)
+    repo_path = project_repo_path or str(checkout)
     gate_branch = resolve_flow_gate_branch(project, target_env, repo_path)
     if not gate_branch:
         return "", (
@@ -139,11 +168,16 @@ def _validate_commit_release_lineage(
     project: str,
     target_env: str,
     release_lineage: str,
+    project_repo_path: str = "",
 ) -> str:
     """Require an explicit commit lineage to equal the remote release head."""
     if not re.fullmatch(r"[0-9a-f]{40}", release_lineage):
         return ""
-    remote_sha, error = _resolve_remote_release_head(project, target_env)
+    remote_sha, error = _resolve_remote_release_head(
+        project,
+        target_env,
+        project_repo_path,
+    )
     if error:
         return error
     if release_lineage != remote_sha:
@@ -161,6 +195,7 @@ def start_for_item(
     flow: Optional[str] = None,
     target_env: Optional[str] = None,
     release_lineage: Optional[str] = None,
+    project_repo_path: str = "",
     created_by: str = "operator",
 ) -> StartForItemResult:
     """Compose deploy-run setup for ``item_id`` into one structured call.
@@ -217,6 +252,7 @@ def start_for_item(
             release_lineage, lineage_error = _resolve_remote_release_head(
                 resolved_project,
                 resolved_target_env,
+                project_repo_path,
             )
         except Exception as exc:
             lineage_error = f"release-lineage binding failed: {exc}"
@@ -236,6 +272,7 @@ def start_for_item(
                 resolved_project,
                 resolved_target_env,
                 release_lineage,
+                project_repo_path,
             )
         except Exception as exc:
             lineage_error = f"release-lineage validation failed: {exc}"
