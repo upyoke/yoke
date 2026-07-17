@@ -67,6 +67,10 @@ class DeployEnvironment:
     activation_state: str
     state_backend: str
     database_name: str
+    # Standalone VPS Pulumi stack whose EC2 instance serves this environment.
+    # Optional at resolution so deploy-only environments remain resolvable;
+    # activation fails loudly at the single point where the tag is required.
+    origin_vps_stack_name: str = ""
     otel_exporter_endpoint: str = ""
     github_app: GitHubAppDeploymentConfig | None = None
     # Long-lived branch this env runs the HEAD of (environments.settings
@@ -241,6 +245,7 @@ def deploy_environment_from_settings(
         database_name=str(
             _require(database.get("name"), what="database.name", hint=env_hint)
         ),
+        origin_vps_stack_name=str(pulumi.get("origin_vps_stack_name") or ""),
         otel_exporter_endpoint=str(
             observability.get("otel_exporter_endpoint") or ""
         ),

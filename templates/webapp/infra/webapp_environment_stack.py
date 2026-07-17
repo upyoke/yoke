@@ -1,8 +1,10 @@
 # AUTO-GENERATED template source: templates/webapp/infra/webapp_environment_stack.py. Do not hand-edit rendered copies; refresh through Yoke template/onboarding surfaces.
 """Pulumi ComponentResource composing a webapp environment stack.
 
-Beyond the VPS + Aurora + API edge composition, every environment carries the
-origin runtime substrate unconditionally: a CloudWatch log group for the core
+The origin EC2 box is provisioned by a separately applied standalone VPS stack
+and consumed here through a Pulumi StackReference. Beyond composing that origin
+with Aurora and the API edge, every environment carries the origin runtime
+substrate unconditionally: a CloudWatch log group for the core
 service, an EC2 instance profile whose role grants exactly ECR image pull
 (from the project's shared container registry) + CloudWatch log shipping +
 RDS-managed secret reads + scoped object access to the environment's artifacts
@@ -29,7 +31,6 @@ from webapp_database_stack import (
     WebappDatabaseArgs,
     WebappDatabaseStack,
 )
-from webapp_vps_stack import WebappVpsArgs, WebappVpsStack
 from webapp_environment_origin_policy import apply_input, origin_role_policy_json
 
 _SSM_MANAGED_INSTANCE_CORE_POLICY_ARN = (
@@ -41,15 +42,18 @@ _SSM_MANAGED_INSTANCE_CORE_POLICY_ARN = (
 class WebappEnvironmentArgs:
     deploy_namespace: str
     environment: str
-    stack_name: str
     domain_name: str
     api_host: str
     origin_host: str
     hosted_zone_id: str
     api_origin_port: int
-    vps_instance_type: str
-    vps_root_volume_gb: int
-    vps_ssh_key_name: str
+    # Pulumi stack name of the standalone VPS stack serving as this
+    # environment's origin.
+    origin_vps_stack_name: str
+    # Output names on the standalone VPS stack. The renderer supplies these
+    # so their single authority remains its shared output-name constants.
+    origin_vps_elastic_ip_output: str
+    origin_vps_security_group_output: str
     database_name: str
     database_master_username: str
     database_engine_version: str
@@ -77,9 +81,9 @@ class WebappEnvironmentArgs:
 
 
 class WebappEnvironmentStack(pulumi.ComponentResource):
-    """Compose default-VPC EC2 origin, Aurora PostgreSQL, and API edge."""
+    """Compose origin runtime substrate, Aurora PostgreSQL, and API edge."""
 
-    vps: WebappVpsStack
+    origin_vps: pulumi.StackReference
     database: WebappDatabaseStack
     api: WebappApiStack
     core_log_group: aws.cloudwatch.LogGroup
@@ -204,18 +208,12 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
             opts=child_opts,
         )
 
-        self.vps = WebappVpsStack(
-            "vps",
-            WebappVpsArgs(
-                deploy_namespace=args.deploy_namespace,
-                environment=args.environment,
-                instance_type=args.vps_instance_type,
-                root_volume_gb=args.vps_root_volume_gb,
-                ssh_key_name=args.vps_ssh_key_name,
-                stack_name=args.stack_name,
-                iam_instance_profile_name=self.origin_instance_profile.name,
-            ),
-            opts=child_opts,
+        self.origin_vps = pulumi.StackReference(args.origin_vps_stack_name)
+        origin_ip = self.origin_vps.require_output(
+            args.origin_vps_elastic_ip_output
+        )
+        origin_security_group_id = self.origin_vps.require_output(
+            args.origin_vps_security_group_output
         )
 
         self.database = WebappDatabaseStack(
@@ -229,7 +227,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
                 vpc_id=default_vpc.id,
                 subnet_ids=default_subnets.ids,
                 allowed_security_group_ids=[
-                    self.vps.security_group.id,
+                    origin_security_group_id,
                     *args.database_allowed_security_group_ids,
                 ],
                 min_capacity=args.database_min_capacity_acu,
@@ -271,7 +269,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
                 api_host=args.api_host,
                 origin_host=args.origin_host,
                 hosted_zone_id=args.hosted_zone_id,
-                origin_ip=self.vps.elastic_ip.public_ip,
+                origin_ip=origin_ip,
                 api_origin_port=args.api_origin_port,
                 distribution_bucket_name=args.distribution_bucket_name,
                 distribution_origin_id=args.distribution_origin_id,
@@ -322,7 +320,7 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
                 name=f"*.{args.ephemeral_preview_domain}",
                 type="A",
                 ttl=300,
-                records=[self.vps.elastic_ip.public_ip],
+                records=[origin_ip],
                 opts=child_opts,
             )
 
@@ -330,8 +328,8 @@ class WebappEnvironmentStack(pulumi.ComponentResource):
             "environment": args.environment,
             "defaultVpcId": default_vpc.id,
             "defaultSubnetIds": default_subnets.ids,
-            "originElasticIpAddress": self.vps.elastic_ip.public_ip,
-            "originSecurityGroupId": self.vps.security_group.id,
+            "originElasticIpAddress": origin_ip,
+            "originSecurityGroupId": origin_security_group_id,
             "apiHost": args.api_host,
             "databaseClusterEndpoint": self.database.cluster.endpoint,
             "coreLogGroupName": self.core_log_group.name,

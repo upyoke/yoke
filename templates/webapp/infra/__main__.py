@@ -260,7 +260,7 @@ def _runner_fleet_args_from_config(deploy_namespace: str):
     )
 
 
-def _environment_args_from_config(deploy_namespace: str, stack_name: str):
+def _environment_args_from_config(deploy_namespace: str):
     from webapp_database_stack import DEFAULT_SECONDS_UNTIL_AUTO_PAUSE
     from webapp_environment_stack import WebappEnvironmentArgs
 
@@ -269,7 +269,6 @@ def _environment_args_from_config(deploy_namespace: str, stack_name: str):
     return WebappEnvironmentArgs(
         deploy_namespace=deploy_namespace,
         environment=config.require("environment"),
-        stack_name=stack_name,
         domain_name=config.require("domain_name"),
         api_host=config.require("api_host"),
         origin_host=config.require("origin_host"),
@@ -283,9 +282,13 @@ def _environment_args_from_config(deploy_namespace: str, stack_name: str):
         ),
         github_repo=config.get("github_repo") or "",
         github_api_url=config.get("github_api_url") or "https://api.github.com",
-        vps_instance_type=config.require("vps_instance_type"),
-        vps_root_volume_gb=config.require_int("vps_root_volume_gb"),
-        vps_ssh_key_name=config.require("vps_ssh_key_name"),
+        origin_vps_stack_name=config.require("origin_vps_stack_name"),
+        origin_vps_elastic_ip_output=config.require(
+            "origin_vps_elastic_ip_output"
+        ),
+        origin_vps_security_group_output=config.require(
+            "origin_vps_security_group_output"
+        ),
         database_name=config.require("database_name"),
         database_master_username=config.require("database_master_username"),
         database_engine_version=config.require("database_engine_version"),
@@ -320,9 +323,7 @@ def main() -> None:
     if stack_kind == "environment":
         from webapp_environment_stack import WebappEnvironmentStack
 
-        WebappEnvironmentStack(
-            stack, _environment_args_from_config(deploy_namespace, stack)
-        )
+        WebappEnvironmentStack(stack, _environment_args_from_config(deploy_namespace))
     elif stack.endswith("-infra"):
         from webapp_infra_stack import WebappInfraStack
 

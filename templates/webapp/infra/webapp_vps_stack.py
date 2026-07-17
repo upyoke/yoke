@@ -8,10 +8,10 @@ Provisions:
 - Security group allowing inbound 22 (SSH), 80 (HTTP), 443 (HTTPS); all outbound
 
 Access is via the configured key pair plus any IAM instance profile passed
-through ``iam_instance_profile_name``. The environment stack passes a profile
-granting ECR image pull, CloudWatch log shipping, artifact-bucket access, and
-AWS Session Manager recovery access; ``None`` (the default) keeps standalone
-legacy VPS stacks SSH-only.
+through ``iam_instance_profile_name``. The ``vps_iam_instance_profile_name``
+config key attaches a profile granting ECR image pull, CloudWatch log shipping,
+artifact-bucket access, and AWS Session Manager recovery access; ``None`` (the
+default) keeps standalone legacy VPS stacks SSH-only.
 
 Ops bootstrap (Docker, nginx, certbot, etc.) runs separately via the rendered
 ``ops/provision-ec2.sh`` after first boot.
@@ -56,11 +56,8 @@ class WebappVpsArgs:
     stack_name: str
     # IAM instance profile attached to the instance. ``None`` (default) keeps
     # the instance profile absent — legacy ``-vps`` stacks change nothing.
-    # The environment stack passes a profile for ECR pull + CloudWatch logs.
+    # ``vps_iam_instance_profile_name`` supplies a profile when required.
     iam_instance_profile_name: Optional[pulumi.Input[str]] = None
-    # Environment name for cost-allocation tagging when composed by an
-    # environment stack; empty for standalone -vps stacks (Buzz prod).
-    environment: str = ""
 
 
 class WebappVpsStack(pulumi.ComponentResource):
@@ -93,10 +90,6 @@ class WebappVpsStack(pulumi.ComponentResource):
         )
 
         tags = {"project": args.deploy_namespace}
-        if args.environment:
-            # Env-composed VPS instances carry the cost-allocation
-            # environment tag; standalone -vps stacks render unchanged.
-            tags["environment"] = args.environment
         child_opts = pulumi.ResourceOptions(parent=self)
 
         # --- Networking: default VPC + public subnet ---

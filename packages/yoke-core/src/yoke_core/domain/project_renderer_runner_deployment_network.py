@@ -10,6 +10,7 @@ from .project_renderer_settings import ProjectRendererSettings
 
 ENVIRONMENT_ELASTIC_IP_OUTPUT = "originElasticIpAddress"
 STANDALONE_VPS_ELASTIC_IP_OUTPUT = "vpsElasticIpAddress"
+STANDALONE_VPS_SECURITY_GROUP_OUTPUT = "vpsSecurityGroupId"
 
 
 def deployment_ssh_stack_names(
@@ -87,6 +88,7 @@ def deployment_ssh_stack_outputs(
 __all__ = [
     "ENVIRONMENT_ELASTIC_IP_OUTPUT",
     "STANDALONE_VPS_ELASTIC_IP_OUTPUT",
+    "STANDALONE_VPS_SECURITY_GROUP_OUTPUT",
     "deployment_ssh_stack_names",
     "deployment_ssh_stack_outputs",
 ]

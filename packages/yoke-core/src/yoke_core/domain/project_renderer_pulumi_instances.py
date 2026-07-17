@@ -8,6 +8,10 @@ from typing import Mapping
 
 from yoke_core.domain import json_helper
 
+from .project_renderer_runner_deployment_network import (
+    STANDALONE_VPS_ELASTIC_IP_OUTPUT,
+    STANDALONE_VPS_SECURITY_GROUP_OUTPUT,
+)
 from .project_renderer_settings import (
     ProjectRendererSettings,
     _first_mapping,
@@ -65,9 +69,20 @@ def _raw_stack_instance_from_environment(
     stack_name = pulumi.get("stack_name")
     if not stack_name:
         return None
+    origin_vps_stack_name = str(
+        pulumi.get("origin_vps_stack_name", "") or ""
+    ).strip()
+    if not origin_vps_stack_name:
+        raise ValueError(
+            f"Environment {env.name!r} pulumi.origin_vps_stack_name for "
+            f"{settings.project} is required: it names the standalone VPS Pulumi "
+            "stack whose exported outputs serve this environment's origin. Set it "
+            "via: yoke projects environment-settings merge --project "
+            f"{settings.project} --environment-id {env.id} --set "
+            "pulumi.origin_vps_stack_name=<standalone-vps-stack-name>"
+        )
 
     hosts = _first_mapping(env.settings.get("hosts"))
-    server = _first_mapping(env.settings.get("servers"))
     database = _first_mapping(env.settings.get("database"))
     distribution = _first_mapping(env.settings.get("distribution"))
     github_app = _first_mapping(env.settings.get("github_app"))
@@ -95,9 +110,9 @@ def _raw_stack_instance_from_environment(
         "origin_host": hosts.get("origin", ""),
         "hosted_zone_id": domain.get("hosted_zone_id", ""),
         "api_origin_port": hosts.get("origin_port", ""),
-        "vps_instance_type": server.get("instance_type", ""),
-        "vps_root_volume_gb": server.get("root_volume_gb", ""),
-        "vps_ssh_key_name": server.get("aws_key_pair_name", ""),
+        "origin_vps_stack_name": origin_vps_stack_name,
+        "origin_vps_elastic_ip_output": STANDALONE_VPS_ELASTIC_IP_OUTPUT,
+        "origin_vps_security_group_output": STANDALONE_VPS_SECURITY_GROUP_OUTPUT,
         "database_name": database.get("name", ""),
         "database_master_username": database.get("master_username", ""),
         "database_engine_version": database.get("engine_version", ""),

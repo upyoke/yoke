@@ -85,6 +85,9 @@ snake_case:
 | `vps_instance_type` | string | vps | EC2 instance type |
 | `vps_root_volume_gb` | int | vps | EBS root volume size in GB |
 | `vps_ssh_key_name` | string | vps | EC2 key-pair name |
+| `origin_vps_stack_name` | string | env | Pulumi stack name of the separately applied standalone VPS serving this environment |
+| `origin_vps_elastic_ip_output` | string | env | Renderer-owned Elastic IP output name on the standalone VPS stack |
+| `origin_vps_security_group_output` | string | env | Renderer-owned security-group output name on the standalone VPS stack |
 
 Only the keys for stacks this project declares in `sites.settings.pulumi.stacks`
 are required. A DNS-only project (`stacks: ["domain"]`) needs just `project_name`
@@ -267,11 +270,12 @@ AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} \
 ### Break-glass access
 
 If SSH is unavailable (lost key, security-group misconfiguration), the
-environment stack attaches AWS Session Manager access to the origin instance
-role, so use provider-native session access first. If Session Manager is
-unavailable, reconcile the Pulumi environment stack before treating manual
-role/profile attachment as emergency drift. SSH remains available through the
-configured key pair and security group.
+environment stack provides an AWS Session Manager-enabled origin instance
+profile. The separately applied standalone VPS stack attaches that profile
+through its `vps_iam_instance_profile_name` config key, so use provider-native
+session access first. If Session Manager is unavailable, reconcile both stack
+contracts before treating manual role/profile attachment as emergency drift.
+SSH remains available through the configured key pair and security group.
 
 ## Ephemeral Environments
 

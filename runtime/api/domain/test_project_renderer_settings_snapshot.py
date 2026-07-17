@@ -31,6 +31,7 @@ def _sample_settings() -> ProjectRendererSettings:
             "hosts": {"api": "api.stage.acme.test", "origin": "o.stage.acme.test"},
             "pulumi": {
                 "stack_name": "acme-stage",
+                "origin_vps_stack_name": "acme-stage-vps",
                 "secrets_provider": "awskms://alias/acme-pulumi-state",
                 "encrypted_key": "ciphertext==",
             },

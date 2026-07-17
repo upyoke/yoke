@@ -20,9 +20,9 @@ config:
     {{distribution_repository_variable_namespace}}
   webapp-infra:github_repo: {{github_repo_slug}}
   webapp-infra:github_api_url: {{github_api_url}}
-  webapp-infra:vps_instance_type: {{vps_instance_type}}
-  webapp-infra:vps_root_volume_gb: "{{vps_root_volume_gb}}"
-  webapp-infra:vps_ssh_key_name: {{vps_ssh_key_name}}
+  webapp-infra:origin_vps_stack_name: {{origin_vps_stack_name}}
+  webapp-infra:origin_vps_elastic_ip_output: {{origin_vps_elastic_ip_output}}
+  webapp-infra:origin_vps_security_group_output: {{origin_vps_security_group_output}}
   webapp-infra:database_name: {{database_name}}
   webapp-infra:database_master_username: {{database_master_username}}
   webapp-infra:database_engine_version: {{database_engine_version}}
