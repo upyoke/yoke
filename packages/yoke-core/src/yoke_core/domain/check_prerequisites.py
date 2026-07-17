@@ -28,7 +28,6 @@ ENTRYPOINT_CHECKS = (
     "packages/yoke-core/src/yoke_core/domain/epic_task_sync.py",
     "packages/yoke-core/src/yoke_core/domain/update_status.py",
     "packages/yoke-core/src/yoke_core/engines/merge_worktree.py",
-    "runtime/harness/claude/merge_settings.py",
 )
 
 REQUIRED_DIRECTORIES = (

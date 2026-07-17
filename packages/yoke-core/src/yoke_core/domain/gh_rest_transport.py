@@ -321,9 +321,3 @@ def split_repo(repo: str) -> Tuple[str, str]:
     if len(parts) != 2 or not parts[0] or not parts[1]:
         raise ValueError(f"expected 'owner/name', got {repo!r}")
     return parts[0], parts[1]
-
-
-# Backwards-compatible aliases for the public test surface.
-from yoke_core.domain.gh_rest_transport_fakes import (  # noqa: E402
-    fake_response_filename as _fake_response_filename,  # noqa: F401
-)

@@ -56,7 +56,6 @@ from yoke_core.domain.stale_string_audit_discover import (
     _extract_dirs_from_test_command,
     _extract_test_dirs_from_docs,
     _get_item_field,
-    _get_project_field,
     _get_project_for_item,
     _looks_like_test_surface,
     _normalize_item_id,

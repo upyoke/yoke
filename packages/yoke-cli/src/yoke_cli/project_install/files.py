@@ -4,7 +4,7 @@ Owns the client-side install manifest (``.yoke/install-manifest.json``),
 sha256-idempotent file writes, refresh pruning, the seed-if-missing
 project-contract pass, and path-safety guards. Pure local filesystem
 mechanics — bundle resolution and hook merging live in the sibling
-:mod:`project_install` / :mod:`project_install_hooks`.
+:mod:`runner` / :mod:`hooks` modules.
 
 JSON via stdlib follows the :mod:`machine_config_writer` precedent.
 """

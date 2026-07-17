@@ -10,7 +10,7 @@ Owns:
   ``_extract_dirs_from_test_command``, ``_looks_like_test_surface``,
   ``_scan_test_directories``.
 * Item / project lookup helpers: ``_get_project_for_item``,
-  ``_get_item_field``, ``_get_project_field``, ``_normalize_item_id``.
+  ``_get_item_field``, ``_normalize_item_id``.
 
 Candidate-string extraction lives in ``stale_string_audit_extract``.
 """
@@ -68,23 +68,6 @@ def _get_item_field(item_id: int, field: str) -> str:
         return query_item(item_id, field).strip()
     except Exception:
         return ""
-
-
-def _get_project_field(project_id: str, field: str) -> Optional[str]:
-    """Return a single field from the projects table."""
-    try:
-        from yoke_core.domain import db_helpers
-        with db_helpers.connect() as conn:
-            row = db_helpers.query_one(
-                conn, f"SELECT {field} FROM projects WHERE id = ?", (project_id,),
-            )
-            if row:
-                val = row[field]
-                if val and val != "null":
-                    return val
-    except Exception:
-        pass
-    return None
 
 
 # ── Test surface discovery ──────────────────────────────────────────────

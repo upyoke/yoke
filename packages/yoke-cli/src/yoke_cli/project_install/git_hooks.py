@@ -16,7 +16,7 @@ Semantics: existing non-Yoke hooks are left in place with a warning;
 Yoke-marked hooks with drifted content are refreshed; missing hooks
 are created. Linked worktrees share the main checkout's ``.git/hooks/``
 (their ``.git`` is a file, reported as skipped) — run the install from
-the main checkout. Distinct from :mod:`project_install_hooks`, which
+the main checkout. Distinct from the sibling :mod:`hooks` module, which
 merges the bundle's HARNESS hook config into ``.claude/settings.json``
 and ``.codex/hooks.json``.
 """

@@ -2,8 +2,8 @@
 
 Owns:
 
-- ``_resolve_repo_root`` and ``_json_get`` filesystem/JSON utilities used by
-  the orchestrator.
+- ``_resolve_repo_root`` — repo-root filesystem utility used by the
+  orchestrator.
 - ``_validate_reachability`` — DNS + HTTP probe of the target base URL.
 - ``_validate_freshness_inputs`` and ``_validate_deployed_sha`` — deployment
   freshness gating. The ``ephemeral_environments`` row is read server-side
@@ -57,27 +57,6 @@ def _resolve_repo_root() -> str:
     from yoke_core.api.repo_root import find_repo_root
 
     return str(find_repo_root(Path(__file__)))
-
-
-def _json_get(data: Any, key: str) -> Any:
-    """Safely extract a value from a dict by dotpath."""
-    if not isinstance(data, dict):
-        return None
-    keys = key.split(".")
-    val = data
-    for k in keys:
-        if isinstance(val, dict):
-            val = val.get(k)
-        elif isinstance(val, list):
-            try:
-                val = val[int(k)]
-            except (ValueError, IndexError):
-                return None
-        else:
-            return None
-        if val is None:
-            return None
-    return val
 
 
 def _validate_reachability(base_url: str) -> Optional[str]:
