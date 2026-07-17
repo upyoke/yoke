@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_core.domain.project_github_auth_state import read_github_state
+from yoke_core.domain.project_github_binding_payload import normalize_github_repo
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.project_renderer_pulumi import (
     _domain_mx_records_json,
@@ -35,6 +35,10 @@ from yoke_core.domain.pulumi_state_capability import validate_stack_state
 
 STACK_CONFIG_SCHEMA = 2
 _GITHUB_METADATA_INTENT = {"metadata": "read"}
+_GITHUB_VARIABLES_INTENT = {
+    "metadata": "read",
+    "actions_variables": "write",
+}
 _RUNNER_FLEET_GITHUB_INTENT = {
     "metadata": "read",
     "actions_variables": "write",
@@ -130,7 +134,9 @@ def build_pulumi_stack_config(
         "stack_kind": stack_kind,
         "render_values": render_values,
         "operator_state": operator_state,
-        "authority": _authority(conn, ident.slug, settings, stack_kind),
+        "authority": _authority(
+            conn, ident.slug, settings, stack_kind, render_values
+        ),
     }
 
 
@@ -200,7 +206,11 @@ def _selected_render_values(
 
 
 def _authority(
-    conn: Any, project: str, settings: Any, stack_kind: str
+    conn: Any,
+    project: str,
+    settings: Any,
+    stack_kind: str,
+    render_values: Mapping[str, str],
 ) -> dict[str, Any]:
     aws_capability = "aws-admin"
     aws_settings = settings.capabilities.get(aws_capability, {})
@@ -211,24 +221,64 @@ def _authority(
         raise PulumiStackConfigError(
             "Pulumi AWS region and state bucket authority are required"
         )
-    github_state = read_github_state(project, None, conn=conn)
-    binding = github_state.binding or {}
+    repo_key = (
+        "runner_fleet_repo"
+        if stack_kind == "runner-fleet"
+        else "github_repo_slug"
+    )
+    api_key = (
+        "runner_fleet_github_api_url"
+        if stack_kind == "runner-fleet"
+        else "github_api_url"
+    )
+    desired_repo = str(render_values.get(repo_key) or "").strip()
+    desired_api = str(render_values.get(api_key) or "").strip()
+    github_project, binding = _github_binding_for_repo(
+        conn, desired_repo, desired_api
+    )
+    if stack_kind == "runner-fleet":
+        permissions = _RUNNER_FLEET_GITHUB_INTENT
+    elif stack_kind in {"environment", "registry"}:
+        permissions = _GITHUB_VARIABLES_INTENT
+    else:
+        permissions = _GITHUB_METADATA_INTENT
     return {
         "aws_capability": aws_capability,
         "aws_region": region,
         "backend_url": f"s3://{state_bucket}?region={region}",
+        "github_project": github_project or project,
         "github_repo": str(binding.get("github_repo") or ""),
         "github_api_url": str(binding.get("api_url") or ""),
-        "github_permissions": (
-            dict(_RUNNER_FLEET_GITHUB_INTENT)
-            if stack_kind == "runner-fleet"
-            else dict(_GITHUB_METADATA_INTENT)
-        ),
+        "github_permissions": dict(permissions),
         "sensitive_paths": [
             "operator_state.secrets_provider",
             "operator_state.encrypted_key",
         ],
     }
+
+
+def _github_binding_for_repo(
+    conn: Any, desired_repo: str, desired_api: str
+) -> tuple[str, Mapping[str, Any]]:
+    normalized = normalize_github_repo(desired_repo)
+    if not normalized:
+        return "", {}
+    rows = conn.execute(
+        "SELECT p.slug, b.github_repo, b.api_url "
+        "FROM project_github_repo_bindings b "
+        "JOIN projects p ON p.id=b.project_id"
+    ).fetchall()
+    for row in rows:
+        repo = str(row[1] or "")
+        api_url = str(row[2] or "")
+        if normalize_github_repo(repo) != normalized:
+            continue
+        if desired_api and api_url.rstrip("/") != desired_api.rstrip("/"):
+            continue
+        return str(row[0]), {"github_repo": repo, "api_url": api_url}
+    raise PulumiStackConfigError(
+        f"rendered GitHub repository {desired_repo!r} has no project binding"
+    )
 
 
 __all__ = [

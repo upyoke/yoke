@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from yoke_contracts.api.function_call import (
@@ -32,9 +30,7 @@ class PulumiStackConfigGetResponse(BaseModel):
     project_slug: str
     stack_name: str
     stack_kind: str
-    render_values: dict[str, Any]
-    operator_state: dict[str, str]
-    authority: dict[str, Any]
+    materialization_authorized: bool
 
 
 def handle_pulumi_stack_config_get(
@@ -57,7 +53,17 @@ def handle_pulumi_stack_config_get(
         return _failure("validation_error", str(exc), "$.payload")
     finally:
         conn.close()
-    return HandlerOutcome(primary_success=True, result_payload=payload)
+    return HandlerOutcome(
+        primary_success=True,
+        result_payload={
+            "config_schema": payload["config_schema"],
+            "project_id": payload["project_id"],
+            "project_slug": payload["project_slug"],
+            "stack_name": payload["stack_name"],
+            "stack_kind": payload["stack_kind"],
+            "materialization_authorized": True,
+        },
+    )
 
 
 def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:

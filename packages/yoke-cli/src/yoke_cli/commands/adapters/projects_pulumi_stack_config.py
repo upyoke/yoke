@@ -17,6 +17,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_cli.commands.pulumi_stack_config_loader import (
+    load_pulumi_stack_config,
+)
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -55,8 +58,12 @@ def projects_pulumi_stack_config_get(args: List[str]) -> int:
     if not response.success:
         message = response.error.message if response.error else "request failed"
         return _error(message, exit_code=1)
+    try:
+        materialized = load_pulumi_stack_config(parsed.project, parsed.stack)
+    except Exception as exc:
+        return _error(f"could not materialize stack config: {exc}", exit_code=1)
     payload = json.dumps(
-        response.result or {}, sort_keys=True, separators=(",", ":")
+        materialized, sort_keys=True, separators=(",", ":")
     ).encode("utf-8") + b"\n"
     try:
         _write_owner_only(target, payload, force=parsed.force)

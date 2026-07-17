@@ -14,10 +14,18 @@ from typing import Any, Mapping, Optional, Sequence
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.projects_pulumi_state_migration_marker import (
+    canonical_json as _canonical_json,
+    destination_has_entries as _destination_has_exact_entries,
+    marker_matches,
+    remove_source_state as _remove_source_state,
+    set_marker,
+)
 
 CAPABILITY_TYPE = "pulumi-state"
 SOURCE_PATH = "sites.settings.pulumi.stack_state"
 DESTINATION_PATH = "project_capabilities.settings.stack_state"
+MARKER_PATH = "project_capabilities.settings.migration_receipts"
 SENSITIVE_PATHS = (
     f"{SOURCE_PATH}.*.secrets_provider",
     f"{SOURCE_PATH}.*.encrypted_key",
@@ -81,7 +89,10 @@ def migrate_pulumi_state(
         )
 
         if source_entries is None:
-            if _destination_has_exact_entries(destination_entries, requested):
+            if (
+                marker_matches(capability_settings, site_id, requested)
+                and _destination_has_exact_entries(destination_entries, requested)
+            ):
                 mode = "already_applied"
                 changed_paths: list[str] = []
             else:
@@ -120,6 +131,9 @@ def migrate_pulumi_state(
             merged_destination = dict(destination_state)
             merged_destination.update(source_entries)
             capability_settings["stack_state"] = merged_destination
+            set_marker(capability_settings, site_id, requested)
+            if MARKER_PATH not in changed_paths:
+                changed_paths.append(MARKER_PATH)
             _remove_source_state(site_settings)
             conn.execute(
                 "UPDATE project_capabilities SET settings=%s "
@@ -293,21 +307,6 @@ def _validated_entries(
     return result
 
 
-def _destination_has_exact_entries(
-    destination: Optional[Mapping[str, Any]], requested: Sequence[str]
-) -> bool:
-    return destination is not None and all(name in destination for name in requested)
-
-
-def _remove_source_state(settings: dict[str, Any]) -> None:
-    pulumi = dict(settings.get("pulumi") or {})
-    pulumi.pop("stack_state", None)
-    if pulumi:
-        settings["pulumi"] = pulumi
-    else:
-        settings.pop("pulumi", None)
-
-
 def _verify_applied(
     conn: Any, project_id: int, site_id: str, requested: Sequence[str]
 ) -> None:
@@ -330,19 +329,20 @@ def _verify_applied(
     validated = _validated_entries(
         destination, DESTINATION_PATH, selected=requested
     )
-    if source is not None or not _destination_has_exact_entries(validated, requested):
+    settings = _object_from_json(capability_row[0], DESTINATION_PATH)
+    if (
+        source is not None
+        or not _destination_has_exact_entries(validated, requested)
+        or not marker_matches(settings, site_id, requested)
+    ):
         raise PulumiStateMigrationError(
             "verification_failed", "Pulumi state migration verification failed"
         )
 
-
-def _canonical_json(value: object) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-
 __all__ = [
     "CAPABILITY_TYPE",
     "DESTINATION_PATH",
+    "MARKER_PATH",
     "PulumiStateMigrationError",
     "SENSITIVE_PATHS",
     "SOURCE_PATH",

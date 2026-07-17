@@ -5,10 +5,23 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
+from yoke_core.domain.projects_pulumi_state_migration_marker import (
+    MIGRATION_MARKERS_KEY,
+    validate_markers,
+)
+
 
 CAPABILITY_TYPE = "pulumi-state"
 STACK_STATE_KEY = "stack_state"
 _ENTRY_KEYS = frozenset({"secrets_provider", "encrypted_key"})
+_STRING_KEYS = frozenset({
+    "deploy_namespace", "infra_stack_name", "kms_key_alias",
+    "runner_fleet_stack_name", "state_bucket", "vps_stack_name",
+})
+_PUBLIC_MERGE_KEYS = _STRING_KEYS | {"stacks"}
+_ALLOWED_KEYS = _PUBLIC_MERGE_KEYS | {
+    STACK_STATE_KEY, MIGRATION_MARKERS_KEY,
+}
 
 
 def validate_json_string(raw_json: str) -> str:
@@ -19,9 +32,31 @@ def validate_json_string(raw_json: str) -> str:
         raise ValueError("pulumi-state settings must be valid JSON") from exc
     if not isinstance(document, dict):
         raise ValueError("pulumi-state settings must be a JSON object")
+    unknown = sorted(set(document) - _ALLOWED_KEYS)
+    if unknown:
+        raise ValueError(
+            "pulumi-state settings contain unknown fields: " + ", ".join(unknown)
+        )
+    for key in sorted(_STRING_KEYS & set(document)):
+        value = document[key]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"pulumi-state {key} must be a non-empty string")
+        document[key] = value.strip()
+    if "stacks" in document:
+        raw_stacks = document["stacks"]
+        if not isinstance(raw_stacks, list):
+            raise ValueError("pulumi-state stacks must be a list")
+        stacks = [str(value or "").strip() for value in raw_stacks]
+        if any(not value for value in stacks) or len(stacks) != len(set(stacks)):
+            raise ValueError("pulumi-state stacks must be non-empty and unique")
+        document["stacks"] = stacks
     raw_state = document.get(STACK_STATE_KEY)
     if raw_state is not None:
         document[STACK_STATE_KEY] = validate_stack_state(raw_state)
+    if MIGRATION_MARKERS_KEY in document:
+        document[MIGRATION_MARKERS_KEY] = validate_markers(
+            document[MIGRATION_MARKERS_KEY]
+        )
     return json.dumps(document, sort_keys=True, separators=(",", ":"))
 
 
@@ -82,15 +117,15 @@ def validate_merge_assignments(
     selected = str(cap_type or "").strip()
     if selected != CAPABILITY_TYPE:
         return selected
-    sensitive = sorted(
+    closed = sorted(
         str(path) for path in assignments
-        if str(path) == STACK_STATE_KEY
-        or str(path).startswith(f"{STACK_STATE_KEY}.")
+        if str(path) not in _PUBLIC_MERGE_KEYS
     )
-    if sensitive:
+    if closed:
         raise ValueError(
-            "pulumi-state stack_state is closed on the generic merge surface; "
-            "use the typed Pulumi state migration surface"
+            "pulumi-state generic merges allow only known non-sensitive "
+            "top-level fields; use the typed Pulumi state migration surface "
+            "for operator state"
         )
     return selected
 

@@ -166,8 +166,8 @@ def register(registry) -> None:
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "exact_stack_scope", "declared_sensitive_paths",
-            "no_unrelated_settings",
+            "exact_stack_scope", "metadata_only_receipt",
+            "operator_state_event_exclusion",
         ],
         adapter_status="live",
         claim_required_kind=None,

@@ -20,12 +20,19 @@ from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
 
 _ALLOWED_COMMANDS = frozenset({"preview", "refresh", "import"})
 _IMPORT_FLAGS = frozenset({
-    "--file", "--protect=false", "--generate-code=false", "--yes",
+    "--protect=false", "--generate-code=false", "--yes",
     "--non-interactive",
+})
+_PREVIEW_FLAGS = frozenset({
+    "--diff", "--expect-no-changes", "--non-interactive", "--refresh",
+    "--suppress-outputs",
+})
+_REFRESH_FLAGS = frozenset({
+    "--non-interactive", "--preview-only", "--skip-preview", "--yes",
 })
 _AMBIENT_GITHUB_ENV = frozenset({
     "GH_ENTERPRISE_TOKEN", "GH_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
-    "GITHUB_TOKEN",
+    "GITHUB_TOKEN", "RUNNER_FLEET_GITHUB_TOKEN",
 })
 
 
@@ -113,7 +120,12 @@ def _validated_command(
         args = _absolute_option_path(args, "--file")
     elif operation == "preview":
         args, json_output = _preview_output_args(args)
+        _validate_flag_args(args, _PREVIEW_FLAGS, path_options={"--import-file"})
         args = _absolute_option_path(args, "--import-file")
+        if json_output is not None:
+            args.append("--json")
+    else:
+        _validate_flag_args(args, _REFRESH_FLAGS)
     args = _without_stack_flag(args)
     return ["pulumi", operation, *args, "--stack", stack], json_output
 
@@ -150,7 +162,7 @@ def _without_stack_flag(args: Sequence[str]) -> list[str]:
 def _validate_import_args(args: Sequence[str]) -> None:
     normalized: list[str] = []
     index = 0
-    has_file = False
+    file_count = 0
     while index < len(args):
         value = args[index]
         if value == "--stack":
@@ -162,7 +174,7 @@ def _validate_import_args(args: Sequence[str]) -> None:
         if value == "--file":
             if index + 1 >= len(args):
                 raise PulumiExecError("pulumi import --file requires a path")
-            has_file = True
+            file_count += 1
             normalized.extend((value, args[index + 1]))
             index += 2
             continue
@@ -171,8 +183,38 @@ def _validate_import_args(args: Sequence[str]) -> None:
             index += 1
             continue
         raise PulumiExecError(f"pulumi import argument is not allowed: {value}")
-    if not has_file:
-        raise PulumiExecError("pulumi import requires --file")
+    if file_count != 1:
+        raise PulumiExecError("pulumi import requires exactly one --file")
+
+
+def _validate_flag_args(
+    args: Sequence[str],
+    allowed_flags: frozenset[str],
+    *,
+    path_options: frozenset[str] | set[str] = frozenset(),
+) -> None:
+    index = 0
+    while index < len(args):
+        value = args[index]
+        if value == "--stack":
+            index += 2
+            continue
+        if value.startswith("--stack="):
+            index += 1
+            continue
+        if value in path_options:
+            if index + 1 >= len(args):
+                raise PulumiExecError(f"{value} requires a path")
+            index += 2
+            continue
+        if any(value.startswith(f"{option}=") for option in path_options):
+            index += 1
+            continue
+        if value not in allowed_flags:
+            raise PulumiExecError(
+                f"Pulumi argument is not allowed for this operation: {value}"
+            )
+        index += 1
 
 
 def _preview_output_args(args: Sequence[str]) -> tuple[list[str], Path | None]:
@@ -184,7 +226,6 @@ def _preview_output_args(args: Sequence[str]) -> tuple[list[str], Path | None]:
             if output is not None or index + 1 >= len(args):
                 raise PulumiExecError("--json-output requires one unique path")
             output = Path(args[index + 1]).expanduser().resolve()
-            result.append("--json")
             index += 2
         else:
             result.append(args[index])
@@ -239,8 +280,11 @@ def _authority_env(
     token = ""
     if str(authority.get("github_repo") or "").strip():
         try:
+            github_project = str(
+                authority.get("github_project") or project
+            ).strip()
             github = github_auth_loader(
-                project,
+                github_project,
                 required_permissions=dict(authority.get("github_permissions") or {}),
             )
             token = str(github.token or "").strip()
@@ -248,7 +292,14 @@ def _authority_env(
             raise PulumiExecError(
                 "Pulumi GitHub authority could not be materialized"
             ) from exc
+        resolved_repo = str(getattr(github, "repo", "") or "").strip().casefold()
+        expected_repo = str(authority.get("github_repo") or "").strip().casefold()
+        if resolved_repo != expected_repo:
+            raise PulumiExecError(
+                "Pulumi GitHub token repository does not match stack authority"
+            )
         env["GITHUB_TOKEN"] = token
+        env["RUNNER_FLEET_GITHUB_TOKEN"] = token
     env["PULUMI_BACKEND_URL"] = backend
     operator = payload.get("operator_state") or {}
     secret_terms = [

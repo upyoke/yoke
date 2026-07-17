@@ -19,6 +19,7 @@ from yoke_core.domain.projects_pulumi_state_migration import (
     PulumiStateMigrationError,
     migrate_pulumi_state,
 )
+from yoke_core.domain.pulumi_state_capability import validate_json_string
 
 
 @pytest.fixture
@@ -193,7 +194,7 @@ def test_generic_surfaces_hide_stack_state_but_allow_top_level_merge(
         cmd_capability_set_settings(
             "yoke", "pulumi-state", "{}", base_settings_json="{}"
         )
-    with pytest.raises(ValueError, match="generic merge surface"):
+    with pytest.raises(ValueError, match="generic merges allow"):
         cmd_capability_merge_settings(
             "yoke", "pulumi-state", {"stack_state.yoke-infra.encrypted_key": "x"}
         )
@@ -213,3 +214,61 @@ def test_generic_surfaces_hide_stack_state_but_allow_top_level_merge(
         assert "stack_state" in stored
     finally:
         conn.close()
+
+
+def test_retry_requires_exact_durable_site_marker(pulumi_state_db):
+    conn = pg_testdb.connect_test_database(pulumi_state_db)
+    try:
+        entries = {
+            name: {
+                "secrets_provider": f"awskms://alias/{name}",
+                "encrypted_key": f"encrypted-{name}",
+            }
+            for name in ("one", "two", "three", "four")
+        }
+        conn.execute(
+            "UPDATE sites SET settings=%s WHERE id='main'",
+            (json.dumps({"pulumi": {"stack_state": entries}}),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    migrate_pulumi_state(
+        project="yoke",
+        site_id="main",
+        stack_names=list(entries),
+        apply=True,
+    )
+    with pytest.raises(PulumiStateMigrationError) as raised:
+        migrate_pulumi_state(
+            project="yoke", site_id="main", stack_names=["one"], apply=True
+        )
+    assert raised.value.code == "not_found"
+
+
+@pytest.mark.parametrize(
+    "assignment",
+    [
+        {"unknown": "value"},
+        {"state_bucket.nested": "value"},
+        {"migration_receipts.main.stack_names": ["stack"]},
+    ],
+)
+def test_generic_pulumi_state_merge_rejects_unknown_or_nested(
+    pulumi_state_db, assignment
+):
+    with pytest.raises(ValueError, match="known non-sensitive top-level"):
+        cmd_capability_merge_settings("yoke", "pulumi-state", assignment)
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {"unknown": "value"},
+        {"credentials": {"token": "sensitive"}},
+        {"state_bucket": {"nested": "value"}},
+    ],
+)
+def test_pulumi_state_validator_rejects_unknown_or_wrong_typed_fields(document):
+    with pytest.raises(ValueError):
+        validate_json_string(json.dumps(document))

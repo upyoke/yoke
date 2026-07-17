@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 from pathlib import Path
 import sys
 from typing import List
@@ -14,6 +15,9 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.commands.pulumi_stack_config_loader import (
+    load_pulumi_stack_config,
+)
 
 
 PULUMI_EXEC_USAGE = (
@@ -55,18 +59,19 @@ def pulumi_exec(args: List[str]) -> int:
         if not response.success:
             message = response.error.message if response.error else "request failed"
             raise RuntimeError(message)
-        return response.result or {}
+        return load_pulumi_stack_config(project, stack)
 
     try:
-        from yoke_core.domain.project_renderer_values import _resolve_project_root
-        from yoke_core.tools.pulumi_exec import execute_pulumi_command
-
-        return execute_pulumi_command(
+        renderer_values = importlib.import_module(
+            "yoke_core.domain.project_renderer_values"
+        )
+        executor = importlib.import_module("yoke_core.tools.pulumi_exec")
+        return executor.execute_pulumi_command(
             parsed.project,
             parsed.stack,
             command,
             config_loader=config_loader,
-            project_root=Path(_resolve_project_root()),
+            project_root=Path(renderer_values._resolve_project_root()),
         )
     except FileNotFoundError as exc:
         print(f"error: Pulumi executable or template not found: {exc}", file=sys.stderr)

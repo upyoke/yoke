@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from io import BytesIO, StringIO
-import os
 from pathlib import Path
 import stat
 
@@ -174,3 +173,71 @@ def test_import_accepts_only_safe_file_form(tmp_path):
         err=StringIO(),
     )
     assert commands[0][-2:] == ["--stack", "yoke-infra"]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["preview", "--config", "secret=value"],
+        ["preview", "--config-file", "Pulumi.prod.yaml"],
+        ["preview", "--save-plan", "plan.json"],
+        ["refresh", "--config", "secret=value"],
+    ],
+)
+def test_preview_and_refresh_reject_unapproved_arguments(command, tmp_path):
+    with pytest.raises(PulumiExecError, match="not allowed"):
+        execute_pulumi_command(
+            "yoke", "yoke-infra", command,
+            config_loader=lambda project, stack: _payload(project, stack),
+            project_root=tmp_path,
+        )
+
+
+def test_import_requires_exactly_one_file(tmp_path):
+    with pytest.raises(PulumiExecError, match="exactly one"):
+        execute_pulumi_command(
+            "yoke", "yoke-infra",
+            ["import", "--file", "one.json", "--file", "two.json"],
+            config_loader=lambda project, stack: _payload(project, stack),
+            project_root=tmp_path,
+        )
+
+
+def test_github_authority_uses_bound_project_and_both_token_names(tmp_path):
+    payload = _payload()
+    payload["authority"].update({
+        "github_project": "platform",
+        "github_repo": "upyoke/platform",
+        "github_permissions": {
+            "metadata": "read",
+            "actions_variables": "write",
+        },
+    })
+    seen = {}
+
+    def auth_loader(project, **kwargs):
+        seen["project"] = project
+        seen["permissions"] = kwargs["required_permissions"]
+        return type("Auth", (), {
+            "token": "token-value",
+            "repo": "upyoke/platform",
+        })()
+
+    def child_factory(command, **kwargs):
+        seen["env"] = kwargs["env"]
+        return _Child()
+
+    execute_pulumi_command(
+        "yoke", "yoke-infra", ["preview"],
+        config_loader=lambda project, stack: payload,
+        project_root=Path(__file__).resolve().parents[3],
+        aws_env_loader=lambda *args, **kwargs: {},
+        github_auth_loader=auth_loader,
+        child_factory=child_factory,
+        out=StringIO(),
+        err=StringIO(),
+    )
+    assert seen["project"] == "platform"
+    assert seen["permissions"]["actions_variables"] == "write"
+    assert seen["env"]["GITHUB_TOKEN"] == "token-value"
+    assert seen["env"]["RUNNER_FLEET_GITHUB_TOKEN"] == "token-value"

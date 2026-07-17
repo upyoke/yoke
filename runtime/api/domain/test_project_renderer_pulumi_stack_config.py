@@ -98,12 +98,10 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
     )
     monkeypatch.setattr(
         module,
-        "read_github_state",
-        lambda project, db_path, conn=None: SimpleNamespace(
-            binding={
-                "github_repo": "acme/app",
-                "api_url": "https://api.github.com",
-            }
+        "_github_binding_for_repo",
+        lambda conn, repo, api: (
+            "platform",
+            {"github_repo": repo, "api_url": api},
         ),
     )
 
@@ -120,7 +118,11 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
     assert "site_settings" not in payload
     assert "environments" not in payload
     assert "capabilities" not in payload
-    assert payload["authority"]["github_permissions"] == {"metadata": "read"}
+    assert payload["authority"]["github_project"] == "platform"
+    assert payload["authority"]["github_permissions"] == {
+        "metadata": "read",
+        "actions_variables": "write",
+    }
 
 
 def test_stack_config_separates_environment_operator_state(monkeypatch):
@@ -150,9 +152,7 @@ def test_stack_config_separates_environment_operator_state(monkeypatch):
         module, "_load_project_renderer_settings", lambda conn, project: settings
     )
     monkeypatch.setattr(
-        module,
-        "read_github_state",
-        lambda *args, **kwargs: SimpleNamespace(binding=None),
+        module, "_github_binding_for_repo", lambda *args: ("", {})
     )
     stage_payload = build_pulumi_stack_config(object(), "acme", "acme-stage")
     prod_payload = build_pulumi_stack_config(

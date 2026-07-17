@@ -63,14 +63,15 @@ PROJECT_COMMANDS: list[dict] = [
             "--site-id <site> --stack <stack> [--apply]"
         ),
         "notes": (
-            "Registered projects.pulumi_state.migrate is dry-run-default, "
-            "requires the exact source stack set, and returns redacted "
-            "metadata only. Fetch one stack with `yoke projects "
+            "Migration is dry-run-default and exact-set, persists a durable "
+            "retry marker, and returns redacted metadata. Stack-config "
+            "registration is admin metadata-only; fetch its body through the "
+            "no-store boundary with `yoke projects "
             "pulumi-stack-config get --project <project> --stack <stack> "
             "--output <file>`; execute it with `yoke pulumi exec --project "
             "<project> --stack <stack> -- preview` (also allows refresh and "
-            "safe file-form import). Generic capability get/full-set and "
-            "stack_state merge are intentionally closed."
+            "safe file-form import). Generic capability and operator-state "
+            "surfaces are closed."
         ),
     },
 ]

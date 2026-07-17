@@ -92,6 +92,11 @@ def test_stack_config_adapter_writes_0600_without_body_output(tmp_path):
             "call_dispatcher",
             return_value=response,
         ),
+        patch(
+            "yoke_cli.commands.adapters.projects_pulumi_stack_config."
+            "load_pulumi_stack_config",
+            return_value=payload,
+        ),
         redirect_stdout(stdout),
         redirect_stderr(stderr),
     ):
