@@ -59,7 +59,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke github disconnect": "yoke github disconnect [--config PATH] [--json]",
     "yoke github status": "yoke github status [--offline] [--json]",
     "yoke dev setup": "yoke dev setup [CHECKOUT]",
-    "yoke dev db-admin setup": "yoke dev db-admin setup <env> [--yes]",
+    "yoke dev db-admin setup": (
+        "yoke dev db-admin setup <env> "
+        "[--control-plane-env CONNECTION_ENV] [--yes]"
+    ),
     "yoke dev path-snapshot-prewarm": "yoke dev path-snapshot-prewarm",
     "yoke onboard": "yoke onboard [--project-mode machine-only|local-checkout] [--yes]",
     "yoke onboard project": "yoke onboard project CHECKOUT --slug SLUG --name NAME [--org ORG] [--yes|--dry-run]",

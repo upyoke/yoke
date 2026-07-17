@@ -146,6 +146,8 @@ def _disposition(command: str, edges: Sequence[ImportEdge], operation: ops.Opera
 def _branch(command: str, disposition: str, operation: ops.OperationEntry | None) -> str:
     if command in _PROJECT_INSTALL:
         return "project-install-https-bundle"
+    if command == "yoke dev db-admin setup":
+        return "named-https-control-plane-read-plus-source-dev-admin-local"
     by_disposition = {
         PRODUCT_CLIENT: "product-client-local",
         HTTPS_RELAY: "https-relay",
@@ -163,7 +165,9 @@ def _config(command: str, disposition: str) -> str:
         "yoke github connect": "machine config path and GitHub App authorization source", "yoke github disconnect": "machine config path and local authorization removal",
         "yoke onboard": "target config path, env, API URL, GitHub App authorization, optional local checkout handoff inputs",
         "yoke dev setup": "Yoke source checkout; optional local-postgres DSN inputs",
-        "yoke dev db-admin setup": "project/env deploy settings plus capability-owned AWS credentials",
+        "yoke dev db-admin setup": (
+            "named HTTPS control-plane env plus project/env deploy settings"
+        ),
         "yoke aws exec": "project aws-admin capability settings plus local AWS CLI",
         "yoke runner-fleet exec": (
             "versioned project stack-config snapshot plus child command"
@@ -185,7 +189,7 @@ def _capability(command: str, disposition: str) -> str:
     if command in _PROJECT_INSTALL:
         return "project install bundle endpoint"
     if command == "yoke dev setup": return "yoke-core source package for apply/source-link repair"  # noqa: E701
-    if command == "yoke dev db-admin setup": return "project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
+    if command == "yoke dev db-admin setup": return "named HTTPS db.read.run plus project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
     if command == "yoke aws exec": return "project aws-admin capability credentials"  # noqa: E701
     if command == "yoke runner-fleet exec": return "project aws-admin plus repository-bound GitHub App authority"  # noqa: E701
     if disposition == HTTPS_RELAY:
@@ -210,6 +214,8 @@ def _refusal(command: str, disposition: str, operation: ops.OperationEntry | Non
         return "machine-config issue report; no yoke-core import"
     if command.startswith("yoke core "):
         return "typed Docker/Colima/local-core guidance; no yoke-core import"
+    if command == "yoke dev db-admin setup":
+        return "fail-closed named-HTTPS binding or exact database-identity error"
     if disposition == HTTPS_RELAY:
         return "FunctionCallResponse error envelope"
     if disposition == HOOK_LOCAL_SUBSET:
