@@ -139,7 +139,7 @@ def emit_session_resumed(
     conflicts: Sequence[Mapping[str, Any]],
     prior_release_reason: str = "session_ended",
     project: str = "yoke",
-) -> Optional[int]:
+) -> Optional[str]:
     """Emit ``HarnessSessionResumed`` for a resumed-episode register pass.
 
     Returns the inserted event id on success, ``None`` on emission
@@ -177,7 +177,7 @@ def emit_session_resumed(
                 conflicts=conflicts,
             ),
         }
-        emit_event(
+        result = emit_event(
             EVENT_HARNESS_SESSION_RESUMED,
             event_kind="system",
             event_type="session_lifecycle",
@@ -189,6 +189,8 @@ def emit_session_resumed(
     except Exception as exc:
         _logger.debug("%s emission failed: %s", EVENT_HARNESS_SESSION_RESUMED, exc)
         return None
+    if result is not None and result.ok:
+        return result.event_id
     return None
 
 

@@ -24,6 +24,7 @@ from typing import List, Optional, Tuple
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain.lifecycle import ISSUE_PROGRESSION
+from yoke_core.domain.path_claims_dependency_resolver import _strip_sun_prefix
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 
 
@@ -57,26 +58,35 @@ def _query_blockers(
     item_id: int,
     gate_filter: Optional[str] = None,
 ) -> List[Tuple[str, str, str]]:
-    """Return ``[(blocking_item, gate_point, satisfaction), ...]``."""
-    dependent = f"YOK-{item_id}"
+    """Return ``[(blocking_item, gate_point, satisfaction), ...]``.
+
+    ``dependent_item`` stores public text refs whose shape may vary
+    (``YOK-N``, bare numeric, zero-padded); rows are matched through the
+    same ``_strip_sun_prefix`` normalizer the overlap classifier uses so
+    every shape gates lifecycle exactly like it serializes claims.
+    """
+    dependent = str(item_id)
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     if gate_filter:
         rows = db_helpers.query_rows(
             conn,
-            "SELECT blocking_item, gate_point, satisfaction "
-            f"FROM item_dependencies WHERE dependent_item = {p} AND gate_point = {p} "
+            "SELECT dependent_item, blocking_item, gate_point, satisfaction "
+            f"FROM item_dependencies WHERE gate_point = {p} "
             "ORDER BY blocking_item",
-            (dependent, gate_filter),
+            (gate_filter,),
         )
     else:
         rows = db_helpers.query_rows(
             conn,
-            "SELECT blocking_item, gate_point, satisfaction "
-            f"FROM item_dependencies WHERE dependent_item = {p} "
-            "ORDER BY blocking_item",
-            (dependent,),
+            "SELECT dependent_item, blocking_item, gate_point, satisfaction "
+            "FROM item_dependencies ORDER BY blocking_item",
+            (),
         )
-    return [(row["blocking_item"], row["gate_point"], row["satisfaction"]) for row in rows]
+    return [
+        (row["blocking_item"], row["gate_point"], row["satisfaction"])
+        for row in rows
+        if _strip_sun_prefix(row["dependent_item"]) == dependent
+    ]
 
 
 def _query_item(conn, item_id: int) -> Optional[dict]:
