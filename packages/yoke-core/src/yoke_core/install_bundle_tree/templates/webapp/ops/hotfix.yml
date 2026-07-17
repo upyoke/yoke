@@ -1,0 +1,343 @@
+# hotfix.yml — Production hotfix deploy invoked by the project hotfix flow
+#
+# The Yoke deployment run dispatches this workflow with its correlation id.
+# Deploys via rsync + docker compose rebuild on the VPS.
+# Requires a "production" GitHub environment with optional reviewer gate.
+#
+# Readiness-gated fast-path rebuild. When production containers
+# are already running and healthy, skips aggressive cache prune and
+# --no-cache to allow Docker layer reuse. Falls back to full cold-start
+# path when readiness fails or force_rebuild is set.
+#
+# Template variables:
+#   {{PROJECT_NAME_UPPER}} — uppercase project name (e.g., ACME) for secret names
+#   {{project_name}}       — lowercase project name (e.g., acme) for paths
+#   {{project_display_name}} — human-readable name (e.g., Acme) for workflow title
+#   Uses ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }} for SSH user (secret-based)
+#   {{api_port}}           — API health check port (e.g., 8000)
+#   {{web_port}}           — Web frontend port (e.g., 3000)
+#   {{web_health_path}}    — Web health check path (e.g., /)
+#   {{web_smoke_paths}}    — Comma-separated additional smoke paths (e.g., /forgot-password,/login)
+#   {{cloudfront_id}}      — CloudFront distribution ID for cache invalidation
+#   {{project_name}}-app   — production compose project name
+
+name: {{project_display_name}} Hotfix
+run-name: "{{project_display_name}} hotfix [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      yoke_dispatch_id:
+        description: 'Opaque Yoke dispatch correlation token for the owning deployment run'
+        required: true
+        type: string
+      force_rebuild:
+        description: 'Force full clean rebuild (skip fast-path even if production is healthy)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install rsync
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Add host to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Set up SSH key
+        run: |
+          echo "${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Ship Docker maintenance convergence helper
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            ops/docker_maintenance_converge.py \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}:~/docker_maintenance_converge.py
+
+      - name: Converge safe host Docker maintenance
+        # Pre-service-mutation and verification-gated. Install the canonical
+        # deploy-user job, then remove any root-owned image-prune cron left by
+        # the historical sudo setup instruction without installing a duplicate.
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'python3 "$HOME/docker_maintenance_converge.py" && \
+             sudo -n python3 "$HOME/docker_maintenance_converge.py" --remove-only'
+
+      - name: Check production readiness
+        id: readiness
+        run: |
+          # Detect whether production is already running and healthy.
+          if [ "${{ inputs.force_rebuild }}" = "true" ]; then
+            echo "fast_path=false" >> "$GITHUB_OUTPUT"
+            echo "Force rebuild requested — using full cold-start path"
+            exit 0
+          fi
+
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+          HEALTHY=$(ssh -i ~/.ssh/deploy_key -o LogLevel=ERROR \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << 'READYEOF' || true
+            RUNNING=$(docker compose -p "{{project_name}}-app" ps --status running -q 2>/dev/null | wc -l)
+            if [ "$RUNNING" -lt 1 ]; then
+              echo "NOT_RUNNING"
+              exit 0
+            fi
+            STATUS=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:{{api_port}}/api/health 2>/dev/null || echo "000")
+            if [ "$STATUS" != "200" ]; then
+              echo "UNHEALTHY"
+              exit 0
+            fi
+            if [ ! -d ~/{{project_name}}-app ]; then
+              echo "NOT_PROVISIONED"
+            elif [ ! -f ~/{{project_name}}-app/docker-compose.yml ]; then
+              echo "NOT_PROVISIONED"
+            else
+              echo "HEALTHY"
+            fi
+          READYEOF
+          )
+
+          HEALTHY=$(echo "$HEALTHY" | tail -1 | tr -d '[:space:]')
+
+          if [ "$HEALTHY" = "HEALTHY" ]; then
+            echo "fast_path=true" >> "$GITHUB_OUTPUT"
+            echo "Production already running and healthy — using fast-path rebuild"
+          else
+            echo "fast_path=false" >> "$GITHUB_OUTPUT"
+            echo "Production not ready ($HEALTHY) — using full cold-start path"
+          fi
+
+      - name: Deploy via rsync
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            app/ \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}:~/{{project_name}}-app/app/
+
+      - name: Sync docker-compose.yml
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            docker-compose.yml \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}:~/{{project_name}}-app/docker-compose.yml
+
+      - name: Rebuild production (fast-path)
+        if: steps.readiness.outputs.fast_path == 'true'
+        run: |
+          # Fast-path: production already running and healthy.
+          # Use incremental Docker build — no cache prune, no --no-cache.
+          # Pruning before a cache-dependent build is counterproductive.
+          # Do NOT tear down running containers before the build succeeds.
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'cd ~/{{project_name}}-app && \
+             if ! docker compose -p {{project_name}}-app build; then
+               echo "Fast-path build failed — leaving existing production running"
+               exit 1
+             fi && \
+             docker compose -p {{project_name}}-app up -d'
+
+      - name: Prune Docker build cache and dangling images (cold-start)
+        if: steps.readiness.outputs.fast_path != 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'docker builder prune -af && docker image prune -f'
+
+      - name: Stop existing containers and rebuild (cold-start)
+        if: steps.readiness.outputs.fast_path != 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'cd ~/{{project_name}}-app && \
+             docker compose -p {{project_name}}-app down --remove-orphans && \
+             if ! docker compose -p {{project_name}}-app build --no-cache; then
+               echo "Build failed — pruning all Docker build cache and retrying..."
+               docker builder prune -af
+               docker compose -p {{project_name}}-app build --no-cache
+             fi && \
+             docker compose -p {{project_name}}-app up -d'
+
+      - name: Wait for API health check
+        run: |
+          for i in $(seq 1 24); do
+            if ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+              'curl -sf http://localhost:{{api_port}}/api/health' >/dev/null 2>&1; then
+              echo "API health check passed"
+              exit 0
+            fi
+            echo "Waiting for API health check... (attempt $i/24)"
+            sleep 5
+          done
+          echo "API health check timed out after 2 minutes"
+          exit 1
+
+      - name: Wait for web health check
+        run: |
+          for i in $(seq 1 24); do
+            if ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+              'curl -sf -o /dev/null -w "%{http_code}" http://localhost:{{web_port}}{{web_health_path}} | grep -qE "^(200|307)$"' 2>&1; then
+              echo "Web health check passed"
+              exit 0
+            fi
+            echo "Waiting for web health check... (attempt $i/24)"
+            sleep 5
+          done
+          echo "Web health check timed out after 2 minutes"
+          exit 1
+
+      - name: Check additional smoke paths
+        run: |
+          SMOKE_PATHS="{{web_smoke_paths}}"
+          if [ -z "$SMOKE_PATHS" ]; then
+            echo "No additional smoke paths configured — skipping"
+            exit 0
+          fi
+          IFS=','
+          for path in $SMOKE_PATHS; do
+            echo "Checking smoke path: $path"
+            ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+              "curl -sf -o /dev/null -w \"%{http_code}\" http://localhost:{{web_port}}${path} | grep -qE \"^(200|307)$\""
+            echo "Smoke path $path passed"
+          done
+
+      - name: Reclaim superseded production images
+        # Post-health and fail-visible: Docker's non-`--all` prune removes
+        # dangling build generations but never an image owned by a container.
+        # Re-running is idempotent; a persistent daemon/SSH failure must leave
+        # the workflow red so disk reclamation cannot silently stop happening.
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'for attempt in 1 2 3; do
+               if docker image prune --force; then
+                 echo "Post-deploy image cleanup complete"
+                 exit 0
+               fi
+               if [ "$attempt" -lt 3 ]; then
+                 echo "Image cleanup attempt $attempt/3 failed; retrying" >&2
+               fi
+             done
+             echo "Image cleanup failed after 3 attempts" >&2
+             exit 1'
+
+      - name: Fetch active branch slugs
+        # Fetch all remote branches and slugify them using the same algorithm
+        # as the ephemeral deploy workflow. This lets the cleanup step skip
+        # environments that belong to still-active branches.
+        id: branches
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ACTIVE_SLUGS=$(gh api repos/${{ github.repository }}/branches --paginate --jq '.[].name' | \
+            grep -v '^main$' | grep -v '^hotfix/' | \
+            while read -r branch; do
+              echo "$branch" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//'
+            done | sort -u | paste -sd ',' -)
+          echo "active_slugs=${ACTIVE_SLUGS}" >> "$GITHUB_OUTPUT"
+          echo "Active branch slugs: ${ACTIVE_SLUGS}"
+
+      - name: Clean up stale non-production environments
+        # Runs after health checks so cleanup does not block the deploy critical path.
+        if: success()
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'export ACTIVE_SLUGS='"'"'${{ steps.branches.outputs.active_slugs }}'"'"' && docker compose ls --format json | \
+             python3 -c "
+          import json, os, shutil, subprocess, sys
+
+          PROJECT_PREFIX = \"{{project_name}}-\"
+          ACTIVE = set(os.environ.get(\"ACTIVE_SLUGS\", \"\").split(\",\"))
+          ACTIVE.discard(\"\")
+
+          def image_slug(repo):
+              if not repo.startswith(PROJECT_PREFIX):
+                  return None
+              rest = repo[len(PROJECT_PREFIX):]
+              if \"-\" not in rest:
+                  return None
+              return rest.rsplit(\"-\", 1)[0]
+
+          def volume_slug(name):
+              if not name.startswith(PROJECT_PREFIX):
+                  return None
+              return name[len(PROJECT_PREFIX):].split(\"_\", 1)[0]
+
+          projects = json.load(sys.stdin)
+          slugs = set()
+          for p in projects:
+              name = p.get(\"Name\", \"\")
+              if name.startswith(\"{{project_name}}-\") and name != \"{{project_name}}-app\":
+                  slug = name[len(\"{{project_name}}-\"):]
+                  if slug in ACTIVE:
+                      print(f\"Skipping active environment: {name} (branch still exists)\")
+                      continue
+                  slugs.add(slug)
+                  print(f\"Tearing down stale project: {name}\")
+                  subprocess.run([\"docker\", \"compose\", \"-p\", name, \"down\", \"--volumes\", \"--remove-orphans\"], check=False)
+          eph_dir = os.path.expanduser(\"~/{{project_name}}-ephemeral\")
+          if os.path.isdir(eph_dir):
+              for d in os.listdir(eph_dir):
+                  if os.path.isdir(os.path.join(eph_dir, d)) and d not in ACTIVE:
+                      slugs.add(d)
+          image_result = subprocess.run(
+              [\"docker\", \"images\", \"--format\", \"{{`{{.Repository}} {{.Tag}}`}}\"],
+              capture_output=True,
+              text=True,
+              check=False,
+          )
+          volume_result = subprocess.run(
+              [\"docker\", \"volume\", \"ls\", \"--format\", \"{{`{{.Name}}`}}\"],
+              capture_output=True,
+              text=True,
+              check=False,
+          )
+          for slug in slugs:
+              for line in image_result.stdout.splitlines():
+                  parts = line.split(\" \", 1)
+                  if len(parts) != 2:
+                      continue
+                  repo, tag = parts
+                  if image_slug(repo) != slug:
+                      continue
+                  image_ref = repo if tag in (\"\", \"<none>\") else f\"{repo}:{tag}\"
+                  subprocess.run([\"docker\", \"rmi\", image_ref], check=False)
+              for line in volume_result.stdout.splitlines():
+                  if volume_slug(line) != slug:
+                      continue
+                  subprocess.run([\"docker\", \"volume\", \"rm\", line], check=False)
+              slug_dir = os.path.join(eph_dir, slug)
+              if os.path.isdir(slug_dir):
+                  shutil.rmtree(slug_dir, ignore_errors=True)
+                  print(f\"Removed directory: {slug_dir}\")
+          "'
+
+      - name: Invalidate CloudFront cache
+        if: success()
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "AWS_ACCESS_KEY_ID not set — skipping CloudFront invalidation"
+            exit 0
+          fi
+          aws cloudfront create-invalidation \
+            --distribution-id {{cloudfront_id}} \
+            --paths "/*"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1

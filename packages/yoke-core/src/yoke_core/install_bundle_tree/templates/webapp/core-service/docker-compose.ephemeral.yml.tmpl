@@ -1,0 +1,41 @@
+# Rendered by the ephemeral-deploy executor (runtime.api.domain.deploy_ephemeral).
+# Per-branch core-service preview: the project's core container plus a
+# disposable Postgres sidecar, isolated per slug. Do not hand-edit on the
+# server: every deploy rewrites this file from the template plus DB-backed
+# ephemeral policy. Project: {{project}} / slug: {{slug}}.
+name: {{compose_project}}
+services:
+  db:
+    container_name: {{compose_project}}-db
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: {{database_name}}
+      POSTGRES_USER: {{database_user}}
+      # Hex-only generated secret (compose interpolates $ in env values).
+      POSTGRES_PASSWORD: ${EPHEMERAL_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{database_user}} -d {{database_name}}"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+  core:
+    container_name: {{compose_project}}-core
+    image: {{image_ref}}
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    # The DSN rides its own file, not an .env value: compose interpolates
+    # $ inside env files, corrupting passwords that carry it.
+    volumes:
+      - ./dsn:/run/yoke/dsn:ro
+    ports:
+      - "127.0.0.1:{{api_port}}:{{container_port}}"
+    # Throwaway preview tier: logs stay on the box (docker logs); no
+    # CloudWatch shipping for per-slug containers.
+volumes:
+  pgdata:

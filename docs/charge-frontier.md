@@ -14,7 +14,7 @@ A WIP cap limits how many conduct-eligible items are returned, preventing overco
 
 ## Algorithm
 
-The `compute_frontier()` function exported by `runtime/api/domain/frontier.py` and implemented in `runtime/api/domain/frontier_compute.py` owns the full computation:
+The `compute_frontier()` function exported by `packages/yoke-core/src/yoke_core/domain/frontier.py` and implemented in `packages/yoke-core/src/yoke_core/domain/frontier_compute.py` owns the full computation:
 
 ### Step 1: Fetch candidate items
 
@@ -247,10 +247,10 @@ The charge flow emits structured events:
 
 | Event | Kind | When | Emitter |
 |-------|------|------|---------|
-| `FrontierComputed` | workflow | On every `compute_frontier()` call | `runtime/api/domain/frontier_compute.py` (core-owned) |
+| `FrontierComputed` | workflow | On every `compute_frontier()` call | `packages/yoke-core/src/yoke_core/domain/frontier_compute.py` (core-owned) |
 | `ChargeDecisionMade` | lifecycle | On every terminal charge exit | charge skill via `yoke_core.domain.events.emit_event` |
 
-`FrontierComputed` is emitted by the core Python frontier path, not by the charge skill. See `runtime/api/domain/frontier_compute.py` for the canonical emitter.
+`FrontierComputed` is emitted by the core Python frontier path, not by the charge skill. See `packages/yoke-core/src/yoke_core/domain/frontier_compute.py` for the canonical emitter.
 
 ### ChargeDecisionMade envelope
 

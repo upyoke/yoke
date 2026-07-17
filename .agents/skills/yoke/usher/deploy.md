@@ -93,7 +93,7 @@ an ancestor of the branch selected by the flow's project/environment policy.
 The pipeline owns that resolution and enforces the same gate internally
 (`resolve_flow_gate_branch`); Usher must not hardcode a project branch.
 
-**Long-running execution:** `deploy_pipeline` polls external CI systems and can run for several minutes (default timeout: 30 min). Execute it through the harness long-command surface, await completion, and do not poll. The full anti-polling rule lives in `runtime/harness/claude/rules/session.md` and is enforced by `runtime/api/domain/lint_long_command_polling.py`.
+**Long-running execution:** `deploy_pipeline` polls external CI systems and can run for several minutes (default timeout: 30 min). Execute it through the harness long-command surface, await completion, and do not poll. The full anti-polling rule lives in `runtime/harness/claude/rules/session.md` and is enforced by `packages/yoke-core/src/yoke_core/domain/lint_long_command_polling.py`.
 
 ```bash
 if [ "$_pre_merge_verified" = "1" ] && [ -n "$_eph_next_stage" ]; then

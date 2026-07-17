@@ -1,6 +1,6 @@
 # Advance — Finalize
 
-> **Orchestrator role:** For implementation-entry advances, the orchestrator [`runtime/api/engines/advance_implementation_entry.py`](../../../../runtime/api/engines/advance_implementation_entry.py) dispatches `lifecycle.transition.execute` directly (the "Update Status" step below) and emits the outcome as `AdvancePhaseCompleted{phase="finalize"}`. The GitHub sync, commit, claim-handoff, and next-step-guidance prose below remains the canonical contract for those operator-facing steps — the orchestrator's reference for what the dispatch handler triggers downstream. The implementing sub-skill handoff (`## Implementation-entry Sub-skill Handoff`) still runs after the orchestrator returns success.
+> **Orchestrator role:** For implementation-entry advances, the orchestrator [`packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py`](../../../../packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py) dispatches `lifecycle.transition.execute` directly (the "Update Status" step below) and emits the outcome as `AdvancePhaseCompleted{phase="finalize"}`. The GitHub sync, commit, claim-handoff, and next-step-guidance prose below remains the canonical contract for those operator-facing steps — the orchestrator's reference for what the dispatch handler triggers downstream. The implementing sub-skill handoff (`## Implementation-entry Sub-skill Handoff`) still runs after the orchestrator returns success.
 
 Called by the advance router after all gates and phase-specific work complete. Updates status, syncs GitHub, commits, and reports.
 
@@ -175,7 +175,7 @@ After any commit produced by this finalize step (worktree-scoped or main-branch)
 yoke project snapshot sync "${WORKTREE_PATH:-.}" --hook
 ```
 
-This is advisory — a snapshot miss does not block the advance. The next `path-claim-activate` or boundary check call will surface a clear error if it matters. Yoke-internal commit-emitting code paths (`runtime/api/engines/done_transition.py` and `runtime/api/engines/merge_worktree.py`) already invoke `ensure_snapshot_at` directly after their commit calls; this finalize step is the operator-skill mirror.
+This is advisory — a snapshot miss does not block the advance. The next `path-claim-activate` or boundary check call will surface a clear error if it matters. Yoke-internal commit-emitting code paths (`packages/yoke-core/src/yoke_core/engines/done_transition.py` and `packages/yoke-core/src/yoke_core/engines/merge_worktree.py`) already invoke `ensure_snapshot_at` directly after their commit calls; this finalize step is the operator-skill mirror.
 
 ## Report (step 10)
 

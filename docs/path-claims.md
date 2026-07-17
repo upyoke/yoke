@@ -8,7 +8,7 @@ three explicit owners may mutate (**item**, live **session**, or
 
 This document is the operator-facing guide for the everyday
 declaration / reconciliation flow. The lifecycle layer's contract
-lives in code (`runtime/api/domain/path_claims.py`) and is enforced by
+lives in code (`packages/yoke-core/src/yoke_core/domain/path_claims.py`) and is enforced by
 the path-claim API; this doc explains how to use it.
 
 ## Operator surfaces
@@ -96,12 +96,12 @@ path**, not its parent directory:
 # Right — exact future file, planned target minted:
 yoke claims path register \
     --item YOK-N --allow-planned \
-    --paths runtime/api/domain/new_module.py
+    --paths packages/yoke-core/src/yoke_core/domain/new_module.py
 
 # Wrong — overclaims a directory full of unrelated files:
 yoke claims path register \
     --item YOK-N \
-    --paths runtime/api/domain/
+    --paths packages/yoke-core/src/yoke_core/domain/
 ```
 
 The planned target carries `materialization_state='planned'` until
@@ -327,7 +327,7 @@ canonical remediation command for skill rendering.
 
 ## Activation timing
 
-Operators do **not** activate path claims by hand during `/yoke advance`. The `Phase 1c — Path Claim Activation` step (`runtime/api/domain/advance_path_claim_activation.py`) runs automatically between the path-claim-required gate and the worktree phase, flipping `state='planned'` to `active` for every claim the session owns. Blocked claims stop the advance — that is a real upstream coordination signal. The command-shaped activation adapter remains break-glass only for mid-implementation amendments and is no longer the default.
+Operators do **not** activate path claims by hand during `/yoke advance`. The `Phase 1c — Path Claim Activation` step (`packages/yoke-core/src/yoke_core/domain/advance_path_claim_activation.py`) runs automatically between the path-claim-required gate and the worktree phase, flipping `state='planned'` to `active` for every claim the session owns. Blocked claims stop the advance — that is a real upstream coordination signal. The command-shaped activation adapter remains break-glass only for mid-implementation amendments and is no longer the default.
 
 ## Integration target resolution
 

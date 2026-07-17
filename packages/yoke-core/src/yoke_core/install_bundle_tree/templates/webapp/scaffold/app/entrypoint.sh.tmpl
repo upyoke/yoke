@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+# {{project_display_name}} API entrypoint — auto-initializes DB on first run.
+#
+# Runs: init_db → migrate (if DB is missing or schema_version = 0).
+# Does NOT run seed_users.py — operator must create first user manually:
+#   docker compose exec api python3 db/seed_users.py
+set -e
+
+# Check if DB needs initialization
+if ! python3 -c "
+from utils.db import get_connection
+conn = get_connection()
+v = conn.execute('SELECT MAX(version) FROM schema_version').fetchone()[0]
+conn.close()
+assert v and v > 0
+" 2>/dev/null; then
+    echo '[entrypoint] Database not initialized. Running init_db + migrate...'
+    python3 db/init_db.py
+    python3 db/migrations/migrate.py
+    echo '[entrypoint] Database initialized successfully.'
+    echo '[entrypoint] NOTE: Run "docker compose exec api python3 db/seed_users.py" to create admin user.'
+else
+    echo '[entrypoint] Database OK — checking for pending migrations...'
+    python3 db/migrations/migrate.py
+fi
+
+exec uvicorn api.main:app --host "${APP_HOST:-0.0.0.0}" --port "${APP_PORT:-{{api_port}}}"

@@ -40,7 +40,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial simulat
 
 ## Path Resolution
 
-**Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `runtime/api/domain/lint_session_cwd.py` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. As a read-only integration reviewer, you only inspect — you never edit or commit — so the working pattern is **anchored read shapes**:
+**Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `yoke_core.domain.lint_session_cwd` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. As a read-only integration reviewer, you only inspect — you never edit or commit — so the working pattern is **anchored read shapes**:
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
@@ -333,7 +333,7 @@ yoke claims work release --item YOK-N --reason rewrite-complete`
   - The acquire → structured-field replace → release sequence composes existing primitives — no new skill required. Use `yoke claims work release --epic-id E --task-num K --reason TEXT` for epic-task claims and `--all-mine` for session-scoped handoff cleanup. Process keys come from `yoke_core.domain.work_processes` (STRATEGIZE | FEED | DOCTOR).
 - _Release a work claim when this session is ending and a fresh session will continue_
   - `yoke claims work release --item YOK-N --reason session-handoff-fresh-session`
-  - Use when the item's lifecycle status is NOT terminal but this conversation is ending in a way Yoke cannot detect as definitive (operator opening a fresh session, ending a working block, context-budget pause). The SessionEnd guard (yoke_core.domain.sessions_lifecycle_destructive_guard.evaluate_destructive_end) defers release when activity signals look alive (recent heartbeats, in-flight chainable checkpoint) — explicit release is the canonical handoff shape. For terminal handoffs (handoff-to-polish, handoff-to-usher, finalize-exit), the lifecycle transition itself releases — do not use this recipe there. Pair with a Progress Log entry so the fresh session inherits resume context.
+  - Use when the item's lifecycle status is NOT terminal but this conversation is ending in a way Yoke cannot detect as definitive (operator opening a fresh session, ending a working block, context-budget pause). The hook cleanup path (end_session_if_empty) only ends claim-free chain-free sessions — it never releases claims for you — so explicit release is the canonical handoff shape. For terminal handoffs (handoff-to-polish, handoff-to-usher, finalize-exit), the lifecycle transition itself releases — do not use this recipe there. Pair with a Progress Log entry so the fresh session inherits resume context.
 - _Controlled handoff to a fresh session (Progress Log append → release claim)_
   - `# 1. Append resume context to the Progress Log section:
 printf '%s' "<resume-context-body>" | yoke items progress-log append YOK-N --headline 'handoff-to-fresh-session' --stdin

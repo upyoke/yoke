@@ -8,7 +8,7 @@ argument-hint: "[--dry-run] [--item YOK-N] [--project P] [--wip-cap N]"
 
 Direct-mode entrypoint for the charge flow. Computes the claim-aware schedule via `yoke charge schedule`, presents a formatted table of ranked items with their adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (refine, shepherd, conduct, advance, polish, or usher). The `next_step` field is the dispatch truth: it applies type-aware epic/issue routing overrides that the raw `adapter` category does not. The `adapter` column remains in the table display for ranking diagnostics.
 
-`yoke charge schedule` is claim-aware: each ranked step carries a `claim_state` (`unclaimed`, `claimed_by_self`, `claimed_by_other_live`, `claimed_by_stale`). Steps with `claim_state='claimed_by_other_live'` stay on the ranked frontier for diagnostics but must NOT appear in the operator-facing Runnable table or be selected for dispatch — that is the assignability rule defined in `runtime/api/domain/scheduler_types.py:is_assignable_claim_state`.
+`yoke charge schedule` is claim-aware: each ranked step carries a `claim_state` (`unclaimed`, `claimed_by_self`, `claimed_by_other_live`, `claimed_by_stale`). Steps with `claim_state='claimed_by_other_live'` stay on the ranked frontier for diagnostics but must NOT appear in the operator-facing Runnable table or be selected for dispatch — that is the assignability rule defined in `yoke_core.domain.scheduler_types.is_assignable_claim_state`.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
@@ -97,7 +97,7 @@ Parse the JSON output. The response has this shape:
 
 If the command exits non-zero, print the error and stop.
 
-**FrontierComputed telemetry** is emitted by the core Python frontier path (`runtime/api/domain/frontier_compute.py`) — `yoke charge schedule` triggers `compute_frontier()` internally, so the event still fires and the charge skill does not emit it directly.
+**FrontierComputed telemetry** is emitted by the core Python frontier path (`yoke_core.domain.frontier_compute`) — `yoke charge schedule` triggers `compute_frontier()` internally, so the event still fires and the charge skill does not emit it directly.
 
 ### 2. Present the frontier table
 
@@ -327,5 +327,5 @@ Note: Non-dispatch exits (no runnable items, dry-run, unavailable explicit targe
 
 This skill emits two structured events via the internal telemetry emit surface registered in `event_registry`:
 
-- **FrontierComputed** — Emitted by the core Python frontier path (`runtime/api/domain/frontier_compute.py`) on every `compute_frontier()` call. No longer emitted by the charge skill directly.
+- **FrontierComputed** — Emitted by the core Python frontier path (`yoke_core.domain.frontier_compute`) on every `compute_frontier()` call. No longer emitted by the charge skill directly.
 - **ChargeDecisionMade** — Emitted on every terminal charge exit: after dispatch (step 6), on no runnable items (step 2), on `--dry-run` (step 3), when an explicit target is unavailable (step 4), on operator cancellation (step 5), and if an unexpected `wait` next_step is encountered during dispatch (step 6). Captures the selected item (if any), `next_step` (dispatch truth), `adapter` (raw frontier category), dispatch status, no-dispatch reason, and project.

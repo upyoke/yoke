@@ -32,7 +32,7 @@ claims' coverage is **disjoint at the seed-source layer**, the
 classifier auto-returns `OverlapClassification.NONE` and the candidate
 registers cleanly — no operator-authored `coordination_only` edge,
 no escalation. This catches the case where two tickets each touch a
-disjoint stanza of `runtime/api/domain/schema_api_context_*.py` and
+disjoint stanza of `yoke_core.domain.schema_api_context_*` and
 the renderer deterministically regenerates the same agent packets. The
 seed sources are disjoint, so the rendered overlap is not real
 coordination.
@@ -42,7 +42,7 @@ Operator-visible signal: no `path-claim-register` error fires, and no
 on rendered packet files and got a clean register, this is why.
 
 The renderer-to-context bridge that registers these relationships is
-`runtime/api/domain/agents_render_path_context.py`; the
+`yoke_core.domain.agents_render_path_context`; the
 `HC-path-integrity` doctor surface (via the
 `path_integrity_invariants_render_relationship` invariant) flags stale
 registrations when a rendered target or its seed sources drift out of

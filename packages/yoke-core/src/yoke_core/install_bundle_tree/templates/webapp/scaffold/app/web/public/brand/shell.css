@@ -1,0 +1,55 @@
+/* Yoke shell — the frame every page sits in.
+   A companion to theme.css and propagated the same way: this file is the
+   canonical source and every consumer holds a byte-identical copy, so the
+   marketing site and the universe app cannot drift into different frames.
+
+   theme.css answers what things look like; this answers where the frame is.
+   It was written because they had drifted: the app's bar stood at 3.5rem
+   while the marketing header stood at 5.5rem, so "the same frame across the
+   marketing site and the app" was not true. One value now decides, and a
+   consumer that wants a taller header sets the variable rather than
+   hand-rolling a second bar.
+
+   Structure only. Colour, type and radius stay in theme.css. */
+:root {
+  /* The frame's one height. Everything that calls itself the app frame
+     stands here; a page that needs more room sets this, and the whole
+     frame follows rather than one header drifting from the rest. */
+  --yoke-header-height: 3.5rem;
+  --yoke-header-gap: 0.875rem;
+  --yoke-header-pad-x: 1.125rem;
+}
+
+/* The frame: brand at one end, context at the other, a rule beneath.
+   A consumer applies this to its own header element and adds nothing
+   structural of its own. */
+.yoke-app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--yoke-header-gap);
+  min-height: var(--yoke-header-height);
+  padding: 0 var(--yoke-header-pad-x);
+  border-bottom: 1px solid var(--yoke-border);
+  background: var(--yoke-bg);
+}
+
+/* The mark sits at the frame's start. It inherits ink so the wordmark's
+   currentColor follows the theme rather than being restated per consumer.
+   `margin-right: auto` pins it hard left and consumes the row's free space
+   itself, so everything appended after it (host-injected slots included)
+   clusters to the right regardless of how many slot nodes land between the
+   mark and the frame's own context group. */
+.yoke-app-header .yoke-header-brand {
+  display: inline-flex;
+  align-items: center;
+  color: var(--yoke-ink);
+  margin-right: auto;
+}
+
+/* Whatever a consumer puts opposite the mark — nav, account, org, actor. */
+.yoke-app-header .yoke-header-context {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

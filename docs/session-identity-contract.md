@@ -178,7 +178,7 @@ second call for an already-owned item returns `(already owned)` and exits 0.
 | File | Harness | Hook Event | Role |
 |------|---------|------------|------|
 | `runtime/harness/hook_runner/` | Claude Code, Codex | `session-start`, `user-prompt-submit`, `pre-tool-use`, `post-tool-use`, `stop`, `session-end` | Shared hook front door for both harnesses: registration, orientation, `YOKE_SESSION_ID` propagation, backfill, and lifecycle cleanup |
-| `runtime/api/service_client.py` | both | n/a | Shared session-offer / registration / claim mutation surface (`session-begin`, `session-touch`, `session-end`, `claim-work`, `release-work-claim`) |
+| `yoke_core.api.service_client` | both | n/a | Shared session-offer / registration / claim mutation surface (`session-begin`, `session-touch`, `session-end`, `claim-work`, `release-work-claim`) |
 
 ## Test Coverage
 

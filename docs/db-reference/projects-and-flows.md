@@ -80,7 +80,7 @@ python3 -m yoke_core.cli.db_router project-structure seed <project-id>
 python3 -m yoke_core.cli.db_router project-structure family-list
 ```
 
-The same commands are available through the service-client CLI as `project-structure-get`, `project-structure-patch`, and `project-structure-seed`. The write surface takes a single imperative op list with `ops`; see `runtime/api/domain/project_structure.py` for the full contract.
+The same commands are available through the service-client CLI as `project-structure-get`, `project-structure-patch`, and `project-structure-seed`. The write surface takes a single imperative op list with `ops`; see `packages/yoke-core/src/yoke_core/domain/project_structure.py` for the full contract.
 
 ## Table: sites
 

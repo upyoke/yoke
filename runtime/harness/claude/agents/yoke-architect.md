@@ -111,7 +111,7 @@ yoke items get YOK-N spec
 
 NEVER rely on shell variables persisting across separate Bash tool calls. Each Bash invocation is a fresh shell. Always inline the full absolute path in every command.
 
-**Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `runtime/api/domain/lint_session_cwd.py` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. The working pattern is **anchored shapes**:
+**Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `yoke_core.domain.lint_session_cwd` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. The working pattern is **anchored shapes**:
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
@@ -370,7 +370,7 @@ yoke claims work release --item YOK-N --reason rewrite-complete`
   - The acquire → structured-field replace → release sequence composes existing primitives — no new skill required. Use `yoke claims work release --epic-id E --task-num K --reason TEXT` for epic-task claims and `--all-mine` for session-scoped handoff cleanup. Process keys come from `yoke_core.domain.work_processes` (STRATEGIZE | FEED | DOCTOR).
 - _Release a work claim when this session is ending and a fresh session will continue_
   - `yoke claims work release --item YOK-N --reason session-handoff-fresh-session`
-  - Use when the item's lifecycle status is NOT terminal but this conversation is ending in a way Yoke cannot detect as definitive (operator opening a fresh session, ending a working block, context-budget pause). The SessionEnd guard (yoke_core.domain.sessions_lifecycle_destructive_guard.evaluate_destructive_end) defers release when activity signals look alive (recent heartbeats, in-flight chainable checkpoint) — explicit release is the canonical handoff shape. For terminal handoffs (handoff-to-polish, handoff-to-usher, finalize-exit), the lifecycle transition itself releases — do not use this recipe there. Pair with a Progress Log entry so the fresh session inherits resume context.
+  - Use when the item's lifecycle status is NOT terminal but this conversation is ending in a way Yoke cannot detect as definitive (operator opening a fresh session, ending a working block, context-budget pause). The hook cleanup path (end_session_if_empty) only ends claim-free chain-free sessions — it never releases claims for you — so explicit release is the canonical handoff shape. For terminal handoffs (handoff-to-polish, handoff-to-usher, finalize-exit), the lifecycle transition itself releases — do not use this recipe there. Pair with a Progress Log entry so the fresh session inherits resume context.
 - _Controlled handoff to a fresh session (Progress Log append → release claim)_
   - `# 1. Append resume context to the Progress Log section:
 printf '%s' "<resume-context-body>" | yoke items progress-log append YOK-N --headline 'handoff-to-fresh-session' --stdin
@@ -489,7 +489,7 @@ Before declaring each task's path-claim, run the **Anticipation Checklist** so t
 The checklist names five categories per task. For each renamed, rewired, or significantly edited identifier in the task, enumerate:
 
 a. **Explicit File Budget paths** — already in the task body's `## File Budget`. Start here.
-b. **Doctor HC files that scan the module surface** — `runtime/api/engines/doctor_hc_*.py` files referencing the module by basename.
+b. **Doctor HC files that scan the module surface** — `packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py` files referencing the module by basename.
 c. **Transitive callers of every renamed/rewired function** — every Python module that does `from <module> import` or `import <module>`.
 d. **Test files importing the rewired module via deeper paths** — `test_*.py` files outside the explicit budget that still pull in the module.
 e. **Project-wide fan-out for cross-cutting tasks** — for `*-callers-a`-style rewires whose scope screams "every caller of X", land the full importer set up front rather than discovering it commit-by-commit.
@@ -497,18 +497,18 @@ e. **Project-wide fan-out for cross-cutting tasks** — for `*-callers-a`-style 
 Canonical greps (substitute the module basename / dotted name / function name for each rewire):
 
 ```bash
-rg -ln "<module_basename>" runtime/api/engines/doctor_hc_*.py                  # (b) doctor HCs
-rg -n "from\s+<dotted.module>\s+import|import\s+<dotted.module>(\s|$|\.)" runtime/  # (c) callers
-rg -ln "from\s+<dotted.module>\s+import|import\s+<dotted.module>" runtime/ | rg test_  # (d) tests
+rg -ln "<module_basename>" packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py  # (b) doctor HCs
+rg -n "from\s+<dotted.module>\s+import|import\s+<dotted.module>(\s|$|\.)" packages/ runtime/  # (c) callers
+rg -ln "from\s+<dotted.module>\s+import|import\s+<dotted.module>" packages/ runtime/ | rg test_  # (d) tests
 ```
 
-The same checklist is available programmatically via the read-only helper at `runtime/api/domain/architect_plan_anticipation.py` — call `build_anticipation_list(epic_id, task_num, file_budget_paths)` and read `result.file_budget / doctor_hcs / transitive_callers / test_modules`. The helper is **read-only**: it produces an anticipation list, never mutates a path-claim. The Architect still authors the claim by hand.
+The same checklist is available programmatically via the read-only helper `yoke_core.domain.architect_plan_anticipation` — call `build_anticipation_list(epic_id, task_num, file_budget_paths)` and read `result.file_budget / doctor_hcs / transitive_callers / test_modules`. The helper is **read-only**: it produces an anticipation list, never mutates a path-claim. The Architect still authors the claim by hand.
 
 **Land the anticipated paths in the task's path-claim at plan time** alongside the explicit File Budget, not after the Engineer's first commit-time widen. When you cannot decide whether an anticipated path is genuinely in-scope, surface it under `## Plan Caveats` for refine/operator review rather than dropping it from the claim and waiting for the Engineer to discover it.
 
 #### Worked example — `*-callers-a`-style rewire
 
-A task that rewires `runtime/api/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`runtime/api/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
+A task that rewires `packages/yoke-core/src/yoke_core/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`packages/yoke-core/src/yoke_core/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
 
 ## Technical Plan Template
 
@@ -669,7 +669,7 @@ The full Hard Constraints list (session-fit sizing, worktree independence, depen
 - **Cross-script data boundaries require explicit contracts.** When a task calls an existing script that produces or consumes structured data (JSON envelopes, DB rows), document the output schema in the task's `## Cross-Script Contracts` section — especially non-obvious nesting (for example, the event emitter wraps context JSON under `envelope.context.detail`, not `envelope.context`). When a task replaces inline operations with subprocess calls, flag the environment propagation requirements (which env vars must be exported, with references to existing patterns in the codebase). When a task changes the error propagation model (e.g., inline `|| true` to subprocess with `set -e`), document the old and new error models and what callers must do differently. Use the `## Watch Out For` section for gotchas that don't fit neatly into the structured contract format. These sections are conditional — only include them when applicable, to avoid boilerplate in simple tasks.
 - **Title length limit.** All epic task titles MUST be ≤100 characters. Move detail into the task body description. The DB rejects titles >100 chars.
 - **Err on the side of smaller tasks.** A task that's too small wastes a session. A task that's too big fails mid-session and loses work. Too small is safer.
-- **Schema-migration sequencing.** When an epic includes DB schema changes (DROP/RENAME column, table rebuilds), the task that updates shared Python owners (`runtime/api/domain/items.py`, `runtime/api/service_client.py`, `runtime/api/cli/db_router.py`, etc.) to be compatible with the new schema MUST be sequenced BEFORE or IN THE SAME TASK as the migration that alters the live DB. If they are separate tasks, the API-update task must have a hard dependency from the migration task. Rationale: the live DB is shared across all worktrees and the main session. Once a migration drops a column, main-branch API surfaces that still reference it will fail for gap-ticket filing, board rebuilds, and other shared operations. `HC-schema-script-sync` in `doctor` catches this at rest, but sequencing prevents it at planning time.
+- **Schema-migration sequencing.** When an epic includes DB schema changes (DROP/RENAME column, table rebuilds), the task that updates shared Python owners (`yoke_core.domain.items`, `yoke_core.api.service_client`, `yoke_core.cli.db_router`, etc.) to be compatible with the new schema MUST be sequenced BEFORE or IN THE SAME TASK as the migration that alters the live DB. If they are separate tasks, the API-update task must have a hard dependency from the migration task. Rationale: the live DB is shared across all worktrees and the main session. Once a migration drops a column, main-branch API surfaces that still reference it will fail for gap-ticket filing, board rebuilds, and other shared operations. `HC-schema-script-sync` in `doctor` catches this at rest, but sequencing prevents it at planning time.
 - **Coordination-edge authoring is a plan-time responsibility.** You author intra-epic `coordination_only` edges (and directional `activation` edges where order matters) for task pairs sharing File Budget paths — see `### Step 5.5` under `## Your Process`. Engineer, Tester, Boss, Conduct, Polish, Advance, and Usher are NOT authors of coordination edges; runtime collisions at those phases route back to `/yoke refine`. If you find yourself unsure at plan time, emit a `## Plan Caveats` bullet — do not push the decision downstream.
 - **Consider existing code.** Don't redesign what already works. Build on existing patterns.
 - **Track deferred work.** When you defer any work from the epic's scope during planning (e.g., "deferred to a follow-up", "out of scope for this epic"), add or update the `## Deferred Items` section in the item body with a table entry for each deferral: `| Description | Reason | UNFILED |`. Untracked deferrals silently disappear when the epic closes.
@@ -700,7 +700,7 @@ Before completing your final response, review your session and answer these **fo
 
 4. **What observations do you have about other agents' work?** — category **`cross-agent-critique`**. Quality of inputs received from upstream agents (specs from Product Manager, designs from Product Designer) and outputs expected by downstream agents (task specs for Engineer, validation criteria for Tester). Be specific about which agent and what improvement.
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: architect` and `context:` to the epic / YOK-N identifier you were planning. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response. The PostToolUse Agent-tool hook (`runtime/api/domain/reflection_capture_hook.py`) captures the block on subagent return and persists each entry. You do not write to the DB directly.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: architect` and `context:` to the epic / YOK-N identifier you were planning. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response. The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block on subagent return and persists each entry. You do not write to the DB directly.
 
 Architect worked example:
 

@@ -1,0 +1,53 @@
+{
+  "name": "webapp",
+  "description": "Full-stack web application: FastAPI + Next.js + app-local SQLite + Docker",
+  "product_boundary": "product",
+  "migration_model_defaults": {
+    "default_model": "primary",
+    "models": {
+      "primary": {
+        "authoritative_db": {
+          "kind": "sqlite_file",
+          "location": {"path": "app/data/app.db"}
+        },
+        "validation_surface": {
+          "kind": "worktree_local_sqlite",
+          "provisioning": {
+            "path": ".yoke/validation.db",
+            "recipe": "webapp_sqlite_empty"
+          }
+        },
+        "runner": {
+          "kind": "governed_migration_module",
+          "config": {
+            "modules_dir": "app/db/migrations",
+            "connection_env_var": "APP_DB_PATH"
+          }
+        }
+      }
+    }
+  },
+  "variables": {
+    "project_name": "Project name (lowercase, no spaces)",
+    "project_display_name": "Human-readable project name",
+    "project_description": "One-line description",
+    "api_port": "API port (default: 8000)",
+    "web_port": "Web port (default: 3000)",
+    "domain_name": "Apex domain for infrastructure (e.g., example.com)",
+    "origin_host": "VPS IP or hostname that CloudFront proxies to (e.g., 203.0.113.10)",
+    "origin_ip": "VPS origin IP address for direct access verification (e.g., 203.0.113.10)",
+    "ssh_user": "DEPRECATED: Workflows use ${{ secrets.PROJECT_SSH_USER }} instead. Only used in DEPLOY.md for manual SSH commands.",
+    "aws_region": "AWS region (default: us-east-1)",
+    "aws_account_id": "AWS account ID (filled after first deploy)",
+    "cloudfront_id": "CloudFront distribution ID (filled after first deploy)",
+    "cloudfront_domain": "CloudFront domain name (filled after first deploy)",
+    "hosted_zone_id": "Route 53 hosted zone ID (from DB site/domain settings or filled after deploy)",
+    "certificate_arn": "ACM certificate ARN (from DB site/domain settings or filled after deploy)",
+    "domain_txt_records": "Rendered from DB site/domain settings domains[].txt_records. Optional domain ownership TXT records such as workspace verification codes; domain stack owns them when present, otherwise infra does.",
+    "domain": "Project domain for hostname-based environment URLs (e.g., buzzabuzz.com). Used for ephemeral ({slug}.domain) and preview ({name}.domain) environments.",
+    "vps_description": "VPS provider and OS description (e.g., DigitalOcean, Ubuntu 24.04, nginx + ufw)",
+    "stacks": "DB site settings pulumi.stacks list of Pulumi stacks this project instantiates (subset of infra/vps/domain). Absent = the default [infra, vps] full-webapp pair; a DNS-only project declares [domain].",
+    "import_zone_id": "Domain stack only (DB site/domain hosted_zone_id -> importZoneId). Existing Route 53 hosted-zone id to ADOPT instead of creating a new zone — set this when the domain was registered through Route 53 (which auto-creates a zone) so `pulumi up` adopts it rather than making a duplicate. Empty = create a fresh zone.",
+    "manage_registration": "Domain stack only. false (default) = manage the hosted zone but leave the registration to the operator console purchase; true = also manage the already-registered domain (name servers + auto-renew) via Pulumi."
+  }
+}

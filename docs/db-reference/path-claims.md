@@ -28,13 +28,13 @@ the renderer's seed-source registry and auto-returns
   per rendered consumer).
 
 Constants live in
-[`runtime/api/domain/path_context.py`](../../runtime/api/domain/path_context.py);
+[`packages/yoke-core/src/yoke_core/domain/path_context.py`](../../packages/yoke-core/src/yoke_core/domain/path_context.py);
 helpers and the renderer-bridge live in
-[`runtime/api/domain/agents_render_path_context.py`](../../runtime/api/domain/agents_render_path_context.py).
+[`packages/yoke-core/src/yoke_core/domain/agents_render_path_context.py`](../../packages/yoke-core/src/yoke_core/domain/agents_render_path_context.py).
 
 ## Classifier behaviour
 
-`runtime/api/domain/path_claims_overlap.py` `classify_overlap`
+`packages/yoke-core/src/yoke_core/domain/path_claims_overlap.py` `classify_overlap`
 applies one structural pre-check before the normal dep-graph
 classification:
 
@@ -60,7 +60,7 @@ Three outcomes:
 
 The renderer self-registers every Yoke agent packet's
 target/source relationship via
-[`record_render_relationships`](../../runtime/api/domain/agents_render_path_context.py).
+[`record_render_relationships`](../../packages/yoke-core/src/yoke_core/domain/agents_render_path_context.py).
 Idempotent across re-runs (the unique key on `path_context_values`
 overwrites in place). Triggered by `python3 -m
 yoke_core.domain.agents_render render` and the `agents.render.run`
@@ -75,7 +75,7 @@ in scope for this slice.
 
 The `HC-path-integrity` doctor check now runs the
 `render_relationship` invariant from
-[`path_integrity_invariants_render_relationship`](../../runtime/api/domain/path_integrity_invariants_render_relationship.py).
+[`path_integrity_invariants_render_relationship`](../../packages/yoke-core/src/yoke_core/domain/path_integrity_invariants_render_relationship.py).
 Three failure shapes surface stale registrations:
 
 - `stale_target` — `FAMILY_RENDER_TARGET` row references a deleted

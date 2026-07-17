@@ -24,12 +24,12 @@ No path is written into the spec from naming intuition. If verification still fa
 
 ### Prevention 2 — grep for gate/owner symbols before naming a control-plane file
 
-When the spec proposes a control-plane implementation surface — a lifecycle gate, status-write gate, QA gate composition, or error-code owner — the agent first runs the canonical grep template against the live tree and cites the verified owner from the output. Naming intuition is not enough: gate composition is consolidated in helpers like `_run_authoritative_status_gate` (in `runtime/api/domain/backlog_updates_helpers.py`) and `check_verification_gate` (in `runtime/api/domain/qa_gates.py`), not in vocabulary-only files like `runtime/api/domain/lifecycle.py`.
+When the spec proposes a control-plane implementation surface — a lifecycle gate, status-write gate, QA gate composition, or error-code owner — the agent first runs the canonical grep template against the live tree and cites the verified owner from the output. Naming intuition is not enough: gate composition is consolidated in helpers like `_run_authoritative_status_gate` (in `yoke_core.domain.backlog_updates_helpers`) and `check_verification_gate` (in `yoke_core.domain.qa_gates`), not in vocabulary-only files like `yoke_core.domain.lifecycle`.
 
 Run this exact template:
 
 ```bash
-rg -n "def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+" runtime/api/domain runtime/api
+rg -n "def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+" packages/ runtime/
 ```
 
 Pick the verified owner from the grep output and cite the resolved path/function in the spec — do not infer from a generic filename like `lifecycle.py` (which owns status vocabulary and progression, not gate composition). If the grep returns zero matches for the family the spec is targeting, treat the absence as a clarification question rather than a guess.
@@ -48,7 +48,7 @@ and cites the verified `file:line` of the **definition** (not a caller). If the 
 
 This is the broader version of the gate template that catches the "spec named `yoke_core.domain.foo.bar` but the function actually lives in `module_other.py`" defect class. The pre-handoff readiness check at idea exit and refine entry runs this verification automatically through `yoke readiness check`.
 
-**Discovery-grep scoping.** Scope discovery greps to `runtime/api/` (plus `docs/` and `.agents/` where relevant) — Yoke has **no top-level `tests/` directory** (the Yoke API tests live under `runtime/api/`) and **no `data/items/` directory** (item bodies are virtual: read them via `yoke items get YOK-N body` or the DB, never by grepping the filesystem). Use **single-quoted** `rg` patterns; an unescaped backtick inside a double-quoted zsh pattern triggers command substitution before `rg` runs.
+**Discovery-grep scoping.** Scope discovery greps to `packages/` and `runtime/` (plus `docs/` and `.agents/` where relevant) — Yoke source lives under `packages/*/src/`, tests under `runtime/api/`, `runtime/harness/`, and top-level `tests/`, and there is **no `data/items/` directory** (item bodies are virtual: read them via `yoke items get YOK-N body` or the DB, never by grepping the filesystem). Use **single-quoted** `rg` patterns; an unescaped backtick inside a double-quoted zsh pattern triggers command substitution before `rg` runs.
 
 ## 1b. Active Path Claim Conflicts Are Coordination, Not Scope
 

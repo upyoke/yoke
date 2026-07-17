@@ -30,19 +30,19 @@ It returns structured JSON with `verdict=pass|block|skipped`,
 ```markdown
 ## File Budget
 
-- Hard limit: 350 lines per authored file (enforced by `runtime/api/domain/file_line_check.py`).
+- Hard limit: 350 lines per authored file (enforced by `yoke_core.domain.file_line_check`).
 - Design target: ≤300 lines per authored file.
 
 ### Current file-size pressure (verified `wc -l` on YYYY-MM-DD)
 
 At-cap files (zero net headroom — sibling required for any net-positive edit):
-- `runtime/api/domain/<file>.py` = 350
+- `packages/yoke-core/src/yoke_core/domain/<file>.py` = 350
 
 Near-design-target (small additions OK, but no logic growth):
-- `runtime/api/domain/<file>.py` = 305
+- `packages/yoke-core/src/yoke_core/domain/<file>.py` = 305
 
 Plenty of headroom (<200 lines):
-- `runtime/api/domain/<file>.py` = 180
+- `packages/yoke-core/src/yoke_core/domain/<file>.py` = 180
 ```
 
 The `wc -l` numbers MUST be current on the day the spec is authored.
@@ -57,9 +57,9 @@ sibling file and which behavior moves into it:
 ```markdown
 **Layer N — <description>:**
 
-- `runtime/api/domain/<existing>.py` (350 lines, AT CAP) — no net add.
+- `packages/yoke-core/src/yoke_core/domain/<existing>.py` (350 lines, AT CAP) — no net add.
   Extract `<helper_name>` to a new sibling `<existing>_helper.py`.
-- `runtime/api/domain/<existing>_helper.py` (new, ≤180 lines) — owns
+- `packages/yoke-core/src/yoke_core/domain/<existing>_helper.py` (new, ≤180 lines) — owns
   `<helper_name>` plus its private callees.
 ```
 

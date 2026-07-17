@@ -13,11 +13,11 @@ Stage authority now lives on the `deployment_runs` row (`current_stage` column),
 - Items transition to `release` when the run starts `executing`
 - Items transition to `done` when the run `succeeded` and all blocking `post_deploy` and `manual_acceptance` QA is satisfied
 
-**The `deploy_stage` column** on the `items` table is retained as a read cache during the transition period, kept in sync with the run's `current_stage`. New code should read stage from the run, not from the item. See `runtime/api/domain/approval.py` constants `STAGE_AUTHORITY_FIELD` (`current_stage`) and `STAGE_CACHE_FIELD` (`deploy_stage`) for the canonical machine-readable distinction.
+**The `deploy_stage` column** on the `items` table is retained as a read cache during the transition period, kept in sync with the run's `current_stage`. New code should read stage from the run, not from the item. See `packages/yoke-core/src/yoke_core/domain/approval.py` constants `STAGE_AUTHORITY_FIELD` (`current_stage`) and `STAGE_CACHE_FIELD` (`deploy_stage`) for the canonical machine-readable distinction.
 
 ## Halt States
 
-> **Vocabulary note:** Halt states (`awaiting-approval`, `needs-capability`) are **run-level conditions**, not item lifecycle statuses. Items at a halted run remain at `status=release`. The canonical halt-state registry is `runtime/api/domain/approval.py`. The canonical lifecycle registry is `runtime/api/domain/lifecycle.py`.
+> **Vocabulary note:** Halt states (`awaiting-approval`, `needs-capability`) are **run-level conditions**, not item lifecycle statuses. Items at a halted run remain at `status=release`. The canonical halt-state registry is `packages/yoke-core/src/yoke_core/domain/approval.py`. The canonical lifecycle registry is `packages/yoke-core/src/yoke_core/domain/lifecycle.py`.
 
 Two conditions act as halt states during deployment run execution (items at these halt states remain at `status=release`):
 

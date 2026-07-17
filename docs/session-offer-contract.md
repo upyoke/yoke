@@ -27,11 +27,11 @@ constructing a `SessionOffer` and sending it to the core. The core evaluates
 the offer against the current backlog state, active sessions, and routing
 policy, then returns a `NextAction` directive telling the session what to do.
 
-The contract is defined as Pydantic models in `runtime/api/domain/session.py`.
+The contract is defined as Pydantic models in `packages/yoke-core/src/yoke_core/domain/session.py`.
 This document describes the same shapes in prose for adapter authors who do not
 want to read the Python source directly.
 
-**Source of truth:** `runtime/api/domain/session.py`
+**Source of truth:** `packages/yoke-core/src/yoke_core/domain/session.py`
 
 ---
 
@@ -181,7 +181,7 @@ The decision engine evaluates in this fixed priority order:
 ### Shared Scheduler
 
 Both `/yoke do` and `/yoke charge` consume the same shared scheduler
-(`runtime/api/domain/scheduler.py`). The scheduler computes a single
+(`packages/yoke-core/src/yoke_core/domain/scheduler.py`). The scheduler computes a single
 project-scoped frontier with:
 
 - Type-aware next-step routing (issue vs epic)
