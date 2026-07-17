@@ -115,6 +115,7 @@ def _dispatch_github_actions_workflow(
     project_head_sha, lineage_error = _resolve_release_lineage_sha(
         release_lineage,
         project_repo_path,
+        gate_branch,
     )
     if lineage_error:
         diagnostic = lineage_error
@@ -280,6 +281,7 @@ def _dispatch_github_actions_workflow(
 def _resolve_release_lineage_sha(
     release_lineage: str,
     project_repo_path: str,
+    gate_branch: str,
 ) -> tuple[str, str]:
     """Resolve a run's immutable lineage without consulting a branch head.
 
@@ -295,6 +297,13 @@ def _resolve_release_lineage_sha(
             "an immutable release_lineage commit SHA or annotated release tag"
         )
     if re.fullmatch(r"[0-9a-f]{40}", lineage):
+        checkout_error = _verify_release_sha_in_checkout(
+            lineage,
+            project_repo_path,
+            gate_branch,
+        )
+        if checkout_error:
+            return "", checkout_error
         return lineage, ""
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+~-]{0,127}", lineage):
         return "", (
@@ -327,6 +336,40 @@ def _resolve_release_lineage_sha(
             "annotated release-tag commit on origin"
         )
     return peeled[0], ""
+
+
+def _verify_release_sha_in_checkout(
+    release_sha: str,
+    project_repo_path: str,
+    gate_branch: str,
+) -> str:
+    """Prove ``release_sha`` is reachable from the fresh remote release ref."""
+    if not gate_branch:
+        return (
+            "cannot validate a commit release_lineage without a deployment "
+            "flow gate branch"
+        )
+    repo = project_repo_path or "."
+    remote_ref = f"refs/remotes/origin/{gate_branch}"
+    fetched = _run_cmd([
+        "git", "-C", repo, "fetch", "--quiet", "--no-tags", "origin",
+        f"refs/heads/{gate_branch}:{remote_ref}",
+    ])
+    if fetched.returncode != 0:
+        return (
+            f"could not refresh origin/{gate_branch} while validating "
+            "deployment run release_lineage"
+        )
+    reachable = _run_cmd([
+        "git", "-C", repo, "merge-base", "--is-ancestor",
+        release_sha, remote_ref,
+    ])
+    if reachable.returncode != 0:
+        return (
+            f"deployment run release_lineage {release_sha} is not a commit "
+            f"reachable from origin/{gate_branch}"
+        )
+    return ""
 
 
 def _resolve_publish_sha(

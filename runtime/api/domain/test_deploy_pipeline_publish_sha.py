@@ -174,6 +174,7 @@ class TestPublishShaFromDeployedRef:
                 deploy_pipeline_github_workflow._resolve_release_lineage_sha(
                     version,
                     "/repo",
+                    "main",
                 )
             )
 
@@ -200,11 +201,34 @@ class TestPublishShaFromDeployedRef:
                     deploy_pipeline_github_workflow._resolve_release_lineage_sha(
                         version,
                         "/repo",
+                        "main",
                     )
                 )
 
             assert sha == ""
             assert "annotated release-tag commit" in error
+
+    def test_commit_lineage_must_be_reachable_from_remote_gate_branch(self):
+        fabricated_sha = "f" * 40
+        with mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_run_cmd",
+            side_effect=[
+                subprocess.CompletedProcess(args=[], returncode=0, stdout=""),
+                subprocess.CompletedProcess(args=[], returncode=1, stdout=""),
+            ],
+        ):
+            sha, error = (
+                deploy_pipeline_github_workflow._resolve_release_lineage_sha(
+                    fabricated_sha,
+                    "/repo",
+                    "main",
+                )
+            )
+
+        assert sha == ""
+        assert fabricated_sha in error
+        assert "reachable from origin/main" in error
 
     def test_explicit_image_pin_resolves_in_product_checkout(self):
         gh_calls = []

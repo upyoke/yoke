@@ -18,8 +18,6 @@ import subprocess
 import sys
 from unittest import mock
 
-import pytest
-
 from yoke_core.domain import deployment_runs_cli
 from yoke_core.engines.runs_start_for_item import StartForItemResult
 
