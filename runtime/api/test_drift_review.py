@@ -342,6 +342,23 @@ class TestAssessPostDeliveryDrift(_DriftDbCase):
         assert result.classification == "frontier_only"
         assert result.delivered_items == ["YOK-42"]
 
+    def test_mixed_numeric_and_slug_scope_normalizes_before_classification(self):
+        conn = self._make_db()
+        _insert_drift_item(
+            conn,
+            42,
+            "Update frontier scheduler",
+            "high",
+            project="buzz",
+            merged_at="2026-04-02T12:00:00Z",
+        )
+
+        result = assess_post_delivery_drift(conn, [1, "buzz"])
+
+        assert result is not None
+        assert result.classification == "frontier_only"
+        assert result.delivered_items == ["YOK-42"]
+
 
 if __name__ == "__main__":
     unittest.main()
