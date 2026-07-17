@@ -102,6 +102,7 @@ def test_queue_activity_during_scale_down_restores_capacity(tmp_path):
         online_instance_id=INSTANCE_ID,
     )
     payload = _run_driver(tmp_path, _driver(
+        'process.env.DESIRED_RUNNER_COUNT = "2"; '
         'globalThis.__activityOnTerminate = "queued-race";',
         parameters,
         [_online_runner()],
@@ -117,9 +118,48 @@ def test_queue_activity_during_scale_down_restores_capacity(tmp_path):
     assert payload["result"] == {
         "action": "replaced", "reason": "queue_activity_race",
     }
-    assert payload["scaled"]["DesiredCapacity"] == 1
+    assert payload["scaled"]["DesiredCapacity"] == 2
     assert payload["terminated"]["ShouldDecrementDesiredCapacity"] is True
     assert payload["lifecycle"]["queue_activity"] == "queued-race"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
+def test_parallel_idle_hosts_scale_down_independently(tmp_path):
+    _write_node_fixture(tmp_path)
+    second_instance = "i-1123456789abcdef0"
+    values = json.loads(_parameters(
+        idle_since=int(time.time()) - 3600,
+        online_instance_id="",
+    ))
+    values[f"/fleet/bootstrap/{second_instance}"] = json.dumps({
+        "state": "ready", "at": int(time.time()) - 600,
+    })
+    second_runner = {
+        **_online_runner(),
+        "id": 102,
+        "name": f"yoke-github-actions-{second_instance}",
+    }
+    payload = _run_driver(tmp_path, _driver(
+        'process.env.DESIRED_RUNNER_COUNT = "2"; '
+        f'globalThis.__activeInstances = ["{INSTANCE_ID}", '
+        f'"{second_instance}"];',
+        json.dumps(values),
+        [_online_runner(), second_runner],
+    ) + """
+        const result = await handler({ action: "reap" });
+        console.log(JSON.stringify({
+          result, scaled: globalThis.__scaled, terminated: globalThis.__terminated,
+          active: globalThis.__activeInstances,
+        }));
+    """)
+
+    assert payload["result"] == {"action": "scaled_down", "reason": "idle"}
+    assert payload["scaled"] is None
+    assert payload["terminated"] == {
+        "InstanceId": INSTANCE_ID,
+        "ShouldDecrementDesiredCapacity": True,
+    }
+    assert payload["active"] == [second_instance]
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")

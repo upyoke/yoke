@@ -46,7 +46,7 @@ function markerValue(state, at = nowSeconds()) {
 export function parseBootstrapMarker(value) {
   try {
     const parsed = JSON.parse(String(value || ""));
-    if (!["claimed", "ready", "failed"].includes(parsed.state) ||
+    if (!["claimed", "ready", "rearming", "failed"].includes(parsed.state) ||
         !Number.isSafeInteger(parsed.at) || parsed.at <= 0) {
       throw new Error("invalid marker fields");
     }
@@ -86,10 +86,14 @@ export async function updateBootstrapState(rawInstanceId, state) {
     }));
     return { ok: true, runner_name: runnerName(instanceId) };
   }
-  if (state === "ready" && marker.state !== "claimed") {
+  if (state === "ready" && !["claimed", "rearming"].includes(marker.state)) {
     throw new Error("runner bootstrap cannot transition to ready");
   }
-  if (state === "failed" && !["claimed", "ready"].includes(marker.state)) {
+  if (state === "rearming" && marker.state !== "ready") {
+    throw new Error("runner bootstrap cannot transition to rearming");
+  }
+  if (state === "failed" &&
+      !["claimed", "ready", "rearming"].includes(marker.state)) {
     throw new Error("runner bootstrap cannot transition to failed");
   }
   await ssm.send(new PutParameterCommand({
@@ -107,7 +111,7 @@ export async function registerRunner(rawInstanceId) {
   const marker = parseBootstrapMarker(
     current.Parameter && current.Parameter.Value,
   );
-  if (marker.state !== "ready") {
+  if (!["ready", "rearming"].includes(marker.state)) {
     throw new Error("runner host is not ready for another registration");
   }
   return { registration_token: await registrationToken() };

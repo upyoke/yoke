@@ -270,9 +270,25 @@ def test_asg_starts_at_zero_and_keeps_one_disposable_host(monkeypatch):
     assert asg.opts.ignore_changes == ["desiredCapacity"]
 
 
-def test_stack_rejects_shared_root_capable_runner_hosts(monkeypatch):
-    with pytest.raises(ValueError, match="one ephemeral runner per host"):
-        _runner_stack(monkeypatch, runner_count=2, max_count=2)
+def test_asg_supports_multiple_isolated_ephemeral_hosts(monkeypatch):
+    recorder, _stack = _runner_stack(
+        monkeypatch, runner_count=2, max_count=2,
+    )
+
+    assert recorder.single("runnerFleetAsg").kwargs["max_size"] == 2
+    webhook = recorder.single("runnerFleetWebhook")
+    assert webhook.kwargs["environment"].kwargs["variables"][
+        "DESIRED_RUNNER_COUNT"
+    ] == "2"
+    reaper = recorder.single("runnerFleetGithubReaper")
+    assert reaper.kwargs["environment"].kwargs["variables"][
+        "DESIRED_RUNNER_COUNT"
+    ] == "2"
+
+
+def test_stack_rejects_desired_capacity_above_maximum(monkeypatch):
+    with pytest.raises(ValueError, match="greater than or equal"):
+        _runner_stack(monkeypatch, runner_count=2, max_count=1)
 
 
 def test_webhook_lambda_is_hmac_backed_and_routes_matching_labels(monkeypatch):
@@ -302,6 +318,7 @@ def test_webhook_lambda_is_hmac_backed_and_routes_matching_labels(monkeypatch):
     )
     assert variables["EXPECTED_REPOSITORY_ID"] == "789012"
     assert variables["EXPECTED_REPOSITORY"] == "upyoke/yoke"
+    assert variables["DESIRED_RUNNER_COUNT"] == "1"
     assert variables["QUEUE_ACTIVITY_PARAMETER"] == (
         "/yoke/github-actions-runner-fleet/queue-activity"
     )
@@ -319,6 +336,9 @@ def test_webhook_lambda_is_hmac_backed_and_routes_matching_labels(monkeypatch):
     assert "QUEUE_ACTIVITY_PARAMETER" in code_asset.kwargs["text"]
     assert "RUNNER_PROGRESS_PARAMETER" in code_asset.kwargs["text"]
     assert "RUNNER_COMPLETION_PARAMETER" in code_asset.kwargs["text"]
+    assert 'DesiredCapacity=int(os.environ["DESIRED_RUNNER_COUNT"])' in (
+        code_asset.kwargs["text"]
+    )
     assert code_asset.kwargs["text"].index("QUEUE_ACTIVITY_PARAMETER") < (
         code_asset.kwargs["text"].index("set_desired_capacity")
     )

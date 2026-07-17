@@ -208,7 +208,7 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
             "runnerFleetAsg",
             name=asg_name,
             min_size=0,
-            max_size=1,
+            max_size=args.max_runner_count,
             vpc_zone_identifiers=[self.subnet.id],
             launch_template=aws.autoscaling.GroupLaunchTemplateArgs(
                 id=self.launch_template.id,
@@ -271,6 +271,7 @@ class WebappRunnerFleetStack(pulumi.ComponentResource):
                         self.webhook_secret_parameter.version.apply(str)
                     ),
                     "REQUIRED_LABELS": ",".join(args.runner_labels),
+                    "DESIRED_RUNNER_COUNT": str(args.runner_count),
                 },
             ),
             tags=tags,

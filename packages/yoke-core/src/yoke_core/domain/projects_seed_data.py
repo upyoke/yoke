@@ -104,8 +104,8 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         '{"key":"runner_labels","description":"Required runs-on labels","secret":false},'
         '{"key":"variable_name","description":"Actions variable holding the runs-on array","secret":false},'
         '{"key":"routing_enabled","description":"Reconcile the self-hosted Actions route","secret":false},'
-        '{"key":"desired_runner_count","description":"Isolated runner host count (v1 requires 1)","secret":false},'
-        '{"key":"max_runner_count","description":"Maximum isolated host count (v1 requires 1)","secret":false},'
+        '{"key":"desired_runner_count","description":"Runner hosts started for matching queued work","secret":false},'
+        '{"key":"max_runner_count","description":"Maximum isolated runner host count","secret":false},'
         '{"key":"instance","description":"EC2 instance sizing settings","secret":false},'
         '{"key":"lifecycle","description":"Start and idle-shutdown settings","secret":false}]',
         '["github","aws-admin"]',

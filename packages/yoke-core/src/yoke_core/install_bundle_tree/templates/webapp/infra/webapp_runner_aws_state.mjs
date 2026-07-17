@@ -22,11 +22,19 @@ const lifecycleStateParameter = required("LIFECYCLE_STATE_PARAMETER");
 const queueActivityParameter = required("QUEUE_ACTIVITY_PARAMETER");
 const runnerProgressParameter = required("RUNNER_PROGRESS_PARAMETER");
 const runnerCompletionParameter = required("RUNNER_COMPLETION_PARAMETER");
+const desiredRunnerCount = positiveInteger(
+  required("DESIRED_RUNNER_COUNT"), "DESIRED_RUNNER_COUNT",
+);
 
 function required(name) {
   const value = String(process.env[name] || "").trim();
   if (!value) throw new Error(`${name} is required`);
   return value;
+}
+
+function positiveInteger(value, name) {
+  if (!/^[1-9]\d*$/.test(value)) throw new Error(`${name} must be positive`);
+  return Number(value);
 }
 
 function parseLifecycleState(value) {
@@ -159,7 +167,7 @@ export async function terminateInstance(instanceId, decrementDesired) {
 export async function restoreDesiredCapacity() {
   await autoscaling.send(new SetDesiredCapacityCommand({
     AutoScalingGroupName: asgName,
-    DesiredCapacity: 1,
+    DesiredCapacity: desiredRunnerCount,
     HonorCooldown: false,
   }));
 }

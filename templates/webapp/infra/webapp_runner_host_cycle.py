@@ -115,11 +115,13 @@ while true; do
   (cd "${{CYCLE_DIR}}" && ./run.sh)
   runner_rc=$?
   set -e
-  cleanup_cycle
   if [ "${{runner_rc}}" -ne 0 ]; then
+    cleanup_cycle
     github_broker failed >/dev/null 2>&1 || true
     exit "${{runner_rc}}"
   fi
+  github_broker rearming >/dev/null
+  cleanup_cycle
 done
 """
 

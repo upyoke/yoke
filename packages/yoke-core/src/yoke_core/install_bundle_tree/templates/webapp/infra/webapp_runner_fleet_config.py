@@ -43,8 +43,12 @@ def validate_runner_fleet_configuration(args: WebappRunnerFleetArgs) -> None:
     """Refuse unsupported fleet shapes before creating any resources."""
     if args.shutdown_mode != "terminate":
         raise ValueError("runner fleet v1 supports shutdown_mode=terminate")
-    if args.runner_count != 1 or args.max_runner_count != 1:
-        raise ValueError("runner fleet v1 requires one ephemeral runner per host")
+    if args.runner_count < 1:
+        raise ValueError("runner_count must be positive")
+    if args.max_runner_count < args.runner_count:
+        raise ValueError(
+            "max_runner_count must be greater than or equal to runner_count"
+        )
 
 
 __all__ = ["WebappRunnerFleetArgs", "validate_runner_fleet_configuration"]
