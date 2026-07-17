@@ -135,8 +135,8 @@ test("a bound project renders binding, installation, access, and sync facts", as
     },
   );
   assert.deepEqual(panelTitles(root), [
-    "Repository binding", "App installation", "Permissions & automation",
-    "Sync",
+    "This project's repository", "Installation behind this binding",
+    "Permissions & automation", "Sync receipts",
   ]);
 
   const text = viewText(root);
@@ -177,7 +177,7 @@ test("an unbound project explains what a binding is, with no dead controls", asy
 
   // No binding means no installation, permission, or sync panels — only
   // the honest explanation.
-  assert.deepEqual(panelTitles(root), ["Repository binding"]);
+  assert.deepEqual(panelTitles(root), ["This project's repository"]);
   const text = viewText(root);
   assert.ok(text.includes("A repository binding connects this project"));
   assert.ok(text.includes("This project has no binding."));
@@ -208,8 +208,8 @@ test("a binding without an installation record renders honestly, not a crash", a
   const { root, mounted } = await mountGithub(t, client);
 
   assert.deepEqual(panelTitles(root), [
-    "Repository binding", "App installation", "Permissions & automation",
-    "Sync",
+    "This project's repository", "Installation behind this binding",
+    "Permissions & automation", "Sync receipts",
   ]);
   const text = viewText(root);
   // The installation panel names the dangling reference instead of

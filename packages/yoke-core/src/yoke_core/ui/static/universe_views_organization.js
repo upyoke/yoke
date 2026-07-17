@@ -1,17 +1,12 @@
-// The Universe settings screen. Its Portability panel is where a universe
-// moves between homes. The mount contract names the deployment mode instead
-// of asking the view to infer it from whichever actions happen to be present.
-// A hosted shell can own the whole panel as a live section; local and
-// self-host views keep honest, mode-specific command guidance because this
-// read-only workbench has no write path of its own.
+// The Organization screen identifies the universe's organization and explains
+// how the universe moves between homes. Identity comes from the engine. The
+// mount contract names the portability mode and lets a hosted shell own the
+// complete portability surface; local and self-host views keep honest command
+// guidance because this read-only workbench has no write path of its own.
 
-import { el } from "./universe_view_support.js";
+import { el, loadSection, section } from "./universe_view_support.js";
 
 function invokeAction(action, option) {
-  // Invoke during the originating DOM event so host actions that require
-  // transient user activation (for example a file picker) retain it. Surface
-  // both synchronous throws and rejected async handlers without coupling the
-  // workbench to host-specific error concepts.
   let result;
   try {
     result = action.onInvoke(option);
@@ -24,9 +19,6 @@ function invokeAction(action, option) {
   });
 }
 
-// One real button per invocable: an action without options is one button
-// wearing the action's label; an action with options is one button per
-// option, each wearing that option's label and invoking with it.
 function appendHostActions(documentNode, body, actions) {
   const row = el(documentNode, "div", "capability-actions");
   for (const action of actions) {
@@ -46,9 +38,6 @@ function appendHostActions(documentNode, body, actions) {
   body.appendChild(row);
 }
 
-// A command the operator runs from a terminal on the universe's own machine:
-// one plain sentence, then the command as copyable code — never a button,
-// because nothing on this server could carry the click out.
 function commandLine(documentNode, description, command) {
   const line = el(documentNode, "p", "fact-line", `${description} `);
   line.appendChild(el(documentNode, "code", null, command));
@@ -105,27 +94,47 @@ function hostOwnsPortabilitySection(capabilities) {
     && portability.sectionOwned === true;
 }
 
-export function renderUniverseSettingsView(context, main) {
+function renderIdentityPanel(context, main) {
+  const documentNode = context.document;
+  const panel = section(documentNode, "Identity");
+  main.appendChild(panel);
+  loadSection(
+    context, panel, "organizations.get", {},
+    (body, callResult) => {
+      const org = callResult.envelope.result || {};
+      const table = el(documentNode, "table", "items kv");
+      for (const [label, value] of [
+        ["name", org.name],
+        ["url name", org.slug],
+        ["created", org.created_at],
+      ]) {
+        const row = el(documentNode, "tr");
+        row.appendChild(el(documentNode, "th", null, label));
+        row.appendChild(el(documentNode, "td", null, String(value ?? "")));
+        table.appendChild(row);
+      }
+      body.appendChild(table);
+    },
+  );
+}
+
+function renderPortabilityPanel(context, main) {
   const documentNode = context.document;
   const capabilities = context.capabilities || {};
-  if (hostOwnsPortabilitySection(capabilities)) {
-    // The app will append the supplied host section immediately after this
-    // renderer returns. Leaving the view empty makes that one section the
-    // complete Portability surface instead of stacking two partial panels.
-    main.replaceChildren();
-    return;
-  }
-  // A hand-built panel rather than the shared section(): no function read
-  // backs this screen, so there is no response envelope for the raw-JSON
-  // toggle to show, and a toggle over nothing would be one more control
-  // that lies.
+  if (hostOwnsPortabilitySection(capabilities)) return;
+
   const panel = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
   header.appendChild(el(documentNode, "h2", null, "Portability"));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
+  body.appendChild(el(
+    documentNode, "p", "fact-line",
+    "A universe is portable: it exports to one archive, and that archive " +
+      "imports into another home.",
+  ));
   panel.appendChild(body);
-  main.replaceChildren(panel);
+  main.appendChild(panel);
 
   const actions = (Array.isArray(capabilities.actions)
     ? capabilities.actions : []
@@ -134,4 +143,10 @@ export function renderUniverseSettingsView(context, main) {
   else if (portabilityMode(capabilities) === "self-host") {
     appendSelfHostCommands(documentNode, body);
   } else appendLocalCommands(documentNode, body);
+}
+
+export function renderOrganizationView(context, main) {
+  main.replaceChildren();
+  renderIdentityPanel(context, main);
+  renderPortabilityPanel(context, main);
 }

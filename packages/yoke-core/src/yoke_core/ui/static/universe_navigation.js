@@ -63,7 +63,7 @@ export const NAV = [
     summary: "Quality gates and the evidence they collected.",
   },
   {
-    id: "workflows", icon: "⚗", label: "Workflows", scope: SCOPE_SINGLE,
+    id: "workflows", icon: "⚗", label: "Workflows", scope: SCOPE_NONE,
     summary: "What done means for a type of work, and the parts that compose it.",
   },
   {
@@ -103,12 +103,12 @@ export const NAV = [
     summary: "How this project binds to its repository, and how they sync.",
   },
   {
-    id: "project-settings", icon: "⚙", label: "Project settings", scope: SCOPE_SINGLE,
+    id: "project", icon: "⚙", label: "Project", scope: SCOPE_SINGLE,
     summary: "Settings for one project.",
   },
   {
-    id: "universe-settings", icon: "⛭", label: "Universe settings", scope: SCOPE_NONE,
-    summary: "Settings for this universe, including export and import.",
+    id: "organization", icon: "⛭", label: "Organization", scope: SCOPE_NONE,
+    summary: "This organization and its universe, including export and import.",
   },
 ];
 
@@ -320,12 +320,6 @@ export function createScopePicker(options) {
     });
   }
 
-  bar.appendChild(el(
-    documentNode, "span", "scope-hint",
-    multi
-      ? "all / one / some · this screen remembers its own"
-      : "one project — this screen configures a single target",
-  ));
   return bar;
 }
 

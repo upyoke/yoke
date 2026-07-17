@@ -266,6 +266,79 @@ test("an unblocked item reports no blocking reason", async (t) => {
   mounted.unmount();
 });
 
+// The events and ouroboros reads are project-scoped in the engine and refuse
+// a call that names no project — an unfiltered one comes back denied, not
+// empty. So "all" must ask per roster project rather than once with nothing.
+for (const [view, functionId] of [
+  ["events", "events.query.run"],
+  ["ouroboros", "ouroboros.entry.list"],
+]) {
+  test(`${view} at "all" asks per project, never a projectless read`, async (t) => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => { globalThis.fetch = originalFetch; });
+    globalThis.fetch = () => response(200, {});
+    const documentNode = new FakeDocument();
+    documentNode.defaultView.location.hash = `#/${view}`;
+    const root = documentNode.createElement("div");
+    const requests = [];
+    const client = {
+      async call(request) {
+        requests.push(request);
+        if (request.function === "organizations.get") {
+          return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+        }
+        if (request.function === "projects.list") {
+          return {
+            status: 200,
+            envelope: {
+              success: true,
+              result: {
+                rows: [
+                  { id: 1, slug: "alpha", name: "Alpha" },
+                  { id: 2, slug: "beta", name: "Beta" },
+                ],
+              },
+            },
+          };
+        }
+        if (request.function === functionId) {
+          // The engine denies a project-scoped read that names no project;
+          // answering rows here would hide the very shape under test.
+          if (!request.payload.project) {
+            return {
+              status: 403,
+              envelope: {
+                success: false,
+                error: {
+                  message:
+                    "could not resolve a target project for project-scoped function",
+                },
+              },
+            };
+          }
+          return {
+            status: 200,
+            envelope: { success: true, result: { rows: [], entries: [] } },
+          };
+        }
+        throw new Error(`unexpected function ${request.function}`);
+      },
+    };
+
+    const mounted = mountUniverseApp(root, { client });
+    await settle();
+
+    assert.deepEqual(
+      requests.filter((request) => request.function === functionId)
+        .map((request) => request.payload.project),
+      ["1", "2"],
+    );
+    // The denial never reaches the panel, because no projectless call is made.
+    assert.equal(byClass(root, "error").length, 0);
+    mounted.unmount();
+  });
+}
+
 test("Ouroboros reads observations and keeps review state visible", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -418,10 +491,6 @@ test("a multi view defaults to the whole universe: All chip on, unfiltered read"
     [true, false, false],
   );
   assert.equal(byClass(root, "scope-label")[0].textContent, "Projects");
-  assert.equal(
-    byClass(root, "scope-hint")[0].textContent,
-    "all / one / some · this screen remembers its own",
-  );
   // "all" is one unfiltered call, and the default writes no query param.
   assert.deepEqual(
     itemsCalls(client).map((request) => request.payload.project), [undefined],
@@ -572,7 +641,7 @@ test("a single-scope picker offers radio chips and no All chip", () => {
   const rendered = [];
   const bar = createScopePicker({
     documentNode,
-    entry: navEntry("workflows"),
+    entry: navEntry("github"),
     scope: "1",
     projects: [
       { id: 1, slug: "alpha", name: "Alpha" },
@@ -585,10 +654,6 @@ test("a single-scope picker offers radio chips and no All chip", () => {
   });
 
   assert.equal(byClass(bar, "scope-label")[0].textContent, "Project");
-  assert.equal(
-    byClass(bar, "scope-hint")[0].textContent,
-    "one project — this screen configures a single target",
-  );
   const chips = byClass(bar, "scope-chip");
   assert.deepEqual(chips.map((chip) => chip.textContent), ["Alpha", "Beta"]);
   assert.deepEqual(
@@ -597,8 +662,8 @@ test("a single-scope picker offers radio chips and no All chip", () => {
 
   // Radio semantics: a click selects exactly that project.
   chips[1].dispatchEvent(new Event("click"));
-  assert.equal(selections.get("workflows"), "2");
-  assert.equal(windowNode.location.hash, "#/workflows?project=2");
+  assert.equal(selections.get("github"), "2");
+  assert.equal(windowNode.location.hash, "#/github?project=2");
   assert.equal(rendered.length, 1);
 });
 

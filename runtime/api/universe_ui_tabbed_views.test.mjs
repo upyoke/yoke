@@ -101,7 +101,7 @@ test("tab routes round-trip; absent and unknown segments resolve to the first ta
 test("a deep-linked unbuilt tab renders its stub under the active nav item, with no picker", async (t) => {
   const client = deliveryClient();
   const { documentNode, root, mounted } = await mountAt(
-    t, "#/delivery/flows?project=1", client,
+    t, "#/delivery/environments?project=1", client,
   );
 
   // Delivery stays the active destination; the tab never becomes one.
@@ -122,9 +122,9 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   const activeTabs = tabLinks
     .filter((node) => node.classList.contains("active"));
   assert.equal(activeTabs.length, 1);
-  assert.equal(activeTabs[0].textContent, "Flows");
+  assert.equal(activeTabs[0].textContent, "Environments");
   // Tabs are real links that carry the view's scope.
-  assert.equal(activeTabs[0].href, "#/delivery/flows?project=1");
+  assert.equal(activeTabs[0].href, "#/delivery/environments?project=1");
 
   // The honest stub: Coming soon, no scope control, and the FACET's own
   // what-it-will-be line — the page head names the view, not the tab, so
@@ -133,7 +133,7 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   const stubText = allNodes(byClass(root, "stub-panel")[0])
     .map((node) => node.textContent || "").join(" ");
   assert.ok(stubText.includes("Coming soon"));
-  assert.ok(stubText.includes("The pipeline definitions runs execute."));
+  assert.ok(stubText.includes("The deploy targets runs ship to."));
   assert.ok(!allNodes(byClass(root, "stub-panel")[0]).some(
     (node) => node.tagName === "H1" || node.tagName === "H2",
   ));
@@ -147,7 +147,7 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   );
   // The deep link survives untouched.
   assert.equal(
-    documentNode.defaultView.location.hash, "#/delivery/flows?project=1",
+    documentNode.defaultView.location.hash, "#/delivery/environments?project=1",
   );
   mounted.unmount();
 });
@@ -337,10 +337,77 @@ test("Runs at All reads unfiltered and labels each run's own project", async (t)
   mounted.unmount();
 });
 
+// Flows moved here off the Workflows screen: a flow belongs to one project,
+// so unlike the lifecycle definition it left behind, it takes the Delivery
+// scope and fans out per project the way every other multi view does.
+test("the Flows facet reads the served flows and takes the Delivery scope", async (t) => {
+  const requests = [];
+  const flowsByProject = {
+    "1": [{
+      id: "alpha-release", name: "Alpha Release", target_env: "prod",
+      status: "active", on_failure: "halt",
+      stage_names: ["build", "verify"], project: "alpha",
+    }],
+    "2": [{
+      id: "beta-release", name: "Beta Release", target_env: "stage",
+      status: "disabled", on_failure: "continue",
+      stage_names: ["build"], project: "beta",
+    }],
+  };
+  const client = {
+    requests,
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") return okEnvelope({ name: "Yoke" });
+      if (request.function === "projects.list") {
+        return okEnvelope({
+          rows: [
+            { id: 1, slug: "alpha", name: "Alpha" },
+            { id: 2, slug: "beta", name: "Beta" },
+          ],
+        });
+      }
+      if (request.function === "workflows.definition.get") {
+        return okEnvelope({ flows: flowsByProject[request.payload.project] || [] });
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  // No project in the route: Delivery is a multi view, so this is "all".
+  const { root, mounted } = await mountAt(t, "#/delivery/flows", client);
+
+  // "all" reads the whole universe in one unfiltered call, and the flows the
+  // engine serves already carry the project each belongs to.
+  assert.deepEqual(
+    requests.filter((request) => request.function === "workflows.definition.get"),
+    [{ function: "workflows.definition.get", payload: {} }],
+  );
+  // A built facet carries its own picker.
+  assert.equal(byClass(root, "scope-bar").length, 1);
+  assert.equal(byClass(root, "stub-panel").length, 0);
+  mounted.unmount();
+
+  // Narrowed to one project, the read names it and the project column drops:
+  // every row belongs to the one project the picker holds.
+  const scoped = await mountAt(t, "#/delivery/flows?project=2", client);
+  const headers = allNodes(scoped.root)
+    .filter((node) => node.tagName === "TH")
+    .map((node) => node.textContent);
+  assert.deepEqual(headers, [
+    "flow", "name", "target env", "status", "stages", "on failure",
+  ]);
+  const cells = allNodes(scoped.root)
+    .filter((node) => node.tagName === "TD")
+    .map((node) => node.textContent ||
+      (node.children[0] && node.children[0].textContent) || "");
+  assert.deepEqual(cells, [
+    "beta-release", "Beta Release", "stage", "disabled", "build", "continue",
+  ]);
+  scoped.mounted.unmount();
+});
+
 test("every unbuilt Delivery tab renders the stub treatment and never a picker", async (t) => {
-  for (const tabId of [
-    "environments", "flows", "databases", "infrastructure",
-  ]) {
+  for (const tabId of ["environments", "databases", "infrastructure"]) {
     const client = deliveryClient();
     const { root, mounted } = await mountAt(
       t, `#/delivery/${tabId}?project=1`, client,

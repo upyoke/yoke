@@ -195,6 +195,19 @@
           "Billing",
           "Sample billing summary supplied by the host platform.",
         ),
+        // The hosted GitHub connection is the organization's, not any one
+        // project's, so the platform declares it unscoped and the frame must
+        // stand it above the view's picker. Framed here at the same
+        // placement, or the harness would verify a frame nobody ships.
+        github: {
+          placement: "beforeScope",
+          content: sampleHostSection(
+            "Authorized account",
+            "Sample organization-wide GitHub connection supplied by the host " +
+              "platform. It sits above the project picker because no project " +
+              "narrows it.",
+          ),
+        },
       },
     });
   </script>

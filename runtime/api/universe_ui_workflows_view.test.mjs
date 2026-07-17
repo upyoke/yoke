@@ -20,6 +20,8 @@ function okEnvelope(result) {
 // A served definition with invented vocabulary: nothing here matches the
 // engine's real status or gate names, so anything the view shows beyond
 // these strings would be hardcoded — the assertion the fixture exists for.
+// The same read also serves deployment flows, which this screen deliberately
+// does not show — they are Delivery's Flows facet.
 function definitionFixture(flows) {
   return {
     family: "software-delivery",
@@ -67,7 +69,7 @@ async function mountWorkflows(t, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/workflows?project=1";
+  documentNode.defaultView.location.hash = "#/workflows";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -80,7 +82,7 @@ function panelTitles(root) {
     .map((node) => node.textContent);
 }
 
-test("Workflows renders the three panels from one served definition", async (t) => {
+test("Workflows renders the lifecycle definition from one served read", async (t) => {
   const client = workflowsClient([
     {
       id: "demo-release", name: "Demo Release", target_env: "prod",
@@ -90,24 +92,20 @@ test("Workflows renders the three panels from one served definition", async (t) 
   ]);
   const { root, mounted } = await mountWorkflows(t, client);
 
-  // One read, scoped to the picked project through the payload.
+  // The definition is universe-wide, so the read names no project at all.
   assert.deepEqual(
     client.requests.find(
       (request) => request.function === "workflows.definition.get",
     ),
-    { function: "workflows.definition.get", payload: { project: "1" } },
+    { function: "workflows.definition.get", payload: {} },
   );
-  assert.deepEqual(panelTitles(root), ["Types", "Gates", "Flows"]);
+  assert.deepEqual(panelTitles(root), ["Types", "Gates"]);
 
-  // The single-scope picker: one radio chip per project, no All chip.
-  const chips = byClass(root, "scope-chip");
-  assert.deepEqual(chips.map((chip) => chip.textContent), ["Yoke"]);
-  assert.ok(chips[0].classList.contains("on"));
-
-  // The lifecycle half is universe-wide today, and the screen says so.
-  const notes = byClass(root, "view-note");
-  assert.equal(notes.length, 1);
-  assert.ok(notes[0].textContent.includes("universe-wide"));
+  // Nothing on this screen takes a project, so it draws no picker — and no
+  // note explaining a picker that is not there.
+  assert.equal(byClass(root, "scope-bar").length, 0);
+  assert.equal(byClass(root, "scope-chip").length, 0);
+  assert.equal(byClass(root, "view-note").length, 0);
 
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
@@ -121,38 +119,25 @@ test("Workflows renders the three panels from one served definition", async (t) 
     // says so, not because this module knows either word.
     "plan", "plan_walkthrough",
     "review", "evidence_check",
-    // Flows: id | name | target env | status | joined stages | on failure.
-    "demo-release", "Demo Release", "prod", "disabled", "build → verify", "halt",
   ]);
 
-  // The flow id cell wears the identifier (mono) treatment.
-  const monoCells = allNodes(root).filter(
-    (node) => node.tagName === "TD" && node.classList.contains("mono"),
+  // The cells above are the whole rendered table set, so the served flows
+  // reach no row here — they belong to Delivery's Flows facet. (The panels'
+  // raw-JSON toggles still carry them: that shows the response envelope the
+  // panel rendered from, verbatim, which is the point of the toggle.)
+  const rendered = allNodes(root).filter(
+    (node) => node.tagName === "TD" && cellText(node).includes("demo-release"),
   );
-  assert.deepEqual(monoCells.map(cellText), ["demo-release"]);
+  assert.deepEqual(rendered, []);
   mounted.unmount();
 });
 
-test("no declared flows renders the honest empty state", async (t) => {
-  const client = workflowsClient([]);
-  const { root, mounted } = await mountWorkflows(t, client);
-
-  assert.deepEqual(panelTitles(root), ["Types", "Gates", "Flows"]);
-  const text = allNodes(root)
-    .map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("no deployment flows declared for this project"));
-  // The lifecycle panels still fill: an empty flows table is a fact about
-  // this project, not a failure of the read.
-  assert.ok(text.includes("draft → review → ship"));
-  mounted.unmount();
-});
-
-test("a failed read fails all three panels instead of sticking at loading", async (t) => {
+test("a failed read fails both panels instead of sticking at loading", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/workflows?project=1";
+  documentNode.defaultView.location.hash = "#/workflows";
   const root = documentNode.createElement("div");
   const client = {
     async call(request) {
@@ -172,7 +157,7 @@ test("a failed read fails all three panels instead of sticking at loading", asyn
   await settle();
 
   const errors = byClass(root, "error");
-  assert.equal(errors.length, 3);
+  assert.equal(errors.length, 2);
   for (const node of errors) {
     assert.ok(node.textContent.includes("definition read broke"));
   }

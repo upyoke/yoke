@@ -98,12 +98,6 @@
   color: #fff;
   border-color: transparent;
 }
-.universe-app-root .scope-hint {
-  font-size: 11px;
-  color: var(--yoke-muted);
-  margin-left: 6px;
-}
-
 /* Tabs: facets of one concept, never a second nav level. An underline strip
    above the view's own chrome — the active facet takes the accent, the rest
    stay muted until hovered. */
@@ -450,7 +444,7 @@
   padding: 2px 7px;
 }
 
-/* Host capability actions, rendered inside the Universe settings panel.
+/* Host capability actions, rendered inside the Organization panel.
    Each is a real control that acts on click, dressed as the shared chip:
    bordered, tokenized, with a hover wash. */
 .universe-app-root .capability-actions {
