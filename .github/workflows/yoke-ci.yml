@@ -16,12 +16,14 @@ name: yoke-ci
 #
 # Required-status-check workflow for the Yoke backend test suite.
 # Runs on every pull request targeting main and on every push to main.
-# Branch protection on main requires the Postgres matrix check names
+# Branch protection on main requires the aggregate Postgres check names
 # (test (3.10), test (3.13)) to pass before merge — configured in the
-# operator's private ops repo.
+# operator's private ops repo. The aggregate jobs retain those stable names
+# while the expensive suite fans out across four duration-balanced shards.
 #
-# Each matrix lane runs against a disposable postgres:16 container, in parallel
-# via pytest-xdist (-n auto). The container is launched by hand (not via a
+# Each shard lane runs against a disposable postgres:16 container, in parallel
+# via pytest-xdist (-n auto). pytest-split uses recorded test durations to keep
+# four outer shards balanced. The container is launched by hand (not via a
 # `services:` block) so durability can be turned off with `-c` server flags —
 # the data is throwaway, so fsync/WAL durability is pure overhead. There is no
 # SQLite lane: db_backend is Postgres-only. xdist gives each worker its own
@@ -59,8 +61,8 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: test
+  test_shard:
+    name: test-shard
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     env:
       # The disposable CI Postgres is launched manually (a "Start Postgres" step
@@ -69,11 +71,12 @@ jobs:
       # is run-id + python-version unique so two matrix lanes, or two parallel
       # workflow runs, that land on the same self-hosted instance never collide
       # on the container name.
-      PG_CONTAINER: yoke-ci-pg-${{ github.run_id }}-${{ matrix.python-version }}
+      PG_CONTAINER: yoke-ci-pg-${{ github.run_id }}-${{ matrix.python-version }}-${{ matrix.shard }}
     strategy:
       fail-fast: false
       matrix:
         python-version: ['3.10', '3.13']
+        shard: [1, 2, 3, 4]
 
     steps:
       - name: Checkout
@@ -216,6 +219,9 @@ jobs:
       - name: Run pytest
         id: pytest
         run: |
+          # The outer shard cuts total wall time; xdist still uses every core
+          # inside that shard. least_duration greedily distributes the slowest
+          # tests using the committed timing profile.
           # -n auto mirrors DEFAULT_PARALLEL_WORKERS in
           # runtime/api/tools/_pytest_parallel.py (the canonical home the local
           # run_tests / watch_pytest runners read). CI pins flat `auto` on
@@ -223,6 +229,11 @@ jobs:
           # cliff that can drop a constrained box to -n 1.
           uv run python -m pytest runtime/api/ runtime/harness/ tests/ \
             -n auto \
+            --dist worksteal \
+            --splits 4 \
+            --group "${{ matrix.shard }}" \
+            --splitting-algorithm least_duration \
+            --durations-path .test_durations \
             --tb=short \
             --durations=25 \
             --junitxml=pytest-report.xml \
@@ -233,7 +244,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-output-${{ matrix.python-version }}
+          name: pytest-output-${{ matrix.python-version }}-${{ matrix.shard }}
           path: |
             pytest-output.txt
             pytest-report.xml
@@ -248,10 +259,26 @@ jobs:
         if: always()
         run: docker rm -f "$PG_CONTAINER" || true
 
+  # Keep the required status-check names stable while the underlying suite is
+  # sharded. Both aggregate lanes intentionally require every shard: a failure
+  # in either Python version must block both release-authorizing checks.
+  test:
+    name: test
+    needs: test_shard
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.13']
+    steps:
+      - name: Require every test shard
+        env:
+          SHARD_RESULT: ${{ needs.test_shard.result }}
+        run: test "$SHARD_RESULT" = success
+
   container:
     name: container
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
-    needs: test
     permissions:
       contents: read
 
