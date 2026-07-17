@@ -179,9 +179,9 @@ export function mountUniverseApp(rootNode, options = {}) {
     // The roster the scope pickers already hold, so a view that only lists
     // projects costs no second call.
     projects: () => projects,
-    // Host capability data, read by the views that render what a host can
-    // do (Universe settings draws its Portability controls from the actions
-    // bag). The topbar carries no capability controls.
+    // Host capability data, read by views that need an explicit deployment
+    // mode or host-owned control surface. The topbar carries no capability
+    // controls.
     capabilities,
   };
 

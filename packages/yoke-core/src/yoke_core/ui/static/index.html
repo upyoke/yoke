@@ -18,7 +18,11 @@
     // way. The session cookie set by this page's response authenticates the
     // module fetch and every API call, so nothing token-shaped lives here.
     import { mountUniverseApp } from "./assets/app.js";
-    mountUniverseApp(document.getElementById("universe-root"));
+    mountUniverseApp(document.getElementById("universe-root"), {
+      capabilities: {
+        data: { portability: { mode: "local", sectionOwned: false } },
+      },
+    });
   </script>
 </body>
 </html>

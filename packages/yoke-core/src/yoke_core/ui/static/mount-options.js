@@ -1,8 +1,8 @@
 // Host-neutral plumbing for the optional mount seam: root validation, slot
 // and section materialization, and unmount bookkeeping. This stays separate
 // from the workbench views so the one-argument local mount remains small. Host
-// capability actions are not chrome — the Universe settings view renders
-// them (universe_views_settings.js).
+// capability data and actions are not chrome — views interpret their own
+// declared mode and control surfaces (universe_views_settings.js).
 
 const MOUNT_ROOT_CLASS = "universe-app-root";
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";

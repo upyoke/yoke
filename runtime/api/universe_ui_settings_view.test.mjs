@@ -80,6 +80,54 @@ test("an actions bag with nothing invocable falls back to the copyable text", as
   mounted.unmount();
 });
 
+test("self-host mode names HTTPS export and stopped-bundle import", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const { root, mounted } = await mountSettings({
+    capabilities: {
+      data: { portability: { mode: "self-host", sectionOwned: false } },
+    },
+  });
+
+  const view = byClass(root, "view-host")[0];
+  const codes = allNodes(view).filter((node) => node.tagName === "CODE");
+  assert.deepEqual(codes.map((node) => node.textContent), [
+    "yoke universe export --out <directory>",
+    "yoke universe validate <archive>",
+    "yoke self-host import <archive> --dir <bundle>",
+  ]);
+  const text = allNodes(view).map((node) => node.textContent || "").join(" ");
+  assert.ok(text.includes("HTTPS server"));
+  assert.ok(text.includes("stopped self-host bundle"));
+  mounted.unmount();
+});
+
+test("a hosted owner can replace the complete portability surface", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  const hostedSection = documentNode.createElement("section");
+  hostedSection.textContent = "Hosted export and import";
+
+  const { root, mounted } = await mountSettings({
+    capabilities: {
+      data: { portability: { mode: "hosted", sectionOwned: true } },
+    },
+    sections: { "universe-settings": hostedSection },
+  });
+
+  const view = byClass(root, "view-host")[0];
+  assert.equal(byClass(view, "panel").length, 0);
+  assert.equal(allNodes(view).filter(
+    (node) => node.textContent === "Hosted export and import",
+  ).length, 1);
+  assert.ok(!allNodes(view).some((node) => node.tagName === "CODE"));
+  mounted.unmount();
+});
+
 test("a failing host action reports through console.error and keeps the screen", async (t) => {
   const originalFetch = globalThis.fetch;
   const originalError = globalThis.console.error;
