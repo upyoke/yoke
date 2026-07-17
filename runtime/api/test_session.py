@@ -66,8 +66,9 @@ class TestDoLoopContract:
         )
 
     def test_loop_uses_stable_session_id(self):
-        # Invoke the installed-interpreter wrapper once, then pass the stable
-        # session id on every re-offer.
+        # The loop teaches the client-local wrapper once, then passes the
+        # resolved session id on each re-offer so every iteration stays
+        # attached to the same session.
         text = self._loop_text()
         assert "yoke sessions init" in text
         assert "YOKE_SESSION_ID" in text
@@ -107,7 +108,11 @@ class TestDoLoopContract:
         assert "run_keepalive" not in text
 
     def test_loop_resolves_executor_from_env(self):
-        """Executor resolution is delegated to the installed wrapper."""
+        """Executor resolution is delegated to the session init wrapper.
+
+        The loop teaches the installed wrapper and documents the environment
+        contract; the wrapper's unit tests cover the fallback mechanics.
+        """
         text = self._loop_text()
         assert "yoke sessions init" in text
         assert "YOKE_EXECUTOR" in text
@@ -115,7 +120,11 @@ class TestDoLoopContract:
         assert '$_executor' in text  # offer call substitutes captured value
 
     def test_loop_resolves_provider_from_env(self):
-        """Provider resolution is delegated to the installed wrapper."""
+        """Provider resolution is delegated to the session init wrapper.
+
+        The loop teaches the installed wrapper and its environment contract;
+        the wrapper owns the executor-aware fallback ladder.
+        """
         text = self._loop_text()
         assert "yoke sessions init" in text
         assert "YOKE_PROVIDER" in text

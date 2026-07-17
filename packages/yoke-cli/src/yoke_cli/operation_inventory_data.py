@@ -67,7 +67,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke db-claim amend", "db_claim"),
     _w("yoke db read", "raw.sql"),
     _w("yoke sessions begin", "sessions"),
-    _w("yoke sessions init", "sessions"),
     _w("yoke sessions list", "sessions"),
     _w("yoke sessions touch", "sessions"),
     _w("yoke sessions checkpoint", "sessions"),
@@ -241,6 +240,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # dispatcher function ids; routed as CLI tokens by yoke_cli.main.
     _p("yoke git pre-commit", "git", REASON_TOOL_SHAPED),
     _p("yoke git post-commit", "git", REASON_TOOL_SHAPED),
+    _p("yoke sessions init", "sessions", REASON_TOOL_SHAPED),
     # Browser-QA orchestration is client-local (Playwright daemon,
     # screenshots on this machine's disk) — tool-shaped like the git hook
     # bodies; its DB legs are the wrapped qa.* ids above. The screenshot

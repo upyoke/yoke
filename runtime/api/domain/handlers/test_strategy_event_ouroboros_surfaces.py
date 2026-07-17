@@ -70,6 +70,8 @@ def test_tool_shaped_classifications_cover_atlas_helpers() -> None:
     assert entry.status == ops.WRAPPED
     assert SUBCOMMAND_REGISTRY[("sessions", "init")][0] == "sessions.init"
 
+    assert ops.lookup("python3 -m yoke_core.tools.session_init") is None
+
 
 def test_register_all_handlers_includes_new_function_ids() -> None:
     yoke_function_registry.reset_registry_for_tests()

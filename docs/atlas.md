@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-17T14:31:10Z_
+_Audit generated_at: 2026-07-17T16:26:35Z_
 
 ## 1. Summary
 
 - Function ids registered: **215**
 - Internal dispatch-only functions without CLI adapters: **1**
 - `yoke` CLI subcommands: **215** (215 carry usable `--help`)
-- Operation tracker: **215 wrapped**, 72 permanent, 0 pending
+- Operation tracker: **214 wrapped**, 73 permanent, 0 pending
 - Skill-body recipes: 216 total (178 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 215 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -295,6 +295,7 @@ Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 215 wr
 | self_host | `yoke self-host init` | tool_shaped |
 | self_host.connect | `yoke connect` | tool_shaped |
 | self_host.import | `yoke self-host import` | tool_shaped |
+| sessions | `yoke sessions init` | tool_shaped |
 | source_authority.export | `yoke source-authority export` | tool_shaped |
 | source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped |

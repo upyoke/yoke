@@ -47,7 +47,7 @@ _LINTS: Tuple[str, ...] = tuple(
         "no_agent_curl_against_yoke_api",
         "no_agent_runtime_api_import_from_c", "python_runtime_import_in_tmp",
         "session_cwd", "shell_quoted_function_payload",
-        "shell_quoted_function_payload_messages", "sqlite_cmd", "sqlite_rules",
+        "shell_quoted_function_payload_messages", "db_cmd", "db_rules",
         "structured_field_transform_shell",
         "structured_field_transform_shell_messages", "subagent_background",
         "yok_n_cruft", "tc_label", "workspace_cwd_match",
