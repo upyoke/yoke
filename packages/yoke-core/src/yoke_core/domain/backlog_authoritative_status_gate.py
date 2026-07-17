@@ -151,7 +151,7 @@ def _evaluate_qa_verification(
                 transition_name=target_status,
             )
             error_code = _QA_VERIFICATION_ERROR_CODES[target_status]
-    except db_backend.operational_error_types(conn) as exc:
+    except db_backend.operational_error_types() as exc:
         # Some isolated tests still seed a minimal legacy QA schema. Skip the
         # richer gate when the required columns are absent and fall back to the
         # preloaded mutation-layer counts for that harness.

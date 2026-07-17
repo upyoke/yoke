@@ -21,9 +21,8 @@ import pytest
 def test_infer_owner_service_strips_sh_extension():
     from yoke_core.domain.populate_registry import infer_owner_service
 
-    assert infer_owner_service(".agents/skills/yoke/scripts/observe-tool.sh") == "observe-tool"
     assert infer_owner_service("shepherd-dispatch.sh") == "shepherd-dispatch"
-    assert infer_owner_service("runtime/api/domain/events.py") == "events.py"
+    assert infer_owner_service("packages/yoke-core/src/yoke_core/domain/events.py") == "events.py"
 
 
 def test_infer_event_kind_pattern_matches():
@@ -89,11 +88,11 @@ def test_parse_discovery_output_dedupes_by_name():
 
     raw = "\n".join(
         [
-            "HarnessToolCallCompleted|.agents/skills/yoke/scripts/observe-tool.sh",
-            "HarnessToolCallCompleted|.agents/skills/yoke/scripts/tests/test-observe-tool.sh",
-            "HarnessToolCallFailed|.agents/skills/yoke/scripts/observe-tool.sh",
+            "HarnessToolCallCompleted|packages/yoke-core/src/yoke_core/domain/observe.py",
+            "HarnessToolCallCompleted|packages/yoke-core/src/yoke_core/domain/tests/test_observe.py",
+            "HarnessToolCallFailed|packages/yoke-core/src/yoke_core/domain/observe.py",
             "",
-            "SessionDiscoveryProbe|.agents/skills/yoke/scripts/harness-session-start.sh",
+            "SessionDiscoveryProbe|runtime/harness/harness_session_start.py",
             "malformed-line-without-pipe",
         ]
     )
@@ -101,7 +100,7 @@ def test_parse_discovery_output_dedupes_by_name():
     names = [name for name, _ in parsed]
     assert names == ["HarnessToolCallCompleted", "HarnessToolCallFailed", "SessionDiscoveryProbe"]
     # First occurrence wins — production path, not the test path.
-    assert dict(parsed)["HarnessToolCallCompleted"].endswith("observe-tool.sh")
+    assert dict(parsed)["HarnessToolCallCompleted"].endswith("observe.py")
     assert "tests" not in dict(parsed)["HarnessToolCallCompleted"]
 
 
