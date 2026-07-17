@@ -53,7 +53,7 @@ Then **stop immediately.** Do not run the doctor engine or produce any output.
 **Release invariant:** Once the `DOCTOR` claim is acquired, every remaining exit path MUST release it. If you need to stop before the normal completion path, call:
 
 ```bash
-yoke claims work release --claim-id <claim_id> --reason doctor_stop --json
+yoke claims work release --claim-id {claim_id} --reason doctor_stop --json
 ```
 
 Do not leave the `DOCTOR` claim active after any post-claim stop.
@@ -167,7 +167,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
  Release the exclusive work claim so the session can end naturally or be reused.
 
  ```bash
- yoke claims work release --claim-id <claim_id> \
+ yoke claims work release --claim-id {claim_id} \
    --reason doctor_complete --json
  ```
 
