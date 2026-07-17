@@ -55,14 +55,14 @@ class TestCLI:
                 ["task-update-status", "42", "1", "implementing"],
                 "task_update_status",
                 ("42", 1, "implementing"),
-                {"pipeline": False, "force": False, "scripts_dir": None},
+                {"pipeline": False, "scripts_dir": None},
             ),
             (["task-get-body", "42", "1"], "task_get_body", ("42", 1), {}),
             (
                 ["task-update-field", "42", "1", "github_issue", "123"],
                 "task_update_field",
                 ("42", 1, "github_issue", "123"),
-                {"pipeline": False, "force": False},
+                {"pipeline": False},
             ),
             (["file-add", "42", "1", "README.md", "modify"], "file_add", ("42", 1, "README.md", "modify"), {}),
             (

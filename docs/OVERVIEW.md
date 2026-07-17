@@ -115,39 +115,35 @@ When work happens outside the standard execution path, the answer should not be 
 ## File Layout
 
 ```
-# Repo root — project artifacts
-AGENTS.md # Project conventions (always loaded; CLAUDE.md is a compat symlink)
-yoke/ # All Yoke state directories
-├── BOARD.md # Sprint board (auto-generated)
-├── docs/ # Architecture docs (agents read for cold starts)
-├── releases/ # Release notes
-├── context-archive/ # Archived implementation context
-├── runtime/agents/ # Canonical agent behavior bodies ({agent}.md) — source of truth
-├── ouroboros/ # Self-improvement system
-├── data/ # Runtime config, backups, and generated views
-├── api/ # FastAPI control plane service (localhost:8765)
-│ ├── main.py # All v1 endpoints (health, items, board, write)
-│ ├── domain/ # Shared Python domain layer (lifecycle, mutations, etc.)
-│ ├── board/ # Python board renderer (hot path for BOARD.md)
-│ │ ├── renderer.py # Top-level assembly (art + widgets + sections + zen)
-│ │ ├── art.py # Art config, master map, header rendering
-│ │ ├── widgets.py # Dashboard widgets (velocity, WIP, weather, etc.)
-│ │ ├── sections.py # Board section classification and row rendering
-│ │ ├── zen.py # Project timelines widget
-│ │ └── __main__.py # CLI: python3 -m yoke_core.board preview
-│ ├── requirements.txt # Pinned Python dependencies
-│ └── test_api.py # API test suite (pytest)
-
-# .claude/ — Claude adapter compatibility files
-.claude/
-├── settings.json # Permission rules
-├── agents/ # Generated adapter files (yoke-*.md) — rendered from runtime/agents/ by agents_render
-├── skills/yoke/
-│ ├── SKILL.md # Root skill: routing + description
-│ ├── {command}/SKILL.md # Nested skills (one per slash command)
-│ └── scripts/ # Shell scripts (POSIX sh, all executable)
-│ └── executors/ # Usher pipeline stage executors
-└── rules/ # Project coding standards
+# Repo root — product packages, harness adapters, templates, and verification
+AGENTS.md                     # Project-wide operating and coding rules
+packages/
+├── yoke-core/                # Domain, API, DB, engines, and source-dev tools
+├── yoke-cli/                 # Installed `yoke` command and transport adapters
+├── yoke-contracts/           # Shared event, lint, and interface contracts
+└── yoke-harness/             # Installable hooks and browser-runtime support
+runtime/
+├── agents/                   # Canonical agent bodies and harness manifests
+├── harness/
+│   ├── claude/               # Rendered Claude agents, rules, and settings
+│   ├── codex/                # Rendered Codex agents and hook configuration
+│   └── hook_runner/           # Shared hook execution runtime
+├── browser_runtime/          # Browser worker source and tests
+└── api/                      # Integration, compatibility, and API test suites
+.agents/skills/yoke/          # Canonical Yoke skill tree
+.claude/                      # Symlinks into Claude runtime output and skills
+.codex/                       # Symlinks into Codex runtime output
+templates/
+├── webapp/                   # Generic project, infrastructure, and ops templates
+└── events/                   # Event templates
+packaging/
+├── public-installer/         # Pre-runtime public installer boundary
+└── package-index/            # Distribution channel metadata and schemas
+docs/                         # Architecture, contracts, runbooks, and archives
+ouroboros/                    # Learning log and recurring-pattern records
+tests/                        # Import-graph and installer boundary tests
+.yoke/                        # Tracked repo policy, runbooks, and generated-view config
+.github/workflows/            # CI, release, and deployment workflows
 ```
 
 ## Backlog Registry
