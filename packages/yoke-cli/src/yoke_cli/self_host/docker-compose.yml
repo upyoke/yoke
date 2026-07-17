@@ -48,6 +48,7 @@ services:
       db:
         condition: service_healthy
     environment:
+      YOKE_SERVER_MODE: self-host
       YOKE_PG_DSN_FILE: /run/secrets/yoke-db-dsn
       # Browser sign-in door (optional). Set the values in .env to
       # enable; blank keeps the door disabled. The client secret rides

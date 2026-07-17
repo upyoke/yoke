@@ -13,15 +13,15 @@ authority watermarks are read inside the same ``REPEATABLE READ READ
 ONLY`` view the dump exports, and the export refuses if the universe's
 authority receipt changed while the dump ran.
 
-Authority is DSN possession. Export is sanctioned when the active
-machine-config connection is a non-prod Postgres connection whose DSN
-this machine holds (the local universe's shape). An https connection
-holds no DSN — a hosted org admin downloads through the dashboard's
-``Move universe`` action; a self-host operator backs up at the server
-authority — and prod-flagged Postgres connections stay operator-only like
-every other direct prod authority. ``pg_dump`` resolves from the embedded
-engine's installed binaries first, then ``PATH`` — the same rule the
-cluster lifecycle uses for ``initdb``/``pg_ctl``.
+Authority for this direct engine is DSN possession. Export is sanctioned when
+the active machine-config connection is a non-prod Postgres connection whose
+DSN this machine holds (the local universe's shape). The product CLI routes an
+authenticated self-host HTTPS connection through the server-held authority and
+routes hosted org admins to the dashboard's ``Move universe`` action. This
+direct engine still refuses HTTPS connections and prod-flagged Postgres
+connections. ``pg_dump`` resolves from the embedded engine's installed
+binaries first, then ``PATH`` — the same rule the cluster lifecycle uses for
+``initdb``/``pg_ctl``.
 """
 
 from __future__ import annotations
@@ -68,9 +68,9 @@ def resolve_export_dsn() -> str:
     """The active connection's DSN when export is sanctioned, else raise.
 
     Sanction rule: a non-prod Postgres connection whose credentials this
-    machine holds. https refuses (the client holds no DSN; server-side
-    export for hosted/self-host universes is a platform surface that has
-    not shipped). Prod-flagged Postgres refuses (operator-only).
+    machine holds. HTTPS refuses because its server-side routing belongs to
+    the product CLI, outside this direct-DSN engine. Prod-flagged Postgres
+    refuses (operator-only).
     """
     from yoke_contracts.machine_config.schema import connection_is_prod
     from yoke_core.domain import db_backend, yoke_connected_env
@@ -92,8 +92,8 @@ def resolve_export_dsn() -> str:
             f"{env.backend}-transport (hosted/self-host mode): this machine "
             "does not hold the universe database's DSN, and export requires "
             "DSN possession. A hosted org admin downloads from the "
-            "dashboard's `Move universe` action; a self-host operator owns "
-            "the server-side backup authority. To export a machine-local "
+            "dashboard's `Move universe` action; a self-host connection uses "
+            "the authenticated server export endpoint. To export a machine-local "
             "universe, switch to its "
             "env (`yoke env use local`) or create one (`yoke init --local`)."
         )

@@ -1,9 +1,9 @@
 // The Universe settings screen. Its Portability panel is where a universe
-// moves between homes. Hosted, the host passes real move actions through the
-// mount contract's capabilities bag, and each renders as a button that acts
-// on click. Locally, the UI server is a closed read-only allowlist with no
-// write path, so no control here could act — the honest affordance is each
-// CLI command as text to copy.
+// moves between homes. The mount contract names the deployment mode instead
+// of asking the view to infer it from whichever actions happen to be present.
+// A hosted shell can own the whole panel as a live section; local and
+// self-host views keep honest, mode-specific command guidance because this
+// read-only workbench has no write path of its own.
 
 import { el } from "./universe_view_support.js";
 
@@ -66,15 +66,55 @@ function appendLocalCommands(documentNode, body) {
     "Check an archive's format and freeze receipt:",
     "yoke universe validate <archive>",
   ));
-  body.appendChild(el(
-    documentNode, "p", "empty",
-    "Importing into a local universe is not available yet; hosted import " +
-      "lives in the host dashboard.",
+  body.appendChild(commandLine(
+    documentNode,
+    "Replace this local universe from a portable archive:",
+    "yoke universe import <archive>",
   ));
+}
+
+function appendSelfHostCommands(documentNode, body) {
+  body.appendChild(commandLine(
+    documentNode,
+    "Download one portable archive from this HTTPS server:",
+    "yoke universe export --out <directory>",
+  ));
+  body.appendChild(commandLine(
+    documentNode,
+    "Check the archive before replacing a server:",
+    "yoke universe validate <archive>",
+  ));
+  body.appendChild(commandLine(
+    documentNode,
+    "Replace a stopped self-host bundle from that archive:",
+    "yoke self-host import <archive> --dir <bundle>",
+  ));
+}
+
+function portabilityMode(capabilities) {
+  const portability = capabilities?.data?.portability;
+  if (!portability || typeof portability !== "object") return "local";
+  return ["local", "self-host", "hosted"].includes(portability.mode)
+    ? portability.mode : "local";
+}
+
+function hostOwnsPortabilitySection(capabilities) {
+  const portability = capabilities?.data?.portability;
+  return portabilityMode(capabilities) === "hosted"
+    && portability && typeof portability === "object"
+    && portability.sectionOwned === true;
 }
 
 export function renderUniverseSettingsView(context, main) {
   const documentNode = context.document;
+  const capabilities = context.capabilities || {};
+  if (hostOwnsPortabilitySection(capabilities)) {
+    // The app will append the supplied host section immediately after this
+    // renderer returns. Leaving the view empty makes that one section the
+    // complete Portability surface instead of stacking two partial panels.
+    main.replaceChildren();
+    return;
+  }
   // A hand-built panel rather than the shared section(): no function read
   // backs this screen, so there is no response envelope for the raw-JSON
   // toggle to show, and a toggle over nothing would be one more control
@@ -87,10 +127,11 @@ export function renderUniverseSettingsView(context, main) {
   panel.appendChild(body);
   main.replaceChildren(panel);
 
-  const capabilities = context.capabilities || {};
   const actions = (Array.isArray(capabilities.actions)
     ? capabilities.actions : []
   ).filter((action) => action && typeof action.onInvoke === "function");
   if (actions.length > 0) appendHostActions(documentNode, body, actions);
-  else appendLocalCommands(documentNode, body);
+  else if (portabilityMode(capabilities) === "self-host") {
+    appendSelfHostCommands(documentNode, body);
+  } else appendLocalCommands(documentNode, body);
 }

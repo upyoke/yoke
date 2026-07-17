@@ -263,7 +263,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # Universe export dumps the machine-held database via pg_dump — a
     # client-local file operation gated on DSN possession, not a
     # dispatcher function id.
-    _p("yoke universe export", "local_universe.export", REASON_TOOL_SHAPED),
+    _p("yoke universe export", "universe.export", REASON_TOOL_SHAPED),
+    _p("yoke universe import", "universe.import", REASON_TOOL_SHAPED),
     _p("yoke universe validate", "local_universe.validate", REASON_TOOL_SHAPED),
     _p("yoke source-authority quiesce", "source_authority.quiesce", REASON_TOOL_SHAPED),
     _p("yoke source-authority export", "source_authority.export", REASON_TOOL_SHAPED),
