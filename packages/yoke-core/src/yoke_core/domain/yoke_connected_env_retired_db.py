@@ -1,4 +1,4 @@
-"""SQLite authority guards for connected environments."""
+"""Retired file-backed authority guards for connected environments."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def retired_yoke_db_path_reason(
     )
 
 
-def sqlite_guard_reason_for_env(
+def retired_db_guard_reason_for_env(
     env: Optional[ConnectedEnv],
     *,
     yoke_db_env: str = "YOKE_DB",
@@ -56,7 +56,7 @@ def sqlite_guard_reason_for_env(
 
 
 __all__ = [
+    "retired_db_guard_reason_for_env",
     "retired_yoke_db_path_reason",
     "retired_yoke_db_reason",
-    "sqlite_guard_reason_for_env",
 ]

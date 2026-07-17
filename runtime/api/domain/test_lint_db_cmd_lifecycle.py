@@ -1,9 +1,4 @@
-"""DB-command guard tests for lifecycle writes, DDL, raw body, items add, main.
-
-Kept under the legacy ``test_lint_sqlite_cmd*.py`` filename glob for stable
-verification while importing the neutral DB-command runner/helper except when
-testing the legacy compatibility module directly.
-"""
+"""DB-command guard tests for lifecycle writes, DDL, raw body, and item creation."""
 
 from __future__ import annotations
 
@@ -12,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import lint_sqlite_cmd as lint_mod
+from yoke_core.domain import lint_db_cmd as lint_mod
 from yoke_core.domain.lint_db_cmd import run_hook
 from yoke_core.domain.lint_db_cmd_test_helpers import (
     _assert_allows,
@@ -195,7 +190,7 @@ class _StdinStub:
 def test_yok1384_main_without_yoke_db_env_falls_back_to_canonical(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Legacy ``lint_sqlite_cmd.main()`` resolves the canonical DB fallback
+    """``lint_db_cmd.main()`` resolves the canonical DB fallback
     when ``YOKE_DB`` is unset.
 
     Prior to the tracked-launcher fix the Claude PreToolUse launcher injected
@@ -227,7 +222,7 @@ def test_yok1384_main_without_yoke_db_env_falls_back_to_canonical(
     rc = lint_mod.main()
     assert rc == 0
     assert captured["yoke_db"] == db_path, (
-        "legacy lint_sqlite_cmd.main() must pass the canonical DB path into "
+        "lint_db_cmd.main() must pass the canonical DB path into "
         "run_hook when YOKE_DB is unset (YOK-1384)"
     )
 
@@ -264,7 +259,7 @@ def test_yok1384_main_prefers_yoke_db_env_when_set(
     assert rc == 0
     assert captured["yoke_db"] == explicit_db
     assert fallback_called["hit"] is False, (
-        "legacy lint_sqlite_cmd.main() must not consult the Python resolver when "
+        "lint_db_cmd.main() must not consult the Python resolver when "
         "YOKE_DB is already set"
     )
 

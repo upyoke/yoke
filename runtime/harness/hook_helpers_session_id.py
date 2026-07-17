@@ -92,7 +92,7 @@ def resolve_yoke_db(script_dir: Optional[str] = None) -> str:
     current = os.environ.get("YOKE_DB", "")
     if current:
         try:
-            from yoke_core.domain.yoke_connected_env_sqlite import (
+            from yoke_core.domain.yoke_connected_env_retired_db import (
                 retired_yoke_db_reason,
             )
 

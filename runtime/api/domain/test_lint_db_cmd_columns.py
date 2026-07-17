@@ -1,8 +1,4 @@
-"""lint_sqlite_cmd — wrong SQL column names (static blocklist).
-
-Kept under the legacy ``test_lint_sqlite_cmd*.py`` filename glob for stable
-verification while importing the neutral DB-command helper.
-"""
+"""DB-command guard checks for wrong SQL column names."""
 
 from __future__ import annotations
 

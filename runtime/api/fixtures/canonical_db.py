@@ -61,17 +61,17 @@ def export_canonical_yoke_db() -> Optional[str]:
     """
     existing = os.environ.get(YOKE_DB_ENV)
     if existing:
-        if sqlite_authority_retired_for_path(existing):
+        if retired_db_authority_for_path(existing):
             return None
         return existing
     return None
 
 
-def sqlite_authority_retired_for_path(db_path: str) -> bool:
+def retired_db_authority_for_path(db_path: str) -> bool:
     """Return true when *db_path* belongs to a Postgres-connected checkout."""
     try:
         from yoke_core.domain import yoke_connected_env
-        from yoke_core.domain.yoke_connected_env_sqlite import (
+        from yoke_core.domain.yoke_connected_env_retired_db import (
             retired_yoke_db_path_reason,
         )
 
@@ -90,7 +90,7 @@ def assert_canonical_yoke_db() -> str:
     """
     existing = os.environ.get(YOKE_DB_ENV)
     if existing:
-        if sqlite_authority_retired_for_path(existing):
+        if retired_db_authority_for_path(existing):
             raise CanonicalDbResolutionError(
                 "The canonical root Yoke DB file is retired for this "
                 "connected Postgres checkout; do not export YOKE_DB."

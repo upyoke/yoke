@@ -228,7 +228,7 @@ All 7 agents have SubagentStop -> `yoke_core.domain.agent_stop` (sets task to "s
 
 **Agent-frontmatter `observe-tool-pre` wiring** (PreToolUse -> observe hook): Present on the same 6 agents. Boss does not add extra frontmatter wiring for this hook.
 
-**lint_db_cmd** (PreToolUse/Bash): Present on all 5 Bash-capable agents -- Architect, Engineer, Tester, Simulator, Boss. The implementation-facing hook module is `yoke_core.domain.lint_db_cmd`; `yoke_core.domain.lint_sqlite_cmd` and telemetry/check id `lint-sqlite-cmd` remain legacy stable ids.
+**lint_db_cmd** (PreToolUse/Bash): Present on all 5 Bash-capable agents -- Architect, Engineer, Tester, Simulator, Boss. The hook owner is `yoke_core.domain.lint_db_cmd`; telemetry/check id `lint-sqlite-cmd` remains stable for audit-history compatibility.
 
 **Write/Edit block hooks** (PreToolUse): Present on 3 agents -- Tester, Simulator, and Boss. Architect relies on `disallowedTools` only (no runtime block hook). PM and Designer lack Bash entirely, so the block is moot.
 

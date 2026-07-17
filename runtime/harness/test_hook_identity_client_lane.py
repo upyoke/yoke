@@ -1,16 +1,16 @@
 """Identity-enrichment tests for the HTTPS hook relay client.
 
 ``client_lane`` / ``client_model`` live in ``yoke_harness.hooks.identity_relay``
-(re-exported by the ``yoke_cli.hooks.relay_identity`` shim). Lane resolution
-reads machine-config ``settings`` keys (``executor_default_lane_<token>``, with
+and surface through ``yoke_harness.hooks.identity``. Lane resolution reads
+machine-config ``settings`` keys (``executor_default_lane_<token>``, with
 ``*`` wildcard suffixes and an ``unknown``/``primary`` default); model + codex
 detection come from ``identity_relay``'s own module globals. Tests patch those
-real surfaces, not the pre-split ``runtime.harness.*`` / ``routing_config`` ones.
+real surfaces.
 """
 
 from __future__ import annotations
 
-from yoke_cli.hooks.relay_identity import client_lane, client_model
+from yoke_harness.hooks.identity import client_lane, client_model
 
 _RELAY = "yoke_harness.hooks.identity_relay"
 _MACHINE_CONFIG = "yoke_cli.config.machine_config"

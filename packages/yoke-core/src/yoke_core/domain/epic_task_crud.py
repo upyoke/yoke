@@ -77,7 +77,6 @@ def task_update_status(
     status: str,
     *,
     pipeline: bool = False,
-    qa_gate_bypass: bool = False,
     force: bool = False,
     scripts_dir: Optional[str] = None,
 ) -> str:

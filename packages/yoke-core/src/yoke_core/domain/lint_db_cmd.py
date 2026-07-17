@@ -20,9 +20,12 @@ from typing import Any, Dict, Tuple
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_db_rules import HOOK_POLICY_SOURCE
 from yoke_core.domain.lint_db_runner import run_hook
+from yoke_contracts.hook_runner.lint_policy import DB_COMMAND_STABLE_CHECK_ID
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 
-LEGACY_HOOK_ID = "lint-sqlite-cmd"
+# Historical event rows and field-note attribution use this stable id. It is a
+# telemetry compatibility contract, not an importable module alias.
+LEGACY_HOOK_ID = DB_COMMAND_STABLE_CHECK_ID
 
 __all__ = [
     "HOOK_POLICY_SOURCE",

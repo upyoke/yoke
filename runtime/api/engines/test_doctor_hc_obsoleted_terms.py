@@ -81,7 +81,7 @@ def _filter_tolerated(lines: list[str], *, allow_path_substrings: tuple[str, ...
 # historical-audit surfaces are the authorized locations for naming the
 # obsoleted terms. The HC's OBSOLETED_TERM_LABELS has to reference the bare
 # term to be useful; the enforcement code that parses legacy command shapes
-# (``observe.py``'s cmdline regexes, the ``lint_sqlite_rules*`` siblings'
+# (``observe.py``'s cmdline regexes, the ``lint_db_rules*`` siblings'
 # command-text lint) needs the literal name; the shell-inventory ledger and
 # zero-shell audit legitimately enumerate retired script names. Every other
 # live path must stay clean.
@@ -94,13 +94,13 @@ _AUTHORIZED_DECLARATION_PATHS: tuple[str, ...] = (
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_scan.py",
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_patterns.py",
     "runtime/api/domain/observe.py",
-    "runtime/api/domain/lint_sqlite_rules.py",
-    "runtime/api/domain/lint_sqlite_rules_columns.py",
-    "runtime/api/domain/lint_sqlite_rules_guards.py",
-    "runtime/api/domain/lint_sqlite_rules_lifecycle.py",
-    "runtime/api/domain/lint_sqlite_rules_operators.py",
-    "runtime/api/domain/lint_sqlite_rules_preprocess.py",
-    "runtime/api/domain/test_lint_sqlite_cmd.py",
+    "runtime/api/domain/lint_db_rules.py",
+    "runtime/api/domain/lint_db_rules_columns.py",
+    "runtime/api/domain/lint_db_rules_guards.py",
+    "runtime/api/domain/lint_db_rules_lifecycle.py",
+    "runtime/api/domain/lint_db_rules_operators.py",
+    "runtime/api/domain/lint_db_rules_preprocess.py",
+    "runtime/api/domain/test_lint_db_cmd.py",
     "runtime/api/tools/shell_inventory.py",
     "runtime/api/tools/shell_inventory_classify.py",
     "runtime/api/tools/shell_inventory_report.py",
@@ -205,10 +205,10 @@ def test_yoke_db_sh_has_no_live_prose_residue():
         "runtime/api/domain/agent_stop_test_helpers.py",
         "runtime/api/domain/test_agent_stop.py",
         "runtime/api/domain/test_browser_qa.py",
-        "runtime/api/domain/test_lint_sqlite_cmd_columns.py",
-        "runtime/api/domain/test_lint_sqlite_cmd_guards.py",
-        "runtime/api/domain/test_lint_sqlite_cmd_lifecycle.py",
-        "runtime/api/domain/test_lint_sqlite_cmd_operators.py",
+        "runtime/api/domain/test_lint_db_cmd_columns.py",
+        "runtime/api/domain/test_lint_db_cmd_guards.py",
+        "runtime/api/domain/test_lint_db_cmd_lifecycle.py",
+        "runtime/api/domain/test_lint_db_cmd_operators.py",
         "runtime/api/domain/test_lint_tc_label.py",
         "runtime/api/engines/doctor_hc_agents_prompts.py",
         "runtime/api/engines/test_doctor_filesystem_full.py",

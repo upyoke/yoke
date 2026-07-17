@@ -7,7 +7,7 @@ evaluates the local-state subset itself and composes the verdicts). Auth
 is enforced by the app-level bearer-token middleware like every other
 ``/v1`` route; the verified token's actor binds to the ``harness_sessions``
 row at relayed ensure-register. The wire contract is frozen: see
-:mod:`yoke_cli.hooks.relay` (client) and
+:mod:`yoke_harness.hooks.relay` (client) and
 :mod:`runtime.harness.hook_runner.remote_entry` (evaluation).
 """
 

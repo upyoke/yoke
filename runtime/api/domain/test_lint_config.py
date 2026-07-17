@@ -113,15 +113,6 @@ def test_default_and_unknown_resolve_to_deny(tmp_path: Path, monkeypatch: pytest
     assert lint_config.resolve_mode("not_a_real_guard") == lint_config.DENY  # unknown -> fail safe
 
 
-def test_legacy_lint_sqlite_cmd_config_alias_is_honored(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _write_config(tmp_path, "lint_sqlite_cmd=warn\n", monkeypatch)
-    assert lint_config.resolve_mode("lint_db_cmd") == lint_config.WARN
-    assert lint_config.resolve_mode("lint_sqlite_cmd") == lint_config.WARN
-    assert lint_config.resolve_mode("yoke_core.domain.lint_sqlite_cmd") == lint_config.WARN
-
-
 def test_remote_claude_cli_subguard_resolves(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _write_config(tmp_path, f"{lint_config.REMOTE_CLAUDE_CLI_GUARD}=warn\n", monkeypatch)
     assert lint_config.resolve_mode(lint_config.REMOTE_CLAUDE_CLI_GUARD) == lint_config.WARN
@@ -166,4 +157,4 @@ def test_render_lists_every_guard_at_deny() -> None:
         assert f"{spec.guard}={lint_config.DENY}" in text
         if spec.protected:
             assert lint_config.ALLOW_WARN_TOKEN in text
-    assert "Legacy stable config aliases still accepted: lint_sqlite_cmd" in text
+    assert "Stable telemetry compatibility id: lint-sqlite-cmd" in text

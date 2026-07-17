@@ -173,7 +173,7 @@ def test_retired_canonical_yoke_db_does_not_override_connected_env(
     monkeypatch.setenv("YOKE_DB", str(canonical))
 
     assert db_backend.is_postgres()
-    reason = yoke_connected_env.sqlite_guard_reason()
+    reason = yoke_connected_env.retired_db_guard_reason()
     assert "retired local SQLite authority" in str(reason)
     with pytest.raises(RuntimeError, match="SQLite authority retired/guarded"):
         db_helpers.resolve_db_path()

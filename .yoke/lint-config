@@ -3,7 +3,7 @@
 # Protected guards refuse warn unless the line ends with # allow-warn.
 
 # Refuse raw sqlite3 CLI against the control-plane DB.
-# Legacy stable config aliases still accepted: lint_sqlite_cmd
+# Stable telemetry compatibility id: lint-sqlite-cmd
 lint_db_cmd=deny
 
 # Refuse Claude CLI invocations embedded in remote SSH commands.

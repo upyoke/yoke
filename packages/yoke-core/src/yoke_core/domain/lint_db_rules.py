@@ -1,13 +1,11 @@
 """Neutral assembly point for the Bash DB-command policy source.
 
-``lint-sqlite-cmd`` remains the legacy stable telemetry/check id. This module
+``lint-sqlite-cmd`` remains the stable telemetry/check id. This module
 owns the implementation-facing name so non-SQLite policy checks (lifecycle
 mutations, DDL, ``claude`` CLI, shell-shape guards, and raw ``sqlite3``
 denials) are no longer classified as SQLite-only code.
 
-The historical ``lint_sqlite_rules_*`` fragment modules remain importable as
-legacy stable aliases, while this assembly consumes the neutral
-``lint_db_rules_*`` names.
+The assembly consumes the focused ``lint_db_rules_*`` fragments directly.
 """
 
 from __future__ import annotations
