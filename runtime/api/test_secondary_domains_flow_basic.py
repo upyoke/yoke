@@ -137,6 +137,33 @@ class TestFlowBasic:
         with pytest.raises(ValueError, match='cannot carry both "kind" and "executor"'):
             validate_stages(stages)
 
+    def test_validate_stages_accepts_boolean_ci_wait_policy(self, test_db):
+        import json
+        from yoke_core.domain.flow import validate_stages
+
+        validate_stages(json.dumps([{
+            "name": "release",
+            "executor": "github-actions-workflow",
+            "wait_for_ci": False,
+        }]))
+
+    def test_validate_stages_rejects_invalid_ci_wait_policy(self, test_db):
+        import json
+        from yoke_core.domain.flow import validate_stages
+
+        with pytest.raises(ValueError, match="must be a boolean"):
+            validate_stages(json.dumps([{
+                "name": "release",
+                "executor": "github-actions-workflow",
+                "wait_for_ci": "false",
+            }]))
+        with pytest.raises(ValueError, match="executor"):
+            validate_stages(json.dumps([{
+                "name": "complete",
+                "executor": "auto",
+                "wait_for_ci": False,
+            }]))
+
     def test_stages_command(self, test_db):
         import json
         from yoke_core.domain.flow import cmd_create, cmd_stages

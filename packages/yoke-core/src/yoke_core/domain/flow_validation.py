@@ -132,3 +132,13 @@ def validate_stages(stages_json: str) -> None:
                 f'stage {i} has invalid executor "{stage["executor"]}". '
                 f"Must be one of: {' '.join(sorted(VALID_EXECUTORS))}"
             )
+        if "wait_for_ci" in stage:
+            if stage["executor"] != "github-actions-workflow":
+                raise ValueError(
+                    f'stage {i} carries "wait_for_ci" but executor '
+                    'is not "github-actions-workflow"'
+                )
+            if not isinstance(stage["wait_for_ci"], bool):
+                raise ValueError(
+                    f'stage {i} field "wait_for_ci" must be a boolean'
+                )

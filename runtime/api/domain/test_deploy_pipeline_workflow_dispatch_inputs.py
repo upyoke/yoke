@@ -9,6 +9,56 @@ from yoke_core.domain import deploy_pipeline_github_workflow
 
 
 class TestInputBearingWorkflowDispatch:
+    def test_stage_can_dispatch_without_waiting_for_ci(self):
+        def _fake_gh(*args, **_kwargs):
+            if args and args[0] == "trigger":
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="new-run-id\n",
+                )
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="")
+
+        with mock.patch.object(
+            deploy_pipeline_github_workflow, "_check_ci_gate",
+        ) as check_ci, mock.patch.object(
+            deploy_pipeline_github_workflow, "_run_cmd",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="abc1234\n",
+            ),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_github_actions",
+            side_effect=_fake_gh,
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_poll_github_actions",
+            return_value=(0, "completed: success"),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_emit_run_event",
+        ):
+            rc, diag = (
+                deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
+                    {
+                        "workflow": "platform-release-bridge.yml",
+                        "dispatch_correlation_input": "yoke_dispatch_id",
+                        "inputs": {"product_sha": "{head_sha}"},
+                        "ref": "main",
+                        "reconcile_by_head_sha": False,
+                        "wait_for_ci": False,
+                    },
+                    name="hosted-release",
+                    run_id="run-test",
+                    member_items=[],
+                    github_repo="owner/repo",
+                    project="yoke",
+                    project_repo_path="",
+                    timeout_min=30,
+                    fresh=False,
+                    gate_branch="main",
+                    sd="/tmp/sd",
+                )
+            )
+
+        assert (rc, diag) == (0, "")
+        check_ci.assert_not_called()
+
     def test_input_bearing_stage_dispatches_instead_of_sha_only_reconcile(self):
         gh_calls = []
 

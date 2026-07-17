@@ -21,7 +21,9 @@ class TestSeedFlows:
             "yoke-ephemeral-deploy",
             "yoke-hosted-production",
             "yoke-hosted-production-hotfix",
+            "yoke-hosted-production-hotfix-no-ci-gate",
             "yoke-hosted-stage",
+            "yoke-hosted-stage-no-ci-gate",
             "platform-production",
             "platform-production-hotfix",
             "platform-stage",
@@ -39,14 +41,17 @@ class TestSeedFlows:
     def test_project_local_hosted_flows_cover_stage_production_and_hotfix(self):
         by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
         expected = (
-            ("yoke-hosted-stage", "yoke", ["stage"], "normal", True),
+            (
+                "yoke-hosted-stage-no-ci-gate", "yoke", ["stage"],
+                "normal", True,
+            ),
             (
                 "yoke-hosted-production", "yoke", ["production"],
                 "normal", True,
             ),
             (
-                "yoke-hosted-production-hotfix", "yoke", ["production"],
-                "hotfix", True,
+                "yoke-hosted-production-hotfix-no-ci-gate", "yoke",
+                ["production"], "hotfix", True,
             ),
             ("platform-stage", "platform", ["stage"], "normal", False),
             (
@@ -74,6 +79,23 @@ class TestSeedFlows:
                 assert ("product_sha" in stage["inputs"]) is is_bridge
                 assert ("platform_ref" in stage["inputs"]) is (not is_bridge)
                 assert stage["dispatch_correlation_input"] == "yoke_dispatch_id"
+
+    def test_yoke_immediate_flows_skip_ci_without_rewriting_history(self):
+        by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
+        assert by_id["yoke-hosted-stage"]["status"] == "disabled"
+        assert by_id["yoke-hosted-production-hotfix"]["status"] == "disabled"
+        for flow_id in (
+            "yoke-hosted-stage-no-ci-gate",
+            "yoke-hosted-production-hotfix-no-ci-gate",
+        ):
+            flow = by_id[flow_id]
+            assert flow["status"] == "active"
+            workflow_stages = [
+                stage for stage in json.loads(flow["stages"])
+                if stage.get("executor") == "github-actions-workflow"
+            ]
+            assert workflow_stages
+            assert all(stage["wait_for_ci"] is False for stage in workflow_stages)
 
     def test_ephemeral_flow_targets_ephemeral(self):
         flow = next(

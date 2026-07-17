@@ -9,6 +9,7 @@ from yoke_contracts.github_workflow_dispatch import (
 )
 from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
+    FLOW_STATUS_DISABLED,
 )
 
 
@@ -34,6 +35,7 @@ def _hosted_release_stages(
     target_environment: str,
     release_mode: str,
     product_bridge: bool,
+    wait_for_ci: bool = True,
 ) -> str:
     if product_bridge:
         inputs = {
@@ -70,6 +72,7 @@ def _hosted_release_stages(
                 ref="main",
                 inputs=inputs,
                 reconcile_by_head_sha=False,
+                wait_for_ci=wait_for_ci,
             )
             for name, inputs in releases
         ]
@@ -124,7 +127,7 @@ SEED_FLOWS = [
         ),
         "on_failure": "halt",
         "target_env": "production",
-        "status": FLOW_STATUS_ACTIVE,
+        "status": FLOW_STATUS_DISABLED,
         "done_description": "Yoke hotfix completed through the hosted production train",
     },
     {
@@ -137,6 +140,46 @@ SEED_FLOWS = [
             target_environment="stage",
             release_mode="normal",
             product_bridge=True,
+        ),
+        "on_failure": "halt",
+        "target_env": "stage",
+        "status": FLOW_STATUS_DISABLED,
+        "done_description": "Yoke release completed through the hosted stage train",
+    },
+    {
+        "id": "yoke-hosted-production-hotfix-no-ci-gate",
+        "project": "yoke",
+        "name": "Production Hotfix (No CI Gate)",
+        "description": (
+            "Dispatch an annotated Yoke hotfix through the Platform "
+            "production train without waiting for repository CI"
+        ),
+        "stages": _hosted_release_stages(
+            workflow="platform-release-bridge.yml",
+            target_environment="production",
+            release_mode="hotfix",
+            product_bridge=True,
+            wait_for_ci=False,
+        ),
+        "on_failure": "halt",
+        "target_env": "production",
+        "status": FLOW_STATUS_ACTIVE,
+        "done_description": "Yoke hotfix completed through the hosted production train",
+    },
+    {
+        "id": "yoke-hosted-stage-no-ci-gate",
+        "project": "yoke",
+        "name": "Stage (No CI Gate)",
+        "description": (
+            "Dispatch an annotated Yoke version through the Platform stage "
+            "train without waiting for repository CI"
+        ),
+        "stages": _hosted_release_stages(
+            workflow="platform-release-bridge.yml",
+            target_environment="stage",
+            release_mode="normal",
+            product_bridge=True,
+            wait_for_ci=False,
         ),
         "on_failure": "halt",
         "target_env": "stage",

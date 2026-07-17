@@ -117,14 +117,22 @@ def _dispatch_github_actions_workflow(
     if sha_error:
         print(f"Error: {sha_error}", file=sys.stderr)
         return 1, sha_error
-    ci_passed, ci_msg = _check_ci_gate(
-        github_repo, project, timeout_sec, branch=gate_branch,
-        head_sha=project_head_sha, sd=sd,
-    )
-    if ci_msg:
-        print(ci_msg, file=sys.stderr if not ci_passed else sys.stdout)
-    if not ci_passed:
-        return 1, ci_msg or ""
+    wait_for_ci = config.get("wait_for_ci", True)
+    if not isinstance(wait_for_ci, bool):
+        diagnostic = "github-actions-workflow wait_for_ci must be a boolean"
+        print(f"Error: {diagnostic}", file=sys.stderr)
+        return 1, diagnostic
+    if wait_for_ci:
+        ci_passed, ci_msg = _check_ci_gate(
+            github_repo, project, timeout_sec, branch=gate_branch,
+            head_sha=project_head_sha, sd=sd,
+        )
+        if ci_msg:
+            print(ci_msg, file=sys.stderr if not ci_passed else sys.stdout)
+        if not ci_passed:
+            return 1, ci_msg or ""
+    else:
+        print("  CI gate: skipped by this deployment-flow stage")
 
     head_sha = project_head_sha
     if publish_product:
