@@ -1,6 +1,7 @@
-"""Handler for ``github_actions.check_ci`` — main-branch CI advisory check.
+"""Handler for ``github_actions.check_ci`` — branch and commit CI check.
 
-Reads the latest workflow run for ``(repo, workflow)`` on ``branch``
+Reads the latest workflow run for ``(repo, workflow)`` on ``branch`` and,
+when supplied, the exact ``head_sha``
 via :mod:`yoke_core.domain.gh_rest_transport`, classifies the result
 into one of the canonical advisory states (``passed`` / ``failed`` /
 ``running`` / ``no_runs``), and returns the structured payload.
@@ -46,6 +47,10 @@ class CheckCiRequest(BaseModel):
         ..., description="Workflow file (e.g. ci.yml)."
     )
     branch: str = Field("main", description="Branch to inspect (default: main).")
+    head_sha: str = Field(
+        "",
+        description="Exact commit SHA to inspect within the branch.",
+    )
     project: str = Field(
         ..., min_length=1,
         description="Project capability owning the GitHub App repo binding.",
@@ -164,6 +169,7 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
             payload.repo,
             payload.workflow,
             branch=payload.branch,
+            head_sha=payload.head_sha,
             token=resolved.token,
         )
     except RestTransportError as exc:

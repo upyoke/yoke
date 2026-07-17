@@ -38,6 +38,9 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 )
 
 
+CORRELATED_WORKFLOW_TIMEOUT_MIN = 120
+
+
 def _dispatch_github_actions_workflow(
     config: Dict[str, Any],
     *,
@@ -94,30 +97,45 @@ def _dispatch_github_actions_workflow(
     # the source-sha/CI-gate branch (a product concept) below; the workflow ref
     # defaults to the deploy repo's default branch where the file lives.
     workflow_ref = str(config.get("ref", "") or "main")
-    stage_timeout_min = int(config.get("timeout_min") or timeout_min)
+    default_timeout_min = (
+        max(timeout_min, CORRELATED_WORKFLOW_TIMEOUT_MIN)
+        if correlation_input
+        else timeout_min
+    )
+    stage_timeout_min = int(config.get("timeout_min") or default_timeout_min)
     timeout_sec = stage_timeout_min * 60
 
     if not github_repo:
         print(f"Error: no github_repo configured for project '{project}'", file=sys.stderr)
         return 1, ""
 
+    publish_product = name == "distribution-publish" and product_repo_path
+    project_head_sha, sha_error = _resolve_publish_sha(
+        project_repo_path,
+        gate_branch,
+    )
+    if sha_error:
+        print(f"Error: {sha_error}", file=sys.stderr)
+        return 1, sha_error
     ci_passed, ci_msg = _check_ci_gate(
-        github_repo, project, timeout_sec, branch=gate_branch, sd=sd
+        github_repo, project, timeout_sec, branch=gate_branch,
+        head_sha=project_head_sha, sd=sd,
     )
     if ci_msg:
         print(ci_msg, file=sys.stderr if not ci_passed else sys.stdout)
     if not ci_passed:
         return 1, ci_msg or ""
 
-    publish_product = name == "distribution-publish" and product_repo_path
-    head_sha, sha_error = _resolve_publish_sha(
-        product_repo_path if publish_product else project_repo_path,
-        gate_branch,
-        image_tag=image_tag if publish_product else "",
-    )
-    if sha_error:
-        print(f"Error: {sha_error}", file=sys.stderr)
-        return 1, sha_error
+    head_sha = project_head_sha
+    if publish_product:
+        head_sha, sha_error = _resolve_publish_sha(
+            product_repo_path,
+            gate_branch,
+            image_tag=image_tag,
+        )
+        if sha_error:
+            print(f"Error: {sha_error}", file=sys.stderr)
+            return 1, sha_error
     workflow_inputs = _resolve_workflow_inputs(
         raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
     )

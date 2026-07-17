@@ -58,6 +58,48 @@ class TestCiGate:
         assert github_actions.call_args.args[branch_flag_idx + 1] == "stage"
         assert github_actions.call_args.kwargs["project"] == "yoke"
 
+    def test_ci_gate_checks_exact_release_sha(self):
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="success\n", stderr="",
+            ),
+        ) as github_actions:
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "yoke", 30, branch="main",
+                head_sha="deadbeef", sd="/tmp/sd",
+            )
+
+        assert passed is True
+        assert message == "  CI gate: main@deadbeef CI passed"
+        sha_flag_idx = github_actions.call_args.args.index("--head-sha")
+        assert github_actions.call_args.args[sha_flag_idx + 1] == "deadbeef"
+
+    def test_ci_gate_blocks_when_exact_release_sha_has_no_run(self):
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="state: no_runs\n", stderr="",
+            ),
+        ):
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "yoke", 30, branch="main",
+                head_sha="deadbeef",
+            )
+
+        assert passed is False
+        assert "no CI run exists for exact release commit deadbeef" in message
+
     def test_ci_gate_blocks_auth_exit(self):
         with mock.patch.object(
             deploy_pipeline_gates,

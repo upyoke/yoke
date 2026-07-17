@@ -30,6 +30,7 @@ class TestPublishShaFromDeployedRef:
 
     def test_publishes_deployed_ref_not_local_head(self):
         gh_calls = []
+        ci_gate = mock.Mock(return_value=(True, ""))
 
         def _fake_gh(*args, **kwargs):
             gh_calls.append(args)
@@ -38,7 +39,7 @@ class TestPublishShaFromDeployedRef:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="")
 
         with mock.patch.object(
-            deploy_pipeline_github_workflow, "_check_ci_gate", return_value=(True, ""),
+            deploy_pipeline_github_workflow, "_check_ci_gate", ci_gate,
         ), mock.patch.object(
             deploy_pipeline_github_workflow, "_run_cmd",
             side_effect=self._run_cmd_stub(
@@ -74,6 +75,38 @@ class TestPublishShaFromDeployedRef:
         trigger = next(c for c in gh_calls if c and c[0] == "trigger")
         assert "source_sha=deadbeefcafe0000" in trigger
         assert "source_sha=localunpushed" not in trigger
+        assert ci_gate.call_args.kwargs["head_sha"] == "deadbeefcafe0000"
+
+    def test_correlated_workflow_gets_release_sized_timeout(self):
+        poll = mock.Mock(return_value=(0, "completed: success"))
+        with mock.patch.object(
+            deploy_pipeline_github_workflow, "_check_ci_gate",
+            return_value=(True, ""),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_run_cmd",
+            side_effect=self._run_cmd_stub(ls_remote_sha="deadbeef"),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="run-9\n",
+            ),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_poll_github_actions", poll,
+        ):
+            rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
+                {
+                    "workflow": "release.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
+                    "reconcile_by_head_sha": False,
+                },
+                name="hosted-release", run_id="run-test", member_items=[],
+                github_repo="owner/repo", project="yoke",
+                project_repo_path="/repo", timeout_min=30, fresh=False,
+                gate_branch="main", sd="/tmp/sd",
+            )
+
+        assert (rc, diag) == (0, "")
+        assert poll.call_args.args[2] == 120 * 60
 
     def test_fail_fast_when_deploy_branch_absent_from_remote(self):
         gh_calls = []
@@ -129,6 +162,9 @@ class TestPublishShaFromDeployedRef:
         with mock.patch.object(
             deploy_pipeline_github_workflow, "_check_ci_gate",
             return_value=(True, ""),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_run_cmd",
+            side_effect=self._run_cmd_stub(ls_remote_sha="deployhead"),
         ), mock.patch.object(
             deploy_product_source, "resolve_product_commit",
             return_value=full_commit,

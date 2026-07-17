@@ -130,6 +130,15 @@ class TestCheckCi:
             "project": "yoke",
         }
 
+    def test_exact_head_sha_is_dispatched(self) -> None:
+        rc, _out, _err = _run(
+            "github-actions", "check-ci", "upyoke/yoke", "ci.yml",
+            "--branch", "main", "--head-sha", "deadbeef",
+            "--project", "yoke",
+        )
+        assert rc == 0
+        assert _CAPTURED_REQUESTS[-1].payload["head_sha"] == "deadbeef"
+
     def test_wait_polls_client_side_until_completed(self) -> None:
         from yoke_core.domain.github_actions_run_monitoring import (
             CHECK_CI_POLL_INTERVAL_SEC,

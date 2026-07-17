@@ -55,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ci.add_argument("repo")
     p_ci.add_argument("workflow")
     p_ci.add_argument("--branch", default="main")
+    p_ci.add_argument("--head-sha", default="")
     p_ci.add_argument("--wait", action="store_true")
     p_ci.add_argument(
         "--timeout", type=int, default=CHECK_CI_DEFAULT_TIMEOUT_SEC,

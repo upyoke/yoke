@@ -143,9 +143,10 @@ def _check_ci_gate(
     timeout_sec: int,
     *,
     branch: str,
+    head_sha: str = "",
     sd: Optional[str] = None,
 ) -> Tuple[bool, str]:
-    """Check CI on the flow's gate branch before deploying.
+    """Check CI for the exact release commit before deploying.
 
     ``branch`` is the gate branch from :func:`resolve_flow_gate_branch`.
     Returns (passed, message).
@@ -158,19 +159,31 @@ def _check_ci_gate(
             f"  CI gate: no ci_workflow_file capability configured for project '{project}' — skipping",
         )
 
-    print(f"  CI gate: checking {ci_workflow} on {branch} for {github_repo}...")
+    subject = f"{branch}@{head_sha[:12]}" if head_sha else branch
+    print(f"  CI gate: checking {ci_workflow} on {subject} for {github_repo}...")
 
-    r = _github_actions(
+    check_args = [
         "check-ci", github_repo, ci_workflow,
-        "--branch", branch, "--wait", "--timeout", str(timeout_sec),
+        "--branch", branch,
+    ]
+    if head_sha:
+        check_args.extend(["--head-sha", head_sha])
+    check_args.extend(["--wait", "--timeout", str(timeout_sec)])
+    r = _github_actions(
+        *check_args,
         project=project, sd=sd, timeout=timeout_sec + 30,
     )
     output = (r.stdout + r.stderr).strip()
 
     if r.returncode == 0:
         if "no_runs" in output:
+            if head_sha:
+                return False, (
+                    "\nBLOCKED: Cannot deploy — no CI run exists for exact "
+                    f"release commit {head_sha} on {branch}.\n"
+                )
             return True, f"  CI gate: no CI runs found on {branch} — skipping"
-        return True, f"  CI gate: {branch} CI passed"
+        return True, f"  CI gate: {subject} CI passed"
 
     if r.returncode == 1:
         return False, (
