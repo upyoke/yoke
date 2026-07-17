@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import re
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -12,6 +11,9 @@ from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
 from yoke_cli.config import github_machine_operation
 from yoke_cli.config import secrets as machine_secrets
+from yoke_cli.transport import dispatcher as function_dispatcher
+from yoke_cli.transport import https as https_transport
+from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_config import schema as contract
 
 DEFAULT_PROJECT = "yoke"
@@ -22,7 +24,7 @@ DEFAULT_LOCAL_PORTS = {
     "stage": 6548,
 }
 AUTHORITY_KIND = "aws_aurora_postgres"
-ENDPOINT_OUTPUT = "databaseClusterEndpoint"
+CONTROL_PLANE_DATABASE_SQL = "SELECT current_database()"
 
 
 class DbAdminSetupError(RuntimeError):
@@ -53,6 +55,7 @@ def build_report(
     admin_env: str | None,
     local_port: int | None,
     secret_label: str | None,
+    control_plane_env: str | None,
     apply: bool,
     set_active_env: bool,
     allow_render_only: bool,
@@ -72,12 +75,21 @@ def build_report(
             "environments.settings.pulumi.activation_state=active before "
             f"creating {selected_admin_env}"
         )
+    selected_control_plane_env = _select_control_plane_env(
+        env_name,
+        control_plane_env=control_plane_env,
+        config_path=config_path,
+    )
+    control_plane_database = _resolve_control_plane_database(
+        selected_control_plane_env,
+        config_path=config_path,
+    )
 
     superseded_secret_path = machine_secrets.secret_path_no_create(
         selected_secret_label, "dsn"
     )
     postgres = _postgres_metadata(env, selected_port)
-    authority = _authority_metadata(env)
+    authority = _authority_metadata(env, database_name=control_plane_database)
     plan = {
         "admin_env": selected_admin_env,
         "superseded_secret_path": _path_ref(superseded_secret_path),
@@ -89,7 +101,7 @@ def build_report(
                 "target": f"{project}/{env_name}",
             },
             {
-                "action": "resolve-cloud-postgres-dsn",
+                "action": "resolve-non-secret-cloud-database-binding",
                 "target": env.stack_name,
             },
             {
@@ -106,6 +118,9 @@ def build_report(
         "operation": "dev.db_admin.setup",
         "applied": False,
         "project": project,
+        "declared_deploy_database": str(env.database_name),
+        "control_plane_database": control_plane_database,
+        "control_plane_env": selected_control_plane_env,
         "environment": _environment_summary(env),
         "plan": plan,
         "message": "write plan only; rerun with --yes to apply",
@@ -113,11 +128,9 @@ def build_report(
     if not apply:
         return report
 
-    dsn, outputs = _resolve_environment_dsn(env, emit=emit)
-    endpoint = str(outputs.get(ENDPOINT_OUTPUT) or "")
-    if endpoint:
-        postgres["tunnel"]["remote_host"] = endpoint
-    postgres["tunnel"]["remote_port"] = _dsn_port(dsn)
+    binding, outputs = _resolve_environment_database_binding(env, emit=emit)
+    postgres["tunnel"]["remote_host"] = str(binding.host)
+    postgres["tunnel"]["remote_port"] = int(binding.port)
     credential_source = _managed_credential_source(env, outputs)
     configured = _write_connection(
         env_name=selected_admin_env,
@@ -177,11 +190,11 @@ def _resolve_environment(project: str, env_name: str) -> Any:
         raise DbAdminSetupError(str(exc)) from exc
 
 
-def _resolve_environment_dsn(
+def _resolve_environment_database_binding(
     env: Any,
     *,
     emit: Callable[[str], None] | None,
-) -> tuple[str, Mapping[str, Any]]:
+) -> tuple[Any, Mapping[str, Any]]:
     try:
         deploy_core = importlib.import_module("yoke_core.domain.deploy_core_container")
         deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
@@ -194,7 +207,7 @@ def _resolve_environment_dsn(
     try:
         aws_env = deploy_remote.aws_capability_env(env.project, env.aws_region)
         runner = deploy_remote.CommandRunner()
-        return deploy_core.resolve_environment_dsn(
+        return deploy_core.resolve_environment_database_binding(
             runner,
             env,
             aws_env,
@@ -202,8 +215,114 @@ def _resolve_environment_dsn(
         )
     except Exception as exc:  # noqa: BLE001
         raise DbAdminSetupError(
-            f"could not resolve {env.project}/{env.env_name} database DSN: {exc}"
+            f"could not resolve {env.project}/{env.env_name} database binding: {exc}"
         ) from exc
+
+
+def _select_control_plane_env(
+    env_name: str,
+    *,
+    control_plane_env: str | None,
+    config_path: str | Path | None,
+) -> str:
+    """Select an explicit HTTPS control plane without ambient fallbacks."""
+    selected = _safe_label(
+        control_plane_env or env_name,
+        what="control-plane environment",
+    )
+    try:
+        connection = machine_config.active_connection(
+            config_path,
+            explicit_env=selected,
+        )
+    except (machine_config.MachineConfigError, contract.MachineConfigContractError) as exc:
+        qualifier = "--control-plane-env " if control_plane_env else ""
+        raise DbAdminSetupError(
+            f"{qualifier}connection {selected!r} is not configured as an HTTPS "
+            "control plane; pass --control-plane-env CONNECTION_ENV naming "
+            "an HTTPS connection"
+        ) from exc
+    if str(connection.get("transport") or "") != contract.TRANSPORT_HTTPS:
+        raise DbAdminSetupError(
+            f"connection {selected!r} is not HTTPS; pass --control-plane-env "
+            "CONNECTION_ENV naming an HTTPS control plane"
+        )
+    return selected
+
+
+def _resolve_control_plane_database(
+    control_plane_env: str,
+    *,
+    config_path: str | Path | None,
+) -> str:
+    """Read the tenant-routed database identity through one named HTTPS env."""
+    try:
+        connection = https_transport.resolve_https_connection(
+            config_path,
+            explicit_env=control_plane_env,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise DbAdminSetupError(
+            f"could not resolve HTTPS control plane {control_plane_env!r}: {exc}"
+        ) from exc
+    if connection is None:
+        raise DbAdminSetupError(
+            f"connection {control_plane_env!r} is not an HTTPS control plane"
+        )
+    request = function_dispatcher.build_request(
+        function_id="db.read.run",
+        target=TargetRef(kind="global"),
+        payload={"sql": CONTROL_PLANE_DATABASE_SQL},
+    )
+    try:
+        response = https_transport.relay_https(request, connection)
+    except Exception as exc:  # noqa: BLE001
+        raise DbAdminSetupError(
+            f"control-plane database identity read failed for "
+            f"{control_plane_env!r}: "
+            f"{_redact_sensitive(str(exc), connection.token)}"
+        ) from exc
+    if not response.success:
+        detail = response.error.message if response.error is not None else "request refused"
+        raise DbAdminSetupError(
+            f"control-plane database identity read failed for "
+            f"{control_plane_env!r}: "
+            f"{_redact_sensitive(detail, connection.token)}"
+        )
+    result = response.result
+    expected_keys = {
+        "columns",
+        "rows",
+        "row_count",
+        "row_cap",
+        "truncated",
+        "statement_timeout_ms",
+    }
+    if set(result) != expected_keys:
+        raise DbAdminSetupError(
+            "control-plane database identity response has an unexpected shape"
+        )
+    rows = result.get("rows")
+    if (
+        result.get("columns") != ["current_database"]
+        or result.get("truncated") is not False
+        or result.get("row_count") != 1
+        or not isinstance(rows, list)
+        or len(rows) != 1
+        or not isinstance(rows[0], list)
+        or len(rows[0]) != 1
+        or not isinstance(rows[0][0], str)
+        or not rows[0][0].strip()
+    ):
+        raise DbAdminSetupError(
+            "control-plane database identity response must contain exactly "
+            "one non-empty current_database value"
+        )
+    return rows[0][0].strip()
+
+
+def _redact_sensitive(message: str, secret: str) -> str:
+    return message.replace(secret, "<redacted>") if secret else message
 
 
 def _postgres_metadata(env: Any, local_port: int) -> dict[str, Any]:
@@ -220,13 +339,13 @@ def _postgres_metadata(env: Any, local_port: int) -> dict[str, Any]:
     }
 
 
-def _authority_metadata(env: Any) -> dict[str, Any]:
+def _authority_metadata(env: Any, *, database_name: str) -> dict[str, Any]:
     return {
         "kind": AUTHORITY_KIND,
         "location": {
             "stack": env.stack_name,
             "region": env.aws_region,
-            "database_name": env.database_name,
+            "database_name": database_name,
         },
     }
 
@@ -242,11 +361,6 @@ def _environment_summary(env: Any) -> dict[str, str]:
         "ssh_target": str(env.ssh_target),
         "aws_region": str(env.aws_region),
     }
-
-
-def _dsn_port(dsn: str) -> int:
-    match = re.search(r"(?:^|\s)port=(\d+)", dsn)
-    return int(match.group(1)) if match else 5432
 
 
 def _write_connection(
@@ -364,6 +478,7 @@ __all__ = [
     "DEFAULT_LOCAL_PORTS",
     "DEFAULT_PROJECT",
     "DbAdminSetupError",
+    "CONTROL_PLANE_DATABASE_SQL",
     "admin_env_name",
     "build_report",
     "default_local_port",

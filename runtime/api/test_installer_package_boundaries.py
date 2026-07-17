@@ -191,7 +191,7 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
         "yoke_core.domain.deploy_core_container",
-    ): ("source_dev_admin", "explicit db-admin setup DSN resolver"),
+    ): ("source_dev_admin", "explicit db-admin setup cloud binding resolver"),
     (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
         "yoke_core.domain.deploy_environment_settings",

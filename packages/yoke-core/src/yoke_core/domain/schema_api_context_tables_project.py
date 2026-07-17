@@ -51,7 +51,15 @@ PROJECT_TABLES: dict[str, dict] = {
             "not an auth failure. "
             "Project-scoped settings do NOT live on a `projects.settings` "
             "column; use `project_structure`, `project_capabilities.settings`, "
-            "or environment settings surfaces for those aggregates."
+            "or environment settings surfaces for those aggregates. "
+            "Source-dev/admin database connector setup uses `yoke dev "
+            "db-admin setup <deploy-env> --control-plane-env "
+            "<https-connection> --yes`; it reads `current_database()` through "
+            "that exact named HTTPS connection's `db.read.run` tenant route. "
+            "The deploy environment still owns stack, region, endpoint, and "
+            "secret ARN. Never substitute the declared deploy database, "
+            "active connection, a local admin env, or a deploy DSN for the "
+            "HTTPS control-plane database identity."
         ),
     },
     "sites": {
@@ -183,6 +191,10 @@ PROJECT_TABLES: dict[str, dict] = {
             "Stale-run HCs scan rows where `status` is non-terminal "
             "but `started_at` is older than the configured cutoff; "
             "item-less is suspicious only when a run never starts."
+            " New run creation locks `deployment_runs` in Postgres, computes "
+            "the UTC day's maximum numeric suffix plus one, and inserts under "
+            "the same transaction with the primary key as a collision guard. "
+            "`runs next-id` is only a non-reserving preview."
         ),
     },
     "deployment_run_items": {

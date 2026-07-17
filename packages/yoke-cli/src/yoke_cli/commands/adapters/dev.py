@@ -35,6 +35,7 @@ DEV_PATH_SNAPSHOT_PREWARM_USAGE = (
 )
 DEV_DB_ADMIN_SETUP_USAGE = (
     "yoke dev db-admin setup ENV [--project PROJECT] [--admin-env ENV] "
+    "[--control-plane-env CONNECTION_ENV] "
     "[--local-port PORT] [--secret-name NAME] [--set-active-env] "
     "[--allow-render-only] [--prod | --non-prod] "
     "[--yes | --dry-run] [--json]"
@@ -167,9 +168,10 @@ def dev_db_admin_setup(args: List[str]) -> int:
         prog="yoke dev db-admin setup",
         description=(
             "Plan or apply a machine-local <env>-db-admin Postgres profile "
-            "from DB-backed deploy-environment authority. The DSN is "
-            "resolved from Pulumi outputs and the RDS secret, localized to "
-            "the configured SSH tunnel, and stored as a machine secret."
+            "from DB-backed deploy-environment infrastructure. The database "
+            "identity is read through a named tenant-routed HTTPS control "
+            "plane; endpoint and managed-secret authority come from Pulumi "
+            "without materializing the secret value."
         ),
     )
     parser.add_argument("env_name")
@@ -178,6 +180,14 @@ def dev_db_admin_setup(args: List[str]) -> int:
     parser.add_argument("--admin-env", default=None)
     parser.add_argument("--local-port", type=int, default=None)
     parser.add_argument("--secret-name", default=None)
+    parser.add_argument(
+        "--control-plane-env",
+        default=None,
+        help=(
+            "Named HTTPS connection used for tenant-routed current_database() "
+            "identity (defaults to ENV only when that connection is HTTPS)."
+        ),
+    )
     parser.add_argument("--set-active-env", action="store_true")
     parser.add_argument("--allow-render-only", action="store_true")
     production = parser.add_mutually_exclusive_group()
@@ -200,6 +210,7 @@ def dev_db_admin_setup(args: List[str]) -> int:
             admin_env=parsed.admin_env,
             local_port=parsed.local_port,
             secret_label=parsed.secret_name,
+            control_plane_env=parsed.control_plane_env,
             apply=parsed.apply,
             set_active_env=parsed.set_active_env,
             allow_render_only=parsed.allow_render_only,
