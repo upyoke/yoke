@@ -18,7 +18,7 @@ from yoke_core.domain.project_renderer_pulumi_scoped import (
 from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
 
 
-_ALLOWED_COMMANDS = frozenset({"preview", "refresh", "import"})
+_ALLOWED_COMMANDS = frozenset({"preview", "refresh", "import", "up"})
 _IMPORT_FLAGS = frozenset({
     "--protect=false", "--generate-code=false", "--yes",
     "--non-interactive",
@@ -29,6 +29,9 @@ _PREVIEW_FLAGS = frozenset({
 })
 _REFRESH_FLAGS = frozenset({
     "--non-interactive", "--preview-only", "--skip-preview", "--yes",
+})
+_UP_FLAGS = frozenset({
+    "--diff", "--non-interactive", "--refresh", "--suppress-outputs", "--yes",
 })
 _AMBIENT_GITHUB_ENV = frozenset({
     "GH_ENTERPRISE_TOKEN", "GH_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
@@ -53,7 +56,7 @@ def execute_pulumi_command(
     out: TextIO | None = None,
     err: TextIO | None = None,
 ) -> int:
-    """Materialize one stack and run preview, refresh, or file import."""
+    """Materialize one stack and run a bounded operator operation."""
     selected_project = str(project or "").strip()
     selected_stack = str(stack or "").strip()
     if not selected_project or not selected_stack:
@@ -109,7 +112,7 @@ def _validated_command(
     parts = [str(part) for part in command]
     if not parts or parts[0] not in _ALLOWED_COMMANDS:
         raise PulumiExecError(
-            "Pulumi exec allows only preview, refresh, and import"
+            "Pulumi exec allows only preview, refresh, import, and up"
         )
     operation = parts[0]
     args = parts[1:]
@@ -124,6 +127,8 @@ def _validated_command(
         args = _absolute_option_path(args, "--import-file")
         if json_output is not None:
             args.append("--json")
+    elif operation == "up":
+        _validate_up_args(args)
     else:
         _validate_flag_args(args, _REFRESH_FLAGS)
     args = _without_stack_flag(args)
@@ -215,6 +220,20 @@ def _validate_flag_args(
                 f"Pulumi argument is not allowed for this operation: {value}"
             )
         index += 1
+
+
+def _validate_up_args(args: Sequence[str]) -> None:
+    _validate_flag_args(args, _UP_FLAGS)
+    selected = set(_without_stack_flag(args))
+    missing = [
+        required
+        for required in ("--yes", "--non-interactive")
+        if required not in selected
+    ]
+    if missing:
+        raise PulumiExecError(
+            "pulumi up requires --yes and --non-interactive"
+        )
 
 
 def _preview_output_args(args: Sequence[str]) -> tuple[list[str], Path | None]:

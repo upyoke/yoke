@@ -111,7 +111,7 @@ def test_preview_json_output_is_durable_owner_only(tmp_path):
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
 
 
-@pytest.mark.parametrize("operation", ["up", "destroy", "state-delete", "bash"])
+@pytest.mark.parametrize("operation", ["destroy", "state-delete", "bash"])
 def test_disallowed_operations_refuse_before_config_fetch(operation, tmp_path):
     called = False
 
@@ -127,6 +127,63 @@ def test_disallowed_operations_refuse_before_config_fetch(operation, tmp_path):
             project_root=tmp_path,
         )
     assert called is False
+
+
+def test_up_requires_explicit_non_interactive_confirmation(tmp_path):
+    for command in (
+        ["up"],
+        ["up", "--yes"],
+        ["up", "--non-interactive"],
+    ):
+        with pytest.raises(
+            PulumiExecError,
+            match="requires --yes and --non-interactive",
+        ):
+            execute_pulumi_command(
+                "yoke", "yoke-infra", command,
+                config_loader=lambda project, stack: _payload(project, stack),
+                project_root=tmp_path,
+            )
+
+
+def test_up_uses_exact_stack_and_safe_flags(tmp_path):
+    commands = []
+
+    def child_factory(command, **kwargs):
+        commands.append(command)
+        return _Child(b"update-ok\n")
+
+    rc = execute_pulumi_command(
+        "yoke",
+        "yoke-infra",
+        [
+            "up", "--yes", "--non-interactive", "--refresh",
+            "--suppress-outputs", "--diff",
+        ],
+        config_loader=lambda project, stack: _payload(project, stack),
+        project_root=Path(__file__).resolve().parents[3],
+        aws_env_loader=lambda *args, **kwargs: {},
+        child_factory=child_factory,
+        out=StringIO(),
+        err=StringIO(),
+    )
+
+    assert rc == 0
+    assert commands == [[
+        "pulumi", "up", "--yes", "--non-interactive", "--refresh",
+        "--suppress-outputs", "--diff", "--stack", "yoke-infra",
+    ]]
+
+
+def test_up_rejects_unapproved_arguments(tmp_path):
+    with pytest.raises(PulumiExecError, match="not allowed"):
+        execute_pulumi_command(
+            "yoke",
+            "yoke-infra",
+            ["up", "--yes", "--non-interactive", "--target", "resource"],
+            config_loader=lambda project, stack: _payload(project, stack),
+            project_root=tmp_path,
+        )
 
 
 def test_mismatched_child_stack_and_payload_identity_refuse(tmp_path):

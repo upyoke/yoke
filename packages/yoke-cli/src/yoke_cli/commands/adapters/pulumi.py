@@ -25,7 +25,7 @@ from yoke_cli.transport.pulumi_github_authority import (
 
 PULUMI_EXEC_USAGE = (
     "yoke pulumi exec --project NAME --stack STACK -- "
-    "<preview|refresh|import args>"
+    "<preview|refresh|import|up args>"
 )
 
 
@@ -33,8 +33,8 @@ def pulumi_exec(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke pulumi exec",
         description=(
-            "Run one stack-bound Pulumi preview, refresh, or file import with "
-            "ephemeral capability-owned authority."
+            "Run one stack-bound Pulumi preview, refresh, file import, or "
+            "operator-confirmed update with ephemeral capability-owned authority."
         ),
     )
     parser.add_argument("--project", required=True)

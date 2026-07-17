@@ -80,7 +80,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     ),
     "yoke pulumi exec": (
         "yoke pulumi exec --project NAME --stack STACK -- "
-        "<preview|refresh|import args>"
+        "<preview|refresh|import|up args>"
     ),
 }
 
