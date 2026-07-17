@@ -21,7 +21,6 @@ _ACTION_PINS = {
     "docker/build-push-action": "53b7df96c91f9c12dcc8a07bcb9ccacbed38856a",
     "docker/login-action": "b45d80f862d83dbcd57f89517bcf500b2ab88fb2",
     "docker/setup-buildx-action": "bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
-    "docker/setup-qemu-action": "96fe6ef7f33517b61c61be40b68a1882f3264fb8",
 }
 _REMOTE_USE = re.compile(r"^\s*uses:\s*([^./\s][^@\s]+)@([^\s#]+)", re.MULTILINE)
 
