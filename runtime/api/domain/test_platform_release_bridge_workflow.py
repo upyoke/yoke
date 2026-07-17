@@ -61,3 +61,14 @@ def test_bridge_forwards_environment_release_mode_and_annotated_tag() -> None:
     assert '--input "product_ref=$PRODUCT_REF"' in text
     assert '--input "release_mode=$RELEASE_MODE"' in text
     assert "--correlation-input yoke_dispatch_id" in text
+
+
+def test_bridge_recovers_a_lost_dispatch_response_without_reposting() -> None:
+    text = _text()
+
+    assert "for attempt in $(seq 1 12)" in text
+    assert 'request_id="bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:' in text
+    assert '--request-id "$request_id"' in text
+    assert 'grep -q "workflow_dispatch_ambiguous"' in text
+    assert "same scoped actor" in text
+    assert 'test -n "$platform_run_id"' in text

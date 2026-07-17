@@ -130,15 +130,36 @@ jobs:
           OUTER_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
         run: |
           request_id="bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${OUTER_DISPATCH_ID}"
-          platform_run_id="$(yoke github-actions trigger \
-            upyoke/platform yoke-release-promote.yml \
-            --ref main \
-            --input "target_environment=$TARGET_ENVIRONMENT" \
-            --input "product_ref=$PRODUCT_REF" \
-            --input "release_mode=$RELEASE_MODE" \
-            --request-id "$request_id" \
-            --correlation-input yoke_dispatch_id \
-            --project platform)"
+          dispatch_error="$RUNNER_TEMP/platform-release-dispatch-error.txt"
+          platform_run_id=""
+          for attempt in $(seq 1 12); do
+            if platform_run_id="$(yoke github-actions trigger \
+              upyoke/platform yoke-release-promote.yml \
+              --ref main \
+              --input "target_environment=$TARGET_ENVIRONMENT" \
+              --input "product_ref=$PRODUCT_REF" \
+              --input "release_mode=$RELEASE_MODE" \
+              --request-id "$request_id" \
+              --correlation-input yoke_dispatch_id \
+              --project platform 2>"$dispatch_error")"; then
+              break
+            else
+              dispatch_rc=$?
+            fi
+            cat "$dispatch_error" >&2
+            if ! grep -q "workflow_dispatch_ambiguous" "$dispatch_error"; then
+              exit "$dispatch_rc"
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "Platform release dispatch remained ambiguous after bounded recovery" >&2
+              exit "$dispatch_rc"
+            fi
+            # The server has already recorded durable intent. Reusing the same
+            # request id and payload lets the same scoped actor discover the
+            # correlated GitHub run without posting another dispatch.
+            sleep 5
+          done
+          test -n "$platform_run_id"
           echo "Platform release run: https://github.com/upyoke/platform/actions/runs/$platform_run_id"
           yoke github-actions wait-run \
             upyoke/platform "$platform_run_id" \
