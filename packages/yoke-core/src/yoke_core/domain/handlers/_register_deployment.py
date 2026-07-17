@@ -79,6 +79,18 @@ def register(registry) -> None:
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
     registry.register(
+        "deployment_runs.approve", _runs.handle_deployment_run_approve,
+        _models.DeploymentRunApproveRequest,
+        _models.DeploymentRunApproveResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_runs",
+        target_kinds=["workflow_run"],
+        side_effects=["deployment_runs_update", "items_deploy_stage_update"],
+        emitted_event_names=["DeploymentApprovalGranted", "YokeFunctionCalled"],
+        guardrails=["executing_run", "current_stage_human_approval"],
+        adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
         "deployment_runs.update", _runs.handle_deployment_run_update,
         _models.DeploymentRunUpdateRequest,
         _models.DeploymentRunUpdateResponse,

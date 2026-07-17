@@ -39,6 +39,10 @@ DEPLOYMENT_RUNS_UPDATE_USAGE = (
     "yoke deployment-runs update RUN-ID FIELD VALUE [--force] "
     "[--session-id S] [--json]"
 )
+DEPLOYMENT_RUNS_APPROVE_USAGE = (
+    "yoke deployment-runs approve RUN-ID [--note TEXT] "
+    "[--session-id S] [--json]"
+)
 DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE = (
     "yoke deployment-runs resolve-target-env PROJECT FLOW "
     "[--target-env ENV] [--session-id S] [--json]"
@@ -61,7 +65,8 @@ def deployment_flows_get(args: List[str]) -> int:
     )
     parser.add_argument("flow_id")
     parser.add_argument("field", nargs="?", default=None)
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_FLOWS_GET_USAGE)
     if parsed is None:
         return 2
@@ -91,7 +96,8 @@ def deployment_flows_stages(args: List[str]) -> int:
         description=DEPLOYMENT_FLOWS_STAGES_USAGE,
     )
     parser.add_argument("flow_id")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_FLOWS_STAGES_USAGE)
     if parsed is None:
         return 2
@@ -119,7 +125,8 @@ def deployment_flows_set_status(args: List[str]) -> int:
     )
     parser.add_argument("flow_id")
     parser.add_argument("status", choices=("active", "disabled"))
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, DEPLOYMENT_FLOWS_SET_STATUS_USAGE
     )
@@ -151,7 +158,8 @@ def deployment_runs_get(args: List[str]) -> int:
     )
     parser.add_argument("run_id")
     parser.add_argument("field", nargs="?", default=None)
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_GET_USAGE)
     if parsed is None:
         return 2
@@ -187,7 +195,8 @@ def deployment_runs_create(args: List[str]) -> int:
     parser.add_argument("flow")
     parser.add_argument("--target-env", dest="target_env", default=None)
     parser.add_argument("--created-by", dest="created_by", default="operator")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_CREATE_USAGE)
     if parsed is None:
         return 2
@@ -220,7 +229,8 @@ def deployment_runs_list(args: List[str]) -> int:
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--status", default=None)
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_LIST_USAGE)
     if parsed is None:
         return 2
@@ -255,7 +265,8 @@ def deployment_runs_update(args: List[str]) -> int:
     parser.add_argument("field")
     parser.add_argument("value")
     parser.add_argument("--force", action="store_true")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_UPDATE_USAGE)
     if parsed is None:
         return 2
@@ -276,6 +287,40 @@ def deployment_runs_update(args: List[str]) -> int:
     )
 
 
+def deployment_runs_approve(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke deployment-runs approve",
+        description=DEPLOYMENT_RUNS_APPROVE_USAGE,
+    )
+    parser.add_argument("run_id")
+    parser.add_argument("--note", default=None)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_APPROVE_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        result = response.result or {}
+        print(
+            f"Approved {result.get('run_id')}: "
+            f"{result.get('approved_stage')} -> {result.get('next_stage')}",
+            file=stdout,
+        )
+        return None
+
+    payload = {}
+    if parsed.note is not None:
+        payload["note"] = parsed.note
+    return dispatch_and_emit(
+        function_id="deployment_runs.approve",
+        target=_run_target(parsed.run_id),
+        payload=payload,
+        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
 def deployment_runs_resolve_target_env(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs resolve-target-env",
@@ -284,7 +329,8 @@ def deployment_runs_resolve_target_env(args: List[str]) -> int:
     parser.add_argument("project")
     parser.add_argument("flow")
     parser.add_argument("--target-env", dest="target_env", default=None)
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
     )
@@ -312,6 +358,7 @@ __all__ = [
     "DEPLOYMENT_FLOWS_SET_STATUS_USAGE",
     "DEPLOYMENT_FLOWS_STAGES_USAGE",
     "DEPLOYMENT_RUNS_GET_USAGE",
+    "DEPLOYMENT_RUNS_APPROVE_USAGE",
     "DEPLOYMENT_RUNS_LIST_USAGE",
     "DEPLOYMENT_RUNS_UPDATE_USAGE",
     "DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE",
@@ -319,6 +366,7 @@ __all__ = [
     "deployment_flows_set_status",
     "deployment_flows_stages",
     "deployment_runs_get",
+    "deployment_runs_approve",
     "deployment_runs_list",
     "deployment_runs_update",
     "deployment_runs_resolve_target_env",

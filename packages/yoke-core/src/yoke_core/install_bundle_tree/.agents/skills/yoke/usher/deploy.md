@@ -113,21 +113,18 @@ yoke claims work release --item YOK-{N} --reason usher-halt-deploy-stage-failure
 
 The four `usher-halt-*` values are terminal release intents per `yoke_core.domain.release_intent_classification.TERMINAL_RELEASE_INTENTS`. Do NOT use `completed` for a halt path. After release, halt the batch and surface resume instructions.
 
-**Exit 2:** Awaiting approval — invoke the `/yoke approve YOK-{N}` skill ([`.agents/skills/yoke/approve/SKILL.md`](../approve/SKILL.md)):
+**Exit 2:** Awaiting approval — halt and surface the exact Yoke run command
+([`.agents/skills/yoke/approve/SKILL.md`](../approve/SKILL.md)):
 
 ```
-/yoke approve YOK-{N} [--run {_run_id}] [--note "..."]
+yoke deployment-runs approve {_run_id} [--note "..."] --json
 ```
 
-What `/yoke approve` does internally (canonical recipe — do not duplicate inline):
-1. Resolves run context (run id, next stage, member item ids) via `python3 -m yoke_core.api.service_client apply-approval {item_num}`.
-2. Surfaces the ephemeral preview URL by querying the `DeploymentRunStageCompleted` events for the run.
-3. Prompts via `AskUserQuestion` ("Yes, approve and continue" / "No, pause for later"). Pause → report paused state, continue to next group.
-4. Emits `DeploymentApprovalGranted` via `yoke events emit`.
-5. Updates `runs current_stage` and dual-writes each member item's `deploy_stage` via `items.scalar.update`.
-6. Re-invokes `python3 -m yoke_core.domain.deploy_pipeline {run-id} --from-stage {next-stage}` to resume the pipeline.
-
-The re-invoked pipeline may surface another exit 2 — re-invoke `/yoke approve YOK-{N}` for each successive gate until the pipeline completes (exit 0), fails (exit 1), or the operator pauses (exit 3).
+That registered mutation validates the exact executing run and approval stage,
+atomically advances run and member-item stage state, and writes the Yoke audit
+event. After the operator approves, re-run Usher with `--deploy-only`; it
+resumes from the run's authoritative stage. Another approval stage produces
+another exit 2 and requires another exact-run approval.
 
 **Exit 3 (HALT — `usher-halt-deploy-infra-failure`):** Setup / infrastructure error before any stage ran (preview claim, lineage, validation). For every member item of the run, release the work claim with `usher-halt-deploy-infra-failure` BEFORE printing recovery instructions. Same release-failure contract as exit 1 (halt summary names the release failure if the release call itself fails). Operator/debug adapter:
 

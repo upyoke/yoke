@@ -28,6 +28,7 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-flows set-status",
     ),
     AdapterEntry(function_id="deployment_runs.create", cli_invocation="yoke deployment-runs create"),
+    AdapterEntry(function_id="deployment_runs.approve", cli_invocation="yoke deployment-runs approve"),
     _read_entry(function_id="deployment_runs.get", cli_invocation="yoke deployment-runs get"),
     _read_entry(function_id="deployment_runs.list", cli_invocation="yoke deployment-runs list"),
     _read_entry(function_id="deployment_runs.resolve_target_env", cli_invocation="yoke deployment-runs resolve-target-env"),

@@ -61,6 +61,9 @@ def test_registry_maps_deployment_tokens_to_function_ids() -> None:
     assert SUBCOMMAND_REGISTRY[("deployment-runs", "get")][0] == (
         "deployment_runs.get"
     )
+    assert SUBCOMMAND_REGISTRY[("deployment-runs", "approve")][0] == (
+        "deployment_runs.approve"
+    )
     assert SUBCOMMAND_REGISTRY[("deployment-runs", "list")][0] == (
         "deployment_runs.list"
     )
@@ -152,6 +155,36 @@ def test_deployment_run_update_dispatches_and_prints_nothing() -> None:
         "value": "succeeded",
         "force": True,
     }
+
+
+def test_deployment_run_approve_dispatches_note_and_prints_transition() -> None:
+    def stub(request: FunctionCallRequest) -> FunctionCallResponse:
+        _CAPTURED_REQUESTS.append(request)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={
+                "run_id": "run-20260616-001",
+                "approved_stage": "production-approval",
+                "next_stage": "production",
+            },
+        )
+
+    rc, out, err = _run_capture(
+        stub,
+        "deployment-runs", "approve", "run-20260616-001",
+        "--note", "stage verified",
+    )
+    assert rc == 0, err
+    assert out == (
+        "Approved run-20260616-001: production-approval -> production\n"
+    )
+    req = _CAPTURED_REQUESTS[-1]
+    assert req.function == "deployment_runs.approve"
+    assert req.target.workflow_run_id == "run-20260616-001"
+    assert req.payload == {"note": "stage verified"}
 
 
 def test_resolve_target_env_dispatches_and_prints_raw_value() -> None:

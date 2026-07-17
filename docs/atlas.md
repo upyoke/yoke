@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-17T00:55:39Z_
+_Audit generated_at: 2026-07-17T11:59:34Z_
 
 ## 1. Summary
 
-- Function ids registered: **213**
+- Function ids registered: **215**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **212** (212 carry usable `--help`)
-- Operation tracker: **212 wrapped**, 72 permanent, 0 pending
-- Skill-body recipes: 214 total (177 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **214** (214 carry usable `--help`)
+- Operation tracker: **213 wrapped**, 72 permanent, 0 pending
+- Skill-body recipes: 213 total (176 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **214** (operation tracker confirms 213 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -50,6 +50,7 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wr
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
 | deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
 | deployment_flows | `yoke deployment-flows stages` | `deployment_flows.stages` | ok |
+| deployment_runs | `yoke deployment-runs approve` | `deployment_runs.approve` | ok |
 | deployment_runs | `yoke deployment-runs create` | `deployment_runs.create` | ok |
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
@@ -149,6 +150,7 @@ Wrapped `yoke <subcommand>` adapters: **212** (operation tracker confirms 212 wr
 | projects | `yoke projects github-sync-mode repair` | `projects.github_sync_mode.repair` | ok |
 | projects | `yoke projects list` | `projects.list` | ok |
 | projects | `yoke projects pulumi-stack-config get` | `projects.pulumi_stack_config.get` | ok |
+| projects | `yoke projects pulumi-state checkpoint-import` | `projects.pulumi_state.checkpoint_import` | ok |
 | projects | `yoke projects pulumi-state migrate` | `projects.pulumi_state.migrate` | ok |
 | projects | `yoke projects resolve-by-github-repo` | `projects.resolve_by_github_repo` | ok |
 | projects | `yoke projects update` | `projects.update` | ok |
