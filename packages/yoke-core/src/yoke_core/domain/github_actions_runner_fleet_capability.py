@@ -23,6 +23,7 @@ DEFAULT_INSTANCE_TYPE = "m7g.2xlarge"
 DEFAULT_ARCHITECTURE = "arm64"
 DEFAULT_DESIRED_RUNNER_COUNT = 1
 DEFAULT_MAX_RUNNER_COUNT = 1
+MAX_RUNNER_FLEET_HOSTS = 10
 DEFAULT_ROOT_VOLUME_GB = 200
 DEFAULT_AWS_CAPABILITY = "aws-admin"
 DEFAULT_START_MODE = "autoscaled"
@@ -142,8 +143,12 @@ class RunnerFleetSettings(BaseModel):
     variable_name: str = DEFAULT_RUNS_ON_VARIABLE
     routing_enabled: bool = False
     provider: str = DEFAULT_PROVIDER
-    desired_runner_count: int = Field(DEFAULT_DESIRED_RUNNER_COUNT, ge=1)
-    max_runner_count: int = Field(DEFAULT_MAX_RUNNER_COUNT, ge=1)
+    desired_runner_count: int = Field(
+        DEFAULT_DESIRED_RUNNER_COUNT, ge=1, le=MAX_RUNNER_FLEET_HOSTS,
+    )
+    max_runner_count: int = Field(
+        DEFAULT_MAX_RUNNER_COUNT, ge=1, le=MAX_RUNNER_FLEET_HOSTS,
+    )
     github_capability: Optional[str] = None
     github_app: Optional[RunnerFleetGitHubAppSettings] = None
     aws_capability: str = DEFAULT_AWS_CAPABILITY
@@ -231,10 +236,6 @@ class RunnerFleetSettings(BaseModel):
                 "max_runner_count must be greater than or equal to "
                 "desired_runner_count"
             )
-        if self.desired_runner_count != 1 or self.max_runner_count != 1:
-            raise ValueError(
-                "runner fleet v1 requires exactly one isolated runner host"
-            )
         if not self.lifecycle.ephemeral_runners:
             raise ValueError("runner fleet v1 requires ephemeral_runners=true")
         return self
@@ -307,6 +308,7 @@ __all__ = [
     "DEFAULT_RUNS_ON_VARIABLE",
     "DEFAULT_SHUTDOWN_MODE",
     "DEFAULT_START_MODE",
+    "MAX_RUNNER_FLEET_HOSTS",
     "RunnerFleetNetworkSettings",
     "RunnerFleetSettings",
     "RunnerFleetSettingsError",

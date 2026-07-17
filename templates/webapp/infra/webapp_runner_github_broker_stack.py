@@ -104,6 +104,7 @@ def _common_environment(
         ),
         "RUNNER_PREFIX": f"{args.deploy_namespace}-github-actions-",
         "RUNNER_LABELS": ",".join(args.runner_labels),
+        "DESIRED_RUNNER_COUNT": str(args.runner_count),
         "IDLE_MINUTES": str(args.idle_shutdown_minutes),
         "LIFECYCLE_STATE_PARAMETER": lifecycle_state_name,
         "QUEUE_ACTIVITY_PARAMETER": queue_activity_name,
@@ -134,6 +135,9 @@ def _lambda_code() -> pulumi.AssetArchive:
         ),
         "webapp_runner_termination.mjs": pulumi.StringAsset(
             (root / "webapp_runner_termination.mjs").read_text()
+        ),
+        "webapp_runner_parallel_reaper.mjs": pulumi.StringAsset(
+            (root / "webapp_runner_parallel_reaper.mjs").read_text()
         ),
     })
 

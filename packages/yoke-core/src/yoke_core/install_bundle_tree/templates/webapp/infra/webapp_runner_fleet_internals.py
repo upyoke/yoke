@@ -288,7 +288,7 @@ def _webhook_lambda_code() -> str:
             )
             autoscaling.set_desired_capacity(
                 AutoScalingGroupName=os.environ["ASG_NAME"],
-                DesiredCapacity=1,
+                DesiredCapacity=int(os.environ["DESIRED_RUNNER_COUNT"]),
                 HonorCooldown=False,
             )
             return _response(202, {"ok": True, "action": "started"})

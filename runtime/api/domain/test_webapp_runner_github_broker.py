@@ -31,6 +31,7 @@ def _environment(mode: str) -> str:
           RUNNER_ARCHITECTURE: "x64",
           RUNNER_PREFIX: "yoke-github-actions-",
           RUNNER_LABELS: "self-hosted,Linux,X64,yoke-github-actions",
+          DESIRED_RUNNER_COUNT: "1",
           IDLE_MINUTES: "30",
           LIFECYCLE_STATE_PARAMETER: "/fleet/lifecycle-state",
           QUEUE_ACTIVITY_PARAMETER: "/fleet/queue-activity",
@@ -182,11 +183,21 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
         const register = await handler({{
           action: "register", instance_id: "i-0123456789abcdef0",
         }});
+        const rearming = await handler({{
+          action: "rearming", instance_id: "i-0123456789abcdef0",
+        }});
+        const nextRegister = await handler({{
+          action: "register", instance_id: "i-0123456789abcdef0",
+        }});
+        const readyAgain = await handler({{
+          action: "ready", instance_id: "i-0123456789abcdef0",
+        }});
         let secondBootstrap = "";
         try {{ await handler(event); }} catch (error) {{ secondBootstrap = error.message; }}
         let reap = "";
         try {{ await handler({{ action: "reap" }}); }} catch (error) {{ reap = error.message; }}
         console.log(JSON.stringify({{ bootstrap, earlyRegister, ready, register,
+          rearming, nextRegister, readyAgain,
           secondBootstrap, reap, calls,
           marker: JSON.parse(globalThis.__parameters.get(
             "/fleet/bootstrap/i-0123456789abcdef0")),
@@ -203,6 +214,15 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
     assert payload["register"] == {
         "registration_token": "registration-token",
     }
+    assert payload["rearming"]["runner_name"].endswith(
+        "i-0123456789abcdef0"
+    )
+    assert payload["nextRegister"] == {
+        "registration_token": "registration-token",
+    }
+    assert payload["readyAgain"]["runner_name"].endswith(
+        "i-0123456789abcdef0"
+    )
     assert payload["earlyRegister"] == (
         "runner host is not ready for another registration"
     )
@@ -214,7 +234,7 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
         call for call in payload["calls"]
         if call["url"].endswith("/access_tokens")
     ]
-    assert len(token_calls) == 3
+    assert len(token_calls) == 4
     for call in token_calls:
         body = json.loads(call["body"])
         permissions = body["permissions"]

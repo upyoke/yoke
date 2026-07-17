@@ -41,12 +41,14 @@ def test_cycle_rearms_a_fresh_ephemeral_runner_after_each_job(monkeypatch):
     )
     assert "github_broker register" in cycle
     assert "github_broker ready" in cycle
+    assert "github_broker rearming" in cycle
     assert "github_broker failed" in cycle
     assert "--ephemeral" in cycle
     assert "./run.sh" in cycle
     assert "cycle.XXXXXX" in cycle
     assert "while true" in cycle
     assert ".registration_token // empty" in cycle
+    assert cycle.index("./run.sh") < cycle.index("github_broker rearming")
 
 
 def test_cycle_treats_rendered_values_as_data(monkeypatch):

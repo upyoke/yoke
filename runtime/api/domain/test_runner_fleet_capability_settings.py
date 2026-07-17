@@ -5,6 +5,9 @@ import json
 import pytest
 
 from yoke_core.domain import projects_capabilities_settings as pcs
+from yoke_core.domain.github_actions_runner_fleet_capability import (
+    MAX_RUNNER_FLEET_HOSTS,
+)
 from runtime.api.domain.test_projects_capabilities_settings import cap_db
 
 
@@ -52,11 +55,35 @@ class TestRunnerFleetCapabilitySettings:
             "prod", "stage",
         ]
 
-    def test_rejects_shared_host_parallelism(self, cap_db: str) -> None:
-        with pytest.raises(ValueError, match="one isolated runner host"):
+    def test_accepts_bounded_isolated_host_parallelism(self, cap_db: str) -> None:
+        pcs.cmd_capability_set_settings(
+            "yoke", "github-actions-runner-fleet",
+            '{"desired_runner_count":2,"max_runner_count":4}',
+            create=True, db_path=cap_db,
+        )
+
+        stored = json.loads(pcs.cmd_capability_get_settings(
+            "yoke", "github-actions-runner-fleet", db_path=cap_db,
+        ))
+        assert stored["desired_runner_count"] == 2
+        assert stored["max_runner_count"] == 4
+
+    def test_rejects_desired_capacity_above_maximum(self, cap_db: str) -> None:
+        with pytest.raises(ValueError, match="greater than or equal"):
             pcs.cmd_capability_set_settings(
                 "yoke", "github-actions-runner-fleet",
-                '{"desired_runner_count":2,"max_runner_count":4}',
+                '{"desired_runner_count":2,"max_runner_count":1}',
+                create=True, db_path=cap_db,
+            )
+
+    def test_rejects_capacity_above_safety_bound(self, cap_db: str) -> None:
+        with pytest.raises(ValueError, match="less than or equal"):
+            pcs.cmd_capability_set_settings(
+                "yoke", "github-actions-runner-fleet",
+                json.dumps({
+                    "desired_runner_count": MAX_RUNNER_FLEET_HOSTS + 1,
+                    "max_runner_count": MAX_RUNNER_FLEET_HOSTS + 1,
+                }),
                 create=True, db_path=cap_db,
             )
 

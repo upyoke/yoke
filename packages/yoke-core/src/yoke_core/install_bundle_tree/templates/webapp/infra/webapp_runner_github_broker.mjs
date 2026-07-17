@@ -35,6 +35,7 @@ import {
   resumeTermination,
   terminateHost,
 } from "./webapp_runner_termination.mjs";
+import { reapParallelFleet } from "./webapp_runner_parallel_reaper.mjs";
 
 const ssm = new SSMClient({});
 const brokerMode = required("BROKER_MODE");
@@ -153,9 +154,6 @@ async function retryBootstrap(instanceId, runners, state, activity, reason) {
 
 async function reapFleet() {
   const activeIds = await currentAsgInstanceIds();
-  if (activeIds.size > 1) {
-    throw new Error("single-host runner fleet has multiple active instances");
-  }
   const markers = await loadMarkers(activeIds);
   const pending = [...markers.entries()].find(([, marker]) =>
     marker.state === "termination_requested" ||
@@ -176,6 +174,20 @@ async function reapFleet() {
   let { state } = lifecycle;
   const { activity } = lifecycle;
   const matching = (await listRunners()).filter(matchesFleet);
+  if (activeIds.size > 1) {
+    return reapParallelFleet({
+      activeIds,
+      markers,
+      lifecycle,
+      matching,
+      runnerPrefix,
+      readyGrace,
+      jobEventTimeout,
+      bootstrapTimeout,
+      idleSeconds: idleMinutes * 60,
+      retryBootstrap,
+    });
+  }
   if (!activeIds.size) {
     if (lifecycle.activityChanged) {
       await restoreDesiredCapacity();
@@ -294,6 +306,9 @@ export async function handler(event) {
     if (action === "register") return registerRunner(event.instance_id);
     if (action === "ready") {
       return updateBootstrapState(event.instance_id, "ready");
+    }
+    if (action === "rearming") {
+      return updateBootstrapState(event.instance_id, "rearming");
     }
     if (action === "failed") {
       return updateBootstrapState(event.instance_id, "failed");

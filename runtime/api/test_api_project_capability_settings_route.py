@@ -167,7 +167,7 @@ def test_https_runner_fleet_settings_preserve_typed_app_authority(client):
 @pytest.mark.parametrize(
     "settings",
     [
-        {"desired_runner_count": 2, "max_runner_count": 4},
+        {"desired_runner_count": 2, "max_runner_count": 1},
         {"unknown_selector": "must-refuse"},
     ],
 )
