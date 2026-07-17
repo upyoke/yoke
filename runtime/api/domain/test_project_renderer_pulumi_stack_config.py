@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_core.domain.project_renderer_pulumi_stack_config import (
+    PulumiStackConfigError,
     build_pulumi_stack_config,
+)
+from yoke_core.domain.project_renderer_pulumi_scoped import (
+    render_scoped_pulumi_config,
 )
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
@@ -15,6 +22,7 @@ from yoke_core.domain.project_renderer_settings import (
 
 
 def _environment(name: str) -> RendererEnvironmentSettings:
+    is_production = name == "production"
     return RendererEnvironmentSettings(
         id=f"acme-{name}",
         name=name,
@@ -32,9 +40,10 @@ def _environment(name: str) -> RendererEnvironmentSettings:
             },
             "capabilities": ["api", "database"],
             "servers": {
-                "instance_type": "t4g.micro",
-                "root_volume_gb": 20,
+                "instance_type": "t4g.small" if is_production else "t4g.micro",
+                "root_volume_gb": 40 if is_production else 20,
                 "aws_key_pair_name": f"acme-{name}",
+                "iam_instance_profile_name": f"acme-{name}-host",
             },
             "database": {
                 "name": f"acme_{name}",
@@ -48,10 +57,10 @@ def _environment(name: str) -> RendererEnvironmentSettings:
     )
 
 
-def test_stack_config_projects_only_selected_environment(monkeypatch):
+def _settings() -> ProjectRendererSettings:
     production = _environment("production")
     stage = _environment("stage")
-    settings = ProjectRendererSettings(
+    return ProjectRendererSettings(
         project="acme",
         deploy_namespace="acme",
         display_name="Acme",
@@ -72,12 +81,21 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
             "pulumi-state": {
                 "state_bucket": "acme-pulumi-state",
                 "kms_key_alias": "alias/acme-pulumi-state",
-                "stacks": ["infra"],
+                "stacks": ["infra", "vps"],
+                "vps_stack_name": "acme-production-vps",
                 "stack_state": {
                     "acme-infra": {
                         "secrets_provider": "awskms://alias/acme-infra",
                         "encrypted_key": "encrypted-infra",
-                    }
+                    },
+                    "acme-production-vps": {
+                        "secrets_provider": "awskms://alias/acme-production-vps",
+                        "encrypted_key": "encrypted-production-vps",
+                    },
+                    "acme-stage-vps": {
+                        "secrets_provider": "awskms://alias/acme-stage-vps",
+                        "encrypted_key": "encrypted-stage-vps",
+                    },
                 },
             },
             "github": {
@@ -87,6 +105,9 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
             },
         },
     )
+
+
+def _stub_settings(monkeypatch, settings: ProjectRendererSettings) -> None:
     from yoke_core.domain import project_renderer_pulumi_stack_config as module
 
     monkeypatch.setattr(
@@ -105,6 +126,11 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
             {"github_repo": repo, "api_url": api},
         ),
     )
+
+
+def test_stack_config_projects_only_selected_environment(monkeypatch):
+    settings = _settings()
+    _stub_settings(monkeypatch, settings)
 
     payload = build_pulumi_stack_config(object(), "acme", "acme-stage")
     encoded = json.dumps(payload, sort_keys=True)
@@ -132,6 +158,70 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
         "metadata": "read",
         "actions_variables": "write",
     }
+
+
+@pytest.mark.parametrize(
+    ("stack", "instance_type", "root_volume_gb", "key_name", "encrypted_key"),
+    [
+        (
+            "acme-production-vps",
+            "t4g.small",
+            "40",
+            "acme-production",
+            "encrypted-production-vps",
+        ),
+        (
+            "acme-stage-vps",
+            "t4g.micro",
+            "20",
+            "acme-stage",
+            "encrypted-stage-vps",
+        ),
+    ],
+)
+def test_stack_config_projects_environment_declared_standalone_vps(
+    monkeypatch,
+    tmp_path,
+    stack,
+    instance_type,
+    root_volume_gb,
+    key_name,
+    encrypted_key,
+):
+    _stub_settings(monkeypatch, _settings())
+
+    payload = build_pulumi_stack_config(object(), "acme", stack)
+
+    assert payload["stack_kind"] == "vps"
+    assert payload["render_values"]["vps_instance_type"] == instance_type
+    assert payload["render_values"]["vps_root_volume_gb"] == root_volume_gb
+    assert payload["render_values"]["vps_ssh_key_name"] == key_name
+    assert payload["render_values"]["vps_iam_instance_profile_name"] == (
+        f"{key_name}-host"
+    )
+    assert payload["operator_state"]["encrypted_key"] == encrypted_key
+    assert "environments" not in payload
+    assert "site_settings" not in payload
+    stack_path = render_scoped_pulumi_config(
+        payload,
+        project_root=Path(__file__).resolve().parents[3],
+        output_dir=tmp_path / stack,
+    )
+    rendered = stack_path.read_text()
+    assert f"webapp-infra:vps_instance_type: {instance_type}" in rendered
+    assert f'webapp-infra:vps_root_volume_gb: "{root_volume_gb}"' in rendered
+    assert f"webapp-infra:vps_ssh_key_name: {key_name}" in rendered
+
+
+def test_stack_config_rejects_unknown_and_missing_vps_operator_state(monkeypatch):
+    settings = _settings()
+    _stub_settings(monkeypatch, settings)
+    with pytest.raises(ValueError, match="is not declared"):
+        build_pulumi_stack_config(object(), "acme", "acme-unknown-vps")
+
+    del settings.capabilities["pulumi-state"]["stack_state"]["acme-stage-vps"]
+    with pytest.raises(PulumiStackConfigError, match="operator state is missing"):
+        build_pulumi_stack_config(object(), "acme", "acme-stage-vps")
 
 
 def test_stack_config_separates_environment_operator_state(monkeypatch):

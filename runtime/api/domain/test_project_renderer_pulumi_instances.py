@@ -160,6 +160,14 @@ def _environment_settings(
                 "origin_vps_stack_name": f"{name}-origin",
                 "activation_state": activation_state,
             },
+            "servers": [{
+                "instance_type": (
+                    "t4g.medium" if environment == "prod" else "t4g.small"
+                ),
+                "root_volume_gb": 40 if environment == "prod" else 30,
+                "aws_key_pair_name": f"yoke-{environment}",
+                "iam_instance_profile_name": f"yoke-{environment}-host",
+            }],
             "capabilities": ["database", "vps", "api"],
         },
     )
