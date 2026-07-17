@@ -56,16 +56,17 @@ def test_cli_registry_exposes_strategy_event_ouroboros_surfaces() -> None:
         assert ops.lookup("yoke " + " ".join(tokens)).status == ops.WRAPPED
 
 
-def test_tool_shaped_classifications_cover_atlas_and_session_init() -> None:
+def test_tool_shaped_classifications_cover_atlas_helpers() -> None:
     for shell_form in (
         "python3 -m yoke_core.tools.atlas_render_docs render",
         "python3 -m yoke_core.tools.atlas_render_docs check",
-        "python3 -m yoke_core.tools.session_init",
+        "yoke sessions init",
     ):
         entry = ops.lookup(shell_form)
         assert entry is not None
         assert entry.status == ops.PERMANENT
         assert entry.reason == ops.REASON_TOOL_SHAPED
+    assert ops.lookup("python3 -m yoke_core.tools.session_init") is None
 
 
 def test_register_all_handlers_includes_new_function_ids() -> None:

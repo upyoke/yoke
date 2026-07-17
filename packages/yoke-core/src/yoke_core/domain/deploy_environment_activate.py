@@ -44,7 +44,18 @@ def _emit(line: str) -> None:
 
 def _instance_name_tag(env: DeployEnvironment) -> str:
     # Matches the Name tag webapp_vps_stack.py assigns: "{stack}/VpsInstance".
-    return f"{env.stack_name}/VpsInstance"
+    stack_reference = env.origin_vps_stack_name.strip()
+    if not stack_reference:
+        environment_id = f"{env.site_id}-{env.env_name}"
+        raise EnvironmentActivateError(
+            f"Environment {env.env_name!r} pulumi.origin_vps_stack_name for "
+            f"{env.project} is required to locate its standalone VPS instance. "
+            "Set it via: yoke projects environment-settings merge --project "
+            f"{env.project} --environment-id {environment_id} --set "
+            "pulumi.origin_vps_stack_name=<standalone-vps-stack-name>"
+        )
+    stack_name = stack_reference.rsplit("/", 1)[-1]
+    return f"{stack_name}/VpsInstance"
 
 
 def _describe_origin_instance(
@@ -78,8 +89,8 @@ def _describe_origin_instance(
     if not rows:
         raise EnvironmentActivateError(
             f"[env-activate] no EC2 instance tagged "
-            f"'{_instance_name_tag(env)}' exists; apply the environment "
-            f"stack ({env.stack_name}) before activating"
+            f"'{_instance_name_tag(env)}' exists; apply the standalone origin "
+            f"VPS stack ({env.origin_vps_stack_name}) before activating"
         )
     if len(rows) > 1:
         ids = ", ".join(str(r[0]) for r in rows)

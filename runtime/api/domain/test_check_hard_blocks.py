@@ -172,6 +172,7 @@ class TestEvaluateBlockers(unittest.TestCase):
         blocking: int,
         gate_point: str,
         satisfaction: str,
+        dependent_ref: str = None,
     ) -> None:
         conn = connect_test_db(self.db_path)
         p = _p(conn)
@@ -179,7 +180,12 @@ class TestEvaluateBlockers(unittest.TestCase):
             "INSERT INTO item_dependencies "
             "(dependent_item, blocking_item, gate_point, satisfaction) "
             f"VALUES ({p}, {p}, {p}, {p})",
-            (f"YOK-{dependent}", f"YOK-{blocking}", gate_point, satisfaction),
+            (
+                dependent_ref or f"YOK-{dependent}",
+                f"YOK-{blocking}",
+                gate_point,
+                satisfaction,
+            ),
         )
         conn.commit()
         conn.close()
@@ -205,6 +211,27 @@ class TestEvaluateBlockers(unittest.TestCase):
         self.assertIn("Blocker", lines[0])
         self.assertIn("activation", lines[0])
         self.assertIn("status:done", lines[0])
+
+    def test_bare_numeric_dependent_ref_gates_like_canonical(self) -> None:
+        """A bare-numeric ``dependent_item`` row gates like a ``YOK-N`` one."""
+        self._insert_item(42, "Dependent")
+        self._insert_item(10, "Blocker", status="implementing")
+        self._insert_dep(
+            42, 10, "activation", "status:done", dependent_ref="42",
+        )
+        lines = mod.evaluate_blockers(42)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("YOK-10", lines[0])
+
+    def test_zero_padded_dependent_ref_gates_like_canonical(self) -> None:
+        self._insert_item(42, "Dependent")
+        self._insert_item(10, "Blocker", status="implementing")
+        self._insert_dep(
+            42, 10, "activation", "status:done", dependent_ref="YOK-0042",
+        )
+        lines = mod.evaluate_blockers(42)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("YOK-10", lines[0])
 
     def test_missing_blocker_item_reported(self) -> None:
         self._insert_item(42, "Dependent")

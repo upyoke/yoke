@@ -1,13 +1,8 @@
 """DB query failure detection from Bash output.
 
 Sibling of ``db_error_hook``. Owns the neutral ``detect_db_query_failure``
-analyzer that scans command + output strings for raw ``sqlite3`` CLI exit
-codes, Python ``sqlite3`` tracebacks, and schema-name hints from ``db_router
-query`` and friends.
-
-The current pattern set is still SQLite-dialect-shaped, so the historical
-``detect_sqlite_failure`` name remains as a compatibility alias for callers
-and telemetry that still refer to the old detector name.
+analyzer that scans command + output strings for failed direct-database
+commands, Python database tracebacks, and SQLite/Postgres schema-name hints.
 """
 
 from __future__ import annotations
@@ -26,8 +21,20 @@ from typing import Optional
 # output rows contain historical ``Error: no such column: ...`` text
 # would fire the hard-stop and mislead the agent into "fixing" a
 # query that already succeeded.
-_SCHEMA_HINT_RE = re.compile(
+_SQLITE_SCHEMA_HINT_RE = re.compile(
     r"^(?:Error|sqlite3\.OperationalError):\s*no such (column|table)(?::\s*([\w.]+))?",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_POSTGRES_COLUMN_HINT_RE = re.compile(
+    r'^(?:(?:psycopg(?:2)?\.)?errors\.UndefinedColumn:\s*|ERROR:\s*)?'
+    r'column\s+["\']?([\w.]+)["\']?\s+does not exist',
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_POSTGRES_TABLE_HINT_RE = re.compile(
+    r'^(?:(?:psycopg(?:2)?\.)?errors\.UndefinedTable:\s*|ERROR:\s*)?'
+    r'relation\s+["\']?([\w.]+)["\']?\s+does not exist',
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -42,6 +49,7 @@ _SCHEMA_HINT_RE = re.compile(
 # was emitting the hard-stop unnecessarily.
 _DB_QUERY_SHAPE_SUBSTRINGS: tuple[str, ...] = (
     "sqlite3",
+    "yoke db read",
     "db_router query",
     "cli.db_router query",
 )
@@ -56,9 +64,24 @@ def _looks_like_db_query_command(command: str) -> bool:
     # Python invocations that import sqlite3 (or call a Python helper
     # that wraps sqlite3) qualify when the output already shows a
     # sqlite3 traceback shape; the caller handles that pairing inline.
-    if "python" in command and "sqlite" in command:
+    if "python" in command and any(
+        token in command for token in ("postgres", "psycopg", "sqlite")
+    ):
         return True
     return False
+
+
+def _schema_hint(output: str) -> tuple[str, str] | None:
+    sqlite_hint = _SQLITE_SCHEMA_HINT_RE.search(output)
+    if sqlite_hint:
+        return sqlite_hint.group(1).lower(), sqlite_hint.group(2) or "(unnamed)"
+    postgres_column = _POSTGRES_COLUMN_HINT_RE.search(output)
+    if postgres_column:
+        return "column", postgres_column.group(1)
+    postgres_table = _POSTGRES_TABLE_HINT_RE.search(output)
+    if postgres_table:
+        return "table", postgres_table.group(1)
+    return None
 
 
 def _schema_hint_message(kind: str, name: str) -> str:
@@ -90,14 +113,11 @@ def detect_db_query_failure(command: str, output: str) -> Optional[str]:
 
     Returns an error message to inject, or None if no failure detected.
 
-    Schema-name hints (``no such column`` / ``no such table``) only fire
-    when *command* itself is a raw-SQL / direct-sqlite shape -- structured
-    reads like ``db_router items get ... body`` legitimately surface
+    Schema-name hints only fire when *command* itself is a direct-database
+    query shape. Structured reads like ``items get ... body`` legitimately surface
     historical error text inside the rendered content and must not be
     mistaken for a failed query.
     """
-    import sqlite3 as _sqlite3_mod  # noqa: F401 -- stdlib import for error name matching
-
     messages = []
     _sqlite_cmd = "sqlite3"
 
@@ -113,11 +133,10 @@ def detect_db_query_failure(command: str, output: str) -> Optional[str]:
                 "Fix the query and re-run before proceeding."
             )
 
-    schema_hint = _SCHEMA_HINT_RE.search(output)
+    schema_hint = _schema_hint(output)
     is_query_shape = _looks_like_db_query_command(command)
     if schema_hint and is_query_shape:
-        kind = schema_hint.group(1).lower()
-        name = schema_hint.group(2) or "(unnamed)"
+        kind, name = schema_hint
         messages.append(_schema_hint_message(kind, name))
     elif (
         not schema_hint
@@ -125,8 +144,13 @@ def detect_db_query_failure(command: str, output: str) -> Optional[str]:
         # only real Python sqlite3 tracebacks emit ``sqlite3.<Type>Error:``
         # at line-start. Stored envelope text from prior failed sessions
         # carries the same prefix mid-line and must not fire.
-        and re.search(r"^sqlite3\.[A-Za-z]+Error:", output, re.MULTILINE)
-        and ("python" in command or _sqlite_cmd in command)
+        and re.search(
+            r"^(?:sqlite3\.[A-Za-z]+Error|"
+            r"(?:psycopg(?:2)?\.)?errors\.[A-Za-z]+):",
+            output,
+            re.MULTILINE,
+        )
+        and ("python" in command or _looks_like_db_query_command(command))
     ):
         messages.append(
             "HARD STOP: DB query FAILED in a Python traceback. "
@@ -136,11 +160,4 @@ def detect_db_query_failure(command: str, output: str) -> Optional[str]:
         )
 
     return "\n".join(messages) if messages else None
-
-
-def detect_sqlite_failure(command: str, output: str) -> Optional[str]:
-    """Compatibility alias for the current SQLite-dialect detector."""
-    return detect_db_query_failure(command, output)
-
-
-__all__ = ("detect_db_query_failure", "detect_sqlite_failure")
+__all__ = ("detect_db_query_failure",)

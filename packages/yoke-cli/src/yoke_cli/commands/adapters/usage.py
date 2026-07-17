@@ -44,10 +44,16 @@ from yoke_cli.commands.adapters.config_write import (
 )
 from yoke_cli.commands.adapters.db_claim import DB_CLAIM_AMEND_USAGE
 from yoke_cli.commands.adapters.db import DB_READ_USAGE
-from yoke_cli.commands.adapters.doctor import DOCTOR_RUN_USAGE
+from yoke_cli.commands.adapters.doctor import (
+    DOCTOR_LAST_RUN_GET_USAGE,
+    DOCTOR_RUN_USAGE,
+)
 from yoke_cli.commands.adapters.deployment import (
     DEPLOYMENT_FLOWS_GET_USAGE,
+    DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
     DEPLOYMENT_FLOWS_STAGES_USAGE,
+    DEPLOYMENT_RUNS_CREATE_USAGE,
+    DEPLOYMENT_RUNS_APPROVE_USAGE,
     DEPLOYMENT_RUNS_GET_USAGE,
     DEPLOYMENT_RUNS_LIST_USAGE,
     DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
@@ -63,6 +69,9 @@ from yoke_cli.commands.adapters.events import (
 )
 from yoke_cli.commands.adapters.github import (
     GITHUB_CONNECT_USAGE, GITHUB_DISCONNECT_USAGE, GITHUB_PR_CREATE_USAGE, GITHUB_STATUS_USAGE,
+)
+from yoke_cli.commands.adapters.github_release import (
+    GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
 )
 from yoke_cli.commands.adapters.usage_github_actions import (
     USAGE_BY_FUNCTION_ID as GITHUB_ACTIONS_USAGE_BY_ID,
@@ -137,6 +146,11 @@ from yoke_cli.commands.adapters.projects_capability_settings import (
     PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
 )
 from yoke_cli.commands.adapters import projects_environment_settings as _environment_settings_usage
+from yoke_cli.commands.adapters.projects_pulumi_state import (
+    PULUMI_STATE_CHECKPOINT_IMPORT_USAGE,
+    PULUMI_STATE_MIGRATE_USAGE,
+)
+from yoke_cli.commands.adapters.projects_pulumi_stack_config import PULUMI_STACK_CONFIG_GET_USAGE
 from yoke_cli.commands.adapters.project_github_binding import (
     PROJECTS_GITHUB_BINDING_BIND_USAGE, PROJECTS_GITHUB_BINDING_STATUS_USAGE, PROJECTS_GITHUB_BINDING_UNBIND_USAGE, PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
 )
@@ -199,13 +213,21 @@ from yoke_cli.commands.adapters.templates import (
 from yoke_cli.commands.adapters.sessions import (
     CHARGE_SCHEDULE_USAGE,
     SESSIONS_BEGIN_USAGE,
+    SESSIONS_INIT_USAGE,
     SESSIONS_CHECKPOINT_READ_USAGE,
     SESSIONS_CHECKPOINT_USAGE,
     SESSIONS_OFFER_USAGE,
     SESSIONS_OWNERSHIP_GUARD_USAGE,
     SESSIONS_TOUCH_USAGE,
 )
+from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
+from yoke_cli.commands.adapters.projects_capabilities_read import (
+    PROJECTS_CAPABILITIES_LIST_USAGE,
+)
+from yoke_cli.commands.adapters.workflows_read import (
+    WORKFLOWS_DEFINITION_GET_USAGE,
+)
 
 __all__ = ["ADAPTER_USAGE"]
 
@@ -240,13 +262,16 @@ ADAPTER_USAGE: Dict[str, str] = {
     "db_claim.amend": DB_CLAIM_AMEND_USAGE,
     "db.read.run": DB_READ_USAGE,
     "sessions.begin": SESSIONS_BEGIN_USAGE,
+    "sessions.init": SESSIONS_INIT_USAGE,
     "sessions.list": SESSIONS_LIST_USAGE,
+    "workflows.definition.get": WORKFLOWS_DEFINITION_GET_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
     "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,
     "sessions.offer": SESSIONS_OFFER_USAGE,
     "sessions.ownership_guard": SESSIONS_OWNERSHIP_GUARD_USAGE,
     "charge.schedule": CHARGE_SCHEDULE_USAGE,
+    "frontier.list": FRONTIER_LIST_USAGE,
     "agents.render.run": AGENTS_RENDER_USAGE,
     "agents.render.check": AGENTS_RENDER_CHECK_USAGE,
     "packets.render.run": PACKETS_RENDER_USAGE,
@@ -274,12 +299,17 @@ ADAPTER_USAGE: Dict[str, str] = {
     "qa.run.get": QA_RUN_GET_USAGE,
     "qa.gate_summary.run": QA_GATE_SUMMARY_USAGE,
     "doctor.run.run": DOCTOR_RUN_USAGE,
+    "doctor.last_run.get": DOCTOR_LAST_RUN_GET_USAGE,
     "deployment_flows.get": DEPLOYMENT_FLOWS_GET_USAGE,
+    "deployment_flows.set_status": DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
     "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
+    "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
+    "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
     "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
     "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
     "deployment_runs.resolve_target_env": DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
+    "github.release.create_next_tag": GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
     "ephemeral_env.update": EPHEMERAL_ENV_UPDATE_USAGE,
     "projects.get": PROJECTS_GET_USAGE,
     "projects.list": PROJECTS_LIST_USAGE,
@@ -287,11 +317,17 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.create": PROJECTS_CREATE_USAGE,
     "projects.update": PROJECTS_UPDATE_USAGE,
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
+    "projects.capabilities.list": PROJECTS_CAPABILITIES_LIST_USAGE,
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
     "projects.capability_settings.merge": PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,
     "projects.environment_settings.get": _environment_settings_usage.GET_USAGE,
     "projects.environment_settings.merge": _environment_settings_usage.MERGE_USAGE,
+    "projects.pulumi_state.migrate": PULUMI_STATE_MIGRATE_USAGE,
+    "projects.pulumi_state.checkpoint_import": (
+        PULUMI_STATE_CHECKPOINT_IMPORT_USAGE
+    ),
+    "projects.pulumi_stack_config.get": PULUMI_STACK_CONFIG_GET_USAGE,
     "projects.capability_secret.set": PROJECTS_CAPABILITY_SECRET_SET_USAGE,
     "projects.checkout_context.run": PROJECTS_CHECKOUT_CONTEXT_USAGE,
     "projects.github_binding.bind": PROJECTS_GITHUB_BINDING_BIND_USAGE, "projects.github_binding.unbind": PROJECTS_GITHUB_BINDING_UNBIND_USAGE, "projects.github_binding.status": PROJECTS_GITHUB_BINDING_STATUS_USAGE,

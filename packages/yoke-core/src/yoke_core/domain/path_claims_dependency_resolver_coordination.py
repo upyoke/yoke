@@ -19,7 +19,7 @@ not — the candidate is upstream and does not wait. The reverse-side
 classification (passing the same items in reversed roles) sees the
 same edge as ``HAS_SERIAL`` and serializes correctly. This matches the
 hard-block dependency gate in
-:func:`yoke_core.domain.check_hard_blocks.check_hard_blocks`, which
+:func:`yoke_core.domain.check_hard_blocks.evaluate_blockers`, which
 respects ``item_dependencies.dependent_item`` direction.
 """
 

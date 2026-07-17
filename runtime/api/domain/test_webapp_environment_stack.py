@@ -1,11 +1,9 @@
-"""Tests for the environment stack's origin runtime substrate + VPS profile.
+"""Tests for the environment stack's origin runtime substrate.
 
-Loads the real ``webapp_environment_stack.py`` / ``webapp_vps_stack.py``
-template modules under the fake ``pulumi`` / ``pulumi_aws`` harness from
-``test_webapp_registry_stack.py``. The environment-stack tests substitute the
-sibling child-stack modules with recording fakes so composition (log group,
-IAM role/profile, repository-name defaulting, VPS wiring) is asserted without
-faking the entire child-stack AWS surface.
+Loads the real ``webapp_environment_stack.py`` template module under the fake
+``pulumi`` / ``pulumi_aws`` harness from ``test_webapp_registry_stack.py``.
+The environment-stack tests substitute sibling child-stack modules with
+recording fakes so composition is asserted without faking their AWS surfaces.
 """
 
 from __future__ import annotations
@@ -28,21 +26,6 @@ def _recording_args_class():
 
 
 def _fake_sibling_modules(recorder):
-    vps = types.ModuleType("webapp_vps_stack")
-
-    class _FakeVpsStack:
-        def __init__(self, name, args, opts=None):
-            self.resource_type = "fake:WebappVpsStack"
-            self.resource_name = name
-            self.args = args
-            self.opts = opts
-            self.security_group = types.SimpleNamespace(id="sg-fake")
-            self.elastic_ip = types.SimpleNamespace(public_ip="198.51.100.7")
-            recorder.resources.append(self)
-
-    vps.WebappVpsArgs = _recording_args_class()
-    vps.WebappVpsStack = _FakeVpsStack
-
     database = types.ModuleType("webapp_database_stack")
     database.DEFAULT_SECONDS_UNTIL_AUTO_PAUSE = 1800
 
@@ -67,20 +50,43 @@ def _fake_sibling_modules(recorder):
             self.resource_type = "fake:WebappApiStack"
             self.resource_name = name
             self.args = args
+            self.distribution = types.SimpleNamespace(id="distribution-id")
             recorder.resources.append(self)
 
     api.WebappApiArgs = _recording_args_class()
     api.WebappApiStack = _FakeApiStack
 
+    distribution_variables = types.ModuleType(
+        "webapp_distribution_github_variables"
+    )
+
+    def _create_distribution_variables(**kwargs):
+        recorder.distribution_variable_kwargs = kwargs
+        prefix = f"{kwargs['variable_namespace']}_{kwargs['environment']}_distribution"
+        return tuple(
+            types.SimpleNamespace(variable_name=f"{prefix}_{suffix}".upper())
+            for suffix in ("base_url", "bucket", "cloudfront_id", "origin_id")
+        )
+
+    distribution_variables.create_distribution_variables = (
+        _create_distribution_variables
+    )
+
     return {
-        "webapp_vps_stack": vps,
         "webapp_database_stack": database,
         "webapp_api_stack": api,
+        "webapp_distribution_github_variables": distribution_variables,
     }
 
 
 def _environment_stack(monkeypatch, **arg_overrides):
     recorder = _Recorder()
+    recorder.stack_outputs = {
+        "yoke-platform-vps": {
+            "vpsElasticIpAddress": "198.51.100.7",
+            "vpsSecurityGroupId": "sg-fake",
+        }
+    }
     module = _load_template_module(
         monkeypatch,
         recorder,
@@ -90,15 +96,14 @@ def _environment_stack(monkeypatch, **arg_overrides):
     kwargs = dict(
         deploy_namespace="yoke",
         environment="prod",
-        stack_name="yoke-prod",
         domain_name="example.com",
         api_host="api.example.com",
         origin_host="origin.example.com",
         hosted_zone_id="Z123",
         api_origin_port=8100,
-        vps_instance_type="t4g.medium",
-        vps_root_volume_gb=40,
-        vps_ssh_key_name="yoke-key",
+        origin_vps_stack_name="yoke-platform-vps",
+        origin_vps_elastic_ip_output="vpsElasticIpAddress",
+        origin_vps_security_group_output="vpsSecurityGroupId",
         database_name="yoke_prod",
         database_master_username="yoke_admin",
         database_engine_version="16.13",
@@ -116,13 +121,26 @@ def _environment_stack(monkeypatch, **arg_overrides):
 
 
 class TestEnvironmentOriginRuntimeSubstrate:
+    def test_reads_origin_network_from_standalone_stack(self, monkeypatch):
+        recorder, stack = _environment_stack(monkeypatch)
+        assert recorder.stack_references == ["yoke-platform-vps"]
+        assert recorder.stack_reference_outputs == [
+            ("yoke-platform-vps", "vpsElasticIpAddress"),
+            ("yoke-platform-vps", "vpsSecurityGroupId"),
+        ]
+        assert recorder.exports["originElasticIpAddress"].value == "198.51.100.7"
+        assert recorder.exports["originSecurityGroupId"].value == "sg-fake"
+        assert stack.registered_outputs["originElasticIpAddress"].value == (
+            "198.51.100.7"
+        )
+
     def test_database_allows_origin_and_configured_service_groups(self, monkeypatch):
         recorder, _stack = _environment_stack(monkeypatch)
         database = recorder.single("database")
-        assert database.args.allowed_security_group_ids == [
-            "sg-fake",
-            "sg-tenant-provisioner",
-        ]
+        assert len(database.args.allowed_security_group_ids) == 2
+        assert database.args.allowed_security_group_ids[0].value == "sg-fake"
+        assert database.args.allowed_security_group_ids[1] == "sg-tenant-provisioner"
+        assert recorder.single("api").args.origin_ip.value == "198.51.100.7"
 
     def test_creates_core_log_group(self, monkeypatch):
         recorder, _stack = _environment_stack(monkeypatch)
@@ -173,15 +191,6 @@ class TestEnvironmentOriginRuntimeSubstrate:
         assert statements[4]["Action"] == ["s3:PutObject", "s3:GetObject"]
         assert statements[4]["Resource"] == ("arn:aws:s3:::yoke-prod-artifacts/*")
 
-    def test_instance_profile_wired_into_vps(self, monkeypatch):
-        recorder, _stack = _environment_stack(monkeypatch)
-        profile = recorder.single("originInstanceProfile")
-        assert profile.kwargs["role"].value == "originRole.name"
-        vps = recorder.single("vps")
-        assert vps.args.iam_instance_profile_name.value == (
-            "originInstanceProfile.name"
-        )
-
     def test_origin_role_attaches_session_manager_access(self, monkeypatch):
         recorder, _stack = _environment_stack(monkeypatch)
         attachment = recorder.single("originSsmManagedInstancePolicy")
@@ -201,6 +210,9 @@ class TestEnvironmentOriginRuntimeSubstrate:
             recorder.exports
         )
         assert recorder.exports["coreLogGroupName"] == "/yoke/prod/core"
+        assert recorder.exports["originInstanceProfileName"].value == (
+            "originInstanceProfile.name"
+        )
 
     def test_container_repository_name_override(self, monkeypatch):
         recorder, _stack = _environment_stack(
@@ -216,10 +228,24 @@ class TestEnvironmentOriginRuntimeSubstrate:
             monkeypatch,
             distribution_bucket_name="example-distribution-prod",
             distribution_origin_id="yoke-prod-distribution-static",
+            distribution_base_url="https://api.example.com",
+            distribution_repository_variable_namespace="yoke",
+            github_repo="acme/yoke",
         )
         api = recorder.single("api")
         assert api.args.distribution_bucket_name == "example-distribution-prod"
         assert api.args.distribution_origin_id == "yoke-prod-distribution-static"
+        assert recorder.distribution_variable_kwargs == {
+            "variable_namespace": "yoke",
+            "environment": "prod",
+            "github_repo": "acme/yoke",
+            "github_api_url": "https://api.github.com",
+            "base_url": "https://api.example.com",
+            "bucket": "example-distribution-prod",
+            "cloudfront_id": "distribution-id",
+            "origin_id": "yoke-prod-distribution-static",
+            "child_opts": recorder.distribution_variable_kwargs["child_opts"],
+        }
 
 
 class TestArtifactsBucket:
@@ -258,7 +284,6 @@ class TestArtifactsBucket:
         recorder, _stack = _environment_stack(
             monkeypatch,
             environment="stage",
-            stack_name="yoke-stage",
         )
         assert recorder.exports["artifactsBucketName"] == ("yoke-stage-artifacts")
         policy = recorder.single("originRolePolicy").kwargs["policy"]
@@ -276,7 +301,7 @@ class TestEphemeralPreviewSubstrate:
         assert record.kwargs["name"] == "*.preview.example.com"
         assert record.kwargs["type"] == "A"
         assert record.kwargs["ttl"] == 300
-        assert record.kwargs["records"] == ["198.51.100.7"]
+        assert record.kwargs["records"][0].value == "198.51.100.7"
         assert stack.ephemeral_wildcard_record is record
 
     def test_preview_domain_grants_dns01_route53_statements(self, monkeypatch):

@@ -186,6 +186,52 @@ def test_stack_config_requires_auth(client) -> None:
     assert response.status_code == 401
 
 
+def test_scoped_stack_config_uses_admin_no_store_boundary(
+    client, monkeypatch
+) -> None:
+    from yoke_core.api.routes import pulumi_stack_config as route
+
+    payload = {
+        "config_schema": 2,
+        "project_id": 1,
+        "project_slug": "yoke",
+        "stack_name": "yoke-infra",
+        "stack_kind": "infra",
+        "render_values": {},
+        "operator_state": {
+            "secrets_provider": "provider-sensitive",
+            "encrypted_key": "key-sensitive",
+        },
+        "authority": {},
+    }
+    monkeypatch.setattr(
+        route, "build_scoped_pulumi_stack_config", lambda *args: payload
+    )
+    response = client.get(
+        "/v1/projects/yoke/pulumi-stack-config/yoke-infra"
+    )
+    assert response.status_code == 200
+    assert response.json() == payload
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_scoped_stack_config_denies_render_only_identity(
+    client, config_db, monkeypatch
+) -> None:
+    from yoke_core.api.routes import pulumi_stack_config as route
+
+    monkeypatch.setattr(
+        route,
+        "build_scoped_pulumi_stack_config",
+        lambda *args: pytest.fail("sensitive config built before admin auth"),
+    )
+    response = client.get(
+        "/v1/projects/yoke/pulumi-stack-config/yoke-infra",
+        headers=_infrastructure_ci_token_headers(config_db["db_path"]),
+    )
+    assert response.status_code == 403
+
+
 def test_stack_config_denies_actor_without_grant(
     client,
     config_db,

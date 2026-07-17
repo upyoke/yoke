@@ -16,6 +16,9 @@ SOURCE_TREE_HEALTH_CHECK_SLUGS = frozenset({
     "codex-hook-doc-drift",
     "path-claim-bash-guard",
     "event-outcome-enum-coverage",
+    "server-checkout-independence",
+    "installer-live-tui-import-boundary",
+    "platform-namespace-boundary",
 })
 
 PROJECT_SAFE_QUICK_HEALTH_CHECK_SLUGS = frozenset({

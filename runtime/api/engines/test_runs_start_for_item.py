@@ -12,13 +12,12 @@ from __future__ import annotations
 
 from unittest import mock
 
-import pytest
-
 from yoke_core.engines import runs_start_for_item as composer
 from yoke_core.engines.runs_start_for_item import (
     PHASE_ADD_ITEM,
     PHASE_CREATE,
     PHASE_RESOLVE,
+    PHASE_VALIDATE_LINEAGE,
     PHASE_VALIDATE,
     StartForItemResult,
     start_for_item,
@@ -161,6 +160,39 @@ def test_create_run_failure_returns_no_run_id():
     assert result.error_phase == PHASE_CREATE
     assert "DB locked" in result.error
     assert result.run_id is None
+    add_m.assert_not_called()
+
+
+def test_stage_run_without_lineage_binds_exact_remote_head_before_create():
+    remote_sha = "a" * 40
+    helpers, resolve, create, add, validate = _patches(target_env="stage")
+    with helpers, resolve, create as create_m, add, validate, mock.patch.object(
+        composer,
+        "_resolve_remote_release_head",
+        return_value=(remote_sha, ""),
+    ) as resolve_head:
+        result = start_for_item(42)
+
+    assert result.ok is True
+    resolve_head.assert_called_once_with("yoke", "stage", "")
+    assert create_m.call_args.kwargs["release_lineage"] == remote_sha
+
+
+def test_explicit_sha_lineage_is_rejected_before_run_insert_when_not_remote_head():
+    candidate = "b" * 40
+    helpers, resolve, create, add, validate = _patches(target_env="stage")
+    lineage_check = mock.patch.object(
+        composer,
+        "_validate_commit_release_lineage",
+        return_value="release_lineage does not equal the remote gate-branch commit",
+    )
+    with helpers, resolve, create as create_m, add as add_m, validate, lineage_check:
+        result = start_for_item(42, release_lineage=candidate)
+
+    assert result.ok is False
+    assert result.error_phase == PHASE_VALIDATE_LINEAGE
+    assert "remote gate-branch commit" in result.error
+    create_m.assert_not_called()
     add_m.assert_not_called()
 
 

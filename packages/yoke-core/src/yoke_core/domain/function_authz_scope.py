@@ -40,6 +40,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_GITHUB_ACTIONS_RUN_READ,
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
     PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
+    PERM_GITHUB_RELEASE_CREATE,
     PERM_HOOKS_EVALUATE,
     PERM_ITEMS_READ,
     PERM_ITEMS_WRITE,
@@ -110,6 +111,13 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.environment_settings.merge": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN,
     ),
+    "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.pulumi_state.checkpoint_import": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN,
+    ),
+    "projects.pulumi_stack_config.get": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN,
+    ),
     "projects.capability.has": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.resolve_by_github_repo": AuthzSpec(ACTOR_SESSION, None),
@@ -130,6 +138,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     "project_structure.command_definitions.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "github.pr.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "github.release.create_next_tag": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_RELEASE_CREATE,
+    ),
     # Hosted deploy runners may trigger and observe the project's deployment
     # workflows without receiving project administration. Every other
     # github_actions.* function keeps the project-admin prefix default below.
@@ -167,11 +179,16 @@ _BY_ID: dict[str, AuthzSpec] = {
     "onboard.checklist.run": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     # Actor/session: the caller operating on its own session/orchestration.
     "sessions.begin": AuthzSpec(ACTOR_SESSION, None),
+    "sessions.init": AuthzSpec(CLIENT_LOCAL, None),
     "sessions.touch": AuthzSpec(ACTOR_SESSION, None),
     "sessions.offer": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint_read": AuthzSpec(ACTOR_SESSION, None),
     "sessions.ownership_guard": AuthzSpec(ACTOR_SESSION, None),
+    # The handler releases only rows owned by request.actor.session_id.  It may
+    # span projects, so forcing a single PROJECT scope is both unnecessary and
+    # impossible for a session that legitimately holds more than one claim.
+    "claims.work.release_session_scoped": AuthzSpec(ACTOR_SESSION, None),
     "charge.schedule": AuthzSpec(ACTOR_SESSION, None),
     # Machine-local config / repo writes — gated by machine possession.
     "auth.set.run": AuthzSpec(CLIENT_LOCAL, None),

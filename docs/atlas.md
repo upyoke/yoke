@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-16T13:30:34Z_
+_Audit generated_at: 2026-07-17T23:04:04Z_
 
 ## 1. Summary
 
-- Function ids registered: **204**
+- Function ids registered: **215**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **203** (203 carry usable `--help`)
-- Operation tracker: **203 wrapped**, 72 permanent, 0 pending
-- Skill-body recipes: 217 total (180 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **215** (215 carry usable `--help`)
+- Operation tracker: **214 wrapped**, 74 permanent, 0 pending
+- Skill-body recipes: 217 total (179 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -48,11 +48,15 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | db | `yoke db read` | `db.read.run` | ok |
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
+| deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
 | deployment_flows | `yoke deployment-flows stages` | `deployment_flows.stages` | ok |
+| deployment_runs | `yoke deployment-runs approve` | `deployment_runs.approve` | ok |
+| deployment_runs | `yoke deployment-runs create` | `deployment_runs.create` | ok |
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
 | deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
 | deployment_runs | `yoke deployment-runs update` | `deployment_runs.update` | ok |
+| doctor | `yoke doctor last-run get` | `doctor.last_run.get` | ok |
 | doctor | `yoke doctor run` | `doctor.run.run` | ok |
 | env | `yoke env use` | `env.use.run` | ok |
 | ephemeral_env | `yoke ephemeral-env update` | `ephemeral_env.update` | ok |
@@ -62,7 +66,9 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | events | `yoke events emit` | `events.emit` | ok |
 | events | `yoke events query` | `events.query.run` | ok |
 | events | `yoke events tail` | `events.tail.run` | ok |
+| frontier | `yoke frontier list` | `frontier.list` | ok |
 | github | `yoke github pr create` | `github.pr.create` | ok |
+| github | `yoke github release create-next-tag` | `github.release.create_next_tag` | ok |
 | github_actions | `yoke github-actions check-ci` | `github_actions.check_ci` | ok |
 | github_actions | `yoke github-actions run jobs-count` | `github_actions.run.jobs_count` | ok |
 | github_actions | `yoke github-actions jobs-count` | `github_actions.run.jobs_count` | ok |
@@ -126,6 +132,7 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | project_structure | `yoke project-structure command-definitions list` | `project_structure.command_definitions.list` | ok |
 | project_structure | `yoke project-structure deploy-defaults get` | `project_structure.deploy_defaults.get` | ok |
 | project_structure | `yoke project-structure patch apply` | `project_structure.patch.apply` | ok |
+| projects | `yoke projects capabilities list` | `projects.capabilities.list` | ok |
 | projects | `yoke projects capability has` | `projects.capability.has` | ok |
 | projects | `yoke projects capability-secret set` | `projects.capability_secret.set` | ok |
 | projects | `yoke projects capability secret set` | `projects.capability_secret.set` | ok |
@@ -142,6 +149,9 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | projects | `yoke projects github-binding unbind` | `projects.github_binding.unbind` | ok |
 | projects | `yoke projects github-sync-mode repair` | `projects.github_sync_mode.repair` | ok |
 | projects | `yoke projects list` | `projects.list` | ok |
+| projects | `yoke projects pulumi-stack-config get` | `projects.pulumi_stack_config.get` | ok |
+| projects | `yoke projects pulumi-state checkpoint-import` | `projects.pulumi_state.checkpoint_import` | ok |
+| projects | `yoke projects pulumi-state migrate` | `projects.pulumi_state.migrate` | ok |
 | projects | `yoke projects resolve-by-github-repo` | `projects.resolve_by_github_repo` | ok |
 | projects | `yoke projects update` | `projects.update` | ok |
 | qa | `yoke qa artifact add` | `qa.artifact.add` | ok |
@@ -170,6 +180,7 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
+| sessions | `yoke sessions init` | `sessions.init` | ok |
 | sessions | `yoke sessions list` | `sessions.list` | ok |
 | sessions | `yoke sessions offer` | `sessions.offer` | ok |
 | sessions | `yoke sessions ownership-guard` | `sessions.ownership_guard` | ok |
@@ -223,6 +234,7 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | workflow_item | `yoke workflow-item epic-task split` | `workflow_item.epic_task.split` | ok |
 | workflow_item | `yoke workflow-item epic-task submission-receipt-get` | `workflow_item.epic_task.submission_receipt_get` | ok |
 | workflow_item | `yoke workflow-item epic-task update-status` | `workflow_item.epic_task.update_status` | ok |
+| workflows | `yoke workflows definition get` | `workflows.definition.get` | ok |
 
 ## 3. Permanent command-shaped boundary roster
 
@@ -252,6 +264,7 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | deployment_runs | `python3 -m yoke_core.domain.deploy_pipeline` | tool_shaped |
 | deployment_runs | `python3 -m yoke_core.domain.environment_bootstrap` | tool_shaped |
 | deployment_runs | `python3 -m yoke_core.tools.verify_env_auth_boundary` | tool_shaped |
+| deployment_runs | `yoke deployment-runs execute` | tool_shaped |
 | dev | `yoke dev db-admin setup` | tool_shaped |
 | dev | `yoke dev path-snapshot-prewarm` | tool_shaped |
 | dev | `yoke dev setup` | tool_shaped |
@@ -261,7 +274,6 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | github | `yoke github disconnect` | tool_shaped |
 | github | `yoke github status` | tool_shaped |
 | local_universe | `yoke init` | tool_shaped |
-| local_universe.export | `yoke universe export` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres start` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres status` | tool_shaped |
 | local_universe.postgres | `yoke local-postgres stop` | tool_shaped |
@@ -272,6 +284,7 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | onboard | `yoke onboard` | tool_shaped |
 | project | `yoke project create` | tool_shaped |
 | project | `yoke project import` | tool_shaped |
+| pulumi | `yoke pulumi exec` | tool_shaped |
 | qa.browser | `yoke qa browser run` | tool_shaped |
 | qa.browser | `yoke qa browser screenshot` | tool_shaped |
 | qa.browser | `yoke qa browser setup` | tool_shaped |
@@ -283,14 +296,13 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | self_host | `yoke self-host init` | tool_shaped |
 | self_host.connect | `yoke connect` | tool_shaped |
 | self_host.import | `yoke self-host import` | tool_shaped |
+| sessions | `yoke sessions init` | tool_shaped |
 | source_authority.export | `yoke source-authority export` | tool_shaped |
 | source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped |
 | tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped |
-| tools.session_init | `python3 -m yoke_core.tools.session_init` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_advance` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_deploy` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_doctor` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_inventory` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_lifecycle` | tool_shaped |
@@ -298,6 +310,8 @@ Wrapped `yoke <subcommand>` adapters: **203** (operation tracker confirms 203 wr
 | tools.watch | `python3 -m yoke_core.tools.watch_pytest` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_session_offer` | tool_shaped |
 | tools.watch | `python3 -m yoke_core.tools.watch_tail` | tool_shaped |
+| universe.export | `yoke universe export` | tool_shaped |
+| universe.import | `yoke universe import` | tool_shaped |
 | usher | `yoke usher reconcile-github` | tool_shaped |
 | worktree | `python3 -m yoke_core.domain.worktree create` | tool_shaped |
 

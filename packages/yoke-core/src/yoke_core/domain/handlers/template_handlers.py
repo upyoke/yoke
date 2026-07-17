@@ -13,8 +13,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from yoke_core.domain import template_fetch
-from yoke_core.domain.template_fetch import TemplateFetchError
+from yoke_cli.config import template_fetch
+from yoke_cli.config.template_fetch import TemplateFetchError
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,

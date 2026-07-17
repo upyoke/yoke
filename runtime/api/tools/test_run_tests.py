@@ -26,7 +26,8 @@ from yoke_core.tools import _source_pythonpath, run_tests
 class TestBuildPytestArgv:
     def test_defaults_use_configured_testpaths(self):
         argv = run_tests.build_pytest_argv([])
-        assert argv[-1] == "runtime/api"
+        defaults = list(run_tests.DEFAULT_TESTPATHS)
+        assert argv[-len(defaults):] == defaults
         assert "-ra" in argv
 
     def test_explicit_paths_override_defaults(self):

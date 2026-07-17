@@ -53,8 +53,9 @@ REMEDIATION_TEXT = (
     "For a full-field rewrite, write the complete intended content "
     "directly via `items update <field> --stdin` -- without the "
     "intermediate get + transform step.\n\n"
-    "Override: add `# lint:no-structured-transform-check` to the "
-    "command body."
+    "Suppression: `# lint:no-structured-transform-check` on the command "
+    "body is audit-only (recorded as outcome=suppression_attempted) — the "
+    "rule still denies."
 )
 
 

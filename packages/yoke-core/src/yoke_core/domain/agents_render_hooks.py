@@ -86,6 +86,11 @@ def render_claude_hooks_block() -> dict:
         else:
             for matcher in matchers_for(event):
                 if matcher == "_default":
+                    # A matcherless entry matches every tool, so a
+                    # non-empty ``_default`` chain renders as exactly one
+                    # entry — no per-tool fan-out of the same runner
+                    # command. Tools with their own registered chain get
+                    # explicit matcher entries from the loop.
                     if _claude_chain_for(event, matcher):
                         entries.append({"hooks": [_claude_hook_entry(event)]})
                     continue
@@ -100,26 +105,6 @@ def render_claude_hooks_block() -> dict:
                         "matcher": matcher,
                     }
                 )
-            # PostToolUse / PostToolUseFailure declare a default chain that
-            # fans out across each Claude tool matcher. Mirror the historical
-            # Claude settings.json shape: emit one entry per tool matcher
-            # (Bash / Write / Edit / Read) carrying the same runner command.
-            if event in {"PostToolUse", "PostToolUseFailure"}:
-                default_chain = _claude_chain_for(event, "_default")
-                already_matchers = {
-                    e.get("matcher") for e in entries if "matcher" in e
-                }
-                for tool_matcher in ("Bash", "Write", "Edit", "Read"):
-                    if tool_matcher in already_matchers:
-                        continue
-                    if not default_chain:
-                        continue
-                    entries.append(
-                        {
-                            "hooks": [_claude_hook_entry(event)],
-                            "matcher": tool_matcher,
-                        }
-                    )
         if entries:
             block[event] = entries
     return block

@@ -37,6 +37,11 @@ from yoke_cli.commands.adapters.claims import (
 from yoke_cli.commands.adapters.organizations import organizations_get
 from yoke_cli.commands.adapters.projects_capability_settings import projects_capability_settings_get, projects_capability_settings_merge, projects_capability_settings_set
 from yoke_cli.commands.adapters.projects_environment_settings import projects_environment_settings_get, projects_environment_settings_merge
+from yoke_cli.commands.adapters.projects_pulumi_state import (
+    projects_pulumi_state_checkpoint_import,
+    projects_pulumi_state_migrate,
+)
+from yoke_cli.commands.adapters.projects_pulumi_stack_config import projects_pulumi_stack_config_get
 from yoke_cli.commands.adapters.identity import (
     identity_autojoin_set,
     identity_invite_create,
@@ -140,11 +145,15 @@ from yoke_cli.commands.adapters.qa_read import (
     qa_requirement_get, qa_requirement_list, qa_run_get, qa_run_list,
 )
 from yoke_cli.commands.adapters.doctor import (
+    doctor_last_run_get,
     doctor_run,
 )
 from yoke_cli.commands.adapters.deployment import (
     deployment_flows_get,
+    deployment_flows_set_status,
     deployment_flows_stages,
+    deployment_runs_create,
+    deployment_runs_approve,
     deployment_runs_get,
     deployment_runs_list,
     deployment_runs_resolve_target_env,
@@ -176,6 +185,9 @@ from yoke_cli.commands.adapters.project_github_binding import (
 )
 from yoke_cli.commands.adapters.github import (
     github_connect, github_disconnect, github_pr_create, github_status,
+)
+from yoke_cli.commands.adapters.github_release import (
+    github_release_create_next_tag,
 )
 from yoke_cli.commands.adapters.github_actions import (
     github_actions_check_ci,
@@ -285,13 +297,18 @@ from yoke_cli.commands.adapters.templates import (
 )
 from yoke_cli.commands.adapters.sessions import (
     charge_schedule,
-    sessions_begin, sessions_checkpoint,
+    sessions_begin, sessions_checkpoint, sessions_init,
     sessions_checkpoint_read,
     sessions_offer,
     sessions_ownership_guard,
     sessions_touch,
 )
+from yoke_cli.commands.adapters.frontier_read import frontier_list
 from yoke_cli.commands.adapters.sessions_read import sessions_list
+from yoke_cli.commands.adapters.projects_capabilities_read import (
+    projects_capabilities_list,
+)
+from yoke_cli.commands.adapters.workflows_read import workflows_definition_get
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 
 __all__ = [
@@ -327,15 +344,19 @@ __all__ = [
     "qa_requirement_list", "qa_requirement_get", "qa_requirement_add",
     "qa_requirement_add_batch", "qa_run_list", "qa_run_get",
     "qa_gate_summary",
-    "deployment_flows_get", "deployment_flows_stages",
-    "deployment_runs_get", "deployment_runs_list",
+    "deployment_flows_get", "deployment_flows_set_status",
+    "deployment_flows_stages",
+    "deployment_runs_create", "deployment_runs_approve", "deployment_runs_get", "deployment_runs_list",
     "deployment_runs_update", "deployment_runs_resolve_target_env",
     "ephemeral_env_update",
-    "doctor_run", "projects_get", "projects_list",
+    "doctor_run", "doctor_last_run_get", "projects_get", "projects_list",
     "projects_resolve_by_github_repo", "projects_create", "projects_update",
-    "projects_capability_has", "projects_capability_secret_set",
+    "projects_capability_has", "projects_capabilities_list",
+    "projects_capability_secret_set",
     "projects_capability_settings_get", "projects_capability_settings_set",
     "projects_capability_settings_merge",
+    "projects_pulumi_state_checkpoint_import", "projects_pulumi_state_migrate",
+    "projects_pulumi_stack_config_get",
     "projects_checkout_context", "projects_github_binding_bind", "projects_github_binding_status", "projects_github_binding_unbind",
     "projects_github_sync_mode_repair", "organizations_get",
     "identity_invite_create", "identity_invite_list",
@@ -364,7 +385,8 @@ __all__ = [
     "strategy_carry_summary", "strategy_carry_mark",
     "strategy_checkpoint_record", "strategy_checkpoint_latest",
     "strategy_master_plan_check",
-    "github_connect", "github_disconnect", "github_pr_create", "github_status",
+    "github_connect", "github_disconnect", "github_pr_create",
+    "github_release_create_next_tag", "github_status",
     "hook_evaluate", "scratch_dispatch_inputs",
     "config_example", "config_stamp_project_env",
     "status", "dev_setup", "dev_db_admin_setup", "dev_path_snapshot_prewarm",
@@ -375,8 +397,10 @@ __all__ = [
     "project_install", "project_refresh", "project_uninstall",
     "project_snapshot_sync",
     "templates_list", "templates_fetch",
-    "sessions_begin", "sessions_touch", "sessions_checkpoint", "sessions_checkpoint_read",
+    "sessions_init", "sessions_begin", "sessions_touch", "sessions_checkpoint", "sessions_checkpoint_read",
     "sessions_offer", "sessions_ownership_guard", "sessions_list",
     "charge_schedule",
+    "frontier_list",
+    "workflows_definition_get",
     "ADAPTER_USAGE",
 ]

@@ -16,6 +16,9 @@ def test_canonical_example_is_valid_machine_config() -> None:
     assert payload["connections"]["prod"][contract.PROD_FLAG_KEY] is True
     assert payload["connections"]["source-dev-admin"]["transport"] == "local-postgres"
     assert payload["connections"]["source-dev-admin"][contract.PROD_FLAG_KEY] is False
+    authority = payload["connections"]["source-dev-admin"]["authority"]
+    assert authority["location"]["stack"] == "app-prod"
+    assert authority["location"]["database_name"] == "app_prod"
     assert payload["connections"]["stage"]["transport"] == "https"
     assert payload["connections"]["stage"][contract.PROD_FLAG_KEY] is False
     entry = payload["projects"][0]

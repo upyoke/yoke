@@ -11,7 +11,7 @@ from typing import Iterator
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.migration_model_capability import yoke_primary_seed
+from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.worktree_validation_surface import (
     CANONICAL_YOKE_DB_ENV,
@@ -79,7 +79,7 @@ def _seed_capability(
 ) -> None:
     project_id = 1 if project == "yoke" else 100
     settings_json = json.dumps(
-        settings if settings is not None else yoke_primary_seed(),
+        settings if settings is not None else governed_postgres_test_seed(),
         sort_keys=True,
     )
     conn = connect_test_db(control_db)

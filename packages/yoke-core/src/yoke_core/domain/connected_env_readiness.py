@@ -179,6 +179,11 @@ def is_local_tunnel_connection_error(exc: BaseException) -> bool:
         return False
     if not looks_like_connection_failure(exc):
         return False
+    if _tunnel.server_answered(exc):
+        # The server evaluated and refused the connection (bad password,
+        # missing database): the tunnel works, so a restart cannot help and
+        # the true error must propagate to credential-level recovery.
+        return False
     try:
         return detect().connector_kind == CONNECTOR_LOCAL_SSH_TUNNEL_PG
     except Exception:  # noqa: BLE001 -- detection hiccup: do not claim ownership

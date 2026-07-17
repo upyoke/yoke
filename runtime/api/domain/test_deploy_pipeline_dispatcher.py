@@ -56,6 +56,7 @@ class TestExecutorDiagnosticPropagation:
                 timeout_min=30,
                 fresh=False,
                 gate_branch="main",
+                release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
 
@@ -128,6 +129,7 @@ class TestReconcileFromTruth:
                 timeout_min=30,
                 fresh=False,
                 gate_branch="main",
+                release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
 
@@ -203,6 +205,7 @@ class TestReconcileFromTruth:
                 timeout_min=30,
                 fresh=True,
                 gate_branch="main",
+                release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
 

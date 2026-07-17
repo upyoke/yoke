@@ -152,6 +152,59 @@ class TestConnectionModeGate:
 
 
 class TestLocalServe:
+    @pytest.fixture(autouse=True)
+    def converge_calls(self, monkeypatch) -> list:
+        calls: list = []
+        monkeypatch.setattr(
+            commands, "_converge_universe_schema",
+            lambda: calls.append("converged"),
+        )
+        return calls
+
+    def test_schema_converges_before_the_server_starts(
+        self, monkeypatch, machine_home, capsys, converge_calls,
+    ):
+        _write_local_connection()
+        record: dict = {}
+        sequence: list = []
+        monkeypatch.setattr(
+            commands, "_converge_universe_schema",
+            lambda: sequence.append("converge"),
+        )
+        server = _stub_server(record)
+        original_serve = server.serve_ui
+
+        def serve_and_mark(**kwargs):
+            sequence.append("serve")
+            original_serve(**kwargs)
+
+        server.serve_ui = serve_and_mark
+        monkeypatch.setattr(commands, "_ui_server", lambda: server)
+
+        assert commands.ui(["--no-browser", "--json"]) == 0
+        assert sequence == ["converge", "serve"]
+
+    def test_converge_failure_refuses_and_never_serves(
+        self, monkeypatch, machine_home, capsys,
+    ):
+        _write_local_connection()
+        record: dict = {}
+
+        def broken_converge():
+            raise ValueError("relation catalog is unreachable")
+
+        monkeypatch.setattr(
+            commands, "_converge_universe_schema", broken_converge,
+        )
+        monkeypatch.setattr(
+            commands, "_ui_server", lambda: _stub_server(record),
+        )
+
+        assert commands.ui(["--no-browser"]) == 1
+        err = capsys.readouterr().err
+        assert "schema could not converge" in err
+        assert "served" not in record
+
     def test_json_reports_private_url_and_serves(
         self, monkeypatch, machine_home, capsys,
     ):

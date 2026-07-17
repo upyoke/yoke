@@ -65,9 +65,15 @@ def main(argv: Optional[List[str]] = None) -> None:
     args = parser.parse_args(argv)
     if args.pulumi_stack and args.only != "pulumi":
         parser.error("--pulumi-stack requires --only pulumi")
+    settings_path = Path(args.settings_file).expanduser() if args.settings_file else None
+    if settings_path is not None:
+        payload = json.loads(settings_path.read_text())
+        if payload.get("config_schema") == 2:
+            _render_scoped_payload(parser, args, payload)
+            return
     settings = (
-        _load_settings_file(Path(args.settings_file).expanduser(), args.project)
-        if args.settings_file
+        _load_settings_file(settings_path, args.project)
+        if settings_path is not None
         else None
     )
     # Resolve render_project through the module attribute so test patches
@@ -79,6 +85,36 @@ def main(argv: Optional[List[str]] = None) -> None:
         output_dir=Path(args.output_dir) if args.output_dir else None,
         settings=settings,
         pulumi_stack=args.pulumi_stack,
+    )
+
+
+def _render_scoped_payload(parser, args, payload) -> None:
+    from .project_renderer import _resolve_project_root, default_render_output_dir
+    from .project_renderer_pulumi_scoped import render_scoped_pulumi_config
+
+    project = str(payload.get("project_slug") or "")
+    stack = str(payload.get("stack_name") or "")
+    if project != args.project:
+        parser.error(
+            f"--settings-file names project {project!r} but the render "
+            f"targets {args.project!r}"
+        )
+    if args.only != "pulumi" or not args.write:
+        parser.error("schema-v2 stack config requires --write --only pulumi")
+    if args.pulumi_stack != stack:
+        parser.error(
+            "schema-v2 stack config requires --pulumi-stack to exactly match "
+            "the payload stack"
+        )
+    output_dir = (
+        Path(args.output_dir).expanduser()
+        if args.output_dir
+        else default_render_output_dir(project)
+    )
+    render_scoped_pulumi_config(
+        payload,
+        project_root=_resolve_project_root(),
+        output_dir=output_dir,
     )
 
 

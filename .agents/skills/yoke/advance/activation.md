@@ -20,7 +20,7 @@ this phase performs it automatically.
 **Context variables** (set by router): `{N}`, `_type`, `_status`,
 `_target`, `_item_project`, `--force` flag
 
-**Enforcement owner:** `runtime/api/domain/advance_path_claim_activation.py`
+**Enforcement owner:** `yoke_core.domain.advance_path_claim_activation`
 
 ---
 
@@ -43,7 +43,7 @@ Skip when:
 Normal implementation-entry advance does not have an agent-facing activation
 command: `worktree_preflight.run_preflight` invokes this phase in-process. The
 standalone activation entrypoint is a Yoke source-dev/admin boundary in
-`runtime/api/domain/advance_path_claim_activation.py` for operators reconciling
+`yoke_core.domain.advance_path_claim_activation` for operators reconciling
 activation outside the full worktree-preflight bundle; it is not a registered
 product CLI wrapper and should not be taught as normal advance flow.
 

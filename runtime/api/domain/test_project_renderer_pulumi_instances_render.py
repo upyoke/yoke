@@ -24,6 +24,8 @@ def _render(tmp_path, monkeypatch, stacks, environments):
             "aws_region": "us-east-1",
             "domain_name": "example.com",
             "project_name": "yoke",
+            "github_repo_slug": "",
+            "github_api_url": "https://api.github.com",
         },
         root,
         project_root,
@@ -47,13 +49,22 @@ def test_renders_instances_additively_with_legacy_stacks(tmp_path, monkeypatch):
         "webapp_environment_stack.py",
         "webapp_database_stack.py",
         "webapp_api_stack.py",
-        "webapp_vps_stack.py",
     } <= names
+    assert "webapp_vps_stack.py" not in names
     stack_yaml = (infra / "Pulumi.yoke-prod.yaml").read_text()
     assert "webapp-infra:environment: prod" in stack_yaml
     assert "webapp-infra:capabilities: database,vps,api" in stack_yaml
     assert "webapp-infra:api_host: api.example.com" in stack_yaml
     assert "webapp-infra:origin_host: origin.example.com" in stack_yaml
+    assert "webapp-infra:origin_vps_stack_name: yoke-prod-origin" in stack_yaml
+    assert (
+        "webapp-infra:origin_vps_elastic_ip_output: vpsElasticIpAddress"
+        in stack_yaml
+    )
+    assert (
+        "webapp-infra:origin_vps_security_group_output: vpsSecurityGroupId"
+        in stack_yaml
+    )
     assert 'webapp-infra:database_min_capacity_acu: "0"' in stack_yaml
     assert 'webapp-infra:database_seconds_until_auto_pause: "1800"' in stack_yaml
     assert 'webapp-infra:render_only: "false"' in stack_yaml
@@ -85,8 +96,8 @@ def test_renders_prod_stage_and_preserves_legacy_domain_stack(tmp_path, monkeypa
         "webapp_environment_stack.py",
         "webapp_database_stack.py",
         "webapp_api_stack.py",
-        "webapp_vps_stack.py",
     } <= names
+    assert "webapp_vps_stack.py" not in names
     assert "Pulumi.yoke-infra.yaml" not in names
     assert "Pulumi.yoke-vps.yaml" not in names
 

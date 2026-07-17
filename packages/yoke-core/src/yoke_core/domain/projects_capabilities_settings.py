@@ -23,6 +23,11 @@ from yoke_core.domain.project_github_capability_settings import (
 from yoke_core.domain.projects_capability_settings_validation import (
     canonicalize_capability_settings,
 )
+from yoke_core.domain.pulumi_state_capability import (
+    reject_generic_full_write as reject_pulumi_state_full_write,
+    reject_generic_read as reject_pulumi_state_read,
+    validate_merge_assignments as validate_pulumi_state_merge_assignments,
+)
 from yoke_core.domain.settings_cas import (
     SETTINGS_CONFLICT_TAG,
     SettingsConflictError,
@@ -192,6 +197,7 @@ def cmd_capability_get_settings(
     The returned text doubles as the CAS base token for
     :func:`cmd_capability_set_settings`.
     """
+    cap_type = reject_pulumi_state_read(cap_type)
     conn = connect(db_path)
     try:
         project_id = resolve_project_id(conn, project)
@@ -278,6 +284,7 @@ def cmd_capability_set_settings(
     no blind-upsert path exists.
     """
     cap_type = reject_github_capability_full_settings_write(cap_type)
+    cap_type = reject_pulumi_state_full_write(cap_type)
     has_base = bool(
         base_settings_json is not None and str(base_settings_json).strip()
     )
@@ -317,6 +324,7 @@ def cmd_capability_merge_settings(
     recipe for both existing and missing rows.
     """
     cap_type = validate_github_capability_merge_assignments(cap_type, assignments)
+    cap_type = validate_pulumi_state_merge_assignments(cap_type, assignments)
     conn = connect(db_path)
     try:
         project_id = resolve_project_id(conn, project)

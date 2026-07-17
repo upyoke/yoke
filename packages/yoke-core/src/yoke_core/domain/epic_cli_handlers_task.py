@@ -68,12 +68,10 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
         if not epic_id or len(rest) < 2:
             _cli_usage_error("Usage: task-update-status <epic-id> <task_num> <status>")
         pipeline = os.environ.get("YOKE_STATUS_PIPELINE") == "1"
-        qa_bypass = os.environ.get("YOKE_QA_GATE_BYPASS") == "1"
-        force = os.environ.get("YOKE_FORCE") == "1"
         scripts_dir = os.environ.get("YOKE_SCRIPTS_DIR")
         print(_epic.task_update_status(
             conn, epic_id, int(rest[0]), rest[1],
-            pipeline=pipeline, qa_gate_bypass=qa_bypass, force=force,
+            pipeline=pipeline,
             scripts_dir=scripts_dir,
         ))
         return True
@@ -153,8 +151,6 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
             _cli_usage_error("Usage: task-update-field <epic-id> <task_num> <field> <value>")
         value = rest[2] if len(rest) > 2 else ""
         pipeline = os.environ.get("YOKE_STATUS_PIPELINE") == "1"
-        qa_bypass = os.environ.get("YOKE_QA_GATE_BYPASS") == "1"
-        force = os.environ.get("YOKE_FORCE") == "1"
         print(
             _epic.task_update_field(
                 conn,
@@ -163,8 +159,6 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
                 rest[1],
                 value,
                 pipeline=pipeline,
-                qa_gate_bypass=qa_bypass,
-                force=force,
             )
         )
         return True

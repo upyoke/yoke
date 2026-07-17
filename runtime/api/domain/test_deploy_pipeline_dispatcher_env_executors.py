@@ -22,6 +22,7 @@ def _dispatch(stage, **overrides):
         image_tag="",
         target_env="prod",
         gate_branch="main",
+        release_lineage="a" * 40,
         product_repo_path="",
         sd=None,
     )

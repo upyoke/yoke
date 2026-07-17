@@ -40,11 +40,11 @@ All JS paths below are the packaged sources; the daemon runs from their material
 | Step executor | `runtime/browser_runtime/src/step-executor.js` | scenario step execution |
 | Snapshot routes | `runtime/browser_runtime/src/routes/snapshot-routes.js` | HTTP routes for snapshot/screenshot/diff |
 | Exec routes | `runtime/browser_runtime/src/routes/exec-routes.js` | HTTP routes for step execution |
-| `yoke_core.domain.browser_runtime_home` | `runtime/api/domain/browser_runtime_home.py` | Machine runtime dir + hash-gated materialization of the packaged sources |
-| `yoke_core.domain.browser_client` | `runtime/api/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
-| `yoke_core.domain.browser_qa` | `runtime/api/domain/browser_qa.py` | Canonical scenario orchestrator — executes all steps for an item's browser QA requirements |
-| `yoke_core.domain.browser_worker` | `runtime/api/domain/browser_worker.py` | Remote browser worker via SSH tunnel |
-| `yoke_core.domain.browser_qa_metadata` | `runtime/api/domain/browser_qa_metadata.py` | Validator + negative default for the structured `browser_qa_metadata` item field that replaces classifier inference |
+| `yoke_core.domain.browser_runtime_home` | `packages/yoke-core/src/yoke_core/domain/browser_runtime_home.py` | Machine runtime dir + hash-gated materialization of the packaged sources |
+| `yoke_core.domain.browser_client` | `packages/yoke-core/src/yoke_core/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
+| `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Canonical scenario orchestrator — executes all steps for an item's browser QA requirements |
+| `yoke_core.domain.browser_worker` | `packages/yoke-core/src/yoke_core/domain/browser_worker.py` | Remote browser worker via SSH tunnel |
+| `yoke_core.domain.browser_qa_metadata` | `packages/yoke-core/src/yoke_core/domain/browser_qa_metadata.py` | Validator + negative default for the structured `browser_qa_metadata` item field that replaces classifier inference |
 
 ## Daemon Lifecycle
 

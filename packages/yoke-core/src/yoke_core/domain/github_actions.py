@@ -224,12 +224,13 @@ def cmd_check_ci(
     repo: str,
     workflow: str,
     branch: str = "main",
+    head_sha: str = "",
     wait: bool = False,
     timeout_sec: int = 600,
     *,
     project: str,
 ) -> None:
-    """Check CI on a branch. Exit 0=pass / 1=fail / 2=running / 3=timeout."""
+    """Check CI on a branch and optional exact SHA."""
     token = resolve_token(
         project,
         repo,
@@ -237,7 +238,9 @@ def cmd_check_ci(
     )
 
     def _bound_latest_run() -> Optional[Dict[str, Any]]:
-        return latest_workflow_run(repo, workflow, branch=branch, token=token)
+        return latest_workflow_run(
+            repo, workflow, branch=branch, head_sha=head_sha, token=token,
+        )
 
     try:
         check_ci_command(
@@ -328,6 +331,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             args.repo,
             args.workflow,
             branch=args.branch,
+            head_sha=args.head_sha,
             wait=args.wait,
             timeout_sec=args.timeout_sec,
             project=args.project,

@@ -140,8 +140,14 @@ def execute_runner_fleet_command(
                 ) or ""
             ).strip()
         except Exception as exc:
+            # Name the cause class so a missing broker function, a denied
+            # invoke, and a rejected authority intent are distinguishable
+            # from the operator's side. Loader errors carry no token
+            # material; the token does not exist yet on this path.
+            cause = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
             raise RunnerFleetExecError(
-                "hosted runner-fleet token authority is unavailable"
+                "hosted runner-fleet token authority is unavailable "
+                f"({type(exc).__name__}: {cause[:200]})"
             ) from exc
         if not token:
             raise RunnerFleetExecError(

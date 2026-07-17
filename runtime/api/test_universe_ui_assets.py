@@ -27,11 +27,25 @@ def test_known_assets_serve_with_content_types(ui_client):
         assert response.headers["content-type"] == content_type
 
 
+def test_assets_and_shell_are_served_with_revalidation_header(ui_client):
+    # `no-cache` (revalidate, not `no-store`): browsers must recheck the
+    # server after an upgrade instead of running stale modules from cache.
+    for asset_name in ui_server.ASSET_CONTENT_TYPES:
+        response = ui_client.get(f"/assets/{asset_name}?token={TOKEN}")
+        assert response.status_code == 200, asset_name
+        assert response.headers["cache-control"] == "no-cache", asset_name
+    shell = ui_client.get(f"/?token={TOKEN}")  # follows the 303
+    assert shell.status_code == 200
+    assert shell.headers["cache-control"] == "no-cache"
+
+
 def test_javascript_module_graph_is_in_closed_asset_roster():
     static_root = files("yoke_core.ui").joinpath("static")
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
-        "universe_views.js",
+        "universe_view_support.js", "universe_views.js",
+        "universe_views_github.js", "universe_views_organization.js",
+        "universe_views_overview.js", "universe_views_workflows.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
@@ -65,6 +79,34 @@ def test_shell_static_references_are_host_prefix_safe():
         "app.js", "app.css", "shell.css", "theme.css", "favicon.svg",
     ):
         assert f"./assets/{asset_name}" in shell
+
+
+def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
+    """The harness page exists so the hosted frame is verifiable without a
+    pin. It only does that job if its sample chrome wears the exact class
+    names the platform's hosted shell injects — a harness with invented
+    names verifies a frame nobody ships."""
+    harness = files("yoke_core.ui").joinpath(
+        "static", "hosted-frame-harness.html",
+    ).read_text()
+    for platform_marker in (
+        "hosted-org-switcher",
+        "hosted-user-menu",
+        "hosted-org-links",
+        'dataset.platformSlot = "github-connection"',
+    ):
+        assert platform_marker in harness, platform_marker
+    # Every mount slot the platform fills is occupied here too.
+    for slot_name in (
+        "topbarStart", "topbarEnd", "navigationEnd",
+        "contentBefore", "contentAfter",
+    ):
+        assert f"{slot_name}:" in harness, slot_name
+    # The page names itself a harness so it cannot pass for the product,
+    # and it exercises the identity chip and a capability action.
+    assert "Hosted-frame harness" in harness
+    assert "currentActor" in harness
+    assert "Move universe" in harness
 
 
 def test_typed_mount_contract_and_declaration_emit_ship():
@@ -118,24 +160,39 @@ def test_page_module_wires_the_workbench_shell():
         "events.query.run",
         "deployment_runs.list",
         "sessions.list",
+        "doctor.last_run.get",
+        "frontier.list",
+        "projects.capabilities.list",
         '{ label: "title", value: (doc) => doc.title }',
     ):
         assert reference in views, reference
 
+    workflows_view = static_root.joinpath(
+        "universe_views_workflows.js",
+    ).read_text()
+    assert "workflows.definition.get" in workflows_view
+
+    github_view = static_root.joinpath("universe_views_github.js").read_text()
+    assert "projects.github_binding.status" in github_view
+
 
 def test_every_nav_destination_is_routable_and_scoped():
     """Each nav entry is a real route from day one: it declares its scope and
-    either renders rows or states what it will be."""
+    either renders rows, states what it will be, or renders host content."""
     page_module = files("yoke_core.ui").joinpath(
         "static", "universe_navigation.js",
     ).read_text()
     for destination in (
-        "overview", "inbox", "strategy", "frontier", "items", "board",
+        "overview", "inbox", "strategy", "frontier", "items",
         "sessions", "delivery", "qa", "workflows", "capabilities", "events",
-        "doctor", "ouroboros", "projects", "access", "templates", "github",
-        "project-settings", "universe-settings",
+        "doctor", "ouroboros", "projects", "access", "members", "billing",
+        "templates", "github", "project", "organization",
     ):
         assert f'id: "{destination}"' in page_module, destination
-    # Hosted chrome arrives through the platform's slot, never the nav roster.
-    for hosted in ("members", "billing"):
-        assert f'id: "{hosted}"' not in page_module, hosted
+    assert 'id: "board"' not in page_module
+    # Host-fed screens sit in the same flat nav arc as every other view, and
+    # the flag ties each entry's visibility to a host-supplied section.
+    for host_fed in ("members", "billing"):
+        entry_start = page_module.index(f'id: "{host_fed}"')
+        entry_end = page_module.index("}", entry_start)
+        assert "hostFed: true" in page_module[entry_start:entry_end], host_fed

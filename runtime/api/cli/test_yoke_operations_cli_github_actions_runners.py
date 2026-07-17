@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 
 from yoke_cli.main import main as cli_main
+from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -18,6 +19,11 @@ from yoke_contracts.api.function_call import (
 
 
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
+_CONNECTION = HttpsConnection(
+    api_url="https://control.example",
+    token="test-token",
+    env="prod",
+)
 
 
 def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
@@ -81,26 +87,32 @@ def test_default_runner_status_payload() -> None:
     }
 
 
-def test_runner_status_forces_local_dispatch_even_with_https_config() -> None:
-    def fail_https():
-        raise AssertionError("runner status should be local-only")
+def test_runner_status_uses_https_authority_when_connected() -> None:
+    def relay(request, connection):
+        assert connection == _CONNECTION
+        _CAPTURED_REQUESTS.append(request)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={"ready": True},
+        )
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
         with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=_stub_ok,
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=_CONNECTION,
+        ), patch(
+            "yoke_cli.transport.https.relay_https",
+            side_effect=relay,
         ):
-            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
-                with patch(
-                    "yoke_cli.transport.https.resolve_https_connection",
-                    side_effect=fail_https,
-                ):
-                    with redirect_stdout(io.StringIO()) as out, \
-                            redirect_stderr(io.StringIO()) as err:
-                        rc = cli_main([
-                            "github-actions", "runners", "status", "o/r",
-                            "--project", "yoke",
-                        ])
+            with redirect_stdout(io.StringIO()) as out, \
+                    redirect_stderr(io.StringIO()) as err:
+                rc = cli_main([
+                    "github-actions", "runners", "status", "o/r",
+                    "--project", "yoke",
+                ])
 
     assert rc == 0
     assert out.getvalue()

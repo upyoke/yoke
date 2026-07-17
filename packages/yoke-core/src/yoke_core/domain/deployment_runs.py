@@ -2,8 +2,7 @@
 
 Implementation lives in responsibility-named siblings. Each public name is
 imported DIRECTLY from its canonical owner — no two-hop indirection through
-``deployment_runs_crud`` or ``deployment_runs_transitions`` (the matching
-shim integrity rule for this lane).
+another shim (the matching shim integrity rule for this lane).
 """
 
 from __future__ import annotations

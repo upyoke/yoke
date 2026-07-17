@@ -153,8 +153,8 @@ def test_pmpd_bodies_carry_reflection_bridge_sentence(repo_root: Path) -> None:
         body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(
             encoding="utf-8"
         )
-        assert "reflection_capture_hook.py" in body, (
-            f"{agent}.md must reference reflection_capture_hook.py near the marker"
+        assert "yoke_core.domain.reflection_capture_hook" in body, (
+            f"{agent}.md must cite the reflection capture hook module near the marker"
         )
         assert "field_note_kind" in body, (
             f"{agent}.md must name field_note_kind in the bridge sentence"

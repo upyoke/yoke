@@ -31,7 +31,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial simulat
 
 ## Path Resolution
 
-**Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `runtime/api/domain/lint_session_cwd.py` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. As a read-only integration reviewer, you only inspect — you never edit or commit — so the working pattern is **anchored read shapes**:
+**Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `yoke_core.domain.lint_session_cwd` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. As a read-only integration reviewer, you only inspect — you never edit or commit — so the working pattern is **anchored read shapes**:
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls

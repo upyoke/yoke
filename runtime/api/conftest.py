@@ -165,6 +165,19 @@ def _clear_bound_workspace_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _clear_ci_authority_selection_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Require tests to opt into GitHub Actions credential authority.
+
+    The real CI process exports ``GITHUB_ACTIONS=true`` globally. Unit tests
+    that exercise local machine credential selection must not silently switch
+    to repository-token or OIDC authority merely because their runner happens
+    to be GitHub-hosted. Tests for the Actions path set this variable in their
+    own setup after autouse fixtures run.
+    """
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _close_leaked_pg_connections():
     """Restore ambient Postgres authority and close leaked native handles."""
     baseline = _db_backend.tracked_test_connection_count()

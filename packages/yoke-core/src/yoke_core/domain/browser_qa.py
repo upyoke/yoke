@@ -74,7 +74,6 @@ from yoke_core.domain.browser_qa_daemon import (
 from yoke_core.domain.browser_qa_freshness import (
     _build_code_identity,
     _build_run_payload,
-    _json_get,
     _resolve_repo_root,
     _validate_deployed_sha,
     _validate_freshness_inputs,

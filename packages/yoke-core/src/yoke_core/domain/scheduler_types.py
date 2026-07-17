@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.strategy_docs_defaults import (
-    DEFAULT_STRATEGY_DOC_SLUGS,
-)
-from yoke_core.domain.strategy_docs_paths import strategy_view_rel_path
-
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -108,20 +103,17 @@ def is_assignable_claim_state(state: ClaimState) -> bool:
 # SML state
 # ---------------------------------------------------------------------------
 
-SML_FILES = tuple(
-    strategy_view_rel_path(slug) for slug in DEFAULT_STRATEGY_DOC_SLUGS
-)
-
-
 @dataclass(frozen=True)
 class SMLState:
     """Strategic Markdown Layer state for scheduling decisions.
 
     Attributes:
-        coherent: True when all four SML files exist.  This is the sole
-            hard-truth SML precondition kept in the public contract.
-            ``stale`` and ``basis`` were removed — the post-delivery
-            drift-review model replaces ambient stale-bit decisioning.
+        coherent: True when every project in scope carries all default
+            strategy docs as live (non-archived) ``strategy_docs`` rows.
+            This is the sole hard-truth SML precondition kept in the
+            public contract. ``stale`` and ``basis`` were removed — the
+            post-delivery drift-review model replaces ambient stale-bit
+            decisioning.
     """
 
     coherent: bool = True
@@ -171,6 +163,8 @@ class ScheduledStep:
         status: Current canonical status.
         title: Item title.
         priority: Priority level.
+        project: Slug of the project the item belongs to (empty when the
+            producing path predates project labelling).
         next_step: Scheduler-level action for this item.
         rank: Zero-based position in the deterministic ranking.
         claim_state: Claim evaluation relative to the offering session.
@@ -191,6 +185,7 @@ class ScheduledStep:
     title: str
     priority: str
     next_step: NextStep
+    project: str = ""
     rank: int = 0
     claim_state: ClaimState = ClaimState.UNCLAIMED
     gate_evaluations: List[GateEvaluation] = field(default_factory=list)

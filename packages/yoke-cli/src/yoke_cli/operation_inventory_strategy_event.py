@@ -33,8 +33,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
        "tools.atlas", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.atlas_render_docs check",
        "tools.atlas", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.session_init",
-       "tools.session_init", REASON_TOOL_SHAPED),
 )
 
 

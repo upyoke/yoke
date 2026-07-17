@@ -32,6 +32,20 @@ def register(registry) -> None:
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
     registry.register(
+        "deployment_flows.set_status",
+        _flows.handle_deployment_flow_set_status,
+        _models.DeploymentFlowSetStatusRequest,
+        _models.DeploymentFlowSetStatusResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_flows",
+        target_kinds=["global"],
+        side_effects=["deployment_flows_status_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["history_preserved"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
         "deployment_runs.get", _runs.handle_deployment_run_get,
         _models.DeploymentRunGetRequest,
         _models.DeploymentRunGetResponse,
@@ -42,6 +56,19 @@ def register(registry) -> None:
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
     registry.register(
+        "deployment_runs.create", _runs.handle_deployment_run_create,
+        _models.DeploymentRunCreateRequest,
+        _models.DeploymentRunCreateResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_runs",
+        target_kinds=["global"],
+        side_effects=["deployment_runs_insert"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["zero_member_environment_run"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
         "deployment_runs.list", _runs.handle_deployment_run_list,
         _models.DeploymentRunListRequest,
         _models.DeploymentRunListResponse,
@@ -50,6 +77,18 @@ def register(registry) -> None:
         target_kinds=["global"], side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
+        "deployment_runs.approve", _runs.handle_deployment_run_approve,
+        _models.DeploymentRunApproveRequest,
+        _models.DeploymentRunApproveResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_runs",
+        target_kinds=["workflow_run"],
+        side_effects=["deployment_runs_update", "items_deploy_stage_update"],
+        emitted_event_names=["DeploymentApprovalGranted", "YokeFunctionCalled"],
+        guardrails=["executing_run", "current_stage_human_approval"],
+        adapter_status="live", claim_required_kind=None,
     )
     registry.register(
         "deployment_runs.update", _runs.handle_deployment_run_update,

@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from runtime.api.cli.project_onboarding_test_helpers import write_https_config
 from yoke_contracts.template_bundle import (
     TEMPLATE_PRODUCT_BOUNDARY_FIELD,
     TEMPLATE_PRODUCT_BOUNDARY_SOURCE_DEV_ADMIN,
@@ -15,6 +16,7 @@ from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import template_fetch
 from yoke_cli.config.template_fetch import TemplateFetchError
 from yoke_cli.transport.https import HttpsConnection
+from yoke_core.domain import template_bundle as template_bundle_domain
 
 
 @pytest.fixture(autouse=True)
@@ -268,3 +270,203 @@ class TestTemplatesFetch:
 
         assert rc == 1
         assert "gamma" in capsys.readouterr().err
+
+
+def _write_local_config(tmp_path, *, prod: bool = False):
+    """A machine config whose active env is a local-postgres connection."""
+    connection: dict = {"transport": "local-postgres"}
+    if prod:
+        connection["prod"] = True
+    config = tmp_path / "local-config.json"
+    config.write_text(
+        json.dumps({
+            "schema_version": 1,
+            "active_env": "local",
+            "connections": {"local": connection},
+        }),
+        encoding="utf-8",
+    )
+    return config
+
+
+@pytest.fixture()
+def local_server_tree(tmp_path, monkeypatch):
+    """A fake install code tree with a product and a source-dev template."""
+    root = tmp_path / "tree"
+    alpha = root / "templates" / "alpha"
+    (alpha / "ops").mkdir(parents=True)
+    (alpha / "template.json").write_text(
+        json.dumps({"description": "Alpha raw material"}), encoding="utf-8",
+    )
+    (alpha / "README.md").write_text("# Alpha\n", encoding="utf-8")
+    (alpha / "ops" / "deploy.yml").write_text(
+        "name: {{project_name}}\n", encoding="utf-8",
+    )
+    gamma = root / "templates" / "gamma"
+    gamma.mkdir(parents=True)
+    (gamma / "template.json").write_text(
+        json.dumps({
+            TEMPLATE_PRODUCT_BOUNDARY_FIELD: (
+                TEMPLATE_PRODUCT_BOUNDARY_SOURCE_DEV_ADMIN
+            ),
+        }),
+        encoding="utf-8",
+    )
+    (gamma / "admin.md").write_text("# Gamma\n", encoding="utf-8")
+    monkeypatch.setattr(template_bundle_domain, "server_tree_root", lambda: root)
+    return root
+
+
+class TestTemplatesLocalTransport:
+    """A non-prod local env serves templates in-process from its own tree."""
+
+    def test_local_env_serves_listing_in_process(
+        self, local_server_tree, tmp_path, capsys
+    ) -> None:
+        config = _write_local_config(tmp_path)
+
+        rc = yoke_operations_cli.main(
+            ["templates", "list", "--config", str(config), "--json"]
+        )
+
+        assert rc == 0
+        report = json.loads(capsys.readouterr().out)
+        assert report["source"] == "local-postgres:local"
+        by_name = {t["name"]: t for t in report["templates"]}
+        assert sorted(by_name) == ["alpha", "gamma"]
+        assert by_name["alpha"]["description"] == "Alpha raw material"
+        assert by_name["alpha"]["file_count"] == 3
+
+    def test_local_fetch_writes_the_built_bundle_contents(
+        self, local_server_tree, tmp_path, capsys
+    ) -> None:
+        config = _write_local_config(tmp_path)
+        dest = tmp_path / "material"
+
+        rc = yoke_operations_cli.main(
+            ["templates", "fetch", "alpha", "--dest", str(dest),
+             "--config", str(config)]
+        )
+
+        assert rc == 0
+        report = json.loads(capsys.readouterr().out)
+        assert report["source"] == "local-postgres:local"
+        expected = template_bundle_domain.build_template_bundle("alpha")
+        assert report["yoke_version"] == expected["yoke_version"]
+        assert report["files_written"] == [
+            entry["path"] for entry in expected["files"]
+        ]
+        for entry in expected["files"]:
+            written = (dest / entry["path"]).read_text(encoding="utf-8")
+            assert written == entry["content"]
+        # Raw delivery: placeholders ship verbatim.
+        assert (dest / "ops/deploy.yml").read_text(
+            encoding="utf-8"
+        ) == "name: {{project_name}}\n"
+
+    def test_local_unknown_template_names_known_ones(
+        self, local_server_tree, tmp_path, capsys
+    ) -> None:
+        config = _write_local_config(tmp_path)
+
+        rc = yoke_operations_cli.main(
+            ["templates", "fetch", "missing", "--dest", str(tmp_path / "x"),
+             "--config", str(config)]
+        )
+
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "'missing'" in err
+        assert "alpha" in err
+
+    def test_local_source_dev_admin_requires_opt_in(
+        self, local_server_tree, tmp_path, capsys
+    ) -> None:
+        config = _write_local_config(tmp_path)
+        dest = tmp_path / "material"
+
+        rc = yoke_operations_cli.main(
+            ["templates", "fetch", "gamma", "--dest", str(dest),
+             "--config", str(config)]
+        )
+
+        assert rc == 1
+        assert "source-dev/admin" in capsys.readouterr().err
+        assert not (dest / "admin.md").exists()
+
+    def test_local_source_dev_admin_opt_in_fetches(
+        self, local_server_tree, tmp_path, capsys
+    ) -> None:
+        config = _write_local_config(tmp_path)
+        dest = tmp_path / "material"
+
+        rc = yoke_operations_cli.main(
+            ["templates", "fetch", "gamma", "--source-dev-admin",
+             "--dest", str(dest), "--config", str(config)]
+        )
+
+        assert rc == 0
+        report = json.loads(capsys.readouterr().out)
+        assert report["product_boundary"] == (
+            TEMPLATE_PRODUCT_BOUNDARY_SOURCE_DEV_ADMIN
+        )
+        assert (dest / "admin.md").read_text(encoding="utf-8") == "# Gamma\n"
+
+    def test_prod_flagged_local_connection_is_refused(
+        self, local_server_tree, tmp_path, capsys
+    ) -> None:
+        config = _write_local_config(tmp_path, prod=True)
+
+        rc = yoke_operations_cli.main(
+            ["templates", "list", "--config", str(config), "--json"]
+        )
+
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "prod-marked local-postgres" in err
+        assert "operator-only" in err
+
+    def test_missing_engine_names_repair_instead_of_traceback(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
+        config = _write_local_config(tmp_path)
+        monkeypatch.setattr(
+            template_fetch, "_TEMPLATE_BUNDLE_MODULE",
+            "yoke_core.domain.template_bundle_absent_for_test",
+        )
+
+        rc = yoke_operations_cli.main(
+            ["templates", "list", "--config", str(config), "--json"]
+        )
+
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "yoke-core engine package is not importable" in err
+        assert "Traceback" not in err
+
+    def test_https_env_still_fetches_listing_over_https(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
+        config = write_https_config(
+            tmp_path, "product-token", "https://api.example/v1"
+        )
+        seen = {}
+
+        def _fake_get(connection, route, template=None):
+            seen["api_url"] = connection.api_url
+            seen["route"] = route
+            return {"templates": [
+                {"name": "webapp", "description": "", "file_count": 2},
+            ]}
+
+        monkeypatch.setattr(template_fetch, "_fetch_json_https", _fake_get)
+
+        rc = yoke_operations_cli.main(
+            ["templates", "list", "--config", str(config), "--json"]
+        )
+
+        assert rc == 0
+        report = json.loads(capsys.readouterr().out)
+        assert report["source"] == "https://api.example/v1"
+        assert seen["api_url"] == "https://api.example/v1"
+        assert seen["route"] == TEMPLATES_API_PATH

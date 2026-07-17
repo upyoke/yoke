@@ -42,14 +42,16 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
                     _request(
                         function="deployment_flows.get",
                         payload={
-                            "flow_id": "yoke-prod-release",
+                            "flow_id": "yoke-hosted-production",
                             "field": "target_env",
                         },
                     ),
                 )
 
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["flow_id"], "yoke-prod-release")
+        self.assertEqual(
+            outcome.result_payload["flow_id"], "yoke-hosted-production"
+        )
         self.assertEqual(outcome.result_payload["field"], "target_env")
         self.assertEqual(outcome.result_payload["value"], "prod")
         conn.close.assert_called_once()
@@ -63,7 +65,7 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
                 outcome = deployment_flows.handle_deployment_flow_stages(
                     _request(
                         function="deployment_flows.stages",
-                        payload={"flow_id": "yoke-prod-release"},
+                        payload={"flow_id": "yoke-hosted-production"},
                     ),
                 )
 
@@ -71,6 +73,27 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
         self.assertEqual(outcome.result_payload["stages"], stages)
         conn.close.assert_called_once()
         _assert_flow_connect_restored(self)
+
+    def test_flow_status_mutation_preserves_the_definition(self):
+        conn = Mock()
+        with patch("yoke_core.domain.flow.cmd_set_status") as set_status:
+            with patch("yoke_core.domain.db_helpers.connect", return_value=conn):
+                outcome = deployment_flows.handle_deployment_flow_set_status(
+                    _request(
+                        function="deployment_flows.set_status",
+                        payload={
+                            "flow_id": "yoke-hosted-stage",
+                            "status": "disabled",
+                        },
+                    ),
+                )
+
+        self.assertTrue(outcome.primary_success)
+        self.assertEqual(outcome.result_payload["status"], "disabled")
+        set_status.assert_called_once_with(
+            conn, "yoke-hosted-stage", "disabled"
+        )
+        conn.close.assert_called_once()
 
     def test_flow_missing_id_returns_payload_error(self):
         outcome = deployment_flows.handle_deployment_flow_get(
@@ -91,7 +114,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
         values = [
-            "run-20260616-001", "yoke", "yoke-prod-release", "prod",
+            "run-20260616-001", "yoke", "yoke-hosted-production", "production",
             "", "created", "", "2026-06-16T00:00:00Z", "", "", "operator",
         ]
         raw = "|".join(values[: len(RUN_FIELDS)])
@@ -108,7 +131,9 @@ class TestDeploymentRunHandlers(unittest.TestCase):
 
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["run"]["id"], "run-20260616-001")
-        self.assertEqual(outcome.result_payload["run"]["target_env"], "prod")
+        self.assertEqual(
+            outcome.result_payload["run"]["target_env"], "production"
+        )
 
     def test_run_get_not_found_returns_not_found(self):
         with patch(
@@ -133,12 +158,44 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             outcome = deployment_runs.handle_deployment_run_list(
                 _request(
                     function="deployment_runs.list",
-                    payload={"project": "yoke", "status": "created"},
+                    payload={
+                        "project": "yoke",
+                        "status": "created",
+                        "limit": 7,
+                    },
                 ),
             )
         self.assertTrue(outcome.primary_success)
-        cmd_list.assert_called_once_with(project="yoke", status="created")
+        cmd_list.assert_called_once_with(
+            project="yoke", status="created", limit=7,
+        )
         self.assertEqual(outcome.result_payload["rows"][0]["project"], "yoke")
+        self.assertEqual(outcome.result_payload["limit"], 7)
+
+    def test_run_list_defaults_to_bounded_recent_history(self):
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_query.cmd_list",
+            return_value="",
+        ) as cmd_list:
+            outcome = deployment_runs.handle_deployment_run_list(
+                _request(function="deployment_runs.list", payload={}),
+            )
+
+        self.assertTrue(outcome.primary_success)
+        cmd_list.assert_called_once_with(project=None, status=None, limit=20)
+        self.assertEqual(outcome.result_payload["limit"], 20)
+
+    def test_run_list_rejects_invalid_limit(self):
+        outcome = deployment_runs.handle_deployment_run_list(
+            _request(
+                function="deployment_runs.list",
+                payload={"limit": 1001},
+            ),
+        )
+
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+        self.assertEqual(outcome.error.jsonpath, "$.payload.limit")
 
     def test_run_update_maps_invalid_field(self):
         with patch(
@@ -177,6 +234,98 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         )
         self.assertTrue(outcome.result_payload["updated"])
 
+    def test_run_approve_advances_exact_workflow_run(self):
+        from yoke_core.domain.deployment_run_approval import RunApproval
+
+        approval = RunApproval(
+            run_id="run-20260616-001",
+            project="yoke",
+            approved_stage="production-approval",
+            next_stage="production",
+            approved_at="2026-06-16T01:02:03Z",
+            member_item_ids=(19, 20),
+        )
+        with patch(
+            "yoke_core.domain.deployment_run_approval.approve_run",
+            return_value=approval,
+        ) as approve, patch(
+            "yoke_core.domain.deployment_run_approval.emit_run_approval",
+            return_value="event-1",
+        ) as emit:
+            outcome = deployment_runs.handle_deployment_run_approve(
+                _request(
+                    function="deployment_runs.approve",
+                    target=self._run_target(),
+                    payload={"note": "stage verified"},
+                ),
+            )
+
+        self.assertTrue(outcome.primary_success)
+        approve.assert_called_once_with("run-20260616-001")
+        emit.assert_called_once()
+        self.assertEqual(outcome.result_payload["next_stage"], "production")
+        self.assertEqual(outcome.result_payload["member_item_ids"], [19, 20])
+        self.assertEqual(outcome.result_payload["event_id"], "event-1")
+
+    def test_run_create_returns_created_run(self):
+        created_row = (
+            "run-20260616-002|yoke|yoke-hosted-production|production|"
+            "||created||2026-06-16T00:00:00Z|||operator"
+        )
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
+            return_value="run-20260616-002",
+        ) as cmd_create, patch(
+            "yoke_core.domain.deployment_runs_crud_query.cmd_get",
+            return_value=created_row,
+        ):
+            outcome = deployment_runs.handle_deployment_run_create(
+                _request(
+                    function="deployment_runs.create",
+                    payload={
+                        "project": "yoke",
+                        "flow": "yoke-hosted-production",
+                        "created_by": "operator",
+                    },
+                ),
+            )
+        self.assertTrue(outcome.primary_success)
+        cmd_create.assert_called_once_with(
+            "yoke", "yoke-hosted-production",
+            target_env=None, created_by="operator",
+        )
+        self.assertEqual(
+            outcome.result_payload["run_id"], "run-20260616-002",
+        )
+        self.assertEqual(outcome.result_payload["flow"], "yoke-hosted-production")
+
+    def test_run_create_rejects_inactive_flow(self):
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
+            side_effect=ValueError(
+                "deployment flow 'old-flow' is disabled and cannot start "
+                "new runs"
+            ),
+        ):
+            outcome = deployment_runs.handle_deployment_run_create(
+                _request(
+                    function="deployment_runs.create",
+                    payload={"project": "yoke", "flow": "old-flow"},
+                ),
+            )
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "run_create_rejected")
+
+    def test_run_create_requires_project_and_flow(self):
+        outcome = deployment_runs.handle_deployment_run_create(
+            _request(
+                function="deployment_runs.create",
+                payload={"project": "", "flow": "yoke-hosted-production"},
+            ),
+        )
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+
     def test_resolve_target_env_returns_raw_value(self):
         with patch(
             "yoke_core.domain.deployment_runs_preview.cmd_resolve_target_env",
@@ -187,7 +336,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                     function="deployment_runs.resolve_target_env",
                     payload={
                         "project": "yoke",
-                        "flow": "yoke-prod-release",
+                        "flow": "yoke-hosted-production",
                     },
                 ),
             )
@@ -207,7 +356,10 @@ class TestDeploymentHandlerRegistration(unittest.TestCase):
             register_all_handlers()
             ids = {entry.function_id for entry in registry.list_entries()}
             self.assertIn("deployment_flows.get", ids)
+            self.assertIn("deployment_flows.set_status", ids)
             self.assertIn("deployment_flows.stages", ids)
+            self.assertIn("deployment_runs.create", ids)
+            self.assertIn("deployment_runs.approve", ids)
             self.assertIn("deployment_runs.get", ids)
             self.assertIn("deployment_runs.list", ids)
             self.assertIn("deployment_runs.update", ids)
@@ -215,6 +367,16 @@ class TestDeploymentHandlerRegistration(unittest.TestCase):
             update = registry.lookup("deployment_runs.update")
             self.assertEqual(
                 list(update.side_effects), ["deployment_runs_update"],
+            )
+            approve = registry.lookup("deployment_runs.approve")
+            self.assertEqual(
+                list(approve.side_effects),
+                ["deployment_runs_update", "items_deploy_stage_update"],
+            )
+            flow_status = registry.lookup("deployment_flows.set_status")
+            self.assertEqual(
+                list(flow_status.side_effects),
+                ["deployment_flows_status_update"],
             )
         finally:
             registry.reset_registry_for_tests()

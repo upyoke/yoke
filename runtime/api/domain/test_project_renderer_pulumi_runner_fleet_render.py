@@ -2,7 +2,36 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from yoke_core.domain import project_renderer_pulumi
+from yoke_core.domain.project_renderer_pulumi_files import (
+    RUNNER_FLEET_PROGRAM_FILES,
+)
+
+
+def test_runner_fleet_program_inventory_covers_local_dependencies():
+    template_root = (
+        Path(__file__).resolve().parents[3] / "templates" / "webapp" / "infra"
+    )
+    inventory = set(RUNNER_FLEET_PROGRAM_FILES)
+    missing_sources = {
+        name for name in inventory if not (template_root / name).is_file()
+    }
+    assert missing_sources == set()
+
+    dependencies: set[str] = set()
+    for name in inventory:
+        source = (template_root / name).read_text()
+        dependencies.update(
+            re.findall(r'from "\./(webapp_runner_[^"]+)"', source)
+        )
+        dependencies.update(
+            re.findall(r'root / "(webapp_runner_[^"]+)"', source)
+        )
+
+    assert dependencies - inventory == set()
 
 
 def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
@@ -51,6 +80,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     (infra / "webapp_runner_aws_state.mjs").write_text("// aws state\n")
     (infra / "webapp_runner_github_api.mjs").write_text("// github api\n")
     (infra / "webapp_runner_github_broker.mjs").write_text("// broker\n")
+    (infra / "webapp_runner_parallel_reaper.mjs").write_text("// reaper\n")
     (infra / "webapp_runner_registration.mjs").write_text(
         "// registration\n"
     )
@@ -122,6 +152,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "webapp_runner_aws_state.mjs",
         "webapp_runner_github_api.mjs",
         "webapp_runner_github_broker.mjs",
+        "webapp_runner_parallel_reaper.mjs",
         "webapp_runner_registration.mjs",
         "webapp_runner_termination.mjs",
         "requirements.txt",

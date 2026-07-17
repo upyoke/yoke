@@ -15,7 +15,6 @@ from yoke_core.domain.scheduler import (
 
 # Re-export the fixture so pytest discovers it in this module.
 from runtime.api.scheduler_test_fixtures import (  # noqa: F401
-    _create_sml_files,
     _item_num,
     scheduler_db,
 )
@@ -25,19 +24,16 @@ class TestComputeSchedule:
     """Verify the shared scheduler produces correct results."""
 
     def test_schedule_has_project(self, scheduler_db):
-        _create_sml_files(scheduler_db["tmp_dir"])
-        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"])
         assert result.project_scope == [1]
 
     def test_schedule_has_sml_state(self, scheduler_db):
-        _create_sml_files(scheduler_db["tmp_dir"])
-        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"])
         assert result.sml_state.coherent is True
 
     def test_schedule_selects_highest_ranked(self, scheduler_db):
         """selected_step is the highest-ranked assignable step."""
-        _create_sml_files(scheduler_db["tmp_dir"])
-        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"])
         assert result.selected_step is not None
         assert result.selected_step.rank == 0
 
@@ -50,12 +46,10 @@ class TestComputeSchedule:
         We verify the WIP filter by checking that the selected item is NOT
         a CONDUCT step when WIP is full.
         """
-        _create_sml_files(scheduler_db["tmp_dir"])
         result = compute_schedule(
             scheduler_db["conn"],
             project_scope=["yoke"],
             wip_cap=1,
-            workspace=scheduler_db["tmp_dir"],
         )
 
         assert result.selected_step is not None
@@ -95,10 +89,8 @@ class TestComputeSchedule:
             )
         conn.commit()
 
-        _create_sml_files(scheduler_db["tmp_dir"])
         result = compute_schedule(
             conn, project_scope=["yoke"], wip_cap=0,
-            workspace=scheduler_db["tmp_dir"],
         )
 
         # The implementing issue should still be selectable as ADVANCE
@@ -120,8 +112,7 @@ class TestComputeSchedule:
 
     def test_schedule_type_aware_routing(self, scheduler_db):
         """Issues in idea get refine, epics in idea also get refine."""
-        _create_sml_files(scheduler_db["tmp_dir"])
-        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"])
 
         step_map = {s.item_id: s for s in result.ranked_steps}
 
@@ -143,17 +134,15 @@ class TestComputeSchedule:
 
     def test_schedule_blocked_items_have_wait(self, scheduler_db):
         """Blocked items have next_step=WAIT."""
-        _create_sml_files(scheduler_db["tmp_dir"])
-        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(scheduler_db["conn"], project_scope=["yoke"])
 
         for step in result.blocked_steps:
             assert step.next_step == NextStep.WAIT
 
     def test_schedule_deterministic(self, scheduler_db):
         """Same DB state produces identical schedule."""
-        _create_sml_files(scheduler_db["tmp_dir"])
-        r1 = compute_schedule(scheduler_db["conn"], project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
-        r2 = compute_schedule(scheduler_db["conn"], project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        r1 = compute_schedule(scheduler_db["conn"], project_scope=["yoke"])
+        r2 = compute_schedule(scheduler_db["conn"], project_scope=["yoke"])
 
         ids1 = [s.item_id for s in r1.ranked_steps]
         ids2 = [s.item_id for s in r2.ranked_steps]
@@ -174,8 +163,7 @@ class TestComputeSchedule:
         )
         conn.commit()
 
-        _create_sml_files(scheduler_db["tmp_dir"])
-        result = compute_schedule(conn, project_scope=["yoke"], session_id="sess-1", workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(conn, project_scope=["yoke"], session_id="sess-1")
 
         step_map = {s.item_id: s for s in result.ranked_steps}
         if "YOK-1" in step_map:
@@ -220,8 +208,7 @@ class TestComputeSchedule:
 
         # First determine which item naturally ranks first so we can put
         # a stale claim on it and verify it is still selectable.
-        _create_sml_files(scheduler_db["tmp_dir"])
-        baseline = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        baseline = compute_schedule(conn, project_scope=["yoke"])
         assert baseline.selected_step is not None
         top_item = baseline.selected_step.item_id
 
@@ -233,7 +220,7 @@ class TestComputeSchedule:
         )
         conn.commit()
 
-        result = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(conn, project_scope=["yoke"])
 
         # Previously the scheduler would skip CLAIMED_BY_STALE items
         # and select a lower-ranked unclaimed item instead.
@@ -253,8 +240,7 @@ class TestComputeSchedule:
         )
 
         # Determine top-ranked item, then claim it with an ended session.
-        _create_sml_files(scheduler_db["tmp_dir"])
-        baseline = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        baseline = compute_schedule(conn, project_scope=["yoke"])
         assert baseline.selected_step is not None
         top_item = baseline.selected_step.item_id
 
@@ -270,7 +256,7 @@ class TestComputeSchedule:
         assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
 
         # And the scheduler still selects it
-        result = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(conn, project_scope=["yoke"])
         assert result.selected_step is not None
         assert result.selected_step.item_id == top_item
 
@@ -287,8 +273,7 @@ class TestComputeSchedule:
             (live_iso, live_iso),
         )
 
-        _create_sml_files(scheduler_db["tmp_dir"])
-        baseline = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        baseline = compute_schedule(conn, project_scope=["yoke"])
         assert baseline.selected_step is not None
         top_item = baseline.selected_step.item_id
 
@@ -303,7 +288,7 @@ class TestComputeSchedule:
         claims = _evaluate_claim_states(conn, [top_item])
         assert claims[top_item] == ClaimState.CLAIMED_BY_OTHER_LIVE
 
-        result = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(conn, project_scope=["yoke"])
         if result.selected_step is not None:
             assert result.selected_step.item_id != top_item
 
@@ -320,8 +305,7 @@ class TestComputeSchedule:
             (stale_iso, stale_iso),
         )
 
-        _create_sml_files(scheduler_db["tmp_dir"])
-        baseline = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        baseline = compute_schedule(conn, project_scope=["yoke"])
         assert baseline.selected_step is not None
         top_item = baseline.selected_step.item_id
 
@@ -336,7 +320,7 @@ class TestComputeSchedule:
         claims = _evaluate_claim_states(conn, [top_item])
         assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
 
-        result = compute_schedule(conn, project_scope=["yoke"], workspace=scheduler_db["tmp_dir"])
+        result = compute_schedule(conn, project_scope=["yoke"])
         assert result.selected_step is not None
         assert result.selected_step.item_id == top_item
         assert result.selected_step.claim_state == ClaimState.CLAIMED_BY_STALE

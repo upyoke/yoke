@@ -33,7 +33,9 @@ wrapper) and `yoke sessions offer` pass `--session-id` explicitly (for
 establishment and validation). Set `YOKE_SESSION_ID` in each Bash call's
 environment using the literal value captured from the init output.
 
-Run `yoke_core.tools.session_init` as a single foreground Bash call. This is internal session-bootstrap plumbing with no registered `yoke` wrapper; run it only inside `/yoke do`.
+Run `yoke sessions init` as a single foreground call. The client-local wrapper
+uses the interpreter that owns the installed `yoke` command, so packaged
+installs never depend on an ambient shell Python carrying Yoke modules.
 The wrapper owns all session identity resolution + the idempotent session
 establishment call internally. Establishment routes through the
 transport-keyed `yoke sessions begin` adapter, which is connection-keyed
@@ -49,7 +51,7 @@ The wrapper writes `KEY=VALUE` lines to stdout; capture each value into
 your prompt context for substitution into later Bash calls.
 
 ```bash
-python3 -m yoke_core.tools.session_init
+yoke sessions init
 ```
 
 The wrapper emits these keys, one per line, in stable order:

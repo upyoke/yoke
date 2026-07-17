@@ -51,6 +51,7 @@ dependencies = [
 test = [
     "pytest==8.4.2",
     "pytest-cov==6.0.0",
+    "pytest-split==0.11.0",
     "pytest-xdist==3.8.0",
     "filelock>=3.13,<4",
     "httpx==0.28.1",
@@ -68,6 +69,7 @@ images = [
 dev = [
     "pytest==8.4.2",
     "pytest-cov==6.0.0",
+    "pytest-split==0.11.0",
     "pytest-xdist==3.8.0",
     "filelock>=3.13,<4",
     "httpx==0.28.1",

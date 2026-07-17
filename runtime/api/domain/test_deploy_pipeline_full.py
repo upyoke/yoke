@@ -93,62 +93,17 @@ class TestResolveQaKind:
 # ===========================================================================
 
 
-class TestDeployPipelineShim:
+class TestDeployPipeline:
 
-    def test_executor_helpers_remain_importable_from_deploy_pipeline(self):
-        assert deploy_pipeline._dispatch_executor.__module__.endswith("deploy_pipeline_executors")
-        assert deploy_pipeline._dispatch_ephemeral_verify.__module__.endswith("deploy_pipeline_executors")
-        assert deploy_pipeline._dispatch_github_actions_workflow.__module__.endswith("deploy_pipeline_github_workflow")
-
-    def test_seeded_flow_config_converges_through_seed_stage_repair(self, capsys):
-        conn = mock.Mock()
-        with mock.patch.object(
-            deploy_pipeline, "connect", return_value=conn,
-        ), mock.patch.object(
-            deploy_pipeline, "ensure_seed_stage",
-        ) as ensure_stage:
-            deploy_pipeline._converge_seeded_flow_config("yoke-stage-release")
-
-        ensure_stage.assert_called_once_with(
-            conn,
-            seed_flows=deploy_pipeline._SEED_FLOWS,
-            flow_id="yoke-stage-release",
-            stage_name="distribution-publish",
-            before_stage="complete",
-        )
-        conn.commit.assert_called_once_with()
-        conn.close.assert_called_once_with()
-        assert "Seeded deployment flow config converged: yoke-stage-release" in (
-            capsys.readouterr().out
-        )
-
-    def test_unseeded_flow_config_does_not_repair_seed_stage(self):
-        with mock.patch.object(
-            deploy_pipeline, "ensure_seed_stage",
-        ) as ensure_stage:
-            deploy_pipeline._converge_seeded_flow_config("custom-flow")
-
-        ensure_stage.assert_not_called()
-
-    def test_release_control_plane_env_prefers_explicit_label(self, monkeypatch):
-        monkeypatch.setenv("YOKE_RELEASE_CONTROL_PLANE_ENV", "stage-db-admin")
-        monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
-        monkeypatch.setenv("YOKE_PG_DSN", "postgres://example")
-
-        assert deploy_pipeline._release_control_plane_env() == "stage"
-
-    def test_release_control_plane_env_falls_back_to_active_env(self, monkeypatch):
-        monkeypatch.delenv("YOKE_RELEASE_CONTROL_PLANE_ENV", raising=False)
+    def test_release_control_plane_uses_active_environment(self, monkeypatch):
         monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
 
         assert deploy_pipeline._release_control_plane_env() == "prod"
 
-    def test_release_control_plane_env_describes_bare_dsn(self, monkeypatch):
-        monkeypatch.delenv("YOKE_RELEASE_CONTROL_PLANE_ENV", raising=False)
+    def test_release_control_plane_reports_unbound_environment(self, monkeypatch):
         monkeypatch.delenv("YOKE_ENV", raising=False)
-        monkeypatch.setenv("YOKE_PG_DSN", "postgres://example")
 
-        assert deploy_pipeline._release_control_plane_env() == "dsn"
+        assert deploy_pipeline._release_control_plane_env() == "unbound"
 
 
 class TestDeployPipelineProjectSettings:

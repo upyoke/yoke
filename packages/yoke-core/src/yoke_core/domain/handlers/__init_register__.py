@@ -26,12 +26,14 @@ import threading
 from yoke_core.domain import yoke_function_registry
 
 from yoke_core.domain.handlers import (
+    _register_capabilities_read,
     _register_claims,
     _register_db_read,
     _register_deployment,
     _register_ephemeral_env,
     _register_epic_tasks,
     _register_events_reads,
+    _register_frontier,
     _register_github,
     _register_github_actions,
     _register_hooks,
@@ -58,6 +60,7 @@ from yoke_core.domain.handlers import (
     _register_sessions,
     _register_strategy,
     _register_templates,
+    _register_workflows,
 )
 
 _DOMAIN_REGISTRARS = (
@@ -80,6 +83,7 @@ _DOMAIN_REGISTRARS = (
     _register_project_snapshot,
     _register_project_github_binding,
     _register_projects,
+    _register_capabilities_read,
     _register_organizations,
     _register_identity,
     _register_qa_crud,
@@ -88,11 +92,13 @@ _DOMAIN_REGISTRARS = (
     _register_ouroboros_reads,
     _register_shepherd_reads,
     _register_sessions,
+    _register_frontier,
     _register_hooks,
     _register_github_actions,
     _register_github,
     _register_scratch,
     _register_strategy,
+    _register_workflows,
 )
 
 _REGISTRATION_LOCK = threading.Lock()

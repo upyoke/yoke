@@ -68,52 +68,6 @@ from yoke_core.engines.doctor_registry import (  # noqa: F401
 )
 
 
-def _render_deferred_cleanup_addendum(conn) -> str:
-    """List sessions currently in deferred-cleanup state.
-
-    A deferred-cleanup session is one for which a
-    ``HarnessSessionEndDeferred`` event fired without a follow-up
-    ``HarnessSessionEnded`` for the same session. The operator should
-    see when defense kicked in so they can investigate stalled sessions
-    that never re-armed.
-    """
-    try:
-        rows = conn.execute(
-            "SELECT d.session_id, d.item_id, d.envelope, d.created_at "
-            "FROM events d "
-            "WHERE d.event_name = 'HarnessSessionEndDeferred' "
-            "  AND NOT EXISTS ("
-            "    SELECT 1 FROM events e "
-            "    WHERE e.session_id = d.session_id "
-            "      AND e.event_name = 'HarnessSessionEnded' "
-            "      AND e.id > d.id"
-            "  ) "
-            "ORDER BY d.id DESC LIMIT 25"
-        ).fetchall()
-    except Exception:
-        return ""
-    if not rows:
-        return ""
-    lines = ["", "## Deferred-Cleanup Sessions",
-             "Sessions whose SessionEnd was deferred and have not yet ended:"]
-    for row in rows:
-        sid = row[0] if not isinstance(row, dict) else row["session_id"]
-        item = row[1] if not isinstance(row, dict) else row["item_id"]
-        envelope = row[2] if not isinstance(row, dict) else row["envelope"]
-        created = row[3] if not isinstance(row, dict) else row["created_at"]
-        defer_reason = ""
-        try:
-            import json as _json
-            data = _json.loads(envelope or "{}")
-            defer_reason = data.get("defer_reason", "")
-        except Exception:
-            defer_reason = ""
-        lines.append(
-            f"- session={sid} item={item or 'n/a'} reason={defer_reason or 'unknown'} since={created}"
-        )
-    return "\n".join(lines) + "\n"
-
-
 def remediation_with_footer(prompt_text: str) -> str:
     """Append the field-note footer to one HC's remediation prompt.
 
@@ -154,13 +108,10 @@ def run_checks(args: DoctorArgs) -> int:
         for new_record in rec.results[pre_len:]:
             print(f"{new_record.check_id}: {new_record.result}", flush=True)
 
-    addendum = _render_deferred_cleanup_addendum(conn)
     conn.close()
 
     _attach_remediation_footers(rec)
     report = rec.format_report()
-    if addendum:
-        report = report + "\n" + addendum
     print(report)
 
     if args.file:

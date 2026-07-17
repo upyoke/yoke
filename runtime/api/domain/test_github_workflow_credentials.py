@@ -14,17 +14,21 @@ def _workflow_sources() -> dict[str, str]:
     }
 
 
-def test_workflows_only_reference_native_actions_token() -> None:
+def test_workflows_only_reference_reviewed_tokens() -> None:
     secret_refs = {
         secret_ref
         for source in _workflow_sources().values()
         for secret_ref in re.findall(r"secrets\.([A-Za-z_0-9]+)", source)
     }
 
-    assert secret_refs <= {"GITHUB_TOKEN"}
+    assert secret_refs <= {
+        "GITHUB_TOKEN",
+        "YOKE_PLATFORM_RELEASE_API_TOKEN",
+        "YOKE_RELEASE_API_TOKEN",
+    }
 
 
-def test_product_repo_does_not_dispatch_cross_repository_deploys() -> None:
+def test_product_repo_does_not_bypass_scoped_dispatch_authority() -> None:
     sources = _workflow_sources()
 
     for workflow_name, source in sources.items():

@@ -153,6 +153,27 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "universe export dumps the machine-held database via the engine",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py",
+        "yoke_core.domain.local_universe_import",
+    ): (
+        "local_engine_activation",
+        "local import restores only the active non-production local universe",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/universe_export_download.py",
+        "yoke_core.domain.universe_export",
+    ): (
+        "self_host_export_limits",
+        "self-host HTTPS export reuses the engine-owned export time bound",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/universe_export_download.py",
+        "yoke_core.domain.universe_portability",
+    ): (
+        "self_host_export_limits",
+        "self-host HTTPS export reuses the engine-owned archive size bound",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/local_universe.py",
         "yoke_core.domain.db_backend",
     ): (
@@ -175,6 +196,14 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py",
+        "yoke_core.api.server_entrypoint",
+    ): (
+        "local_engine_activation",
+        "the local-universe UI boot converges the embedded engine schema "
+        "before serving",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py",
         "yoke_core.ui.server",
     ): (
         "local_engine_activation",
@@ -183,7 +212,7 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
         "yoke_core.domain.deploy_core_container",
-    ): ("source_dev_admin", "explicit db-admin setup DSN resolver"),
+    ): ("source_dev_admin", "explicit db-admin setup cloud binding resolver"),
     (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
         "yoke_core.domain.deploy_environment_settings",
@@ -214,6 +243,34 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ): (
         "source_dev_admin",
         "explicit runner-fleet credential-scoped child-process helper",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py",
+        "yoke_core.domain.project_renderer_values",
+    ): (
+        "client_local_execution",
+        "stack-scoped Pulumi execution resolves its installed template root locally",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py",
+        "yoke_core.tools.pulumi_exec",
+    ): (
+        "client_local_execution",
+        "stack-scoped Pulumi execution runs the capability-authorized local child",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/pulumi_stack_config_loader.py",
+        "yoke_core.domain.db_helpers",
+    ): (
+        "local_engine_activation",
+        "local-postgres stack config materialization reads the bound local universe",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/pulumi_stack_config_loader.py",
+        "yoke_core.domain.project_renderer_pulumi_stack_config",
+    ): (
+        "local_engine_activation",
+        "local-postgres stack config materialization uses the installed engine renderer",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/project_install/source_dev.py",

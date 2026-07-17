@@ -4,7 +4,7 @@ Detail pages for the delivery pipeline owned by the Usher. The high-level owners
 
 ## Deployment Runs
 
-Stage authority now lives on the `deployment_runs` row (`current_stage` column), not on individual items. A deployment run groups one or more items into a single pipeline execution for ticket delivery, or zero items for an environment-level deploy such as a Yoke prod/stage redeploy.
+Stage authority now lives on the `deployment_runs` row (`current_stage` column), not on individual items. A deployment run groups one or more items into a single pipeline execution for ticket delivery.
 
 **Run statuses:** `created → executing → succeeded | failed | cancelled`
 
@@ -13,42 +13,11 @@ Stage authority now lives on the `deployment_runs` row (`current_stage` column),
 - Items transition to `release` when the run starts `executing`
 - Items transition to `done` when the run `succeeded` and all blocking `post_deploy` and `manual_acceptance` QA is satisfied
 
-**The `deploy_stage` column** on the `items` table is retained as a read cache during the transition period, kept in sync with the run's `current_stage`. New code should read stage from the run, not from the item. See `runtime/api/domain/approval.py` constants `STAGE_AUTHORITY_FIELD` (`current_stage`) and `STAGE_CACHE_FIELD` (`deploy_stage`) for the canonical machine-readable distinction.
-
-**Environment-level runs:** For an operator-attended Yoke prod/stage redeploy, create the run from the flow id and execute the run id. Do not create a backlog item just to satisfy membership. These ticketless runs are source-dev/admin or audited break-glass operations because they use the `<release-control-plane-env>-db-admin` local-Postgres authority; normal product reads stay on HTTPS/API-backed `yoke ...` wrappers or `yoke db read`. The release control plane is where `deployment_runs` and deployment events are written; `target_env` is the environment being changed. Normal operator releases use `release_control_plane_env=prod`, including stage target deploys, so release history stays in one place. A stage-isolated rehearsal uses `release_control_plane_env=stage` and `target_env=stage`. The deploy-owner project owns the environment and flow rows; after re-parenting it may differ from the Yoke product project, whose checkout supplies the deploy code, image build context, and release SHA.
-
-```bash
-release_control_plane_env=<prod-or-stage>
-target_env=<target-env>
-target_branch=<main-or-stage>
-source_checkout=<source-checkout>
-deploy_owner_project=<deploy-owner-project>
-export YOKE_ENV="${release_control_plane_env}-db-admin"
-export YOKE_RELEASE_CONTROL_PLANE_ENV="$release_control_plane_env"
-export YOKE_GITHUB_ACTIONS_RELAY_ENV="$release_control_plane_env"
-git -C "$source_checkout" fetch origin "$target_branch"
-git -C "$source_checkout" checkout --detach FETCH_HEAD
-python3 -m yoke_core.cli.db_router runs create-run "$deploy_owner_project" "yoke-${target_env}-release" --target-env "$target_env" --created-by operator
-python3 -m yoke_core.tools.watch_deploy --product-src "$source_checkout" -- {run-id}
-```
-
-The watcher validates the clean checkout and derives the registry's canonical
-12-character image tag from its exact `HEAD`. A legacy explicit `--image-tag`
-is accepted only when it resolves to that same commit and is canonicalized
-before dispatch.
-
-These runs leave `deployment_run_items` empty by design. The pipeline skips item branch/status writes but still advances `deployment_runs.current_stage` / `status` and emits run-level deployment events.
-
-GitHub Actions authority is never ambient. The normal recipe selects the
-hosted HTTPS relay above. Only an attended first deploy that introduces or
-repairs that relay may replace the relay export with
-`YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1`; setting both or neither fails closed.
-
-Do not use `YOKE_ENV=<env>-db-admin` as a routine retry hint when a product read, `yoke db read`, or domain-specific wrapper fails. That direct authority is only for the sanctioned admin deploy/runbook path above or the break-glass procedures in [break-glass.md](../admin/break-glass.md).
+**The `deploy_stage` column** on the `items` table is retained as a read cache during the transition period, kept in sync with the run's `current_stage`. New code should read stage from the run, not from the item. See `packages/yoke-core/src/yoke_core/domain/approval.py` constants `STAGE_AUTHORITY_FIELD` (`current_stage`) and `STAGE_CACHE_FIELD` (`deploy_stage`) for the canonical machine-readable distinction.
 
 ## Halt States
 
-> **Vocabulary note:** Halt states (`awaiting-approval`, `needs-capability`) are **run-level conditions**, not item lifecycle statuses. Items at a halted run remain at `status=release`. The canonical halt-state registry is `runtime/api/domain/approval.py`. The canonical lifecycle registry is `runtime/api/domain/lifecycle.py`.
+> **Vocabulary note:** Halt states (`awaiting-approval`, `needs-capability`) are **run-level conditions**, not item lifecycle statuses. Items at a halted run remain at `status=release`. The canonical halt-state registry is `packages/yoke-core/src/yoke_core/domain/approval.py`. The canonical lifecycle registry is `packages/yoke-core/src/yoke_core/domain/lifecycle.py`.
 
 Two conditions act as halt states during deployment run execution (items at these halt states remain at `status=release`):
 
@@ -68,7 +37,7 @@ When an executor encounters a missing capability, it follows the capability self
 2. Usher records the capability need as an event via `yoke_core.domain.events.emit_event`
 3. If the template is novel (`TEMPLATE = 'NEW'`), Usher saves it to `capability_templates`
 4. Usher halts the deployment run and exits (items stay at `release`)
-5. Operator configures the capability (adds row to `project_capabilities`) and re-runs `/yoke usher YOK-N` for item-bound delivery, or re-runs `watch_deploy --product-src "$source_checkout" -- {run-id}` for an item-less environment deploy; every retry or `--from-stage` resume must preserve the same product checkout
+5. Operator configures the capability (adds row to `project_capabilities`) and re-runs `/yoke usher YOK-N`
 
 ## Human Approval Gate
 
@@ -82,7 +51,7 @@ When the pipeline encounters a `human-approval` executor stage:
 
 ## Executor Dispatch
 
-The Python pipeline owner is `yoke_core.domain.deploy_pipeline`; long runs should be executed through `yoke_core.tools.watch_deploy`. The pipeline dispatches each stage by `executor` (or by `kind` for governed migration stages). Known current types:
+The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline dispatches each stage by `executor` (or by `kind` for governed migration stages). Known current types:
 
 | Stage shape | Executor/kind | Description | Exit codes |
 |-----------------|--------|-------------|------------|

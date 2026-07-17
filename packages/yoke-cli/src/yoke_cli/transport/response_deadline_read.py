@@ -6,7 +6,7 @@ import io
 import math
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, BinaryIO
 
 
 monotonic = time.monotonic
@@ -84,6 +84,46 @@ def read_response_body(
     return b"".join(chunks)
 
 
+def copy_response_body(
+    response: Any,
+    destination: BinaryIO,
+    *,
+    limit_bytes: int,
+    deadline: float,
+    clock: Callable[[], float] | None = None,
+    chunk_bytes: int = 1024 * 1024,
+) -> int:
+    """Stream a bounded response into ``destination`` under one deadline."""
+    if isinstance(limit_bytes, bool) or not isinstance(limit_bytes, int):
+        raise ValueError("response byte limit must be a positive integer")
+    if limit_bytes <= 0 or chunk_bytes <= 0:
+        raise ValueError("response and chunk byte limits must be positive")
+    if not math.isfinite(deadline):
+        raise ValueError("response deadline must be finite")
+    selected_clock = clock or monotonic
+    read = getattr(response, "read1", None)
+    if not callable(read):
+        read = getattr(response, "read", None)
+    if not callable(read):
+        raise ResponseReadError("response reader did not return bytes")
+    written = 0
+    while True:
+        _set_remaining_socket_timeout(response, deadline, selected_clock)
+        try:
+            chunk = _as_bytes(read(min(chunk_bytes, limit_bytes - written + 1)))
+        except TimeoutError:
+            raise ResponseReadDeadlineError(
+                "response body exceeded its time limit"
+            ) from None
+        _check_deadline(deadline, selected_clock)
+        if not chunk:
+            return written
+        written += len(chunk)
+        if written > limit_bytes:
+            raise ResponseReadError("response body exceeded its byte limit")
+        destination.write(chunk)
+
+
 def _as_bytes(raw: Any) -> bytes:
     if not isinstance(raw, (bytes, bytearray, memoryview)):
         raise ResponseReadError("response reader did not return bytes")
@@ -145,6 +185,7 @@ def _set_remaining_socket_timeout(
 __all__ = [
     "ResponseReadDeadlineError",
     "ResponseReadError",
+    "copy_response_body",
     "deadline_after",
     "read_response_body",
 ]

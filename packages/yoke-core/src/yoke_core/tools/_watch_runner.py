@@ -188,6 +188,13 @@ def run_watcher(
             # Launch errors must reach all surfaces, including raw.
             raw_f.write(err_line)
             _emit_immediate(err_line, progress_f=progress_f, out=out)
+            # Armed followers (watch_tail) exit only on the sentinel, so
+            # the launch-error path must still write the exit footer.
+            footer = (
+                f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} "
+                f"raw={raw_capture}\n"
+            )
+            _emit_immediate(footer, progress_f=progress_f, out=out)
             return WRAPPER_LAUNCH_ERROR
 
         assert proc.stdout is not None
@@ -276,7 +283,6 @@ def print_streaming_pair(
     raw_capture: Path,
     progress_capture: Path,
     wrapper_options: Sequence[str] = (),
-    env_prefix: str = "",
     out: Optional[TextIO] = None,
 ) -> None:
     """Emit a ready-to-paste background command + progress-tail pair.
@@ -284,7 +290,11 @@ def print_streaming_pair(
     The wrapper has already filtered, so the progress command uses
     ``watch_tail`` against the progress capture. Harnesses can map the
     first line to their background-command surface and the second line
-    to their streaming/progress surface.
+    to their streaming/progress surface. Both command lines anchor to
+    the invocation cwd and run through ``uv run --frozen`` so the pasted
+    command binds this checkout's locked dev dependencies and source
+    packages — ambient ``python3`` may resolve an interpreter that has
+    neither.
     """
     stream = out or sys.stdout
     cmd_args = shlex.join(wrapper_args)
@@ -296,11 +306,13 @@ def print_streaming_pair(
     # safe to copy-paste even when a segment contains whitespace.
     raw_q = shlex.quote(str(raw_capture))
     progress_q = shlex.quote(str(progress_capture))
-    # Anchor the emitted command so background execution cannot drift checkouts.
+    # Anchor both emitted commands so execution cannot drift checkouts,
+    # and let ``uv run --frozen`` resolve the anchored checkout's locked
+    # environment (creating its venv if missing).
     cwd_q = shlex.quote(os.getcwd())
-    prefix = f"{env_prefix} " if env_prefix else ""
+    locked_invocation = f"cd {cwd_q} && uv run --frozen python3 -m"
     bash_invocation = (
-        f"cd {cwd_q} && {prefix}python3 -m {wrapper_module} {option_prefix}"
+        f"{locked_invocation} {wrapper_module} {option_prefix}"
         f"--raw-capture {raw_q} "
         f"--progress-capture {progress_q} "
         f"-- {cmd_args}"
@@ -328,7 +340,7 @@ def print_streaming_pair(
         "# Auto-exits when the wrapper writes its exit sentinel.\n"
     )
     stream.write(
-        f"{prefix}python3 -m yoke_core.tools.watch_tail {progress_q}\n"
+        f"{locked_invocation} yoke_core.tools.watch_tail {progress_q}\n"
     )
     stream.write("\n")
     stream.write(

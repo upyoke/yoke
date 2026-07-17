@@ -1,9 +1,8 @@
-"""``source_sha`` resolution coverage for the github-actions-workflow executor
-(sibling of :mod:`test_deploy_pipeline_dispatcher`, 350-line cap split).
+"""Immutable source resolution for the github-actions-workflow executor.
 
-The publish must ship the deployed branch's remote HEAD, never the local
-working-tree HEAD — an unpushed/diverged local commit would die at
-``git checkout`` in the dispatched workflow ("reference is not a tree").
+The publish must ship the deployment run's saved commit even when the local
+checkout or remote branch moves before a resume. Historical version lineages
+resolve only through their annotated release tag's peeled commit.
 """
 
 from __future__ import annotations
@@ -28,8 +27,11 @@ class TestPublishShaFromDeployedRef:
             )
         return _fake
 
-    def test_publishes_deployed_ref_not_local_head(self):
+    def test_publishes_saved_run_lineage_after_remote_branch_moves(self):
         gh_calls = []
+        ci_gate = mock.Mock(return_value=(True, ""))
+        saved_sha = "a" * 40
+        moved_main_sha = "b" * 40
 
         def _fake_gh(*args, **kwargs):
             gh_calls.append(args)
@@ -38,11 +40,11 @@ class TestPublishShaFromDeployedRef:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="")
 
         with mock.patch.object(
-            deploy_pipeline_github_workflow, "_check_ci_gate", return_value=(True, ""),
+            deploy_pipeline_github_workflow, "_check_ci_gate", ci_gate,
         ), mock.patch.object(
             deploy_pipeline_github_workflow, "_run_cmd",
             side_effect=self._run_cmd_stub(
-                ls_remote_sha="deadbeefcafe0000", local_head_sha="localunpushed",
+                ls_remote_sha=moved_main_sha, local_head_sha="localunpushed",
             ),
         ), mock.patch.object(
             deploy_pipeline_github_workflow, "_github_actions", side_effect=_fake_gh,
@@ -67,15 +69,50 @@ class TestPublishShaFromDeployedRef:
                 timeout_min=30,
                 fresh=False,
                 gate_branch="main",
+                release_lineage=saved_sha,
                 sd="/tmp/sd",
             )
 
         assert (rc, diag) == (0, "")
         trigger = next(c for c in gh_calls if c and c[0] == "trigger")
-        assert "source_sha=deadbeefcafe0000" in trigger
+        assert f"source_sha={saved_sha}" in trigger
+        assert f"source_sha={moved_main_sha}" not in trigger
         assert "source_sha=localunpushed" not in trigger
+        assert ci_gate.call_args.kwargs["head_sha"] == saved_sha
 
-    def test_fail_fast_when_deploy_branch_absent_from_remote(self):
+    def test_correlated_workflow_gets_release_sized_timeout(self):
+        poll = mock.Mock(return_value=(0, "completed: success"))
+        with mock.patch.object(
+            deploy_pipeline_github_workflow, "_check_ci_gate",
+            return_value=(True, ""),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_run_cmd",
+            side_effect=self._run_cmd_stub(ls_remote_sha="deadbeef"),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="run-9\n",
+            ),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_poll_github_actions", poll,
+        ):
+            rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
+                {
+                    "workflow": "release.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
+                    "reconcile_by_head_sha": False,
+                },
+                name="hosted-release", run_id="run-test", member_items=[],
+                github_repo="owner/repo", project="yoke",
+                project_repo_path="/repo", timeout_min=30, fresh=False,
+                gate_branch="main", release_lineage="a" * 40,
+                sd="/tmp/sd",
+            )
+
+        assert (rc, diag) == (0, "")
+        assert poll.call_args.args[2] == 120 * 60
+
+    def test_fail_fast_when_run_has_no_release_lineage(self):
         gh_calls = []
 
         def _fake_gh(*args, **kwargs):
@@ -107,13 +144,91 @@ class TestPublishShaFromDeployedRef:
                 timeout_min=30,
                 fresh=False,
                 gate_branch="stage",
+                release_lineage="",
                 sd="/tmp/sd",
             )
 
         assert rc == 1
-        assert "stage" in diag and "remote" in diag
+        assert "immutable release_lineage" in diag
         # The doomed publish is never dispatched.
         assert not [c for c in gh_calls if c and c[0] == "trigger"]
+
+    def test_version_lineage_resolves_annotated_tag_peeled_commit(self):
+        tag_object = "c" * 40
+        tag_commit = "d" * 40
+        version = "v0.1.1+launch.51"
+        result = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=(
+                f"{tag_object}\trefs/tags/{version}\n"
+                f"{tag_commit}\trefs/tags/{version}^{{}}\n"
+            ),
+        )
+        with mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_run_cmd",
+            return_value=result,
+        ) as run_cmd:
+            sha, error = (
+                deploy_pipeline_github_workflow._resolve_release_lineage_sha(
+                    version,
+                    "/repo",
+                    "main",
+                )
+            )
+
+        assert (sha, error) == (tag_commit, "")
+        run_cmd.assert_called_once_with([
+            "git", "-C", "/repo", "ls-remote", "origin",
+            f"refs/tags/{version}", f"refs/tags/{version}^{{}}",
+        ])
+
+    def test_version_lineage_refuses_missing_or_lightweight_tag(self):
+        version = "v0.1.1+launch.51"
+        for stdout in (
+            "",
+            f"{'c' * 40}\trefs/tags/{version}\n",
+        ):
+            with mock.patch.object(
+                deploy_pipeline_github_workflow,
+                "_run_cmd",
+                return_value=subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout=stdout,
+                ),
+            ):
+                sha, error = (
+                    deploy_pipeline_github_workflow._resolve_release_lineage_sha(
+                        version,
+                        "/repo",
+                        "main",
+                    )
+                )
+
+            assert sha == ""
+            assert "annotated release-tag commit" in error
+
+    def test_commit_lineage_must_be_reachable_from_remote_gate_branch(self):
+        fabricated_sha = "f" * 40
+        with mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_run_cmd",
+            side_effect=[
+                subprocess.CompletedProcess(args=[], returncode=0, stdout=""),
+                subprocess.CompletedProcess(args=[], returncode=1, stdout=""),
+            ],
+        ):
+            sha, error = (
+                deploy_pipeline_github_workflow._resolve_release_lineage_sha(
+                    fabricated_sha,
+                    "/repo",
+                    "main",
+                )
+            )
+
+        assert sha == ""
+        assert fabricated_sha in error
+        assert "reachable from origin/main" in error
 
     def test_explicit_image_pin_resolves_in_product_checkout(self):
         gh_calls = []
@@ -129,6 +244,9 @@ class TestPublishShaFromDeployedRef:
         with mock.patch.object(
             deploy_pipeline_github_workflow, "_check_ci_gate",
             return_value=(True, ""),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_run_cmd",
+            side_effect=self._run_cmd_stub(ls_remote_sha="deployhead"),
         ), mock.patch.object(
             deploy_product_source, "resolve_product_commit",
             return_value=full_commit,
@@ -150,7 +268,8 @@ class TestPublishShaFromDeployedRef:
                 github_repo="deploy-owner/workflows", project="platform",
                 project_repo_path="/deploy-owner", product_repo_path="/product",
                 image_tag="abc123def456", timeout_min=30, fresh=False,
-                gate_branch="main", sd="/tmp/sd",
+                gate_branch="main", release_lineage="a" * 40,
+                sd="/tmp/sd",
             )
 
         assert (rc, diag) == (0, "")

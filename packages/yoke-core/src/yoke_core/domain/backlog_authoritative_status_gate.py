@@ -16,6 +16,10 @@ from __future__ import annotations
 from typing import Optional
 
 from . import db_backend
+from .backlog_status_gate_points import (
+    PLAN_SIMULATION_TARGETS,
+    QA_VERIFICATION_TARGETS,
+)
 
 
 _REVIEWED_IMPLEMENTATION_TARGET = "reviewed-implementation"
@@ -101,7 +105,7 @@ def _run_authoritative_status_gate(
     if boundary_result is not None:
         return boundary_result
 
-    if target_status == "planned":
+    if target_status in PLAN_SIMULATION_TARGETS:
         plan_result = _evaluate_plan_simulation(item_id=item_id, db_path=db_path)
         if plan_result is not None:
             return plan_result
@@ -112,13 +116,6 @@ def _run_authoritative_status_gate(
         db_path=db_path,
     )
 
-
-_QA_VERIFICATION_TARGETS = frozenset({
-    "reviewed-implementation",
-    "implemented",
-    "release",
-    "done",
-})
 
 _QA_VERIFICATION_ERROR_CODES = {
     "reviewed-implementation": "GATE_QA_REVIEWED_IMPLEMENTATION",
@@ -138,7 +135,7 @@ def _evaluate_qa_verification(
     Returns the canonical failure payload, or ``None`` when the gate is
     satisfied or unavailable for this target.
     """
-    if target_status not in _QA_VERIFICATION_TARGETS:
+    if target_status not in QA_VERIFICATION_TARGETS:
         return None
     try:
         from yoke_core.domain import qa_gates
@@ -154,7 +151,7 @@ def _evaluate_qa_verification(
                 transition_name=target_status,
             )
             error_code = _QA_VERIFICATION_ERROR_CODES[target_status]
-    except db_backend.operational_error_types(conn) as exc:
+    except db_backend.operational_error_types() as exc:
         # Some isolated tests still seed a minimal legacy QA schema. Skip the
         # richer gate when the required columns are absent and fall back to the
         # preloaded mutation-layer counts for that harness.

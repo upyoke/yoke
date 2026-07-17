@@ -11,7 +11,7 @@ from yoke_core.domain import retired_schema_registry as rsr
 from yoke_core.domain.db_mutation_gate import (
     check_implementing_to_reviewing_implementation_gate,
 )
-from yoke_core.domain.migration_model_capability import yoke_primary_seed
+from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from yoke_core.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
     _seed_flow_with_migration_apply,
@@ -47,7 +47,7 @@ def _stage_apply_with_table_surface(
 ) -> int:
     conn, repo_path = gate_db
     _seed_project(conn, "yoke", repo_path)
-    _seed_capability(conn, "yoke", yoke_primary_seed())
+    _seed_capability(conn, "yoke", governed_postgres_test_seed())
     _seed_flow_with_migration_apply(conn, "yoke")
     _write_module(repo_path, "runtime/api/domain/migrations", identifier)
     profile = {

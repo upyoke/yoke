@@ -34,6 +34,13 @@ def test_representative_product_client_rows_are_separate_from_source_dev():
                     "yoke dev path-snapshot-prewarm"):
         assert rows[command].disposition == inventory.SOURCE_DEV_ADMIN
     assert rows["yoke dev setup"].transport_branch == "source-dev-admin-local"
+    db_admin = rows["yoke dev db-admin setup"]
+    assert db_admin.transport_branch == (
+        "named-https-control-plane-read-plus-source-dev-admin-local"
+    )
+    assert "named HTTPS control-plane env" in db_admin.config_required
+    assert "db.read.run" in db_admin.capability_required
+    assert "fail-closed named-HTTPS" in db_admin.expected_refusal_shape
 
 def test_hook_and_operator_boundaries_keep_their_own_dispositions():
     rows = _rows()

@@ -48,7 +48,7 @@ class TestReflectionCaptureDocs:
         # in the conduct dispatch artifacts so future agents see WHO
         # captures reflections.
         text = _read_dispatch_context(docs["dispatch_context"])
-        assert "reflection_capture_hook.py" in text
+        assert "yoke_core.domain.reflection_capture_hook" in text
 
     def test_dispatch_context_does_not_hardcode_context_placeholder(self, docs):
         text = _read_dispatch_context(docs["dispatch_context"])

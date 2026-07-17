@@ -18,12 +18,20 @@ def _run(*argv: str):
 
     def dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
         captured.append(request)
+        result = (
+            {"values": {"pulumi.activation_state": "render_only"}}
+            if request.function == "projects.environment_settings.get"
+            else {
+                "environment_id": "yoke-api-prod",
+                "changed_paths": ["pulumi.activation_state", "servers"],
+            }
+        )
         return FunctionCallResponse(
             success=True,
             function=request.function,
             version=request.version,
             request_id=request.request_id,
-            result={"settings_json": '{"pulumi":{"activation_state":"render_only"}}'},
+            result=result,
         )
 
     stdout = io.StringIO()
@@ -51,6 +59,8 @@ def test_get_dispatches_environment_identity():
         "platform",
         "--environment-id",
         "yoke-api-prod",
+        "--path",
+        "pulumi.activation_state",
     )
     assert rc == 0
     assert "render_only" in out
@@ -58,6 +68,7 @@ def test_get_dispatches_environment_identity():
     assert calls[0].payload == {
         "project": "platform",
         "environment_id": "yoke-api-prod",
+        "paths": ["pulumi.activation_state"],
     }
 
 

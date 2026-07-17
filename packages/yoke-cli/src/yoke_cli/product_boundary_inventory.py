@@ -37,7 +37,7 @@ DISPOSITIONS = (PRODUCT_CLIENT, HTTPS_RELAY, CLIENT_LOCAL_HELPER, HOOK_LOCAL_SUB
 def _commands(text: str) -> frozenset[str]:
     return frozenset(f"yoke {line}" for line in text.split("|") if line)
 
-_PRODUCT = _commands("auth set|config example|connect|connection remove|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host import|self-host init|status|templates fetch|templates list|ui|universe export|universe validate")
+_PRODUCT = _commands("auth set|config example|connect|connection remove|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host import|self-host init|status|templates fetch|templates list|ui|universe export|universe import|universe validate")
 _PROJECT_INSTALL = _commands("project install|project refresh|project snapshot sync|project uninstall")
 _SOURCE_DEV = _commands("agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets check|packets render|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github")
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
@@ -122,7 +122,7 @@ def _make_row(command: str, function_id: str | None, edges: tuple[ImportEdge, ..
 
 def _disposition(command: str, edges: Sequence[ImportEdge], operation: ops.OperationEntry | None) -> str:
     classes = {edge.classification for edge in edges}
-    if command in _HOOKS or command.startswith("helper yoke_cli.hooks."):
+    if command in _HOOKS:
         return HOOK_LOCAL_SUBSET
     if command in _SOURCE_DEV:
         return SOURCE_DEV_ADMIN
@@ -146,6 +146,8 @@ def _disposition(command: str, edges: Sequence[ImportEdge], operation: ops.Opera
 def _branch(command: str, disposition: str, operation: ops.OperationEntry | None) -> str:
     if command in _PROJECT_INSTALL:
         return "project-install-https-bundle"
+    if command == "yoke dev db-admin setup":
+        return "named-https-control-plane-read-plus-source-dev-admin-local"
     by_disposition = {
         PRODUCT_CLIENT: "product-client-local",
         HTTPS_RELAY: "https-relay",
@@ -163,7 +165,9 @@ def _config(command: str, disposition: str) -> str:
         "yoke github connect": "machine config path and GitHub App authorization source", "yoke github disconnect": "machine config path and local authorization removal",
         "yoke onboard": "target config path, env, API URL, GitHub App authorization, optional local checkout handoff inputs",
         "yoke dev setup": "Yoke source checkout; optional local-postgres DSN inputs",
-        "yoke dev db-admin setup": "project/env deploy settings plus capability-owned AWS credentials",
+        "yoke dev db-admin setup": (
+            "named HTTPS control-plane env plus project/env deploy settings"
+        ),
         "yoke aws exec": "project aws-admin capability settings plus local AWS CLI",
         "yoke runner-fleet exec": (
             "versioned project stack-config snapshot plus child command"
@@ -185,7 +189,7 @@ def _capability(command: str, disposition: str) -> str:
     if command in _PROJECT_INSTALL:
         return "project install bundle endpoint"
     if command == "yoke dev setup": return "yoke-core source package for apply/source-link repair"  # noqa: E701
-    if command == "yoke dev db-admin setup": return "project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
+    if command == "yoke dev db-admin setup": return "named HTTPS db.read.run plus project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
     if command == "yoke aws exec": return "project aws-admin capability credentials"  # noqa: E701
     if command == "yoke runner-fleet exec": return "project aws-admin plus repository-bound GitHub App authority"  # noqa: E701
     if disposition == HTTPS_RELAY:
@@ -210,6 +214,8 @@ def _refusal(command: str, disposition: str, operation: ops.OperationEntry | Non
         return "machine-config issue report; no yoke-core import"
     if command.startswith("yoke core "):
         return "typed Docker/Colima/local-core guidance; no yoke-core import"
+    if command == "yoke dev db-admin setup":
+        return "fail-closed named-HTTPS binding or exact database-identity error"
     if disposition == HTTPS_RELAY:
         return "FunctionCallResponse error envelope"
     if disposition == HOOK_LOCAL_SUBSET:

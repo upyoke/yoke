@@ -206,3 +206,34 @@ def test_channel_resolution_failure_prints_reason_and_rerun() -> None:
     assert "Try again:" in rendered
     assert "curl -fsSL https://api.stage.upyoke.com/install | bash" in rendered
     assert "Traceback" not in rendered
+
+
+def test_latest_channel_failure_points_to_stage_distribution_origin() -> None:
+    installer_mod = load_installer()
+    output = io.StringIO()
+    runner = RecordingRunner()
+
+    def failing_fetcher(url: str) -> bytes:
+        raise installer_mod.InstallError(f"could not fetch {url}: HTTP Error 403")
+
+    installer = installer_mod.Installer(
+        _options(installer_mod, channel="latest"),
+        fetcher=failing_fetcher,
+        runner=runner,
+        which=lambda name: f"/usr/bin/{name}",
+        stdout=output,
+    )
+
+    try:
+        installer.run()
+    except installer_mod.InstallError as exc:
+        assert "latest channel is published from" in str(exc)
+    else:
+        raise AssertionError("expected latest channel fetch failure")
+
+    rendered = output.getvalue()
+    assert runner.commands == []
+    assert "https://api.stage.upyoke.com" in rendered
+    assert "pre-stable releases" in rendered
+    assert "curl -fsSL https://api.stage.upyoke.com/install | bash" in rendered
+    assert "curl -fsSL https://api.upyoke.com/install | bash" not in rendered

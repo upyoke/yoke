@@ -55,4 +55,42 @@ PROJECT_COMMANDS: list[dict] = [
             "Do not teach the retained domain-update command for lifecycle writes."
         ),
     },
+    {
+        "topic": "project",
+        "purpose": "Migrate legacy Pulumi operator state",
+        "recipe": (
+            "yoke projects pulumi-state migrate --project <project> "
+            "--site-id <site> --stack <stack> [--apply]"
+        ),
+        "notes": (
+            "Migration is dry-run-default and exact-set, persists a durable "
+            "retry marker, and returns redacted metadata. Stack-config "
+            "registration is admin metadata-only; fetch its body through the "
+            "no-store boundary with `yoke projects "
+            "pulumi-stack-config get --project <project> --stack <stack> "
+            "--output <file>`; execute it with `yoke pulumi exec --project "
+            "<project> --stack <stack> -- preview` (also allows refresh and "
+            "safe file-form import). Local execution reads aws-admin from the "
+            "machine capability store and resolves the selected service's "
+            "repository-bound GitHub App authorization; Actions retains "
+            "ambient OIDC credentials. Generic capability and operator-state "
+            "surfaces are closed."
+        ),
+    },
+    {
+        "topic": "project",
+        "purpose": "Register a live Pulumi checkpoint's operator state",
+        "recipe": (
+            "yoke projects pulumi-state checkpoint-import --project <project> "
+            "--stack <stack> --checkpoint-file <owner-only-export> [--apply]"
+        ),
+        "notes": (
+            "Use this typed dry-run-default boundary when an already-live "
+            "stack has no legacy site settings to migrate. The CLI reads the "
+            "0600 checkpoint locally, extracts only the awskms provider and "
+            "encrypted data key, and returns a redacted receipt. Never copy "
+            "another stack's operator state or write stack_state through raw "
+            "SQL or generic capability-settings surfaces."
+        ),
+    },
 ]

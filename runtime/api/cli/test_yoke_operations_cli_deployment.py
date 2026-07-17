@@ -61,6 +61,9 @@ def test_registry_maps_deployment_tokens_to_function_ids() -> None:
     assert SUBCOMMAND_REGISTRY[("deployment-runs", "get")][0] == (
         "deployment_runs.get"
     )
+    assert SUBCOMMAND_REGISTRY[("deployment-runs", "approve")][0] == (
+        "deployment_runs.approve"
+    )
     assert SUBCOMMAND_REGISTRY[("deployment-runs", "list")][0] == (
         "deployment_runs.list"
     )
@@ -127,13 +130,13 @@ def test_deployment_runs_list_prints_pipe_rows() -> None:
         )
 
     rc, out, _err = _run_capture(
-        stub, "deployment-runs", "list", "--project", "yoke",
+        stub, "deployment-runs", "list", "--project", "yoke", "--limit", "7",
     )
     assert rc == 0
     assert out == "run-20260616-001|yoke|created\n"
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "deployment_runs.list"
-    assert req.payload == {"project": "yoke"}
+    assert req.payload == {"project": "yoke", "limit": 7}
 
 
 def test_deployment_run_update_dispatches_and_prints_nothing() -> None:
@@ -154,6 +157,36 @@ def test_deployment_run_update_dispatches_and_prints_nothing() -> None:
     }
 
 
+def test_deployment_run_approve_dispatches_note_and_prints_transition() -> None:
+    def stub(request: FunctionCallRequest) -> FunctionCallResponse:
+        _CAPTURED_REQUESTS.append(request)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={
+                "run_id": "run-20260616-001",
+                "approved_stage": "production-approval",
+                "next_stage": "production",
+            },
+        )
+
+    rc, out, err = _run_capture(
+        stub,
+        "deployment-runs", "approve", "run-20260616-001",
+        "--note", "stage verified",
+    )
+    assert rc == 0, err
+    assert out == (
+        "Approved run-20260616-001: production-approval -> production\n"
+    )
+    req = _CAPTURED_REQUESTS[-1]
+    assert req.function == "deployment_runs.approve"
+    assert req.target.workflow_run_id == "run-20260616-001"
+    assert req.payload == {"note": "stage verified"}
+
+
 def test_resolve_target_env_dispatches_and_prints_raw_value() -> None:
     def stub(request: FunctionCallRequest) -> FunctionCallResponse:
         _CAPTURED_REQUESTS.append(request)
@@ -164,22 +197,103 @@ def test_resolve_target_env_dispatches_and_prints_raw_value() -> None:
             request_id=request.request_id,
             result={
                 "project": "yoke",
-                "flow": "yoke-prod-release",
-                "target_env": "prod",
+                "flow": "yoke-hosted-production",
+                "target_env": "production",
             },
         )
 
     rc, out, _err = _run_capture(
         stub,
         "deployment-runs", "resolve-target-env",
-        "yoke", "yoke-prod-release",
+        "yoke", "yoke-hosted-production",
     )
     assert rc == 0
-    assert out == "prod\n"
+    assert out == "production\n"
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "deployment_runs.resolve_target_env"
     assert req.target.kind == "global"
     assert req.payload == {
         "project": "yoke",
-        "flow": "yoke-prod-release",
+        "flow": "yoke-hosted-production",
     }
+
+
+def test_registry_maps_deployment_run_create() -> None:
+    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
+
+    assert SUBCOMMAND_REGISTRY[("deployment-runs", "create")][0] == (
+        "deployment_runs.create"
+    )
+
+
+def test_deployment_run_create_dispatches_and_prints_run_id() -> None:
+    def stub(request: FunctionCallRequest) -> FunctionCallResponse:
+        _CAPTURED_REQUESTS.append(request)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={
+                "run_id": "run-20260616-009",
+                "project": "yoke",
+                "flow": "yoke-hosted-production",
+                "target_env": "production",
+                "status": "created",
+            },
+        )
+
+    rc, out, err = _run_capture(
+        stub,
+        "deployment-runs", "create", "yoke", "yoke-hosted-production",
+        "--created-by", "operator",
+    )
+
+    assert rc == 0, err
+    assert out.strip() == "run-20260616-009"
+    request = _CAPTURED_REQUESTS[-1]
+    assert request.function == "deployment_runs.create"
+    assert request.target.kind == "global"
+    assert request.payload == {
+        "project": "yoke",
+        "flow": "yoke-hosted-production",
+        "created_by": "operator",
+    }
+
+
+def test_deployment_run_execute_is_a_client_local_tool() -> None:
+    from yoke_cli.commands.tool_shaped import resolve_tool_shaped
+
+    resolved = resolve_tool_shaped([
+        "deployment-runs", "execute", "run-20260616-009", "--timeout", "90",
+    ])
+    assert resolved is not None
+    adapter, remaining = resolved
+    assert adapter.__name__ == "deployment_runs_execute"
+    assert remaining == ["run-20260616-009", "--timeout", "90"]
+
+
+def test_deployment_run_execute_requires_explicit_db_admin_env() -> None:
+    rc, _out, err = _run_capture(
+        _stub_ok, "deployment-runs", "execute", "run-20260616-009",
+    )
+    assert rc == 2
+    assert "--env prod-db-admin" in err
+
+
+def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None:
+    with patch(
+        "yoke_core.domain.deploy_pipeline.main",
+        return_value=0,
+    ) as pipeline:
+        rc, _out, err = _run_capture(
+            _stub_ok,
+            "--env", "prod-db-admin",
+            "deployment-runs", "execute", "run-20260616-009",
+            "--from-stage", "hosted-release",
+        )
+
+    assert rc == 0, err
+    pipeline.assert_called_once_with([
+        "run-20260616-009", "--from-stage", "hosted-release",
+    ])

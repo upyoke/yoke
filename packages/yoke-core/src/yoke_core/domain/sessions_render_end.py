@@ -34,9 +34,8 @@ def end_session(
     """Mark a session as ended.
 
     Sessions with active unreleased claims are protected from termination
-    by default. When ``release_claims`` is True, the shared
-    destructive guard decides whether the SessionEnd signal is transient
-    and should be deferred, or permanent and safe to release.
+    by default. When ``release_claims`` is True, the destructive
+    claim-release branch releases every active claim before ending.
 
     Args:
         conn: Read-write database connection.
@@ -48,10 +47,12 @@ def end_session(
             still has budget. ``force`` continues to act as the legacy
             kwarg for non-chain guards and is recorded on the terminal
             event for audit.
-        release_claims: When True, evaluate the destructive SessionEnd
-            branch. A pending chainable checkpoint preserves claims;
-            only permanent signals release claims before ending. The
-            Stop hook path leaves this False.
+        release_claims: When True, release active claims through the
+            destructive branch in
+            ``sessions_lifecycle_destructive_guard``. The CHAIN_PENDING
+            guard above still fails closed first when a chainable
+            checkpoint has budget. Hook cleanup paths use
+            :func:`end_session_if_empty` instead and leave this False.
         override_chain_end: When True AND ``chain_end_rationale`` is a
             non-empty string, bypass the CHAIN_PENDING guard. The override
             emits ``ChainDeclineOverridden`` with the rationale, checkpoint
@@ -66,9 +67,6 @@ def end_session(
         SessionError("CHAIN_PENDING"): Session has a pending chainable
             checkpoint and the override flag plus rationale were not
             supplied.
-        SessionError("TRANSIENT_END_DEFERRED"): ``release_claims=True``
-            but the destructive guard refused as transient. Session row
-            unchanged; ``HarnessSessionEndDeferred`` already emitted.
 
     The legacy ``ACTIVE_CLAIM`` rejection no longer fires on the
     no-flags branch: explicit ``session-end`` (CLI / ``/yoke do`` loop
@@ -131,10 +129,10 @@ def end_session(
     ).fetchall()
 
     # Active-claim handling:
-    #   * ``release_claims`` is True — destructive hook path. The
-    #     shared destructive guard decides: a transient SessionEnd
-    #     (chain-budget remaining) defers; a permanent end releases
-    #     and falls through to the normal session-end commit.
+    #   * ``release_claims`` is True — destructive branch. Releases
+    #     all claims and falls through to the normal session-end
+    #     commit; the CHAIN_PENDING guard above has already refused
+    #     any chain-pending session without an authorized override.
     #   * ``release_claims`` is False — explicit no-flags CLI / loop
     #     cleanup path. Auto-release the session's active work-claims
     #     with ``release_reason='session_ended'`` via the typed
@@ -145,24 +143,13 @@ def end_session(
     released_claims: List[Dict[str, Any]] = []
     if active_claim_rows:
         if release_claims:
-            deferred, presence_evidence = handle_release_claims_branch(
+            presence_evidence = handle_release_claims_branch(
                 conn,
                 session_id,
                 force=force,
                 active_claim_rows=active_claim_rows,
                 chain_override_authorized=chain_override_authorized,
             )
-            if deferred:
-                # Returning the unchanged row here previously surfaced as
-                # CLI success=true, masking a no-op as a genuine end.
-                raise SessionError(
-                    "TRANSIENT_END_DEFERRED",
-                    f"Session '{session_id}' end deferred (transient signal: "
-                    "chain budget remaining). Claims remain active; use "
-                    "claim-release to free a stranded claim or invoke "
-                    "session-end with override_chain_end=True plus a "
-                    "rationale to override.",
-                )
         else:
             released_claims = release_session_claims(
                 conn,

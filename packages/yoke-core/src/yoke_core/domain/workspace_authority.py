@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import List, Optional, Sequence
 
 from yoke_core.domain.lint_session_cwd_validate import FREE_PATH_PREFIXES
 from yoke_core.domain.session_claimed_worktrees import (
@@ -42,6 +42,11 @@ from yoke_core.domain.session_claimed_worktrees import (
 
 
 SESSION_ID_ENV_VAR = "YOKE_SESSION_ID"
+
+# Where a Yoke source checkout keeps the ``yoke_core`` package the seed
+# modules live in. Installed layouts hold the package tail directly under
+# ``site-packages``, so the tail alone identifies the module either way.
+_YOKE_CORE_SOURCE_PREFIX = Path("packages/yoke-core/src")
 
 
 def _resolve_session_id(explicit: Optional[str]) -> str:
@@ -215,29 +220,58 @@ def assert_seed_source_under_target_root(
         # Test fixtures intentionally target /tmp or /var/folders with a
         # cwd-imported seed module — the seed-source mismatch is normal.
         return
-    # External-project targets (an installed project repo with no Yoke
-    # source tree — e.g. board rebuild for Buzz over the machine-installed
-    # CLI) legitimately load the seed from the CLI's Yoke checkout, which
-    # is never under target_root. Only the worktree-dev hazard warrants the
-    # refusal: target_root is itself a Yoke checkout whose seed should
-    # come from that tree. Detect the external case — the seed's
-    # repo-relative path does not exist under target_root — and allow it.
-    seed_parts = seed_path.parts
-    if "runtime" in seed_parts:
-        seed_rel = Path(*seed_parts[seed_parts.index("runtime"):])
-        if not (root_path / seed_rel).exists():
-            return
     try:
         seed_path.relative_to(root_path)
+        return
     except ValueError:
-        raise RuntimeError(
-            f"workspace_authority: seed-source mismatch for "
-            f"{seed_module_name!r} -- seed loaded from "
-            f"{str(seed_path)!r}, target is {str(root_path)!r}. The "
-            "imported seed/schema module belongs to a different "
-            "checkout than the resolved target_root; the renderer "
-            "would write target-named outputs from the wrong tree."
-        )
+        pass
+    # External-project targets (an installed project repo with no Yoke
+    # source tree — e.g. board rebuild for Buzz over the machine-installed
+    # CLI) legitimately load the seed from the CLI's Yoke code, which is
+    # never under target_root. Only the worktree-dev hazard warrants the
+    # refusal: target_root is itself a Yoke checkout carrying its own copy
+    # of the seed module, so the seed should have come from that tree.
+    # When target_root holds none of the checkout-relative candidates
+    # derived from the seed's package tail, allow the external case; an
+    # unrecognized seed layout keeps the refusal posture.
+    candidates = _seed_checkout_relative_candidates(seed_path)
+    if candidates and not any(
+        (root_path / rel).exists() for rel in candidates
+    ):
+        return
+    raise RuntimeError(
+        f"workspace_authority: seed-source mismatch for "
+        f"{seed_module_name!r} -- seed loaded from "
+        f"{str(seed_path)!r}, target is {str(root_path)!r}. The "
+        "imported seed/schema module belongs to a different "
+        "checkout than the resolved target_root; the renderer "
+        "would write target-named outputs from the wrong tree."
+    )
+
+
+def _seed_checkout_relative_candidates(seed_path: Path) -> List[Path]:
+    """Checkout-relative paths where ``target_root`` would carry its own
+    copy of the loaded seed module.
+
+    Derived from the seed's package tail: a ``yoke_core`` component (a
+    source checkout's ``packages/yoke-core/src/yoke_core/...`` or an
+    installed ``site-packages/yoke_core/...``) maps to the source layout
+    under ``packages/yoke-core/src``; a ``runtime`` component maps to the
+    repo-root ``runtime/`` tree. Empty means the layout is unrecognized.
+    """
+    parts = seed_path.parts
+    candidates: List[Path] = []
+    for marker, source_prefix in (
+        ("yoke_core", _YOKE_CORE_SOURCE_PREFIX),
+        ("runtime", None),
+    ):
+        if marker not in parts:
+            continue
+        # The checkout-relative portion is a suffix — use the last marker.
+        index = len(parts) - 1 - parts[::-1].index(marker)
+        tail = Path(*parts[index:])
+        candidates.append(source_prefix / tail if source_prefix else tail)
+    return candidates
 
 
 __all__ = [

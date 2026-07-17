@@ -107,7 +107,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
         elif args.command == "list":
-            result = cmd_list(project=args.project, status=args.status)
+            result = cmd_list(
+                project=args.project,
+                status=args.status,
+                limit=args.limit,
+            )
             if result:
                 print(result)
             return 0
@@ -216,6 +220,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 flow=args.flow,
                 target_env=args.target_env,
                 release_lineage=args.release_lineage,
+                project_repo_path=args.project_repo_path,
                 created_by=args.created_by,
             )
             payload = handle.to_dict()

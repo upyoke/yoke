@@ -20,6 +20,34 @@ from runtime.api.domain.test_project_renderer_pulumi import (
 
 
 class TestGatherPulumiStacks:
+    def test_capability_stack_set_overrides_site_declaration(
+        self, tmp_path, monkeypatch,
+    ):
+        settings = _stub_renderer_settings(
+            monkeypatch,
+            "platform",
+            {"projectName": "platform", "stacks": ["infra", "vps"]},
+        )
+        capabilities = dict(settings.capabilities)
+        capabilities["pulumi-state"] = {
+            "stacks": ["registry", "runner-fleet"],
+        }
+        capability_settings = type(settings)(
+            project=settings.project,
+            deploy_namespace="yoke",
+            display_name=settings.display_name,
+            site_id=settings.site_id,
+            site_settings=settings.site_settings,
+            primary_environment=settings.primary_environment,
+            environments=settings.environments,
+            capabilities=capabilities,
+        )
+        root = _make_project_root(tmp_path, "platform")
+
+        assert project_renderer_pulumi.gather_pulumi_stacks(
+            "platform", root, capability_settings,
+        ) == ["registry", "runner-fleet"]
+
     def test_defaults_to_infra_vps_when_absent(self, tmp_path, monkeypatch):
         _stub_renderer_settings(monkeypatch, "buzz", {"projectName": "buzz"})
         root = _make_project_root(tmp_path, "buzz")

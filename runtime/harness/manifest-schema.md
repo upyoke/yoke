@@ -17,6 +17,7 @@ The schema below is the only canonical source. Renderers, drift checks, and runt
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `_generated` | string | Yes | Generated-file marker written by the substrate renderer. Names the renderer (`yoke_core.domain.agents_render`) and the Python source dict the file was rendered from (`yoke_core.domain.agents_render_manifests.CLAUDE_MANIFEST` / `CODEX_MANIFEST`). Its presence flags the file as machine-generated — do not hand-edit. |
 | `harness_id` | string | Yes | Stable harness family identifier (e.g., `claude-code`, `codex`). Must match the directory name under `runtime/harness/`. |
 | `runtime_minimums` | object | Yes | Minimum runtime versions for each operating mode. See [Runtime minimums](#runtime-minimums). |
 | `bootstrap` | object | Yes | Bootstrap mechanism configuration. See [Bootstrap](#bootstrap). |
@@ -97,8 +98,7 @@ The affordance list is **tool-neutral**. Names like `bash_pre_tool_hook` or `bas
 The schema in this file is the contract. When new fields are added:
 
 - Update this document first.
-- Update both manifests (or note the new field is optional and document the default).
-- Update the renderer (when the renderer extension lands) so generation stays in sync.
+- Update the manifest source dicts (or note the new field is optional and document the default).
 - Update doctor checks that read the affected field.
 
-Until the universal harness substrate renderer lands, both manifest files are hand-authored against this schema. After the renderer lands, both files become generated artifacts and the renderer regenerates identical content from the universal source.
+Both manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST`) and stamps each with the `_generated` marker. Author changes in the source dicts, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.

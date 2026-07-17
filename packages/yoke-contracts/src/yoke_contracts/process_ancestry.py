@@ -12,7 +12,7 @@ sides of the ambient-identity contract walk the same body:
 
 Lives in ``yoke-contracts`` so the product CLI client (which depends only
 on this package) and the engine core resolve identity through one
-implementation; ``yoke_core.domain.process_ancestry`` re-exports it.
+implementation.
 
 The harness basename set is deliberately small: the per-session Claude agent
 binary is ``.../claude-code/<version>/claude.app/Contents/MacOS/claude``

@@ -89,8 +89,15 @@ def compute_frontier(
     project_scope: List[Any],
     wip_cap: int = 5,
     session_id: Optional[str] = None,
+    emit_events: bool = True,
 ) -> FrontierResult:
-    """Compute the runnable frontier for the numeric project-id scope."""
+    """Compute the runnable frontier for the numeric project-id scope.
+
+    ``emit_events=False`` suppresses the ``FrontierComputed`` and
+    ``DependencyGateEvaluated`` telemetry writes so pure reads (e.g. a
+    browser poll) leave no event rows behind; the default preserves
+    emission for every existing caller.
+    """
     _t0 = time.monotonic()
     project_scope = normalize_project_scope(conn, project_scope)
     cursor = conn.cursor()
@@ -106,6 +113,7 @@ def compute_frontier(
         gate_point="activation",
         session_id=session_id,
         project=_canonical_project_label(conn, project_scope),
+        emit_events=emit_events,
     )
 
     hard_blocks: Dict[str, List[Tuple[str, str]]] = {}
@@ -237,16 +245,17 @@ def compute_frontier(
         conduct_eligible=conduct_eligible,
     )
 
-    _emit_frontier_computed(
-        conn,
-        result,
-        project_scope,
-        wip_cap,
-        effective_wip_active,
-        _t0,
-        session_id=session_id,
-        excluded_routed_ownership=excluded_routed_ownership,
-    )
+    if emit_events:
+        _emit_frontier_computed(
+            conn,
+            result,
+            project_scope,
+            wip_cap,
+            effective_wip_active,
+            _t0,
+            session_id=session_id,
+            excluded_routed_ownership=excluded_routed_ownership,
+        )
 
     return result
 

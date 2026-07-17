@@ -14,8 +14,8 @@
   line-height: 1.45;
   color: var(--yoke-ink);
   background: var(--yoke-bg);
-  /* Opt native form controls (chooser, buttons) into the active theme so they
-     don't render with a light UA appearance on the dark bar. The hosted shell
+  /* Opt native form controls (buttons) into the active theme so they don't
+     render with a light UA appearance on the dark bar. The hosted shell
      inherits this from the platform document; standalone needs it declared. */
   color-scheme: light dark;
 }
@@ -59,43 +59,17 @@
   font-weight: 500;
 }
 
-.universe-app-root .capability-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* Chrome controls read as the shared chip: bordered, tokenized, with a hover
-   wash. */
-.universe-app-root .capability-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--yoke-ink);
-  background: var(--yoke-bg);
-  border: 1px solid var(--yoke-border);
-  border-radius: 8px;
-  padding: 5px 10px;
-  transition: background-color 140ms ease;
-}
-.universe-app-root .capability-action:hover {
-  background: var(--yoke-hover);
-}
-
 /* The view's own scope picker, sitting above that view's rows. It renders
-   only where it can act, so it needs no disabled state. A native select
-   wearing the selected-chip look: accent lozenge, white text. */
+   only where it can act, so it needs no disabled state. A row of chips:
+   selected ones wear the accent lozenge, the rest stay quiet until hovered. */
 .universe-app-root .scope-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
   margin-bottom: 18px;
 }
-.universe-app-root .scope-bar::before {
-  content: "Project";
+.universe-app-root .scope-label {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -103,22 +77,27 @@
   font-weight: 600;
   margin-right: 3px;
 }
-.universe-app-root .project-chooser {
+.universe-app-root .scope-chip {
   font-family: inherit;
   font-size: 12px;
   font-weight: 550;
-  color: #fff;
-  background: var(--yoke-accent);
-  border: 1px solid transparent;
-  border-radius: 20px;
   padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--yoke-border);
+  background: var(--yoke-bg);
+  color: var(--yoke-ink-2);
   cursor: pointer;
-  transition: filter 120ms ease;
+  transition: background-color 120ms ease, color 120ms ease;
 }
-.universe-app-root .project-chooser:hover {
-  filter: brightness(1.06);
+.universe-app-root .scope-chip:hover {
+  background: var(--yoke-hover);
+  color: var(--yoke-ink);
 }
-
+.universe-app-root .scope-chip.on {
+  background: var(--yoke-accent);
+  color: #fff;
+  border-color: transparent;
+}
 /* Tabs: facets of one concept, never a second nav level. An underline strip
    above the view's own chrome — the active facet takes the accent, the rest
    stay muted until hovered. */
@@ -220,6 +199,10 @@
   text-decoration: none;
   font-size: 13px;
   font-weight: 500;
+  /* Nav rows are 30px chrome, not body text: the body's reading
+     line-height (1.45) would add 3px per row and visibly loosen the
+     whole rail. */
+  line-height: normal;
   transition: background-color 120ms ease, color 120ms ease;
 }
 .universe-app-root .nav-link:hover {
@@ -254,6 +237,27 @@
   padding: 24px 30px 40px;
 }
 
+/* Every routed view opens with its name and one orienting sentence. The
+   head belongs to the route, not the view — a drill-in trades it for the
+   breadcrumb, and a tabbed view keeps one head above the facet strip. */
+.universe-app-root .page-head {
+  display: flex;
+  margin-bottom: 20px;
+}
+.universe-app-root .page-head .title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  color: var(--yoke-ink);
+}
+.universe-app-root .page-head .subtitle {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 13px;
+  color: var(--yoke-muted);
+}
+
 /* One titled card per read: bordered surface, its own header bar, rows
    flush to the card edge. Elevation arrives only on hover. */
 .universe-app-root .panel {
@@ -280,6 +284,12 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--yoke-ink);
+}
+/* The panel's honest total, sitting quietly beside its title. */
+.universe-app-root .panel-count {
+  margin-left: 5px;
+  font-weight: 500;
+  color: var(--yoke-muted);
 }
 .universe-app-root .panel-body {
   padding: 13px 15px;
@@ -315,6 +325,12 @@
   padding: 10px 15px;
   border-bottom: 1px solid var(--yoke-border);
   vertical-align: middle;
+}
+/* Cells holding stored identifiers (capability types, keys) wear the code
+   face: the value IS the vocabulary, so it dresses like code. */
+.universe-app-root table.items td.mono {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
 }
 .universe-app-root table.items tr:last-child :is(th, td) {
   border-bottom: 0;
@@ -397,8 +413,76 @@
 .universe-app-root .error { color: var(--yoke-crit); }
 .universe-app-root .empty { color: var(--yoke-muted); font-style: italic; }
 
-/* Stat tile: one number that matters, on the raised surface. Hosts and
-   future overview panels compose rows of these. */
+/* One quiet line of scalar facts above a report body. */
+.universe-app-root .fact-line {
+  margin: 0 0 14px;
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+}
+
+/* One muted line of view-level context above a view's panels. */
+.universe-app-root .view-note {
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+  margin: 0 0 14px;
+}
+
+/* Identifier cells (health-check slugs, flow ids) read as the machine
+   names they are. */
+.universe-app-root table.items td.mono {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+}
+
+/* Copyable command text: dressed as text to copy, never as a control. */
+.universe-app-root code {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+  background: var(--yoke-surface-2);
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
+/* Host capability actions, rendered inside the Organization panel.
+   Each is a real control that acts on click, dressed as the shared chip:
+   bordered, tokenized, with a hover wash. */
+.universe-app-root .capability-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.universe-app-root .capability-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--yoke-ink);
+  background: var(--yoke-bg);
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.universe-app-root .capability-action:hover {
+  background: var(--yoke-hover);
+}
+
+/* Per-project heading inside a report that fanned out over a project
+   set: each block names the project it answers for. */
+.universe-app-root .report-heading {
+  margin: 18px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* Stat tile: one number that matters, on the raised surface. Hosts and the
+   Overview compose rows of these. */
 .universe-app-root .stat-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -423,9 +507,29 @@
   margin-top: 2px;
 }
 
-/* A destination that exists but has nothing to read yet: a dashed,
-   hatched placeholder that states what it will be — badge, name, one
-   sentence, and skeleton bars. Nothing pretends to act. */
+/* The Overview's summary panels: each is a peek at a full screen and links
+   out to it. The link sits flush at the panel's foot, a full-width row with
+   its own top rule, so "open the whole thing" reads as the panel's floor. */
+.universe-app-root .overview-open {
+  display: block;
+  padding: 10px 15px;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--yoke-accent);
+  text-decoration: none;
+}
+.universe-app-root .overview-open:hover {
+  background: var(--yoke-hover);
+}
+.universe-app-root .overview-open:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: -2px;
+}
+
+/* A destination that exists but has nothing to read yet: a dashed, hatched
+   placeholder holding a badge and skeleton bars. The name and sentence live
+   in the page head above it, and nothing here pretends to act. */
 .universe-app-root .stub-panel {
   border: 1.5px dashed var(--yoke-border);
   border-radius: 14px;
@@ -452,17 +556,10 @@
   padding: 4px 11px;
   border-radius: 20px;
 }
-.universe-app-root .stub-panel h2 {
-  font-size: 19px;
-  font-weight: 620;
-  margin: 16px 0 6px;
-  letter-spacing: -0.01em;
-  color: var(--yoke-ink);
-}
 .universe-app-root .stub-panel .stub-summary {
   color: var(--yoke-muted);
   max-width: 52ch;
-  margin: 0 auto;
+  margin: 12px auto 0;
   font-size: 13px;
 }
 .universe-app-root .stub-panel .preview {
@@ -484,7 +581,7 @@
 .universe-app-root .nav-link:focus-visible,
 .universe-app-root .tab-link:focus-visible,
 .universe-app-root .capability-action:focus-visible,
-.universe-app-root .project-chooser:focus-visible,
+.universe-app-root .scope-chip:focus-visible,
 .universe-app-root .row-link:focus-visible,
 .universe-app-root .breadcrumb-parent:focus-visible,
 .universe-app-root .raw-toggle:focus-visible {

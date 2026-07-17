@@ -1,6 +1,6 @@
 # Advance — Preflight Gates
 
-> **Orchestrator role:** For implementation-entry advances (`/yoke advance YOK-N implementation`), the orchestrator [`runtime/api/engines/advance_implementation_entry.py`](../../../../runtime/api/engines/advance_implementation_entry.py) calls the same gate helpers (`check_hard_blocks.evaluate_blockers`, `check_ac_presence.evaluate_item`, `path_claim_spec_coverage_gate.evaluate`) and reports the outcome as `AdvancePhaseCompleted{phase="preflight"}`. The prose below is the canonical contract for what each gate enforces — the orchestrator's reference, not a per-call agent recipe. The legacy doc-driven flow below still runs for non-implementing advance targets.
+> **Orchestrator role:** For implementation-entry advances (`/yoke advance YOK-N implementation`), the orchestrator [`packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py`](../../../../packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py) calls the same gate helpers (`check_hard_blocks.evaluate_blockers`, `check_ac_presence.evaluate_item`, `path_claim_spec_coverage_gate.evaluate`) and reports the outcome as `AdvancePhaseCompleted{phase="preflight"}`. The prose below is the canonical contract for what each gate enforces — the orchestrator's reference, not a per-call agent recipe. The legacy doc-driven flow below still runs for non-implementing advance targets.
 
 Called by the advance router after identity/lifecycle resolution for non-implementing transitions. Runs the hard-block dependency gate, AC presence gate, active reconciliation gate, epic-specific gates, and the merge verification gate.
 
@@ -35,7 +35,7 @@ Covers (in order):
 
 ## Path Claim Activation Handoff
 
-When target is `implementing` and the item type is not `epic`, the next phase is the path-claim auto-activation step. The phase doc lives at `.agents/skills/yoke/advance/activation.md` and the enforcement owner is `runtime/api/domain/advance_path_claim_activation.py`.
+When target is `implementing` and the item type is not `epic`, the next phase is the path-claim auto-activation step. The phase doc lives at `.agents/skills/yoke/advance/activation.md` and the enforcement owner is `yoke_core.domain.advance_path_claim_activation`.
 
 The phase runs **after** preflight (so the path-claim-required gate has already enforced declaration where it applies) and **before** the worktree phase (so the worktree door-lock check sees `state='active'` rather than `state='planned'`). It auto-flips planned claims to active, surfaces blocked-on-upstream errors, and refuses divergent origin/local refs. Skip when `--no-worktree` is passed — no worktree door-lock will fire and there is nothing to gate against.
 

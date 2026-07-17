@@ -54,7 +54,7 @@ either. The release-after-pass gate at section 10b runs
 mismatch leaves the draft claim held and blocks creation from
 finishing.
 
-Every new body for an **implementation-bearing** ticket carries a `## File Budget` section. The hard limit is 350 lines per authored file (owned by `runtime/api/domain/file_line_check.py`); the design target is `<=300` lines so implementors have editing headroom without crossing the cap mid-iteration. Idea-time the budget can be rough — the goal is to force the sizing question into the artifact before refinement, planning, and implementation, so an Engineer is never asked to invent a large module from scratch.
+Every new body for an **implementation-bearing** ticket carries a `## File Budget` section. The hard limit is 350 lines per authored file (owned by `yoke_core.domain.file_line_check`); the design target is `<=300` lines so implementors have editing headroom without crossing the cap mid-iteration. Idea-time the budget can be rough — the goal is to force the sizing question into the artifact before refinement, planning, and implementation, so an Engineer is never asked to invent a large module from scratch.
 
 Three valid shapes — pick the one that matches what the operator described:
 
@@ -88,7 +88,7 @@ N/A — docs-only updates to README. If implementation discovers authored-code c
 ```
 
 The File Budget is upstream guidance, not a write-time denial —
-late-stage enforcement (`runtime/api/domain/file_line_check.py`) is the
+late-stage enforcement (`yoke_core.domain.file_line_check`) is the
 canonical backstop. The contract here shapes the work earlier so
 implementors are not asked to invent oversized modules in the first
 place.

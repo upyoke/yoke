@@ -1,0 +1,27 @@
+config:
+  aws:region: {{runner_fleet_aws_region}}
+  webapp-infra:deploy_namespace: {{deploy_namespace}}
+  webapp-infra:project_name: {{project_name}}
+  webapp-infra:aws_capability: {{runner_fleet_aws_capability}}
+  webapp-infra:github_capability: {{runner_fleet_github_capability}}
+  webapp-infra:github_repo: {{runner_fleet_repo}}
+  webapp-infra:github_repo_owner: {{runner_fleet_github_repo_owner}}
+  webapp-infra:github_repo_name: {{runner_fleet_github_repo_name}}
+  webapp-infra:github_installation_id: "{{runner_fleet_github_installation_id}}"
+  webapp-infra:github_repository_id: "{{runner_fleet_github_repository_id}}"
+  webapp-infra:github_app_issuer: {{runner_fleet_github_app_issuer}}
+  webapp-infra:github_api_url: {{runner_fleet_github_api_url}}
+  webapp-infra:github_web_url: {{runner_fleet_github_web_url}}
+  webapp-infra:github_private_key_secret_arn: {{runner_fleet_github_private_key_secret_arn}}
+  webapp-infra:token_broker_function: {{runner_fleet_token_broker_function}}
+  webapp-infra:runner_labels: '{{runner_fleet_labels_json}}'
+  webapp-infra:runner_variable_name: {{runner_fleet_variable_name}}
+  webapp-infra:routing_enabled: "{{runner_fleet_routing_enabled}}"
+  webapp-infra:runner_count: "{{runner_fleet_runner_count}}"
+  webapp-infra:max_runner_count: "{{runner_fleet_max_runner_count}}"
+  webapp-infra:instance_type: {{runner_fleet_instance_type}}
+  webapp-infra:architecture: {{runner_fleet_architecture}}
+  webapp-infra:root_volume_gb: "{{runner_fleet_root_volume_gb}}"
+  webapp-infra:idle_shutdown_minutes: "{{runner_fleet_idle_shutdown_minutes}}"
+  webapp-infra:shutdown_mode: {{runner_fleet_shutdown_mode}}
+  webapp-infra:deployment_ssh_stack_outputs: '{{runner_fleet_deployment_ssh_stack_outputs_json}}'

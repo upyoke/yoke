@@ -34,7 +34,7 @@ _EXPECTED_SCHEMA_STR = (
     "|shepherd_verdicts:id/INTEGER,item/TEXT,transition/TEXT,worker/TEXT,verdict/TEXT,"
     "caveats/TEXT,attempt/INTEGER,created_at/TEXT"
     "|deployment_flows:id/TEXT,project_id/INTEGER,name/TEXT,description/TEXT,stages/TEXT,"
-    "on_failure/TEXT,created_at/TEXT,target_env/TEXT,done_description/TEXT"
+    "on_failure/TEXT,created_at/TEXT,target_env/TEXT,done_description/TEXT,status/TEXT"
     "|caveat_dispositions:id/INTEGER,item/TEXT,transition/TEXT,attempt/INTEGER,"
     "caveat_num/INTEGER,caveat_text/TEXT,disposition/TEXT,resolution_details/TEXT,"
     "verdict_id/INTEGER,created_at/TEXT"

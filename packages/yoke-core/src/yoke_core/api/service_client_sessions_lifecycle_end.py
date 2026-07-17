@@ -32,14 +32,7 @@ def cmd_session_end(args: list[str]) -> int:
     held. CHAIN_PENDING still blocks honest loop exits with budget
     remaining.
     With --release-claims, active claims are auto-released before ending
-    via the destructive-guard branch (hook path).
-    TRANSIENT_END_DEFERRED: exits 1 when ``--release-claims`` is supplied
-    but the destructive guard classified the signal as transient (fresh
-    heartbeat or chain budget remaining). ``HarnessSessionEndDeferred`` has
-    already been emitted; the session row is unchanged. Operator must use
-    ``claim-release`` to free a stranded claim or wait for the recovery
-    window to elapse. This is reported as ``success=false`` so callers
-    cannot mistake a deferred end for a genuine end.
+    via the destructive claim-release branch.
     Prints result JSON to stdout.
     """
     import argparse
@@ -108,10 +101,7 @@ def cmd_session_end(args: list[str]) -> int:
                 response["released_claims"] = released_claims
             print(json.dumps(response, default=str))
         except SessionError as exc:
-            if exc.code in (
-                "CHAIN_PENDING",
-                "TRANSIENT_END_DEFERRED",
-            ):
+            if exc.code == "CHAIN_PENDING":
                 print(json.dumps({
                     "success": False,
                     "code": exc.code,

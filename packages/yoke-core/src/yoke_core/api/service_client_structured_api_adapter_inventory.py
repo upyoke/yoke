@@ -266,6 +266,17 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         ),
         notes="bearer-token PR create; repo resolves from project capability.",
     ),
+    AdapterEntry(
+        function_id="github.release.create_next_tag",
+        cli_invocation=(
+            "yoke github release create-next-tag OWNER/REPO SOURCE-SHA "
+            "--summary TEXT --project P"
+        ),
+        notes=(
+            "Creates or recovers the next immutable annotated launch tag "
+            "through the project's scoped GitHub App authority."
+        ),
+    ),
     _read_entry(
         function_id="items.get.run",
         cli_invocation=(
@@ -285,6 +296,22 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="doctor.run.run",
         cli_invocation="python3 -m yoke_core.engines.doctor",
+    ),
+    _read_entry(
+        function_id="doctor.last_run.get",
+        cli_invocation="yoke doctor last-run get [--project P]",
+        notes=(
+            "Reads the newest completed doctor run from the events journal; "
+            "doctor findings persist nowhere else."
+        ),
+    ),
+    _read_entry(
+        function_id="workflows.definition.get",
+        cli_invocation="yoke workflows definition get [--project P]",
+        notes=(
+            "The definition of done as a read-only composition: per-type "
+            "lifecycle progressions, the gate map, and the project's flows."
+        ),
     ),
     *INSTALLER_ADAPTERS,
     AdapterEntry(function_id="board.rebuild.run", cli_invocation="yoke board rebuild"),

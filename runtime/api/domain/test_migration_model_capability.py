@@ -1,4 +1,4 @@
-"""Tests for the ``migration_model`` capability validator and Yoke seed."""
+"""Tests for the ``migration_model`` capability validator and model builder."""
 
 from __future__ import annotations
 
@@ -10,12 +10,14 @@ from yoke_core.domain.migration_model_capability import (
     CAPABILITY_TYPE,
     DEFAULT_CONNECTION_ENV_VAR,
     MigrationModelCapabilityError,
-    YOKE_PRIMARY_SEED_JSON,
     canonical_json,
+    governed_postgres_seed,
     resolve_model,
-    yoke_primary_seed,
     validate,
     validate_json_string,
+)
+from runtime.api.fixtures.migration_model_test import (
+    POSTGRES_AUTHORITY_LOCATION,
 )
 
 
@@ -53,30 +55,39 @@ class TestCapabilityTypeConstant:
         assert DEFAULT_CONNECTION_ENV_VAR == "YOKE_PG_DSN"
 
 
-class TestYoke_primary_seed:
-    def test_seed_validates(self) -> None:
-        # Seed is structurally valid.
-        assert validate(yoke_primary_seed()) == yoke_primary_seed()
+class TestGovernedPostgresSeed:
+    def test_seed_requires_explicit_authority(self) -> None:
+        with pytest.raises(TypeError, match="required positional argument"):
+            governed_postgres_seed()  # type: ignore[call-arg]
 
-    def test_seed_json_constant_matches_factory(self) -> None:
-        # YOKE_PRIMARY_SEED_JSON is canonical JSON of the factory.
-        assert YOKE_PRIMARY_SEED_JSON == canonical_json(yoke_primary_seed())
+    def test_seed_validates(self) -> None:
+        seed = governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        assert validate(seed) == seed
 
     def test_seed_is_postgres_pairing(self) -> None:
-        seed = yoke_primary_seed()
+        seed = governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
         primary = seed["models"]["primary"]
         assert primary["authoritative_db"]["kind"] == "postgres"
-        assert primary["authoritative_db"]["location"]["stack"] == "yoke-prod"
-        assert (
-            primary["authoritative_db"]["location"]["database_name"]
-            == "yoke_prod"
+        assert primary["authoritative_db"]["location"] == (
+            POSTGRES_AUTHORITY_LOCATION
         )
         assert primary["validation_surface"]["kind"] == "external_validation"
         assert primary["runner"]["kind"] == "governed_migration_module"
         assert primary["runner"]["config"]["connection_env_var"] == "YOKE_PG_DSN"
 
     def test_seed_declares_default_model(self) -> None:
-        assert yoke_primary_seed()["default_model"] == "primary"
+        seed = governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        assert seed["default_model"] == "primary"
+
+    def test_seed_copies_caller_authority(self) -> None:
+        location = dict(POSTGRES_AUTHORITY_LOCATION)
+        seed = governed_postgres_seed(location)
+
+        location["stack"] = "mutated-after-construction"
+
+        assert seed["models"]["primary"]["authoritative_db"]["location"] == (
+            POSTGRES_AUTHORITY_LOCATION
+        )
 
 
 class TestStructuralShape:
@@ -224,8 +235,8 @@ class TestResolveModel:
 
 class TestJsonHelpers:
     def test_validate_json_string_canonicalizes(self) -> None:
-        out = validate_json_string(YOKE_PRIMARY_SEED_JSON)
-        assert out == YOKE_PRIMARY_SEED_JSON
+        raw = canonical_json(governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION))
+        assert validate_json_string(raw) == raw
 
     def test_validate_json_string_rejects_empty(self) -> None:
         with pytest.raises(MigrationModelCapabilityError):

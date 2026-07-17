@@ -11,33 +11,44 @@ flow stage.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_scalar
 from yoke_core.domain.deployment_runs_schema import (
     UPDATABLE_FIELDS,
     VALID_STATUSES,
 )
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
 
 
 def cmd_next_id(db_path: Optional[str] = None) -> str:
-    """Generate next run ID for today (run-YYYYMMDD-NNN)."""
+    """Preview the next run ID for today without reserving it."""
     conn = connect(db_path)
     try:
-        today = datetime.now(timezone.utc).strftime("%Y%m%d")
-        prefix = f"run-{today}-"
-        # deliberate case-sensitive match against internal run-id prefix
-        count = query_scalar(
-            conn,
-            "SELECT COUNT(*) FROM deployment_runs WHERE id LIKE %s",
-            (f"{prefix}%",),
-        )
-        next_num = (count or 0) + 1
-        return f"{prefix}{next_num:03d}"
+        return _next_run_id(conn, datetime.now(timezone.utc))
     finally:
         conn.close()
+
+
+def _next_run_id(conn, now: datetime) -> str:
+    """Return max numeric suffix + 1 for *now*'s UTC day."""
+    today = now.astimezone(timezone.utc).strftime("%Y%m%d")
+    prefix = f"run-{today}-"
+    rows = conn.execute(
+        "SELECT id FROM deployment_runs WHERE id LIKE %s",
+        (f"{prefix}%",),
+    ).fetchall()
+    pattern = re.compile(rf"^{re.escape(prefix)}([0-9]+)$")
+    suffixes = [
+        int(match.group(1))
+        for row in rows
+        if (match := pattern.fullmatch(str(row[0]))) is not None
+    ]
+    return f"{prefix}{max(suffixes, default=0) + 1:03d}"
 
 
 def cmd_create_run(
@@ -51,27 +62,35 @@ def cmd_create_run(
     """Create a new deployment run. Returns the generated run ID."""
     conn = connect(db_path)
     try:
+        if db_backend.connection_is_postgres(conn):
+            conn.execute(
+                "LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE"
+            )
         project_id = resolve_project_id(conn, project)
+        _flow_project_id, flow_default = require_flow_for_new_run(
+            conn, flow, project_id=project_id,
+        )
         # If no target_env, resolve from flow's target_env column
         if not target_env:
-            flow_default = query_scalar(
-                conn,
-                "SELECT COALESCE(target_env, '') FROM deployment_flows WHERE id=%s",
-                (flow,),
-            )
             if flow_default:
                 target_env = flow_default
 
-        # Generate ID
-        run_id = cmd_next_id(db_path)
+        # Allocation and insertion share this serialized transaction. The
+        # standalone next-id command remains a non-reserving preview.
+        run_id = _next_run_id(conn, datetime.now(timezone.utc))
 
-        conn.execute(
+        inserted = conn.execute(
             "INSERT INTO deployment_runs "
             "(id, project_id, flow, target_env, release_lineage, created_by, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (id) DO NOTHING RETURNING id",
             (run_id, project_id, flow, target_env or None, release_lineage or None,
              created_by, iso8601_now()),
-        )
+        ).fetchone()
+        if inserted is None:
+            raise RuntimeError(
+                f"deployment run ID {run_id} was claimed concurrently"
+            )
         conn.commit()
         return run_id
     finally:

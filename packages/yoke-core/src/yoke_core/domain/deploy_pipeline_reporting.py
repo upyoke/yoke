@@ -14,6 +14,10 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from yoke_contracts.machine_config.schema import (
+    DB_ADMIN_ENV_SUFFIX,
+    ENV_OVERRIDE,
+)
 
 
 GITHUB_ACTIONS_RELAY_ENV = "YOKE_GITHUB_ACTIONS_RELAY_ENV"
@@ -65,15 +69,30 @@ def _github_actions(
                 "selecting the attended local App authority\n"
             ),
         )
+    relay_env = explicit_relay_env
+    relay_source = GITHUB_ACTIONS_RELAY_ENV
+    active_env = os.environ.get(ENV_OVERRIDE, "").strip()
+    if not relay_env and not local_authority and active_env.endswith(
+        DB_ADMIN_ENV_SUFFIX
+    ):
+        # A deployment pipeline needs two kinds of authority at once: the
+        # owner-only DB connection for run state and the sibling HTTPS
+        # control plane for GitHub App operations. Selecting ``prod-db-admin``
+        # is already an explicit operator choice, so derive its safe ``prod``
+        # relay instead of requiring a second environment variable that is
+        # easy to omit. The HTTPS check below still fails closed.
+        relay_env = active_env[: -len(DB_ADMIN_ENV_SUFFIX)]
+        relay_source = "YOKE_ENV sibling relay"
+
     https = None
-    if explicit_relay_env:
+    if relay_env:
         try:
             from yoke_cli.transport.https import (
                 TransportError,
                 resolve_https_connection,
             )
 
-            https = resolve_https_connection(explicit_env=explicit_relay_env)
+            https = resolve_https_connection(explicit_env=relay_env)
         except TransportError as exc:
             return subprocess.CompletedProcess(
                 args=list(args),
@@ -84,14 +103,14 @@ def _github_actions(
                     f"{exc}\n"
                 ),
             )
-    if explicit_relay_env and https is None:
+    if relay_env and https is None:
         return subprocess.CompletedProcess(
             args=list(args),
             returncode=4,
             stdout="",
             stderr=(
-                f"Error: {GITHUB_ACTIONS_RELAY_ENV} selects "
-                f"{explicit_relay_env!r}, but that connection is not HTTPS; "
+                f"Error: {relay_source} selects "
+                f"{relay_env!r}, but that connection is not HTTPS; "
                 "refusing local GitHub credential fallback\n"
             ),
         )
@@ -102,7 +121,7 @@ def _github_actions(
                 "-m",
                 "yoke_cli.main",
                 "--env",
-                explicit_relay_env,
+                relay_env,
                 "github-actions",
                 *args,
                 "--project",

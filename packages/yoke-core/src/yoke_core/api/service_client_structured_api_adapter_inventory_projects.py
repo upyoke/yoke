@@ -40,6 +40,10 @@ PROJECT_ADAPTERS = [
             "projects that lack an active verified App binding to backlog-only"
         ),
     ),
+    _read_entry(
+        function_id="projects.capabilities.list",
+        cli_invocation="yoke projects capabilities list [--project P]",
+    ),
 ]
 
 

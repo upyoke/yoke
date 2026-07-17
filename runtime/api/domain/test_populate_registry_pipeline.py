@@ -17,46 +17,46 @@ import pytest
 
 @pytest.fixture
 def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Create a minimal git repo with an isolated DB and mock scripts."""
+    """Create a minimal git repo with an isolated DB and mock emit sites."""
     from yoke_core.domain import events_crud
     from runtime.api.fixtures.file_test_db import init_test_db
 
-    scripts_dir = tmp_path / ".agents" / "skills" / "yoke" / "scripts"
-    scripts_dir.mkdir(parents=True)
+    domain_dir = tmp_path / "packages" / "yoke-core" / "src" / "yoke_core" / "domain"
+    domain_dir.mkdir(parents=True)
 
-    api_dir = tmp_path / "runtime" / "api" / "domain"
-    api_dir.mkdir(parents=True)
+    harness_dir = tmp_path / "runtime" / "harness"
+    harness_dir.mkdir(parents=True)
 
     docs_dir = tmp_path / "runtime" / "docs"
     docs_dir.mkdir(parents=True)
 
     # Mock call sites that discovery will pick up.
-    (scripts_dir / "observe-tool.sh").write_text(
-        '#!/usr/bin/env sh\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "HarnessToolCallCompleted" --kind analytics --type tool_call --source-type agent\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "HarnessToolCallFailed" --kind analytics --type tool_call --source-type agent\n'
+    (domain_dir / "observe_tool.py").write_text(
+        "def observe():\n"
+        '    emit_event("HarnessToolCallCompleted", context={})\n'
+        '    emit_event("HarnessToolCallFailed", context={})\n'
     )
-    (scripts_dir / "harness-session-start.sh").write_text(
-        '#!/usr/bin/env sh\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "SessionDiscoveryProbe" --kind system --type session --source-type system\n'
+    (harness_dir / "harness_session_start.py").write_text(
+        "def start():\n"
+        '    emit_event("SessionDiscoveryProbe", context={})\n'
     )
-    (scripts_dir / "shepherd-dispatch.sh").write_text(
-        '#!/usr/bin/env sh\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "ShepherdDispatched" --kind audit --type dispatch --source-type agent\n'
+    (domain_dir / "shepherd_dispatch.py").write_text(
+        "def dispatch():\n"
+        '    emit_event("ShepherdDispatched", context={})\n'
     )
-    (scripts_dir / "health-check.sh").write_text(
-        '#!/usr/bin/env sh\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "HealthCheckPassed" --kind system --type health --source-type system\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "AnomalyDetected" --kind system --type anomaly --source-type system\n'
+    (domain_dir / "health_check.py").write_text(
+        "def check():\n"
+        '    emit_event("HealthCheckPassed", context={})\n'
+        '    emit_event("AnomalyDetected", context={})\n'
     )
-    (scripts_dir / "item-status.sh").write_text(
-        '#!/usr/bin/env sh\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "ItemStatusChanged" --kind audit --type status --source-type agent\n'
+    (domain_dir / "item_status.py").write_text(
+        "def update():\n"
+        '    emit_event("ItemStatusChanged", context={})\n'
     )
-    (scripts_dir / "deploy-pipeline.sh").write_text(
-        '#!/usr/bin/env sh\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "DeploymentStarted" --kind system --type deployment --source-type system\n'
-        'sh "$SCRIPT_DIR/emit-event.sh" --name "DeploymentFailed" --kind system --type deployment --source-type system\n'
+    (domain_dir / "deploy_pipeline.py").write_text(
+        "def deploy():\n"
+        '    emit_event("DeploymentStarted", context={})\n'
+        '    emit_event("DeploymentFailed", context={})\n'
     )
 
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
@@ -137,18 +137,18 @@ def test_idempotent_second_run(fake_repo: Path):
     assert "0 newly registered" in summary2
 
 
-def test_discovered_metadata_inference_matches_original_shell(fake_repo: Path):
+def test_discovered_metadata_inference(fake_repo: Path):
     from yoke_core.domain import events_crud
 
     _run_populator(fake_repo)
     db = str(fake_repo / "runtime" / "yoke.db")
 
     shepherd_row = events_crud.cmd_registry_get(db_path=db, name="ShepherdDispatched")
-    assert "shepherd-dispatch" in shepherd_row
+    assert "shepherd_dispatch" in shepherd_row
     assert "audit" in shepherd_row
 
     session_row = events_crud.cmd_registry_get(db_path=db, name="SessionDiscoveryProbe")
-    assert "harness-session-start" in session_row
+    assert "harness_session_start" in session_row
     assert "system" in session_row
     assert "INFO" in session_row
 

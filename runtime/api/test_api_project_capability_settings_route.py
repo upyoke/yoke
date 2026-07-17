@@ -124,13 +124,13 @@ def test_https_merges_compose_independent_paths(client):
         {
             "project": "yoke",
             "cap_type": "docker",
-            "assignments": {"deploy.auto_on_push": True},
+            "assignments": {"runtime.network": "bridge"},
         },
     )
     assert second.status_code == 200
     assert json.loads(second.json()["result"]["settings_json"]) == {
         "registry": "ecr",
-        "deploy": {"auto_on_push": True},
+        "runtime": {"network": "bridge"},
     }
 
 
@@ -167,7 +167,7 @@ def test_https_runner_fleet_settings_preserve_typed_app_authority(client):
 @pytest.mark.parametrize(
     "settings",
     [
-        {"desired_runner_count": 2, "max_runner_count": 4},
+        {"desired_runner_count": 2, "max_runner_count": 1},
         {"unknown_selector": "must-refuse"},
     ],
 )

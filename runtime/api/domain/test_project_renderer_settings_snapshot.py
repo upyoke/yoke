@@ -31,6 +31,7 @@ def _sample_settings() -> ProjectRendererSettings:
             "hosts": {"api": "api.stage.acme.test", "origin": "o.stage.acme.test"},
             "pulumi": {
                 "stack_name": "acme-stage",
+                "origin_vps_stack_name": "acme-stage-vps",
                 "secrets_provider": "awskms://alias/acme-pulumi-state",
                 "encrypted_key": "ciphertext==",
             },
@@ -48,15 +49,18 @@ def _sample_settings() -> ProjectRendererSettings:
         site_id="acme-api",
         site_settings={
             "domains": [{"domain_name": "acme.test", "hosted_zone_id": "ZACME"}],
-            "pulumi": {"stacks": ["registry"]},
         },
         primary_environment=stage,
         environments=(stage,),
         capabilities={
             "aws-admin": {"account_id": "123456789012", "region": "us-east-1"},
+            "container-registry": {"repository": "acme"},
             "github": {"repo_owner": "acme-org", "repo_name": "acme"},
-            "pulumi-state": {"kms_key_alias": "alias/acme-pulumi-state",
-                             "state_bucket": "acme-pulumi-state"},
+            "pulumi-state": {
+                "kms_key_alias": "alias/acme-pulumi-state",
+                "state_bucket": "acme-pulumi-state",
+                "stacks": ["registry"],
+            },
         },
     )
 

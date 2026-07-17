@@ -117,7 +117,7 @@ class TestInferAndCreatePreventions:
         text = _read(_INFER_AND_CREATE)
         assert (
             'rg -n "def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+" '
-            "runtime/api/domain runtime/api"
+            "packages/ runtime/"
         ) in text
 
     def test_prevention_2_warns_against_lifecycle_py_intuition(self):

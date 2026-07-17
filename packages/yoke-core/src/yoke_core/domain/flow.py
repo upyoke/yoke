@@ -37,6 +37,7 @@ from yoke_core.domain.flow_crud import (
     cmd_delete,
     cmd_get,
     cmd_list,
+    cmd_set_status,
     cmd_stages,
     cmd_update_stages,
 )
@@ -57,6 +58,7 @@ __all__ = [
     "cmd_get",
     "cmd_init",
     "cmd_list",
+    "cmd_set_status",
     "cmd_stages",
     "cmd_update_stages",
     "main",
@@ -70,9 +72,10 @@ Subcommands:
   init                                              Create table + seed data
   create <id> <project> <name> <desc> <stages_json> [on_failure]
   get <id> [field]                                  Get flow
-  list [--project <project>]                        List flows
+  list [--project <project>] [--include-disabled]   List flows
   stages <id>                                       Output raw JSON stages
   update-stages <id> <stages_json> [--description D]  Replace stages (validated)
+  set-status <id> <active|disabled>                 Enable/disable without deleting
   delete <id> [--repoint-items-to <flow-id>]        Delete flow (repoint refs)
 """
 
@@ -118,13 +121,16 @@ def main(argv: Optional[List[str]] = None) -> None:
 
         elif subcmd == "list":
             project = None
+            include_disabled = False
             i = 0
             while i < len(rest):
                 if rest[i] == "--project" and i + 1 < len(rest):
                     project = rest[i + 1]; i += 2
+                elif rest[i] == "--include-disabled":
+                    include_disabled = True; i += 1
                 else:
                     i += 1
-            result = cmd_list(conn, project)
+            result = cmd_list(conn, project, include_disabled=include_disabled)
             if result:
                 print(result)
 
@@ -147,6 +153,11 @@ def main(argv: Optional[List[str]] = None) -> None:
                 else:
                     i += 1
             print(cmd_update_stages(conn, rest[0], rest[1], description))
+
+        elif subcmd == "set-status":
+            if len(rest) != 2:
+                _cli_usage_error("Usage: flow set-status <id> <active|disabled>")
+            print(cmd_set_status(conn, rest[0], rest[1]))
 
         elif subcmd == "delete":
             if not rest:

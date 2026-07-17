@@ -1,13 +1,14 @@
 """SML coherence and SchedulerResult shape tests for yoke_core.domain.scheduler."""
 from __future__ import annotations
 
-import os
 from unittest.mock import patch
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.scheduler import (
     _compute_sml_state,
     compute_schedule,
 )
+from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 
 # Re-export the fixture so pytest discovers it in this module.
 from runtime.api.scheduler_test_fixtures import (  # noqa: F401
@@ -15,38 +16,51 @@ from runtime.api.scheduler_test_fixtures import (  # noqa: F401
 )
 
 
+def _placeholder(conn) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
 class TestSMLState:
-    """Verify truthful SML computation."""
+    """Verify truthful SML computation against strategy_docs rows."""
 
-    def test_all_files_exist_coherent(self, scheduler_db):
-        """When all 4 SML files exist, coherent=True."""
-        tmp_dir = scheduler_db["tmp_dir"]
-        strategy_dir = os.path.join(tmp_dir, ".yoke", "strategy")
-        os.makedirs(strategy_dir, exist_ok=True)
-        for fname in ("MISSION.md", "LANDSCAPE.md", "VISION.md", "MASTER-PLAN.md"):
-            with open(os.path.join(strategy_dir, fname), "w") as f:
-                f.write(f"# {fname}\n")
-                # Make mtime far in the future so not stale
-                os.utime(os.path.join(strategy_dir, fname), (9999999999, 9999999999))
-
-        sml = _compute_sml_state(scheduler_db["conn"], "yoke", workspace=tmp_dir)
+    def test_all_docs_live_coherent(self, scheduler_db):
+        """The fixture seeds all default docs, so coherent=True."""
+        sml = _compute_sml_state(scheduler_db["conn"], [1])
         assert sml.coherent is True
 
-    def test_missing_files_incoherent(self, scheduler_db):
-        """When SML files are missing, coherent=False."""
-        sml = _compute_sml_state(scheduler_db["conn"], "yoke", workspace=scheduler_db["tmp_dir"])
+    def test_missing_docs_incoherent(self, scheduler_db):
+        """A project with no strategy_docs rows is incoherent."""
+        conn = scheduler_db["conn"]
+        conn.execute("DELETE FROM strategy_docs")
+        sml = _compute_sml_state(conn, [1])
         assert sml.coherent is False
 
-    def test_partial_files_incoherent(self, scheduler_db):
-        """When only some SML files exist, coherent=False."""
-        tmp_dir = scheduler_db["tmp_dir"]
-        strategy_dir = os.path.join(tmp_dir, ".yoke", "strategy")
-        os.makedirs(strategy_dir, exist_ok=True)
-        with open(os.path.join(strategy_dir, "VISION.md"), "w") as f:
-            f.write("# Vision\n")
-
-        sml = _compute_sml_state(scheduler_db["conn"], "yoke", workspace=tmp_dir)
+    def test_partial_docs_incoherent(self, scheduler_db):
+        """A project missing one default doc row is incoherent."""
+        conn = scheduler_db["conn"]
+        p = _placeholder(conn)
+        conn.execute(
+            f"DELETE FROM strategy_docs WHERE slug = {p}",
+            (DEFAULT_STRATEGY_DOC_SLUGS[0],),
+        )
+        sml = _compute_sml_state(conn, [1])
         assert sml.coherent is False
+
+    def test_archived_doc_incoherent(self, scheduler_db):
+        """An archived default doc no longer counts as live."""
+        conn = scheduler_db["conn"]
+        p = _placeholder(conn)
+        conn.execute(
+            f"UPDATE strategy_docs SET archived_at = '2026-03-02' WHERE slug = {p}",
+            (DEFAULT_STRATEGY_DOC_SLUGS[0],),
+        )
+        sml = _compute_sml_state(conn, [1])
+        assert sml.coherent is False
+
+    def test_empty_scope_coherent(self, scheduler_db):
+        """An empty project scope has nothing to be incoherent about."""
+        sml = _compute_sml_state(scheduler_db["conn"], [])
+        assert sml.coherent is True
 
 
 class TestSchedulerResultShape:

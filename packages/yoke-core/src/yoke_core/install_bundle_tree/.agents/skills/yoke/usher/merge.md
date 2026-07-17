@@ -13,7 +13,7 @@ If `_DEPLOY_ONLY`, skip entirely to deploy phase.
 <!--
  BRANCH CLEANUP ORDERING CONTRACT
  1. Step 7c: Pre-merge ephemeral verification (before merge, gates it)
- 2. Step 7d: `watch_merge merge-worktree` merges branch into main
+ 2. Step 7d: `watch_merge merge-worktree` merges the branch into the project's registered default branch
  3. Step 8: `watch_merge done-transition --skip-deploy` runs cleanup
  DO NOT reorder these steps.
 -->
@@ -150,7 +150,7 @@ if [ "$_item_type" = "epic" ]; then
  # /yoke merge sets exit code; treat non-zero as merge failure for this item.
 else
  # Issue-merge boundary call. YOKE_DONE_TRANSITION is the engine-owned
- # standalone-branch contract documented by runtime/api/engines/merge_worktree_prepare.py;
+ # standalone-branch contract documented by packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py;
  # `done_transition` sets the same env var internally when it dispatches to
  # merge_worktree. Setting it here on the issue-merge boundary is the
  # documented call shape, not an ad-hoc bypass. The companion `# lint:no-guard-check`
@@ -159,7 +159,7 @@ else
 fi
 ```
 
-**Engine contract:** `YOKE_DONE_TRANSITION=1` is the standalone-branch boundary the merge engine recognises (see `runtime/api/engines/merge_worktree_prepare.py` lines 141-147 for the guard, `runtime/api/engines/done_transition_merge_ops.py` line 124 for the internal-engine setter). The watcher call above invokes the same engine contract on the issue boundary because issue items have no done-transition intermediary.
+**Engine contract:** `YOKE_DONE_TRANSITION=1` is the standalone-branch boundary the merge engine recognises (see `packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py` lines 141-147 for the guard, `packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py` line 124 for the internal-engine setter). The watcher call above invokes the same engine contract on the issue boundary because issue items have no done-transition intermediary.
 
 **Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it normally runs under the watcher wrapper. `watch_merge merge-worktree` maps to `yoke_core.engines.merge_worktree`, but the wrapper **inherits the parent environment and does NOT auto-set or propagate `YOKE_DONE_TRANSITION=1`** — set it explicitly in the env prefix of the wrapper invocation too: `YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- YOK-{N}`. (`python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-worktree -- YOK-{N}` prints the background + Monitor pair; prepend `YOKE_DONE_TRANSITION=1` to the printed background command.)
 
@@ -226,12 +226,14 @@ Then halt the entire usher batch — do NOT proceed to later items in the merge-
 
 ### 7f. Post-Merge CI Check (ADVISORY)
 
-After all merges complete, check main CI:
+After all merges complete, repeat the same project-policy resolution from Step
+4b: `github_repo` from `projects.github_binding.status`, `workflow_file` from
+the `ci_workflow_file` capability, and `default_branch` from `projects.get`.
+When all values exist, run:
+
 ```bash
-_repo=$(yoke projects github-binding status --project "$_usher_project" \
- --field github_repo)
-yoke github-actions check-ci "$_repo" ci.yml --branch main \
- --project "$_usher_project"
+yoke github-actions check-ci "{repo}" "{workflow_file}" \
+ --branch "{default_branch}" --project "{project}"
 ```
 
 The command resolves the project's verified App binding and uses a short-lived

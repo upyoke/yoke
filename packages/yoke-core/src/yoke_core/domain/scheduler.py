@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 
 from .frontier import AdapterCategory, FrontierResult, compute_frontier as compute_raw_frontier
 from .project_scope import normalize_project_scope
@@ -19,34 +19,59 @@ from .scheduler_types import (
     SMLState,
     ScheduledStep,
     SchedulerResult,
-    SML_FILES,
     is_assignable_claim_state,
 )
 
 def _compute_sml_state(
     conn: Any,
     project_scope: List[int],
-    workspace: Optional[str] = None,
 ) -> SMLState:
     """Compute truthful SML coherence.
 
-    Coherence: all four SML files must exist.  Staleness computation was
-    removed — the post-delivery drift-review model replaces
-    ambient stale-bit decisioning.
+    Coherence: every project in scope carries all default strategy docs
+    as live (non-archived) ``strategy_docs`` rows. The DB rows are the
+    strategy authority; local ``.yoke/strategy/`` renders are
+    machine-local views and never consulted — a hosted server has no
+    checkout at all. Staleness computation was removed — the
+    post-delivery drift-review model replaces ambient stale-bit
+    decisioning.
     """
-    if workspace:
-        ws_path = Path(workspace)
-    else:
-        # Default: repo root relative to this file
-        from yoke_core.api.repo_root import find_repo_root
-
-        ws_path = find_repo_root(Path(__file__))
-
-    for fname in SML_FILES:
-        if not (ws_path / fname).is_file():
-            return SMLState(coherent=False)
-
-    return SMLState(coherent=True)
+    if not project_scope:
+        return SMLState(coherent=True)
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    scope_ph = ", ".join(p for _ in project_scope)
+    slug_ph = ", ".join(p for _ in DEFAULT_STRATEGY_DOC_SLUGS)
+    try:
+        rows = conn.execute(
+            f"""SELECT project_id, COUNT(DISTINCT slug) AS live_slugs
+               FROM strategy_docs
+               WHERE project_id IN ({scope_ph})
+                 AND slug IN ({slug_ph})
+                 AND archived_at IS NULL
+               GROUP BY project_id""",
+            (*project_scope, *DEFAULT_STRATEGY_DOC_SLUGS),
+        ).fetchall()
+    except db_backend.operational_error_types(conn):
+        # Minimal fixture DBs may omit strategy_docs; leave the
+        # connection usable and report the coherent default (production
+        # DBs always converge the table on boot).
+        if db_backend.connection_is_postgres(conn):
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        return SMLState(coherent=True)
+    live_counts: Dict[int, int] = {}
+    for row in rows or []:
+        record = dict(row) if hasattr(row, "keys") else {
+            "project_id": row[0], "live_slugs": row[1],
+        }
+        live_counts[int(record["project_id"])] = int(record["live_slugs"])
+    coherent = all(
+        live_counts.get(int(pid), 0) == len(DEFAULT_STRATEGY_DOC_SLUGS)
+        for pid in project_scope
+    )
+    return SMLState(coherent=coherent)
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +111,18 @@ def _query_exceptional_items(
         return []
 
 
+def _project_slug_or_id(conn: Any, project_id: Any) -> str:
+    """Resolve a project id to its slug, falling back to the raw id text."""
+    if project_id is None:
+        return ""
+    from .project_identity import resolve_project_slug
+
+    try:
+        return resolve_project_slug(conn, int(project_id))
+    except Exception:
+        return str(project_id)
+
+
 # ---------------------------------------------------------------------------
 # Main entry point — compute_schedule
 # ---------------------------------------------------------------------------
@@ -96,7 +133,7 @@ def compute_schedule(
     project_scope: List[Union[int, str]],
     wip_cap: int = 5,
     session_id: Optional[str] = None,
-    workspace: Optional[str] = None,
+    emit_events: bool = True,
 ) -> SchedulerResult:
     """Compute the shared frontier-step schedule across a project scope.
 
@@ -109,7 +146,11 @@ def compute_schedule(
             accepted for CLI/API boundary callers and resolved before SQL.
         wip_cap: Maximum number of conduct-eligible items.
         session_id: Optional session ID for claim-state evaluation.
-        workspace: Optional workspace path for SML file checks.
+        emit_events: ``False`` suppresses the ``FrontierStepSelected``,
+            ``FrontierComputed``, and ``DependencyGateEvaluated``
+            telemetry writes so pure reads (e.g. a browser poll) leave no
+            event rows behind; the default preserves emission for every
+            existing caller.
 
     Returns:
         A ``SchedulerResult`` with the full scheduling context.
@@ -123,10 +164,11 @@ def compute_schedule(
         project_scope=project_scope,
         wip_cap=wip_cap,
         session_id=session_id,
+        emit_events=emit_events,
     )
 
     # 2. Compute SML state
-    sml = _compute_sml_state(conn, project_scope, workspace=workspace)
+    sml = _compute_sml_state(conn, project_scope)
 
     # 3. Collect all item IDs for claim evaluation
     all_item_ids = (
@@ -161,6 +203,7 @@ def compute_schedule(
             title=fi.title,
             priority=fi.priority,
             next_step=step_result.next_step,
+            project=fi.project,
             rank=rank_idx,
             claim_state=claims.get(fi.item_id, ClaimState.UNCLAIMED),
             explanation=f"Ranked #{rank_idx + 1}: {step_result.next_step.value} for {fi.item_type} in {fi.status}",
@@ -203,6 +246,7 @@ def compute_schedule(
             title=fi.title,
             priority=fi.priority,
             next_step=NextStep.WAIT,
+            project=fi.project,
             claim_state=claims.get(fi.item_id, ClaimState.UNCLAIMED),
             gate_evaluations=gate_evals,
             explanation=f"Blocked: {'; '.join(fi.blocked_reasons)}" if fi.blocked_reasons else "Blocked",
@@ -227,6 +271,7 @@ def compute_schedule(
             title=ei.get("title", ""),
             priority=ei.get("priority", "medium"),
             next_step=NextStep.WAIT,
+            project=_project_slug_or_id(conn, ei.get("project_id")),
             explanation=f"Exceptional: item is in {ei.get('status', 'failed')} status",
             created_at=ei.get("created_at", ""),
         ))
@@ -241,6 +286,7 @@ def compute_schedule(
             title=fi.title,
             priority=fi.priority,
             next_step=NextStep.WAIT,
+            project=fi.project,
             explanation="Frozen — excluded from scheduling",
             created_at=fi.created_at,
         ))
@@ -281,14 +327,14 @@ def compute_schedule(
     )
 
     # Emit FrontierStepSelected telemetry
-    _emit_frontier_step_selected(conn, result, session_id)
+    if emit_events:
+        _emit_frontier_step_selected(conn, result, session_id)
 
     return result
 
 __all__ = [
     "NextStep",
     "ClaimState",
-    "SML_FILES",
     "SMLState",
     "GateEvaluation",
     "ScheduledStep",

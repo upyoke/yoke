@@ -49,7 +49,8 @@ class CapabilitySettingsMergeRequest(BaseModel):
 class CapabilitySettingsResponse(BaseModel):
     project: str
     cap_type: str
-    settings_json: str
+    settings_json: Optional[str] = None
+    changed_paths: Optional[list[str]] = None
     message: Optional[str] = None
 
 
@@ -130,13 +131,25 @@ def handle_capability_settings_merge(
         message = cmd_capability_merge_settings(
             parsed.project, parsed.cap_type, parsed.assignments
         )
-        settings_json = cmd_capability_get_settings(parsed.project, parsed.cap_type)
+        settings_json = (
+            None
+            if parsed.cap_type == "pulumi-state"
+            else cmd_capability_get_settings(parsed.project, parsed.cap_type)
+        )
     except SettingsConflictError as exc:
         return _failure("settings_conflict", str(exc), "$.payload.assignments")
     except LookupError as exc:
         return _failure("not_found", str(exc), "$.payload.project")
     except ValueError as exc:
         return _failure("validation_error", str(exc), "$.payload")
+    if parsed.cap_type == "pulumi-state":
+        return _success(
+            parsed.project,
+            parsed.cap_type,
+            None,
+            message=message,
+            changed_paths=sorted(parsed.assignments),
+        )
     assert settings_json is not None
     return _success(parsed.project, parsed.cap_type, settings_json, message=message)
 
@@ -144,9 +157,10 @@ def handle_capability_settings_merge(
 def _success(
     project: str,
     cap_type: str,
-    settings_json: str,
+    settings_json: Optional[str],
     *,
     message: Optional[str] = None,
+    changed_paths: Optional[list[str]] = None,
 ) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=True,
@@ -155,6 +169,7 @@ def _success(
             "cap_type": cap_type,
             "settings_json": settings_json,
             "message": message,
+            "changed_paths": changed_paths,
         },
     )
 

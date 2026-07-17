@@ -5,7 +5,10 @@ from yoke_core.domain.actors import seed_canonical_actors
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
-from yoke_core.domain.flow_init import create_or_replace_item_progress_view
+from yoke_core.domain.flow_init import (
+    converge_flow_catalog,
+    create_or_replace_item_progress_view,
+)
 from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.project_onboarding_runs import (
@@ -41,10 +44,12 @@ def converge_core_schema(conn) -> None:
     """Idempotently bring an existing DB's schema up to the current code.
 
     Runs every schema-CREATION step — tables, indexes, and strictly additive
-    columns — in FK-dependency order, and nothing else: no seeds, no destructive
-    drops, no data backfills. Safe to run on every server boot of an already-born
-    universe, which is what propagates newly-deployed tables/columns to existing
-    prod / self-host universes on the boot after a deploy (see
+    columns — in FK-dependency order, then inserts any missing code-owned
+    deployment-flow definitions. It performs no destructive drops, data
+    backfills, row deletions, or existing-flow rewrites. Safe to run on every
+    server boot of an already-born universe, which is what propagates newly
+    deployed tables, columns, and built-in flow definitions to existing prod /
+    self-host universes on the boot after a deploy (see
     :func:`yoke_core.api.server_entrypoint.ensure_core_schema`).
 
     This is the single source of the schema-creation sequence: :func:`cmd_init`
@@ -71,6 +76,10 @@ def converge_core_schema(conn) -> None:
     # the strategy domain owns.
     conn.execute(STRATEGY_DOCS_CREATE_TABLE_SQL)
     apply_additive_schema(conn)
+    # Built-in deployment flows are executable configuration, not birth-only
+    # sample data.  Missing definitions therefore converge with deployed code
+    # on every boot while existing/disabled/history-backed rows stay intact.
+    converge_flow_catalog(conn)
     # The initial bootstrap creates the view before deployment-run tables land;
     # every subsequent server boot must converge it onto the complete current
     # projection once those tables exist.

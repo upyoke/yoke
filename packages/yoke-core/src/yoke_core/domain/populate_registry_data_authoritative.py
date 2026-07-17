@@ -133,6 +133,18 @@ RETIRE_LIST: Tuple[str, ...] = (
     # DeploymentEventMigrated was a one-shot historical migration
     # backfill event; emitter deleted, historical rows remain.
     "DeploymentEventMigrated",
+    # Codex custom-subagent start/stop hook observers were removed along
+    # with their telemetry bridge; historical rows remain in the ledger,
+    # no new ones fire.
+    "CodexSubagentStarted",
+    "CodexSubagentStopped",
+    # The path-claim resnapshot emitter was deleted; historical rows
+    # remain in the ledger, no new ones fire.
+    "PathClaimSnapshotRefreshed",
+    # The destructive-guard defer emitter was removed together with the
+    # session-end deferral path; historical rows remain in the ledger,
+    # no new ones fire.
+    "HarnessSessionEndDeferred",
 )
 
 
@@ -149,7 +161,6 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "DeploymentRunStageFailed",
     "DispatcherDownstreamDegraded",
     "GitHubCloseFailure",
-    "HarnessSessionEndDeferred",
     "HarnessSessionResumeBlockShown",
     "HarnessToolCallStructuredExit",
     "HookExecutionFailed",
@@ -342,7 +353,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("ItemClaimReleaseRefused", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_release_precondition", "WARN", "Release-precondition invariant: release_work_claim_for_execution refused a non-terminal release on an item target because the session's chain checkpoint lacks durable terminal evidence (chainable=True AND handler_outcome not in TERMINAL_OUTCOMES). Carries prior_owner_session_id, item_id, claim_id, release_reason_intent, checkpoint_outcome, checkpoint_chainable, failure_reason='non_terminal_release_refused'."),
     ("ItemClaimReleaseOverride", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_release_precondition", "WARN", "Operator bypass: release-work-claim --allow-non-terminal proceeded despite a non-terminal intent without terminal-checkpoint evidence. Carries prior_owner_session_id, item_id, claim_id, release_reason_intent, operator_rationale."),
     ("SessionReactivatedWithReleasedClaims", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_reactivation", "INFO", "Session reactivated after SessionEnd with prior session-ended work claims. Surface event for the slim resume block; paired with SessionReactivationReacquiredClaims when the receipt of conditional auto-reacquire fires. Carries session_id, released_claim_count, released_claims."),
-    ("HarnessSessionEndDeferred", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_destructive_guard", "INFO", "Transient SessionEnd refused destruction because a chainable checkpoint still has budget. Carries session_id, defer_reason (chain_pending), agent_presence_evidence, active_claim_count, claim_details."),
+    ("HarnessSessionEndDeferred", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_destructive_guard", "INFO", "RETIRED — the destructive-guard defer emitter was removed together with the session-end deferral path. Status retired so historical ledger rows do not register as rogue."),
     ("SessionReactivationReacquiredClaims", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_reactivation", "INFO", "Receipt for the conditional auto-reacquire path on reactivation. Carries session_id, reacquired_count, conflict_count, claim_details ({outcome: reacquired|conflict, target}). Falls through to advisory only when another session legitimately holds the target."),
     ("HarnessSessionResumeBlockShown", "system", "session_lifecycle", "yoke_core.domain.sessions_resume_block", "INFO", "Once-per-reactivation marker emitted by the hook runner after it renders the slim resume block to the operator. Carries session_id, harness_event (UserPromptSubmit|SessionStart), reactivation_event_id, reacquired, advisory_only."),
     ("QARunCaptured", "lifecycle", "qa_execution", "yoke_core.domain.qa_execution", "INFO", "QA run captured with only an execution_status set (no verdict yet); sibling of QARunCompleted that fires once a verdict is recorded."),
@@ -351,4 +362,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("ReflectionCaptureHookUnhandled", "domain", "reflection_unhandled", "yoke_core.domain.reflection_capture_hook", "WARN", "PostToolUse Agent-tool hook observed at least one reflection block with no matching shape parser. Carries blocks_unrecognized count plus raw_examples (each: excerpt + classification_attempt) so operators can grow the parser to cover the new shape, fixed by HC-reflection-capture-unhandled (24h WARN surface)."), ("ReflectionCapturePersistFailed", "domain", "reflection_capture", "yoke_core.domain.reflection_capture", "WARN", "persist_entries swallowed an exception while inserting one parsed reflection entry into ouroboros_entries. Carries agent, category, body_excerpt (first 200 chars), exception_type so operators can surface silent drops; backed by HC-reflection-capture-persist-failed (24h WARN surface)."),
     ("ClaimReacquiredAfterHandoff", "lifecycle", "session_lifecycle", "yoke_core.domain.work_claim_handoff", "INFO", "RETIRED — handoff semantics replaced by explicit polish/usher hops; emitter and registry row removed in commit 1fe83ff6c. Status retired so historical ledger rows do not register as rogue."), ("PathContextMigrated", "lifecycle", "path_context", "yoke_core.domain.path_context_continuity_cutover", "INFO", "RETIRED — emitter module deleted in commit 966d30574 alongside the path-posture doc-link cutover (docs/archive/decisions/path-posture-doc-links-cutover.md). Status retired so historical ledger rows do not register as rogue."),
     ("LeakAttempt", "system", "test_isolation", "runtime.api.test_events_isolation", "WARN", "RETIRED — test-isolation fixture emission that exercises the canonical-DB gate refusal path. Status retired so historical ledger rows do not register as rogue; the fixture itself remains in place to keep the gate exercised."), ("DeploymentEventMigrated", "lifecycle", "deployment", "yoke_core.domain.deployment", "INFO", "RETIRED — one-shot historical migration backfill event for the legacy deployment_events table; the emit site has been deleted. Status retired so historical event_id=migrate-dep-evt-N rows in the events ledger do not register as rogue."),
+    ("CodexSubagentStarted", "system", "subagent_lifecycle", "runtime.harness.hook_runner.subagent_telemetry", "INFO", "RETIRED — Codex custom-subagent start hook observer removed along with its telemetry bridge. Status retired so historical ledger rows do not register as rogue."),
+    ("CodexSubagentStopped", "system", "subagent_lifecycle", "runtime.harness.hook_runner.subagent_telemetry", "INFO", "RETIRED — Codex custom-subagent stop hook observer removed along with its telemetry bridge. Status retired so historical ledger rows do not register as rogue."),
+    ("PathClaimSnapshotRefreshed", "lifecycle", "path_claim", "yoke_core.domain.path_claims_events_snapshot", "INFO", "RETIRED — the path-claim resnapshot emitter was deleted. Status retired so historical ledger rows do not register as rogue."),
 )

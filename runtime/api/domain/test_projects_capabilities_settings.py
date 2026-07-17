@@ -198,11 +198,11 @@ class TestMergeSettings:
             "yoke", "docker", {"host": "a"}, db_path=cap_db
         )
         pcs.cmd_capability_merge_settings(
-            "yoke", "docker", {"deploy.auto_on_push": True}, db_path=cap_db
+            "yoke", "docker", {"runtime.network": "bridge"}, db_path=cap_db
         )
         final = _settings(cap_db)
         assert final["host"] == "a"
-        assert final["deploy"]["auto_on_push"] is True
+        assert final["runtime"]["network"] == "bridge"
 
     def test_merge_retries_once_when_base_moves(
         self, cap_db: str, monkeypatch: pytest.MonkeyPatch

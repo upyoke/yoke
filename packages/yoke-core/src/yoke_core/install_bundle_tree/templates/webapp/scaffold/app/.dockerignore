@@ -1,0 +1,11 @@
+data/
+tests/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+web/
+.env
+.env.*
+Dockerfile
+.dockerignore

@@ -98,16 +98,6 @@ def _settings_from_context(
             "distribution_id": base.get("cloudfront_id", ""),
             "distribution_domain": base.get("cloudfront_domain", ""),
         },
-        "pulumi": {
-            key: context[key]
-            for key in (
-                "stacks",
-                "pulumiInfraStackName",
-                "pulumiVpsStackName",
-                "containerRepositoryName",
-            )
-            if key in context
-        },
     }
     env_settings = {
         "hosts": {"origin": base.get("origin_host", context.get("originHost", ""))},
@@ -133,6 +123,12 @@ def _settings_from_context(
         "pulumi-state": {
             "kms_key_alias": context.get("kmsKeyAlias", ""),
             "state_bucket": context.get("stateBucket", ""),
+            "stacks": context.get("stacks", []),
+            "infra_stack_name": context.get("pulumiInfraStackName", ""),
+            "vps_stack_name": context.get("pulumiVpsStackName", ""),
+        },
+        "container-registry": {
+            "repository": context.get("containerRepositoryName", ""),
         },
         "ssh": {"default_user": base.get("ssh_user", "")},
         "webapp-runtime": {

@@ -7,6 +7,7 @@ dispatch table stays small; the dispatcher delegates the
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 import uuid
@@ -38,6 +39,9 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 )
 
 
+CORRELATED_WORKFLOW_TIMEOUT_MIN = 120
+
+
 def _dispatch_github_actions_workflow(
     config: Dict[str, Any],
     *,
@@ -50,6 +54,7 @@ def _dispatch_github_actions_workflow(
     timeout_min: int,
     fresh: bool,
     gate_branch: str,
+    release_lineage: str,
     product_repo_path: str = "",
     image_tag: str = "",
     sd: Optional[str] = None,
@@ -94,32 +99,57 @@ def _dispatch_github_actions_workflow(
     # the source-sha/CI-gate branch (a product concept) below; the workflow ref
     # defaults to the deploy repo's default branch where the file lives.
     workflow_ref = str(config.get("ref", "") or "main")
-    stage_timeout_min = int(config.get("timeout_min") or timeout_min)
+    default_timeout_min = (
+        max(timeout_min, CORRELATED_WORKFLOW_TIMEOUT_MIN)
+        if correlation_input
+        else timeout_min
+    )
+    stage_timeout_min = int(config.get("timeout_min") or default_timeout_min)
     timeout_sec = stage_timeout_min * 60
 
     if not github_repo:
         print(f"Error: no github_repo configured for project '{project}'", file=sys.stderr)
         return 1, ""
 
-    ci_passed, ci_msg = _check_ci_gate(
-        github_repo, project, timeout_sec, branch=gate_branch, sd=sd
-    )
-    if ci_msg:
-        print(ci_msg, file=sys.stderr if not ci_passed else sys.stdout)
-    if not ci_passed:
-        return 1, ci_msg or ""
-
     publish_product = name == "distribution-publish" and product_repo_path
-    head_sha, sha_error = _resolve_publish_sha(
-        product_repo_path if publish_product else project_repo_path,
+    project_head_sha, lineage_error = _resolve_release_lineage_sha(
+        release_lineage,
+        project_repo_path,
         gate_branch,
-        image_tag=image_tag if publish_product else "",
     )
-    if sha_error:
-        print(f"Error: {sha_error}", file=sys.stderr)
-        return 1, sha_error
+    if lineage_error:
+        diagnostic = lineage_error
+        print(f"Error: {diagnostic}", file=sys.stderr)
+        return 1, diagnostic
+    wait_for_ci = config.get("wait_for_ci", True)
+    if not isinstance(wait_for_ci, bool):
+        diagnostic = "github-actions-workflow wait_for_ci must be a boolean"
+        print(f"Error: {diagnostic}", file=sys.stderr)
+        return 1, diagnostic
+    if wait_for_ci:
+        ci_passed, ci_msg = _check_ci_gate(
+            github_repo, project, timeout_sec, branch=gate_branch,
+            head_sha=project_head_sha, sd=sd,
+        )
+        if ci_msg:
+            print(ci_msg, file=sys.stderr if not ci_passed else sys.stdout)
+        if not ci_passed:
+            return 1, ci_msg or ""
+    else:
+        print("  CI gate: skipped by this deployment-flow stage")
+
+    head_sha = project_head_sha
+    if publish_product:
+        head_sha, sha_error = _resolve_publish_sha(
+            product_repo_path,
+            gate_branch,
+            image_tag=image_tag,
+        )
+        if sha_error:
+            print(f"Error: {sha_error}", file=sys.stderr)
+            return 1, sha_error
     workflow_inputs = _resolve_workflow_inputs(
-        raw_workflow_inputs, head_sha=head_sha,
+        raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
     )
 
     ga_run_id = ""
@@ -246,6 +276,100 @@ def _dispatch_github_actions_workflow(
 
     print(f"Error: could not trigger or find workflow run for '{workflow}'", file=sys.stderr)
     return 1, f"could not trigger or find workflow run for '{workflow}'"
+
+
+def _resolve_release_lineage_sha(
+    release_lineage: str,
+    project_repo_path: str,
+    gate_branch: str,
+) -> tuple[str, str]:
+    """Resolve a run's immutable lineage without consulting a branch head.
+
+    Current runs bind directly to a full commit SHA. Historical release runs
+    bind to an annotated release tag; for those, use only the remote tag's
+    peeled commit. A lightweight tag is refused because it lacks the governed
+    annotated-release boundary expected by the hosted release train.
+    """
+    lineage = release_lineage.strip()
+    if not lineage:
+        return "", (
+            "github-actions-workflow requires the deployment run to carry "
+            "an immutable release_lineage commit SHA or annotated release tag"
+        )
+    if re.fullmatch(r"[0-9a-f]{40}", lineage):
+        checkout_error = _verify_release_sha_in_checkout(
+            lineage,
+            project_repo_path,
+            gate_branch,
+        )
+        if checkout_error:
+            return "", checkout_error
+        return lineage, ""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+~-]{0,127}", lineage):
+        return "", (
+            "deployment run release_lineage is neither an exact 40-character "
+            "lowercase Git commit SHA nor a safe annotated release tag"
+        )
+
+    repo = project_repo_path or "."
+    peeled_ref = f"refs/tags/{lineage}^{{}}"
+    result = _run_cmd(
+        [
+            "git", "-C", repo, "ls-remote", "origin",
+            f"refs/tags/{lineage}", peeled_ref,
+        ]
+    )
+    if result.returncode != 0:
+        return "", (
+            f"could not resolve annotated release tag '{lineage}' from origin"
+        )
+    peeled = [
+        fields[0]
+        for raw_line in result.stdout.splitlines()
+        if len(fields := raw_line.split()) == 2
+        and fields[1] == peeled_ref
+        and re.fullmatch(r"[0-9a-f]{40}", fields[0])
+    ]
+    if len(set(peeled)) != 1:
+        return "", (
+            f"release_lineage '{lineage}' does not resolve to exactly one "
+            "annotated release-tag commit on origin"
+        )
+    return peeled[0], ""
+
+
+def _verify_release_sha_in_checkout(
+    release_sha: str,
+    project_repo_path: str,
+    gate_branch: str,
+) -> str:
+    """Prove ``release_sha`` is reachable from the fresh remote release ref."""
+    if not gate_branch:
+        return (
+            "cannot validate a commit release_lineage without a deployment "
+            "flow gate branch"
+        )
+    repo = project_repo_path or "."
+    remote_ref = f"refs/remotes/origin/{gate_branch}"
+    fetched = _run_cmd([
+        "git", "-C", repo, "fetch", "--quiet", "--no-tags", "origin",
+        f"refs/heads/{gate_branch}:{remote_ref}",
+    ])
+    if fetched.returncode != 0:
+        return (
+            f"could not refresh origin/{gate_branch} while validating "
+            "deployment run release_lineage"
+        )
+    reachable = _run_cmd([
+        "git", "-C", repo, "merge-base", "--is-ancestor",
+        release_sha, remote_ref,
+    ])
+    if reachable.returncode != 0:
+        return (
+            f"deployment run release_lineage {release_sha} is not a commit "
+            f"reachable from origin/{gate_branch}"
+        )
+    return ""
 
 
 def _resolve_publish_sha(

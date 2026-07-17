@@ -39,17 +39,20 @@ class TestRuntimeOwnerFromWorktree:
         stray = fake_repo["wt_data"] / "yoke.db"
         assert not stray.exists()
 
-    def test_repair_status_resolves_main_db(self, fake_repo):
-        """engines.repair_status._db_path() delegates to canonical resolver."""
-        from yoke_core.engines.repair_status import _db_path
+    def test_repair_status_connects_via_canonical_helper(self, fake_repo):
+        """engines.repair_status._connect() delegates to db_helpers.connect."""
+        from yoke_core.engines.repair_status import _connect
 
+        sentinel = object()
         with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(fake_repo["main_db"]),
+            "yoke_core.domain.db_helpers.connect",
+            return_value=sentinel,
         ):
-            result = _db_path()
+            result = _connect()
 
-        assert result == str(fake_repo["main_db"])
+        assert result is sentinel
+        stray = fake_repo["wt_data"] / "yoke.db"
+        assert not stray.exists()
 
     def test_done_transition_resolves_main_db(self, fake_repo):
         """engines.done_transition._db_path() delegates to canonical resolver."""

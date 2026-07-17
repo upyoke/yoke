@@ -6,4 +6,4 @@
  * version whose static app bundle it serves.
  */
 /** Canonical value; the runtime module is emitted from this source. */
-export const UNIVERSE_APP_CONTRACT_VERSION = 3;
+export const UNIVERSE_APP_CONTRACT_VERSION = 6;

@@ -49,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     ls = sub.add_parser("list", help="List runs (pipe-delimited)")
     ls.add_argument("--project", default=None)
     ls.add_argument("--status", default=None)
+    ls.add_argument("--limit", type=int, default=None)
 
     it = sub.add_parser("items", help="List items in a run")
     it.add_argument("run_id")
@@ -129,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     sfi.add_argument("--flow", default=None)
     sfi.add_argument("--target-env", default=None)
     sfi.add_argument("--release-lineage", default=None)
+    sfi.add_argument("--project-repo-path", default="")
     sfi.add_argument("--created-by", default="operator")
 
     return p

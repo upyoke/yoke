@@ -261,7 +261,6 @@ def _run_runner(monkeypatch, payload: dict, controls=None):
     )
     capability = AdapterCapability(
         family="claude",
-        events=frozenset({"PreToolUse"}),
         payload_parser=lambda raw: payload,
         decision_renderer=render_claude_decision,
     )
@@ -338,7 +337,6 @@ class TestRunnerArmsEnsureSession:
         )
         capability = AdapterCapability(
             family="claude",
-            events=frozenset({"SessionStart"}),
             payload_parser=lambda raw: {"session_id": "s-ss"},
             decision_renderer=render_claude_decision,
         )

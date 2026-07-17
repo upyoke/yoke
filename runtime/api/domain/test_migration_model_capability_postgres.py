@@ -9,6 +9,9 @@ from yoke_core.domain.migration_model_capability import (
     RUNNER_KIND_GOVERNED_MODULE,
     validate,
 )
+from runtime.api.fixtures.migration_model_test import (
+    POSTGRES_AUTHORITY_LOCATION,
+)
 
 
 def _postgres_model(location: dict) -> dict:
@@ -32,14 +35,7 @@ def _postgres_model(location: dict) -> dict:
 
 
 def _location(**overrides) -> dict:
-    base = {
-        "stack": "yoke-prod",
-        "state_backend": "s3://yoke-pulumi-state?region=us-east-1",
-        "region": "us-east-1",
-        "database_name": "yoke_prod",
-        "endpoint_output": "databaseClusterEndpoint",
-        "secret_arn_output": "databaseSecretArn",
-    }
+    base = dict(POSTGRES_AUTHORITY_LOCATION)
     base.update(overrides)
     return base
 

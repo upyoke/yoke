@@ -49,6 +49,7 @@ def _dispatch_executor(
     image_tag: str = "",
     target_env: str = "",
     gate_branch: str,
+    release_lineage: str,
     product_repo_path: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
@@ -145,6 +146,7 @@ def _dispatch_executor(
             project_repo_path=project_repo_path,
             timeout_min=timeout_min, fresh=fresh,
             gate_branch=gate_branch, sd=sd,
+            release_lineage=release_lineage,
             product_repo_path=product_repo_path,
             image_tag=str(config.get("image_tag", "") or image_tag or ""),
         )

@@ -45,12 +45,16 @@ permissions:
 
 jobs:
   signature-check:
+    # Required pull-request checks always run. Comment-triggered checks only
+    # start for a pull request and one of the action's recognized phrases.
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event.issue.pull_request &&
+      (github.event.comment.body == 'recheck' ||
+      github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'))
     runs-on: ubuntu-latest
     steps:
       - name: CLA assistant
-        # Run on every pull_request_target event; for comments, run only on
-        # the sign phrase or a recheck request (the action's default phrases).
-        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
         # Pinned to the full commit SHA: mutable tags are an injection vector
         # in a pull_request_target workflow running with write tokens.
         uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1

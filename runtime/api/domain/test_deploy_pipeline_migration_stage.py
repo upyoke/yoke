@@ -26,8 +26,7 @@ from yoke_core.domain import (
 from yoke_core.domain.db_mutation_gate_shared import GateOutcome
 
 
-# Mirrors the yoke-prod-release seed shape: the kind stage carries no
-# "name"/"executor" keys on the flow row.
+# The governed kind stage carries no "name"/"executor" keys on the flow row.
 PROD_STAGES = json.dumps([
     {"kind": "migration_apply", "model_name": "primary",
      "lifecycle_phase": "implementing"},
@@ -54,7 +53,7 @@ def _execute(
         if args[:2] == ("runs", "get"):
             # id|project|flow|target_env|lineage|status|current_stage
             return (
-                f"{run_id}|yoke|yoke-prod-release|prod|"
+                f"{run_id}|yoke|governed-production|production|"
                 f"|{run_status}|{current_stage}"
             )
         if args[:2] == ("runs", "items"):
@@ -118,8 +117,6 @@ def _execute(
         deploy_pipeline, "connect", return_value=mock.Mock(),
     ), mock.patch.object(
         deploy_pipeline, "query_scalar", return_value=0,
-    ), mock.patch.object(
-        deploy_pipeline, "_converge_seeded_flow_config",
     ):
         rc = deploy_pipeline.run_pipeline(
             run_id, from_stage=from_stage, sd="/tmp/sd",
@@ -301,7 +298,7 @@ class TestDispatchGuards:
             run_id="run-1", member_items=[], github_repo="",
             project="yoke", project_repo_path="", branch="",
             first_item="", timeout_min=30, fresh=False, target_env="",
-            gate_branch="main", sd="/tmp/sd",
+            gate_branch="main", release_lineage="", sd="/tmp/sd",
         )
         assert (rc, diag) == (1, "")
         assert "unknown stage kind 'weird_kind'" in capsys.readouterr().err

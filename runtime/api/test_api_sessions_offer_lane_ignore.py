@@ -10,7 +10,8 @@ and envelope authorship, and emits
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+from yoke_core.domain.scheduler_types import SMLState
 
 import pytest
 from fastapi.testclient import TestClient
@@ -66,6 +67,15 @@ def _envelope_lane(db_path: str, session_id: str) -> str | None:
         return None
 
 
+def _sml_state_patch(coherent: bool = True):
+    """Pin scheduler SML coherence for offer tests (fixture DBs carry no
+    strategy_docs table; coherence is read from live strategy_docs rows)."""
+    return patch(
+        "yoke_core.domain.scheduler._compute_sml_state",
+        return_value=SMLState(coherent=coherent),
+    )
+
+
 class TestApiSessionOfferLaneIgnore:
     """AC-13, AC-15 — HTTP route ignores caller lane and anchors on the row."""
 
@@ -107,11 +117,7 @@ class TestApiSessionOfferLaneIgnore:
             "execution_lane": body.pop("execution_lane", None),
         }
         payload.update(body)
-        with patch("yoke_core.domain.scheduler.Path") as mock_path:
-            mock_file = MagicMock()
-            mock_file.is_file.return_value = True
-            mock_file.stat.return_value = MagicMock(st_mtime=9999999999.0)
-            mock_path.return_value.__truediv__ = lambda self, name: mock_file
+        with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json=payload)
         assert resp.status_code == 200, resp.text
         return resp.json()

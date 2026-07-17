@@ -15,8 +15,18 @@ from yoke_contracts.api.function_call import (
 
 FLOW_ROW_FIELDS = (
     "id", "project", "name", "description", "stages", "on_failure",
-    "created_at",
+    "created_at", "target_env", "done_description", "status",
 )
+
+
+class DeploymentFlowSetStatusRequest(BaseModel):
+    flow_id: str
+    status: str
+
+
+class DeploymentFlowSetStatusResponse(BaseModel):
+    flow_id: str
+    status: str
 
 
 class DeploymentFlowGetRequest(BaseModel):
@@ -54,14 +64,31 @@ class DeploymentRunGetResponse(BaseModel):
     run: Optional[Dict[str, Any]] = None
 
 
+class DeploymentRunCreateRequest(BaseModel):
+    project: str
+    flow: str
+    target_env: Optional[str] = None
+    created_by: str = "operator"
+
+
+class DeploymentRunCreateResponse(BaseModel):
+    run_id: str
+    project: str
+    flow: str
+    target_env: Optional[str] = None
+    status: str
+
+
 class DeploymentRunListRequest(BaseModel):
     project: Optional[str] = None
     status: Optional[str] = None
+    limit: Optional[int] = None
 
 
 class DeploymentRunListResponse(BaseModel):
     fields: List[str]
     rows: List[Dict[str, Any]]
+    limit: int
 
 
 class DeploymentRunUpdateRequest(BaseModel):
@@ -76,6 +103,24 @@ class DeploymentRunUpdateResponse(BaseModel):
     field: str
     value: str
     updated: bool
+
+
+class DeploymentRunApproveRequest(BaseModel):
+    note: Optional[str] = None
+    run_id: Optional[str] = None
+
+
+class DeploymentRunApproveResponse(BaseModel):
+    run_id: str
+    project: str
+    approved_stage: str
+    next_stage: str
+    approved_at: str
+    approver_actor_id: Optional[str] = None
+    approver_session_id: Optional[str] = None
+    note: Optional[str] = None
+    member_item_ids: List[int]
+    event_id: Optional[str] = None
 
 
 class DeploymentRunResolveTargetEnvRequest(BaseModel):

@@ -18,8 +18,6 @@ import subprocess
 import sys
 from unittest import mock
 
-import pytest
-
 from yoke_core.domain import deployment_runs_cli
 from yoke_core.engines.runs_start_for_item import StartForItemResult
 
@@ -89,6 +87,7 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
             "--flow", "to-staging",
             "--target-env", "staging",
             "--release-lineage", "L-99",
+            "--project-repo-path", "/workspace/buzz",
             "--created-by", "agent",
         ])
     assert rc == 0
@@ -98,6 +97,7 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
         "flow": "to-staging",
         "target_env": "staging",
         "release_lineage": "L-99",
+        "project_repo_path": "/workspace/buzz",
         "created_by": "agent",
     }
 

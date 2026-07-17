@@ -480,7 +480,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -1300,6 +1300,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-split"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2f/16/8af4c5f2ceb3640bb1f78dfdf5c184556b10dfe9369feaaad7ff1c13f329/pytest_split-0.11.0.tar.gz", hash = "sha256:8ebdb29cc72cc962e8eb1ec07db1eeb98ab25e215ed8e3216f6b9fc7ce0ec2b5", size = 13421, upload-time = "2026-02-03T09:14:31.469Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/a1/d4423657caaa8be9b31e491592b49cebdcfd434d3e74512ce71f6ec39905/pytest_split-0.11.0-py3-none-any.whl", hash = "sha256:899d7c0f5730da91e2daf283860eb73b503259cb416851a65599368849c7f382", size = 11911, upload-time = "2026-02-03T09:14:33.708Z" },
+]
+
+[[package]]
 name = "pytest-xdist"
 version = "3.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1973,6 +1985,7 @@ test = [
     { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-split" },
     { name = "pytest-xdist" },
     { name = "uv" },
 ]
@@ -1983,6 +1996,7 @@ dev = [
     { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-split" },
     { name = "pytest-xdist" },
     { name = "uv" },
 ]
@@ -2003,6 +2017,7 @@ requires-dist = [
     { name = "pynacl", specifier = ">=1.5.0,<2.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = "==8.4.2" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = "==6.0.0" },
+    { name = "pytest-split", marker = "extra == 'test'", specifier = "==0.11.0" },
     { name = "pytest-xdist", marker = "extra == 'test'", specifier = "==3.8.0" },
     { name = "uv", marker = "extra == 'test'", specifier = "==0.11.28" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.39.0" },
@@ -2019,6 +2034,7 @@ dev = [
     { name = "httpx", specifier = "==0.28.1" },
     { name = "pytest", specifier = "==8.4.2" },
     { name = "pytest-cov", specifier = "==6.0.0" },
+    { name = "pytest-split", specifier = "==0.11.0" },
     { name = "pytest-xdist", specifier = "==3.8.0" },
     { name = "uv", specifier = "==0.11.28" },
 ]

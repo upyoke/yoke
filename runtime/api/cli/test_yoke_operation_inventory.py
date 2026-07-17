@@ -195,26 +195,33 @@ class TestAccessors:
 class TestRegistryCoverage:
     """The tracker MUST cover every yoke subcommand registered today."""
 
-    def test_every_registered_subcommand_is_wrapped(self) -> None:
+    def test_every_registered_subcommand_has_valid_disposition(self) -> None:
         from yoke_cli.commands.registry import (
             SUBCOMMAND_ALIAS_REGISTRY,
             SUBCOMMAND_REGISTRY,
         )
+        from yoke_core.domain.function_authz_scope import (
+            is_explicit_client_local,
+        )
 
-        tracker_wrapped = {
-            e.shell_form for e in inv.by_status(inv.WRAPPED)
-        }
-        for cli_tokens, _ in SUBCOMMAND_REGISTRY.items():
+        for cli_tokens, (function_id, _) in SUBCOMMAND_REGISTRY.items():
             shell_form = "yoke " + " ".join(cli_tokens)
-            assert shell_form in tracker_wrapped, (
+            entry = inv.lookup(shell_form)
+            assert entry is not None, (
                 f"registered subcommand {shell_form!r} missing from "
-                "wrapped tracker entries"
+                "operation tracker"
             )
+            if entry.status == inv.PERMANENT:
+                assert is_explicit_client_local(function_id)
+                assert entry.reason == inv.REASON_TOOL_SHAPED
+            else:
+                assert entry.status == inv.WRAPPED
         # Operator-facing aliases share the tracker so the inventory
         # surface still teaches their existence.
         for cli_tokens, _ in SUBCOMMAND_ALIAS_REGISTRY.items():
             shell_form = "yoke " + " ".join(cli_tokens)
-            assert shell_form in tracker_wrapped, (
+            entry = inv.lookup(shell_form)
+            assert entry is not None and entry.status == inv.WRAPPED, (
                 f"registered alias {shell_form!r} missing from "
                 "wrapped tracker entries"
             )

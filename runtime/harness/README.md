@@ -46,9 +46,9 @@ The Codex/bootstrap cluster is now Pythonized end-to-end. Entry and hook surface
 
 ## Required adapter parts
 
-Every adapter implements the five parts defined in the [Harness Adapter Template](../docs/harness-adapter-template.md):
+Every adapter implements the six parts defined in the [Harness Adapter Template](../../docs/harness-adapter-template.md):
 
-1. **Bootstrap Loader** -- loads the [Harness Bootstrap Contract](../docs/harness-bootstrap.md) startup reads
+1. **Bootstrap Loader** -- loads the [Harness Bootstrap Contract](../../docs/harness-bootstrap.md) startup reads
 2. **Capability Manifest** -- `manifest.json` declaring identity, affordances, and substrate limitations
 3. **Session-Offer Builder** -- translates identity plus shared registry support into `/yoke do` session-offer parameters
 4. **Route Wrapper** -- harness-specific entry launcher (e.g. `python3 -m runtime.harness.codex.codex_entry`) providing bootstrap/identity guidance for shared operator commands
@@ -57,7 +57,7 @@ Every adapter implements the five parts defined in the [Harness Adapter Template
 
 ## Manifest schema
 
-See [harness-adapter-template.md](../docs/harness-adapter-template.md) section "Part 2: Capability Manifest" for the full JSON schema and field descriptions.
+See [harness-adapter-template.md](../../docs/harness-adapter-template.md) section "Part 2: Capability Manifest" for the full JSON schema and field descriptions.
 
 Key fields:
 - `harness_id` -- unique identifier (e.g., `"codex"`)
@@ -71,7 +71,7 @@ Key fields:
 
 All adapters must work in **wrapper-only mode** -- no hooks, just the entry launcher bootstrapping orientation and emitting the identity contract for later operator commands. This is the safe default.
 
-**Hook-enhanced mode** is optional. When the harness runtime supports hooks (e.g., Codex >= 0.118.0-alpha.2), a separate hook pack can provide additional guardrails and telemetry. Hooks are never required for correctness.
+**Hook-enhanced mode** is optional. When the harness runtime meets the `runtime_minimums.hook_enhanced` floor declared in its `manifest.json` (e.g., `codex/manifest.json` for Codex), a separate hook pack can provide additional guardrails and telemetry. Hooks are never required for correctness.
 
 ## Environment variables
 
@@ -91,8 +91,8 @@ Not all harnesses support the same hook events. The table below documents how ea
 
 | Harness | Start Hook | End Hook | Stale Cleanup |
 |---------|-----------|----------|---------------|
-| Claude Code | `python3 -m runtime.harness.hook_runner SessionStart` calls `session-begin`; `python3 -m runtime.harness.hook_runner UserPromptSubmit` re-registers idempotently and renders orientation | `python3 -m runtime.harness.hook_runner SessionEnd` runs bounded `session-end-if-empty` directly | Yes (fallback) |
-| Codex | `.codex/hooks.json` calls `runtime.harness.hook_runner SessionStart` | `.codex/hooks.json` calls `runtime.harness.hook_runner Stop` | Yes (fallback for claimed/stale sessions) |
+| Claude Code | `yoke hook evaluate SessionStart` calls `session-begin`; `yoke hook evaluate UserPromptSubmit` re-registers idempotently and renders orientation | `yoke hook evaluate SessionEnd` runs bounded `session-end-if-empty` directly | Yes (fallback) |
+| Codex | `.codex/hooks.json` calls `yoke hook evaluate SessionStart` | `.codex/hooks.json` calls `yoke hook evaluate Stop` | Yes (fallback for claimed/stale sessions) |
 
 Both harnesses now share the same direct Stop / SessionEnd cleanup behavior: the hook runs the existing `end_session_if_empty` domain primitive immediately under machine-config `hook_session_end_cleanup_timeout_ms` as the DB busy-wait budget. Claimless sessions end during the hook; sessions with active claims or chain-pending checkpoints stay active and rely on prompt reactivation or stale-session reclaim.
 

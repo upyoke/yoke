@@ -52,6 +52,7 @@ def test_ambiguous_then_recovered_trigger_reuses_one_logical_dispatch() -> None:
             timeout_min=30,
             fresh=False,
             gate_branch="main",
+            release_lineage="a" * 40,
             sd="/tmp/sd",
         )
 

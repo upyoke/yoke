@@ -76,7 +76,6 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_event_outcome_enum_coverage.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_event_severity_drift.py",
     # -- keep-as-audit: doctor surfaces that verify behavior against telemetry
-    f"{_CORE_ENGINE_SOURCE_ROOT}/doctor.py",  # HarnessSessionEndDeferred audit listing
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_agents_sessions.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_stop_hook_chain.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_session_cwd_binding.py",

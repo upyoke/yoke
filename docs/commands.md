@@ -99,9 +99,9 @@ Use `yoke shepherd dependency-list YOK-N` to inspect the authoritative dependenc
  - **Post-merge CI advisory:** After all merges complete, checks main branch CI status as an advisory (not blocking).
 4. **Deployment Routing** (skip if `--merge-only`) --
  - **Route A (internal flows):** Items with `yoke-internal`, `buzz-internal`, empty, or null deployment_flow go through the `yoke_core.engines.done_transition` skip-deploy path.
- - **Route B (deployment runs):** Items grouped by `(project, deployment_flow)`. Creates run, adds items, validates composition, claims preview env. Pipeline executes via `yoke_core.domain.deploy_pipeline`, normally through `python3 -m yoke_core.tools.watch_deploy`, so long deploys stream progress without ad hoc polling.
+ - **Route B (deployment runs):** Items grouped by `(project, deployment_flow)`. Creates run, adds items, validates composition, claims preview env, and executes `yoke_core.domain.deploy_pipeline`.
  - **Inline approval:** When pipeline exits with code 2 (awaiting approval), usher resolves the gate context, prompts the operator via `AskUserQuestion` ("Yes, approve and continue" / "No, pause for later"), emits `DeploymentApprovalGranted` event, advances stages, and re-invokes the pipeline. No separate `/yoke approve` invocation needed within the usher flow.
-5. **Finalize** -- Completion report with results per item and per deployment run. Pipeline failure recovery options documented: retry failed stage (re-run `watch_deploy -- {run-id}` or `deploy_pipeline {run-id}`), skip a stage (update `current_stage` then re-run), manual completion (`--skip-deploy`), or abort.
+5. **Finalize** -- Completion report with results per item and per deployment run. Pipeline failure recovery options documented: retry the failed stage through `/yoke usher`, skip a stage (update `current_stage` then resume), manual completion (`--skip-deploy`), or abort.
 
 **Idempotency:** Re-run on `done` items: silently skipped. Re-run on `release` items: skip merge, proceed to deployment. Re-run after approval: `--deploy-only` picks up from the approved stage. Partial batches skip items already at `done` / `release`.
 

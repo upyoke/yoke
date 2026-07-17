@@ -22,3 +22,16 @@ def test_environment_entrypoint_imports_stack_modules_inside_dispatch():
         "webapp_environment_stack",
         "webapp_runner_fleet_stack",
     } & top_level_imports
+
+
+def test_environment_stack_never_imports_embedded_vps_stack():
+    repo_root = Path(__file__).resolve().parents[3]
+    environment_stack = repo_root.joinpath(
+        "templates", "webapp", "infra", "webapp_environment_stack.py",
+    )
+    tree = ast.parse(environment_stack.read_text())
+    imports = {
+        node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+    }
+
+    assert "webapp_vps_stack" not in imports

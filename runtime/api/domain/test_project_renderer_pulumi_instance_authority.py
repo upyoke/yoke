@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain import project_renderer_pulumi
 from yoke_core.domain.project_renderer_pulumi_instances import (
     pulumi_stack_instances_from_settings,
@@ -58,7 +60,11 @@ def test_preserves_operator_state_and_warns_on_config_divergence(
 
 def test_default_distribution_origin_id_uses_deploy_namespace_not_project():
     env = _environment_settings("yoke-stage", "stage")
-    env.settings["distribution"] = {"bucket_name": "yoke-stage-artifacts"}
+    env.settings["distribution"] = {
+        "bucket_name": "yoke-stage-artifacts",
+        "base_url": "https://api.stage.example.com",
+        "repository_variable_namespace": "yoke",
+    }
     settings = ProjectRendererSettings(
         project="platform",
         deploy_namespace="yoke",
@@ -75,3 +81,31 @@ def test_default_distribution_origin_id_uses_deploy_namespace_not_project():
     assert instances[0].config["distribution_origin_id"] == (
         "yoke-stage-distribution-static"
     )
+    assert instances[0].config["distribution_base_url"] == (
+        "https://api.stage.example.com"
+    )
+    assert instances[0].config[
+        "distribution_repository_variable_namespace"
+    ] == "yoke"
+
+
+def test_distribution_variable_namespace_is_explicit_for_cross_project_owner():
+    env = _environment_settings("yoke-prod", "prod")
+    env.settings["distribution"] = {
+        "bucket_name": "upyoke-distribution-prod",
+        "base_url": "https://api.upyoke.com",
+    }
+    settings = ProjectRendererSettings(
+        project="platform",
+        deploy_namespace="platform",
+        display_name="Platform",
+        site_id="yoke-api",
+        site_settings={},
+        primary_environment=env,
+        environments=(env,),
+        capabilities={},
+    )
+
+    with pytest.raises(ValueError) as raised:
+        pulumi_stack_instances_from_settings(settings)
+    assert "distribution.repository_variable_namespace" in str(raised.value)

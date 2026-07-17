@@ -15,7 +15,7 @@ Cross-link back from [event-contract.md](../event-contract.md) for the envelope 
      -- sites should build the JSON-field accessor via
      -- `json_get("envelope", "$.context.detail.<field>")`, which emits the
      -- Postgres jsonb accessor and keeps the dialect in one file
-     -- (`runtime/api/domain/sql_json.py`).
+     -- (`packages/yoke-core/src/yoke_core/domain/sql_json.py`).
      COALESCE(
        <json_get_canonical>, -- f"""{json_get("envelope", "$.context.detail.<field>")}"""
        <json_get_nested>,    -- f"""{json_get("envelope", "$.context.<field>")}"""

@@ -169,7 +169,7 @@ The session-offer builder translates the adapter's runtime identity and declared
 
 ### Session-offer parameters
 
-The session offer currently accepts these parameters (from `runtime/api/service_client.py` or the `/v1/session/offer` API endpoint):
+The session offer currently accepts these parameters (from `yoke_core.api.service_client` or the `/v1/session/offer` API endpoint):
 
 | Parameter | Source | Required |
 |-----------|--------|----------|

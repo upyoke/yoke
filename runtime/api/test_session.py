@@ -66,13 +66,11 @@ class TestDoLoopContract:
         )
 
     def test_loop_uses_stable_session_id(self):
-        # The session-id resolution moved into ``yoke_core.tools.session_init``
-        # (hotfix 8015b561c collapsed inline shell into the wrapper). The loop
-        # must still teach the stable-session-id contract: invoke the wrapper
-        # once, then pass ``--session-id "$YOKE_SESSION_ID"`` on the
-        # re-offer call so every iteration stays attached to the same session.
+        # The loop teaches the client-local wrapper once, then passes the
+        # resolved session id on each re-offer so every iteration stays
+        # attached to the same session.
         text = self._loop_text()
-        assert "yoke_core.tools.session_init" in text
+        assert "yoke sessions init" in text
         assert "YOKE_SESSION_ID" in text
         assert '--session-id "$YOKE_SESSION_ID"' in text
 
@@ -110,29 +108,25 @@ class TestDoLoopContract:
         assert "run_keepalive" not in text
 
     def test_loop_resolves_executor_from_env(self):
-        """AC-1: executor resolution delegated to the session_init wrapper.
+        """Executor resolution is delegated to the session init wrapper.
 
-        Hotfix 8015b561c moved the inline ``YOKE_EXECUTOR`` / Codex
-        auto-detect shell ladder into ``yoke_core.tools.session_init``.
-        The loop teaches the wrapper invocation and documents the env
-        var contract; the wrapper's own unit tests cover the fallback
-        ladder mechanics.
+        The loop teaches the installed wrapper and documents the environment
+        contract; the wrapper's unit tests cover the fallback mechanics.
         """
         text = self._loop_text()
-        assert "yoke_core.tools.session_init" in text
+        assert "yoke sessions init" in text
         assert "YOKE_EXECUTOR" in text
         assert "EXECUTOR" in text  # wrapper emits ``EXECUTOR=<value>`` line
         assert '$_executor' in text  # offer call substitutes captured value
 
     def test_loop_resolves_provider_from_env(self):
-        """AC-2: provider resolution delegated to the session_init wrapper.
+        """Provider resolution is delegated to the session init wrapper.
 
-        Same migration as ``test_loop_resolves_executor_from_env`` above:
-        the loop teaches the wrapper invocation and the env var contract;
+        The loop teaches the installed wrapper and its environment contract;
         the wrapper owns the executor-aware fallback ladder.
         """
         text = self._loop_text()
-        assert "yoke_core.tools.session_init" in text
+        assert "yoke sessions init" in text
         assert "YOKE_PROVIDER" in text
         assert "PROVIDER" in text  # wrapper emits ``PROVIDER=<value>`` line
         assert '$_provider' in text  # offer call substitutes captured value

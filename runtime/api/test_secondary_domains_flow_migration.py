@@ -22,7 +22,9 @@ def _insert_projects(conn):
 
 def _seed_yoke_capability(conn, models=("primary",)):
     import json
-    from yoke_core.domain.migration_model_capability import YOKE_PRIMARY_SEED_JSON
+    from runtime.api.fixtures.migration_model_test import (
+        governed_postgres_test_seed,
+    )
     # The shared test_db fixture only includes items-table schema; seed
     # the capabilities table on demand so the flow-save validator can
     # cross-reference declared migration models.
@@ -35,7 +37,7 @@ def _seed_yoke_capability(conn, models=("primary",)):
         "UNIQUE(project_id, type))"
     )
     if tuple(models) == ("primary",):
-        raw = YOKE_PRIMARY_SEED_JSON
+        raw = json.dumps(governed_postgres_test_seed(), sort_keys=True)
     else:
         raw = json.dumps({
             "models": {
@@ -43,8 +45,8 @@ def _seed_yoke_capability(conn, models=("primary",)):
                     "authoritative_db": {
                         "kind": "postgres",
                         "location": {
-                            "stack": f"yoke-{m}",
-                            "database_name": f"yoke_{m}",
+                            "stack": f"test-app-{m}",
+                            "database_name": f"test_app_{m}",
                             "endpoint_output": "databaseClusterEndpoint",
                             "secret_arn_output": "databaseSecretArn",
                         },
@@ -223,24 +225,24 @@ class TestFlowMigrationCapabilityValidation:
         ])
         cmd_create(test_db, "f-s", "yoke", "S", "D", stages_b)
 
-    def test_yoke_primary_migration_model_seed_shape(self):
-        # The canonical Yoke primary migration-model declaration (applied
-        # to a universe at project onboarding, never by fresh-DB init)
-        # validates and declares the Postgres authority.
-        import json
+    def test_governed_postgres_migration_model_seed_shape(self):
+        # The generic migration-model builder validates and preserves the
+        # caller-supplied Postgres authority.
         from yoke_core.domain.migration_model_capability import (
-            YOKE_PRIMARY_SEED_JSON,
-            yoke_primary_seed,
+            governed_postgres_seed,
             validate,
         )
+        from runtime.api.fixtures.migration_model_test import (
+            POSTGRES_AUTHORITY_LOCATION,
+        )
 
-        normalized = validate(json.loads(YOKE_PRIMARY_SEED_JSON))
+        expected = governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        normalized = validate(expected)
         assert normalized["default_model"] == "primary"
         assert "primary" in normalized["models"]
         primary = normalized["models"]["primary"]
         assert primary["authoritative_db"]["kind"] == "postgres"
         assert primary["runner"]["config"]["connection_env_var"] == "YOKE_PG_DSN"
-        expected = yoke_primary_seed()
         assert normalized == expected
 
 

@@ -95,7 +95,10 @@ def fetch_runner_fleet_token(
             Payload=request,
         )
         if response.get("FunctionError"):
-            raise TransportError("runner-fleet token broker invocation failed")
+            raise TransportError(
+                "runner-fleet token broker invocation failed "
+                f"(FunctionError={response.get('FunctionError')})"
+            )
         stream = response.get("Payload")
         if stream is None:
             raise TransportError("runner-fleet token broker returned no payload")
@@ -103,8 +106,13 @@ def fetch_runner_fleet_token(
     except TransportError:
         raise
     except Exception as exc:
+        # The broker response body is never echoed; the transport error class
+        # and first line are safe and distinguish a missing function from a
+        # denied invoke without another AWS-side inventory pass.
+        cause = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
         raise TransportError(
-            "runner-fleet token broker invocation failed"
+            "runner-fleet token broker invocation failed "
+            f"({type(exc).__name__}: {cause[:200]})"
         ) from exc
     if len(raw) > _RESPONSE_LIMIT_BYTES:
         raise TransportError("runner-fleet token broker response was too large")

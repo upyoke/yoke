@@ -4,6 +4,8 @@ Reads existing file content first, then follows the file for new
 lines, exiting cleanly with code ``0`` when it observes a watcher
 exit sentinel of the form ``# watch_<kind> exit=<rc>`` (the literal
 footer written by :func:`yoke_core.tools._watch_runner.run_watcher`).
+``<rc>`` may be negative — a signal-killed child reports the negated
+signal number (e.g. ``exit=-15`` after SIGTERM).
 
 Pure Python -- no subprocess fork -- so a Monitor running this leaves
 no child ``tail`` process behind once the wrapper finishes. This is
@@ -24,8 +26,9 @@ from typing import Sequence, TextIO
 
 # Matches the wrapper-side footer format owned by
 # ``_watch_runner.run_watcher`` -- single source of the literal in
-# that producer; the consumer pattern lives here in lockstep.
-EXIT_SENTINEL = re.compile(r"^# watch_\w+ exit=\d+")
+# that producer; the consumer pattern lives here in lockstep. The rc
+# may be negative (signal-killed child, e.g. ``exit=-15``).
+EXIT_SENTINEL = re.compile(r"^# watch_\w+ exit=-?\d+")
 DEFAULT_POLL_INTERVAL = 0.1
 
 

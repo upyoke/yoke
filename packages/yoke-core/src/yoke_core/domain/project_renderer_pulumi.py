@@ -13,8 +13,6 @@ from pathlib import Path
 from typing import Dict, List
 
 from .project_renderer_pulumi_context import _pulumi_context_from_settings
-from .project_renderer_pulumi_ci import delivery_ci_values
-from . import json_helper
 from .project_renderer_pulumi_instances import (
     gather_pulumi_stack_instances,
     instance_template_values,
@@ -25,10 +23,6 @@ from .project_renderer_pulumi_files import (
     REGISTRY_PROGRAM_FILES,
     RUNNER_FLEET_PROGRAM_FILES,
     SHARED_PROGRAM_FILES,
-)
-from .project_renderer_pulumi_runner_fleet import (
-    runner_fleet_stack_name,
-    runner_fleet_values,
 )
 from .project_renderer_pulumi_state import (  # noqa: F401
     _operator_state_lines_from_settings,
@@ -41,12 +35,19 @@ from .project_renderer_pulumi_stack_types import (
     gather_pulumi_stacks,
     pulumi_stack_name,
 )
+from .project_renderer_pulumi_vps_targets import (
+    gather_standalone_vps_targets,
+    standalone_vps_template_values,
+)
+from .project_renderer_pulumi_values import (
+    _domain_mx_records_json,
+    _domain_txt_records_json,
+    gather_pulumi_values as _gather_pulumi_values,
+)
 from .project_renderer_settings import (
     ProjectRendererSettings,
-    _stringify,
     load_project_renderer_settings,
 )
-from .project_renderer_values import _values_from_settings
 
 
 def gather_pulumi_values(
@@ -56,82 +57,14 @@ def gather_pulumi_values(
     *,
     pulumi_stack: str | None = None,
 ) -> Dict[str, str]:
-    """Return the Pulumi value dict: inherited keys + VPS + Pulumi + CI keys."""
-    del project_root
-    if settings is None:
-        settings = load_project_renderer_settings(project)
-    values = dict(_values_from_settings(project, settings))
-
-    data = _pulumi_context_from_settings(settings)
-
-    # VPS keys (camelCase JSON -> snake_case output).
-    values["vps_instance_type"] = _stringify(data.get("vpsInstanceType"))
-    values["vps_root_volume_gb"] = _stringify(data.get("vpsRootVolumeGb"))
-    values["vps_ssh_key_name"] = _stringify(data.get("vpsSshKeyName"))
-    values["vps_iam_instance_profile_name"] = _stringify(
-        data.get("vpsIamInstanceProfileName")
+    """Preserve the renderer's injectable settings seam for value gathering."""
+    selected_settings = settings or load_project_renderer_settings(project)
+    return _gather_pulumi_values(
+        project,
+        project_root,
+        selected_settings,
+        pulumi_stack=pulumi_stack,
     )
-
-    # CloudFront origin Id: required per project so the rendered stack YAML
-    # carries the project's own origin Id (no template-level default). Empty
-    # string passes through to the rendered YAML when the context omits it —
-    # render-time validation belongs to the template caller, not the gatherer.
-    values["origin_id"] = _stringify(data.get("originId"))
-    values["distribution_bucket_name"] = _stringify(
-        data.get("distributionBucketName")
-    )
-    values["domain_txt_records_json"] = _domain_txt_records_json(data)
-    values["domain_mx_records_json"] = _domain_mx_records_json(data)
-
-    # Pulumi-specific keys with computed defaults when fields are missing.
-    # Named under the deploy namespace (defaults to the project slug), never
-    # the live project slug — so a resource keeps its name when the site is
-    # re-parented to a differently-named project.
-    # ``deploy_namespace`` (the stack config naming input) is set in the base
-    # values dict by _values_from_settings; here it just seeds the computed
-    # stack-name / bucket / KMS defaults below.
-    ns = settings.deploy_namespace
-    values["kms_key_alias"] = _stringify(
-        data.get("kmsKeyAlias"), f"alias/{ns}-pulumi-state"
-    )
-    values["state_bucket"] = _stringify(
-        data.get("stateBucket"), f"{ns}-pulumi-state"
-    )
-    values["pulumi_infra_stack_name"] = _stringify(
-        data.get("pulumiInfraStackName"), f"{ns}-infra"
-    )
-    values["pulumi_vps_stack_name"] = _stringify(
-        data.get("pulumiVpsStackName"), f"{ns}-vps"
-    )
-    values["pulumi_runner_fleet_stack_name"] = runner_fleet_stack_name(settings)
-
-    # GitHub CI OIDC keys (registry stack template). The repo slug comes
-    # from the project's `github` capability; empty renders the registry
-    # stack without CI federation resources. The manage flag exists for a
-    # second project in the SAME AWS account: the GitHub OIDC provider is
-    # an account singleton, so exactly one project's registry stack
-    # creates it (`ci_oidc_manage_provider` default true) and any other
-    # declares false to reference it by ARN.
-    github = settings.capabilities.get("github", {})
-    owner = _stringify(github.get("repo_owner"))
-    repo = _stringify(github.get("repo_name"))
-    values["github_repo_slug"] = f"{owner}/{repo}" if owner and repo else ""
-    manage_default = github.get("ci_oidc_manage_provider")
-    values["manage_github_oidc_provider"] = _stringify(
-        manage_default if manage_default is not None else True
-    )
-    values.update(delivery_ci_values(settings))
-    runner_fleet_enabled = "runner-fleet" in (data.get("stacks") or [])
-    if (
-        pulumi_stack is None
-        or pulumi_stack == values["pulumi_runner_fleet_stack_name"]
-    ):
-        values.update(runner_fleet_values(
-            settings, fallback_repo=values["github_repo_slug"],
-            enabled=runner_fleet_enabled,
-        ))
-
-    return values
 
 
 def render_pulumi_stack_yaml(template_path: Path, values: Dict[str, str]) -> str:
@@ -139,20 +72,6 @@ def render_pulumi_stack_yaml(template_path: Path, values: Dict[str, str]) -> str
     # Import here to avoid a circular import: project_renderer imports us.
     from .project_renderer import render_template
     return render_template(template_path.read_text(), values)
-
-
-def _domain_txt_records_json(context: Dict[str, object]) -> str:
-    domain_txt_records = context.get("domainTxtRecords")
-    if not isinstance(domain_txt_records, list):
-        domain_txt_records = []
-    return json_helper.dumps_compact(domain_txt_records).replace("'", "''")
-
-
-def _domain_mx_records_json(context: Dict[str, object]) -> str:
-    domain_mx_records = context.get("domainMxRecords")
-    if not isinstance(domain_mx_records, list):
-        domain_mx_records = []
-    return json_helper.dumps_compact(domain_mx_records).replace("'", "''")
 
 
 def _copy_template_files(
@@ -208,8 +127,13 @@ def render_pulumi_artifacts(
         project, project_root, settings
     )
     instances = gather_pulumi_stack_instances(project, project_root, settings)
-    stack_types, instances = select_pulumi_targets(
-        pulumi_stack, declared_stack_types, instances,
+    vps_targets = (
+        gather_standalone_vps_targets(settings, stack_name=pulumi_stack)
+        if pulumi_stack is not None
+        else []
+    )
+    stack_types, instances, vps_targets = select_pulumi_targets(
+        pulumi_stack, declared_stack_types, instances, vps_targets,
         settings=settings, values=values,
     )
 
@@ -347,6 +271,32 @@ def render_pulumi_artifacts(
         for program_file in ENVIRONMENT_PROGRAM_FILES:
             if program_file not in program_files:
                 program_files.append(program_file)
+
+    vps_template = infra_src / STACK_TYPE_SPECS["vps"][1]
+    for target in vps_targets:
+        if not vps_template.is_file():
+            raise FileNotFoundError(
+                f"Pulumi standalone VPS targets for {project} require {vps_template}"
+            )
+        stack_values = standalone_vps_template_values(target, values)
+        rendered = render_pulumi_stack_yaml(vps_template, stack_values)
+        out_name = f"Pulumi.{target.name}.yaml"
+        out_path = infra_dst / out_name
+        preserved = (
+            _preserve_operator_state_lines(out_path)
+            or _operator_state_lines_from_settings(settings, target.name)
+        )
+        _warn_on_config_divergence(project, out_path, rendered)
+        final_content = preserved + rendered if preserved else rendered
+        if write:
+            infra_dst.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(final_content)
+            print(f"Rendered: {out_path}", file=sys.stderr)
+        else:
+            print(f"--- infra/{out_name} ---")
+            print(final_content)
+    if vps_targets and "webapp_vps_stack.py" not in program_files:
+        program_files.append("webapp_vps_stack.py")
 
     # Program modules — copied verbatim (shared files + each declared stack's
     # module).

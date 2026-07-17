@@ -19,6 +19,10 @@ from yoke_core.domain.deployment_runs_schema import (
 from yoke_core.domain.project_identity import resolve_project_id
 
 
+DEFAULT_RUN_LIST_LIMIT = 20
+MAX_RUN_LIST_LIMIT = 1000
+
+
 def cmd_get(
     run_id: str,
     field: Optional[str] = None,
@@ -67,9 +71,20 @@ def cmd_get(
 def cmd_list(
     project: Optional[str] = None,
     status: Optional[str] = None,
+    limit: Optional[int] = None,
     db_path: Optional[str] = None,
 ) -> str:
-    """List runs (pipe-delimited). Returns multi-line string."""
+    """List the most recent runs (pipe-delimited)."""
+    resolved_limit = DEFAULT_RUN_LIST_LIMIT if limit is None else limit
+    if (
+        isinstance(resolved_limit, bool)
+        or not isinstance(resolved_limit, int)
+        or resolved_limit < 1
+        or resolved_limit > MAX_RUN_LIST_LIMIT
+    ):
+        raise ValueError(
+            f"limit must be an integer from 1 to {MAX_RUN_LIST_LIMIT}"
+        )
     conn = connect(db_path)
     try:
         clauses: List[str] = []
@@ -87,8 +102,9 @@ def cmd_list(
 
         rows = query_rows(
             conn,
-            f"SELECT {_RUN_SELECT} FROM deployment_runs {where} ORDER BY created_at ASC",
-            tuple(params),
+            f"SELECT {_RUN_SELECT} FROM deployment_runs {where} "
+            "ORDER BY created_at DESC, id DESC LIMIT %s",
+            (*params, resolved_limit),
         )
         return _pipe_rows(rows)
     finally:

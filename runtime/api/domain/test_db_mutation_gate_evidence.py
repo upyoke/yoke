@@ -30,9 +30,9 @@ from yoke_core.domain.db_mutation_gate_test_helpers import (
 from yoke_core.domain.migration_model_capability import (
     RECIPE_WEBAPP_SQLITE_EMPTY,
     RUNNER_KIND_GOVERNED_MODULE,
-    yoke_primary_seed,
 )
 from runtime.api.fixtures.backlog import insert_item
+from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 
 
 @pytest.fixture
@@ -134,7 +134,7 @@ class TestEvidenceGate:
     def _stage_apply(self, gate_db, identifier: str = "demo_module") -> int:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", yoke_primary_seed())
+        _seed_capability(conn, "yoke", governed_postgres_test_seed())
         _seed_flow_with_migration_apply(conn, "yoke")
         modules_dir = "runtime/api/domain/migrations"
         _write_module(repo_path, modules_dir, identifier)
@@ -265,7 +265,7 @@ class TestEvidenceGate:
     def test_retire_missing_record_blocks(self, gate_db) -> None:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", yoke_primary_seed())
+        _seed_capability(conn, "yoke", governed_postgres_test_seed())
         _seed_flow_with_migration_apply(conn, "yoke")
         profile = {
             "state": "declared",
@@ -287,7 +287,7 @@ class TestEvidenceGate:
     def test_retire_record_present_passes(self, gate_db) -> None:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", yoke_primary_seed())
+        _seed_capability(conn, "yoke", governed_postgres_test_seed())
         _seed_flow_with_migration_apply(conn, "yoke")
         _write_decision_record(repo_path, "dead_module")
         profile = {
@@ -309,7 +309,7 @@ class TestEvidenceGate:
     def test_retire_record_wrong_model_blocks(self, gate_db) -> None:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", yoke_primary_seed())
+        _seed_capability(conn, "yoke", governed_postgres_test_seed())
         _seed_flow_with_migration_apply(conn, "yoke")
         _write_decision_record(
             repo_path, "dead_module", model_name="other",

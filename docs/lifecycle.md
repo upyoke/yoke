@@ -120,7 +120,7 @@ unprotected unless both layers below hold:
   conflict gate. Held duration is recorded on the `IdeaClaimHeld`
   event for doctor and Ouroboros observability.
 - **Layer 2 — body-completeness skip on the frontier (structural
-  defense).** `runtime/api/domain/frontier_compute.py` calls
+  defense).** `packages/yoke-core/src/yoke_core/domain/frontier_compute.py` calls
   `yoke_core.domain.idea_body_completeness.is_idea_body_incomplete`
   for every `status='idea'` row and pushes the title-only ones into
   `blocked` with reason `idea-incomplete`. This catches every tail case
@@ -144,15 +144,19 @@ unprotected unless both layers below hold:
 This implementation/review loop may be driven by `conduct` or by direct `advance` flows, but the stored statuses are the same.
 
 **Claim continuity across transient SessionEnd.** A Claude Desktop SessionEnd
-event (laptop sleep, app reload, idle timeout) no longer destroys mid-flight
-claims when the heartbeat is fresh or a chain checkpoint still has budget.
-`yoke_core.domain.sessions_lifecycle_destructive_guard.evaluate_destructive_end`
-inspects both signals and either defers the destructive end
-(`HarnessSessionEndDeferred`) or, on a permanent end, lets the release path
-run with the truthful `claude_session_end_hook_fired` audit rationale plus
-`agent_presence_evidence`. On reactivation, conditional auto-reacquire restores
-prior session_ended claims when no conflicting holder exists. See
-`docs/harness-substrate.md` for the full contract.
+event (laptop sleep, app reload, idle timeout) never destroys mid-flight
+claims: the hook runs the non-destructive `end_session_if_empty`, which only
+ends sessions holding no active claims and no chain-pending budget — sessions
+with either are reported as skipped and stay live. Destructive ends are
+explicit operator calls (`session-end --release-claims`) and fail closed with
+`CHAIN_PENDING` while a chainable checkpoint still has budget, unless
+`override_chain_end=True` plus a rationale is supplied; releases record
+`agent_presence_evidence` on the terminal events. On reactivation, conditional
+auto-reacquire restores prior session_ended claims within
+`session_reactivation_reacquire_window_s` when no conflicting holder exists;
+truly dead sessions are reclaimed by the stale-session sweep
+(`session_stale_ttl_minutes`). See `docs/harness-substrate.md` for the full
+contract.
 
 ### Polish handoff
 

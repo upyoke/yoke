@@ -10,6 +10,7 @@ import pytest
 from yoke_core.domain import deploy_environment_activate
 from yoke_core.domain.deploy_environment_activate import (
     EnvironmentActivateError,
+    _instance_name_tag,
     ensure_instance_running,
     exec_environment_activate,
     wait_ssh_reachable,
@@ -36,6 +37,7 @@ def _env(**overrides) -> DeployEnvironment:
         api_port=8765,
         health_path="/v1/health",
         stack_name="yoke-prod",
+        origin_vps_stack_name="yoke-platform-vps",
         activation_state="active",
         state_backend="s3://yoke-pulumi-state?region=us-east-1",
         database_name="yoke_prod",
@@ -56,9 +58,29 @@ class TestEnsureInstanceRunning:
         )
         assert instance == "i-0abc"
         assert len(runner.calls) == 1
-        assert "tag:Name,Values=yoke-prod/VpsInstance" in " ".join(
+        assert "tag:Name,Values=yoke-platform-vps/VpsInstance" in " ".join(
             runner.calls[0]["argv"]
         )
+
+    def test_instance_name_uses_standalone_vps_stack(self):
+        assert _instance_name_tag(_env()) == "yoke-platform-vps/VpsInstance"
+
+    def test_instance_name_uses_leaf_of_qualified_stack_reference(self):
+        env = _env(
+            origin_vps_stack_name="acme/webapp-infra/yoke-platform-vps"
+        )
+        assert _instance_name_tag(env) == "yoke-platform-vps/VpsInstance"
+
+    def test_missing_origin_stack_names_settings_remediation(self):
+        with pytest.raises(EnvironmentActivateError) as exc:
+            _instance_name_tag(_env(origin_vps_stack_name=""))
+        message = str(exc.value)
+        assert "pulumi.origin_vps_stack_name" in message
+        assert (
+            "yoke projects environment-settings merge --project yoke "
+            "--environment-id yoke-api-prod --set "
+            "pulumi.origin_vps_stack_name=<standalone-vps-stack-name>"
+        ) in message
 
     def test_stopped_instance_is_started_and_waited(self):
         runner = FakeRunner(
@@ -80,7 +102,12 @@ class TestEnsureInstanceRunning:
         runner = FakeRunner([_describe([])])
         with pytest.raises(EnvironmentActivateError) as exc:
             ensure_instance_running(runner, _env(), {}, lambda _l: None)
-        assert "yoke-prod" in str(exc.value)
+        message = str(exc.value)
+        assert (
+            "apply the standalone origin VPS stack (yoke-platform-vps) "
+            "before activating"
+        ) in message
+        assert "environment stack (yoke-prod)" not in message
 
     def test_duplicate_instances_refused(self):
         runner = FakeRunner(

@@ -10,15 +10,13 @@ semantics and process-owned linked path claims cascade through the
 existing release behavior. Returns the JSON-safe per-claim release
 payload that surfaces on the typed end-session response.
 
-The destructive ``--release-claims`` hook path
-(``handle_release_claims_branch``) remains the destructive-guard's
-responsibility — this helper is scoped to the deliberate no-flags
-CLI/operator path where the session is being ended on purpose. The
-transient-signal protection (chain budget remaining) still fires only
-on the destructive branch; on the explicit no-flags branch, the
-operator (or loop) is asking to end deliberately and the CHAIN_PENDING
-guard upstream is the structural protection against ending a session
-whose loop still has budget.
+The destructive ``--release-claims`` path
+(``handle_release_claims_branch``) remains
+``sessions_lifecycle_destructive_guard``'s responsibility — this helper
+is scoped to the deliberate no-flags CLI/operator path where the
+session is being ended on purpose. On both branches the upstream
+CHAIN_PENDING guard is the structural protection against ending a
+session whose loop still has budget.
 """
 
 from __future__ import annotations

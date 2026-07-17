@@ -48,7 +48,6 @@ def resolve_capability(executor: str, dry_run: bool = False) -> AdapterCapabilit
     renderer = render_codex_decision if family == "codex" else render_claude_decision
     return AdapterCapability(
         family=family,
-        events=frozenset(),
         payload_parser=_stub_payload_parser,
         decision_renderer=renderer,
     )

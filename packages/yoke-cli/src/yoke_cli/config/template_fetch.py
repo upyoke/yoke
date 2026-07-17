@@ -1,13 +1,28 @@
-"""Product-client side of ``yoke templates list`` / ``fetch``."""
+"""Product-client side of ``yoke templates list`` / ``fetch``.
+
+Templates are product-shipped code-tree content (no DB, no org data), so
+the active connection's transport decides where they come from, mirroring
+:mod:`yoke_cli.project_install.transport`:
+
+* ``transport: "https"`` — ``GET {api_url}/v1/templates[/{name}]`` with
+  the machine bearer credential; the env's server serves its own tree.
+* non-prod ``transport: "local-postgres"`` — this install serves its own
+  code tree in-process via :mod:`yoke_core.domain.template_bundle`.
+
+Prod-flagged local-postgres connections stay operator-only and are
+refused.
+"""
 
 from __future__ import annotations
 
+import importlib
 import os
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from yoke_cli.config import machine_config
 from yoke_cli.transport.https import TransportError, resolve_https_connection
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
@@ -21,6 +36,11 @@ from yoke_cli.transport.response_limits import (
     DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS,
 )
 from yoke_contracts.api_urls import join_api_url
+from yoke_contracts.machine_config.schema import (
+    MachineConfigContractError,
+    POSTGRES_TRANSPORTS,
+    connection_is_prod,
+)
 from yoke_contracts.template_bundle import (
     TEMPLATE_BUNDLE_SCHEMA,
     TEMPLATE_PRODUCT_BOUNDARY_FIELD,
@@ -40,7 +60,13 @@ class TemplateFetchError(RuntimeError):
 def resolve_listing(
     config_path: str | Path | None = None,
 ) -> Tuple[List[Dict[str, Any]], str]:
-    """Resolve the template listing via the active HTTPS product env."""
+    """Resolve the template listing via the active connection's transport."""
+    local_env = _local_env(config_path)
+    if local_env is not None:
+        return (
+            _serve_local(lambda bundle_module: bundle_module.list_templates()),
+            _local_source(local_env),
+        )
     connection = _https_connection(config_path)
     payload = _fetch_json_https(connection, TEMPLATES_API_PATH)
     templates = payload.get("templates")
@@ -59,7 +85,16 @@ def resolve_bundle(
     *,
     include_source_dev_admin: bool = False,
 ) -> Tuple[Dict[str, Any], str]:
-    """Resolve one template bundle via the active HTTPS product env."""
+    """Resolve one template's bundle via the active connection's transport."""
+    local_env = _local_env(config_path)
+    if local_env is not None:
+        bundle = _serve_local(
+            lambda bundle_module: bundle_module.build_template_bundle(
+                name,
+                include_source_dev_admin=include_source_dev_admin,
+            )
+        )
+        return bundle, _local_source(local_env)
     connection = _https_connection(config_path)
     bundle = _fetch_json_https(
         connection,
@@ -125,6 +160,56 @@ def fetch(
     }
 
 
+# Lazily imported name for the in-process builder; the https path never
+# needs the engine package installed.
+_TEMPLATE_BUNDLE_MODULE = "yoke_core.domain.template_bundle"
+
+
+def _local_env(config_path: str | Path | None) -> Optional[str]:
+    """The active non-prod local-postgres env label, or ``None`` for https.
+
+    A prod-flagged local-postgres connection stays operator-only, so the
+    product surface refuses it rather than serving from this install's
+    code tree. A missing/unusable machine config returns ``None`` so the
+    https resolver owns the setup-refusal message.
+    """
+    try:
+        connection = machine_config.active_connection(config_path)
+    except MachineConfigContractError:
+        return None
+    if str(connection.get("transport") or "") not in POSTGRES_TRANSPORTS:
+        return None
+    env_name = str(connection.get("env") or "<env>")
+    if connection_is_prod(connection):
+        raise TemplateFetchError(
+            f"env {env_name!r} is a prod-marked local-postgres connection, "
+            "which stays operator-only; use an HTTPS product-client env or "
+            "a non-prod local env (`yoke env use <env>`)"
+        )
+    return env_name
+
+
+def _local_source(env_name: str) -> str:
+    """Report label for a listing/bundle served from this install's tree."""
+    return f"local-postgres:{env_name}"
+
+
+def _serve_local(operation):
+    """Run one template-bundle operation against this install's code tree."""
+    try:
+        bundle_module = importlib.import_module(_TEMPLATE_BUNDLE_MODULE)
+    except ModuleNotFoundError as exc:
+        raise TemplateFetchError(
+            "the yoke-core engine package is not importable, so this "
+            "install cannot serve templates from its own code tree; "
+            "reinstall Yoke or switch to an HTTPS product-client env"
+        ) from exc
+    try:
+        return operation(bundle_module)
+    except bundle_module.TemplateBundleError as exc:
+        raise TemplateFetchError(str(exc)) from exc
+
+
 def _https_connection(config_path: str | Path | None):
     try:
         connection = resolve_https_connection(config_path)
@@ -132,9 +217,11 @@ def _https_connection(config_path: str | Path | None):
         raise TemplateFetchError(str(exc)) from exc
     if connection is None:
         raise TemplateFetchError(
-            "the active env is not an HTTPS product-client connection; "
-            "run `yoke status`, switch with `yoke env use <https-env>`, "
-            "or configure one with `yoke connection set`"
+            "the active env is neither an HTTPS product-client connection "
+            "nor a non-prod local install (https envs GET the templates "
+            "from the env's server; local envs serve them in-process from "
+            "this install's code tree); run `yoke status`, switch with "
+            "`yoke env use <env>`, or configure one with `yoke connection set`"
         )
     return connection
 

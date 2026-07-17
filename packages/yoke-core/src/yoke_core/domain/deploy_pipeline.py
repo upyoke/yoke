@@ -1,8 +1,5 @@
 """Deployment pipeline orchestration — stage iteration, executor dispatch, CI gates.
 
-Canonical Python owner of the deployment pipeline. Retired the
-``deploy-pipeline.sh`` thin launcher; invoke this module directly instead.
-
 CLI usage::
 
     python3 -m yoke_core.domain.deploy_pipeline <run-id|item-id> [--product-repo-path PATH] [--timeout M] [--from-stage S] [--fresh]
@@ -21,9 +18,7 @@ from typing import List, Optional
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.deploy_pipeline_executors import (
-    _dispatch_ephemeral_verify,  # noqa: F401 - compatibility re-export
     _dispatch_executor,
-    _dispatch_github_actions_workflow,  # noqa: F401 - compatibility re-export
 )
 from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
@@ -38,69 +33,32 @@ from yoke_core.domain.deploy_pipeline_reporting import (
     _set_deploy_stage,
     _yoke_db,
 )
-from yoke_core.domain.deployment_flow_seed_stage import ensure_seed_stage
-from yoke_core.domain.flow_init import _SEED_FLOWS
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
+from yoke_contracts.machine_config.schema import (
+    DB_ADMIN_ENV_SUFFIX,
+    ENV_OVERRIDE,
+)
 
 
 EXIT_SUCCESS = 0
 EXIT_STAGE_FAILED = 1
 EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
-_SEEDED_FLOW_IDS = frozenset(str(flow["id"]) for flow in _SEED_FLOWS)
-_SEEDED_STAGE_REPAIRS = {
-    "yoke-prod-release": ("distribution-publish", "complete"),
-    "yoke-stage-release": ("distribution-publish", "complete"),
-}
-_RELEASE_CONTROL_PLANE_ENV_VAR = "YOKE_RELEASE_CONTROL_PLANE_ENV"
-
-
 def _normalize_release_control_plane_env(value: str) -> str:
     """Return the environment label for release-run metadata authority."""
     label = value.strip()
-    if label.endswith("-db-admin"):
-        return label[: -len("-db-admin")]
+    if label.endswith(DB_ADMIN_ENV_SUFFIX):
+        return label[: -len(DB_ADMIN_ENV_SUFFIX)]
     return label
 
 
 def _release_control_plane_env() -> str:
     """Describe where deployment run metadata is being written."""
-    explicit = os.environ.get(_RELEASE_CONTROL_PLANE_ENV_VAR, "")
-    if explicit.strip():
-        return _normalize_release_control_plane_env(explicit)
-
-    active_env = os.environ.get("YOKE_ENV", "")
+    active_env = os.environ.get(ENV_OVERRIDE, "")
     if active_env.strip():
         return _normalize_release_control_plane_env(active_env)
-
-    if os.environ.get("YOKE_PG_DSN", "").strip():
-        return "dsn"
-
-    return "ambient"
-
-
-def _converge_seeded_flow_config(flow_id: str) -> None:
-    """Repair seed-owned deployment-flow rows before stage dispatch."""
-    if flow_id not in _SEEDED_FLOW_IDS:
-        return
-    repair = _SEEDED_STAGE_REPAIRS.get(flow_id)
-    if repair is None:
-        return
-    conn = connect()
-    try:
-        stage_name, before_stage = repair
-        ensure_seed_stage(
-            conn,
-            seed_flows=_SEED_FLOWS,
-            flow_id=flow_id,
-            stage_name=stage_name,
-            before_stage=before_stage,
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    print(f"Seeded deployment flow config converged: {flow_id}")
+    return "unbound"
 
 
 def run_pipeline(
@@ -117,7 +75,7 @@ def run_pipeline(
     sd = sd or _resolve_script_dir()
 
     run_id, project, flow_id = "", "", ""
-    run_status, current_stage = "", ""
+    run_status, current_stage, release_lineage = "", "", ""
     member_items: List[str] = []
 
     if primary_arg.startswith("run-"):
@@ -130,6 +88,7 @@ def run_pipeline(
         fields = run_row.split("|")
         project = fields[1] if len(fields) > 1 else ""
         flow_id = fields[2] if len(fields) > 2 else ""
+        release_lineage = fields[4] if len(fields) > 4 else ""
         run_status = fields[5] if len(fields) > 5 else ""
         current_stage = fields[6] if len(fields) > 6 else ""
 
@@ -175,15 +134,6 @@ def run_pipeline(
         return EXIT_USAGE
     product_repo_path = product_source.repo_path if product_source else ""
     image_tag = product_source.image_tag if product_source else image_tag
-    try:
-        _converge_seeded_flow_config(flow_id)
-    except Exception as exc:
-        print(
-            f"Error: failed to converge seeded deployment flow '{flow_id}': {exc}",
-            file=sys.stderr,
-        )
-        return EXIT_USAGE
-
     stages_json = _flow_db("stages", flow_id, sd=sd)
     if not stages_json:
         print(f"Error: deployment flow '{flow_id}' not found or has no stages", file=sys.stderr)
@@ -299,6 +249,7 @@ def run_pipeline(
             image_tag=image_tag,
             target_env=target_env,
             gate_branch=gate_branch,
+            release_lineage=release_lineage,
             sd=sd,
         )
 
@@ -327,6 +278,8 @@ def run_pipeline(
                 run_id, s_name, "pass", script_dir=sd,
             )
         else:
+            if exec_diag:
+                print(f"Executor diagnostic: {exec_diag}", file=sys.stderr)
             failure_ctx = {"run_id": run_id, "stage": s_name, "result": "failed", "exit_code": exec_rc}
             if exec_diag:
                 failure_ctx["executor_diagnostic"] = exec_diag

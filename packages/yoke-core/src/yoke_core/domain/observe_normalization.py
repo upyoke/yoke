@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.events_crud import normalize_event_item_id
@@ -24,6 +24,11 @@ from yoke_core.domain.observe_db_reads import (
     repo_root_for_attribution,
 )
 from yoke_core.domain.observe_function_call_refs import extract_function_call_item_id
+
+if TYPE_CHECKING:
+    # Imported only for annotations: observe_parsing imports this module at
+    # runtime, so a live import here would be circular.
+    from yoke_core.domain.observe_parsing import EventRecord
 
 
 # ``tool_kind`` is the harness-neutral category the policy pipeline

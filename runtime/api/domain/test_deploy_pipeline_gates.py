@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from unittest import mock
 
@@ -18,7 +19,12 @@ class TestCiGate:
             deploy_pipeline_gates,
             "_github_actions",
             return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="success\n", stderr="",
+                args=[], returncode=0,
+                stdout=json.dumps({
+                    "success": True,
+                    "result": {"state": "passed"},
+                }),
+                stderr="",
             ),
         ) as github_actions:
             passed, message = deploy_pipeline_gates._check_ci_gate(
@@ -45,7 +51,12 @@ class TestCiGate:
             deploy_pipeline_gates,
             "_github_actions",
             return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="success\n", stderr="",
+                args=[], returncode=0,
+                stdout=json.dumps({
+                    "success": True,
+                    "result": {"state": "passed"},
+                }),
+                stderr="",
             ),
         ) as github_actions:
             passed, message = deploy_pipeline_gates._check_ci_gate(
@@ -57,6 +68,174 @@ class TestCiGate:
         branch_flag_idx = github_actions.call_args.args.index("--branch")
         assert github_actions.call_args.args[branch_flag_idx + 1] == "stage"
         assert github_actions.call_args.kwargs["project"] == "yoke"
+
+    def test_ci_gate_checks_exact_release_sha(self):
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0,
+                stdout=json.dumps({
+                    "success": True,
+                    "result": {"state": "passed"},
+                }),
+                stderr="",
+            ),
+        ) as github_actions:
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "yoke", 30, branch="main",
+                head_sha="deadbeef", sd="/tmp/sd",
+            )
+
+        assert passed is True
+        assert message == "  CI gate: main@deadbeef CI passed"
+        sha_flag_idx = github_actions.call_args.args.index("--head-sha")
+        assert github_actions.call_args.args[sha_flag_idx + 1] == "deadbeef"
+        assert "--wait" in github_actions.call_args.args
+        assert "--json" in github_actions.call_args.args
+
+    def test_ci_gate_reads_failed_state_in_successful_adapter_response(self):
+        response = {
+            "success": True,
+            "result": {
+                "state": "failed",
+                "status": "completed",
+                "conclusion": "failure",
+            },
+        }
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout=json.dumps(response), stderr="",
+            ),
+        ):
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "yoke", 30, branch="main",
+                head_sha="deadbeef",
+            )
+
+        assert passed is False
+        assert "main branch CI has failed" in message
+
+    def test_ci_gate_does_not_call_adapter_error_a_test_failure(self):
+        response = {
+            "success": False,
+            "error": {
+                "code": "project_auth_error",
+                "message": "user authorization unavailable",
+            },
+            "result": {},
+        }
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=1, stdout=json.dumps(response), stderr="",
+            ),
+        ):
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "yoke", 30, branch="main",
+                head_sha="deadbeef",
+            )
+
+        assert passed is False
+        assert "project_auth_error" in message
+        assert "not a failing test conclusion" in message
+
+    def test_ci_gate_rejects_non_terminal_state_without_calling_it_failed(self):
+        response = {
+            "success": True,
+            "result": {
+                "state": "running",
+                "status": "in_progress",
+                "run_id": 42,
+            },
+        }
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout=json.dumps(response), stderr="",
+            ),
+        ):
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "yoke", 30, branch="main",
+                head_sha="deadbeef",
+            )
+
+        assert passed is False
+        assert "non-terminal state 'running'" in message
+        assert "without treating in-progress CI as a test failure" in message
+
+    def test_ci_gate_blocks_when_exact_release_sha_has_no_run(self):
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0,
+                stdout=json.dumps({
+                    "success": True,
+                    "result": {"state": "no_runs"},
+                }),
+                stderr="",
+            ),
+        ):
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "yoke", 30, branch="main",
+                head_sha="deadbeef",
+            )
+
+        assert passed is False
+        assert "no CI run exists for exact release commit deadbeef" in message
+
+    def test_ci_gate_blocks_structured_timeout(self):
+        response = {
+            "success": True,
+            "result": {
+                "state": "timeout",
+                "status": "in_progress",
+                "run_id": 42,
+            },
+        }
+        with mock.patch.object(
+            deploy_pipeline_gates,
+            "project_ci_workflow_file",
+            return_value="ci.yml",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_github_actions",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout=json.dumps(response), stderr="",
+            ),
+        ):
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo", "yoke", 30, branch="main",
+                head_sha="deadbeef",
+            )
+
+        assert passed is False
+        assert "main branch CI timed out (30s)" in message
 
     def test_ci_gate_blocks_auth_exit(self):
         with mock.patch.object(
@@ -75,10 +254,10 @@ class TestCiGate:
             )
 
         assert passed is False
-        assert "exit code 4" in message
+        assert "required typed response (exit 4)" in message
         assert "missing_app_credentials" in message
 
-    def test_ci_gate_blocks_any_unexpected_nonzero_exit(self):
+    def test_ci_gate_blocks_success_exit_without_typed_response(self):
         with mock.patch.object(
             deploy_pipeline_gates,
             "project_ci_workflow_file",
@@ -87,7 +266,7 @@ class TestCiGate:
             deploy_pipeline_gates,
             "_github_actions",
             return_value=subprocess.CompletedProcess(
-                args=[], returncode=17, stdout="", stderr="synthetic failure",
+                args=[], returncode=0, stdout="passed", stderr="",
             ),
         ):
             passed, message = deploy_pipeline_gates._check_ci_gate(
@@ -95,8 +274,8 @@ class TestCiGate:
             )
 
         assert passed is False
-        assert "exit code 17" in message
-        assert "synthetic failure" in message
+        assert "omitted its required typed response (exit 0)" in message
+        assert "cannot prove a CI conclusion" in message
 
 
 class TestBranchVerification:

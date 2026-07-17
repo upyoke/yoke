@@ -30,7 +30,7 @@ def _settings_with_hook_cli(delegated: bool):
     command = (
         "yoke hook evaluate PreToolUse"
         if delegated
-        else "python3 -m yoke_core.domain.lint_sqlite_cmd"
+        else "python3 -m yoke_core.domain.lint_db_cmd"
     )
     chain = [{"command": command, "type": "command"}]
     return {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": chain}]}}

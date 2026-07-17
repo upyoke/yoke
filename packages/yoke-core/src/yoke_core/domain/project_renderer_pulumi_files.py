@@ -6,10 +6,10 @@ SHARED_PROGRAM_FILES = (
     "webapp_github_repository_provider.py",
 )
 ENVIRONMENT_PROGRAM_FILES = (
-    "webapp_vps_stack.py",
     "webapp_database_stack.py",
     "webapp_api_stack.py",
     "webapp_distribution_stack.py",
+    "webapp_distribution_github_variables.py",
     "webapp_environment_stack.py",
     "webapp_environment_origin_policy.py",
 )
@@ -31,6 +31,7 @@ RUNNER_FLEET_PROGRAM_FILES = (
     "webapp_runner_aws_state.mjs",
     "webapp_runner_github_api.mjs",
     "webapp_runner_github_broker.mjs",
+    "webapp_runner_parallel_reaper.mjs",
     "webapp_runner_registration.mjs",
     "webapp_runner_termination.mjs",
 )

@@ -12,6 +12,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from yoke_core.domain import lint_python_runtime_import_in_tmp as lint
 from runtime.harness.hook_runner.types import Next, Outcome
@@ -193,23 +194,30 @@ class TestTmpYokeCheckoutExemption(unittest.TestCase):
 class TestSuppressionToken(unittest.TestCase):
     """The bypass token is audit-only — the rule still denies."""
 
-    def test_token_does_not_unblock(self) -> None:
+    def test_token_records_attempt_still_denies(self) -> None:
         content = (
             "# lint:no-tmp-runtime-import-check\n"
             "from runtime.api import service_client\n"
         )
-        # When the token is present, evaluate_fields returns None (the
-        # entry point handles audit emission), so the helper itself
-        # returns None — but the typed entry still records the
-        # suppression attempt as audit-only and continues to a DENY when
-        # the cleaned content still trips the check.
-        decision = lint.evaluate(_record_for(_payload("/tmp/foo.py", content)))
-        # The typed entry above explicitly returns NOOP when the bypass
-        # token is present (consistent with the sibling lints — the
-        # token is audit-only, not an unblocker, recorded as
-        # ``outcome=suppression_attempted``).
+        with mock.patch.object(lint, "_emit_denial") as emit_mock:
+            decision = lint.evaluate(
+                _record_for(_payload("/tmp/foo.py", content)))
+        self.assertIs(decision.outcome, Outcome.DENY)
+        self.assertTrue(decision.block)
+        self.assertIs(decision.next, Next.STOP)
+        self.assertEqual(
+            decision.audit_fields["audit_outcome"], "suppression_attempted")
+        self.assertEqual(
+            emit_mock.call_args.kwargs["outcome"], "suppression_attempted")
+
+    def test_token_on_allowed_shape_stays_noop(self) -> None:
+        content = "# lint:no-tmp-runtime-import-check\nprint('hi')\n"
+        with mock.patch.object(lint, "_emit_denial") as emit_mock:
+            decision = lint.evaluate(
+                _record_for(_payload("/tmp/foo.py", content)))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertIs(decision.next, Next.CONTINUE)
+        emit_mock.assert_not_called()
 
 
 class TestEvaluateTypedEntry(unittest.TestCase):

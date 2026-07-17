@@ -45,14 +45,14 @@ Tracked-source writers call the helper before their hot-path `.write_text` / `.w
 - `yoke_core.tools.atlas_render_docs.write`
 - `yoke_core.domain.populate_registry_render._render_catalog`
 
-`HC-workspace-anchored-writer-authority` enforces this against the canonical list at `runtime/api/engines/doctor_hc_workspace_anchored_writer_authority.py:IN_SCOPE_WRITERS`; add new tracked-source writers there to bring them under the guard.
+`HC-workspace-anchored-writer-authority` enforces this against the canonical list at `packages/yoke-core/src/yoke_core/engines/doctor_hc_workspace_anchored_writer_authority.py:IN_SCOPE_WRITERS`; add new tracked-source writers there to bring them under the guard.
 
 `yoke_core.domain.rebuild_board.rebuild_one` is intentionally **out of scope** for the work-claim authority helper. Its only write targets are project-local `.yoke/BOARD.md` plus the sibling timestamp file, both untracked generated views regenerated from DB state on every status change. The board rebuild fires as a routine side effect of every `/yoke polish` and `/yoke usher` status transition while the session still holds the item's worktree work-claim; refusing those writes would break the polish/usher flow without addressing the incident shape: worktree-claim-bound writes of TRACKED rendered source files into main. `rebuild_board` still calls `assert_seed_source_under_target_root(schema.__file__, repo_root, ...)` to catch Coupling B (the schema module loaded from a different checkout than the resolved `repo_root`), as does `agents_render` for its imported seed module.
 
 `YOKE_BOUND_WORKSPACE` survives as a legacy anchor with two narrow consumers:
 
 - **Reader-root fallback.** `yoke_core.domain.agents_render_workspace.require_reader_root` consults the env var when no explicit `target_root` is supplied, before raising. SessionStart exports the value via `runtime/harness/hook_runner/session_dispatch.py` (helper module: `runtime/harness/hook_runner/session_workspace.py`). For Claude Code the value is appended to `$CLAUDE_ENV_FILE` so subsequent Bash invocations inherit it; for Codex the in-process `os.environ` set is sufficient because the runner subprocess tree spawned during the session inherits env from the same interpreter.
-- **Cross-checkout PreToolUse lint.** `runtime/api/domain/lint_workspace_cwd_match.py` denies writer-class Bash commands (`pytest`, `python3 -m pytest`, `yoke agents render`, and the `yoke_core.tools.run_tests` helper) when the env var is set and the command's cwd is outside the workspace. Mode is pinned by machine config key `lint_workspace_cwd_match_mode` (Yoke dogfood: `deny`). The suppression token `# lint:no-workspace-cwd-check` is recorded as `outcome=suppression_attempted` audit evidence and does NOT unblock — symmetric with the path-claim guard's audit-only token shape.
+- **Cross-checkout PreToolUse lint.** `packages/yoke-core/src/yoke_core/domain/lint_workspace_cwd_match.py` denies writer-class Bash commands (`pytest`, `python3 -m pytest`, `yoke agents render`, and the `yoke_core.tools.run_tests` helper) when the env var is set and the command's cwd is outside the workspace. Mode resolves from the project-local `.yoke/lint-config` (guard key `lint_workspace_cwd_match`, default `deny`). The suppression token `# lint:no-workspace-cwd-check` is recorded as `outcome=suppression_attempted` audit evidence and does NOT unblock — symmetric with the path-claim guard's audit-only token shape.
 
 When `YOKE_BOUND_WORKSPACE` is unset (operator/maintenance mode, sessions outside Yoke recognition), the reader fallback and the lint both no-op; the writer-authority helper continues to enforce against live work-claims and the writer-API contract (`target_root` required keyword on `write_all` / `write_all_claude`) remains the unconditional API-shape defense.
 
@@ -60,13 +60,13 @@ Worktree creation is a pure filesystem + DB operation, not a session boundary. T
 
 ### Session cwd binding: per-call claim-based authority
 
-The session's authority to write under any given path is its **active work-claims** (cross-reference: see your `work_claims` packet stanza). `runtime/api/domain/lint_session_cwd.py` validates this per tool call: for each target path extracted from the call's payload (file_path for Edit/Read/Write; -C / --rootdir / leading absolute path args for Bash), the target must land under (a) a worktree the session holds a claim on, (b) the main control plane checkout excluding `.worktrees/`, or (c) the free-path allowlist (`/tmp`, `/var/folders/...`). The validator resolves the claimed worktree's branch slug (for item or epic-task targets; cross-reference: see your `items` and `epic_tasks` packet stanzas) and composes the absolute path via `_compose_worktree_path` under this machine's registered checkout for the numeric project id, all through `yoke_core.domain.session_claimed_worktrees.claimed_worktrees`. Sessions with no claims AND no resolvable parent (orchestrator one-offs, operator REPL sessions) pass unconditionally — the unconstrained control-plane shape needs no enforcement.
+The session's authority to write under any given path is its **active work-claims** (cross-reference: see your `work_claims` packet stanza). `packages/yoke-core/src/yoke_core/domain/lint_session_cwd.py` validates this per tool call: for each target path extracted from the call's payload (file_path for Edit/Read/Write; -C / --rootdir / leading absolute path args for Bash), the target must land under (a) a worktree the session holds a claim on, (b) the main control plane checkout excluding `.worktrees/`, or (c) the free-path allowlist (`/tmp`, `/var/folders/...`). The validator resolves the claimed worktree's branch slug (for item or epic-task targets; cross-reference: see your `items` and `epic_tasks` packet stanzas) and composes the absolute path via `_compose_worktree_path` under this machine's registered checkout for the numeric project id, all through `yoke_core.domain.session_claimed_worktrees.claimed_worktrees`. Sessions with no claims AND no resolvable parent (orchestrator one-offs, operator REPL sessions) pass unconditionally — the unconstrained control-plane shape needs no enforcement.
 
 Parallel fan-out works without a race: each subagent dispatch acquires its own `work_claim` covering the lane it operates in, and the lint authorizes each subagent's writes against its own claim. The orchestrator's control-plane reads (`epic_progress_notes`, `db_router events list`, board rebuilds, GitHub mutations) always pass because they target control plane, which is always allowed.
 
 Codex subagent dispatch runs in-process inside the parent harness session — same `session_id`, same hook chain, same `cwd`. Yoke's claim-aware lookups (`work_claims`, `path_claims`, `claimed_worktrees`, `_default_actor_id_resolver`, dispatcher claim verification) therefore land on the parent's row directly without any per-subagent identity propagation. Claude's `Agent`-tool subagents reuse the orchestrator's `session_id` for the same reason; in both harnesses the parent's claims are the subagent's claims by virtue of session-identity sharing.
 
-The Claude Code / Claude Desktop main session keeps a sticky cwd between Bash tool calls (cross-reference: AGENTS.md `## Code Conventions` Bash bullet), so a `cd <worktree>` to an in-scope path persists across subsequent calls; subagent dispatch contexts behave differently, with each tool call reverting to the parent checkout. Yoke treats either shape as a supported substrate, not a failure: `runtime/api/domain/lint_session_cwd.py` validates each call's target paths against the session's active `work_claims` (not against cwd), so claim-based authority is the per-call authority signal regardless of which harness tier issued the call.
+The Claude Code / Claude Desktop main session keeps a sticky cwd between Bash tool calls (cross-reference: AGENTS.md `## Code Conventions` Bash bullet), so a `cd <worktree>` to an in-scope path persists across subsequent calls; subagent dispatch contexts behave differently, with each tool call reverting to the parent checkout. Yoke treats either shape as a supported substrate, not a failure: `packages/yoke-core/src/yoke_core/domain/lint_session_cwd.py` validates each call's target paths against the session's active `work_claims` (not against cwd), so claim-based authority is the per-call authority signal regardless of which harness tier issued the call.
 
 Inspect what the current session is authorized to write via the work-claim holder read:
 
@@ -98,36 +98,31 @@ The target extractor lives in `yoke_core.domain.lint_session_cwd_target_extract`
 
 Claude Desktop fires `SessionEnd` on transient signals (laptop sleep, app reload,
 brief disconnect, idle timeout) — not only on permanent termination. The hook
-runner no longer asserts the agent is gone on its own. The destructive path now
-runs through the shared guard at
-`yoke_core.domain.sessions_lifecycle_destructive_guard.evaluate_destructive_end`:
+runner therefore never asserts the agent is gone on its own:
 
-- `end_session` reads active work claims first; an active claim is the
-  authoritative signal that the session's work is in flight and the
-  `release_claims=True` branch evaluates the destructive guard only when
-  claims are held.
-- When a persisted chain checkpoint is chainable with remaining budget,
-  the guard returns `defer=True` with reason `chain_pending`. The
-  destructive `release_claims=True` branch in
-  `sessions_render_end.end_session` emits `HarnessSessionEndDeferred`
-  and returns early — claims stay active, no terminal
-  `HarnessSessionEnded` is written.
-- When no chain is pending, the guard returns `defer=False` and the
-  destructive path runs as today. `HarnessSessionEnded` carries
-  `chain_end_rationale="claude_session_end_hook_fired"` plus a structured
-  `agent_presence_evidence` payload (`chain_budget_remaining`,
-  `chain_override_authorized`).
+- Both the Stop and SessionEnd hooks route through the non-destructive
+  `end_session_if_empty`, which only ends a session that holds no active
+  claims AND no chain-pending budget. Sessions with either are reported
+  as skipped (`has_claims` / `chain_pending`) and stay live — a transient
+  signal cannot discard mid-flight ownership state.
+- Destructive ends are explicit operator/CLI calls
+  (`session-end --release-claims` through
+  `sessions_render_end.end_session`). They fail closed with
+  `CHAIN_PENDING` while a chainable checkpoint still has budget, unless
+  the caller supplies `override_chain_end=True` plus a non-empty
+  rationale (recorded as `ChainDeclineOverridden`). When the release runs,
+  `yoke_core.domain.sessions_lifecycle_destructive_guard` releases every
+  active claim with `release_reason='session_ended'` and the terminal
+  `HarnessSessionEnded` carries a structured `agent_presence_evidence`
+  payload (`chain_budget_remaining`, `chain_override_authorized`).
 
-`last_heartbeat` is no longer consulted by the destructive guard. After
+`last_heartbeat` is not consulted by the destructive branch. After
 the keepalive daemon was eliminated it became a tool-activity recency
 signal rather than a liveness signal, conflating idle-but-alive sessions
-with permanent ends. `last_heartbeat` survives only for the 30-minute
-stale-session reclaim sweep in `yoke_core.domain.sessions_cleanup`.
-
-The Stop-hook path (`session-end-if-empty`) and the SessionEnd-hook path
-(`session-end --force --release-claims`) share the same claim+chain
-decision through the guard module. `Stop` already preserved claims; the
-SessionEnd path now matches that posture for transient signals.
+with permanent ends. `last_heartbeat` survives only for the
+stale-session reclaim sweep in `yoke_core.domain.sessions_cleanup`
+(TTL from the `session_stale_ttl_minutes` machine-config key), which is
+what reclaims truly dead sessions.
 
 ## Reactivation: conditional auto-reacquire + slim resume block
 

@@ -28,10 +28,7 @@ from yoke_core.domain.db_error_hook_collapse import (
     CollapseResult,
     check_row_count_collapse,
 )
-from yoke_core.domain.db_error_hook_query_failure import (
-    detect_db_query_failure,
-    detect_sqlite_failure,
-)
+from yoke_core.domain.db_error_hook_query_failure import detect_db_query_failure
 from yoke_core.domain.db_error_hook_stray import StrayDbResult, detect_stray_db
 
 
@@ -44,7 +41,6 @@ __all__ = [
     "analyze_bash_output",
     "check_row_count_collapse",
     "detect_db_query_failure",
-    "detect_sqlite_failure",
     "detect_stray_db",
     "main",
     "run",

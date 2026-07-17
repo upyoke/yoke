@@ -6,7 +6,7 @@ This file is the per-family function reference. The operator-readable Atlas (one
 
 ## Envelope
 
-Every function call accepts and returns the same envelope shape, defined in `runtime/api/domain/yoke_function_models.py`:
+Every function call accepts and returns the same envelope shape, defined in `packages/yoke-contracts/src/yoke_contracts/api/function_call.py`:
 
 ```jsonc
 // Request
@@ -263,7 +263,7 @@ The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `it
 - [`docs/event-catalog.md`](../event-catalog.md) — `YokeFunctionCalled`, `DispatcherIdempotencyReplay`, `DispatcherDownstreamDegraded` envelope schemas.
 - [`docs/atlas.md`](../atlas.md) — operator-readable Atlas of the agent-facing surfaces.
 - [items-and-epics.md § DB Claim — unified amendment workflow](items-and-epics.md) — the `db_claim.amend` payload shape.
-- `runtime/api/domain/yoke_function_models.py` — Pydantic envelope models.
-- `runtime/api/domain/yoke_function_dispatch.py` — dispatcher entry point.
-- `runtime/api/domain/yoke_function_registry.py` — registry.
-- `runtime/api/domain/handlers/__init_register__.py` — handler registration (idempotent).
+- `packages/yoke-contracts/src/yoke_contracts/api/function_call.py` — Pydantic envelope models.
+- `packages/yoke-core/src/yoke_core/domain/yoke_function_dispatch.py` — dispatcher entry point.
+- `packages/yoke-core/src/yoke_core/domain/yoke_function_registry.py` — registry.
+- `packages/yoke-core/src/yoke_core/domain/handlers/__init_register__.py` — handler registration (idempotent).

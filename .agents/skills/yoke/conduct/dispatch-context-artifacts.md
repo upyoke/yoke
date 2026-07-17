@@ -2,7 +2,7 @@
 
 Extracted from `dispatch-context.md`. Contains artifact formats, output capture, QA lifecycle management, and commit patterns used during and after dispatch.
 
-**Watcher capture paths.** When conduct invokes a Yoke watcher (`watch_pytest`, `watch_merge`, `watch_doctor`, `watch_advance`, `watch_deploy`, `watch_lifecycle`, `watch_session_offer`) the raw + progress captures land under the helper-resolved `<scratch_root>/watcher-captures/` — they are minted by `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair(...)` (or `watcher_capture_path(...)` for one stream) and the wrapper prints the resolved paths through `--print-streaming-pair`. Read the path the wrapper printed; do not hardcode an OS-temp watcher-capture literal in dispatch artifacts. The operator carve-out for pinning the capture file is `--raw-capture <path>` (CI / artifact collection).
+**Watcher capture paths.** When conduct invokes a Yoke watcher (`watch_pytest`, `watch_merge`, `watch_doctor`, `watch_advance`, `watch_lifecycle`, `watch_session_offer`) the raw + progress captures land under the helper-resolved `<scratch_root>/watcher-captures/` — they are minted by `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair(...)` (or `watcher_capture_path(...)` for one stream) and the wrapper prints the resolved paths through `--print-streaming-pair`. Read the path the wrapper printed; do not hardcode an OS-temp watcher-capture literal in dispatch artifacts. The operator carve-out for pinning the capture file is `--raw-capture <path>` (CI / artifact collection).
 
 ---
 
@@ -20,7 +20,7 @@ The Engineer prompt template surfaces this block under the heading `Anticipated 
 
 ## 5m. Ouroboros Reflection Capture
 
-**Claude (primary harness): captured automatically by the PostToolUse Agent-tool hook** at `runtime/api/domain/reflection_capture_hook.py`. No skill-body action required — the hook reads the subagent's full `tool_response`, runs the multi-shape parser, persists entries to `ouroboros_entries`, and emits `ReflectionCaptureHookFired` (always) plus `ReflectionCaptureHookUnhandled` (when an unrecognized shape appears).
+**Claude (primary harness): captured automatically by the PostToolUse Agent-tool hook** at `yoke_core.domain.reflection_capture_hook`. No skill-body action required — the hook reads the subagent's full `tool_response`, runs the multi-shape parser, persists entries to `ouroboros_entries`, and emits `ReflectionCaptureHookFired` (always) plus `ReflectionCaptureHookUnhandled` (when an unrecognized shape appears).
 
 **Codex (parity capture): subagent dispatch is the custom-agent path** (`.codex/agents/yoke-*.toml`), not an in-process `Agent` tool call. The PostToolUse `Agent` matcher does not fire on Codex. When `$YOKE_EXECUTOR=codex` AND the conduct session has just received a subagent response, run the operator/debug CLI to capture the reflection block before continuing the next step:
 

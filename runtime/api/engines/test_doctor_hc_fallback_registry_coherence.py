@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from yoke_core.engines.doctor_hc_fallback_registry_coherence import (
     hc_fallback_registry_coherence,
 )

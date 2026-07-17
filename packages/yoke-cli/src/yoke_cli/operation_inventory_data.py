@@ -73,7 +73,9 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions checkpoint-read", "sessions"),
     _w("yoke sessions offer", "sessions"),
     _w("yoke sessions ownership-guard", "sessions"),
+    _w("yoke workflows definition get", "workflows"),
     _w("yoke charge schedule", "charge"),
+    _w("yoke frontier list", "frontier"),
     # render.
     _w("yoke agents render", "agents.render"),
     _w("yoke agents render check", "agents.render"),
@@ -110,11 +112,13 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke qa gate-summary", "qa"),
     # doctor + projects + project_structure.
     _w("yoke doctor run", "doctor"),
-    # Deployment flow/run reads, run update, and the target-env resolver
-    # used by usher ride the dispatcher instead of pending db_router
-    # fallbacks.
+    _w("yoke doctor last-run get", "doctor"),
+    # Deployment flow/run operations and the target-env resolver.
     _w("yoke deployment-flows get", "deployment_flows"),
+    _w("yoke deployment-flows set-status", "deployment_flows"),
     _w("yoke deployment-flows stages", "deployment_flows"),
+    _w("yoke deployment-runs create", "deployment_runs"),
+    _w("yoke deployment-runs approve", "deployment_runs"),
     _w("yoke deployment-runs get", "deployment_runs"),
     _w("yoke deployment-runs list", "deployment_runs"),
     _w("yoke deployment-runs update", "deployment_runs"),
@@ -125,9 +129,13 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects create", "projects"),
     _w("yoke projects update", "projects"),
     _w("yoke projects capability has", "projects.capability"),
+    _w("yoke projects capabilities list", "projects.capability"),
     _w("yoke projects capability-settings get", "projects.capability_settings"), _w("yoke projects capability-settings set", "projects.capability_settings"),
     _w("yoke projects capability-settings merge", "projects.capability_settings"),
     _w("yoke projects environment-settings get", "projects.environment_settings"), _w("yoke projects environment-settings merge", "projects.environment_settings"),
+    _w("yoke projects pulumi-state migrate", "projects.pulumi_state"),
+    _w("yoke projects pulumi-state checkpoint-import", "projects.pulumi_state"),
+    _w("yoke projects pulumi-stack-config get", "projects.pulumi_stack_config"),
     _w("yoke projects capability-secret set", "projects.capability"),
     _w("yoke projects capability secret set", "projects.capability"),
     _w("yoke projects github-binding bind", "projects.github_binding"), _w("yoke projects github-binding unbind", "projects.github_binding"), _w("yoke projects github-binding status", "projects.github_binding"),
@@ -232,6 +240,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # dispatcher function ids; routed as CLI tokens by yoke_cli.main.
     _p("yoke git pre-commit", "git", REASON_TOOL_SHAPED),
     _p("yoke git post-commit", "git", REASON_TOOL_SHAPED),
+    _p("yoke sessions init", "sessions", REASON_TOOL_SHAPED),
     # Browser-QA orchestration is client-local (Playwright daemon,
     # screenshots on this machine's disk) — tool-shaped like the git hook
     # bodies; its DB legs are the wrapped qa.* ids above. The screenshot
@@ -254,7 +263,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # Universe export dumps the machine-held database via pg_dump — a
     # client-local file operation gated on DSN possession, not a
     # dispatcher function id.
-    _p("yoke universe export", "local_universe.export", REASON_TOOL_SHAPED),
+    _p("yoke universe export", "universe.export", REASON_TOOL_SHAPED),
+    _p("yoke universe import", "universe.import", REASON_TOOL_SHAPED),
     _p("yoke universe validate", "local_universe.validate", REASON_TOOL_SHAPED),
     _p("yoke source-authority quiesce", "source_authority.quiesce", REASON_TOOL_SHAPED),
     _p("yoke source-authority export", "source_authority.export", REASON_TOOL_SHAPED),
@@ -281,8 +291,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
        "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_merge",
        "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_deploy",
-       "tools.watch", REASON_TOOL_SHAPED),
     # The remaining agent-facing watcher surfaces.
     # watch_advance / watch_lifecycle / watch_session_offer are
     # taught in conduct's dispatch-context-artifacts.md; watch_tail is the
@@ -305,6 +313,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # merge/done-transition watchers): usher drives it; not a quick typed
     # function call. Flow admin (delete) is operator break-glass.
     _p("python3 -m yoke_core.domain.deploy_pipeline",
+       "deployment_runs", REASON_TOOL_SHAPED),
+    _p("yoke deployment-runs execute",
        "deployment_runs", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.domain.flow delete",
        "deployment_flows", REASON_OPERATOR_BREAK_GLASS),

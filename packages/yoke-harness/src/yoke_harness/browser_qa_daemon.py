@@ -9,8 +9,21 @@ from yoke_harness.browser_qa_results import log
 
 
 def ensure_daemon_running() -> Optional[str]:
-    if browser_client.daemon_running():
-        return None
+    state = browser_client.DaemonState.load()
+    if state and browser_client.daemon_running(state):
+        try:
+            browser_client.daemon_health(state=state, timeout=1)
+        except RuntimeError as exc:
+            log(
+                "Browser daemon process is alive but not ready; "
+                f"recovering endpoint={state.endpoint} pid={state.pid}: {exc}"
+            )
+            try:
+                browser_client.daemon_stop()
+            except Exception:
+                pass
+        else:
+            return None
     last_error: Optional[str] = None
     log("Browser daemon not running, starting...")
     for attempt in range(1, 4):

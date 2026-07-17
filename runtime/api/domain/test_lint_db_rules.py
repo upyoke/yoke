@@ -34,16 +34,6 @@ def test_lint_db_rule_modules_own_live_fragments() -> None:
             f"yoke_core.domain.lint_db_rules_{suffix}"
         )
         source = inspect.getsource(module)
-        assert "from yoke_core.domain.lint_sqlite_rules" not in source
-
-
-def test_lint_sqlite_rule_modules_remain_legacy_aliases() -> None:
-    for suffix, symbols in _RULE_MODULES.items():
-        neutral = importlib.import_module(
-            f"yoke_core.domain.lint_db_rules_{suffix}"
-        )
-        legacy = importlib.import_module(
-            f"yoke_core.domain.lint_sqlite_rules_{suffix}"
-        )
-        for symbol in symbols:
-            assert getattr(legacy, symbol) is getattr(neutral, symbol)
+        assert f"lint_db_rules_{suffix}" in module.__name__
+        for symbol in _RULE_MODULES[suffix]:
+            assert symbol in source

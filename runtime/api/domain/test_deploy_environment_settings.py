@@ -39,7 +39,11 @@ def _prod_env(**overrides) -> RendererEnvironmentSettings:
             "origin_port": 80,
         },
         "database": {"name": "yoke_prod"},
-        "pulumi": {"stack_name": "yoke-prod", "activation_state": "active"},
+        "pulumi": {
+            "stack_name": "yoke-prod",
+            "origin_vps_stack_name": "yoke-platform-vps",
+            "activation_state": "active",
+        },
     }
     settings.update(overrides)
     return RendererEnvironmentSettings(
@@ -88,11 +92,30 @@ class TestDeployEnvironmentResolution:
         assert env.compose_dir == "/opt/yoke-core"
         assert env.log_group == "/yoke/prod/core"
         assert env.stack_name == "yoke-prod"
+        assert env.origin_vps_stack_name == "yoke-platform-vps"
         assert env.activation_state == "active"
         assert env.state_backend == "s3://yoke-pulumi-state?region=us-east-1"
         assert env.database_name == "yoke_prod"
         assert env.otel_exporter_endpoint == ""
         assert env.github_app is None
+
+    def test_origin_vps_stack_name_defaults_empty(self):
+        env = deploy_environment_from_settings(
+            _settings(
+                environments=[
+                    _prod_env(
+                        pulumi={
+                            "stack_name": "yoke-prod",
+                            "activation_state": "active",
+                        }
+                    )
+                ],
+                capabilities=_full_capabilities(),
+            ),
+            "prod",
+        )
+
+        assert env.origin_vps_stack_name == ""
 
     def test_resolves_environment_scoped_github_app_secret_reference(self):
         env = deploy_environment_from_settings(

@@ -171,6 +171,12 @@ class TestEvaluatePayloadDenied(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result[0], "deny")
 
+    def test_newline_separated_invocations_inspected(self):
+        cmd = 'echo prep\ngit stash push -u -- a.txt -m "reason"'
+        result = _eval(cmd)
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], "deny")
+
 
 class TestSuppressionTokenAudit(unittest.TestCase):
     """Suppression token is recorded as audit evidence but does NOT unblock."""

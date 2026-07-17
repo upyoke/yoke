@@ -34,9 +34,8 @@ YOKE_PROJECT_NAME = "Yoke"
 YOKE_DEFAULT_BRANCH = "main"
 YOKE_PUBLIC_ITEM_PREFIX = "YOK"
 
-# Yoke's canonical GitHub repo (OWNER/REPO). The homebrew formula homepage
-# (packaging/homebrew/Formula/yoke.rb.in) names the same repo; this is the
-# single Python-importable source for the slug the dev flow's GitHub check uses.
+# Yoke's canonical GitHub repo (OWNER/REPO) — the single Python-importable
+# source for the slug the dev flow's GitHub check uses.
 YOKE_GITHUB_REPO = "upyoke/yoke"
 
 

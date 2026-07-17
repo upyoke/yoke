@@ -5,22 +5,27 @@
 // host-owned node. The default options preserve `yoke ui`: same-origin
 // cookie-authenticated calls to /api/functions/call and no outer slots.
 // Another same-realm host may inject its own function client, opaque generic
-// capabilities/actions, and named slot nodes without forking this app.
+// capabilities/actions, named slot nodes, and per-view sections without
+// forking this app.
 //
-// Views are hash-routed as `#/<view>[/<segment>]?project=<id>` so a shared
-// link restores the view, its facet, and the scope. The left nav is
+// Views are hash-routed as `#/<view>[/<segment>]?project=<id>[,<id>…]` so a
+// shared link restores the view, its facet, and the scope. The left nav is
 // data-driven (see NAV) — adding a route is one more array entry, with no
 // per-view branching in the markup. The second segment means what the view
 // declares: a tab (one facet of the view's concept, from the entry's `tabs`
 // roster) or a drill-in (one row, with a breadcrumb back) — never both.
 //
-// Scope is per-screen: each view remembers its own project and declares how it
-// takes scope (see SCOPE_*). Live scoped views carry their own picker; stubs do
-// not render a control that cannot act.
+// Scope is per-screen: each view remembers its own scope and declares how it
+// takes it (see SCOPE_*). A multi view reads the whole universe ("all", no
+// query) or a set of projects; a single view configures exactly one. Live
+// scoped views carry their own chip picker; stubs do not render a control
+// that cannot act.
 //
-// Members and Billing are deliberately absent from NAV. They are hosted
-// chrome the platform injects through the `navigationEnd` slot; the workbench
-// itself has no notion of an account.
+// Members and Billing sit in NAV as host-fed destinations in the one flat
+// arc: the workbench routes them and draws their page head, but their body
+// is the host's `sections` entry, and each nav entry shows exactly when its
+// section is supplied. The workbench itself still has no notion of an
+// account — the content stays host-owned.
 
 import {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -28,21 +33,21 @@ import {
 } from "./contract.js";
 import {
   appendSlot, attachMountRootClass,
-  createUnmountHandle, detachMountedSlots, materializeSlots,
-  renderCapabilityActions,
-  validateMountRoot,
+  createUnmountHandle, detachMountedSlots, materializeSections,
+  materializeSlots, validateMountRoot,
 } from "./mount-options.js";
 import {
   buildUniverseRoute,
   createScopePicker,
   createTabBar,
-  knownProjectId,
   NAV,
   navEntry,
   parseUniverseRoute,
+  rememberedScopeParam,
   renderStubView,
   SCOPE_NONE,
   scopeForEntry,
+  serializeScope,
   universeNavScope,
 } from "./universe_navigation.js";
 import {
@@ -92,6 +97,22 @@ function createActorChip(documentNode, actor) {
   return chip;
 }
 
+// Every routed view opens with its name and, when its NAV entry carries
+// one, the entry's one-sentence summary. The head belongs to the route, not
+// the view — renderers stay unaware of it, a drill-in trades it for the
+// breadcrumb, and a tabbed view keeps one head (the view's, one concept)
+// above the facet strip while the tabs below it change.
+function createPageHead(documentNode, entry) {
+  const head = el(documentNode, "div", "page-head");
+  const heading = el(documentNode, "div", "h");
+  heading.appendChild(el(documentNode, "h1", "title", entry.label));
+  if (entry.summary) {
+    heading.appendChild(el(documentNode, "p", "subtitle", entry.summary));
+  }
+  head.appendChild(heading);
+  return head;
+}
+
 // The way back out of a drill-in, naming the view it belongs to. It carries
 // the view's project so returning lands on the same rows the row came from.
 function createBreadcrumb(documentNode, entry, project, detail) {
@@ -102,6 +123,16 @@ function createBreadcrumb(documentNode, entry, project, detail) {
   bar.appendChild(el(documentNode, "span", "breadcrumb-sep", "/"));
   bar.appendChild(el(documentNode, "span", "breadcrumb-here", String(detail)));
   return bar;
+}
+
+// A drill-in shows one row, and a row lives in exactly one project. Row
+// links carry that id, so the resolved set normally has one member; a
+// hand-written wider route lands on its first member, and an empty universe
+// resolves to nothing — no project can hold the row.
+function drillInProject(scope, projects) {
+  if (Array.isArray(scope)) return scope[0];
+  if (scope === "all") return projects[0] ? String(projects[0].id) : null;
+  return scope;
 }
 
 function emptyUniversePanel(documentNode) {
@@ -130,7 +161,15 @@ export function mountUniverseApp(rootNode, options = {}) {
   }
   const capabilities = options.capabilities || {};
   const slots = options.slots || {};
-  const resolvedSlots = materializeSlots(slots, rootNode);
+  // Slots and sections share one duplicate ledger: a node placed as both a
+  // slot and a section is one Element asked to stand in two places.
+  const hostContentNodes = new Set();
+  const resolvedSlots = materializeSlots(slots, rootNode, hostContentNodes);
+  const resolvedSections = materializeSections(
+    options.sections || {}, rootNode, hostContentNodes,
+  );
+  const sectionNodes = Object.values(resolvedSections)
+    .map((hostSection) => hostSection.content);
   const mountedSlotNodes = [];
   let mounted = true;
   let projects = [];
@@ -141,26 +180,36 @@ export function mountUniverseApp(rootNode, options = {}) {
     // The roster the scope pickers already hold, so a view that only lists
     // projects costs no second call.
     projects: () => projects,
+    // Host capability data, read by views that need an explicit deployment
+    // mode or host-owned control surface. The Organization view interprets
+    // portability capabilities; the topbar carries no capability controls.
+    capabilities,
   };
 
   const brand = el(documentNode, "div", "brand yoke-header-brand");
   brand.style.color = "var(--yoke-ink)";
-  const orgContext = el(documentNode, "span", "org-context", "…");
+  // The app names the universe's org itself only when no host does: a
+  // topbarStart option is host org chrome arriving (the hosted platform puts
+  // its org switcher there), and one header must not name the org twice. The
+  // option's presence alone is the signal — a function-valued slot is never
+  // invoked to decide. The actor chip is engine identity, not org chrome,
+  // so it stays either way.
+  const hostFillsTopbarStart =
+    slots.topbarStart !== undefined && slots.topbarStart !== null;
+  const orgContext = hostFillsTopbarStart
+    ? null
+    : el(documentNode, "span", "org-context", "…");
   const contextSide = el(documentNode, "div", "context-side yoke-header-context");
-  const capabilityActions = renderCapabilityActions(
-    documentNode, capabilities,
-  );
-  if (capabilityActions) contextSide.appendChild(capabilityActions);
   // A host with a sign-in door names the viewer; a local universe admits a
   // loopback token rather than an actor, so it supplies none and the chip is
   // simply absent — never a greyed-out chip that names nobody.
   if (options.currentActor) {
     contextSide.appendChild(createActorChip(documentNode, options.currentActor));
   }
-  contextSide.appendChild(orgContext);
+  if (orgContext) contextSide.appendChild(orgContext);
   const header = el(documentNode, "header", "topbar yoke-app-header");
-  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(brand);
+  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(contextSide);
   appendSlot(header, resolvedSlots.topbarEnd, mountedSlotNodes);
 
@@ -175,6 +224,10 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const navLinks = new Map();
   for (const entry of NAV) {
+    // A host-fed destination is only reachable through the content its host
+    // supplies, so its entry joins the arc exactly when that section does —
+    // never a dead link to an empty screen.
+    if (entry.hostFed && !resolvedSections[entry.id]) continue;
     // Glyph and label are separate spans so the glyph column stays fixed
     // and long labels ellipsize instead of wrapping under it.
     const link = el(documentNode, "a", "nav-link");
@@ -195,110 +248,191 @@ export function mountUniverseApp(rootNode, options = {}) {
     .then((svg) => { if (mounted) brand.innerHTML = svg; })
     .catch(() => { if (mounted) brand.textContent = "Yoke"; });
 
-  Promise.resolve().then(() => callFunction(client, "organizations.get", {}))
-    .then((callResult) => {
-      if (!mounted) return;
-      const org = (callResult.envelope && callResult.envelope.result) || {};
-      orgContext.textContent = org.name || "(unnamed org)";
-    })
-    .catch(() => { if (mounted) orgContext.textContent = ""; });
+  // The org read exists only to fill the app's own org naming, so a
+  // suppressed org-context skips the call entirely.
+  if (orgContext) {
+    Promise.resolve().then(() => callFunction(client, "organizations.get", {}))
+      .then((callResult) => {
+        if (!mounted) return;
+        const org = (callResult.envelope && callResult.envelope.result) || {};
+        orgContext.textContent = org.name || "(unnamed org)";
+      })
+      .catch(() => { if (mounted) orgContext.textContent = ""; });
+  }
 
   // Each visited scoped view remembers its own project.
   const scopeSelections = new Map();
 
+  // A host section renders inside the view host, after whatever the view
+  // renders for itself — one seam every view shares, so the host never
+  // reaches into a renderer's own output. `scoped` marks the pages that drew
+  // a picker: only there does a `beforeScope` section belong somewhere else,
+  // and `beforeScopeSections` has already lifted it above that control. A
+  // page with no picker has no control for it to sit above, so both
+  // placements land here and no section can silently go unplaced.
+  function appendViewSection(entry, viewHost, { scoped = false } = {}) {
+    const hostSection = resolvedSections[entry.id];
+    if (!hostSection) return;
+    if (scoped && hostSection.placement === "beforeScope") return;
+    viewHost.appendChild(hostSection.content);
+  }
+
+  // The host section the view's scope does not govern, placed above the scope
+  // control so the picker never appears to filter facts it cannot touch. A
+  // view whose section is `inView` contributes nothing here.
+  function beforeScopeSections(entry) {
+    const hostSection = resolvedSections[entry.id];
+    return (hostSection && hostSection.placement === "beforeScope")
+      ? [hostSection.content] : [];
+  }
+
   function renderRoute() {
+    // A section the previous route mounted leaves before the new route
+    // renders, so the host's node reference never strands inside a
+    // discarded subtree.
+    detachMountedSlots(rootNode, sectionNodes);
     const route = parseUniverseRoute(windowNode.location.hash);
     const entry = navEntry(route.view);
-    const project = scopeForEntry(
+    const scope = scopeForEntry(
       entry, route.project, projects, scopeSelections,
     );
 
     for (const navItem of NAV) {
       const link = navLinks.get(navItem.id);
+      // A host-fed destination without its section built no link at all.
+      if (!link) continue;
+      // Each destination's link carries the scope that screen remembers for
+      // itself — an "all" or never-visited multi view links with no query.
       link.href = buildUniverseRoute(
-        navItem.id,
-        navItem.scope === SCOPE_NONE
-          ? null
-          : (knownProjectId(
-            projects, scopeSelections.get(navItem.id),
-          ) || project),
+        navItem.id, rememberedScopeParam(navItem, projects, scopeSelections),
       );
       link.classList.toggle("active", navItem.id === entry.id);
+    }
+
+    if (entry.hostFed) {
+      // The page head still belongs to the route; only the body is the
+      // host's. A deep link whose host supplied nothing states honestly
+      // that the screen is not here — this mount cannot render it.
+      const viewHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(createPageHead(documentNode, entry), viewHost);
+      // A host-fed view renders no body of its own and carries no picker, so
+      // its section is the whole body at either placement.
+      const hostSection = resolvedSections[entry.id];
+      if (hostSection) viewHost.appendChild(hostSection.content);
+      else renderStubView(context, viewHost);
+      return;
     }
 
     if (entry.tabs) {
       // The segment is a tab facet: parse already resolved it to one of the
       // entry's declared tabs, so the strip and the body agree by construction.
       const tab = entry.tabs.find((item) => item.id === route.tab);
-      const tabBar = createTabBar(documentNode, entry, tab.id, project);
+      const tabBar = createTabBar(
+        documentNode, entry, tab.id, serializeScope(scope),
+      );
+      const pageHead = createPageHead(documentNode, entry);
       const tabRenderer = (TAB_RENDERERS[entry.id] || {})[tab.id];
       if (!tabRenderer) {
-        // An unbuilt facet is honest the same way an unbuilt destination is:
-        // it says what it will be, and carries no picker — a scope control
-        // over nothing filters nothing.
+        // An unbuilt facet is honest the same way an unbuilt destination is,
+        // and it carries no picker — a scope control over nothing filters
+        // nothing. The facet's own what-it-will-be line renders inside the
+        // stub: the page head names the view, not the tab.
         const stubHost = el(documentNode, "div", "view-host");
-        main.replaceChildren(tabBar, stubHost);
-        renderStubView(context, stubHost, tab);
+        main.replaceChildren(pageHead, tabBar, stubHost);
+        renderStubView(context, stubHost, tab.summary);
+        appendViewSection(entry, stubHost);
         return;
       }
       if (entry.scope === SCOPE_NONE) {
         const viewHost = el(documentNode, "div", "view-host");
-        main.replaceChildren(tabBar, viewHost);
+        main.replaceChildren(pageHead, tabBar, viewHost);
         tabRenderer(context, viewHost, null);
+        appendViewSection(entry, viewHost);
         return;
       }
-      if (project === null) {
-        main.replaceChildren(tabBar, emptyUniversePanel(documentNode));
+      // Only a single-scope view needs a project to exist: an unfiltered
+      // read over an empty universe is honest, an unscoped single view has
+      // nothing to configure.
+      if (scope === null) {
+        const emptyHost = el(documentNode, "div", "view-host");
+        emptyHost.appendChild(emptyUniversePanel(documentNode));
+        appendViewSection(entry, emptyHost);
+        main.replaceChildren(pageHead, tabBar, emptyHost);
         return;
       }
       // A built tab carries its own picker, below the facet strip: scope
       // belongs to the data, and only this facet's data takes it here.
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(
+        pageHead,
         tabBar,
+        ...beforeScopeSections(entry),
         createScopePicker({
-          documentNode, entry, project, projects, renderRoute,
+          documentNode, entry, scope, projects, renderRoute,
           scopeSelections, segment: tab.id, windowNode,
         }),
         viewHost,
       );
-      tabRenderer(context, viewHost, project);
+      tabRenderer(context, viewHost, scope);
+      appendViewSection(entry, viewHost, { scoped: true });
       return;
     }
 
     const detailRenderer = route.detail ? DETAIL_RENDERERS[entry.id] : null;
     const renderer = VIEW_RENDERERS[entry.id];
     if (!renderer) {
-      renderStubView(context, main, entry);
+      const stubHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(createPageHead(documentNode, entry), stubHost);
+      renderStubView(context, stubHost);
+      appendViewSection(entry, stubHost);
       return;
     }
     if (entry.scope === SCOPE_NONE) {
-      renderer(context, main, null);
+      const viewHost = el(documentNode, "div", "view-host");
+      main.replaceChildren(createPageHead(documentNode, entry), viewHost);
+      renderer(context, viewHost, null);
+      appendViewSection(entry, viewHost);
       return;
     }
-    if (project === null) {
-      main.replaceChildren(emptyUniversePanel(documentNode));
+    // Only a single-scope view needs a project to exist (see the tab path).
+    if (scope === null) {
+      const emptyHost = el(documentNode, "div", "view-host");
+      emptyHost.appendChild(emptyUniversePanel(documentNode));
+      appendViewSection(entry, emptyHost);
+      main.replaceChildren(createPageHead(documentNode, entry), emptyHost);
       return;
     }
-    if (detailRenderer) {
-      // A drill-in swaps the view's picker for a breadcrumb: re-scoping a
-      // single row to another project is nonsense, and the way out is back.
+    const detailProject = detailRenderer
+      ? drillInProject(scope, projects) : null;
+    if (detailRenderer && detailProject !== null) {
+      // A drill-in swaps the view's picker for a breadcrumb, and the
+      // breadcrumb is a drill-in's whole head: re-scoping a single row to
+      // another project is nonsense, and the way out is back. The view's
+      // host section stays out too — it belongs to the view, not to one row.
       const detailHost = el(documentNode, "div", "view-host");
       main.replaceChildren(
-        createBreadcrumb(documentNode, entry, project, route.detail),
+        createBreadcrumb(
+          documentNode, entry, serializeScope(scope), route.detail,
+        ),
         detailHost,
       );
-      detailRenderer(context, detailHost, project, route.detail);
+      detailRenderer(context, detailHost, detailProject, route.detail);
       return;
     }
     // The picker is the view's own chrome, so it sits in the content column
     // above a host the view owns outright and re-renders into at will.
     const viewHost = el(documentNode, "div", "view-host");
-    main.replaceChildren(createScopePicker({
-      documentNode, entry, project, projects, renderRoute, scopeSelections,
-      windowNode,
-    }), viewHost);
-    renderer(context, viewHost, project);
+    main.replaceChildren(
+      createPageHead(documentNode, entry),
+      ...beforeScopeSections(entry),
+      createScopePicker({
+        documentNode, entry, scope, projects, renderRoute, scopeSelections,
+        windowNode,
+      }),
+      viewHost,
+    );
+    renderer(context, viewHost, scope);
+    appendViewSection(entry, viewHost, { scoped: true });
   }
 
   windowNode.addEventListener("hashchange", renderRoute);
@@ -319,7 +453,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
     windowNode.removeEventListener("hashchange", renderRoute);
-    detachMountedSlots(rootNode, mountedSlotNodes);
+    detachMountedSlots(rootNode, [...mountedSlotNodes, ...sectionNodes]);
     rootNode.replaceChildren();
     detachRootClass();
   });

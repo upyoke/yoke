@@ -36,6 +36,28 @@ class TestFlowBasic:
         assert "yoke" in row
         assert "Test" in row
 
+    def test_disabled_flow_is_hidden_from_default_list_but_remains_readable(
+        self, test_db
+    ):
+        import json
+        from yoke_core.domain.flow import (
+            cmd_create,
+            cmd_get,
+            cmd_list,
+            cmd_set_status,
+        )
+
+        _insert_projects(test_db)
+        stages = json.dumps([{"name": "merged", "executor": "auto"}])
+        cmd_create(test_db, "f-disabled", "yoke", "Disabled", "D", stages)
+        cmd_set_status(test_db, "f-disabled", "disabled")
+
+        assert "f-disabled" not in cmd_list(test_db, "yoke")
+        assert "f-disabled" in cmd_list(
+            test_db, "yoke", include_disabled=True
+        )
+        assert cmd_get(test_db, "f-disabled", "status") == "disabled"
+
     def test_validate_stages_invalid(self, test_db):
         from yoke_core.domain.flow import validate_stages
         with pytest.raises(ValueError, match="not valid JSON"):
@@ -114,6 +136,33 @@ class TestFlowBasic:
         ])
         with pytest.raises(ValueError, match='cannot carry both "kind" and "executor"'):
             validate_stages(stages)
+
+    def test_validate_stages_accepts_boolean_ci_wait_policy(self, test_db):
+        import json
+        from yoke_core.domain.flow import validate_stages
+
+        validate_stages(json.dumps([{
+            "name": "release",
+            "executor": "github-actions-workflow",
+            "wait_for_ci": False,
+        }]))
+
+    def test_validate_stages_rejects_invalid_ci_wait_policy(self, test_db):
+        import json
+        from yoke_core.domain.flow import validate_stages
+
+        with pytest.raises(ValueError, match="must be a boolean"):
+            validate_stages(json.dumps([{
+                "name": "release",
+                "executor": "github-actions-workflow",
+                "wait_for_ci": "false",
+            }]))
+        with pytest.raises(ValueError, match="executor"):
+            validate_stages(json.dumps([{
+                "name": "complete",
+                "executor": "auto",
+                "wait_for_ci": False,
+            }]))
 
     def test_stages_command(self, test_db):
         import json
@@ -209,3 +258,31 @@ class TestFlowBasic:
             )
             == "f-new"
         )
+
+    def test_historical_run_makes_flow_definition_immutable(self, test_db):
+        import json
+        from yoke_core.domain.flow import (
+            cmd_create,
+            cmd_delete,
+            cmd_update_stages,
+        )
+
+        _insert_projects(test_db)
+        stages = json.dumps([{"name": "merged", "executor": "auto"}])
+        cmd_create(test_db, "f-history", "yoke", "History", "D", stages)
+        test_db.execute(
+            "INSERT INTO deployment_runs "
+            "(id, project_id, flow, status, created_at) "
+            "VALUES ('run-history-1', 1, 'f-history', 'succeeded', "
+            "'2026-04-20T00:00:00Z')"
+        )
+        test_db.commit()
+
+        with pytest.raises(ValueError, match="historical run"):
+            cmd_update_stages(
+                test_db,
+                "f-history",
+                json.dumps([{"name": "complete", "executor": "auto"}]),
+            )
+        with pytest.raises(ValueError, match="historical run"):
+            cmd_delete(test_db, "f-history")

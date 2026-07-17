@@ -19,7 +19,7 @@ from yoke_contracts.machine_config import schema as contract
 BINDING_RELATIVE_PATH = "~/.yoke/config.json"
 DISABLE_ENV = "YOKE_CONNECTED_ENV_DISABLE"
 PYTEST_ENABLE_ENV = "YOKE_CONNECTED_ENV_ENABLE_IN_PYTEST"
-SQLITE_GUARD_PREFIX = "SQLite authority retired/guarded"
+RETIRED_DB_GUARD_PREFIX = "SQLite authority retired/guarded"
 
 
 class ConnectedEnvError(RuntimeError):
@@ -357,22 +357,22 @@ def process_env_overrides(
     return {}
 
 
-def sqlite_guard_reason(
+def retired_db_guard_reason(
     *,
     yoke_db_env: str = "YOKE_DB",
     start: Optional[Path] = None,
 ) -> Optional[str]:
     """Return a guard reason when raw SQLite authority must not be used."""
-    from yoke_core.domain.yoke_connected_env_sqlite import (
-        sqlite_guard_reason_for_env,
+    from yoke_core.domain.yoke_connected_env_retired_db import (
+        retired_db_guard_reason_for_env,
     )
 
-    return sqlite_guard_reason_for_env(load_active(start), yoke_db_env=yoke_db_env)
+    return retired_db_guard_reason_for_env(load_active(start), yoke_db_env=yoke_db_env)
 
 
-def sqlite_guard_message(reason: str) -> str:
+def retired_db_guard_message(reason: str) -> str:
     return (
-        f"{SQLITE_GUARD_PREFIX}: {reason} selects Postgres authority; "
+        f"{RETIRED_DB_GUARD_PREFIX}: {reason} selects Postgres authority; "
         "refusing to open or mutate data/yoke.db. Route through "
         "yoke_core.domain.db_backend.connect() or provide an explicit "
         "test fixture YOKE_DB."
@@ -450,6 +450,6 @@ __all__ = [
     "process_env_overrides",
     "resolve_previous_postgres_dsn",
     "resolve_postgres_dsn",
-    "sqlite_guard_message",
-    "sqlite_guard_reason",
+    "retired_db_guard_message",
+    "retired_db_guard_reason",
 ]

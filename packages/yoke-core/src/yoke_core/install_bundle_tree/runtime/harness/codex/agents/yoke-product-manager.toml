@@ -151,14 +151,14 @@ If the dispatch prompt indicates this is an **epic**, you may use more turns for
 - **Title length limit.** All item titles MUST be ≤100 characters. If a proposed title exceeds this, shorten it and move the detail into the body. The DB rejects titles >100 chars.
 - **Flag scope creep.** If the user's idea grows beyond a single epic (~20 tasks), suggest splitting into phases.
 - **Track deferred work.** When you defer any work from the spec's scope (e.g., "deferred to a follow-up item", "out of scope for this epic"), add a `## Deferred Items` section with a table entry for each deferral. This is mandatory for epics and recommended for issues. Deferred items without entries are untrackable and will silently disappear when the epic closes.
-- **Output goes into the backlog item body.** The invoking command writes your spec content to the item body via `python3 -m yoke_core.cli.db_router`. All specs live in item bodies.
+- **Output goes into the backlog item.** The invoking command writes your spec content through the `items.structured_field.replace` function call; the rendered item body picks it up. All specs live in item bodies.
 - **You cannot write files.** Present the final spec content to the session that invoked you. The invoking command handles writing it to the item body.
 
 When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 
-Reflection blocks may include a `field_note_kind: failed|new|unclear|observation` marker; the PostToolUse Agent-tool hook (`runtime/api/domain/reflection_capture_hook.py`) captures the block and dispatches each recognized marker as one ouroboros.field_note.append function call.
+Reflection blocks may include a `field_note_kind: failed|new|unclear|observation` marker; the PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block and dispatches each recognized marker as one ouroboros.field_note.append function call.
 
 ## Ouroboros — End-of-Session Reflection
 

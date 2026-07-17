@@ -18,9 +18,15 @@ class TestSeedFlows:
         ids = {flow["id"] for flow in _SEED_FLOWS}
         assert ids == {
             "yoke-internal",
-            "yoke-prod-release",
-            "yoke-stage-release",
             "yoke-ephemeral-deploy",
+            "yoke-hosted-production",
+            "yoke-hosted-production-hotfix",
+            "yoke-hosted-production-hotfix-no-ci-gate",
+            "yoke-hosted-stage",
+            "yoke-hosted-stage-no-ci-gate",
+            "platform-production",
+            "platform-production-hotfix",
+            "platform-stage",
             "buzz-prod-release",
             "buzz-prod-hotfix",
             "buzz-internal",
@@ -32,57 +38,64 @@ class TestSeedFlows:
                 if "executor" in stage:
                     assert stage["executor"] in VALID_EXECUTORS
 
-    def test_prod_release_carries_governed_migration_and_core_deploy(self):
-        flow = next(f for f in _SEED_FLOWS if f["id"] == "yoke-prod-release")
-        stages = json.loads(flow["stages"])
-        assert stages[0] == {
-            "kind": "migration_apply",
-            "model_name": "primary",
-            "lifecycle_phase": "implementing",
-        }
-        executors = [s.get("executor") for s in stages if "executor" in s]
-        assert executors == [
-            "auto",
-            "environment-activate",
-            "core-container-deploy",
-            "health-check",
-            "github-actions-workflow",
-            "auto",
-        ]
-        assert flow["target_env"] == "prod"
-        health = next(s for s in stages if s.get("executor") == "health-check")
-        assert "url" not in health  # env-resolved, never hardcoded
-        publish = next(
-            s for s in stages if s.get("name") == "distribution-publish"
+    def test_project_local_hosted_flows_cover_stage_production_and_hotfix(self):
+        by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
+        expected = (
+            (
+                "yoke-hosted-stage-no-ci-gate", "yoke", ["stage"],
+                "normal", True,
+            ),
+            (
+                "yoke-hosted-production", "yoke", ["production"],
+                "normal", True,
+            ),
+            (
+                "yoke-hosted-production-hotfix-no-ci-gate", "yoke",
+                ["production"], "hotfix", True,
+            ),
+            ("platform-stage", "platform", ["stage"], "normal", False),
+            (
+                "platform-production", "platform", ["stage", "production"],
+                "normal", False,
+            ),
+            (
+                "platform-production-hotfix", "platform", ["production"],
+                "hotfix", False,
+            ),
         )
-        assert publish["workflow"] == "yoke-distribution-publish.yml"
-        assert publish["ref"] == "main"
-        assert publish["inputs"] == {
-            "channel": "stable",
-            "target_env": "prod",
-            "source_sha": "{head_sha}",
-        }
-        assert publish["reconcile_by_head_sha"] is False
-        assert publish["qa_kind"] == "distribution_publish"
+        for flow_id, project, environments, mode, is_bridge in expected:
+            flow = by_id[flow_id]
+            assert flow["project"] == project
+            assert flow["status"] == "active"
+            stages = [
+                stage for stage in json.loads(flow["stages"])
+                if stage.get("executor") == "github-actions-workflow"
+            ]
+            assert [
+                stage["inputs"]["target_environment"] for stage in stages
+            ] == environments
+            for stage in stages:
+                assert stage["inputs"]["release_mode"] == mode
+                assert ("product_sha" in stage["inputs"]) is is_bridge
+                assert ("platform_ref" in stage["inputs"]) is (not is_bridge)
+                assert stage["dispatch_correlation_input"] == "yoke_dispatch_id"
 
-    def test_stage_release_skips_governed_migration(self):
-        flow = next(
-            f for f in _SEED_FLOWS if f["id"] == "yoke-stage-release"
-        )
-        stages = json.loads(flow["stages"])
-        assert all(s.get("kind") != "migration_apply" for s in stages)
-        assert flow["target_env"] == "stage"
-        publish = next(
-            s for s in stages if s.get("name") == "distribution-publish"
-        )
-        assert publish["workflow"] == "yoke-distribution-publish.yml"
-        assert publish["ref"] == "stage"
-        assert publish["inputs"] == {
-            "channel": "latest",
-            "target_env": "stage",
-            "source_sha": "{head_sha}",
-        }
-        assert publish["reconcile_by_head_sha"] is False
+    def test_yoke_immediate_flows_skip_ci_without_rewriting_history(self):
+        by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
+        assert by_id["yoke-hosted-stage"]["status"] == "disabled"
+        assert by_id["yoke-hosted-production-hotfix"]["status"] == "disabled"
+        for flow_id in (
+            "yoke-hosted-stage-no-ci-gate",
+            "yoke-hosted-production-hotfix-no-ci-gate",
+        ):
+            flow = by_id[flow_id]
+            assert flow["status"] == "active"
+            workflow_stages = [
+                stage for stage in json.loads(flow["stages"])
+                if stage.get("executor") == "github-actions-workflow"
+            ]
+            assert workflow_stages
+            assert all(stage["wait_for_ci"] is False for stage in workflow_stages)
 
     def test_ephemeral_flow_targets_ephemeral(self):
         flow = next(
@@ -152,6 +165,9 @@ class TestSeedFlowsRequireProjects:
                 conn.execute(
                     "INSERT INTO projects (id, slug) VALUES (42, 'buzz')"
                 )
+                conn.execute(
+                    "INSERT INTO projects (id, slug) VALUES (43, 'platform')"
+                )
                 conn.commit()
                 flow_cmd_init(conn)
                 rows = conn.execute(
@@ -160,7 +176,11 @@ class TestSeedFlowsRequireProjects:
                 by_id = {str(r[0]): int(r[1]) for r in rows}
                 assert set(by_id) == {f["id"] for f in _SEED_FLOWS}
                 for flow in _SEED_FLOWS:
-                    expected = 41 if flow["project"] == "yoke" else 42
+                    expected = {
+                        "yoke": 41,
+                        "buzz": 42,
+                        "platform": 43,
+                    }[flow["project"]]
                     assert by_id[str(flow["id"])] == expected
                 buzz_stages = json.loads(conn.execute(
                     "SELECT stages FROM deployment_flows "
@@ -169,51 +189,6 @@ class TestSeedFlowsRequireProjects:
                 assert all(
                     "dispatch_correlation_input" not in stage
                     for stage in buzz_stages
-                )
-            finally:
-                conn.close()
-
-    def test_existing_buzz_seed_is_backfilled_to_trigger_once(self, tmp_path):
-        from yoke_core.domain import db_backend
-        from runtime.api.fixtures.file_test_db import init_test_db
-
-        def _apply() -> None:
-            conn = db_backend.connect()
-            try:
-                self._init_min_schema(conn)
-                conn.execute("INSERT INTO projects (id, slug) VALUES (42, 'buzz')")
-                conn.commit()
-            finally:
-                conn.close()
-
-        with init_test_db(tmp_path, apply_schema=_apply):
-            conn = db_backend.connect()
-            try:
-                flow_cmd_init(conn)
-                row = conn.execute(
-                    "SELECT stages FROM deployment_flows "
-                    "WHERE id = 'buzz-prod-release'"
-                ).fetchone()
-                stages = json.loads(row[0])
-                for stage in stages:
-                    if stage.get("executor") == "github-actions-workflow":
-                        stage["dispatch_correlation_input"] = "yoke_dispatch_id"
-                conn.execute(
-                    "UPDATE deployment_flows SET stages = %s "
-                    "WHERE id = 'buzz-prod-release'",
-                    (json.dumps(stages),),
-                )
-                conn.commit()
-
-                flow_cmd_init(conn)
-                converged = json.loads(conn.execute(
-                    "SELECT stages FROM deployment_flows "
-                    "WHERE id = 'buzz-prod-release'"
-                ).fetchone()[0])
-                assert all(
-                    "dispatch_correlation_input" not in stage
-                    for stage in converged
-                    if stage.get("executor") == "github-actions-workflow"
                 )
             finally:
                 conn.close()

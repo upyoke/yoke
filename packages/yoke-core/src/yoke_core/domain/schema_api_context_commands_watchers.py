@@ -4,7 +4,7 @@ Sibling of :mod:`schema_api_context_commands_core` and
 :mod:`schema_api_context_commands_core_operational`. Holds the
 watcher / background-command recipes that have no current packet home:
 high-friction patterns for ``watch_pytest`` / ``watch_doctor`` /
-``watch_merge`` / ``watch_deploy`` plus the foreground variant used by
+``watch_merge`` plus the foreground variant used by
 Yoke subagents.
 
 Recipe shape doctrine (current):
@@ -113,63 +113,6 @@ WATCHERS_COMMANDS: list[dict] = [
             "watch_merge owns the merge filter regex (section banners, "
             "step headers, errors, warnings, RESULT_FILE=). Use for any "
             "merge or done_transition; never hand-author the filter."
-        ),
-    },
-    {
-        "topic": "core",
-        "purpose": (
-            "Run item-less deployment pipeline with pinned product source "
-            "(admin/source-dev)"
-        ),
-        "recipe": (
-            "source_checkout=<source-checkout>; target_branch=<main-or-stage>; "
-            'git -C "$source_checkout" fetch origin "$target_branch" && '
-            'git -C "$source_checkout" checkout --detach FETCH_HEAD && '
-            'PYTHONPATH="$source_checkout/packages/yoke-contracts/src:'
-            "$source_checkout/packages/yoke-cli/src:"
-            "$source_checkout/packages/yoke-core/src:"
-            "$source_checkout/packages/yoke-harness/src:"
-            '$source_checkout${PYTHONPATH:+:$PYTHONPATH}" '
-            "YOKE_ENV=<control-plane-env>-db-admin "
-            "YOKE_GITHUB_ACTIONS_RELAY_ENV=<hosted-control-plane-env> "
-            "python3 -m "
-            'yoke_core.tools.watch_deploy --product-src "$source_checkout" '
-            "-- {run-id}"
-        ),
-        "notes": (
-            "watch_deploy supplies the `python3 -m "
-            "yoke_core.domain.deploy_pipeline` prefix itself. `--product-src` "
-            "is a watcher option and must precede `--`; pass only bare "
-            "deploy_pipeline args after `--` (`run-...`, optional "
-            "`--from-stage`, and other pipeline options). The product "
-            "checkout pins the executing code, build context, and product "
-            "release SHA; use the same checkout on every retry or resume. "
-            "The watcher validates its exact HEAD and injects the canonical "
-            "12-character registry tag. A legacy explicit `--image-tag` is "
-            "accepted only when it resolves to the same HEAD and is "
-            "canonicalized before dispatch. Fetching alone does not move "
-            "the checkout; detach it at `FETCH_HEAD`. The explicit "
-            "worktree-source `PYTHONPATH` prevents an installed older Yoke "
-            "from running the outer watcher. Claude adds "
-            "`--print-streaming-pair` immediately "
-            "before `--`; Codex/native shells run the shown command. This "
-            "local-Postgres control-plane recipe is for "
-            "source-dev/admin or audited break-glass operation only; "
-            "routine access stays on `/yoke usher`, domain-specific "
-            "`yoke ...` wrappers, or `yoke db read` over the selected "
-            "HTTPS/API authority. Do not use `YOKE_ENV=<env>-db-admin` as a "
-            "normal retry after a product read fails. Item-less environment "
-            "deploys are valid only as operator-attended admin runs: create "
-            "the run with `db_router runs create-run` under the project that "
-            "owns the deployment environment and flow (which may differ from "
-            "the product project), resolve the target branch SHA from the "
-            "explicit product checkout, then execute the printed run id "
-            "through this watcher with `--product-src` and `--image-tag`."
-            " Normal attended deploys select the hosted GitHub Actions relay. "
-            "Only the first control-plane bootstrap that introduces or repairs "
-            "that relay may replace `YOKE_GITHUB_ACTIONS_RELAY_ENV=...` with "
-            "`YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1`; never leave authority "
-            "selection implicit."
         ),
     },
     {

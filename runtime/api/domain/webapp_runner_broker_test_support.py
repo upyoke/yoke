@@ -47,11 +47,15 @@ def _write_node_fixture(tmp_path: Path) -> None:
               if ((command.input.MaxRecords || 50) > 50) {
                 throw new Error("DescribeAutoScalingInstances MaxRecords exceeds API limit");
               }
-              const active = globalThis.__activeInstances === false ? [] : [{
-                InstanceId: "i-0123456789abcdef0",
+              const configured = globalThis.__activeInstances;
+              const instanceIds = configured === false ? [] :
+                Array.isArray(configured) ? configured :
+                ["i-0123456789abcdef0"];
+              const active = instanceIds.map((InstanceId) => ({
+                InstanceId,
                 AutoScalingGroupName: process.env.RUNNER_ASG_NAME,
                 LifecycleState: "InService",
-              }];
+              }));
               return { AutoScalingInstances: active };
             }
             if (command instanceof SetDesiredCapacityCommand) {
@@ -73,7 +77,12 @@ def _write_node_fixture(tmp_path: Path) -> None:
             globalThis.__terminated = command.input;
             globalThis.__terminationCalls = globalThis.__terminationCalls || [];
             globalThis.__terminationCalls.push(command.input);
-            globalThis.__activeInstances = false;
+            if (Array.isArray(globalThis.__activeInstances)) {
+              globalThis.__activeInstances = globalThis.__activeInstances
+                .filter((item) => item !== command.input.InstanceId);
+            } else {
+              globalThis.__activeInstances = false;
+            }
             if (globalThis.__activityOnTerminate) {
               globalThis.__parameters.set(
                 process.env.QUEUE_ACTIVITY_PARAMETER,
@@ -148,5 +157,6 @@ def _write_node_fixture(tmp_path: Path) -> None:
         "webapp_runner_github_broker.mjs",
         "webapp_runner_registration.mjs",
         "webapp_runner_termination.mjs",
+        "webapp_runner_parallel_reaper.mjs",
     ):
         (tmp_path / name).write_text((INFRA_ROOT / name).read_text())

@@ -1,6 +1,6 @@
 # Advance — Worktree Preflight + Re-entry
 
-> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator ([`runtime/api/engines/advance_implementation_entry.py`](../../../../runtime/api/engines/advance_implementation_entry.py)) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
+> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator ([`packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py`](../../../../packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py)) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
 
 Called by the advance router when target status is `implementing` (including issue `implementation` entry). Owns collision detection, dirty-main protection, canonical/legacy worktree recognition, and worktree creation. The session's write authority over the new worktree is its work-claim (acquired in Step 1), validated per tool call by `lint_session_cwd`.
 
@@ -8,7 +8,7 @@ This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`. Th
 
 **Context variables** (set by router): `{N}`, `_type`, `--no-worktree` flag, `--force` flag
 
-**Enforcement owner:** `runtime/api/domain/worktree_preflight.py` (orchestrator + CLI), with step helpers in `runtime/api/domain/worktree_preflight_steps.py`.
+**Enforcement owner:** `yoke_core.domain.worktree_preflight` (orchestrator + CLI), with step helpers in `yoke_core.domain.worktree_preflight_steps`.
 
 ---
 

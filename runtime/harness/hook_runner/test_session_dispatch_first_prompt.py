@@ -18,11 +18,15 @@ def scoped_scratch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-def test_claude_prompt_marker_path_is_under_scratch_root(scoped_scratch: Path) -> None:
+def test_claude_prompt_marker_path_is_process_stable(scoped_scratch: Path) -> None:
     marker = fp.claude_prompt_marker_path("abc-123")
 
     assert marker.is_absolute()
-    assert marker.parent == scratch.scratch_root() / "hook-markers"
+    assert marker.parent.name == "hook-markers"
+    # Fire-once markers coordinate across hook processes: no per-session
+    # or per-run segments may appear in the path.
+    assert "sessions" not in marker.parts
+    assert "runs" not in marker.parts
     assert marker.name == "claude-prompt-abc-123"
 
 

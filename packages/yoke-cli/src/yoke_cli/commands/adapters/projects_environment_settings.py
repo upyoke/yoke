@@ -18,7 +18,8 @@ from yoke_contracts.api.function_call import TargetRef
 
 GET_USAGE = (
     "yoke projects environment-settings get --project NAME "
-    "--environment-id ID [--session-id S] [--json]"
+    "--environment-id ID --path KEY.PATH [--path ...] "
+    "[--session-id S] [--json]"
 )
 MERGE_USAGE = (
     "yoke projects environment-settings merge --project NAME "
@@ -32,6 +33,13 @@ def projects_environment_settings_get(args: List[str]) -> int:
         prog="yoke projects environment-settings get"
     )
     _add_identity_args(parser)
+    parser.add_argument(
+        "--path",
+        dest="paths",
+        action="append",
+        required=True,
+        help="Dot path to one scalar; numeric segments address array entries.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GET_USAGE)
@@ -43,6 +51,7 @@ def projects_environment_settings_get(args: List[str]) -> int:
         {
             "project": parsed.project,
             "environment_id": parsed.environment_id,
+            "paths": parsed.paths,
         },
     )
 
@@ -53,7 +62,11 @@ def projects_environment_settings_merge(args: List[str]) -> int:
     )
     _add_identity_args(parser)
     parser.add_argument(
-        "--set", dest="assignments", action="append", required=True
+        "--set",
+        dest="assignments",
+        action="append",
+        required=True,
+        help="KEY.PATH=VALUE; numeric path segments address array entries.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -87,10 +100,13 @@ def _dispatch(
         del stderr
         if not response.success:
             return None
-        settings_json = str((response.result or {}).get("settings_json") or "")
-        stdout.write(settings_json)
-        if not settings_json.endswith("\n"):
-            stdout.write("\n")
+        result = response.result or {}
+        if function_id == "projects.environment_settings.get":
+            for path, value in (result.get("values") or {}).items():
+                stdout.write(f"{path}={json.dumps(value, sort_keys=True)}\n")
+        else:
+            paths = ",".join(result.get("changed_paths") or [])
+            stdout.write(f"{result.get('environment_id', '')}|{paths}\n")
         return None
 
     return dispatch_and_emit(

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 
 from yoke_harness import browser_client
 from yoke_harness import browser_linux_deps
@@ -50,6 +49,14 @@ def _prepare_browser_start(tmp_path, monkeypatch):
             pass
 
     monkeypatch.setattr(browser_client.DaemonState, "load", staticmethod(fake_load))
+    monkeypatch.setattr(
+        browser_client,
+        "daemon_request",
+        lambda *_args, **_kwargs: {
+            "success": True,
+            "data": {"health": "healthy"},
+        },
+    )
     monkeypatch.setattr(browser_client.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
     return browser, fake_run
 

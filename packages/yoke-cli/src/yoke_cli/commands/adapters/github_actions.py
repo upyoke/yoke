@@ -54,7 +54,7 @@ __all__ = [
 
 GITHUB_ACTIONS_CHECK_CI_USAGE = (
     "yoke github-actions check-ci <repo-slug> <workflow-file> "
-    "[--branch BRANCH] [--wait] [--timeout SEC] --project P "
+    "[--branch BRANCH] [--head-sha SHA] [--wait] [--timeout SEC] --project P "
     "[--session-id S] [--json]"
 )
 
@@ -65,7 +65,8 @@ def github_actions_check_ci(args: List[str]) -> int:
         prog="yoke github-actions check-ci",
         description=(
             "Latest workflow-run advisory for <repo-slug> <workflow-file> "
-            "on --branch (default main). Point-in-time by default; "
+            "on --branch (default main), optionally restricted to the exact "
+            "--head-sha. Point-in-time by default; "
             "--wait polls client-side until the run completes or "
             "--timeout elapses (state 'timeout') — each poll is one "
             "single-shot dispatch, so waiting works over the https "
@@ -77,6 +78,10 @@ def github_actions_check_ci(args: List[str]) -> int:
     parser.add_argument(
         "--branch", default="main",
         help="Branch to inspect (default: main).",
+    )
+    parser.add_argument(
+        "--head-sha", default="",
+        help="Exact commit SHA to inspect within the selected branch.",
     )
     parser.add_argument(
         "--wait", action="store_true",
@@ -114,6 +119,8 @@ def github_actions_check_ci(args: List[str]) -> int:
         "branch": parsed.branch,
         "project": parsed.project,
     }
+    if parsed.head_sha:
+        payload["head_sha"] = parsed.head_sha
     if not parsed.wait:
         return dispatch_and_emit(
             function_id="github_actions.check_ci",
