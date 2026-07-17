@@ -70,7 +70,10 @@ PROJECT_COMMANDS: list[dict] = [
             "pulumi-stack-config get --project <project> --stack <stack> "
             "--output <file>`; execute it with `yoke pulumi exec --project "
             "<project> --stack <stack> -- preview` (also allows refresh and "
-            "safe file-form import). Generic capability and operator-state "
+            "safe file-form import). Local execution reads aws-admin from the "
+            "machine capability store and resolves the selected service's "
+            "repository-bound GitHub App authorization; Actions retains "
+            "ambient OIDC credentials. Generic capability and operator-state "
             "surfaces are closed."
         ),
     },

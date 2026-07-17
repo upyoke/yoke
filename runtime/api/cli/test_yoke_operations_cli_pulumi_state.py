@@ -12,6 +12,7 @@ from unittest.mock import patch
 from yoke_cli.commands.adapters.projects_pulumi_stack_config import (
     projects_pulumi_stack_config_get,
 )
+from yoke_cli.commands.adapters import pulumi
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -128,3 +129,43 @@ def test_stack_config_adapter_refuses_overwrite_before_fetch(tmp_path):
     assert rc == 2
     dispatcher.assert_not_called()
     assert output.read_text() == "existing"
+
+
+def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
+    monkeypatch,
+):
+    calls = {}
+    machine_loader = object()
+    github_loader = object()
+
+    def execute(*args, **kwargs):
+        calls["execute"] = (args, kwargs)
+        return 0
+
+    executor = type("Executor", (), {
+        "aws_machine_capability_env": machine_loader,
+        "execute_pulumi_command": staticmethod(execute),
+    })
+    renderer = type("Renderer", (), {
+        "_resolve_project_root": staticmethod(lambda: "."),
+    })
+    monkeypatch.setattr(pulumi, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(
+        pulumi,
+        "build_pulumi_github_auth_loader",
+        lambda **kwargs: github_loader,
+    )
+    monkeypatch.setattr(
+        pulumi.importlib,
+        "import_module",
+        lambda name: (
+            renderer if name.endswith("project_renderer_values") else executor
+        ),
+    )
+    rc = pulumi.pulumi_exec([
+        "--project", "platform", "--stack", "yoke-stage", "--",
+        "refresh", "--yes", "--non-interactive",
+    ])
+    assert rc == 0
+    assert calls["execute"][1]["aws_env_loader"] is machine_loader
+    assert calls["execute"][1]["github_auth_loader"] is github_loader

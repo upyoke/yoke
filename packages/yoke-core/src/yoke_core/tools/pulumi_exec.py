@@ -10,7 +10,7 @@ import sys
 import tempfile
 from typing import Any, TextIO
 
-from yoke_core.domain.deploy_remote import aws_capability_env
+from yoke_core.domain.deploy_remote import aws_machine_capability_env
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
 from yoke_core.domain.project_renderer_pulumi_scoped import (
     render_scoped_pulumi_config,
@@ -47,7 +47,7 @@ def execute_pulumi_command(
     *,
     config_loader: Callable[[str, str], Mapping[str, Any]],
     project_root: Path,
-    aws_env_loader: Callable[..., Mapping[str, str]] = aws_capability_env,
+    aws_env_loader: Callable[..., Mapping[str, str]] = aws_machine_capability_env,
     github_auth_loader: Callable[..., Any] = resolve_project_github_auth,
     child_factory: Callable[..., Any] | None = None,
     out: TextIO | None = None,
@@ -274,7 +274,14 @@ def _authority_env(
             aws_env_loader(project, region, capability_type=capability)
         )
     except Exception as exc:
-        raise PulumiExecError("Pulumi AWS authority could not be materialized") from exc
+        raise PulumiExecError(
+            "Pulumi AWS authority could not be materialized from the "
+            f"machine-local {capability} capability for project {project!r} "
+            "(cause: machine_capability_unavailable). Restore access_key_id "
+            "and secret_access_key with `yoke projects capability secret set` "
+            "or, in GitHub Actions, run aws-actions/configure-aws-credentials "
+            "before retrying."
+        ) from exc
     for name in _AMBIENT_GITHUB_ENV:
         env.pop(name, None)
     token = ""
@@ -290,7 +297,11 @@ def _authority_env(
             token = str(github.token or "").strip()
         except Exception as exc:
             raise PulumiExecError(
-                "Pulumi GitHub authority could not be materialized"
+                "Pulumi GitHub App authority could not be materialized for "
+                f"project {github_project!r} (cause: app_authority_unavailable). "
+                "Run `yoke github status` and `yoke projects github-binding "
+                f"status --project {github_project} --json`; reconnect or "
+                "repair the binding before retrying."
             ) from exc
         resolved_repo = str(getattr(github, "repo", "") or "").strip().casefold()
         expected_repo = str(authority.get("github_repo") or "").strip().casefold()

@@ -9,6 +9,7 @@ import stat
 import pytest
 
 from yoke_core.tools.pulumi_exec import PulumiExecError, execute_pulumi_command
+from yoke_core.domain import deploy_remote
 
 
 class _Child:
@@ -241,3 +242,104 @@ def test_github_authority_uses_bound_project_and_both_token_names(tmp_path):
     assert seen["permissions"]["actions_variables"] == "write"
     assert seen["env"]["GITHUB_TOKEN"] == "token-value"
     assert seen["env"]["RUNNER_FLEET_GITHUB_TOKEN"] == "token-value"
+
+
+def test_default_aws_authority_reads_machine_files_without_database(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        deploy_remote.capability_machine_secrets,
+        "read_machine_capability_secret",
+        lambda project, capability, key: {
+            "access_key_id": "AKIAMACHINE",
+            "secret_access_key": "machine-secret",
+            "session_token": None,
+        }[key],
+    )
+    monkeypatch.setattr(
+        deploy_remote,
+        "cmd_capability_get_secret",
+        lambda *args: pytest.fail("consulted connected database authority"),
+    )
+    seen = {}
+
+    def child_factory(command, **kwargs):
+        seen["env"] = kwargs["env"]
+        return _Child()
+
+    execute_pulumi_command(
+        "yoke", "yoke-infra", ["refresh", "--yes", "--non-interactive"],
+        config_loader=lambda project, stack: _payload(project, stack),
+        project_root=Path(__file__).resolve().parents[3],
+        child_factory=child_factory,
+        out=StringIO(),
+        err=StringIO(),
+    )
+    assert seen["env"]["AWS_ACCESS_KEY_ID"] == "AKIAMACHINE"
+
+
+def test_default_aws_authority_preserves_actions_oidc(monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ASIAOIDC")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "oidc-secret")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "oidc-session")
+    monkeypatch.setattr(
+        deploy_remote.capability_machine_secrets,
+        "read_machine_capability_secret",
+        lambda *args: pytest.fail("read machine files in GitHub Actions"),
+    )
+    seen = {}
+
+    def child_factory(command, **kwargs):
+        seen["env"] = kwargs["env"]
+        return _Child()
+
+    execute_pulumi_command(
+        "yoke", "yoke-infra", ["preview"],
+        config_loader=lambda project, stack: _payload(project, stack),
+        project_root=Path(__file__).resolve().parents[3],
+        child_factory=child_factory,
+        out=StringIO(),
+        err=StringIO(),
+    )
+    assert seen["env"]["AWS_ACCESS_KEY_ID"] == "ASIAOIDC"
+    assert seen["env"]["AWS_SESSION_TOKEN"] == "oidc-session"
+
+
+def test_aws_failure_is_redacted_and_actionable():
+    with pytest.raises(PulumiExecError) as raised:
+        execute_pulumi_command(
+            "platform", "yoke-stage", ["refresh"],
+            config_loader=lambda project, stack: _payload(project, stack),
+            project_root=Path(__file__).resolve().parents[3],
+            aws_env_loader=lambda *args, **kwargs: (_ for _ in ()).throw(
+                RuntimeError("sensitive-value")
+            ),
+        )
+    rendered = str(raised.value)
+    assert "sensitive-value" not in rendered
+    assert "machine_capability_unavailable" in rendered
+    assert "capability secret set" in rendered
+
+
+def test_github_failure_is_redacted_and_actionable():
+    payload = _payload()
+    payload["authority"].update({
+        "github_project": "platform",
+        "github_repo": "upyoke/platform",
+        "github_permissions": {"actions_variables": "write"},
+    })
+    with pytest.raises(PulumiExecError) as raised:
+        execute_pulumi_command(
+            "yoke", "yoke-infra", ["preview"],
+            config_loader=lambda project, stack: payload,
+            project_root=Path(__file__).resolve().parents[3],
+            aws_env_loader=lambda *args, **kwargs: {},
+            github_auth_loader=lambda *args, **kwargs: (_ for _ in ()).throw(
+                RuntimeError("ghu_sensitive-token")
+            ),
+        )
+    rendered = str(raised.value)
+    assert "ghu_sensitive-token" not in rendered
+    assert "app_authority_unavailable" in rendered
+    assert "github-binding status" in rendered

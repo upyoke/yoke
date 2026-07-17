@@ -12,9 +12,9 @@ other executable (e.g. ``yoke runner-fleet exec ...``) under the same
 materialized environment.
 
 Usage:
-    python3 -m runtime.api.tools.aws_machine_authority_exec \
+    uv run --frozen python3 -m runtime.api.tools.aws_machine_authority_exec \
         --project platform --region us-east-1 -- sts get-caller-identity
-    python3 -m runtime.api.tools.aws_machine_authority_exec \
+    uv run --frozen python3 -m runtime.api.tools.aws_machine_authority_exec \
         --project platform --region us-east-1 --argv -- yoke --version
 """
 

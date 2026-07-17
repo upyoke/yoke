@@ -18,6 +18,9 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.commands.pulumi_stack_config_loader import (
     load_pulumi_stack_config,
 )
+from yoke_cli.transport.pulumi_github_authority import (
+    build_pulumi_github_auth_loader,
+)
 
 
 PULUMI_EXEC_USAGE = (
@@ -72,6 +75,10 @@ def pulumi_exec(args: List[str]) -> int:
             command,
             config_loader=config_loader,
             project_root=Path(renderer_values._resolve_project_root()),
+            aws_env_loader=executor.aws_machine_capability_env,
+            github_auth_loader=build_pulumi_github_auth_loader(
+                session_id=parsed.session_id
+            ),
         )
     except FileNotFoundError as exc:
         print(f"error: Pulumi executable or template not found: {exc}", file=sys.stderr)
