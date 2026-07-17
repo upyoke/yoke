@@ -1,7 +1,6 @@
 """Universal-ordering parity tests + structural reachability backstop.
 
-Owns AC-T1, AC-T2, AC-T3, AC-T8 (line cap), and AC-T9 (deleted-module
-grep) from epic task 014. Every ``(event_name, matcher)`` key in
+Every ``(event_name, matcher)`` key in
 :data:`yoke_contracts.hook_runner.hook_ordering.HOOK_ORDERING` is
 exercised, both for chain equality (claude / codex modulo the runner's
 ``_apply_omissions`` filter) and for structural reachability (every
@@ -30,6 +29,9 @@ from runtime.harness.claude.adapter import CAPABILITY as CLAUDE_CAPABILITY
 from runtime.harness.codex.adapter import CAPABILITY as CODEX_CAPABILITY
 from runtime.harness.hook_runner import runner as runner_module
 from runtime.harness.hook_runner.adapter_capability import AdapterCapability
+
+
+_CAPABILITIES = (CLAUDE_CAPABILITY, CODEX_CAPABILITY)
 
 
 # ---------------------------------------------------------------------------
@@ -74,47 +76,62 @@ def _module_ids_in_registry() -> set[str]:
 
 
 # ---------------------------------------------------------------------------
-# AC-T1, AC-T2: chain equality across every (event, matcher)
+# Chain equality across every (event, matcher) for both harnesses
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    "capability", _CAPABILITIES, ids=lambda c: c.family,
+)
 @pytest.mark.parametrize(("event_name", "matcher"), _all_chain_keys())
-def test_claude_chain_matches_universal_ordering(event_name: str, matcher: str) -> None:
-    """AC-T1: Claude's filtered chain equals the universal-source chain (list equality)."""
-    expected = list(ordered_pipeline_for(event_name, matcher))
-    actual = _runner_filtered_chain(event_name, matcher, CLAUDE_CAPABILITY)
-    assert actual == expected
-
-
-@pytest.mark.parametrize(("event_name", "matcher"), _all_chain_keys())
-def test_codex_chain_matches_universal_ordering_modulo_omissions(
-    event_name: str, matcher: str,
+def test_filtered_chain_matches_universal_ordering(
+    event_name: str, matcher: str, capability: AdapterCapability,
 ) -> None:
-    """AC-T2: Codex's filtered chain equals expected minus omitted modules.
+    """Each harness's filtered chain equals the universal-source chain.
 
-    The runner's ``_apply_omissions`` only drops Codex's
-    ``apply_patch_chain_omissions`` when ``event_name == "apply_patch"``;
-    for every other ``(event, matcher)`` the codex chain equals the
-    expected chain because the omission filter does not fire.
+    Neither harness declares chain omissions, so the runner's omission
+    filter must pass every registry chain through unchanged for both.
     """
     expected = list(ordered_pipeline_for(event_name, matcher))
-    actual = _runner_filtered_chain(event_name, matcher, CODEX_CAPABILITY)
-    if event_name == "apply_patch":
-        expected = [
-            m for m in expected
-            if m not in CODEX_CAPABILITY.apply_patch_chain_omissions
-        ]
+    actual = _runner_filtered_chain(event_name, matcher, capability)
     assert actual == expected
 
 
+@pytest.mark.parametrize(
+    "capability", _CAPABILITIES, ids=lambda c: c.family,
+)
+def test_declared_omissions_name_modules_present_in_their_chain(
+    capability: AdapterCapability,
+) -> None:
+    """Every declared omission must name a module the chain actually contains.
+
+    An omission naming a module absent from the chain filters nothing —
+    it silently misdocuments a harness asymmetry that does not exist.
+    """
+    apply_patch_chain = set(ordered_pipeline_for("PreToolUse", "apply_patch"))
+    stray = capability.apply_patch_chain_omissions - apply_patch_chain
+    assert stray == set(), (
+        f"{capability.family}: apply_patch_chain_omissions names modules "
+        f"absent from the apply_patch chain: {sorted(stray)}"
+    )
+    pretool_modules: set[str] = set()
+    for chain in HOOK_ORDERING["PreToolUse"].values():
+        pretool_modules.update(chain)
+    stray_pre = capability.pretool_omissions - pretool_modules
+    assert stray_pre == set(), (
+        f"{capability.family}: pretool_omissions names modules absent "
+        f"from every PreToolUse chain: {sorted(stray_pre)}"
+    )
+
+
 # ---------------------------------------------------------------------------
-# AC-T3: every chain module is typed-evaluable OR a subprocess carve-out
+# Every chain module is typed-evaluable OR a subprocess carve-out
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("module_id", sorted(_module_ids_in_registry()))
 def test_chain_module_is_typed_or_subprocess_carveout(module_id: str) -> None:
-    """AC-T3: structural backstop preventing the runner-broken failure mode.
+    """Structural backstop preventing the runner-broken failure mode.
 
     A module that is neither typed-evaluable nor an explicit
     ``subprocess_modules`` carve-out crashes the runner at first dispatch
@@ -137,12 +154,12 @@ def test_chain_module_is_typed_or_subprocess_carveout(module_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-T9: the deleted Codex service-bridge module has no live consumers
+# The deleted Codex service-bridge module has no live consumers
 # ---------------------------------------------------------------------------
 
 
 def test_obsoleted_service_bridge_has_no_live_references() -> None:
-    """AC-T9: ``codex_hooks_service_bridge`` is gone from the live runtime tree.
+    """``codex_hooks_service_bridge`` is gone from the live runtime tree.
 
     The target term is split at construction time so this enforcement test
     is not itself a grep hit. The hit-filter additionally excludes (a) any
@@ -175,12 +192,12 @@ def test_obsoleted_service_bridge_has_no_live_references() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-T8: file-line cap (this file <= 350 lines; matches the project hard cap)
+# File-line cap (this file <= 350 lines; matches the project hard cap)
 # ---------------------------------------------------------------------------
 
 
 def test_parity_file_under_350_lines() -> None:
-    """AC-T8: parity file at or below the 350-line hard cap."""
+    """Parity file at or below the 350-line hard cap."""
     here = Path(__file__).resolve()
     with here.open("rb") as fh:
         line_count = sum(1 for _ in fh)

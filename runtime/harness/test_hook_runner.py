@@ -1,9 +1,8 @@
 """Hook-runner behavior tests — timeout, subprocess carve-out, dry-run CLI, smoke.
 
-Owns AC-T4 (typed-policy SIGALRM timeout), AC-T5 (subprocess carve-out
-exit-zero / exit-nonzero / timeout paths), AC-T6 (dry-run CLI markers),
-AC-T7 (real-chain ``sqlite3`` denial smoke test), and AC-T8 (line cap)
-from epic task 014.
+Owns the typed-policy SIGALRM timeout, the subprocess carve-out
+exit-zero / exit-nonzero / timeout paths, the dry-run CLI markers, the
+real-chain ``sqlite3`` denial smoke test, and the file-line cap.
 
 The parity surface (every ``(event, matcher)`` matches the universal
 ordering source modulo each capability's ``apply_patch_chain_omissions``
@@ -95,7 +94,6 @@ def _build_capability(
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: list(chain))
     return AdapterCapability(
         family="claude",
-        events=frozenset({"PreToolUse"}),
         payload_parser=lambda raw: {},
         decision_renderer=lambda decisions, event_name: ("", 0),
         subprocess_modules=subprocess_modules,
@@ -112,14 +110,14 @@ def _fake_subprocess(stdout_text: str, returncode: int):
 
 
 # ---------------------------------------------------------------------------
-# AC-T4: SIGALRM timeout watchdog -> HookExecutionFailed + chain continues
+# SIGALRM timeout watchdog -> HookExecutionFailed + chain continues
 # ---------------------------------------------------------------------------
 
 
 def test_timeout_emits_failed_event_and_chain_continues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-T4: typed-policy timeout emits ``HookExecutionFailed{failure="timeout_<ms>ms"}``."""
+    """Typed-policy timeout emits ``HookExecutionFailed{failure="timeout_<ms>ms"}``."""
     monkeypatch.setattr(runner_module, "_resolve_timeout_ms", lambda: 200)
 
     def slow(context: HookContext) -> HookDecision:  # noqa: ARG001
@@ -156,14 +154,14 @@ def test_timeout_emits_failed_event_and_chain_continues(
     assert evaluated[0]["module"] == "mod.downstream"
 
 # ---------------------------------------------------------------------------
-# AC-T5: subprocess carve-out — exit 0 / exit 1 / timeout, all continue chain
+# Subprocess carve-out — exit 0 / exit 1 / timeout, all continue chain
 # ---------------------------------------------------------------------------
 
 
 def test_subprocess_exit_zero_emits_evaluated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-T5 (success): subprocess exit 0 emits ``HookGuardrailEvaluated``."""
+    """Subprocess exit 0 emits ``HookGuardrailEvaluated``."""
     capability = _build_capability(
         monkeypatch, ["mod.subproc_ok"],
         subprocess_modules=frozenset({"mod.subproc_ok"}),
@@ -187,7 +185,7 @@ def test_subprocess_exit_zero_emits_evaluated(
 def test_subprocess_exit_nonzero_emits_failed_and_continues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-T5 (exit 1): subprocess exit 1 -> ``HookExecutionFailed`` + downstream still runs."""
+    """Subprocess exit 1 -> ``HookExecutionFailed`` + downstream still runs."""
     chain = ["mod.subproc_boom", "mod.typed_ok"]
     capability = _build_capability(
         monkeypatch, chain, subprocess_modules=frozenset({"mod.subproc_boom"}),
@@ -221,7 +219,7 @@ def test_subprocess_exit_nonzero_emits_failed_and_continues(
 def test_subprocess_timeout_emits_failed_and_continues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-T5 (timeout): subprocess timeout -> ``HookExecutionFailed{failure="timeout_<ms>ms"}``."""
+    """Subprocess timeout -> ``HookExecutionFailed{failure="timeout_<ms>ms"}``."""
     monkeypatch.setattr(runner_module, "_resolve_timeout_ms", lambda: 150)
     chain = ["mod.subproc_slow", "mod.typed_ok"]
     capability = _build_capability(
@@ -257,12 +255,12 @@ def test_subprocess_timeout_emits_failed_and_continues(
 
 
 # ---------------------------------------------------------------------------
-# AC-T6: dry-run CLI prints [typed]/[subproc] markers and exits 0
+# Dry-run CLI prints [typed]/[subproc] markers and exits 0
 # ---------------------------------------------------------------------------
 
 
 def test_cli_dry_run_pretooluse_lists_typed_and_subproc_markers() -> None:
-    """AC-T6: ``PreToolUse --dry-run`` exits 0 and prints chain markers."""
+    """``PreToolUse --dry-run`` exits 0 and prints chain markers."""
     repo_root = str(Path(__file__).resolve().parents[2])
     # Prepend (not overwrite) so split-package paths on an inherited
     # PYTHONPATH survive into the child; needed when the yoke_* packages
@@ -290,14 +288,14 @@ def test_cli_dry_run_pretooluse_lists_typed_and_subproc_markers() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-T7: real-chain smoke — sqlite3 invocation denies via lint_db_cmd
+# Real-chain smoke — sqlite3 invocation denies via lint_db_cmd
 # ---------------------------------------------------------------------------
 
 
 def test_real_chain_pretool_bash_sqlite3_denies(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-T7: the real PreToolUse Bash chain denies a raw ``sqlite3`` invocation."""
+    """The real PreToolUse Bash chain denies a raw ``sqlite3`` invocation."""
     _silence_telemetry(monkeypatch)
     payload = {
         "tool_name": "Bash",
@@ -308,7 +306,6 @@ def test_real_chain_pretool_bash_sqlite3_denies(
 
     capability = AdapterCapability(
         family="claude",
-        events=frozenset({"PreToolUse"}),
         payload_parser=lambda raw: payload,
         decision_renderer=CLAUDE_CAPABILITY.decision_renderer,
         subprocess_modules=CLAUDE_CAPABILITY.subprocess_modules,
@@ -326,12 +323,12 @@ def test_real_chain_pretool_bash_sqlite3_denies(
 
 
 # ---------------------------------------------------------------------------
-# AC-T8: file-line cap (this file <= 350 lines)
+# File-line cap (this file <= 350 lines)
 # ---------------------------------------------------------------------------
 
 
 def test_behavior_file_under_350_lines() -> None:
-    """AC-T8: behavior file at or below the 350-line hard cap."""
+    """Behavior file at or below the 350-line hard cap."""
     here = Path(__file__).resolve()
     with here.open("rb") as fh:
         line_count = sum(1 for _ in fh)

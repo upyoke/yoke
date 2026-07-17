@@ -152,7 +152,6 @@ def test_runner_dispatch_populates_top_level_tool_name(
 
     capability = AdapterCapability(
         family="claude",
-        events=frozenset({"PreToolUse"}),
         payload_parser=lambda raw: {"tool_name": "Bash", "tool_input": {"command": "ls"}},
         decision_renderer=render_claude_decision,
     )

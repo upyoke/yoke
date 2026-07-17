@@ -1,7 +1,7 @@
 """Unit tests for the hook_runner foundational dataclasses.
 
-The full runner test suite (`test_hook_runner.py`) lands in Task 014; this
-file is scoped to the dataclasses created in Task 001.
+Runner behavior lives in `test_hook_runner.py`; this file is scoped to
+the `HookContext` / `HookDecision` / `AdapterCapability` dataclasses.
 """
 
 from __future__ import annotations
@@ -21,12 +21,12 @@ from runtime.harness.hook_runner import (
 
 
 # ---------------------------------------------------------------------------
-# AC-T1: top-level imports succeed.
+# Top-level imports succeed.
 # ---------------------------------------------------------------------------
 
 
 def test_top_level_imports_resolve() -> None:
-    """`from runtime.harness.hook_runner import ...` succeeds (AC-T1)."""
+    """`from runtime.harness.hook_runner import ...` succeeds."""
 
     assert HookContext is not None
     assert HookDecision is not None
@@ -137,7 +137,7 @@ def test_outcome_and_next_value_sets_match_spec() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC-2 / AC-T2 / AC-T3: AdapterCapability shape including subprocess_modules.
+# AdapterCapability shape including subprocess_modules.
 # ---------------------------------------------------------------------------
 
 
@@ -150,12 +150,11 @@ def _stub_renderer(*_: object, **__: object) -> tuple[str, int]:
 
 
 def test_adapter_capability_has_expected_field_set() -> None:
-    """Field list matches the epic spec, including the new subprocess_modules slot."""
+    """Field list stays closed, including the subprocess_modules slot."""
 
     field_names = {f.name for f in fields(AdapterCapability)}
     assert field_names == {
         "family",
-        "events",
         "payload_parser",
         "decision_renderer",
         "apply_patch_chain_omissions",
@@ -165,11 +164,10 @@ def test_adapter_capability_has_expected_field_set() -> None:
 
 
 def test_adapter_capability_default_subprocess_modules_is_empty() -> None:
-    """AC-T2: default `subprocess_modules` is the empty frozenset."""
+    """Default `subprocess_modules` is the empty frozenset."""
 
     cap = AdapterCapability(
         "x",
-        frozenset(),
         _stub_parser,
         _stub_renderer,
     )
@@ -180,11 +178,10 @@ def test_adapter_capability_default_subprocess_modules_is_empty() -> None:
 
 
 def test_adapter_capability_populated_subprocess_modules_round_trips() -> None:
-    """AC-T3: an explicit `subprocess_modules` value survives construction."""
+    """An explicit `subprocess_modules` value survives construction."""
 
     cap = AdapterCapability(
         "x",
-        frozenset(),
         _stub_parser,
         _stub_renderer,
         subprocess_modules=frozenset({"yoke_core.domain.observe"}),
@@ -195,7 +192,6 @@ def test_adapter_capability_populated_subprocess_modules_round_trips() -> None:
 def test_adapter_capability_is_frozen() -> None:
     cap = AdapterCapability(
         "x",
-        frozenset(),
         _stub_parser,
         _stub_renderer,
     )
