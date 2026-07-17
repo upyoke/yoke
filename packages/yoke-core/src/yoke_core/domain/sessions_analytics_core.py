@@ -58,7 +58,6 @@ EVENT_HARNESS_SESSION_STALE_SWEEP_COMPLETED = "HarnessSessionStaleSweepCompleted
 EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS = "HarnessSessionEndReleasedClaims"
 EVENT_ITEM_CLAIM_RELEASE_FAILED = "ItemClaimReleaseFailed"
 EVENT_SESSION_REACTIVATED_WITH_RELEASED_CLAIMS = "SessionReactivatedWithReleasedClaims"
-EVENT_HARNESS_SESSION_END_DEFERRED = "HarnessSessionEndDeferred"
 EVENT_SESSION_REACTIVATION_REACQUIRED_CLAIMS = "SessionReactivationReacquiredClaims"
 EVENT_HARNESS_SESSION_RESUME_BLOCK_SHOWN = "HarnessSessionResumeBlockShown"
 
@@ -176,21 +175,6 @@ _SESSION_EVENT_REGISTRY_ROWS = (
         ),
         "INFO",
         "stale-session-reclaim-abort",
-    ),
-    (
-        "HarnessSessionEndDeferred",
-        "system",
-        "session_lifecycle",
-        "yoke_core.domain.sessions_lifecycle_destructive_guard",
-        (
-            "Emitted when end_session(release_claims=True) declines to "
-            "release claims because a chainable checkpoint still has "
-            "budget. Carries session_id, defer_reason (chain_pending), "
-            "agent_presence_evidence (chain_budget_remaining), "
-            "active_claim_count, claim_details."
-        ),
-        "INFO",
-        "session-end-chain-deferral",
     ),
     (
         "SessionReactivationReacquiredClaims",

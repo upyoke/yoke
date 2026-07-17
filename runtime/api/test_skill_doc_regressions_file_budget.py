@@ -11,7 +11,7 @@ the work BEFORE implementation begins:
   surface the budget to the implementor.
 - Engineer submissions carry `file_budget: PASS|SKIP`; conduct re-dispatches
   on missing/malformed/FAIL/UNKNOWN.
-- Tester guidance positions `file_line_check.py` as backup verification.
+- Tester guidance positions `yoke_core.domain.file_line_check` as backup verification.
 - The existing late-stage 350-line prose stays intact — the contract is
   purely additive.
 """
@@ -44,7 +44,7 @@ class TestFileBudgetIdeaSeeding:
         assert "## File Budget" in text
         assert "350" in text
         assert "300" in text  # design target
-        assert "file_line_check.py" in text
+        assert "yoke_core.domain.file_line_check" in text
 
     def test_body_and_sync_handles_three_shapes(self, docs):
         text = _read(docs["body_and_sync"])
@@ -132,7 +132,7 @@ class TestFileBudgetAdvanceImplementation:
         text = _read(docs["implementation"])
         idx = text.find("Implementation Re-Anchor")
         re_anchor = text[idx:]
-        assert "file_line_check.py" in re_anchor
+        assert "yoke_core.domain.file_line_check" in re_anchor
 
 
 class TestFileBudgetConductDispatch:
@@ -152,7 +152,7 @@ class TestFileBudgetConductDispatch:
         assert "FILE BUDGET" in text or "File Budget" in text
         assert "350" in text
         # Dispatch packet must reference the canonical backstop.
-        assert "file_line_check.py" in text
+        assert "yoke_core.domain.file_line_check" in text
 
     def test_submission_gate_requires_file_budget_key(self, docs):
         text = _read(docs["engineer_tester_dispatch"])

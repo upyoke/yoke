@@ -35,7 +35,7 @@ yoke items get YOK-N spec
 
 NEVER rely on shell variables persisting across separate Bash tool calls. Each Bash invocation is a fresh shell. Always inline the full absolute path in every command.
 
-**Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `runtime/api/domain/lint_session_cwd.py` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. The working pattern is **anchored shapes**:
+**Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `yoke_core.domain.lint_session_cwd` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. The working pattern is **anchored shapes**:
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls

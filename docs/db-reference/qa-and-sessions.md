@@ -207,7 +207,7 @@ Active-claim exclusivity invariants — three partial unique indexes, each scope
 
 The item and epic-task indexes are the authoritative storage-level prevention layer for concurrent writers from separate database connections; the application-level `WHERE NOT EXISTS` check inside `claim_work` remains in place for readable holder lookups, but the partial unique indexes are what guarantee two writers cannot both leave unreleased active rows for the same work unit. A losing concurrent writer surfaces as `SessionError("ALREADY_CLAIMED")` with the winning session id preserved in the message.
 
-Shell access: the typed `claim-work` / `release-work-claim` service-client surface (`runtime/api/service_client_work_claims.py`) and the harness-session claim CLI. API: `/v1/sessions/{id}/claims`, `/v1/claims/{id}/release`, `/v1/claims/by-work-unit`.
+Shell access: the typed `claim-work` / `release-work-claim` service-client surface (`yoke_core.api.service_client_work_claims`) and the harness-session claim CLI. API: `/v1/sessions/{id}/claims`, `/v1/claims/{id}/release`, `/v1/claims/by-work-unit`.
 
 ### Live claim-holder lookup (`who-claims`)
 

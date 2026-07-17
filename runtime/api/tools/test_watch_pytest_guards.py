@@ -8,7 +8,7 @@ Lives in its own module to keep ``test_watch_pytest.py`` under the
   and demotes ``runtime/api/conftest.py`` from initial-conftest status
   (``pytest_plugins`` in a non-top-level conftest fails collection).
   The wrapper refuses the shape with a repair message naming the
-  two-anchor full-suite shape ``runtime/api/ runtime/harness/``.
+  three-anchor full-suite shape ``runtime/api/ runtime/harness/ tests/``.
 - Collection/usage error lines (``ERROR: file or directory not
   found:``, ``ERROR: usage:``, argparse detail lines, xdist
   ``INTERNALERROR>``/worker-count lines, ``no tests ran`` verdicts)
@@ -129,8 +129,8 @@ class TestBareRuntimeRefusal:
         assert rc == 2
         captured = capsys.readouterr()
         assert "refuses bare 'runtime/'" in captured.err
-        # The repair message names the two-anchor full-suite shape.
-        assert "runtime/api/ runtime/harness/" in captured.err
+        # The repair message names the three-anchor full-suite shape.
+        assert "runtime/api/ runtime/harness/ tests/" in captured.err
         assert "non-top-level conftest" in captured.err
         # Nothing lands on stdout: no streaming pair, no progress.
         assert captured.out == ""
@@ -145,7 +145,7 @@ class TestBareRuntimeRefusal:
         assert "refuses bare 'runtime/'" in captured.err
         assert "watch_tail" not in captured.out
 
-    def test_help_teaches_two_anchor_full_suite_shape(
+    def test_help_teaches_three_anchor_full_suite_shape(
         self,
         capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch,
@@ -157,5 +157,5 @@ class TestBareRuntimeRefusal:
             watch_pytest.main(["--help"])
         assert exc_info.value.code == 0
         out = capsys.readouterr().out
-        assert "runtime/api/ runtime/harness/" in out
+        assert "runtime/api/ runtime/harness/ tests/" in out
         assert "bare 'runtime/'" in out

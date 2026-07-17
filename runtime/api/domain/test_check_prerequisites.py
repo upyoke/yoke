@@ -31,7 +31,6 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
         "packages/yoke-core/src/yoke_core/domain/epic_task_sync.py",
         "packages/yoke-core/src/yoke_core/domain/update_status.py",
         "packages/yoke-core/src/yoke_core/engines/merge_worktree.py",
-        "runtime/harness/claude/merge_settings.py",
     ):
         path = root / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)

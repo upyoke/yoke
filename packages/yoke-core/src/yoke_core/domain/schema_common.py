@@ -8,7 +8,6 @@ control plane.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
@@ -99,16 +98,6 @@ def _connect_raw(db_path: str = "") -> Any:
     from yoke_core.domain import db_backend
 
     return db_backend.connect(db_path)
-
-
-def _require_db(db_path: str) -> None:
-    if not db_path:
-        return
-    if not os.path.isfile(db_path):
-        _cli_error(
-            "yoke.db not found. Run "
-            "'python3 -m yoke_core.cli.db_router init' first."
-        )
 
 
 def _connection_is_postgres(conn: Any) -> bool:

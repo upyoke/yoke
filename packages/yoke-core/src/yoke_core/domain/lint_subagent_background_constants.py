@@ -11,7 +11,6 @@ from __future__ import annotations
 
 CHECK_ID = "subagent_background"
 HOOK_NAME = "lint-subagent-background"
-CONFIG_KEY_MODE = "lint_subagent_background_mode"
 DEFAULT_MODE = "warn"
 VALID_MODES = ("warn", "deny")
 SUPPRESSION_TOKEN = "# lint:no-subagent-background-check"

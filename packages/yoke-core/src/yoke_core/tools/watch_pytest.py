@@ -28,10 +28,10 @@ Usage::
     # prefix itself.
     python3 -m yoke_core.tools.watch_pytest -- runtime/api/
 
-    # Full backend suite — pass the two anchors, never bare ``runtime/``
+    # Full suite — pass the three anchors, never bare ``runtime/``
     # (which demotes runtime/api/conftest.py from initial-conftest status
     # and fails collection; the wrapper refuses it):
-    python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/
+    python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/
 
     # Print the ready-to-paste streaming pair:
     python3 -m yoke_core.tools.watch_pytest --print-streaming-pair -- runtime/api/
@@ -159,10 +159,10 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         prog="watch_pytest",
         description="Run pytest under a shared raw+progress watcher wrapper.",
         epilog=(
-            "Full-suite shape: pass the two anchors 'runtime/api/ "
-            "runtime/harness/' — never bare 'runtime/', which demotes "
-            "runtime/api/conftest.py from initial-conftest status and "
-            "fails collection. The wrapper refuses bare 'runtime/'."
+            "Full-suite shape: pass the three anchors 'runtime/api/ "
+            "runtime/harness/ tests/' — never bare 'runtime/', which "
+            "demotes runtime/api/conftest.py from initial-conftest status "
+            "and fails collection. The wrapper refuses bare 'runtime/'."
         ),
         # We rely on the explicit ``--`` separator to split wrapper flags
         # from pytest pass-through, so disable argparse's own abbrev.

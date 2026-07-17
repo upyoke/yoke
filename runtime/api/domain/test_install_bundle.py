@@ -127,12 +127,12 @@ def test_packaged_install_bundle_tree_matches_source_inputs() -> None:
         source_files = sorted(
             path.relative_to(source).as_posix()
             for path in source.rglob("*")
-            if path.is_file()
+            if path.is_file() and not install_bundle.is_bundle_junk_path(path)
         )
         packaged_files = sorted(
             path.relative_to(packaged).as_posix()
             for path in packaged.rglob("*")
-            if path.is_file()
+            if path.is_file() and not install_bundle.is_bundle_junk_path(path)
         )
         assert packaged_files == source_files
         for file_rel in source_files:

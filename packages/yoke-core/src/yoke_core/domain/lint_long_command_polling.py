@@ -14,7 +14,8 @@ Bypass: add ``# lint:no-polling-check`` to a legitimate post-capture
 inspection command. Monitor duplicate and background-waiter suppression tokens
 are audit-only and still deny in ``deny`` mode.
 
-Modes (from machine config key ``lint_polling_mode``):
+Modes (resolved from ``.yoke/lint-config`` via
+``yoke_core.domain.lint_config``):
 - ``warn`` (default): emits a ``HarnessToolCallDenied`` audit event with
   ``[mode=warn]`` in the reason but does NOT block the tool call.
 - ``deny``: emits the audit event and blocks via ``hookSpecificOutput``
@@ -37,7 +38,7 @@ entry (``python3 -m yoke_core.domain.lint_long_command_polling``):
 is always ``0`` (fail-open).
 
 This module owns the hook entry point. Public constants
-(``CONFIG_KEY_MODE``, ``DEFAULT_MODE``, ``VALID_MODES``, ``CHECK_ID``,
+(``DEFAULT_MODE``, ``VALID_MODES``, ``CHECK_ID``,
 ``HOOK_NAME``, ``SUPPRESSION_TOKEN``, plus the cadence / window
 thresholds) live in the leaf ``lint_long_command_polling_constants``
 sibling and are re-exported here. The
@@ -57,7 +58,6 @@ import sys
 
 from yoke_core.domain.lint_long_command_polling_constants import (
     CHECK_ID,
-    CONFIG_KEY_MODE,
     DEFAULT_MODE,
     HOOK_NAME,
     MONITOR_DUPLICATE_SUPPRESSION_TOKEN,

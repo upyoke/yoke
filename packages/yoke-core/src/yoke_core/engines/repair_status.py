@@ -43,17 +43,6 @@ def _repo_root() -> Path:
     return find_repo_root(Path(__file__))
 
 
-def _db_path() -> str:
-    """Resolve the Yoke DB path via the canonical worktree-aware resolver.
-
-    This keeps repairs pointed at the owning main-checkout DB when invoked
-    from linked worktrees.
-    """
-    from yoke_core.domain.db_helpers import resolve_db_path
-
-    return resolve_db_path()
-
-
 def _connect():
     """Open the Yoke authority DB with row access."""
     from yoke_core.domain import db_helpers
@@ -102,7 +91,6 @@ __all__ = [
     "UsageError",
     "RepairStatusArgumentParser",
     "_repo_root",
-    "_db_path",
     "_connect",
     "_normalize_ref",
     "_normalize_item_id",

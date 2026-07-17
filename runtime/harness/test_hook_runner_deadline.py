@@ -18,7 +18,6 @@ def _capability(monkeypatch: pytest.MonkeyPatch, chain: list[str]) -> AdapterCap
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: list(chain))
     return AdapterCapability(
         family="claude",
-        events=frozenset({"PreToolUse"}),
         payload_parser=lambda raw: {},
         decision_renderer=render_claude_decision,
     )

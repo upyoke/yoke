@@ -1,12 +1,11 @@
-"""Coverage for the claim-and-chain destructive SessionEnd guard.
+"""Coverage for the destructive session-end claim-release branch.
 
-Pairs with ``sessions_lifecycle_destructive_guard.evaluate_destructive_end``
-and the ``end_session(release_claims=True)`` branch in
-``sessions_render_end``.
+Pairs with ``sessions_lifecycle_destructive_guard`` and the
+``end_session(release_claims=True)`` branch in ``sessions_render_end``.
 
-Chainable budget remaining defers the destructive path.
-Chain-override-authorized waives the defer.
-No chain pending releases claims normally.
+Evidence records chain-budget and override state; the release always
+proceeds — chain protection is the upstream CHAIN_PENDING gate in
+``end_session``.
 """
 
 from __future__ import annotations
@@ -147,59 +146,25 @@ def _insert_active_claim(
 
 
 class TestEvaluateDestructiveEnd(unittest.TestCase):
-    def test_chain_pending_defers(self) -> None:
-        conn = _build_conn()
-        _insert_session(conn, "sess-chain", chainable=True)
-        decision = evaluate_destructive_end(conn, "sess-chain")
-        self.assertTrue(decision.defer)
-        self.assertEqual(decision.reason, "chain_pending")
-
-    def test_no_chain_falls_through(self) -> None:
+    def test_no_chain_reports_no_budget(self) -> None:
         conn = _build_conn()
         _insert_session(conn, "sess-perm", chainable=False)
-        decision = evaluate_destructive_end(conn, "sess-perm")
-        self.assertFalse(decision.defer)
-        self.assertEqual(decision.reason, "permanent")
+        evidence = evaluate_destructive_end(conn, "sess-perm")
+        self.assertFalse(evidence.chain_budget_remaining)
+        self.assertFalse(evidence.chain_override_authorized)
 
-    def test_chain_override_authorized_skips_chain_pending_defer(self) -> None:
+    def test_chain_override_authorized_records_budget_and_override(self) -> None:
         conn = _build_conn()
         _insert_session(conn, "sess-override", chainable=True)
-        decision = evaluate_destructive_end(
+        evidence = evaluate_destructive_end(
             conn, "sess-override", chain_override_authorized=True,
         )
-        self.assertFalse(decision.defer)
-        self.assertEqual(decision.reason, "permanent")
-        self.assertTrue(decision.evidence.chain_override_authorized)
+        self.assertTrue(evidence.chain_budget_remaining)
+        self.assertTrue(evidence.chain_override_authorized)
 
 
 class TestEndSessionReleaseClaimsBranch(unittest.TestCase):
-    def test_chain_pending_does_not_release(self) -> None:
-        from yoke_core.domain.sessions_lifecycle_destructive_guard import (
-            handle_release_claims_branch,
-        )
-
-        conn = _build_conn()
-        _insert_session(conn, "sess-t", chainable=True)
-        _insert_active_claim(conn, "sess-t", 7)
-        rows = conn.execute(
-            "SELECT id, item_id, task_num FROM work_claims "
-            "WHERE session_id = %s AND released_at IS NULL",
-            ("sess-t",),
-        ).fetchall()
-        with mock.patch(
-            "yoke_core.domain.scheduler_events.emit_harness_session_end_deferred",
-        ) as deferred_emit, mock.patch(
-            "yoke_core.domain.sessions_lifecycle_release.release_all_claims",
-        ) as release:
-            deferred, evidence = handle_release_claims_branch(
-                conn, "sess-t", force=True, active_claim_rows=rows,
-            )
-        self.assertTrue(deferred)
-        deferred_emit.assert_called_once()
-        release.assert_not_called()
-        self.assertTrue(evidence["chain_budget_remaining"])
-
-    def test_permanent_signal_releases_and_returns_evidence(self) -> None:
+    def test_releases_and_returns_evidence(self) -> None:
         from yoke_core.domain.sessions_lifecycle_destructive_guard import (
             handle_release_claims_branch,
         )
@@ -213,20 +178,50 @@ class TestEndSessionReleaseClaimsBranch(unittest.TestCase):
             ("sess-p",),
         ).fetchall()
         with mock.patch(
-            "yoke_core.domain.scheduler_events.emit_harness_session_end_deferred",
-        ) as deferred_emit, mock.patch(
             "yoke_core.domain.sessions_lifecycle_release.release_all_claims",
             return_value=1,
         ) as release, mock.patch(
             "yoke_core.domain.sessions_analytics._emit_session_event",
-        ):
-            deferred, evidence = handle_release_claims_branch(
+        ) as emit:
+            evidence = handle_release_claims_branch(
                 conn, "sess-p", force=True, active_claim_rows=rows,
             )
-        self.assertFalse(deferred)
-        deferred_emit.assert_not_called()
         release.assert_called_once()
+        emit.assert_called_once()
         self.assertFalse(evidence["chain_budget_remaining"])
+        ctx = emit.call_args[1]["context"]
+        self.assertEqual(ctx["released_count"], 1)
+        self.assertEqual(len(ctx["claim_details"]), 1)
+
+    def test_override_evidence_propagates_to_release_event(self) -> None:
+        from yoke_core.domain.sessions_lifecycle_destructive_guard import (
+            handle_release_claims_branch,
+        )
+
+        conn = _build_conn()
+        _insert_session(conn, "sess-o", chainable=True)
+        _insert_active_claim(conn, "sess-o", 9)
+        rows = conn.execute(
+            "SELECT id, item_id, task_num FROM work_claims "
+            "WHERE session_id = %s AND released_at IS NULL",
+            ("sess-o",),
+        ).fetchall()
+        with mock.patch(
+            "yoke_core.domain.sessions_lifecycle_release.release_all_claims",
+            return_value=1,
+        ), mock.patch(
+            "yoke_core.domain.sessions_analytics._emit_session_event",
+        ) as emit:
+            evidence = handle_release_claims_branch(
+                conn, "sess-o", force=True, active_claim_rows=rows,
+                chain_override_authorized=True,
+            )
+        self.assertTrue(evidence["chain_budget_remaining"])
+        self.assertTrue(evidence["chain_override_authorized"])
+        ctx = emit.call_args[1]["context"]
+        self.assertEqual(
+            ctx["agent_presence_evidence"], evidence,
+        )
 
 
 if __name__ == "__main__":

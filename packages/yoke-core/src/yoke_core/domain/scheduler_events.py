@@ -199,47 +199,6 @@ def emit_chain_end_deferred(
         _logger.debug("ChainEndDeferred emission failed: %s", exc)
 
 
-def emit_harness_session_end_deferred(
-    *,
-    session_id: str,
-    defer_reason: str,
-    agent_presence_evidence: Mapping[str, Any],
-    active_claim_count: int,
-    project: str = "yoke",
-    claim_details: Optional[list[Mapping[str, Any]]] = None,
-    item_id: Optional[str] = None,
-) -> None:
-    """Emit ``HarnessSessionEndDeferred`` for a transient SessionEnd defense.
-
-    Fired by ``end_session(release_claims=True)`` when the shared
-    destructive guard returns ``defer=True`` (heartbeat fresh within the
-    recovery window OR chainable checkpoint with remaining budget). The
-    claims stay active and no terminal ``HarnessSessionEnded`` row is
-    written for this signal.
-    """
-    try:
-        from .events import emit_event
-
-        emit_event(
-            "HarnessSessionEndDeferred",
-            event_kind="system",
-            event_type="session_lifecycle",
-            source_type="backend",
-            session_id=session_id,
-            project=project,
-            item_id=item_id,
-            context={
-                "session_id": session_id,
-                "defer_reason": defer_reason,
-                "agent_presence_evidence": dict(agent_presence_evidence),
-                "active_claim_count": active_claim_count,
-                "claim_details": list(claim_details or []),
-            },
-        )
-    except Exception as exc:
-        _logger.debug("HarnessSessionEndDeferred emission failed: %s", exc)
-
-
 def emit_session_reactivation_reacquired_claims(
     *,
     session_id: str,

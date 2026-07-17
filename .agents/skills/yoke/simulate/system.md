@@ -9,7 +9,7 @@ Read and assemble all of the following:
 - Canonical agent bodies: all `runtime/agents/*.md`
 - Claude adapter frontmatter: `.claude/agents/yoke-*.md` (generated views; inspect when adapter drift or hook wiring matters)
 - SKILL files: `.agents/skills/yoke/SKILL.md` and all `.agents/skills/yoke/*/SKILL.md`
-- Python API surface: the module tree under `runtime/api/` (domain modules, engines, CLI, tools) — this is the literal zero-shell owner of every operation
+- Python API surface: the module trees under `packages/*/src/` (`yoke_core.domain`, `yoke_core.engines`, `yoke_core.cli`, `yoke_core.tools`, `yoke_contracts`, `yoke_cli`, `yoke_harness`) — this is the literal zero-shell owner of every operation
 - Rules files: all `.claude/rules/*.md`
 - Documentation: all `docs/*.md`
 - Hook wiring: `python3 -m runtime.harness.hook_runner` (shared Claude + Codex dispatch entrypoint), plus the hook entries in `.claude/settings.json` and `.codex/hooks.json`
@@ -35,7 +35,7 @@ This is not a per-epic simulation. You are auditing the entire Yoke system for i
 {contents of root SKILL.md and each nested SKILL.md, labeled with path}
 
 ## Python API Surface
-{selected contents from runtime/api/domain/, runtime/api/engines/, runtime/api/cli/, runtime/api/tools/, labeled with module path — focus on the modules named in SKILL.md operational guidance}
+{selected contents from packages/yoke-core/src/yoke_core/domain/, packages/yoke-core/src/yoke_core/engines/, packages/yoke-core/src/yoke_core/cli/, packages/yoke-core/src/yoke_core/tools/, labeled with module path — focus on the modules named in SKILL.md operational guidance}
 
 ## Rules
 {contents of each .claude/rules/*.md, labeled with filename}

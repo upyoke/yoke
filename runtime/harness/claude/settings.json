@@ -92,33 +92,6 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Write"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Edit"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Read"
       }
     ],
     "PostToolUseFailure": [
@@ -129,42 +102,6 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Write"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Edit"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/zsh -lc 'yoke hook evaluate PostToolUseFailure'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Read"
       }
     ],
     "PermissionRequest": [

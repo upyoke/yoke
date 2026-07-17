@@ -33,6 +33,20 @@ def gate_db(tmp_path: Path):
         yield conn, repo_path
 
 
+def _overlap_profile(*modules: str) -> Dict[str, Any]:
+    """Declared apply profile touching ``items.x`` — two of these overlap."""
+    return {
+        "state": "declared",
+        "model_name": "primary",
+        "mutation_intent": "apply",
+        "migration_modules": list(modules),
+        "compatibility_class": "pre_merge_breaking",
+        "migration_strategy": "additive_only",
+        "schema_kinds": ["additive"],
+        "affected_surfaces": [{"table": "items", "columns": ["x"]}],
+    }
+
+
 class TestJointGate:
     def _stage(
         self,
@@ -291,34 +305,14 @@ class TestJointGate:
         _conn, repo_path = gate_db
         modules_dir = "runtime/api/domain/migrations"
         _write_module(repo_path, modules_dir, "m")
-        candidate_profile = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "apply",
-            "migration_modules": ["m"],
-            "compatibility_class": "pre_merge_breaking",
-            "migration_strategy": "additive_only",
-            "schema_kinds": ["additive"],
-            "affected_surfaces": [{"table": "items", "columns": ["x"]}],
-        }
-        other_profile = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "apply",
-            "migration_modules": ["other"],
-            "compatibility_class": "pre_merge_breaking",
-            "migration_strategy": "additive_only",
-            "schema_kinds": ["additive"],
-            "affected_surfaces": [{"table": "items", "columns": ["x"]}],
-        }
-        item_id = self._stage(gate_db, profile=candidate_profile)
+        item_id = self._stage(gate_db, profile=_overlap_profile("m"))
         # Other ticket: also non-terminal, same column.
         insert_item(
             _conn,
             id=999,
             project="yoke",
             status="implementing",
-            db_mutation_profile=json.dumps(other_profile, sort_keys=True),
+            db_mutation_profile=json.dumps(_overlap_profile("other"), sort_keys=True),
         )
         outcome = check_idea_to_refining_idea_gate(item_id, conn=_conn)
         assert not outcome.passed
@@ -326,3 +320,23 @@ class TestJointGate:
             "schema-only overlap" in e and "YOK-999" in e
             for e in outcome.errors
         )
+
+    def test_overlap_evaluates_without_dependency_table(self, gate_db) -> None:
+        """A DB lacking ``item_dependencies`` still runs the overlap check:
+        the dependency-pair read swallows the missing table and reports no
+        edges, so the overlap blocks instead of the gate crashing."""
+        _conn, repo_path = gate_db
+        _write_module(repo_path, "runtime/api/domain/migrations", "m")
+        item_id = self._stage(gate_db, profile=_overlap_profile("m"))
+        insert_item(
+            _conn,
+            id=999,
+            project="yoke",
+            status="implementing",
+            db_mutation_profile=json.dumps(_overlap_profile("other"), sort_keys=True),
+        )
+        _conn.execute("DROP TABLE item_dependencies")
+        _conn.commit()
+        outcome = check_idea_to_refining_idea_gate(item_id, conn=_conn)
+        assert not outcome.passed
+        assert any("schema-only overlap" in e for e in outcome.errors)

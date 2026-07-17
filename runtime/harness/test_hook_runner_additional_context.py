@@ -59,7 +59,6 @@ def _capability(
     renderer = render_claude_decision if family == "claude" else render_codex_decision
     return AdapterCapability(
         family=family,
-        events=frozenset({"PreToolUse", "PostToolUse", "apply_patch"}),
         payload_parser=lambda raw: json.loads(raw) if raw else {},
         decision_renderer=renderer,
         subprocess_modules=subprocess_modules,

@@ -91,48 +91,6 @@ class TestRegistry:
 
 
 class TestDiscover:
-    def test_discover_with_mock_repo(self, tmp_path: Path) -> None:
-        """AC-6: discover scans codebase for emit-event.sh calls."""
-        # Create mock directory structure
-        scripts_dir = tmp_path / ".agents" / "skills" / "yoke" / "scripts"
-        scripts_dir.mkdir(parents=True)
-
-        # Create a mock shell script with emit-event.sh call
-        (scripts_dir / "test-emitter.sh").write_text(
-            '#!/usr/bin/env sh\n'
-            'sh "$SCRIPT_DIR/emit-event.sh" --name "MyTestEvent" --kind system\n'
-        )
-
-        result = ec.cmd_registry_discover(str(tmp_path))
-        assert "MyTestEvent" in result
-        assert ".agents/skills/yoke/scripts/test-emitter.sh" in result
-
-    def test_discover_excludes_tests(self, tmp_path: Path) -> None:
-        scripts_dir = tmp_path / ".agents" / "skills" / "yoke" / "scripts"
-        tests_dir = scripts_dir / "tests"
-        tests_dir.mkdir(parents=True)
-
-        (tests_dir / "test-foo.sh").write_text(
-            '#!/usr/bin/env sh\n'
-            'sh "$SCRIPT_DIR/emit-event.sh" --name "TestOnlyEvent" --kind system\n'
-        )
-
-        result = ec.cmd_registry_discover(str(tmp_path))
-        assert "TestOnlyEvent" not in result
-
-    def test_discover_variable_assigned_names(self, tmp_path: Path) -> None:
-        scripts_dir = tmp_path / ".agents" / "skills" / "yoke" / "scripts"
-        scripts_dir.mkdir(parents=True)
-
-        (scripts_dir / "var-emitter.sh").write_text(
-            '#!/usr/bin/env sh\n'
-            '_event_name="VarAssignedEvent"\n'
-            'sh "$SCRIPT_DIR/emit-event.sh" --name "$_event_name"\n'
-        )
-
-        result = ec.cmd_registry_discover(str(tmp_path))
-        assert "VarAssignedEvent" in result
-
     def test_discover_skill_md(self, tmp_path: Path) -> None:
         skills_dir = tmp_path / ".agents" / "skills" / "yoke" / "conduct"
         skills_dir.mkdir(parents=True)
@@ -145,11 +103,23 @@ class TestDiscover:
         result = ec.cmd_registry_discover(str(tmp_path))
         assert "SkillEvent" in result
 
-    def test_discover_python_subprocess(self, tmp_path: Path) -> None:
-        api_dir = tmp_path / "runtime" / "api"
-        api_dir.mkdir(parents=True)
+    def test_discover_excludes_tests(self, tmp_path: Path) -> None:
+        pkg_dir = tmp_path / "packages" / "yoke-core" / "src" / "yoke_core" / "domain"
+        pkg_dir.mkdir(parents=True)
 
-        (api_dir / "caller.py").write_text(
+        (pkg_dir / "test_emitters.py").write_text(
+            "def test_emit():\n"
+            '    emit_event("TestOnlyEvent", context={})\n'
+        )
+
+        result = ec.cmd_registry_discover(str(tmp_path))
+        assert "TestOnlyEvent" not in result
+
+    def test_discover_python_subprocess(self, tmp_path: Path) -> None:
+        pkg_dir = tmp_path / "packages" / "yoke-core" / "src" / "yoke_core" / "domain"
+        pkg_dir.mkdir(parents=True)
+
+        (pkg_dir / "caller.py").write_text(
             'import subprocess\n'
             'emit_script = "emit-event.sh"\n'
             'subprocess.run(["sh", emit_script, "--name", "PythonEmittedEvent"])\n'
@@ -158,11 +128,11 @@ class TestDiscover:
         result = ec.cmd_registry_discover(str(tmp_path))
         assert "PythonEmittedEvent" in result
 
-    def test_discover_python_parse_args_wrapper(self, tmp_path: Path) -> None:
-        api_dir = tmp_path / "runtime" / "api" / "domain"
-        api_dir.mkdir(parents=True)
+    def test_discover_harness_python_parse_args_wrapper(self, tmp_path: Path) -> None:
+        harness_dir = tmp_path / "runtime" / "harness"
+        harness_dir.mkdir(parents=True)
 
-        (api_dir / "session_hooks.py").write_text(
+        (harness_dir / "denial_telemetry.py").write_text(
             "def emit_denial_event():\n"
             "    parser = build_parser()\n"
             "    parser.parse_args([\n"
@@ -172,18 +142,19 @@ class TestDiscover:
         )
 
         result = ec.cmd_registry_discover(str(tmp_path))
-        assert "HarnessToolCallDenied|runtime/api/domain/session_hooks.py" in result
+        assert "HarnessToolCallDenied|runtime/harness/denial_telemetry.py" in result
 
-    def test_discover_python_native_emit_helpers(self, tmp_path: Path) -> None:
-        api_dir = tmp_path / "runtime" / "api" / "engines"
-        api_dir.mkdir(parents=True)
+    def test_discover_packages_python_native_emit_helpers(self, tmp_path: Path) -> None:
+        pkg_dir = tmp_path / "packages" / "yoke-core" / "src" / "yoke_core" / "engines"
+        pkg_dir.mkdir(parents=True)
 
-        (api_dir / "merge_worktree.py").write_text(
+        (pkg_dir / "merge_worktree.py").write_text(
             "def emit_events():\n"
             '    _emit_merge_event("MergeEngineStarted", outcome="attempt")\n'
             '    _emit_event(name="MergeVerificationPassed")\n'
         )
 
         result = ec.cmd_registry_discover(str(tmp_path))
-        assert "MergeEngineStarted|runtime/api/engines/merge_worktree.py" in result
-        assert "MergeVerificationPassed|runtime/api/engines/merge_worktree.py" in result
+        expected_rel = "packages/yoke-core/src/yoke_core/engines/merge_worktree.py"
+        assert f"MergeEngineStarted|{expected_rel}" in result
+        assert f"MergeVerificationPassed|{expected_rel}" in result

@@ -60,7 +60,6 @@ def _seed_minimal_repo(root: Path) -> None:
         "packages/yoke-core/src/yoke_core/domain/epic_task_sync.py",
         "packages/yoke-core/src/yoke_core/domain/update_status.py",
         "packages/yoke-core/src/yoke_core/engines/merge_worktree.py",
-        "runtime/harness/claude/merge_settings.py",
     ):
         path = root / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)

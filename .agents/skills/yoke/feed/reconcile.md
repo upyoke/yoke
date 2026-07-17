@@ -55,7 +55,7 @@ yoke shepherd dependency-add YOK-N YOK-M feed \
  --gate-point activation \
  --satisfaction "status:done" \
  --rationale "Shared schema surface: both items modify item_dependencies table" \
- --evidence '{"shared_files":["runtime/api/cli/db_router.py"],"blocker_class":"coding_order","constraint_type":"schema"}'
+ --evidence '{"shared_files":["packages/yoke-core/src/yoke_core/cli/db_router.py"],"blocker_class":"coding_order","constraint_type":"schema"}'
 ```
 
 **Use Option B** for all feed reconciliation to ensure every generated edge carries structured `evidence_json`.

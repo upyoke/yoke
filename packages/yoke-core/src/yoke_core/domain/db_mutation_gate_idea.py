@@ -49,6 +49,7 @@ from yoke_core.domain.db_mutation_profile import (
     DbMutationProfileError,
     validate as validate_profile,
 )
+from yoke_core.domain.db_optional_queries import fetch_optional_rows
 from yoke_core.domain.migration_model_capability import resolve_model
 from yoke_core.domain.projects_breakage_policy import (
     BreakagePolicyError,
@@ -326,15 +327,14 @@ def _load_dependency_pairs(
     other_labels = [f"YOK-{n}" for n in other_ids]
     p = "%s" if db_backend.connection_is_postgres(c) else "?"
     ph = ",".join([p] * len(other_labels))
-    try:
-        rows = c.execute(
-            f"SELECT dependent_item, blocking_item FROM item_dependencies "
-            f"WHERE (dependent_item = {p} AND blocking_item IN ({ph})) "
-            f"   OR (blocking_item = {p} AND dependent_item IN ({ph}))",
-            (candidate_label, *other_labels, candidate_label, *other_labels),
-        ).fetchall()
-    except db_backend.operational_error_types(conn):
-        return set()
+    rows = fetch_optional_rows(
+        c,
+        f"SELECT dependent_item, blocking_item FROM item_dependencies "
+        f"WHERE (dependent_item = {p} AND blocking_item IN ({ph})) "
+        f"   OR (blocking_item = {p} AND dependent_item IN ({ph}))",
+        (candidate_label, *other_labels, candidate_label, *other_labels),
+        savepoint="idea_gate_dependency_pairs",
+    )
     pairs: set = set()
     for row in rows:
         dep = row["dependent_item"] if hasattr(row, "keys") else row[0]

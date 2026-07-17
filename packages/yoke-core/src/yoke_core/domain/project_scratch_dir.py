@@ -2,7 +2,10 @@
 
 Yoke-owned transient paths use ``YOKE_SCRATCH_ROOT``,
 ``~/.yoke/config.json:temp_root``, or OS temp with project/session/run
-segments; repo-local data dirs are never the default.
+segments; repo-local data dirs are never the default. Cross-process
+coordination surfaces (hook markers, harness runtime cache) stay
+project-stable — no session/run segments — so sibling hook processes of
+one harness session resolve the same files.
 """
 
 from __future__ import annotations
@@ -149,9 +152,15 @@ def _strip_sun_prefix(item_id: int | str | None) -> int:
 def hook_marker_path(
     name: str, project: str | None = None, *, create_parent: bool = True
 ) -> Path:
-    """Return a hook marker path under ``hook-markers``."""
+    """Return a hook marker path under the project-stable ``hook-markers``.
 
-    return _rooted_path(
+    Hook markers coordinate fire-once state across harness hook processes
+    (each hook event runs in a fresh process), so the path must be a stable
+    function of *name* alone — never of the ambient session or ``pid-<n>``
+    run segments, which differ per hook process and would defeat the dedup.
+    """
+
+    return _stable_rooted_path(
         project, "hook-markers", _safe_segment(name),
         create_parent=create_parent,
     )
@@ -160,9 +169,14 @@ def hook_marker_path(
 def harness_runtime_cache_path(
     name: str, project: str | None = None, *, create_parent: bool = True
 ) -> Path:
-    """Return a harness runtime cache path under ``harness-runtime-cache``."""
+    """Return a project-stable path under ``harness-runtime-cache``.
 
-    return _rooted_path(
+    The cache is written by one hook process (e.g. Codex SessionStart) and
+    read by later ones (prompt-submit), so like hook markers it must not
+    embed per-process session/run segments.
+    """
+
+    return _stable_rooted_path(
         project, "harness-runtime-cache", _safe_segment(name),
         create_parent=create_parent,
     )
@@ -324,6 +338,20 @@ def _rooted_path(
     create_parent: bool,
 ) -> Path:
     path = scratch_root(project).joinpath(*parts)
+    if create_parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _stable_rooted_path(
+    project: str | None,
+    *parts: str,
+    create_parent: bool,
+) -> Path:
+    """Resolve *parts* under the project root without session/run segments."""
+
+    active_project = resolve_active_project(project)
+    path = global_scratch_root().joinpath(_safe_segment(active_project), *parts)
     if create_parent:
         path.parent.mkdir(parents=True, exist_ok=True)
     return path

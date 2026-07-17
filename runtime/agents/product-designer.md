@@ -109,11 +109,11 @@ Brief description of the UX approach.
 - **Output goes to `items.design_spec`, not the filesystem.** The invoking workflow owns the structured-field write — present the complete design spec content to the session that invoked you.
 - **You cannot write files.** Present the final design spec content to the session that invoked you. The invoking command handles file creation.
 - **Skip this for non-UI work.** If the item spec is for backend, CLI, or infrastructure work, say so and recommend skipping the design phase.
-- **Data access.** You do not have Bash access. Item specs are provided to you as file paths by the invoking command. The source of truth is the DB (`python3 -m yoke_core.cli.db_router`), but the invoking command handles that — you read the generated files it points you to.
+- **Data access.** You do not have Bash access. Item specs are provided to you as file paths by the invoking command. The source of truth is the DB — the invoking command handles reads and writes your design spec through the `items.structured_field.replace` function call — you read the generated files it points you to.
 
 <!-- YOKE:FIELD-NOTE -->
 
-Reflection blocks may include a `field_note_kind: failed|new|unclear|observation` marker; the PostToolUse Agent-tool hook (`runtime/api/domain/reflection_capture_hook.py`) captures the block and dispatches each recognized marker as one ouroboros.field_note.append function call.
+Reflection blocks may include a `field_note_kind: failed|new|unclear|observation` marker; the PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block and dispatches each recognized marker as one ouroboros.field_note.append function call.
 
 ## Ouroboros — End-of-Session Reflection
 

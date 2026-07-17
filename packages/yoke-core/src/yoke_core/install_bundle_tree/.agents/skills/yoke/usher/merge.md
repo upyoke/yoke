@@ -150,7 +150,7 @@ if [ "$_item_type" = "epic" ]; then
  # /yoke merge sets exit code; treat non-zero as merge failure for this item.
 else
  # Issue-merge boundary call. YOKE_DONE_TRANSITION is the engine-owned
- # standalone-branch contract documented by runtime/api/engines/merge_worktree_prepare.py;
+ # standalone-branch contract documented by packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py;
  # `done_transition` sets the same env var internally when it dispatches to
  # merge_worktree. Setting it here on the issue-merge boundary is the
  # documented call shape, not an ad-hoc bypass. The companion `# lint:no-guard-check`
@@ -159,7 +159,7 @@ else
 fi
 ```
 
-**Engine contract:** `YOKE_DONE_TRANSITION=1` is the standalone-branch boundary the merge engine recognises (see `runtime/api/engines/merge_worktree_prepare.py` lines 141-147 for the guard, `runtime/api/engines/done_transition_merge_ops.py` line 124 for the internal-engine setter). The watcher call above invokes the same engine contract on the issue boundary because issue items have no done-transition intermediary.
+**Engine contract:** `YOKE_DONE_TRANSITION=1` is the standalone-branch boundary the merge engine recognises (see `packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py` lines 141-147 for the guard, `packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py` line 124 for the internal-engine setter). The watcher call above invokes the same engine contract on the issue boundary because issue items have no done-transition intermediary.
 
 **Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it normally runs under the watcher wrapper. `watch_merge merge-worktree` maps to `yoke_core.engines.merge_worktree`, but the wrapper **inherits the parent environment and does NOT auto-set or propagate `YOKE_DONE_TRANSITION=1`** — set it explicitly in the env prefix of the wrapper invocation too: `YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- YOK-{N}`. (`python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-worktree -- YOK-{N}` prints the background + Monitor pair; prepend `YOKE_DONE_TRANSITION=1` to the printed background command.)
 

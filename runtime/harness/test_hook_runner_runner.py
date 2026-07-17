@@ -1,10 +1,10 @@
 """Tests for ``runtime.harness.hook_runner.runner``.
 
-Covers AC-T1 (typed SIGALRM timeout -> ``HookExecutionFailed`` + chain
-continues), AC-T2 (subprocess success -> stdout appended +
-``HookGuardrailEvaluated``), AC-T3 (subprocess exit 1 -> ``HookExecutionFailed``
-+ downstream still runs), AC-T5 (file-line caps), ordering invariant, and
-the dry-run unit. AC-5 / AC-6 (CLI ``--help`` / ``--dry-run``) shell out
+Covers the typed SIGALRM timeout (``HookExecutionFailed`` + chain
+continues), subprocess success (stdout appended +
+``HookGuardrailEvaluated``), subprocess exit 1 (``HookExecutionFailed``
++ downstream still runs), file-line caps, the ordering invariant, and
+the dry-run unit. The CLI ``--help`` / ``--dry-run`` cases shell out
 through a real subprocess.
 """
 
@@ -36,7 +36,6 @@ def _capability(
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: list(chain))
     return AdapterCapability(
         family="claude",
-        events=frozenset({"PreToolUse"}),
         payload_parser=lambda raw: {},
         decision_renderer=render_claude_decision,
         subprocess_modules=subprocess_modules,
@@ -115,7 +114,7 @@ def _patch_typed_modules(
 def test_typed_policy_timeout_emits_failed_and_continues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-T1: SIGALRM timeout -> HookExecutionFailed + chain continues."""
+    """SIGALRM timeout -> HookExecutionFailed + chain continues."""
     monkeypatch.setattr(runner_module, "_resolve_timeout_ms", lambda: 200)
     chain = ["mod.slow", "mod.ok"]
 
@@ -159,7 +158,7 @@ def test_typed_policy_timeout_emits_failed_and_continues(
 
 
 # ---------------------------------------------------------------------------
-# AC-T2 / AC-T3: subprocess success / failure
+# Subprocess success / failure
 # ---------------------------------------------------------------------------
 
 def _make_fake_subprocess(stdout_text: str, returncode: int):
@@ -173,7 +172,7 @@ def _make_fake_subprocess(stdout_text: str, returncode: int):
 def test_subprocess_success_appends_stdout_and_emits_evaluated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-T2: subprocess exit 0 -> stdout appended + HookGuardrailEvaluated."""
+    """Subprocess exit 0 -> stdout appended + HookGuardrailEvaluated."""
     capability = _capability(
         monkeypatch, ["mod.subproc"], subprocess_modules=frozenset({"mod.subproc"}),
     )
@@ -206,7 +205,7 @@ def test_subprocess_success_appends_stdout_and_emits_evaluated(
 def test_subprocess_exit_one_emits_failed_and_continues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-T3: subprocess exit 1 -> HookExecutionFailed + downstream still runs."""
+    """Subprocess exit 1 -> HookExecutionFailed + downstream still runs."""
     capability = _capability(
         monkeypatch, ["mod.boom", "mod.ok"], subprocess_modules=frozenset({"mod.boom"}),
     )
@@ -312,11 +311,11 @@ def test_typed_policy_stdout_audit_field_is_appended(
 
 
 # ---------------------------------------------------------------------------
-# AC-T5: file-line caps + dry-run unit
+# File-line caps + dry-run unit
 # ---------------------------------------------------------------------------
 
 def test_runner_and_main_files_under_350_lines() -> None:
-    """AC-T5: runner.py and __main__.py each <= 350 lines."""
+    """runner.py and __main__.py each <= 350 lines."""
     pkg = Path(__file__).resolve().parent / "hook_runner"
     for filename in ("runner.py", "__main__.py"):
         with (pkg / filename).open("rb") as fh:

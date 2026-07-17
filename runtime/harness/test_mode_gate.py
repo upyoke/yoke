@@ -210,7 +210,6 @@ def test_run_event_downgrades_warn_guard_and_chain_continues(
 
     capability = AdapterCapability(
         family="claude",
-        events=frozenset({"PreToolUse"}),
         payload_parser=lambda raw: {"project_dir": str(Path.cwd())},
         decision_renderer=render_claude_decision,
     )

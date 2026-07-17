@@ -332,7 +332,7 @@ The exit condition is the same as idea's path closure:
 
 If the check fails or the spec still contains unexpanded prose substitutes for enumeration, do NOT advance. Either complete the enumeration in this pass or stop and surface the gap to the operator. The boundary gate at advance time exists as a tripwire, not as a fallback for refine skipping closure.
 
-**Only physical files belong in `## File Budget` list-item backticks.** Function ids (`items.section.upsert`), event names, command surfaces, and other operational references go in the surrounding spec prose — not in the `- ` list-item backticks the readiness parser inspects. The dotted-identifier carve-out in `runtime/api/domain/file_budget_paths.py` silently drops them, but refine should strip them out of the budget entirely so the next reader sees only enumerated paths.
+**Only physical files belong in `## File Budget` list-item backticks.** Function ids (`items.section.upsert`), event names, command surfaces, and other operational references go in the surrounding spec prose — not in the `- ` list-item backticks the readiness parser inspects. The dotted-identifier carve-out in `yoke_core.domain.file_budget_paths` silently drops them, but refine should strip them out of the budget entirely so the next reader sees only enumerated paths.
 
 ### Multi-turn refine session continuity
 

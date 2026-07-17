@@ -40,14 +40,16 @@ The structural signals (in order):
    future Claude SDK releases that surface one).
 
 When no signal is present the lint **fails open** (allows the call, no
-audit event). Until each subagent JSON adapter is updated to pass one of
-those signals the deny path is not yet reachable from a live subagent;
-that adapter wiring is the documented follow-up.
+audit event) — the main-session shape. Live subagent dispatches reach
+the deny path: each Bash-capable subagent's rendered adapter exports
+``YOKE_HOOK_AGENT_TYPE=<role>`` on its hook command lines (composed by
+``yoke_core.domain.agents_render_subagent_hooks``).
 
-Modes (from machine config key ``lint_subagent_background_mode``):
+Modes (resolved from ``.yoke/lint-config`` via
+``yoke_core.domain.lint_config``; an unconfigured guard resolves to
+``deny``):
 
-- ``warn`` (default): emit ``HarnessToolCallDenied`` audit event but do
-  NOT block.
+- ``warn``: emit ``HarnessToolCallDenied`` audit event but do NOT block.
 - ``deny``: emit the audit event AND block via ``hookSpecificOutput``.
 
 Suppression: ``# lint:no-subagent-background-check`` on the Bash command
@@ -80,7 +82,6 @@ def _has_real_backgrounding_amp(command: str) -> bool:
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_subagent_background_constants import (
     AGENT_TYPE_ENV_VAR,
-    CONFIG_KEY_MODE,
     DEFAULT_MODE,
     SUPPRESSION_TOKEN,
     VALID_MODES,
@@ -104,7 +105,6 @@ from runtime.harness.hook_runner.types import (
 # regardless of which sibling defined them (matches polling-lint pattern).
 __all__ = [
     "AGENT_TYPE_ENV_VAR",
-    "CONFIG_KEY_MODE",
     "DEFAULT_MODE",
     "SUPPRESSION_TOKEN",
     "VALID_MODES",

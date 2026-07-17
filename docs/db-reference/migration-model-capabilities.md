@@ -154,16 +154,16 @@ alone is never retirement evidence.
 
 Audit rows live on the **model's authoritative DB**, not the
 Yoke control plane. For Yoke-as-project the authoritative DB and the
-control plane DB coincide, so [`create_governed_tables`](../../runtime/api/domain/schema_init_tables.py)
+control plane DB coincide, so [`create_governed_tables`](../../packages/yoke-core/src/yoke_core/domain/schema_init_tables.py)
 covers `migration_audit` at control-plane init. For non-Yoke projects
 (e.g. Buzz with `authoritative_db.location.path = "app/data/app.db"`)
 the two diverge.
 
-[`yoke_core.domain.migration_audit_schema.ensure_migration_audit_table(conn)`](../../runtime/api/domain/migration_audit_schema.py)
+[`yoke_core.domain.migration_audit_schema.ensure_migration_audit_table(conn)`](../../packages/yoke-core/src/yoke_core/domain/migration_audit_schema.py)
 is the canonical idempotent helper. Both
-[`migration_apply_rehearse._rehearse_inner`](../../runtime/api/domain/migration_apply_rehearse.py)
+[`migration_apply_rehearse._rehearse_inner`](../../packages/yoke-core/src/yoke_core/domain/migration_apply_rehearse.py)
 and
-[`migration_apply_live._live_apply_inner`](../../runtime/api/domain/migration_apply_live.py)
+[`migration_apply_live._live_apply_inner`](../../packages/yoke-core/src/yoke_core/domain/migration_apply_live.py)
 call it on `audit_conn` immediately after opening, so a webapp project's
 first governed apply bootstraps the table automatically. Operators and
 agents do not declare or provision `migration_audit` themselves; the

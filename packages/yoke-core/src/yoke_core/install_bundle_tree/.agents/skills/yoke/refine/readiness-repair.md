@@ -257,7 +257,7 @@ planned, amend the claim through the same ``--paths`` flow without
 ``--tentative-paths`` after a fresh ``register-claim`` (the runtime's
 sticky-tentative rule prevents implicit upgrades through automatic
 re-resolution; see
-[runtime/api/domain/path_targets_planning.py](../../../../runtime/api/domain/path_targets_planning.py)).
+[packages/yoke-core/src/yoke_core/domain/path_targets_planning.py](../../../../packages/yoke-core/src/yoke_core/domain/path_targets_planning.py)).
 
 ## Symlink-aware repair advisory
 

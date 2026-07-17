@@ -18,9 +18,9 @@ Allowed shapes (the lint stays out of their way):
 * read-only ``sections get`` calls,
 * invocations of the ``item_field_transform`` helper itself.
 
-Bypass: add ``# lint:no-structured-transform-check`` to the command body.
-Matching bypasses are allowed but emit ``outcome=suppression_attempted``
-audit evidence (audit-only; the rule still denies).
+Bypass: ``# lint:no-structured-transform-check`` on the command body is
+audit-only — recorded as ``outcome=suppression_attempted`` but the rule
+still denies.
 
 Typed entry: ``evaluate(record: HookContext) -> HookDecision``. The CLI
 ``__main__`` form (stdin -> payload -> HookContext -> evaluate) is
@@ -54,19 +54,23 @@ _ITEMS_GET_RE = re.compile(
     re.IGNORECASE,
 )
 
-# ``items update <id> <field> --stdin`` is the structured-field stdin write.
+# ``items update <id> <field> --stdin`` (router/service-client form) and
+# ``items structured-field replace <id> --field <f> --stdin`` (registered
+# CLI grammar) are the structured-field stdin writes.
 _ITEMS_UPDATE_STDIN_RE = re.compile(
-    r"\bitems\s+update\b[^\n;|&]*--stdin\b",
+    r"\bitems\s+(?:update|structured-field\s+replace)\b[^\n;|&]*--stdin\b",
     re.IGNORECASE,
 )
 
+# ``sections?`` covers the plural router/service-client form and the
+# singular ``items section get``/``items section upsert`` CLI grammar.
 _SECTIONS_GET_RE = re.compile(
-    r"\bsections\s+get\b[^\n;|&]*",
+    r"\bsections?\s+get\b[^\n;|&]*",
     re.IGNORECASE,
 )
 
 _SECTIONS_UPSERT_CONTENT_FILE_RE = re.compile(
-    r"\bsections\s+upsert\b[^\n;|&]*--content-file\b",
+    r"\bsections?\s+upsert\b[^\n;|&]*--content-file\b",
     re.IGNORECASE,
 )
 
@@ -96,19 +100,19 @@ _GET_REDIRECT_PATTERNS = (
 
 _SECTION_GET_REDIRECT_PATTERNS = (
     re.compile(
-        r"\bsections\s+get\b[^\n]*?(?:>|>>)\s*\S+",
+        r"\bsections?\s+get\b[^\n]*?(?:>|>>)\s*\S+",
         re.IGNORECASE,
     ),
     re.compile(
-        r"=\s*\$\(\s*[^()]*?\bsections\s+get\b",
+        r"=\s*\$\(\s*[^()]*?\bsections?\s+get\b",
         re.IGNORECASE,
     ),
     re.compile(
-        r"=\s*`[^`]*?\bsections\s+get\b",
+        r"=\s*`[^`]*?\bsections?\s+get\b",
         re.IGNORECASE,
     ),
     re.compile(
-        r"\bsections\s+get\b[^\n]*?\|\s*(?:python3?|sed|awk|tr|perl)\b",
+        r"\bsections?\s+get\b[^\n]*?\|\s*(?:python3?|sed|awk|tr|perl)\b",
         re.IGNORECASE,
     ),
 )
@@ -186,8 +190,6 @@ def evaluate_command(command: str) -> Optional[str]:
     """
     if not command:
         return None
-    if _BYPASS_TOKEN in command:
-        return None
     if _is_helper_invocation(command):
         return None
     has_structured_field_choreography = (
@@ -237,23 +239,19 @@ def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None
 
 
 def evaluate(record: HookContext) -> HookDecision:
-    """Typed entry. Wraps :func:`evaluate_payload` + bypass-token audit."""
+    """Typed entry. Wraps :func:`evaluate_payload`; the bypass token is
+    audit-only — the rule still denies."""
     payload = record.payload if isinstance(record.payload, dict) else {}
     command = _extract_command(payload)
-    if _BYPASS_TOKEN in command and not _is_helper_invocation(command):
-        if evaluate_command(command.replace(_BYPASS_TOKEN, "")):
-            _emit_denial(payload, ("[outcome=suppression_attempted] structured-field "
-                "transform shell lint suppressed via token"),
-                outcome="suppression_attempted")
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = evaluate_command(command)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+    outcome = ("suppression_attempted" if _BYPASS_TOKEN in command else "denied")
     reason = append_field_note_footer(reason, rule_id="lint-structured-field-transform-shell")
     envelope = json.dumps(_build_deny_response(reason))
-    _emit_denial(payload, reason)
+    _emit_denial(payload, reason, outcome=outcome)
     return HookDecision(outcome=Outcome.DENY, message=envelope,
-        audit_fields={"reason": reason, "audit_outcome": "denied"},
+        audit_fields={"reason": reason, "audit_outcome": outcome},
         block=True, next=Next.STOP)
 
 

@@ -1,7 +1,7 @@
 """Tests for ``runtime.harness.hook_runner.decision_render``.
 
-Covers AC-T4 (Claude empty-decision case is ``("", 0)``), AC-T5 (Codex
-empty-decision case is the apply-patch deny envelope shape), plus the
+Covers the Claude empty-decision case (``("", 0)``), the Codex
+empty-decision case (the apply-patch deny envelope shape), plus the
 deny narrative aggregation behavior every chain-eligible policy module
 will rely on.
 """
@@ -43,7 +43,7 @@ def _advisory(text: str) -> HookDecision:
 
 
 def test_claude_empty_decisions_returns_allow_pair() -> None:
-    """AC-T4: empty decisions return ``("", 0)``."""
+    """Empty decisions return ``("", 0)``."""
     assert render_claude_decision([], "PreToolUse") == ("", 0)
 
 
@@ -77,7 +77,7 @@ def test_claude_multiple_deny_decisions_concatenate_narratives() -> None:
 
 
 def test_codex_empty_decisions_returns_allow_pair() -> None:
-    """AC-T5: empty decisions return the Codex apply-patch allow shape.
+    """Empty decisions return the Codex apply-patch allow shape.
 
     The Codex wire format treats absence of a ``hookSpecificOutput`` deny
     envelope as allow; we render that as ``("", 0)`` to match today's

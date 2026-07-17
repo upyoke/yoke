@@ -84,7 +84,14 @@ def _parse_git_invocations(command: str) -> list[Tuple[list[str], str]]:
     return command_checks.parse_git_invocations(command)
 
 
-def _classify_shape(args: list[str]) -> Optional[str]:
+def _pathspec_like(token: str, worktree: str = "") -> bool:
+    """Bare checkout args that name working-tree paths rather than refs."""
+    if token in (".", "..") or token.startswith(("./", "../")) or token.endswith("/"):
+        return True
+    return os.path.exists(os.path.join(worktree, token) if worktree else token)
+
+
+def _classify_shape(args: list[str], worktree: str = "") -> Optional[str]:
     if not args:
         return None
     verb, rest = args[0], args[1:]
@@ -102,11 +109,16 @@ def _classify_shape(args: list[str]) -> Optional[str]:
     if verb == "checkout":
         if "--" in rest:
             return "checkout_path_discard"
-        return "checkout_force_branch" if any(a in ("-f", "--force") for a in rest) else None
+        if any(a in ("-f", "--force") for a in rest):
+            return "checkout_force_branch"
+        if any(_pathspec_like(a, worktree) for a in rest if not a.startswith("-")):
+            return "checkout_path_discard"
+        return None
     if verb == "worktree" and rest and rest[0] == "remove":
         return "worktree_remove"
     if verb == "restore":
-        has_wt, has_st = "--worktree" in rest, "--staged" in rest
+        has_wt = "--worktree" in rest or "-W" in rest
+        has_st = "--staged" in rest or "-S" in rest
         if has_st and not has_wt:
             return None
         if any(not a.startswith("-") for a in rest) or has_wt:
@@ -159,11 +171,21 @@ def _path_args(args: list[str]) -> list[str]:
     for a in rest:
         if skip:
             skip = False
-        elif a in ("--source", "-s", "-S"):
+        # `-s`/`--source` consume a value; `-S` is `--staged` and does not.
+        elif a in ("--source", "-s"):
             skip = True
         elif not a.startswith("-"):
             paths.append(a)
     return paths
+
+
+def _pathspec_covers(pathspec: str, rel: str) -> bool:
+    norm = pathspec.rstrip("/")
+    while norm.startswith("./"):
+        norm = norm[2:]
+    if norm in (".", ""):
+        return True
+    return rel == norm or rel.startswith(norm + "/")
 
 
 def _format_reason(shape: str, threatened: list[str], suppression_seen: bool, mode: str) -> str:
@@ -199,8 +221,7 @@ def _check_threat(shape: str, worktree: str, args: list[str]) -> Optional[list[s
         paths = _path_args(args)
         if not paths:
             return modified
-        threatened = [m for p in paths for m in modified
-            if m == p.rstrip("/") or m.startswith(p.rstrip("/") + "/")]
+        threatened = [m for p in paths for m in modified if _pathspec_covers(p, m)]
         return threatened or None
     if shape == "clean_force":
         dry_args = ["--dry-run" if a == "--force"
@@ -243,10 +264,10 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
     for args, repo_path in _parse_git_invocations(command):
-        shape = _classify_shape(args)
+        worktree = _resolve_worktree(repo_path, payload)
+        shape = _classify_shape(args, worktree)
         if shape is None:
             continue
-        worktree = _resolve_worktree(repo_path, payload)
         threatened = _check_threat(shape, worktree, args)
         if not threatened:
             continue

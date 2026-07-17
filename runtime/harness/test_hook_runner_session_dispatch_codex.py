@@ -4,8 +4,6 @@ A fresh Codex session emits one ``HarnessSessionSentFirstUserPromptSubmit``
 on its first real ``UserPromptSubmit`` hook.
 Duplicate Codex ``UserPromptSubmit`` hooks for the same session do not
 emit duplicate rows.
-This file (paired with AC-1 / AC-2) is the regression coverage
-referenced in the acceptance criteria.
 An empty Codex session id (``resolve_session_id`` returns falsy) does
 not emit.
 A ``source="startup"`` payload with no ``transcript_path`` matches the
@@ -49,8 +47,7 @@ def _fresh_codex_session_id() -> str:
 
     The prompt marker is filesystem-backed (resolved by
     ``codex_hooks_payload.prompt_marker_path(sid)``) and persists across
-    test invocations if the same id is reused. The
-    addendum calls this out explicitly — each test case must own a
+    test invocations if the same id is reused. Each test case must own a
     unique session id (or unlink the marker before invoking the handler) so
     ``_first_prompt(codex=True)`` does not silently report "already armed" and
     mask a regression.
@@ -156,7 +153,7 @@ class TestCodexFirstPromptEmission(unittest.TestCase):
         except FileNotFoundError:
             pass
 
-    def test_ac1_fresh_codex_session_emits_first_prompt_event(self) -> None:
+    def test_fresh_codex_session_emits_first_prompt_event(self) -> None:
         captured = self.invoker.invoke(_payload(self.session_id))
         emissions = _first_prompt_events(captured)
         self.assertEqual(len(emissions), 1, captured)
@@ -165,19 +162,19 @@ class TestCodexFirstPromptEmission(unittest.TestCase):
         self.assertEqual(kwargs.get("event_type"), "session_lifecycle")
         self.assertEqual(kwargs.get("source_type"), "hook")
 
-    def test_ac2_duplicate_codex_prompt_submit_does_not_re_emit(self) -> None:
+    def test_duplicate_codex_prompt_submit_does_not_re_emit(self) -> None:
         first = self.invoker.invoke(_payload(self.session_id))
         second = self.invoker.invoke(_payload(self.session_id))
         self.assertEqual(len(_first_prompt_events(first)), 1)
         self.assertEqual(len(_first_prompt_events(second)), 0)
 
-    def test_ac9_empty_codex_session_id_does_not_emit(self) -> None:
+    def test_empty_codex_session_id_does_not_emit(self) -> None:
         captured = self.invoker.invoke(
             _payload(""), resolved_session_id="",
         )
         self.assertEqual(len(_first_prompt_events(captured)), 0)
 
-    def test_ac10_startup_source_with_no_transcript_does_not_emit(self) -> None:
+    def test_startup_source_with_no_transcript_does_not_emit(self) -> None:
         # source=startup + no transcript_path is the documented Codex
         # early-return path. The marker must NOT be armed, so emission
         # cannot fire on this dispatch.
@@ -191,7 +188,7 @@ class TestCodexFirstPromptEmission(unittest.TestCase):
             os.path.exists(prompt_marker_path(self.session_id)),
         )
 
-    def test_ac11_registration_error_does_not_suppress_emission(self) -> None:
+    def test_registration_error_does_not_suppress_emission(self) -> None:
         captured = self.invoker.invoke(
             _payload(self.session_id),
             touch_rc=1,
@@ -259,7 +256,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
             self.session_id, "/repo", "", "gpt-5", "codex-entry",
         )
 
-    def test_ac12_reminder_renders_advisory_when_orientation_suppressed(self) -> None:
+    def test_reminder_renders_advisory_when_orientation_suppressed(self) -> None:
         """SESSION_MARKER unarmed + yoke missing → reminder owns the advisory."""
 
         with mock.patch.object(bootstrap_packets.shutil, "which", return_value=None):
@@ -274,7 +271,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
         self.assertIn(INSTALL_ADVISORY_POINTER, output)
         self.assertIn("Yoke/Codex safe operator commands", output)
 
-    def test_ac12_prompt_after_startup_suppression_renders_advisory(self) -> None:
+    def test_prompt_after_startup_suppression_renders_advisory(self) -> None:
         """startup/no-transcript suppression does not hide the first real prompt advisory."""
 
         startup = HookContext(
@@ -317,7 +314,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
         self.assertIn(INSTALL_ADVISORY_POINTER, output)
         self.assertIn("Yoke/Codex safe operator commands", output)
 
-    def test_ac13_reminder_omits_advisory_when_orientation_already_rendered(self) -> None:
+    def test_reminder_omits_advisory_when_orientation_already_rendered(self) -> None:
         """SESSION_MARKER armed (orientation fired) → reminder must NOT duplicate it."""
 
         self._arm_session_marker()
@@ -327,7 +324,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
         self.assertNotIn(INSTALL_ADVISORY_COMMAND, output)
         self.assertTrue(output.startswith("Yoke/Codex safe operator commands"))
 
-    def test_ac14_reminder_omits_advisory_when_yoke_on_path(self) -> None:
+    def test_reminder_omits_advisory_when_yoke_on_path(self) -> None:
         """Installed sessions see no advisory regardless of SESSION_MARKER state."""
 
         # Even with orientation suppressed, an installed session must stay quiet.

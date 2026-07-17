@@ -9,8 +9,7 @@ Contains:
 - Pipe-delimited formatters: ``_pipe_row``, ``_pipe_rows``.
 
 These primitives are consumed directly by every deployment_runs sibling and by
-the thin shims at ``deployment_runs.py`` / ``deployment_runs_crud.py`` /
-``deployment_runs_transitions.py``.
+the thin shim at ``deployment_runs.py``.
 """
 
 from __future__ import annotations

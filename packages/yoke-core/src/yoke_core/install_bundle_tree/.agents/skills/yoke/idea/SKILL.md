@@ -51,7 +51,7 @@ yoke sessions touch --mode idea
 
  Do NOT exit path closure with the spec saying "N files implied" while only listing a subset. If the readiness check passes but the spec body still contains "every X" / "all Y" / "~N files" prose without an enumeration alongside it, treat that as a structural defect and resolve it before handing off.
 
- **Only physical files belong in `## File Budget` list-item backticks.** Function ids (`items.section.upsert`), event names, command surfaces, and other operational references go in surrounding prose — not in the `- ` list-item backticks the parser inspects. The dotted-identifier carve-out in `runtime/api/domain/file_budget_paths.py` silently drops them, but writing them in the budget at all confuses both reader and future consumer.
+ **Only physical files belong in `## File Budget` list-item backticks.** Function ids (`items.section.upsert`), event names, command surfaces, and other operational references go in surrounding prose — not in the `- ` list-item backticks the parser inspects. The dotted-identifier carve-out in `yoke_core.domain.file_budget_paths` silently drops them, but writing them in the budget at all confuses both reader and future consumer.
 
 ## Notes
 

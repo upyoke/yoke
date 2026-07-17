@@ -1,0 +1,261 @@
+#!/usr/bin/env sh
+# provision-tls.sh — Automated wildcard TLS certificate provisioning via certbot DNS-01
+#
+# Provisions a wildcard certificate for *.{{domain}} using Let's Encrypt
+# with DNS-01 challenge. Sets up automated renewal with nginx reload.
+#
+# Template variables:
+#   {{domain}}        — base domain (e.g., buzzabuzz.com)
+#   {{dns_provider}}  — DNS provider for certbot plugin (e.g., digitalocean)
+#   {{ssh_user}}      — deploy user on the VPS
+#   {{ssh_host}}      — VPS IP or hostname
+#
+# DNS provider credentials:
+#   - Route53:    AWS credentials via ~/.aws/credentials, env vars, or instance profile
+#                 (no credentials file needed — uses standard AWS SDK credential chain)
+#   - Cloudflare: /etc/letsencrypt/dns-credentials.ini with dns_cloudflare_api_token
+#   - Other certbot-dns-<provider> plugins: /etc/letsencrypt/dns-credentials.ini
+#                 with the provider-specific token key
+#
+# Usage (from local machine):
+#   scp provision-tls.sh {{ssh_user}}@{{ssh_host}}:~/provision-tls.sh
+#   ssh {{ssh_user}}@{{ssh_host}} sudo sh ~/provision-tls.sh
+#
+# Or pipe directly:
+#   ssh {{ssh_user}}@{{ssh_host}} 'sudo sh -s' < provision-tls.sh
+#
+# Idempotent: skips issuance if a valid certificate already exists.
+# Designed to run ON the project VPS as root (certbot requires root).
+
+set -eu
+
+DOMAIN="{{domain}}"
+DNS_PROVIDER="{{dns_provider}}"
+CERT_DIR="/etc/letsencrypt/live/${DOMAIN}"
+CREDS_FILE="/etc/letsencrypt/dns-credentials.ini"
+RENEWAL_HOOK_DIR="/etc/letsencrypt/renewal-hooks/deploy"
+
+log() {
+  echo "[provision-tls] $1"
+}
+
+# ─────────────────────────────────────────
+# Check prerequisites
+# ─────────────────────────────────────────
+
+if [ "$(id -u)" -ne 0 ]; then
+  log "ERROR: This script must be run as root (certbot requires root access)"
+  exit 1
+fi
+
+# ─────────────────────────────────────────
+# Install certbot and DNS plugin if needed
+# ─────────────────────────────────────────
+
+if ! command -v certbot >/dev/null 2>&1; then
+  log "certbot not found — installing..."
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq
+    apt-get install -y -qq certbot "python3-certbot-dns-${DNS_PROVIDER}"
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y certbot "python3-certbot-dns-${DNS_PROVIDER}"
+  else
+    log "ERROR: Cannot determine package manager. Install certbot and certbot-dns-${DNS_PROVIDER} manually."
+    exit 1
+  fi
+fi
+
+# Verify the DNS plugin is available
+if ! certbot plugins 2>/dev/null | grep -q "dns-${DNS_PROVIDER}"; then
+  log "WARNING: certbot dns-${DNS_PROVIDER} plugin not detected."
+  log "Install it: pip install certbot-dns-${DNS_PROVIDER}"
+  log "Or: apt-get install python3-certbot-dns-${DNS_PROVIDER}"
+fi
+
+# ─────────────────────────────────────────
+# Check for existing valid certificate
+# ─────────────────────────────────────────
+
+if [ -f "${CERT_DIR}/fullchain.pem" ]; then
+  _expiry=$(openssl x509 -enddate -noout -in "${CERT_DIR}/fullchain.pem" 2>/dev/null | cut -d= -f2)
+  if [ -n "$_expiry" ]; then
+    # Check if cert expires more than 7 days from now
+    _expiry_epoch=$(date -d "$_expiry" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$_expiry" +%s 2>/dev/null || echo 0)
+    _now_epoch=$(date +%s)
+    _days_left=$(( (_expiry_epoch - _now_epoch) / 86400 ))
+    if [ "$_days_left" -gt 7 ]; then
+      log "Valid certificate found for ${DOMAIN} (expires in ${_days_left} days)"
+      log "Skipping issuance — certificate is still valid"
+      # Still ensure renewal is configured (idempotent)
+    else
+      log "Certificate expires in ${_days_left} days — will attempt renewal"
+    fi
+  fi
+fi
+
+# ─────────────────────────────────────────
+# Verify DNS credentials
+# ─────────────────────────────────────────
+
+if [ "$DNS_PROVIDER" = "route53" ]; then
+  # Route53 uses the AWS SDK credential chain — no credentials file needed.
+  # Check that AWS credentials are available via env vars or ~/.aws/credentials.
+  if [ -z "${AWS_ACCESS_KEY_ID:-}" ] && [ ! -f "${HOME}/.aws/credentials" ] && [ ! -f "/root/.aws/credentials" ]; then
+    log "ERROR: No AWS credentials found for Route53 DNS-01 challenge."
+    log ""
+    log "Provide credentials via one of:"
+    log "  1. Environment variables: AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY"
+    log "  2. AWS credentials file: ~/.aws/credentials (with [default] profile)"
+    log "  3. Instance profile (if running on EC2/ECS)"
+    log ""
+    log "The IAM policy needs route53:ListHostedZones, route53:GetChange,"
+    log "and route53:ChangeResourceRecordSets permissions."
+    log ""
+    log "Then re-run this script."
+    exit 1
+  fi
+  log "Route53 credentials: $([ -n "${AWS_ACCESS_KEY_ID:-}" ] && echo 'env vars' || echo '~/.aws/credentials')"
+else
+  # File-based credentials (Cloudflare and other certbot-dns-<provider> plugins)
+  if [ ! -f "$CREDS_FILE" ]; then
+    log "ERROR: DNS credentials file not found at ${CREDS_FILE}"
+    log ""
+    log "Create it with your DNS provider API token:"
+    case "$DNS_PROVIDER" in
+      cloudflare)
+        log "  echo 'dns_cloudflare_api_token = YOUR_CF_API_TOKEN' > ${CREDS_FILE}"
+        ;;
+      *)
+        log "  Consult certbot-dns-${DNS_PROVIDER} docs for credential format"
+        ;;
+    esac
+    log "  chmod 600 ${CREDS_FILE}"
+    log ""
+    log "Then re-run this script."
+    exit 1
+  fi
+
+  # Ensure credentials file has restricted permissions
+  chmod 600 "$CREDS_FILE"
+fi
+
+# ─────────────────────────────────────────
+# Issue wildcard certificate
+# ─────────────────────────────────────────
+
+if [ ! -f "${CERT_DIR}/fullchain.pem" ] || [ "${_days_left:-999}" -le 7 ]; then
+  log "Requesting wildcard certificate for *.${DOMAIN} and ${DOMAIN}..."
+  if [ "$DNS_PROVIDER" = "route53" ]; then
+    # Route53 plugin reads AWS credentials from the SDK credential chain
+    certbot certonly \
+      --dns-route53 \
+      -d "*.${DOMAIN}" \
+      -d "${DOMAIN}" \
+      --non-interactive \
+      --agree-tos \
+      --email "admin@${DOMAIN}" \
+      --preferred-challenges dns-01
+  else
+    # File-based credential plugins (cloudflare and other dns-<provider> certbot plugins)
+    certbot certonly \
+      --dns-"${DNS_PROVIDER}" \
+      --dns-"${DNS_PROVIDER}"-credentials "$CREDS_FILE" \
+      -d "*.${DOMAIN}" \
+      -d "${DOMAIN}" \
+      --non-interactive \
+      --agree-tos \
+      --email "admin@${DOMAIN}" \
+      --preferred-challenges dns-01
+  fi
+  log "Certificate issued successfully"
+else
+  log "Certificate already valid — no issuance needed"
+fi
+
+# ─────────────────────────────────────────
+# Configure automated renewal
+# ─────────────────────────────────────────
+
+# Method 1: certbot renewal deploy hook (preferred — fires after each renewal)
+mkdir -p "$RENEWAL_HOOK_DIR"
+HOOK_FILE="${RENEWAL_HOOK_DIR}/reload-nginx.sh"
+
+cat > "$HOOK_FILE" << 'HOOK_EOF'
+#!/usr/bin/env sh
+# Reload nginx after certificate renewal
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl reload nginx
+elif command -v service >/dev/null 2>&1; then
+  service nginx reload
+else
+  nginx -s reload
+fi
+HOOK_EOF
+chmod +x "$HOOK_FILE"
+log "Renewal hook installed at ${HOOK_FILE}"
+
+# Method 2: systemd timer (if available and not already active)
+if command -v systemctl >/dev/null 2>&1; then
+  if systemctl list-timers --all 2>/dev/null | grep -q "certbot"; then
+    log "certbot systemd timer already active"
+  else
+    # Enable the certbot timer if the unit exists (installed with certbot package)
+    if systemctl list-unit-files 2>/dev/null | grep -q "certbot.timer"; then
+      systemctl enable certbot.timer
+      systemctl start certbot.timer
+      log "certbot systemd timer enabled and started"
+    else
+      log "certbot.timer unit not found — falling back to cron"
+      # Fallback: install cron job for renewal
+      CRON_ENTRY="0 3 * * * certbot renew --quiet --deploy-hook '${HOOK_FILE}' >> /var/log/certbot-renew.log 2>&1"
+      CURRENT_CRONTAB=$(crontab -l 2>/dev/null || true)
+      if echo "$CURRENT_CRONTAB" | grep -q "certbot renew"; then
+        log "certbot renewal cron already installed — skipping"
+      else
+        log "Installing certbot renewal cron (daily 3:00 UTC)"
+        printf '%s\n%s\n' "$CURRENT_CRONTAB" "$CRON_ENTRY" | crontab -
+        log "Cron entry installed"
+      fi
+    fi
+  fi
+else
+  # No systemd — use cron
+  CRON_ENTRY="0 3 * * * certbot renew --quiet --deploy-hook '${HOOK_FILE}' >> /var/log/certbot-renew.log 2>&1"
+  CURRENT_CRONTAB=$(crontab -l 2>/dev/null || true)
+  if echo "$CURRENT_CRONTAB" | grep -q "certbot renew"; then
+    log "certbot renewal cron already installed — skipping"
+  else
+    log "Installing certbot renewal cron (daily 3:00 UTC)"
+    printf '%s\n%s\n' "$CURRENT_CRONTAB" "$CRON_ENTRY" | crontab -
+    log "Cron entry installed"
+  fi
+fi
+
+# ─────────────────────────────────────────
+# Verify
+# ─────────────────────────────────────────
+
+log ""
+log "=== TLS Provisioning Summary ==="
+log "Domain:      *.${DOMAIN}, ${DOMAIN}"
+log "Cert path:   ${CERT_DIR}/fullchain.pem"
+log "Key path:    ${CERT_DIR}/privkey.pem"
+log "DNS plugin:  certbot-dns-${DNS_PROVIDER}"
+if [ "$DNS_PROVIDER" = "route53" ]; then
+  log "Credentials: AWS SDK credential chain"
+else
+  log "Credentials: ${CREDS_FILE}"
+fi
+log "Renewal:     automatic (hook reloads nginx)"
+
+if [ -f "${CERT_DIR}/fullchain.pem" ]; then
+  _exp=$(openssl x509 -enddate -noout -in "${CERT_DIR}/fullchain.pem" 2>/dev/null | cut -d= -f2)
+  log "Expires:     ${_exp}"
+fi
+
+log ""
+log "nginx should reference these paths:"
+log "  ssl_certificate     ${CERT_DIR}/fullchain.pem;"
+log "  ssl_certificate_key ${CERT_DIR}/privkey.pem;"
+log ""
+log "Done."

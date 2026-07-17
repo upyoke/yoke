@@ -232,21 +232,49 @@ def test_seed_source_check_no_op_without_session_id(
     )
 
 
+YOKE_CORE_SOURCE_SEED_REL = Path(
+    "packages/yoke-core/src/yoke_core/domain/schema.py"
+)
+SITE_PACKAGES_SEED_REL = Path(
+    "lib/python3.12/site-packages/yoke_core/domain/schema.py"
+)
+
+
 def test_seed_source_external_project_target_is_no_op(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """13469: an external project target (no Yoke source under it — e.g.
-    board rebuild for Buzz over the installed CLI) legitimately loads the
-    seed from the CLI's Yoke checkout. Not a worktree-dev hazard."""
+    """An external project target (no Yoke source under it — e.g. board
+    rebuild for Buzz over the installed CLI) legitimately loads the seed
+    from the CLI's Yoke source checkout. Not a worktree-dev hazard."""
     monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_A)
     monkeypatch.setattr(
         "yoke_core.domain.workspace_authority._is_free_path",
         lambda p: False,
     )
-    cli_seed = tmp_path / "yoke-cli" / "runtime" / "api" / "domain" / "schema.py"
+    cli_seed = tmp_path / "yoke-main" / YOKE_CORE_SOURCE_SEED_REL
     cli_seed.parent.mkdir(parents=True)
     cli_seed.write_text("# seed\n")
-    external_target = tmp_path / "buzz"  # no runtime/ tree under it
+    external_target = tmp_path / "buzz"  # no yoke_core source tree under it
+    external_target.mkdir()
+    assert_seed_source_under_target_root(
+        str(cli_seed), external_target, seed_module_name="schema",
+    )
+
+
+def test_seed_source_from_site_packages_external_target_is_no_op(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A wheel-installed CLI loads the seed from site-packages; an external
+    project target carries no copy, so the write is allowed."""
+    monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_A)
+    monkeypatch.setattr(
+        "yoke_core.domain.workspace_authority._is_free_path",
+        lambda p: False,
+    )
+    cli_seed = tmp_path / "cli-venv" / SITE_PACKAGES_SEED_REL
+    cli_seed.parent.mkdir(parents=True)
+    cli_seed.write_text("# seed\n")
+    external_target = tmp_path / "buzz"
     external_target.mkdir()
     assert_seed_source_under_target_root(
         str(cli_seed), external_target, seed_module_name="schema",
@@ -257,21 +285,46 @@ def test_seed_source_yoke_checkout_target_still_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The worktree-dev hazard still refuses: target_root IS a Yoke
-    checkout (carries the seed-rel path) but the seed loaded from a
-    different tree."""
+    checkout (carries its own copy of the seed module) but the seed
+    loaded from a different tree."""
     monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_A)
     monkeypatch.setattr(
         "yoke_core.domain.workspace_authority._is_free_path",
         lambda p: False,
     )
-    main_seed = tmp_path / "main" / "runtime" / "api" / "domain" / "schema.py"
+    main_seed = tmp_path / "main" / YOKE_CORE_SOURCE_SEED_REL
     main_seed.parent.mkdir(parents=True)
     main_seed.write_text("# main seed\n")
     worktree = tmp_path / "worktree"
-    (worktree / "runtime" / "api" / "domain").mkdir(parents=True)
-    (worktree / "runtime" / "api" / "domain" / "schema.py").write_text("# wt\n")
+    wt_seed = worktree / YOKE_CORE_SOURCE_SEED_REL
+    wt_seed.parent.mkdir(parents=True)
+    wt_seed.write_text("# wt\n")
     with pytest.raises(RuntimeError) as exc:
         assert_seed_source_under_target_root(
             str(main_seed), worktree, seed_module_name="schema",
+        )
+    assert "seed-source mismatch" in str(exc.value)
+
+
+def test_seed_source_from_site_packages_yoke_checkout_target_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A wheel-installed seed targeting a Yoke checkout that carries its
+    own copy of the module is the same wrong-tree hazard."""
+    monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_A)
+    monkeypatch.setattr(
+        "yoke_core.domain.workspace_authority._is_free_path",
+        lambda p: False,
+    )
+    installed_seed = tmp_path / "cli-venv" / SITE_PACKAGES_SEED_REL
+    installed_seed.parent.mkdir(parents=True)
+    installed_seed.write_text("# installed seed\n")
+    checkout = tmp_path / "yoke-checkout"
+    checkout_seed = checkout / YOKE_CORE_SOURCE_SEED_REL
+    checkout_seed.parent.mkdir(parents=True)
+    checkout_seed.write_text("# checkout\n")
+    with pytest.raises(RuntimeError) as exc:
+        assert_seed_source_under_target_root(
+            str(installed_seed), checkout, seed_module_name="schema",
         )
     assert "seed-source mismatch" in str(exc.value)

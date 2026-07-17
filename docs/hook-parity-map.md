@@ -18,7 +18,7 @@ Behaviors in this tier work in any harness, including wrapper-only mode with zer
 |----------|-----------|---------------------|
 | Bootstrap orientation (startup reads) | `python3 -m runtime.harness.codex.codex_entry bootstrap` or harness-native config | Bash tool only |
 | Session identity declaration | Environment variables (`YOKE_EXECUTOR`, `YOKE_PROVIDER`, `YOKE_MODEL`) | Bash tool only |
-| Canonical telemetry (`HarnessSessionOffered`, `NextActionChosen`) | Yoke core session-offer path (`runtime/api/domain/sessions.py`) | None (core-owned) |
+| Canonical telemetry (`HarnessSessionOffered`, `NextActionChosen`) | Yoke core session-offer path (`packages/yoke-core/src/yoke_core/domain/sessions.py`) | None (core-owned) |
 | Route wrapper (command invocation) | Entry launcher delegates to `/yoke` operator commands | Bash tool only |
 | Routing and fallback decisions | `/yoke do` session-offer evaluation | None (core-owned) |
 
@@ -39,7 +39,7 @@ Behaviors in this tier use hooks that have been verified in both Claude Code and
 
 **Cross-harness hook dispatch:** the per-event command lines in the rendered manifests (`runtime/harness/claude/settings.json`, `runtime/harness/codex/hooks.json`) collapse to a single `yoke hook evaluate <event>` invocation per `(event, matcher)` pair — for example, `yoke hook evaluate PreToolUse` and `yoke hook evaluate UserPromptSubmit`. The CLI currently delegates to the local `runtime.harness.hook_runner` implementation, which walks the universal ordering chain inside the process; the manifest no longer enumerates per-lint module command lines or injects a repo-root `PYTHONPATH`.
 
-**Codex identity pin:** the Codex hooks.json command shape pins `YOKE_EXECUTOR=codex` and `YOKE_PROVIDER=openai` before `yoke hook evaluate` so the hook subprocess attributes correctly even when the parent launcher does not export `CODEX_THREAD_ID`. Without the pin, `runtime.harness.hook_helpers_identity.detect_executor` falls back to the Claude family and stores `executor=claude-code` / `provider=anthropic` on the Codex Desktop session row plus `context.executor=claude` on every `HookDispatchTelemetry` envelope. The pin is owned by `runtime/api/domain/agents_render_hooks.py` (`_CODEX_IDENTITY_ENV`) so any future Codex command-shape change keeps the executor/provider signal attached at one place.
+**Codex identity pin:** the Codex hooks.json command shape pins `YOKE_EXECUTOR=codex` and `YOKE_PROVIDER=openai` before `yoke hook evaluate` so the hook subprocess attributes correctly even when the parent launcher does not export `CODEX_THREAD_ID`. Without the pin, `runtime.harness.hook_helpers_identity.detect_executor` falls back to the Claude family and stores `executor=claude-code` / `provider=anthropic` on the Codex Desktop session row plus `context.executor=claude` on every `HookDispatchTelemetry` envelope. The pin is owned by `packages/yoke-core/src/yoke_core/domain/agents_render_hooks.py` (`_CODEX_IDENTITY_ENV`) so any future Codex command-shape change keeps the executor/provider signal attached at one place.
 
 ### Claude-Code-only (no cross-harness equivalent)
 
@@ -96,7 +96,7 @@ The remaining named substrate gap is the `PostToolUseFailure` event for non-Bash
 
 ## Canonical Session-Offer Lineage
 
-The canonical source of `HarnessSessionOffered` and `NextActionChosen` events is the shared core session-offer path in `runtime/api/domain/sessions.py`. This path is harness-neutral -- both Claude Code CLI adapters and API callers emit the same events through the same code.
+The canonical source of `HarnessSessionOffered` and `NextActionChosen` events is the shared core session-offer path in `packages/yoke-core/src/yoke_core/domain/sessions.py`. This path is harness-neutral -- both Claude Code CLI adapters and API callers emit the same events through the same code.
 
 Harness-local hook output (e.g., Codex hook logs) is informational. It is never the canonical source for session lifecycle telemetry. This ensures that session-offer lineage is consistent regardless of which harness initiated the session.
 

@@ -47,6 +47,24 @@ def test_exits_when_sentinel_already_present(tmp_path: Path) -> None:
     assert "# watch_pytest exit=0 raw=/tmp/raw.log" in text
 
 
+def test_exits_on_negative_exit_sentinel(tmp_path: Path) -> None:
+    """A signal-killed child writes a negative rc (e.g. SIGTERM -> -15)."""
+    progress = tmp_path / "progress.log"
+    progress.write_text(
+        "progress before kill\n"
+        "# watch_pytest exit=-15 raw=/tmp/raw.log\n",
+        encoding="utf-8",
+    )
+    out = io.StringIO()
+
+    rc = watch_tail.follow(progress, out=out, poll_interval=0.01)
+    text = out.getvalue()
+
+    assert rc == 0
+    assert "progress before kill" in text
+    assert "# watch_pytest exit=-15" in text
+
+
 def test_follows_slow_producer(tmp_path: Path) -> None:
     progress = tmp_path / "progress.log"
     progress.write_text("", encoding="utf-8")

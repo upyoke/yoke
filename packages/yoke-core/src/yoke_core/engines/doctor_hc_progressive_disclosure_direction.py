@@ -31,7 +31,6 @@ from typing import Iterable, List, Set, Tuple
 
 from yoke_core.engines.doctor_registry_tier_discipline import (
     REQUIRED_FUNCTION_IDS,
-    TIER_1_GLOBS,  # noqa: F401  — re-exported so importers reach it here
     TIER_3_GLOBS,
     TIER_6_ARCHIVE_PREFIXES,
     TIER_GLOBS,

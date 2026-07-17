@@ -1,0 +1,327 @@
+# ephemeral-run.yml — Reusable ephemeral environment deploy job
+name: Run Ephemeral Environment Deploy
+
+on:
+  workflow_call:
+    inputs:
+      branch_exists:
+        required: true
+        type: string
+      branch_slug:
+        required: false
+        type: string
+      api_port:
+        required: false
+        type: string
+      web_port:
+        required: false
+        type: string
+    outputs:
+      environment_url:
+        value: ${{ jobs.deploy.outputs.environment_url }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      environment_url: ${{ steps.output.outputs.environment_url }}
+    steps:
+      - name: Checkout code
+        if: inputs.branch_exists == 'true'
+        uses: actions/checkout@v4
+
+      - name: Install rsync
+        if: inputs.branch_exists == 'true'
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Setup SSH
+        if: inputs.branch_exists == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Check environment readiness
+        if: inputs.branch_exists == 'true'
+        id: readiness
+        run: |
+          # Detect whether the ephemeral environment is already healthy so a
+          # push can rebuild only the app containers with the new code.
+          SLUG="${{ inputs.branch_slug }}"
+          API_PORT="${{ inputs.api_port }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          HEALTHY=$(ssh -o LogLevel=ERROR ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << READYEOF || true
+            # Check if compose project exists and has running containers
+            RUNNING=\$(docker compose -p "{{project_name}}-$SLUG" ps --status running -q 2>/dev/null | wc -l)
+            if [ "\$RUNNING" -lt 1 ]; then
+              echo "NOT_RUNNING"
+              exit 0
+            fi
+            # Verify health endpoint responds
+            STATUS=\$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:$API_PORT/api/health 2>/dev/null || echo "000")
+            if [ "\$STATUS" != "200" ]; then
+              echo "UNHEALTHY"
+              exit 0
+            fi
+            # Verify filesystem state — fast-path assumes these files exist.
+            if [ ! -d ~/{{project_name}}-ephemeral/$SLUG ]; then
+              echo "NOT_PROVISIONED"
+            elif [ ! -f ~/{{project_name}}-ephemeral/$SLUG/.env ]; then
+              echo "NOT_PROVISIONED"
+            elif [ ! -f ~/{{project_name}}-ephemeral/$SLUG/docker-compose.ephemeral.yml ]; then
+              echo "NOT_PROVISIONED"
+            else
+              echo "HEALTHY"
+            fi
+          READYEOF
+          )
+
+          # Extract just the last line — SSH MOTD banners pollute earlier lines
+          HEALTHY=$(echo "$HEALTHY" | tail -1 | tr -d '[:space:]')
+
+          if [ "$HEALTHY" = "HEALTHY" ]; then
+            echo "fast_path=true" >> "$GITHUB_OUTPUT"
+            echo "Environment already running and healthy — using fast-path rebuild"
+          else
+            echo "fast_path=false" >> "$GITHUB_OUTPUT"
+            echo "Environment not ready ($HEALTHY) — using full provisioning path"
+          fi
+
+      - name: Create ephemeral directory
+        if: inputs.branch_exists == 'true' && steps.readiness.outputs.fast_path != 'true'
+        run: |
+          SLUG="${{ inputs.branch_slug }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          ssh ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" "mkdir -p ~/{{project_name}}-ephemeral/$SLUG"
+
+      - name: Rsync app and docker-compose
+        if: inputs.branch_exists == 'true'
+        run: |
+          SLUG="${{ inputs.branch_slug }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            app/ \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST":~/{{project_name}}-ephemeral/$SLUG/app/
+
+          rsync -avz \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            docker-compose.yml \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST":~/{{project_name}}-ephemeral/$SLUG/
+
+      - name: Configure .env with port overrides
+        if: inputs.branch_exists == 'true' && steps.readiness.outputs.fast_path != 'true'
+        run: |
+          SLUG="${{ inputs.branch_slug }}"
+          API_PORT="${{ inputs.api_port }}"
+          WEB_PORT="${{ inputs.web_port }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          ssh ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << ENVEOF
+            set -e
+            # Copy production .env as base
+            cp ~/{{project_name}}-app/.env ~/{{project_name}}-ephemeral/$SLUG/.env
+            # Remove host-level port overrides — container uses internal port ({{api_port}}),
+            # docker compose maps host port externally. CORS needs the public subdomain.
+            sed -i '/^{{PROJECT_NAME_UPPER}}_PORT=/d' ~/{{project_name}}-ephemeral/$SLUG/.env
+            sed -i '/^{{PROJECT_NAME_UPPER}}_CORS_ORIGINS=/d' ~/{{project_name}}-ephemeral/$SLUG/.env
+            echo "{{PROJECT_NAME_UPPER}}_CORS_ORIGINS=https://$SLUG.{{domain}}" >> ~/{{project_name}}-ephemeral/$SLUG/.env
+          ENVEOF
+
+      - name: Generate ephemeral compose file
+        if: inputs.branch_exists == 'true' && steps.readiness.outputs.fast_path != 'true'
+        run: |
+          SLUG="${{ inputs.branch_slug }}"
+          API_PORT="${{ inputs.api_port }}"
+          WEB_PORT="${{ inputs.web_port }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          ssh ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" "cat > ~/{{project_name}}-ephemeral/$SLUG/docker-compose.ephemeral.yml" << COMPOSE_EOF
+          services:
+            api:
+              build:
+                context: ./app
+                dockerfile: Dockerfile
+              ports:
+                - "${API_PORT}:{{api_port}}"
+              volumes:
+                - {{project_name}}-data:/app/data
+              env_file:
+                - .env
+              networks:
+                - app-network
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:{{api_port}}/api/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+                start_period: 30s
+              restart: unless-stopped
+
+            web:
+              build:
+                context: ./app/web
+                # next.config.ts evaluates rewrites() at build time when
+                # output:'standalone' is set, so the /api/* proxy
+                # destination must be a build ARG. The webapp Dockerfile
+                # is expected to declare ARG API_URL / ENV API_URL=$API_URL
+                # before `npm run build` to bake this into the build.
+                args:
+                  API_URL: http://api:{{api_port}}
+              ports:
+                - "${WEB_PORT}:{{web_port}}"
+              depends_on:
+                - api
+              environment:
+                - API_URL=http://api:{{api_port}}
+              networks:
+                - app-network
+              healthcheck:
+                test: ["CMD", "node", "-e", "require('http').get('http://localhost:{{web_port}}/', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+                start_period: 30s
+              restart: unless-stopped
+
+          networks:
+            app-network:
+              driver: bridge
+
+          volumes:
+            {{project_name}}-data:
+          COMPOSE_EOF
+
+      - name: Check for port collision
+        if: inputs.branch_exists == 'true' && steps.readiness.outputs.fast_path != 'true'
+        id: collision
+        run: |
+          # Detect if another ephemeral environment already occupies the same
+          # computed port offset. Two different slugs hashing to the same offset
+          # would bind to the same container ports.
+          SLUG="${{ inputs.branch_slug }}"
+          WEB_PORT="${{ inputs.web_port }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          set -o pipefail
+          if collision_output=$(ssh -o LogLevel=ERROR ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << COLLEOF
+            # List all running ephemeral compose projects and check for port overlap
+            for dir in ~/{{project_name}}-ephemeral/*/; do
+              [ -d "\$dir" ] || continue
+              OTHER_SLUG=\$(basename "\$dir")
+              [ "\$OTHER_SLUG" = "$SLUG" ] && continue
+              # Check if this other project has a running container on our web port
+              if docker ps --filter "name={{project_name}}-\${OTHER_SLUG}" --format '{{`{{.Ports}}`}}' 2>/dev/null | grep -q ":${WEB_PORT}->"; then
+                echo "COLLISION:\$OTHER_SLUG"
+                break
+              fi
+            done
+          COLLEOF
+          ); then
+            COLLISION=$(printf '%s\n' "$collision_output" | grep '^COLLISION:' | head -1 | sed 's/^COLLISION://' || true)
+          else
+            collision_rc=$?
+            echo "::error::Port collision check failed before deployment."
+            exit "$collision_rc"
+          fi
+
+          if [ -n "$COLLISION" ]; then
+            echo "::error::Port collision detected! Slug '$SLUG' (port $WEB_PORT) conflicts with active environment '$COLLISION' using the same port."
+            echo "Two branch slugs hash to the same port offset. Options:"
+            echo "  - Tear down the conflicting environment first"
+            echo "  - Rename your branch to get a different hash"
+            exit 1
+          fi
+          echo "No port collision detected."
+
+      - name: Deploy ephemeral environment (full)
+        if: inputs.branch_exists == 'true' && steps.readiness.outputs.fast_path != 'true'
+        run: |
+          # Cached-first cold path — match production/hotfix deployment policy.
+          # Use a light prune plus incremental build first, then fall back to
+          # aggressive prune + --no-cache only if the build actually fails.
+          SLUG="${{ inputs.branch_slug }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          ssh ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << DEPLOY_EOF
+            set -e
+            cd ~/{{project_name}}-ephemeral/$SLUG
+            if [ ! -f docker-compose.ephemeral.yml ]; then
+              echo "docker-compose.ephemeral.yml not found — skipping deploy"
+              exit 0
+            fi
+            docker builder prune -f --filter "until=6h"
+            docker image prune -f
+            if ! docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" build; then
+              echo "Ephemeral build failed — pruning all Docker cache and retrying with --no-cache..."
+              docker builder prune -af
+              docker image prune -f
+              docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" build --no-cache
+            fi
+            docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" up -d
+          DEPLOY_EOF
+
+      - name: Deploy ephemeral environment (fast-path rebuild)
+        if: inputs.branch_exists == 'true' && steps.readiness.outputs.fast_path == 'true'
+        run: |
+          # Fast-path: the environment is already running and healthy. Skip
+          # builder prune and --no-cache because the updated code was just
+          # rsynced in the previous step.
+          SLUG="${{ inputs.branch_slug }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          echo "::notice::Fast-path rebuild — skipping infrastructure setup (DNS, TLS, nginx, .env, compose file)"
+          ssh ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << FASTEOF
+            set -e
+            cd ~/{{project_name}}-ephemeral/$SLUG
+            if [ ! -f docker-compose.ephemeral.yml ]; then
+              echo "docker-compose.ephemeral.yml not found — skipping fast-path rebuild"
+              exit 0
+            fi
+            docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" build
+            docker compose -f docker-compose.ephemeral.yml -p "{{project_name}}-$SLUG" up -d
+          FASTEOF
+
+      - name: Health check
+        if: inputs.branch_exists == 'true'
+        run: |
+          API_PORT="${{ inputs.api_port }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+          TIMEOUT=120
+          ELAPSED=0
+          INTERVAL=5
+
+          echo "Waiting for health check at $HOST:$API_PORT..."
+          while [ "$ELAPSED" -lt "$TIMEOUT" ]; do
+            STATUS=$(ssh ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" "curl -sf -o /dev/null -w '%{http_code}' http://localhost:$API_PORT/api/health 2>/dev/null" || true)
+            STATUS="${STATUS:-000}"
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed after ${ELAPSED}s"
+              exit 0
+            fi
+            echo "Status $STATUS — retrying in ${INTERVAL}s (${ELAPSED}s elapsed)"
+            sleep "$INTERVAL"
+            ELAPSED=$(( ELAPSED + INTERVAL ))
+          done
+          echo "Health check timed out after ${TIMEOUT}s"
+          exit 1
+
+      - name: Set environment URL output
+        if: inputs.branch_exists == 'true'
+        id: output
+        run: |
+          SLUG="${{ inputs.branch_slug }}"
+          echo "environment_url=https://${SLUG}.{{domain}}" >> "$GITHUB_OUTPUT"
+          echo "Environment URL: https://${SLUG}.{{domain}}"
+
+      - name: Assert deployment ran
+        if: always()
+        run: |
+          if [ "${{ inputs.branch_exists }}" != "true" ]; then
+            echo "::warning::Branch no longer exists — skipping ephemeral deploy. This is normal after merge."
+            exit 0
+          fi

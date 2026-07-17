@@ -95,6 +95,40 @@ def test_detect_drift_reports_content_and_membership(tmp_path) -> None:
     assert any("missing packaged file" in d and rel1 in d for d in drift)
 
 
+def test_stray_file_outside_declared_dirs_is_flagged_and_removed(
+    tmp_path,
+) -> None:
+    _seed_sources(tmp_path)
+    sync(target_root=tmp_path)
+    packaged = tmp_path / sync_mod.PACKAGED_TREE_REL
+    stray = packaged / "not-a-source-dir" / "junk.md"
+    stray.parent.mkdir(parents=True)
+    stray.write_text("outside every declared subtree\n", encoding="utf-8")
+
+    drift = detect_drift(target_root=tmp_path)
+
+    assert any(
+        "stray packaged file" in d and "not-a-source-dir/junk.md" in d
+        for d in drift
+    )
+    report = sync(target_root=tmp_path)
+    assert "not-a-source-dir/junk.md" in report["removed"]
+    assert not stray.exists()
+    assert detect_drift(target_root=tmp_path) == []
+
+
+def test_packaged_tree_package_marker_is_not_stray(tmp_path) -> None:
+    _seed_sources(tmp_path)
+    sync(target_root=tmp_path)
+    packaged = tmp_path / sync_mod.PACKAGED_TREE_REL
+    marker = packaged / "__init__.py"
+    marker.write_text("", encoding="utf-8")
+
+    assert detect_drift(target_root=tmp_path) == []
+    assert sync(target_root=tmp_path) == {"written": [], "removed": []}
+    assert marker.is_file()
+
+
 def test_dry_run_writes_nothing(tmp_path) -> None:
     _seed_sources(tmp_path)
 

@@ -20,7 +20,7 @@ The Engineer prompt template surfaces this block under the heading `Anticipated 
 
 ## 5m. Ouroboros Reflection Capture
 
-**Claude (primary harness): captured automatically by the PostToolUse Agent-tool hook** at `runtime/api/domain/reflection_capture_hook.py`. No skill-body action required — the hook reads the subagent's full `tool_response`, runs the multi-shape parser, persists entries to `ouroboros_entries`, and emits `ReflectionCaptureHookFired` (always) plus `ReflectionCaptureHookUnhandled` (when an unrecognized shape appears).
+**Claude (primary harness): captured automatically by the PostToolUse Agent-tool hook** at `yoke_core.domain.reflection_capture_hook`. No skill-body action required — the hook reads the subagent's full `tool_response`, runs the multi-shape parser, persists entries to `ouroboros_entries`, and emits `ReflectionCaptureHookFired` (always) plus `ReflectionCaptureHookUnhandled` (when an unrecognized shape appears).
 
 **Codex (parity capture): subagent dispatch is the custom-agent path** (`.codex/agents/yoke-*.toml`), not an in-process `Agent` tool call. The PostToolUse `Agent` matcher does not fire on Codex. When `$YOKE_EXECUTOR=codex` AND the conduct session has just received a subagent response, run the operator/debug CLI to capture the reflection block before continuing the next step:
 

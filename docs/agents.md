@@ -284,6 +284,6 @@ All 7 agents have an `## Ouroboros -- End-of-Session Reflection` section at the 
 
 **How it works:**
 - Each agent answers 4 reflection questions at session end: problems encountered, process improvement ideas, game-changing feature ideas, and cross-critique observations about other agents' work
-- **All agents use hook-captured reflection semantics.** Each agent includes reflections in its final response using `---REFLECTION-START---` / `---REFLECTION-END---` delimiters with `---BEGIN ENTRY---` / `---END ENTRY---` blocks inside. The PostToolUse Agent-tool hook (`runtime/api/domain/reflection_capture_hook.py`) captures these blocks automatically when the subagent's `Agent` tool call returns and persists them to `ouroboros_entries`. No agent writes directly to the DB.
+- **All agents use hook-captured reflection semantics.** Each agent includes reflections in its final response using `---REFLECTION-START---` / `---REFLECTION-END---` delimiters with `---BEGIN ENTRY---` / `---END ENTRY---` blocks inside. The PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`) captures these blocks automatically when the subagent's `Agent` tool call returns and persists them to `ouroboros_entries`. No agent writes directly to the DB.
 - **`yoke/ouroboros/log.md` has been removed** — all observations go to the DB via the hook-captured reflection surface.
 - `/yoke curate` reads from the `ouroboros_entries` table -- clustering, ticketing, archiving, and promoting patterns

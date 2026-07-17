@@ -1,8 +1,9 @@
 """Session lifecycle tests: end_session(release_claims=True) branch.
 
 Split from test_sessions_lifecycle_active_claim.py to keep authored
-files under the 350-line cap. Covers the destructive guard's
-release / defer outcomes and the chain-override propagation path.
+files under the 350-line cap. Covers the destructive claim-release
+branch, the upstream CHAIN_PENDING gate, and the chain-override
+propagation path.
 """
 
 from __future__ import annotations
@@ -16,10 +17,11 @@ from unittest.mock import patch
 def _age_heartbeat(conn, session_id: str, seconds: int) -> None:
     """Backdate ``last_heartbeat`` on the session and its active claims.
 
-    The destructive guard no longer reads heartbeats — this helper now
-    only feeds the 30-minute stale-session reclaim sweep contract. Tests
-    that need a chain-pending-vs-permanent decision should set up the
-    chain checkpoint directly via ``update_chain_checkpoint``.
+    The destructive branch does not read heartbeats — this helper only
+    feeds the stale-session reclaim sweep contract
+    (``session_stale_ttl_minutes``). Tests that need chain-gate behavior
+    should set up the chain checkpoint directly via
+    ``update_chain_checkpoint``.
     """
     ts = (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat(
         timespec="microseconds"
@@ -61,12 +63,7 @@ class TestSessionEndReleaseClaims:
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_release_claims_true_releases_and_ends(self, mock_emit, conn):
-        """With release_claims=True and no chain pending, claims release and session ends.
-
-        The destructive guard in sessions_lifecycle_destructive_guard now
-        defers only when a chainable checkpoint still has budget. With
-        no chain pending the permanent-end path runs.
-        """
+        """With release_claims=True and no chain pending, claims release and session ends."""
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
         mock_emit.reset_mock()
@@ -205,12 +202,11 @@ class TestSessionEndReleaseClaims:
     def test_release_claims_chain_override_authorized_ends(self, mock_emit, conn):
         """override_chain_end+rationale ends the session even with active claim and pending chain.
 
-        Without the override, the destructive guard's chain_pending branch
-        defers and raises TRANSIENT_END_DEFERRED, stranding the claim.
-        With the override, the chain budget is treated as waived: claims
-        release, the session ends, HarnessSessionEnded carries
-        chain_override_authorized in agent_presence_evidence, and no
-        TRANSIENT_END_DEFERRED is raised.
+        Without the override, the CHAIN_PENDING gate refuses and the
+        claim stays active. With the override, the chain budget is
+        treated as waived: claims release, the session ends, and
+        HarnessSessionEnded carries chain_override_authorized in
+        agent_presence_evidence.
         """
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
