@@ -123,6 +123,25 @@ class TestHandle:
         assert outcome.result_payload["state"] == "passed"
         assert outcome.result_payload["run_id"] == 42
 
+    def test_exact_head_sha_reaches_rest_query(self, monkeypatch, _resolver_ok):
+        calls = []
+
+        def latest(*args, **kwargs):
+            calls.append((args, kwargs))
+            return None
+
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_rest.latest_workflow_run",
+            latest,
+        )
+        outcome = handle_check_ci(_make_request({
+            "repo": "upyoke/yoke", "workflow": "ci.yml",
+            "branch": "main", "head_sha": "deadbeef",
+        }))
+        assert outcome.primary_success
+        assert calls[0][1]["branch"] == "main"
+        assert calls[0][1]["head_sha"] == "deadbeef"
+
     def test_rejects_repo_outside_project_binding(
         self, monkeypatch, _resolver_ok,
     ):

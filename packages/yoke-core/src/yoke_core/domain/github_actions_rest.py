@@ -161,12 +161,21 @@ def latest_workflow_run(
     workflow: str,
     *,
     branch: str,
+    head_sha: str = "",
     token: str,
 ) -> Optional[Dict[str, Any]]:
-    """Return the most recent ``workflow_runs[0]`` dict on a branch, or ``None``."""
+    """Return the most recent matching workflow run, or ``None``.
+
+    ``head_sha`` narrows the branch query to the exact commit being
+    authorized.  Keeping the branch filter as well prevents a commit from a
+    differently named ref from satisfying a branch-bound release policy.
+    """
+    query = {"branch": branch, "per_page": "1"}
+    if head_sha:
+        query["head_sha"] = head_sha
     data = rest_get(
         f"/repos/{repo}/actions/workflows/{workflow}/runs",
-        query={"branch": branch, "per_page": "1"},
+        query=query,
         token=token,
     )
     if not isinstance(data, dict):

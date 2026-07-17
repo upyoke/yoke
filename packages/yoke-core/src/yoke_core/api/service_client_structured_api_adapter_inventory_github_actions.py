@@ -53,10 +53,12 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         function_id="github_actions.check_ci",
         cli_invocation=(
             "yoke github-actions check-ci <owner/repo> "
-            "<workflow-file> --branch main --project <project>"
+            "<workflow-file> --branch main --head-sha <commit-sha> "
+            "--project <project>"
         ),
         notes=(
-            "bearer-token main-branch CI advisory via gh_rest_transport; "
+            "bearer-token branch and exact-commit CI gate via "
+            "gh_rest_transport; "
             "single-shot handler. --wait/--timeout poll CLIENT-side in "
             "the adapter, one dispatch per poll."
         ),

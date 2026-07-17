@@ -202,6 +202,15 @@ class TestLatestWorkflowRun:
             )
         assert result is None
 
+    def test_filters_by_exact_head_sha(self, monkeypatch):
+        with _fake_urls(monkeypatch, [{"workflow_runs": []}]) as calls:
+            github_actions_rest.latest_workflow_run(
+                "o/r", "deploy.yml", branch="main",
+                head_sha="deadbeef", token="ghs_x",
+            )
+        assert "branch=main" in calls[0]
+        assert "head_sha=deadbeef" in calls[0]
+
     def test_propagates_rest_error(self, monkeypatch):
         import urllib.error
 
