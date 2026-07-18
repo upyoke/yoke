@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Composition + batch-compatibility tests for deployment_runs.
-
 Covers cmd_validate_composition and cmd_check_batch_compatibility.
 
 Split from ``test_deployment_runs_full.py``.

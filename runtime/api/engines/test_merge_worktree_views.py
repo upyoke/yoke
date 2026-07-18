@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Tests for merge_worktree: state-dir resolution and view regeneration.
-
 Other merge_worktree tests live in test_merge_worktree.py,
 test_merge_worktree_locks.py, and test_merge_worktree_sync.py.
 

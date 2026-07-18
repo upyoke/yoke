@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """End-to-end regression for the directional path-claim overlap contract.
-
 Covers AC-24: three scenarios for the directional dependency classifier,
 exercised end-to-end across register / classify / repair / activate.
 

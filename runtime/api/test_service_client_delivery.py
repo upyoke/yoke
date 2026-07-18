@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Tests for service_client create-item mutation command.
-
 Split from test_service_client.py. The companion update-item suite
 lives in ``test_service_client_delivery_update.py``. The shared
 ``mutation_db`` fixture lives in

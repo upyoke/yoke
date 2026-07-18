@@ -1,5 +1,5 @@
+# ruff: noqa: F401
 """Shared fixtures for the board renderer test suite."""
-
 from __future__ import annotations
 
 import textwrap

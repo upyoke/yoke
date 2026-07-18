@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Envelope/category coverage for the Python event-emission owner.
-
 These cases exercise CLI-level envelope persistence, source categories,
 and event metadata through ``yoke_core.domain.emit_event``.
 """

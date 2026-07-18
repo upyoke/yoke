@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Project authorization boundary for flow declarations."""
-
 from __future__ import annotations
 
 from yoke_core.domain.project_identity import resolve_project_id

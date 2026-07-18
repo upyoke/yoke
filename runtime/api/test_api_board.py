@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Board endpoint tests and domain-delegation tests for yoke_core.api.main.
-
 Covers the ``/v1/board`` response shape and the API's delegation to the
 domain layer (lifecycle constants, board bucket mapping, approval flow
 resolution).

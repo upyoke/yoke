@@ -1,5 +1,5 @@
+# ruff: noqa: E402, F401, F811
 """Session API tests: CLI dispatch, events, stale reclaim, telemetry, release helpers."""
-
 from __future__ import annotations
 
 import json

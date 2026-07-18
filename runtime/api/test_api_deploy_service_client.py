@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Service-client charge-frontier and charge-schedule tests."""
-
 from __future__ import annotations
 
 import json

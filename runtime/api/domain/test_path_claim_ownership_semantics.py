@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Cross-reader regression suite for typed path-claim ownership semantics.
-
 Locks in AC-12 behavior — covers all three owner kinds plus the
 provenance/authority split:
 

@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Codex runtime-id and post-decision telemetry tests.
-
 Split from ``test_sessions_queries.py``. Covers Codex runtime_session_id
 plumbing into offer envelopes plus the post-decision telemetry surface.
 """

@@ -1,5 +1,5 @@
+# ruff: noqa: F401
 """Event-emission, upsert, and read-helper coverage for db_claim.amend / read_claim.
-
 Validation/atomicity/input-discipline tests live in test_db_claim.py.
 The local ``db_conn`` fixture delegates to the canonical Postgres
 ``test_db`` fixture so this sibling stays self-contained while exercising

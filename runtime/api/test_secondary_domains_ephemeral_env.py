@@ -24,7 +24,7 @@ class TestEphemeralEnv:
         assert status == "running"
 
     def test_update_stopped_auto_timestamp(self, test_db):
-        from yoke_core.domain.ephemeral_env import cmd_create, cmd_get_by_id, cmd_update
+        from yoke_core.domain.ephemeral_env import cmd_create, cmd_update
         rid = cmd_create(test_db, "yoke", "YOK-5")
         result = cmd_update(test_db, int(rid), "status", "stopped")
         assert "stopped_at auto-set" in result
@@ -35,7 +35,7 @@ class TestEphemeralEnv:
         cmd_create(test_db, "yoke", "body-two")
         cmd_create(test_db, "externalwebapp", "body-three")
         result = cmd_list(test_db, project="yoke")
-        lines = [l for l in result.split("\n") if l]
+        lines = [line for line in result.split("\n") if line]
         assert len(lines) == 2
 
     def test_cleanup(self, test_db):

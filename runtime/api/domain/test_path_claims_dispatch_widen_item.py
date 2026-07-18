@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Coverage for ``path-claims widen --item YOK-N`` resolution.
-
 Pins AC-30 behavior: the shared ``cmd_widen`` parser accepts either the
 positional ``claim_id`` or ``--item YOK-N`` (resolves to the one
 non-terminal exclusive claim for that item). Zero matches and multiple

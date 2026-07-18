@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Direct API CRUD tests: insert, severity check, list/count, query builder, prune."""
-
 from __future__ import annotations
 
 import pytest

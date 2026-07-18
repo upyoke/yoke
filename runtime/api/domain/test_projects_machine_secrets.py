@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Tests for machine-local project capability secrets."""
-
 from __future__ import annotations
 
 from yoke_core.domain import json_helper

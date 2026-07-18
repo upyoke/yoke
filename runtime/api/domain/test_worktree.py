@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Tests for yoke_core.domain.worktree — pure parsers and path resolvers.
-
 The original module covered every flavor of the Pythonized worktree lifecycle.
 It is now split across sibling files so each authored file stays under the
 350-line limit. ``create_worktree`` + ``resolve_item_worktree`` integration

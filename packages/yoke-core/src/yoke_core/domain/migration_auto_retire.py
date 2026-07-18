@@ -34,7 +34,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping
 
 from yoke_core.domain.events import emit_event
 from yoke_core.domain import db_backend

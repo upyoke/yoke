@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Parity tests — Group 2: board projection (bucket classification, stats).
-
 Splits the Group 2 board-projection coverage out of
 :mod:`runtime.api.test_parity_render`, which keeps Group 1 (filtered
 item reads).

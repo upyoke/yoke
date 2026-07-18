@@ -148,7 +148,7 @@ class TestActiveQueue:
     def test_excludes_done_cancelled_frozen(self, test_db):
         result = _run_client(["active-queue", "--fields", "id,title,status"], db_path=test_db["db_path"])
         assert result.returncode == 0
-        lines = [l for l in result.stdout.strip().split("\n") if l]
+        lines = [line for line in result.stdout.strip().split("\n") if line]
         # Items 1 (active), 5 (active/externalwebapp) included; 2 (done), 3 (cancelled), 4 (frozen) excluded.
         ids = [line.split("|")[0] for line in lines]
         assert "1" in ids, "Active item should be in queue"
@@ -160,7 +160,7 @@ class TestActiveQueue:
     def test_project_filter(self, test_db):
         result = _run_client(["active-queue", "--project", "externalwebapp", "--fields", "id,title"], db_path=test_db["db_path"])
         assert result.returncode == 0
-        lines = [l for l in result.stdout.strip().split("\n") if l]
+        lines = [line for line in result.stdout.strip().split("\n") if line]
         assert len(lines) == 1
         assert "ExternalWebapp active" in lines[0]
 
@@ -172,7 +172,7 @@ class TestActiveQueue:
     def test_default_fields(self, test_db):
         result = _run_client(["active-queue"], db_path=test_db["db_path"])
         assert result.returncode == 0
-        lines = [l for l in result.stdout.strip().split("\n") if l]
+        lines = [line for line in result.stdout.strip().split("\n") if line]
         assert len(lines) > 0
         # Default fields: id,title,status,priority,type,project
         assert len(lines[0].split("|")) == 6

@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Coverage for the ``path-claims`` CLI dispatcher.
-
 The dispatcher resolves the canonical DB through
 :func:`yoke_core.domain.db_helpers.resolve_db_path`. These tests
 monkeypatch ``_open_conn`` to return the in-memory test connection so

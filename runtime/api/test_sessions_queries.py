@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Session query tests: list, get, query surface, basic offer/ownership.
-
 Sibling modules cover related surfaces:
 
 - ``test_sessions_queries_lanes.py`` — lane filtering and supported_paths.

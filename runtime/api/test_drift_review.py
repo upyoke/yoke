@@ -6,7 +6,6 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.drift_review import (
-    DEFAULT_TRIGGER_THRESHOLD,
     DriftReviewResult,
     _get_checkpoint_start,
     _get_delivered_items,

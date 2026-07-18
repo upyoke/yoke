@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Directional dependency-graph awareness in :func:`classify_overlap`.
-
 The classifier walks ``item_dependencies`` directionally:
 
 * candidate→blocker non-coord edge → ``SERIAL_VIA_DEPENDENCY``

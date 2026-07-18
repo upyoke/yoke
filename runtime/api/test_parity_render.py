@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Parity tests — Group 1: filtered item reads (active queue, status, frozen).
-
 The Group 2 board-projection coverage lives in
 :mod:`runtime.api.test_parity_render_board`.
 """

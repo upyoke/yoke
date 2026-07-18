@@ -12,27 +12,20 @@ from __future__ import annotations
 
 import os
 
-from pathlib import Path
 from unittest.mock import patch
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.engines.doctor import (
-    RecordCollector,
-    _resolve_repo_root,
     hc_arch_consistency,
     hc_backlog_quality,
     hc_config_validation,
     hc_schema_script_sync,
     hc_stale_body,
-    hc_stray_db,
-    hc_stray_project_files,
     hc_template_project_drift,
 )
 
 from yoke_core.engines._doctor_filesystem_full_test_helpers import (
-    _args,
-    _cp,
     _make_conn,
     _run_hc,
 )

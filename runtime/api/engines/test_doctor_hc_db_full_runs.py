@@ -7,7 +7,6 @@ Schema scaffolding shared via _doctor_hc_db_full_test_helpers (private module).
 
 from __future__ import annotations
 
-from unittest.mock import patch
 
 from yoke_core.engines.doctor import (
     hc_deploy_stage_integrity,
@@ -18,17 +17,10 @@ from yoke_core.engines.doctor import (
 )
 from runtime.api.conftest import (
     insert_deployment_run,
-    insert_event,
     insert_item,
-    insert_qa_requirement,
-    insert_qa_run,
 )
-from yoke_core.domain.db_helpers import iso8601_now
 
 from yoke_core.engines._doctor_hc_db_full_test_helpers import (
-    _add_deployment_preview_environments_table,
-    _add_ephemeral_environments_table,
-    _default_args,
     _result,
     _run_hc,
 )

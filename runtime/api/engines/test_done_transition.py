@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Tests for the done-transition Python engine: transition mechanics.
-
 Gates and CLI tests live in test_done_transition_gates.py.
 Post-transition (cleanup, cascade, merge) tests live in
 test_done_transition_post.py.

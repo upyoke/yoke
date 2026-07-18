@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Coverage for ambient item ownership on path-claim mutations.
-
 Mutating ``path-claims`` subcommands must refuse non-holder sessions.
 Read-only subcommands remain callable for coordination inspection.
 The guard reads the ambient harness session from the env-var chain.

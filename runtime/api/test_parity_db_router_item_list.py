@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Parity tests — item-list and item-count CLI commands."""
-
 from __future__ import annotations
 
 import os

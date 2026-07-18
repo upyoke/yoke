@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Coverage for the item-facing path-claim registration on-ramp."""
-
 from __future__ import annotations
 
 import pytest

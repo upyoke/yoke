@@ -13,7 +13,6 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, List
-from unittest import mock
 
 import pytest
 

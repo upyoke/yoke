@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Backlog create/update validation against the deployment_flows registry."""
-
 from __future__ import annotations
 
 import io

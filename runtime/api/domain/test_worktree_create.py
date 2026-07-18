@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """worktree — create_worktree + resolve_item_worktree integration coverage.
-
 Split out of ``test_worktree.py`` to keep authored files under the 350-line
 limit. Multi-worktree creator coverage lives in
 ``test_worktree_create_multiworktree.py``.

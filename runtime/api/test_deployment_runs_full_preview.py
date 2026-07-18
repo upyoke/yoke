@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Preview-environment + cancellation tests for deployment_runs.
-
 Covers cmd_preview_check, cmd_preview_claim, cmd_preview_release,
 cmd_check_preview_occupancy, cmd_claim_preview, cmd_can_cleanup_preview,
 cmd_resolve_target_env, plus terminal cancelled status.

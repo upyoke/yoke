@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Coverage for symlink-canonicalization event emission.
-
 The events ride on the canonical :func:`yoke_core.domain.events.emit_event`
 path. These tests assert payload shape, severity, and claim_id presence
 when registration successfully pairs a symlink with its canonical

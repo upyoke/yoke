@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import List
 
 import pytest
 
@@ -113,7 +113,7 @@ class TestSeed:
         assert "always" in yoke_keys
 
     def test_seed_is_idempotent(self, initialized_db: str):
-        first = ps.cmd_seed("yoke", db_path=initialized_db)
+        ps.cmd_seed("yoke", db_path=initialized_db)
         second = ps.cmd_seed("yoke", db_path=initialized_db)
         assert second["applied_ops"] == []
 
@@ -190,6 +190,7 @@ class TestCli:
         )
         assert rc == 0
         data = json.loads(capsys.readouterr().out)
+        assert len(data["applied_ops"]) == 1
 
     def test_seed_cli_is_idempotent(
         self, initialized_db: str, monkeypatch, capsys
@@ -200,11 +201,7 @@ class TestCli:
         assert rc2 == 0
         # Second output signals the noop.
         out = capsys.readouterr().out
-        # The last JSON doc is the second seed call.
-        tail = json.loads(out.strip().split("\n}\n")[-1]
-                           if "\n}\n" in out else out.split("{", 1)[-1].rsplit("}", 1)[0].join(["{", "}"]))
-        # Fallback simpler: just parse the concatenated output and confirm
-        # the second "applied_ops" is empty.
+        # Parse the concatenated output and confirm the second call is a no-op.
         blocks = [json.loads(b) for b in _split_json_blocks(out)]
         assert blocks[-1]["applied_ops"] == []
 

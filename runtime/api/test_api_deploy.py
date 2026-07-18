@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Deploy/charge-frontier tests extracted from test_api.py."""
-
 from __future__ import annotations
 
 import pytest

@@ -23,7 +23,6 @@ from yoke_harness.hooks.identity import (
 from yoke_core.api.service_client_shared import (
     _get_config_path,
     _get_db_readwrite,
-    _get_db_readonly,
     SessionError,
     SessionOffer,
     emit_next_action_chosen,

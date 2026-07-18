@@ -7,9 +7,6 @@ helpers that surface in the board header.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-
-UTC = timezone.utc
-
 from yoke_contracts.board.config import BoardConfig
 from yoke_core.board.db import BoardDB
 from yoke_contracts.board.widgets import (
@@ -24,6 +21,8 @@ from runtime.api.board.tests.conftest import (
     insert_item_raw,
     insert_transition,
 )
+
+UTC = timezone.utc
 
 
 def _now_iso() -> str:

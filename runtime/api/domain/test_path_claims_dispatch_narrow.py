@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Coverage for the ``path-claims narrow`` dispatch handler.
-
 Pins the explicit ``--drop-paths`` / ``--keep-paths`` flag pair, the
 mutual-exclusivity rejection, the bare ``--paths`` rejection, and the
 keep-set translation that converts kept paths into the equivalent

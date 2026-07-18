@@ -1,10 +1,10 @@
+# ruff: noqa: F401, F811
 """Regression coverage for ``workspace_authority``: matching-claim /
 mismatched-target / no-worktree-claims / no-claims / free-path /
 multi-claim / explicit-session-id / DB-unavailable resolution branches
 + seed-source coupling checks. Synthetic ``/opt/...`` paths avoid the
 ``/var/folders`` free-path allowlist that authorises pytest's ``tmp_path``
 on macOS."""
-
 from __future__ import annotations
 
 from pathlib import Path

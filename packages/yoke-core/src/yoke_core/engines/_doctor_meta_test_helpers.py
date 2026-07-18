@@ -1,5 +1,5 @@
+# ruff: noqa: F401
 """Shared module-level helpers for doctor_meta test files.
-
 Underscore prefix keeps pytest from collecting this as a test module.
 Used by test_doctor_meta.py and its split siblings (project, lifecycle).
 

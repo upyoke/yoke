@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Ambient sibling-claim view coverage."""
-
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

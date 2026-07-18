@@ -15,7 +15,6 @@ from runtime.api.fixtures.migration_model_test import governed_postgres_test_see
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.worktree_validation_surface import (
     CANONICAL_YOKE_DB_ENV,
-    ProvisionResult,
     prompt_env_var_bindings,
     provision_validation_surfaces,
     resolve_validation_db_paths,

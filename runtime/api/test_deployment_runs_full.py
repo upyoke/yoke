@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Comprehensive pytest suite for yoke_core.domain.deployment_runs.
-
 Covers core commands: init, next-id, create-run, add-item, remove-item,
 get, update.
 
