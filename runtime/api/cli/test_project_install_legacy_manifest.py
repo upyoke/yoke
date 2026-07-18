@@ -28,7 +28,7 @@ def test_refresh_discards_noncanonical_prior_strategy_record(tmp_path) -> None:
     repo.mkdir()
     manifest_path = project_install_files.write_manifest(repo, _manifest())
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    inert_path = ".retired/strategy/MISSION.md"
+    inert_path = ".retired/planning/MISSION.md"
     manifest["strategy_files"][inert_path] = "2" * 64
     manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
     inert_file = repo / inert_path
@@ -48,7 +48,7 @@ def test_new_manifest_write_keeps_strategy_paths_strict(tmp_path) -> None:
     repo = tmp_path / "external-project"
     repo.mkdir()
     unsafe = _manifest(
-        strategy_files={".legacy/strategy/MISSION.md": "3" * 64}
+        strategy_files={".legacy/planning/MISSION.md": "3" * 64}
     )
 
     with pytest.raises(

@@ -90,7 +90,7 @@ def test_preview_reports_discarded_inert_legacy_records(
     manifest_path = target / ".yoke/install-manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     contract_path = ".legacy/project.config"
-    strategy_path = ".legacy/strategy/MISSION.md"
+    strategy_path = ".legacy/planning/MISSION.md"
     manifest["contract_files"][contract_path] = "4" * 64
     manifest["strategy_files"][strategy_path] = "5" * 64
     manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
