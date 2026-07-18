@@ -165,7 +165,7 @@ SEED_FLOWS = [
         ),
         "on_failure": "halt",
         "target_env": "production",
-        "status": FLOW_STATUS_ACTIVE,
+        "status": FLOW_STATUS_DISABLED,
         "done_description": "Yoke release completed through the hosted production train",
     },
     {

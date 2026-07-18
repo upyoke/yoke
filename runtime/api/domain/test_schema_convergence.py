@@ -150,7 +150,7 @@ def test_converge_adds_flow_status_and_missing_builtin_definitions(
                 "JOIN projects p ON p.id = df.project_id "
                 "WHERE df.id = 'yoke-hosted-production'"
             ).fetchone()
-            assert row == {"status": "active", "project": "yoke"}
+            assert row == {"status": "disabled", "project": "yoke"}
         finally:
             conn.close()
 

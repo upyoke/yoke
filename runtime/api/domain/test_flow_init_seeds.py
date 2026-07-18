@@ -47,10 +47,6 @@ class TestSeedFlows:
                 "normal", True,
             ),
             (
-                "yoke-hosted-production", "yoke", ["production"],
-                "normal", True,
-            ),
-            (
                 "yoke-hosted-production-hotfix-no-ci-gate", "yoke",
                 ["production"], "hotfix", True,
             ),
@@ -82,6 +78,7 @@ class TestSeedFlows:
                 assert stage["dispatch_correlation_input"] == "yoke_dispatch_id"
 
         assert by_id["platform-production"]["status"] == "disabled"
+        assert by_id["yoke-hosted-production"]["status"] == "disabled"
 
     def test_yoke_immediate_flows_skip_ci_without_rewriting_history(self):
         by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
@@ -193,9 +190,13 @@ class TestSeedFlowsRequireProjects:
                 conn.commit()
                 flow_cmd_init(conn)
                 rows = conn.execute(
-                    "SELECT id, project_id FROM deployment_flows ORDER BY id"
+                    "SELECT id, project_id, status "
+                    "FROM deployment_flows ORDER BY id"
                 ).fetchall()
-                by_id = {str(r[0]): int(r[1]) for r in rows}
+                by_id = {
+                    str(row[0]): (int(row[1]), str(row[2]))
+                    for row in rows
+                }
                 assert set(by_id) == {f["id"] for f in _SEED_FLOWS}
                 for flow in _SEED_FLOWS:
                     expected = {
@@ -203,7 +204,8 @@ class TestSeedFlowsRequireProjects:
                         "buzz": 42,
                         "platform": 43,
                     }[flow["project"]]
-                    assert by_id[str(flow["id"])] == expected
+                    assert by_id[str(flow["id"])][0] == expected
+                assert by_id["yoke-hosted-production"][1] == "disabled"
                 buzz_stages = json.loads(conn.execute(
                     "SELECT stages FROM deployment_flows "
                     "WHERE id = 'buzz-production-release'"
