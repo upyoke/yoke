@@ -418,6 +418,7 @@ class Installer:
         # audit verifies it stays inert — the client must hold product-API
         # authority, never local source-dev/admin authority.
         runtime = status.get("runtime") if isinstance(status, dict) else None
+        _verify_product_package_presence(runtime)
         if expected_version:
             _verify_product_package_versions(runtime, expected_version)
         connection = status.get("connection") if isinstance(status, dict) else None
@@ -489,6 +490,31 @@ def _verify_product_package_versions(
         raise InstallError(
             "product-boundary audit failed: installed Yoke package versions "
             f"do not match channel version {expected_version}: " + ", ".join(mismatched)
+        )
+
+
+def _verify_product_package_presence(runtime: object) -> None:
+    """Require every package needed by installed hooks and product commands."""
+    if not isinstance(runtime, dict):
+        raise InstallError(
+            "product-boundary audit failed: `yoke status --json` did not "
+            "report runtime package versions."
+        )
+    raw_versions = runtime.get("package_versions")
+    if not isinstance(raw_versions, dict):
+        raise InstallError(
+            "product-boundary audit failed: `yoke status --json` did not "
+            "report runtime package versions."
+        )
+    missing = [
+        package
+        for package in (PRODUCT_PACKAGE, *LOCKSTEP_PRODUCT_PACKAGES)
+        if not raw_versions.get(package)
+    ]
+    if missing:
+        raise InstallError(
+            "product-boundary audit failed: installed Yoke product packages "
+            "are incomplete: " + ", ".join(missing)
         )
 
 

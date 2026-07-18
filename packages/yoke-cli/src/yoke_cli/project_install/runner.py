@@ -54,6 +54,7 @@ _MANIFEST_OWNED_KEYS = frozenset({
     "manifest_schema",
     "yoke_version",
     "project_id",
+    "project_slug",
     MODE_KEY,
     "files",
     "contract_files",
@@ -84,6 +85,7 @@ def install(
         f"({reason})",
         file=sys.stderr,
     )
+    git_hooks_layer.assert_pre_commit_runtime_available()
     resolved_id, explicit_given = _resolve_project_id(
         root, project_id, config_path
     )
@@ -128,10 +130,17 @@ def apply_bundle(
     *,
     operation: str = "install",
     source: str = "in-process",
+    prior_manifest: Dict[str, Any] | None = None,
+    preserved_manifest_files: Dict[str, str] | None = None,
 ) -> Dict[str, Any]:
     """Apply a resolved bundle to ``repo_root`` (the network-free core)."""
     _validate_bundle(bundle)
-    old_manifest = files_layer.load_manifest(repo_root) or {}
+    git_hooks_layer.assert_pre_commit_runtime_available()
+    old_manifest = (
+        prior_manifest
+        if prior_manifest is not None
+        else files_layer.load_manifest(repo_root) or {}
+    )
     bundle_files: List[Dict[str, str]] = bundle["files"]
     files_layer.assert_safe_bundle_paths(e["path"] for e in bundle_files)
     contract_files: List[Dict[str, str]] = (
@@ -142,8 +151,18 @@ def apply_bundle(
     strategy_layer.assert_safe_strategy_paths(
         e["path"] for e in strategy_files
     )
+    preserved_files = dict(preserved_manifest_files or {})
+    files_layer.assert_safe_bundle_paths(preserved_files)
+    rendered_paths = {entry["path"] for entry in bundle_files}
+    overlap = sorted(rendered_paths & set(preserved_files))
+    if overlap:
+        raise ProjectInstallError(
+            "preserved manifest files overlap rendered bundle paths: "
+            + ", ".join(overlap)
+        )
 
     hashes, written = files_layer.apply_files(repo_root, bundle_files)
+    hashes.update(preserved_files)
     pruned, skipped, warnings = files_layer.prune_files(
         repo_root, dict(old_manifest.get("files") or {}), hashes
     )
@@ -212,6 +231,7 @@ def apply_bundle(
         "manifest_schema": files_layer.MANIFEST_SCHEMA,
         "yoke_version": bundle["yoke_version"],
         "project_id": bundle["project_id"],
+        "project_slug": bundle["project_slug"],
         MODE_KEY: MODE_COPY,
         "files": hashes,
         "contract_files": contract_map,
@@ -232,6 +252,7 @@ def apply_bundle(
         "files_unchanged": len(hashes) - len(written),
         "files_pruned": pruned,
         "files_skipped_modified": skipped,
+        "files_preserved_unrendered": sorted(preserved_files),
         "contract_files_written": contract_written,
         "contract_files_existing": contract_existing,
         "contract_files_adopted": contract_adopted,

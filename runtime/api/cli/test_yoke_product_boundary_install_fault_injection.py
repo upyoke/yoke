@@ -65,6 +65,32 @@ class _BundleServer:
             self._thread.join(timeout=5)
 
 
+def test_project_install_refuses_missing_hook_runtime_before_repo_writes(
+    tmp_path: Path,
+) -> None:
+    checkout = tmp_path / "external-project"
+    checkout.mkdir()
+    (checkout / ".git" / "hooks").mkdir(parents=True)
+    (checkout / "README.md").write_text("# external\n", encoding="utf-8")
+
+    install = _run_product_cli(
+        tmp_path,
+        [
+            "project", "install", str(checkout),
+            "--project-id", str(PROJECT_ID),
+        ],
+        include_harness=False,
+        client_cwd=checkout,
+    )
+
+    assert install.returncode == 1
+    assert "requires the yoke-harness product package" in install.stderr
+    assert "public installer" in install.stderr
+    assert not (checkout / ".yoke/install-manifest.json").exists()
+    assert not (checkout / ".git/hooks/pre-commit").exists()
+    assert not (checkout / ".codex").exists()
+
+
 def test_project_install_https_external_repo_stays_product_client_only(
     tmp_path: Path,
 ) -> None:

@@ -334,3 +334,84 @@ def test_local_only_dispatch_fails_closed_when_core_authority_is_blocked(
     assert run.boundary["forbidden_loaded"] == []
     assert run.boundary["caught"] is None
     assert "Traceback" not in run.stderr
+
+
+def test_ordinary_packaged_refresh_does_not_import_core(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "external-project"
+    target.mkdir()
+    run = _run_product_cli(
+        tmp_path,
+        [
+            "project", "refresh", str(target), "--project-id", "7",
+            "--config", str(tmp_path / "home/.yoke/config.json"),
+        ],
+        config_payload={
+            "schema_version": 1,
+            "active_env": "product",
+            "connections": {
+                "product": {
+                    "transport": "https",
+                    "api_url": "http://127.0.0.1:1",
+                    "credential_source": {
+                        "kind": "token_env",
+                        "env_var": "YOKE_TEST_TOKEN",
+                    },
+                },
+            },
+        },
+    )
+
+    assert run.returncode == 1
+    assert "yoke_core" not in run.boundary["blocked_attempts"]
+    assert not any(
+        str(name).startswith("yoke_core.")
+        for name in run.boundary["blocked_attempts"]
+    )
+    assert run.boundary["forbidden_loaded"] == []
+    assert not (target / ".yoke/install-manifest.json").exists()
+
+
+def test_status_fails_when_hook_runtime_package_is_missing(
+    tmp_path: Path,
+) -> None:
+    run = _run_product_cli(
+        tmp_path,
+        ["status", "--json"],
+        include_harness=False,
+    )
+
+    report = json.loads(run.stdout)
+    assert run.returncode == 1
+    assert any(
+        issue["code"] == "import_missing"
+        and "yoke_harness" in issue["message"]
+        for issue in report["issues"]
+    )
+
+
+def test_source_refresh_preview_diagnoses_without_hook_runtime(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "external-project"
+    target.mkdir()
+    run = _run_product_cli(
+        tmp_path,
+        [
+            "project", "refresh", str(target),
+            "--source-checkout", str(REPO_ROOT),
+            "--project-id", "8",
+            "--project-slug", "preview-project",
+            "--json",
+        ],
+        include_harness=False,
+    )
+
+    assert run.returncode == 0, run.stderr
+    report = json.loads(run.stdout)
+    assert report["preview"] is True
+    assert report["target_writes"] is False
+    assert run.boundary["blocked_attempts"] == []
+    assert run.boundary["forbidden_loaded"] == []
+    assert not (target / ".yoke/install-manifest.json").exists()

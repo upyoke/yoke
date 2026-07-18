@@ -80,6 +80,27 @@ _MARKER_BY_HOOK = {
 }
 
 
+def assert_pre_commit_runtime_available() -> None:
+    """Fail before project writes when the installed gate cannot import."""
+    try:
+        from yoke_harness.git_hooks.pre_commit import run as _run
+    except ImportError as exc:
+        from yoke_cli.project_install.files import ProjectInstallError
+
+        raise ProjectInstallError(
+            "project install requires the yoke-harness product package before "
+            "it can install the pre-commit shim; repair the machine CLI with "
+            f"the public installer ({exc})"
+        ) from exc
+    if not callable(_run):
+        from yoke_cli.project_install.files import ProjectInstallError
+
+        raise ProjectInstallError(
+            "the installed yoke-harness pre-commit entrypoint is not callable; "
+            "repair the machine CLI with the public installer"
+        )
+
+
 @dataclass
 class BootstrapResult:
     """Tally + human-readable action lines for the install report."""
@@ -193,6 +214,7 @@ __all__ = [
     "POST_COMMIT_MARKER",
     "POST_COMMIT_SHIM",
     "BootstrapResult",
+    "assert_pre_commit_runtime_available",
     "install_git_hook",
     "install_git_hooks",
     "install_pre_commit_hook",

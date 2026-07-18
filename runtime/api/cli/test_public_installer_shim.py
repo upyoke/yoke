@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 INSTALL_SHIM = REPO_ROOT / "packaging" / "public-installer" / "install"
@@ -120,6 +122,20 @@ def test_python_helper_prefers_uv_tool_bin_dir_for_installed_yoke(
     )
 
     assert installer._resolve_installed_yoke_bin() == str(yoke)  # noqa: SLF001
+
+
+def test_product_audit_rejects_missing_hook_runtime_package() -> None:
+    install_py = _load_install_py()
+
+    with pytest.raises(install_py.InstallError, match="yoke-harness"):
+        install_py._verify_product_package_presence({  # noqa: SLF001
+            "package_versions": {
+                "yoke-cli": "1.2.3",
+                "yoke-contracts": "1.2.3",
+                "yoke-harness": "",
+                "yoke-core": "1.2.3",
+            }
+        })
 
 
 def _installer_env(tmp_path: Path, *, with_fake_curl: bool) -> dict[str, str]:

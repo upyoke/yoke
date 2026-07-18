@@ -61,9 +61,18 @@ def manifest_path(repo_root: Path) -> Path:
 
 def load_manifest(repo_root: Path) -> Dict[str, Any] | None:
     """Return the parsed install manifest, or ``None`` when absent."""
-    path = manifest_path(repo_root)
+    return load_manifest_path(manifest_path(repo_root), missing_ok=True)
+
+
+def load_manifest_path(
+    path: Path, *, missing_ok: bool = False,
+) -> Dict[str, Any] | None:
+    """Read a manifest from an explicit path for lineage transfer."""
+    path = path.expanduser().resolve()
     if not path.is_file():
-        return None
+        if missing_ok:
+            return None
+        raise ProjectInstallError(f"install manifest does not exist: {path}")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -356,6 +365,7 @@ __all__ = [
     "assert_safe_bundle_paths",
     "assert_safe_contract_paths",
     "load_manifest",
+    "load_manifest_path",
     "manifest_path",
     "prune_files",
     "remove_empty_parents",

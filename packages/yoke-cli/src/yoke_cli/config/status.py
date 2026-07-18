@@ -29,7 +29,13 @@ from yoke_contracts.install_binding import distribution_version_for_module
 from yoke_contracts.machine_config import schema as contract
 
 
-REQUIRED_IMPORTS = ("yoke_cli", "yoke_contracts", "pydantic", "pyfiglet")
+REQUIRED_IMPORTS = (
+    "yoke_cli",
+    "yoke_contracts",
+    "yoke_harness",
+    "pydantic",
+    "pyfiglet",
+)
 PRODUCT_RUNTIME_MODULES = {
     install_binding.CLI_DISTRIBUTION_NAME: "yoke_cli",
     "yoke-contracts": "yoke_contracts",

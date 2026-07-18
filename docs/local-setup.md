@@ -312,6 +312,55 @@ yoke project refresh ~/work/my-app --config ~/.yoke/config.json
 yoke project uninstall ~/work/my-app --config ~/.yoke/config.json
 ```
 
+### Preview an Unshipped Source Refresh
+
+Yoke developers can preview the project layer from one explicit local Yoke
+checkout before that code ships. This is a source-dev/admin surface; ordinary
+project refresh continues to fetch the active environment's packaged bundle.
+Preview is the default and performs no target, machine-config, environment, or
+snapshot-state writes:
+
+```bash
+yoke project refresh ~/work/my-app \
+  --source-checkout ~/work/yoke \
+  --project-id 7 \
+  --project-slug my-app \
+  --json
+```
+
+After inspecting the preview, repeat it with `--apply`. A linked project
+worktree normally lacks the gitignored install manifest, so transfer lineage
+explicitly from the main checkout. The transferred hashes preserve the normal
+safe-prune behavior; the refreshed manifest is then written in the target
+worktree. Apply refuses a target with neither its own manifest nor an explicit
+`--manifest-from` source.
+
+```bash
+yoke project refresh ~/work/my-app/.worktrees/source-proof \
+  --source-checkout ~/work/yoke \
+  --manifest-from ~/work/my-app/.yoke/install-manifest.json \
+  --project-slug my-app \
+  --apply \
+  --json
+```
+
+The local-source apply reads only the named source checkout and writes only the
+named project checkout. It does not fetch or update environment bundle state,
+register the checkout in machine config, or sync snapshots. Its subprocess
+refuses source imports that originate anywhere other than the explicit
+checkout. Project contract and strategy files are preserved because their
+rendering requires project DB authority. Prior managed files outside the
+source-rendered skill, agent, and rule namespaces (for example, a
+project-specific deployment workflow) remain tracked at their prior manifest
+hash and are neither rewritten nor pruned. Legacy manifests do not record the
+real project slug, so pass `--project-slug`; current refreshes persist it for
+later runs.
+
+Project install/refresh also verifies that the `yoke-harness` product package
+is importable before writing files or git hook shims. If that check fails,
+rerun the public installer; `yoke status --json` reports the missing package as
+an error instead of declaring the product environment healthy.
+
 Project-owned contract files are preserved once edited. Generated board views,
 credentials, runtime directories, and machine config are not installed into the
 repo by the project bundle.
