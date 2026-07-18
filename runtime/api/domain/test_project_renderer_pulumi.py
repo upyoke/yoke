@@ -27,6 +27,7 @@ _GATHER_VALUES_KEYS = {
     "api_port", "ephemeral_ttl_hours", "web_health_path", "web_smoke_paths",
     "domain", "api_port_base", "port_base", "port_range", "dns_provider",
     "configure_aws_credentials_action",
+    "checkout_action",
 }
 _VPS_KEYS = {
     "vps_instance_type",

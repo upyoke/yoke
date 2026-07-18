@@ -19,6 +19,7 @@
 #   {{web_health_path}}    — Web health check path (e.g., /)
 #   {{web_smoke_paths}}    — Comma-separated additional smoke paths (e.g., /forgot-password,/login)
 #   {{cloudfront_id}}      — CloudFront distribution ID for cache invalidation
+#   {{checkout_action}}    — immutable repository checkout action revision
 #   {{configure_aws_credentials_action}} — immutable AWS OIDC action revision
 #   {{project_name}}-app   — production compose project name
 
@@ -48,7 +49,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: {{checkout_action}}
 
       - name: Configure AWS delivery credentials
         uses: {{configure_aws_credentials_action}}
