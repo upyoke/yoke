@@ -145,6 +145,10 @@ def _row_matches_definition(row, definition: Mapping[str, object]) -> bool:
     return True
 
 
+def _row_is_active(row) -> bool:
+    return row is not None and str(tuple(row)[-1]) == "active"
+
+
 def _has_nonterminal_binding(conn, flow_id: str) -> bool:
     if _table_exists(conn, "items") and _column_exists(
         conn, "items", "deployment_flow"
@@ -229,6 +233,8 @@ def _converge_builtin_flow_supersessions(conn) -> None:
             continue
         project_id = int(tuple(predecessor_row)[0])
         if project_id != int(tuple(successor_row)[0]):
+            continue
+        if not _row_is_active(successor_row):
             continue
         if not _row_matches_definition(successor_row, successor):
             continue

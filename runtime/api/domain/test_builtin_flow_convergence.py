@@ -167,3 +167,21 @@ def test_modified_predecessor_and_its_default_are_preserved(test_db) -> None:
     assert _flow_status(conn, "buzz-prod-hotfix") == "active"
     assert deploy_defaults.get_default_flow("buzz") == "buzz-prod-hotfix"
     assert _flow_status(conn, BUZZ_PRODUCTION_HOTFIX_FLOW_ID) == "active"
+
+
+def test_operator_disabled_successor_does_not_receive_new_defaults(test_db) -> None:
+    conn = test_db
+    _seed_catalog(conn)
+    _insert_predecessor(conn, "buzz-prod-release", 1)
+    conn.execute(
+        "UPDATE deployment_flows SET status='disabled' WHERE id=%s",
+        (BUZZ_PRODUCTION_RELEASE_FLOW_ID,),
+    )
+    conn.commit()
+    deploy_defaults.set_default_flow("buzz", "buzz-prod-release")
+
+    converge_flow_catalog(conn)
+
+    assert _flow_status(conn, BUZZ_PRODUCTION_RELEASE_FLOW_ID) == "disabled"
+    assert _flow_status(conn, "buzz-prod-release") == "active"
+    assert deploy_defaults.get_default_flow("buzz") == "buzz-prod-release"
