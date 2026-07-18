@@ -49,6 +49,17 @@ and fleet without managing the existing variable. Then set
 `routing_enabled=true`, rerender, and from the rendered `infra/` directory have
 Pulumi generate an import record with the exact parent and provider:
 
+For local recovery when the machine's App-user session is unavailable, use
+the exact stack-scoped executor with capability-owned authority:
+
+```bash
+yoke pulumi exec --project <project> --stack <runner-fleet-stack> \
+  --bootstrap-local-authority -- \
+  preview --refresh --diff --non-interactive
+```
+
+The bootstrap flag is runner-fleet-only and is refused in GitHub Actions.
+
 ```bash
 yoke runner-fleet exec --project <project> \
   --settings-file <stack-config.json> -- \

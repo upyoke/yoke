@@ -30,6 +30,26 @@ def authority_intent_envelope(
     aws_region: str,
 ) -> str:
     """Serialize every snapshot-derived mutable runner-stack input."""
+    return authority_intent_envelope_from_values(
+        project=settings.project,
+        deploy_namespace=settings.deploy_namespace,
+        stack_name=runner_fleet_stack_name(settings),
+        values=values,
+        aws_capability=aws_capability,
+        aws_region=aws_region,
+    )
+
+
+def authority_intent_envelope_from_values(
+    *,
+    project: str,
+    deploy_namespace: str,
+    stack_name: str,
+    values: Mapping[str, str],
+    aws_capability: str,
+    aws_region: str,
+) -> str:
+    """Serialize runner authority from one exact scoped render payload."""
     labels = json_helper.loads_text(values["runner_fleet_labels_json"])
     if not isinstance(labels, list) or any(
         not isinstance(label, str) for label in labels
@@ -60,9 +80,9 @@ def authority_intent_envelope(
     if routing_text not in {"false", "true"}:
         raise ValueError("runner-fleet routing intent must be true or false")
     authority = {
-        "project": settings.project,
-        "deploy_namespace": settings.deploy_namespace,
-        "stack_name": runner_fleet_stack_name(settings),
+        "project": project,
+        "deploy_namespace": deploy_namespace,
+        "stack_name": stack_name,
         "aws_capability": aws_capability,
         "aws_region": aws_region,
         "github_capability": values["runner_fleet_github_capability"],
@@ -127,4 +147,8 @@ def authority_intent_from_settings(
     return envelope, values, aws_capability, aws_region
 
 
-__all__ = ["authority_intent_envelope", "authority_intent_from_settings"]
+__all__ = [
+    "authority_intent_envelope",
+    "authority_intent_envelope_from_values",
+    "authority_intent_from_settings",
+]

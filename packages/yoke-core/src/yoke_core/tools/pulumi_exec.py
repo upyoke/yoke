@@ -16,6 +16,13 @@ from yoke_core.domain.project_renderer_pulumi_scoped import (
     render_scoped_pulumi_config,
 )
 from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
+from yoke_core.tools.runner_fleet_exec import (
+    RUNNER_FLEET_AUTHORITY_INTENT_ENV,
+    resolve_local_runner_fleet_github_auth,
+)
+from yoke_core.tools.runner_fleet_authority_intent import (
+    authority_intent_envelope_from_values,
+)
 
 
 _ALLOWED_COMMANDS = frozenset({"preview", "refresh", "import", "up"})
@@ -52,6 +59,10 @@ def execute_pulumi_command(
     project_root: Path,
     aws_env_loader: Callable[..., Mapping[str, str]] = aws_machine_capability_env,
     github_auth_loader: Callable[..., Any] = resolve_project_github_auth,
+    bootstrap_local_authority: bool = False,
+    local_github_auth_loader: Callable[..., Any] = (
+        resolve_local_runner_fleet_github_auth
+    ),
     child_factory: Callable[..., Any] | None = None,
     out: TextIO | None = None,
     err: TextIO | None = None,
@@ -83,6 +94,8 @@ def execute_pulumi_command(
             payload,
             aws_env_loader=aws_env_loader,
             github_auth_loader=github_auth_loader,
+            bootstrap_local_authority=bootstrap_local_authority,
+            local_github_auth_loader=local_github_auth_loader,
         )
         child_out = out or sys.stdout
         json_handle = None
@@ -282,6 +295,10 @@ def _authority_env(
     *,
     aws_env_loader: Callable[..., Mapping[str, str]],
     github_auth_loader: Callable[..., Any],
+    bootstrap_local_authority: bool = False,
+    local_github_auth_loader: Callable[..., Any] = (
+        resolve_local_runner_fleet_github_auth
+    ),
 ) -> tuple[dict[str, str], tuple[str, ...]]:
     capability = str(authority.get("aws_capability") or "").strip()
     region = str(authority.get("aws_region") or "").strip()
@@ -304,24 +321,65 @@ def _authority_env(
     for name in _AMBIENT_GITHUB_ENV:
         env.pop(name, None)
     token = ""
+    local_redaction_terms: tuple[str, ...] = ()
     if str(authority.get("github_repo") or "").strip():
-        try:
-            github_project = str(
-                authority.get("github_project") or project
-            ).strip()
-            github = github_auth_loader(
-                github_project,
-                required_permissions=dict(authority.get("github_permissions") or {}),
-            )
-            token = str(github.token or "").strip()
-        except Exception as exc:
-            raise PulumiExecError(
-                "Pulumi GitHub App authority could not be materialized for "
-                f"project {github_project!r} (cause: app_authority_unavailable). "
-                "Run `yoke github status` and `yoke projects github-binding "
-                f"status --project {github_project} --json`; reconnect or "
-                "repair the binding before retrying."
-            ) from exc
+        github_project = str(
+            authority.get("github_project") or project
+        ).strip()
+        if bootstrap_local_authority:
+            if payload.get("stack_kind") != "runner-fleet":
+                raise PulumiExecError(
+                    "local GitHub bootstrap authority is limited to the "
+                    "runner-fleet stack"
+                )
+            raw_values = payload.get("render_values")
+            if not isinstance(raw_values, Mapping):
+                raise PulumiExecError(
+                    "runner-fleet render values are missing from stack config"
+                )
+            values = {
+                str(key): str(value) for key, value in raw_values.items()
+            }
+            try:
+                github = local_github_auth_loader(
+                    values, region=region, aws_env=env,
+                )
+                token = str(github.token or "").strip()
+                local_redaction_terms = tuple(github.redaction_terms)
+                env[RUNNER_FLEET_AUTHORITY_INTENT_ENV] = (
+                    authority_intent_envelope_from_values(
+                        project=str(payload.get("project_slug") or ""),
+                        deploy_namespace=values["deploy_namespace"],
+                        stack_name=str(payload.get("stack_name") or ""),
+                        values=values,
+                        aws_capability=capability,
+                        aws_region=region,
+                    )
+                )
+            except Exception as exc:
+                raise PulumiExecError(
+                    "Pulumi local GitHub App bootstrap authority could not be "
+                    f"materialized for project {github_project!r} "
+                    "(cause: app_authority_unavailable)."
+                ) from exc
+        else:
+            try:
+                github = github_auth_loader(
+                    github_project,
+                    required_permissions=dict(
+                        authority.get("github_permissions") or {}
+                    ),
+                )
+                token = str(github.token or "").strip()
+            except Exception as exc:
+                raise PulumiExecError(
+                    "Pulumi GitHub App authority could not be materialized for "
+                    f"project {github_project!r} "
+                    "(cause: app_authority_unavailable). Run `yoke github "
+                    "status` and `yoke projects github-binding status "
+                    f"--project {github_project} --json`; reconnect or repair "
+                    "the binding before retrying."
+                ) from exc
         resolved_repo = str(getattr(github, "repo", "") or "").strip().casefold()
         expected_repo = str(authority.get("github_repo") or "").strip().casefold()
         if resolved_repo != expected_repo:
@@ -337,6 +395,7 @@ def _authority_env(
         str(operator.get("secrets_provider") or ""),
         str(operator.get("encrypted_key") or ""),
     ]
+    secret_terms.extend(local_redaction_terms)
     for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
         secret_terms.append(str(env.get(name) or ""))
     return env, tuple(value for value in secret_terms if value)

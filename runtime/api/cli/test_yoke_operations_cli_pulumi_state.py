@@ -257,9 +257,11 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
         ),
     )
     rc = pulumi.pulumi_exec([
-        "--project", "platform", "--stack", "yoke-stage", "--",
+        "--project", "platform", "--stack", "yoke-stage",
+        "--bootstrap-local-authority", "--",
         "refresh", "--yes", "--non-interactive",
     ])
     assert rc == 0
     assert calls["execute"][1]["aws_env_loader"] is machine_loader
     assert calls["execute"][1]["github_auth_loader"] is github_loader
+    assert calls["execute"][1]["bootstrap_local_authority"] is True

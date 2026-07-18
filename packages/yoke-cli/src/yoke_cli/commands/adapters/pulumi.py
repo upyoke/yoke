@@ -24,7 +24,8 @@ from yoke_cli.transport.pulumi_github_authority import (
 
 
 PULUMI_EXEC_USAGE = (
-    "yoke pulumi exec --project NAME --stack STACK -- "
+    "yoke pulumi exec --project NAME --stack STACK "
+    "[--bootstrap-local-authority] -- "
     "<preview|refresh|import|up args>"
 )
 
@@ -39,6 +40,14 @@ def pulumi_exec(args: List[str]) -> int:
     )
     parser.add_argument("--project", required=True)
     parser.add_argument("--stack", required=True)
+    parser.add_argument(
+        "--bootstrap-local-authority",
+        action="store_true",
+        help=(
+            "Recovery only: mint the runner-fleet repository token from "
+            "capability-owned local AWS authority."
+        ),
+    )
     add_session_arg(parser)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     parsed = parse_or_usage_error(parser, args, PULUMI_EXEC_USAGE)
@@ -79,6 +88,7 @@ def pulumi_exec(args: List[str]) -> int:
             github_auth_loader=build_pulumi_github_auth_loader(
                 session_id=parsed.session_id
             ),
+            bootstrap_local_authority=parsed.bootstrap_local_authority,
         )
     except FileNotFoundError as exc:
         print(f"error: Pulumi executable or template not found: {exc}", file=sys.stderr)
