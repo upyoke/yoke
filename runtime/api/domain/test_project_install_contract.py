@@ -10,7 +10,6 @@ hook-merge and uninstall specifics in ``test_project_install_hooks.py``.
 from __future__ import annotations
 
 import json
-import hashlib
 
 import pytest
 
@@ -202,44 +201,6 @@ def test_unknown_contract_install_policy_is_refused(repo) -> None:
     assert "update_if_unmodified" in str(exc_info.value)
     assert "seed_if_missing" in str(exc_info.value)
     assert not (repo / MANIFEST_REL).exists()
-
-
-def test_uninstall_accepts_safe_legacy_contract_and_strategy_paths(repo) -> None:
-    contract_rel = ".sunday/lint-config"
-    strategy_rel = ".sunday/strategy/MISSION.md"
-    contract_content = "legacy policy\n"
-    strategy_content = "legacy strategy\n"
-    for rel, content in (
-        (contract_rel, contract_content),
-        (strategy_rel, strategy_content),
-    ):
-        target = repo / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-    (repo / ".yoke").mkdir()
-    (repo / MANIFEST_REL).write_text(
-        json.dumps({
-            "manifest_schema": 1,
-            "contract_files": {
-                contract_rel: hashlib.sha256(
-                    contract_content.encode("utf-8")
-                ).hexdigest(),
-            },
-            "strategy_files": {
-                strategy_rel: hashlib.sha256(
-                    strategy_content.encode("utf-8")
-                ).hexdigest(),
-            },
-        }),
-        encoding="utf-8",
-    )
-
-    report = project_install.uninstall(repo)
-
-    assert report["contract_files_removed"] == [contract_rel]
-    assert report["strategy_files_preserved"] == [strategy_rel]
-    assert not (repo / contract_rel).exists()
-    assert (repo / strategy_rel).read_text(encoding="utf-8") == strategy_content
 
 
 @pytest.mark.parametrize("bad_path", [

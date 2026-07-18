@@ -44,6 +44,10 @@ PROJECT_ADAPTERS = [
         function_id="projects.capabilities.list",
         cli_invocation="yoke projects capabilities list [--project P]",
     ),
+    _read_entry(
+        function_id="projects.infrastructure.list",
+        cli_invocation="yoke projects infrastructure list --project NAME",
+    ),
 ]
 
 

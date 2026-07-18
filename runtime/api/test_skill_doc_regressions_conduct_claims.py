@@ -3,7 +3,8 @@
 Verifies that entry-activation.md S3b:
   (a) does NOT swallow session-touch stderr (no >/dev/null on stderr)
   (b) includes a post-claim-work active-claim verification block
-  (c) uses the canonical DB router (not a raw DB path or worktree path)
+  (c) uses the canonical diagnostic read adapter (not a raw DB path or
+      worktree path)
 """
 
 from __future__ import annotations
@@ -73,12 +74,17 @@ class TestEntryActivationS3bContract(unittest.TestCase):
             "S3b must include a HALT directive when claim verification fails",
         )
 
-    def test_uses_canonical_db_router(self) -> None:
-        """S3b verification must use the canonical DB router, not a raw DB path."""
+    def test_uses_canonical_db_read(self) -> None:
+        """S3b verification uses the registered diagnostic-read adapter."""
         self.assertIn(
+            "yoke db read",
+            self.s3b,
+            "S3b must use yoke db read for claim verification",
+        )
+        self.assertNotIn(
             "db_router",
             self.s3b,
-            "S3b must use python3 -m yoke_core.cli.db_router for claim verification",
+            "S3b must not teach the operator-debug DB router as agent default",
         )
         # Must not construct a path to yoke.db or .worktrees/*/data/
         self.assertNotIn(
@@ -94,7 +100,7 @@ class TestEntryActivationS3bContract(unittest.TestCase):
 
 
 class TestEntryActivationTeachesFunctionCallAdapters(unittest.TestCase):
-    """task 015: conduct/entry-activation S3b function-call adapters.
+    """Conduct entry activation teaches function-call adapters.
 
     Entry activation is the canonical surface for the
     ``claims.work.claim`` function family — it always pairs
@@ -110,8 +116,7 @@ class TestEntryActivationTeachesFunctionCallAdapters(unittest.TestCase):
         )
 
     def test_s3b_does_not_teach_explicit_session_touch(self) -> None:
-        """The conduct product-boundary cleanup (384c2c8cb) removed the
-        explicit session-touch step: session presence is auto-handled by the
+        """Session presence is auto-handled by the
         harness session hooks, so agents are not told to call it manually
         before claim-work. Anti-regression guard (claim acquire itself is
         covered by test_s3b_teaches_claim_work_adapter)."""

@@ -22,7 +22,6 @@ from yoke_contracts.project_contract.strategy_docs_paths import (
     slug_from_view_path,
 )
 
-LEGACY_CONTRACT_ROOTS = (".sunday",)
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -48,7 +47,6 @@ def _path_map(manifest: dict[str, Any], key: str, *, source: str) -> dict[str, s
 
 
 def _assert_safe_prior_contract_paths(paths: Iterable[str]) -> None:
-    roots = (".yoke", *LEGACY_CONTRACT_ROOTS)
     forbidden_suffixes = {
         path.removeprefix(".yoke")
         for path in FORBIDDEN_CONTRACT_RELATIVE_PATHS
@@ -60,7 +58,7 @@ def _assert_safe_prior_contract_paths(paths: Iterable[str]) -> None:
             not raw
             or path.is_absolute()
             or ".." in path.parts
-            or root not in roots
+            or root != ".yoke"
             or any(
                 raw == root + suffix or raw.startswith(root + suffix + "/")
                 for suffix in forbidden_suffixes
@@ -68,25 +66,9 @@ def _assert_safe_prior_contract_paths(paths: Iterable[str]) -> None:
         ):
             raise ProjectInstallError(
                 f"install manifest names an unsafe contract path {raw!r}: "
-                "prior contract paths must stay under .yoke/ or the safe "
-                "legacy .sunday/ tree and must not name runtime/state files"
+                "prior contract paths must stay under .yoke/ and must not "
+                "name runtime/state files"
             )
-
-
-def _is_legacy_strategy_path(raw: str) -> bool:
-    parts = Path(raw).parts
-    if len(parts) == 3:
-        root, strategy, filename = parts
-    elif len(parts) == 4 and parts[2] == "archive":
-        root, strategy, _, filename = parts
-    else:
-        return False
-    return (
-        root in LEGACY_CONTRACT_ROOTS
-        and strategy == "strategy"
-        and filename.endswith(".md")
-        and filename != ".md"
-    )
 
 
 def _assert_safe_prior_strategy_paths(paths: Iterable[str]) -> None:
@@ -96,12 +78,11 @@ def _assert_safe_prior_strategy_paths(paths: Iterable[str]) -> None:
             not raw
             or path.is_absolute()
             or ".." in path.parts
-            or (slug_from_view_path(raw) is None and not _is_legacy_strategy_path(raw))
+            or slug_from_view_path(raw) is None
         ):
             raise ProjectInstallError(
                 f"install manifest names an unsafe strategy path {raw!r}: "
-                "prior strategy paths must be canonical .yoke rendered views "
-                "or safe legacy .sunday rendered views"
+                "prior strategy paths must be canonical .yoke rendered views"
             )
 
 
