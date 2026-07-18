@@ -25,6 +25,7 @@ class TestSeedFlows:
             "yoke-hosted-stage",
             "yoke-hosted-stage-no-ci-gate",
             "platform-production",
+            "platform-production-independent",
             "platform-production-hotfix",
             "platform-stage",
             "buzz-prod-release",
@@ -55,7 +56,7 @@ class TestSeedFlows:
             ),
             ("platform-stage", "platform", ["stage"], "normal", False),
             (
-                "platform-production", "platform", ["stage", "production"],
+                "platform-production-independent", "platform", ["production"],
                 "normal", False,
             ),
             (
@@ -79,6 +80,8 @@ class TestSeedFlows:
                 assert ("product_sha" in stage["inputs"]) is is_bridge
                 assert ("platform_ref" in stage["inputs"]) is (not is_bridge)
                 assert stage["dispatch_correlation_input"] == "yoke_dispatch_id"
+
+        assert by_id["platform-production"]["status"] == "disabled"
 
     def test_yoke_immediate_flows_skip_ci_without_rewriting_history(self):
         by_id = {flow["id"]: flow for flow in _SEED_FLOWS}

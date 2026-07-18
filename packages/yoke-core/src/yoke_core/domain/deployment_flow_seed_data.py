@@ -35,6 +35,7 @@ def _hosted_release_stages(
     target_environment: str,
     release_mode: str,
     product_bridge: bool,
+    independent_environment: bool = False,
     wait_for_ci: bool = True,
 ) -> str:
     if product_bridge:
@@ -48,7 +49,11 @@ def _hosted_release_stages(
     else:
         environments = (
             ("stage", "production")
-            if target_environment == "production" and release_mode == "normal"
+            if (
+                target_environment == "production"
+                and release_mode == "normal"
+                and not independent_environment
+            )
             else (target_environment,)
         )
         releases = [
@@ -210,8 +215,25 @@ SEED_FLOWS = [
         ),
         "on_failure": "halt",
         "target_env": "production",
-        "status": FLOW_STATUS_ACTIVE,
+        "status": FLOW_STATUS_DISABLED,
         "done_description": "Platform release completed through the hosted production train",
+    },
+    {
+        "id": "platform-production-independent",
+        "project": "platform",
+        "name": "Production Independent",
+        "description": "Release Platform main directly to hosted production",
+        "stages": _hosted_release_stages(
+            workflow="platform-release.yml",
+            target_environment="production",
+            release_mode="normal",
+            product_bridge=False,
+            independent_environment=True,
+        ),
+        "on_failure": "halt",
+        "target_env": "production",
+        "status": FLOW_STATUS_ACTIVE,
+        "done_description": "Platform release completed in hosted production",
     },
     {
         "id": "platform-production-hotfix",

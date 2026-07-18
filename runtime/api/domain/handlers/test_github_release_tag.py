@@ -59,8 +59,8 @@ def test_creates_the_next_annotated_launch_tag(monkeypatch) -> None:
 
     def fake_get(path: str, *, token: str):
         assert token == "installation-token"
-        if "/compare/" in path:
-            return {"status": "identical"}
+        if "/git/commits/" in path:
+            return {"sha": SOURCE_SHA}
         if "/matching-refs/tags/v?" in path:
             assert "per_page=100&page=1" in path
             return refs
@@ -112,8 +112,8 @@ def test_retry_returns_the_existing_annotated_tag(monkeypatch) -> None:
         subject,
         "rest_get",
         lambda path, *, token: (
-            {"status": "ahead"}
-            if "/compare/" in path
+            {"sha": SOURCE_SHA}
+            if "/git/commits/" in path
             else refs
             if "/matching-refs/tags/v?" in path
             else {"object": {"type": "commit", "sha": SOURCE_SHA}}
@@ -145,8 +145,8 @@ def test_ref_race_reloads_inventory_and_advances_again(monkeypatch) -> None:
     ])
 
     def fake_get(path: str, *, token: str):
-        if "/compare/" in path:
-            return {"status": "identical"}
+        if "/git/commits/" in path:
+            return {"sha": SOURCE_SHA}
         if "/matching-refs/tags/v?" in path:
             return next(inventories)
         return {"object": {"type": "commit", "sha": "9" * 40}}
@@ -171,12 +171,12 @@ def test_ref_race_reloads_inventory_and_advances_again(monkeypatch) -> None:
     assert created_tags == ["v0.1.1+launch.42", "v0.1.1+launch.43"]
 
 
-def test_rejects_a_source_outside_main(monkeypatch) -> None:
+def test_rejects_a_missing_source_commit(monkeypatch) -> None:
     _install_auth(monkeypatch)
     monkeypatch.setattr(
         subject,
         "rest_get",
-        lambda path, *, token: {"status": "diverged"},
+        lambda path, *, token: {"sha": ""},
     )
 
     outcome = subject.handle_create_next_release_tag(_request())
@@ -184,4 +184,4 @@ def test_rejects_a_source_outside_main(monkeypatch) -> None:
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "release_tag_invalid"
-    assert "not reachable from current main" in outcome.error.message
+    assert "does not exist in the project repository" in outcome.error.message

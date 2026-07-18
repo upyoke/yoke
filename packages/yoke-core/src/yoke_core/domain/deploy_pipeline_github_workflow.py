@@ -343,31 +343,31 @@ def _verify_release_sha_in_checkout(
     project_repo_path: str,
     gate_branch: str,
 ) -> str:
-    """Prove ``release_sha`` is reachable from the fresh remote release ref."""
-    if not gate_branch:
-        return (
-            "cannot validate a commit release_lineage without a deployment "
-            "flow gate branch"
-        )
+    """Prove ``release_sha`` is an available commit without following a ref.
+
+    Item-bound run creation separately proves that its selected commit is the
+    configured environment branch head.  Execution and resume must remain
+    independent of that branch afterward: an environment-level run may select
+    any branch, and a saved commit stays authoritative when refs move.
+    """
+    del gate_branch
     repo = project_repo_path or "."
-    remote_ref = f"refs/remotes/origin/{gate_branch}"
+    commit_ref = f"{release_sha}^{{commit}}"
+    present = _run_cmd(["git", "-C", repo, "cat-file", "-e", commit_ref])
+    if present.returncode == 0:
+        return ""
     fetched = _run_cmd([
         "git", "-C", repo, "fetch", "--quiet", "--no-tags", "origin",
-        f"refs/heads/{gate_branch}:{remote_ref}",
+        release_sha,
     ])
-    if fetched.returncode != 0:
-        return (
-            f"could not refresh origin/{gate_branch} while validating "
-            "deployment run release_lineage"
-        )
-    reachable = _run_cmd([
-        "git", "-C", repo, "merge-base", "--is-ancestor",
-        release_sha, remote_ref,
-    ])
-    if reachable.returncode != 0:
+    if fetched.returncode == 0:
+        present = _run_cmd([
+            "git", "-C", repo, "cat-file", "-e", commit_ref,
+        ])
+    if present.returncode != 0:
         return (
             f"deployment run release_lineage {release_sha} is not a commit "
-            f"reachable from origin/{gate_branch}"
+            "available from the project repository"
         )
     return ""
 

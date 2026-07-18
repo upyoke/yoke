@@ -1,7 +1,7 @@
 name: yoke-release
 
-# Classification: FACTORY. An immutable annotated vX.Y.Z+local.N tag on a
-# commit already reachable from main is the sole release trigger. The PEP 440
+# Classification: FACTORY. An immutable annotated vX.Y.Z+local.N tag on an
+# exact repository commit is the sole release trigger. The PEP 440
 # local segment is required by the product's public-index confusion defense.
 # The annotated tag message is the immutable release note; the workflow then
 # invokes the reusable wheel factory, checks that setuptools-scm resolved the
@@ -34,7 +34,7 @@ jobs:
       source_sha: ${{ steps.tag.outputs.source_sha }}
       tag_object_sha: ${{ steps.tag.outputs.tag_object_sha }}
     steps:
-      - name: Require an immutable annotated release tag and note on main
+      - name: Require an immutable annotated release tag and note
         id: tag
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,13 +72,6 @@ jobs:
             exit 1
           fi
 
-          main_relation="$(gh api \
-            "repos/$GITHUB_REPOSITORY/compare/$source_sha...main" \
-            --jq '.status')"
-          if [[ "$main_relation" != "ahead" && "$main_relation" != "identical" ]]; then
-            echo "release commit is not reachable from current main: $source_sha" >&2
-            exit 1
-          fi
           {
             echo "source_sha=$source_sha"
             echo "tag_object_sha=$tag_object_sha"
@@ -185,14 +178,6 @@ jobs:
             echo "remote tag no longer peels to the workflow commit: $TAG_NAME" >&2
             exit 1
           fi
-          main_relation="$(gh api \
-            "repos/$GITHUB_REPOSITORY/compare/$source_sha...main" \
-            --jq '.status')"
-          if [[ "$main_relation" != "ahead" && "$main_relation" != "identical" ]]; then
-            echo "release commit is no longer reachable from current main: $source_sha" >&2
-            exit 1
-          fi
-
           shopt -s nullglob
           wheels=("$ARTIFACT_DIR"/wheels/*.whl)
           if (( ${#wheels[@]} == 0 )); then

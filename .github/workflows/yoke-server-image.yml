@@ -8,8 +8,8 @@ name: yoke-server-image
 # Publication is tag-driven, so every validated release publishes the complete
 # image set while branch pushes can never move latest to a development version.
 #
-# Fork safety: only annotated release tags whose commit is reachable from
-# current main can enter the build. Validation has read-only repository scope;
+# Fork safety: only annotated release tags that peel to their exact workflow
+# commit can enter the build. Validation has read-only repository scope;
 # native builds, manifest assembly, signing, and tag publication are separate
 # GitHub-hosted jobs. The
 # signer has no checkout or run step, and sha12/latest do not become visible
@@ -22,9 +22,10 @@ on:
       - "v*"
 
 concurrency:
-  # One global lane protects the immutable sha12 namespace and serializes the
-  # intentional latest-pointer update across release tags and reruns.
-  group: yoke-server-image-publication
+  # Different immutable releases build concurrently. The publication job moves
+  # latest only when its tag is still the highest canonical launch tag, so an
+  # older slow build can never roll the pointer backward.
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 permissions: {}
@@ -44,7 +45,7 @@ jobs:
       source_sha: ${{ steps.tag.outputs.source_sha }}
       tag_object_sha: ${{ steps.tag.outputs.tag_object_sha }}
     steps:
-      - name: Require an immutable annotated release tag on main
+      - name: Require an immutable annotated release tag
         id: tag
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,13 +73,6 @@ jobs:
             exit 1
           fi
 
-          main_relation="$(gh api \
-            "repos/$GITHUB_REPOSITORY/compare/$source_sha...main" \
-            --jq '.status')"
-          if [[ "$main_relation" != "ahead" && "$main_relation" != "identical" ]]; then
-            echo "image release commit is not reachable from current main: $source_sha" >&2
-            exit 1
-          fi
           {
             owner="${GITHUB_REPOSITORY_OWNER,,}"
             repository="ghcr.io/$owner/yoke-server"
@@ -339,6 +333,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Revalidate tag and publish image references
+        id: references
         env:
           EXPECTED_SOURCE_SHA: ${{ needs.validate-tag.outputs.source_sha }}
           EXPECTED_TAG_OBJECT_SHA: ${{ needs.validate-tag.outputs.tag_object_sha }}
@@ -363,14 +358,6 @@ jobs:
             echo "remote image tag no longer peels to the workflow commit" >&2
             exit 1
           fi
-          main_relation="$(gh api \
-            "repos/$GITHUB_REPOSITORY/compare/$source_sha...main" \
-            --jq '.status')"
-          if [[ "$main_relation" != "ahead" && "$main_relation" != "identical" ]]; then
-            echo "image release commit is no longer reachable from current main" >&2
-            exit 1
-          fi
-
           inspect_error="$RUNNER_TEMP/sha12-inspect-error"
           existing_digest=""
           if existing_digest="$(docker buildx imagetools inspect \
@@ -389,23 +376,57 @@ jobs:
             exit 1
           fi
 
-          docker buildx imagetools create \
-            --prefer-index=false \
-            --tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"
+          latest_tag=""
+          latest_key=""
+          for page in $(seq 1 100); do
+            release_refs="$(gh api \
+              "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v?per_page=100&page=$page")"
+            while IFS= read -r candidate_ref; do
+              if [[ "$candidate_ref" =~ ^refs/tags/(v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\+launch\.(0|[1-9][0-9]*))$ ]]; then
+                printf -v candidate_key '%010d%010d%010d%010d' \
+                  "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" \
+                  "${BASH_REMATCH[4]}" "${BASH_REMATCH[5]}"
+                if [[ -z "$latest_key" || "$candidate_key" > "$latest_key" ]]; then
+                  latest_key="$candidate_key"
+                  latest_tag="${BASH_REMATCH[1]}"
+                fi
+              fi
+            done < <(jq -r '.[].ref' <<< "$release_refs")
+            ref_count="$(jq 'length' <<< "$release_refs")"
+            if [[ "$ref_count" -lt 100 ]]; then
+              break
+            fi
+          done
+          if [[ "$TAG_NAME" = "$latest_tag" ]]; then
+            docker buildx imagetools create \
+              --prefer-index=false \
+              --tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"
+            echo "published_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Keeping latest on newer release $latest_tag; published immutable $SHA_REF"
+            echo "published_latest=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Verify published references resolve to the built digest
         env:
           LATEST_REF: ${{ needs.validate-tag.outputs.latest_ref }}
+          PUBLISHED_LATEST: ${{ steps.references.outputs.published_latest }}
           PUSHED_DIGEST: ${{ needs.assemble.outputs.digest }}
           SHA_REF: ${{ needs.validate-tag.outputs.sha_ref }}
         run: |
           sha_digest="$(docker buildx imagetools inspect \
             "$SHA_REF" --format '{{ .Manifest.Digest }}')"
-          latest_digest="$(docker buildx imagetools inspect \
-            "$LATEST_REF" --format '{{ .Manifest.Digest }}')"
-          if [[ "$sha_digest" != "$PUSHED_DIGEST" || "$latest_digest" != "$PUSHED_DIGEST" ]]; then
-            echo "published references differ from built digest: sha12=$sha_digest latest=$latest_digest built=$PUSHED_DIGEST" >&2
+          if [[ "$sha_digest" != "$PUSHED_DIGEST" ]]; then
+            echo "published sha12 differs from built digest: sha12=$sha_digest built=$PUSHED_DIGEST" >&2
             exit 1
+          fi
+          if [[ "$PUBLISHED_LATEST" = "true" ]]; then
+            latest_digest="$(docker buildx imagetools inspect \
+              "$LATEST_REF" --format '{{ .Manifest.Digest }}')"
+            if [[ "$latest_digest" != "$PUSHED_DIGEST" ]]; then
+              echo "published latest differs from built digest: latest=$latest_digest built=$PUSHED_DIGEST" >&2
+              exit 1
+            fi
           fi
           manifest="$(docker buildx imagetools inspect \
             "$SHA_REF" --format '{{json .Manifest}}')"

@@ -125,8 +125,16 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
     .filter((node) => node.tagName === "H2")
     .map((node) => node.textContent);
   assert.deepEqual(titles, [
-    "Strategy", "Frontier", "Sessions", "Delivery", "Events", "Doctor",
+    "❖ Strategy", "⚡ Frontier", "◈ Sessions",
+    "⬈ Delivery", "≋ Events", "♥ Doctor",
   ]);
+
+  // The prototype's hierarchy is present: one signal masthead and a compact
+  // final row for pulse + health.
+  assert.equal(byClass(root, "overview-masthead").length, 1);
+  const finalPair = byClass(root, "overview-pair");
+  assert.equal(finalPair.length, 1);
+  assert.equal(byClass(finalPair[0], "overview-section").length, 2);
 
   // Each section replays the read its full screen runs — no new function ids.
   const called = new Set(client.requests.map((request) => request.function));

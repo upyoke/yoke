@@ -549,6 +549,64 @@
   scroll-margin-top: 50px;
 }
 
+/* The Overview begins with one coherent signal surface, then ends with the
+   two compact pulse/health summaries side by side like the prototype. */
+.universe-app-root .overview-masthead {
+  margin-bottom: 14px;
+  overflow: hidden;
+  background: var(--yoke-surface);
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+}
+.universe-app-root .overview-masthead-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .overview-masthead-heading strong {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.universe-app-root .overview-masthead-heading span {
+  font-size: 11.5px;
+  color: var(--yoke-muted);
+}
+.universe-app-root .overview-masthead .stat-row {
+  gap: 0;
+  margin: 0;
+}
+.universe-app-root .overview-masthead .stat {
+  border: 0;
+  border-right: 1px solid var(--yoke-border);
+  border-radius: 0;
+}
+.universe-app-root .overview-masthead .stat:last-child {
+  border-right: 0;
+}
+.universe-app-root .overview-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 860px) {
+  .universe-app-root .overview-pair {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .universe-app-root .overview-masthead .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .universe-app-root .overview-masthead .stat:nth-child(2) {
+    border-right: 0;
+  }
+  .universe-app-root .overview-masthead .stat:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--yoke-border);
+  }
+}
+
 /* The Overview's summary panels: each is a peek at a full screen and links
    out to it. The link sits flush at the panel's foot, a full-width row with
    its own top rule, so "open the whole thing" reads as the panel's floor. */

@@ -211,10 +211,11 @@ Read definitions with `yoke deployment-flows get` / `stages`. Change lifecycle s
 Seed data: `python3 -m yoke_core.cli.db_router flows init` seeds flow definitions only for projects already present in the universe (a fresh universe gets none). The definitions:
 - `yoke-internal` — Script/doc changes, no deployment: `migration_apply (primary, implementing) -> merged (auto) -> complete (auto)` (no target_env, done="Merged to main")
 - `yoke-hosted-stage` — Yoke item → annotated release → Platform promotion boundary → complete Stage train.
-- `yoke-hosted-production` — Yoke item → annotated release → Stage proof → stable-channel promotion → complete Production train.
+- `yoke-hosted-production` — Yoke item → annotated release → direct stable-channel Production train, independent of Stage.
 - `yoke-hosted-production-hotfix` — Yoke item → annotated release → direct Production hotfix train.
 - `platform-stage` — Platform item → complete Stage train at the merged Platform commit.
-- `platform-production` — Platform item → complete Production train at the merged Platform commit.
+- `platform-production-independent` — Platform item → direct Production train at the merged Platform commit, independent of Stage.
+- `platform-production` — disabled historical Stage-then-Production definition retained for run history.
 - `platform-production-hotfix` — Platform item → direct Production hotfix train at the merged Platform commit.
 - `yoke-ephemeral-deploy` — Branch/SHA Yoke core preview environment: `ephemeral-deploy (ephemeral-deploy) -> complete (auto)` (target_env=ephemeral, done="Yoke core preview environment deployed")
 - `buzz-prod-release` — v1 production deploy with smoke test: `start (auto) -> prod-deploy (github-actions-workflow, buzz-deploy.yml) -> smoke (github-actions-workflow, buzz-smoke.yml) -> complete (auto)` (4 stages, target_env=production, done="Deployed to production and smoke checks passed"). No staging stages — Buzz v1 has no staging environment.

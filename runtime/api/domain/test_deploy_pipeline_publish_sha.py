@@ -208,13 +208,13 @@ class TestPublishShaFromDeployedRef:
             assert sha == ""
             assert "annotated release-tag commit" in error
 
-    def test_commit_lineage_must_be_reachable_from_remote_gate_branch(self):
+    def test_commit_lineage_must_exist_in_the_project_repository(self):
         fabricated_sha = "f" * 40
         with mock.patch.object(
             deploy_pipeline_github_workflow,
             "_run_cmd",
             side_effect=[
-                subprocess.CompletedProcess(args=[], returncode=0, stdout=""),
+                subprocess.CompletedProcess(args=[], returncode=1, stdout=""),
                 subprocess.CompletedProcess(args=[], returncode=1, stdout=""),
             ],
         ):
@@ -228,7 +228,30 @@ class TestPublishShaFromDeployedRef:
 
         assert sha == ""
         assert fabricated_sha in error
-        assert "reachable from origin/main" in error
+        assert "available from the project repository" in error
+
+    def test_commit_lineage_does_not_follow_the_environment_branch(self):
+        saved_sha = "e" * 40
+        with mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_run_cmd",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="",
+            ),
+        ) as run_cmd:
+            sha, error = (
+                deploy_pipeline_github_workflow._resolve_release_lineage_sha(
+                    saved_sha,
+                    "/repo",
+                    "a-different-environment-branch",
+                )
+            )
+
+        assert (sha, error) == (saved_sha, "")
+        run_cmd.assert_called_once_with([
+            "git", "-C", "/repo", "cat-file", "-e",
+            f"{saved_sha}^{{commit}}",
+        ])
 
     def test_explicit_image_pin_resolves_in_product_checkout(self):
         gh_calls = []
