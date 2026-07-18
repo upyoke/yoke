@@ -8,6 +8,7 @@ without ``yoke_core``.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -101,6 +102,65 @@ def test_field_note_help_runs_from_core_less_product_wheels(
     assert invalid_kind.returncode == 2
     assert "invalid choice" in invalid_kind.stderr
     assert "yoke_core" not in invalid_kind.stderr
+
+    read_script = r"""
+import json
+
+from yoke_cli.commands import _helpers
+from yoke_cli.main import main
+from yoke_contracts.api.function_call import FunctionCallResponse
+
+requests = []
+
+
+def fake_call_dispatcher(**kwargs):
+    requests.append({
+        "function": kwargs["function_id"],
+        "target": kwargs["target"].model_dump(mode="json"),
+        "payload": kwargs["payload"],
+    })
+    result = (
+        {"entries": [{"id": 73, "category": "field-note-observation"}]}
+        if kwargs["function_id"].endswith(".list")
+        else {"entry": {"id": 73, "category": "field-note-observation"}}
+    )
+    return FunctionCallResponse(
+        success=True,
+        function=kwargs["function_id"],
+        version="v1",
+        result=result,
+    )
+
+
+_helpers.ensure_handlers_loaded = lambda: None
+_helpers.call_dispatcher = fake_call_dispatcher
+assert main([
+    "ouroboros", "field-note", "list", "--limit", "1", "--json",
+]) == 0
+assert main([
+    "ouroboros", "field-note", "get", "73", "--json",
+]) == 0
+print("__FIELD_NOTE_REQUESTS__" + json.dumps(requests, sort_keys=True))
+"""
+    read_result = _run(
+        [str(venv_python), "-c", read_script],
+        cwd=external_project,
+        env=env,
+    )
+    marker = next(
+        line for line in read_result.stdout.splitlines()
+        if line.startswith("__FIELD_NOTE_REQUESTS__")
+    )
+    requests = json.loads(marker.removeprefix("__FIELD_NOTE_REQUESTS__"))
+    assert [request["function"] for request in requests] == [
+        "ouroboros.field_note.list",
+        "ouroboros.field_note.get",
+    ]
+    assert [request["target"]["kind"] for request in requests] == [
+        "global",
+        "global",
+    ]
+    assert all(request["target"].get("project_id") is None for request in requests)
 
 
 def _run(

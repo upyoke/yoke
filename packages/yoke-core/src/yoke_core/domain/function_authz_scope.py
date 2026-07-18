@@ -14,9 +14,10 @@ matching scope:
                        requires its org admin grant. Whole-DB / whole-instance
                        diagnostics: raw db read, doctor. Project slugs never
                        confer control-plane authority.
-* ``ACTOR_SESSION``  — the actor operating on its own session/orchestration;
-                       allowed for any authenticated actor (the session id binds
-                       the work to the caller).
+* ``ACTOR_SESSION``  — actor-accessible operations that need no tenant target:
+                       the actor's own session/orchestration or a global
+                       learning-channel operation; allowed for any authenticated
+                       actor.
 * ``CLIENT_LOCAL``   — machine-local op that writes the *caller's own* ``~/.yoke``
                        config or local checkout; gated by machine possession, not
                        a control-plane permission.
@@ -207,12 +208,15 @@ _BY_ID: dict[str, AuthzSpec] = {
     "packets.check.run": AuthzSpec(CLIENT_LOCAL, None),
     "templates.fetch.run": AuthzSpec(CLIENT_LOCAL, None),
     "templates.list.run": AuthzSpec(CLIENT_LOCAL, None),
-    # Intentionally ungated so any authenticated actor can append a field-note.
-    "ouroboros.field_note.append": AuthzSpec(CLIENT_LOCAL, None),
 }
 
 # Prefix families where every member shares a scope.
 _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
+    # The global learning channel is available to every authenticated actor.
+    # Its target is deliberately global: append/list/get never require a
+    # project selector, while the handlers retain their optional project
+    # filter for narrowing a global listing.
+    ("ouroboros.field_note.", AuthzSpec(ACTOR_SESSION, None)),
     # Deployment flows/runs reads + run mutation: cross-project infra → org admin.
     ("deployment_flows.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
     ("deployment_runs.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
@@ -324,8 +328,6 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
         return PERM_EVENTS_WRITE if entry.side_effects else PERM_EVENTS_READ
     if fid.startswith("ouroboros.wrapup."):
         return PERM_EVENTS_WRITE if entry.side_effects else PERM_EVENTS_READ
-    if fid in {"ouroboros.field_note.list", "ouroboros.field_note.get"}:
-        return PERM_EVENTS_READ
     if fid.startswith("shepherd."):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("qa."):
