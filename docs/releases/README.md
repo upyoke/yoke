@@ -8,9 +8,9 @@ backfilled or rewritten; new releases do not add files here.
 
 1. Run the canonical test gate on the exact release commit and merge it to
    `main`.
-2. Deliver the item through `yoke-hosted-stage-no-ci-gate`,
-   `yoke-hosted-production`, or
-   `yoke-hosted-production-hotfix-no-ci-gate`. The flow's scoped GitHub App
+2. Deliver the item through `yoke-hosted-stage-no-ci-gate` or
+   `yoke-hosted-production-hotfix-no-ci-gate`; `yoke-hosted-production` is a
+   disabled historical definition. The active flow's scoped GitHub App
    continues the newest `vX.Y.Z+launch.N` series, creates an annotated tag
    whose message is the release note, and returns the existing tag when the
    same commit is retried. The PEP 440 local segment is intentional: public

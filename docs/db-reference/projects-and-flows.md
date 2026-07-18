@@ -214,7 +214,7 @@ Seed data: `python3 -m yoke_core.cli.db_router flows init` is a source-dev/admin
 - `yoke-internal` — Script/doc changes, no deployment: `migration_apply (primary, implementing) -> merged (auto) -> complete (auto)` (no target_env, done="Merged to main")
 - `yoke-hosted-stage` — disabled historical Stage definition retained for run history.
 - `yoke-hosted-stage-no-ci-gate` — Yoke item → annotated release → Platform promotion boundary → complete Stage train without waiting for repository CI.
-- `yoke-hosted-production` — Yoke item → annotated release → direct stable-channel Production train, independent of Stage.
+- `yoke-hosted-production` — disabled historical normal-Production definition retained for run history.
 - `yoke-hosted-production-hotfix` — disabled historical Production hotfix definition retained for run history.
 - `yoke-hosted-production-hotfix-no-ci-gate` — Yoke item → annotated release → direct Production hotfix train without waiting for repository CI.
 - `platform-stage` — Platform item → complete Stage train at the merged Platform commit.
