@@ -174,9 +174,7 @@ function loadFrontier(context, panel, scope, tiles) {
   );
 }
 
-// Each live session, the terminal board's own columns — who runs it (the
-// mode-shaped actor/member column), how alive it is, its lane and mode, and
-// what it holds.
+// Current sessions; ended history belongs on the full Sessions screen.
 function loadSessions(context, panel, scope, tiles) {
   const buckets = scopeBuckets(scope, context.projects(), false);
   const who = whoColumn(context.capabilities);
@@ -188,9 +186,11 @@ function loadSessions(context, panel, scope, tiles) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.rows);
-      panel.setCount(rows.length);
-      tiles.sessions.set(rows.length);
-      renderTable(body, rows.slice(0, SUMMARY_ROW_LIMIT), withProjectColumn([
+      // Overview answers "who is working", so ended history stays off this peek.
+      const liveRows = rows.filter((row) => ["active", "stale"].includes(String(row.liveness || "").toLowerCase()));
+      panel.setCount(liveRows.length);
+      tiles.sessions.set(liveRows.length);
+      renderTable(body, liveRows.slice(0, SUMMARY_ROW_LIMIT), withProjectColumn([
         { label: "session", value: (row) => row.session_id },
         { label: who.label, value: who.value },
         { label: "liveness", value: (row) => row.liveness, pill: true },
