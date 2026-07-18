@@ -146,6 +146,40 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
   mounted.unmount();
 });
 
+test("the Overview jump strip maps and scrolls to all six summaries", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/overview?project=1";
+  const root = documentNode.createElement("div");
+
+  const mounted = mountUniverseApp(root, { client: overviewClient() });
+  await settle();
+
+  const jumpStrip = byClass(root, "overview-jumps");
+  assert.equal(jumpStrip.length, 1);
+  assert.equal(jumpStrip[0].tagName, "NAV");
+  assert.equal(jumpStrip[0].attributes.get("aria-label"), "Overview sections");
+  const jumps = byClass(jumpStrip[0], "overview-jump");
+  assert.deepEqual(jumps.map((jump) => jump.textContent), [
+    "❖ Strategy", "⚡ Frontier", "◈ Sessions",
+    "⬈ Delivery", "≋ Events", "♥ Doctor",
+  ]);
+  assert.deepEqual(jumps.map((jump) => jump.attributes.get("aria-controls")), [
+    "overview-strategy", "overview-frontier", "overview-sessions",
+    "overview-delivery", "overview-events", "overview-doctor",
+  ]);
+
+  const panels = byClass(root, "overview-section");
+  assert.equal(panels.length, 6);
+  let scrollOptions = null;
+  panels[3].scrollIntoView = (options) => { scrollOptions = options; };
+  jumps[3].dispatchEvent(new Event("click"));
+  assert.deepEqual(scrollOptions, { behavior: "smooth", block: "start" });
+  mounted.unmount();
+});
+
 test("the stat tiles fill from the reads, and never invent a number", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });

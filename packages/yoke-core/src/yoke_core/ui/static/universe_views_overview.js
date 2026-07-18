@@ -23,6 +23,18 @@ import {
 // How many rows a summary section shows before its "Open …" link takes over.
 const SUMMARY_ROW_LIMIT = 5;
 
+// The prototype turns the board's section headings into a compact map of the
+// page. Keep the labels and order beside the renderer so the jump strip cannot
+// drift from the summaries it navigates.
+const OVERVIEW_SECTIONS = [
+  ["strategy", "❖", "Strategy"],
+  ["frontier", "⚡", "Frontier"],
+  ["sessions", "◈", "Sessions"],
+  ["delivery", "⬈", "Delivery"],
+  ["events", "≋", "Events"],
+  ["doctor", "♥", "Doctor"],
+];
+
 // One stat tile that fills in when its read resolves. Until then — and if the
 // read fails — it holds an em dash, never a zero that reads as a real count.
 function statTile(documentNode, label) {
@@ -51,8 +63,33 @@ function openLink(documentNode, view, scope, label) {
 // of the body, so a section load replacing the body leaves it in place.
 function summaryPanel(documentNode, title, view, scope, label) {
   const panel = section(documentNode, title);
+  panel.classList.add("overview-section");
+  panel.setAttribute("id", `overview-${view}`);
   panel.appendChild(openLink(documentNode, view, scope, label));
   return panel;
+}
+
+// A keyboard-accessible section map that stays available while the long
+// Overview scrolls. Buttons scroll within this view; the panel-foot links keep
+// owning navigation into the full destination screens.
+function sectionJumps(documentNode, panels) {
+  const nav = el(documentNode, "nav", "overview-jumps");
+  nav.setAttribute("aria-label", "Overview sections");
+  for (const [view, icon, label] of OVERVIEW_SECTIONS) {
+    const panel = panels.get(view);
+    const button = el(
+      documentNode, "button", "overview-jump", `${icon} ${label}`,
+    );
+    button.type = "button";
+    button.setAttribute("aria-controls", `overview-${view}`);
+    button.addEventListener("click", () => {
+      if (typeof panel.scrollIntoView === "function") {
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+    nav.appendChild(button);
+  }
+  return nav;
 }
 
 // The strategy corpus, project-scoped through the target the same way the full
@@ -264,8 +301,13 @@ export function renderOverviewView(context, main, scope) {
   const delivery = summaryPanel(documentNode, "Delivery", "delivery", scope, "Delivery");
   const events = summaryPanel(documentNode, "Events", "events", scope, "Events");
   const doctor = summaryPanel(documentNode, "Doctor", "doctor", scope, "Doctor");
+  const panels = new Map([
+    ["strategy", strategy], ["frontier", frontier], ["sessions", sessions],
+    ["delivery", delivery], ["events", events], ["doctor", doctor],
+  ]);
   main.replaceChildren(
-    statRow, strategy, frontier, sessions, delivery, events, doctor,
+    sectionJumps(documentNode, panels), statRow,
+    strategy, frontier, sessions, delivery, events, doctor,
   );
 
   loadStrategy(context, strategy, scope);
