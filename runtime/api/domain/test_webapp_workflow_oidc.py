@@ -26,6 +26,10 @@ STATIC_AWS_SECRET_REFERENCES = (
     "secrets.AWS_ACCESS_KEY_ID",
     "secrets.AWS_SECRET_ACCESS_KEY",
 )
+CLOUDFRONT_HELPER = REPO_ROOT / "templates/webapp/ops/cloudfront_invalidate.py"
+PACKAGED_CLOUDFRONT_HELPER = (
+    PACKAGED_ROOT / "templates/webapp/ops/cloudfront_invalidate.py"
+)
 
 
 def _workflow_text(name: str) -> str:
@@ -75,23 +79,33 @@ def test_delivery_workflows_assume_oidc_role_and_reject_static_aws_secrets() -> 
         assert text.count("uses: {{configure_aws_credentials_action}}") == 1
         assert "role-to-assume: ${{ vars.YOKE_DELIVERY_CI_ROLE_ARN }}" in text
         assert "aws-region: {{aws_region}}" in text
+        assert "role-session-name: {{project_name}}-" in text
         for secret_reference in STATIC_AWS_SECRET_REFERENCES:
             assert secret_reference not in text
         assert "skipping CloudFront invalidation" not in text
 
 
-def test_delivery_workflows_fail_closed_with_bounded_cloudfront_diagnostics() -> None:
+def test_delivery_workflows_call_template_owned_cloudfront_helper() -> None:
     for name in WORKFLOW_NAMES:
         text = _workflow_text(name)
 
-        assert "aws cloudfront list-distributions" in text
-        assert "aws cloudfront create-invalidation" in text
-        assert "CloudFront distribution ID is not configured" in text
-        assert "CloudFront distribution discovery failed" in text
-        assert "CloudFront invalidation failed" in text
-        assert text.count("tail -c 2000") == 2
-        assert 'exit "$list_rc"' in text
-        assert 'exit "$invalidation_rc"' in text
+        assert (
+            'python3 ops/cloudfront_invalidate.py "$CLOUDFRONT_DISTRIBUTION_ID"'
+            in text
+        )
+
+
+def test_cloudfront_helper_is_mirrored_and_bounds_failure_diagnostics() -> None:
+    helper = CLOUDFRONT_HELPER.read_text(encoding="utf-8")
+
+    assert CLOUDFRONT_HELPER.read_bytes() == PACKAGED_CLOUDFRONT_HELPER.read_bytes()
+    assert '"list-distributions"' in helper
+    assert '"create-invalidation"' in helper
+    assert "CloudFront distribution ID is not configured" in helper
+    assert "CloudFront distribution discovery failed" in helper
+    assert "CloudFront invalidation failed" in helper
+    assert "MAX_DIAGNOSTIC_CHARS = 2000" in helper
+    assert "output[-MAX_DIAGNOSTIC_CHARS:]" in helper
 
 
 def test_delivery_workflows_render_valid_oidc_only_yaml_from_both_bundles(

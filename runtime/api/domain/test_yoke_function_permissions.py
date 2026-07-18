@@ -296,14 +296,10 @@ def test_db_read_run_uses_raw_permission_and_role_boundary():
 def test_events_and_ouroboros_permissions_split_reads_and_writes():
     assert permission_key_for(_entry("events.emit")) == PERM_EVENTS_WRITE
     assert permission_key_for(_read_entry("events.query.run")) == PERM_EVENTS_READ
-    assert (
-        permission_key_for(_entry("ouroboros.entry.insert"))
-        == PERM_EVENTS_WRITE
-    )
-    assert (
-        permission_key_for(_entry("ouroboros.entry.mark_reviewed"))
-        == PERM_EVENTS_WRITE
-    )
+    assert permission_key_for(_entry("ouroboros.entry.insert")) == PERM_EVENTS_WRITE
+    assert permission_key_for(
+        _entry("ouroboros.entry.mark_reviewed")
+    ) == PERM_EVENTS_WRITE
     assert (
         permission_key_for(_entry("ouroboros.entry.mark_archived"))
         == PERM_EVENTS_WRITE

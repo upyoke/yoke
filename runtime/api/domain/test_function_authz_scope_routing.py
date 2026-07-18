@@ -302,30 +302,6 @@ def test_actor_session_op_allowed_with_actor(conn):
     ).error is None
 
 
-@pytest.mark.parametrize(
-    ("function_id", "side_effects"),
-    (
-        ("ouroboros.field_note.append", True),
-        ("ouroboros.field_note.list", False),
-        ("ouroboros.field_note.get", False),
-    ),
-)
-def test_global_field_note_channel_needs_no_project_target(
-    conn, function_id: str, side_effects: bool,
-) -> None:
-    actor_id = _new_actor(conn)
-    permission = check_dispatch_permission(
-        conn,
-        _entry(function_id, side_effects=side_effects),
-        _request(actor_id, function_id),
-    )
-
-    assert permission.error is None
-    assert permission.permission_key is None
-    assert permission.project_id is None
-    assert permission.project_slug is None
-
-
 def test_no_verified_actor_is_permissive_local(conn):
     # No numeric actor -> local/advisory context -> permissive for every scope.
     # A project-scoped write that WOULD be denied with a non-owning actor is

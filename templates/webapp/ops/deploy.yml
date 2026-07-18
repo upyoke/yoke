@@ -344,48 +344,7 @@ jobs:
                   shutil.rmtree(slug_dir, ignore_errors=True)
                   print(f\"Removed directory: {slug_dir}\")
           "'
-
       - name: Invalidate CloudFront cache
-        if: success()
         env:
           CLOUDFRONT_DISTRIBUTION_ID: {{cloudfront_id}}
-        run: |
-          set -euo pipefail
-          if [ -z "$CLOUDFRONT_DISTRIBUTION_ID" ] || [ "$CLOUDFRONT_DISTRIBUTION_ID" = "TODO" ]; then
-            echo "CloudFront distribution ID is not configured" >&2
-            exit 1
-          fi
-
-          set +e
-          distribution=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?Id=='$CLOUDFRONT_DISTRIBUTION_ID'].[Id,DomainName,Status]" \
-            --output text 2>&1)
-          list_rc=$?
-          set -e
-          if [ "$list_rc" -ne 0 ]; then
-            echo "CloudFront distribution discovery failed (exit $list_rc)" >&2
-            printf '%s' "$distribution" | tail -c 2000 >&2
-            echo >&2
-            exit "$list_rc"
-          fi
-          if [ -z "$distribution" ] || [ "$distribution" = "None" ]; then
-            echo "CloudFront distribution $CLOUDFRONT_DISTRIBUTION_ID was not found" >&2
-            exit 1
-          fi
-          echo "CloudFront distribution: $distribution"
-
-          set +e
-          invalidation=$(aws cloudfront create-invalidation \
-            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
-            --paths "/*" \
-            --query 'Invalidation.[Id,Status]' \
-            --output text 2>&1)
-          invalidation_rc=$?
-          set -e
-          if [ "$invalidation_rc" -ne 0 ]; then
-            echo "CloudFront invalidation failed (exit $invalidation_rc)" >&2
-            printf '%s' "$invalidation" | tail -c 2000 >&2
-            echo >&2
-            exit "$invalidation_rc"
-          fi
-          echo "CloudFront invalidation: $invalidation"
+        run: python3 ops/cloudfront_invalidate.py "$CLOUDFRONT_DISTRIBUTION_ID"

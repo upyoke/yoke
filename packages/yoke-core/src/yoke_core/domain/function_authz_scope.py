@@ -14,10 +14,8 @@ matching scope:
                        requires its org admin grant. Whole-DB / whole-instance
                        diagnostics: raw db read, doctor. Project slugs never
                        confer control-plane authority.
-* ``ACTOR_SESSION``  — actor-accessible operations that need no tenant target:
-                       the actor's own session/orchestration or a global
-                       learning-channel operation; allowed for any authenticated
-                       actor.
+* ``ACTOR_SESSION``  — own-session and global learning-channel operations;
+                       allowed for any authenticated actor without a tenant target.
 * ``CLIENT_LOCAL``   — machine-local op that writes the *caller's own* ``~/.yoke``
                        config or local checkout; gated by machine possession, not
                        a control-plane permission.
@@ -216,10 +214,7 @@ _BY_ID: dict[str, AuthzSpec] = {
 
 # Prefix families where every member shares a scope.
 _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
-    # The global learning channel is available to every authenticated actor.
-    # Its target is deliberately global: append/list/get never require a
-    # project selector, while the handlers retain their optional project
-    # filter for narrowing a global listing.
+    # Global learning channel; handlers retain optional project list filters.
     ("ouroboros.field_note.", AuthzSpec(ACTOR_SESSION, None)),
     # Flow reads/runs are org-scoped; project reconcile is excepted above.
     ("deployment_flows.", AuthzSpec(ORG, PERM_ORG_ADMIN)),

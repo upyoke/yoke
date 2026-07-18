@@ -25,7 +25,6 @@ import pulumi  # noqa: E402 -- sibling path must be installed before this import
 from webapp_component_aliases import component_type_aliases  # noqa: E402
 def _infra_args_from_config(deploy_namespace: str):
     from webapp_infra_stack import WebappInfraArgs
-
     config = pulumi.Config()
     return WebappInfraArgs(
         domain_name=config.require("domain_name"),
@@ -44,7 +43,6 @@ def _infra_args_from_config(deploy_namespace: str):
 
 def _vps_args_from_config(deploy_namespace: str):
     from webapp_vps_stack import WebappVpsArgs
-
     config = pulumi.Config()
     return WebappVpsArgs(
         deploy_namespace=deploy_namespace,
@@ -60,7 +58,6 @@ def _vps_args_from_config(deploy_namespace: str):
 
 def _domain_args_from_config(deploy_namespace: str):
     from webapp_domain_stack import WebappDomainArgs
-
     config = pulumi.Config()
     return WebappDomainArgs(
         domain_name=config.require("domain_name"),
