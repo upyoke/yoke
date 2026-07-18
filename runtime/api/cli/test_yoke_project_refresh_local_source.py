@@ -81,6 +81,35 @@ def test_preview_reports_changes_without_target_writes(
     assert not (target / ".yoke/install-manifest.json").exists()
 
 
+def test_preview_reports_discarded_inert_legacy_records(
+    tmp_path: Path, capsys,
+) -> None:
+    target = tmp_path / "external-project"
+    _git_init(target)
+    _seed_manifest(target, 50)
+    manifest_path = target / ".yoke/install-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    contract_path = ".legacy/project.config"
+    strategy_path = ".legacy/strategy/MISSION.md"
+    manifest["contract_files"][contract_path] = "4" * 64
+    manifest["strategy_files"][strategy_path] = "5" * 64
+    manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+    before = _project_tree(target)
+
+    rc = cli_main([
+        "project", "refresh", str(target),
+        "--source-checkout", str(REPO_ROOT),
+        "--project-id", "50", "--json",
+    ])
+
+    assert rc == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["prior_contract_records_discarded"] == [contract_path]
+    assert report["prior_strategy_records_discarded"] == [strategy_path]
+    assert report["target_writes"] is False
+    assert _project_tree(target) == before
+
+
 def test_source_preview_rejects_malformed_settings_without_mutation(
     tmp_path: Path, capsys,
 ) -> None:

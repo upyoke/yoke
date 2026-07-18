@@ -97,6 +97,16 @@ def preview_report(
         "target_writes": False,
         "server_state_writes": False,
         "manifest_source": manifest_source,
+        "prior_contract_records_discarded": list(
+            prior_manifest.get(
+                files_layer.DISCARDED_PRIOR_CONTRACT_RECORDS_KEY
+            ) or []
+        ),
+        "prior_strategy_records_discarded": list(
+            prior_manifest.get(
+                files_layer.DISCARDED_PRIOR_STRATEGY_RECORDS_KEY
+            ) or []
+        ),
         "files_would_write": would_write,
         "files_would_prune": would_prune,
         "files_would_preserve_modified": would_preserve,
