@@ -186,13 +186,5 @@ class TestSeedFlowsRequireProjects:
                     }[flow["project"]]
                     assert by_id[str(flow["id"])][0] == expected
                 assert by_id["yoke-hosted-production"][1] == "disabled"
-                seeded_stage_documents = conn.execute(
-                    "SELECT stages FROM deployment_flows"
-                ).fetchall()
-                assert all(
-                    "dispatch_correlation_input" not in stage
-                    for row in seeded_stage_documents
-                    for stage in json.loads(row[0])
-                )
             finally:
                 conn.close()

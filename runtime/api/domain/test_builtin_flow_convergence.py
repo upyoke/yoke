@@ -103,6 +103,7 @@ def _seed_catalog(conn, monkeypatch) -> None:
     monkeypatch.setattr(
         flow_init, "BUILTIN_FLOW_SUPERSESSIONS", _TEST_SUPERSESSIONS
     )
+    flow_init.converge_flow_catalog(conn)
 
 
 def _insert_predecessor(conn, predecessor_id: str, definition_index: int = 0):
