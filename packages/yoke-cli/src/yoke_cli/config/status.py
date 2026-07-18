@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import importlib.util
 import os
-import shutil
-import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as metadata_version
 from pathlib import Path
@@ -26,6 +24,7 @@ from yoke_cli.config.status_environment import (
     permission_issues,
 )
 from yoke_cli.config.status_render import dumps_json, render_human
+from yoke_cli.config.status_runtime import build_runtime_status
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.install_binding import distribution_version_for_module
 from yoke_contracts.machine_config import schema as contract
@@ -206,44 +205,14 @@ def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
 
 
 def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
-    imports = {name: _import_status(name) for name in REQUIRED_IMPORTS}
-    if connection.get("transport") in contract.POSTGRES_TRANSPORTS:
-        imports["yoke_core"] = _import_status("yoke_core")
-        imports["psycopg"] = _import_status("psycopg")
-    source_bound = (
-        install_binding.detect().get("kind")
-        == install_binding.KIND_SOURCE_CHECKOUT
+    return build_runtime_status(
+        connection,
+        required_imports=REQUIRED_IMPORTS,
+        runtime_packages=PRODUCT_RUNTIME_PACKAGES,
+        import_status=_import_status,
+        package_version=_package_version,
+        issue=_issue,
     )
-    package_versions = {
-        name: _package_version(name, source_bound=source_bound)
-        for name in PRODUCT_RUNTIME_PACKAGES
-    }
-    issues = []
-    for name, item in imports.items():
-        if not item["available"]:
-            hint = (
-                "Repair the install so the yoke-core engine and psycopg "
-                "import (local-postgres connections dispatch in-process), "
-                "or switch to an HTTPS env."
-                if name in {"yoke_core", "psycopg"}
-                else "Install the Yoke product packages."
-            )
-            issues.append(
-                _issue(
-                    "error",
-                    "import_missing",
-                    f"required package import failed: {name}",
-                    hint,
-                )
-            )
-    return {
-        "python_executable": sys.executable,
-        "python_version": ".".join(str(part) for part in sys.version_info[:3]),
-        "yoke_executable": shutil.which("yoke") or "",
-        "imports": imports,
-        "package_versions": package_versions,
-        "issues": issues,
-    }
 
 
 def _package_version(name: str, *, source_bound: bool) -> str:

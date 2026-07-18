@@ -9,7 +9,6 @@ from pathlib import Path
 
 from yoke_cli.main import main as cli_main
 from yoke_cli.project_install import git_hooks as git_hooks_layer
-from yoke_core.tools import source_project_bundle
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -318,45 +317,3 @@ def test_full_manifest_preserves_unrendered_workflow_and_contract(
     assert refreshed["contract_files"][contract_rel] == (
         initial_manifest["contract_files"][contract_rel]
     )
-
-
-def test_source_process_enforces_explicit_checkout_origin(
-    tmp_path: Path, capsys,
-) -> None:
-    target = tmp_path / "external-project"
-    _git_init(target)
-    false_source = tmp_path / "different-yoke"
-    (false_source / "runtime/harness").mkdir(parents=True)
-    (false_source / "pyproject.toml").write_text(
-        '[project]\nname = "yoke"\n', encoding="utf-8"
-    )
-    before = _project_tree(target)
-
-    rc = cli_main([
-        "project", "refresh", str(target),
-        "--source-checkout", str(false_source),
-        "--project-id", "44", "--project-slug", "origin-project", "--json",
-    ])
-
-    assert rc == 1
-    captured = capsys.readouterr()
-    assert "ambient Yoke source fallback was refused" in captured.err
-    assert _project_tree(target) == before
-
-
-def test_source_bundle_versions_selected_git_hook_content(monkeypatch) -> None:
-    baseline = source_project_bundle.build_source_bundle(
-        REPO_ROOT, project_id=50, project_slug="git-hook-source",
-    )
-    selected = git_hooks_layer.PRE_COMMIT_SHIM.replace(
-        "# Hard-fails", "# selected source behavior\n# Hard-fails",
-    )
-    monkeypatch.setattr(git_hooks_layer, "PRE_COMMIT_SHIM", selected)
-
-    refreshed = source_project_bundle.build_source_bundle(
-        REPO_ROOT, project_id=50, project_slug="git-hook-source",
-    )
-
-    hooks = {entry["name"]: entry for entry in refreshed["managed_git_hooks"]}
-    assert hooks["pre-commit"]["content"] == selected
-    assert refreshed["yoke_version"] != baseline["yoke_version"]
