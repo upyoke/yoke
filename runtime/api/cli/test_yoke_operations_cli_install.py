@@ -130,6 +130,39 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert not (repo / ".yoke/lint-config").exists()
 
 
+def test_refresh_discards_out_of_policy_prior_contract_record(
+    cfg, repo, fake_bundle, tmp_path, capsys
+) -> None:
+    _seed_connection(cfg, tmp_path)
+    capsys.readouterr()
+    rc = yoke_operations_cli.main([
+        "project", "install", str(repo),
+        "--project-id", "7", "--config", str(cfg), "--json",
+    ])
+    assert rc == 0
+    capsys.readouterr()
+    manifest_path = repo / ".yoke/install-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    inert_path = "retired-tool/project.config"
+    manifest["contract_files"][inert_path] = "1" * 64
+    manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+    inert_file = repo / inert_path
+    inert_file.parent.mkdir(parents=True)
+    inert_file.write_text("project-owned\n", encoding="utf-8")
+
+    rc = yoke_operations_cli.main([
+        "project", "refresh", str(repo), "--config", str(cfg), "--json",
+    ])
+
+    assert rc == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["prior_contract_records_discarded"] == [inert_path]
+    assert inert_file.read_text(encoding="utf-8") == "project-owned\n"
+    refreshed = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert inert_path not in refreshed["contract_files"]
+    assert "_discarded_prior_contract_records" not in refreshed
+
+
 def test_install_without_project_id_exits_nonzero(cfg, repo, capsys) -> None:
     rc = yoke_operations_cli.main([
         "project", "install", str(repo), "--config", str(cfg),

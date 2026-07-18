@@ -94,7 +94,10 @@ Shared project behavior lives in the Yoke DB, not checkout files:
 
 - `project-policy` capability settings own `base_branch`, `wip_cap`,
   `default_priority`, `merge_conflict_threshold`, `max_attempts`, and
-  `file_line_limit`.
+  `file_line_limit`. They may also set
+  `artifact_refresh.enabled=false` with a non-empty
+  `artifact_refresh.reason` when a project-owned release factory replaces the
+  generic webapp artifact contract.
 - `session-routing` capability settings own default lanes, lane path
   allowlists, and `/yoke do` process-offer policy.
 
@@ -115,6 +118,11 @@ match exactly; local/offline projects without that optional binding still use
 the durable installed project identity. The source-dev template-tree override
 requires both its explicit flag and org-admin authority, and never bypasses
 checkout identity.
+
+When DB policy marks the generic artifact contract non-applicable, preview,
+apply, and verify still validate checkout identity, then return a clean no-op
+receipt with the configured reason. They do not inspect or write the artifact
+manifest and do not materialize webapp workflows or infrastructure.
 
 The client preserves local deviations and refuses apply, validates the complete
 manifest/path/symlink plan before any write, and prunes only unchanged files

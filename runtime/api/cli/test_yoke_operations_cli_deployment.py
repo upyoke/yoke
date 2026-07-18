@@ -289,6 +289,15 @@ def test_deployment_run_execute_requires_explicit_db_admin_env() -> None:
     assert "--env prod-db-admin" in err
 
 
+def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
+    rc, out, err = _run_capture(
+        _stub_ok, "deployment-runs", "execute", "--help",
+    )
+    assert rc == 0
+    assert out.startswith("usage: yoke --env ENV-db-admin")
+    assert err == ""
+
+
 def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None:
     with patch(
         "yoke_cli.commands.deployment_execute.subprocess.run",

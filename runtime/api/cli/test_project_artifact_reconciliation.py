@@ -8,7 +8,11 @@ import subprocess
 
 import pytest
 
-from yoke_contracts.project_artifacts import PROJECT_ARTIFACT_MANIFEST_REL
+from yoke_contracts.project_artifacts import (
+    PROJECT_ARTIFACT_BUNDLE_SCHEMA,
+    PROJECT_ARTIFACT_DEFAULT_APPLICABILITY_REASON,
+    PROJECT_ARTIFACT_MANIFEST_REL,
+)
 from yoke_cli.project_artifacts.planner import build_plan
 from yoke_cli.project_artifacts import runner
 from yoke_cli.project_artifacts.validate import (
@@ -35,9 +39,11 @@ def _bundle(contents: dict[str, tuple[str, int]]) -> dict:
         {"path": e["path"], "sha256": e["sha256"], "mode": e["mode"]} for e in entries
     ]
     return {
-        "bundle_schema": 1,
+        "bundle_schema": PROJECT_ARTIFACT_BUNDLE_SCHEMA,
         "project_id": 71,
         "project_slug": "sample-service",
+        "applicable": True,
+        "applicability_reason": PROJECT_ARTIFACT_DEFAULT_APPLICABILITY_REASON,
         "template": "webapp",
         "template_version": "webapp@1.2.3",
         "yoke_version": "1.2.3",

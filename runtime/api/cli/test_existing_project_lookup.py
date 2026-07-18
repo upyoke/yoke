@@ -219,6 +219,52 @@ def test_find_local_project_reference_reads_machine_config(tmp_path) -> None:
     )
 
 
+def test_source_link_manifest_without_project_id_uses_machine_config(
+    tmp_path,
+) -> None:
+    checkout = tmp_path / "checkout"
+    (checkout / ".yoke").mkdir(parents=True)
+    (checkout / ".yoke" / "install-manifest.json").write_text(
+        '{"manifest_schema": 1, "mode": "source-link"}\n',
+        encoding="utf-8",
+    )
+    config = tmp_path / "config.json"
+    config.write_text(
+        '{"schema_version": 1, "projects": {"'
+        + str(checkout)
+        + '": {"project_id": 37}}}\n',
+        encoding="utf-8",
+    )
+
+    ref = existing_project_lookup.find_local_project_reference(
+        checkout,
+        config_path=config,
+    )
+
+    assert ref == existing_project_lookup.LocalProjectReference(
+        project_id=37,
+        source="machine config",
+    )
+
+
+def test_copy_manifest_without_project_id_remains_invalid(tmp_path) -> None:
+    checkout = tmp_path / "checkout"
+    (checkout / ".yoke").mkdir(parents=True)
+    (checkout / ".yoke" / "install-manifest.json").write_text(
+        '{"manifest_schema": 1, "mode": "copy"}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        existing_project_lookup.ExistingProjectReferenceError,
+        match="does not contain a valid project_id",
+    ):
+        existing_project_lookup.find_local_project_reference(
+            checkout,
+            config_path=tmp_path / "missing-config.json",
+        )
+
+
 def test_find_by_github_repo_uses_exact_resolver_not_visible_list() -> None:
     with ProjectOnboardApi() as api:
         existing_project_lookup.find_by_github_repo(

@@ -217,6 +217,12 @@ org-admin-only diagnostic and never bypasses checkout identity. This is
 distinct from `yoke project refresh`, which updates only the managed Yoke
 operating substrate.
 
+Projects with a project-owned release factory can disable this generic webapp
+artifact contract through DB-backed `project-policy` settings:
+`artifact_refresh.enabled=false` plus a non-empty `artifact_refresh.reason`.
+All three modes then validate checkout identity and return a clean no-op
+receipt without inspecting or writing the artifact manifest.
+
 The fetched template includes:
 - `ops/DEPLOY.md` -- operator runbook
 - `ops/deploy.yml` -- production deploy workflow source

@@ -35,6 +35,10 @@ from yoke_core.domain.install_bundle import (
     server_tree_root,
     yoke_version,
 )
+from yoke_core.domain.project_artifact_applicability import (
+    ProjectArtifactApplicabilityError,
+    project_artifact_applicability,
+)
 from yoke_core.domain.project_renderer import render_project
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
@@ -82,8 +86,13 @@ def build_project_artifact_bundle(
         raise LookupError(f"project {project!r} not found")
     settings = _load_project_renderer_settings(conn, identity.slug)
     template_root, source = _template_root(source_dev_admin)
-    artifacts = _render_artifacts(settings, template_root)
-    _validate_rendered_artifacts(artifacts)
+    try:
+        applicable, applicability_reason = project_artifact_applicability(settings)
+    except ProjectArtifactApplicabilityError as exc:
+        raise ProjectArtifactBundleError(str(exc)) from exc
+    artifacts = _render_artifacts(settings, template_root) if applicable else []
+    if applicable:
+        _validate_rendered_artifacts(artifacts)
 
     settings_material = snapshot_from_settings(settings)
     settings_digest = _json_digest(settings_material)
@@ -99,6 +108,8 @@ def build_project_artifact_bundle(
         "bundle_schema": PROJECT_ARTIFACT_BUNDLE_SCHEMA,
         "project_id": identity.id,
         "project_slug": settings.project,
+        "applicable": applicable,
+        "applicability_reason": applicability_reason,
         "template": PROJECT_ARTIFACT_TEMPLATE,
         "template_version": f"{PROJECT_ARTIFACT_TEMPLATE}@{version}",
         "yoke_version": version,

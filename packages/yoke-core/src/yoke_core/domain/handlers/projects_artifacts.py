@@ -42,6 +42,8 @@ class ProjectArtifactsRenderResponse(BaseModel):
     bundle_schema: int
     project_id: int
     project_slug: str
+    applicable: bool
+    applicability_reason: str
     template: str
     template_version: str
     yoke_version: str

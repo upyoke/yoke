@@ -84,7 +84,15 @@ def validate_bundle(bundle: Any, *, source_dev_admin: bool) -> list[dict[str, An
         project_slug,
     )
     _validate_artifact_policy(bundle.get("artifact_policy"))
-    return _validate_bundle_entries(bundle)
+    applicable = bundle.get("applicable")
+    if not isinstance(applicable, bool):
+        raise ProjectArtifactError("artifact bundle applicable must be a boolean")
+    reason = bundle.get("applicability_reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ProjectArtifactError(
+            "artifact bundle applicability_reason must be a non-empty string"
+        )
+    return _validate_bundle_entries(bundle, applicable=applicable)
 
 
 def _validate_bundle_metadata(bundle: Mapping[str, Any]) -> tuple[int, str]:
@@ -112,10 +120,18 @@ def _validate_bundle_metadata(bundle: Mapping[str, Any]) -> tuple[int, str]:
     return project_id, str(bundle["project_slug"])
 
 
-def _validate_bundle_entries(bundle: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _validate_bundle_entries(
+    bundle: Mapping[str, Any], *, applicable: bool
+) -> list[dict[str, Any]]:
     raw_entries = bundle.get("artifacts")
-    if not isinstance(raw_entries, list) or not raw_entries:
+    if not isinstance(raw_entries, list):
+        raise ProjectArtifactError("artifact bundle artifacts must be an array")
+    if applicable and not raw_entries:
         raise ProjectArtifactError("artifact bundle contains no artifacts")
+    if not applicable and raw_entries:
+        raise ProjectArtifactError(
+            "non-applicable artifact bundle must not contain artifacts"
+        )
     entries: list[dict[str, Any]] = []
     paths: set[str] = set()
     for raw in raw_entries:
