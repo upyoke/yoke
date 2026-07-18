@@ -39,7 +39,7 @@ def test_release_authority_is_isolated_to_final_hosted_job():
     assert "YOKE_LINUX_RUNS_ON" not in text
 
 
-def test_tag_must_have_local_version_reach_main_and_have_tag_notes():
+def test_tag_must_have_local_version_exact_commit_and_tag_notes():
     text = _text()
     assert "canonical_tag_re='^v" in text
     assert '[[ ! "$TAG_NAME" =~ $canonical_tag_re ]]' in text
@@ -49,8 +49,7 @@ def test_tag_must_have_local_version_reach_main_and_have_tag_notes():
     assert '[[ "$object_type" != "tag"' in text
     assert '[[ "$target_type" != "commit"' in text
     assert '[[ "$source_sha" != "$GITHUB_SHA" ]]' in text
-    assert text.count("compare/$source_sha...main") == 2
-    assert '"ahead" && "$main_relation" != "identical"' in text
+    assert "compare/$source_sha...main" not in text
     assert 'echo "source_sha=$source_sha"' in text
     assert 'echo "tag_object_sha=$tag_object_sha"' in text
     assert 'tag_message="$(jq -r' in text

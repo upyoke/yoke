@@ -148,15 +148,17 @@ def _next_tag(
     return f"v{major}.{minor}.{patch}+launch.{sequence + 1}"
 
 
-def _require_main_reachability(repo: str, source_sha: str, token: str) -> None:
+def _require_source_commit(repo: str, source_sha: str, token: str) -> None:
     payload = rest_get(
-        f"/repos/{repo}/compare/{source_sha}...main",
+        f"/repos/{repo}/git/commits/{source_sha}",
         token=token,
     )
-    status = str(payload.get("status") or "") if isinstance(payload, dict) else ""
-    if status not in {"ahead", "identical"}:
+    resolved_sha = (
+        str(payload.get("sha") or "") if isinstance(payload, dict) else ""
+    )
+    if resolved_sha != source_sha:
         raise ValueError(
-            f"source commit is not reachable from current main: {source_sha}"
+            f"source commit does not exist in the project repository: {source_sha}"
         )
 
 
@@ -208,7 +210,7 @@ def handle_create_next_release_tag(
     assert token is not None
 
     try:
-        _require_main_reachability(payload.repo, payload.source_sha, token)
+        _require_source_commit(payload.repo, payload.source_sha, token)
         for attempt in range(_MAX_CREATE_ATTEMPTS):
             canonical = _canonical_refs(_release_refs(payload.repo, token))
             existing = _existing_tag_for_source(
@@ -268,7 +270,7 @@ REGISTRATIONS: List[dict[str, Any]] = [{
         "project_auth_required",
         "api_token_actor_bound",
         "immutable_annotated_tag_only",
-        "source_reachable_from_main",
+        "source_commit_exists",
     ],
     "adapter_status": "live",
     "claim_required_kind": None,

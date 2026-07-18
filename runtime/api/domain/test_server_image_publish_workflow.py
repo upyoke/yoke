@@ -1,6 +1,6 @@
 """Fail-closed provenance contract for the public GHCR image factory.
 
-Only an immutable annotated release tag reachable from current main may build.
+Only an immutable annotated release tag for the exact workflow commit may build.
 Native architecture jobs push content digests, a separate job assembles the
 multi-platform manifest under an internal staging reference, a no-checkout job
 attests it, and only then may a separate job publish the release references.
@@ -31,15 +31,17 @@ def test_only_release_tag_pushes_trigger_the_factory():
     assert "workflow_dispatch" not in trigger
 
 
-def test_every_validated_release_builds_in_one_serial_publication_lane():
+def test_release_tags_build_concurrently_without_latest_rollback():
     text = _text()
     build = text.split("  build:\n", 1)[1].split("\n  assemble:\n", 1)[0]
     assemble = text.split("  assemble:\n", 1)[1].split("\n  attest:\n", 1)[0]
     assert "needs: validate-tag" in build
     assert "packages: write" in build
     assert "needs: [validate-tag, build]" in assemble
-    assert "group: yoke-server-image-publication" in text
+    assert "group: ${{ github.workflow }}-${{ github.ref }}" in text
     assert "cancel-in-progress: false" in text
+    assert 'if [[ "$TAG_NAME" = "$latest_tag" ]]' in text
+    assert "Keeping latest on newer release" in text
 
 
 def test_permissions_are_split_by_validation_build_signing_and_publication():
@@ -108,7 +110,7 @@ def test_every_job_is_github_hosted_and_operator_credentials_are_absent():
         assert needle not in text, f"operator surface leaked in: {needle}"
 
 
-def test_remote_annotated_tag_and_current_main_are_checked_twice():
+def test_remote_annotated_tag_and_exact_workflow_commit_are_checked_twice():
     text = _text()
     assert "canonical_tag_re='^v" in text
     assert '"$TAG_NAME" =~ $canonical_tag_re' in text
@@ -117,7 +119,7 @@ def test_remote_annotated_tag_and_current_main_are_checked_twice():
     assert text.count("git/tags/$tag_object_sha") == 2
     assert text.count('[[ "$object_type" != "tag"') == 2
     assert text.count('[[ "$target_type" != "commit"') == 2
-    assert text.count("compare/$source_sha...main") == 2
+    assert "compare/$source_sha...main" not in text
     assert '"$source_sha" != "$GITHUB_SHA"' in text
     assert "EXPECTED_SOURCE_SHA: ${{ needs.validate-tag.outputs.source_sha }}" in text
     assert (
@@ -212,7 +214,7 @@ def test_digest_attestation_retries_transport_failures_before_publication():
     assert attest.count("push-to-registry: true") == 3
 
 
-def test_conflicting_sha12_is_refused_and_both_tags_are_verified():
+def test_conflicting_sha12_is_refused_and_published_tags_are_verified():
     text = _text()
     assert '"$existing_digest" != "$PUSHED_DIGEST"' in text
     assert "refusing conflicting immutable sha12" in text
@@ -221,6 +223,7 @@ def test_conflicting_sha12_is_refused_and_both_tags_are_verified():
     assert '--tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"' in text
     assert '"$sha_digest" != "$PUSHED_DIGEST"' in text
     assert '"$latest_digest" != "$PUSHED_DIGEST"' in text
+    assert 'if [[ "$PUBLISHED_LATEST" = "true" ]]' in text
     assert '"$platforms" != "linux/amd64,linux/arm64"' in text
 
 
