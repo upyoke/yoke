@@ -507,6 +507,48 @@
   margin-top: 2px;
 }
 
+/* Overview section map: the prototype's board headings turned into sticky
+   in-page navigation. Full-screen navigation remains in each panel footer. */
+.universe-app-root .overview-jumps {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 8px 0 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--yoke-border);
+  background: var(--yoke-bg);
+}
+.universe-app-root .overview-jump {
+  padding: 4px 11px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  color: var(--yoke-ink);
+  background: var(--yoke-surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+.universe-app-root .overview-jump:hover {
+  color: var(--yoke-accent);
+  border-color: var(--yoke-accent);
+  background: var(--yoke-hover);
+}
+.universe-app-root .overview-jump:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
+.universe-app-root .overview-section {
+  scroll-margin-top: 50px;
+}
+
 /* The Overview's summary panels: each is a peek at a full screen and links
    out to it. The link sits flush at the panel's foot, a full-width row with
    its own top rule, so "open the whole thing" reads as the panel's floor. */

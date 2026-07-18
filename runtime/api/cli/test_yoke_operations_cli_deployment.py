@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import sys
 from contextlib import redirect_stderr, redirect_stdout
 from typing import List
 from unittest.mock import patch
@@ -283,9 +284,9 @@ def test_deployment_run_execute_requires_explicit_db_admin_env() -> None:
 
 def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None:
     with patch(
-        "yoke_core.domain.deploy_pipeline.main",
-        return_value=0,
+        "yoke_cli.commands.deployment_execute.subprocess.run",
     ) as pipeline:
+        pipeline.return_value.returncode = 0
         rc, _out, err = _run_capture(
             _stub_ok,
             "--env", "prod-db-admin",
@@ -294,6 +295,14 @@ def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None
         )
 
     assert rc == 0, err
-    pipeline.assert_called_once_with([
-        "run-20260616-009", "--from-stage", "hosted-release",
-    ])
+    pipeline.assert_called_once_with(
+        [
+            sys.executable,
+            "-m",
+            "yoke_core.domain.deploy_pipeline",
+            "run-20260616-009",
+            "--from-stage",
+            "hosted-release",
+        ],
+        check=False,
+    )

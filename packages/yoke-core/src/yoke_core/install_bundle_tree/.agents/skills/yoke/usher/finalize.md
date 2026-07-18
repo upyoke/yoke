@@ -86,7 +86,7 @@ surface no suggestion for those and fall through to the recovery options.
 
 When: transient failure, cause resolved. Re-run pipeline (reads `current_stage`, strips `-failed`, retries):
 ```bash
-python3 -m yoke_core.domain.deploy_pipeline {run-id}
+yoke --env prod-db-admin deployment-runs execute {run-id}
 ```
 
 ### Option B: Abort the run
