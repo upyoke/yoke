@@ -53,6 +53,7 @@ def test_apply_report_writes_statuses_and_redacts_tokens(
     assert payload["final_status"] == "failed"
     assert payload["steps"][0]["status"] == "done"
     assert payload["steps"][1]["status"] == "failed"
+    assert payload["package_version"] == "source"
     serialized = json.dumps(payload)
     assert "ghs_secret" not in serialized
     assert "supersecret" not in serialized

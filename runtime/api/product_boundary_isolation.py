@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sysconfig
 from pathlib import Path
 from typing import Iterable
 
@@ -17,6 +18,7 @@ def write_sitecustomize(
     directory = tmp_path / "sitecustomize"
     directory.mkdir(parents=True, exist_ok=True)
     allowed = [str(path.resolve()) for path in allowed_repo_paths]
+    parent_dependency_site = str(Path(sysconfig.get_paths()["purelib"]).resolve())
     content = f"""
 from pathlib import Path
 import sys
@@ -67,18 +69,17 @@ sys.path_hooks[:] = [
 ]
 sys.path_importer_cache.clear()
 
-# Re-add the dependency site-packages so third-party deps (pydantic, etc.)
-# stay importable after the under-repo prune above. On CI the .venv lives
-# under the repo root, so the prune drops its site-packages; we must put the
-# deps back. Editable Yoke packages install via .pth / __editable__ finders
-# (removed above), and appending a directory does NOT reprocess .pth files, so
-# repo source paths are not reintroduced. sysconfig.purelib is the
-# cross-platform interpreter site-packages (the .venv on Linux CI); the
-# Homebrew path stays only as a macOS-dev fallback. The old code used ONLY the
-# Homebrew path, absent on Linux runners -> every dependency vanished.
+# Re-add dependency site-packages so third-party deps (pydantic, etc.) stay
+# importable after the under-repo prune above.  The writer process's purelib is
+# embedded because a disposable child venv with --system-site-packages inherits
+# the base interpreter, not the active parent venv where pytest's dependencies
+# live. Editable Yoke packages install via .pth / __editable__ finders (removed
+# above), and appending a directory does NOT reprocess .pth files, so source
+# packages are not reintroduced. The child purelib and Homebrew fallback cover
+# the remaining CI and macOS runtime shapes.
 import sysconfig
 _pyver = "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor)
-_dependency_sites = []
+_dependency_sites = [Path({parent_dependency_site!r})]
 _purelib = sysconfig.get_paths().get("purelib")
 if _purelib:
     _dependency_sites.append(Path(_purelib))

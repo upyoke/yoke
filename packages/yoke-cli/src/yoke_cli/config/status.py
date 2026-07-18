@@ -12,7 +12,6 @@ import importlib.util
 import os
 import shutil
 import sys
-from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -26,16 +25,18 @@ from yoke_cli.config.status_environment import (
 )
 from yoke_cli.config.status_render import dumps_json, render_human
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
+from yoke_contracts.install_binding import distribution_version_for_module
 from yoke_contracts.machine_config import schema as contract
 
 
 REQUIRED_IMPORTS = ("yoke_cli", "yoke_contracts", "pydantic", "pyfiglet")
-PRODUCT_RUNTIME_PACKAGES = (
-    install_binding.CLI_DISTRIBUTION_NAME,
-    "yoke-contracts",
-    "yoke-harness",
-    ENGINE_DISTRIBUTION_NAME,
-)
+PRODUCT_RUNTIME_MODULES = {
+    install_binding.CLI_DISTRIBUTION_NAME: "yoke_cli",
+    "yoke-contracts": "yoke_contracts",
+    "yoke-harness": "yoke_harness",
+    ENGINE_DISTRIBUTION_NAME: "yoke_core",
+}
+PRODUCT_RUNTIME_PACKAGES = tuple(PRODUCT_RUNTIME_MODULES)
 
 def build_status(
     *,
@@ -233,10 +234,17 @@ def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _package_version(name: str) -> str:
-    try:
-        return package_version(name)
-    except PackageNotFoundError:
+    module_name = PRODUCT_RUNTIME_MODULES.get(name)
+    if not module_name:
         return ""
+    try:
+        spec = importlib.util.find_spec(module_name)
+    except (ImportError, ValueError):
+        return ""
+    return distribution_version_for_module(
+        name,
+        spec.origin if spec else None,
+    )
 
 
 def _db_status(

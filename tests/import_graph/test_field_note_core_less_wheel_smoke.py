@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sysconfig
 from pathlib import Path
 
 from runtime.api.product_boundary_isolation import write_sitecustomize
@@ -49,18 +48,15 @@ def test_field_note_help_runs_from_core_less_product_wheels(
 
     external_project = tmp_path / "external-project"
     external_project.mkdir()
-    dependency_site = Path(sysconfig.get_paths()["purelib"])
     sitecustomize_dir = write_sitecustomize(
         tmp_path,
         repo_root=REPO_ROOT,
-        allowed_repo_paths=(dependency_site,),
+        allowed_repo_paths=(),
     )
     env = {
         "HOME": str(tmp_path / "home"),
         "PATH": f"{venv_dir / 'bin'}:{BASE_PATH}",
-        "PYTHONPATH": os.pathsep.join(
-            (str(sitecustomize_dir), str(dependency_site))
-        ),
+        "PYTHONPATH": str(sitecustomize_dir),
         "PYTHONNOUSERSITE": "1",
         "LANG": os.environ.get("LANG", "C.UTF-8"),
         "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),

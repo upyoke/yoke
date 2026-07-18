@@ -72,6 +72,7 @@ def test_install_binding_detects_source_checkout(tmp_path: Path) -> None:
     assert binding["kind"] == install_binding.KIND_SOURCE_CHECKOUT
     assert binding["checkout_root"] == str(tmp_path / "checkout")
     assert binding["module_origin"] == str(module_file)
+    assert binding["version"] == ""
 
 
 def test_install_binding_detects_packaged_wheel(tmp_path: Path) -> None:
@@ -87,6 +88,7 @@ def test_install_binding_detects_packaged_wheel(tmp_path: Path) -> None:
     assert binding["kind"] == install_binding.KIND_PACKAGED_WHEEL
     assert binding["checkout_root"] is None
     assert binding["module_origin"] == str(module_file)
+    assert binding["version"] == ""
 
 
 def test_install_binding_wheel_venv_inside_checkout_stays_packaged(
@@ -145,6 +147,8 @@ def test_status_json_reports_install_binding(
     assert report["install"]["kind"] == install_binding.KIND_SOURCE_CHECKOUT
     assert report["install"]["checkout_root"]
     assert report["install"]["module_origin"].endswith("yoke_cli/__init__.py")
+    assert report["install"]["version"] == ""
+    assert set(report["runtime"]["package_versions"].values()) == {""}
 
 
 def test_global_env_override_is_restored(tmp_path: Path, monkeypatch, capsys) -> None:

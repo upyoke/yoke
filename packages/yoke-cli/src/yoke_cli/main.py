@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 import sys
-from importlib.metadata import PackageNotFoundError, version
 from typing import List, Optional, Sequence
 
 from yoke_cli.commands.registry import (
@@ -34,13 +33,11 @@ from yoke_cli.commands.tool_shaped import (
     TOOL_SHAPED_USAGE,
     resolve_tool_shaped,
 )
-from yoke_cli.config import machine_config
+from yoke_cli.config import install_binding, machine_config
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.machine_config import schema as machine_schema
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 
-
-_PACKAGE_NAME = "yoke-cli"
 
 _BARE_ONBOARD_COMMAND = "yoke onboard"
 _NONINTERACTIVE_ONBOARD_COMMAND = (
@@ -131,10 +128,7 @@ def _emit_help() -> int:
 
 
 def _emit_version() -> int:
-    try:
-        print(version(_PACKAGE_NAME))
-    except PackageNotFoundError:
-        print("0.1.0")
+    print(install_binding.distribution_version(source_value="source") or "unknown")
     return 0
 
 

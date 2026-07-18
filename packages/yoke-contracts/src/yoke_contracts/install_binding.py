@@ -12,6 +12,7 @@ both packages can import them, and the two reports keep one JSON shape.
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, distribution as _distribution
 from pathlib import Path
 from typing import Any, Mapping, Optional, Union
 
@@ -52,6 +53,52 @@ def source_checkout_root(module_file: Union[str, Path]) -> Optional[Path]:
     return None
 
 
+def distribution_version_for_module(
+    distribution_name: str,
+    module_file: Union[str, Path, None],
+    *,
+    source_value: str = "",
+) -> str:
+    """Return metadata version only when it owns ``module_file``.
+
+    Distribution metadata is process-global, while imports can be rebound by
+    ``PYTHONPATH`` or an editable checkout.  Looking up a distribution name
+    alone can therefore report an unrelated wheel's version for source code
+    loaded from elsewhere. Source checkouts return ``source_value``; packaged
+    modules return a version only when their origin is under the matching
+    distribution's installed root.
+    """
+
+    if not module_file:
+        return ""
+    try:
+        module_path = Path(module_file).resolve()
+    except (OSError, TypeError, ValueError):
+        return ""
+    if source_checkout_root(module_path):
+        return source_value
+    try:
+        installed = _distribution(distribution_name)
+        distribution_root = Path(installed.locate_file("")).resolve()
+    except (PackageNotFoundError, OSError, TypeError, ValueError):
+        return ""
+    if not module_path.is_relative_to(distribution_root):
+        return ""
+    files = installed.files
+    if not files:
+        return ""
+    try:
+        owns_module = any(
+            Path(installed.locate_file(file)).resolve() == module_path
+            for file in files
+        )
+    except (OSError, TypeError, ValueError):
+        return ""
+    if not owns_module:
+        return ""
+    return str(installed.version or "")
+
+
 def label(binding: Mapping[str, Any]) -> str:
     """One-line factual label for an install-binding mapping."""
 
@@ -64,6 +111,7 @@ __all__ = [
     "CHECKOUT_PACKAGES_DIR_NAME",
     "KIND_PACKAGED_WHEEL",
     "KIND_SOURCE_CHECKOUT",
+    "distribution_version_for_module",
     "is_yoke_source_checkout",
     "label",
     "source_checkout_root",

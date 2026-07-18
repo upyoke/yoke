@@ -22,7 +22,6 @@ handler twin through :mod:`yoke_contracts.install_binding`.
 
 from __future__ import annotations
 
-from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +32,7 @@ from yoke_contracts.engine_version import (
 from yoke_contracts.install_binding import (  # noqa: F401 - re-exported surface
     KIND_PACKAGED_WHEEL,
     KIND_SOURCE_CHECKOUT,
+    distribution_version_for_module,
     label,
     source_checkout_root,
 )
@@ -51,15 +51,23 @@ def detect(module_file: str | Path | None = None) -> dict[str, Any]:
         "kind": KIND_SOURCE_CHECKOUT if checkout_root else KIND_PACKAGED_WHEEL,
         "checkout_root": str(checkout_root) if checkout_root else None,
         "module_origin": str(resolved),
-        "version": _distribution_version(),
+        "version": distribution_version(resolved),
     }
 
 
-def _distribution_version() -> str:
-    try:
-        return package_version(CLI_DISTRIBUTION_NAME)
-    except PackageNotFoundError:
-        return ""
+def distribution_version(
+    module_file: str | Path | None = None,
+    *,
+    source_value: str = "",
+) -> str:
+    """Version belonging to the loaded CLI origin, never ambient metadata."""
+
+    resolved = Path(module_file if module_file is not None else yoke_cli.__file__)
+    return distribution_version_for_module(
+        CLI_DISTRIBUTION_NAME,
+        resolved,
+        source_value=source_value,
+    )
 
 
 __all__ = [
@@ -67,6 +75,7 @@ __all__ = [
     "KIND_PACKAGED_WHEEL",
     "KIND_SOURCE_CHECKOUT",
     "detect",
+    "distribution_version",
     "label",
     "source_checkout_root",
 ]
