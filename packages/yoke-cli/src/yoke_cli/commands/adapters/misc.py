@@ -28,7 +28,11 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
-from yoke_contracts.field_note_text import HELP_BODY
+from yoke_contracts.field_note_text import (
+    EVIDENCE_MAX_CHARS,
+    HELP_BODY,
+    KIND_VALUES,
+)
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -214,10 +218,6 @@ OUROBOROS_USAGE = (
 
 
 def ouroboros_field_note_append(args: List[str]) -> int:
-    handler = importlib.import_module(
-        "yoke_core.domain.handlers.ouroboros_field_note"
-    )
-
     # --help body is composed in yoke_contracts.field_note_text.HELP_BODY
     # from the worked failure modes, decision tree, canonical vocabulary,
     # and inline-short footer. Sourcing it here keeps drift impossible —
@@ -229,7 +229,7 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--kind", required=True, choices=handler.FIELD_NOTE_KIND_VALUES,
+        "--kind", required=True, choices=KIND_VALUES,
         help="Field-note signal — failed, new, unclear, or observation.",
     )
     evidence_group = parser.add_mutually_exclusive_group(required=True)
@@ -237,7 +237,7 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         evidence_group, "--evidence", "--evidence-file",
         dest="evidence",
         help_text=(
-            f"Non-empty evidence text (≤{handler.EVIDENCE_MAX_CHARS} chars). "
+            f"Non-empty evidence text (≤{EVIDENCE_MAX_CHARS} chars). "
             "Use --evidence-file to read from a path."
         ),
     )

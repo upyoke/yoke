@@ -36,12 +36,12 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.field_note_text import EVIDENCE_MAX_CHARS, KIND_VALUES
 
 
 FIELD_NOTE_EVENT_NAME = "OuroborosFieldNoteAppended"
-FIELD_NOTE_KIND_VALUES = ("failed", "new", "unclear", "observation")
+FIELD_NOTE_KIND_VALUES = KIND_VALUES
 EVIDENCE_PREVIEW_CHARS = 120
-EVIDENCE_MAX_CHARS = 4000
 
 
 class FieldNoteAppendRequest(BaseModel):

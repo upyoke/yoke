@@ -20,6 +20,10 @@ def test_kind_values_canonical_enum() -> None:
     assert set(fnt.KIND_VALUES) == _VALID_KINDS
 
 
+def test_evidence_max_chars_is_shared_contract() -> None:
+    assert fnt.EVIDENCE_MAX_CHARS == 4000
+
+
 def test_kind_observation_definition_is_canonical_text() -> None:
     assert fnt.KIND_OBSERVATION_DEFINITION == (
         "minor bug, surprise, or stale reference noticed during unrelated work. "
@@ -113,6 +117,7 @@ _PURE_DATA_NAMES = frozenset({
     "HELP_POINTER",
     "FOOTER",
     "KIND_VALUES",
+    "EVIDENCE_MAX_CHARS",
     "KIND_OBSERVATION_DEFINITION",
     "FailureMode",
     "FAILURE_MODES",

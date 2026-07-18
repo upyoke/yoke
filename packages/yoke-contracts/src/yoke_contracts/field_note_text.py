@@ -19,8 +19,9 @@ This module carries:
 
 * The canonical directive constants (``DIRECTIVE``, ``BASIC_RECIPE``,
   ``HELP_POINTER``, ``FOOTER``) and the ``FailureMode`` shape — pure data.
-* The closed ``--kind`` enum (``KIND_VALUES``) plus the operator-facing
-  definition of the ``observation`` kind (``KIND_OBSERVATION_DEFINITION``).
+* The closed ``--kind`` enum (``KIND_VALUES``), evidence length contract
+  (``EVIDENCE_MAX_CHARS``), and the operator-facing definition of the
+  ``observation`` kind (``KIND_OBSERVATION_DEFINITION``).
 * ``format_failure_modes_for_help`` — a pure renderer that turns
   ``FAILURE_MODES`` into the ``yoke ouroboros field-note append --help``
   description string. Pure function, deterministic, no I/O.
@@ -56,6 +57,7 @@ FOOTER: str = f"{DIRECTIVE}\n{BASIC_RECIPE}\n{HELP_POINTER}"
 
 
 KIND_VALUES: tuple[str, ...] = ("failed", "new", "unclear", "observation")
+EVIDENCE_MAX_CHARS: int = 4000
 
 
 KIND_OBSERVATION_DEFINITION: str = (
@@ -281,6 +283,7 @@ __all__ = (
     "HELP_POINTER",
     "FOOTER",
     "KIND_VALUES",
+    "EVIDENCE_MAX_CHARS",
     "KIND_OBSERVATION_DEFINITION",
     "FailureMode",
     "FAILURE_MODES",
