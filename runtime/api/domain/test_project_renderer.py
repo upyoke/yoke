@@ -197,6 +197,8 @@ class TestRenderProject:
         content = rendered_files[0].read_text()
         assert "Deploy testproj" in content
         assert "AUTO-GENERATED" in content
+        assert content.endswith("\n")
+        assert not content.endswith("\n\n")
 
     def test_render_ops(self, project_tree, tmp_path):
         """Test ops script rendering with placeholder substitution.
@@ -250,6 +252,8 @@ class TestRenderProject:
         maintenance = (ops_dir / "docker_maintenance_converge.py").read_text()
         assert maintenance.startswith("#!/usr/bin/env python3\n# AUTO-GENERATED")
         assert "docker_maintenance_converge.py" in maintenance
+        assert maintenance.endswith("\n")
+        assert not maintenance.endswith("\n\n")
 
         # Output must have executable bit set (operator scp-to-VPS flow).
         import stat
