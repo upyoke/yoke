@@ -12,6 +12,7 @@ from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import strategy as strategy_layer
 from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
+    DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
     MODE_COPY,
     MODE_KEY,
     ProjectInstallError,
@@ -35,6 +36,7 @@ _MANIFEST_OWNED_KEYS = frozenset(
         "worktrees_ignore_added",
         "worktrees_ignore_created_file",
         DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
+        DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
     }
 )
 
@@ -209,6 +211,9 @@ def apply_bundle(
         "contract_files_adopted": contract_adopted,
         "prior_contract_records_discarded": list(
             old_manifest.get(DISCARDED_PRIOR_CONTRACT_RECORDS_KEY) or []
+        ),
+        "prior_strategy_records_discarded": list(
+            old_manifest.get(DISCARDED_PRIOR_STRATEGY_RECORDS_KEY) or []
         ),
         "gitignore_ignores_backfilled": gitignore_backfilled,
         "strategy_files_written": strategy_written,

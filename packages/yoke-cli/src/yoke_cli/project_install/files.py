@@ -31,6 +31,7 @@ MODE_KEY = "mode"
 MODE_COPY = "copy"
 MODE_SOURCE_LINK = "source-link"
 DISCARDED_PRIOR_CONTRACT_RECORDS_KEY = "_discarded_prior_contract_records"
+DISCARDED_PRIOR_STRATEGY_RECORDS_KEY = "_discarded_prior_strategy_records"
 
 # Hook-merge targets — bundle ``files`` must never name these directly;
 # their content flows through the bundle's ``hooks`` subtrees.
@@ -64,9 +65,7 @@ def load_manifest(repo_root: Path) -> Dict[str, Any] | None:
     return load_manifest_path(manifest_path(repo_root), missing_ok=True)
 
 
-def load_manifest_path(
-    path: Path, *, missing_ok: bool = False,
-) -> Dict[str, Any] | None:
+def load_manifest_path(path: Path, *, missing_ok: bool = False) -> Dict[str, Any] | None:
     """Read a manifest from an explicit path for lineage transfer."""
     path = path.expanduser().resolve()
     if not path.is_file():
@@ -80,9 +79,9 @@ def load_manifest_path(
             f"install manifest {path} is unreadable ({exc}); repair or delete "
             "it, then rerun `yoke project install`"
         ) from exc
-    from yoke_cli.project_install.manifest import sanitize_prior_contract_records
+    from yoke_cli.project_install.manifest import sanitize_prior_manifest_records
 
-    sanitized = sanitize_prior_contract_records(payload, source=str(path))
+    sanitized = sanitize_prior_manifest_records(payload, source=str(path))
     validate_manifest(sanitized, source=str(path))
     return sanitized
 

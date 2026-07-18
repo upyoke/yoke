@@ -18,6 +18,7 @@ from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
+    DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
     MODE_COPY,
     MODE_KEY,
     MODE_SOURCE_LINK,
@@ -136,6 +137,9 @@ def uninstall(
         "contract_files_already_absent": contract_absent,
         "prior_contract_records_discarded": list(
             manifest.get(DISCARDED_PRIOR_CONTRACT_RECORDS_KEY) or []
+        ),
+        "prior_strategy_records_discarded": list(
+            manifest.get(DISCARDED_PRIOR_STRATEGY_RECORDS_KEY) or []
         ),
         "strategy_files_preserved": strategy_preserved,
         "hooks_removed": hooks_removed,
