@@ -286,9 +286,7 @@ test("a doctor run that never ran leaves the checks tile an em dash", async (t) 
   mounted.unmount();
 });
 
-// The Sessions summary's who-column is the one place the screen changes by
-// mode: it names the actor by default, and the member the host maps it to
-// wherever accounts exist.
+// The who-column names the actor, or the member when the host maps one.
 test("the Sessions summary names the actor, and a member directory renames it", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -311,6 +309,11 @@ test("the Sessions summary names the actor, and a member directory renames it", 
             mode: "wait", actor_id: 7, actor_kind: "system",
             actor_label: "preview-ci", current_item: null,
           },
+          {
+            session_id: "s-ended", liveness: "ended", execution_lane: "primary",
+            mode: "wait", actor_id: 8, actor_kind: "system",
+            actor_label: "old-worker", current_item: null,
+          },
         ],
       },
     });
@@ -318,7 +321,7 @@ test("the Sessions summary names the actor, and a member directory renames it", 
       client, ...(capabilities ? { capabilities } : {}),
     });
     await settle();
-    // The Sessions panel is the third; read its header label and who-cells.
+    // Read the third panel's header label and who-cells.
     const sessionsPanel = byClass(root, "panel")[2];
     const header = allNodes(sessionsPanel)
       .filter((node) => node.tagName === "TH")
@@ -331,14 +334,11 @@ test("the Sessions summary names the actor, and a member directory renames it", 
     return { header, whoCells };
   };
 
-  // No directory (local / self-hosted): the column is the engine's actor.
   const actorMode = await sessionsSummaryCells(null);
   assert.equal(actorMode.header[1], "actor");
   assert.deepEqual(actorMode.whoCells, ["ben", "preview-ci · system"]);
 
-  // A host that names accounts (hosted): the column becomes the member it
-  // maps to, and a machine actor the directory does not name keeps its actor
-  // identity rather than borrowing someone else's.
+  // Hosted mode uses mapped members; unmapped machines keep their actor.
   const memberMode = await sessionsSummaryCells({
     data: { memberDirectory: { 2: "Ben Bauman" } },
   });
