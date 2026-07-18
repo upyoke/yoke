@@ -29,13 +29,13 @@ def test_repair_adapter_is_dry_run_by_default(monkeypatch) -> None:
     )
 
     result = project_github_sync_mode.projects_github_sync_mode_repair(
-        ["--project", "buzz"]
+        ["--project", "externalwebapp"]
     )
 
     assert result == 0
     assert captured["function_id"] == "projects.github_sync_mode.repair"
     assert captured["target"].kind == "global"
-    assert captured["payload"] == {"apply": False, "project": "buzz"}
+    assert captured["payload"] == {"apply": False, "project": "externalwebapp"}
 
 
 def test_repair_adapter_requires_explicit_apply_flag(monkeypatch) -> None:

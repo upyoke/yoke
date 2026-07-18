@@ -65,22 +65,22 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
             pg_testdb.dsn_for_test_database(db_name),
         )
 
-        _bind("buzz", "4567", "Example-Org/Buzz")
+        _bind("externalwebapp", "4567", "Example-Org/ExternalWebapp")
         _bind("yoke", "4568", "Example-Org/Yoke")
         conn = pg_testdb.connect_test_database(db_name)
         try:
             conn.execute(
                 "INSERT INTO capability_secrets "
                 "(project_id, type, key, value, source) VALUES "
-                "(2, ' GitHub ', 'token', 'retired-buzz-token', 'literal'), "
-                "(2, 'docker', 'registry', 'keep-buzz-registry', 'literal'), "
+                "(2, ' GitHub ', 'token', 'retired-externalwebapp-token', 'literal'), "
+                "(2, 'docker', 'registry', 'keep-externalwebapp-registry', 'literal'), "
                 "(1, 'github', 'token', 'keep-yoke-token', 'literal')"
             )
             conn.commit()
         finally:
             conn.close()
 
-        unbound = cmd_unbind_project_repo("buzz")
+        unbound = cmd_unbind_project_repo("externalwebapp")
 
         assert unbound["bound"] is False
         assert unbound["github_repo"] == ""
@@ -88,7 +88,7 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
         conn = pg_testdb.connect_test_database(db_name)
         try:
             project = conn.execute(
-                "SELECT github_repo, github_sync_mode FROM projects WHERE slug='buzz'"
+                "SELECT github_repo, github_sync_mode FROM projects WHERE slug='externalwebapp'"
             ).fetchone()
             assert dict(project) == {
                 "github_repo": None,
@@ -119,7 +119,7 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
                 "SELECT value FROM capability_secrets "
                 "WHERE project_id=2 AND type='docker' AND key='registry'"
             ).fetchone()
-            assert unrelated[0] == "keep-buzz-registry"
+            assert unrelated[0] == "keep-externalwebapp-registry"
             assert (
                 conn.execute(
                     "SELECT COUNT(*) FROM capability_secrets "
@@ -144,12 +144,12 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
         finally:
             conn.close()
 
-        rebound = _bind("buzz", "4567", "Example-Org/Buzz")
+        rebound = _bind("externalwebapp", "4567", "Example-Org/ExternalWebapp")
 
         assert rebound["bound"] is True
         assert rebound["binding"]["status"] == "active"
         assert rebound["github_sync_mode"] == "backlog_only"
-        assert cmd_update("buzz", "github_sync_mode", "enabled").startswith(
+        assert cmd_update("externalwebapp", "github_sync_mode", "enabled").startswith(
             "Updated project"
         )
     finally:

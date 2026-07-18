@@ -71,7 +71,7 @@ def install_rest_happy(monkeypatch) -> None:
     def fake_urlopen(request, timeout):
         url = request.full_url
         if "/actions/secrets" in url:
-            names = ("BUZZ_SSH_KEY", "BUZZ_SSH_HOST", "BUZZ_SSH_USER")
+            names = ("EXT_SSH_KEY", "EXT_SSH_HOST", "EXT_SSH_USER")
             return RestResponse(200, {"secrets": [{"name": n} for n in names]})
         if url.endswith("/environments") or "/environments?" in url:
             return RestResponse(200, {"environments": [{"name": "production"}]})
@@ -81,14 +81,14 @@ def install_rest_happy(monkeypatch) -> None:
 
 
 def make_repo(root: Path, *, optional_workflows: bool = False) -> Path:
-    repo = root / "fake-buzz"
+    repo = root / "fake-externalwebapp"
     workflows = repo / ".github" / "workflows"
     workflows.mkdir(parents=True, exist_ok=True)
     register_machine_checkout(root / "machine-config", repo, 2)
     (repo / ".git").mkdir(exist_ok=True)
-    names = ["buzz-deploy.yml", "buzz-smoke.yml"]
+    names = ["externalwebapp-deploy.yml", "externalwebapp-smoke.yml"]
     if optional_workflows:
-        names += ["buzz-ephemeral.yml", "buzz-ephemeral-teardown.yml"]
+        names += ["externalwebapp-ephemeral.yml", "externalwebapp-ephemeral-teardown.yml"]
     for name in names:
         (workflows / name).write_text(f"name: {name}\n")
     return repo
@@ -103,8 +103,8 @@ def make_script_dir(root: Path) -> Path:
 def fake_app_auth(*, administration: bool = True) -> ProjectGithubAuth:
     permissions = {"administration": "read"} if administration else {}
     return ProjectGithubAuth(
-        project="buzz",
-        repo="example-org/buzz",
+        project="externalwebapp",
+        repo="example-org/externalwebapp",
         token="ghs_validator",
         installation_id="12345",
         permissions=permissions,

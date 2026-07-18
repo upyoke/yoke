@@ -137,11 +137,11 @@ class TestInit:
             seed_project_identities(conn)
         finally:
             conn.close()
-        ps.cmd_seed("buzz", db_path=empty_db)
+        ps.cmd_seed("yoke", db_path=empty_db)
 
         # Operator edit: override the full scope with a different command.
         ps.apply_patch(
-            "buzz",
+            "yoke",
             ops=[{
                 "op": "put",
                 "family": "command_definitions",
@@ -154,5 +154,5 @@ class TestInit:
 
         projects.cmd_init(db_path=empty_db)
 
-        commands = cmd_defs.list_commands("buzz", db_path=empty_db)
+        commands = cmd_defs.list_commands("yoke", db_path=empty_db)
         assert commands["full"] == "custom-full-command"

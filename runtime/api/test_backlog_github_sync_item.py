@@ -37,9 +37,9 @@ _CREATE_PATCH = "yoke_core.domain.backlog_github_item_create.github_rest.create_
 
 
 def _ok_resolver(*args, **kwargs):
-    proj = kwargs.get("project") or (args[0] if args else "buzz")
+    proj = kwargs.get("project") or (args[0] if args else "externalwebapp")
     return ProjectGithubAuth(
-        project=proj, repo="org/buzz", token="ghs_fake",
+        project=proj, repo="org/externalwebapp", token="ghs_fake",
     )
 
 
@@ -51,7 +51,7 @@ def _fake_issue(
     return github_rest.Issue(
         number=number, title=title, state="OPEN",
         html_url=(
-            f"https://github.com/org/buzz/issues/{number}"
+            f"https://github.com/org/externalwebapp/issues/{number}"
             if html_url is None else html_url
         ),
     )
@@ -60,7 +60,7 @@ def _fake_issue(
 class TestSyncItem:
     def test_already_synced_updates_labels_and_body(self):
         db = _make_db()
-        insert_item(db, id=20, type="issue", status="idea", project="buzz", github_issue="#100")
+        insert_item(db, id=20, type="issue", status="idea", project="externalwebapp", github_issue="#100")
         stdout = io.StringIO()
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
@@ -76,7 +76,7 @@ class TestSyncItem:
 
     def test_already_synced_epic_also_syncs_child_tasks(self):
         db = _make_db()
-        insert_item(db, id=21, type="epic", status="implementing", project="buzz", github_issue="#100")
+        insert_item(db, id=21, type="epic", status="implementing", project="externalwebapp", github_issue="#100")
         insert_epic_task(db, epic_id=21, task_num=1, title="Task 1", status="planned")
         stdout = io.StringIO()
         with patch.object(
@@ -90,7 +90,7 @@ class TestSyncItem:
         assert rc == 0
         mock_labels.assert_called_once()
         mock_body.assert_called_once()
-        mock_task_sync.assert_called_once_with("BUZ-21", conn=db, stdout=stdout, stderr=ANY)
+        mock_task_sync.assert_called_once_with("EXT-21", conn=db, stdout=stdout, stderr=ANY)
         db.close()
 
     def test_creates_new_issue(self):
@@ -101,7 +101,7 @@ class TestSyncItem:
             type="issue",
             status="idea",
             priority="high",
-            project="buzz",
+            project="externalwebapp",
             spec="Test body content",
         )
         stdout = io.StringIO()
@@ -122,7 +122,7 @@ class TestSyncItem:
         assert rc == 0
         gh_issue = db.execute("SELECT github_issue FROM items WHERE id = 20").fetchone()[0]
         assert gh_issue == "#999"
-        assert "Synced: BUZ-20 → GitHub issue #999" in stdout.getvalue()
+        assert "Synced: EXT-20 → GitHub issue #999" in stdout.getvalue()
         db.close()
 
     def test_create_without_html_url_prints_host_neutral_reference(self):
@@ -132,7 +132,7 @@ class TestSyncItem:
             id=20,
             type="issue",
             status="idea",
-            project="buzz",
+            project="externalwebapp",
             spec="Test body content",
         )
         stdout = io.StringIO()
@@ -153,7 +153,7 @@ class TestSyncItem:
         assert rc == 0
         output = stdout.getvalue()
         assert "\n#999\n" in output
-        assert "https://github.com/org/buzz/issues/999" not in output
+        assert "https://github.com/org/externalwebapp/issues/999" not in output
         db.close()
 
     def test_creates_new_epic_issue_and_syncs_child_tasks(self):
@@ -164,7 +164,7 @@ class TestSyncItem:
             type="epic",
             status="planning",
             priority="high",
-            project="buzz",
+            project="externalwebapp",
             spec="Epic body content",
         )
         insert_epic_task(db, epic_id=22, task_num=1, title="Task 1", status="planned")
@@ -188,7 +188,7 @@ class TestSyncItem:
         assert rc == 0
         gh_issue = db.execute("SELECT github_issue FROM items WHERE id = 22").fetchone()[0]
         assert gh_issue == "#1001"
-        mock_task_sync.assert_called_once_with("BUZ-22", conn=db, stdout=stdout, stderr=ANY)
+        mock_task_sync.assert_called_once_with("EXT-22", conn=db, stdout=stdout, stderr=ANY)
         db.close()
 
     # Dedup behavior — exact-prefix reuse, fuzzy non-reuse, malformed-JSON
@@ -196,7 +196,7 @@ class TestSyncItem:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=20, type="issue", status="idea", project="buzz")
+        insert_item(db, id=20, type="issue", status="idea", project="externalwebapp")
         stdout = io.StringIO()
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
@@ -232,7 +232,7 @@ class TestSyncItem:
             type="issue",
             status="idea",
             priority="medium",
-            project="buzz",
+            project="externalwebapp",
             spec="Owner label test",
             source=str(local_human),
             owner=str(yoke_core),
@@ -275,7 +275,7 @@ class TestSyncItemCompactMirror:
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
         insert_item(
-            db, id=30, type="issue", status="idea", project="buzz",
+            db, id=30, type="issue", status="idea", project="externalwebapp",
             priority="medium", spec=huge_spec,
         )
         stdout = io.StringIO()
@@ -305,7 +305,7 @@ class TestSyncItemCompactMirror:
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
         insert_item(
-            db, id=31, type="issue", status="idea", project="buzz",
+            db, id=31, type="issue", status="idea", project="externalwebapp",
             github_issue="#205", spec=huge_spec,
         )
         stdout = io.StringIO()
@@ -328,13 +328,13 @@ class TestSyncItemCompactMirror:
         before any dedup search, label seeding, or REST call."""
         db = _make_db()
         insert_item(
-            db, id=32, type="issue", status="idea", project="buzz",
+            db, id=32, type="issue", status="idea", project="externalwebapp",
             spec="body",
         )
         stderr = io.StringIO()
 
         def raise_missing_binding(*a, **kw):
-            raise MissingRepoBinding("buzz", "repository is not bound")
+            raise MissingRepoBinding("externalwebapp", "repository is not bound")
 
         with patch.object(
             item_create, "resolve_project_github_auth",

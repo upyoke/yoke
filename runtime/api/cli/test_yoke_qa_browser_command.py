@@ -137,7 +137,7 @@ class TestRunAdapter:
             side_effect=fake_dispatcher,
         ):
             rc, out, _err = self._run(
-                "--item", "BUZ-1732", "--project", "buzz",
+                "--item", "EXT-1732", "--project", "externalwebapp",
                 "--base-url", "http://127.0.0.1:3000",
             )
 
@@ -154,9 +154,9 @@ class TestRunAdapter:
             (
                 "qa.browser_context.get",
                 "item",
-                "BUZ-1732",
-                "buzz",
-                {"project": "buzz"},
+                "EXT-1732",
+                "externalwebapp",
+                {"project": "externalwebapp"},
             ),
         ]
 

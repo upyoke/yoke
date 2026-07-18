@@ -44,11 +44,11 @@ class TestHeavyFetchUnavailable:
     ):
         paired = [
             resync_mod.PairedItem(
-                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "buzz", "",
+                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "externalwebapp", "",
             ),
         ]
         light = {
-            "buzz": {},
+            "externalwebapp": {},
             "yoke": {
                 100: {
                     "number": 100,
@@ -104,11 +104,11 @@ class TestHeavyFetchUnavailable:
     ):
         paired = [
             resync_mod.PairedItem(
-                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "buzz", "",
+                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "externalwebapp", "",
             ),
         ]
         light = {
-            "buzz": {
+            "externalwebapp": {
                 100: {
                     "number": 100,
                     "title": f"[{TEST_ITEM_REF}] title",
@@ -132,7 +132,7 @@ class TestHeavyFetchUnavailable:
             return_value=(paired, [], [], light),
         ), mock.patch(
             "yoke_core.engines.resync.stage1_5_heavy_fetch",
-            return_value={"buzz": unavailable},
+            return_value={"externalwebapp": unavailable},
         ), mock.patch(
             "yoke_core.engines.resync.stage2_compare",
             return_value=[],
@@ -183,8 +183,8 @@ class TestEngineMultiProjectPartialAuthFailure:
             "INSERT INTO projects "
             "(id, slug, name, default_branch, created_at, "
             "github_repo, public_item_prefix) "
-            "VALUES (2, 'buzz', 'Buzz', 'main', "
-            "'2026-01-01T00:00:00Z', 'org/buzz', 'BUZ') "
+            "VALUES (2, 'externalwebapp', 'ExternalWebapp', 'main', "
+            "'2026-01-01T00:00:00Z', 'org/externalwebapp', 'EXT') "
             "ON CONFLICT (id) DO UPDATE SET "
             "slug = excluded.slug, name = excluded.name, "
             "github_repo = excluded.github_repo"
@@ -193,8 +193,8 @@ class TestEngineMultiProjectPartialAuthFailure:
             "INSERT INTO items "
             "(id, title, status, priority, type, source, spec, frozen, "
             "github_issue, project_id, project_sequence, created_at, updated_at) "
-            "VALUES (500, 'Buzz item', 'idea', 'medium', 'issue', 'manual', "
-            "'Buzz body', 0, '#500', 2, 1, '2026-01-01', '2026-01-01')"
+            "VALUES (500, 'ExternalWebapp item', 'idea', 'medium', 'issue', 'manual', "
+            "'ExternalWebapp body', 0, '#500', 2, 1, '2026-01-01', '2026-01-01')"
         )
         conn.commit()
         conn.close()
@@ -231,6 +231,6 @@ class TestEngineMultiProjectPartialAuthFailure:
 
         out = capsys.readouterr().out
         assert rc == 1
-        assert "buzz" in out and "missing_repo_binding" in out
-        assert "project=buzz" not in out
+        assert "externalwebapp" in out and "missing_repo_binding" in out
+        assert "project=externalwebapp" not in out
         assert "Summary:" in out

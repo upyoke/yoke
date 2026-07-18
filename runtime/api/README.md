@@ -75,7 +75,7 @@ Returns all backlog items. Supports optional query parameter filters.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `project` | string | Filter by project (e.g., `yoke`, `buzz`) |
+| `project` | string | Filter by project (e.g., `yoke`, `external-webapp`) |
 | `status` | string | Filter by status (e.g., `implementing`, `idea`, `done`) |
 
 Valid statuses (canonical delivery lifecycle, sourced from `packages/yoke-core/src/yoke_core/domain/lifecycle.py`): `idea`, `planned`, `release`, `done`, `cancelled`, `blocked`, `stopped`, `failed`, `refining-idea`, `refined-idea`, `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `planning`, `plan-drafted`, `refining-plan`.
@@ -156,7 +156,7 @@ Returns items grouped by status columns for a given project.
 curl http://localhost:8765/v1/board
 
 # Specific project
-curl "http://localhost:8765/v1/board?project=buzz"
+curl "http://localhost:8765/v1/board?project=external-webapp"
 ```
 
 ```json

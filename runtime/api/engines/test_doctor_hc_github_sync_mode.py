@@ -63,8 +63,8 @@ class TestWrongRepoIssuesSyncMode:
         """Historical refs of a backlog_only project never reach REST and
         never WARN; the detail names the mode."""
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="example-org/buzz")
-        _set_backlog_only(conn, "buzz")
+        _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
+        _set_backlog_only(conn, "externalwebapp")
         conn.execute(
             "INSERT INTO items (id, title, project_id, type, status, github_issue) "
             "VALUES (662, 'Historical ref', 2, 'issue', 'done', '#1520')"
@@ -72,7 +72,7 @@ class TestWrongRepoIssuesSyncMode:
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
         assert MODE_NOTE in _result(rec).detail
-        assert "buzz" in _result(rec).detail
+        assert "externalwebapp" in _result(rec).detail
         assert mock_gh_run.call_count == 0
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
@@ -86,9 +86,9 @@ class TestWrongRepoIssuesSyncMode:
         """Sync-enabled projects keep full wrong-repo validation while a
         backlog_only sibling is skipped."""
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="example-org/buzz")
+        _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
         _seed_project(conn, "b", github_repo="beebauman/b")
-        _set_backlog_only(conn, "buzz")
+        _set_backlog_only(conn, "externalwebapp")
         conn.execute(
             "INSERT INTO items (id, title, project_id, type, status, github_issue) "
             "VALUES (662, 'Historical ref', 2, 'issue', 'done', '#1520')"

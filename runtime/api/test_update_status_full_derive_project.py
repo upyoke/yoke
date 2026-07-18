@@ -79,10 +79,10 @@ class TestAutoDerive:
 class TestCrossProject:
     """Tests 31, 32 — cross-project gh calls include -R flag."""
 
-    def _setup_buzz_project(self, env):
+    def _setup_externalwebapp_project(self, env):
         env.exec_sql("""
             INSERT INTO projects (id, slug, name, github_repo)
-            VALUES (2, 'buzz', 'Buzz', 'example-org/buzz')
+            VALUES (2, 'externalwebapp', 'ExternalWebapp', 'example-org/externalwebapp')
             ON CONFLICT (id) DO NOTHING;
             INSERT INTO projects (id, slug, name)
             VALUES (1, 'yoke', 'Yoke')
@@ -91,24 +91,24 @@ class TestCrossProject:
         """)
 
     def test_cross_project_repo_flag(self, env):
-        """TEST 31: REST calls target /repos/example-org/buzz/ for buzz items."""
-        self._setup_buzz_project(env)
+        """TEST 31: REST calls target /repos/example-org/externalwebapp/ for externalwebapp items."""
+        self._setup_externalwebapp_project(env)
         env.insert_task("planned")
         env.init_git()
         r = env.run("42", "003", "implementing")
         assert r.returncode == 0
         log = env.gh_log.read_text()
-        assert "/repos/example-org/buzz/" in log
+        assert "/repos/example-org/externalwebapp/" in log
         # Each side effect (label-create + label-add + comment) targets the
-        # buzz repo URL.
-        assert "POST /repos/example-org/buzz/labels" in log
-        assert "POST /repos/example-org/buzz/issues/100/labels" in log
-        assert "POST /repos/example-org/buzz/issues/100/comments" in log
+        # externalwebapp repo URL.
+        assert "POST /repos/example-org/externalwebapp/labels" in log
+        assert "POST /repos/example-org/externalwebapp/issues/100/labels" in log
+        assert "POST /repos/example-org/externalwebapp/issues/100/comments" in log
 
     def test_cross_project_checkbox_repo_flag(self, env):
-        """TEST 32: checkbox update on buzz parent uses /repos/example-org/buzz/ URL."""
+        """TEST 32: checkbox update on externalwebapp parent uses /repos/example-org/externalwebapp/ URL."""
         import json
-        self._setup_buzz_project(env)
+        self._setup_externalwebapp_project(env)
         env.exec_sql("""
             UPDATE items
             SET github_issue = '#200',
@@ -123,12 +123,12 @@ class TestCrossProject:
         # Seed the parent-issue GET response with the checkbox line.
         rest_dir = env.tmp / "rest-fakes"
         rest_dir.mkdir(exist_ok=True)
-        (rest_dir / "GET_repos_example-org_buzz_issues_200.json").write_text(
+        (rest_dir / "GET_repos_example-org_externalwebapp_issues_200.json").write_text(
             json.dumps({
                 "status": 200,
                 "body": {
                     "number": 200,
-                    "body": "- [ ] #100 Buzz task\n",
+                    "body": "- [ ] #100 ExternalWebapp task\n",
                     "state": "open",
                 },
             }),
@@ -137,10 +137,10 @@ class TestCrossProject:
         r = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
         assert r.returncode == 0
         log = env.gh_log.read_text()
-        # GET parent + PATCH issue both target the buzz repo URL.
-        assert "GET /repos/example-org/buzz/issues/200" in log
+        # GET parent + PATCH issue both target the externalwebapp repo URL.
+        assert "GET /repos/example-org/externalwebapp/issues/200" in log
         # PATCH /issues/100 with state=closed (terminal-status close).
-        assert "PATCH /repos/example-org/buzz/issues/100" in log
+        assert "PATCH /repos/example-org/externalwebapp/issues/100" in log
 
 
 class TestReleaseFinalize:

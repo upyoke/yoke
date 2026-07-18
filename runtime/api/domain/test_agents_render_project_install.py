@@ -1,4 +1,4 @@
-"""Project-local install rendering for Buzz-style target repos."""
+"""Project-local install rendering for ExternalWebapp-style target repos."""
 
 from __future__ import annotations
 

@@ -49,10 +49,10 @@ class TestWorkflowDetection(unittest.TestCase):
 
     def test_project_workflow_recognized(self) -> None:
         self.assertTrue(
-            mod._is_workflow_yaml("projects/buzz/.github/workflows/deploy.yml")
+            mod._is_workflow_yaml("projects/externalwebapp/.github/workflows/deploy.yml")
         )
         self.assertTrue(
-            mod._is_workflow_yaml("projects/buzz/ops/deploy.yaml")
+            mod._is_workflow_yaml("projects/externalwebapp/ops/deploy.yaml")
         )
 
     def test_non_workflow_ignored(self) -> None:

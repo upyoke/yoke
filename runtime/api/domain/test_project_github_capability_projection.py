@@ -33,17 +33,17 @@ def _verified() -> VerifiedProjectGitHubBinding:
         repository_selection="selected",
         permissions=_PERMISSIONS,
         repository_id="4567",
-        github_repo="Example-Org/Buzz",
+        github_repo="Example-Org/ExternalWebapp",
         default_branch="trunk",
     )
 
 
 def _bind() -> None:
     cmd_bind_project_repo(
-        "buzz",
+        "externalwebapp",
         installation_id="12345",
         repository_id="4567",
-        github_repo="Example-Org/Buzz",
+        github_repo="Example-Org/ExternalWebapp",
         expected_api_url="https://api.github.com",
         github_user_access_token="github-user-token",
         verifier=lambda **kwargs: _verified(),
@@ -80,7 +80,7 @@ def test_binding_projects_current_capability_fields_and_drops_unknowns(
         _bind()
         assert _settings(db_name) == {
             "repo_owner": "Example-Org",
-            "repo_name": "Buzz",
+            "repo_name": "ExternalWebapp",
             "installation_id": "12345",
             "repository_id": "4567",
             "api_url": "https://api.github.com",
@@ -112,7 +112,7 @@ def test_binding_projects_current_capability_fields_and_drops_unknowns(
         assert _settings(db_name) == {
             "ci_oidc_manage_provider": False,
             "repo_owner": "Example-Org",
-            "repo_name": "Buzz",
+            "repo_name": "ExternalWebapp",
             "installation_id": "12345",
             "repository_id": "4567",
             "api_url": "https://api.github.com",

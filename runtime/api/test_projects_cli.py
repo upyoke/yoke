@@ -21,7 +21,7 @@ import pytest
 from yoke_core.domain import projects
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_seed_test_helpers import (
-    seed_buzz_site_environments as _seed_buzz_environments,
+    seed_externalwebapp_site_environments as _seed_externalwebapp_environments,
     seed_project_identities,
 )
 from runtime.api.fixtures.file_test_db import init_test_db
@@ -119,8 +119,8 @@ class TestMainCli:
         assert projects.main(["update", "ghost", "github_repo", "val"]) == 1
 
     def test_has_capability_present_returns_0(self, pinned_db: str):
-        projects.main(["capability-set-settings", "buzz", "deploy", "{}", "--new"])
-        assert projects.main(["has-capability", "buzz", "deploy"]) == 0
+        projects.main(["capability-set-settings", "externalwebapp", "deploy", "{}", "--new"])
+        assert projects.main(["has-capability", "externalwebapp", "deploy"]) == 0
 
     def test_has_capability_absent_returns_1(self, pinned_db: str):
         assert projects.main(["has-capability", "yoke", "nonexistent"]) == 1
@@ -225,10 +225,10 @@ class TestMainCli:
     def test_resolve_deploy_envs_returns_0(self, pinned_db: str, capsys):
         conn = connect(pinned_db)
         try:
-            _seed_buzz_environments(conn)
+            _seed_externalwebapp_environments(conn)
         finally:
             conn.close()
-        rc = projects.main(["resolve-deploy-envs", "buzz"])
+        rc = projects.main(["resolve-deploy-envs", "externalwebapp"])
         assert rc == 0
         captured = capsys.readouterr()
         assert "production" in captured.out

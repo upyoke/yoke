@@ -276,7 +276,7 @@ class TestProjectsCapabilityHas(unittest.TestCase):
         ):
             req = _request(
                 "projects.capability.has", TargetRef(kind="global"),
-                payload={"project": "buzz", "cap_type": "fake_capability"},
+                payload={"project": "externalwebapp", "cap_type": "fake_capability"},
             )
             outcome = reads_misc.handle_projects_capability_has(req)
         self.assertTrue(outcome.primary_success)

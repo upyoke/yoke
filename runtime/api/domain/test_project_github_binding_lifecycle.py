@@ -71,7 +71,7 @@ def binding_db(monkeypatch):
         conn.close()
     monkeypatch.setenv(db_backend.PG_DSN_ENV, pg_testdb.dsn_for_test_database(name))
     cmd_bind_project_repo(
-        "buzz",
+        "externalwebapp",
         installation_id="77",
         repository_id="88",
         github_repo="acme/demo",
@@ -107,7 +107,7 @@ def _project_owner_actor(database_name: str, project: str) -> str:
 
 def test_lifecycle_suspends_and_restores_bound_project(binding_db) -> None:
     suspended = cmd_apply_project_github_binding_lifecycle(
-        "buzz",
+        "externalwebapp",
         installation_id="77",
         repository_id="88",
         installation_status="suspended",
@@ -123,7 +123,7 @@ def test_lifecycle_suspends_and_restores_bound_project(binding_db) -> None:
     assert suspended["github_sync_mode"] == "enabled"
 
     restored = cmd_apply_project_github_binding_lifecycle(
-        "buzz",
+        "externalwebapp",
         installation_id="77",
         repository_id="88",
         installation_status="active",
@@ -138,7 +138,7 @@ def test_lifecycle_suspends_and_restores_bound_project(binding_db) -> None:
 
 def test_lifecycle_marks_removed_repository_unavailable(binding_db) -> None:
     result = cmd_apply_project_github_binding_lifecycle(
-        "buzz",
+        "externalwebapp",
         installation_id="77",
         repository_id="88",
         installation_status="active",
@@ -160,7 +160,7 @@ def test_lifecycle_rejects_foreign_installation_without_mutation(binding_db) -> 
         match="unavailable|does not match",
     ):
         cmd_apply_project_github_binding_lifecycle(
-            "buzz",
+            "externalwebapp",
             installation_id="999",
             repository_id="88",
             installation_status="deleted",
@@ -182,7 +182,7 @@ def test_lifecycle_rejects_stale_repository_without_mutation(binding_db) -> None
         match="does not match",
     ):
         cmd_apply_project_github_binding_lifecycle(
-            "buzz",
+            "externalwebapp",
             installation_id="77",
             repository_id="999",
             installation_status="deleted",
@@ -219,7 +219,7 @@ def test_repository_availability_is_target_scoped_and_order_independent(
         ),
     )
     deliveries = {
-        "removed": ("buzz", "88", False),
+        "removed": ("externalwebapp", "88", False),
         "available": ("yoke", "99", True),
     }
     for delivery in delivery_order:
@@ -250,14 +250,14 @@ def test_deleted_installation_cannot_be_reactivated_by_delayed_event(
     binding_db,
 ) -> None:
     cmd_apply_project_github_binding_lifecycle(
-        "buzz",
+        "externalwebapp",
         installation_id="77",
         repository_id="88",
         installation_status="deleted",
         repository_available=False,
     )
     result = cmd_apply_project_github_binding_lifecycle(
-        "buzz",
+        "externalwebapp",
         installation_id="77",
         repository_id="88",
         installation_status="active",
@@ -270,7 +270,7 @@ def test_deleted_installation_cannot_be_reactivated_by_delayed_event(
 
 
 def test_registered_lifecycle_dispatch_reaches_real_domain(binding_db) -> None:
-    actor_id = _project_owner_actor(binding_db, "buzz")
+    actor_id = _project_owner_actor(binding_db, "externalwebapp")
     conn = pg_testdb.connect_test_database(binding_db)
     try:
         conn.execute(

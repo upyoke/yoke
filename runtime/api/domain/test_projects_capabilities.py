@@ -53,7 +53,7 @@ class TestCapabilityListings:
         # Cross-project lookups return every project's settings JSON for a
         # given type, ordered by numeric project authority.
         pcs.cmd_capability_set_settings(
-            "buzz", "browser-qa", '{"enabled":"true"}', create=True, db_path=cap_db
+            "externalwebapp", "browser-qa", '{"enabled":"true"}', create=True, db_path=cap_db
         )
         pcs.cmd_capability_set_settings(
             "yoke", "browser-qa", '{"enabled":"false"}', create=True, db_path=cap_db
@@ -78,7 +78,7 @@ class TestIdentityGeneration:
             "yoke", "ssh", "{}", create=True, db_path=cap_db
         )
         pcs.cmd_capability_set_settings(
-            "buzz", "ssh", "{}", create=True, db_path=cap_db
+            "externalwebapp", "ssh", "{}", create=True, db_path=cap_db
         )
         conn = connect_test_db(cap_db)
         try:

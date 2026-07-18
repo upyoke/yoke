@@ -24,7 +24,7 @@ from yoke_core.domain.path_claims_resolve import (
     UnknownPathTargets,
 )
 
-_PROJECT_IDS = {"yoke": 1, "buzz": 2}
+_PROJECT_IDS = {"yoke": 1, "externalwebapp": 2}
 
 
 def _seed_item(

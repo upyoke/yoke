@@ -59,7 +59,7 @@ def conn():
         )
         db.execute(
             "INSERT INTO projects (id, slug, name) VALUES "
-            "(1, 'yoke', 'Yoke'), (2, 'buzz', 'Buzz')"
+            "(1, 'yoke', 'Yoke'), (2, 'externalwebapp', 'ExternalWebapp')"
         )
         db.execute(
             "CREATE TABLE strategy_docs ("
@@ -113,7 +113,7 @@ def test_build_bundle_is_deterministic(conn) -> None:
     )
     assert first["bundle_schema"] == install_bundle.BUNDLE_SCHEMA
     assert first["project_id"] == 2
-    assert first["project_slug"] == "buzz"
+    assert first["project_slug"] == "externalwebapp"
     assert first["yoke_version"]
     paths = [entry["path"] for entry in first["files"]]
     assert paths == sorted(paths)
@@ -344,7 +344,7 @@ def test_bundle_carries_project_contract_files(conn) -> None:
     bundle = install_bundle.build_bundle(2, conn)
 
     contract = bundle["project_contract_files"]
-    assert contract == project_contract.bundle_contract_files("Buzz"), (
+    assert contract == project_contract.bundle_contract_files("ExternalWebapp"), (
         "contract entries render from the project's display name"
     )
     paths = [e["path"] for e in contract]
@@ -386,7 +386,7 @@ def test_bundle_cold_starts_strategy_corpus_for_empty_project(conn) -> None:
     }
     assert sorted(by_slug) == sorted(DEFAULT_STRATEGY_DOC_SLUGS)
     mission = parse_file_text(by_slug["MISSION"]["content"])
-    assert "Buzz" in mission.body  # parameterized by display name
+    assert "ExternalWebapp" in mission.body  # parameterized by display name
     # The seed is DB-first: the rows now exist and a re-build serves the
     # SAME corpus (no re-seed, no drift).
     again = install_bundle.build_bundle(2, conn)

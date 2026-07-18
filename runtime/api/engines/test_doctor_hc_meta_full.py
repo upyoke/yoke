@@ -91,10 +91,10 @@ class TestUndeployedDone:
         """T5: Only flags projects with deployment flows."""
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _seed_project(conn, "buzz")
-        _insert_deployment_flow(conn, "f1", project="buzz")
+        _seed_project(conn, "externalwebapp")
+        _insert_deployment_flow(conn, "f1", project="externalwebapp")
         _insert_item(
-            conn, 1, "Buzz done", project="buzz", type="issue", status="done",
+            conn, 1, "ExternalWebapp done", project="externalwebapp", type="issue", status="done",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )

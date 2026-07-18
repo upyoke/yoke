@@ -101,7 +101,7 @@ def test_deployment_ci_denies_install_onboarding_and_project_admin_mutations(
         (
             "github_actions.workflow.dispatch",
             {
-                "repo": "example-org/buzz",
+                "repo": "example-org/externalwebapp",
                 "workflow": "deploy.yml",
                 "ref": "main",
                 "inputs": {},
@@ -111,7 +111,7 @@ def test_deployment_ci_denies_install_onboarding_and_project_admin_mutations(
         (
             "github_actions.workflow.dispatch_once",
             {
-                "repo": "example-org/buzz",
+                "repo": "example-org/externalwebapp",
                 "workflow": "deploy.yml",
                 "ref": "main",
                 "inputs": {},
@@ -120,7 +120,7 @@ def test_deployment_ci_denies_install_onboarding_and_project_admin_mutations(
         (
             "github_actions.workflow.find_run",
             {
-                "repo": "example-org/buzz",
+                "repo": "example-org/externalwebapp",
                 "workflow": "deploy.yml",
                 "head_sha": "abc123",
             },
@@ -128,26 +128,26 @@ def test_deployment_ci_denies_install_onboarding_and_project_admin_mutations(
         (
             "github_actions.run.jobs_count",
             {
-                "repo": "example-org/buzz",
+                "repo": "example-org/externalwebapp",
                 "run_id": "123",
                 "attempt": 1,
             },
         ),
         (
             "github_actions.wait_run",
-            {"repo": "example-org/buzz", "run_id": "123"},
+            {"repo": "example-org/externalwebapp", "run_id": "123"},
         ),
         (
             "github_actions.check_ci",
             {
-                "repo": "example-org/buzz",
+                "repo": "example-org/externalwebapp",
                 "workflow": "ci.yml",
                 "branch": "main",
             },
         ),
         (
             "github_actions.variable.get",
-            {"repo": "example-org/buzz", "name": "YOKE_CI_ENABLED"},
+            {"repo": "example-org/externalwebapp", "name": "YOKE_CI_ENABLED"},
         ),
     ],
 )
@@ -172,7 +172,7 @@ def test_deployment_ci_target_cannot_override_relay_payload_project(
         ci_auth_db["db_path"],
         project="platform",
     )
-    payload = {"project": "buzz", **operation_payload}
+    payload = {"project": "externalwebapp", **operation_payload}
 
     response = client.post(
         "/v1/functions/call",

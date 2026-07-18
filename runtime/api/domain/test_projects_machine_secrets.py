@@ -42,18 +42,18 @@ class TestMachineLocalCapabilitySecrets:
         self, cap_db: str
     ) -> None:
         msg = pc.cmd_capability_set_secret(
-            "buzz", "ssh", "private_key", "new-pem", db_path=cap_db
+            "externalwebapp", "ssh", "private_key", "new-pem", db_path=cap_db
         )
 
         assert "machine-local" in msg
         assert pc.cmd_capability_get_secret(
-            "buzz", "ssh", "private_key", db_path=cap_db
+            "externalwebapp", "ssh", "private_key", db_path=cap_db
         ) == "new-pem"
         assert pc.cmd_capability_list_secrets(
-            "buzz", "ssh", db_path=cap_db
+            "externalwebapp", "ssh", db_path=cap_db
         ) == "private_key"
         path = capability_machine_secrets.machine_capability_secret_path(
-            "buzz", "ssh", "private_key"
+            "externalwebapp", "ssh", "private_key"
         )
         assert path.read_text(encoding="utf-8").strip() == "new-pem"
         assert path.stat().st_mode & 0o077 == 0

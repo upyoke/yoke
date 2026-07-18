@@ -79,7 +79,7 @@ def test_user_authorization_response_is_size_bounded_before_server_proof():
         verify_project_github_binding(
             installation_id="12345",
             repository_id="4567",
-            expected_github_repo="example-org/buzz",
+            expected_github_repo="example-org/externalwebapp",
             expected_api_url="https://api.github.com",
             github_user_access_token="yoke-app-user-token",
             opener=opener,
@@ -119,7 +119,7 @@ def test_user_installation_collection_allows_a_valid_page_over_64_kib():
                 "repositories": [
                     {
                         "id": 4567,
-                        "full_name": "Example-Org/Buzz",
+                        "full_name": "Example-Org/ExternalWebapp",
                         "default_branch": "trunk",
                         "owner": {"id": 9988},
                     }
@@ -130,7 +130,7 @@ def test_user_installation_collection_allows_a_valid_page_over_64_kib():
     verified = verify_project_github_binding(
         installation_id="12345",
         repository_id="4567",
-        expected_github_repo="example-org/buzz",
+        expected_github_repo="example-org/externalwebapp",
         expected_api_url="https://api.github.com",
         github_user_access_token="yoke-app-user-token",
         opener=opener,
@@ -138,7 +138,7 @@ def test_user_installation_collection_allows_a_valid_page_over_64_kib():
         server_installation_fetcher=lambda **kwargs: server,
     )
 
-    assert verified.github_repo == "Example-Org/Buzz"
+    assert verified.github_repo == "Example-Org/ExternalWebapp"
     assert events == [
         "/user",
         "/user/installations",
@@ -160,7 +160,7 @@ def test_user_installation_collection_rejects_beyond_collection_limit():
         verify_project_github_binding(
             installation_id="12345",
             repository_id="4567",
-            expected_github_repo="example-org/buzz",
+            expected_github_repo="example-org/externalwebapp",
             expected_api_url="https://api.github.com",
             github_user_access_token="yoke-app-user-token",
             opener=opener,
@@ -198,7 +198,7 @@ def test_verification_timeouts_are_typed_and_sanitized():
         verify_project_github_binding(
             installation_id="12345",
             repository_id="4567",
-            expected_github_repo="example-org/buzz",
+            expected_github_repo="example-org/externalwebapp",
             expected_api_url="https://api.github.com",
             github_user_access_token="yoke-app-user-token",
             opener=timeout,
@@ -231,7 +231,7 @@ def test_direct_os_errors_are_typed_and_sanitized():
         verify_project_github_binding(
             installation_id="12345",
             repository_id="4567",
-            expected_github_repo="example-org/buzz",
+            expected_github_repo="example-org/externalwebapp",
             expected_api_url="https://api.github.com",
             github_user_access_token="yoke-app-user-token",
             opener=unavailable,

@@ -82,7 +82,7 @@ item ID and run ID:
 {scratch_root}/{project}/storage/qa-artifacts/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
 
-Example: `/tmp/yoke-scratch/buzz/storage/qa-artifacts/941/87/screenshot-0-20260317-143022.png`
+Example: `/tmp/yoke-scratch/external-webapp/storage/qa-artifacts/941/87/screenshot-0-20260317-143022.png`
 
 The capture directory is non-durable scratch. Durability is opt-in at the
 record boundary: for each on-disk capture the orchestrator mints a presigned

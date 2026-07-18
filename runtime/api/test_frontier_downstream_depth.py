@@ -233,9 +233,9 @@ class TestFrontierTelemetry:
     @patch("yoke_core.domain.events.emit_event")
     def test_frontier_computed_carries_session_id_and_project(self, mock_emit):
         conn = _create_test_db()
-        _insert_item(conn, 1, status="planned", project="buzz", item_type="epic")
+        _insert_item(conn, 1, status="planned", project="externalwebapp", item_type="epic")
 
-        compute_frontier(conn, project_scope=["buzz"], session_id="sess-frontier")
+        compute_frontier(conn, project_scope=["externalwebapp"], session_id="sess-frontier")
 
         frontier_calls = [
             call for call in mock_emit.call_args_list
@@ -244,5 +244,5 @@ class TestFrontierTelemetry:
         assert len(frontier_calls) == 1
         kwargs = frontier_calls[0].kwargs
         assert kwargs["session_id"] == "sess-frontier"
-        assert kwargs["project"] == "buzz"
-        assert kwargs["context"]["project_scope"] == ["buzz"]
+        assert kwargs["project"] == "externalwebapp"
+        assert kwargs["context"]["project_scope"] == ["externalwebapp"]

@@ -81,13 +81,13 @@ class TestResolutionLadder:
         conn = connect_test_db(tmp_db)
         try:
             _seed_session_on_item(
-                conn, "session-on-buzz-item",
+                conn, "session-on-externalwebapp-item",
                 item_id=901, project_id=OTHER_PROJECT_ID,
             )
         finally:
             conn.close()
         outcome = handlers.handle_projects_checkout_context(
-            _request(project=None, session_id="session-on-buzz-item")
+            _request(project=None, session_id="session-on-externalwebapp-item")
         )
         assert outcome.primary_success is True
         assert outcome.result_payload["slug"] == OTHER_PROJECT_SLUG

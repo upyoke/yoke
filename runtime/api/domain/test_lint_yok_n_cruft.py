@@ -146,7 +146,7 @@ def test_default_scope_excludes_templates_and_projects(tmp_path: Path, db_path: 
     (tmp_path / "templates").mkdir()
     (tmp_path / "templates" / "webapp.md").write_text("sample with YOK-100\n")
     (tmp_path / "projects").mkdir()
-    (tmp_path / "projects" / "buzz.md").write_text("project note with YOK-100\n")
+    (tmp_path / "projects" / "externalwebapp.md").write_text("project note with YOK-100\n")
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)
     assert result.hits == []
 
@@ -156,7 +156,7 @@ def test_extra_paths_broaden_scan_beyond_default(tmp_path: Path, db_path: str) -
     `runtime/`, `.yoke/strategy/`, or `projects/` on demand."""
     _seed(tmp_path)
     (tmp_path / "projects").mkdir()
-    (tmp_path / "projects" / "buzz.md").write_text("project note with YOK-100\n")
+    (tmp_path / "projects" / "externalwebapp.md").write_text("project note with YOK-100\n")
     result = lint_yok_n_cruft.scan(
         tmp_path,
         db_path=db_path,

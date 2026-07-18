@@ -126,9 +126,9 @@ class TestDocList:
         assert req.payload == {}
 
     def test_explicit_project_rides_on_target(self) -> None:
-        rc = _run("strategy", "doc", "list", "--project", "buzz")
+        rc = _run("strategy", "doc", "list", "--project", "externalwebapp")
         assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.project_id == "buzz"
+        assert _CAPTURED_REQUESTS[-1].target.project_id == "externalwebapp"
 
     def test_env_project_used_when_no_flag(self) -> None:
         rc = _run(
@@ -466,10 +466,10 @@ class TestRender:
 
 class TestSeedDefaults:
     def test_dispatches_empty_payload_with_project(self) -> None:
-        rc = _run("strategy", "seed-defaults", "--project", "buzz")
+        rc = _run("strategy", "seed-defaults", "--project", "externalwebapp")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "strategy.seed_defaults.run"
         assert req.target.kind == "global"
-        assert req.target.project_id == "buzz"
+        assert req.target.project_id == "externalwebapp"
         assert req.payload == {}

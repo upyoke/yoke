@@ -127,7 +127,7 @@ def test_custom_labels_and_project_payload() -> None:
         "--required-label", "linux",
         "--required-label", "gpu",
         "--variable-name", "CUSTOM_RUNS_ON",
-        "--project", "buzz",
+        "--project", "externalwebapp",
     )
 
     assert rc == 0
@@ -135,7 +135,7 @@ def test_custom_labels_and_project_payload() -> None:
         "repo": "o/r",
         "required_labels": ["self-hosted", "linux", "gpu"],
         "variable_name": "CUSTOM_RUNS_ON",
-        "project": "buzz",
+        "project": "externalwebapp",
         "runner_capability": "github-actions-runner-fleet",
     }
 
@@ -144,7 +144,7 @@ def test_runner_capability_override_is_not_a_supported_cli_option() -> None:
     rc, _out, err = _run(
         "github-actions", "runners", "status", "o/r",
         "--runner-capability", "custom-runner-fleet",
-        "--project", "buzz",
+        "--project", "externalwebapp",
     )
 
     assert rc == 2

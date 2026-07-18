@@ -19,7 +19,7 @@ class TestPatternMatching(unittest.TestCase):
         self.assertTrue(mod.is_yoke_managed_pattern(".yoke/strategy/PAD.md"))
 
     def test_projects_tree_is_not_managed(self) -> None:
-        self.assertFalse(mod.is_yoke_managed_pattern("projects/buzz/ops.sh"))
+        self.assertFalse(mod.is_yoke_managed_pattern("projects/externalwebapp/ops.sh"))
         self.assertFalse(
             mod.is_yoke_managed_pattern("projects/foo/bar/baz.txt")
         )

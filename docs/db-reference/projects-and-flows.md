@@ -6,13 +6,13 @@ Schemas for the project registry, the Project Structure aggregate, sites/environ
 
 Registered projects that Yoke can manage. The `projects` table holds only shared identity and repo metadata; machine-local checkout paths live in machine config. Per-project structured settings (test commands, deployment-flow default, merge verification policy, context routing) live in the Project Structure aggregate (see below).
 
-Yoke, Platform, Buzz, and every other registered slug use the same project commands and capability resolution. A project name never unlocks behavior: specialized delivery comes from that project's capability rows, environments, and workflow definitions. Checkout-local or direct-module recipes are valid only when their surface explicitly declares a source-dev/admin boundary.
+Every registered slug uses the same project commands and capability resolution. A project name never unlocks behavior: specialized delivery comes from that project's capability rows, environments, and workflow definitions. Checkout-local or direct-module recipes are valid only when their surface explicitly declares a source-dev/admin boundary.
 
 ```sql
-id TEXT PRIMARY KEY -- short slug (e.g., 'yoke', 'buzz')
+id TEXT PRIMARY KEY -- short slug (e.g., 'yoke', 'external-webapp')
 name TEXT NOT NULL -- display name
-emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🐝'); shown in BOARD.md title
-github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/buzz')
+emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md title
+github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/external-webapp')
 default_branch TEXT DEFAULT 'main'
 github_sync_mode TEXT -- 'enabled' | 'backlog_only'; new rows use backlog_only, legacy NULL resolves enabled
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
@@ -89,7 +89,7 @@ The same commands are available through the service-client CLI as `project-struc
 Deployment targets for projects. A site represents a deployable unit (e.g., a web app, API service).
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'buzz-web'
+id TEXT PRIMARY KEY -- e.g., 'external-webapp-web'
 project TEXT NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name
 description TEXT -- human-readable description
@@ -103,7 +103,7 @@ Seed data: none — a fresh universe seeds no sites; rows are written through th
 Deployment environments for sites (e.g., production, staging). `local` is a machine-config client concept, not a deploy-target environments row.
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'buzz-web-production'
+id TEXT PRIMARY KEY -- e.g., 'external-webapp-web-production'
 site TEXT NOT NULL REFERENCES sites(id)
 name TEXT NOT NULL -- environment name (e.g., 'production', 'prod', 'stage')
 url TEXT -- public URL (e.g., 'http://100.115.178.33:3000')
@@ -189,7 +189,7 @@ secrets stay in the control-plane secret store.
 Deployment flow definitions. Each flow defines an ordered sequence of stages that an item passes through after merge.
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'buzz-production-release'
+id TEXT PRIMARY KEY -- e.g., 'external-webapp-prod-release'
 project TEXT NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name (e.g., 'Prod Release')
 description TEXT
@@ -222,9 +222,6 @@ Seed data: `python3 -m yoke_core.cli.db_router flows init` is a source-dev/admin
 - `platform-production` — disabled historical Stage-then-Production definition retained for run history.
 - `platform-production-hotfix` — Platform item → direct Production hotfix train at the merged Platform commit.
 - `yoke-ephemeral-deploy` — Branch/SHA Yoke core preview environment: `ephemeral-deploy (ephemeral-deploy) -> complete (auto)` (target_env=ephemeral, done="Yoke core preview environment deployed")
-- `buzz-production-release` — governed Production release: `migration_apply (primary, implementing) -> merged (auto) -> prod-deploy (github-actions-workflow, buzz-deploy.yml) -> smoke (github-actions-workflow, buzz-smoke.yml) -> complete (auto)` (5 stages, target_env=production, done="Deployed to production and smoke checks passed").
-- `buzz-production-hotfix` — direct Production hotfix: `migration_apply (primary, implementing) -> merged (auto) -> production-deploy (github-actions-workflow, buzz-hotfix.yml) -> smoke (github-actions-workflow, buzz-smoke.yml) -> complete (auto)` (5 stages, target_env=production, done="Hotfix deployed to production and smoke checks passed").
-- `buzz-prod-release` and `buzz-prod-hotfix` — predecessor IDs retained for immutable run history. Initialization disables only an exact recognized predecessor definition and only after its item/run bindings are terminal; otherwise it leaves the row untouched and reports the conflict.
-- `buzz-internal` — Doc or config change, no deployment (2 auto stages, no target_env, done="Merged to main")
+Project-authored definitions can add equivalent internal, release, and hotfix routes for any managed project. Their behavior is determined by the stored stages and capabilities, not by a recognized flow-id prefix.
 
 Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.

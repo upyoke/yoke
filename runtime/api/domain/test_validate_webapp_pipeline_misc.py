@@ -87,25 +87,25 @@ def _p(conn) -> str: return "%s" if db_backend.connection_is_postgres(conn) else
 def _apply_seed(
     conn,
     *,
-    include_buzz: bool = True,
+    include_externalwebapp: bool = True,
     ssh_settings: dict | None = None,
     docker_settings: dict | None = None,
     flow_stages: list | None = None,
     default_branch: str = "main",
 ) -> None:
-    """Apply the validator's inline schema + buzz rows to a backend connection.
+    """Apply the validator's inline schema + externalwebapp rows to a backend connection.
 
     Shared by :func:`_init_db` (SQLite file) and :func:`_seed_backend` (PG
     per-test DB).
     """
     execute_schema_script(conn, _SEED_SCHEMA_DDL)
-    if include_buzz:
+    if include_externalwebapp:
         p = _p(conn)
         conn.execute(
             "INSERT INTO projects "
             "(id, slug, name, github_repo, default_branch) "
             f"VALUES ({p}, {p}, {p}, {p}, {p})",
-            (2, "buzz", "Buzz", "example-org/buzz", default_branch),
+            (2, "externalwebapp", "ExternalWebapp", "example-org/externalwebapp", default_branch),
         )
         conn.execute(
             "INSERT INTO project_capabilities (project_id, type, settings) "
@@ -115,7 +115,7 @@ def _apply_seed(
                 "github",
                 json.dumps({
                     "repo_owner": "example-org",
-                    "repo_name": "buzz",
+                    "repo_name": "externalwebapp",
                     "installation_id": "12345",
                     "repository_id": "4567",
                 }),
@@ -144,7 +144,7 @@ def _apply_seed(
         conn.execute(
             "INSERT INTO deployment_flows (id, project_id, name, stages) "
             f"VALUES ({p}, {p}, {p}, {p})",
-            ("buzz-prod-release", 2, "Buzz Production Release", json.dumps(stages)),
+            ("externalwebapp-prod-release", 2, "ExternalWebapp Production Release", json.dumps(stages)),
         )
     conn.commit()
 
@@ -182,18 +182,18 @@ def _seed_backend(**kwargs):
     return _apply
 
 
-def _make_buzz_repo(root: Path, *, with_git: bool = True) -> Path:
-    repo = root / "fake-buzz"
+def _make_externalwebapp_repo(root: Path, *, with_git: bool = True) -> Path:
+    repo = root / "fake-externalwebapp"
     repo.mkdir(parents=True, exist_ok=True)
     register_machine_checkout(root / "machine-config", repo, 2)
     if with_git:
         (repo / ".git").mkdir(exist_ok=True)
         workflows = repo / ".github" / "workflows"
         workflows.mkdir(parents=True, exist_ok=True)
-        (workflows / "buzz-deploy.yml").write_text("name: deploy\n")
-        (workflows / "buzz-smoke.yml").write_text("name: smoke\n")
-        (workflows / "buzz-ephemeral.yml").write_text("name: eph\n")
-        (workflows / "buzz-ephemeral-teardown.yml").write_text("name: teardown\n")
+        (workflows / "externalwebapp-deploy.yml").write_text("name: deploy\n")
+        (workflows / "externalwebapp-smoke.yml").write_text("name: smoke\n")
+        (workflows / "externalwebapp-ephemeral.yml").write_text("name: eph\n")
+        (workflows / "externalwebapp-ephemeral-teardown.yml").write_text("name: teardown\n")
     return repo
 
 
@@ -227,11 +227,11 @@ def _stub_which_and_run(monkeypatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_run_validation_flags_missing_buzz_repo(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_run_validation_flags_missing_externalwebapp_repo(tmp_path: Path, monkeypatch, capsys) -> None:
     with init_test_db(tmp_path, apply_schema=_seed_backend()) as token:
         db_path = Path(token)
         _init_db(db_path)
-        # Do NOT create the fake-buzz directory.
+        # Do NOT create the fake-externalwebapp directory.
         script_dir = _make_script_dir(tmp_path)
         _stub_which_and_run(monkeypatch)
 
@@ -239,19 +239,19 @@ def test_run_validation_flags_missing_buzz_repo(tmp_path: Path, monkeypatch, cap
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
         out = capsys.readouterr().out
         assert rc == 1
-        assert "Buzz repo not found" in out
+        assert "ExternalWebapp repo not found" in out
 
 
 def test_run_validation_reports_python_pipeline_entrypoints(tmp_path: Path, monkeypatch, capsys) -> None:
     with init_test_db(tmp_path, apply_schema=_seed_backend()) as token:
         db_path = Path(token)
         _init_db(db_path)
-        _make_buzz_repo(tmp_path)
+        _make_externalwebapp_repo(tmp_path)
         script_dir = tmp_path / "scripts"
         script_dir.mkdir()
         _stub_which_and_run(monkeypatch)
@@ -260,7 +260,7 @@ def test_run_validation_reports_python_pipeline_entrypoints(tmp_path: Path, monk
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
         out = capsys.readouterr().out
@@ -283,7 +283,7 @@ def test_run_validation_bad_flow_stages_json(tmp_path: Path, monkeypatch, capsys
     ) as token:
         db_path = Path(token)
         _init_db(db_path, flow_stages=[])  # empty list is still a valid list
-        _make_buzz_repo(tmp_path)
+        _make_externalwebapp_repo(tmp_path)
         script_dir = _make_script_dir(tmp_path)
 
         # Clobber the flow stages with invalid JSON to exercise the error
@@ -292,7 +292,7 @@ def test_run_validation_bad_flow_stages_json(tmp_path: Path, monkeypatch, capsys
         conn = connect_test_db(db_path)
         try:
             conn.execute(
-                "UPDATE deployment_flows SET stages='not-json' WHERE id='buzz-prod-release'"
+                "UPDATE deployment_flows SET stages='not-json' WHERE id='externalwebapp-prod-release'"
             )
             conn.commit()
         finally:
@@ -304,12 +304,12 @@ def test_run_validation_bad_flow_stages_json(tmp_path: Path, monkeypatch, capsys
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
         out = capsys.readouterr().out
         assert rc == 1
-        assert "buzz-prod-release flow not found or has no stages" in out
+        assert "externalwebapp-prod-release flow not found or has no stages" in out
 
 
 def test_check_ssh_connectivity_preserves_prior_warning(capsys) -> None:
@@ -319,7 +319,7 @@ def test_check_ssh_connectivity_preserves_prior_warning(capsys) -> None:
         project_root=Path("/"),
         script_dir=Path("/"),
         control_plane_marker=Path("/nonexistent"),
-        project="buzz",
+        project="externalwebapp",
     )
     _check_ssh_connectivity(ctx, counters)
     out = capsys.readouterr().out
@@ -332,7 +332,7 @@ def test_main_cli_forwards_exit_code(tmp_path: Path, monkeypatch) -> None:
     argv = [
         "--verbose",
         "--project",
-        "buzz",
+        "externalwebapp",
         "--project-root",
         str(tmp_path),
         "--script-dir",

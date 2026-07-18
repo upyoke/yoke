@@ -28,7 +28,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
         ("missing", {}, "match exactly one environment"),
         (
             "production",
-            {"pulumi": {"activation_state": "active", "stack_name": "buzz"}},
+            {"pulumi": {"activation_state": "active", "stack_name": "externalwebapp"}},
             "declare the vps capability",
         ),
         (
@@ -37,7 +37,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
                 "capabilities": ["vps"],
                 "pulumi": {
                     "activation_state": "render_only",
-                    "stack_name": "buzz",
+                    "stack_name": "externalwebapp",
                 },
             },
             "active Pulumi stack",
@@ -46,7 +46,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
             "production",
             {
                 "capabilities": ["vps"],
-                "pulumi": {"render_only": True, "stack_name": "buzz"},
+                "pulumi": {"render_only": True, "stack_name": "externalwebapp"},
             },
             "active Pulumi stack",
         ),
@@ -63,7 +63,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
 def test_deployment_ssh_environment_requires_active_vps_stack(
     selector, environment_settings, message,
 ):
-    settings = _settings_from_context("buzz", {"projectName": "buzz"})
+    settings = _settings_from_context("externalwebapp", {"projectName": "externalwebapp"})
     assert settings.primary_environment is not None
     settings.primary_environment.settings.clear()
     settings.primary_environment.settings.update(environment_settings)
@@ -78,13 +78,13 @@ def test_deployment_ssh_environment_requires_active_vps_stack(
 def test_deployment_ssh_environments_require_distinct_stacks():
     shared = {
         "capabilities": ["vps"],
-        "pulumi": {"activation_state": "active", "stack_name": "buzz-live"},
+        "pulumi": {"activation_state": "active", "stack_name": "externalwebapp-live"},
     }
     environments = (
-        RendererEnvironmentSettings("buzz-prod", "prod", dict(shared)),
-        RendererEnvironmentSettings("buzz-stage", "stage", dict(shared)),
+        RendererEnvironmentSettings("externalwebapp-prod", "prod", dict(shared)),
+        RendererEnvironmentSettings("externalwebapp-stage", "stage", dict(shared)),
     )
-    base = _settings_from_context("buzz", {"projectName": "buzz"})
+    base = _settings_from_context("externalwebapp", {"projectName": "externalwebapp"})
     settings = ProjectRendererSettings(
         project=base.project,
         deploy_namespace=base.deploy_namespace,
@@ -104,20 +104,20 @@ def test_deployment_ssh_environments_require_distinct_stacks():
 
 
 def test_deployment_ssh_environment_defaults_to_active_stack():
-    settings = _settings_from_context("buzz", {"projectName": "buzz"})
+    settings = _settings_from_context("externalwebapp", {"projectName": "externalwebapp"})
     assert settings.primary_environment is not None
     settings.primary_environment.settings.clear()
     settings.primary_environment.settings.update({
         "capabilities": ["vps"],
-        "pulumi": {"stack_name": "buzz-live"},
+        "pulumi": {"stack_name": "externalwebapp-live"},
     })
     runner = RunnerFleetSettings.model_validate({
         "network": {"deployment_ssh_environments": ["production"]},
     })
 
-    assert deployment_ssh_stack_names(settings, runner) == ["buzz-live"]
+    assert deployment_ssh_stack_names(settings, runner) == ["externalwebapp-live"]
     assert deployment_ssh_stack_outputs(settings, runner) == {
-        "buzz-live": ENVIRONMENT_ELASTIC_IP_OUTPUT,
+        "externalwebapp-live": ENVIRONMENT_ELASTIC_IP_OUTPUT,
     }
 
 

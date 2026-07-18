@@ -25,7 +25,7 @@ Property groups are named, reusable sets of fields. Every implementation (shell,
 | `environment` | TEXT | Yes | `production`, `staging`, `development`, `test` |
 | `service` | TEXT | Yes | Service identifier. E.g., `cli`, `api`, `web`, `worker`. |
 | `service_version` | TEXT | No | Semver or commit hash. |
-| `project` | TEXT | Yes | Project slug. E.g., `yoke`, `buzz`. |
+| `project` | TEXT | Yes | Project slug. E.g., `yoke`, `external-webapp`. |
 
 ### actor_props
 

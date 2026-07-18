@@ -98,7 +98,7 @@ Use `yoke shepherd dependency-list YOK-N` to inspect the authoritative dependenc
  - **Hard CI gate:** Merge failure (exit 1/4) halts the batch, reverts the item to `implemented`, and reports failure with resume instructions.
  - **Post-merge CI advisory:** After all merges complete, checks main branch CI status as an advisory (not blocking).
 4. **Deployment Routing** (skip if `--merge-only`) --
- - **Route A (internal flows):** Items with `yoke-internal`, `buzz-internal`, empty, or null deployment_flow go through the `yoke_core.engines.done_transition` skip-deploy path.
+ - **Route A (internal flows):** Items whose selected flow has no deploy target, or whose deployment flow is empty or null, go through the `yoke_core.engines.done_transition` skip-deploy path.
  - **Route B (deployment runs):** Items grouped by `(project, deployment_flow)`. Creates run, adds items, validates composition, claims preview env, and executes `yoke_core.domain.deploy_pipeline`.
  - **Inline approval:** When pipeline exits with code 2 (awaiting approval), usher resolves the gate context, prompts the operator via `AskUserQuestion` ("Yes, approve and continue" / "No, pause for later"), emits `DeploymentApprovalGranted` event, advances stages, and re-invokes the pipeline. No separate `/yoke approve` invocation needed within the usher flow.
 5. **Finalize** -- Completion report with results per item and per deployment run. Pipeline failure recovery options documented: retry the failed stage through `/yoke usher`, skip a stage (update `current_stage` then resume), manual completion (`--skip-deploy`), or abort.

@@ -313,7 +313,7 @@ def test_stack_config_denies_infrastructure_ci_on_other_project(
     headers = _infrastructure_ci_token_headers(config_db["db_path"], project_id=1)
 
     response = client.get(
-        "/v1/projects/buzz/pulumi-stack-config",
+        "/v1/projects/externalwebapp/pulumi-stack-config",
         headers=headers,
     )
 

@@ -17,8 +17,8 @@ def test_run_reads_colors_from_project_local_labels(tmp_path, monkeypatch) -> No
     )
     monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(tmp_path))
     auth = ProjectGithubAuth(
-        project="buzz",
-        repo="org/buzz",
+        project="externalwebapp",
+        repo="org/externalwebapp",
         token="ghs_fake",
     )
 
@@ -27,10 +27,10 @@ def test_run_reads_colors_from_project_local_labels(tmp_path, monkeypatch) -> No
     ) as resolve_auth, patch.object(
         init_canonical_labels, "ensure_label",
     ) as ensure_label:
-        assert init_canonical_labels.run("buzz") == 0
+        assert init_canonical_labels.run("externalwebapp") == 0
 
     resolve_auth.assert_called_once_with(
-        "buzz",
+        "externalwebapp",
         required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
     )
     idea_calls = [

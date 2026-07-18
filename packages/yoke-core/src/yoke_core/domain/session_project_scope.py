@@ -1,7 +1,7 @@
 """Canonical session-project scope resolver.
 
 `/yoke do` no longer infers scope from the workspace path: the default is
-"every registered project," and `--project yoke,buzz` narrows. The
+"every registered project," and `--project yoke,example-project` narrows. The
 workspace string still rides in the offer envelope for observability, but it
 does not influence which projects are in scope.
 """

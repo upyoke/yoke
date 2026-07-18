@@ -145,7 +145,7 @@ class TestList:
         output = projects.cmd_list(db_path=initialized_db)
         lines = output.strip().split("\n")
         slugs = [line.split("|")[1] for line in lines]
-        assert "buzz" in slugs
+        assert "externalwebapp" in slugs
         assert "yoke" in slugs
 
     def test_list_includes_created_project(self, initialized_db: str):
@@ -185,10 +185,10 @@ class TestUpdate:
 class TestHasCapability:
     def test_present_returns_true(self, initialized_db: str):
         projects.cmd_capability_set_settings(
-            "buzz", "deploy", "{}",
+            "externalwebapp", "deploy", "{}",
             base_settings_json=None, create=True, db_path=initialized_db,
         )
-        assert projects.cmd_has_capability("buzz", "deploy", db_path=initialized_db) is True
+        assert projects.cmd_has_capability("externalwebapp", "deploy", db_path=initialized_db) is True
 
     def test_absent_returns_false(self, initialized_db: str):
         assert projects.cmd_has_capability("yoke", "nonexistent-cap", db_path=initialized_db) is False

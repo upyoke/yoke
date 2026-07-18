@@ -125,12 +125,12 @@ class TestParseArgs:
             parse_args([])
 
     def test_all_flags(self):
-        args = parse_args(["--file", "/tmp/r.md", "--fix", "--only", "a,b", "--quick", "--project", "buzz"])
+        args = parse_args(["--file", "/tmp/r.md", "--fix", "--only", "a,b", "--quick", "--project", "externalwebapp"])
         assert args.file == "/tmp/r.md"
         assert args.fix is True
         assert args.only == "a,b"
         assert args.quick is True
-        assert args.project == "buzz"
+        assert args.project == "externalwebapp"
 
     def test_legacy_check_aliases(self):
         args = parse_args(["--repo-root", ".", "--check", "HC-confabulation"])

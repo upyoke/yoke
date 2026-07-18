@@ -91,8 +91,8 @@ class TestTableLevelHelpers:
             "    model: primary\n"
             "    table: other_table\n"
             "    column: deprecated_col\n"
-            "  - module: drop_table_in_buzz\n"
-            "    project: buzz\n"
+            "  - module: drop_table_in_externalwebapp\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: legacy_table\n",
         )
@@ -129,7 +129,7 @@ class TestTableLevelHelpers:
         out = tables.list_all_retired_tables(repo_root=registry_root)
         assert {r.module for r in out} == {
             "drop_legacy_table",
-            "drop_table_in_buzz",
+            "drop_table_in_externalwebapp",
         }
         assert all(r.column is None for r in out)
 

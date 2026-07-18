@@ -34,7 +34,7 @@ from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 def _verified(
     *,
     permissions=None,
-    github_repo="Example-Org/Buzz",
+    github_repo="Example-Org/ExternalWebapp",
     installation_status="active",
 ) -> VerifiedProjectGitHubBinding:
     return VerifiedProjectGitHubBinding(
@@ -75,9 +75,9 @@ def test_bind_status_and_unbind_round_trip(monkeypatch):
             pg_testdb.dsn_for_test_database(db_name),
         )
         status = cmd_bind_project_repo(
-            "buzz",
+            "externalwebapp",
             installation_id="12345",
-            github_repo="git@github.com:Example-Org/Buzz.git",
+            github_repo="git@github.com:Example-Org/ExternalWebapp.git",
             repository_id="4567",
             expected_api_url="https://api.github.com",
             github_user_access_token="github-user-token",
@@ -85,7 +85,7 @@ def test_bind_status_and_unbind_round_trip(monkeypatch):
         )
 
         assert status["bound"] is True
-        assert status["github_repo"] == "Example-Org/Buzz"
+        assert status["github_repo"] == "Example-Org/ExternalWebapp"
         assert status["default_branch"] == "trunk"
         assert status["binding"]["api_url"] == "https://api.github.com"
         assert status["installation"]["api_url"] == "https://api.github.com"
@@ -99,14 +99,14 @@ def test_bind_status_and_unbind_round_trip(monkeypatch):
         try:
             project = conn.execute(
                 "SELECT github_repo, default_branch FROM projects WHERE slug=%s",
-                ("buzz",),
+                ("externalwebapp",),
             ).fetchone()
-            assert project["github_repo"] == "Example-Org/Buzz"
+            assert project["github_repo"] == "Example-Org/ExternalWebapp"
             assert project["default_branch"] == "trunk"
         finally:
             conn.close()
 
-        unbound = cmd_unbind_project_repo("buzz")
+        unbound = cmd_unbind_project_repo("externalwebapp")
         assert unbound["bound"] is False
         assert unbound["automation"] == {
             "available": False,
@@ -131,19 +131,19 @@ def test_status_reports_missing_permissions(monkeypatch):
         )
 
         cmd_bind_project_repo(
-            "buzz",
+            "externalwebapp",
             installation_id="12345",
-            github_repo="example-org/buzz",
+            github_repo="example-org/externalwebapp",
             repository_id="4567",
             expected_api_url="https://api.github.com",
             github_user_access_token="github-user-token",
             verifier=lambda **kwargs: _verified(
                 permissions={"metadata": "read", "issues": "read"},
-                github_repo="example-org/buzz",
+                github_repo="example-org/externalwebapp",
             ),
         )
 
-        status = cmd_project_github_binding_status("buzz")
+        status = cmd_project_github_binding_status("externalwebapp")
 
         assert status["permission_status"]["status"] == "missing"
         assert "issues" in status["permission_status"]["missing"]
@@ -157,13 +157,13 @@ def test_status_reports_missing_permissions(monkeypatch):
         }
 
         promoted = cmd_bind_project_repo(
-            "buzz",
+            "externalwebapp",
             installation_id="12345",
-            github_repo="example-org/buzz",
+            github_repo="example-org/externalwebapp",
             repository_id="4567",
             expected_api_url="https://api.github.com",
             github_user_access_token="github-user-token",
-            verifier=lambda **kwargs: _verified(github_repo="example-org/buzz"),
+            verifier=lambda **kwargs: _verified(github_repo="example-org/externalwebapp"),
         )
 
         assert promoted["binding"]["status"] == "active"
@@ -188,14 +188,14 @@ def test_suspended_installation_persists_unavailable_binding(monkeypatch):
         )
 
         status = cmd_bind_project_repo(
-            "buzz",
+            "externalwebapp",
             installation_id="12345",
-            github_repo="example-org/buzz",
+            github_repo="example-org/externalwebapp",
             repository_id="4567",
             expected_api_url="https://api.github.com",
             github_user_access_token="github-user-token",
             verifier=lambda **kwargs: _verified(
-                github_repo="example-org/buzz",
+                github_repo="example-org/externalwebapp",
                 installation_status="suspended",
             ),
         )
@@ -228,7 +228,7 @@ def test_registered_dispatcher_bind_surface(monkeypatch):
         monkeypatch.setattr(
             binding_domain,
             "verify_project_github_binding",
-            lambda **kwargs: _verified(github_repo="example-org/buzz"),
+            lambda **kwargs: _verified(github_repo="example-org/externalwebapp"),
         )
 
         with mock.patch(
@@ -236,7 +236,7 @@ def test_registered_dispatcher_bind_surface(monkeypatch):
             return_value=DispatchPermission(
                 "projects.admin",
                 2,
-                "buzz",
+                "externalwebapp",
             ),
         ):
             response = dispatch(
@@ -245,10 +245,10 @@ def test_registered_dispatcher_bind_surface(monkeypatch):
                     target=TargetRef(kind="global"),
                     actor=ActorContext(actor_id="1", session_id="test-session"),
                     payload={
-                        "project": "buzz",
+                        "project": "externalwebapp",
                         "installation_id": "12345",
                         "repository_id": "4567",
-                        "github_repo": "example-org/buzz",
+                        "github_repo": "example-org/externalwebapp",
                         "expected_api_url": "https://api.github.com",
                         "github_user_access_token": "github-user-token",
                     },
@@ -270,9 +270,9 @@ def test_bind_validation_never_reflects_transient_user_token():
             target=TargetRef(kind="global"),
             actor=ActorContext(actor_id="1", session_id="test-session"),
             payload={
-                "project": "buzz",
+                "project": "externalwebapp",
                 "installation_id": "12345",
-                "github_repo": "example-org/buzz",
+                "github_repo": "example-org/externalwebapp",
                 "expected_api_url": "https://api.github.com",
                 "github_user_access_token": "github-user-token-must-stay-secret",
                 "account_id": "caller-metadata-is-forbidden",
@@ -288,27 +288,27 @@ def test_bind_validation_never_reflects_transient_user_token():
 
 
 def test_repo_normalization_accepts_common_clone_urls():
-    assert normalize_github_repo("git@github.com:Example-Org/Buzz.git") == (
-        "example-org/buzz"
+    assert normalize_github_repo("git@github.com:Example-Org/ExternalWebapp.git") == (
+        "example-org/externalwebapp"
     )
-    assert normalize_github_repo("https://github.com/Example-Org/Buzz.git") == (
-        "example-org/buzz"
+    assert normalize_github_repo("https://github.com/Example-Org/ExternalWebapp.git") == (
+        "example-org/externalwebapp"
     )
-    assert normalize_github_repo("example-org/buzz") == "example-org/buzz"
+    assert normalize_github_repo("example-org/externalwebapp") == "example-org/externalwebapp"
     assert normalize_github_repo("missing-owner") == ""
     assert (
-        normalize_github_repo("https://github.enterprise.example/Example-Org/Buzz.git")
-        == "example-org/buzz"
+        normalize_github_repo("https://github.enterprise.example/Example-Org/ExternalWebapp.git")
+        == "example-org/externalwebapp"
     )
     assert (
-        normalize_github_repo("git@github.enterprise.example:Example-Org/Buzz.git")
-        == "example-org/buzz"
+        normalize_github_repo("git@github.enterprise.example:Example-Org/ExternalWebapp.git")
+        == "example-org/externalwebapp"
     )
     assert (
         normalize_github_repo(
-            "ssh://git@github.enterprise.example/Example-Org/Buzz.git"
+            "ssh://git@github.enterprise.example/Example-Org/ExternalWebapp.git"
         )
-        == "example-org/buzz"
+        == "example-org/externalwebapp"
     )
 
 

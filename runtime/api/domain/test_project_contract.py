@@ -159,7 +159,7 @@ def test_board_art_is_project_specific_not_generic() -> None:
 
 
 def test_choose_art_word_prefers_name_then_acronym_then_truncation() -> None:
-    assert choose_art_word("Buzz") == "BUZZ"
+    assert choose_art_word("ExternalWebapp") == "EXT"
     assert choose_art_word("Customer Support Portal") == "CSP"
     assert choose_art_word("HypergraphKnowledgeWorkbench") == "HYPERGRA"
     assert (

@@ -35,9 +35,9 @@ _DONE_WRITER = "yoke_core.domain.backlog_github_done_sync._writer"
 
 
 def _ok_resolver(*args, **kwargs):
-    proj = kwargs.get("project") or (args[0] if args else "buzz")
+    proj = kwargs.get("project") or (args[0] if args else "externalwebapp")
     return ProjectGithubAuth(
-        project=proj, repo="org/buzz", token="ghs_fake",
+        project=proj, repo="org/externalwebapp", token="ghs_fake",
     )
 
 
@@ -54,7 +54,7 @@ def test_sync_done_item_batches_body_labels_and_close():
         id=70,
         type="issue",
         status="done",
-        project="buzz",
+        project="externalwebapp",
         github_issue="#700",
         source="ben",
         owner="ben",
@@ -94,7 +94,7 @@ def test_sync_done_item_batches_body_labels_and_close():
     assert resolve_auth.call_args_list[-1].kwargs == {
         "required_permissions": GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
     }
-    assert "Done sync: BUZ-70" in stdout.getvalue()
+    assert "Done sync: EXT-70" in stdout.getvalue()
     update_body.assert_called_once()
     # Status label moves release → done.
     added_labels_flat = []
@@ -112,7 +112,7 @@ def test_sync_done_item_batches_body_labels_and_close():
 
 
 def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
-    """BUZ-1704-shape reproduction: an oversized rendered body must ship as
+    """EXT-1704-shape reproduction: an oversized rendered body must ship as
     the compact mirror, not the raw full body that triggers a REST body-
     size rejection on ``update_issue``.
     """
@@ -122,7 +122,7 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
         id=72,
         type="issue",
         status="done",
-        project="buzz",
+        project="externalwebapp",
         github_issue="#4114",
         source="ben",
         owner="ben",
@@ -171,9 +171,9 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
     assert rc == 0
     assert captured_bodies, "update_issue_body_typed was not called"
     chosen = captured_bodies[0]
-    # Compact mirror is well under budget and references BUZ-72.
+    # Compact mirror is well under budget and references EXT-72.
     assert _budget.body_exceeds_budget(chosen) is False
-    assert "BUZ-72" in chosen
+    assert "EXT-72" in chosen
     assert "compact mirror" in stdout.getvalue()
     db.close()
 

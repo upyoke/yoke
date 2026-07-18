@@ -39,8 +39,8 @@ from yoke_core.domain.project_github_auth import (
 
 def _ok_resolver(*args, **kwargs):
     return ProjectGithubAuth(
-        project=kwargs.get("project") or (args[0] if args else "buzz"),
-        repo="org/buzz",
+        project=kwargs.get("project") or (args[0] if args else "externalwebapp"),
+        repo="org/externalwebapp",
         token="ghs_fake",
     )
 
@@ -64,7 +64,7 @@ class TestSyncBody:
             id=60,
             type="issue",
             status="idea",
-            project="buzz",
+            project="externalwebapp",
             github_issue="#80",
             spec="# Test body",
         )
@@ -84,10 +84,10 @@ class TestSyncBody:
             rc = backlog_github_sync.sync_body("60", conn=db, stdout=stdout)
 
         assert rc == 0
-        assert "Synced body: BUZ-60 → #80" in stdout.getvalue()
+        assert "Synced body: EXT-60 → #80" in stdout.getvalue()
         update_issue.assert_called_once()
         assert update_issue.call_args.kwargs["number"] == 80
-        assert update_issue.call_args.kwargs["project"] == "buzz"
+        assert update_issue.call_args.kwargs["project"] == "externalwebapp"
         # body is the rendered structured body — value depends on the
         # in-memory schema; presence of the kwarg is the contract.
         assert "body" in update_issue.call_args.kwargs
@@ -97,7 +97,7 @@ class TestSyncBody:
         """AC-11: small body → full mode; mirror is NOT used."""
         db = _make_db()
         insert_item(
-            db, id=60, type="issue", status="idea", project="buzz",
+            db, id=60, type="issue", status="idea", project="externalwebapp",
             github_issue="#80", spec="# Tiny body",
         )
         stdout = io.StringIO()
@@ -125,7 +125,7 @@ class TestSyncBody:
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
         insert_item(
-            db, id=60, type="issue", status="idea", project="buzz",
+            db, id=60, type="issue", status="idea", project="externalwebapp",
             github_issue="#80", spec=huge_spec,
         )
         stdout = io.StringIO()
@@ -155,7 +155,7 @@ class TestSyncBody:
         when the resolver raises a ProjectGithubAuthError subclass."""
         db = _make_db()
         insert_item(
-            db, id=60, type="issue", status="idea", project="buzz",
+            db, id=60, type="issue", status="idea", project="externalwebapp",
             github_issue="#80", spec="some body",
         )
         stderr = io.StringIO()
@@ -166,7 +166,7 @@ class TestSyncBody:
             )
 
         def raise_missing_binding(*a, **kw):
-            raise MissingRepoBinding("buzz", "repository is not bound")
+            raise MissingRepoBinding("externalwebapp", "repository is not bound")
 
         with patch.object(
             body_budget, "body_exceeds_budget", side_effect=fail_budget_check,
@@ -190,7 +190,7 @@ class TestSyncBody:
 
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=60, type="issue", status="idea", project="buzz")
+        insert_item(db, id=60, type="issue", status="idea", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
@@ -201,7 +201,7 @@ class TestSyncBody:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=60, type="issue", status="idea", project="buzz", github_issue="#80")
+        insert_item(db, id=60, type="issue", status="idea", project="externalwebapp", github_issue="#80")
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.sync_body("60", conn=db, stdout=stdout)
@@ -223,7 +223,7 @@ class TestSyncTitle:
             id=70,
             type="issue",
             status="idea",
-            project="buzz",
+            project="externalwebapp",
             github_issue="#90",
             title="My test title",
         )
@@ -233,23 +233,23 @@ class TestSyncTitle:
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True
         ), patch.object(
             body_title_sync.github_rest, "update_issue",
-            return_value=_fake_issue(number=90, title="[BUZ-70] My test title"),
+            return_value=_fake_issue(number=90, title="[EXT-70] My test title"),
         ) as update_issue:
             rc = backlog_github_sync.sync_title("70", conn=db, stdout=stdout)
 
         assert rc == 0
-        assert "Synced title: BUZ-70 → #90" in stdout.getvalue()
+        assert "Synced title: EXT-70 → #90" in stdout.getvalue()
         update_issue.assert_called_once()
         assert update_issue.call_args.kwargs == {
-            "project": "buzz",
+            "project": "externalwebapp",
             "number": 90,
-            "title": "[BUZ-70] My test title",
+            "title": "[EXT-70] My test title",
         }
         db.close()
 
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=70, type="issue", status="idea", project="buzz")
+        insert_item(db, id=70, type="issue", status="idea", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:

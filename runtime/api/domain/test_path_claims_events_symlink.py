@@ -35,7 +35,7 @@ def _placeholder(conn) -> str:
 
 def _project_id(value: str | int) -> int:
     text = str(value)
-    return int(text) if text.isdigit() else {"yoke": 1, "buzz": 2}.get(text, 1)
+    return int(text) if text.isdigit() else {"yoke": 1, "externalwebapp": 2}.get(text, 1)
 
 
 def _seed_project_row(
@@ -47,7 +47,7 @@ def _seed_project_row(
     slug = (
         str(project_id)
         if not str(project_id).isdigit()
-        else {1: "yoke", 2: "buzz"}.get(numeric_id, f"project-{numeric_id}")
+        else {1: "yoke", 2: "externalwebapp"}.get(numeric_id, f"project-{numeric_id}")
     )
     checkout = Path(repo_path)
     if repo_path and checkout.is_dir():

@@ -9,7 +9,7 @@ from yoke_core.domain.schema_common import _get_columns
 
 def _insert_projects(conn):
     created_at = "2026-04-20T00:00:00Z"
-    for pid, slug, name in [(1, "yoke", "Yoke"), (2, "buzz", "Buzz")]:
+    for pid, slug, name in [(1, "yoke", "Yoke"), (2, "externalwebapp", "ExternalWebapp")]:
         conn.execute(
             "INSERT INTO projects (id, slug, name, "
             "public_item_prefix, created_at) "

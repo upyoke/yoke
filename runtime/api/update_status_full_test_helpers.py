@@ -175,7 +175,7 @@ class UpdateStatusEnv:
         )
         for row in [
             (1, "yoke", "Yoke", "upyoke/yoke"),
-            (2, "buzz", "Buzz", "example-org/buzz"),
+            (2, "externalwebapp", "ExternalWebapp", "example-org/externalwebapp"),
         ]:
             conn.execute(
                 "INSERT INTO projects"

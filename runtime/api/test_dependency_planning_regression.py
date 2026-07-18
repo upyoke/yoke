@@ -237,13 +237,13 @@ class TestDependencyPlanningTelemetry:
             conn,
             "activation",
             session_id="sess-gates",
-            project="buzz",
+            project="externalwebapp",
         )
 
         mock_emit.assert_called_once()
         kwargs = mock_emit.call_args.kwargs
         assert kwargs["session_id"] == "sess-gates"
-        assert kwargs["project"] == "buzz"
+        assert kwargs["project"] == "externalwebapp"
         summary = kwargs["context"]["unsatisfied_summary"]
         assert summary[0]["item_id"] == "YOK-1"
         assert summary[0]["blocking_item"] == "YOK-2"

@@ -131,5 +131,5 @@ def test_heredoc_body_newlines_are_opaque():
     # When the command contains an unquoted heredoc, the body lines
     # must NOT split — splitting would parse prose lines as shell
     # statements (field-note 8667 was a docs-only apply_patch heredoc).
-    cmd = "apply_patch <<'EOF'\n*** Begin Patch\nBuzz and webapp\n*** End Patch\nEOF"
+    cmd = "apply_patch <<'EOF'\n*** Begin Patch\nExternalWebapp and webapp\n*** End Patch\nEOF"
     assert split_pipeline(cmd) == [cmd]

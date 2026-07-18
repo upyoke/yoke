@@ -28,7 +28,7 @@ from runtime.api.engines.test_doctor_project_full import (
 )
 
 
-def _auth(project: str = "buzz", repo: str = "org/buzz") -> ProjectGithubAuth:
+def _auth(project: str = "externalwebapp", repo: str = "org/externalwebapp") -> ProjectGithubAuth:
     return ProjectGithubAuth(
         project=project, repo=repo, token="t",
     )
@@ -38,10 +38,10 @@ class TestProjectGhSecrets:
     def test_skips_when_github_auth_unavailable(self):
         """When the project GitHub App auth is unavailable, SKIP with canonical reason."""
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="org/buzz")
+        _seed_project(conn, "externalwebapp", github_repo="org/externalwebapp")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            side_effect=MissingCapability("buzz", "no capability"),
+            side_effect=MissingCapability("externalwebapp", "no capability"),
         ):
             rec = _run_hc(hc_project_gh_secrets, conn)
         assert rec.results[0].result == "SKIP"
@@ -49,10 +49,10 @@ class TestProjectGhSecrets:
 
     def test_passes_when_secrets_found(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="org/buzz")
+        _seed_project(conn, "externalwebapp", github_repo="org/externalwebapp")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            return_value=_auth("buzz", "org/buzz"),
+            return_value=_auth("externalwebapp", "org/externalwebapp"),
         ) as resolver, patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
             return_value=RestResponse(
@@ -70,10 +70,10 @@ class TestProjectGhSecrets:
 
     def test_warns_when_no_secrets_found(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="org/buzz")
+        _seed_project(conn, "externalwebapp", github_repo="org/externalwebapp")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            return_value=_auth("buzz", "org/buzz"),
+            return_value=_auth("externalwebapp", "org/externalwebapp"),
         ), patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
             return_value=RestResponse(
@@ -86,10 +86,10 @@ class TestProjectGhSecrets:
     def test_skips_on_rest_auth_error(self):
         """REST 401/403 -> SKIP with canonical reason (operator UX parity)."""
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="org/buzz")
+        _seed_project(conn, "externalwebapp", github_repo="org/externalwebapp")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            return_value=_auth("buzz", "org/buzz"),
+            return_value=_auth("externalwebapp", "org/externalwebapp"),
         ), patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
             side_effect=RestAuthError("HTTP 403: insufficient scope", status=403),
@@ -118,11 +118,11 @@ class TestProjectGhSecrets:
 
     def test_uses_verified_binding_repo_not_project_projection(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="stale-owner/stale-repo")
+        _seed_project(conn, "externalwebapp", github_repo="stale-owner/stale-repo")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project."
             "resolve_project_github_auth",
-            return_value=_auth("buzz", "verified-owner/verified-repo"),
+            return_value=_auth("externalwebapp", "verified-owner/verified-repo"),
         ), patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
             return_value=RestResponse(

@@ -1,7 +1,7 @@
 """Project-local Yoke install rendering and drift checks.
 
 The normal substrate renderer owns files inside the Yoke source checkout
-(``runtime/harness/...``). Project repos such as Buzz receive an installed
+(``runtime/harness/...``). External project repos receive an installed
 layer instead: ``.claude/``, ``.codex/``, and ``.agents/skills/yoke``.
 This module compares and writes that installed shape from the current Yoke
 source tree.

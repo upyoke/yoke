@@ -24,7 +24,7 @@ _STOP_WORDS = frozenset({
     "in", "of", "is", "by", "as", "on", "at", "or", "if", "but", "that",
     "this", "these", "those", "not", "no",
     # Project / scope tokens
-    "yoke", "buzz", "epic", "item", "task", "status",
+    "epic", "item", "task", "status",
     # Generic action verbs with no signal ("Make X", "Move Y", …)
     "add", "fix", "update", "make", "move", "give", "change", "reduce",
     "ensure", "handle", "restore", "rename", "enable", "disable", "allow",

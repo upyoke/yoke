@@ -156,7 +156,7 @@ def _apply_service_client_schema_on_conn(conn) -> None:
     conn.execute(
         """INSERT INTO items (id, title, type, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
-           VALUES (5, 'Buzz active', 'issue', 'implementing', 'medium', 2, 1,
+           VALUES (5, 'ExternalWebapp active', 'issue', 'implementing', 'medium', 2, 1,
                    '2026-01-01', '2026-01-01', 'user', 0)"""
     )
 

@@ -86,7 +86,7 @@ from events import (
     get_session_props, get_request_props,
 )
 
-system = get_system_props(service="api", project="buzz")
+system = get_system_props(service="api", project="external-webapp")
 actor = get_actor_props(actor_id=17)
 org = get_org_props(org_id="org_x1y2z3", org_name="Acme Corp", org_plan="pro")
 session = get_session_props(session_id="sess_abc123")

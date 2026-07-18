@@ -162,14 +162,14 @@ class TestResolveTargetEnv:
 
     def test_override_takes_priority(self, db_path):
         result = dr.cmd_resolve_target_env(
-            "buzz", "buzz-standard",
+            "externalwebapp", "externalwebapp-standard",
             target_env_override="staging",
             db_path=db_path,
         )
         assert result == "staging"
 
     def test_flow_default(self, db_path):
-        result = dr.cmd_resolve_target_env("buzz", "buzz-standard", db_path=db_path)
+        result = dr.cmd_resolve_target_env("externalwebapp", "externalwebapp-standard", db_path=db_path)
         assert result == "preview"
 
     def test_no_default_returns_empty(self, db_path):

@@ -33,7 +33,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "the project authority; `slug` is unique inside one `org_id` "
             "and resolves through the actor-visible project set or an org "
             "filter. `public_item_prefix` is the ticket prefix (`YOK`, "
-            "`BUZ`). Canonical agent read: "
+            "`EXT`). Canonical agent read: "
             "`yoke projects list` / "
             "`yoke projects get --project <slug>`; "
             "breakage_policy reader is "
@@ -280,7 +280,7 @@ PROJECT_TABLES: dict[str, dict] = {
         "notes": (
             "Project capability rows keyed by `(project_id, type)`. The "
             "same commands and capability resolution apply to every project "
-            "slug; Yoke, Platform, and Buzz are ordinary project rows, and "
+            "slug; every registered project is an ordinary project row, and "
             "specialized behavior comes from capabilities, environments, and "
             "workflow definitions rather than project-name checks. The "
             "capability-name column is `type` (values include "

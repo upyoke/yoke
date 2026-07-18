@@ -16,7 +16,7 @@ from yoke_core.api.service_client_shared_session_resolver import _parse_item_id_
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
 YOKE_ITEM_ID = 100
-BUZZ_ITEM_ID = 200
+EXT_ITEM_ID = 200
 SEQ = 5
 
 
@@ -24,9 +24,9 @@ SEQ = 5
 def seeded(test_db):
     conn = test_db
     seed_project_identities(conn)
-    conn.execute("UPDATE projects SET public_item_prefix = 'BUZ' WHERE slug = 'buzz'")
+    conn.execute("UPDATE projects SET public_item_prefix = 'EXT' WHERE slug = 'externalwebapp'")
     conn.execute("UPDATE projects SET public_item_prefix = 'YOK' WHERE slug = 'yoke'")
-    for item_id, project_id in ((YOKE_ITEM_ID, 1), (BUZZ_ITEM_ID, 2)):
+    for item_id, project_id in ((YOKE_ITEM_ID, 1), (EXT_ITEM_ID, 2)):
         conn.execute(
             "INSERT INTO items (id, title, created_at, updated_at, project_id, "
             "project_sequence) VALUES (%s, 't', '2026-01-01T00:00:00Z', "
@@ -43,9 +43,9 @@ def test_prefix_ref_resolves_to_project_sequence(seeded):
 
 
 def test_project_prefix_resolves(seeded):
-    # BUZ-5 must resolve through the project prefix registry.
-    assert _parse_item_id_arg("BUZ-5") == BUZZ_ITEM_ID
+    # EXT-5 must resolve through the project prefix registry.
+    assert _parse_item_id_arg("EXT-5") == EXT_ITEM_ID
 
 
 def test_bare_internal_id_passthrough(seeded):
-    assert _parse_item_id_arg(str(BUZZ_ITEM_ID)) == BUZZ_ITEM_ID
+    assert _parse_item_id_arg(str(EXT_ITEM_ID)) == EXT_ITEM_ID

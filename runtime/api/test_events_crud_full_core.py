@@ -219,7 +219,7 @@ class TestQueryBuilder:
         assert len(params) == 3
 
     def test_project_filter(self):
-        where, params = events_crud._build_where(["--project", "buzz"])
+        where, params = events_crud._build_where(["--project", "externalwebapp"])
         assert "project_id=%s" in where
         assert params == [2]
 

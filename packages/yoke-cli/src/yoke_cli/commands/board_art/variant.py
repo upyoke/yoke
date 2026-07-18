@@ -57,8 +57,8 @@ variants so the image keeps the available width.
 Examples:
 
   yoke board art variant create --ascii
-  yoke board art variant create --mixed --display-name Buzz
-  yoke board art variant create --image ./logo.png --display-name Buzz
+  yoke board art variant create --mixed --display-name "Example App"
+  yoke board art variant create --image ./logo.png --display-name "Example App"
   yoke board art variant create --mixed ~/code/app --apply
 
 All generated variants must fit within --max-width. The default max width is

@@ -29,7 +29,7 @@ _SCHEMA_DDL = """
         public_item_prefix TEXT NOT NULL DEFAULT 'YOK'
     );
     INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'yoke');
-    INSERT INTO projects (id, slug, name) VALUES (2, 'buzz', 'buzz');
+    INSERT INTO projects (id, slug, name) VALUES (2, 'externalwebapp', 'externalwebapp');
 
     CREATE TABLE IF NOT EXISTS deployment_flows (
         id TEXT PRIMARY KEY,
@@ -43,7 +43,7 @@ _SCHEMA_DDL = """
     INSERT INTO deployment_flows (id, project_id, name, stages, target_env)
         VALUES ('yoke-internal', 1, 'yoke-internal', '[]', NULL);
     INSERT INTO deployment_flows (id, project_id, name, stages, target_env)
-        VALUES ('buzz-standard', 2, 'buzz-standard',
+        VALUES ('externalwebapp-standard', 2, 'externalwebapp-standard',
                 '[{"name":"preview"},{"name":"production"}]', 'preview');
 
     CREATE TABLE IF NOT EXISTS items (

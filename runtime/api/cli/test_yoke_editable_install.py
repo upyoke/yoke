@@ -64,7 +64,7 @@ def test_resolve_ignores_bogus_repo_root_env_and_uses_config(tmp_path: Path) -> 
 
 
 def test_resolve_picks_yoke_shaped_project_among_several(tmp_path: Path) -> None:
-    not_a_checkout = tmp_path / "buzz"
+    not_a_checkout = tmp_path / "externalwebapp"
     not_a_checkout.mkdir()
     checkout = _make_checkout(tmp_path / "yoke")
     config = _write_config(tmp_path / "config.json", not_a_checkout, checkout)
@@ -156,7 +156,7 @@ def test_swap_writes_shim_and_removes_stale_pip_artifacts(tmp_path: Path) -> Non
     (site / "__editable__.yoke-0.1.1.dev1.pth").write_text("x", encoding="utf-8")
     (site / "__editable__.yoke_core-0.1.1.dev1.pth").write_text("x", encoding="utf-8")
     (site / "__editable___yoke_0_1_1_dev1_finder.py").write_text("x", encoding="utf-8")
-    (site / "__editable__.buzz-9.9.pth").write_text("keep", encoding="utf-8")
+    (site / "__editable__.externalwebapp-9.9.pth").write_text("keep", encoding="utf-8")
 
     report = editable_install.swap_to_config_driven(site, repo_root=checkout)
 
@@ -172,7 +172,7 @@ def test_swap_writes_shim_and_removes_stale_pip_artifacts(tmp_path: Path) -> Non
     # Yoke pip artifacts gone; the unrelated distribution untouched.
     assert not (site / "__editable__.yoke-0.1.1.dev1.pth").exists()
     assert not (site / "__editable___yoke_0_1_1_dev1_finder.py").exists()
-    assert (site / "__editable__.buzz-9.9.pth").exists()
+    assert (site / "__editable__.externalwebapp-9.9.pth").exists()
     assert len(report["removed"]) == 3
 
 

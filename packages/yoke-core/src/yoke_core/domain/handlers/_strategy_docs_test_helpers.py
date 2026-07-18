@@ -38,7 +38,7 @@ SEED_CONTENT = {
 PROJECT_ID = 1
 PROJECT_SLUG = "yoke"
 OTHER_PROJECT_ID = 2
-OTHER_PROJECT_SLUG = "buzz"
+OTHER_PROJECT_SLUG = "externalwebapp"
 
 
 def seed_docs(conn, project_id: int = PROJECT_ID) -> None:

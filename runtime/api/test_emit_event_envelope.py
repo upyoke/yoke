@@ -155,7 +155,7 @@ def test_session_scoped_event_project_follows_session(events_db, event_type):
     conn.execute(
         f"INSERT INTO harness_sessions (session_id, actor_id, project_id) "
         f"VALUES ({p}, {p}, {p})",
-        ("sess-buzz", None, 2),
+        ("sess-externalwebapp", None, 2),
     )
     conn.commit()
 
@@ -164,7 +164,7 @@ def test_session_scoped_event_project_follows_session(events_db, event_type):
         event_kind="system",
         event_type=event_type,
         source_type="hook",
-        session_id="sess-buzz",
+        session_id="sess-externalwebapp",
         severity="INFO",
         outcome="completed",
         project="yoke",
@@ -179,7 +179,7 @@ def test_session_scoped_event_project_follows_session(events_db, event_type):
         (result.event_id,),
     ).fetchone()[0]
     conn.close()
-    assert project == "buzz"
+    assert project == "externalwebapp"
 
 
 @pytest.mark.parametrize(

@@ -20,7 +20,7 @@ from yoke_core.domain.path_claims import register
 
 
 def _seed_item(conn, *, item_id: int, title: str, project: str = "yoke") -> None:
-    project_id = 2 if project == "buzz" else int(project) if str(project).isdigit() else 1
+    project_id = 2 if project == "externalwebapp" else int(project) if str(project).isdigit() else 1
     conn.execute(
         "INSERT INTO items (id, title, status, project_id, project_sequence, type, "
         "                   created_at, updated_at) "

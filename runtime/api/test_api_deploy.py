@@ -48,12 +48,12 @@ class TestChargeFrontierEndpoint:
         # done items should not appear anywhere
         all_ids = runnable_ids + blocked_ids + [i["item_id"] for i in data["frozen"]]
         assert "YOK-23" not in all_ids
-        # buzz-project items should not appear (default project=yoke)
+        # externalwebapp-project items should not appear (default project=yoke)
         assert "YOK-24" not in all_ids
 
     def test_frontier_project_filter(self):
         """AC-2: Project filter correctly scopes results."""
-        resp = self.client.get("/v1/charge/frontier?project=buzz")
+        resp = self.client.get("/v1/charge/frontier?project=externalwebapp")
         assert resp.status_code == 200
         data = resp.json()
         runnable_ids = [item["item_id"] for item in data["runnable"]]

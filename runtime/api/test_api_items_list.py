@@ -44,20 +44,20 @@ class TestListItems:
         assert data["items"][0]["title"] == "First item"
 
     def test_filter_by_project(self, client):
-        resp = client.get("/v1/items", params={"project": "buzz"})
+        resp = client.get("/v1/items", params={"project": "externalwebapp"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] == 1
-        assert data["items"][0]["title"] == "Buzz item"
+        assert data["items"][0]["title"] == "ExternalWebapp item"
 
     def test_filter_by_status_and_project(self, client):
-        resp = client.get("/v1/items", params={"status": "idea", "project": "buzz"})
+        resp = client.get("/v1/items", params={"status": "idea", "project": "externalwebapp"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] == 1
 
     def test_filter_no_results(self, client):
-        resp = client.get("/v1/items", params={"status": "implementing", "project": "buzz"})
+        resp = client.get("/v1/items", params={"status": "implementing", "project": "externalwebapp"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] == 0

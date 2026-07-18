@@ -81,14 +81,14 @@ def test_org_admin_implies_all_project_permissions(authdb):
 def test_project_grant_still_scopes_to_one_project(authdb):
     actor_id = seed_human_actor(authdb)
     yoke_id = resolve_project_id(authdb, "yoke")
-    buzz_id = resolve_project_id(authdb, "buzz")
+    externalwebapp_id = resolve_project_id(authdb, "externalwebapp")
     grant_actor_project_role(
         authdb, actor_id=actor_id, project_id=yoke_id, role_name=ROLE_OPERATOR
     )
     assert permission_decision(
         authdb, actor_id=actor_id, project_id=yoke_id, permission_key=PERM_ITEMS_WRITE
     ).allowed
-    # No grant on buzz, and no org grant -> denied there.
+    # No grant on externalwebapp, and no org grant -> denied there.
     assert not permission_decision(
-        authdb, actor_id=actor_id, project_id=buzz_id, permission_key=PERM_ITEMS_WRITE
+        authdb, actor_id=actor_id, project_id=externalwebapp_id, permission_key=PERM_ITEMS_WRITE
     ).allowed

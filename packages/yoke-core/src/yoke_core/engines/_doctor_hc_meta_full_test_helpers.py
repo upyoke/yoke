@@ -99,7 +99,7 @@ _MAKE_CONN_DDL = """
         INSERT INTO projects (id, slug, name, default_branch, created_at, github_repo, public_item_prefix)
         VALUES (1, 'yoke', 'Yoke', 'main', '2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK');
         INSERT INTO projects (id, slug, name, default_branch, created_at, github_repo, public_item_prefix)
-        VALUES (2, 'buzz', 'Buzz', 'main', '2026-01-01T00:00:00Z', 'example-org/buzz', 'BUZ');
+        VALUES (2, 'externalwebapp', 'ExternalWebapp', 'main', '2026-01-01T00:00:00Z', 'example-org/externalwebapp', 'EXT');
         CREATE TABLE project_capabilities (
             id INTEGER PRIMARY KEY, project_id INTEGER, type TEXT, config TEXT,
             verified_at TEXT, created_at TEXT, settings TEXT

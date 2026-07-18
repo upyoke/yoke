@@ -38,7 +38,7 @@ from yoke_core.engines._project_identity_test_helpers import _seed_project
 class TestHCPreviewOccupancyStaleFull:
     """Tests for HC-preview-occupancy-stale."""
 
-    def _add_project(self, conn, project_id="buzz"):
+    def _add_project(self, conn, project_id="externalwebapp"):
         _seed_project(conn, project_id)
         conn.commit()
 
@@ -49,8 +49,8 @@ class TestHCPreviewOccupancyStaleFull:
         """Test 14: PASS when preview is actively claimed by executing run."""
         self._add_project(test_db)
         self._setup_preview_table(test_db)
-        insert_deployment_run(test_db, id="run-active", project="buzz",
-                              flow="buzz-release", status="executing",
+        insert_deployment_run(test_db, id="run-active", project="externalwebapp",
+                              flow="externalwebapp-release", status="executing",
                               started_at="2026-04-08T00:00:00Z")
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
@@ -65,8 +65,8 @@ class TestHCPreviewOccupancyStaleFull:
         """Test 15: WARN when preview claimed by completed run."""
         self._add_project(test_db)
         self._setup_preview_table(test_db)
-        insert_deployment_run(test_db, id="run-done", project="buzz",
-                              flow="buzz-release", status="succeeded",
+        insert_deployment_run(test_db, id="run-done", project="externalwebapp",
+                              flow="externalwebapp-release", status="succeeded",
                               completed_at="2026-04-08T00:00:00Z")
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
@@ -83,8 +83,8 @@ class TestHCPreviewOccupancyStaleFull:
         """Test 16: WARN when preview claimed by failed run."""
         self._add_project(test_db)
         self._setup_preview_table(test_db)
-        insert_deployment_run(test_db, id="run-fail", project="buzz",
-                              flow="buzz-release", status="failed",
+        insert_deployment_run(test_db, id="run-fail", project="externalwebapp",
+                              flow="externalwebapp-release", status="failed",
                               completed_at="2026-04-08T00:00:00Z")
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
@@ -101,8 +101,8 @@ class TestHCPreviewOccupancyStaleFull:
         """Test 17: Available previews not flagged."""
         self._add_project(test_db)
         self._setup_preview_table(test_db)
-        insert_deployment_run(test_db, id="run-x", project="buzz",
-                              flow="buzz-release", status="succeeded",
+        insert_deployment_run(test_db, id="run-x", project="externalwebapp",
+                              flow="externalwebapp-release", status="succeeded",
                               completed_at="2026-04-08T00:00:00Z")
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "

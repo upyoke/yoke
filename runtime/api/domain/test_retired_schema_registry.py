@@ -117,7 +117,7 @@ class TestQueryHelpers:
             "    table: widgets\n"
             "    column: legacy_beta_col\n"
             "  - module: other_project_cut\n"
-            "    project: buzz\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: widgets\n"
             "    column: legacy_gamma_col\n",
@@ -162,7 +162,7 @@ class TestQueryHelpers:
         out = rsr.list_all_retired_columns(repo_root=registry_root)
         assert len(out) == 3
         projects = {r.project for r in out}
-        assert projects == {"yoke", "buzz"}
+        assert projects == {"yoke", "externalwebapp"}
 
 
 class TestGuardAddColumn:

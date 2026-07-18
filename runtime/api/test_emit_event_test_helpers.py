@@ -41,7 +41,7 @@ def _apply_emit_event_schema() -> None:
         )
         conn.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix) "
-            "VALUES (2, 'buzz', 'Buzz', 'BUZ')"
+            "VALUES (2, 'externalwebapp', 'ExternalWebapp', 'EXT')"
         )
         conn.commit()
     finally:

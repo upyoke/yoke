@@ -168,7 +168,7 @@ class TestCreateRun:
 
     def test_create_resolves_flow_target_env(self, db_path):
         """When no target_env is given, should resolve from flow's target_env."""
-        rid = dr.cmd_create_run("buzz", "buzz-standard", db_path=db_path)
+        rid = dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
         val = dr.cmd_get(rid, field="target_env", db_path=db_path)
         assert val == "preview"
 
@@ -291,7 +291,7 @@ class TestUpdate:
 
     def test_succeeded_rejects_non_final_stage(self, db_path):
         """status=succeeded rejected if not on final flow stage."""
-        rid = dr.cmd_create_run("buzz", "buzz-standard", db_path=db_path)
+        rid = dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
         dr.cmd_update(rid, "current_stage", "preview", db_path=db_path)
         err = dr.cmd_update(rid, "status", "succeeded", db_path=db_path)
         assert err is not None
@@ -299,14 +299,14 @@ class TestUpdate:
 
     def test_succeeded_accepts_final_stage(self, db_path):
         """status=succeeded accepted when on final stage."""
-        rid = dr.cmd_create_run("buzz", "buzz-standard", db_path=db_path)
+        rid = dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
         dr.cmd_update(rid, "current_stage", "production", db_path=db_path)
         err = dr.cmd_update(rid, "status", "succeeded", db_path=db_path)
         assert err is None
 
     def test_succeeded_force_overrides_guard(self, db_path):
         """force=True bypasses the stage guard."""
-        rid = dr.cmd_create_run("buzz", "buzz-standard", db_path=db_path)
+        rid = dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
         dr.cmd_update(rid, "current_stage", "deploy-failed", db_path=db_path)
         err = dr.cmd_update(rid, "status", "succeeded", force=True, db_path=db_path)
         assert err is None

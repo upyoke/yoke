@@ -3,8 +3,8 @@
 One runner kind is wired today: ``governed_migration_module``. It is the
 project-configured Python migration-module capability Yoke already uses:
 load ``<identifier>.py`` from ``runner.config.modules_dir`` and call its
-``apply(conn)`` function. Yoke, Buzz, and future webapp projects all
-use the same runner kind; only the configured modules directory and
+``apply(conn)`` function. Every configured project uses the same runner kind;
+only the configured modules directory and
 connection env var vary by project.
 
 The dispatch returns a :class:`RunnerHandle` that quacks like a

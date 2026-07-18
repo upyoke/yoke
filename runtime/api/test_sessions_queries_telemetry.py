@@ -101,7 +101,7 @@ class TestPostDecisionTelemetry:
             action="resume",
             reason="Resume claimed work",
             actual_lane="DARIUS",
-            project="buzz",
+            project="externalwebapp",
             context={
                 "item_id": "YOK-100",
                 "status": "refined-idea",
@@ -110,11 +110,11 @@ class TestPostDecisionTelemetry:
 
         mock_lane.assert_called_once()
         lane_kwargs = mock_lane.call_args.kwargs
-        assert lane_kwargs["project"] == "buzz"
+        assert lane_kwargs["project"] == "externalwebapp"
 
         mock_dispatch.assert_called_once()
         dispatch_kwargs = mock_dispatch.call_args.kwargs
-        assert dispatch_kwargs["project"] == "buzz"
+        assert dispatch_kwargs["project"] == "externalwebapp"
         assert dispatch_kwargs["adapter"] == "advance"
         assert dispatch_kwargs["dispatch_source"] == "resume-status-mapping"
         assert dispatch_kwargs["actual_lane"] == "DARIUS"

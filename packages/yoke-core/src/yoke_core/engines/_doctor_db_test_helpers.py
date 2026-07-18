@@ -210,8 +210,8 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             (id, slug, name, default_branch, created_at,
              github_repo, public_item_prefix)
         VALUES
-            (2, 'buzz', 'Buzz', 'main',
-             '2026-01-01T00:00:00Z', 'example-org/buzz', 'BUZ');
+            (2, 'externalwebapp', 'ExternalWebapp', 'main',
+             '2026-01-01T00:00:00Z', 'example-org/externalwebapp', 'EXT');
     """)
 
 

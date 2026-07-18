@@ -26,7 +26,7 @@ def _p(conn) -> str:
 
 
 def _project_id(project: str) -> int:
-    return {"yoke": 1, "buzz": 2}[project]
+    return {"yoke": 1, "externalwebapp": 2}[project]
 
 
 def _seed_capability(conn, project: str, settings: dict) -> None:
@@ -97,24 +97,24 @@ class TestProjectFlowMigrationApplyCoverage:
     def test_class_a_no_flow_stage_at_all_fails(self):
         """Class A: model declared, zero flows reference it."""
         conn = _make_conn()
-        _seed_capability(conn, "buzz", _model_settings("primary"))
-        _seed_flow(conn, "buzz-internal", "buzz", [
+        _seed_capability(conn, "externalwebapp", _model_settings("primary"))
+        _seed_flow(conn, "externalwebapp-internal", "externalwebapp", [
             {"name": "merged", "executor": "auto"},
             {"name": "complete", "executor": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
         assert result.result == "FAIL"
-        assert "project 'buzz'" in result.detail
+        assert "project 'externalwebapp'" in result.detail
         assert "'primary'" in result.detail
         assert "no migration_apply stage" in result.detail
-        assert "buzz-internal" in result.detail
+        assert "externalwebapp-internal" in result.detail
 
     def test_class_b_wrong_phase_fails(self):
         """Class B: stage exists but never at lifecycle_phase='implementing'."""
         conn = _make_conn()
-        _seed_capability(conn, "buzz", _model_settings("primary"))
-        _seed_flow(conn, "buzz-prod", "buzz", [
+        _seed_capability(conn, "externalwebapp", _model_settings("primary"))
+        _seed_flow(conn, "externalwebapp-prod", "externalwebapp", [
             _migration_apply("primary", phase="reviewing-implementation"),
             {"name": "merged", "executor": "auto"},
         ])
@@ -123,12 +123,12 @@ class TestProjectFlowMigrationApplyCoverage:
         assert result.result == "FAIL"
         assert "never at lifecycle_phase='implementing'" in result.detail
         assert "reviewing-implementation" in result.detail
-        assert "buzz-prod" in result.detail
+        assert "externalwebapp-prod" in result.detail
 
     def test_implementing_phase_passes(self):
         conn = _make_conn()
-        _seed_capability(conn, "buzz", _model_settings("primary"))
-        _seed_flow(conn, "buzz-prod", "buzz", [
+        _seed_capability(conn, "externalwebapp", _model_settings("primary"))
+        _seed_flow(conn, "externalwebapp-prod", "externalwebapp", [
             _migration_apply("primary"),
             {"name": "merged", "executor": "auto"},
         ])
@@ -139,11 +139,11 @@ class TestProjectFlowMigrationApplyCoverage:
     def test_any_flow_with_stage_satisfies_coverage(self):
         """Coverage requires ONE flow per model, not every flow."""
         conn = _make_conn()
-        _seed_capability(conn, "buzz", _model_settings("primary"))
-        _seed_flow(conn, "buzz-internal", "buzz", [
+        _seed_capability(conn, "externalwebapp", _model_settings("primary"))
+        _seed_flow(conn, "externalwebapp-internal", "externalwebapp", [
             {"name": "merged", "executor": "auto"},
         ])
-        _seed_flow(conn, "buzz-prod", "buzz", [
+        _seed_flow(conn, "externalwebapp-prod", "externalwebapp", [
             _migration_apply("primary"),
             {"name": "merged", "executor": "auto"},
         ])
@@ -154,8 +154,8 @@ class TestProjectFlowMigrationApplyCoverage:
     def test_per_model_independent(self):
         """Two declared models; one covered, one not. Issues only the uncovered."""
         conn = _make_conn()
-        _seed_capability(conn, "buzz", _model_settings("primary", "events"))
-        _seed_flow(conn, "buzz-prod", "buzz", [
+        _seed_capability(conn, "externalwebapp", _model_settings("primary", "events"))
+        _seed_flow(conn, "externalwebapp-prod", "externalwebapp", [
             _migration_apply("primary"),
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
@@ -172,18 +172,18 @@ class TestProjectFlowMigrationApplyCoverage:
     def test_multiple_projects_independent(self):
         conn = _make_conn()
         _seed_capability(conn, "yoke", _model_settings("primary"))
-        _seed_capability(conn, "buzz", _model_settings("primary"))
+        _seed_capability(conn, "externalwebapp", _model_settings("primary"))
         _seed_flow(conn, "yoke-internal", "yoke", [
             _migration_apply("primary"),
         ])
-        _seed_flow(conn, "buzz-internal", "buzz", [
+        _seed_flow(conn, "externalwebapp-internal", "externalwebapp", [
             {"name": "merged", "executor": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
         assert result.result == "FAIL"
-        # Only buzz should be flagged.
-        assert "project 'buzz'" in result.detail
+        # Only externalwebapp should be flagged.
+        assert "project 'externalwebapp'" in result.detail
         assert "project 'yoke'" not in result.detail
 
     def test_malformed_capability_settings_fails_loudly(self):
@@ -199,7 +199,7 @@ class TestProjectFlowMigrationApplyCoverage:
 
     def test_empty_models_dict_fails(self):
         conn = _make_conn()
-        _seed_capability(conn, "buzz", {"models": {}})
+        _seed_capability(conn, "externalwebapp", {"models": {}})
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
         assert result.result == "FAIL"
@@ -207,16 +207,16 @@ class TestProjectFlowMigrationApplyCoverage:
 
     def test_remediation_hint_lists_project_flows(self):
         conn = _make_conn()
-        _seed_capability(conn, "buzz", _model_settings("primary"))
-        _seed_flow(conn, "buzz-prod-release", "buzz", [
+        _seed_capability(conn, "externalwebapp", _model_settings("primary"))
+        _seed_flow(conn, "externalwebapp-prod-release", "externalwebapp", [
             {"name": "merged", "executor": "auto"},
         ])
-        _seed_flow(conn, "buzz-prod-hotfix", "buzz", [
+        _seed_flow(conn, "externalwebapp-prod-hotfix", "externalwebapp", [
             {"name": "merged", "executor": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
         assert result.result == "FAIL"
-        assert "buzz-prod-release" in result.detail
-        assert "buzz-prod-hotfix" in result.detail
+        assert "externalwebapp-prod-release" in result.detail
+        assert "externalwebapp-prod-hotfix" in result.detail
         assert "Add the stage to one of" in result.detail

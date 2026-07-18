@@ -15,7 +15,7 @@ Defines the structured JSON format for `qa_requirements.success_policy` when `qa
 ```json
 {
  "type": "browser_scenario",
- "base_url": "string -- project base URL (e.g., https://yok-941.buzzabuzz.com)",
+ "base_url": "string -- project base URL (e.g., https://yok-941.example.com)",
  "steps": [
  {
  "action": "navigate|click|type|fill_form|assert|screenshot|wait_for|delay|scroll|hover|select",
@@ -105,9 +105,9 @@ Each step in the `steps` array maps directly to a `browser_client exec step` cal
 
 ```sh
 # Execute a single step
-python3 -m yoke_core.domain.browser_client exec step '{"action": "navigate", "route": "/login"}' --base-url https://yok-941.buzzabuzz.com
-python3 -m yoke_core.domain.browser_client exec step '{"action": "assert", "target": ".login-form", "check": "visible"}' --base-url https://yok-941.buzzabuzz.com
-python3 -m yoke_core.domain.browser_client exec step '{"action": "screenshot", "capture": true}' --base-url https://yok-941.buzzabuzz.com
+python3 -m yoke_core.domain.browser_client exec step '{"action": "navigate", "route": "/login"}' --base-url https://yok-941.example.com
+python3 -m yoke_core.domain.browser_client exec step '{"action": "assert", "target": ".login-form", "check": "visible"}' --base-url https://yok-941.example.com
+python3 -m yoke_core.domain.browser_client exec step '{"action": "screenshot", "capture": true}' --base-url https://yok-941.example.com
 ```
 
 The `browser_client exec step` command accepts the same JSON fields as this schema.
@@ -156,7 +156,7 @@ An item with ACs spanning `/login` and `/forgot-password` generates **two** `bro
 ```json
 {
  "type": "browser_scenario",
- "base_url": "https://yok-1018.buzzabuzz.com",
+ "base_url": "https://yok-1018.example.com",
  "steps": [
  {"action": "navigate", "route": "/login", "refined": false, "source_ac": "setup"},
  {"action": "assert", "target": "body", "check": "text_contains", "expected": "yankees", "refined": false, "source_ac": "AC-1", "semantic_keyword": true},
@@ -170,7 +170,7 @@ An item with ACs spanning `/login` and `/forgot-password` generates **two** `bro
 ```json
 {
  "type": "browser_scenario",
- "base_url": "https://yok-1018.buzzabuzz.com",
+ "base_url": "https://yok-1018.example.com",
  "steps": [
  {"action": "navigate", "route": "/forgot-password", "refined": false, "source_ac": "setup"},
  {"action": "assert", "target": "body", "check": "text_contains", "expected": "yankees", "refined": false, "source_ac": "AC-1", "semantic_keyword": true},
@@ -184,7 +184,7 @@ After Tester refinement:
 ```json
 {
  "type": "browser_scenario",
- "base_url": "https://yok-1018.buzzabuzz.com",
+ "base_url": "https://yok-1018.example.com",
  "steps": [
  {"action": "navigate", "route": "/login", "refined": true, "source_ac": "AC-1"},
  {"action": "assert", "target": "[data-testid='login-form']", "check": "visible", "refined": true, "source_ac": "AC-1"},

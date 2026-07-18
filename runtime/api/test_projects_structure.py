@@ -125,12 +125,22 @@ class TestProjectStructureCoexistence:
         from yoke_core.domain import project_structure as ps
         ps.cmd_init(db_path=initialized_db)
         ps.cmd_seed("yoke", db_path=initialized_db)
-        ps.cmd_seed("buzz", db_path=initialized_db)
+        ps.apply_patch(
+            "externalwebapp",
+            ops=[{
+                "op": "put",
+                "family": "command_definitions",
+                "attachment": "project",
+                "entry_key": "smoke",
+                "payload": {"command": "npm run test:smoke"},
+            }],
+            db_path=initialized_db,
+        )
         # Coarse-project reads still work.
         assert projects.cmd_get("yoke", db_path=initialized_db) is not None
-        assert projects.cmd_get("buzz", db_path=initialized_db) is not None
+        assert projects.cmd_get("externalwebapp", db_path=initialized_db) is not None
         # The ``smoke`` scope is readable through the Project Structure
         # surface rather than the coarse ``projects`` table.
         assert cmd_defs.get_command(
-            "buzz", "smoke", db_path=initialized_db
-        ) == "cd app/web && npm run test:smoke"
+            "externalwebapp", "smoke", db_path=initialized_db
+        ) == "npm run test:smoke"

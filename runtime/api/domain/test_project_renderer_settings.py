@@ -74,24 +74,24 @@ class TestProjectRendererSettingsLoader:
             )
             conn.execute(
                 "INSERT INTO projects (id, slug, name) VALUES (%s, %s, %s)",
-                (2, "buzz", "Buzz"),
+                (2, "externalwebapp", "ExternalWebapp"),
             )
             conn.execute(
                 "INSERT INTO sites (id, project_id, name, settings) "
                 "VALUES (%s, %s, %s, %s)",
                 (
-                    "buzz-web",
+                    "externalwebapp-web",
                     2,
-                    "Buzz Web",
+                    "ExternalWebapp Web",
                     json.dumps({
                         "domains": [{
-                            "domain_name": "buzzabuzz.com",
-                            "hosted_zone_id": "ZBUZZ",
-                            "certificate_arn": "arn:aws:acm:cert/buzz",
+                            "domain_name": "example.com",
+                            "hosted_zone_id": "ZEXT",
+                            "certificate_arn": "arn:aws:acm:cert/externalwebapp",
                             "dns_provider": "route53",
                         }],
                         "cdn": {
-                            "origin_id": "buzzOrigin",
+                            "origin_id": "externalwebappOrigin",
                             "distribution_id": "EDIST",
                             "distribution_domain": "d123.cloudfront.net",
                         },
@@ -102,14 +102,14 @@ class TestProjectRendererSettingsLoader:
                 "INSERT INTO environments (id, site, name, settings) "
                 "VALUES (%s, %s, %s, %s)",
                 (
-                    "buzz-web-production",
-                    "buzz-web",
+                    "externalwebapp-web-production",
+                    "externalwebapp-web",
                     "production",
                     json.dumps({
-                        "hosts": {"origin": "origin.buzz.example.com"},
+                        "hosts": {"origin": "origin.externalwebapp.example.com"},
                         "servers": [{
                             "host": "203.0.113.50",
-                            "description": "Buzz VPS",
+                            "description": "ExternalWebapp VPS",
                         }],
                     }),
                 ),
@@ -127,16 +127,16 @@ class TestProjectRendererSettingsLoader:
                     (2, cap_type, json.dumps(settings)),
                 )
 
-            settings = _load_project_renderer_settings(conn, "buzz")
-            values = _values_from_settings("buzz", settings)
+            settings = _load_project_renderer_settings(conn, "externalwebapp")
+            values = _values_from_settings("externalwebapp", settings)
 
-            assert settings.display_name == "Buzz"
-            assert settings.site_id == "buzz-web"
+            assert settings.display_name == "ExternalWebapp"
+            assert settings.site_id == "externalwebapp-web"
             assert settings.primary_environment is not None
             assert settings.primary_environment.name == "production"
             assert settings.capabilities["ssh"]["default_user"] == "ubuntu"
-            assert values["domain_name"] == "buzzabuzz.com"
-            assert values["origin_host"] == "origin.buzz.example.com"
+            assert values["domain_name"] == "example.com"
+            assert values["origin_host"] == "origin.externalwebapp.example.com"
             assert values["origin_ip"] == "203.0.113.50"
             assert values["cloudfront_id"] == "EDIST"
             assert values["web_smoke_paths"] == "/login"
@@ -171,21 +171,21 @@ class TestProjectRendererSettingsLoader:
             )
             conn.execute(
                 "INSERT INTO projects (id, slug, name) VALUES (%s, %s, %s)",
-                (2, "buzz", "Buzz"),
+                (2, "externalwebapp", "ExternalWebapp"),
             )
             conn.execute(
                 "INSERT INTO sites (id, project_id, name, settings) "
                 "VALUES (%s, %s, %s, %s)",
-                ("buzz-web", 2, "Buzz Web", json.dumps({"domains": [
-                    {"domain_name": "buzzabuzz.com"},
+                ("externalwebapp-web", 2, "ExternalWebapp Web", json.dumps({"domains": [
+                    {"domain_name": "example.com"},
                 ]})),
             )
             conn.execute(
                 "INSERT INTO environments (id, site, name, settings) "
                 "VALUES (%s, %s, %s, %s)",
                 (
-                    "buzz-web-a-home",
-                    "buzz-web",
+                    "externalwebapp-web-a-home",
+                    "externalwebapp-web",
                     "settings-home",
                     json.dumps({"integrations": {"mail": "smtp.example.com"}}),
                 ),
@@ -194,23 +194,23 @@ class TestProjectRendererSettingsLoader:
                 "INSERT INTO environments (id, site, name, settings) "
                 "VALUES (%s, %s, %s, %s)",
                 (
-                    "buzz-web-live",
-                    "buzz-web",
+                    "externalwebapp-web-live",
+                    "externalwebapp-web",
                     "live",
                     json.dumps({
                         "renderer_primary": True,
-                        "hosts": {"origin": "origin.buzz.example.com"},
+                        "hosts": {"origin": "origin.externalwebapp.example.com"},
                         "servers": [{"host": "203.0.113.50"}],
                     }),
                 ),
             )
 
-            settings = _load_project_renderer_settings(conn, "buzz")
-            values = _values_from_settings("buzz", settings)
+            settings = _load_project_renderer_settings(conn, "externalwebapp")
+            values = _values_from_settings("externalwebapp", settings)
 
             assert settings.primary_environment is not None
-            assert settings.primary_environment.id == "buzz-web-live"
-            assert values["origin_host"] == "origin.buzz.example.com"
+            assert settings.primary_environment.id == "externalwebapp-web-live"
+            assert values["origin_host"] == "origin.externalwebapp.example.com"
             assert values["origin_ip"] == "203.0.113.50"
         finally:
             conn.close()
@@ -250,10 +250,10 @@ class TestSelectPrimaryEnvironment:
 
 def _settings_with_ephemeral(ephemeral: dict) -> ProjectRendererSettings:
     return ProjectRendererSettings(
-        project="buzz",
-        deploy_namespace="buzz",
-        display_name="Buzz",
-        site_id="buzz-web",
+        project="externalwebapp",
+        deploy_namespace="externalwebapp",
+        display_name="ExternalWebapp",
+        site_id="externalwebapp-web",
         site_settings={},
         primary_environment=None,
         environments=(),
@@ -271,18 +271,18 @@ class TestEphemeralPortBaseKeys:
 
     def test_web_base_port_feeds_port_base(self):
         values = _values_from_settings(
-            "buzz", _settings_with_ephemeral({"web_base_port": 4100}),
+            "externalwebapp", _settings_with_ephemeral({"web_base_port": 4100}),
         )
         assert values["port_base"] == "4100"
 
     def test_retired_base_port_alias_is_ignored(self):
         values = _values_from_settings(
-            "buzz", _settings_with_ephemeral({"base_port": 9000}),
+            "externalwebapp", _settings_with_ephemeral({"base_port": 9000}),
         )
         assert values["port_base"] == "4000"  # default, not the alias value
 
     def test_api_base_port_feeds_api_port_base(self):
         values = _values_from_settings(
-            "buzz", _settings_with_ephemeral({"api_base_port": 9100}),
+            "externalwebapp", _settings_with_ephemeral({"api_base_port": 9100}),
         )
         assert values["api_port_base"] == "9100"

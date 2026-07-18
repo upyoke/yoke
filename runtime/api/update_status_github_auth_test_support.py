@@ -23,7 +23,7 @@ def seed_github_app_auth(conn, placeholder: str, now: str) -> None:
     )
     for project_id, repo, repository_id in (
         (1, "upyoke/yoke", "4567"),
-        (2, "example-org/buzz", "4568"),
+        (2, "example-org/externalwebapp", "4568"),
     ):
         conn.execute(
             "INSERT INTO project_github_repo_bindings "

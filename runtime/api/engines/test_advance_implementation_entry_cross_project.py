@@ -25,7 +25,7 @@ from yoke_contracts.api.function_call import (
 
 
 def _item(item_id=42, status="refined-idea", type_="issue",
-          title="t", project="buzz"):
+          title="t", project="externalwebapp"):
     return {"id": item_id, "type": type_, "status": status,
             "title": title, "project": project}
 
@@ -33,7 +33,7 @@ def _item(item_id=42, status="refined-idea", type_="issue",
 class _WtStub:
     """Stand-in for WorktreePreflightOutcome."""
     def __init__(self, *, ok=True, branch="YOK-42",
-                 worktree_path="/Users/dev/buzz/.worktrees/YOK-42",
+                 worktree_path="/Users/dev/externalwebapp/.worktrees/YOK-42",
                  actions=None, block_kind="", narrative=""):
         self.ok, self.branch = ok, branch
         self.worktree_path = worktree_path
@@ -87,7 +87,7 @@ def _patch_dispatch(monkeypatch, response=None):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("project_in,want_project", [
-    ("buzz", "buzz"),
+    ("externalwebapp", "externalwebapp"),
     ("yoke", "yoke"),
 ])
 def test_orchestrator_forwards_item_project_to_run_preflight(
@@ -131,7 +131,7 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
     )
     monkeypatch.setattr(
         "yoke_core.domain.project_checkout_locations.checkout_for_project",
-        lambda conn, project: Path("/tmp/buzz-repo"),
+        lambda conn, project: Path("/tmp/externalwebapp-repo"),
     )
     monkeypatch.setattr(
         worktree_preflight, "_normalize_repo_root",
@@ -152,10 +152,10 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
         lambda item_id: (True, "", []),
     )
 
-    result = worktree_preflight.run_preflight(item_id=42, project="buzz",
+    result = worktree_preflight.run_preflight(item_id=42, project="externalwebapp",
                                               no_worktree=True)
     assert result.ok is True
-    assert normalized == ["/tmp/buzz-repo"]
+    assert normalized == ["/tmp/externalwebapp-repo"]
 
 
 # ---------------------------------------------------------------------------

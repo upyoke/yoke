@@ -64,8 +64,8 @@ The template entrypoint runs `init_db.py` then starts uvicorn.
 scaffold is a self-contained FastAPI + Next.js + SQLite + Docker product: the app
 reads `APP_DB_PATH` (a file path), `utils/db.py` opens it with `sqlite3`,
 `db/schema.sql` is SQLite DDL, and Yoke validates migrations against a
-worktree-local SQLite surface (the `webapp_sqlite_empty` recipe). Buzz — a live
-product instantiated from this template — runs on exactly this default.
+worktree-local SQLite surface (the `webapp_sqlite_empty` recipe). Managed webapps can
+run on exactly this default without changing Yoke's control-plane database posture.
 
 This is **separate from Yoke's own control-plane database**, which is Postgres
 (Aurora). The Yoke control-plane cloud runtime "Postgres-native" posture applies to Yoke's control plane,

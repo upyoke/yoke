@@ -10,40 +10,40 @@ def test_find_by_github_repo_returns_existing_project_by_numeric_id() -> None:
     with ProjectOnboardApi(
         project={
             "id": 37,
-            "slug": "buzz",
-            "name": "Buzz",
-            "github_repo": "example-org/buzz",
+            "slug": "externalwebapp",
+            "name": "ExternalWebapp",
+            "github_repo": "example-org/externalwebapp",
             "default_branch": "main",
-            "public_item_prefix": "BUZZ",
+            "public_item_prefix": "EXT",
         },
     ) as api:
         project = existing_project_lookup.find_by_github_repo(
             api_url=api.url,
             token="product-token",
-            github_repo="git@github.com:example-org/buzz.git",
+            github_repo="git@github.com:example-org/externalwebapp.git",
         )
 
     assert project == existing_project_lookup.ExistingProject(
         id=37,
-        slug="buzz",
-        name="Buzz",
-        github_repo="example-org/buzz",
+        slug="externalwebapp",
+        name="ExternalWebapp",
+        github_repo="example-org/externalwebapp",
         default_branch="main",
-        public_item_prefix="BUZZ",
+        public_item_prefix="EXT",
     )
     call = api.function_call("projects.resolve_by_github_repo")
-    assert call["payload"] == {"github_repo": "example-org/buzz"}
+    assert call["payload"] == {"github_repo": "example-org/externalwebapp"}
 
 
 def test_find_by_project_id_returns_existing_project() -> None:
     with ProjectOnboardApi(
         project={
             "id": 37,
-            "slug": "buzz",
-            "name": "Buzz",
-            "github_repo": "example-org/buzz",
+            "slug": "externalwebapp",
+            "name": "ExternalWebapp",
+            "github_repo": "example-org/externalwebapp",
             "default_branch": "main",
-            "public_item_prefix": "BUZZ",
+            "public_item_prefix": "EXT",
         },
     ) as api:
         project = existing_project_lookup.find_by_project_id(
@@ -81,11 +81,11 @@ def test_find_local_by_project_id_uses_local_dispatch(tmp_path, monkeypatch) -> 
             "result": {
                 "row": {
                     "id": "37",
-                    "slug": "buzz",
-                    "name": "Buzz",
-                    "github_repo": "example-org/buzz",
+                    "slug": "externalwebapp",
+                    "name": "ExternalWebapp",
+                    "github_repo": "example-org/externalwebapp",
                     "default_branch": "main",
-                    "public_item_prefix": "BUZZ",
+                    "public_item_prefix": "EXT",
                 },
             },
         }
@@ -97,7 +97,7 @@ def test_find_local_by_project_id_uses_local_dispatch(tmp_path, monkeypatch) -> 
         project_id=37,
     )
 
-    assert project.slug == "buzz"
+    assert project.slug == "externalwebapp"
     assert calls == [{
         "config_path": tmp_path / "config.json",
         "function": "projects.get",
@@ -238,50 +238,50 @@ def test_find_by_github_repo_accepts_versioned_api_base() -> None:
     with ProjectOnboardApi(
         project={
             "id": 37,
-            "slug": "buzz",
-            "name": "Buzz",
-            "github_repo": "example-org/buzz",
+            "slug": "externalwebapp",
+            "name": "ExternalWebapp",
+            "github_repo": "example-org/externalwebapp",
             "default_branch": "main",
-            "public_item_prefix": "BUZZ",
+            "public_item_prefix": "EXT",
         },
     ) as api:
         project = existing_project_lookup.find_by_github_repo(
             api_url=api.url + "/v1",
             token="product-token",
-            github_repo="https://github.com/example-org/buzz.git",
+            github_repo="https://github.com/example-org/externalwebapp.git",
         )
 
     assert project is not None
-    assert project.slug == "buzz"
+    assert project.slug == "externalwebapp"
     call = api.function_call("projects.resolve_by_github_repo")
     assert len(api.requests_for("POST", "/v1/functions/call")) == 1
-    assert call["payload"] == {"github_repo": "example-org/buzz"}
+    assert call["payload"] == {"github_repo": "example-org/externalwebapp"}
 
 
 def test_normalize_github_repo_handles_common_clone_urls() -> None:
     assert (
         existing_project_lookup.normalize_github_repo(
-            "https://github.com/Example-Org/Buzz.git"
+            "https://github.com/Example-Org/ExternalWebapp.git"
         )
-        == "example-org/buzz"
+        == "example-org/externalwebapp"
     )
     assert (
         existing_project_lookup.normalize_github_repo(
-            "git@github.com:Example-Org/Buzz.git"
+            "git@github.com:Example-Org/ExternalWebapp.git"
         )
-        == "example-org/buzz"
+        == "example-org/externalwebapp"
     )
-    assert existing_project_lookup.normalize_github_repo("Example-Org/Buzz") == (
-        "example-org/buzz"
+    assert existing_project_lookup.normalize_github_repo("Example-Org/ExternalWebapp") == (
+        "example-org/externalwebapp"
     )
     assert existing_project_lookup.normalize_github_repo(
-        "https://ghe.example/Example-Org/Buzz.git",
+        "https://ghe.example/Example-Org/ExternalWebapp.git",
         web_url="https://ghe.example",
-    ) == "example-org/buzz"
+    ) == "example-org/externalwebapp"
     assert existing_project_lookup.normalize_github_repo(
-        "git@ghe.example:Example-Org/Buzz.git",
+        "git@ghe.example:Example-Org/ExternalWebapp.git",
         web_url="https://ghe.example",
-    ) == "example-org/buzz"
+    ) == "example-org/externalwebapp"
 
 
 def test_normalize_github_repo_rejects_unrelated_or_malformed_paths() -> None:

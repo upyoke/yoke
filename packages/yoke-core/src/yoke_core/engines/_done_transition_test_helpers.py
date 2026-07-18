@@ -157,8 +157,8 @@ def dt_db(tmp_path, monkeypatch):
             "VALUES "
             "(1, 'yoke', 'Yoke', 'org/yoke', "
             "'YOK', 'main', '2026-01-01T00:00:00Z'), "
-            "(2, 'buzz', 'Buzz', 'org/buzz', "
-            "'BUZ', 'main', '2026-01-01T00:00:00Z')"
+            "(2, 'externalwebapp', 'ExternalWebapp', 'org/externalwebapp', "
+            "'EXT', 'main', '2026-01-01T00:00:00Z')"
         )
         conn.commit()
 

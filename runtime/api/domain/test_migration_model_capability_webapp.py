@@ -87,7 +87,7 @@ class TestWebappValidationRecipe:
 
 class TestWebappPythonRunner:
     def test_governed_migration_module_accepted_for_webapp(self) -> None:
-        # Webapp / Buzz uses the same Python migration-module runner as Yoke;
+        # Webapp / ExternalWebapp uses the same Python migration-module runner as Yoke;
         # only the configured modules dir and connection env var differ.
         model = _minimal_sqlite_model(
             validation_surface=_webapp_validation_surface(),

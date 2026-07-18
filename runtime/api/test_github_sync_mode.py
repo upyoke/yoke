@@ -74,7 +74,7 @@ class TestModeReader:
         )
         assert not github_sync_enabled("yoke", conn=db)
         # Other projects stay independent.
-        assert github_sync_enabled("buzz", conn=db)
+        assert github_sync_enabled("externalwebapp", conn=db)
 
     def test_unknown_project_resolves_enabled(self, db):
         assert resolve_github_sync_mode("nope", conn=db) == GITHUB_SYNC_ENABLED
@@ -89,8 +89,8 @@ class TestSyncSurfacesSkip:
     """Every sync entrypoint short-circuits with rc 0 + the mode line."""
 
     def test_sync_item_creates_nothing(self, db):
-        _set_mode(db, "buzz", GITHUB_SYNC_BACKLOG_ONLY)
-        insert_item(db, id=71, project="buzz", github_issue=None, spec="Body")
+        _set_mode(db, "externalwebapp", GITHUB_SYNC_BACKLOG_ONLY)
+        insert_item(db, id=71, project="externalwebapp", github_issue=None, spec="Body")
         stdout = io.StringIO()
 
         with mock.patch(
@@ -100,7 +100,7 @@ class TestSyncSurfacesSkip:
             rc = backlog_github_sync.sync_item("71", conn=db, stdout=stdout)
 
         assert rc == 0
-        assert github_sync_disabled_notice("buzz", "sync-item") in stdout.getvalue()
+        assert github_sync_disabled_notice("externalwebapp", "sync-item") in stdout.getvalue()
         row = db.execute(
             "SELECT github_issue FROM items WHERE id = 71"
         ).fetchone()
@@ -108,8 +108,8 @@ class TestSyncSurfacesSkip:
 
     def test_sync_body_no_ops_cleanly(self, db):
         """The choke point behind options.sync_github_body=true."""
-        _set_mode(db, "buzz", GITHUB_SYNC_BACKLOG_ONLY)
-        insert_item(db, id=72, project="buzz", github_issue="#80", spec="Body")
+        _set_mode(db, "externalwebapp", GITHUB_SYNC_BACKLOG_ONLY)
+        insert_item(db, id=72, project="externalwebapp", github_issue="#80", spec="Body")
         stdout = io.StringIO()
 
         with mock.patch.object(
@@ -119,21 +119,21 @@ class TestSyncSurfacesSkip:
             rc = backlog_github_sync.sync_body("72", conn=db, stdout=stdout)
 
         assert rc == 0
-        assert github_sync_disabled_notice("buzz", "sync-body") in stdout.getvalue()
+        assert github_sync_disabled_notice("externalwebapp", "sync-body") in stdout.getvalue()
 
     def test_sync_title_skips(self, db):
-        _set_mode(db, "buzz", GITHUB_SYNC_BACKLOG_ONLY)
-        insert_item(db, id=73, project="buzz", github_issue="#81", spec="Body")
+        _set_mode(db, "externalwebapp", GITHUB_SYNC_BACKLOG_ONLY)
+        insert_item(db, id=73, project="externalwebapp", github_issue="#81", spec="Body")
         stdout = io.StringIO()
 
         rc = backlog_github_sync.sync_title("73", conn=db, stdout=stdout)
 
         assert rc == 0
-        assert github_sync_disabled_notice("buzz", "sync-title") in stdout.getvalue()
+        assert github_sync_disabled_notice("externalwebapp", "sync-title") in stdout.getvalue()
 
     def test_post_comment_skips(self, db):
-        _set_mode(db, "buzz", GITHUB_SYNC_BACKLOG_ONLY)
-        insert_item(db, id=74, project="buzz", github_issue="#82", spec="Body")
+        _set_mode(db, "externalwebapp", GITHUB_SYNC_BACKLOG_ONLY)
+        insert_item(db, id=74, project="externalwebapp", github_issue="#82", spec="Body")
         stdout = io.StringIO()
 
         rc = backlog_github_sync.post_comment(
@@ -142,14 +142,14 @@ class TestSyncSurfacesSkip:
 
         assert rc == 0
         assert (
-            github_sync_disabled_notice("buzz", "post-comment")
+            github_sync_disabled_notice("externalwebapp", "post-comment")
             in stdout.getvalue()
         )
 
     def test_close_issue_skips(self, db):
-        _set_mode(db, "buzz", GITHUB_SYNC_BACKLOG_ONLY)
+        _set_mode(db, "externalwebapp", GITHUB_SYNC_BACKLOG_ONLY)
         insert_item(
-            db, id=75, project="buzz", github_issue="#83",
+            db, id=75, project="externalwebapp", github_issue="#83",
             status="done", spec="Body",
         )
         stdout = io.StringIO()
@@ -158,13 +158,13 @@ class TestSyncSurfacesSkip:
 
         assert rc == 0
         assert (
-            github_sync_disabled_notice("buzz", "close-issue")
+            github_sync_disabled_notice("externalwebapp", "close-issue")
             in stdout.getvalue()
         )
 
     def test_enabled_project_still_reaches_github_auth_gate(self, db):
         """Default mode keeps the pre-switch behavior: the GitHub App auth gate runs."""
-        insert_item(db, id=76, project="buzz", github_issue="#84", spec="Body")
+        insert_item(db, id=76, project="externalwebapp", github_issue="#84", spec="Body")
         stdout, stderr = io.StringIO(), io.StringIO()
 
         with mock.patch(
@@ -176,23 +176,23 @@ class TestSyncSurfacesSkip:
             )
 
         assert rc == 1
-        pat.assert_called_once_with("buzz")
+        pat.assert_called_once_with("externalwebapp")
         assert "no usable GitHub App auth" in stderr.getvalue()
 
 
 class TestExplicitRefusal:
     def test_migrate_issue_to_backlog_only_target_refuses(self, db):
-        _set_mode(db, "buzz", GITHUB_SYNC_BACKLOG_ONLY)
+        _set_mode(db, "externalwebapp", GITHUB_SYNC_BACKLOG_ONLY)
         stderr = io.StringIO()
 
         rc = backlog_github_sync.migrate_issue_to_repo(
-            "42", "9", "org/old", "old", "org/buzz", "buzz",
+            "42", "9", "org/old", "old", "org/externalwebapp", "externalwebapp",
             conn=db, stdout=io.StringIO(), stderr=stderr,
         )
 
         assert rc == 1
         assert (
-            github_sync_disabled_notice("buzz", "migrate-issue")
+            github_sync_disabled_notice("externalwebapp", "migrate-issue")
             in stderr.getvalue()
         )
 
@@ -258,27 +258,27 @@ class TestModeWrites:
         from yoke_core.domain.projects_upsert import cmd_upsert
 
         result = cmd_upsert(
-            slug="buzz", name="Buzz",
+            slug="externalwebapp", name="ExternalWebapp",
             github_sync_mode=GITHUB_SYNC_BACKLOG_ONLY, mode="update",
         )
         assert (
             result["project"]["github_sync_mode"] == GITHUB_SYNC_BACKLOG_ONLY
         )
-        assert cmd_get("buzz", "github_sync_mode") == GITHUB_SYNC_BACKLOG_ONLY
-        assert not github_sync_enabled("buzz")
+        assert cmd_get("externalwebapp", "github_sync_mode") == GITHUB_SYNC_BACKLOG_ONLY
+        assert not github_sync_enabled("externalwebapp")
 
         # Enabling without the required active verified binding fails closed.
         with pytest.raises(GithubSyncModeError, match="active, verified"):
-            cmd_update("buzz", "github_sync_mode", GITHUB_SYNC_ENABLED)
-        assert cmd_get("buzz", "github_sync_mode") == GITHUB_SYNC_BACKLOG_ONLY
-        assert not github_sync_enabled("buzz")
+            cmd_update("externalwebapp", "github_sync_mode", GITHUB_SYNC_ENABLED)
+        assert cmd_get("externalwebapp", "github_sync_mode") == GITHUB_SYNC_BACKLOG_ONLY
+        assert not github_sync_enabled("externalwebapp")
 
     def test_upsert_rejects_invalid_mode(self, ambient_db):
         from yoke_core.domain.projects_upsert import cmd_upsert
 
         with pytest.raises(ValueError):
             cmd_upsert(
-                slug="buzz", name="Buzz",
+                slug="externalwebapp", name="ExternalWebapp",
                 github_sync_mode="sideways", mode="update",
             )
 
@@ -287,4 +287,4 @@ class TestModeWrites:
         from yoke_core.domain.projects_crud import cmd_update
 
         with pytest.raises(GithubSyncModeError):
-            cmd_update("buzz", "github_sync_mode", "sideways")
+            cmd_update("externalwebapp", "github_sync_mode", "sideways")

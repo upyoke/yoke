@@ -164,7 +164,7 @@ class TestClassifyItems:
 
     def test_project_scope_filter(self, test_db):
         insert_item(test_db, 1, status="implementing", project="yoke")
-        insert_item(test_db, 2, status="implementing", project="buzz")
+        insert_item(test_db, 2, status="implementing", project="externalwebapp")
         result = classify_items(test_db, "yoke")
         all_ids = set()
         for items in result.values():
@@ -180,11 +180,11 @@ class TestClassifyItems:
         )
         test_db.execute(
             "UPDATE projects SET public_item_prefix = %s WHERE slug = %s",
-            ("EXT", "buzz"),
+            ("EXT", "externalwebapp"),
         )
         test_db.commit()
         insert_item(test_db, 1, status="implementing", project="yoke")
-        insert_item(test_db, 2, status="implementing", project="buzz")
+        insert_item(test_db, 2, status="implementing", project="externalwebapp")
 
         class NoDirectExecuteConnection:
             def __init__(self, conn):

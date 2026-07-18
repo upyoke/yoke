@@ -143,7 +143,7 @@ class TestEventEmission:
         assert context["new_profile"]["state"] == "declared"
 
     def test_event_uses_items_project(self, db_conn):
-        insert_item(db_conn, id=601, status="refining-idea", project="buzz")
+        insert_item(db_conn, id=601, status="refining-idea", project="externalwebapp")
         amend(
             601,
             _declared_payload(),
@@ -159,9 +159,9 @@ class TestEventEmission:
         ).fetchone()
         assert row is not None
         assert row["project_id"] == 2
-        assert row["project"] == "buzz"
+        assert row["project"] == "externalwebapp"
         envelope = json.loads(row["envelope"])
-        assert envelope["project"] == "buzz"
+        assert envelope["project"] == "externalwebapp"
 
     def test_event_emission_failure_rolls_back_amendment(self, db_conn):
         insert_item(db_conn, id=602, status="refining-idea")

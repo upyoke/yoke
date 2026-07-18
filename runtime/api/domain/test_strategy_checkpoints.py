@@ -41,7 +41,7 @@ class TestRecordCheckpoint:
             )
             conn.commit()
             assert strategy_checkpoints.latest_checkpoint_at(conn, 2)
-            assert strategy_checkpoints.latest_checkpoint_at(conn, "buzz")
+            assert strategy_checkpoints.latest_checkpoint_at(conn, "externalwebapp")
             assert strategy_checkpoints.latest_checkpoint_at(conn, "yoke") is None
         finally:
             conn.close()

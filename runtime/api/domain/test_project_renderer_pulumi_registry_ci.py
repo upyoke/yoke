@@ -260,11 +260,11 @@ class TestRegistryProgramShape:
             runpy.run_path(path)["delivery_policy_json"](
                 region="us-east-1",
                 account_id="123456789012",
-                deploy_namespace="buzz",
-                state_bucket="buzz-pulumi-state",
+                deploy_namespace="externalwebapp",
+                state_bucket="externalwebapp-pulumi-state",
                 kms_key_arn="arn:aws:kms:us-east-1:123456789012:key/state-key",
                 distribution_bucket_names=[],
-                cloudfront_distribution_ids=["EBUZZ"],
+                cloudfront_distribution_ids=["EEXT"],
                 github_app_private_key_secret_arns=[],
             )
         )
@@ -272,5 +272,5 @@ class TestRegistryProgramShape:
         by_sid = {statement["Sid"]: statement for statement in policy["Statement"]}
         assert by_sid["DiscoverDistributionIds"]["Resource"] == "*"
         assert by_sid["InvalidateProjectDistributions"]["Resource"] == [
-            "arn:aws:cloudfront::123456789012:distribution/EBUZZ"
+            "arn:aws:cloudfront::123456789012:distribution/EEXT"
         ]

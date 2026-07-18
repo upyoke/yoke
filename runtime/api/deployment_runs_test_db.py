@@ -31,7 +31,7 @@ _MINIMAL_SCHEMA_DDL = """
         public_item_prefix TEXT NOT NULL DEFAULT 'YOK'
     );
     INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'Yoke');
-    INSERT INTO projects (id, slug, name) VALUES (2, 'buzz', 'Buzz');
+    INSERT INTO projects (id, slug, name) VALUES (2, 'externalwebapp', 'ExternalWebapp');
 
     CREATE TABLE IF NOT EXISTS deployment_flows (
         id TEXT PRIMARY KEY,

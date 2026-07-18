@@ -59,7 +59,7 @@ def conn() -> Iterator[Any]:
 def test_actor_roles_allow_multiple_projects_and_deny_missing_role(conn):
     actor_id = seed_human_actor(conn)
     yoke_id = resolve_project_id(conn, "yoke")
-    buzz_id = resolve_project_id(conn, "buzz")
+    externalwebapp_id = resolve_project_id(conn, "externalwebapp")
     grant_actor_project_role(
         conn,
         actor_id=actor_id,
@@ -70,7 +70,7 @@ def test_actor_roles_allow_multiple_projects_and_deny_missing_role(conn):
     grant_actor_project_role(
         conn,
         actor_id=actor_id,
-        project_id=buzz_id,
+        project_id=externalwebapp_id,
         role_name=ROLE_VIEWER,
         granted_by_actor_id=actor_id,
     )
@@ -79,13 +79,13 @@ def test_actor_roles_allow_multiple_projects_and_deny_missing_role(conn):
         conn, actor_id=actor_id, project_id=yoke_id, permission_key=PERM_ITEMS_WRITE
     ).allowed
     assert require_permission(
-        conn, actor_id=actor_id, project_id=buzz_id, permission_key=PERM_ITEMS_READ
+        conn, actor_id=actor_id, project_id=externalwebapp_id, permission_key=PERM_ITEMS_READ
     ).allowed
     with pytest.raises(PermissionDenied):
         require_permission(
             conn,
             actor_id=actor_id,
-            project_id=buzz_id,
+            project_id=externalwebapp_id,
             permission_key=PERM_ITEMS_WRITE,
         )
 

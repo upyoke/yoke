@@ -63,7 +63,7 @@ def _make_conn() -> Any:
 
 
 def _project_id(project: str) -> int:
-    return {"yoke": 1, "buzz": 2}[project]
+    return {"yoke": 1, "externalwebapp": 2}[project]
 
 
 def _seed_project(
@@ -131,29 +131,29 @@ class TestWrongRepoIssuesNoGitHubAuth:
 class TestProjectGhSecretsNoGitHubAuth:
     def test_skips_with_canonical_reason_on_missing_auth(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz", "org/buzz")
+        _seed_project(conn, "externalwebapp", "org/externalwebapp")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            side_effect=MissingCapability("buzz", "no capability"),
+            side_effect=MissingCapability("externalwebapp", "no capability"),
         ):
-            rec = _run_hc(hc_project_gh_secrets, conn, project="buzz")
+            rec = _run_hc(hc_project_gh_secrets, conn, project="externalwebapp")
         assert rec.results[0].result == "SKIP"
-        assert rec.results[0].detail == _canonical_skip("buzz")
+        assert rec.results[0].detail == _canonical_skip("externalwebapp")
 
     def test_skips_with_canonical_reason_on_403_scope_failure(self):
         """AC-11: 403 (GitHub App auth lacks secrets:read scope) -> SKIP, not FAIL."""
         conn = _make_conn()
-        _seed_project(conn, "buzz", "org/buzz")
+        _seed_project(conn, "externalwebapp", "org/externalwebapp")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            return_value=_auth("buzz", "org/buzz"),
+            return_value=_auth("externalwebapp", "org/externalwebapp"),
         ), patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
             side_effect=RestAuthError("HTTP 403: insufficient scope", status=403),
         ):
-            rec = _run_hc(hc_project_gh_secrets, conn, project="buzz")
+            rec = _run_hc(hc_project_gh_secrets, conn, project="externalwebapp")
         assert rec.results[0].result == "SKIP"
-        assert rec.results[0].detail == _canonical_skip("buzz")
+        assert rec.results[0].detail == _canonical_skip("externalwebapp")
 
 
 class TestRestPassWithGitHubAuth:
@@ -185,10 +185,10 @@ class TestRestPassWithGitHubAuth:
 
     def test_project_gh_secrets_passes_when_secrets_present(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz", "org/buzz")
+        _seed_project(conn, "externalwebapp", "org/externalwebapp")
         with patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            return_value=_auth("buzz", "org/buzz"),
+            return_value=_auth("externalwebapp", "org/externalwebapp"),
         ), patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
             return_value=RestResponse(
@@ -196,6 +196,6 @@ class TestRestPassWithGitHubAuth:
                 body={"total_count": 2, "secrets": [{"name": "A"}, {"name": "B"}]},
             ),
         ):
-            rec = _run_hc(hc_project_gh_secrets, conn, project="buzz")
+            rec = _run_hc(hc_project_gh_secrets, conn, project="externalwebapp")
         assert rec.results[0].result == "PASS"
         assert "2 secrets" in rec.results[0].detail

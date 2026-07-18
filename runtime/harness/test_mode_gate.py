@@ -73,14 +73,14 @@ def test_context_target_root_warn_downgrades_even_when_ambient_denies(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     yoke = _root_with_config(tmp_path, "yoke", "lint_tc_label=deny\n")
-    buzz = _root_with_config(tmp_path, "buzz", "lint_tc_label=warn\n")
+    externalwebapp = _root_with_config(tmp_path, "externalwebapp", "lint_tc_label=warn\n")
     monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(yoke))
     monkeypatch.chdir(yoke)
     monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
     mode_gate.lint_config.reset_cache()
 
     out = mode_gate.apply_mode(
-        _deny(), "yoke_core.domain.lint_tc_label", context=_context(str(buzz)),
+        _deny(), "yoke_core.domain.lint_tc_label", context=_context(str(externalwebapp)),
     )
 
     assert out.outcome is Outcome.WARN
@@ -92,9 +92,9 @@ def test_context_target_root_deny_keeps_block(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     yoke = _root_with_config(tmp_path, "yoke", "lint_tc_label=deny\n")
-    buzz = _root_with_config(tmp_path, "buzz", "lint_tc_label=warn\n")
-    monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(buzz))
-    monkeypatch.chdir(buzz)
+    externalwebapp = _root_with_config(tmp_path, "externalwebapp", "lint_tc_label=warn\n")
+    monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(externalwebapp))
+    monkeypatch.chdir(externalwebapp)
     monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
     mode_gate.lint_config.reset_cache()
 
@@ -110,7 +110,7 @@ def test_context_target_root_deny_keeps_block(
 def test_context_missing_or_unknown_target_root_fails_safe(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    ambient = _root_with_config(tmp_path, "buzz", "lint_tc_label=warn\n")
+    ambient = _root_with_config(tmp_path, "externalwebapp", "lint_tc_label=warn\n")
     monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(ambient))
     monkeypatch.chdir(ambient)
     monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
@@ -149,7 +149,7 @@ def test_payload_snapshot_warn_downgrades_without_server_checkout(
 def test_protected_guard_warn_without_allow_warn_stays_deny_with_explicit_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    root = _root_with_config(tmp_path, "buzz", "lint_destructive_git=warn\n")
+    root = _root_with_config(tmp_path, "externalwebapp", "lint_destructive_git=warn\n")
     monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
     mode_gate.lint_config.reset_cache()
 

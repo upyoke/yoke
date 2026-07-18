@@ -47,7 +47,7 @@ def _make_db() -> Any:
     seed_test_canonical_actors(conn)
     conn.execute(
         "UPDATE projects SET github_repo = %s WHERE id = %s",
-        ("org/buzz", SEED_PROJECT_IDS["buzz"]),
+        ("org/externalwebapp", SEED_PROJECT_IDS["externalwebapp"]),
     )
     conn.commit()
     return pg_testdb.drop_database_on_close(conn, name)
@@ -66,7 +66,7 @@ class TestSearchExistingIssue:
             side_effect=github_rest.RestTransportError("boom", status=500),
         ):
             result = github_dedup.search_existing_issue(
-                "[YOK-1]", project="buzz", stderr=stderr,
+                "[YOK-1]", project="externalwebapp", stderr=stderr,
             )
         assert result is None
         assert "Skipping reuse" in stderr.getvalue()
@@ -74,7 +74,7 @@ class TestSearchExistingIssue:
     def test_returns_none_on_empty_results(self):
         with patch(_DEDUP_PATCH, return_value=[]):
             assert github_dedup.search_existing_issue(
-                "[YOK-1]", project="buzz",
+                "[YOK-1]", project="externalwebapp",
             ) is None
 
     def test_rejects_fuzzy_substring_match(self):
@@ -86,7 +86,7 @@ class TestSearchExistingIssue:
         )
         with patch(_DEDUP_PATCH, return_value=[fuzzy]):
             result = github_dedup.search_existing_issue(
-                "[YOK-1500]", project="buzz",
+                "[YOK-1500]", project="externalwebapp",
             )
         assert result is None
 
@@ -98,7 +98,7 @@ class TestSearchExistingIssue:
         ]
         with patch(_DEDUP_PATCH, return_value=candidates):
             result = github_dedup.search_existing_issue(
-                "[YOK-1]", project="buzz",
+                "[YOK-1]", project="externalwebapp",
             )
         assert result == ("200", "[YOK-1] First")
 
@@ -109,7 +109,7 @@ class TestSearchExistingIssue:
         ]
         with patch(_DEDUP_PATCH, return_value=candidates):
             result = github_dedup.search_existing_issue(
-                "[YOK-1]", project="buzz",
+                "[YOK-1]", project="externalwebapp",
             )
         assert result == ("4", "[YOK-1] Match")
 
@@ -140,7 +140,7 @@ class TestSyncItemDedup:
     def test_reuses_existing_github_issue_on_exact_prefix(self):
         """AC-4: happy path — exact-prefix candidate IS reused."""
         db = _make_db()
-        insert_item(db, id=20, type="issue", status="idea", project="buzz")
+        insert_item(db, id=20, type="issue", status="idea", project="externalwebapp")
         stdout = io.StringIO()
 
         with patch(
@@ -150,7 +150,7 @@ class TestSyncItemDedup:
             return_value=None,
         ), patch(
             _DEDUP_PATCH,
-            return_value=[_issue(777, "[BUZ-20] Existing item title")],
+            return_value=[_issue(777, "[EXT-20] Existing item title")],
         ), patch(
             "yoke_core.domain.backlog_github_item_create._regenerate_md",
         ):
@@ -165,7 +165,7 @@ class TestSyncItemDedup:
     def test_reuses_existing_epic_issue_and_syncs_child_tasks(self):
         """AC-4: exact-prefix reuse for epic items also runs child sync."""
         db = _make_db()
-        insert_item(db, id=23, type="epic", status="planning", project="buzz")
+        insert_item(db, id=23, type="epic", status="planning", project="externalwebapp")
         insert_epic_task(db, epic_id=23, task_num=1, title="Task 1", status="planned")
         stdout = io.StringIO()
 
@@ -176,7 +176,7 @@ class TestSyncItemDedup:
             return_value=None,
         ), patch(
             _DEDUP_PATCH,
-            return_value=[_issue(777, "[BUZ-23] Existing epic title")],
+            return_value=[_issue(777, "[EXT-23] Existing epic title")],
         ), patch(
             "yoke_core.domain.backlog_github_item_create._regenerate_md",
         ), patch(
@@ -188,7 +188,7 @@ class TestSyncItemDedup:
         assert rc == 0
         gh_issue = db.execute("SELECT github_issue FROM items WHERE id = 23").fetchone()[0]
         assert gh_issue == "#777"
-        mock_task_sync.assert_called_once_with("BUZ-23", conn=db, stdout=stdout, stderr=ANY)
+        mock_task_sync.assert_called_once_with("EXT-23", conn=db, stdout=stdout, stderr=ANY)
         db.close()
 
     def test_rejects_fuzzy_substring_match(self):
@@ -196,7 +196,7 @@ class TestSyncItemDedup:
         substring) must NOT be reused; a fresh issue is created instead.
         """
         db = _make_db()
-        insert_item(db, id=1500, type="issue", status="idea", project="buzz")
+        insert_item(db, id=1500, type="issue", status="idea", project="externalwebapp")
         stdout = io.StringIO()
 
         fuzzy = _issue(
@@ -232,10 +232,10 @@ class TestSyncItemDedup:
         the helper surfaces a warning and falls through to creation.
         """
         db = _make_db()
-        insert_item(db, id=42, type="issue", status="idea", project="buzz")
+        insert_item(db, id=42, type="issue", status="idea", project="externalwebapp")
         stdout = io.StringIO()
         stderr = io.StringIO()
-        created = _issue(4242, "[BUZ-42] New")
+        created = _issue(4242, "[EXT-42] New")
 
         with patch(
             "yoke_core.domain.backlog_github_sync._github_auth_available", return_value=True,

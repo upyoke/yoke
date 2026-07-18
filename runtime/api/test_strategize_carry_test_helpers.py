@@ -25,7 +25,7 @@ CREATE TABLE projects (
 INSERT INTO projects (id, slug, name, public_item_prefix, created_at)
 VALUES
     (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00Z'),
-    (2, 'buzz', 'Buzz', 'BUZ', '2026-01-01T00:00:00Z');
+    (2, 'externalwebapp', 'ExternalWebapp', 'EXT', '2026-01-01T00:00:00Z');
 """
 
 
@@ -79,7 +79,7 @@ def _seed_landed_items(
     merged = now - timedelta(days=days_ago)
     ids: list[int] = []
     p = _p(conn)
-    project_id = 2 if project == "buzz" else 1
+    project_id = 2 if project == "externalwebapp" else 1
     for offset in range(count):
         item_id = start_id + offset
         conn.execute(

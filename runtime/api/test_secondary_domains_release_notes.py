@@ -40,9 +40,9 @@ class TestReleaseNotes:
     def test_list_by_project(self, test_db):
         from yoke_core.domain.release_notes import cmd_insert, cmd_list
         insert_item(test_db, id=1, title="A", project="yoke")
-        insert_item(test_db, id=2, title="B", project="buzz")
+        insert_item(test_db, id=2, title="B", project="externalwebapp")
         cmd_insert(test_db, 1, "features", "F1", "v1", "yoke")
-        cmd_insert(test_db, 2, "features", "F2", "v1", "buzz")
-        result = cmd_list(test_db, project="buzz")
+        cmd_insert(test_db, 2, "features", "F2", "v1", "externalwebapp")
+        result = cmd_list(test_db, project="externalwebapp")
         assert "F2" in result
         assert "F1" not in result

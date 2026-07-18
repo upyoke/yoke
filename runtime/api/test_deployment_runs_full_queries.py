@@ -23,8 +23,8 @@ class TestList:
 
     def test_list_by_project(self, db_path):
         dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        dr.cmd_create_run("buzz", "buzz-standard", db_path=db_path)
-        result = dr.cmd_list(project="buzz", db_path=db_path)
+        dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
+        result = dr.cmd_list(project="externalwebapp", db_path=db_path)
         lines = [l for l in result.strip().split("\n") if l]
         assert len(lines) == 1
 

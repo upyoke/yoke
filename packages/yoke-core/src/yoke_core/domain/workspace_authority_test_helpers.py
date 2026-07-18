@@ -68,7 +68,7 @@ def patch_conn(conn, monkeypatch):
 
 
 def _project_id(project: str = "yoke") -> int:
-    return {"yoke": 1, "buzz": 2}.get(project, 100)
+    return {"yoke": 1, "externalwebapp": 2}.get(project, 100)
 
 
 def _seed_project(conn, checkout: str, project: str = "yoke") -> None:

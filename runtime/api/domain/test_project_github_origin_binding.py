@@ -90,7 +90,7 @@ def binding_database(monkeypatch: pytest.MonkeyPatch):
 def test_binding_rejects_installation_id_reuse_across_github_origins(
     binding_database,
 ) -> None:
-    _bind("buzz", _verified(github_repo="example-org/buzz"))
+    _bind("externalwebapp", _verified(github_repo="example-org/externalwebapp"))
     enterprise = _verified(
         github_repo="example-org/yoke",
         repository_id="4568",
@@ -108,7 +108,7 @@ def test_installation_origin_invariant_is_enforced_inside_upsert(
     binding_database,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _bind("buzz", _verified(github_repo="example-org/buzz"))
+    _bind("externalwebapp", _verified(github_repo="example-org/externalwebapp"))
     enterprise = _verified(
         github_repo="example-org/yoke",
         repository_id="4568",
@@ -128,8 +128,8 @@ def test_installation_origin_invariant_is_enforced_inside_upsert(
 def test_binding_reports_repository_already_owned_by_another_project(
     binding_database,
 ) -> None:
-    verified = _verified(github_repo="example-org/buzz")
-    _bind("buzz", verified)
+    verified = _verified(github_repo="example-org/externalwebapp")
+    _bind("externalwebapp", verified)
 
     with pytest.raises(
         ProjectGithubBindingError,
@@ -141,7 +141,7 @@ def test_binding_reports_repository_already_owned_by_another_project(
 def test_status_reports_binding_installation_origin_mismatch(
     binding_database,
 ) -> None:
-    _bind("buzz", _verified(github_repo="example-org/buzz"))
+    _bind("externalwebapp", _verified(github_repo="example-org/externalwebapp"))
     conn = pg_testdb.connect_test_database(binding_database)
     try:
         conn.execute(
@@ -153,7 +153,7 @@ def test_status_reports_binding_installation_origin_mismatch(
     finally:
         conn.close()
 
-    status = cmd_project_github_binding_status("buzz")
+    status = cmd_project_github_binding_status("externalwebapp")
     assert status["automation"] == {
         "available": False,
         "reason": "api_origin_mismatch",

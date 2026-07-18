@@ -102,7 +102,7 @@ class TestRegisterNewLandings(unittest.TestCase):
     def test_project_scoping(self):
         conn = _make_db()
         _seed_landed_items(conn, count=2, project="yoke", start_id=1)
-        _seed_landed_items(conn, count=2, project="buzz", start_id=10)
+        _seed_landed_items(conn, count=2, project="externalwebapp", start_id=10)
 
         yoke_new = register_new_landings(conn, project="yoke")
         self.assertEqual(sorted(yoke_new), [1, 2])

@@ -31,7 +31,7 @@ def test_resolve_board_project_from_registered_checkout(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     nested = checkout / "src"
     nested.mkdir(parents=True)
     monkeypatch.chdir(nested)
@@ -52,9 +52,9 @@ def test_resolve_board_project_rejects_home_machine_yoke_with_multiple_projects(
     home = tmp_path / "home"
     home.mkdir()
     (home / ".yoke").mkdir()
-    buzz = tmp_path / "buzz"
+    externalwebapp = tmp_path / "externalwebapp"
     yoke = tmp_path / "yoke"
-    buzz.mkdir()
+    externalwebapp.mkdir()
     yoke.mkdir()
     monkeypatch.chdir(home)
     monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
@@ -62,7 +62,7 @@ def test_resolve_board_project_rejects_home_machine_yoke_with_multiple_projects(
         machine_config,
         "configured_projects",
         lambda **_: [
-            _configured_project(buzz, 37),
+            _configured_project(externalwebapp, 37),
             _configured_project(yoke, 1),
         ],
     )
@@ -76,7 +76,7 @@ def test_resolve_board_project_falls_back_to_cwd_when_env_is_outside(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     home = tmp_path / "home"
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     nested = checkout / "src"
     home.mkdir()
     nested.mkdir(parents=True)
@@ -96,7 +96,7 @@ def test_resolve_board_project_uses_single_registered_project_from_outside(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     home = tmp_path / "home"
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     home.mkdir()
     checkout.mkdir()
     monkeypatch.chdir(home)
@@ -114,7 +114,7 @@ def test_resolve_board_project_rejects_unregistered_explicit_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     other = tmp_path / "other"
     checkout.mkdir()
     other.mkdir()
@@ -133,10 +133,10 @@ def test_board_rebuild_fails_cleanly_when_project_is_ambiguous(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     outside = tmp_path / "home"
-    buzz = tmp_path / "buzz"
+    externalwebapp = tmp_path / "externalwebapp"
     yoke = tmp_path / "yoke"
     outside.mkdir()
-    buzz.mkdir()
+    externalwebapp.mkdir()
     yoke.mkdir()
     monkeypatch.chdir(outside)
     monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
@@ -144,7 +144,7 @@ def test_board_rebuild_fails_cleanly_when_project_is_ambiguous(
         machine_config,
         "configured_projects",
         lambda **_: [
-            _configured_project(buzz, 37),
+            _configured_project(externalwebapp, 37),
             _configured_project(yoke, 1),
         ],
     )

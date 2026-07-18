@@ -175,7 +175,7 @@ yoke items structured-field section-append YOK-N --section "Progress Log" --head
 yoke items structured-field append-addendum YOK-N --field shepherd_caveats --heading "Polish verification" --content-file /tmp/caveat.md --source operator
 
 # Project operations
-yoke projects get --project buzz --field github_repo
+yoke projects get --project external-webapp --field github_repo
 yoke projects list
 yoke projects create --slug myapp --name "My App" --github-repo owner/myapp   # register a new project (org admin)
 yoke projects update --slug myapp --name "My App v2" --github-repo owner/myapp # edit an existing project (project admin)
@@ -244,7 +244,7 @@ Query-time time-window predicates route through `yoke_core.domain.time_sql.now_s
 
 Project-configured validation recipes and migration runners live behind
 the `migration_model` `project_capabilities` row. The canonical recipe
-and runner vocabulary, pairing matrix, and webapp template + Buzz seed
+and runner vocabulary, pairing matrix, and webapp template configuration
 contract are documented at
 [db-reference/migration-model-capabilities.md](db-reference/migration-model-capabilities.md).
 

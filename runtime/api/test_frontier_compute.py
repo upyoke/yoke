@@ -132,7 +132,7 @@ class TestComputeFrontier:
         """Only items from the specified project appear."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", project="yoke", item_type="epic")
-        _insert_item(conn, 20, status="planned", project="buzz", item_type="epic")
+        _insert_item(conn, 20, status="planned", project="externalwebapp", item_type="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"])

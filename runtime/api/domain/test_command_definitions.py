@@ -45,7 +45,7 @@ def db_path(tmp_path: Path) -> Iterator[str]:
     # is the load-bearing property here — without it the Postgres tests share
     # the DSN-pointed database and one test's seeds pollute the next.
     with init_test_db(tmp_path, apply_schema=lambda: ps.cmd_init()) as path:
-        _seed_project(path, "buzz", SEED_PROJECT_IDS["buzz"])
+        _seed_project(path, "externalwebapp", SEED_PROJECT_IDS["externalwebapp"])
         yield path
 
 
@@ -65,31 +65,31 @@ def _seed(db: str, project: str, scope: str, command: str) -> None:
 
 class TestReadAPI:
     def test_get_returns_none_when_absent(self, db_path: str):
-        assert cmd_defs.get_command("buzz", "quick", db_path=db_path) is None
+        assert cmd_defs.get_command("externalwebapp", "quick", db_path=db_path) is None
 
     def test_get_returns_command_string(self, db_path: str):
-        _seed(db_path, "buzz", "quick", "pytest tests/")
-        assert cmd_defs.get_command("buzz", "quick", db_path=db_path) == "pytest tests/"
+        _seed(db_path, "externalwebapp", "quick", "pytest tests/")
+        assert cmd_defs.get_command("externalwebapp", "quick", db_path=db_path) == "pytest tests/"
 
     def test_get_returns_none_for_empty_command(self, db_path: str):
-        _seed(db_path, "buzz", "quick", "")
-        assert cmd_defs.get_command("buzz", "quick", db_path=db_path) is None
+        _seed(db_path, "externalwebapp", "quick", "")
+        assert cmd_defs.get_command("externalwebapp", "quick", db_path=db_path) is None
 
     def test_get_rejects_unknown_scope(self, db_path: str):
         with pytest.raises(ValueError, match="Unknown command_definitions scope"):
-            cmd_defs.get_command("buzz", "integration", db_path=db_path)
+            cmd_defs.get_command("externalwebapp", "integration", db_path=db_path)
 
     def test_list_returns_canonical_scope_order(self, db_path: str):
-        _seed(db_path, "buzz", "smoke", "smoke-cmd")
-        _seed(db_path, "buzz", "quick", "quick-cmd")
-        _seed(db_path, "buzz", "full", "full-cmd")
-        out = cmd_defs.list_commands("buzz", db_path=db_path)
+        _seed(db_path, "externalwebapp", "smoke", "smoke-cmd")
+        _seed(db_path, "externalwebapp", "quick", "quick-cmd")
+        _seed(db_path, "externalwebapp", "full", "full-cmd")
+        out = cmd_defs.list_commands("externalwebapp", db_path=db_path)
         assert list(out.keys()) == ["quick", "full", "smoke"]
 
     def test_list_skips_empty_commands(self, db_path: str):
-        _seed(db_path, "buzz", "quick", "qc")
-        _seed(db_path, "buzz", "full", "")
-        out = cmd_defs.list_commands("buzz", db_path=db_path)
+        _seed(db_path, "externalwebapp", "quick", "qc")
+        _seed(db_path, "externalwebapp", "full", "")
+        out = cmd_defs.list_commands("externalwebapp", db_path=db_path)
         assert out == {"quick": "qc"}
 
 
@@ -103,25 +103,25 @@ class TestCli:
         return rc, out.getvalue(), err.getvalue()
 
     def test_get_prints_command(self, db_path: str, monkeypatch):
-        _seed(db_path, "buzz", "quick", "pytest tests/")
-        rc, out, _ = self._run(["get", "buzz", "quick"], monkeypatch, db_path)
+        _seed(db_path, "externalwebapp", "quick", "pytest tests/")
+        rc, out, _ = self._run(["get", "externalwebapp", "quick"], monkeypatch, db_path)
         assert rc == 0
         assert out.strip() == "pytest tests/"
 
     def test_get_empty_when_absent(self, db_path: str, monkeypatch):
-        rc, out, _ = self._run(["get", "buzz", "quick"], monkeypatch, db_path)
+        rc, out, _ = self._run(["get", "externalwebapp", "quick"], monkeypatch, db_path)
         assert rc == 0
         assert out == ""
 
     def test_get_unknown_scope_exits_2(self, db_path: str, monkeypatch):
-        rc, _, err = self._run(["get", "buzz", "integration"], monkeypatch, db_path)
+        rc, _, err = self._run(["get", "externalwebapp", "integration"], monkeypatch, db_path)
         assert rc == 2
         assert "Unknown command_definitions scope" in err
 
     def test_list_prints_scope_equals_command(self, db_path: str, monkeypatch):
-        _seed(db_path, "buzz", "quick", "qc")
-        _seed(db_path, "buzz", "full", "fc")
-        rc, out, _ = self._run(["list", "buzz"], monkeypatch, db_path)
+        _seed(db_path, "externalwebapp", "quick", "qc")
+        _seed(db_path, "externalwebapp", "full", "fc")
+        rc, out, _ = self._run(["list", "externalwebapp"], monkeypatch, db_path)
         assert rc == 0
         assert out.splitlines() == ["quick=qc", "full=fc"]
 

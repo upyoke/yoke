@@ -117,7 +117,7 @@ def target_service_client_path(target_root: str) -> str:
     """Return the service_client.py path that can register target sessions.
 
     Yoke checkouts carry ``runtime/api/service_client.py`` themselves.
-    External managed projects (Buzz, etc.) do not, so their hooks must call
+    External managed projects do not, so their hooks must call
     the installed Yoke code root while still passing the external workspace
     as the target authority.
     """

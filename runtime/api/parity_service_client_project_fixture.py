@@ -69,7 +69,7 @@ def _execute(conn: Any, statement: str, params: tuple[Any, ...] = ()) -> None:
 
 
 def _project_id(slug: str) -> int:
-    return 2 if slug == "buzz" else 1
+    return 2 if slug == "externalwebapp" else 1
 
 
 def seed_service_client_parity_data(conn: Any) -> None:
@@ -78,7 +78,7 @@ def seed_service_client_parity_data(conn: Any) -> None:
     items = (
         (1, "Implementing item", "task", "implementing", "high", "yoke", 1, None, None, 0),
         (2, "Done item", "epic", "done", "medium", "yoke", 2, None, None, 0),
-        (3, "Buzz idea", "issue", "idea", "low", "buzz", 1, None, None, 0),
+        (3, "ExternalWebapp idea", "issue", "idea", "low", "externalwebapp", 1, None, None, 0),
         (
             4, "Awaiting approval", "issue", "release", "high", "yoke", 3,
             "approve-deploy", "parity-flow", 0,

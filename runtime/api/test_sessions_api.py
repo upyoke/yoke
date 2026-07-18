@@ -291,7 +291,7 @@ class TestNextActionChosenEmission:
             action="resume",
             reason="Resume active claim",
             correlation_id="sess-resume",
-            project="buzz",
+            project="externalwebapp",
             chainable=True,
             step=3,
             context={
@@ -304,7 +304,7 @@ class TestNextActionChosenEmission:
         kwargs = mock_emit.call_args.kwargs
         assert kwargs["item_id"] == "YOK-9"
         assert kwargs["task_num"] == 4
-        assert kwargs["project"] == "buzz"
+        assert kwargs["project"] == "externalwebapp"
         ctx = kwargs["context"]
         assert ctx["item_id"] == "YOK-9"
         assert ctx["task_num"] == 4

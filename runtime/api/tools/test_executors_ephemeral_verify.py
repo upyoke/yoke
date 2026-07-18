@@ -34,7 +34,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
                     "YOK-1369",
                     "deploy.yml",
                     "previews.yoke.test",
-                    project="buzz",
+                    project="externalwebapp",
                 )
         self.assertEqual(rc, 0)
         self.assertIn(
@@ -52,7 +52,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
                     "deploy.yml",
                     "previews.yoke.test",
                     commit_sha="abc123",
-                    project="buzz",
+                    project="externalwebapp",
                 )
         self.assertEqual(rc, 1)
         self.assertIn("No ephemeral deploy run found", buf.getvalue())
@@ -69,7 +69,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
             with redirect_stderr(buf):
                 rc = executors.exec_ephemeral_verify(
                     "org/repo", "YOK-1369", "deploy.yml", "example.test",
-                    project="buzz",
+                    project="externalwebapp",
                 )
         self.assertEqual(rc, 1)
         self.assertIn("still in_progress", buf.getvalue())
@@ -86,7 +86,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
             with redirect_stderr(buf):
                 rc = executors.exec_ephemeral_verify(
                     "org/repo", "YOK-1369", "deploy.yml", "example.test",
-                    project="buzz",
+                    project="externalwebapp",
                 )
         self.assertEqual(rc, 1)
         self.assertIn("concluded with: failure", buf.getvalue())
@@ -96,7 +96,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
         with redirect_stderr(buf):
             rc = executors.exec_ephemeral_verify(
                 "org/repo", "", "deploy.yml", "example.test",
-                project="buzz",
+                project="externalwebapp",
             )
         self.assertEqual(rc, 1)
         self.assertIn("at least one of", buf.getvalue())
@@ -106,7 +106,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
         with redirect_stderr(buf):
             rc = executors.exec_ephemeral_verify(
                 "org/repo", "YOK-1369", "deploy.yml", "",
-                project="buzz",
+                project="externalwebapp",
             )
         self.assertEqual(rc, 1)
         self.assertIn("domain not provided", buf.getvalue())
@@ -119,12 +119,12 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
             executors, "latest_workflow_run", return_value=run,
         ) as latest:
             result = executors._gh_runs_for_workflow(
-                "org/repo", "deploy.yml", project="buzz", branch="feature",
+                "org/repo", "deploy.yml", project="externalwebapp", branch="feature",
             )
 
         self.assertEqual(result, run)
         resolve.assert_called_once_with(
-            "buzz",
+            "externalwebapp",
             "org/repo",
             required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
         )
@@ -144,7 +144,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
             with redirect_stderr(buf):
                 rc = executors.exec_ephemeral_verify(
                     "org/repo", "feature", "deploy.yml", "example.test",
-                    project="buzz",
+                    project="externalwebapp",
                 )
 
         self.assertEqual(rc, 1)

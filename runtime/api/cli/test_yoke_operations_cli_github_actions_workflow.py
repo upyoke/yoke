@@ -195,14 +195,14 @@ def test_trigger_once_relays_explicit_non_durable_operation() -> None:
     rc, out, err = _run(
         "github-actions",
         "trigger-once",
-        "upyoke/buzz",
-        "buzz-deploy.yml",
+        "upyoke/externalwebapp",
+        "externalwebapp-deploy.yml",
         "--ref",
         "main",
         "--input",
         "environment=production",
         "--project",
-        "buzz",
+        "externalwebapp",
         result={"run_id": 73},
     )
 
@@ -213,11 +213,11 @@ def test_trigger_once_relays_explicit_non_durable_operation() -> None:
     assert request.function == "github_actions.workflow.dispatch_once"
     assert request.request_id
     assert request.payload == {
-        "repo": "upyoke/buzz",
-        "workflow": "buzz-deploy.yml",
+        "repo": "upyoke/externalwebapp",
+        "workflow": "externalwebapp-deploy.yml",
         "ref": "main",
         "inputs": {"environment": "production"},
-        "project": "buzz",
+        "project": "externalwebapp",
     }
 
 

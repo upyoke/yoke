@@ -61,18 +61,18 @@ def test_dev_prewarm_calls_snapshot_builders(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr(mod.importlib, "import_module", fake_import_module)
     rc = yoke_operations_cli.main([
-        "dev", "path-snapshot-prewarm", "buzz", "--json",
+        "dev", "path-snapshot-prewarm", "externalwebapp", "--json",
     ])
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload == {
         "operation": "dev.path_snapshot_prewarm",
-        "project_id": "buzz",
+        "project_id": "externalwebapp",
         "head_snapshot_id": 101,
         "integration_snapshot_id": 202,
     }
-    assert calls == [("head", "buzz"), ("integration", "buzz")]
+    assert calls == [("head", "externalwebapp"), ("integration", "externalwebapp")]
     assert conn.closed is True
 
 
@@ -103,7 +103,7 @@ def test_dev_prewarm_reports_source_dev_failure(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr(mod, "_run_path_snapshot_prewarm", fail)
 
-    rc = yoke_operations_cli.main(["dev", "path-snapshot-prewarm", "buzz"])
+    rc = yoke_operations_cli.main(["dev", "path-snapshot-prewarm", "externalwebapp"])
 
     assert rc == 1
     err = capsys.readouterr().err

@@ -127,7 +127,7 @@ Shepherd subagents (PM, Architect) write structured content during lifecycle tra
 
 GitHub sync operations route through the Python-owned `yoke_core.domain.backlog_github_sync` helper family and service-client entrypoints. Repo and credential resolution flow through the canonical project-auth helper at `yoke_core.domain.project_github_auth.resolve_project_github_auth`, which returns the verified binding's `owner/repo` and a short-lived bearer token.
 
-**One GitHub contract for every project.** Yoke, Platform, Buzz, and any other registered project resolve through the same surface; no project slug is a silent special case for ambient repo/auth. Project GitHub automation uses a verified GitHub App repo binding plus a short-lived App token. `projects.github_repo` is only a compatibility display projection; legacy project-secret rows are not a live GitHub auth storage shape.
+**One GitHub contract for every project.** Every registered project resolves through the same surface; no project slug is a silent special case for ambient repo/auth. Project GitHub automation uses a verified GitHub App repo binding plus a short-lived App token. `projects.github_repo` is only a compatibility display projection; legacy project-secret rows are not a live GitHub auth storage shape.
 
 There is no separate fallback chain: per-project token env-var lookup, project token-file lookup, and silent host-credential fallback are not part of the resolution path.
 

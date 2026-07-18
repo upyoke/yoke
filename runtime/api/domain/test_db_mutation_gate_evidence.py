@@ -104,7 +104,7 @@ class TestStampClear:
 
 
 class TestEvidenceGate:
-    def _buzz_webapp_seed(self) -> dict:
+    def _externalwebapp_webapp_seed(self) -> dict:
         return {
             "default_model": "primary",
             "models": {
@@ -199,9 +199,9 @@ class TestEvidenceGate:
     ) -> None:
         conn, repo_path = gate_db
         identifier = "001_create_accounts"
-        _seed_project(conn, "buzz", repo_path)
-        _seed_capability(conn, "buzz", self._buzz_webapp_seed())
-        _seed_flow_with_migration_apply(conn, "buzz")
+        _seed_project(conn, "externalwebapp", repo_path)
+        _seed_capability(conn, "externalwebapp", self._externalwebapp_webapp_seed())
+        _seed_flow_with_migration_apply(conn, "externalwebapp")
         _write_module(repo_path, "app/db/migrations", identifier)
         profile = {
             "state": "declared",
@@ -212,11 +212,11 @@ class TestEvidenceGate:
             "migration_strategy": "additive_only",
         }
         insert_item(
-            conn, id=4343, project="buzz", status="implementing",
+            conn, id=4343, project="externalwebapp", status="implementing",
             db_mutation_profile=json.dumps(profile, sort_keys=True),
         )
         # This test does not pass audit_db_path: the gate resolves the
-        # authoritative DB from the buzz capability config (app/data/app.db).
+        # authoritative DB from the externalwebapp capability config (app/data/app.db).
         # On SQLite the gate opens that file, so migration_audit must exist
         # there; on Postgres db_helpers.connect ignores the path and reaches the
         # per-test DSN database (table already present, ensure is a no-op).

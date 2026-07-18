@@ -83,7 +83,7 @@ def install_fake_project_github_auth(monkeypatch) -> None:
             raise MissingPermission(project, "Administration: write not granted")
         return ProjectGithubAuth(
             project=project,
-            repo="example-org/buzz",
+            repo="example-org/externalwebapp",
             token="ghs_installation_token",
             installation_id="12345",
             token_source="github_app_installation",
@@ -147,25 +147,25 @@ def _apply_bootstrap_seed(
     include_github_capability: bool = True,
     include_ssh_capability: bool = True,
 ) -> None:
-    """Apply the bootstrap schema + selected buzz rows to a connection."""
+    """Apply the bootstrap schema + selected externalwebapp rows to a connection."""
     execute_schema_script(conn, _BOOTSTRAP_SCHEMA_DDL)
     p = _p(conn)
     if include_project:
         conn.execute(
             "INSERT INTO projects (id, slug, name, github_repo) "
             f"VALUES ({p}, {p}, {p}, {p})",
-            (2, "buzz", "Buzz", "example-org/buzz"),
+            (2, "externalwebapp", "ExternalWebapp", "example-org/externalwebapp"),
         )
         conn.execute(
             "INSERT INTO sites (id, project_id, name, settings) "
             f"VALUES ({p}, {p}, {p}, {p})",
             (
-                "buzz-web",
+                "externalwebapp-web",
                 2,
-                "Buzz Web",
+                "ExternalWebapp Web",
                 json.dumps(
                     {
-                        "domains": [{"domain_name": "buzz.example.com"}],
+                        "domains": [{"domain_name": "externalwebapp.example.com"}],
                     }
                 ),
             ),
@@ -174,12 +174,12 @@ def _apply_bootstrap_seed(
             "INSERT INTO environments (id, site, name, settings) "
             f"VALUES ({p}, {p}, {p}, {p})",
             (
-                "buzz-web-production",
-                "buzz-web",
+                "externalwebapp-web-production",
+                "externalwebapp-web",
                 "production",
                 json.dumps(
                     {
-                        "hosts": {"origin": "origin.buzz.example.com"},
+                        "hosts": {"origin": "origin.externalwebapp.example.com"},
                         "servers": [{"host": "45.55.157.144"}],
                     }
                 ),
@@ -208,7 +208,7 @@ def _apply_bootstrap_seed(
             (
                 2,
                 "github",
-                '{"repo_owner":"example-org","repo_name":"buzz",'
+                '{"repo_owner":"example-org","repo_name":"externalwebapp",'
                 '"installation_id":"12345","repository_id":"4567"}',
             ),
         )
@@ -270,7 +270,7 @@ def _preflight_ctx(
     if db_missing:
         db_path = tmp_path / "missing-yoke-db-token"
     return BootstrapContext(
-        project="buzz",
+        project="externalwebapp",
         project_root=tmp_path,
         script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
         yoke_db=db_path,
@@ -317,7 +317,7 @@ def setup_validation_ctx(tmp_path: Path):
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         register_bootstrap_backend_checkout(db_path, repo_path)
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,
@@ -327,7 +327,7 @@ def setup_validation_ctx(tmp_path: Path):
 
 def _validation_fixture_layout(tmp_path: Path) -> tuple[Path, Path]:
     """Lay down the repo dir + ssh key the setup-validation suites need."""
-    repo_path = tmp_path / "buzz-repo"
+    repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
     ssh_key = tmp_path / ".ssh_key"
     ssh_key.write_text("fake-ssh-key")
@@ -342,5 +342,5 @@ def write_fake_rendered_workflows(cmd: list[str]) -> None:
     output_dir = Path(cmd[cmd.index("--output-dir") + 1])
     workflows_dir = output_dir / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
-    (workflows_dir / "buzz-deploy.yml").write_text("name: Buzz Deploy\n")
-    (workflows_dir / "buzz-smoke.yml").write_text("name: Buzz Smoke Test\n")
+    (workflows_dir / "externalwebapp-deploy.yml").write_text("name: ExternalWebapp Deploy\n")
+    (workflows_dir / "externalwebapp-smoke.yml").write_text("name: ExternalWebapp Smoke Test\n")

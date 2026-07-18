@@ -194,7 +194,7 @@ def resolve_project_art_word(
       2. the first word of the display name
       3. the display-name acronym (initials)
       4. the slug's first segment
-      5. the short code (public item prefix, e.g. ``BUZZ``)
+      5. the short code (public item prefix, e.g. ``EXT``)
 
     If none fit, falls back to vowel-dropping truncation of the best human
     candidate, then to :data:`FALLBACK_ART_WORD`. Every form is normalized to

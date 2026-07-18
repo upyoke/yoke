@@ -210,10 +210,10 @@ def allocate_project_sequence(conn: Any, project_id: int) -> int:
     number) — it never reuses a gap left by a deleted item and never collides
     backward into already-issued numbers. The cloud-runtime cutover backfilled existing
     rows with ``project_sequence = items.id``, leaving each project's used
-    sequences as a high, gap-pocked band (e.g. buzz occupies 662..1882). A
-    smallest-unused-from-1 allocator would hand the next buzz item sequence ``1``
+    sequences as a high, gap-pocked band. A smallest-unused-from-1 allocator
+    would hand the next item sequence ``1``
     — colliding backward into number space that conceptually predates every
-    issued buzz reference. Continuing from ``MAX(project_sequence) + 1`` keeps
+    issued reference. Continuing from ``MAX(project_sequence) + 1`` keeps
     new numbers strictly ahead of every reference already issued in the project.
     """
     p = placeholder(conn)

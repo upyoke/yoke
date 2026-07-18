@@ -28,9 +28,9 @@ _ERROR_CLASSES = (
 
 @pytest.mark.parametrize("error_class", _ERROR_CLASSES)
 def test_error_has_code_and_repair_hint(error_class):
-    error = error_class("buzz", "test message")
+    error = error_class("externalwebapp", "test message")
     assert isinstance(error.code, str)
-    assert "buzz" in pga.repair_command_hint(error, "buzz")
+    assert "externalwebapp" in pga.repair_command_hint(error, "externalwebapp")
 
 
 def test_public_surface_exports():

@@ -23,7 +23,7 @@ def test_verify_uses_baseline_token_for_secrets_and_environment_listing(
         resolver_calls.append(dict(kwargs))
         return ProjectGithubAuth(
             project=project,
-            repo="example-org/buzz",
+            repo="example-org/externalwebapp",
             token="ghs_baseline_token",
             installation_id="12345",
         )
@@ -32,7 +32,7 @@ def test_verify_uses_baseline_token_for_secrets_and_environment_listing(
         path = request.full_url.split("api.github.com", 1)[-1]
         authorizations.append((path, request.get_header("Authorization")))
         if "/actions/secrets" in path:
-            names = ("BUZZ_SSH_KEY", "BUZZ_SSH_HOST", "BUZZ_SSH_USER")
+            names = ("EXT_SSH_KEY", "EXT_SSH_HOST", "EXT_SSH_USER")
             return _FakeRestResponse(
                 200, {"secrets": [{"name": name} for name in names]},
             )
@@ -57,8 +57,8 @@ def test_verify_uses_baseline_token_for_secrets_and_environment_listing(
     with setup_validation_ctx(tmp_path) as (ctx, _db_path, _ssh_key):
         assert run_verify(
             ctx,
-            github_repo="example-org/buzz",
-            display_name="Buzz",
+            github_repo="example-org/externalwebapp",
+            display_name="ExternalWebapp",
         ) == 0
 
     assert len(resolver_calls) == 1

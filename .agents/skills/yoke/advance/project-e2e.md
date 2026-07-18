@@ -40,7 +40,7 @@ fi
 If `_e2e_cmd` is empty → skip with advisory:
 > **Advisory:** Project '{_item_project}' has no `e2e` command defined in `command_definitions` (no real E2E suite) — skipping project E2E gate.
 
-Do NOT block. Proceed to finalize. (This is the path Buzz takes today: browser integration tests live under the `full` scope, and real E2E is not yet configured.)
+Do NOT block. Proceed to finalize. This is the expected path for a project whose browser integration tests live under the `full` scope and whose real E2E command is not yet configured.
 
 ## Resolve Project Repo Path (step 5e.c)
 

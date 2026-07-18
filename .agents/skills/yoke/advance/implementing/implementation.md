@@ -38,7 +38,7 @@ When performing multiple sequential edits to the same file, a later edit may fai
 
 Before launching a broad codebase exploration, check whether the current task matches a **known repeated pattern** — a category of change you have already seen in this project. Examples:
 
-- **Theme page additions** (Buzz login pages): same route structure, same CSS pattern, same emoji animation scaffold. Do NOT re-explore the codebase for each new theme — reuse the pattern from the prior instance and adapt only the theme-specific values. The stale-string audit gate now structurally enforces test surface coverage — including helpers like `api-mocks.ts` and smoke files — before code changes begin. Trust the gate's pre-edit checklist rather than manual grep scoping.
+- **Theme page additions:** same route structure, same CSS pattern, same animation scaffold. Do NOT re-explore the codebase for each new theme — reuse the pattern from the prior instance and adapt only the theme-specific values. The stale-string audit gate now structurally enforces test surface coverage — including helpers like `api-mocks.ts` and smoke files — before code changes begin. Trust the gate's pre-edit checklist rather than manual grep scoping.
 - **Hook wiring additions** (Yoke PreToolUse/PostToolUse hooks): same `settings.json` schema, same matcher format, same script invocation pattern.
 - **QA requirement seeding patterns**: same `yoke qa requirement add` call structure, differing only in `--success-policy`.
 

@@ -90,11 +90,11 @@ class TestFetchUsesRestDirectly:
             return_value=RestResponse(status=200, headers={}, body=yoke_body),
         ):
             result = resync_mod._fetch_gh_issues_per_project(
-                {"yoke", "buzz"},
+                {"yoke", "externalwebapp"},
             )
         assert result["yoke"][1]["title"] == "[YOK-1] ok"
-        assert result["buzz"]["_github_unavailable"] == "true"
-        assert result["buzz"]["_unavailable_code"] == "missing_repo_binding"
+        assert result["externalwebapp"]["_github_unavailable"] == "true"
+        assert result["externalwebapp"]["_unavailable_code"] == "missing_repo_binding"
 
 
 class TestMainFailsClosedWithoutGh:

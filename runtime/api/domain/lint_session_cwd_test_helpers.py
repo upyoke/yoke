@@ -4,7 +4,7 @@ The lint resolves a session's authority from active ``work_claims``
 joined to ``items`` / ``epic_tasks`` plus the machine checkout map.
 These helpers seed that shape on a disposable Postgres test database
 (:func:`runtime.api.fixtures.pg_testdb.test_database`), whose fixture
-schema pre-seeds the ``yoke`` (id 1) and ``buzz`` (id 2) project rows.
+schema pre-seeds the ``yoke`` (id 1) and ``externalwebapp`` (id 2) project rows.
 
 Items default to ``status='implementing'`` so the pre-implementing
 status gate stays inert for tests whose subject is the scope check;
@@ -18,7 +18,7 @@ from typing import Any
 from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
 from yoke_core.domain.db_helpers import iso8601_now
 
-_PROJECT_IDS = {"yoke": 1, "buzz": 2}
+_PROJECT_IDS = {"yoke": 1, "externalwebapp": 2}
 
 
 def project_id(project: str = "yoke") -> int:

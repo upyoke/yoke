@@ -28,7 +28,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 def _issue(number: int, title: str) -> github_rest.Issue:
     return github_rest.Issue(
         number=number, title=title, state="OPEN",
-        html_url=f"https://github.com/org/buzz/issues/{number}",
+        html_url=f"https://github.com/org/externalwebapp/issues/{number}",
     )
 
 
@@ -37,7 +37,7 @@ def epic_db():
     with test_database() as conn:
         conn.execute(
             "UPDATE projects SET github_repo = %s WHERE id = %s",
-            ("org/buzz", SEED_PROJECT_IDS["buzz"]),
+            ("org/externalwebapp", SEED_PROJECT_IDS["externalwebapp"]),
         )
         conn.commit()
         yield conn
@@ -60,9 +60,9 @@ def _mock_project_github_auth():
     auth is resolved where an operation's exact permission scope is known.
     """
     auth = ProjectGithubAuth(
-        project="buzz",
-        repo="org/buzz",
-        token="ghs_buzz_test",
+        project="externalwebapp",
+        repo="org/externalwebapp",
+        token="ghs_externalwebapp_test",
     )
     with patch(
         "yoke_core.domain.epic_task_sync_github_orchestrator.resolve_project_github_auth",
@@ -128,7 +128,7 @@ class TestSyncEpicTasksDedup:
         reused (no create call).
         """
         insert_item(
-            epic_db, id=10, type="epic", status="implementing", project="buzz",
+            epic_db, id=10, type="epic", status="implementing", project="externalwebapp",
             spec="Epic body", github_issue="#99",
         )
         insert_epic_task(epic_db, epic_id="10", task_num=1, title="Some task",
@@ -156,7 +156,7 @@ class TestSyncEpicTasksDedup:
         call site.
         """
         insert_item(
-            epic_db, id=1500, type="epic", status="implementing", project="buzz",
+            epic_db, id=1500, type="epic", status="implementing", project="externalwebapp",
             spec="Epic body", github_issue="#99",
         )
         insert_epic_task(epic_db, epic_id="1500", task_num=1, title="Decomp lower",
@@ -191,7 +191,7 @@ class TestSyncEpicTasksDedup:
         title starts with the exact bracketed prefix ``[YOK-N]``.
         """
         insert_item(epic_db, id=10, type="epic", status="implementing",
-                    project="buzz", spec="Epic body")
+                    project="externalwebapp", spec="Epic body")
         insert_epic_task(epic_db, epic_id="10", task_num=1, title="First task",
                          status="planned", body="body")
         stdout = io.StringIO()
@@ -222,7 +222,7 @@ class TestSyncEpicTasksDedup:
         the parent call site.
         """
         insert_item(epic_db, id=1500, type="epic", status="implementing",
-                    project="buzz", spec="Epic body")
+                    project="externalwebapp", spec="Epic body")
         insert_epic_task(epic_db, epic_id="1500", task_num=1, title="First task",
                          status="planned", body="body")
         stdout = io.StringIO()

@@ -85,9 +85,9 @@ def apply_yoke_db_schema() -> None:
             f"VALUES ({p}, {p}, {p}, {p}) "
             "ON CONFLICT(id) DO NOTHING",
             (
-                SEED_PROJECT_IDS["buzz"],
-                "buzz",
-                "Buzz",
+                SEED_PROJECT_IDS["externalwebapp"],
+                "externalwebapp",
+                "ExternalWebapp",
                 "2026-01-01T00:00:00Z",
             ),
         )

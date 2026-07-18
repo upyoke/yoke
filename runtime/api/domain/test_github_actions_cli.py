@@ -18,23 +18,23 @@ class TestCli:
         with mock.patch.object(github_actions, "cmd_poll") as m:
             try:
                 github_actions.main([
-                    "poll", "o/r", "123", "--project", "buzz",
+                    "poll", "o/r", "123", "--project", "externalwebapp",
                 ])
             except SystemExit:
                 pass
-            m.assert_called_once_with("o/r", "123", project="buzz")
+            m.assert_called_once_with("o/r", "123", project="externalwebapp")
 
     def test_find_run_args(self):
         with mock.patch.object(github_actions, "cmd_find_run") as m:
             try:
                 github_actions.main([
                     "find-run", "o/r", "ci.yml", "abc",
-                    "--project", "buzz",
+                    "--project", "externalwebapp",
                 ])
             except SystemExit:
                 pass
             m.assert_called_once_with(
-                "o/r", "ci.yml", "abc", project="buzz",
+                "o/r", "ci.yml", "abc", project="externalwebapp",
             )
 
     def test_wait_run_args(self):
@@ -42,12 +42,12 @@ class TestCli:
             try:
                 github_actions.main([
                     "wait-run", "o/r", "123", "--timeout", "42",
-                    "--project", "buzz",
+                    "--project", "externalwebapp",
                 ])
             except SystemExit:
                 pass
             m.assert_called_once_with(
-                "o/r", "123", timeout_sec=42, project="buzz",
+                "o/r", "123", timeout_sec=42, project="externalwebapp",
             )
 
     def test_trigger_with_inputs(self):
@@ -58,7 +58,7 @@ class TestCli:
                     "--ref", "dev",
                     "--input", "env=staging",
                     "--input", "tag=v1",
-                    "--project", "buzz",
+                    "--project", "externalwebapp",
                 ])
             except SystemExit:
                 pass
@@ -66,7 +66,7 @@ class TestCli:
                 "o/r", "deploy.yml",
                 ref="dev",
                 inputs={"env": "staging", "tag": "v1"},
-                project="buzz",
+                project="externalwebapp",
             )
 
     def test_failed_log_args(self):
@@ -74,24 +74,24 @@ class TestCli:
             try:
                 github_actions.main([
                     "failed-log", "o/r", "555", "--tail-lines", "25",
-                    "--project", "buzz",
+                    "--project", "externalwebapp",
                 ])
             except SystemExit:
                 pass
             m.assert_called_once_with(
-                "o/r", "555", tail_lines=25, project="buzz",
+                "o/r", "555", tail_lines=25, project="externalwebapp",
             )
 
     def test_failed_log_default_tail(self):
         with mock.patch.object(github_actions, "cmd_failed_log") as m:
             try:
                 github_actions.main([
-                    "failed-log", "o/r", "555", "--project", "buzz",
+                    "failed-log", "o/r", "555", "--project", "externalwebapp",
                 ])
             except SystemExit:
                 pass
             m.assert_called_once_with(
-                "o/r", "555", tail_lines=50, project="buzz",
+                "o/r", "555", tail_lines=50, project="externalwebapp",
             )
 
     def test_project_is_required(self):

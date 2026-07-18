@@ -280,14 +280,14 @@ class MainCLITests(unittest.TestCase):
         with mock.patch.object(executors, "exec_ephemeral_verify", return_value=0) as m:
             rc = executors.main(
                 [
-                    "ephemeral-verify", "buzz", "org/repo", "br", "wf.yml",
+                    "ephemeral-verify", "externalwebapp", "org/repo", "br", "wf.yml",
                     "d.example", "abc",
                 ]
             )
         self.assertEqual(rc, 0)
         m.assert_called_once_with(
             "org/repo", "br", "wf.yml", "d.example", "abc",
-            project="buzz",
+            project="externalwebapp",
         )
 
     def test_unknown_command(self) -> None:

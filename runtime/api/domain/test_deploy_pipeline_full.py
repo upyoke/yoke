@@ -117,15 +117,15 @@ class TestDeployPipelineProjectSettings:
             deploy_pipeline_reporting, "_run_cmd", return_value=completed,
         ) as run_cmd:
             result = deploy_pipeline_reporting._github_actions(
-                "poll", "owner/repo", "123", project="buzz",
+                "poll", "owner/repo", "123", project="externalwebapp",
             )
 
         assert result is completed
         command = run_cmd.call_args.args[0]
-        assert command[-2:] == ["--project", "buzz"]
+        assert command[-2:] == ["--project", "externalwebapp"]
 
     def test_ephemeral_verify_reads_domain_from_ephemeral_policy(self):
-        policy = mock.Mock(preview_domain="buzz.example.com")
+        policy = mock.Mock(preview_domain="externalwebapp.example.com")
         with mock.patch.object(
             deploy_pipeline_executors,
             "connect",
@@ -148,7 +148,7 @@ class TestDeployPipelineProjectSettings:
                 run_id="run-1",
                 member_items=["42"],
                 github_repo="owner/repo",
-                project="buzz",
+                project="externalwebapp",
                 project_repo_path="",
                 branch="feature",
                 first_item="42",
@@ -157,8 +157,8 @@ class TestDeployPipelineProjectSettings:
 
         assert rc == 0
         exec_verify.assert_called_once_with(
-            "owner/repo", "feature", "ephemeral.yml", "buzz.example.com", "",
-            project="buzz",
+            "owner/repo", "feature", "ephemeral.yml", "externalwebapp.example.com", "",
+            project="externalwebapp",
         )
 
 

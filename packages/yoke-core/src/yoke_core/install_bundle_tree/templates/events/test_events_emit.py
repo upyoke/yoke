@@ -101,7 +101,7 @@ def test_complete_user_logged_in_example():
     for var in ("APP_ENV", "SERVICE_NAME", "SERVICE_VERSION", "PROJECT"):
         os.environ.pop(var, None)
 
-    system = get_system_props(service="api", project="buzz")
+    system = get_system_props(service="api", project="externalwebapp")
     actor = get_actor_props(actor_id=17)
     org = get_org_props(
         org_id="org_x1y2z3", org_name="Acme Corp", org_plan="pro"
@@ -148,7 +148,7 @@ def test_complete_user_logged_in_example():
     # system_props
     assert event["environment"] == "development"
     assert event["service"] == "api"
-    assert event["project"] == "buzz"
+    assert event["project"] == "externalwebapp"
 
     # actor_props
     assert event["actor_id"] == 17

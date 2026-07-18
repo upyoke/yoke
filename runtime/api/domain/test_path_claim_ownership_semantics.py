@@ -42,7 +42,7 @@ def _now() -> str:
 
 
 def _seed_item(conn, *, item_id: int, project="yoke") -> int:
-    project_id = 2 if project == "buzz" else int(project) if str(project).isdigit() else 1
+    project_id = 2 if project == "externalwebapp" else int(project) if str(project).isdigit() else 1
     conn.execute(
         "INSERT INTO items (id, title, type, status, priority, created_at, "
         "updated_at, project_id, project_sequence) "

@@ -87,7 +87,7 @@ class TestProjectsWithoutFlowsMeta:
         conn = _make_conn()
         _seed_project(conn, "yoke")
         _insert_deployment_flow(conn, "f1")
-        _insert_deployment_flow(conn, "buzz-flow", project="buzz")
+        _insert_deployment_flow(conn, "externalwebapp-flow", project="externalwebapp")
         rec = _run_hc(hc_projects_without_flows, conn)
         assert _result(rec).result == "PASS"
 

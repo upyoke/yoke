@@ -233,7 +233,7 @@ class TestYokeManaged:
 
     def test_retired_projects_not_managed(self):
         assert (
-            merge_worktree.is_yoke_managed_pattern("projects/buzz/ops.sh")
+            merge_worktree.is_yoke_managed_pattern("projects/externalwebapp/ops.sh")
             is False
         )
 

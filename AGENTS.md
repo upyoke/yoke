@@ -14,9 +14,9 @@ An attachable operating system for software delivery: specialized subagents, Pos
 - **Test:** "Did the skill say ask?" not "would the harness ask?" Silent → harness default; unsure → reread the skill.
 
 ## Project Scoping — Hard Rule
-- **One ticket = one project.** The `project` field = where code deploys (`project=buzz` → Buzz repo, `project=yoke` → Yoke repo); scope is defined by where changes land, not where the idea came from. Never mix deploy targets in one item/epic. All tickets live in the Yoke backlog regardless of target.
+- **One ticket = one project.** The `project` field = where code deploys (`project=external-webapp` → External webapp repo, `project=yoke` → Yoke repo); scope is defined by where changes land, not where the idea came from. Never mix deploy targets in one item/epic. All tickets live in the Yoke backlog regardless of target.
 - **Cross-project work → split, one ticket per project.** Ambiguous target → ask; never silently default to `yoke` for work targeting an external system.
-- **Pattern B exception:** template-driven work where Yoke orchestrates across repos (e.g. "update template + re-render in Buzz") → one `project=yoke` ticket, multi-repo scope in the body. Render/deploy/verify steps are scoped downstream (refine for issues, shepherd for epics), never at idea.
+- **Pattern B exception:** template-driven work where Yoke orchestrates across repos (e.g. "update template + re-render in External webapp") → one `project=yoke` ticket, multi-repo scope in the body. Render/deploy/verify steps are scoped downstream (refine for issues, shepherd for epics), never at idea.
 
 ## Template-First Capabilities — Hard Rule
 - **General capabilities MUST be templatized.** Ops workflows, deployment tooling, and infrastructure patterns go in `templates/webapp/` (or the relevant template dir) as generic templates with `{{placeholders}}`.
@@ -191,7 +191,7 @@ Every project carries one operator-authored stance on how aggressively schema an
 | `founder_cutover`         | Default. Hard cutovers are first-class; expand-contract requires justification. |
 | `compatibility_required`  | Old + new readers may coexist. Hard cutover requires justification.            |
 
-Yoke is `founder_cutover`; Buzz is `compatibility_required`. Every other project default-opts to `founder_cutover` and the operator may explicitly upgrade. Reader: `python3 -m yoke_core.domain.projects_breakage_policy`.
+Breakage policy is stored per project rather than inferred from its slug. Projects default to `founder_cutover`, and an operator may explicitly select `compatibility_required`. Reader: `python3 -m yoke_core.domain.projects_breakage_policy`.
 
 ### `db_mutation_profile.migration_strategy` and the gate matrix
 `compatibility_class` is a SAFETY classification (does the diff preserve readers/writers across the merge boundary?). `migration_strategy` is the AUTHOR'S DECLARATION about the operational shape:

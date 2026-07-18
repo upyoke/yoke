@@ -21,16 +21,16 @@ _LABEL_REST_STATE = "yoke_core.domain.backlog_github_state_sync._label_rest"
 
 
 def _ok_resolver(*args, **kwargs):
-    project = kwargs.get("project") or (args[0] if args else "buzz")
+    project = kwargs.get("project") or (args[0] if args else "externalwebapp")
     return ProjectGithubAuth(
-        project=project, repo="org/buzz", token="ghs_fake",
+        project=project, repo="org/externalwebapp", token="ghs_fake",
     )
 
 
 class TestSyncFrozenLabel:
     def test_missing_issue_is_silent(self):
         db = _make_db()
-        insert_item(db, id=7, type="issue", status="implementing", project="buzz")
+        insert_item(db, id=7, type="issue", status="implementing", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_LABEL_REST_STATE}.ensure_label",
         ) as ensure, patch(
@@ -52,7 +52,7 @@ class TestSyncFrozenLabel:
             id=7,
             type="issue",
             status="implementing",
-            project="buzz",
+            project="externalwebapp",
             github_issue="#42",
         )
         stdout = io.StringIO()
@@ -75,9 +75,9 @@ class TestSyncFrozenLabel:
         }
         ensure.assert_called_once()
         add_labels.assert_called_once_with(
-            "org/buzz", 42, ["frozen"], token="ghs_fake",
+            "org/externalwebapp", 42, ["frozen"], token="ghs_fake",
         )
-        assert "Frozen label added: BUZ-7 → #42" in stdout.getvalue()
+        assert "Frozen label added: EXT-7 → #42" in stdout.getvalue()
         db.close()
 
     def test_removes_frozen_label_when_value_false(self):
@@ -87,7 +87,7 @@ class TestSyncFrozenLabel:
             id=7,
             type="issue",
             status="implementing",
-            project="buzz",
+            project="externalwebapp",
             github_issue="#42",
         )
         stdout = io.StringIO()
@@ -106,9 +106,9 @@ class TestSyncFrozenLabel:
 
         assert rc == 0
         remove_label.assert_called_once_with(
-            "org/buzz", 42, "frozen", token="ghs_fake",
+            "org/externalwebapp", 42, "frozen", token="ghs_fake",
         )
-        assert "Frozen label removed: BUZ-7 → #42" in stdout.getvalue()
+        assert "Frozen label removed: EXT-7 → #42" in stdout.getvalue()
         db.close()
 
     def test_issue_validation_failure_is_nonzero(self):
@@ -118,7 +118,7 @@ class TestSyncFrozenLabel:
             id=8,
             type="issue",
             status="implementing",
-            project="buzz",
+            project="externalwebapp",
             github_issue="#43",
         )
         stderr = io.StringIO()

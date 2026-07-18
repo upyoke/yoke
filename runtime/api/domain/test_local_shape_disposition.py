@@ -33,13 +33,13 @@ def test_unclassified_data_path_fails_guard() -> None:
 def test_unclassified_project_name_fails_guard() -> None:
     report = lsd.audit_local_shape_disposition(
         tracked_paths=[
-            "projects/buzz/infra/Pulumi.yaml",
+            "projects/externalwebapp/infra/Pulumi.yaml",
             "projects/new-product/config",
         ],
     )
 
     assert [(entry.path, entry.bucket) for entry in report.entries] == [
-        ("projects/buzz/infra/Pulumi.yaml", lsd.BUCKET_UNCLASSIFIED),
+        ("projects/externalwebapp/infra/Pulumi.yaml", lsd.BUCKET_UNCLASSIFIED),
         ("projects/new-product/config", lsd.BUCKET_UNCLASSIFIED),
     ]
 
@@ -49,13 +49,13 @@ def test_tracked_project_tree_fails_guard() -> None:
         lsd.assert_explicit_local_shape_disposition(
             tracked_paths=[
                 "projects/.gitkeep",
-                "projects/buzz/workflows/buzz-deploy.yml",
+                "projects/externalwebapp/workflows/externalwebapp-deploy.yml",
                 "projects/yoke/infra/Pulumi.yaml",
             ],
         )
 
     assert "projects/.gitkeep" in str(excinfo.value)
-    assert "projects/buzz/workflows/buzz-deploy.yml" in str(excinfo.value)
+    assert "projects/externalwebapp/workflows/externalwebapp-deploy.yml" in str(excinfo.value)
     assert "projects/yoke/infra/Pulumi.yaml" in str(excinfo.value)
 
 

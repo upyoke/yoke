@@ -119,7 +119,7 @@ _SEED_ITEMS = (
      "2026-03-02T00:00:00Z", None, None),
     (2, "Second item", "epic", "done", "medium", "yoke",
      "2026-03-03T00:00:00Z", None, None),
-    (3, "Buzz item", "issue", "idea", "low", "buzz",
+    (3, "ExternalWebapp item", "issue", "idea", "low", "externalwebapp",
      "2026-03-04T00:00:00Z", None, None),
     (4, "Awaiting approval", "issue", "release", "high", "yoke",
      "2026-03-05T00:00:00Z", "approve-deploy", "test-approval-flow"),
@@ -133,7 +133,7 @@ def _p(conn) -> str:
 
 
 def _project_id(slug: str) -> int:
-    return 2 if slug == "buzz" else 1
+    return 2 if slug == "externalwebapp" else 1
 
 
 def _seed_rows(conn) -> None:

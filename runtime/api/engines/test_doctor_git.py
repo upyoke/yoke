@@ -267,8 +267,8 @@ class TestHcCrossProjectCommits:
     @patch("yoke_core.engines.doctor_report._run")
     def test_contaminated_commit_warns(self, mock_run):
         conn = _make_conn()
-        _seed_project(conn, "buzz")
-        _insert_item(conn, 42, "Buzz fix", project="buzz",
+        _seed_project(conn, "externalwebapp")
+        _insert_item(conn, 42, "ExternalWebapp fix", project="externalwebapp",
                      type="issue", status="done")
         mock_run.side_effect = [
             # git log for the item
@@ -284,8 +284,8 @@ class TestHcCrossProjectCommits:
     @patch("yoke_core.engines.doctor_report._run")
     def test_bookkeeping_only_passes(self, mock_run):
         conn = _make_conn()
-        _seed_project(conn, "buzz")
-        _insert_item(conn, 42, "Buzz fix", project="buzz",
+        _seed_project(conn, "externalwebapp")
+        _insert_item(conn, 42, "ExternalWebapp fix", project="externalwebapp",
                      type="issue", status="done")
         mock_run.side_effect = [
             # git log for the item

@@ -19,7 +19,7 @@ def _project_row_id(project_id: str | int) -> int:
     text = str(project_id)
     if text.isdigit():
         return int(text)
-    return {"yoke": 1, "buzz": 2, "demo": 3, "p": 4}.get(text, 100)
+    return {"yoke": 1, "externalwebapp": 2, "demo": 3, "p": 4}.get(text, 100)
 
 
 def _apply_path_snapshot_schema(

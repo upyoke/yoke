@@ -24,7 +24,7 @@ def test_rejects_worktree_root_yoke_db_validation_path(
     settings["models"]["primary"]["validation_surface"]["provisioning"][
         "path"
     ] = "data/yoke.db"
-    _seed_capability(control_db_env, "buzz", settings)
+    _seed_capability(control_db_env, "externalwebapp", settings)
 
     with pytest.raises(ValueError, match="retired Yoke control-plane"):
-        resolve_validation_db_paths(tmp_path, "buzz")
+        resolve_validation_db_paths(tmp_path, "externalwebapp")

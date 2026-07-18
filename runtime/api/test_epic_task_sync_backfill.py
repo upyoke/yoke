@@ -53,7 +53,7 @@ def db(tmp_path):
                 github_repo = EXCLUDED.github_repo,
                 public_item_prefix = EXCLUDED.public_item_prefix
             """,
-            (2, "buzz", "Buzz", "org/buzz", "YOK", "2026-01-01T00:00:00Z"),
+            (2, "externalwebapp", "ExternalWebapp", "org/externalwebapp", "YOK", "2026-01-01T00:00:00Z"),
         )
         conn.commit()
         try:
@@ -74,7 +74,7 @@ def _stub_project_github_auth():
     a known repo+token without DB I/O."""
     def _ok(project, **kwargs):
         return ProjectGithubAuth(
-            project=project, repo="org/buzz", token="ghs_test",
+            project=project, repo="org/externalwebapp", token="ghs_test",
         )
 
     with patch(
@@ -86,7 +86,7 @@ def _stub_project_github_auth():
 
 class TestBackfillTaskTitles:
     def test_backfill_titles_updates_open_issues(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="buzz")
+        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db, epic_id=1246, task_num=1, title="Implement feature",
             status="implementing", github_issue="#201",
@@ -119,7 +119,7 @@ class TestBackfillTaskTitles:
         assert "[YOK-1246] 002 Write tests" in titles
 
     def test_backfill_titles_is_idempotent_and_skips_closed(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="buzz")
+        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db, epic_id=1246, task_num=1, title="Already correct",
             status="implementing", github_issue="#301",
@@ -150,7 +150,7 @@ class TestBackfillTaskTitles:
         update_issue.assert_not_called()
 
     def test_backfill_titles_without_conn_uses_backend_connect(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="buzz")
+        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db,
             epic_id=1246,
@@ -185,7 +185,7 @@ class TestBackfillTaskLabels:
     def test_backfill_labels_uses_db_status_and_worktree_label(
         self, db, _stub_project_github_auth,
     ):
-        insert_item(db, id=1246, type="epic", status="implementing", project="buzz")
+        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db, epic_id=1246, task_num=1, title="Task 1",
             status="reviewed-implementation",
@@ -194,7 +194,7 @@ class TestBackfillTaskLabels:
         )
         db.execute(
             "UPDATE projects SET github_repo=%s WHERE slug=%s",
-            ("stale-owner/stale-repo", "buzz"),
+            ("stale-owner/stale-repo", "externalwebapp"),
         )
         db.commit()
         stdout = io.StringIO()
@@ -231,7 +231,7 @@ class TestBackfillTaskLabels:
         )
         removed_labels = {call.args[2] for call in remove_label.call_args_list}
         assert "status:planning" in removed_labels
-        assert {call.args[2] for call in ensure_label.call_args_list} == {"org/buzz"}
+        assert {call.args[2] for call in ensure_label.call_args_list} == {"org/externalwebapp"}
 
 
 class TestResolveDeps:

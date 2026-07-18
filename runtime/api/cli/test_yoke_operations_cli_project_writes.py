@@ -178,7 +178,7 @@ class TestProjectsCapabilitySecretSet:
                     function=request.function,
                     version=request.version,
                     request_id=request.request_id,
-                    result={"project": "buzz", "field": "slug", "value": "buzz"},
+                    result={"project": "externalwebapp", "field": "slug", "value": "externalwebapp"},
                 )
             assert request.function == "projects.capability_secret.set"
             return FunctionCallResponse(
@@ -187,7 +187,7 @@ class TestProjectsCapabilitySecretSet:
                 version=request.version,
                 request_id=request.request_id,
                 result={
-                    "project": "buzz",
+                    "project": "externalwebapp",
                     "cap_type": "ssh",
                     "key": "private_key",
                     "source": "machine_file",
@@ -199,7 +199,7 @@ class TestProjectsCapabilitySecretSet:
         rc, out, err = _run_capture(
             stub,
             "projects", "capability", "secret", "set",
-            "--project", "buzz",
+            "--project", "externalwebapp",
             "--cap-type", "ssh",
             "--key", "private_key",
             secret,
@@ -214,10 +214,10 @@ class TestProjectsCapabilitySecretSet:
         ]
         path = (
             tmp_path / "home" / "secrets" / "capability-secrets"
-            / "buzz" / "ssh" / "private_key"
+            / "externalwebapp" / "ssh" / "private_key"
         )
         assert _CAPTURED_REQUESTS[-1].payload == {
-            "project": "buzz",
+            "project": "externalwebapp",
             "cap_type": "ssh",
             "key": "private_key",
             "source": "machine_file",

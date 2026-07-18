@@ -73,7 +73,7 @@ def _apply_drift_schema() -> None:
 
 
 def _project_id(slug: str) -> int:
-    return 2 if slug == "buzz" else 1
+    return 2 if slug == "externalwebapp" else 1
 
 
 def _insert_drift_item(
@@ -188,7 +188,7 @@ class TestGetCheckpointStart(_DriftDbCase):
         self._insert_checkpoint(conn, "strategize", "2026-04-01T12:00:00Z")
         # Slug scope matches its own project only; the offer dispatch
         # passes numeric project ids and must scope identically.
-        assert _get_checkpoint_start(conn, "buzz") is None
+        assert _get_checkpoint_start(conn, "externalwebapp") is None
         assert _get_checkpoint_start(conn, 1) == "2026-04-01T12:00:00Z"
         assert _get_checkpoint_start(conn, 2) is None
 
@@ -326,17 +326,17 @@ class TestAssessPostDeliveryDrift(_DriftDbCase):
     def test_project_scoping(self):
         conn = self._make_db()
         _insert_drift_item(conn, 42, "Update frontier scheduler", "high",
-                           project="buzz", merged_at="2026-04-02T12:00:00Z")
-        # Query for yoke project — should not see buzz items
+                           project="externalwebapp", merged_at="2026-04-02T12:00:00Z")
+        # Query for yoke project — should not see externalwebapp items
         result = assess_post_delivery_drift(conn, "yoke")
         assert result is None
 
     def test_project_scope_list_checks_every_project(self):
         conn = self._make_db()
         _insert_drift_item(conn, 42, "Update frontier scheduler", "high",
-                           project="buzz", merged_at="2026-04-02T12:00:00Z")
+                           project="externalwebapp", merged_at="2026-04-02T12:00:00Z")
 
-        result = assess_post_delivery_drift(conn, ["yoke", "buzz"])
+        result = assess_post_delivery_drift(conn, ["yoke", "externalwebapp"])
 
         assert result is not None
         assert result.classification == "frontier_only"
@@ -349,11 +349,11 @@ class TestAssessPostDeliveryDrift(_DriftDbCase):
             42,
             "Update frontier scheduler",
             "high",
-            project="buzz",
+            project="externalwebapp",
             merged_at="2026-04-02T12:00:00Z",
         )
 
-        result = assess_post_delivery_drift(conn, [1, "buzz"])
+        result = assess_post_delivery_drift(conn, [1, "externalwebapp"])
 
         assert result is not None
         assert result.classification == "frontier_only"

@@ -49,7 +49,7 @@ class TestYokeStateDirResolution:
         Yoke state dir is still derived from ctx.yoke_repo_root (the
         Yoke control-repo root), not from ctx.repo_root."""
         control = self._make_yoke_control_repo(tmp_path)
-        project_repo = tmp_path / "buzz"
+        project_repo = tmp_path / "externalwebapp"
         project_repo.mkdir()
 
         ctx = MergeContext(args=MergeArgs(branch="YOK-9999"))
@@ -112,7 +112,7 @@ class TestRegenerateViewsTargetsStateDir:
     def test_regenerate_views_non_yoke_project_board(self, tmp_path, monkeypatch):
         """non-yoke project — board rebuild targets control repo."""
         control = self._make_yoke_control_repo(tmp_path)
-        project_repo = tmp_path / "buzz"
+        project_repo = tmp_path / "externalwebapp"
         project_repo.mkdir()
 
         ctx = MergeContext(args=MergeArgs(branch="YOK-9999"))

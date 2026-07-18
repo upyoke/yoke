@@ -65,7 +65,7 @@ def _make_conn() -> Any:
 
 
 def _args(**overrides) -> DoctorArgs:
-    defaults = dict(file=None, fix=False, only=None, quick=False, project="buzz", db_path=None)
+    defaults = dict(file=None, fix=False, only=None, quick=False, project="externalwebapp", db_path=None)
     defaults.update(overrides)
     return DoctorArgs(**defaults)
 
@@ -214,7 +214,7 @@ def _apply_command_substrate_schema() -> None:
     the factory) must co-locate on one DB. Building both through the backend
     factory plus the disposable per-test DB ``init_test_db`` provides gives that
     co-location AND isolation from other parallel workers — on Postgres the
-    shared ambient DB would otherwise leak ``buzz`` command rows between tests.
+    shared ambient DB would otherwise leak ``externalwebapp`` command rows between tests.
     """
     from yoke_core.domain import db_backend, project_structure as ps
 
@@ -263,7 +263,7 @@ class TestTestCommandValidity:
                 seed.execute(
                     "INSERT INTO projects "
                     "(id, slug, name, public_item_prefix) "
-                    "VALUES (2, 'buzz', 'Buzz', 'BUZ')",
+                    "VALUES (2, 'externalwebapp', 'ExternalWebapp', 'EXT')",
                 )
                 seed.commit()
             finally:
@@ -279,7 +279,7 @@ class TestTestCommandValidity:
             else:
                 clear_machine_checkout(2)
             if ops:
-                ps.apply_patch("buzz", ops=ops, db_path=db_path)
+                ps.apply_patch("externalwebapp", ops=ops, db_path=db_path)
             conn = connect_test_db(db_path)
             try:
                 return _run_hc(hc_test_command_validity, conn,
@@ -290,7 +290,7 @@ class TestTestCommandValidity:
     def test_passes_when_project_commands_all_resolve(self, tmp_path):
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
-        (repo_path / "package.json").write_text('{"name":"buzz"}\n')
+        (repo_path / "package.json").write_text('{"name":"externalwebapp"}\n')
         e2e_script = repo_path / "e2e.sh"
         e2e_script.write_text("#!/usr/bin/env sh\necho test\n")
         e2e_script.chmod(0o755)
@@ -311,7 +311,7 @@ class TestTestCommandValidity:
         result = self._run(tmp_path, str(repo_path),
                            quick="sh scripts/does-not-exist.sh")
         assert result.result == "WARN"
-        assert "buzz.quick" in result.detail
+        assert "externalwebapp.quick" in result.detail
         assert "does-not-exist.sh" in result.detail
 
     def test_warns_when_npm_has_no_package_json(self, tmp_path):

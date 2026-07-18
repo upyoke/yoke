@@ -14,8 +14,11 @@ class TestSeedFlows:
         for flow in _SEED_FLOWS:
             validate_stages(flow["stages"])  # raises on invalid
 
-    def test_seed_ids_are_the_cloud_runtime_set(self):
-        ids = {flow["id"] for flow in _SEED_FLOWS}
+    def test_self_hosted_seed_ids_are_the_cloud_runtime_set(self):
+        ids = {
+            flow["id"] for flow in _SEED_FLOWS
+            if flow["project"] in {"yoke", "platform"}
+        }
         assert ids == {
             "yoke-internal",
             "yoke-ephemeral-deploy",
@@ -28,9 +31,6 @@ class TestSeedFlows:
             "platform-production-independent",
             "platform-production-hotfix",
             "platform-stage",
-            "buzz-production-release",
-            "buzz-production-hotfix",
-            "buzz-internal",
         }
 
     def test_every_seed_stage_executor_is_in_the_live_vocabulary(self):
@@ -114,26 +114,6 @@ class TestSeedFlows:
         stages = json.loads(flow["stages"])
         assert [s["name"] for s in stages] == ["ephemeral-deploy", "complete"]
 
-    def test_buzz_delivery_flows_end_with_smoke_evidence(self):
-        by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
-        expected = {
-            "buzz-production-release": [
-                "migration_apply", "merged", "prod-deploy", "smoke", "complete",
-            ],
-            "buzz-production-hotfix": [
-                "migration_apply", "merged", "production-deploy", "smoke", "complete",
-            ],
-        }
-        for flow_id, expected_stages in expected.items():
-            stages = json.loads(by_id[flow_id]["stages"])
-            assert [
-                stage.get("name", stage.get("kind")) for stage in stages
-            ] == expected_stages
-            smoke = next(stage for stage in stages if stage.get("name") == "smoke")
-            assert smoke["executor"] == "github-actions-workflow"
-            assert smoke["workflow"] == "buzz-smoke.yml"
-
-
 class TestSeedFlowsRequireProjects:
     """Flow rows seed only for projects present in the universe.
 
@@ -182,9 +162,6 @@ class TestSeedFlowsRequireProjects:
                     "INSERT INTO projects (id, slug) VALUES (41, 'yoke')"
                 )
                 conn.execute(
-                    "INSERT INTO projects (id, slug) VALUES (42, 'buzz')"
-                )
-                conn.execute(
                     "INSERT INTO projects (id, slug) VALUES (43, 'platform')"
                 )
                 conn.commit()
@@ -197,22 +174,25 @@ class TestSeedFlowsRequireProjects:
                     str(row[0]): (int(row[1]), str(row[2]))
                     for row in rows
                 }
-                assert set(by_id) == {f["id"] for f in _SEED_FLOWS}
-                for flow in _SEED_FLOWS:
+                expected_flows = [
+                    flow for flow in _SEED_FLOWS
+                    if flow["project"] in {"yoke", "platform"}
+                ]
+                assert set(by_id) == {f["id"] for f in expected_flows}
+                for flow in expected_flows:
                     expected = {
                         "yoke": 41,
-                        "buzz": 42,
                         "platform": 43,
                     }[flow["project"]]
                     assert by_id[str(flow["id"])][0] == expected
                 assert by_id["yoke-hosted-production"][1] == "disabled"
-                buzz_stages = json.loads(conn.execute(
-                    "SELECT stages FROM deployment_flows "
-                    "WHERE id = 'buzz-production-release'"
-                ).fetchone()[0])
+                seeded_stage_documents = conn.execute(
+                    "SELECT stages FROM deployment_flows"
+                ).fetchall()
                 assert all(
                     "dispatch_correlation_input" not in stage
-                    for stage in buzz_stages
+                    for row in seeded_stage_documents
+                    for stage in json.loads(row[0])
                 )
             finally:
                 conn.close()

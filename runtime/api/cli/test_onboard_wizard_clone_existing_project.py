@@ -49,11 +49,11 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
         "find_by_github_repo",
         lambda **_: existing_project_lookup.ExistingProject(
             id=37,
-            slug="buzz",
-            name="Buzz",
-            github_repo="example-org/buzz",
+            slug="externalwebapp",
+            name="ExternalWebapp",
+            github_repo="example-org/externalwebapp",
             default_branch="main",
-            public_item_prefix="BUZZ",
+            public_item_prefix="EXT",
         ),
     )
     app, spy = make_app()
@@ -63,7 +63,7 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
             await connect_github_app(app, pilot)
             await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public
-            await type_text(pilot, "git@github.com:example-org/buzz.git")
+            await type_text(pilot, "git@github.com:example-org/externalwebapp.git")
             await pilot.press("enter")  # remote -> clone-folder input
             await pilot.press("enter")  # folder -> existing project ready
             await pilot.pause()
@@ -76,9 +76,9 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
                 "The Yoke core database already has a project for this GitHub repo."
                 in body
             )
-            assert "Yoke core database: matched GitHub repo example-org/buzz." in body
+            assert "Yoke core database: matched GitHub repo example-org/externalwebapp." in body
             assert "Local machine: no existing Yoke project metadata was used." in body
-            assert "Clone target: ~/code/buzz" in body
+            assert "Clone target: ~/code/externalwebapp" in body
             assert "Using existing checkout:" not in body
             await pilot.press("enter")  # continue -> project GitHub choice
             await select_connected_repository(app, pilot)
@@ -91,10 +91,10 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
     applied = spy.applied
     assert applied is not None
     assert applied["existing_project_id"] == 37
-    assert applied["project_slug"] == "buzz"
-    assert applied["project_name"] == "Buzz"
-    assert applied["project_github_repo"] == "example-org/buzz"
-    assert applied["project_public_item_prefix"] == "BUZZ"
+    assert applied["project_slug"] == "externalwebapp"
+    assert applied["project_name"] == "ExternalWebapp"
+    assert applied["project_github_repo"] == "example-org/externalwebapp"
+    assert applied["project_public_item_prefix"] == "EXT"
     assert applied["project_github_adoption"] == "app-binding"
     assert len(app.result.board_art_variants) == 1
     plan = applied["project_clone"]
@@ -118,7 +118,7 @@ def test_clone_existing_yoke_project_access_error_blocks_setup(monkeypatch) -> N
             await connect_github_app(app, pilot)
             await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public
-            await type_text(pilot, "git@github.com:example-org/buzz.git")
+            await type_text(pilot, "git@github.com:example-org/externalwebapp.git")
             await pilot.press("enter")
             await pilot.pause()
             title = next(

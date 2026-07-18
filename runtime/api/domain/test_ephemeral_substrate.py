@@ -90,9 +90,9 @@ class TestPolicy:
 
     def test_github_push_policy_needs_no_host_env(self):
         policy = ephemeral_policy_from_capability(
-            "buzz",
+            "externalwebapp",
             _cap(trigger="github-push", host_env="",
-                 preview_domain="buzzabuzz.com"),
+                 preview_domain="example.com"),
         )
         assert policy.trigger == "github-push"
         assert policy.web_port_for("yok-1369") == 4077

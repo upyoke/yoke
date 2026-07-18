@@ -56,14 +56,14 @@ def db_path(tmp_path: Path) -> str:
             repository_selection="selected",
             permissions={},
             repository_id="4567",
-            github_repo="example-org/buzz",
+            github_repo="example-org/externalwebapp",
             default_branch="main",
         )
         cmd_bind_project_repo(
-            "buzz",
+            "externalwebapp",
             installation_id="12345",
             repository_id="4567",
-            github_repo="example-org/buzz",
+            github_repo="example-org/externalwebapp",
             expected_api_url="https://api.github.com",
             github_user_access_token="user-token",
             verifier=lambda **_kwargs: verified,
@@ -82,7 +82,7 @@ def db_path(tmp_path: Path) -> str:
 def _args(**overrides) -> DoctorArgs:
     defaults = dict(
         file=None, fix=False, only=None, quick=False,
-        project="buzz", db_path=None,
+        project="externalwebapp", db_path=None,
     )
     defaults.update(overrides)
     return DoctorArgs(**defaults)
@@ -100,7 +100,7 @@ def _patch_resolved_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     def _resolve(project, *, db_path=None, conn=None):
         return ProjectGithubAuth(
             project=project,
-            repo="example-org/buzz",
+            repo="example-org/externalwebapp",
             token="ghs_installation_token",
             installation_id="12345",
             token_source="github_app_installation",
@@ -123,7 +123,7 @@ class TestProjectGhAuthCanonical:
         try:
             rec = _run_hc(
                 hc_project_gh_auth, conn,
-                project="buzz", db_path=db_path,
+                project="externalwebapp", db_path=db_path,
             )
         finally:
             conn.close()
@@ -137,7 +137,7 @@ class TestProjectGhAuthCanonical:
         try:
             rec = _run_hc(
                 hc_project_gh_auth, conn,
-                project="buzz", db_path=db_path,
+                project="externalwebapp", db_path=db_path,
             )
         finally:
             conn.close()
@@ -151,13 +151,13 @@ class TestProjectGhAuthCanonical:
         try:
             conn.execute(
                 "DELETE FROM project_capabilities "
-                "WHERE project_id=(SELECT id FROM projects WHERE slug='buzz') "
+                "WHERE project_id=(SELECT id FROM projects WHERE slug='externalwebapp') "
                 "AND type='github'"
             )
             conn.commit()
             rec = _run_hc(
                 hc_project_gh_auth, conn,
-                project="buzz", db_path=db_path,
+                project="externalwebapp", db_path=db_path,
             )
         finally:
             conn.close()
@@ -174,18 +174,18 @@ class TestProjectGhAuthCanonical:
         try:
             conn.execute(
                 "DELETE FROM project_capabilities "
-                "WHERE project_id=(SELECT id FROM projects WHERE slug='buzz') "
+                "WHERE project_id=(SELECT id FROM projects WHERE slug='externalwebapp') "
                 "AND type='github'"
             )
             conn.execute(
                 "UPDATE projects SET github_sync_mode='backlog_only' "
-                "WHERE slug='buzz'"
+                "WHERE slug='externalwebapp'"
             )
             conn.commit()
 
             rec = _run_hc(
                 hc_project_gh_auth, conn,
-                project="buzz", db_path=db_path,
+                project="externalwebapp", db_path=db_path,
             )
         finally:
             conn.close()
@@ -204,12 +204,12 @@ class TestProjectGhAuthCanonical:
         try:
             conn.execute(
                 "UPDATE projects SET github_sync_mode='backlog_only' "
-                "WHERE slug='buzz'"
+                "WHERE slug='externalwebapp'"
             )
             conn.commit()
             rec = _run_hc(
                 hc_project_gh_auth, conn,
-                project="buzz", db_path=db_path,
+                project="externalwebapp", db_path=db_path,
             )
         finally:
             conn.close()
@@ -224,7 +224,7 @@ class TestProjectGhAuthCanonical:
         try:
             rec = _run_hc(
                 hc_project_gh_auth, conn,
-                project="buzz", db_path=db_path,
+                project="externalwebapp", db_path=db_path,
             )
         finally:
             conn.close()

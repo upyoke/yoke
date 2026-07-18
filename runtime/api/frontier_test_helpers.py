@@ -20,7 +20,7 @@ from runtime.api.test_dependency_schema import create_dependency_test_db
 
 PROJECT_IDS = {
     "yoke": 1,
-    "buzz": 2,
+    "externalwebapp": 2,
 }
 
 

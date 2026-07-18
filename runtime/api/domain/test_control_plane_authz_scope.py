@@ -17,20 +17,20 @@ _FIXTURES = (conn,)
 
 def test_control_plane_op_requires_sole_org_admin_ignoring_project_slug(conn):
     yoke = resolve_project_id(conn, "yoke")
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _project_owner(conn, buzz)
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    externalwebapp_owner = _project_owner(conn, externalwebapp)
     yoke_owner = _project_owner(conn, yoke)
     org_admin = _org_admin(conn, _org_of(conn, yoke))
     entry = _entry("db.read.run", side_effects=False)
 
     denied = check_dispatch_permission(
-        conn, entry, _request(buzz_owner, "db.read.run", project="buzz")
+        conn, entry, _request(externalwebapp_owner, "db.read.run", project="externalwebapp")
     )
     assert denied.error is not None
     assert denied.error.error.code == "permission_denied"
 
     denied_yoke_owner = check_dispatch_permission(
-        conn, entry, _request(yoke_owner, "db.read.run", project="buzz")
+        conn, entry, _request(yoke_owner, "db.read.run", project="externalwebapp")
     )
     assert denied_yoke_owner.error is not None
 

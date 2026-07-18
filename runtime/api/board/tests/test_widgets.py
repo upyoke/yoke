@@ -102,9 +102,9 @@ class TestProjectFilter:
         assert "slug = 'yoke'" in result
 
     def test_alias(self):
-        result = _project_filter("buzz", "e")
+        result = _project_filter("externalwebapp", "e")
         assert "e.project_id" in result
-        assert "slug = 'buzz'" in result
+        assert "slug = 'externalwebapp'" in result
 
     def test_escape(self):
         result = _project_filter("it's")

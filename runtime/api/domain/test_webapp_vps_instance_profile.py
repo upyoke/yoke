@@ -14,14 +14,14 @@ def _vps_stack(monkeypatch, **arg_overrides):
     recorder = _Recorder()
     module = _load_template_module(monkeypatch, recorder, "webapp_vps_stack.py")
     kwargs = dict(
-        deploy_namespace="buzz",
+        deploy_namespace="externalwebapp",
         instance_type="t4g.medium",
         root_volume_gb=40,
-        ssh_key_name="buzz-key",
-        stack_name="buzz-vps",
+        ssh_key_name="externalwebapp-key",
+        stack_name="externalwebapp-vps",
     )
     kwargs.update(arg_overrides)
-    stack = module.WebappVpsStack("buzz-vps", module.WebappVpsArgs(**kwargs))
+    stack = module.WebappVpsStack("externalwebapp-vps", module.WebappVpsArgs(**kwargs))
     return recorder, stack
 
 

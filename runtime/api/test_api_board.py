@@ -69,11 +69,11 @@ class TestBoard:
         assert "Cancelled item" not in all_item_titles
 
     def test_board_other_project(self, client):
-        resp = client.get("/v1/board", params={"project": "buzz"})
+        resp = client.get("/v1/board", params={"project": "externalwebapp"})
         assert resp.status_code == 200
         data = resp.json()
         assert "sprint" not in data
-        # Buzz has 1 item (id=3, status=idea)
+        # ExternalWebapp has 1 item (id=3, status=idea)
         assert data["stats"]["total"] == 1
 
 

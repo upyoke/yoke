@@ -89,8 +89,8 @@ class TestReadConfig:
 
 class TestResolvePlaywrightCache:
     def test_with_project(self):
-        result = resolve_playwright_cache("buzz", "/some/worktree")
-        assert result.endswith(".yoke/playwright-cache/buzz")
+        result = resolve_playwright_cache("externalwebapp", "/some/worktree")
+        assert result.endswith(".yoke/playwright-cache/externalwebapp")
 
     def test_without_project(self):
         result = resolve_playwright_cache(None, "/tmp/wt")

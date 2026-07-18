@@ -53,7 +53,7 @@ _PREREQ_KEYWORDS: Tuple[str, ...] = (
 # Public item-ref regex (``PREFIX-N``). Allow optional backticks and
 # leading zeros; the prefix follows the projects.public_item_prefix
 # shape (a capital letter then capitals/digits), so plans for any
-# project parse with their own refs (YOK-N, BUZZ-N, ...).
+# project parse with their own refs (YOK-N, EXT-N, ...).
 _PUBLIC_ITEM_REF_RE = re.compile(r"`?([A-Z][A-Z0-9]*)-0*(\d+)`?")
 
 

@@ -20,16 +20,16 @@ def test_onboard_existing_project_clone_accepts_versioned_api_url(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     remote = seed_remote(tmp_path)
     allow_local_clone(monkeypatch)
-    checkout = tmp_path / "checkouts" / "buzz"
+    checkout = tmp_path / "checkouts" / "externalwebapp"
 
     with ProjectOnboardApi(
         project={
             "id": 37,
-            "slug": "buzz",
-            "name": "Buzz",
-            "github_repo": "example-org/buzz",
+            "slug": "externalwebapp",
+            "name": "ExternalWebapp",
+            "github_repo": "example-org/externalwebapp",
             "default_branch": "trunk",
-            "public_item_prefix": "BUZZ",
+            "public_item_prefix": "EXT",
         },
     ) as api:
         versioned_api_url = f"{api.url}/v1"
@@ -48,11 +48,11 @@ def test_onboard_existing_project_clone_accepts_versioned_api_url(
             project_mode=onboard_project.PROJECT_MODE_CLONE_REMOTE,
             project_remote_url=str(remote),
             project_checkout=checkout,
-            project_slug="buzz",
-            project_name="Buzz",
-            project_github_repo="example-org/buzz",
+            project_slug="externalwebapp",
+            project_name="ExternalWebapp",
+            project_github_repo="example-org/externalwebapp",
             project_default_branch="trunk",
-            project_public_item_prefix="BUZZ",
+            project_public_item_prefix="EXT",
             existing_project_id=37,
             project_github_adoption="backlog-only",
             project_clone=onboard_project.ClonePlan(),

@@ -19,7 +19,7 @@ CLI::
     python3 -m yoke_core.engines.doctor --only status-consistency
     python3 -m yoke_core.engines.doctor --only status-consistency,blocked-items
     python3 -m yoke_core.engines.doctor --quick --file /tmp/report.md
-    python3 -m yoke_core.engines.doctor --full --project buzz
+    python3 -m yoke_core.engines.doctor --full --project example-project
     python3 -m yoke_core.engines.doctor --list-checks
 
     # JSON mode pairs with the same explicit scope:

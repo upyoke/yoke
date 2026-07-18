@@ -74,10 +74,10 @@ def fake_yoke_root(monkeypatch):
 
 @pytest.fixture
 def cross_project_repo():
-    return Path("/__buzz_test_repo__")
+    return Path("/__externalwebapp_test_repo__")
 
 
-def _seed_claimed_checkout(conn, repo_path, project="buzz"):
+def _seed_claimed_checkout(conn, repo_path, project="externalwebapp"):
     register_machine_checkout(
         Path(tempfile.mkdtemp(prefix="yoke-machine-config-")),
         Path(repo_path),
@@ -90,12 +90,12 @@ def _seed_claimed_checkout(conn, repo_path, project="buzz"):
 
 @pytest.fixture
 def cross_project_session(conn, fake_yoke_root, cross_project_repo):
-    """A Yoke session holding an active Buzz cross-project claim.
+    """A Yoke session holding an active ExternalWebapp cross-project claim.
 
     Returns ``(fake_yoke_root, cross_project_repo)`` so individual
     tests can reference both roots without re-seeding the DB.
     """
-    _seed_claimed_checkout(conn, cross_project_repo, project="buzz")
+    _seed_claimed_checkout(conn, cross_project_repo, project="externalwebapp")
     return fake_yoke_root, cross_project_repo
 
 

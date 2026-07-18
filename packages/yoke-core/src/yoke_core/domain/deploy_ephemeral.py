@@ -19,7 +19,7 @@ preview on the project's declared host environment box.
    then the public wildcard URL;
 6. track the preview in ``ephemeral_environments``.
 
-Webapp-shaped projects (Buzz) keep the GitHub-Actions instantiation of
+Webapp-shaped projects keep the GitHub-Actions instantiation of
 the same substrate (``trigger: "github-push"``); this executor is the
 ``trigger: "flow"`` path and requires the core-service capabilities.
 

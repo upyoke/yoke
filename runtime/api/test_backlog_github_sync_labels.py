@@ -25,9 +25,9 @@ _LABEL_REST_LABELS = "yoke_core.domain.backlog_github_label_sync._rest"
 
 
 def _ok_resolver(*args, **kwargs):
-    proj = kwargs.get("project") or (args[0] if args else "buzz")
+    proj = kwargs.get("project") or (args[0] if args else "externalwebapp")
     return ProjectGithubAuth(
-        project=proj, repo="org/buzz", token="ghs_fake",
+        project=proj, repo="org/externalwebapp", token="ghs_fake",
     )
 
 
@@ -39,7 +39,7 @@ def _ok_resolver(*args, **kwargs):
 class TestSyncLabels:
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=10, type="issue", status="idea", project="buzz")
+        insert_item(db, id=10, type="issue", status="idea", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_LABEL_REST_LABELS}.fetch_issue_labels",
         ) as fetch:
@@ -50,7 +50,7 @@ class TestSyncLabels:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=10, type="issue", status="idea", project="buzz", github_issue="#5")
+        insert_item(db, id=10, type="issue", status="idea", project="externalwebapp", github_issue="#5")
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.sync_labels("10", conn=db, stdout=stdout)
@@ -66,7 +66,7 @@ class TestSyncLabels:
             type="issue",
             status="implementing",
             priority="high",
-            project="buzz",
+            project="externalwebapp",
             github_issue="#55",
             source="ben",
         )
@@ -97,7 +97,7 @@ class TestSyncLabels:
             rc = backlog_github_sync.sync_labels("10", conn=db, stdout=stdout)
 
         assert rc == 0
-        assert "Labels synced: BUZ-10 → #55" in stdout.getvalue()
+        assert "Labels synced: EXT-10 → #55" in stdout.getvalue()
 
         added_labels_flat = [label for _, _, labels in added for label in labels]
         removed_labels = [label for _, _, label in removed]
@@ -109,7 +109,7 @@ class TestSyncLabels:
 
     def test_issue_validation_failure_is_not_green(self):
         db = _make_db()
-        insert_item(db, id=10, type="issue", status="idea", project="buzz", github_issue="#5")
+        insert_item(db, id=10, type="issue", status="idea", project="externalwebapp", github_issue="#5")
         stderr = io.StringIO()
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo",
@@ -141,26 +141,26 @@ class TestSyncLabels:
             f"{_LABEL_REST_LABELS}.remove_label",
         ) as remove_label:
             labels = backlog_github_label_sync._get_issue_labels(
-                "55", "org/stale", "buzz",
+                "55", "org/stale", "externalwebapp",
             )
             state = backlog_github_label_sync._get_issue_state(
-                "55", "org/stale", "buzz",
+                "55", "org/stale", "externalwebapp",
             )
             backlog_github_label_sync._ensure_label(
-                "status:implementing", "C5DEF5", "org/stale", "buzz",
+                "status:implementing", "C5DEF5", "org/stale", "externalwebapp",
             )
             backlog_github_label_sync._reconcile_category(
                 "status:", "status:implementing", ["status:idea"],
-                "55", "org/stale", "buzz", "C5DEF5",
+                "55", "org/stale", "externalwebapp", "C5DEF5",
             )
 
         assert labels == ["status:idea"]
         assert state == "OPEN"
-        assert fetch_labels.call_args.args[0] == "org/buzz"
-        assert fetch_state.call_args.args[0] == "org/buzz"
-        assert all(call.args[2] == "org/buzz" for call in ensure_label.call_args_list)
-        assert add_labels.call_args.args[0] == "org/buzz"
-        assert remove_label.call_args.args[0] == "org/buzz"
+        assert fetch_labels.call_args.args[0] == "org/externalwebapp"
+        assert fetch_state.call_args.args[0] == "org/externalwebapp"
+        assert all(call.args[2] == "org/externalwebapp" for call in ensure_label.call_args_list)
+        assert add_labels.call_args.args[0] == "org/externalwebapp"
+        assert remove_label.call_args.args[0] == "org/externalwebapp"
 
     def test_renders_source_and_owner_via_actor_label(self):
         """Post-Slice 5b shape: numeric source/owner render to label tokens
@@ -179,7 +179,7 @@ class TestSyncLabels:
             type="issue",
             status="implementing",
             priority="high",
-            project="buzz",
+            project="externalwebapp",
             github_issue="#56",
             source=str(local_human),
             owner=str(yoke_core),

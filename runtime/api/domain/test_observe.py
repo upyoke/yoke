@@ -107,15 +107,15 @@ class TestNewColumns(unittest.TestCase):
             conn.execute(
                 "INSERT INTO projects (id, slug, name, public_item_prefix, created_at) "
                 f"VALUES ({p}, {p}, {p}, {p}, {p}) ON CONFLICT (id) DO NOTHING",
-                (2, "buzz", "Buzz", "BUZ", "2026-01-01T00:00:00Z"),
+                (2, "externalwebapp", "ExternalWebapp", "EXT", "2026-01-01T00:00:00Z"),
             )
             conn.execute(
                 "INSERT INTO harness_sessions "
                 "(session_id, executor, provider, model, workspace, project_id, "
                 "offered_at, last_heartbeat) "
-                f"VALUES ({p}, 'test', 'test', 'test', '/tmp/buzz', {p}, {p}, {p})",
+                f"VALUES ({p}, 'test', 'test', 'test', '/tmp/externalwebapp', {p}, {p}, {p})",
                 (
-                    "sess_buzz",
+                    "sess_externalwebapp",
                     2,
                     "2026-01-01T00:00:00Z",
                     "2026-01-01T00:00:00Z",
@@ -127,13 +127,13 @@ class TestNewColumns(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "echo hello"},
                 "tool_response": {"content": "hello"},
-                "tool_use_id": "tu_buzz",
+                "tool_use_id": "tu_externalwebapp",
             }
             rec = parse_hook_event(
                 data,
-                session_id="sess_buzz",
+                session_id="sess_externalwebapp",
                 hook_event="PostToolUse",
-                tool_use_id="tu_buzz",
+                tool_use_id="tu_externalwebapp",
             )
             self.assertIsNotNone(rec)
             detect_anomalies(rec)
@@ -142,11 +142,11 @@ class TestNewColumns(unittest.TestCase):
             project = conn.execute(
                 "SELECT p.slug FROM events e JOIN projects p ON p.id = e.project_id "
                 f"WHERE e.tool_use_id = {p}",
-                ("tu_buzz",),
+                ("tu_externalwebapp",),
             ).fetchone()[0]
             conn.close()
 
-            self.assertEqual(project, "buzz")
+            self.assertEqual(project, "externalwebapp")
 
 
 class TestItemIdPrefix(unittest.TestCase):

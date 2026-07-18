@@ -64,7 +64,7 @@ class TestServiceClientChargeFrontier:
         result = subprocess.run(
             _service_client_cmd([
                 "charge-frontier",
-                "--project", "buzz",
+                "--project", "externalwebapp",
             ]),
             env=env,
             cwd=_REPO_ROOT,

@@ -89,7 +89,7 @@ def test_os_tmpdir_fallback_includes_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _patch_checkout_project(monkeypatch)
-    _set_identity(monkeypatch, session="buzz-session", run="run-2")
+    _set_identity(monkeypatch, session="externalwebapp-session", run="run-2")
     monkeypatch.delenv(scratch.ENV_KEY, raising=False)
     monkeypatch.setattr(
         scratch.machine_config,
@@ -106,13 +106,13 @@ def test_os_tmpdir_fallback_includes_project(
     # The unwritable configured root emits the fallback warning before degrading
     # to the OS tmpdir; assert it here so it is captured, not leaked to the summary.
     with pytest.warns(RuntimeWarning, match="falling back"):
-        resolved = scratch.scratch_root("buzz")
+        resolved = scratch.scratch_root("externalwebapp")
     assert resolved == (
         tmp_path
         / "yoke-scratch"
-        / "buzz"
+        / "externalwebapp"
         / "sessions"
-        / "buzz-session"
+        / "externalwebapp-session"
         / "runs"
         / "run-2"
     )
@@ -140,8 +140,8 @@ def test_override_root_appends_project_session_and_run_segments(
     assert scratch.scratch_root("yoke") == (
         override_root / "yoke" / "sessions" / "sess" / "runs" / "run"
     )
-    assert scratch.scratch_root("buzz") == (
-        override_root / "buzz" / "sessions" / "sess" / "runs" / "run"
+    assert scratch.scratch_root("externalwebapp") == (
+        override_root / "externalwebapp" / "sessions" / "sess" / "runs" / "run"
     )
 
 
@@ -155,4 +155,4 @@ def test_global_scratch_root_is_project_agnostic(
     monkeypatch.setenv(scratch.ENV_KEY, str(override_root))
 
     assert scratch.global_scratch_root() == override_root
-    assert scratch.scratch_root("buzz").parents[4] == scratch.global_scratch_root()
+    assert scratch.scratch_root("externalwebapp").parents[4] == scratch.global_scratch_root()

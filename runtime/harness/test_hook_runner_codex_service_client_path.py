@@ -37,7 +37,7 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
     )
 
     err = session_dispatch._register_codex(
-        "/Users/x/buzz",
+        "/Users/x/externalwebapp",
         "sid-codex",
         "gpt-5.5",
         "codex-desktop",
@@ -50,7 +50,7 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
         "codex",
         "openai",
         "gpt-5.5",
-        "/Users/x/buzz",
+        "/Users/x/externalwebapp",
         "codex-desktop",
         1,
     )]
@@ -74,7 +74,7 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
     )
 
     err = session_lifecycle_client.register_harness_session(
-        root="/Users/x/buzz",
+        root="/Users/x/externalwebapp",
         session_id="sid-any",
         executor="claude",
         provider="anthropic",
@@ -89,7 +89,7 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
         "claude",
         "anthropic",
         "opus",
-        "/Users/x/buzz",
+        "/Users/x/externalwebapp",
         "claude-desktop",
         1,
     )]
@@ -111,10 +111,10 @@ def test_codex_touch_uses_target_service_client_path(monkeypatch) -> None:
         fake_touch,
     )
 
-    assert session_dispatch._touch("/Users/x/buzz", "sid-codex") == 0
+    assert session_dispatch._touch("/Users/x/externalwebapp", "sid-codex") == 0
     assert calls == [(
         "/Users/x/yoke/runtime/api/service_client.py",
-        "/Users/x/buzz",
+        "/Users/x/externalwebapp",
         "sid-codex",
     )]
 
@@ -136,12 +136,12 @@ def test_universal_touch_uses_target_service_client_path(monkeypatch) -> None:
     )
 
     assert session_lifecycle_client.touch_harness_session(
-        "/Users/x/buzz",
+        "/Users/x/externalwebapp",
         "sid-any",
     ) == 0
     assert calls == [(
         "/Users/x/yoke/runtime/api/service_client.py",
-        "/Users/x/buzz",
+        "/Users/x/externalwebapp",
         "sid-any",
     )]
 
@@ -154,7 +154,7 @@ def test_codex_recovery_command_uses_target_service_client_path(monkeypatch) -> 
 
     command = session_dispatch._session_begin_recovery_command(
         "sid-codex",
-        "/Users/x/buzz",
+        "/Users/x/externalwebapp",
         "gpt-5.5",
         "codex-desktop",
     )
@@ -162,7 +162,7 @@ def test_codex_recovery_command_uses_target_service_client_path(monkeypatch) -> 
     assert command.startswith(
         "python3 /Users/x/yoke/runtime/api/service_client.py session-begin "
     )
-    assert "--workspace /Users/x/buzz" in command
+    assert "--workspace /Users/x/externalwebapp" in command
     assert "--entrypoint codex-desktop" in command
 
 
@@ -185,7 +185,7 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
     monkeypatch.setattr(
         hook_runner_register,
         "resolve_target_root",
-        lambda _script_dir: "/Users/x/buzz",
+        lambda _script_dir: "/Users/x/externalwebapp",
     )
     monkeypatch.setattr(hook_runner_register, "is_yoke_target", lambda *_args: True)
     monkeypatch.setattr(
@@ -219,7 +219,7 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
         "claude-desktop",
     )
     assert calls == [{
-        "root": "/Users/x/buzz",
+        "root": "/Users/x/externalwebapp",
         "session_id": "sid-claude",
         "executor": "claude",
         "provider": "anthropic",

@@ -297,15 +297,15 @@ test("Runs at All reads unfiltered and labels each run's own project", async (t)
         return okEnvelope({
           rows: [
             { id: 1, slug: "yoke", name: "Yoke" },
-            { id: 2, slug: "buzz", name: "Buzz" },
+            { id: 2, slug: "externalwebapp", name: "ExternalWebapp" },
           ],
         });
       }
       if (request.function === "deployment_runs.list") {
         return okEnvelope({
           rows: [{
-            id: "run-20260101-001", project: "buzz",
-            flow: "buzz-prod-release", target_env: "prod",
+            id: "run-20260101-001", project: "externalwebapp",
+            flow: "externalwebapp-prod-release", target_env: "prod",
             release_lineage: null, status: "succeeded",
             current_stage: "complete", created_at: "then",
             started_at: null, completed_at: null, created_by: "usher",
@@ -333,7 +333,7 @@ test("Runs at All reads unfiltered and labels each run's own project", async (t)
     .slice(0, 2)
     .map((node) => node.textContent ||
       (node.children[0] && node.children[0].textContent) || "");
-  assert.deepEqual(firstCells, ["run-20260101-001", "buzz"]);
+  assert.deepEqual(firstCells, ["run-20260101-001", "externalwebapp"]);
   mounted.unmount();
 });
 

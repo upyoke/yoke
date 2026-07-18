@@ -28,14 +28,14 @@ def environment_db():
         conn.execute(
             "INSERT INTO sites (id, project_id, name, created_at) "
             "VALUES ('yoke-api', 1, 'Yoke API', '2026-01-01T00:00:00Z'), "
-            "('buzz-api', 2, 'Buzz API', '2026-01-01T00:00:00Z')"
+            "('externalwebapp-api', 2, 'ExternalWebapp API', '2026-01-01T00:00:00Z')"
         )
         conn.execute(
             "INSERT INTO environments (id, site, name, settings, created_at) "
             "VALUES ('yoke-api-prod', 'yoke-api', 'prod', "
             "'{\"pulumi\":{\"activation_state\":\"active\"},\"servers\":[{\"key\":\"old\"}]}', "
             "'2026-01-01T00:00:00Z'), "
-            "('buzz-api-prod', 'buzz-api', 'prod', '{}', "
+            "('externalwebapp-api-prod', 'externalwebapp-api', 'prod', '{}', "
             "'2026-01-01T00:00:00Z')"
         )
         conn.commit()
@@ -140,7 +140,7 @@ def test_https_refuses_project_environment_mismatch(client):
         "projects.environment_settings.get",
         {
             "project": "yoke",
-            "environment_id": "buzz-api-prod",
+            "environment_id": "externalwebapp-api-prod",
             "paths": ["git.branch"],
         },
     )

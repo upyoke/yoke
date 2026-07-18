@@ -24,7 +24,7 @@ from yoke_core.engines._doctor_hc_db_full_test_helpers import (
 
 _TEST_PROJECT_IDS = {
     "yoke": 1,
-    "buzz": 2,
+    "externalwebapp": 2,
     "proj-a": 10,
     "proj-b": 11,
     "proj-c": 12,
@@ -209,7 +209,7 @@ class TestHCProjectsWithoutFlows:
 
     def _cover_seeded_projects(self, conn):
         self._add_flow(conn, "flow-yoke", "yoke")
-        self._add_flow(conn, "flow-buzz", "buzz")
+        self._add_flow(conn, "flow-externalwebapp", "externalwebapp")
 
     def test_pass_all_projects_have_flows(self, test_db):
         """Test 1: PASS when all projects have deployment flows."""

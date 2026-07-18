@@ -144,15 +144,15 @@ def _fake_secret_row(monkeypatch, source: str):
 class TestResolveDeployEnvs:
     def test_resolves_from_environments_table(self, initialized_db: str):
         from yoke_core.domain.project_seed_test_helpers import (
-            seed_buzz_site_environments,
+            seed_externalwebapp_site_environments,
         )
 
         conn = connect(initialized_db)
         try:
-            seed_buzz_site_environments(conn)
+            seed_externalwebapp_site_environments(conn)
         finally:
             conn.close()
-        result = projects.cmd_resolve_deploy_envs("buzz", db_path=initialized_db)
+        result = projects.cmd_resolve_deploy_envs("externalwebapp", db_path=initialized_db)
         assert result is not None
         envs = result.strip().split("\n")
         assert "production" in envs

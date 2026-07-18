@@ -50,7 +50,7 @@ class TestFetchBrowserContextSeam:
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             side_effect=_capture,
         ):
-            browser_qa._fetch_browser_context(42, "buzz", "feature-x")
+            browser_qa._fetch_browser_context(42, "externalwebapp", "feature-x")
 
         assert calls[0]["function_id"] == "qa.browser_context.get"
         target = calls[0]["target"]
@@ -58,7 +58,7 @@ class TestFetchBrowserContextSeam:
         assert target.item_id == 42
         assert target.item_ref is None
         assert calls[0]["payload"] == {
-            "project": "buzz", "expected_branch": "feature-x",
+            "project": "externalwebapp", "expected_branch": "feature-x",
         }
 
     def test_public_ref_targets_item_ref_with_project(self) -> None:
@@ -72,13 +72,13 @@ class TestFetchBrowserContextSeam:
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             side_effect=_capture,
         ):
-            browser_qa._fetch_browser_context("BUZ-1732", "buzz")
+            browser_qa._fetch_browser_context("EXT-1732", "externalwebapp")
 
         target = calls[0]["target"]
         assert target.kind == "item"
         assert target.item_id is None
-        assert target.item_ref == "BUZ-1732"
-        assert target.project_id == "buzz"
+        assert target.item_ref == "EXT-1732"
+        assert target.project_id == "externalwebapp"
 
     def test_dispatch_failure_raises_with_code(self) -> None:
         with mock.patch(
@@ -86,7 +86,7 @@ class TestFetchBrowserContextSeam:
             return_value=_fail("not_found"),
         ):
             try:
-                browser_qa._fetch_browser_context(42, "buzz")
+                browser_qa._fetch_browser_context(42, "externalwebapp")
             except RuntimeError as exc:
                 assert "not_found" in str(exc)
             else:
@@ -97,7 +97,7 @@ class TestFetchBrowserContextSeam:
             browser_qa, "_fetch_browser_context",
             side_effect=RuntimeError("qa.browser_context.get failed"),
         ):
-            result = browser_qa.execute_scenario(item_id=42, project="buzz")
+            result = browser_qa.execute_scenario(item_id=42, project="externalwebapp")
         assert result.verdict == "error"
         assert result.note == "context_unavailable"
 
@@ -138,7 +138,7 @@ class TestFetchBrowserContextSeam:
             side_effect=_fake_process,
         ):
             result = browser_qa.execute_scenario(
-                item_id="BUZ-1732", project="buzz",
+                item_id="EXT-1732", project="externalwebapp",
             )
         assert result.executed == 1
         assert seen["item_id"] == 1732

@@ -142,11 +142,11 @@ class TestCreateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        # API — parity-flow belongs to 'yoke', item says 'buzz'
+        # API — parity-flow belongs to 'yoke', item says 'externalwebapp'
         api_resp = client.post("/v1/items", json={
             "title": "Cross project flow",
             "type": "issue",
-            "project": "buzz",
+            "project": "externalwebapp",
             "deployment_flow": "parity-flow",
         })
         assert api_resp.status_code == 422
@@ -156,7 +156,7 @@ class TestCreateParity:
             db_path, "create-item",
             "--title", "Cross project flow",
             "--type", "issue",
-            "--project", "buzz",
+            "--project", "externalwebapp",
             "--deployment-flow", "parity-flow",
         )
         assert cli_result.returncode == 1

@@ -166,7 +166,7 @@ def test_projects_capability_secret_set_records_machine_file_metadata(
 
     outcome = projects_capability_secret.handle_projects_capability_secret_set(
         _request({
-            "project": "buzz",
+            "project": "externalwebapp",
             "cap_type": "ssh",
             "key": "private_key",
             "source": "machine_file",
@@ -176,7 +176,7 @@ def test_projects_capability_secret_set_records_machine_file_metadata(
 
     assert outcome.primary_success is True
     assert outcome.result_payload == {
-        "project": "buzz",
+        "project": "externalwebapp",
         "cap_type": "ssh",
         "key": "private_key",
         "source": "machine_file",
@@ -184,7 +184,7 @@ def test_projects_capability_secret_set_records_machine_file_metadata(
         "path": "/Users/example/.yoke/secrets/key",
     }
     assert captured == {
-        "project": "buzz",
+        "project": "externalwebapp",
         "cap_type": "ssh",
         "key": "private_key",
         "path": "/Users/example/.yoke/secrets/key",

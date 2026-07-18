@@ -49,9 +49,9 @@ class TestGatherPulumiStacks:
         ) == ["registry", "runner-fleet"]
 
     def test_defaults_to_infra_vps_when_absent(self, tmp_path, monkeypatch):
-        _stub_renderer_settings(monkeypatch, "buzz", {"projectName": "buzz"})
-        root = _make_project_root(tmp_path, "buzz")
-        assert project_renderer_pulumi.gather_pulumi_stacks("buzz", root) == [
+        _stub_renderer_settings(monkeypatch, "externalwebapp", {"projectName": "externalwebapp"})
+        root = _make_project_root(tmp_path, "externalwebapp")
+        assert project_renderer_pulumi.gather_pulumi_stacks("externalwebapp", root) == [
             "infra",
             "vps",
         ]
@@ -70,11 +70,11 @@ class TestGatherPulumiStacks:
     def test_reads_explicit_infra_vps(self, tmp_path, monkeypatch):
         _stub_renderer_settings(
             monkeypatch,
-            "buzz",
-            {"projectName": "buzz", "stacks": ["infra", "vps"]},
+            "externalwebapp",
+            {"projectName": "externalwebapp", "stacks": ["infra", "vps"]},
         )
-        root = _make_project_root(tmp_path, "buzz")
-        assert project_renderer_pulumi.gather_pulumi_stacks("buzz", root) == [
+        root = _make_project_root(tmp_path, "externalwebapp")
+        assert project_renderer_pulumi.gather_pulumi_stacks("externalwebapp", root) == [
             "infra",
             "vps",
         ]

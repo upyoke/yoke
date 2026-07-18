@@ -60,7 +60,7 @@ def _verified() -> VerifiedProjectGitHubBinding:
             "actions_variables": "write",
         },
         repository_id="7701",
-        github_repo="Example/Buzz",
+        github_repo="Example/ExternalWebapp",
         default_branch="main",
         installation_status="active",
     )
@@ -79,7 +79,7 @@ def _bind(project: str, verified: VerifiedProjectGitHubBinding) -> None:
 
 
 def test_repair_normalizes_only_effectively_enabled_unbound_rows(project_db):
-    _bind("buzz", _verified())
+    _bind("externalwebapp", _verified())
     conn = pg_testdb.connect_test_database(project_db)
     try:
         conn.execute(
@@ -111,11 +111,11 @@ def test_repair_normalizes_only_effectively_enabled_unbound_rows(project_db):
         assert repaired["normalized"] == 2
         rows = conn.execute(
             "SELECT slug, github_sync_mode FROM projects "
-            "WHERE slug IN ('yoke', 'buzz', 'legacy-enabled', 'already-safe')"
+            "WHERE slug IN ('yoke', 'externalwebapp', 'legacy-enabled', 'already-safe')"
         ).fetchall()
         assert {row["slug"]: row["github_sync_mode"] for row in rows} == {
             "yoke": "backlog_only",
-            "buzz": None,
+            "externalwebapp": None,
             "legacy-enabled": "backlog_only",
             "already-safe": "backlog_only",
         }
@@ -143,13 +143,13 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
     try:
         conn.execute(
             "UPDATE projects SET github_repo=%s, github_sync_mode=NULL "
-            "WHERE slug='buzz'",
-            ("beebauman/buzz",),
+            "WHERE slug='externalwebapp'",
+            ("example-org/externalwebapp",),
         )
         conn.execute(
             "INSERT INTO project_capabilities (project_id, type, settings) "
             "VALUES (2, 'github', %s)",
-            ('{"repo_owner":"beebauman","repo_name":"buzz"}',),
+            ('{"repo_owner":"example-org","repo_name":"externalwebapp"}',),
         )
         conn.execute(
             "INSERT INTO capability_secrets "
@@ -158,7 +158,7 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
         )
         conn.commit()
 
-        preview = cmd_repair_unbound_enabled_sync_modes(project="buzz", conn=conn)
+        preview = cmd_repair_unbound_enabled_sync_modes(project="externalwebapp", conn=conn)
 
         assert preview == {
             "applied": False,
@@ -167,7 +167,7 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
             "projects": [
                 {
                     "id": 2,
-                    "slug": "buzz",
+                    "slug": "externalwebapp",
                     "stored_mode": None,
                     "effective_mode": "enabled",
                     "bound": False,
@@ -182,7 +182,7 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
                         {
                             "action": REPAIR_ACTION_CLEAR_REPO_PROJECTION,
                             "column": "github_repo",
-                            "from": "beebauman/buzz",
+                            "from": "example-org/externalwebapp",
                             "to": None,
                         },
                         {
@@ -195,7 +195,7 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
             ],
         }
         repaired = cmd_repair_unbound_enabled_sync_modes(
-            project="buzz",
+            project="externalwebapp",
             apply=True,
             conn=conn,
         )
@@ -239,7 +239,7 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
         )
 
         repeated = cmd_repair_unbound_enabled_sync_modes(
-            project="buzz",
+            project="externalwebapp",
             apply=True,
             conn=conn,
         )

@@ -54,7 +54,7 @@ def policy_conn() -> Iterator[Any]:
             "INSERT INTO projects "
             "(id, slug, name, default_branch) "
             "VALUES (%s, %s, %s, %s)",
-            (2, "buzz", "Buzz", "main"),
+            (2, "externalwebapp", "ExternalWebapp", "main"),
         )
         conn.commit()
         yield conn

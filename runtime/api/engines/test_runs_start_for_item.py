@@ -98,17 +98,17 @@ def test_explicit_kwargs_override_item_row():
     )
     with helpers, resolve as resolve_m, create as create_m, add, validate:
         result = start_for_item(
-            42, project="buzz", flow="to-staging",
+            42, project="externalwebapp", flow="to-staging",
         )
-    assert result.project == "buzz"
+    assert result.project == "externalwebapp"
     assert result.flow == "to-staging"
     # The explicit kwargs reach the primitives — not the item row values.
     create_m.assert_called_once()
     args, kwargs = create_m.call_args
-    assert args[0] == "buzz"
+    assert args[0] == "externalwebapp"
     assert args[1] == "to-staging"
     resolve_m.assert_called_once_with(
-        "buzz", "to-staging", target_env_override=None,
+        "externalwebapp", "to-staging", target_env_override=None,
     )
 
 

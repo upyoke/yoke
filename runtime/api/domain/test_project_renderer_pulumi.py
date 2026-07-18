@@ -187,34 +187,34 @@ class TestGatherPulumiValues:
         context = {
             "domainName": "test.example.com",
             "originHost": "origin.example.com",
-            "projectName": "buzz",
+            "projectName": "externalwebapp",
             "hostedZoneId": "Z123",
             "certificateArn": "arn:aws:acm:us-east-1:123:cert/abc",
-            "originId": "buzzinfraDistributionOrigin18BAD744B",
-            "distributionBucketName": "buzz-distribution-prod",
+            "originId": "externalwebappinfraDistributionOrigin18BAD744B",
+            "distributionBucketName": "externalwebapp-distribution-prod",
             "vpsInstanceType": "t3.small",
             "vpsRootVolumeGb": "20",
-            "vpsSshKeyName": "buzz-key",
-            "vpsIamInstanceProfileName": "buzz-origin-profile",
+            "vpsSshKeyName": "externalwebapp-key",
+            "vpsIamInstanceProfileName": "externalwebapp-origin-profile",
             "awsAccountId": "111122223333",
             "awsRegion": "us-east-1",
-            "kmsKeyAlias": "alias/buzz-state",
-            "stateBucket": "buzz-state",
-            "pulumiInfraStackName": "buzz-infra",
-            "pulumiVpsStackName": "buzz-vps",
+            "kmsKeyAlias": "alias/externalwebapp-state",
+            "stateBucket": "externalwebapp-state",
+            "pulumiInfraStackName": "externalwebapp-infra",
+            "pulumiVpsStackName": "externalwebapp-vps",
         }
-        _stub_renderer_settings(monkeypatch, "buzz", context)
-        root = _make_project_root(tmp_path, "buzz")
-        result = project_renderer_pulumi.gather_pulumi_values("buzz", root)
+        _stub_renderer_settings(monkeypatch, "externalwebapp", context)
+        root = _make_project_root(tmp_path, "externalwebapp")
+        result = project_renderer_pulumi.gather_pulumi_values("externalwebapp", root)
 
         expected = (
             _GATHER_VALUES_KEYS | _VPS_KEYS | _PULUMI_KEYS | _CI_KEYS
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert result["vps_iam_instance_profile_name"] == "buzz-origin-profile"
-        assert result["origin_id"] == "buzzinfraDistributionOrigin18BAD744B"
-        assert result["distribution_bucket_name"] == "buzz-distribution-prod"
+        assert result["vps_iam_instance_profile_name"] == "externalwebapp-origin-profile"
+        assert result["origin_id"] == "externalwebappinfraDistributionOrigin18BAD744B"
+        assert result["distribution_bucket_name"] == "externalwebapp-distribution-prod"
         assert result["domain_txt_records_json"] == "[]"
         assert result["domain_mx_records_json"] == "[]"
         # No `github` capability in this context -> CI federation renders off.
@@ -228,41 +228,41 @@ class TestGatherPulumiValues:
         context = {
             "vpsInstanceType": "t3.medium",
             "vpsRootVolumeGb": "40",
-            "vpsSshKeyName": "buzz-prod",
-            "vpsIamInstanceProfileName": "buzz-prod-origin",
+            "vpsSshKeyName": "externalwebapp-prod",
+            "vpsIamInstanceProfileName": "externalwebapp-prod-origin",
             "awsAccountId": "999988887777",
             "awsRegion": "us-west-2",
-            "kmsKeyAlias": "alias/buzz-pulumi",
-            "stateBucket": "buzz-pulumi-state",
+            "kmsKeyAlias": "alias/externalwebapp-pulumi",
+            "stateBucket": "externalwebapp-pulumi-state",
         }
-        _stub_renderer_settings(monkeypatch, "buzz", context)
-        root = _make_project_root(tmp_path, "buzz")
-        result = project_renderer_pulumi.gather_pulumi_values("buzz", root)
+        _stub_renderer_settings(monkeypatch, "externalwebapp", context)
+        root = _make_project_root(tmp_path, "externalwebapp")
+        result = project_renderer_pulumi.gather_pulumi_values("externalwebapp", root)
 
         assert result["vps_instance_type"] == "t3.medium"
         assert result["vps_root_volume_gb"] == "40"
-        assert result["vps_ssh_key_name"] == "buzz-prod"
-        assert result["vps_iam_instance_profile_name"] == "buzz-prod-origin"
+        assert result["vps_ssh_key_name"] == "externalwebapp-prod"
+        assert result["vps_iam_instance_profile_name"] == "externalwebapp-prod-origin"
         # aws_account_id and aws_region live on gather_values()'s 25-key dict;
         # gather_pulumi_values keeps those base renderer slots while projecting
         # Pulumi-specific settings into the snake_case keys below.
         assert "aws_account_id" in result
         assert "aws_region" in result
-        assert result["kms_key_alias"] == "alias/buzz-pulumi"
-        assert result["state_bucket"] == "buzz-pulumi-state"
+        assert result["kms_key_alias"] == "alias/externalwebapp-pulumi"
+        assert result["state_bucket"] == "externalwebapp-pulumi-state"
 
     def test_defaults_when_optional_fields_missing(self, tmp_path, monkeypatch):
         # Minimal context: omit the Pulumi-specific fields.
-        context = {"projectName": "buzz"}
-        _stub_renderer_settings(monkeypatch, "buzz", context)
-        root = _make_project_root(tmp_path, "buzz")
-        result = project_renderer_pulumi.gather_pulumi_values("buzz", root)
+        context = {"projectName": "externalwebapp"}
+        _stub_renderer_settings(monkeypatch, "externalwebapp", context)
+        root = _make_project_root(tmp_path, "externalwebapp")
+        result = project_renderer_pulumi.gather_pulumi_values("externalwebapp", root)
 
-        assert result["pulumi_infra_stack_name"] == "buzz-infra"
-        assert result["pulumi_vps_stack_name"] == "buzz-vps"
-        assert result["pulumi_runner_fleet_stack_name"] == "buzz-runner-fleet"
-        assert result["kms_key_alias"] == "alias/buzz-pulumi-state"
-        assert result["state_bucket"] == "buzz-pulumi-state"
+        assert result["pulumi_infra_stack_name"] == "externalwebapp-infra"
+        assert result["pulumi_vps_stack_name"] == "externalwebapp-vps"
+        assert result["pulumi_runner_fleet_stack_name"] == "externalwebapp-runner-fleet"
+        assert result["kms_key_alias"] == "alias/externalwebapp-pulumi-state"
+        assert result["state_bucket"] == "externalwebapp-pulumi-state"
         # origin_id has no template-level default — empty string when
         # context omits it, so callers fail loud at render time rather
         # than silently inheriting another project's Id.
@@ -332,20 +332,20 @@ class TestRenderPulumiStackYaml:
         values = {
             "aws_region": "us-east-1",
             "aws_account_id": "111122223333",
-            "kms_key_alias": "alias/buzz-state",
-            "domain_name": "buzz.example.com",
+            "kms_key_alias": "alias/externalwebapp-state",
+            "domain_name": "externalwebapp.example.com",
             "origin_host": "origin.example.com",
-            "project_name": "buzz",
+            "project_name": "externalwebapp",
             "hosted_zone_id": "Z123",
             "certificate_arn": "arn:aws:acm:us-east-1:123:cert/abc",
-            "origin_id": "buzzinfraDistributionOrigin18BAD744B",
-            "distribution_bucket_name": "buzz-distribution-prod",
+            "origin_id": "externalwebappinfraDistributionOrigin18BAD744B",
+            "distribution_bucket_name": "externalwebapp-distribution-prod",
             "domain_txt_records_json": "[]",
             "domain_mx_records_json": "[]",
             "vps_instance_type": "t3.small",
             "vps_root_volume_gb": "20",
-            "vps_ssh_key_name": "buzz-key",
-            "vps_iam_instance_profile_name": "buzz-origin-profile",
+            "vps_ssh_key_name": "externalwebapp-key",
+            "vps_iam_instance_profile_name": "externalwebapp-origin-profile",
         }
         rendered = project_renderer_pulumi.render_pulumi_stack_yaml(
             template, values,
@@ -356,7 +356,7 @@ class TestRenderPulumiStackYaml:
         # Spot-check substitutions landed.
         assert "us-east-1" in rendered
         assert "111122223333" in rendered
-        assert "alias/buzz-state" in rendered
+        assert "alias/externalwebapp-state" in rendered
         assert "t3.small" in rendered
-        assert "buzzinfraDistributionOrigin18BAD744B" in rendered
-        assert "buzz-distribution-prod" in rendered
+        assert "externalwebappinfraDistributionOrigin18BAD744B" in rendered
+        assert "externalwebapp-distribution-prod" in rendered

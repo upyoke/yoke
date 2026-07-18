@@ -210,7 +210,7 @@ class TestList:
 
     def test_list_by_project(self, db_path: str) -> None:
         dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        result = dr.cmd_list(project="buzz", db_path=db_path)
+        result = dr.cmd_list(project="externalwebapp", db_path=db_path)
         assert result == ""
 
     def test_list_by_status(self, db_path: str) -> None:

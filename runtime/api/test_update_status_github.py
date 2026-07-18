@@ -298,17 +298,17 @@ class TestRepoResolution:
         test_db.execute(
             "INSERT INTO projects "
             "(id, slug, name, github_repo, created_at) "
-            "VALUES (2, 'buzz', 'Buzz', 'example-org/buzz', "
+            "VALUES (2, 'externalwebapp', 'ExternalWebapp', 'example-org/externalwebapp', "
             "'2026-01-01T00:00:00Z') "
             "ON CONFLICT (id) DO UPDATE SET "
             "slug = excluded.slug, name = excluded.name, "
             "github_repo = excluded.github_repo"
         )
         test_db.commit()
-        insert_item(test_db, id=42, title="Epic", type="epic", project="buzz")
+        insert_item(test_db, id=42, title="Epic", type="epic", project="externalwebapp")
         project, repo = update_status._resolve_repo_for_epic(test_db, "42")
-        assert project == "buzz"
-        assert repo == "example-org/buzz"
+        assert project == "externalwebapp"
+        assert repo == "example-org/externalwebapp"
 
     def test_resolve_no_project(self, test_db):
         insert_item(test_db, id=42, title="Epic", type="epic", project="yoke")

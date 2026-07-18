@@ -80,12 +80,12 @@ class TestDoctorRun:
     def test_only_with_project_override(self) -> None:
         rc = _run(
             _stub_ok, "doctor", "run",
-            "--only", "HC-foo,HC-bar", "--project", "buzz",
+            "--only", "HC-foo,HC-bar", "--project", "externalwebapp",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.payload["only"] == "HC-foo,HC-bar"
-        assert req.payload["project"] == "buzz"
+        assert req.payload["project"] == "externalwebapp"
 
     def test_missing_scope_returns_two(self) -> None:
         rc = _run(_stub_ok, "doctor", "run")

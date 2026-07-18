@@ -243,7 +243,7 @@ class TestEnvExecutorDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
-        fake_env.deploy_namespace = "buzz"
+        fake_env.deploy_namespace = "externalwebapp"
         with mock.patch(
             "yoke_core.domain.deploy_environment_settings."
             "resolve_deploy_environment",

@@ -147,8 +147,8 @@ def _candidate_targets(
       (matches Yoke's ``runtime/api/domain/test_<id>.py`` shape because
       ``runtime/api/domain/migrations``.parent is ``runtime/api/domain``).
     * ``<test_root>/test_<identifier>.py`` for each entry the caller
-      sourced from ``project_structure.test_roots`` (matches Buzz's
-      ``app/tests/test_<id>.py`` shape and any other project that
+      sourced from ``project_structure.test_roots`` (matches a common
+      ``app/tests/test_<id>.py`` shape and any project that
       declares its test trees there).
     """
     candidates: List[Path] = [

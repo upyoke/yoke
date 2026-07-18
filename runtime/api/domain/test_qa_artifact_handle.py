@@ -21,8 +21,8 @@ from yoke_core.domain.qa_artifact_handle import (
 
 class TestBuildArtifactKey:
     def test_key_taxonomy(self) -> None:
-        key = build_artifact_key("buzz", 1732, 88, "home.png")
-        assert key == "qa-artifacts/buzz/1732/88/home.png"
+        key = build_artifact_key("externalwebapp", 1732, 88, "home.png")
+        assert key == "qa-artifacts/externalwebapp/1732/88/home.png"
 
     @pytest.mark.parametrize(
         "segment", ["", "..", "a/b", "/abs", "  "],

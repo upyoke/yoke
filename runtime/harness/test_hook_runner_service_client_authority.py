@@ -21,7 +21,7 @@ def test_target_service_client_path_falls_back_to_yoke_code_root(
     service_path = yoke_root / "runtime" / "api" / "service_client.py"
     service_path.parent.mkdir(parents=True)
     service_path.write_text("# service client placeholder\n", encoding="utf-8")
-    external_root = tmp_path / "buzz"
+    external_root = tmp_path / "externalwebapp"
     external_root.mkdir()
     monkeypatch.setenv("YOKE_CODE_ROOT", str(yoke_root))
 
@@ -102,7 +102,7 @@ def test_register_session_child_imports_yoke_code_for_external_target(
     service_path = yoke_root / "runtime" / "api" / "service_client.py"
     service_path.parent.mkdir(parents=True)
     service_path.write_text("# service client placeholder\n", encoding="utf-8")
-    external_root = tmp_path / "buzz"
+    external_root = tmp_path / "externalwebapp"
     external_root.mkdir()
     binding = _write_machine_config(external_root)
     monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")

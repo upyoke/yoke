@@ -27,7 +27,7 @@ def _hours_ago(hours: int) -> str:
 
 
 def _project_id(slug: str) -> int:
-    return {"yoke": 1, "buzz": 2, **_EXTRA_PROJECT_IDS}[slug]
+    return {"yoke": 1, "externalwebapp": 2, **_EXTRA_PROJECT_IDS}[slug]
 
 
 def _seed_project(conn, slug: str) -> None:

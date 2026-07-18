@@ -140,7 +140,7 @@ class TestItemFilter:
         assert "(frozen IS NULL OR frozen = 0)" in clause
 
     def test_table_prefix(self):
-        filt = ItemFilter(status="implementing", project="buzz")
+        filt = ItemFilter(status="implementing", project="externalwebapp")
         clause, params = build_where_clause(filt, table_prefix="i.")
         assert "i.status = %s" in clause
         assert "i.project_id = (" in clause

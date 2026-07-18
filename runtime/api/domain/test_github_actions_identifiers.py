@@ -34,9 +34,9 @@ _UNSAFE_PATH_SEGMENTS = ("/", "..", "%2f", "?", "#")
         (
             WorkflowDispatchOnceRequest,
             {
-                "repo": "upyoke/buzz",
-                "workflow": "buzz-deploy.yml",
-                "project": "buzz",
+                "repo": "upyoke/externalwebapp",
+                "workflow": "externalwebapp-deploy.yml",
+                "project": "externalwebapp",
             },
         ),
         (

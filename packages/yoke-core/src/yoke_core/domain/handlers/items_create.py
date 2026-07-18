@@ -2,7 +2,7 @@
 item creation over the function-call surface (in-process AND https).
 
 Wraps :func:`yoke_core.domain.backlog_create_op.execute_create` so the
-CLI ``yoke items create`` path and a Buzz / no-checkout https call share the
+CLI ``yoke items create`` path and an external/no-checkout HTTPS call share the
 one create op (source-actor resolution, project-sequence allocation,
 GitHub sync, board rebuild). Running server-side, ``execute_create``
 writes to the authoritative Postgres the deployed core is bound to, which

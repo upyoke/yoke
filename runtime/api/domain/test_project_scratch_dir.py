@@ -64,10 +64,10 @@ def test_resolve_active_project_prefers_explicit_then_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_checkout_project(monkeypatch)
-    monkeypatch.setenv("YOKE_PROJECT", "buzz")
+    monkeypatch.setenv("YOKE_PROJECT", "externalwebapp")
 
     assert scratch.resolve_active_project("yoke") == "yoke"
-    assert scratch.resolve_active_project() == "buzz"
+    assert scratch.resolve_active_project() == "externalwebapp"
 
 
 def test_accessors_return_expected_absolute_shapes(

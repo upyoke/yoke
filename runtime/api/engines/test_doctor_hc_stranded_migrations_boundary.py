@@ -13,10 +13,10 @@ from yoke_core.engines.doctor_hc_stranded_migrations import (
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from runtime.api.engines.test_doctor_hc_stranded_migrations import (
     _audit_db_with,
-    _build_buzz_shape_repo,
+    _build_externalwebapp_shape_repo,
     _build_repo,
     _make_control_conn,
-    _seed_governed_buzz,
+    _seed_governed_externalwebapp,
     _seed_governed_yoke,
 )
 
@@ -65,12 +65,12 @@ def test_yoke_sqlite_file_project_is_ignored_as_invalid_legacy_residue(
 
 
 def test_external_root_data_yoke_db_path_is_ignored(conn, tmp_path: Path) -> None:
-    repo, migrations, _audit_db = _build_buzz_shape_repo(tmp_path)
+    repo, migrations, _audit_db = _build_externalwebapp_shape_repo(tmp_path)
     (migrations / "root_named.py").write_text("def apply(c): pass\n")
     root_db = repo / "data" / "yoke.db"
     root_db.parent.mkdir(exist_ok=True)
     _audit_db_with(root_db, name="root_named", state="completed")
-    _seed_governed_buzz(conn, repo_path=repo, audit_db_rel="data/yoke.db")
+    _seed_governed_externalwebapp(conn, repo_path=repo, audit_db_rel="data/yoke.db")
 
     rec = RecordCollector()
     hc_stranded_migration_module(conn, DoctorArgs(), rec)

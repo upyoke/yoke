@@ -8,7 +8,7 @@ from yoke_core.board.db import BoardDB
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
-PROJECT_IDS = {"yoke": 1, "buzz": 2}
+PROJECT_IDS = {"yoke": 1, "externalwebapp": 2}
 
 
 def project_id(project: object) -> int:
@@ -155,7 +155,7 @@ def insert_projects(db_path: str, projects: list) -> None:
     for project, _checkout in projects:
         pid = project_id(project)
         slug = str(project) if not str(project).isdigit() else f"project-{project}"
-        prefix = {"yoke": "YOK", "buzz": "BUZ"}.get(slug, slug.upper())
+        prefix = {"yoke": "YOK", "externalwebapp": "EXT"}.get(slug, slug.upper())
         conn.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix) "
             "VALUES (%s, %s, %s, %s) "

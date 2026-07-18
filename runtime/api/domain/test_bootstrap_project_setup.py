@@ -31,14 +31,14 @@ def test_load_setup_config_prefers_env_key_path(tmp_path: Path, monkeypatch) -> 
     db_key.write_text("db-secret")
     env_key = tmp_path / ".env-key"
     env_key.write_text("secret")
-    monkeypatch.setenv("BUZZ_SSH_KEY_PATH", str(env_key))
-    repo_path = tmp_path / "buzz-repo"
+    monkeypatch.setenv("EXT_SSH_KEY_PATH", str(env_key))
+    repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
 
     with bootstrap_seeded_db(tmp_path, db_key) as db_path:
         register_bootstrap_backend_checkout(db_path, repo_path)
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path,
             yoke_db=db_path,
@@ -47,7 +47,7 @@ def test_load_setup_config_prefers_env_key_path(tmp_path: Path, monkeypatch) -> 
 
     # Resolves to the registered machine-local checkout, never the cwd.
     assert cfg.repo_path == repo_path
-    assert cfg.display_name == "Buzz"
+    assert cfg.display_name == "ExternalWebapp"
     assert cfg.ssh_key_path == env_key
 
 
@@ -68,7 +68,7 @@ def test_load_setup_config_refuses_cwd_fallback_when_unmapped(
 
     with bootstrap_seeded_db(tmp_path, db_key) as db_path:
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path,
             yoke_db=db_path,
@@ -82,12 +82,12 @@ def test_run_setup_resolves_auth_with_active_connection(
 ) -> None:
     ssh_key = tmp_path / ".ssh_key"
     ssh_key.write_text("fake-ssh-key")
-    repo_path = tmp_path / "buzz-repo"
+    repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
     seen: dict[str, object] = {}
 
     class Resolved:
-        repo = "example-org/buzz"
+        repo = "example-org/externalwebapp"
         token = "ghs_fake_token_123"
         installation_id = "12345"
 
@@ -108,7 +108,7 @@ def test_run_setup_resolves_auth_with_active_connection(
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         register_bootstrap_backend_checkout(db_path, repo_path)
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path,
             yoke_db=db_path,
@@ -117,7 +117,7 @@ def test_run_setup_resolves_auth_with_active_connection(
         rc = run_setup(ctx)
 
     assert rc == 2
-    assert seen["project"] == "buzz"
+    assert seen["project"] == "externalwebapp"
     assert seen["db_path"] is None
     assert seen["conn"] is not None
     assert seen["required_permissions"] is GITHUB_SECRETS_WRITE_PERMISSION_LEVELS
@@ -126,7 +126,7 @@ def test_run_setup_resolves_auth_with_active_connection(
 def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, capsys) -> None:
     # bootstrap_project.run_setup invokes the Python render CLI directly.
 
-    repo_path = tmp_path / "buzz-repo"
+    repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
     ssh_key = tmp_path / ".ssh_key"
     ssh_key.write_text("fake-ssh-key")
@@ -140,7 +140,7 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
             write_fake_rendered_workflows(cmd)
             return subprocess.CompletedProcess(cmd, 0, "rendered\n", "")
         if cmd[:3] == ["git", "status", "--porcelain"]:
-            return subprocess.CompletedProcess(cmd, 0, " M .github/workflows/buzz-deploy.yml\n", "")
+            return subprocess.CompletedProcess(cmd, 0, " M .github/workflows/externalwebapp-deploy.yml\n", "")
         if cmd[:2] == ["git", "add"]:
             return subprocess.CompletedProcess(cmd, 0, "", "")
         if cmd[:2] == ["git", "commit"]:
@@ -160,7 +160,7 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
         register_bootstrap_backend_checkout(db_path, repo_path)
 
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,
@@ -171,8 +171,8 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
         rest_calls = _install_fake_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
-        assert (repo_path / ".github" / "workflows" / "buzz-deploy.yml").read_text() == "name: Buzz Deploy\n"
-        assert (repo_path / ".github" / "workflows" / "buzz-smoke.yml").read_text() == "name: Buzz Smoke Test\n"
+        assert (repo_path / ".github" / "workflows" / "externalwebapp-deploy.yml").read_text() == "name: ExternalWebapp Deploy\n"
+        assert (repo_path / ".github" / "workflows" / "externalwebapp-smoke.yml").read_text() == "name: ExternalWebapp Smoke Test\n"
         output = capsys.readouterr().out
         assert "Step 2: Creating GitHub Secrets" in output
         assert "Push successful" in output
@@ -187,7 +187,7 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
 
 
 def test_run_setup_prints_tls_instructions_when_missing(tmp_path: Path, monkeypatch, capsys) -> None:
-    repo_path = tmp_path / "buzz-repo"
+    repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
     ssh_key = tmp_path / ".ssh_key"
     ssh_key.write_text("fake-ssh-key")
@@ -214,7 +214,7 @@ def test_run_setup_prints_tls_instructions_when_missing(tmp_path: Path, monkeypa
         register_bootstrap_backend_checkout(db_path, repo_path)
 
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,

@@ -34,7 +34,7 @@ _APP_PERMISSIONS = {
 }
 
 
-def _seed_buzz(
+def _seed_externalwebapp(
     conn,
     db_dir: Path,
     *,
@@ -49,7 +49,7 @@ def _seed_buzz(
         "INSERT INTO projects "
         "(id, slug, name, github_repo, default_branch) "
         f"VALUES ({p}, {p}, {p}, {p}, {p})",
-        (2, "buzz", "Buzz", "example-org/buzz", default_branch),
+        (2, "externalwebapp", "ExternalWebapp", "example-org/externalwebapp", default_branch),
     )
     conn.execute(
         "INSERT INTO project_capabilities (project_id, type, settings) "
@@ -59,7 +59,7 @@ def _seed_buzz(
             "github",
             json.dumps({
                 "repo_owner": "example-org",
-                "repo_name": "buzz",
+                "repo_name": "externalwebapp",
                 "installation_id": "12345",
                 "repository_id": "4567",
             }),
@@ -93,7 +93,7 @@ def _seed_buzz(
                 2,
                 "12345",
                 "4567",
-                "example-org/buzz",
+                "example-org/externalwebapp",
                 default_branch,
                 "active",
                 permissions_json,
@@ -124,7 +124,7 @@ def _seed_buzz(
     conn.execute(
         "INSERT INTO deployment_flows (id, project_id, name, stages) "
         f"VALUES ({p}, {p}, {p}, {p})",
-        ("buzz-prod-release", 2, "Buzz Production Release", json.dumps(stages)),
+        ("externalwebapp-prod-release", 2, "ExternalWebapp Production Release", json.dumps(stages)),
     )
 
 
@@ -132,7 +132,7 @@ def _seed_buzz(
 def _init_db(
     db_dir: Path,
     *,
-    include_buzz: bool = True,
+    include_externalwebapp: bool = True,
     include_app_auth: bool = True,
     ssh_settings: dict | None = None,
     docker_settings: dict | None = None,
@@ -142,7 +142,7 @@ def _init_db(
     """Yield a backend-routed control-plane marker with the pipeline schema.
 
     ``init_test_db`` builds the schema on SQLite (a real file under ``db_dir``)
-    or on a disposable Postgres database; ``_build_schema`` + ``_seed_buzz``
+    or on a disposable Postgres database; ``_build_schema`` + ``_seed_externalwebapp``
     seed through the backend factory so the validator (which reads via the same
     factory) sees the rows on both engines. The marker file at the yielded path
     satisfies the ``ctx.control_plane_marker.is_file()`` availability gate on
@@ -153,8 +153,8 @@ def _init_db(
         try:
             execute_schema_script(conn, _SCHEMA)
             conn.commit()
-            if include_buzz:
-                _seed_buzz(
+            if include_externalwebapp:
+                _seed_externalwebapp(
                     conn,
                     db_dir,
                     include_app_auth=include_app_auth,
@@ -204,7 +204,7 @@ def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
             (),
             {
                 "project": project,
-                "repo": "example-org/buzz",
+                "repo": "example-org/externalwebapp",
                 "token": "ghs_validator",
                 "permissions": {"administration": "read"},
             },
@@ -223,14 +223,14 @@ def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
 
     with _init_db(
         tmp_path,
-        ssh_settings={"host": "buzz.example", "user": "deploy", "key_path": "~/.ssh/id_rsa"},
+        ssh_settings={"host": "externalwebapp.example", "user": "deploy", "key_path": "~/.ssh/id_rsa"},
         docker_settings={"registry": "ghcr.io"},
     ) as db_path:
         ctx = ValidateContext(
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
             verbose=True,
         )
         rc = run_validation(ctx)
@@ -240,9 +240,9 @@ def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
     assert rc == 0, out
     assert "Pre-flight PASSED with 1 warning(s)" in out
     assert "[FAIL]" not in out
-    assert "Workflow file exists: buzz-deploy.yml" in out
+    assert "Workflow file exists: externalwebapp-deploy.yml" in out
     assert "GitHub environment 'production' exists" in out
-    assert "buzz-prod-release flow has 2 stage(s)" in out
+    assert "externalwebapp-prod-release flow has 2 stage(s)" in out
 
 
 def test_run_validation_missing_control_plane_marker(
@@ -252,7 +252,7 @@ def test_run_validation_missing_control_plane_marker(
         project_root=tmp_path,
         script_dir=_make_script_dir(tmp_path),
         control_plane_marker=tmp_path / "absent.db",
-        project="buzz",
+        project="externalwebapp",
     )
     rc = run_validation(ctx)
     out = capsys.readouterr().out
@@ -284,26 +284,26 @@ def test_run_validation_missing_project_and_token(tmp_path: Path, monkeypatch, c
         lambda cmd, **_: subprocess.CompletedProcess(cmd, 1, "", ""),
     )
 
-    with _init_db(tmp_path, include_buzz=False) as db_path:
+    with _init_db(tmp_path, include_externalwebapp=False) as db_path:
         ctx = ValidateContext(
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
     out = capsys.readouterr().out
     assert rc == 1
-    assert "Buzz project not found in projects table" in out
-    assert "Buzz github_repo not set" in out
-    assert "No github capability for buzz" in out
-    assert "No deployment flows for buzz" in out
+    assert "ExternalWebapp project not found in projects table" in out
+    assert "ExternalWebapp github_repo not set" in out
+    assert "No github capability for externalwebapp" in out
+    assert "No deployment flows for externalwebapp" in out
     # GitHub App auth-only validator no longer probes the host gh CLI. Banned
     # strings built by concatenation so the AC-1 / AC-2 grep recipes
     # return zero hits anywhere in the live tree.
     assert ("gh CLI" + " not installed") not in out
     assert ("brew" + " install gh") not in out
-    assert "buzz github auth not resolvable" in out
+    assert "externalwebapp github auth not resolvable" in out
 
 
 def test_run_validation_flags_missing_github_app_binding(
@@ -338,7 +338,7 @@ def test_run_validation_flags_missing_github_app_binding(
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
     out = capsys.readouterr().out

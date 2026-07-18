@@ -32,7 +32,7 @@ def db():
 
 class TestPostCommentAuthTranslation:
     def test_translates_missing_binding_to_sync_warning(self, db):
-        insert_item(db, id=30, type="issue", status="implementing", project="buzz", github_issue="#50")
+        insert_item(db, id=30, type="issue", status="implementing", project="externalwebapp", github_issue="#50")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -40,7 +40,7 @@ class TestPostCommentAuthTranslation:
         ), patch.object(
             backlog_github_comments, "resolve_project_github_auth",
             side_effect=MissingRepoBinding(
-                "buzz", "project 'buzz' has no GitHub App repository binding",
+                "externalwebapp", "project 'externalwebapp' has no GitHub App repository binding",
             ),
         ):
             rc = backlog_github_sync.post_comment(
@@ -50,19 +50,19 @@ class TestPostCommentAuthTranslation:
         assert rc == 1  # non-zero — no silent swallow
         text = stderr.getvalue()
         assert "sync_warning=MissingRepoBinding" in text
-        assert "post_comment skipped for BUZ-30" in text
+        assert "post_comment skipped for EXT-30" in text
         assert "Repair:" in text
         assert "github-binding bind" in text
 
     def test_translates_missing_capability(self, db):
-        insert_item(db, id=31, type="issue", status="implementing", project="buzz", github_issue="#51")
+        insert_item(db, id=31, type="issue", status="implementing", project="externalwebapp", github_issue="#51")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_comments, "resolve_project_github_auth",
-            side_effect=MissingCapability("buzz", "no github capability for project 'buzz'"),
+            side_effect=MissingCapability("externalwebapp", "no github capability for project 'externalwebapp'"),
         ):
             rc = backlog_github_sync.post_comment(
                 "31", "idea", "implementing", conn=db, stderr=stderr,
@@ -71,4 +71,4 @@ class TestPostCommentAuthTranslation:
         assert rc == 1
         text = stderr.getvalue()
         assert "sync_warning=MissingCapability" in text
-        assert "post_comment skipped for BUZ-31" in text
+        assert "post_comment skipped for EXT-31" in text

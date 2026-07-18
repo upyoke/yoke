@@ -69,7 +69,7 @@ def test_repository_provider_token_never_includes_administration():
 def test_envelope_project_must_match_renderer_snapshot(tmp_path):
     snapshot = _write_snapshot(
         tmp_path / "stack-config.json",
-        project="buzz",
+        project="externalwebapp",
         envelope_project="yoke",
     )
 
@@ -78,7 +78,7 @@ def test_envelope_project_must_match_renderer_snapshot(tmp_path):
         match="envelope project does not match",
     ):
         runner_fleet_exec.execute_runner_fleet_command(
-            "buzz",
+            "externalwebapp",
             snapshot,
             ["pulumi", "up"],
         )
@@ -95,7 +95,7 @@ def test_unknown_snapshot_schema_refuses(tmp_path):
         match="schema 99.*not supported",
     ):
         runner_fleet_exec.execute_runner_fleet_command(
-            "buzz",
+            "externalwebapp",
             snapshot,
             ["pulumi", "up"],
         )
@@ -123,7 +123,7 @@ def test_runner_validation_is_enabled_and_fails_before_aws(
         match="runner-fleet binding is invalid",
     ):
         runner_fleet_exec.execute_runner_fleet_command(
-            "buzz",
+            "externalwebapp",
             snapshot,
             ["pulumi", "up"],
             aws_env_loader=lambda *args, **kwargs: pytest.fail("loaded AWS env"),
@@ -147,7 +147,7 @@ def test_aws_region_must_come_from_snapshot(tmp_path, monkeypatch):
         match="selected AWS capability 'aws-admin'.*declares no region",
     ):
         runner_fleet_exec.execute_runner_fleet_command(
-            "buzz",
+            "externalwebapp",
             snapshot,
             ["pulumi", "up"],
             aws_env_loader=lambda *args, **kwargs: pytest.fail("loaded AWS env"),
@@ -177,7 +177,7 @@ def test_sensitive_phase_failures_are_redacted(
 
     with pytest.raises(runner_fleet_exec.RunnerFleetExecError) as raised:
         runner_fleet_exec.execute_runner_fleet_command(
-            "buzz",
+            "externalwebapp",
             snapshot,
             ["pulumi", "up"],
             aws_env_loader=lambda project, region, **kwargs: {"AWS_REGION": region},
@@ -207,7 +207,7 @@ def test_missing_child_executable_propagates_for_cli_mapping(
 
     with pytest.raises(FileNotFoundError):
         runner_fleet_exec.execute_runner_fleet_command(
-            "buzz",
+            "externalwebapp",
             snapshot,
             ["missing-pulumi"],
             aws_env_loader=lambda project, region, **kwargs: {"AWS_REGION": region},
@@ -240,7 +240,7 @@ def test_custom_runner_aws_capability_selects_region_and_credentials(
         return {"AWS_REGION": region}
 
     rc = runner_fleet_exec.execute_runner_fleet_command(
-        "buzz",
+        "externalwebapp",
         snapshot,
         ["pulumi", "preview"],
         aws_env_loader=aws_env_loader,
@@ -250,4 +250,4 @@ def test_custom_runner_aws_capability_selects_region_and_credentials(
     )
 
     assert rc == 0
-    assert env_calls == [("buzz", "eu-west-1", "runner-aws")]
+    assert env_calls == [("externalwebapp", "eu-west-1", "runner-aws")]

@@ -19,7 +19,7 @@ from yoke_core.api import service_client_backlog_github as relay
 
 
 _OK_AUTH = ProjectGithubAuth(
-    project="buzz", repo="org/buzz", token="ghs_fake",
+    project="externalwebapp", repo="org/externalwebapp", token="ghs_fake",
 )
 
 
@@ -30,7 +30,7 @@ def _p(conn: Any) -> str:
 def _seed_item(conn: Any, item_id: int) -> None:
     insert_item(
         conn, id=item_id, type="issue", status="implementing",
-        project="buzz", github_issue=f"#{1000 + item_id}", spec="# stub spec",
+        project="externalwebapp", github_issue=f"#{1000 + item_id}", spec="# stub spec",
     )
 
 
@@ -85,7 +85,7 @@ class TestCheckOwnership:
     def test_allow_when_no_claim(self, db_with_open_conn, monkeypatch):
         _seed_item(db_with_open_conn, 50)
         monkeypatch.setenv("YOKE_SESSION_ID", "session-A")
-        allow, reason, holder = cli.check_ownership("BUZ-50")
+        allow, reason, holder = cli.check_ownership("EXT-50")
         assert allow is True
         assert reason == "no-claim"
         assert holder == ""
@@ -154,7 +154,7 @@ class TestDirectCliGuard:
             _bgs, "sync_body",
             side_effect=lambda *a, **k: (called.append("sync_body"), 0)[1],
         ):
-            rc = cli.main(["sync-body", "BUZ-60"])
+            rc = cli.main(["sync-body", "EXT-60"])
 
         assert rc == 1
         assert called == []
@@ -245,7 +245,7 @@ class TestRelayGuard:
             _bgs, "sync_body",
             side_effect=lambda *a, **k: (called.append("sync_body"), 0)[1],
         ):
-            rc = relay.cmd_backlog_github(["sync-body", "BUZ-70"])
+            rc = relay.cmd_backlog_github(["sync-body", "EXT-70"])
 
         assert rc == 1
         assert called == []
@@ -280,10 +280,10 @@ class TestBackfillOwnership:
         for item_id, issue in ((80, "#180"), (81, "#181"), (82, "#182")):
             insert_item(
                 db, id=item_id, type="issue", status="implementing",
-                project="buzz", github_issue=issue, spec=_huge_spec(),
+                project="externalwebapp", github_issue=issue, spec=_huge_spec(),
             )
         insert_item(
-            db, id=83, type="issue", status="implementing", project="buzz",
+            db, id=83, type="issue", status="implementing", project="externalwebapp",
             github_issue="#183", spec="# small",
         )
         _seed_claim(db, item_id=81, session_id="session-A")
@@ -311,15 +311,15 @@ class TestBackfillOwnership:
         out = stdout.getvalue()
         err = stderr.getvalue()
         assert "skipped_claimed 1" in out
-        assert "BUZ-82 skipped_claimed" in err
+        assert "EXT-82 skipped_claimed" in err
         assert "session-B" in err
         # Small item (83) never appears in the repair output.
-        assert "BUZ-83" not in out and "BUZ-83" not in err
+        assert "EXT-83" not in out and "EXT-83" not in err
 
     def test_backfill_dry_run_skips_guard(self, monkeypatch):
         db = _make_db()
         insert_item(
-            db, id=84, type="issue", status="implementing", project="buzz",
+            db, id=84, type="issue", status="implementing", project="externalwebapp",
             github_issue="#184", spec=_huge_spec(),
         )
         _seed_claim(db, item_id=84, session_id="session-B")

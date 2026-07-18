@@ -77,7 +77,7 @@ class TestModeResolution:
         root = tmp_path / "other"
         root.mkdir()
         (root / "pyproject.toml").write_text(
-            '[project]\nname = "buzz"\n', encoding="utf-8"
+            '[project]\nname = "externalwebapp"\n', encoding="utf-8"
         )
         (root / "runtime" / "harness").mkdir(parents=True)
         assert source_link.resolve_mode(root, None)[0] == MODE_COPY

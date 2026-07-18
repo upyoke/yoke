@@ -233,9 +233,9 @@ def test_auto_retire_stages_test_alongside_module(audit_conn, tmp_path: Path):
 
 
 def test_candidate_targets_includes_declared_test_roots():
-    """Buzz-shape: modules at app/db/migrations, tests at app/tests/.
+    """ExternalWebapp-shape: modules at app/db/migrations, tests at app/tests/.
 
-    Neither the alongside nor the one-level-up candidate matches Buzz's
+    Neither the alongside nor the one-level-up candidate matches ExternalWebapp's
     test convention. The fix surfaces app/tests/ via the explicit
     test_roots_rel argument (sourced in production from
     project_structure.test_roots).
@@ -265,17 +265,17 @@ def test_candidate_targets_deduplicates_overlapping_test_roots():
     assert rendered.count("runtime/api/domain/test_demo.py") == 1
 
 
-def test_auto_retire_stages_buzz_shape_test_under_declared_test_root(
+def test_auto_retire_stages_externalwebapp_shape_test_under_declared_test_root(
     audit_conn, tmp_path: Path, monkeypatch,
 ):
-    """End-to-end: a Buzz-shape project (modules at app/db/migrations,
+    """End-to-end: a ExternalWebapp-shape project (modules at app/db/migrations,
     test at app/tests/test_<id>.py) retires both files. Pre-fix the test
     file was silently stranded because the candidate list only covered
     modules_dir, modules_dir/test_, and modules_dir.parent/test_.
     """
     if shutil.which("git") is None:
         pytest.skip("git binary not available")
-    repo = tmp_path / "repo_buzz_shape"
+    repo = tmp_path / "repo_externalwebapp_shape"
     migrations = repo / "app" / "db" / "migrations"
     tests = repo / "app" / "tests"
     migrations.mkdir(parents=True)
@@ -308,12 +308,12 @@ def test_auto_retire_stages_buzz_shape_test_under_declared_test_root(
     )
     payload = auto_retire_after_live_apply(
         audit_conn=audit_conn,
-        project="buzz",
+        project="externalwebapp",
         model={
             "runner": {"config": {"modules_dir": "app/db/migrations"}},
             "authoritative_db": {
                 "kind": "postgres",
-                "location": {"database_name": "buzz_primary"},
+                "location": {"database_name": "externalwebapp_primary"},
             },
         },
         profile={

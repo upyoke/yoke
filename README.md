@@ -257,8 +257,8 @@ Every item has a **deployment flow** selected during shepherding. Examples:
 | Flow | When used | Stages after `implemented` |
 |------|-----------|---------------------------|
 | `internal` | Scripts, docs, config | complete |
-| `buzz-prod-hotfix` | Urgent prod fix | prod-deploy → smoke → complete |
-| `buzz-prod-release` | Standard feature | prod-deploy → smoke → complete |
+| `external-webapp-prod-hotfix` | Urgent prod fix | prod-deploy → smoke → complete |
+| `external-webapp-prod-release` | Standard feature | prod-deploy → smoke → complete |
 
 Stage executor types: `auto`, `health-check`, `script`, `human-approval`, `github-actions-workflow`. All stage failures halt for v1; re-run `/yoke usher YOK-N` to resume.
 

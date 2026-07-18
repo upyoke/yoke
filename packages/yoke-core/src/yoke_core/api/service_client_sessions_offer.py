@@ -327,7 +327,7 @@ def cmd_session_offer(args: List[str]) -> int:
         default=None,
         help=(
             "Comma-separated project ids to narrow the frontier scope "
-            "(e.g. 'yoke,buzz'). Default: all registered projects."
+            "(e.g. 'yoke,example-project'). Default: all registered projects."
         ),
     )
 

@@ -79,8 +79,8 @@ def discover_test_surfaces(item_id: int) -> Dict[str, Any]:
     Returns a dict::
 
         {
-            "project": "buzz",
-            "checkout_path": "/path/to/buzz",
+            "project": "example-project",
+            "checkout_path": "/path/to/example-project",
             "surfaces": ["e2e/", "__tests__/", ...],
             "source": "context_routing" | "command_definitions_e2e" | "command_definitions_smoke" | "directory_scan" | "defaults",
             "doc_paths": ["docs/TESTING.md", ...]

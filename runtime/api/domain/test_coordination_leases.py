@@ -23,7 +23,7 @@ def _seed_projects(path: str) -> None:
             "ON CONFLICT (id) DO NOTHING",
             (
                 1, "yoke", "Yoke", "2026-04-23T00:00:00Z",
-                2, "buzz", "Buzz", "2026-04-23T00:00:00Z",
+                2, "externalwebapp", "ExternalWebapp", "2026-04-23T00:00:00Z",
             ),
         )
         conn.commit()

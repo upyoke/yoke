@@ -91,14 +91,14 @@ class TestPrCreate:
             "github", "pr", "create",
             "--title", "T", "--head", "h",
             "--base", "stage", "--body", "One-liner.",
-            "--draft", "--project", "buzz",
+            "--draft", "--project", "externalwebapp",
         )
         assert rc == 0
         payload = _CAPTURED_REQUESTS[-1].payload
         assert payload["base"] == "stage"
         assert payload["body"] == "One-liner."
         assert payload["draft"] is True
-        assert payload["project"] == "buzz"
+        assert payload["project"] == "externalwebapp"
 
     def test_body_stdin_reads_multiline_body(self) -> None:
         rc = _run(
