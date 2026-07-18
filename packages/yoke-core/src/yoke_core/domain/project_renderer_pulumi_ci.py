@@ -5,7 +5,10 @@ from __future__ import annotations
 from yoke_contracts.github_origin import DEFAULT_GITHUB_API_URL
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
+from yoke_core.domain.project_renderer_settings import (
+    ProjectRendererSettings,
+    _first_mapping,
+)
 
 
 def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
@@ -27,7 +30,7 @@ def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
             if secret_arn:
                 app_key_secret_arns.add(secret_arn)
     for source in (
-        settings.site_settings.get("cdn"),
+        _first_mapping(settings.site_settings.get("cdn")),
         settings.capabilities.get("domain"),
     ):
         if not isinstance(source, dict):
