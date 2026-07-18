@@ -29,7 +29,7 @@ Fix iteration {iteration}/3
 Read the gap report from DB:
 
 ```bash
-python3 -m yoke_core.cli.db_router epic simulation-get "{epic-id}" "{phase}"
+yoke workflow-item epic-task simulation-get --epic "{epic-id}" --phase "{phase}"
 ```
 
 Use this prompt:

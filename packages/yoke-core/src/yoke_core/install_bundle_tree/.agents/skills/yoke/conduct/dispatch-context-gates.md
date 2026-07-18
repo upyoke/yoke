@@ -18,7 +18,7 @@ _epic_id="${_id}" # For epics, the item's own ID is the epic_id in epic_tasks
 _chains=$(yoke workflow-item epic-dispatch-chain list --epic "$_epic_id")
 
 # Check condition (b): at least one task has a github_issue
-_synced_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
+_synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
 ```
 
 **If the epic is already synced** (`_chains` is non-empty AND `_synced_task_count > 0`): proceed to step 5f-epic.2.
@@ -27,7 +27,7 @@ _synced_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) F
 
 1. **Pre-check: tasks must exist.** Query the task count:
  ```bash
- _task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")
+ _task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")
  ```
  If `_task_count` is 0, there are no tasks to sync. HALT with:
  > No epic tasks found for YOK-{_id}. Run `/yoke plan YOK-{_id}` first.
@@ -59,7 +59,7 @@ _synced_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) F
 5. **Post-sync verification:** Re-check that dispatch chains now exist and tasks have `github_issue` values:
  ```bash
  _chains=$(yoke workflow-item epic-dispatch-chain list --epic "$_epic_id")
- _synced_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
+ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
  ```
  If `_chains` is still empty OR `_synced_task_count` is still 0: sync failed. HALT with:
  > Auto-sync failed for YOK-{_id}. Run `/yoke resync YOK-{_id}` manually.
@@ -76,7 +76,7 @@ On the **first task dispatch** for an epic, check whether the plan-phase simulat
 
 Query `epic_tasks` to determine if any task has progressed past initial state:
 ```bash
-_non_pending=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND status NOT IN ('planning','planned')")
+_non_pending=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND status NOT IN ('planning','planned')")
 ```
 If `_non_pending > 0`, skip the gate entirely -- this epic has already been evaluated on a prior dispatch.
 
@@ -175,7 +175,7 @@ These gates run after each Engineer returns, before advancing to Tester dispatch
  If `_last_commit_subject_{_id}` matches `chore: auto-commit Engineer uncommitted work [YOK-${_id}]` (with or without the `SubagentStop safety net` suffix), immediately re-dispatch Engineer for that same item and same attempt. Do NOT advance the item to `reviewing-implementation` or Tester from a safety-net commit.
 4. **Epic progress-note gate:** For epic items, commits without a new progress note are a failed submission.
  ```bash
- _progress_note_count_after_{_id}=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
+ _progress_note_count_after_{_id}=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
  _head_after_engineer_{_id}=$(git -C "${_worktree_path}" rev-parse HEAD 2>/dev/null || true)
  ```
  If `_head_after_engineer_{_id}` differs from `ATTEMPT_BASELINE_{_id}` and `_progress_note_count_after_{_id}` is not greater than `_progress_note_count_before_{_id}`, immediately re-dispatch Engineer for that same item and same attempt. Do NOT advance the item to `reviewing-implementation`.
@@ -197,7 +197,7 @@ These gates run after each Engineer returns, before advancing to Tester dispatch
 
  # Write synthetic progress note so cold-start sessions have context
  if [ -n "$_epic_id" ] && [ -n "$_task_id" ]; then
- _max_note=$(python3 -m yoke_core.cli.db_router query "SELECT COALESCE(MAX(note_num), 0) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null) || _max_note=0
+ _max_note=$(yoke db read --format lines "SELECT COALESCE(MAX(note_num), 0) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null) || _max_note=0
  _next_note=$(( _max_note + 1 ))
  _commit_hash=$(git rev-parse --short HEAD 2>/dev/null) || true
  _ts=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -205,7 +205,7 @@ These gates run after each Engineer returns, before advancing to Tester dispatch
 **Timestamp:** ${_ts}
 **Commit:** ${_commit_hash:-unknown}
 **Summary:** Engineer exited with uncommitted work. Auto-committed by conduct post-Engineer sweep.
-**Files:** ${_uncommitted_files}" | python3 -m yoke_core.cli.db_router epic progress-note-insert "$_epic_id" "$_task_id" "$_next_note" 2>/dev/null || true
+**Files:** ${_uncommitted_files}" | yoke workflow-item epic-progress-note append --epic "$_epic_id" --task-num "$_task_id" --note-num "$_next_note" --stdin --commit-hash "${_commit_hash:-unknown}" 2>/dev/null || true
  fi
  fi
  ```

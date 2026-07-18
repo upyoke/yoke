@@ -227,7 +227,7 @@ All snapshot and exec commands accept these optional flags:
 | Flag | Description |
 |------|-------------|
 | `--qa-run-id N` | QA run ID; triggers artifact recording |
-| `--project P` | Project name (e.g., `buzz`) |
+| `--project P` | Project name (e.g., `external-webapp`) |
 | `--route R` | Route path (e.g., `/dashboard`) |
 | `--step-index N` | Step index within a scenario |
 
@@ -249,7 +249,7 @@ When invoked via `yoke_core.domain.browser_client exec` directly (standalone mod
 {project}/test/qa-artifacts/{run_id}/{artifact_type}-{step_index}-{route_slug}.{ext}
 ```
 
-Example: `buzz/test/qa-artifacts/42/screenshot-3-dashboard.png`
+Example: `external-webapp/test/qa-artifacts/42/screenshot-3-dashboard.png`
 
 When invoked via `yoke_core.domain.browser_qa` (the canonical orchestrator path):
 
@@ -257,7 +257,7 @@ When invoked via `yoke_core.domain.browser_qa` (the canonical orchestrator path)
 {project}/qa-artifacts/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
 
-Example: `buzz/qa-artifacts/941/87/screenshot-0-20260317-143022.png`
+Example: `external-webapp/qa-artifacts/941/87/screenshot-0-20260317-143022.png`
 
 Both paths record artifacts to `qa_artifacts` via `yoke qa artifact add`. The orchestrator path organizes by item ID for easier per-item audit trails.
 

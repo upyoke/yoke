@@ -58,7 +58,7 @@ Worktree path: {_worktree_path}
 Main repo root: {MAIN_ROOT}
 Data directory: {MAIN_ROOT}/data (config and generated views live here)
 Mode: Standalone issue (no epic, no task files)
-Yoke DB: Postgres authority is selected by the backend; use `yoke <subcommand>` or `python3 -m yoke_core.cli.db_router query ...`
+Yoke DB: Postgres authority is selected by the backend; use `yoke <subcommand>` or `yoke db read --format lines ...`
 
 File routing:
  Code, tests, task files -> Worktree root: {_worktree_path}
@@ -147,7 +147,7 @@ _slug=$(echo "$_worktree_branch" | sed 's|/|-|g')
 _worktree_path="${_project_root}/.worktrees/${_slug}"
 ```
 
-This ensures cross-project epics (e.g., `project=buzz`) resolve to the correct repo root (e.g., `/Users/dev/buzz/.worktrees/YOK-N`) instead of always using `MAIN_ROOT`.
+This ensures cross-project epics (e.g., `project=external-webapp`) resolve to the correct repo root (e.g., `/Users/dev/external-webapp/.worktrees/YOK-N`) instead of always using `MAIN_ROOT`.
 
 Defense-in-depth: persist all three worktree fields to `epic_tasks`. This ensures that even if the activation step in `entry-activation-resolution.md` S6f is bypassed during re-entry recovery, the context preparation step writes all three fields. Since `metadata-update` is idempotent, redundant writes are harmless.
 
@@ -168,9 +168,9 @@ GitHub Issue: {github_issue from epic_tasks table}
 Worktree path: {_worktree_path}
 Main repo root: {MAIN_ROOT}
 Data directory: {MAIN_ROOT}/data (config and generated views live here)
-Yoke DB: Postgres authority is selected by the backend; use `yoke <subcommand>` or `python3 -m yoke_core.cli.db_router query ...`
+Yoke DB: Postgres authority is selected by the backend; use `yoke <subcommand>` or `yoke db read --format lines ...`
 
-Progress notes: Write via python3 -m yoke_core.cli.db_router epic progress-note-insert
+Progress notes: write via `yoke workflow-item epic-progress-note append`.
 Reviews: Written by Tester via yoke workflow-item epic-task review-insert
 
 File routing:

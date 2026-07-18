@@ -103,7 +103,7 @@ def _apply_item_query_schema() -> None:
         """INSERT INTO projects
            (id, slug, name, github_repo, public_item_prefix, created_at)
            VALUES (1, 'yoke', 'Yoke', 'org/yoke', 'YOK', %s),
-                  (2, 'buzz', 'Buzz', 'org/buzz', 'BUZ', %s)""",
+                  (2, 'externalwebapp', 'ExternalWebapp', 'org/externalwebapp', 'EXT', %s)""",
         (ts, ts),
     )
     conn.execute(
@@ -125,12 +125,12 @@ def _apply_item_query_schema() -> None:
         (ts, ts),
     )
 
-    # Item 3: idea, buzz project
+    # Item 3: idea, externalwebapp project
     conn.execute(
         """INSERT INTO items
            (id, title, type, status, priority, project_id, project_sequence,
             created_at, updated_at, source, frozen)
-           VALUES (3, 'Buzz idea', 'issue', 'idea', 'low', 2, 3,
+           VALUES (3, 'ExternalWebapp idea', 'issue', 'idea', 'low', 2, 3,
                    %s, %s, 'user', 0)""",
         (ts, ts),
     )

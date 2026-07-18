@@ -58,7 +58,7 @@ def test_install_bundle_serves_files_and_hooks(client) -> None:
     bundle = response.json()
     assert bundle["bundle_schema"] == 1
     assert bundle["project_id"] == 2
-    assert bundle["project_slug"] == "buzz"
+    assert bundle["project_slug"] == "externalwebapp"
     paths = [entry["path"] for entry in bundle["files"]]
     assert paths == sorted(paths)
     assert any(p.startswith(".agents/skills/yoke/") for p in paths)

@@ -28,7 +28,7 @@ _AUTH = (
 def _resolve_auth(project: str, **_kwargs) -> ProjectGithubAuth:
     repos = {
         "archive": "org/archive",
-        "buzz": "org/buzz",
+        "externalwebapp": "org/externalwebapp",
         "yoke": "org/yoke",
     }
     return ProjectGithubAuth(
@@ -55,7 +55,7 @@ def _source_issue(
 def _created_issue(number: int) -> github_rest.Issue:
     return github_rest.Issue(
         number=number, title="created", state="OPEN",
-        html_url=f"https://github.com/org/buzz/issues/{number}",
+        html_url=f"https://github.com/org/externalwebapp/issues/{number}",
     )
 
 
@@ -86,13 +86,13 @@ class TestMigrateIssueToRepo:
             f"{_REPO_MIG}.delete_issue",
         ) as delete_issue, patch("yoke_core.domain.events.emit_event"):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "90", "200", "org/archive", "archive", "org/buzz", "buzz",
+                "90", "200", "org/archive", "archive", "org/externalwebapp", "externalwebapp",
                 conn=db, stdout=stdout,
             )
 
         assert rc == 0
         output = stdout.getvalue()
-        assert "[migrate] Created #555 in org/buzz" in output
+        assert "[migrate] Created #555 in org/externalwebapp" in output
         assert "[migrate] Updated DB: YOK-90 github_issue = #555" in output
         assert "[migrate] Deleted #200 from org/archive" in output
         assert "[migrate] YOK-90: migration complete" in output
@@ -103,7 +103,7 @@ class TestMigrateIssueToRepo:
         assert gh_issue == "#555"
 
         create.assert_called_once()
-        assert create.call_args.kwargs["project"] == "buzz"
+        assert create.call_args.kwargs["project"] == "externalwebapp"
         assert get_issue.call_args.kwargs["project"] == "archive"
         assert list_comments.call_args.kwargs["project"] == "archive"
         # Source open → new state stays open (no close-after-create call);
@@ -150,7 +150,7 @@ class TestMigrateIssueToRepo:
             f"{_REPO_MIG}.delete_issue",
         ), patch("yoke_core.domain.events.emit_event"):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "91", "201", "org/yoke", "yoke", "org/buzz", "buzz",
+                "91", "201", "org/yoke", "yoke", "org/externalwebapp", "externalwebapp",
                 conn=db, stdout=stdout,
             )
 
@@ -181,7 +181,7 @@ class TestMigrateIssueToRepo:
             f"{_REPO_MIG}.delete_issue",
         ), patch("yoke_core.domain.events.emit_event"):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "92", "202", "org/yoke", "yoke", "org/buzz", "buzz",
+                "92", "202", "org/yoke", "yoke", "org/externalwebapp", "externalwebapp",
                 conn=db, stdout=stdout,
             )
 
@@ -199,7 +199,7 @@ class TestMigrateIssueToRepo:
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "99", "300", "org/yoke", "yoke", "org/buzz", "buzz",
+                "99", "300", "org/yoke", "yoke", "org/externalwebapp", "externalwebapp",
                 stdout=stdout,
             )
         assert rc == 0
@@ -212,7 +212,7 @@ class TestMigrateIssueToRepo:
             side_effect=github_rest.RestTransportError("boom", status=500),
         ):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "99", "300", "org/yoke", "yoke", "org/buzz", "buzz",
+                "99", "300", "org/yoke", "yoke", "org/externalwebapp", "externalwebapp",
                 stderr=stderr,
             )
         assert rc == 1
@@ -227,7 +227,7 @@ class TestMigrateIssueToRepo:
             side_effect=github_rest.RestTransportError("permission denied", status=403),
         ):
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "99", "300", "org/yoke", "yoke", "org/buzz", "buzz",
+                "99", "300", "org/yoke", "yoke", "org/externalwebapp", "externalwebapp",
                 stderr=stderr,
             )
         assert rc == 1
@@ -238,12 +238,12 @@ class TestMigrateIssueToRepo:
             rc = backlog_github_sync.main(
                 [
                     "migrate-issue", "42", "100", "org/yoke", "yoke",
-                    "org/buzz", "buzz",
+                    "org/externalwebapp", "externalwebapp",
                 ]
             )
         assert rc == 0
         mock.assert_called_once_with(
-            "42", "100", "org/yoke", "yoke", "org/buzz", "buzz",
+            "42", "100", "org/yoke", "yoke", "org/externalwebapp", "externalwebapp",
         )
 
     def test_repo_projection_mismatch_fails_before_github_io(self):
@@ -252,7 +252,7 @@ class TestMigrateIssueToRepo:
             f"{_REPO_MIG}.get_issue",
         ) as get_issue:
             rc = backlog_github_sync.migrate_issue_to_repo(
-                "99", "300", "org/stale", "yoke", "org/buzz", "buzz",
+                "99", "300", "org/stale", "yoke", "org/externalwebapp", "externalwebapp",
                 stderr=stderr,
             )
 

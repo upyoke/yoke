@@ -13,12 +13,12 @@ import json
 import re
 import sys
 from contextlib import redirect_stderr, redirect_stdout
-from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 
 import pytest
 
 from yoke_cli.commands import flag_adapters as adapters
+from yoke_cli.config import install_binding
 from yoke_cli.main import main as cli_main
 from yoke_cli.commands.registry import (
     SUBCOMMAND_REGISTRY,
@@ -29,10 +29,7 @@ from yoke_cli.commands.registry import (
 
 
 def _expected_cli_version() -> str:
-    try:
-        return package_version("yoke-cli")
-    except PackageNotFoundError:
-        return "0.1.0"
+    return install_binding.distribution_version(source_value="source") or "unknown"
 
 
 class _TtyInput:

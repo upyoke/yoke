@@ -153,15 +153,15 @@ class TestRepairHelpers:
         ) as update_field:
             ok = resync_mod._repair_local_orphan_epic_task(
                 "1246/task-001",
-                "buzz",
+                "externalwebapp",
                 populated_db,
             )
 
         assert ok is True
         update_field.assert_called_once()
         assert update_field.call_args.args[1:] == ("1246", 1, "github_issue", "#321")
-        assert create_issue_mock.call_args.kwargs["project"] == "buzz"
-        assert close_mock.call_args.kwargs == {"project": "buzz", "number": 321, "state": "closed"}
+        assert create_issue_mock.call_args.kwargs["project"] == "externalwebapp"
+        assert close_mock.call_args.kwargs == {"project": "externalwebapp", "number": 321, "state": "closed"}
 
     def test_repair_local_orphan_epic_task_returns_false_when_issue_create_fails(self, populated_db):
         from yoke_core.domain.gh_rest_transport import RestServerError
@@ -222,7 +222,7 @@ class TestRepairDrift:
 
     def test_body_drift_backlog_uses_domain_sync(self, populated_db):
         drift = DriftRecord("YOK-42", "body", "<local>", "<github>")
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "buzz", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "externalwebapp", "")]
         with mock.patch(
             "yoke_core.engines.resync.backlog_github_sync.sync_body",
             return_value=0,
@@ -286,14 +286,14 @@ class TestRepairDrift:
         from yoke_core.domain.github_rest import Issue
 
         drift = DriftRecord("1246/task-001", "state", "CLOSED", "OPEN")
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "buzz", "org/buzz")]
+        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "externalwebapp", "org/externalwebapp")]
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=False), mock.patch(
             "yoke_core.engines.resync_repair.github_rest.set_issue_state",
             return_value=Issue(number=200, title="x", state="CLOSED"),
         ) as set_state:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         assert set_state.call_args.kwargs == {
-            "project": "buzz", "number": 200, "state": "closed",
+            "project": "externalwebapp", "number": 200, "state": "closed",
         }
 
     def test_comment_drift_backlog_posts_via_domain_sync(self, populated_db):

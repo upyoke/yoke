@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Tests for service_client create-item mutation command.
-
 Split from test_service_client.py. The companion update-item suite
 lives in ``test_service_client_delivery_update.py``. The shared
 ``mutation_db`` fixture lives in
@@ -115,12 +115,12 @@ class TestCreateItem:
 
     def test_create_cross_project_flow_rejected(self, mutation_db):
         """Flow belonging to different project should be rejected."""
-        # Add a buzz flow
+        # Add a externalwebapp flow
         conn = connect_test_db(mutation_db["db_path"])
         stages = json.dumps([{"name": "merged", "executor": "auto"}])
         conn.execute(
             """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
-               VALUES ('buzz-flow', 2, 'BuzzFlow', %s, '2026-04-20T00:00:00Z')""",
+               VALUES ('externalwebapp-flow', 2, 'ExternalWebappFlow', %s, '2026-04-20T00:00:00Z')""",
             (stages,),
         )
         conn.commit()
@@ -128,13 +128,13 @@ class TestCreateItem:
 
         result = _run_client(
             ["create-item", "--title", "Test", "--type", "issue",
-             "--project", "yoke", "--deployment-flow", "buzz-flow"],
+             "--project", "yoke", "--deployment-flow", "externalwebapp-flow"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
         data = json.loads(result.stdout.strip())
         assert data["success"] is False
-        assert "buzz" in data["error"].lower()
+        assert "externalwebapp" in data["error"].lower()
 
     def test_create_rejects_retired_epic_flag(self, mutation_db):
         """The retired --epic flag should no longer be accepted."""

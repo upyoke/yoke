@@ -188,7 +188,7 @@ def test_generic_surfaces_hide_stack_state_but_allow_top_level_merge(
         stack_names=["yoke-infra"],
         apply=True,
     )
-    with pytest.raises(ValueError, match="stack-scoped"):
+    with pytest.raises(ValueError, match="aggregate reads are closed"):
         cmd_capability_get_settings("yoke", "pulumi-state")
     with pytest.raises(ValueError, match="full settings writes are closed"):
         cmd_capability_set_settings(
@@ -272,3 +272,16 @@ def test_generic_pulumi_state_merge_rejects_unknown_or_nested(
 def test_pulumi_state_validator_rejects_unknown_or_wrong_typed_fields(document):
     with pytest.raises(ValueError):
         validate_json_string(json.dumps(document))
+
+
+def test_pulumi_state_validator_accepts_component_type_aliases():
+    aliases = {
+        "infra": ["legacy:infra:EdgeStack"],
+        "vps": ["legacy:infra:HostStack"],
+    }
+
+    validated = json.loads(validate_json_string(json.dumps({
+        "component_type_aliases": aliases,
+    })))
+
+    assert validated["component_type_aliases"] == aliases

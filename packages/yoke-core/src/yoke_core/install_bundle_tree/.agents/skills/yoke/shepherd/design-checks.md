@@ -57,7 +57,7 @@ fi
 **Fetch deployment flows for context:**
 
 ```bash
-_available_flows=$(python3 -m yoke_core.cli.db_router flows list 2>/dev/null || true)
+_available_flows=$(yoke workflows definition get 2>/dev/null || true)
 ```
 
 Build flow guidance block if flows are available:
@@ -70,7 +70,7 @@ if [ -n "$_available_flows" ]; then
 
 After writing the spec, include a **## Definition of Done** section at the end (before any Shepherd Log/Caveats sections). This section MUST contain a deployment flow selection with these three fields:
 
-- **Project:** {project id, e.g., yoke or buzz}
+- **Project:** {project id, e.g., yoke or external-webapp}
 - **Flow:** {flow id from the list below}
 - **Rationale:** {one sentence explaining why this flow fits}
 
@@ -79,7 +79,7 @@ $(echo "$_available_flows" | while IFS='|' read -r fid fproj fname fdesc _rest; 
  printf ' - %s (%s): %s\n' "$fid" "$fproj" "$fdesc"
 done)
 
-Choose the flow that best matches the item's deployment needs. For script/doc-only changes, use an internal flow. For changes requiring service restarts, use a deploy flow. For production-facing changes in buzz, use the release or hotfix flow as appropriate.
+Choose the flow that best matches the item's deployment needs. For script/doc-only changes, use an internal flow. For changes requiring service restarts, use a deploy flow. For production-facing changes, use the target project's registered release or hotfix flow as appropriate.
 "
 fi
 ```

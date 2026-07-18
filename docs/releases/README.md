@@ -8,13 +8,14 @@ backfilled or rewritten; new releases do not add files here.
 
 1. Run the canonical test gate on the exact release commit and merge it to
    `main`.
-2. Deliver the item through `yoke-hosted-stage`, `yoke-hosted-production`, or
-   `yoke-hosted-production-hotfix`. The flow's scoped GitHub App continues the
-   newest `vX.Y.Z+launch.N` series, creates an annotated tag whose message is
-   the release note, and returns the existing tag when the same commit is
-   retried. The PEP 440 local segment is intentional: public indexes cannot
-   publish local versions, which keeps a same-named public package from
-   satisfying Yoke's exact sibling pins.
+2. Deliver the item through `yoke-hosted-stage-no-ci-gate` or
+   `yoke-hosted-production-hotfix-no-ci-gate`; `yoke-hosted-production` is a
+   disabled historical definition. The active flow's scoped GitHub App
+   continues the newest `vX.Y.Z+launch.N` series, creates an annotated tag
+   whose message is the release note, and returns the existing tag when the
+   same commit is retried. The PEP 440 local segment is intentional: public
+   indexes cannot publish local versions, which keeps a same-named public
+   package from satisfying Yoke's exact sibling pins.
 3. Treat release tags as immutable: never move or recreate one after it is
    created. Use canonical decimal atoms: `v1.2.3+launch.1` is valid, while
    release or numeric-local atoms with leading zeros are refused.

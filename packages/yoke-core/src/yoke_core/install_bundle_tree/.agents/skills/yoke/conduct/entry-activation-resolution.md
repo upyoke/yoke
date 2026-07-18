@@ -24,14 +24,14 @@ An epic is "synced" when BOTH: (a) dispatch chains exist, AND (b) at least one `
 
 ```bash
 _chains=$(yoke workflow-item epic-dispatch-chain list --epic "$_epic_id")
-_synced_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
+_synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
 ```
 
 **If already synced** (`_chains` non-empty AND `_synced_task_count > 0`): proceed to S6c.
 
 **If NOT synced:**
 
-1. Pre-check: `_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop: `No tasks found for YOK-{N}. Run '/yoke plan {_epic_id}' first.`
+1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop: `No tasks found for YOK-{N}. Run '/yoke plan {_epic_id}' first.`
 
 2. Auto-sync: Print `Epic YOK-{N} not yet synced to GitHub. Running sync automatically...` then:
  ```bash
@@ -111,7 +111,7 @@ if [ "$_creator_exit" -ne 0 ]; then
 fi
 ```
 
-`--project "${PROJECT}"` routes the creator to the target project's local checkout mapping so cross-project epics (for example `project='buzz'`) materialize the worktrees under that project checkout, not Yoke's checkout. The creator resolves the epic's lane list from `epic_dispatch_chains`, runs the all-lane preflight (path-claim door-lock, dirty-main check, capacity, idempotency), and `git worktree add`s any missing lane. It is idempotent — lanes whose worktrees already exist on the expected branch are reported as preexisting and skipped. Failures (mismatched branches, dirty main, max_active_worktrees capacity) surface a structured error that names the failing lane before any per-task baseline runs.
+`--project "${PROJECT}"` routes the creator to the target project's local checkout mapping so cross-project epics (for example `project='external-webapp'`) materialize the worktrees under that project checkout, not Yoke's checkout. The creator resolves the epic's lane list from `epic_dispatch_chains`, runs the all-lane preflight (path-claim door-lock, dirty-main check, capacity, idempotency), and `git worktree add`s any missing lane. It is idempotent — lanes whose worktrees already exist on the expected branch are reported as preexisting and skipped. Failures (mismatched branches, dirty main, max_active_worktrees capacity) surface a structured error that names the failing lane before any per-task baseline runs.
 
 Then loop over every task in `_task_ids` and run the per-task activation block. Each iteration hydrates `_worktree_branch` and `_worktree_path` from that task's suffixed lane variables, then writes the task's own status, baseline, and worktree fields. The same-worktree filter applied in S6c ensures no two iterations target the same `_worktree_branch`.
 
@@ -153,7 +153,7 @@ for _task_id in $_task_ids; do
  # and look for a `## Cross-Task Merge Plan` section with an entry for
  # this task. For each predecessor named in the entry:
  #   - verify the predecessor task is `reviewed-implementation` or `done`
- #     via `python3 -m yoke_core.cli.db_router query "SELECT status FROM
+ #     via `yoke db read --format lines "SELECT status FROM
  #     epic_tasks WHERE epic_id=${_epic_id} AND task_num=<N>"`;
  #   - `git -C "${_worktree_path}" merge <predecessor-branch> --no-edit`.
  # Halt and route back to `/yoke refine` if any predecessor is unfinished
@@ -209,7 +209,7 @@ printf '%s\n' "YOK-${N} task ${_task_id_primary} worktree provisioned at ${_prim
 # the engineer writes
 # commits to its branch.
 for _task_id in $_task_ids; do
- _t_status=$(python3 -m yoke_core.cli.db_router query \
+ _t_status=$(yoke db read --format lines \
    "SELECT status FROM epic_tasks WHERE epic_id=${_epic_id} AND task_num=${_task_id}")
  if [ "$_t_status" != "implementing" ] && [ "$_t_status" != "reviewing-implementation" ]; then
   echo "ERROR: YOK-${N} task ${_task_id} at status '${_t_status}', not activated. Re-run the S6f activation block (status update + metadata-update worktree/branch/worktree_path + dispatch-chain-refresh-activation) before dispatching engineer." >&2

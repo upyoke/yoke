@@ -1,10 +1,10 @@
+# ruff: noqa: F401, F811
 """Regression coverage for ``workspace_authority``: matching-claim /
 mismatched-target / no-worktree-claims / no-claims / free-path /
 multi-claim / explicit-session-id / DB-unavailable resolution branches
 + seed-source coupling checks. Synthetic ``/opt/...`` paths avoid the
 ``/var/folders`` free-path allowlist that authorises pytest's ``tmp_path``
 on macOS."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -244,7 +244,7 @@ def test_seed_source_external_project_target_is_no_op(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An external project target (no Yoke source under it — e.g. board
-    rebuild for Buzz over the installed CLI) legitimately loads the seed
+    rebuild for ExternalWebapp over the installed CLI) legitimately loads the seed
     from the CLI's Yoke source checkout. Not a worktree-dev hazard."""
     monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_A)
     monkeypatch.setattr(
@@ -254,7 +254,7 @@ def test_seed_source_external_project_target_is_no_op(
     cli_seed = tmp_path / "yoke-main" / YOKE_CORE_SOURCE_SEED_REL
     cli_seed.parent.mkdir(parents=True)
     cli_seed.write_text("# seed\n")
-    external_target = tmp_path / "buzz"  # no yoke_core source tree under it
+    external_target = tmp_path / "externalwebapp"  # no yoke_core source tree under it
     external_target.mkdir()
     assert_seed_source_under_target_root(
         str(cli_seed), external_target, seed_module_name="schema",
@@ -274,7 +274,7 @@ def test_seed_source_from_site_packages_external_target_is_no_op(
     cli_seed = tmp_path / "cli-venv" / SITE_PACKAGES_SEED_REL
     cli_seed.parent.mkdir(parents=True)
     cli_seed.write_text("# seed\n")
-    external_target = tmp_path / "buzz"
+    external_target = tmp_path / "externalwebapp"
     external_target.mkdir()
     assert_seed_source_under_target_root(
         str(cli_seed), external_target, seed_module_name="schema",

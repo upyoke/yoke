@@ -54,18 +54,18 @@ def _verified() -> VerifiedProjectGitHubBinding:
             "actions_variables": "write",
         },
         repository_id="7701",
-        github_repo="Example/Buzz",
+        github_repo="Example/ExternalWebapp",
         default_branch="main",
         installation_status="active",
     )
 
 
-def _bind_buzz() -> None:
+def _bind_externalwebapp() -> None:
     cmd_bind_project_repo(
-        "buzz",
+        "externalwebapp",
         installation_id="8801",
         repository_id="7701",
-        github_repo="Example/Buzz",
+        github_repo="Example/ExternalWebapp",
         expected_api_url="https://api.github.com",
         github_user_access_token="short-lived-user-token",
         verifier=lambda **_kwargs: _verified(),
@@ -103,31 +103,31 @@ def test_create_rejects_explicit_enabled_without_binding(project_db):
 
 def test_enabled_updates_require_active_verified_binding(project_db):
     cmd_upsert(
-        slug="buzz",
-        name="Buzz",
+        slug="externalwebapp",
+        name="ExternalWebapp",
         github_sync_mode="backlog_only",
         mode="update",
     )
 
     with pytest.raises(GithubSyncModeError, match="active, verified"):
         cmd_upsert(
-            slug="buzz",
-            name="Buzz",
+            slug="externalwebapp",
+            name="ExternalWebapp",
             github_sync_mode="enabled",
             mode="update",
         )
     with pytest.raises(GithubSyncModeError, match="active, verified"):
-        cmd_update("buzz", "github_sync_mode", "enabled")
+        cmd_update("externalwebapp", "github_sync_mode", "enabled")
 
-    _bind_buzz()
+    _bind_externalwebapp()
     result = cmd_upsert(
-        slug="buzz",
-        name="Buzz",
+        slug="externalwebapp",
+        name="ExternalWebapp",
         github_sync_mode="enabled",
         mode="update",
     )
     assert result["project"]["github_sync_mode"] == "enabled"
-    assert cmd_update("buzz", "github_sync_mode", "enabled").startswith(
+    assert cmd_update("externalwebapp", "github_sync_mode", "enabled").startswith(
         "Updated project"
     )
 

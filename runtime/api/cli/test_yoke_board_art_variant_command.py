@@ -21,11 +21,11 @@ from yoke_contracts.project_contract.board_art import (
 
 
 def _seed_repo(tmp_path: Path) -> Path:
-    repo = tmp_path / "buzz"
+    repo = tmp_path / "externalwebapp"
     yoke_dir = repo / ".yoke"
     yoke_dir.mkdir(parents=True)
     (yoke_dir / "board-art").write_text(
-        render_board_art("Buzz"),
+        render_board_art("ExternalWebapp"),
         encoding="utf-8",
     )
     return repo
@@ -52,7 +52,7 @@ def test_ascii_apply_appends_width_bounded_variant(tmp_path: Path) -> None:
             "board", "art", "variant", "create",
             "--ascii",
             str(repo),
-            "--display-name", "Buzz",
+            "--display-name", "ExternalWebapp",
             "--seed", "cli-seed",
             "--apply",
         ])
@@ -83,7 +83,7 @@ def test_mixed_json_preview_does_not_apply_without_apply_flag(
             "board", "art", "variant", "create",
             "--mixed",
             str(repo),
-            "--display-name", "Buzz",
+            "--display-name", "ExternalWebapp",
             "--seed", "cli-seed",
             "--json",
         ])

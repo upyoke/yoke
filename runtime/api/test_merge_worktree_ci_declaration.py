@@ -37,7 +37,7 @@ def _apply_capability_schema() -> None:
         conn.execute(
             """
             INSERT INTO projects (id, slug, name, public_item_prefix)
-            VALUES (1, 'yoke', 'Yoke', 'YOK'), (2, 'buzz', 'Buzz', 'BUZ')
+            VALUES (1, 'yoke', 'Yoke', 'YOK'), (2, 'externalwebapp', 'ExternalWebapp', 'EXT')
             """
         )
         conn.execute(

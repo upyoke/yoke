@@ -6,11 +6,14 @@ topic entries: sites, environments, project_structure, deployment_flows, deploym
 deployment_run_items, ephemeral_environments, path_snapshots, project_capabilities,
 capability_secrets, migration_audit.
 
-Pure data only — no I/O, no DB connections, no imports beyond stdlib.
+Pure data only — no I/O or DB connections.
 """
 
 from __future__ import annotations
 
+from yoke_core.domain.schema_api_context_table_project_capabilities import (
+    PROJECT_CAPABILITIES_TABLE,
+)
 
 PROJECT_TABLES: dict[str, dict] = {
     "projects": {
@@ -33,7 +36,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "the project authority; `slug` is unique inside one `org_id` "
             "and resolves through the actor-visible project set or an org "
             "filter. `public_item_prefix` is the ticket prefix (`YOK`, "
-            "`BUZ`). Canonical agent read: "
+            "`EXT`). Canonical agent read: "
             "`yoke projects list` / "
             "`yoke projects get --project <slug>`; "
             "breakage_policy reader is "
@@ -76,7 +79,10 @@ PROJECT_TABLES: dict[str, dict] = {
             "`sites.project_id = projects.id`. Environment ownership is "
             "indirect: join `environments.site = sites.id`, then join the "
             "site to its project. Structured site configuration lives in "
-            "the JSON `settings` column. Legacy Pulumi operator state at "
+            "the JSON `settings` column. Discover site and environment IDs "
+            "without projecting settings through `yoke projects "
+            "infrastructure list --project <slug> --json` "
+            "(`projects.infrastructure.list`). Legacy Pulumi operator state at "
             "`settings.pulumi.stack_state` moves transactionally through "
             "registered function `projects.pulumi_state.migrate` / `yoke "
             "projects pulumi-state migrate --project <slug> --site-id <id> "
@@ -105,7 +111,9 @@ PROJECT_TABLES: dict[str, dict] = {
             "`environments.site = sites.id` and "
             "`sites.project_id = projects.id`. Deployment metadata such as "
             "git branch, hosts, database, and Pulumi settings lives in the "
-            "JSON `settings` column. Agent reads use `yoke projects "
+            "JSON `settings` column. First discover metadata-only IDs with "
+            "`yoke projects infrastructure list --project <slug> --json`; "
+            "then read settings through `yoke projects "
             "environment-settings get --project <slug> --environment-id "
             "<id> --path <scalar.path>`; the registered function requires "
             "explicit scalar paths and returns a `values` projection. The "
@@ -244,10 +252,10 @@ PROJECT_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Branch/item-scoped ephemeral preview environment rows. "
-            "Agent-facing lifecycle field writes use `yoke ephemeral-env "
-            "update <env-id> <field> <value>` (`ephemeral_env.update`), "
-            "not the retained domain-update command; the legacy domain helper still "
-            "owns create/read/cleanup and cmd_update semantics. Conduct "
+            "Agent-facing creation uses `yoke ephemeral-env create <project> "
+            "<branch>` (`ephemeral_env.create`), and lifecycle field writes "
+            "use `yoke ephemeral-env update <env-id> <field> <value>` "
+            "(`ephemeral_env.update`), not retained domain commands. Conduct "
             "uses branch `YOK-{id}`."
         ),
     },
@@ -263,66 +271,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "`built_at`; there is NO `created_at` column on this table."
         ),
     },
-    "project_capabilities": {
-        "columns": [
-            ("id", "INTEGER"),
-            ("project_id", "INTEGER"),
-            ("type", "TEXT"),
-            ("verified_at", "TEXT"),
-            ("created_at", "TEXT"),
-            ("settings", "TEXT"),
-        ],
-        "notes": (
-            "Project capability rows keyed by `(project_id, type)`. The "
-            "capability-name column is `type` (values include "
-            "`github`, `docker`, `domain`, `migration_model`, and "
-            "`github-actions-runner-fleet`); "
-            "`settings` is a JSON blob carrying capability-specific "
-            "configuration. The `github-actions-runner-fleet` network "
-            "settings use `deployment_ssh_environments` for active VPS "
-            "environment selectors and `deployment_ssh_stack_names` for "
-            "explicit standalone VPS Pulumi stack references. The renderer "
-            "merges and deduplicates them, binding environment stacks to "
-            "`originElasticIpAddress` and standalone VPS stacks to "
-            "`vpsElasticIpAddress`; neither output nor a literal address is "
-            "guessed from the stack name. "
-            "Canonical non-sensitive settings access is `yoke projects capability-settings get --project <slug> --cap-type <type>`. "
-            "Full writes use the exact returned text with `capability-settings set ... --base <as-read-json>` (or `--new` "
-            "for an absent row); single-path repairs use `capability-settings merge ... "
-            "--set key.path=value`. These registered surfaces work over HTTPS, protect "
-            "against lost updates, and run capability-specific typed canonicalization "
-            "before mutation. Unknown fields on typed capabilities are refused so a "
-            "mixed-version control plane cannot silently drop new authority fields. "
-            "GitHub settings remain binding-owned. `pulumi-state` accepts only known typed keys; its generic "
-            "get/full-set/operator-state merges are closed. Every environment "
-            "`pulumi.origin_vps_stack_name` is an exact standalone VPS stack-config "
-            "target sourced from that environment's first `servers` entry, not the "
-            "renderer primary. Its exact `pulumi-state.stack_state[stack_name]` entry "
-            "must provide operator state; missing state refuses rather than borrowing. "
-            "For a live stack without legacy site settings, register the exact "
-            "checkpoint entry with `yoke projects pulumi-state checkpoint-import "
-            "--project <slug> --stack <name> --checkpoint-file <0600-export> "
-            "[--apply]`; it is dry-run-default, conflict-refusing, and returns "
-            "only redacted digests. "
-            "The admin registered stack-config result is metadata-only; `yoke "
-            "projects pulumi-stack-config get --project <slug> --stack <name> "
-            "--output <file>` fetches the body via no-store into a 0600 file. "
-            "Then use `yoke pulumi exec --project <slug> --stack <name> -- "
-            "<preview|refresh|import|up ...>`; `up` is local/operator-only and "
-            "requires both `--yes` and `--non-interactive`. Local AWS secrets come "
-            "from machine capability "
-            "files, GitHub authority follows the selected service binding, and Actions "
-            "keeps ambient OIDC. The diagnostic all-capability SQL shape remains `SELECT "
-            "type, settings FROM project_capabilities WHERE project_id = ?`; routine reads "
-            "use the registered command instead. The Python workhorse is "
-            "yoke_core.domain.projects_capabilities_settings; do not import "
-            "settings helpers from projects_capabilities (wrong guess — that "
-            "module owns capability listings and secrets). "
-            "There are NO `project`, `capability_type`, `capability`, "
-            "`key`, or `value` columns; those are stale guesses for this "
-            "table."
-        ),
-    },
+    "project_capabilities": PROJECT_CAPABILITIES_TABLE,
     "capability_secrets": {
         "columns": [
             ("id", "INTEGER"),

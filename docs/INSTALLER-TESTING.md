@@ -156,6 +156,7 @@ should usually run alone because they may intentionally leave partial state.
 | `INSTALL-UV-010` | `fault-injection` | Bad channel pointer | Failure screen names reason and rerun path |
 | `INSTALL-UV-011` | `fault-injection` | Package index unreachable | Failure screen is actionable; no Python traceback |
 | `INSTALL-UV-012` | `prepared-screen-term` | Installer in screen/dumb terminal | ASCII/plain glyphs; no unsafe glyphs |
+| `INSTALL-UV-013` | `bare-no-uv` | Fresh install with ambient uv indexes pointed away from PyPI | Installer-owned Yoke/PyPI sources win; install succeeds; no ambient index credential appears |
 
 ### Wave 3: PATH Front Door
 
@@ -908,42 +909,8 @@ browser screenshot is the required fallback.
 
 ### Session Registration And Telemetry
 
-Use this after a stage or prod publish that touches hooks, auth, session identity,
-lane routing, telemetry, or board rendering. Run from visible Terminal or a real
-SSH TTY so the user can watch the same terminal.
-
-```bash
-cd "$HOME/code/buzz"
-YOKE_ENV=stage yoke status
-YOKE_ENV=stage claude -p 'Reply exactly: YOKE_STAGE_SESSION_SMOKE_OK'
-YOKE_ENV=stage yoke board rebuild --print --no-pager
-```
-
-The board should show a fresh Buzz session. Verify the control plane:
-
-```bash
-YOKE_ENV=stage yoke db read "SELECT session_id, project_id, actor_id, executor, display_name, model, execution_lane, workspace, ended_at FROM harness_sessions WHERE project_id = 2 ORDER BY started_at DESC LIMIT 5"
-YOKE_ENV=stage yoke events query --project buzz --since '20 minutes ago' --limit 50
-```
-
-Expected stage evidence: `project_id=2`, executor/model/lane populated,
-DB-backed lane such as `DARIUS`, no hook-denied errors, session events carrying
-the same project id, and visible board newest session matching the DB row.
-Angle-bracket Claude model values are temporary SDK placeholders and should be
-upgraded by later concrete registration.
-
-For hosted API logs, check CloudWatch from the operator machine with AWS operator
-credentials, not from the test Mac:
-
-```bash
-aws logs filter-log-events --log-group-name /yoke/stage/core \
-  --start-time <epoch-ms-before-smoke> --filter-pattern '"POST /v1/hooks/evaluate"'
-aws logs filter-log-events --log-group-name /yoke/stage/core \
-  --start-time <epoch-ms-before-smoke> --filter-pattern '?ERROR ?Error ?error ?Traceback ?Exception'
-```
-
-Expected CloudWatch evidence: hook relay requests return HTTP `200`, include the
-expected actor/token/request ids, and the error scan is clean.
+Run the external-project session, control-plane, and CloudWatch checks in
+[`installer-session-telemetry.md`](installer-session-telemetry.md).
 
 ### Visual User Testing Mode
 

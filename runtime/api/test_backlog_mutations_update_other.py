@@ -42,7 +42,7 @@ def _set_project_repos(db_path: str) -> None:
         )
         for repository_id, slug, repo in (
             ("101", "yoke", "testowner/yoke-repo"),
-            ("102", "buzz", "testowner/buzz-repo"),
+            ("102", "externalwebapp", "testowner/externalwebapp-repo"),
         ):
             project_id = conn.execute(
                 f"SELECT id FROM projects WHERE slug = {p}", (slug,),
@@ -146,19 +146,19 @@ class TestExecuteUpdate:
             result = backlog.execute_update(
                 item_id=10,
                 field="project",
-                value="buzz",
+                value="externalwebapp",
                 out=out,
             )
 
         assert result["success"] is True
-        assert _item_field(tmp_db, 10, "project") == "buzz"
+        assert _item_field(tmp_db, 10, "project") == "externalwebapp"
         migrate.assert_called_once_with(
             "10",
             "42",
             "testowner/yoke-repo",
             "yoke",
-            "testowner/buzz-repo",
-            "buzz",
+            "testowner/externalwebapp-repo",
+            "externalwebapp",
             conn=mock.ANY,
             stdout=out,
             stderr=out,
@@ -175,7 +175,7 @@ class TestExecuteUpdate:
             result = backlog.execute_update(
                 item_id=10,
                 field="project",
-                value="buzz",
+                value="externalwebapp",
                 out=out,
             )
 

@@ -28,6 +28,15 @@ command_shell="${YOKE_INSTALL_COMMAND_SHELL:-/bin/sh}"
 uv_installer_url="${YOKE_UV_INSTALLER_URL:-https://astral.sh/uv/install.sh}"
 onboard_launched=0
 
+# Resolver sources are installer-owned.  Remove ambient index, find-links,
+# constraint, override, and requirement inputs before either the bootstrap
+# ``uv run`` or the Python helper invokes uv.
+unset UV_DEFAULT_INDEX UV_EXTRA_INDEX_URL UV_INDEX UV_INDEX_STRATEGY \
+  UV_INDEX_URL UV_NO_INDEX UV_BUILD_CONSTRAINT UV_CONFIG_FILE \
+  UV_CONSTRAINT UV_FIND_LINKS UV_OVERRIDE UV_REQUIREMENT \
+  PIP_CONSTRAINT PIP_EXTRA_INDEX_URL PIP_FIND_LINKS PIP_INDEX_URL \
+  PIP_NO_INDEX PIP_REQUIREMENT 2>/dev/null || :
+
 # Welcome surface is colorized only when stdout is a real terminal that can show
 # color and the caller has not opted out via NO_COLOR or a dumb TERM. A test
 # harness pins this deterministically with YOKE_INSTALL_FORCE_COLOR=1/0.
@@ -73,6 +82,8 @@ fi
 
 usage() {
   printf '%s\n' "usage: install [--channel CHANNEL] [--version VERSION] [--yes] [--dry-run] [--no-onboard]"
+  printf '%s\n' "Install Yoke, or rerun the same command to upgrade/reinstall it."
+  printf '%s\n' "The installer selects Yoke packages from the Yoke index and dependencies from public PyPI."
 }
 
 fail() {
@@ -373,11 +384,23 @@ uv_manual_install_command() {
 }
 
 rerun_install_command() {
+  display_base_url=$(safe_base_url_for_display)
   if [ -n "$yes" ]; then
-    printf 'curl -fsSL %s/install | bash -s -- --yes' "${base_url%/}"
+    printf 'curl -fsSL %s/install | bash -s -- --yes' "$display_base_url"
   else
-    printf 'curl -fsSL %s/install | bash' "${base_url%/}"
+    printf 'curl -fsSL %s/install | bash' "$display_base_url"
   fi
+}
+
+# A configured distribution origin may carry URL userinfo or query credentials.
+# The raw value is used only for the request; every operator-visible retry/error
+# substitutes a safe placeholder rather than echoing credentials.
+safe_base_url_for_display() {
+  candidate=${base_url%/}
+  case "$candidate" in
+    *://*@*|*\?*|*\#*) printf '%s' '<configured-yoke-origin>' ;;
+    *) printf '%s' "$candidate" ;;
+  esac
 }
 
 # Friendly, no-dead-end decline screen: a red headline, the manual install
@@ -401,6 +424,7 @@ decline_uv_and_exit() {
 # message.
 ensure_uv() {
   need_command uv && return 0
+  validate_uv_installer_url
   install_cmd=$(uv_manual_install_command)
   astral_cmd="curl -LsSf ${uv_installer_url} | sh"
   rerun_cmd=$(rerun_install_command)
@@ -426,6 +450,25 @@ ensure_uv() {
   fi
 }
 
+validate_uv_installer_url() {
+  case "$uv_installer_url" in
+    https://*) : ;;
+    *) fail "YOKE_UV_INSTALLER_URL must be an https URL" ;;
+  esac
+  uv_installer_authority=${uv_installer_url#https://}
+  uv_installer_authority=${uv_installer_authority%%/*}
+  case "$uv_installer_authority" in
+    ""|*[!A-Za-z0-9.:-]*)
+      fail "YOKE_UV_INSTALLER_URL has an invalid https authority"
+      ;;
+  esac
+  case "$uv_installer_url" in
+    *[!A-Za-z0-9._~:/?%#=,+-]*)
+      fail "YOKE_UV_INSTALLER_URL contains unsupported characters"
+      ;;
+  esac
+}
+
 # Run the chosen install command. On the Homebrew branch, fall back to the
 # Astral installer when brew fails (the consent note promises this). The Astral
 # branch needs curl; a curl-missing host can never run it, so name the manual
@@ -436,7 +479,19 @@ install_uv_or_fail() {
     printf '%sHomebrew install did not complete; using the official uv installer instead.\n' "$(gutter)"
   fi
   need_command curl || fail "uv/uvx is required and curl is missing. Install curl first, then install uv with '${astral_cmd}' and rerun: ${rerun_cmd}"
-  "$command_shell" -c "$astral_cmd" < "$command_stdin" || fail "uv installation failed. Install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
+  uv_download_dir=$(mktemp -d "${TMPDIR:-/tmp}/yoke-uv-install.XXXXXX") \
+    || fail "could not create a private uv installer directory"
+  uv_download_file="$uv_download_dir/install.sh"
+  if ! curl -LsSf -- "$uv_installer_url" > "$uv_download_file"; then
+    rm -f "$uv_download_file"
+    rmdir "$uv_download_dir" 2>/dev/null || :
+    fail "uv installer download failed. Install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
+  fi
+  "$command_shell" "$uv_download_file" < "$command_stdin"
+  uv_install_rc=$?
+  rm -f "$uv_download_file"
+  rmdir "$uv_download_dir" 2>/dev/null || :
+  [ "$uv_install_rc" -eq 0 ] || fail "uv installation failed. Install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -531,7 +586,7 @@ with open(out, "wb") as handle:
     handle.write(data)
 PY
 download_rc=$?
-[ "$download_rc" -eq 0 ] || fail "could not download ${base_url%/}/dist/install.py"
+[ "$download_rc" -eq 0 ] || fail "could not download $(safe_base_url_for_display)/dist/install.py"
 
 set -- "$installer_py"
 [ -n "$channel" ] && set -- "$@" --channel "$channel"

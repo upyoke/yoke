@@ -51,7 +51,7 @@ def _service_args(
     ("colliding_project", "colliding_role"),
     (
         pytest.param("yoke", "deployment_ci", id="different-role"),
-        pytest.param("buzz", "infrastructure_ci", id="different-project"),
+        pytest.param("externalwebapp", "infrastructure_ci", id="different-project"),
     ),
 )
 def test_reused_component_refuses_different_project_authority(

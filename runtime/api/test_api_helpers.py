@@ -200,7 +200,7 @@ def _apply_schema_and_seed_on_conn(conn) -> None:
         """INSERT INTO items
            (id, title, type, status, priority, project_id, project_sequence,
             created_at, updated_at, source, deploy_stage)
-           VALUES (3, 'Buzz item', 'issue', 'idea', 'low', 2, 3,
+           VALUES (3, 'ExternalWebapp item', 'issue', 'idea', 'low', 2, 3,
                    '2026-03-01T00:00:00Z', '2026-03-04T00:00:00Z', 'user', NULL)"""
     )
     # Item 4: at a human-approval stage in a flow with a deployment run

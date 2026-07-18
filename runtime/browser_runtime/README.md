@@ -61,29 +61,29 @@ When running browser checks as part of a QA run, pass `--qa-run-id` to automatic
 python3 -m yoke_core.domain.browser_client snapshot screenshot http://localhost:3000/dashboard \
   --annotate \
   --qa-run-id 42 \
-  --project buzz \
+  --project external-webapp \
   --route /dashboard
-# Artifact recorded: buzz/test/qa-artifacts/42/screenshot-dashboard.png
+# Artifact recorded: external-webapp/test/qa-artifacts/42/screenshot-dashboard.png
 
 # Diff with artifact recording (records both candidate and diff image)
 python3 -m yoke_core.domain.browser_client snapshot diff http://localhost:3000/dashboard \
   --baseline /tmp/baseline.png \
   --viewport 1280x720 \
   --qa-run-id 42 \
-  --project buzz \
+  --project external-webapp \
   --route /dashboard
 # Two artifacts recorded:
-#   buzz/test/qa-artifacts/42/screenshot-dashboard.png (candidate)
-#   buzz/test/qa-artifacts/42/diff_image-dashboard.png (diff)
+#   external-webapp/test/qa-artifacts/42/screenshot-dashboard.png (candidate)
+#   external-webapp/test/qa-artifacts/42/diff_image-dashboard.png (diff)
 
 # Step execution with artifact recording
 python3 -m yoke_core.domain.browser_client exec step '{"action":"navigate","route":"/settings"}' \
   --base-url http://localhost:3000 \
   --qa-run-id 42 \
-  --project buzz \
+  --project external-webapp \
   --route /settings \
   --step-index 1
-# Artifact recorded: buzz/test/qa-artifacts/42/trace-1-settings.json
+# Artifact recorded: external-webapp/test/qa-artifacts/42/trace-1-settings.json
 ```
 
 Without `--qa-run-id`, no DB writes occur -- artifacts are written to the specified path only.

@@ -25,11 +25,11 @@ from yoke_contracts.project_contract.board_art.image_to_emoji import (
 
 
 def _seed_repo(tmp_path: Path) -> Path:
-    repo = tmp_path / "buzz"
+    repo = tmp_path / "externalwebapp"
     yoke_dir = repo / ".yoke"
     yoke_dir.mkdir(parents=True)
     (yoke_dir / "board-art").write_text(
-        render_board_art("Buzz"),
+        render_board_art("ExternalWebapp"),
         encoding="utf-8",
     )
     return repo
@@ -64,7 +64,7 @@ def test_image_json_preview_generates_mixed_variant_without_applying(
             "board", "art", "variant", "create",
             "--image", str(image_path),
             str(repo),
-            "--display-name", "Buzz",
+            "--display-name", "ExternalWebapp",
             "--seed", "image-seed",
             "--image-max-area-ratio", "0.4",
             "--image-max-width", "16",
@@ -112,7 +112,7 @@ def test_image_apply_appends_mixed_variant(tmp_path: Path) -> None:
             "board", "art", "variant", "create",
             "--image", str(image_path),
             str(repo),
-            "--display-name", "Buzz",
+            "--display-name", "ExternalWebapp",
             "--seed", "image-seed",
             "--apply",
         ])

@@ -149,7 +149,7 @@ class TestDoctorRunScope(unittest.TestCase):
             ):
                 outcome = reads_misc.handle_doctor_run(_request({
                     "quick": True,
-                    "project": "buzz",
+                    "project": "externalwebapp",
                     "skip_source_tree_checks": True,
                 }))
 

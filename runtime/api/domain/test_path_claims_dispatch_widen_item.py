@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Coverage for ``path-claims widen --item YOK-N`` resolution.
-
 Pins AC-30 behavior: the shared ``cmd_widen`` parser accepts either the
 positional ``claim_id`` or ``--item YOK-N`` (resolves to the one
 non-terminal exclusive claim for that item). Zero matches and multiple
@@ -27,7 +27,7 @@ from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
 
 def _seed_item(conn, *, item_id: int = 7401, project: str = "yoke") -> int:
     project_key = str(project)
-    project_id = 2 if project_key == "buzz" else int(project_key) if project_key.isdigit() else 1
+    project_id = 2 if project_key == "externalwebapp" else int(project_key) if project_key.isdigit() else 1
     conn.execute(
         "INSERT INTO items (id, title, type, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "

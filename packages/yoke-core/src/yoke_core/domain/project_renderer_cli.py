@@ -21,7 +21,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="project-renderer",
         description="Generate ops artifacts for a project from templates",
     )
-    parser.add_argument("project", help="Project ID (e.g. buzz)")
+    parser.add_argument("project", help="Project ID (e.g. example-project)")
     parser.add_argument("--write", action="store_true",
                         help="Save artifacts to output locations (default: stdout)")
     parser.add_argument(

@@ -64,6 +64,7 @@ class WebappRegistryArgs:
     state_bucket: str = ""
     kms_key_alias: str = ""
     distribution_bucket_names: list[str] = field(default_factory=list)
+    cloudfront_distribution_ids: list[str] = field(default_factory=list)
     github_app_private_key_secret_arns: list[str] = field(default_factory=list)
 
 
@@ -321,6 +322,7 @@ class WebappRegistryStack(pulumi.ComponentResource):
                 state_bucket=args.state_bucket,
                 kms_key_arn=state_key.target_key_arn,
                 distribution_bucket_names=args.distribution_bucket_names,
+                cloudfront_distribution_ids=args.cloudfront_distribution_ids,
                 github_app_private_key_secret_arns=(
                     args.github_app_private_key_secret_arns
                 ),

@@ -37,7 +37,7 @@ def configure_clone_flow(monkeypatch: Any) -> None:
         repositories=(
             "acme/widgets",
             "octocat/widgets",
-            "example-org/buzz",
+            "example-org/externalwebapp",
         ),
         user_access_token="short-lived-clone-access",
     )

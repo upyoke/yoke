@@ -72,7 +72,7 @@ if [ -n "$_item_proj_e2e" ] && [ "$_item_proj_e2e" != "null" ]; then
 fi
 
 if [ "$_has_e2e_cmd" = "1" ] && [ "$_has_eph_cap" = "1" ]; then
- _existing_e2e=$(python3 -m yoke_core.cli.db_router query \
+ _existing_e2e=$(yoke db read --format lines \
  "SELECT COUNT(*) FROM qa_requirements WHERE item_id={N} AND qa_kind='e2e'" 2>/dev/null) || true
 
  if [ -z "$_existing_e2e" ] || [ "$_existing_e2e" = "0" ]; then

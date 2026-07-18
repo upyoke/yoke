@@ -226,7 +226,7 @@ def assert_seed_source_under_target_root(
     except ValueError:
         pass
     # External-project targets (an installed project repo with no Yoke
-    # source tree — e.g. board rebuild for Buzz over the machine-installed
+    # source tree — e.g. an external board rebuild over the machine-installed
     # CLI) legitimately load the seed from the CLI's Yoke code, which is
     # never under target_root. Only the worktree-dev hazard warrants the
     # refusal: target_root is itself a Yoke checkout carrying its own copy

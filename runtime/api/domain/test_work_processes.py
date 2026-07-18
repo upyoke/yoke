@@ -52,9 +52,9 @@ class TestConflictGroupSemantics:
 
     def test_distinct_projects_get_distinct_groups(self):
         yoke = conflict_group_for(PROCESS_STRATEGIZE, "yoke")
-        buzz = conflict_group_for(PROCESS_STRATEGIZE, "buzz")
-        assert yoke != buzz
-        assert "buzz" in buzz
+        externalwebapp = conflict_group_for(PROCESS_STRATEGIZE, "externalwebapp")
+        assert yoke != externalwebapp
+        assert "externalwebapp" in externalwebapp
 
     def test_doctor_uses_own_project_scoped_group(self):
         assert conflict_group_for(PROCESS_DOCTOR, "yoke") == "doctor:yoke"

@@ -46,21 +46,29 @@ jobs:
  # ... deploy logic here
 ```
 
-For conditional steps that should skip entirely:
+AWS operations in CI are not optional secret-gated steps. Grant the job the
+minimum OIDC permissions, assume the IaC-owned delivery role through a pinned
+action revision, and let required work fail closed:
 
 ```yaml
- - name: CloudFront invalidation
- if: success()
- run: |
- if [ -z "$AWS_ACCESS_KEY_ID" ]; then
- echo "AWS_ACCESS_KEY_ID not set — skipping CloudFront invalidation"
- exit 0
- fi
- aws cloudfront create-invalidation --distribution-id "$CF_ID" --paths "/*"
- env:
- AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
- AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+permissions:
+  contents: read
+  id-token: write
+
+steps:
+  - uses: actions/checkout@v4
+  - name: Configure AWS delivery credentials
+    uses: aws-actions/configure-aws-credentials@<reviewed-commit-sha>
+    with:
+      role-to-assume: ${{ vars.YOKE_DELIVERY_CI_ROLE_ARN }}
+      aws-region: us-east-1
+  - name: CloudFront invalidation
+    run: aws cloudfront create-invalidation --distribution-id "$CF_ID" --paths "/*"
 ```
+
+The reusable webapp deploy and hotfix templates own the reviewed action pin,
+CloudFront discovery, bounded diagnostics, and fail-closed behavior. Long-lived
+AWS access keys are not a supported GitHub Actions credential path.
 
 ### Automated Guards
 
@@ -76,7 +84,7 @@ Yoke has three layers of protection against this anti-pattern:
 
 The lint checks are scoped narrowly. These patterns are **safe** and will NOT trigger:
 
-- `secrets.*` in `env:` blocks (the recommended pattern)
+- `secrets.*` in `env:` blocks for non-AWS credentials that must be injected
 - `secrets.*` in `run:` blocks (e.g., inline shell references)
 - `secrets.*` in step `with:` parameters
 - `secrets.*` in comments

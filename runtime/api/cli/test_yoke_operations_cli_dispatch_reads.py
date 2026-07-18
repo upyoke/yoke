@@ -127,7 +127,6 @@ class TestDbReadDispatch:
         assert response["success"] is True
         assert response["result"] == {"echo": True}
 
-
 class TestClaimsPathReadDispatch:
     def test_claims_path_list_dispatches(self) -> None:
         rc = _run_with_dispatch(

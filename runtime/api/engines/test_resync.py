@@ -64,11 +64,11 @@ class TestHelpers:
 
         yoke_body = [{"number": 100, "title": "[YOK-42] Test", "labels": [],
                         "state": "OPEN", "body": "Body"}]
-        buzz_body = [{"number": 5, "title": "Buzz item", "labels": [],
-                      "state": "CLOSED", "body": "Buzz body"}]
+        externalwebapp_body = [{"number": 5, "title": "ExternalWebapp item", "labels": [],
+                      "state": "CLOSED", "body": "ExternalWebapp body"}]
         responses = [
             RestResponse(status=200, headers={}, body=yoke_body),
-            RestResponse(status=200, headers={}, body=buzz_body),
+            RestResponse(status=200, headers={}, body=externalwebapp_body),
         ]
         with mock.patch(
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
@@ -77,9 +77,9 @@ class TestHelpers:
             "yoke_core.engines.resync_detect_fetch.request_with_retry",
             side_effect=responses,
         ):
-            result = resync_mod._fetch_gh_issues_per_project({"yoke", "buzz"})
+            result = resync_mod._fetch_gh_issues_per_project({"yoke", "externalwebapp"})
         assert result["yoke"][100]["title"] == "[YOK-42] Test"
-        assert result["buzz"][5]["state"] == "CLOSED"
+        assert result["externalwebapp"][5]["state"] == "CLOSED"
 
     def test_fetch_uses_repo_from_same_resolution_as_token(self):
         from yoke_core.domain.gh_rest_transport import RestResponse
@@ -142,7 +142,7 @@ class TestStage1:
                 TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "yoke", "stale/yoke",
             ),
             PairedItem(
-                "YOK-77", "/tmp/077.md", 7, "backlog", "buzz", "stale/buzz",
+                "YOK-77", "/tmp/077.md", 7, "backlog", "externalwebapp", "stale/externalwebapp",
             ),
         ]
 
@@ -154,7 +154,7 @@ class TestStage1:
                 repo=f"bound/{project}",
                 token=f"{project}-token",
             )
-            for project in ("yoke", "buzz")
+            for project in ("yoke", "externalwebapp")
         }
         with mock.patch(
             "yoke_core.engines.resync_detect_linkage.resolve_project_github_auth",
@@ -166,10 +166,10 @@ class TestStage1:
                 {7: {"number": 7, "body": "b", "comments": []}},
             ],
         ) as fetch:
-            result = resync_mod.stage1_5_heavy_fetch(paired, {"yoke": {}, "buzz": {}})
+            result = resync_mod.stage1_5_heavy_fetch(paired, {"yoke": {}, "externalwebapp": {}})
 
         assert result["yoke"][100]["body"] == "a"
-        assert result["buzz"][7]["body"] == "b"
+        assert result["externalwebapp"][7]["body"] == "b"
         assert fetch.call_count == 2
         from yoke_contracts.github_app_installation_permissions import (
             GITHUB_ISSUES_READ_PERMISSION_LEVELS,
@@ -179,7 +179,7 @@ class TestStage1:
             call.kwargs["required_permissions"]
             for call in auth_resolver.call_args_list
         ] == [GITHUB_ISSUES_READ_PERMISSION_LEVELS] * 2
-        for call, project in zip(fetch.call_args_list, ("yoke", "buzz")):
+        for call, project in zip(fetch.call_args_list, ("yoke", "externalwebapp")):
             assert call.kwargs["project"] == project
             assert call.kwargs["auth"] is auth_by_project[project]
             assert call.kwargs["auth"].repo == f"bound/{project}"

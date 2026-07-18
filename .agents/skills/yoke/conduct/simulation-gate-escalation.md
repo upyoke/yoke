@@ -25,7 +25,7 @@ When any of these fire, conduct does NOT enter result branching; it goes straigh
 
 - **Satisfy parent epic item-level verification requirements.** All epic tasks passed testing and simulation is clean. Record passing QA runs for unsatisfied blocking verification requirements:
  ```bash
- _unsatisfied_reqs=$(python3 -m yoke_core.cli.db_router query "SELECT r.id, r.qa_kind FROM qa_requirements r WHERE r.item_id=${N} AND r.qa_phase='verification' AND r.blocking_mode='blocking' AND r.waived_at IS NULL AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')")
+ _unsatisfied_reqs=$(yoke db read --format lines "SELECT r.id, r.qa_kind FROM qa_requirements r WHERE r.item_id=${N} AND r.qa_phase='verification' AND r.blocking_mode='blocking' AND r.waived_at IS NULL AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')")
  ```
  For each unsatisfied requirement (parse `id|qa_kind` per line):
  - Skip `simulation` kind — already satisfied by the `persist_simulation` call above.
@@ -74,7 +74,7 @@ For each `### GAP #N:` block in `_simulation_gaps`:
 2. Map priority: `[WARNING]` → `medium`, `[NOTE]` → `low`.
 3. Create item (sanctioned direct-add exception):
  ```bash
- _add_output=$(YOKE_IDEA_INTAKE=1 python3 -m yoke_core.cli.db_router items add --project "$_project" "Sim gap: {gap_title}" issue idea {priority})
+ _add_output=$(yoke items create "Sim gap: {gap_title}" issue --project "$_project" --priority {priority} --idea-intake)
  _new_id=$(echo "$_add_output" | sed -n 's/.*YOK-\([0-9][0-9]*\).*/\1/p')
  ```
 4. Set source to `simulation`, write spec to DB, sync to GitHub.

@@ -75,7 +75,7 @@ def test_resolve_mode_explicit_root_ignores_ambient_workspace(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     ambient = tmp_path / "yoke"
-    target = tmp_path / "buzz"
+    target = tmp_path / "externalwebapp"
     (ambient / ".yoke").mkdir(parents=True)
     (target / ".yoke").mkdir(parents=True)
     (ambient / ".yoke" / "lint-config").write_text(
@@ -92,7 +92,7 @@ def test_resolve_mode_explicit_root_ignores_ambient_workspace(
 
 
 def test_reset_cache_clears_root_specific_cache(tmp_path: Path) -> None:
-    target = tmp_path / "buzz"
+    target = tmp_path / "externalwebapp"
     (target / ".yoke").mkdir(parents=True)
     config = target / ".yoke" / "lint-config"
     config.write_text("lint_tc_label=warn\n", encoding="utf-8")

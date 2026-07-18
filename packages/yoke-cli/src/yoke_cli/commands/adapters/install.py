@@ -29,7 +29,9 @@ PROJECT_INSTALL_USAGE = (
     "yoke project install [REPO_ROOT] [--project-id N] [--config PATH] [--json]"
 )
 PROJECT_REFRESH_USAGE = (
-    "yoke project refresh [REPO_ROOT] [--project-id N] [--config PATH] [--json]"
+    "yoke project refresh [REPO_ROOT] [--project-id N] [--config PATH] "
+    "[--source-checkout PATH] [--project-slug SLUG] "
+    "[--manifest-from PATH] [--apply] [--json]"
 )
 PROJECT_UNINSTALL_USAGE = (
     "yoke project uninstall [REPO_ROOT] [--config PATH] [--json]"
@@ -45,6 +47,46 @@ def _install_parser(prog: str) -> argparse.ArgumentParser:
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     attach_field_note_footer(parser)
+    return parser
+
+
+def _refresh_parser() -> argparse.ArgumentParser:
+    parser = _install_parser("yoke project refresh")
+    source_group = parser.add_argument_group(
+        "source-dev/admin local-source refresh"
+    )
+    source_group.add_argument(
+        "--source-checkout",
+        metavar="PATH",
+        help=(
+            "Explicit Yoke source checkout used to build an unshipped local "
+            "bundle. Preview-only unless --apply is also passed."
+        ),
+    )
+    source_group.add_argument(
+        "--project-slug",
+        metavar="SLUG",
+        help=(
+            "Real project slug. Required for a legacy manifest that does not "
+            "record project_slug."
+        ),
+    )
+    source_group.add_argument(
+        "--manifest-from",
+        metavar="PATH",
+        help=(
+            "Existing install-manifest.json to use as lineage when the target "
+            "is a linked worktree without its gitignored manifest."
+        ),
+    )
+    source_group.add_argument(
+        "--apply",
+        action="store_true",
+        help=(
+            "Apply the local-source preview. This mode never writes machine "
+            "registration or external/server snapshot state."
+        ),
+    )
     return parser
 
 
@@ -69,8 +111,44 @@ def project_install(args: List[str]) -> int:
 
 
 def project_refresh(args: List[str]) -> int:
-    return _run_install(args, PROJECT_REFRESH_USAGE,
-                        "yoke project refresh", "refresh")
+    parsed = parse_or_usage_error(
+        _refresh_parser(), args, PROJECT_REFRESH_USAGE
+    )
+    if parsed is None:
+        return 2
+    if parsed.apply and not parsed.source_checkout:
+        import sys
+
+        print(
+            "error: --apply is valid only with --source-checkout",
+            file=sys.stderr,
+        )
+        return 2
+    if parsed.manifest_from and not parsed.source_checkout:
+        import sys
+
+        print(
+            "error: --manifest-from is valid only with --source-checkout",
+            file=sys.stderr,
+        )
+        return 2
+    if parsed.source_checkout:
+        from yoke_cli.project_install.local_source import refresh_from_source
+
+        return _run(lambda: refresh_from_source(
+            parsed.repo_root,
+            source_checkout=parsed.source_checkout,
+            project_id=parsed.project_id,
+            project_slug=parsed.project_slug,
+            manifest_from=parsed.manifest_from,
+            apply=parsed.apply,
+        ))
+    return _run(lambda: _project_install_domain().refresh(
+        parsed.repo_root,
+        project_id=parsed.project_id,
+        config_path=parsed.config_path,
+        mode=None,
+    ))
 
 
 def project_uninstall(args: List[str]) -> int:

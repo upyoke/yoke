@@ -121,16 +121,10 @@ def _run_simulation_gate(epic_id: int) -> int:
         )
         return 0
 
-    from yoke_core.domain import db_helpers
     from yoke_core.domain.qa_gates import check_epic_simulation_gate
 
     try:
-        db_path = db_helpers.resolve_db_path()
-    except Exception as exc:
-        print("Error: cannot resolve yoke.db: %s" % exc, file=sys.stderr)
-        return 1
-    try:
-        result = check_epic_simulation_gate(epic_id, db_path)
+        result = check_epic_simulation_gate(epic_id, "")
     except Exception as exc:
         print(
             "Error: simulation gate raised: %s" % exc,

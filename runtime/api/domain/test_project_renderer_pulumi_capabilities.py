@@ -44,26 +44,26 @@ def _runner_app(
 
 
 def test_github_ci_keys_from_capability(tmp_path):
-    base = _settings_from_context("buzz", {"projectName": "buzz"})
+    base = _settings_from_context("externalwebapp", {"projectName": "externalwebapp"})
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org",
-        "repo_name": "buzz",
+        "repo_name": "externalwebapp",
         "ci_oidc_manage_provider": False,
     }
-    root = _make_project_root(tmp_path, "buzz")
+    root = _make_project_root(tmp_path, "externalwebapp")
 
     result = project_renderer_pulumi.gather_pulumi_values(
-        "buzz", root, _with_capabilities(base, capabilities),
+        "externalwebapp", root, _with_capabilities(base, capabilities),
     )
 
-    assert result["github_repo_slug"] == "acme-org/buzz"
+    assert result["github_repo_slug"] == "acme-org/externalwebapp"
     assert result["github_api_url"] == "https://api.github.com"
     assert result["manage_github_oidc_provider"] == "false"
 
 
 def test_delivery_ci_resources_come_from_environment_authority(tmp_path):
-    base = _settings_from_context("buzz", {"projectName": "buzz"})
+    base = _settings_from_context("externalwebapp", {"projectName": "externalwebapp"})
     assert base.primary_environment is not None
     base.primary_environment.settings["distribution"] = {
         "bucket_name": "acme-distribution-prod"
@@ -76,7 +76,7 @@ def test_delivery_ci_resources_come_from_environment_authority(tmp_path):
     }
 
     result = project_renderer_pulumi.gather_pulumi_values(
-        "buzz", _make_project_root(tmp_path, "buzz"), base,
+        "externalwebapp", _make_project_root(tmp_path, "externalwebapp"), base,
     )
 
     assert result["delivery_distribution_bucket_names_json"] == (
@@ -89,18 +89,18 @@ def test_delivery_ci_resources_come_from_environment_authority(tmp_path):
 
 def test_runner_fleet_keys_from_capability(tmp_path):
     base = _settings_from_context(
-        "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
+        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
     )
     assert base.primary_environment is not None
     base.primary_environment.settings["capabilities"] = ["vps"]
     base.primary_environment.settings["pulumi"] = {
         "activation_state": "active",
-        "stack_name": "buzz-prod",
+        "stack_name": "externalwebapp-prod",
     }
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org",
-        "repo_name": "buzz",
+        "repo_name": "externalwebapp",
         "installation_id": "123456",
         "repository_id": "789012",
         "api_url": "https://api.github.com",
@@ -111,7 +111,7 @@ def test_runner_fleet_keys_from_capability(tmp_path):
         },
     }
     capabilities["github-actions-runner-fleet"] = {
-        "repo": "acme-org/buzz",
+        "repo": "acme-org/externalwebapp",
         "github_capability": "github",
         "github_app": _runner_app(),
         "runner_labels": [
@@ -135,13 +135,13 @@ def test_runner_fleet_keys_from_capability(tmp_path):
             "deployment_ssh_environments": [base.primary_environment.id],
         },
     }
-    root = _make_project_root(tmp_path, "buzz")
+    root = _make_project_root(tmp_path, "externalwebapp")
 
     result = project_renderer_pulumi.gather_pulumi_values(
-        "buzz", root, _with_capabilities(base, capabilities),
+        "externalwebapp", root, _with_capabilities(base, capabilities),
     )
 
-    assert result["runner_fleet_repo"] == "acme-org/buzz"
+    assert result["runner_fleet_repo"] == "acme-org/externalwebapp"
     assert result["runner_fleet_aws_capability"] == "aws-admin"
     assert result["runner_fleet_aws_region"] == "us-east-1"
     assert result["runner_fleet_github_installation_id"] == "123456"
@@ -158,28 +158,28 @@ def test_runner_fleet_keys_from_capability(tmp_path):
     assert result["runner_fleet_idle_shutdown_minutes"] == "15"
     assert result["runner_fleet_shutdown_mode"] == "terminate"
     assert result["runner_fleet_deployment_ssh_stack_outputs_json"] == (
-        '{"buzz-prod":"originElasticIpAddress"}'
+        '{"externalwebapp-prod":"originElasticIpAddress"}'
     )
 
 
 def test_enabled_runner_fleet_requires_explicit_github_capability(tmp_path):
     base = _settings_from_context(
-        "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
+        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
     )
-    root = _make_project_root(tmp_path, "buzz")
+    root = _make_project_root(tmp_path, "externalwebapp")
 
     with pytest.raises(ValueError, match="requires explicit github_capability"):
-        project_renderer_pulumi.gather_pulumi_values("buzz", root, base)
+        project_renderer_pulumi.gather_pulumi_values("externalwebapp", root, base)
 
 
 def test_enabled_runner_fleet_requires_capability_app_config(tmp_path):
     base = _settings_from_context(
-        "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
+        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
     )
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org",
-        "repo_name": "buzz",
+        "repo_name": "externalwebapp",
         "installation_id": "123456",
         "repository_id": "789012",
         "api_url": "https://api.github.com",
@@ -192,22 +192,22 @@ def test_enabled_runner_fleet_requires_capability_app_config(tmp_path):
     capabilities["github-actions-runner-fleet"] = {
         "github_capability": "github",
     }
-    root = _make_project_root(tmp_path, "buzz")
+    root = _make_project_root(tmp_path, "externalwebapp")
 
     with pytest.raises(ValueError, match="requires github_app"):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", root, _with_capabilities(base, capabilities),
+            "externalwebapp", root, _with_capabilities(base, capabilities),
         )
 
 
 def test_enabled_runner_fleet_rejects_unsafe_secret_arn(tmp_path):
     base = _settings_from_context(
-        "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
+        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
     )
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
         "repo_owner": "acme-org",
-        "repo_name": "buzz",
+        "repo_name": "externalwebapp",
         "installation_id": "123456",
         "repository_id": "789012",
         "api_url": "https://api.github.com",
@@ -225,21 +225,21 @@ def test_enabled_runner_fleet_rejects_unsafe_secret_arn(tmp_path):
             ),
         ),
     }
-    root = _make_project_root(tmp_path, "buzz")
+    root = _make_project_root(tmp_path, "externalwebapp")
 
     with pytest.raises(ValueError, match="complete AWS Secrets Manager ARN"):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", root, _with_capabilities(base, capabilities),
+            "externalwebapp", root, _with_capabilities(base, capabilities),
         )
 
 
 def test_enabled_runner_fleet_rejects_repo_override(tmp_path):
     base = _settings_from_context(
-        "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
+        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
     )
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
-        "repo_owner": "acme-org", "repo_name": "buzz",
+        "repo_owner": "acme-org", "repo_name": "externalwebapp",
         "installation_id": "123456", "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
@@ -253,21 +253,21 @@ def test_enabled_runner_fleet_rejects_repo_override(tmp_path):
         "github_capability": "github",
         "github_app": _runner_app(),
     }
-    root = _make_project_root(tmp_path, "buzz")
+    root = _make_project_root(tmp_path, "externalwebapp")
 
     with pytest.raises(ValueError, match="must match the verified GitHub App"):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", root, _with_capabilities(base, capabilities),
+            "externalwebapp", root, _with_capabilities(base, capabilities),
         )
 
 
 def test_enabled_runner_fleet_rejects_app_origin_mismatch(tmp_path):
     base = _settings_from_context(
-        "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
+        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
     )
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
-        "repo_owner": "acme-org", "repo_name": "buzz",
+        "repo_owner": "acme-org", "repo_name": "externalwebapp",
         "installation_id": "123456", "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
@@ -285,17 +285,17 @@ def test_enabled_runner_fleet_rejects_app_origin_mismatch(tmp_path):
 
     with pytest.raises(ValueError, match="must match the verified"):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, _with_capabilities(base, capabilities),
+            "externalwebapp", tmp_path, _with_capabilities(base, capabilities),
         )
 
 
 def test_enabled_runner_fleet_requires_administration_write(tmp_path):
     base = _settings_from_context(
-        "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
+        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
     )
     capabilities = dict(base.capabilities)
     capabilities["github"] = {
-        "repo_owner": "acme-org", "repo_name": "buzz",
+        "repo_owner": "acme-org", "repo_name": "externalwebapp",
         "installation_id": "123456", "repository_id": "789012",
         "api_url": "https://api.github.com",
         "permissions": {
@@ -311,7 +311,7 @@ def test_enabled_runner_fleet_requires_administration_write(tmp_path):
 
     with pytest.raises(ValueError, match="Administration: write"):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, _with_capabilities(base, capabilities),
+            "externalwebapp", tmp_path, _with_capabilities(base, capabilities),
         )
 
 

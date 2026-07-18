@@ -33,8 +33,8 @@ from yoke_core.domain.project_github_auth import (
 
 
 _OK_AUTH = ProjectGithubAuth(
-    project="buzz",
-    repo="org/buzz",
+    project="externalwebapp",
+    repo="org/externalwebapp",
     token="ghs_fake",
 )
 
@@ -50,16 +50,16 @@ class TestIdentifiesOversizedItems:
         db = _make_db()
         # Two linked items: one tiny, one huge. Both have github_issue set.
         insert_item(
-            db, id=60, type="issue", status="idea", project="buzz",
+            db, id=60, type="issue", status="idea", project="externalwebapp",
             github_issue="#80", spec="# tiny",
         )
         insert_item(
-            db, id=61, type="issue", status="idea", project="buzz",
+            db, id=61, type="issue", status="idea", project="externalwebapp",
             github_issue="#81", spec=_huge_spec(),
         )
         # Third item has no github_issue and must be ignored entirely.
         insert_item(
-            db, id=62, type="issue", status="idea", project="buzz",
+            db, id=62, type="issue", status="idea", project="externalwebapp",
             spec=_huge_spec(),
         )
 
@@ -79,19 +79,19 @@ class TestIdentifiesOversizedItems:
         assert rc == 0
         assert sync_calls == ["61"]
         out = stdout.getvalue()
-        assert "Backfilled: BUZ-61" in out
+        assert "Backfilled: EXT-61" in out
         assert "compact mirror" in out
         # The summary names the repair count.
         assert "Total: 1 items repaired" in out
         # No mention of the tiny or unlinked items.
-        assert "BUZ-60" not in out
-        assert "BUZ-62" not in out
+        assert "EXT-60" not in out
+        assert "EXT-62" not in out
         db.close()
 
     def test_no_linked_items_returns_zero(self):
         """Empty backlog (no github_issue values) reports zero repairs, exit 0."""
         db = _make_db()
-        insert_item(db, id=60, type="issue", status="idea", project="buzz")
+        insert_item(db, id=60, type="issue", status="idea", project="externalwebapp")
         stdout = io.StringIO()
 
         with patch.object(_bgs, "sync_body") as sync_mock:
@@ -108,7 +108,7 @@ class TestIdempotent:
         """AC-4: a second run sees compact mirrors under budget; no work needed."""
         db = _make_db()
         insert_item(
-            db, id=61, type="issue", status="idea", project="buzz",
+            db, id=61, type="issue", status="idea", project="externalwebapp",
             github_issue="#81", spec=_huge_spec(),
         )
 
@@ -146,22 +146,22 @@ class TestSkipsOnAuthFailure:
         items still process; final exit is non-zero."""
         db = _make_db()
         insert_item(
-            db, id=61, type="issue", status="idea", project="buzz",
+            db, id=61, type="issue", status="idea", project="externalwebapp",
             github_issue="#81", spec=_huge_spec(),
         )
         insert_item(
-            db, id=62, type="issue", status="idea", project="buzz",
+            db, id=62, type="issue", status="idea", project="externalwebapp",
             github_issue="#82", spec=_huge_spec(),
         )
 
         def raise_missing_binding_for_61(project, *args, **kwargs):
-            # First-call lookup is project-keyed: both items share project=buzz,
+            # First-call lookup is project-keyed: both items share project=externalwebapp,
             # so use a stateful counter so the *first* call raises and the
             # second succeeds.
             calls = raise_missing_binding_for_61._calls + 1
             raise_missing_binding_for_61._calls = calls
             if calls == 1:
-                raise MissingRepoBinding("buzz", "repository is not bound")
+                raise MissingRepoBinding("externalwebapp", "repository is not bound")
             return _OK_AUTH
 
         raise_missing_binding_for_61._calls = 0
@@ -188,7 +188,7 @@ class TestSkipsOnAuthFailure:
         assert sync_calls == ["62"]
         # The skipped item is logged with the typed class name to stderr.
         skipped = stderr.getvalue()
-        assert "BUZ-61" in skipped
+        assert "EXT-61" in skipped
         assert "MissingRepoBinding" in skipped
         # The summary names the auth failure count.
         out = stdout.getvalue()
@@ -200,7 +200,7 @@ class TestSkipsOnAuthFailure:
         """A non-auth sync failure also drives a non-zero exit code."""
         db = _make_db()
         insert_item(
-            db, id=61, type="issue", status="idea", project="buzz",
+            db, id=61, type="issue", status="idea", project="externalwebapp",
             github_issue="#81", spec=_huge_spec(),
         )
         stdout = io.StringIO()
@@ -215,5 +215,5 @@ class TestSkipsOnAuthFailure:
 
         assert rc == 1
         assert "sync failures 1" in stdout.getvalue()
-        assert "Failed: BUZ-61" in stderr.getvalue()
+        assert "Failed: EXT-61" in stderr.getvalue()
         db.close()

@@ -105,7 +105,7 @@ def _recipe_webapp_sqlite_empty(
     """Empty SQLite surface for webapp projects.
 
     Classification: genuine generic-validation SQLite — the live recipe for a
-    webapp project (e.g. Buzz) whose own authoritative DB is SQLite. Kept
+    webapp project whose own authoritative DB is SQLite. Kept
     regardless of Yoke's Postgres authority; validating external SQLite
     projects is a first-class capability, not residue.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-_PROJECT_IDS = {"yoke": 1, "buzz": 2, "orphan": 3, "a": 4, "b": 5}
+_PROJECT_IDS = {"yoke": 1, "externalwebapp": 2, "orphan": 3, "a": 4, "b": 5}
 
 
 def _p(conn) -> str:
@@ -27,7 +27,7 @@ def _seed_project(
 ) -> None:
     p = _p(conn)
     project_id = _project_id(slug)
-    prefix = public_item_prefix or {"yoke": "YOK", "buzz": "BUZ"}.get(
+    prefix = public_item_prefix or {"yoke": "YOK", "externalwebapp": "EXT"}.get(
         slug, slug.upper()
     )
     conn.execute(

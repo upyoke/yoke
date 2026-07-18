@@ -43,7 +43,7 @@ _SEED_ITEMS = [
     (2, "Done item", "done", "medium", 1, 2, 0),
     (3, "Cancelled item", "cancelled", "low", 1, 3, 0),
     (4, "Frozen item", "idea", "medium", 1, 4, 1),
-    (5, "Buzz active", "implementing", "medium", 2, 1, 0),
+    (5, "ExternalWebapp active", "implementing", "medium", 2, 1, 0),
 ]
 
 
@@ -62,7 +62,7 @@ def _seed_items_and_flow() -> None:
         ])
         conn.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix) "
-            "VALUES (1, 'yoke', 'Yoke', 'YOK'), (2, 'buzz', 'Buzz', 'BUZ')"
+            "VALUES (1, 'yoke', 'Yoke', 'YOK'), (2, 'externalwebapp', 'ExternalWebapp', 'EXT')"
         )
         conn.execute(
             """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
@@ -148,21 +148,21 @@ class TestActiveQueue:
     def test_excludes_done_cancelled_frozen(self, test_db):
         result = _run_client(["active-queue", "--fields", "id,title,status"], db_path=test_db["db_path"])
         assert result.returncode == 0
-        lines = [l for l in result.stdout.strip().split("\n") if l]
-        # Items 1 (active), 5 (active/buzz) included; 2 (done), 3 (cancelled), 4 (frozen) excluded.
+        lines = [line for line in result.stdout.strip().split("\n") if line]
+        # Items 1 (active), 5 (active/externalwebapp) included; 2 (done), 3 (cancelled), 4 (frozen) excluded.
         ids = [line.split("|")[0] for line in lines]
         assert "1" in ids, "Active item should be in queue"
-        assert "5" in ids, "Buzz active item should be in queue"
+        assert "5" in ids, "ExternalWebapp active item should be in queue"
         assert "2" not in ids, "Done item should be excluded"
         assert "3" not in ids, "Cancelled item should be excluded"
         assert "4" not in ids, "Frozen item should be excluded"
 
     def test_project_filter(self, test_db):
-        result = _run_client(["active-queue", "--project", "buzz", "--fields", "id,title"], db_path=test_db["db_path"])
+        result = _run_client(["active-queue", "--project", "externalwebapp", "--fields", "id,title"], db_path=test_db["db_path"])
         assert result.returncode == 0
-        lines = [l for l in result.stdout.strip().split("\n") if l]
+        lines = [line for line in result.stdout.strip().split("\n") if line]
         assert len(lines) == 1
-        assert "Buzz active" in lines[0]
+        assert "ExternalWebapp active" in lines[0]
 
     def test_empty_queue(self, test_db):
         result = _run_client(["active-queue", "--project", "nonexistent", "--fields", "id"], db_path=test_db["db_path"])
@@ -172,7 +172,7 @@ class TestActiveQueue:
     def test_default_fields(self, test_db):
         result = _run_client(["active-queue"], db_path=test_db["db_path"])
         assert result.returncode == 0
-        lines = [l for l in result.stdout.strip().split("\n") if l]
+        lines = [line for line in result.stdout.strip().split("\n") if line]
         assert len(lines) > 0
         # Default fields: id,title,status,priority,type,project
         assert len(lines[0].split("|")) == 6

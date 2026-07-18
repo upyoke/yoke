@@ -139,13 +139,13 @@ class TestPostCommitSnapshotSync:
             return 0
 
         monkeypatch.setattr(mod, "project_snapshot_sync", fake_sync)
-        monkeypatch.setenv(mod.PROJECT_ID_ENV, "buzz")
+        monkeypatch.setenv(mod.PROJECT_ID_ENV, "externalwebapp")
         rc = cli_main(["git", "post-commit"])
         assert rc == 0
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""
-        assert calls == [["--hook", "--head-only", "--project", "buzz"]]
+        assert calls == [["--hook", "--head-only", "--project", "externalwebapp"]]
 
     def test_nonzero_snapshot_sync_still_exits_zero(self, monkeypatch, capsys):
         monkeypatch.setattr(mod, "project_snapshot_sync", lambda _args: 7)
@@ -207,7 +207,7 @@ class TestShimCliCoupling:
         self, scratch_repo,
     ):
         # The exact pre-launcher shim earlier installs wrote (the text
-        # Buzz received before this slice) MUST be rewritten on refresh.
+        # ExternalWebapp received before this slice) MUST be rewritten on refresh.
         legacy = (
             "#!/bin/sh\n"
             f"# {PRE_COMMIT_MARKER} hook installed by `yoke project install`\n"

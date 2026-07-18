@@ -184,7 +184,7 @@ class TestProjectsList(unittest.TestCase):
             "yoke_core.domain.projects_crud.cmd_list",
             return_value=(
                 "1|yoke|Yoke|main|2026-01-01\n"
-                "2|buzz|Buzz|main|2026-01-02"
+                "2|externalwebapp|ExternalWebapp|main|2026-01-02"
             ),
         ):
             outcome = projects_get.handle_projects_list(
@@ -224,9 +224,9 @@ class TestProjectsList(unittest.TestCase):
                 "yoke_core.domain.db_helpers.query_rows",
                 return_value=[{
                     "id": 37,
-                    "slug": "buzz",
-                    "github_repo": "example-org/buzz",
-                    "public_item_prefix": "BUZZ",
+                    "slug": "externalwebapp",
+                    "github_repo": "example-org/externalwebapp",
+                    "public_item_prefix": "EXT",
                 }],
             ) as query_rows,
         ):
@@ -248,9 +248,9 @@ class TestProjectsList(unittest.TestCase):
         )
         self.assertEqual(outcome.result_payload["rows"], [{
             "id": 37,
-            "slug": "buzz",
-            "github_repo": "example-org/buzz",
-            "public_item_prefix": "BUZZ",
+            "slug": "externalwebapp",
+            "github_repo": "example-org/externalwebapp",
+            "public_item_prefix": "EXT",
         }])
         query_rows.assert_called_once()
         self.assertIn(
@@ -276,7 +276,7 @@ class TestProjectsList(unittest.TestCase):
                 "yoke_core.domain.projects_crud.cmd_list",
                 return_value=(
                     "1|yoke|Yoke|main|2026-01-01\n"
-                    "2|buzz|Buzz|main|2026-01-02\n"
+                    "2|externalwebapp|ExternalWebapp|main|2026-01-02\n"
                     "3|installer-e2e-test|Installer E2E|main|2026-01-03"
                 ),
             ),
@@ -297,7 +297,7 @@ class TestProjectsList(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertEqual(
             [row["slug"] for row in outcome.result_payload["rows"]],
-            ["buzz", "installer-e2e-test"],
+            ["externalwebapp", "installer-e2e-test"],
         )
 
     def test_numeric_actor_with_no_grants_sees_no_projects(self):
@@ -330,7 +330,7 @@ class TestProjectsResolveByGithubRepo(unittest.TestCase):
             def close(self):
                 pass
 
-        row = _project_row(id=37, slug="buzz", github_repo="example-org/buzz")
+        row = _project_row(id=37, slug="externalwebapp", github_repo="example-org/externalwebapp")
         with (
             patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
             patch("yoke_core.domain.db_helpers.query_rows", return_value=[row]),
@@ -338,21 +338,21 @@ class TestProjectsResolveByGithubRepo(unittest.TestCase):
             outcome = projects_get.handle_projects_resolve_by_github_repo(
                 _request(
                     function="projects.resolve_by_github_repo",
-                    payload={"github_repo": "git@github.com:Example-Org/Buzz.git"},
+                    payload={"github_repo": "git@github.com:Example-Org/ExternalWebapp.git"},
                 ),
             )
 
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["github_repo"], "example-org/buzz")
+        self.assertEqual(outcome.result_payload["github_repo"], "example-org/externalwebapp")
         self.assertEqual(outcome.result_payload["row"]["id"], 37)
-        self.assertEqual(outcome.result_payload["row"]["slug"], "buzz")
+        self.assertEqual(outcome.result_payload["row"]["slug"], "externalwebapp")
 
     def test_returns_not_found_when_no_project_has_repo(self):
         class _Conn:
             def close(self):
                 pass
 
-        row = _project_row(id=37, slug="buzz", github_repo="example-org/buzz")
+        row = _project_row(id=37, slug="externalwebapp", github_repo="example-org/externalwebapp")
         with (
             patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
             patch("yoke_core.domain.db_helpers.query_rows", return_value=[row]),
@@ -372,7 +372,7 @@ class TestProjectsResolveByGithubRepo(unittest.TestCase):
             def close(self):
                 pass
 
-        row = _project_row(id=37, slug="buzz", github_repo="example-org/buzz")
+        row = _project_row(id=37, slug="externalwebapp", github_repo="example-org/externalwebapp")
         with (
             patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
             patch("yoke_core.domain.db_helpers.query_rows", return_value=[row]),
@@ -386,7 +386,7 @@ class TestProjectsResolveByGithubRepo(unittest.TestCase):
                     function="projects.resolve_by_github_repo",
                     actor=ActorContext(actor_id="42", session_id="s-1"),
                     target=TargetRef(kind="global"),
-                    payload={"github_repo": "example-org/buzz"},
+                    payload={"github_repo": "example-org/externalwebapp"},
                 ),
             )
 
@@ -400,8 +400,8 @@ class TestProjectsResolveByGithubRepo(unittest.TestCase):
                 pass
 
         rows = [
-            _project_row(id=37, slug="buzz", github_repo="example-org/buzz"),
-            _project_row(id=38, slug="buzz-fork", github_repo="Example-Org/Buzz"),
+            _project_row(id=37, slug="externalwebapp", github_repo="example-org/externalwebapp"),
+            _project_row(id=38, slug="externalwebapp-fork", github_repo="Example-Org/ExternalWebapp"),
         ]
         with (
             patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
@@ -410,7 +410,7 @@ class TestProjectsResolveByGithubRepo(unittest.TestCase):
             outcome = projects_get.handle_projects_resolve_by_github_repo(
                 _request(
                     function="projects.resolve_by_github_repo",
-                    payload={"github_repo": "example-org/buzz"},
+                    payload={"github_repo": "example-org/externalwebapp"},
                 ),
             )
 
@@ -424,8 +424,8 @@ class TestProjectsResolveByGithubRepo(unittest.TestCase):
                 pass
 
         rows = [
-            _project_row(id=37, slug="buzz", github_repo="example-org/buzz"),
-            _project_row(id=38, slug="buzz-hidden", github_repo="example-org/buzz"),
+            _project_row(id=37, slug="externalwebapp", github_repo="example-org/externalwebapp"),
+            _project_row(id=38, slug="externalwebapp-hidden", github_repo="example-org/externalwebapp"),
         ]
         with (
             patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
@@ -440,13 +440,13 @@ class TestProjectsResolveByGithubRepo(unittest.TestCase):
                     function="projects.resolve_by_github_repo",
                     actor=ActorContext(actor_id="42", session_id="s-1"),
                     target=TargetRef(kind="global"),
-                    payload={"github_repo": "example-org/buzz"},
+                    payload={"github_repo": "example-org/externalwebapp"},
                 ),
             )
 
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["row"]["id"], 37)
-        self.assertEqual(outcome.result_payload["row"]["slug"], "buzz")
+        self.assertEqual(outcome.result_payload["row"]["slug"], "externalwebapp")
 
 
 def _project_row(**overrides):

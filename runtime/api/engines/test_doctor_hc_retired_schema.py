@@ -63,7 +63,7 @@ class TestRetiredSchemaResurrection:
             tmp_path,
             "surfaces:\n"
             "  - module: demo_cutover\n"
-            "    project: buzz\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: projects\n"
             "    column: retired_col\n",
@@ -94,7 +94,7 @@ class TestRetiredSchemaResurrection:
             tmp_path,
             "surfaces:\n"
             "  - module: demo_cutover\n"
-            "    project: buzz\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: projects\n"
             "    column: retired_col\n",
@@ -145,7 +145,7 @@ class TestRetiredSchemaResurrection:
             tmp_path,
             "surfaces:\n"
             "  - module: drop_legacy_backup\n"
-            "    project: buzz\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: legacy_backup\n",
         )
@@ -177,7 +177,7 @@ class TestRetiredSchemaResurrection:
             tmp_path,
             "surfaces:\n"
             "  - module: drop_legacy_backup\n"
-            "    project: buzz\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: legacy_backup\n",
         )
@@ -195,7 +195,7 @@ class TestRetiredSchemaResurrection:
         assert rec.results[0].result == "WARN"
         detail = rec.results[0].detail
         # Surface label distinguishes table-level from column-level.
-        assert "buzz/legacy_backup" in detail
+        assert "externalwebapp/legacy_backup" in detail
         assert "table-level" in detail
         assert "drop_legacy_backup" in detail
         assert "Remediation" in detail
@@ -219,11 +219,11 @@ class TestRetiredSchemaResurrection:
             tmp_path,
             "surfaces:\n"
             "  - module: drop_legacy_backup\n"
-            "    project: buzz\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: legacy_backup\n"
             "  - module: drop_other_col\n"
-            "    project: buzz\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: other_table\n"
             "    column: deprecated_col\n",
@@ -252,7 +252,7 @@ class TestRetiredSchemaResurrection:
             tmp_path,
             "surfaces:\n"
             "  - module: x\n"
-            "    project: buzz\n"
+            "    project: externalwebapp\n"
             "    model: primary\n"
             "    table: projects\n"
             "    column: retired_col\n",
@@ -280,7 +280,7 @@ class TestRetiredSchemaResurrection:
                 created_at TEXT
             );
             INSERT INTO projects (id, slug, name, public_item_prefix)
-            VALUES (2, 'buzz', 'Buzz', 'BUZ');
+            VALUES (2, 'externalwebapp', 'ExternalWebapp', 'EXT');
             """
         )
         with mock.patch(

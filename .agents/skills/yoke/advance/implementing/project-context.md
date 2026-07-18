@@ -42,7 +42,7 @@ Read the item's title plus its spec/body, paying attention to the acceptance-cri
 
 Match topics in two passes:
 
-1. **Literal topic-name matching first.** For each topic name present in `_context_topics`, check whether that name itself appears in the title/spec/AC text (case-insensitive). This keeps the phase usable for projects whose topic names are not limited to Buzz-style defaults.
+1. **Literal topic-name matching first.** For each topic name present in `_context_topics`, check whether that name itself appears in the title/spec/AC text (case-insensitive). This keeps the phase usable for projects with their own topic defaults.
 2. **Fallback keyword heuristics second** for the standard shared topics:
 
 | Keywords in title/spec/AC text | Topic |

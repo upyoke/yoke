@@ -25,9 +25,9 @@ def _dispatch(config: dict[str, object]) -> tuple[int, str]:
         name="prod-deploy",
         run_id="run-legacy",
         member_items=[],
-        github_repo="upyoke/buzz",
-        project="buzz",
-        project_repo_path="/tmp/buzz",
+        github_repo="upyoke/externalwebapp",
+        project="externalwebapp",
+        project_repo_path="/tmp/externalwebapp",
         timeout_min=30,
         fresh=False,
         gate_branch="main",
@@ -51,18 +51,18 @@ def test_legacy_stage_uses_one_shot_dispatch_without_durable_flags() -> None:
     ), mock.patch.object(
         workflow, "trigger_with_recovery_retries",
     ) as durable_dispatch:
-        result = _dispatch({"workflow": "buzz-deploy.yml"})
+        result = _dispatch({"workflow": "externalwebapp-deploy.yml"})
 
     assert result == (0, "")
     durable_dispatch.assert_not_called()
     assert github_actions.call_args_list == [
         mock.call(
             "trigger-once",
-            "upyoke/buzz",
-            "buzz-deploy.yml",
+            "upyoke/externalwebapp",
+            "externalwebapp-deploy.yml",
             "--ref",
             "main",
-            project="buzz",
+            project="externalwebapp",
             sd="/tmp/sd",
         )
     ]
@@ -86,7 +86,7 @@ def test_legacy_input_stage_does_not_retry_ambiguous_dispatch() -> None:
     ) as durable_dispatch:
         result = _dispatch(
             {
-                "workflow": "buzz-deploy.yml",
+                "workflow": "externalwebapp-deploy.yml",
                 "inputs": {"force_rebuild": "false"},
             }
         )
@@ -108,7 +108,7 @@ def test_explicit_unsupported_correlation_input_still_fails_closed() -> None:
     with mock.patch.object(workflow, "_check_ci_gate", ci_gate):
         result = _dispatch(
             {
-                "workflow": "buzz-deploy.yml",
+                "workflow": "externalwebapp-deploy.yml",
                 "dispatch_correlation_input": "custom_dispatch_id",
             }
         )
@@ -173,7 +173,7 @@ def test_legacy_pipeline_reaches_explicit_one_shot_typed_cli() -> None:
     ), mock.patch.object(
         workflow, "_poll_github_actions", return_value=(0, "success"),
     ):
-        result = _dispatch({"workflow": "buzz-deploy.yml"})
+        result = _dispatch({"workflow": "externalwebapp-deploy.yml"})
 
     assert result == (0, "")
     assert len(captured) == 1

@@ -86,11 +86,11 @@ class TestConfigureCapability:
         assert "config" in data["error"]["message"].lower()
 
     def test_capability_resolves_project_from_item(self, client, test_db):
-        # Item 3 has project='buzz'
+        # Item 3 has project='externalwebapp'
         resp = client.post("/v1/items/3/capability", json={
             "type": "deploy",
             "config": {"target": "staging"},
         })
         assert resp.status_code == 201
         data = resp.json()
-        assert data["project"] == "buzz"
+        assert data["project"] == "externalwebapp"

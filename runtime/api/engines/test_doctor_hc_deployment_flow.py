@@ -27,7 +27,7 @@ def _seed_project_with_checkout(conn, project: str, checkout: str, config_root) 
     register_machine_checkout(
         Path(config_root),
         Path(checkout),
-        2 if project == "buzz" else 1,
+        2 if project == "externalwebapp" else 1,
     )
 
 
@@ -40,18 +40,18 @@ class TestFlowWorkflowExists:
         conn = _make_conn()
         fallback = tmp_path / "yoke"
         fallback.mkdir()
-        project_repo = tmp_path / "buzz"
-        workflow = project_repo / ".github" / "workflows" / "buzz-deploy.yml"
+        project_repo = tmp_path / "externalwebapp"
+        workflow = project_repo / ".github" / "workflows" / "externalwebapp-deploy.yml"
         workflow.parent.mkdir(parents=True)
         workflow.write_text("name: deploy\n", encoding="utf-8")
         _seed_project_with_checkout(
-            conn, "buzz", str(project_repo), tmp_path / "machine-config",
+            conn, "externalwebapp", str(project_repo), tmp_path / "machine-config",
         )
         _seed_flow_with_stages(
             conn,
-            "buzz-prod-release",
-            "buzz",
-            [{"name": "prod", "workflow": "buzz-deploy.yml"}],
+            "externalwebapp-prod-release",
+            "externalwebapp",
+            [{"name": "prod", "workflow": "externalwebapp-deploy.yml"}],
         )
         monkeypatch.setattr(
             "yoke_core.engines.doctor_report._resolve_repo_root",
@@ -67,16 +67,16 @@ class TestFlowWorkflowExists:
         conn = _make_conn()
         fallback = tmp_path / "yoke"
         fallback.mkdir()
-        project_repo = tmp_path / "buzz"
+        project_repo = tmp_path / "externalwebapp"
         project_repo.mkdir()
         _seed_project_with_checkout(
-            conn, "buzz", str(project_repo), tmp_path / "machine-config",
+            conn, "externalwebapp", str(project_repo), tmp_path / "machine-config",
         )
         _seed_flow_with_stages(
             conn,
-            "buzz-prod-release",
-            "buzz",
-            [{"name": "prod", "workflow": "buzz-deploy.yml"}],
+            "externalwebapp-prod-release",
+            "externalwebapp",
+            [{"name": "prod", "workflow": "externalwebapp-deploy.yml"}],
         )
         monkeypatch.setattr(
             "yoke_core.engines.doctor_report._resolve_repo_root",
@@ -87,15 +87,15 @@ class TestFlowWorkflowExists:
         result = _result(rec)
 
         assert result.result == "WARN"
-        assert ".github/workflows/buzz-deploy.yml" in result.detail
-        assert "projects/buzz/workflows" not in result.detail
+        assert ".github/workflows/externalwebapp-deploy.yml" in result.detail
+        assert "projects/externalwebapp/workflows" not in result.detail
 
 
 class TestInvalidItemFlowsMessageEnhancements:
     def test_message_lists_registered_alternatives_for_no_project_item(self):
         conn = _make_conn()
         _seed_flow(conn, "yoke-internal", "yoke")
-        _seed_flow(conn, "buzz-internal", "buzz")
+        _seed_flow(conn, "externalwebapp-internal", "externalwebapp")
         # Item has no project (explicit NULL) — show all registered flows.
         _insert_item(conn, 1, deployment_flow="garbage", project=None)
         rec = _run_hc(hc_invalid_item_flows, conn)
@@ -104,21 +104,21 @@ class TestInvalidItemFlowsMessageEnhancements:
         assert "garbage" in result.detail
         assert "is not registered" in result.detail
         assert "yoke-internal" in result.detail
-        assert "buzz-internal" in result.detail
+        assert "externalwebapp-internal" in result.detail
         # Operator-facing remediation hint.
         assert "repair by hand" in result.detail
 
     def test_message_filters_alternatives_by_item_project(self):
         conn = _make_conn()
         _seed_flow(conn, "yoke-internal", "yoke")
-        _seed_flow(conn, "buzz-internal", "buzz")
+        _seed_flow(conn, "externalwebapp-internal", "externalwebapp")
         _insert_item(conn, 1, "Yoke item", deployment_flow="garbage")
         rec = _run_hc(hc_invalid_item_flows, conn)
         result = _result(rec)
         assert result.result == "WARN"
         assert "yoke-internal" in result.detail
-        # Alternatives are project-filtered — buzz flows must not appear.
-        assert "buzz-internal" not in result.detail
+        # Alternatives are project-filtered — externalwebapp flows must not appear.
+        assert "externalwebapp-internal" not in result.detail
         assert "project 'yoke'" in result.detail
 
     def test_message_when_no_flows_for_project_falls_back_to_all(self):

@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Parity tests — Group 2: board projection (bucket classification, stats).
-
 Splits the Group 2 board-projection coverage out of
 :mod:`runtime.api.test_parity_render`, which keeps Group 1 (filtered
 item reads).
@@ -149,7 +149,7 @@ class TestBoardProjectionParity:
             """INSERT INTO items
                (id, title, type, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, frozen)
-               VALUES (10, 'Buzz implementing item', 'issue', 'implementing', 'medium', 2, 2,
+               VALUES (10, 'ExternalWebapp implementing item', 'issue', 'implementing', 'medium', 2, 2,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user', 0)"""
         )
         conn.commit()

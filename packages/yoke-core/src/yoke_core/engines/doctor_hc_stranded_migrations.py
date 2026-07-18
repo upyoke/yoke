@@ -11,8 +11,8 @@ while the module file still sits under the model's declared
 ``modules_dir``.
 
 The HC iterates every project that declares a ``migration_model``
-capability — Yoke and Buzz today, future governed projects
-automatically. For each project it resolves ``modules_dir`` and
+capability, including future governed projects automatically. For each
+project it resolves ``modules_dir`` and
 ``authoritative_db.kind`` from the capability payload, joins against the
 project's migration ``migration_audit`` table, and reports stranded
 modules keyed by project. ``postgres`` projects read the connected

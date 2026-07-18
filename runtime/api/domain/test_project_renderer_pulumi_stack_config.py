@@ -180,6 +180,22 @@ def test_selected_vps_still_requires_its_server_inputs(monkeypatch):
         build_pulumi_stack_config(object(), "acme", "acme-stage-vps")
 
 
+def test_stack_config_projects_component_type_aliases(monkeypatch):
+    settings = _settings()
+    aliases = {
+        "infra": ["legacy:infra:EdgeStack"],
+        "vps": ["legacy:infra:HostStack"],
+    }
+    settings.capabilities["pulumi-state"]["component_type_aliases"] = aliases
+    _stub_settings(monkeypatch, settings)
+
+    payload = build_pulumi_stack_config(object(), "acme", "acme-stage-vps")
+
+    assert json.loads(
+        payload["render_values"]["component_type_aliases_json"]
+    ) == aliases
+
+
 @pytest.mark.parametrize(
     ("stack", "instance_type", "root_volume_gb", "key_name", "encrypted_key"),
     [

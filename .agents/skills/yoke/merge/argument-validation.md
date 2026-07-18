@@ -14,7 +14,7 @@ Covers the two argument-validation checks (epic lookup via DB, then bare item re
 
 Strip any `YOK-` prefix (case-insensitive) from `{epic-id}` to get the numeric ID, then query the DB to verify it resolves to a known epic:
 ```bash
-_epic_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id={epic-id}'")
+_epic_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id={epic-id}'")
 ```
 
 Evaluate the result:

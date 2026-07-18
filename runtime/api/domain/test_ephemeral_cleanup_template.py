@@ -2,7 +2,7 @@
 
 port of ``yoke/templates/webapp/ops/tests/test-ephemeral-cleanup-template.sh``
 (which was deleted as part of the zero-shell cutover). The original shell
-test was a pattern-match audit of the template + rendered buzz output,
+test was a pattern-match audit of the template + rendered externalwebapp output,
 covering the cleanup-template invariants:
 
 * ephemeral-cleanup template uses filesystem-driven discovery
@@ -12,8 +12,8 @@ covering the cleanup-template invariants:
 
 The Python port preserves the same invariants as regex/substring assertions.
 It runs against the ``.sh.tmpl`` template sources and renders a temporary
-buzz ops output with the project renderer, so the suite does not depend on
-gitignored local artifacts existing in ``projects/buzz/ops``.
+externalwebapp ops output with the project renderer, so the suite does not depend on
+gitignored local artifacts existing in ``projects/externalwebapp/ops``.
 """
 
 from __future__ import annotations
@@ -155,15 +155,15 @@ class TestCleanupTemplateShape:
 
 
 # ---------------------------------------------------------------------------
-# Rendered buzz output (generated into a temp project directory)
+# Rendered externalwebapp output (generated into a temp project directory)
 # ---------------------------------------------------------------------------
 
 def _rendered_cleanup_text(repo_root: Path, tmp_path: Path) -> str:
-    proj_dir = tmp_path / "buzz"
+    proj_dir = tmp_path / "externalwebapp"
     proj_dir.mkdir(parents=True)
     project_renderer.render_ops(
-        "buzz",
-        {"project_name": "buzz", "ephemeral_ttl_hours": "24"},
+        "externalwebapp",
+        {"project_name": "externalwebapp", "ephemeral_ttl_hours": "24"},
         repo_root,
         proj_dir,
         write=True,
@@ -173,8 +173,8 @@ def _rendered_cleanup_text(repo_root: Path, tmp_path: Path) -> str:
     return rendered.read_text()
 
 
-class TestRenderedBuzzCleanup:
-    """Invariants on the rendered buzz output.
+class TestRenderedExternalWebappCleanup:
+    """Invariants on the rendered externalwebapp output.
 
     Rendered project ops files live in scratch/output directories, so these
     assertions render into a temporary directory instead of depending on an
@@ -187,7 +187,7 @@ class TestRenderedBuzzCleanup:
         repo_root: Path,
         tmp_path_factory: pytest.TempPathFactory,
     ) -> str:
-        tmp_path = tmp_path_factory.mktemp("rendered-buzz-cleanup")
+        tmp_path = tmp_path_factory.mktemp("rendered-externalwebapp-cleanup")
         return _rendered_cleanup_text(repo_root, tmp_path)
 
     def test_no_unrendered_placeholders(self, rendered: str) -> None:
@@ -201,7 +201,7 @@ class TestRenderedBuzzCleanup:
         assert not leftovers, f"unrendered placeholders: {leftovers}"
 
     def test_project_name_rendered(self, rendered: str) -> None:
-        assert 'PROJECT_NAME="buzz"' in rendered
+        assert 'PROJECT_NAME="externalwebapp"' in rendered
 
     def test_ttl_hours_rendered(self, rendered: str) -> None:
         assert 'TTL_HOURS="24"' in rendered
@@ -219,7 +219,7 @@ class TestRenderedBuzzCleanup:
         # The protected-set guard is expressed via the shell expansions
         # ``PROTECTED_PROJECT_APP="${PROJECT_NAME}-app"`` /
         # ``PROTECTED_PROJECT_CORE="${PROJECT_NAME}-core"`` rather than
-        # literal ``buzz-app`` substrings, so match the suffix shapes.
+        # literal ``externalwebapp-app`` substrings, so match the suffix shapes.
         assert "PROJECT_NAME}-app" in rendered
         assert "PROJECT_NAME}-core" in rendered
 

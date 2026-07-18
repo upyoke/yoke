@@ -20,7 +20,7 @@ def _seed_conn():
     )
     conn.execute(
         "INSERT INTO projects (id, slug, name) VALUES "
-        "(1, 'yoke', 'Yoke'), (2, 'buzz', 'Buzz')"
+        "(1, 'yoke', 'Yoke'), (2, 'externalwebapp', 'ExternalWebapp')"
     )
     conn.execute(
         "CREATE TEMP TABLE deployment_flows "
@@ -30,8 +30,8 @@ def _seed_conn():
     for row in [
         ("yoke-internal", 1),
         ("yoke-hosted-production", 1),
-        ("buzz-internal", 2),
-        ("buzz-prod-release", 2),
+        ("externalwebapp-internal", 2),
+        ("externalwebapp-prod-release", 2),
     ]:
         conn.execute("INSERT INTO deployment_flows (id, project_id) VALUES (%s, %s)", row)
     return conn
@@ -40,8 +40,8 @@ def _seed_conn():
 def test_list_registered_flow_ids_no_filter_returns_all_sorted():
     conn = _seed_conn()
     assert list_registered_flow_ids(conn) == [
-        "buzz-internal",
-        "buzz-prod-release",
+        "externalwebapp-internal",
+        "externalwebapp-prod-release",
         "yoke-hosted-production",
         "yoke-internal",
     ]
@@ -53,9 +53,9 @@ def test_list_registered_flow_ids_filtered_by_project():
         "yoke-hosted-production",
         "yoke-internal",
     ]
-    assert list_registered_flow_ids(conn, "buzz") == [
-        "buzz-internal",
-        "buzz-prod-release",
+    assert list_registered_flow_ids(conn, "externalwebapp") == [
+        "externalwebapp-internal",
+        "externalwebapp-prod-release",
     ]
 
 
@@ -123,7 +123,7 @@ def test_validate_rejects_unregistered_value_with_alternatives():
     assert "is not registered" in err
     # Without project filter, list every registered flow.
     assert "yoke-internal" in err
-    assert "buzz-internal" in err
+    assert "externalwebapp-internal" in err
 
 
 def test_validate_rejects_literal_none_string():
@@ -142,7 +142,7 @@ def test_validate_rejects_unregistered_value_filtered_by_project():
     assert "project 'yoke'" in err
     assert "yoke-internal" in err
     # Project-filtered alternatives should NOT mix in other projects' flows.
-    assert "buzz-internal" not in err
+    assert "externalwebapp-internal" not in err
 
 
 def test_validate_with_project_filter_no_registered_flows_says_so():
@@ -172,7 +172,7 @@ def test_validate_with_project_filter_does_not_cross_project_check():
     """
     conn = _seed_conn()
     flow_project, err = validate_and_lookup_flow_project(
-        conn, "buzz-internal", "yoke"
+        conn, "externalwebapp-internal", "yoke"
     )
-    assert flow_project == "buzz"
+    assert flow_project == "externalwebapp"
     assert err is None

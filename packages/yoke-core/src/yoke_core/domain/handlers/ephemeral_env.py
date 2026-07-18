@@ -19,6 +19,20 @@ class EphemeralEnvUpdateRequest(BaseModel):
     value: str
 
 
+class EphemeralEnvCreateRequest(BaseModel):
+    project: str
+    branch: str
+    item: str = ""
+    workflow_run_id: str = ""
+    github_ref: str = ""
+
+
+class EphemeralEnvCreateResponse(BaseModel):
+    env_id: int
+    project: str
+    branch: str
+
+
 class EphemeralEnvUpdateResponse(BaseModel):
     env_id: int
     field: str
@@ -113,8 +127,54 @@ def handle_ephemeral_env_update(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_ephemeral_env_create(request: FunctionCallRequest) -> HandlerOutcome:
+    if request.target.kind != "global":
+        return _error(
+            "target_invalid",
+            "ephemeral_env.create requires target.kind='global'",
+            jsonpath="$.target.kind",
+        )
+    try:
+        payload = EphemeralEnvCreateRequest.model_validate(request.payload or {})
+    except Exception as exc:
+        return _error("payload_invalid", f"payload invalid: {exc}")
+    if not payload.project.strip() or not payload.branch.strip():
+        return _error(
+            "payload_invalid",
+            "project and branch are required",
+            jsonpath="$.payload",
+        )
+
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.ephemeral_env import cmd_create
+
+    try:
+        with connect() as conn:
+            raw_env_id = cmd_create(
+                conn,
+                payload.project.strip(),
+                payload.branch.strip(),
+                payload.item.strip(),
+                payload.workflow_run_id.strip(),
+                payload.github_ref.strip(),
+            )
+    except (LookupError, ValueError) as exc:
+        return _error("create_rejected", str(exc), jsonpath="$.payload")
+    return HandlerOutcome(
+        result_payload=EphemeralEnvCreateResponse(
+            env_id=int(raw_env_id),
+            project=payload.project.strip(),
+            branch=payload.branch.strip(),
+        ).model_dump(),
+        primary_success=True,
+    )
+
+
 __all__ = [
+    "EphemeralEnvCreateRequest",
+    "EphemeralEnvCreateResponse",
     "EphemeralEnvUpdateRequest",
     "EphemeralEnvUpdateResponse",
+    "handle_ephemeral_env_create",
     "handle_ephemeral_env_update",
 ]

@@ -96,16 +96,16 @@ def _request(actor_id: int, payload: dict) -> FunctionCallRequest:
 
 
 def test_project_safe_doctor_quick_routes_to_named_project(conn):
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _project_owner(conn, buzz)
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    externalwebapp_owner = _project_owner(conn, externalwebapp)
 
     result = check_dispatch_permission(
         conn,
         _entry(),
         _request(
-            buzz_owner,
+            externalwebapp_owner,
             {
-                "project": "buzz",
+                "project": "externalwebapp",
                 "quick": True,
                 "full": False,
                 "fix": False,
@@ -116,19 +116,19 @@ def test_project_safe_doctor_quick_routes_to_named_project(conn):
     )
 
     assert result.error is None
-    assert result.project_slug == "buzz"
+    assert result.project_slug == "externalwebapp"
 
 
 def test_full_doctor_still_requires_control_plane_permission(conn):
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _project_owner(conn, buzz)
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    externalwebapp_owner = _project_owner(conn, externalwebapp)
 
     denied = check_dispatch_permission(
         conn,
         _entry(),
         _request(
-            buzz_owner,
-            {"project": "buzz", "quick": False, "full": True, "fix": False},
+            externalwebapp_owner,
+            {"project": "externalwebapp", "quick": False, "full": True, "fix": False},
         ),
     )
 
@@ -137,15 +137,15 @@ def test_full_doctor_still_requires_control_plane_permission(conn):
 
 
 def test_doctor_quick_without_source_tree_skip_uses_control_plane_permission(conn):
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _project_owner(conn, buzz)
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    externalwebapp_owner = _project_owner(conn, externalwebapp)
 
     denied = check_dispatch_permission(
         conn,
         _entry(),
         _request(
-            buzz_owner,
-            {"project": "buzz", "quick": True, "full": False, "fix": False},
+            externalwebapp_owner,
+            {"project": "externalwebapp", "quick": True, "full": False, "fix": False},
         ),
     )
 

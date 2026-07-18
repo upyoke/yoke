@@ -47,7 +47,7 @@ def db(tmp_path):
                 github_repo = EXCLUDED.github_repo,
                 public_item_prefix = EXCLUDED.public_item_prefix
             """,
-            (2, "buzz", "Buzz", "org/buzz", "YOK", "2026-01-01T00:00:00Z"),
+            (2, "externalwebapp", "ExternalWebapp", "org/externalwebapp", "YOK", "2026-01-01T00:00:00Z"),
         )
         conn.commit()
         try:
@@ -66,7 +66,7 @@ def _mock_yoke_root():
 def _ok_auth(project: str, **kwargs):
     return ProjectGithubAuth(
         project=project,
-        repo="org/buzz",
+        repo="org/externalwebapp",
         token="ghs_test_token",
     )
 
@@ -105,7 +105,7 @@ def _stub_typed_rest_surfaces():
             number = 100 + create_counter[0]
         return github_rest.Issue(
             number=number, title=title, state="OPEN",
-            html_url=f"https://github.com/org/buzz/issues/{number}",
+            html_url=f"https://github.com/org/externalwebapp/issues/{number}",
         )
 
     with patch(
@@ -128,7 +128,7 @@ def _stub_typed_rest_surfaces():
 
 class TestSyncEpicTasks:
     def test_sync_creates_epic_and_task_issues(self, db):
-        insert_item(db, id=10, type="epic", status="implementing", project="buzz", spec="Epic body here")
+        insert_item(db, id=10, type="epic", status="implementing", project="externalwebapp", spec="Epic body here")
         insert_epic_task(db, epic_id="10", task_num=1, title="First task",
                          status="planned", body="Task 1 body")
         insert_epic_task(db, epic_id="10", task_num=2, title="Second task",
@@ -160,7 +160,7 @@ class TestSyncEpicTasks:
         assert row2[0] is not None
 
     def test_sync_without_conn_uses_backend_connect(self, db):
-        insert_item(db, id=10, type="epic", status="implementing", project="buzz", spec="Epic body here")
+        insert_item(db, id=10, type="epic", status="implementing", project="externalwebapp", spec="Epic body here")
         insert_epic_task(db, epic_id="10", task_num=1, title="First task",
                          status="planned", body="Task 1 body")
         stdout = io.StringIO()
@@ -182,7 +182,7 @@ class TestSyncEpicTasks:
         assert "Sync complete" in stdout.getvalue()
 
     def test_sync_skips_already_synced_tasks(self, db):
-        insert_item(db, id=10, type="epic", status="implementing", project="buzz", spec="Epic body")
+        insert_item(db, id=10, type="epic", status="implementing", project="externalwebapp", spec="Epic body")
         insert_epic_task(db, epic_id="10", task_num=1, title="Already synced",
                          status="implementing", github_issue="#50", worktree="custom-synced")
         insert_epic_task(db, epic_id="10", task_num=2, title="Not yet synced",
@@ -205,7 +205,7 @@ class TestSyncEpicTasks:
         }
 
     def test_sync_dry_run_skips_github(self, db):
-        insert_item(db, id=10, type="epic", status="implementing", project="buzz")
+        insert_item(db, id=10, type="epic", status="implementing", project="externalwebapp")
         insert_epic_task(db, epic_id="10", task_num=1, title="Task one",
                          status="planned")
         stdout = io.StringIO()
@@ -221,7 +221,7 @@ class TestSyncEpicTasks:
         """When the canonical resolver raises ProjectGithubAuthError the
         orchestrator prints the typed code + repair hint and returns 1
         WITHOUT issuing any REST calls."""
-        insert_item(db, id=10, type="epic", status="implementing", project="buzz", spec="body")
+        insert_item(db, id=10, type="epic", status="implementing", project="externalwebapp", spec="body")
         insert_epic_task(db, epic_id="10", task_num=1, title="Task", status="planned")
         stderr = io.StringIO()
 
@@ -251,7 +251,7 @@ class TestSyncEpicTasks:
 
     def test_sync_preserves_explicit_task_worktree(self, db):
         """Architect/refine worktree assignments are the dispatch source of truth."""
-        insert_item(db, id=10, type="epic", status="implementing", project="buzz", spec="body")
+        insert_item(db, id=10, type="epic", status="implementing", project="externalwebapp", spec="body")
         insert_epic_task(db, epic_id="10", task_num=1, title="Task",
                          status="planned", worktree="custom-branch")
         stdout = io.StringIO()
@@ -272,7 +272,7 @@ class TestSyncEpicTasks:
 
     def test_sync_defaults_empty_task_worktree_to_parent(self, db):
         """Legacy unslotted tasks still get the parent worktree fallback."""
-        insert_item(db, id=10, type="epic", status="implementing", project="buzz", spec="body")
+        insert_item(db, id=10, type="epic", status="implementing", project="externalwebapp", spec="body")
         insert_epic_task(db, epic_id="10", task_num=1, title="Task",
                          status="planned")
         stdout = io.StringIO()
@@ -293,7 +293,7 @@ class TestSyncEpicTasks:
     def test_sync_reports_failure_when_task_create_returns_sentinel(self, db):
         """Failed task creates stay unstamped and make sync exit non-zero."""
         insert_item(db, id=10, type="epic", status="implementing",
-                    project="buzz", spec="body")
+                    project="externalwebapp", spec="body")
         insert_epic_task(db, epic_id="10", task_num=1, title="ok-task",
                          status="planned", body="body-one")
         insert_epic_task(db, epic_id="10", task_num=2, title="bad-task",

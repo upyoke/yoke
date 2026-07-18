@@ -59,6 +59,15 @@ _SEED_SCHEMA_DDL = """
       name TEXT NOT NULL,
       stages TEXT NOT NULL
     );
+    CREATE TABLE project_structure (
+      id INTEGER PRIMARY KEY,
+      project_id INTEGER NOT NULL,
+      family TEXT NOT NULL,
+      attachment_value TEXT NOT NULL,
+      attachment_kind TEXT NOT NULL DEFAULT '',
+      entry_key TEXT NOT NULL DEFAULT '',
+      payload TEXT NOT NULL DEFAULT '{}'
+    );
 """
 
 
@@ -67,7 +76,7 @@ def _p(conn) -> str:
 
 
 def _apply_seed_minus_github(conn) -> None:
-    """Apply schema + buzz row + flow but NO github capability/secret rows.
+    """Apply schema + externalwebapp row + flow but NO github capability/secret rows.
 
     Shared by the per-test authority seed and the assertions in this file.
     """
@@ -77,15 +86,21 @@ def _apply_seed_minus_github(conn) -> None:
         "INSERT INTO projects "
         "(id, slug, name, github_repo, default_branch) "
         f"VALUES ({p}, {p}, {p}, {p}, {p})",
-        (2, "buzz", "Buzz", "example-org/buzz", "main"),
+        (2, "externalwebapp", "ExternalWebapp", "example-org/externalwebapp", "main"),
     )
     conn.execute(
         "INSERT INTO deployment_flows (id, project_id, name, stages) "
         f"VALUES ({p}, {p}, {p}, {p})",
         (
-            "buzz-prod-release", 2, "Buzz Production Release",
+            "managed-production", 2, "Production Release",
             json.dumps([{"name": "deploy", "executor": "github-actions"}]),
         ),
+    )
+    conn.execute(
+        "INSERT INTO project_structure "
+        "(project_id, family, attachment_value, entry_key, payload) "
+        f"VALUES ({p}, 'deploy_defaults', 'project', '', {p})",
+        (2, json.dumps({"deployment_flow": "managed-production"})),
     )
     conn.commit()
 
@@ -113,14 +128,14 @@ def _seed_backend_minus_github():
     return _apply
 
 
-def _make_buzz_repo(root: Path) -> Path:
-    repo = root / "fake-buzz"
+def _make_externalwebapp_repo(root: Path) -> Path:
+    repo = root / "fake-externalwebapp"
     repo.mkdir(parents=True, exist_ok=True)
     register_machine_checkout(root / "machine-config", repo, 2)
     (repo / ".git").mkdir(exist_ok=True)
     workflows = repo / ".github" / "workflows"
     workflows.mkdir(parents=True, exist_ok=True)
-    for wf in ("buzz-deploy.yml", "buzz-smoke.yml"):
+    for wf in ("externalwebapp-deploy.yml", "externalwebapp-smoke.yml"):
         (workflows / wf).write_text(f"name: {wf}\n")
     return repo
 
@@ -136,7 +151,7 @@ def test_canonical_resolver_missing_capability_translates_to_fail(
     with init_test_db(tmp_path, apply_schema=_seed_backend_minus_github()) as token:
         db_path = Path(token)
         _touch_db_token(db_path)
-        _make_buzz_repo(tmp_path)
+        _make_externalwebapp_repo(tmp_path)
         script_dir = tmp_path / "scripts"
         script_dir.mkdir(parents=True, exist_ok=True)
 
@@ -167,7 +182,7 @@ def test_canonical_resolver_missing_capability_translates_to_fail(
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
         out = capsys.readouterr().out
@@ -175,7 +190,7 @@ def test_canonical_resolver_missing_capability_translates_to_fail(
         # Canonical resolver text + repair hint surface in the check output.
         assert "github auth not resolvable" in out
         assert "no GitHub App capability row" in out
-        assert "yoke projects github-binding bind --project buzz" in out
+        assert "yoke projects github-binding bind --project externalwebapp" in out
         retired_hint = "Run: gh " + "auth " + "login"
         assert retired_hint not in out
 
@@ -189,7 +204,7 @@ def test_remote_checks_reject_repo_projection_mismatch_before_io(
         project_root=tmp_path,
         script_dir=tmp_path / "scripts",
         control_plane_marker=marker,
-        project="buzz",
+        project="externalwebapp",
     )
     def resolve_auth(*_args, **kwargs):
         assert (

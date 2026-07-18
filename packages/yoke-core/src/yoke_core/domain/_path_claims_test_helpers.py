@@ -84,7 +84,7 @@ def _apply_path_claim_schema() -> None:
             "VALUES "
             "(1, 'yoke', 'Yoke', 'main', NULL, 'YOK', "
             "'2026-05-01T00:00:00Z'), "
-            "(2, 'buzz', 'Buzz', 'main', NULL, 'BUZ', "
+            "(2, 'externalwebapp', 'ExternalWebapp', 'main', NULL, 'EXT', "
             "'2026-05-01T00:00:00Z') "
             "ON CONFLICT (id) DO NOTHING"
         )

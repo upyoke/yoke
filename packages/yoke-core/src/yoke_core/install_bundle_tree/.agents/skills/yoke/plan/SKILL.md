@@ -41,7 +41,7 @@ yoke sessions touch \
 1. **Resolve the backlog item:**
  Resolve by `id` first (if `{epic-id}` is `YOK-N`, strip the prefix to get the numeric `id` — for epic items, that numeric `id` IS the same value referenced as `epic_id` in `epic_tasks`), otherwise by title slug:
  ```bash
- python3 -m yoke_core.cli.db_router query "SELECT id, title, type, status FROM items WHERE id={N-from-YOK-if-provided} OR lower(replace(title,' ','-'))=lower('{epic-id}') ORDER BY CASE WHEN id={N-from-YOK-if-provided} THEN 0 ELSE 1 END LIMIT 1;"
+ yoke db read --format lines "SELECT id, title, type, status FROM items WHERE id={N-from-YOK-if-provided} OR lower(replace(title,' ','-'))=lower('{epic-id}') ORDER BY CASE WHEN id={N-from-YOK-if-provided} THEN 0 ELSE 1 END LIMIT 1;"
  ```
  If you also need the rendered body, fetch it separately (it is a virtual rendered field, not an `items` column):
  ```bash
@@ -59,7 +59,7 @@ yoke sessions touch \
 
  ```bash
  _epic_id={resolved numeric item ID from step 1}
- # Use _epic_id (numeric item ID) for ALL python3 -m yoke_core.cli.db_router epic calls below.
+ # Use _epic_id (numeric item ID) for all registered epic-task commands below.
  ```
 
 2. **PRD quality gate (pre-planning validation):**
@@ -88,7 +88,7 @@ yoke sessions touch \
 
  If plan mode is `epic`, check whether `epic_tasks` rows already exist for this epic in the DB:
  ```bash
- _existing_tasks=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id={epic-id}'")
+ _existing_tasks=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id={epic-id}'")
  ```
 
  **If `_existing_tasks` > 0 AND any tasks have status other than `planning` or `planned`:** stop with:
@@ -96,10 +96,10 @@ yoke sessions touch \
 
  **If `_existing_tasks` > 0 AND all tasks are `planning` or `planned`** (prior interrupted run): ask user: **Resume** or **Restart**?
  - **Resume:** Skip to step 11 (review gate) to re-present the plan from the existing DB data.
- - **Restart:** Delete existing task data and start fresh:
+ - **Restart:** list the existing tasks, then remove each planning/planned task through the registered task owner and start fresh:
  ```bash
- python3 -m yoke_core.cli.db_router query "DELETE FROM epic_task_files WHERE epic_id={epic-id}'"
- python3 -m yoke_core.cli.db_router query "DELETE FROM epic_tasks WHERE epic_id={epic-id}'"
+ yoke epic-tasks list --epic "{epic-id}"
+ yoke workflow-item epic-task remove --epic "{epic-id}" --task-num "{each task_num}" --reason "plan restart"
  ```
  Then continue normally to step 4.
 
@@ -171,13 +171,10 @@ yoke sessions touch \
     {body: "<full new task body>"}`.
 
  c. **Add file entries** for each file in the task's Files Touched
-    section via the operator-debug shell read/write surface
-    `python3 -m yoke_core.cli.db_router epic file-add "{epic-id}"
-    "{task_num}" "{file_path}" "{action}"` (where `{action}` is
-    `create`, `modify`, or `delete`). The
-    `workflow_item.epic_task_file.*` family is not yet exposed; this
-    CLI write stays on the epic-internal shell surface until the
-    function family lands.
+    section through `yoke workflow-item epic-task file-add --epic
+    "{epic-id}" --task-num "{task_num}" --file-path "{file_path}"
+    --action "{action}"` (where `{action}` is `create`, `modify`, or
+    `delete`).
 
 9. **Write plan content to structured fields:**
 
@@ -224,10 +221,10 @@ yoke sessions touch \
 
  **If the user rejects the plan:**
  - Issue mode: do not update status; stop.
- - Epic mode: delete task data from DB and stop:
+ - Epic mode: list the tasks, remove each planning/planned task through the registered owner, and stop:
  ```bash
- python3 -m yoke_core.cli.db_router query "DELETE FROM epic_task_files WHERE epic_id={epic-id}'"
- python3 -m yoke_core.cli.db_router query "DELETE FROM epic_tasks WHERE epic_id={epic-id}'"
+ yoke epic-tasks list --epic "{epic-id}"
+ yoke workflow-item epic-task remove --epic "{epic-id}" --task-num "{each task_num}" --reason "plan rejected"
  ```
  Do NOT update backlog status. Stop here.
 

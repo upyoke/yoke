@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Coverage for ambient item ownership on path-claim mutations.
-
 Mutating ``path-claims`` subcommands must refuse non-holder sessions.
 Read-only subcommands remain callable for coordination inspection.
 The guard reads the ambient harness session from the env-var chain.
@@ -30,7 +30,7 @@ ITEM_ID = 9001
 
 def _seed_item(conn, *, item_id=ITEM_ID, project="yoke"):
     project_key = str(project)
-    project_id = 2 if project_key == "buzz" else int(project_key) if project_key.isdigit() else 1
+    project_id = 2 if project_key == "externalwebapp" else int(project_key) if project_key.isdigit() else 1
     conn.execute(
         "INSERT INTO items (id, title, type, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "

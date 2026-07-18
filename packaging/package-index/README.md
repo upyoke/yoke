@@ -12,7 +12,8 @@ wheels:
 Every machine carries the engine (`yoke-core`); safety comes from the DSN
 authority boundary, not from keeping engine code off machines. Third-party
 dependencies (pydantic, textual, pyfiglet, and their transitive closure) are
-**not** hosted by Yoke; they resolve from PyPI via an extra index URL.
+**not** hosted by Yoke; they resolve from an explicitly selected public PyPI
+default while the Yoke index remains the resolver's first index.
 
 ## Install Command
 
@@ -22,10 +23,11 @@ curl -fsSL https://upyoke.com/install | sh
 
 The public installer resolves the channel once, pins all four Yoke product
 packages to that version, and gives uv a generated private-index configuration.
-Direct multi-index `uv tool install` commands are not a supported install
-surface: their index precedence can select a public namesake before the Yoke
-package index. Each product wheel link carries a `#sha256=<hex>` fragment so uv
-verifies wheel integrity on download.
+It also pins public PyPI as the dependency default and clears ambient uv index
+settings for that resolver run. Direct multi-index `uv tool install` commands
+are not a supported install surface: their index precedence can select a public
+namesake before the Yoke package index. Each product wheel link carries a
+`#sha256=<hex>` fragment so uv verifies wheel integrity on download.
 
 ## Build Release Artifacts
 

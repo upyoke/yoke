@@ -22,14 +22,14 @@ from yoke_contracts.project_contract.board_art import (  # noqa: E402
 
 
 def test_resolve_word_short_display_name_used_whole():
-    assert resolve_project_art_word("Buzz", slug="buzz", short_code="BUZZ") == "BUZZ"
+    assert resolve_project_art_word("ExternalWebapp", slug="externalwebapp", short_code="EXT") == "EXT"
 
 
 def test_resolve_word_long_name_falls_to_first_word():
     # whole join is too long; the first word fits and is most recognizable.
     assert resolve_project_art_word(
-        "Buzz Marketing Platform", slug="buzz-marketing-platform", short_code="BUZZ",
-    ) == "BUZZ"
+        "External Marketing Platform", slug="external-marketing-platform", short_code="EXT",
+    ) == "EXTERNAL"
 
 
 def test_resolve_word_acronym_when_every_word_is_long():
@@ -55,8 +55,8 @@ def test_normalize_master_map_word_caps_and_uppercases():
 
 
 def test_normalize_header_art_word_keeps_spaces_allows_longer():
-    out = normalize_header_art_word("Buzz Marketing Platform")
-    assert out == "BUZZ MARKETING PLATFORM"
+    out = normalize_header_art_word("External Marketing")
+    assert out == "EXTERNAL MARKETING"
     assert len(out) > MAX_ART_WORD_LEN  # header art is not capped at the map limit
 
 
@@ -71,20 +71,20 @@ def test_ascii_generator_word_override_bypasses_choose_art_word():
 
 def test_mixed_generator_word_override():
     variant = generate_random_mixed_variant_detail(
-        word="BUZZ", seed_text="seed", attempt=0,
+        word="EXT", seed_text="seed", attempt=0,
     )
     assert variant.kind == "Mixed"
-    assert variant.word == "BUZZ"
+    assert variant.word == "EXT"
 
 
 def test_generate_variant_helper_shuffle_changes_output():
-    first = art.generate_variant(kind="ASCII", word="BUZZ", seed_text="seed", attempt=0)
-    second = art.generate_variant(kind="ASCII", word="BUZZ", seed_text="seed", attempt=1)
+    first = art.generate_variant(kind="ASCII", word="EXT", seed_text="seed", attempt=0)
+    second = art.generate_variant(kind="ASCII", word="EXT", seed_text="seed", attempt=1)
     assert first.text != second.text  # a different attempt picks a different font
 
 
 def test_render_master_map_returns_board_header():
-    rendered = art.render_master_map("BUZZ")
+    rendered = art.render_master_map("EXT")
     assert "\n" in rendered
     # render_header composed the stats box, so we got the real board header,
     # not the bare-map fallback.
@@ -93,10 +93,10 @@ def test_render_master_map_returns_board_header():
 
 def test_write_board_art_writes_sections(tmp_path: Path):
     variants = [
-        art.generate_variant(kind="ASCII", word="BUZZ", seed_text="s", attempt=0),
-        art.generate_variant(kind="Mixed", word="BUZZ", seed_text="s", attempt=0),
+        art.generate_variant(kind="ASCII", word="EXT", seed_text="s", attempt=0),
+        art.generate_variant(kind="Mixed", word="EXT", seed_text="s", attempt=0),
     ]
-    art.write_board_art(tmp_path, "BUZZ", variants)
+    art.write_board_art(tmp_path, "EXT", variants)
     content = (tmp_path / ".yoke" / "board-art").read_text(encoding="utf-8")
     assert "## Master Map" in content
     assert "## ASCII" in content
@@ -164,14 +164,14 @@ class _FakeShell(BoardArtFlow):
 def _shell() -> _FakeShell:
     return _FakeShell(WizardResult(
         config_path="cfg", env_name="prod", api_url="https://x",
-        project_name="Buzz", project_slug="buzz", project_public_item_prefix="BUZZ",
+        project_name="ExternalWebapp", project_slug="externalwebapp", project_public_item_prefix="EXT",
     ))
 
 
 def test_flow_intro_seeds_default_word_and_seed():
     shell = _shell()
     shell._goto_board_art_intro()
-    assert shell.result.board_art_word == "BUZZ"
+    assert shell.result.board_art_word == "EXT"
     assert shell.result.board_art_seed
 
 
@@ -257,7 +257,7 @@ def test_flow_repeated_image_previews_reuse_input_slot(monkeypatch):
     shell._on_board_art_style("image")
     input_depth = len(shell._history)
     variant = art.generate_variant(
-        kind="ASCII", word="BUZZ", seed_text="seed", attempt=0,
+        kind="ASCII", word="EXT", seed_text="seed", attempt=0,
     )
     monkeypatch.setattr(
         art, "build_image", lambda **_: ("Emoji", variant, "🟩"),

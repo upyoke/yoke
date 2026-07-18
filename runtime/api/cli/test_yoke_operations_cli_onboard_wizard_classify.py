@@ -180,7 +180,7 @@ def test_build_plan_clone_just_clone_has_no_remote_rehome_step() -> None:
 def test_build_plan_existing_project_missing_board_art_lists_art_step() -> None:
     project_inputs = {
         "mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
-        "checkout": "/home/code/buzz",
+        "checkout": "/home/code/externalwebapp",
         "github_adoption": "backlog-only",
         "existing_project_id": 37,
         "clone": ClonePlan(outcome="just-clone"),
@@ -205,7 +205,7 @@ def test_build_plan_existing_project_missing_board_art_lists_art_step() -> None:
 def test_build_plan_existing_project_with_board_art_skips_art_step(
     tmp_path: Path,
 ) -> None:
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     (checkout / ".yoke").mkdir(parents=True)
     (checkout / ".yoke" / "board-art").write_text("# art\n", encoding="utf-8")
     project_inputs = {
@@ -227,17 +227,17 @@ def test_build_plan_existing_project_with_board_art_skips_art_step(
 def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
     project_inputs = {
         "mode": onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-        "checkout": "/home/code/buzz",
-        "slug": "buzz",
-        "name": "Buzz",
+        "checkout": "/home/code/externalwebapp",
+        "slug": "externalwebapp",
+        "name": "ExternalWebapp",
         "github_adoption": "backlog-only",
         "existing_project_id": 37,
-        "github_repo": "owner/buzz",
+        "github_repo": "owner/externalwebapp",
         "default_branch": "trunk",
         "default_branch_source": (
             onboard_project.DEFAULT_BRANCH_SOURCE_EXISTING_PROJECT
         ),
-        "public_item_prefix": "BUZ",
+        "public_item_prefix": "EXT",
     }
     reuse = {
         "yoke_home": True,
@@ -279,15 +279,15 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
         "Write your board art and initial BOARD.md",
     ]
     assert (
-        "Existing Yoke project detected in the Yoke core database: Buzz (id 37)."
+        "Existing Yoke project detected in the Yoke core database: ExternalWebapp (id 37)."
         in reuse_lines
     )
     assert (
-        "Existing project GitHub repo in the Yoke core database: owner/buzz."
+        "Existing project GitHub repo in the Yoke core database: owner/externalwebapp."
         in reuse_lines
     )
     assert (
-        "Existing project issue prefix in the Yoke core database: BUZ."
+        "Existing project issue prefix in the Yoke core database: EXT."
         in reuse_lines
     )
     assert (
@@ -296,7 +296,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
     )
     assert (
         "Checkout mapping is already registered in ~/.yoke/config.json at "
-        "/home/code/buzz."
+        "/home/code/externalwebapp."
         in reuse_lines
     )
     assert "Project scaffold is already installed; Apply will refresh it." in reuse_lines
@@ -452,16 +452,16 @@ def test_friendly_line_names_chosen_project_when_known() -> None:
     rendered = steps._friendly_line(
         "project-source-choice",
         onboard_project.PROJECT_MODE_CREATE_REPO,
-        "Buzz",
+        "ExternalWebapp",
     )
-    assert rendered == "Record Buzz in the Yoke core database as a new project"
+    assert rendered == "Record ExternalWebapp in the Yoke core database as a new project"
 
 
 def test_classify_plan_threads_project_name_into_source_choice() -> None:
     plan = {
         "project_mode": onboard_project.PROJECT_MODE_CREATE_REPO,
         "plan": {
-            "project": {"name": "Buzz"},
+            "project": {"name": "ExternalWebapp"},
             "steps": [
                 {
                     "action": "project-source-choice",
@@ -472,5 +472,5 @@ def test_classify_plan_threads_project_name_into_source_choice() -> None:
     }
     grouped = steps.classify_plan(plan)
     assert grouped["core"] == [
-        "Record Buzz in the Yoke core database as a new project"
+        "Record ExternalWebapp in the Yoke core database as a new project"
     ]

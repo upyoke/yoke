@@ -25,7 +25,7 @@ class TestSeedDefaults:
     ) -> None:
         conn = connect_test_db(tmp_db)
         try:
-            report = defaults.seed_default_docs(conn, 2, "Buzz")
+            report = defaults.seed_default_docs(conn, 2, "ExternalWebapp")
             docs = sd.list_docs(conn, 2)
             mission = sd.get_doc(conn, 2, "MISSION")
         finally:
@@ -33,14 +33,14 @@ class TestSeedDefaults:
         assert report["already_seeded"] is False
         assert report["seeded"] == list(defaults.DEFAULT_STRATEGY_DOC_SLUGS)
         assert [d["slug"] for d in docs] == list(defaults.DEFAULT_STRATEGY_DOC_SLUGS)
-        assert "Buzz" in mission["content"]
+        assert "ExternalWebapp" in mission["content"]
         assert "TODO" in mission["content"]
 
     def test_seed_is_idempotent(self, tmp_db: str) -> None:
         conn = connect_test_db(tmp_db)
         try:
-            defaults.seed_default_docs(conn, 2, "Buzz")
-            second = defaults.seed_default_docs(conn, 2, "Buzz")
+            defaults.seed_default_docs(conn, 2, "ExternalWebapp")
+            second = defaults.seed_default_docs(conn, 2, "ExternalWebapp")
             count = conn.execute(
                 f"SELECT COUNT(*) FROM {sd.STRATEGY_DOCS_TABLE} "
                 "WHERE project_id = %s",
@@ -61,7 +61,7 @@ class TestSeedDefaults:
                 (2, "MASTER-PLAN", "# existing plan\n", sd.next_updated_at()),
             )
             conn.commit()
-            report = defaults.seed_default_docs(conn, 2, "Buzz")
+            report = defaults.seed_default_docs(conn, 2, "ExternalWebapp")
             slugs = sd.project_doc_slugs(conn, 2)
         finally:
             conn.close()
@@ -73,7 +73,7 @@ class TestSeedDefaults:
     def test_seed_scopes_to_one_project(self, tmp_db: str) -> None:
         conn = connect_test_db(tmp_db)
         try:
-            defaults.seed_default_docs(conn, 2, "Buzz")
+            defaults.seed_default_docs(conn, 2, "ExternalWebapp")
             slugs_other = sd.project_doc_slugs(conn, 1)
         finally:
             conn.close()
@@ -81,7 +81,7 @@ class TestSeedDefaults:
 
     def test_placeholder_unknown_slug_raises(self) -> None:
         with pytest.raises(ValueError, match="default canon"):
-            defaults.placeholder_content("PAD", "Buzz")
+            defaults.placeholder_content("PAD", "ExternalWebapp")
 
 
 class TestPathResolver:

@@ -1,5 +1,5 @@
+# ruff: noqa: F401
 """Shared module-level helpers for doctor_meta test files.
-
 Underscore prefix keeps pytest from collecting this as a test module.
 Used by test_doctor_meta.py and its split siblings (project, lifecycle).
 
@@ -87,8 +87,8 @@ _REST_DDL = """
             (id, slug, name, default_branch, created_at,
              github_repo, public_item_prefix)
         VALUES
-            (2, 'buzz', 'Buzz', 'main',
-             '2026-01-01T00:00:00Z', 'example-org/buzz', 'BUZ');
+            (2, 'externalwebapp', 'ExternalWebapp', 'main',
+             '2026-01-01T00:00:00Z', 'example-org/externalwebapp', 'EXT');
 
         CREATE TABLE project_capabilities (
             id INTEGER PRIMARY KEY, project_id INTEGER, type TEXT, config TEXT,

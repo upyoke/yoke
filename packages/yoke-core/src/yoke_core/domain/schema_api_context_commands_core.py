@@ -146,9 +146,7 @@ CORE_COMMANDS: list[dict] = [
             "Canonical agent shape (function id "
             "``shepherd.dependency_list.run``); works over https. "
             "Typed rows around item_dependencies — use over raw SQL; "
-            "guessed columns are not the canonical schema. Operator-"
-            "debug fallback: `python3 -m yoke_core.cli.db_router "
-            "shepherd dependency-list YOK-N`."
+            "guessed columns are not the canonical schema."
         ),
     },
     {
@@ -252,21 +250,16 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Backlog mutation family (CLI adapter)",
         "recipe": (
-            "python3 -m yoke_core.api.service_client backlog-cli "
-            "{add,update,batch-update,freeze,thaw,block,unblock,close,"
-            "sync-labels,sync-body,rebuild-board,"
-            "post-comment,get-next-id,list,dedup-search} ..."
+            "yoke items {create,get,list,search,github-sync,scalar-update,...} "
+            "--help"
         ),
         "notes": (
-            "Operator-debug fallback for the backlog family, which has no "
-            "`yoke` CLI adapter yet. Item id arg accepts PREFIX-N, or a bare "
-            "project sequence with project context. "
-            "`update` and `batch-update` take `<field> <value>` or "
-            "`f1=v1 f2=v2` shapes; structured-field writes route through "
-            "`items.structured_field.replace` — for those, prefer the "
-            "canonical `yoke items structured-field replace` form. "
-            "`freeze`/`thaw`/`block`/`unblock` use `items.scalar.update` "
-            "internally."
+            "Use the registered `yoke items` family named by command help. "
+            "Item refs accept PREFIX-N, or a bare project sequence with "
+            "project context. Structured-field writes use `yoke items "
+            "structured-field ...`; lifecycle changes use `yoke lifecycle "
+            "transition`; freeze/thaw/block/unblock have their named Yoke "
+            "skills and registered state surfaces."
         ),
     },
     {
@@ -275,9 +268,9 @@ CORE_COMMANDS: list[dict] = [
         "recipe": 'yoke db read "SELECT ..."',
         "notes": (
             "Read-only raw diagnostic surface. Prefer domain readers first, "
-            "never use !=, use <>. Source-dev/operator-debug break-glass "
-            "fallback: `python3 -m yoke_core.cli.db_router query "
-            "\"SELECT ...\"`. Never call database CLIs directly."
+            "never use !=, use <>. Use `--format lines` when a shell recipe "
+            "needs scalar or pipe-delimited rows. Never call database CLIs "
+            "directly."
         ),
     },
 ]

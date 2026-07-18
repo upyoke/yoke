@@ -14,9 +14,8 @@ matching scope:
                        requires its org admin grant. Whole-DB / whole-instance
                        diagnostics: raw db read, doctor. Project slugs never
                        confer control-plane authority.
-* ``ACTOR_SESSION``  — the actor operating on its own session/orchestration;
-                       allowed for any authenticated actor (the session id binds
-                       the work to the caller).
+* ``ACTOR_SESSION``  — own-session and global learning-channel operations;
+                       allowed for any authenticated actor without a tenant target.
 * ``CLIENT_LOCAL``   — machine-local op that writes the *caller's own* ``~/.yoke``
                        config or local checkout; gated by machine possession, not
                        a control-plane permission.
@@ -108,6 +107,7 @@ _BY_ID: dict[str, AuthzSpec] = {
         PROJECT, PERM_PROJECT_ADMIN,
     ),
     "projects.environment_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "projects.infrastructure.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment_settings.merge": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN,
     ),
@@ -134,6 +134,8 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.github_binding.unbind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.github_binding.status": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project.snapshot.sync": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    "deployment_flows.reconcile_project": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.artifacts.render": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "project_structure.command_definitions.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project_structure.command_definitions.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
@@ -199,6 +201,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "config.stamp_project_env.run": AuthzSpec(CLIENT_LOCAL, None),
     "status.run": AuthzSpec(CLIENT_LOCAL, None),
     "project.register.run": AuthzSpec(CLIENT_LOCAL, None),
+    "project.artifacts.refresh": AuthzSpec(CLIENT_LOCAL, None),
     "scratch.dispatch_inputs": AuthzSpec(CLIENT_LOCAL, None),
     # Render-into-checkout / template fetch — local repo writes.
     "agents.render.run": AuthzSpec(CLIENT_LOCAL, None),
@@ -207,13 +210,13 @@ _BY_ID: dict[str, AuthzSpec] = {
     "packets.check.run": AuthzSpec(CLIENT_LOCAL, None),
     "templates.fetch.run": AuthzSpec(CLIENT_LOCAL, None),
     "templates.list.run": AuthzSpec(CLIENT_LOCAL, None),
-    # Intentionally ungated so any authenticated actor can append a field-note.
-    "ouroboros.field_note.append": AuthzSpec(CLIENT_LOCAL, None),
 }
 
 # Prefix families where every member shares a scope.
 _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
-    # Deployment flows/runs reads + run mutation: cross-project infra → org admin.
+    # Global learning channel; handlers retain optional project list filters.
+    ("ouroboros.field_note.", AuthzSpec(ACTOR_SESSION, None)),
+    # Flow reads/runs are org-scoped; project reconcile is excepted above.
     ("deployment_flows.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
     ("deployment_runs.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
     # Sign-in admission administration (invites, identity links, auto-join
@@ -324,8 +327,6 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
         return PERM_EVENTS_WRITE if entry.side_effects else PERM_EVENTS_READ
     if fid.startswith("ouroboros.wrapup."):
         return PERM_EVENTS_WRITE if entry.side_effects else PERM_EVENTS_READ
-    if fid in {"ouroboros.field_note.list", "ouroboros.field_note.get"}:
-        return PERM_EVENTS_READ
     if fid.startswith("shepherd."):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("qa."):

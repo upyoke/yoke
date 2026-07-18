@@ -81,10 +81,6 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ): ("source_dev_admin", "local GitHub Actions wait helper"),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/misc.py",
-        "yoke_core.domain.handlers.ouroboros_field_note",
-    ): ("source_dev_admin", "local field-note adapter until HTTPS-only"),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/misc.py",
         "yoke_core.domain.project_scratch_dir",
     ): ("source_dev_admin", "local scratch resolver helper"),
     (

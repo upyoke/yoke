@@ -83,6 +83,7 @@ class WebappInfraArgs:
     distribution_origin_id: str = ""
     domain_txt_records: Sequence[DomainTxtRecordArgs] = ()
     domain_mx_records: Sequence[DomainMxRecordArgs] = ()
+    component_type_aliases: Sequence[str] = ()
 
 
 class WebappInfraStack(pulumi.ComponentResource):
@@ -99,22 +100,20 @@ class WebappInfraStack(pulumi.ComponentResource):
         args: WebappInfraArgs,
         opts: Optional[pulumi.ResourceOptions] = None,
     ) -> None:
-        # Pulumi tracks ComponentResources by URN, which embeds the type
-        # string. The alias on the old ``buzz:infra:BuzzInfraStack`` type
-        # tells Pulumi that the renamed component is the same resource —
-        # without it, ``pulumi up`` against an existing stack would propose
-        # to destroy the old ComponentResource (and all its children) and
-        # create a new one, which would destroy live infrastructure.
+        component_opts = pulumi.ResourceOptions.merge(
+            opts,
+            pulumi.ResourceOptions(
+                aliases=[
+                    pulumi.Alias(type_=value)
+                    for value in args.component_type_aliases
+                ]
+            ),
+        )
         super().__init__(
             "webapp:infra:WebappInfraStack",
             name,
             None,
-            pulumi.ResourceOptions.merge(
-                opts,
-                pulumi.ResourceOptions(
-                    aliases=[pulumi.Alias(type_="buzz:infra:BuzzInfraStack")],
-                ),
-            ),
+            component_opts,
         )
 
         tags = {"project": args.deploy_namespace}
@@ -135,7 +134,7 @@ class WebappInfraStack(pulumi.ComponentResource):
         # --- CloudFront Function: www-to-apex redirect ---
         # Explicit ``name=`` pins the AWS-side name so ``pulumi import`` can
         # address it; without this, Pulumi would derive a URN-based name that
-        # would not match the live ``buzz-www-redirect`` function.
+        # would not match an already-imported redirect function.
         # ``publish=False`` is set explicitly so zero-change cutover from
         # the live function holds: the historical IaC runtime published
         # implicitly on every synth, but ``pulumi import`` captured the

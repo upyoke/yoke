@@ -7,14 +7,13 @@ All screens remain in the Install stepper segment.
 
 from __future__ import annotations
 
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from rich.markup import escape
 from textual.widgets import Static
 
-from yoke_cli.config import path_doctor
+from yoke_cli.config import install_binding, path_doctor
 from yoke_cli.config.onboard_terminal import glyphs
 from yoke_cli.config.onboard_wizard_palette import ACCENT, BRAND as _BRAND, DANGER
 from yoke_cli.config.onboard_wizard_steps import selection_body
@@ -25,9 +24,6 @@ from yoke_cli.config.onboard_wizard_widgets import (
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
-
-_PACKAGE_NAME = "yoke-cli"
-
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     _post_install: bool
@@ -61,10 +57,10 @@ PATH_VERIFIED_ROWS = [
 
 
 def _yoke_version() -> str:
-    try:
-        return version(_PACKAGE_NAME)
-    except PackageNotFoundError:
-        return "0.1.0"
+    return (
+        install_binding.distribution_version(source_value="source checkout")
+        or "unknown version"
+    )
 
 
 def _heading(title: str, subtitle: str) -> list[Static]:

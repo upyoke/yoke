@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import List
 
 import pytest
 
@@ -24,7 +24,7 @@ def db_path(tmp_path: Path):
 def initialized_db(db_path: str) -> str:
     ps.cmd_init(db_path=db_path)
     seed_project(db_path, 1, "yoke", "Yoke", github_repo="org/yoke")
-    seed_project(db_path, 2, "buzz", "Buzz", github_repo="org/buzz")
+    seed_project(db_path, 2, "externalwebapp", "ExternalWebapp", github_repo="org/externalwebapp")
     seed_project(db_path, 100, "fresh", "Fresh", github_repo="org/fresh")
     return db_path
 
@@ -100,46 +100,20 @@ class TestSeed:
             "deployment_flow": "yoke-internal"
         }
 
-    def test_seed_buzz_populates_every_net_new_family(self, initialized_db: str):
-        ps.cmd_seed("buzz", db_path=initialized_db)
-        structure = ps.read_structure("buzz", db_path=initialized_db)
-        for family in ps.NET_NEW_FAMILIES:
-            if family in self._SEED_COVERAGE_OPTIONAL:
-                continue
-            assert structure["families"][family], (
-                f"Net-new family '{family}' was not seeded for buzz"
-            )
-
-    def test_buzz_command_definitions_scope_coverage(self, initialized_db: str):
-        """Buzz keeps the quick/full/smoke commands that previously lived in
-        ``projects.test_command_*``. ``e2e`` stays absent — buzz has no real
-        end-to-end suite today."""
-        ps.cmd_seed("buzz", db_path=initialized_db)
-        structure = ps.read_structure("buzz", family="command_definitions",
-                                      db_path=initialized_db)
-        scopes = {e["entry_key"] for e in structure["entries"]}
-        assert scopes == {"quick", "full", "smoke"}
+    def test_external_project_has_no_source_owned_seed(self, initialized_db: str):
+        with pytest.raises(ps.UsageError, match="Known seeds: yoke"):
+            ps.cmd_seed("externalwebapp", db_path=initialized_db)
 
     def test_seed_populates_context_routing(self, initialized_db: str):
-        """Seed materializes the context_routing always entry plus topic
-        entries (when the project has any). Yoke seeds ``always`` only;
-        buzz seeds ``always`` plus topics."""
+        """Seed materializes Yoke's project-wide context entry."""
         ps.cmd_seed("yoke", db_path=initialized_db)
         yoke_cr = ps.read_structure("yoke", family="context_routing",
                                       db_path=initialized_db)
         yoke_keys = {e["entry_key"] for e in yoke_cr["entries"]}
         assert "always" in yoke_keys
 
-        ps.cmd_seed("buzz", db_path=initialized_db)
-        buzz_cr = ps.read_structure("buzz", family="context_routing",
-                                    db_path=initialized_db)
-        buzz_keys = {e["entry_key"] for e in buzz_cr["entries"]}
-        assert "always" in buzz_keys
-        # Buzz has at least the documented topic entries from seed data.
-        assert {"backend", "frontend", "testing", "deployment"}.issubset(buzz_keys)
-
     def test_seed_is_idempotent(self, initialized_db: str):
-        first = ps.cmd_seed("yoke", db_path=initialized_db)
+        ps.cmd_seed("yoke", db_path=initialized_db)
         second = ps.cmd_seed("yoke", db_path=initialized_db)
         assert second["applied_ops"] == []
 
@@ -216,6 +190,7 @@ class TestCli:
         )
         assert rc == 0
         data = json.loads(capsys.readouterr().out)
+        assert len(data["applied_ops"]) == 1
 
     def test_seed_cli_is_idempotent(
         self, initialized_db: str, monkeypatch, capsys
@@ -226,11 +201,7 @@ class TestCli:
         assert rc2 == 0
         # Second output signals the noop.
         out = capsys.readouterr().out
-        # The last JSON doc is the second seed call.
-        tail = json.loads(out.strip().split("\n}\n")[-1]
-                           if "\n}\n" in out else out.split("{", 1)[-1].rsplit("}", 1)[0].join(["{", "}"]))
-        # Fallback simpler: just parse the concatenated output and confirm
-        # the second "applied_ops" is empty.
+        # Parse the concatenated output and confirm the second call is a no-op.
         blocks = [json.loads(b) for b in _split_json_blocks(out)]
         assert blocks[-1]["applied_ops"] == []
 

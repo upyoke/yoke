@@ -37,7 +37,7 @@ The retained merge watcher (`python3 -m yoke_core.tools.watch_merge merge-worktr
  - **Ensure linked backlog item is `done` and set `merged_at`** (if applicable):
  Query the DB for the epic backlog item by its numeric `id` (`{epic-id}` IS the epic item's `items.id`):
  ```bash
- python3 -m yoke_core.cli.db_router query "SELECT id, status FROM items WHERE id={epic-id} AND type='epic';"
+ yoke db read --format lines "SELECT id, status FROM items WHERE id={epic-id} AND type='epic';"
  ```
  If found:
  1. Read the backlog item's current `status` field via the `items.get` function.

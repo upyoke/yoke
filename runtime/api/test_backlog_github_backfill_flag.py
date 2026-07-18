@@ -28,8 +28,8 @@ from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
 
 _OK_AUTH = ProjectGithubAuth(
-    project="buzz",
-    repo="org/buzz",
+    project="externalwebapp",
+    repo="org/externalwebapp",
     token="ghs_fake",
 )
 
@@ -58,7 +58,7 @@ class TestFlagDerivedSelection:
         sync_body, labelled ``source=flag+oversized``."""
         db = _make_db()
         insert_item(
-            db, id=1704, type="issue", status="idea", project="buzz",
+            db, id=1704, type="issue", status="idea", project="externalwebapp",
             github_issue="#4114", spec=_huge_spec(),
         )
         _flag_compact_pending(db, 1704)
@@ -79,7 +79,7 @@ class TestFlagDerivedSelection:
         assert rc == 0
         assert sync_calls == ["1704"]
         out = stdout.getvalue()
-        assert "Backfilled: BUZ-1704" in out
+        assert "Backfilled: EXT-1704" in out
         assert "source=flag+oversized" in out
         assert "flag-derived 1" in out
         assert "oversized-current 1" in out
@@ -90,7 +90,7 @@ class TestFlagDerivedSelection:
         body replaces the compact mirror (sync_body clears the flag)."""
         db = _make_db()
         insert_item(
-            db, id=1665, type="issue", status="idea", project="buzz",
+            db, id=1665, type="issue", status="idea", project="externalwebapp",
             github_issue="#3987", spec="# tiny body that fits under budget",
         )
         _flag_compact_pending(db, 1665)
@@ -111,7 +111,7 @@ class TestFlagDerivedSelection:
         assert rc == 0
         assert sync_calls == ["1665"]
         out = stdout.getvalue()
-        assert "Restored: BUZ-1665" in out
+        assert "Restored: EXT-1665" in out
         assert "source=flag" in out
         assert "flag-derived 1" in out
         assert "oversized-current 0" in out
@@ -123,7 +123,7 @@ class TestFlagDerivedSelection:
         candidate — there is no mirror to repair."""
         db = _make_db()
         insert_item(
-            db, id=9999, type="issue", status="idea", project="buzz",
+            db, id=9999, type="issue", status="idea", project="externalwebapp",
             spec="# small",
         )
         _flag_compact_pending(db, 9999)
@@ -145,7 +145,7 @@ class TestRecordSyncMode:
     def test_compact_sets_flag_and_full_clears_it(self):
         db = _make_db()
         insert_item(
-            db, id=77, type="issue", status="idea", project="buzz",
+            db, id=77, type="issue", status="idea", project="externalwebapp",
             github_issue="#77", spec="# body",
         )
         body_budget.record_sync_mode(db, 77, "compact")

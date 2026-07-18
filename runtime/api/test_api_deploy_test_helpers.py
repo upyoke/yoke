@@ -69,12 +69,12 @@ def _seed_frontier_conn(conn) -> None:
            VALUES (23, 'Done task', 'issue', 'done', 'medium', 1, 23, 0,
                    '2026-03-01T00:00:00Z', '2026-03-05T00:00:00Z', 'user')"""
     )
-    # Item 24: ready, buzz project (different project)
+    # Item 24: ready, externalwebapp project (different project)
     conn.execute(
         """INSERT INTO items
            (id, title, type, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source)
-           VALUES (24, 'Buzz ready', 'issue', 'refined-idea', 'high', 2, 24, 0,
+           VALUES (24, 'ExternalWebapp ready', 'issue', 'refined-idea', 'high', 2, 24, 0,
                    '2026-03-01T00:00:00Z', '2026-03-06T00:00:00Z', 'user')"""
     )
     # Item 25: frozen item, yoke

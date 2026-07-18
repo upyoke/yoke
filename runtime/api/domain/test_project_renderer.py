@@ -20,29 +20,29 @@ from yoke_core.domain import project_renderer
 class TestRenderTemplate:
     def test_basic_replacement(self):
         content = "Hello {{project_name}}, port {{web_port}}"
-        values = {"project_name": "buzz", "web_port": "3000"}
+        values = {"project_name": "externalwebapp", "web_port": "3000"}
         result = project_renderer.render_template(content, values)
-        assert result == "Hello buzz, port 3000"
+        assert result == "Hello externalwebapp, port 3000"
 
     def test_no_partial_match(self):
         """Longest-first replacement avoids partial matches."""
         content = "{{project_name}} and {{project_name_upper}}"
         # project_name_upper is longer, should be replaced first
         values = {
-            "project_name": "buzz",
-            "project_name_upper": "BUZZ",
+            "project_name": "externalwebapp",
+            "project_name_upper": "EXT",
         }
-        # Verify no partial replacement of {{project_name_upper}} → "buzz_upper"
+        # Verify no partial replacement of {{project_name_upper}} → "externalwebapp_upper"
         # This would happen if short keys were replaced first
         result = project_renderer.render_template(content, values)
         # Both should be replaced independently
-        assert "buzz" in result
+        assert "externalwebapp" in result
         # Note: project_name_upper is a different key than PROJECT_NAME_UPPER
         # but the test validates the longest-first ordering prevents overlap
 
     def test_missing_placeholder_preserved(self):
         content = "Hello {{unknown_key}}"
-        values = {"project_name": "buzz"}
+        values = {"project_name": "externalwebapp"}
         result = project_renderer.render_template(content, values)
         assert "{{unknown_key}}" in result
 
@@ -60,15 +60,15 @@ class TestRenderTemplate:
 class TestAutoHeader:
     def test_hash_comment(self):
         header = project_renderer._auto_header(
-            "#", "templates/webapp/ops/foo.yml", "buzz", "workflows"
+            "#", "templates/webapp/ops/foo.yml", "externalwebapp", "workflows"
         )
         assert header.startswith("# AUTO-GENERATED")
         assert "foo.yml" in header
-        assert "buzz" in header
+        assert "externalwebapp" in header
 
     def test_slash_comment(self):
         header = project_renderer._auto_header(
-            "//", "templates/webapp/ops/foo.js", "buzz", "ops"
+            "//", "templates/webapp/ops/foo.js", "externalwebapp", "ops"
         )
         assert header.startswith("// AUTO-GENERATED")
 
@@ -197,6 +197,8 @@ class TestRenderProject:
         content = rendered_files[0].read_text()
         assert "Deploy testproj" in content
         assert "AUTO-GENERATED" in content
+        assert content.endswith("\n")
+        assert not content.endswith("\n\n")
 
     def test_render_ops(self, project_tree, tmp_path):
         """Test ops script rendering with placeholder substitution.
@@ -250,6 +252,8 @@ class TestRenderProject:
         maintenance = (ops_dir / "docker_maintenance_converge.py").read_text()
         assert maintenance.startswith("#!/usr/bin/env python3\n# AUTO-GENERATED")
         assert "docker_maintenance_converge.py" in maintenance
+        assert maintenance.endswith("\n")
+        assert not maintenance.endswith("\n\n")
 
         # Output must have executable bit set (operator scp-to-VPS flow).
         import stat
@@ -295,9 +299,9 @@ class TestCli:
 
     def test_args_parsed(self):
         with mock.patch.object(project_renderer, "render_project") as m:
-            project_renderer.main(["buzz", "--write", "--only", "workflows"])
+            project_renderer.main(["externalwebapp", "--write", "--only", "workflows"])
             m.assert_called_once_with(
-                "buzz", write=True, only="workflows", output_dir=None,
+                "externalwebapp", write=True, only="workflows", output_dir=None,
                 settings=None, pulumi_stack=None,
             )
 
@@ -305,13 +309,13 @@ class TestCli:
         output_dir = tmp_path / "rendered"
         with mock.patch.object(project_renderer, "render_project") as m:
             project_renderer.main([
-                "buzz",
+                "externalwebapp",
                 "--write",
                 "--only", "workflows",
                 "--output-dir", str(output_dir),
             ])
             m.assert_called_once_with(
-                "buzz", write=True, only="workflows", output_dir=output_dir,
+                "externalwebapp", write=True, only="workflows", output_dir=output_dir,
                 settings=None, pulumi_stack=None,
             )
 

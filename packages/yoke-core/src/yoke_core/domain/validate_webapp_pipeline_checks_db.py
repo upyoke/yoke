@@ -79,8 +79,8 @@ def _check_database_prerequisites(
         _check_fail(
             counters,
             f"No deployment flows for {project_key}",
-            f"Check deployment_flows table has {project_key}-prod-release, "
-            f"{project_key}-internal, {project_key}-prod-hotfix",
+            "Add `.yoke/deployment-flows.json` to the project checkout and "
+            "run `yoke project refresh`.",
         )
         _check_warn(
             counters,
@@ -112,8 +112,8 @@ def _check_database_prerequisites(
             _check_fail(
                 counters,
                 f"No deployment flows for {project_key}",
-                f"Check deployment_flows table has {project_key}-prod-release, "
-                f"{project_key}-internal, {project_key}-prod-hotfix",
+                "Add `.yoke/deployment-flows.json` to the project checkout and "
+                "run `yoke project refresh`.",
             )
             _check_warn(
                 counters,
@@ -222,8 +222,8 @@ def _check_database_prerequisites(
             _check_fail(
                 counters,
                 f"No deployment flows for {project_slug}",
-                f"Check deployment_flows table has {project_slug}-prod-release, "
-                f"{project_slug}-internal, {project_slug}-prod-hotfix",
+                "Add `.yoke/deployment-flows.json` to the project checkout and "
+                "run `yoke project refresh`.",
             )
 
         # 1f. SSH capability

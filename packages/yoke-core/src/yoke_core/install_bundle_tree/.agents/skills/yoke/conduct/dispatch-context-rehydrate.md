@@ -12,7 +12,7 @@ This sub-step assembles context from prior Engineer attempts and Tester rejectio
 
 **For epic tasks:**
 ```bash
-_prior_notes=$(python3 -m yoke_core.cli.db_router query "SELECT note_num, body, created_at FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num='${_task_id}' ORDER BY note_num ASC")
+_prior_notes=$(yoke db read --format lines "SELECT note_num, body, created_at FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num='${_task_id}' ORDER BY note_num ASC")
 ```
 
 **For standalone issues:** Progress notes are not used for issues (no `epic_progress_notes` rows). Set `_prior_notes` to empty.
@@ -21,12 +21,12 @@ _prior_notes=$(python3 -m yoke_core.cli.db_router query "SELECT note_num, body, 
 
 **For epic tasks:**
 ```bash
-_prior_reviews=$(python3 -m yoke_core.cli.db_router query "SELECT CASE qr.verdict WHEN 'pass' THEN 'PASS' WHEN 'fail' THEN 'FAIL' ELSE 'FAIL' END, COALESCE(NULLIF(qr.raw_result, '')::jsonb #>> '{body}', ''), qr.created_at FROM qa_runs qr JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id WHERE qreq.qa_kind = 'implementation_review' AND qreq.epic_id='${_epic_id}' AND qreq.task_num='${_task_id}' ORDER BY qr.created_at ASC")
+_prior_reviews=$(yoke db read --format lines "SELECT CASE qr.verdict WHEN 'pass' THEN 'PASS' WHEN 'fail' THEN 'FAIL' ELSE 'FAIL' END, COALESCE(NULLIF(qr.raw_result, '')::jsonb #>> '{body}', ''), qr.created_at FROM qa_runs qr JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id WHERE qreq.qa_kind = 'implementation_review' AND qreq.epic_id='${_epic_id}' AND qreq.task_num='${_task_id}' ORDER BY qr.created_at ASC")
 ```
 
 **For standalone issues:**
 ```bash
-_prior_reviews=$(python3 -m yoke_core.cli.db_router query "SELECT CASE qr.verdict WHEN 'pass' THEN 'PASS' WHEN 'fail' THEN 'FAIL' ELSE 'FAIL' END, COALESCE(NULLIF(qr.raw_result, '')::jsonb #>> '{body}', ''), qr.created_at FROM qa_runs qr JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id WHERE qreq.qa_kind = 'implementation_review' AND qreq.item_id='${_id}' AND qreq.epic_id IS NULL ORDER BY qr.created_at ASC")
+_prior_reviews=$(yoke db read --format lines "SELECT CASE qr.verdict WHEN 'pass' THEN 'PASS' WHEN 'fail' THEN 'FAIL' ELSE 'FAIL' END, COALESCE(NULLIF(qr.raw_result, '')::jsonb #>> '{body}', ''), qr.created_at FROM qa_runs qr JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id WHERE qreq.qa_kind = 'implementation_review' AND qreq.item_id='${_id}' AND qreq.epic_id IS NULL ORDER BY qr.created_at ASC")
 ```
 
 ### Step 3: Assemble the rehydration block

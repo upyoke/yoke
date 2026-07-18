@@ -13,10 +13,7 @@ parser.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-
-UTC = timezone.utc  # datetime.UTC is Python 3.11+; this alias also works on 3.10
-
+from datetime import datetime, timezone
 from yoke_contracts.board.widgets import (
     _allocate_proportional,
     _build_sparkline,
@@ -24,6 +21,8 @@ from yoke_contracts.board.widgets import (
     _parse_shortstat,
     _project_filter,
 )
+
+UTC = timezone.utc  # datetime.UTC is Python 3.11+; this alias also works on 3.10
 
 
 # ---------------------------------------------------------------------------
@@ -102,9 +101,9 @@ class TestProjectFilter:
         assert "slug = 'yoke'" in result
 
     def test_alias(self):
-        result = _project_filter("buzz", "e")
+        result = _project_filter("externalwebapp", "e")
         assert "e.project_id" in result
-        assert "slug = 'buzz'" in result
+        assert "slug = 'externalwebapp'" in result
 
     def test_escape(self):
         result = _project_filter("it's")

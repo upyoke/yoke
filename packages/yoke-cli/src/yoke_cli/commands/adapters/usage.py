@@ -61,6 +61,7 @@ from yoke_cli.commands.adapters.deployment import (
 )
 from yoke_cli.commands.adapters.ephemeral_env import EPHEMERAL_ENV_UPDATE_USAGE
 from yoke_cli.commands.adapters.usage_epic_ops import EPIC_USAGE
+from yoke_cli.commands.adapters import usage_composed_operations as _composed_usage
 from yoke_cli.commands.adapters.events import (
     EVENTS_ANOMALIES_USAGE,
     EVENTS_COUNT_USAGE,
@@ -72,9 +73,6 @@ from yoke_cli.commands.adapters.github import (
 )
 from yoke_cli.commands.adapters.github_release import (
     GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
-)
-from yoke_cli.commands.adapters.usage_github_actions import (
-    USAGE_BY_FUNCTION_ID as GITHUB_ACTIONS_USAGE_BY_ID,
 )
 from yoke_cli.commands.adapters.hooks import HOOK_EVALUATE_USAGE
 from yoke_cli.commands.adapters.install import (
@@ -357,7 +355,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "ouroboros.field_note.get": OUROBOROS_FIELD_NOTE_GET_USAGE,
     "ouroboros.entry.list": OUROBOROS_ENTRY_LIST_USAGE,
     "ouroboros.entry.get": OUROBOROS_ENTRY_GET_USAGE,
-    **GITHUB_ACTIONS_USAGE_BY_ID,
     "strategy.doc.list": STRATEGY_DOC_LIST_USAGE,
     "strategy.doc.get": STRATEGY_DOC_GET_USAGE,
     "strategy.doc.create": STRATEGY_DOC_CREATE_USAGE,
@@ -397,3 +394,4 @@ ADAPTER_USAGE.update(READINESS_USAGE_BY_ID)
 ADAPTER_USAGE.update(_qa_usage.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_shepherd_writes.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_strategy_event_usage.USAGE_BY_FUNCTION_ID)
+ADAPTER_USAGE.update(_composed_usage.USAGE_BY_FUNCTION_ID)

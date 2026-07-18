@@ -26,9 +26,9 @@ _TITLE = "yoke onboard · Board art"
 
 
 def _seed_project(app: Any) -> None:
-    app.result.project_name = "Buzz"
-    app.result.project_slug = "buzz"
-    app.result.project_public_item_prefix = "BUZZ"
+    app.result.project_name = "ExternalWebapp"
+    app.result.project_slug = "externalwebapp"
+    app.result.project_public_item_prefix = "EXT"
 
 
 def test_art_intro() -> None:

@@ -55,6 +55,8 @@ def test_install_docs_teach_public_installer_contract() -> None:
         text = path.read_text(encoding="utf-8")
         assert CANONICAL_INSTALL_CURL in text, path
         assert UNSAFE_MULTI_INDEX_INSTALL not in text, path
+        assert "public PyPI" in text, path
+        assert "ambient uv index settings" in text, path
 
 
 def test_install_docs_teach_lockstep_upgrade_not_single_package_upgrade() -> None:

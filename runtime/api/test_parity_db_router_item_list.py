@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Parity tests — item-list and item-count CLI commands."""
-
 from __future__ import annotations
 
 import os
@@ -29,15 +29,15 @@ class TestItemListCLI:
             assert parts[2] == "idea"
 
     def test_list_with_project_filter(self, item_query_env):
-        """item-list --project buzz returns only buzz items."""
+        """item-list --project externalwebapp returns only externalwebapp items."""
         db_path = item_query_env["db_path"]
         result = _run_db_router(
-            db_path, "item-list", "--project", "buzz", "--fields", "id,title,project"
+            db_path, "item-list", "--project", "externalwebapp", "--fields", "id,title,project"
         )
         assert result.returncode == 0
         lines = result.stdout.strip().split("\n")
         assert len(lines) == 1
-        assert "buzz" in lines[0]
+        assert "externalwebapp" in lines[0]
 
     def test_list_custom_fields(self, item_query_env):
         """item-list with custom --fields returns requested columns."""

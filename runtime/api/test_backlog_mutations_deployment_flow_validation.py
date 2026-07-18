@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Backlog create/update validation against the deployment_flows registry."""
-
 from __future__ import annotations
 
 import io
@@ -34,7 +34,7 @@ def _seed_flows(db_path: str) -> None:
         for row in [
             ("yoke-internal", 1, "YokeInternal"),
             ("yoke-hosted-production", 1, "YokeHostedProduction"),
-            ("buzz-internal", 2, "BuzzInternal"),
+            ("externalwebapp-internal", 2, "ExternalWebappInternal"),
         ]:
             conn.execute(flow_sql, row)
         conn.commit()
@@ -208,6 +208,6 @@ class TestExecuteUpdateDeploymentFlowValidation:
                 out=out,
             )
         assert result["success"] is False
-        # Project-filtered alternatives only — buzz-internal must not surface.
+        # Project-filtered alternatives only — externalwebapp-internal must not surface.
         assert "yoke-internal" in result["error"]
-        assert "buzz-internal" not in result["error"]
+        assert "externalwebapp-internal" not in result["error"]

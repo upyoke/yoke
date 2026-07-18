@@ -33,6 +33,10 @@ from yoke_contracts.project_contract.install_policy import (
     SEED_IF_MISSING,
     YOKE_TREE_IGNORED_NAMES,
 )
+from yoke_contracts.project_contract.deployment_flows import (
+    DECLARATION_RELATIVE_PATH,
+    EMPTY_DECLARATION_TEXT,
+)
 from yoke_contracts.project_contract.scaffolds import (
     render_deploy_checklist,
     render_deploy_runbook,
@@ -69,6 +73,7 @@ def bundle_contract_files(display_name: str) -> List[Dict[str, str]]:
         f"{CONTRACT_DIR}/labels": render_label_policy(),
         f"{CONTRACT_DIR}/board.json": render_board_config(),
         f"{CONTRACT_DIR}/board-art": render_board_art(display_name),
+        DECLARATION_RELATIVE_PATH: EMPTY_DECLARATION_TEXT,
         f"{CONTRACT_DIR}/test-inventory.md": render_test_inventory(display_name),
         f"{CONTRACT_DIR}/template-deviations.md": (
             render_template_deviations(display_name)
@@ -201,13 +206,13 @@ def render_readme(display_name: str) -> str:
     return f"""# {display_name} Yoke Project Contract
 
 This directory is the Yoke project contract for {display_name}: repo-local
-project policy and appearance for a Yoke-managed project. It is not a
-runtime authority store.
+project policy, delivery declarations, and appearance for a Yoke-managed
+project. It is not a runtime authority store.
 
 Yoke owns execution truth in its authoritative DB: project capabilities,
-provider settings, deployment flows, command definitions, and event evidence.
-This directory explains that truth for humans without duplicating it as
-editable runtime state.
+provider settings, materialized deployment flows, command definitions, and
+event evidence. Project-owned desired configuration in this directory is
+materialized into that authority by named commands.
 
 ## Files
 
@@ -220,6 +225,10 @@ editable runtime state.
 - `board.json` - board renderer appearance/tuning; every recognized knob
   at its default value.
 - `board-art` - live board header art read by the renderer.
+- `deployment-flows.json` - project-owned delivery definitions. Project
+  install/refresh additively reconciles declared rows; omitted and historically
+  referenced definitions remain in the DB. `retire_if_present` can disable
+  known predecessors without creating them on fresh installs.
 - `test-inventory.md` - project test surfaces and lifecycle placement.
 - `template-deviations.md` - approved template/project differences.
 - `runbooks/` - living deploy/recovery docs; people and agents fill them
@@ -239,6 +248,9 @@ Repo-owned project files (this directory; rides the repo):
 - `board.json` - board renderer knobs, every key at its default.
 - `lint-config` - hook guard modes (`<guard>=deny|warn`).
 - `labels` - GitHub label colors (`label_color_*=HEX`).
+- `deployment-flows.json` - desired flow definitions and optional project
+  default; reconcile explicitly with
+  `yoke deployment-flows reconcile-project <project>`.
 - `strategy/` - untracked rendered strategy-doc views (DB-authoritative;
   edit via `yoke strategy ingest`).
 
@@ -257,8 +269,8 @@ DB-owned execution truth and project policy:
 - Environments and sites (`environments.settings`, `sites.settings`): model
   desired settings through Project Structure patches or the supported
   project-onboarding surfaces until a dedicated product command exists.
-- Project structure families (command definitions, merge verification,
-  context routing, architecture model):
+- Project structure families (deployment default, command definitions, merge
+  verification, context routing, architecture model):
   `yoke project-structure command-definitions get|list` and
   `yoke project-structure patch apply`.
 

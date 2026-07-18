@@ -82,7 +82,7 @@ _RENDER_SCHEMA = """
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)
     VALUES (1, 'yoke', 'Yoke', '🐂', 'YOK');
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)
-    VALUES (2, 'buzz', 'Buzz', '🐝', 'BUZ');
+    VALUES (2, 'externalwebapp', 'ExternalWebapp', '🧩', 'EXT');
 """
 
 
@@ -137,7 +137,7 @@ def _insert_render_session(db, **kwargs) -> None:
 def _insert_render_item_claim(db, *, session_id: str, item_id: int, project: str) -> None:
     raw = connect_test_db(db.path)
     try:
-        project_id = 2 if project == "buzz" else 1
+        project_id = 2 if project == "externalwebapp" else 1
         raw.execute(
             "INSERT INTO items "
             "(id, project_id, project_sequence) "
@@ -191,7 +191,7 @@ class TestExecutorDisplayRendering:
     def test_project_scope_filters_active_sessions(self, tmp_path: Path) -> None:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
-                db, session_id="buzzsess", executor="codex",
+                db, session_id="externalwebappsess", executor="codex",
                 executor_display_name="codex-vscode",
                 project_id=2,
             )
@@ -201,13 +201,13 @@ class TestExecutorDisplayRendering:
                 project_id=1,
             )
             _insert_render_item_claim(
-                db, session_id="buzzsess", item_id=10, project="buzz",
+                db, session_id="externalwebappsess", item_id=10, project="externalwebapp",
             )
             _insert_render_item_claim(
                 db, session_id="yokesess", item_id=11, project="yoke",
             )
-            section = render(db, scope="buzz")
-        assert "buzzsess" in section
+            section = render(db, scope="externalwebapp")
+        assert "externalwebappsess" in section
         assert "yokesess" not in section
 
     def test_project_scope_uses_session_project_id_before_workspace(
@@ -215,19 +215,19 @@ class TestExecutorDisplayRendering:
     ) -> None:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
-                db, session_id="buzzdir", executor="codex",
+                db, session_id="externalwebappdir", executor="codex",
                 executor_display_name="codex-desktop",
-                workspace="/some/other/machine/buzz",
+                workspace="/some/other/machine/externalwebapp",
                 project_id=2,
             )
             _insert_render_session(
                 db, session_id="yokedir", executor="codex",
                 executor_display_name="codex-desktop",
-                workspace="/tmp/buzz",
+                workspace="/tmp/externalwebapp",
                 project_id=1,
             )
-            section = render(db, scope="buzz")
-        assert "buzzdir" in section
+            section = render(db, scope="externalwebapp")
+        assert "externalwebappdir" in section
         assert "yokedir" not in section
 
     def test_project_scope_uses_stamped_client_checkout_identity(
@@ -235,41 +235,42 @@ class TestExecutorDisplayRendering:
     ) -> None:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
-                db, session_id="mac-buzz", executor="claude-code",
+                db, session_id="mac-externalwebapp", executor="claude-code",
                 executor_display_name="claude-desktop",
-                workspace="/Users/testy/code/buzz",
+                workspace="/Users/testy/code/externalwebapp",
                 project_id=2,
             )
-            section = render(db, scope="buzz")
-        assert "mac-buzz" in section
-        assert "🐝 buzz" in section
+            section = render(db, scope="externalwebapp")
+        assert "mac-externalwebapp" in section
+        assert "🧩 externalwebapp" in section
 
     def test_project_scope_excludes_other_project_even_when_workspace_matches_repo_path(
         self, tmp_path: Path,
     ) -> None:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
-                db, session_id="mac-buzz", executor="claude-code",
+                db, session_id="mac-externalwebapp", executor="claude-code",
                 executor_display_name="claude-desktop",
-                workspace="/Users/testy/code/buzz",
+                workspace="/Users/testy/code/externalwebapp",
                 project_id=1,
             )
-            section = render(db, scope="buzz")
-        assert "mac-buzz" not in section
+            section = render(db, scope="externalwebapp")
+        assert "mac-externalwebapp" not in section
 
     def test_active_session_renders_workspace_project_column(
         self, tmp_path: Path,
     ) -> None:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
-                db, session_id="buzzdir", executor="codex",
+                db, session_id="externalwebappdir", executor="codex",
                 executor_display_name="codex-desktop",
-                workspace="/tmp/buzz/app",
+                workspace="/tmp/externalwebapp/app",
                 project_id=2,
             )
-            section = render(db, scope="buzz")
-        assert "| Session   | Project | Executor" in section
-        assert "🐝 buzz" in section
+            section = render(db, scope="externalwebapp")
+        assert "| Project" in section
+        assert "| Executor" in section
+        assert "🧩 externalwebapp" in section
 
     def test_closed_session_renders_workspace_project_column(
         self, tmp_path: Path,
@@ -300,9 +301,9 @@ class TestExecutorDisplayRendering:
                 project_id=1,
             )
             _insert_render_item_claim(
-                db, session_id="known-yoke", item_id=12, project="buzz",
+                db, session_id="known-yoke", item_id=12, project="externalwebapp",
             )
-            section = render(db, scope="buzz")
+            section = render(db, scope="externalwebapp")
         assert "known-yoke" in section
         assert "🐂 yoke" in section
 
@@ -311,9 +312,9 @@ class TestExecutorDisplayRendering:
     ) -> None:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
-                db, session_id="buzz-path-yoke-project", executor="codex",
-                workspace="/tmp/buzz",
+                db, session_id="externalwebapp-path-yoke-project", executor="codex",
+                workspace="/tmp/externalwebapp",
                 project_id=1,
             )
-            section = render(db, scope="buzz")
-        assert "buzz-path-yoke-project" not in section
+            section = render(db, scope="externalwebapp")
+        assert "externalwebapp-path-yoke-project" not in section

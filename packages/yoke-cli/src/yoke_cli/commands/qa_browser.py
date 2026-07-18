@@ -39,7 +39,7 @@ and record qa_runs + qa_artifacts through the dispatcher write ids.
 
 Worked examples:
 
-  yoke qa browser run --item BUZ-1732 --base-url http://localhost:3000
+  yoke qa browser run --item EXT-1732 --base-url http://localhost:3000
   yoke qa browser run --item YOK-N --project yoke \\
       --expected-branch YOK-N --expected-sha abc123def456
 

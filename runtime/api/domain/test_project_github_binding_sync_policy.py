@@ -30,7 +30,7 @@ def _verified_binding() -> VerifiedProjectGitHubBinding:
             "actions_variables": "write",
         },
         repository_id="4567",
-        github_repo="example-org/buzz",
+        github_repo="example-org/externalwebapp",
         default_branch="trunk",
         installation_status="active",
     )
@@ -44,7 +44,7 @@ def test_bind_preserves_intentional_backlog_only(monkeypatch):
             apply_fixture_schema(conn)
             conn.execute(
                 "UPDATE projects SET github_sync_mode='backlog_only' "
-                "WHERE slug='buzz'"
+                "WHERE slug='externalwebapp'"
             )
             conn.commit()
         finally:
@@ -55,9 +55,9 @@ def test_bind_preserves_intentional_backlog_only(monkeypatch):
         )
 
         status = cmd_bind_project_repo(
-            "buzz",
+            "externalwebapp",
             installation_id="12345",
-            github_repo="example-org/buzz",
+            github_repo="example-org/externalwebapp",
             repository_id="4567",
             expected_api_url="https://api.github.com",
             github_user_access_token="github-user-token",

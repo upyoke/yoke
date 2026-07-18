@@ -33,7 +33,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
 ):
     snapshot = _write_snapshot(
         tmp_path / "stack-config.json",
-        stack_name="buzz-ci-runners",
+        stack_name="externalwebapp-ci-runners",
     )
     value_calls: list[dict[str, object]] = []
     secret_calls: list[dict[str, object]] = []
@@ -50,7 +50,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         )
         return _runner_values(deployment_ssh_stack_outputs={
             "yoke-platform-vps": "vpsElasticIpAddress",
-            "buzz-stage": "originElasticIpAddress",
+            "externalwebapp-stage": "originElasticIpAddress",
         })
 
     monkeypatch.setattr(
@@ -97,7 +97,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     out = StringIO()
     err = StringIO()
     rc = runner_fleet_exec.execute_runner_fleet_command(
-        "buzz",
+        "externalwebapp",
         snapshot,
         ["pulumi", "up", "--yes"],
         aws_env_loader=lambda project, region, *, capability_type: {
@@ -124,7 +124,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     assert rc == 7
     assert value_calls == [
         {
-            "project": "buzz",
+            "project": "externalwebapp",
             "fallback_repo": "",
             "enabled": True,
         }
@@ -183,9 +183,9 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
     intent = json.loads(child_env[runner_fleet_exec.RUNNER_FLEET_AUTHORITY_INTENT_ENV])
     assert intent["schema"] == 1
     assert intent["authority"] == {
-        "project": "buzz",
-        "deploy_namespace": "buzz",
-        "stack_name": "buzz-ci-runners",
+        "project": "externalwebapp",
+        "deploy_namespace": "externalwebapp",
+        "stack_name": "externalwebapp-ci-runners",
         "aws_capability": "aws-admin",
         "aws_region": "us-east-1",
         "github_capability": "github",
@@ -198,7 +198,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         "api_url": "https://api.github.com",
         "web_url": "https://github.com",
         "private_key_secret_arn": _SECRET_ARN,
-        "token_broker_function": "buzz-runner-fleet-token-broker",
+        "token_broker_function": "externalwebapp-runner-fleet-token-broker",
         "runner_labels": [
             "self-hosted",
             "Linux",
@@ -215,7 +215,7 @@ def test_exec_uses_repo_scoped_token_and_redacts_child_streams(
         "idle_shutdown_minutes": 30,
         "shutdown_mode": "terminate",
         "deployment_ssh_stack_outputs": {
-            "buzz-stage": "originElasticIpAddress",
+            "externalwebapp-stage": "originElasticIpAddress",
             "yoke-platform-vps": "vpsElasticIpAddress",
         },
     }
@@ -267,7 +267,7 @@ def test_github_actions_uses_hosted_token_without_loading_app_key(
         return _TOKEN
 
     rc = runner_fleet_exec.execute_runner_fleet_command(
-        "buzz",
+        "externalwebapp",
         snapshot,
         ["pulumi", "preview"],
         aws_env_loader=lambda *args, **kwargs: {"AWS_REGION": "us-east-1"},
@@ -280,7 +280,7 @@ def test_github_actions_uses_hosted_token_without_loading_app_key(
     )
 
     assert rc == 0
-    assert hosted_calls[0][0] == "buzz"
+    assert hosted_calls[0][0] == "externalwebapp"
     assert hosted_calls[0][1]["authority"]["repo"] == "upyoke/yoke"
     assert hosted_calls[0][2] == {"AWS_REGION": "us-east-1"}
     child_env = child_calls[0][1]["env"]
@@ -305,7 +305,7 @@ def test_github_actions_fails_closed_without_hosted_token_connection(
         match="AWS runner broker",
     ):
         runner_fleet_exec.execute_runner_fleet_command(
-            "buzz",
+            "externalwebapp",
             snapshot,
             ["pulumi", "preview"],
             aws_env_loader=lambda *args, **kwargs: {"AWS_REGION": "us-east-1"},
@@ -335,7 +335,7 @@ def test_hosted_token_loader_failure_names_the_cause(
         match="unavailable .RuntimeError: ResourceNotFoundException",
     ):
         runner_fleet_exec.execute_runner_fleet_command(
-            "buzz",
+            "externalwebapp",
             snapshot,
             ["pulumi", "preview"],
             aws_env_loader=lambda *args, **kwargs: {"AWS_REGION": "us-east-1"},

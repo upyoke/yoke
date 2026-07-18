@@ -110,14 +110,14 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
             pg_testdb.dsn_for_test_database(db_name),
         )
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
-        _bind("buzz", "Example-Org/Buzz", "4568", permissions=_FULL_PERMISSIONS)
+        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
         projects.cmd_capability_merge_settings(
             "yoke", "github", {"ci_oidc_manage_provider": False},
         )
 
         _bind(
-            "buzz",
-            "Example-Org/Buzz",
+            "externalwebapp",
+            "Example-Org/ExternalWebapp",
             "4568",
             permissions={"metadata": "read", "issues": "read"},
         )
@@ -141,16 +141,16 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
             "repo_owner": "Example-Org",
             "repository_id": "4567",
         }
-        assert load_project_renderer_settings("buzz").capabilities["github"] == {
+        assert load_project_renderer_settings("externalwebapp").capabilities["github"] == {
             "api_url": "https://api.github.com",
             "installation_id": "12345",
             "permissions": {"metadata": "read", "issues": "read"},
-            "repo_name": "Buzz",
+            "repo_name": "ExternalWebapp",
             "repo_owner": "Example-Org",
             "repository_id": "4568",
         }
 
-        _bind("buzz", "Example-Org/Buzz", "4568", permissions=_FULL_PERMISSIONS)
+        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
 
         upgraded = cmd_project_github_binding_status("yoke")
         assert upgraded["binding"]["status"] == "active"
@@ -191,12 +191,12 @@ def test_installation_refresh_preserves_intentional_backlog_only(
             pg_testdb.dsn_for_test_database(db_name),
         )
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
-        _bind("buzz", "Example-Org/Buzz", "4568", permissions=_FULL_PERMISSIONS)
+        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
         projects.cmd_update("yoke", "github_sync_mode", "backlog_only")
 
         _bind(
-            "buzz",
-            "Example-Org/Buzz",
+            "externalwebapp",
+            "Example-Org/ExternalWebapp",
             "4568",
             permissions={"metadata": "read", "issues": "read"},
         )
@@ -209,7 +209,7 @@ def test_installation_refresh_preserves_intentional_backlog_only(
             "reason": "missing_permissions",
         }
 
-        _bind("buzz", "Example-Org/Buzz", "4568", permissions=_FULL_PERMISSIONS)
+        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
 
         recovered = cmd_project_github_binding_status("yoke")
         assert recovered["github_sync_mode"] == "backlog_only"
@@ -234,7 +234,7 @@ def test_installation_permission_fanout_rolls_back_projection_failure(
             pg_testdb.dsn_for_test_database(db_name),
         )
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
-        _bind("buzz", "Example-Org/Buzz", "4568", permissions=_FULL_PERMISSIONS)
+        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
 
         original_builder = (
             project_github_binding_state.build_github_capability_settings
@@ -255,8 +255,8 @@ def test_installation_permission_fanout_rolls_back_projection_failure(
         )
         with pytest.raises(RuntimeError, match="projection write failed"):
             _bind(
-                "buzz",
-                "Example-Org/Buzz",
+                "externalwebapp",
+                "Example-Org/ExternalWebapp",
                 "4568",
                 permissions={"metadata": "read", "issues": "read"},
             )
@@ -293,13 +293,13 @@ def test_repository_identity_cannot_bind_a_second_project_after_rename(
             match="already bound to another project",
         ):
             _bind(
-                "buzz",
+                "externalwebapp",
                 "Example-Org/Yoke-Renamed",
                 "4567",
                 permissions=_FULL_PERMISSIONS,
             )
 
-        assert cmd_project_github_binding_status("buzz")["bound"] is False
+        assert cmd_project_github_binding_status("externalwebapp")["bound"] is False
         assert cmd_project_github_binding_status("yoke")["bound"] is True
     finally:
         pg_testdb.drop_test_database(db_name)

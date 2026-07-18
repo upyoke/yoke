@@ -78,7 +78,7 @@ For each item in `_items_to_materialize`, execute the following steps in order.
 Before creating any item, search the existing backlog for potential duplicates:
 
 ```bash
-python3 -m yoke_core.cli.db_router query "SELECT id, title, status FROM items WHERE project_id = ${_project_id} AND title LIKE '%keyword%' AND status NOT IN ('done','cancelled')"
+yoke db read --format lines "SELECT id, title, status FROM items WHERE project_id = ${_project_id} AND title LIKE '%keyword%' AND status NOT IN ('done','cancelled')"
 ```
 
 Replace `%keyword%` with 2-3 distinctive words from the proposed title. Check multiple keyword variants to cast a reasonable net.

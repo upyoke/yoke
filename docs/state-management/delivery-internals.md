@@ -25,7 +25,13 @@ Two conditions act as halt states during deployment run execution (items at thes
 
 **Human approval gate** — When the pipeline encounters a stage with `executor: "human-approval"`, the run halts at that stage. The item is blocked until the operator runs `/yoke approve YOK-N [--note "..."]`, which advances the run's `current_stage` to the next stage in the flow. The operator then re-runs `/yoke usher YOK-N` to resume.
 
-**Note (v2 — external projects):** For projects that deploy via GitHub Actions (e.g., Buzz), the `awaiting-approval` state is triggered by GitHub's native environment protection rules, not by a Yoke-internal `human-approval` executor stage. The Usher sees the Actions run pause at `waiting` status and records it on the deployment run. Approval happens in the GitHub UI (not via `/yoke approve`). Once the protection rule is satisfied, the Usher's next poll sees the run resume and advances the stage accordingly. The Buzz v1 flow (`buzz-prod-release`) uses two `github-actions-workflow` executor stages: `prod-deploy` (backed by `buzz-deploy.yml`) and `smoke` (backed by `buzz-smoke.yml`) — no staging stages exist.
+**External projects:** When a project-owned `github-actions-workflow` stage
+targets a protected GitHub environment, GitHub's native protection rules pause
+the Actions run. The Usher records the wait on the deployment run; approval
+happens in GitHub, not through `/yoke approve`. Once protection is satisfied,
+the Usher's next poll sees the workflow resume and advances the declared stage.
+The project repository's `.yoke/deployment-flows.json` owns the stage chain and
+workflow filenames.
 
 Both halt states are visible on the board. Items at `release` with halted runs are not counted as WIP.
 
@@ -64,7 +70,7 @@ The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline di
 | executor | `human-approval` | Halts pipeline for human approval | Pipeline exits 2 |
 | executor | `github-actions-workflow` | Triggers and polls GitHub Actions workflow | 0=success, 1=failed |
 
-**`github-actions-workflow`:** Used for external projects (e.g., Buzz) where deployment is managed by GitHub Actions. The Python deploy pipeline resolves repository authority from DB/project capabilities, triggers or finds the configured workflow run, stores the workflow run id in deployment telemetry, and polls until the workflow reaches a terminal state. GitHub Actions run states map as follows:
+**`github-actions-workflow`:** Used for external projects where deployment is managed by GitHub Actions. The Python deploy pipeline resolves repository authority from DB/project capabilities, triggers or finds the configured workflow run, stores the workflow run id in deployment telemetry, and polls until the workflow reaches a terminal state. GitHub Actions run states map as follows:
 
 - `queued` / `waiting` → poll returns exit 2, pipeline continues polling
 - `in_progress` → poll returns exit 3, pipeline continues polling

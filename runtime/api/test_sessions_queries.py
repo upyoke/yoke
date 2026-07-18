@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Session query tests: list, get, query surface, basic offer/ownership.
-
 Sibling modules cover related surfaces:
 
 - ``test_sessions_queries_lanes.py`` — lane filtering and supported_paths.
@@ -134,7 +134,7 @@ class TestSessionOfferWithOwnership:
             model=TEST_MODEL_ID,
             workspace=ws,
             step=4,
-            project_scope=["buzz"],
+            project_scope=["externalwebapp"],
         )
 
         offer_args = None
@@ -148,9 +148,9 @@ class TestSessionOfferWithOwnership:
         assert offer_kwargs["event_kind"] == "system"
         assert offer_kwargs["event_type"] == "session_offer"
         assert offer_kwargs["source_type"] == "backend"
-        assert offer_kwargs["project"] == "buzz"
+        assert offer_kwargs["project"] == "externalwebapp"
         assert offer_kwargs["context"]["step"] == 4
-        assert offer_kwargs["context"]["project_scope"] == ["buzz"]
+        assert offer_kwargs["context"]["project_scope"] == ["externalwebapp"]
 
     def test_offer_uses_existing_active_session(self, ownership_conn):
         """session-offer requires an already-active session."""

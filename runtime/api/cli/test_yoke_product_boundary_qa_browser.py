@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from runtime.api.cli.test_yoke_product_boundary_fault_injection import (
+from runtime.api.cli.product_boundary_test_support import (
     CLI_SRC,
     CONTRACTS_SRC,
     _assert_clean_client_boundary,
@@ -54,9 +54,9 @@ def test_qa_browser_run_uses_https_dispatch_without_core_import(
             "browser",
             "run",
             "--item",
-            "BUZ-1732",
+            "EXT-1732",
             "--project",
-            "buzz",
+            "externalwebapp",
             "--base-url",
             "http://127.0.0.1:1",
         ],

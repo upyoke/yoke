@@ -37,11 +37,11 @@ Usage::
     python3 -m yoke_core.tools.watch_pytest --print-streaming-pair -- runtime/api/
 
     # Serial mode (debug order-sensitive failures):
-    python3 -m yoke_core.tools.watch_pytest -- --no-parallel runtime/api/
+    python3 -m yoke_core.tools.watch_pytest -- -n 0 runtime/api/
 
-Parallel-by-default: ``-n auto`` (pytest-xdist) is injected unless the
-caller passes ``--no-parallel`` or its own ``-n``/``--numprocesses`` in
-the pass-through. The wrapper preserves the underlying ``pytest`` exit
+Parallel-by-default: ``-n auto`` (pytest-xdist) is injected unless the caller
+passes its own ``-n``/``--numprocesses`` in the pass-through. Use ``-n 0`` for
+sequential debugging. The wrapper preserves the underlying ``pytest`` exit
 code so callers can still branch on success/failure.
 
 Do NOT pass a full pytest command-shape after ``--``. The wrapper rejects

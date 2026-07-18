@@ -328,8 +328,6 @@ def test_seed_known_recipes_uses_ssh_command_for_fast_installer_recipes(
     assert piped_yes["expected_return_codes"] == [0]
     assert "Run yoke onboard" in piped_yes["expected_text"]
     assert "no_text:Starting Yoke onboard" in piped_yes["post_checks"]
-
-
 def test_seed_known_recipes_uses_token_file_for_machine_only_stage(
     tmp_path: Path,
     monkeypatch,

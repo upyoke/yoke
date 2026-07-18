@@ -132,7 +132,6 @@ UTILITY_TICKET_OVERRIDES = {
     "service-client.sh": "hook-session-helper-retirement",
     "sqlite3-error-hook.sh": "hook-session-helper-retirement",
     "update-labels.sh": "github-sync-write-authority-retirement",
-    "validate-buzz-pipeline.sh": "project-pipeline-validation-retirement",
     "verify-overlap.sh": "merge-worktree-orchestration-retirement",
     "write-to-main.sh": "merge-worktree-orchestration-retirement",
     "bootstrap-project.sh": "project-bootstrap-retirement",

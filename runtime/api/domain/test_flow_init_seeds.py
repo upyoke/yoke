@@ -14,8 +14,11 @@ class TestSeedFlows:
         for flow in _SEED_FLOWS:
             validate_stages(flow["stages"])  # raises on invalid
 
-    def test_seed_ids_are_the_cloud_runtime_set(self):
-        ids = {flow["id"] for flow in _SEED_FLOWS}
+    def test_self_hosted_seed_ids_are_the_cloud_runtime_set(self):
+        ids = {
+            flow["id"] for flow in _SEED_FLOWS
+            if flow["project"] in {"yoke", "platform"}
+        }
         assert ids == {
             "yoke-internal",
             "yoke-ephemeral-deploy",
@@ -28,9 +31,6 @@ class TestSeedFlows:
             "platform-production-independent",
             "platform-production-hotfix",
             "platform-stage",
-            "buzz-prod-release",
-            "buzz-prod-hotfix",
-            "buzz-internal",
         }
 
     def test_every_seed_stage_executor_is_in_the_live_vocabulary(self):
@@ -44,10 +44,6 @@ class TestSeedFlows:
         expected = (
             (
                 "yoke-hosted-stage-no-ci-gate", "yoke", ["stage"],
-                "normal", True,
-            ),
-            (
-                "yoke-hosted-production", "yoke", ["production"],
                 "normal", True,
             ),
             (
@@ -82,6 +78,7 @@ class TestSeedFlows:
                 assert stage["dispatch_correlation_input"] == "yoke_dispatch_id"
 
         assert by_id["platform-production"]["status"] == "disabled"
+        assert by_id["yoke-hosted-production"]["status"] == "disabled"
 
     def test_yoke_immediate_flows_skip_ci_without_rewriting_history(self):
         by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
@@ -116,7 +113,6 @@ class TestSeedFlows:
         )
         stages = json.loads(flow["stages"])
         assert [s["name"] for s in stages] == ["ephemeral-deploy", "complete"]
-
 
 class TestSeedFlowsRequireProjects:
     """Flow rows seed only for projects present in the universe.
@@ -166,32 +162,29 @@ class TestSeedFlowsRequireProjects:
                     "INSERT INTO projects (id, slug) VALUES (41, 'yoke')"
                 )
                 conn.execute(
-                    "INSERT INTO projects (id, slug) VALUES (42, 'buzz')"
-                )
-                conn.execute(
                     "INSERT INTO projects (id, slug) VALUES (43, 'platform')"
                 )
                 conn.commit()
                 flow_cmd_init(conn)
                 rows = conn.execute(
-                    "SELECT id, project_id FROM deployment_flows ORDER BY id"
+                    "SELECT id, project_id, status "
+                    "FROM deployment_flows ORDER BY id"
                 ).fetchall()
-                by_id = {str(r[0]): int(r[1]) for r in rows}
-                assert set(by_id) == {f["id"] for f in _SEED_FLOWS}
-                for flow in _SEED_FLOWS:
+                by_id = {
+                    str(row[0]): (int(row[1]), str(row[2]))
+                    for row in rows
+                }
+                expected_flows = [
+                    flow for flow in _SEED_FLOWS
+                    if flow["project"] in {"yoke", "platform"}
+                ]
+                assert set(by_id) == {f["id"] for f in expected_flows}
+                for flow in expected_flows:
                     expected = {
                         "yoke": 41,
-                        "buzz": 42,
                         "platform": 43,
                     }[flow["project"]]
-                    assert by_id[str(flow["id"])] == expected
-                buzz_stages = json.loads(conn.execute(
-                    "SELECT stages FROM deployment_flows "
-                    "WHERE id = 'buzz-prod-release'"
-                ).fetchone()[0])
-                assert all(
-                    "dispatch_correlation_input" not in stage
-                    for stage in buzz_stages
-                )
+                    assert by_id[str(flow["id"])][0] == expected
+                assert by_id["yoke-hosted-production"][1] == "disabled"
             finally:
                 conn.close()

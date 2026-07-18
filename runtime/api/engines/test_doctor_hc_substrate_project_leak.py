@@ -83,7 +83,7 @@ def test_passes_when_no_non_yoke_projects(conn, monkeypatch, tmp_path):
 def test_passes_when_substrate_has_no_project_named_files(
     conn, monkeypatch, tmp_path,
 ):
-    _seed_projects(conn, ["yoke", "buzz"])
+    _seed_projects(conn, ["yoke", "externalwebapp"])
     _seed_substrate(
         tmp_path,
         ["d/validate_webapp_pipeline.py", "validate_webapp_pipeline_checks_db.py"],
@@ -99,9 +99,9 @@ def test_passes_when_substrate_has_no_project_named_files(
 def test_fails_when_substrate_filename_contains_project_id(
     conn, monkeypatch, tmp_path,
 ):
-    project_id = "buzz"
+    project_id = "externalwebapp"
     old_project_named_file = f"validate_{project_id}_pipeline.py"
-    _seed_projects(conn, ["yoke", "buzz"])
+    _seed_projects(conn, ["yoke", "externalwebapp"])
     _seed_substrate(
         tmp_path,
         [f"d/{old_project_named_file}", "d/validate_webapp_pipeline.py"],
@@ -118,7 +118,7 @@ def test_fails_when_substrate_filename_contains_project_id(
 
 
 def test_yoke_named_substrate_files_are_allowed(conn, monkeypatch, tmp_path):
-    _seed_projects(conn, ["yoke", "buzz"])
+    _seed_projects(conn, ["yoke", "externalwebapp"])
     _seed_substrate(
         tmp_path,
         [
@@ -132,25 +132,25 @@ def test_yoke_named_substrate_files_are_allowed(conn, monkeypatch, tmp_path):
     assert rec.results[0].result == "PASS"
 
 
-def test_buzzard_does_not_match_buzz_token(conn, monkeypatch, tmp_path):
-    """Token boundary: ``buzz`` should only match identifier-shaped tokens,
-    so ``buzzard.py`` and ``buzz_helper.py`` differ in match outcome."""
-    _seed_projects(conn, ["yoke", "buzz"])
+def test_externalwebappard_does_not_match_externalwebapp_token(conn, monkeypatch, tmp_path):
+    """Token boundary: ``externalwebapp`` should only match identifier-shaped tokens,
+    so ``externalwebappard.py`` and ``externalwebapp_helper.py`` differ in match outcome."""
+    _seed_projects(conn, ["yoke", "externalwebapp"])
     _seed_substrate(
         tmp_path,
-        ["d/buzzard_helper.py", "d/buzz_helper.py"],
+        ["d/externalwebappard_helper.py", "d/externalwebapp_helper.py"],
     )
 
     rec = _run_hc(conn, monkeypatch=monkeypatch, repo_root=tmp_path)
 
     assert rec.results[0].result == "FAIL"
     detail = rec.results[0].detail
-    assert "buzz_helper.py" in detail
-    assert "buzzard_helper.py" not in detail
+    assert "externalwebapp_helper.py" in detail
+    assert "externalwebappard_helper.py" not in detail
 
 
 def test_self_skips_when_repo_root_cannot_be_resolved(conn, monkeypatch):
-    _seed_projects(conn, ["yoke", "buzz"])
+    _seed_projects(conn, ["yoke", "externalwebapp"])
     rec = RecordCollector()
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_substrate_project_leak._base._resolve_repo_root",

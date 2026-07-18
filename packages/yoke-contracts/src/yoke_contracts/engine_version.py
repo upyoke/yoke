@@ -7,10 +7,10 @@ handshake never blocks: the function-call and health endpoints are
 compatibility surfaces, and version skew is expected during rollouts.
 
 Versions come from setuptools-scm dist metadata (one repository version
-shared by every Yoke distribution built together), read via
-``importlib.metadata``. A process running from a source tree with no
-installed dist metadata resolves to ``""``, which disables advertising
-and comparison gracefully.
+shared by every Yoke distribution built together), but only when that metadata
+owns the package origin actually loaded. A process running from a source tree
+resolves to ``""`` even if an unrelated installed wheel left ambient metadata,
+which disables advertising and comparison gracefully.
 
 Container builds also carry a baked source SHA. If setuptools-scm could
 not see SCM metadata during that build, the wheel metadata falls back to
@@ -21,7 +21,9 @@ payload's ``build`` field carry code identity instead.
 
 from __future__ import annotations
 
-from importlib.metadata import PackageNotFoundError, version as _dist_version
+import importlib.util
+
+from yoke_contracts.install_binding import distribution_version_for_module
 
 #: Response header carrying the server's engine version on API responses.
 ENGINE_VERSION_HEADER = "X-Yoke-Engine-Version"
@@ -39,11 +41,19 @@ CLIENT_DISTRIBUTION_NAME = "yoke-cli"
 UNRESOLVED_SCM_FALLBACK_VERSION = "0.1.0"
 
 
-def _installed_version(distribution: str) -> str:
+def _module_origin(package_name: str) -> str:
     try:
-        return _dist_version(distribution)
-    except PackageNotFoundError:
+        spec = importlib.util.find_spec(package_name)
+    except (ImportError, ValueError):
         return ""
+    return str(spec.origin or "") if spec else ""
+
+
+def _installed_version(distribution: str, package_name: str) -> str:
+    return distribution_version_for_module(
+        distribution,
+        _module_origin(package_name),
+    )
 
 
 def installed_engine_version() -> str:
@@ -52,7 +62,7 @@ def installed_engine_version() -> str:
     Absent means the process runs from a source tree without installed
     dist metadata; callers degrade to "no version advertised".
     """
-    return _installed_version(ENGINE_DISTRIBUTION_NAME)
+    return _installed_version(ENGINE_DISTRIBUTION_NAME, "yoke_core")
 
 
 def advertised_engine_version(*, build: str = "") -> str:
@@ -73,13 +83,13 @@ def advertised_engine_version(*, build: str = "") -> str:
 def local_handshake_version() -> str:
     """The version this process compares against a server's engine version.
 
-    Prefers the installed engine dist; a client-only install (https
-    transport, no engine) falls back to the CLI dist. ``""`` disables the
-    comparison.
+    The product client is versioned by its own ``yoke-cli`` distribution,
+    released in lockstep with the engine.  Deliberately never probe
+    ``yoke_core`` here: HTTPS clients are coreless, while a source CLI origin
+    has no owning wheel metadata and therefore returns ``""`` to disable the
+    comparison without false skew.
     """
-    return installed_engine_version() or _installed_version(
-        CLIENT_DISTRIBUTION_NAME
-    )
+    return _installed_version(CLIENT_DISTRIBUTION_NAME, "yoke_cli")
 
 
 __all__ = [

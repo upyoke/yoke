@@ -9,7 +9,7 @@ Usage::
 
 Example::
 
-    python3 -m yoke_core.tools.render_project buzz --write --only ops
+    python3 -m yoke_core.tools.render_project example-project --write --only ops
 
 Exit codes: 0 success, 1 render error, 2 argparse usage error.
 """

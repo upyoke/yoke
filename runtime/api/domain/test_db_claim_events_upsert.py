@@ -1,5 +1,5 @@
+# ruff: noqa: F401
 """Event-emission, upsert, and read-helper coverage for db_claim.amend / read_claim.
-
 Validation/atomicity/input-discipline tests live in test_db_claim.py.
 The local ``db_conn`` fixture delegates to the canonical Postgres
 ``test_db`` fixture so this sibling stays self-contained while exercising
@@ -143,7 +143,7 @@ class TestEventEmission:
         assert context["new_profile"]["state"] == "declared"
 
     def test_event_uses_items_project(self, db_conn):
-        insert_item(db_conn, id=601, status="refining-idea", project="buzz")
+        insert_item(db_conn, id=601, status="refining-idea", project="externalwebapp")
         amend(
             601,
             _declared_payload(),
@@ -159,9 +159,9 @@ class TestEventEmission:
         ).fetchone()
         assert row is not None
         assert row["project_id"] == 2
-        assert row["project"] == "buzz"
+        assert row["project"] == "externalwebapp"
         envelope = json.loads(row["envelope"])
-        assert envelope["project"] == "buzz"
+        assert envelope["project"] == "externalwebapp"
 
     def test_event_emission_failure_rolls_back_amendment(self, db_conn):
         insert_item(db_conn, id=602, status="refining-idea")

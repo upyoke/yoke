@@ -23,7 +23,6 @@ from yoke_harness.hooks.identity import (
 from yoke_core.api.service_client_shared import (
     _get_config_path,
     _get_db_readwrite,
-    _get_db_readonly,
     SessionError,
     SessionOffer,
     emit_next_action_chosen,
@@ -327,7 +326,7 @@ def cmd_session_offer(args: List[str]) -> int:
         default=None,
         help=(
             "Comma-separated project ids to narrow the frontier scope "
-            "(e.g. 'yoke,buzz'). Default: all registered projects."
+            "(e.g. 'yoke,example-project'). Default: all registered projects."
         ),
     )
 

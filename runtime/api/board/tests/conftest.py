@@ -1,5 +1,5 @@
+# ruff: noqa: F401
 """Shared fixtures for the board renderer test suite."""
-
 from __future__ import annotations
 
 import textwrap
@@ -121,7 +121,7 @@ _SCHEMA_DDL = textwrap.dedent("""\
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)
     VALUES (1, 'yoke', 'Yoke', '', 'YOK');
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)
-    VALUES (2, 'buzz', 'Buzz', '', 'BUZ');
+    VALUES (2, 'externalwebapp', 'ExternalWebapp', '', 'EXT');
 """)
 
 
@@ -178,7 +178,7 @@ _ZEN_DDL = textwrap.dedent("""\
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)
     VALUES (1, 'yoke', 'Yoke', '\U0001f305', 'YOK');
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)
-    VALUES (2, 'buzz', 'Buzz', '\U0001f41d', 'BUZ');
+    VALUES (2, 'externalwebapp', 'ExternalWebapp', '\U0001f9e9', 'EXT');
 """)
 
 

@@ -120,7 +120,7 @@ def test_board_art_font_pool_excludes_denied_fonts() -> None:
 def test_board_art_ascii_variant_uses_installed_pyfiglet_font(
     tmp_path: Path,
 ) -> None:
-    content = render_board_art("Buzz")
+    content = render_board_art("ExternalWebapp")
     target = tmp_path / "board-art"
     target.write_text(content, encoding="utf-8")
 
@@ -130,7 +130,7 @@ def test_board_art_ascii_variant_uses_installed_pyfiglet_font(
         for variant in cfg.ascii_variants
     ]
     expected_ascii, expected_fonts = art_seed._select_ascii_variants(
-        "Buzz", "BUZZ"
+        "ExternalWebapp", choose_art_word("ExternalWebapp")
     )
     assert len(rendered_ascii) == ASCII_VARIANT_COUNT
     assert len(set(rendered_ascii)) == ASCII_VARIANT_COUNT
@@ -161,7 +161,7 @@ def _variant_contains_emoji_column(
 def test_board_art_mixed_variants_sample_current_yoke_emoji_columns(
     tmp_path: Path,
 ) -> None:
-    content = render_board_art("Buzz")
+    content = render_board_art("ExternalWebapp")
     target = tmp_path / "board-art"
     target.write_text(content, encoding="utf-8")
 
@@ -210,10 +210,10 @@ def test_mixed_variant_rejects_fonts_that_only_fit_after_figlet_wrapping() -> No
 
 
 def test_board_art_does_not_reuse_figlet_fonts_across_seeded_variants() -> None:
-    word = choose_art_word("Buzz")
-    ascii_variants, ascii_fonts = art_seed._select_ascii_variants("Buzz", word)
+    word = choose_art_word("ExternalWebapp")
+    ascii_variants, ascii_fonts = art_seed._select_ascii_variants("ExternalWebapp", word)
     mixed_variants, mixed_fonts = art_seed._select_mixed_variants(
-        "Buzz", word, used_fonts=ascii_fonts
+        "ExternalWebapp", word, used_fonts=ascii_fonts
     )
     selected_fonts = [*ascii_fonts, *mixed_fonts]
 
@@ -225,16 +225,16 @@ def test_board_art_does_not_reuse_figlet_fonts_across_seeded_variants() -> None:
 
 def test_random_board_art_variant_helpers_are_seedable_and_width_bounded() -> None:
     ascii_one = generate_random_ascii_variant(
-        "Buzz", seed_text="demo-seed", attempt=0
+        "ExternalWebapp", seed_text="demo-seed", attempt=0
     )
     ascii_again = generate_random_ascii_variant(
-        "Buzz", seed_text="demo-seed", attempt=0
+        "ExternalWebapp", seed_text="demo-seed", attempt=0
     )
     mixed_one = generate_random_mixed_variant(
-        "Buzz", seed_text="demo-seed", attempt=0
+        "ExternalWebapp", seed_text="demo-seed", attempt=0
     )
     mixed_again = generate_random_mixed_variant(
-        "Buzz", seed_text="demo-seed", attempt=0
+        "ExternalWebapp", seed_text="demo-seed", attempt=0
     )
 
     assert ascii_one == ascii_again
@@ -249,13 +249,13 @@ def test_random_board_art_variant_helpers_are_seedable_and_width_bounded() -> No
 
 def test_random_board_art_variant_details_can_reroll_mixed_sides() -> None:
     ascii_detail = generate_random_ascii_variant_detail(
-        "Buzz", seed_text="detail-seed", attempt=0
+        "ExternalWebapp", seed_text="detail-seed", attempt=0
     )
     mixed = generate_random_mixed_variant_detail(
-        "Buzz", seed_text="detail-seed", attempt=0
+        "ExternalWebapp", seed_text="detail-seed", attempt=0
     )
     keep_ascii = generate_random_mixed_variant_detail(
-        "Buzz",
+        "ExternalWebapp",
         seed_text="detail-seed",
         attempt=1,
         keep_ascii_art=mixed.ascii_art,
@@ -265,7 +265,7 @@ def test_random_board_art_variant_details_can_reroll_mixed_sides() -> None:
         else [],
     )
     keep_emoji = generate_random_mixed_variant_detail(
-        "Buzz",
+        "ExternalWebapp",
         seed_text="detail-seed",
         attempt=2,
         keep_emoji_column=mixed.emoji_column,

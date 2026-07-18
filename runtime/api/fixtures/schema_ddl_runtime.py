@@ -20,7 +20,7 @@ INSERT INTO projects (id, slug, name, github_repo, public_item_prefix, org_id, c
 VALUES (1, 'yoke', 'Yoke', 'upyoke/yoke', 'YOK', 1, '2026-01-01T00:00:00Z')
 ON CONFLICT(id) DO NOTHING;
 INSERT INTO projects (id, slug, name, github_repo, public_item_prefix, org_id, created_at)
-VALUES (2, 'buzz', 'Buzz', 'example-org/buzz', 'BUZ', 1, '2026-01-01T00:00:00Z')
+VALUES (2, 'externalwebapp', 'ExternalWebapp', 'example-org/externalwebapp', 'EXT', 1, '2026-01-01T00:00:00Z')
 ON CONFLICT(id) DO NOTHING;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_org_slug_unique
     ON projects(org_id, slug);

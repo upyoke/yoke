@@ -2,7 +2,7 @@
 
 Covers the intended YOK-1879 shape: the Python ``apply(conn)`` migration
 runner Yoke already uses is project-configured and works for a webapp /
-Buzz-style project by changing config paths, not by inventing a second
+ExternalWebapp-style project by changing config paths, not by inventing a second
 runner family.
 """
 
@@ -101,13 +101,13 @@ def _seeded_default_worktree_db(tmp_path: Path) -> Iterator[Any]:
             conn.execute(
                 "INSERT INTO projects (id, slug, name) "
                 f"VALUES ({p}, {p}, {p})",
-                (2, "buzz", "Buzz"),
+                (2, "externalwebapp", "ExternalWebapp"),
             )
             conn.execute(
                 "INSERT INTO items (id, project_id, project_sequence, worktree) VALUES "
                 "(101, 2, 101, 'YOK-101'), (102, 2, 102, NULL)"
             )
-            register_machine_checkout(tmp_path / "machine-config", tmp_path / "buzz", 2)
+            register_machine_checkout(tmp_path / "machine-config", tmp_path / "externalwebapp", 2)
             conn.commit()
             yield conn
         finally:
@@ -116,7 +116,7 @@ def _seeded_default_worktree_db(tmp_path: Path) -> Iterator[Any]:
 
 class TestWebappValidationRecipe:
     def test_creates_empty_validation_surface(self, tmp_path: Path) -> None:
-        target = tmp_path / "buzz-validation.db"
+        target = tmp_path / "externalwebapp-validation.db"
         dispatch_recipe(RECIPE_WEBAPP_SQLITE_EMPTY, target, {})
 
         # Generic SQLite validation DB: this is a webapp validation file, not
@@ -135,12 +135,12 @@ class TestWebappValidationRecipe:
                 "missing_recipe",
                 tmp_path / "validation.db",
                 {},
-                project="buzz",
+                project="externalwebapp",
                 model="primary",
             )
         msg = str(excinfo.value)
         assert "missing_recipe" in msg
-        assert "buzz" in msg
+        assert "externalwebapp" in msg
         assert "primary" in msg
 
 
@@ -164,7 +164,7 @@ class TestProjectConfiguredPythonRunner:
             model=_webapp_python_model(),
             repo_path=tmp_path,
             identifier="001_add_accounts",
-            project="buzz",
+            project="externalwebapp",
             model_name="primary",
         )
 
@@ -172,7 +172,7 @@ class TestProjectConfiguredPythonRunner:
         assert handle.identifier == "001_add_accounts"
         assert handle.source_path == module_path
 
-        # Generic SQLite validation DB: Buzz/webapp migration modules rehearse
+        # Generic SQLite validation DB: ExternalWebapp/webapp migration modules rehearse
         # against sqlite_file/worktree_local_sqlite surfaces outside Yoke
         # authority, so this in-memory app DB intentionally stays sqlite3.
         conn = sqlite3.connect(":memory:")
@@ -202,12 +202,12 @@ class TestProjectConfiguredPythonRunner:
                 model=model,
                 repo_path=tmp_path,
                 identifier="001_add_accounts",
-                project="buzz",
+                project="externalwebapp",
                 model_name="primary",
             )
         msg = str(excinfo.value)
         assert "bogus_runner" in msg
-        assert "buzz" in msg
+        assert "externalwebapp" in msg
         assert "primary" in msg
 
     def test_known_runner_kinds_lists_python_runner_only(self) -> None:
@@ -275,7 +275,7 @@ class TestDefaultWorktreePath:
     """Regression coverage for the cwd-default trap.
 
     A wrong-cwd `migration_apply rehearse YOK-N` used to silently
-    provision a Buzz validation surface under Yoke's checkout because
+    provision a ExternalWebapp validation surface under Yoke's checkout because
     the wrapper defaulted worktree_path to Path.cwd(). default_worktree_path
     now prefers the item's machine-local project worktree.
     """
@@ -283,7 +283,7 @@ class TestDefaultWorktreePath:
     def test_prefers_item_worktree_over_cwd(self, tmp_path: Path) -> None:
         with _seeded_default_worktree_db(tmp_path) as conn:
             resolved = default_worktree_path(conn, 101)
-        assert resolved == tmp_path / "buzz" / ".worktrees" / "YOK-101"
+        assert resolved == tmp_path / "externalwebapp" / ".worktrees" / "YOK-101"
 
     def test_falls_back_to_cwd_when_item_has_no_worktree(
         self, tmp_path: Path

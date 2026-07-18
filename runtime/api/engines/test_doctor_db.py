@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Tests for the Python doctor engine (DB-only health checks): part 1.
-
 Status-consistency tests live in test_doctor_db_status_consistency.py.
 Mid-section HCs live in test_doctor_db_hcs_a.py.
 Late-section HCs live in test_doctor_db_hcs_b.py.
@@ -125,12 +125,12 @@ class TestParseArgs:
             parse_args([])
 
     def test_all_flags(self):
-        args = parse_args(["--file", "/tmp/r.md", "--fix", "--only", "a,b", "--quick", "--project", "buzz"])
+        args = parse_args(["--file", "/tmp/r.md", "--fix", "--only", "a,b", "--quick", "--project", "externalwebapp"])
         assert args.file == "/tmp/r.md"
         assert args.fix is True
         assert args.only == "a,b"
         assert args.quick is True
-        assert args.project == "buzz"
+        assert args.project == "externalwebapp"
 
     def test_legacy_check_aliases(self):
         args = parse_args(["--repo-root", ".", "--check", "HC-confabulation"])

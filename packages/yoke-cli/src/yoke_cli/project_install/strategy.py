@@ -5,7 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
-from yoke_cli.project_install.files import ProjectInstallError, sha256_text
+from yoke_cli.project_install.files import (
+    ProjectInstallError,
+    assert_resolved_targets_within,
+    sha256_text,
+)
 from yoke_contracts.project_contract.strategy_docs_header import (
     StrategyHeaderError,
     content_sha256,
@@ -37,6 +41,11 @@ def apply_strategy_files(
     old_map: Dict[str, str],
 ) -> Tuple[Dict[str, str], List[str], List[str], List[str], List[str]]:
     """Apply DB-render strategy entries without clobbering local edits."""
+    assert_resolved_targets_within(
+        repo_root,
+        strategy_mutation_paths(entries),
+        context="strategy file mutation",
+    )
     strategy_map = dict(old_map)
     written: List[str] = []
     unchanged: List[str] = []
@@ -98,6 +107,9 @@ def _prune_relocated_sibling(
     if slug is None:
         return
     sibling_rel = strategy_view_rel_path(slug, not is_archived_view_path(rel))
+    assert_resolved_targets_within(
+        repo_root, [sibling_rel], context="strategy sibling prune",
+    )
     sibling = repo_root / sibling_rel
     if not sibling.is_file():
         return
@@ -137,8 +149,23 @@ def _bodies_match(current_text: str, new_text: str) -> bool:
         return False
 
 
+def strategy_mutation_paths(entries: List[Dict[str, str]]) -> List[str]:
+    """All authoritative and opposite-location paths an apply can mutate."""
+    paths: List[str] = []
+    for entry in entries:
+        rel = entry["path"]
+        paths.append(rel)
+        slug = slug_from_view_path(rel)
+        if slug is not None:
+            paths.append(
+                strategy_view_rel_path(slug, not is_archived_view_path(rel))
+            )
+    return paths
+
+
 __all__ = [
     "STRATEGY_INSTALL_POLICY",
     "apply_strategy_files",
     "assert_safe_strategy_paths",
+    "strategy_mutation_paths",
 ]

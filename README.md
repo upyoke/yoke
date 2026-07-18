@@ -16,61 +16,16 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Table of Contents
-
-- [Master Flowchart](#master-flowchart)
-- [Quick Start](#quick-start)
-- [Core Concepts](#core-concepts)
-- [Item Lifecycle](#item-lifecycle)
-- [Command Reference](#command-reference)
-- [Architecture](#architecture)
-- [Ouroboros — Self-Improvement](#ouroboros--self-improvement)
-- [Multi-Project Support](#multi-project-support)
-- [FAQ](#faq)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
 ## Master Flowchart
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│  IDEA CAPTURE                                                                       │
-│  /yoke idea "title"  →  YOK-N, status=idea  →  SQL + GitHub issue                │
-└──────────────────────────────────────┬──────────────────────────────────────────────┘
-                                       │
-                                       ▼
-                    ┌──────────────────────────────────────────────────────────────────┐
-                    │  OPTIONAL SHEPHERD                                               │
-                    │  PM → Boss → [Designer] → [Architect → Simulator] → Boss        │
-                    │  Use when more structure or gatekeeping is worth it              │
-                    └──────────────────────────┬───────────────────────────────────────┘
-                                               │
-                                               ▼
-        ┌──────────────────────────────────────────────────────────────────────┐
-        │ ITEM FLOW                                                            │
-        │ /yoke advance YOK-N implementing                                     │
-        │ work in worktree                                                     │
-        │ /yoke conduct YOK-N if needed                                      │
-        │ → item reaches implemented                                           │
-        └──────────────────────────────┬───────────────────────────────────────┘
-                                       │
-                           operator can pause at any point and ask the agent:
-                     "what can run next in parallel and what should merge first?"
-                                                         │
-                                                         ▼
-                    ┌────────────────────────────────────────────────────────────────┐
-                    │  USHER (/yoke usher)                                         │
-                    │  merge → deploy → verify → done                                │
-                    │  halt states: needs-capability / awaiting-approval             │
-                    └──────────────────────────────┬─────────────────────────────────┘
-                                                   │
-                                                   ▼
-                                      ┌──────────────────────────┐
-                                      │          DONE            │
-                                      │ deploy complete / logged │
-                                      └──────────────────────────┘
+```mermaid
+flowchart LR
+  idea["Idea capture"] --> shepherd["Optional shepherd"]
+  shepherd --> implement["Advance and implement"]
+  implement --> conduct["Conduct when needed"]
+  conduct --> usher["Usher: merge, deploy, verify"]
+  usher --> done["Done with evidence"]
+  usher -. "capability or approval halt" .-> usher
 ```
 
 ---
@@ -97,7 +52,8 @@ yoke status
 
 The installer auto-launches `yoke onboard` when interactive. To upgrade later,
 rerun the same curl installer. It resolves one channel version for every Yoke
-product package and supplies uv with the protected index configuration; direct
+product package, selects the Yoke index ahead of an explicit public PyPI
+default, and ignores ambient uv index settings for that resolver run. Direct
 multi-index `uv tool install` commands are not a supported install surface.
 
 **Prefer everything on your own machine?** Local mode is free and needs no
@@ -251,13 +207,15 @@ At the operator level:
 
 ### Deployment flows
 
-Every item has a **deployment flow** selected during shepherding. Examples:
+Every item has a **deployment flow** selected during shepherding. External
+projects declare their flows in `.yoke/deployment-flows.json`; project refresh
+materializes those definitions into the Yoke control plane. Examples:
 
 | Flow | When used | Stages after `implemented` |
 |------|-----------|---------------------------|
-| `internal` | Scripts, docs, config | complete |
-| `buzz-prod-hotfix` | Urgent prod fix | prod-deploy → smoke → complete |
-| `buzz-prod-release` | Standard feature | prod-deploy → smoke → complete |
+| `project-internal` | Scripts, docs, config | merged → complete |
+| `project-production-hotfix` | Urgent prod fix | migration_apply → merged → production-deploy → smoke → complete |
+| `project-production-release` | Standard feature | migration_apply → merged → production-deploy → smoke → complete |
 
 Stage executor types: `auto`, `health-check`, `script`, `human-approval`, `github-actions-workflow`. All stage failures halt for v1; re-run `/yoke usher YOK-N` to resume.
 

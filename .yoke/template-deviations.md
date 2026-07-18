@@ -28,5 +28,5 @@ not an installed Yoke project artifact.
 
 When a future change touches behavior that should apply to all managed
 projects, update the shared template/install layer first and then instantiate
-it in Yoke and Buzz. Do not make Yoke a permanent special case just because
+it in Yoke and the external E2E consumer. Do not make Yoke a permanent special case just because
 the product source repo is also the first managed project.

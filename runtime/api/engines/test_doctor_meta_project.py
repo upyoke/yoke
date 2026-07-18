@@ -73,7 +73,7 @@ class TestProjectsWithoutFlows:
         conn = _make_conn()
         _seed_project(conn, "yoke")
         _insert_deployment_flow(conn, "f1")
-        _insert_deployment_flow(conn, "buzz-flow", project="buzz")
+        _insert_deployment_flow(conn, "externalwebapp-flow", project="externalwebapp")
         rec = RecordCollector()
         hc_projects_without_flows(conn, _args(), rec)
         res = _results(rec)
@@ -150,7 +150,7 @@ class TestZombieEphemeralEnvs:
         conn.execute(
             "INSERT INTO ephemeral_environments "
             "(id, project_id, branch, status, created_at) "
-            f"VALUES (1, {_project_id('buzz')}, 'feature', 'running', {p})",
+            f"VALUES (1, {_project_id('externalwebapp')}, 'feature', 'running', {p})",
             (_iso_offset(hours=-5),),
         )
         rec = RecordCollector()

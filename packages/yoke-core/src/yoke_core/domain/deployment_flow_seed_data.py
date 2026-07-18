@@ -114,7 +114,7 @@ SEED_FLOWS = [
         ),
         "on_failure": "halt",
         "target_env": "production",
-        "status": FLOW_STATUS_ACTIVE,
+        "status": FLOW_STATUS_DISABLED,
         "done_description": "Yoke release completed through the hosted production train",
     },
     {
@@ -267,49 +267,13 @@ SEED_FLOWS = [
         "status": FLOW_STATUS_ACTIVE,
         "done_description": "Platform release completed through the hosted stage train",
     },
-    {
-        "id": "buzz-prod-release", "project": "buzz", "name": "Prod Release",
-        "description": "Push-to-main triggers prod deploy via GitHub Actions with environment protection gate, then smoke test",
-        "stages": json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
-            _github_workflow_stage("prod-deploy", "buzz-deploy.yml"),
-            _github_workflow_stage("smoke", "buzz-smoke.yml"),
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": "production",
-        "status": FLOW_STATUS_ACTIVE,
-        "done_description": "Deployed to production and smoke checks passed",
-    },
-    {
-        "id": "buzz-prod-hotfix", "project": "buzz", "name": "Prod Hotfix",
-        "description": "Manual dispatch of hotfix workflow for direct-to-prod deploy",
-        "stages": json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
-            _github_workflow_stage(
-                "production-deploy", "buzz-hotfix.yml",
-                watch_for="completed", on_failure="halt",
-            ),
-        ]),
-        "on_failure": "halt", "target_env": "production",
-        "status": FLOW_STATUS_ACTIVE,
-        "done_description": "Hotfix deployed to production",
-    },
-    {
-        "id": "buzz-internal", "project": "buzz", "name": "Internal",
-        "description": "Doc or config change, no deployment",
-        "stages": json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "complete", "executor": "auto"},
-        ]),
-        "on_failure": "halt", "target_env": None,
-        "status": FLOW_STATUS_ACTIVE,
-        "done_description": "Merged to main",
-    },
 ]
 
 
-__all__ = ["SEED_FLOWS"]
+BUILTIN_FLOW_SUPERSESSIONS = ()
+
+
+__all__ = [
+    "BUILTIN_FLOW_SUPERSESSIONS",
+    "SEED_FLOWS",
+]

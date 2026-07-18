@@ -12,27 +12,20 @@ from __future__ import annotations
 
 import os
 
-from pathlib import Path
 from unittest.mock import patch
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.engines.doctor import (
-    RecordCollector,
-    _resolve_repo_root,
     hc_arch_consistency,
     hc_backlog_quality,
     hc_config_validation,
     hc_schema_script_sync,
     hc_stale_body,
-    hc_stray_db,
-    hc_stray_project_files,
     hc_template_project_drift,
 )
 
 from yoke_core.engines._doctor_filesystem_full_test_helpers import (
-    _args,
-    _cp,
     _make_conn,
     _run_hc,
 )
@@ -59,7 +52,7 @@ class TestProjectTemplateAndSchemaChecks:
     def test_template_project_drift_check_is_retired(self, tmp_path):
         """Rendered project outputs are no longer tracked in the Yoke repo."""
         conn = _make_conn()
-        conn.execute("INSERT INTO projects (id, slug) VALUES (2, 'buzz')")
+        conn.execute("INSERT INTO projects (id, slug) VALUES (2, 'externalwebapp')")
         with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
             rec = _run_hc(hc_template_project_drift, conn)
         assert rec.results[0].result == "PASS"
@@ -67,9 +60,9 @@ class TestProjectTemplateAndSchemaChecks:
 
     def test_template_project_drift_passes_on_matching_sizes(self, tmp_path):
         conn = _make_conn()
-        conn.execute("INSERT INTO projects (id, slug) VALUES (2, 'buzz')")
+        conn.execute("INSERT INTO projects (id, slug) VALUES (2, 'externalwebapp')")
         templates_dir = tmp_path / "templates" / "webapp" / "ops"
-        project_ops_dir = tmp_path / "projects" / "buzz" / "ops"
+        project_ops_dir = tmp_path / "projects" / "externalwebapp" / "ops"
         templates_dir.mkdir(parents=True)
         project_ops_dir.mkdir(parents=True)
         content = "\n".join("tmpl" for _ in range(20))

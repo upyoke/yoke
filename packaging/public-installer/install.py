@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -47,6 +48,52 @@ _DEV_VERSION_RE = re.compile(r"^(?P<base>\d+\.\d+(?:\.\d+)?)\.dev\d+\+(?P<local>
 PRODUCT_PACKAGE = "yoke-cli"
 LOCKSTEP_PRODUCT_PACKAGES = ("yoke-contracts", "yoke-harness", "yoke-core")
 PYTHON_CONSTRAINT = ">=3.10"
+PYPI_INDEX_URL = "https://pypi.org/simple/"
+INDEX_STRATEGY = "first-index"
+# The public installer owns resolver sources completely. Ambient uv index
+# settings must not replace PyPI or insert a higher-priority index ahead of the
+# Yoke index selected by the installer.
+UV_INDEX_ENV_VARS = frozenset(
+    {
+        "UV_DEFAULT_INDEX",
+        "UV_EXTRA_INDEX_URL",
+        "UV_INDEX",
+        "UV_INDEX_STRATEGY",
+        "UV_INDEX_URL",
+        "UV_NO_INDEX",
+    }
+)
+# Requirement/override/find-links inputs can inject packages independently of
+# indexes.  The public installer pins the complete lockstep product set, so it
+# deliberately inherits none of these ambient resolver source surfaces.
+UV_REQUIREMENT_SOURCE_ENV_VARS = frozenset(
+    {
+        "UV_BUILD_CONSTRAINT",
+        "UV_CONFIG_FILE",
+        "UV_CONSTRAINT",
+        "UV_FIND_LINKS",
+        "UV_OVERRIDE",
+        "UV_REQUIREMENT",
+    }
+)
+PIP_REQUIREMENT_SOURCE_ENV_VARS = frozenset(
+    {
+        "PIP_CONSTRAINT",
+        "PIP_EXTRA_INDEX_URL",
+        "PIP_FIND_LINKS",
+        "PIP_INDEX_URL",
+        "PIP_NO_INDEX",
+        "PIP_REQUIREMENT",
+    }
+)
+RESOLVER_SOURCE_ENV_VARS = frozenset(
+    UV_INDEX_ENV_VARS
+    | UV_REQUIREMENT_SOURCE_ENV_VARS
+    | PIP_REQUIREMENT_SOURCE_ENV_VARS
+)
+DIAGNOSTIC_MAX_CHARS = 4000
+FAILURE_REASON_MAX_CHARS = 600
+_URL_RE = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
 FRESH_STATUS_ERROR_CODES = frozenset(
     {
         "config_missing",
@@ -79,7 +126,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         Installer(parse_args(argv)).run()
     except InstallError as exc:
         gutter = Installer._gutter(sys.stderr)
-        print(f"{gutter} {exc}", file=sys.stderr)
+        print(f"{gutter} {_sanitize_diagnostic(str(exc))}", file=sys.stderr)
         return 1
     return 0
 
@@ -190,7 +237,7 @@ class Installer:
             print(
                 f"Resolved Yoke {version}"
                 if version
-                else f"Installing latest Yoke from {self.index_url}",
+                else f"Installing latest Yoke from {_safe_url(self.index_url)}",
                 file=self.stdout,
             )
             print(f"Install command: {shlex.join(command)}", file=self.stdout)
@@ -230,6 +277,10 @@ class Installer:
             "--reinstall",
             "--force",
             *_with_product_requirements(_product_spec_version(spec)),
+            "--default-index",
+            PYPI_INDEX_URL,
+            "--index-strategy",
+            INDEX_STRATEGY,
         ]
         if config_path is not None:
             command.extend(["--config-file", config_path])
@@ -309,7 +360,10 @@ class Installer:
             ),
             file=self.stdout,
         )
-        print(f"  {_paint(str(exc), 'dim', enabled=self.color)}", file=self.stdout)
+        print(
+            f"  {_paint(_sanitize_diagnostic(str(exc)), 'dim', enabled=self.color)}",
+            file=self.stdout,
+        )
         print("Try again:", file=self.stdout)
         retry_base_url = self.options.base_url
         if (
@@ -388,12 +442,6 @@ class Installer:
                     "reported unexpected errors on a fresh install: "
                     + ", ".join(unexpected)
                 )
-        # The engine (yoke-core) is installed on every machine by design; the
-        # audit verifies it stays inert — the client must hold product-API
-        # authority, never local source-dev/admin authority.
-        runtime = status.get("runtime") if isinstance(status, dict) else None
-        if expected_version:
-            _verify_product_package_versions(runtime, expected_version)
         connection = status.get("connection") if isinstance(status, dict) else None
         authority = ""
         if isinstance(connection, dict):
@@ -404,6 +452,15 @@ class Installer:
                 f"{authority!r}; a product install must use the product API, not "
                 "source-dev/admin authority."
             )
+        # The engine (yoke-core) is installed on every machine by design; the
+        # audit verifies it stays inert — the client must hold product-API
+        # authority, never local source-dev/admin authority. Reject a reported
+        # authority violation before diagnosing package completeness so the
+        # security boundary remains the primary failure.
+        runtime = status.get("runtime") if isinstance(status, dict) else None
+        _verify_product_package_presence(runtime)
+        if expected_version:
+            _verify_product_package_versions(runtime, expected_version)
 
     def _advise_path(self) -> None:
         if self.which("yoke") is not None:
@@ -421,7 +478,7 @@ def product_spec(version: str | None) -> str:
 
 
 def _rerun_command(base_url: str) -> str:
-    return f"curl -fsSL {base_url.rstrip('/')}/install | bash"
+    return f"curl -fsSL {_safe_url(base_url).rstrip('/')}/install | bash"
 
 
 def _product_spec_version(spec: str) -> str | None:
@@ -466,6 +523,31 @@ def _verify_product_package_versions(
         )
 
 
+def _verify_product_package_presence(runtime: object) -> None:
+    """Require every package needed by installed hooks and product commands."""
+    if not isinstance(runtime, dict):
+        raise InstallError(
+            "product-boundary audit failed: `yoke status --json` did not "
+            "report runtime package versions."
+        )
+    raw_versions = runtime.get("package_versions")
+    if not isinstance(raw_versions, dict):
+        raise InstallError(
+            "product-boundary audit failed: `yoke status --json` did not "
+            "report runtime package versions."
+        )
+    missing = [
+        package
+        for package in (PRODUCT_PACKAGE, *LOCKSTEP_PRODUCT_PACKAGES)
+        if not raw_versions.get(package)
+    ]
+    if missing:
+        raise InstallError(
+            "product-boundary audit failed: installed Yoke product packages "
+            "are incomplete: " + ", ".join(missing)
+        )
+
+
 def _display_version(raw: str) -> str:
     raw = (raw or "").strip()
     if not raw:
@@ -494,7 +576,7 @@ def _failure_reason(result: subprocess.CompletedProcess[str]) -> str:
     for stream in (result.stderr, result.stdout):
         lines = [line.strip() for line in (stream or "").splitlines() if line.strip()]
         if lines:
-            return lines[-1]
+            return _bounded_diagnostic(lines[-1], FAILURE_REASON_MAX_CHARS)
     return f"uv exited with status {result.returncode}."
 
 
@@ -503,15 +585,25 @@ def fetch_url(url: str) -> bytes:
         with urllib.request.urlopen(url, timeout=60) as response:
             return response.read()
     except urllib.error.URLError as exc:
-        raise InstallError(f"could not fetch {url}: {exc}") from exc
+        raise InstallError(
+            f"could not fetch {_safe_url(url)}: {_sanitize_diagnostic(str(exc))}"
+        ) from exc
     except OSError as exc:
-        raise InstallError(f"could not fetch {url}: {exc}") from exc
+        raise InstallError(
+            f"could not fetch {_safe_url(url)}: {_sanitize_diagnostic(str(exc))}"
+        ) from exc
 
 
 def run_command_capture(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in RESOLVER_SOURCE_ENV_VARS
+    }
     return subprocess.run(
         list(command),
         check=False,
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -550,10 +642,49 @@ def _format_command_failure(
     command: Sequence[str],
     result: subprocess.CompletedProcess[str],
 ) -> str:
+    safe_command = _bounded_diagnostic(" ".join(command), DIAGNOSTIC_MAX_CHARS)
+    safe_stdout = _bounded_diagnostic(result.stdout or "", DIAGNOSTIC_MAX_CHARS)
+    safe_stderr = _bounded_diagnostic(result.stderr or "", DIAGNOSTIC_MAX_CHARS)
     return (
-        f"command failed with {result.returncode}: {' '.join(command)}\n"
-        f"stdout:\n{result.stdout}\n"
-        f"stderr:\n{result.stderr}"
+        "Yoke dependency resolution uses the configured Yoke package index "
+        f"and public PyPI ({PYPI_INDEX_URL}).\n"
+        f"command failed with {result.returncode}: {safe_command}\n"
+        f"stdout:\n{safe_stdout}\n"
+        f"stderr:\n{safe_stderr}"
+    )
+
+
+def _bounded_diagnostic(value: str, limit: int) -> str:
+    safe = _sanitize_diagnostic(value)
+    if len(safe) <= limit:
+        return safe
+    return f"<earlier output omitted>\n{safe[-limit:]}"
+
+
+def _sanitize_diagnostic(value: str) -> str:
+    """Remove URL credentials/query material from operator-visible text."""
+
+    return _URL_RE.sub(lambda match: _safe_url(match.group(0)), value)
+
+
+def _safe_url(value: str) -> str:
+    raw = str(value or "")
+    try:
+        parsed = urllib.parse.urlsplit(raw)
+    except ValueError:
+        return "<redacted-url>"
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+        return raw
+    host = parsed.hostname
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    netloc = f"{host}:{port}" if port is not None else host
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, netloc, parsed.path, "", "")
     )
 
 

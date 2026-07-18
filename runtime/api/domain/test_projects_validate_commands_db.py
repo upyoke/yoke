@@ -197,7 +197,7 @@ class TestValidateProjectCommands:
         self, yoke_db: str, tmp_path: Path
     ) -> None:
         """Contract: an absent or empty command_definitions scope => 'empty'
-        (not configured), never 'invalid'. Buzz relies on this for ``e2e``
+        (not configured), never 'invalid'. ExternalWebapp relies on this for ``e2e``
         because it has no real E2E suite today."""
         repo = tmp_path / "repo"
         repo.mkdir()

@@ -75,7 +75,7 @@ def test_start_for_item_dispatch_failure_writes_to_stderr(monkeypatch):
 def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
     _capture(monkeypatch)
     handle = StartForItemResult(
-        ok=True, project="buzz", flow="to-staging", target_env="staging",
+        ok=True, project="externalwebapp", flow="to-staging", target_env="staging",
         run_id="R-2", validation_message="ok", item_ids=[7],
     )
     with mock.patch.object(
@@ -83,21 +83,21 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
     ) as mock_composer:
         rc = deployment_runs_cli.main([
             "start-for-item", "7",
-            "--project", "buzz",
+            "--project", "externalwebapp",
             "--flow", "to-staging",
             "--target-env", "staging",
             "--release-lineage", "L-99",
-            "--project-repo-path", "/workspace/buzz",
+            "--project-repo-path", "/workspace/externalwebapp",
             "--created-by", "agent",
         ])
     assert rc == 0
     _, kwargs = mock_composer.call_args
     assert kwargs == {
-        "project": "buzz",
+        "project": "externalwebapp",
         "flow": "to-staging",
         "target_env": "staging",
         "release_lineage": "L-99",
-        "project_repo_path": "/workspace/buzz",
+        "project_repo_path": "/workspace/externalwebapp",
         "created_by": "agent",
     }
 

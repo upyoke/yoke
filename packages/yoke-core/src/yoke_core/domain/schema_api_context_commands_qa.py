@@ -182,9 +182,7 @@ QA_COMMANDS: list[dict] = [
             "--current-episode` bounds to the current session episode "
             "(fails closed without `--session`). Siblings: `yoke "
             "events tail --limit 20` (zero-config recent slice), "
-            "`yoke events count`, `yoke events anomalies`. "
-            "Operator-debug fallback inside the checkout: `python3 -m "
-            "yoke_core.cli.db_router events list ...`."
+            "`yoke events count`, `yoke events anomalies`."
         ),
     },
     {

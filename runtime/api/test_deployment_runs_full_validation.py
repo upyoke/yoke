@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Composition + batch-compatibility tests for deployment_runs.
-
 Covers cmd_validate_composition and cmd_check_batch_compatibility.
 
 Split from ``test_deployment_runs_full.py``.
@@ -75,7 +75,7 @@ class TestValidateComposition:
 
     def test_wrong_project(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        self._insert_item(db_path, 100, "implemented", project="buzz")
+        self._insert_item(db_path, 100, "implemented", project="externalwebapp")
         dr.cmd_add_item(rid, 100, db_path=db_path)
 
         ok, msg = dr.cmd_validate_composition(rid, db_path=db_path)
@@ -221,7 +221,7 @@ class TestCheckBatchCompatibility:
         assert "No item IDs" in msg
 
     def test_wrong_project_in_batch(self, db_path):
-        self._insert_item(db_path, 100, "implemented", project="buzz")
+        self._insert_item(db_path, 100, "implemented", project="externalwebapp")
         ok, msg = dr.cmd_check_batch_compatibility(
             "yoke", "yoke-internal", [100], db_path=db_path,
         )

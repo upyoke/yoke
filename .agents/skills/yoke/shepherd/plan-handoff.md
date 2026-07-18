@@ -127,7 +127,7 @@ family is not yet exposed).
  Phase: plan
  Repository root: {MAIN_ROOT}
  Read task content from the DB via yoke workflow-item epic-task body-get.
- Read the structured item artifacts via python3 -m yoke_core.cli.db_router:
+ Read the structured item artifacts via the registered `yoke items get` and `yoke epic-tasks list` readers:
  - spec: items get YOK-{N} spec
  - technical plan: items get YOK-{N} technical_plan
  - worktree plan: items get YOK-{N} worktree_plan
@@ -144,7 +144,7 @@ Parse the Simulator's result for `## Result: CLEAN` or `## Result: GAPS FOUND`.
   1. **Patch and re-simulate** — fix the gaps in the plan/task bodies (or re-run Architect manually), then re-run shepherd. `simulation-upsert` overwrites prior runs, so a clean re-simulation replaces the failing row.
   2. **Waive the requirement** with explicit operator rationale. Find the requirement id, then waive:
      ```bash
-     _req_id=$(python3 -m yoke_core.cli.db_router query "SELECT id FROM qa_requirements WHERE item_id=$_epic_id AND qa_kind='simulation' AND success_policy LIKE '%\"phase\":\"plan\"%'")
+     _req_id=$(yoke db read --format lines "SELECT id FROM qa_requirements WHERE item_id=$_epic_id AND qa_kind='simulation' AND success_policy LIKE '%\"phase\":\"plan\"%'")
      yoke qa requirement waive --requirement-id "$_req_id" --rationale "<rationale>" --source operator --force
      ```
   3. **Re-scope or stop** — narrow the epic and re-shepherd, or `/yoke stop YOK-{N}`.
@@ -161,8 +161,8 @@ Boss review happens in step 5e (see `boss-verdict.md`) with `scope=plan`.
 No merge needed -- data is already on main. (Status is already `planning` from step 0 -- the Boss verdict does NOT re-set it for this transition.)
 
 ### 8. On Boss NOT_READY
-Delete task data and re-attempt from step 2 (re-invoke Architect with feedback):
+List task data, remove each planning/planned task through the registered task owner, and re-attempt from step 2 (re-invoke Architect with feedback):
 ```bash
-python3 -m yoke_core.cli.db_router query "DELETE FROM epic_task_files WHERE epic_id=$_epic_id"
-python3 -m yoke_core.cli.db_router query "DELETE FROM epic_tasks WHERE epic_id=$_epic_id"
+yoke epic-tasks list --epic "$_epic_id"
+yoke workflow-item epic-task remove --epic "$_epic_id" --task-num "{each task_num}" --reason "Boss requested plan revision"
 ```

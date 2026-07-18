@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import importlib.util
 import os
-import shutil
-import sys
-from importlib.metadata import PackageNotFoundError, version as package_version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as metadata_version
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -25,17 +24,26 @@ from yoke_cli.config.status_environment import (
     permission_issues,
 )
 from yoke_cli.config.status_render import dumps_json, render_human
+from yoke_cli.config.status_runtime import build_runtime_status
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
+from yoke_contracts.install_binding import distribution_version_for_module
 from yoke_contracts.machine_config import schema as contract
 
 
-REQUIRED_IMPORTS = ("yoke_cli", "yoke_contracts", "pydantic", "pyfiglet")
-PRODUCT_RUNTIME_PACKAGES = (
-    install_binding.CLI_DISTRIBUTION_NAME,
-    "yoke-contracts",
-    "yoke-harness",
-    ENGINE_DISTRIBUTION_NAME,
+REQUIRED_IMPORTS = (
+    "yoke_cli",
+    "yoke_contracts",
+    "yoke_harness",
+    "pydantic",
+    "pyfiglet",
 )
+PRODUCT_RUNTIME_MODULES = {
+    install_binding.CLI_DISTRIBUTION_NAME: "yoke_cli",
+    "yoke-contracts": "yoke_contracts",
+    "yoke-harness": "yoke_harness",
+    ENGINE_DISTRIBUTION_NAME: "yoke_core",
+}
+PRODUCT_RUNTIME_PACKAGES = tuple(PRODUCT_RUNTIME_MODULES)
 
 def build_status(
     *,
@@ -197,46 +205,41 @@ def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
 
 
 def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
-    imports = {name: _import_status(name) for name in REQUIRED_IMPORTS}
-    if connection.get("transport") in contract.POSTGRES_TRANSPORTS:
-        imports["yoke_core"] = _import_status("yoke_core")
-        imports["psycopg"] = _import_status("psycopg")
-    package_versions = {
-        name: _package_version(name) for name in PRODUCT_RUNTIME_PACKAGES
-    }
-    issues = []
-    for name, item in imports.items():
-        if not item["available"]:
-            hint = (
-                "Repair the install so the yoke-core engine and psycopg "
-                "import (local-postgres connections dispatch in-process), "
-                "or switch to an HTTPS env."
-                if name in {"yoke_core", "psycopg"}
-                else "Install the Yoke product packages."
-            )
-            issues.append(
-                _issue(
-                    "error",
-                    "import_missing",
-                    f"required package import failed: {name}",
-                    hint,
-                )
-            )
-    return {
-        "python_executable": sys.executable,
-        "python_version": ".".join(str(part) for part in sys.version_info[:3]),
-        "yoke_executable": shutil.which("yoke") or "",
-        "imports": imports,
-        "package_versions": package_versions,
-        "issues": issues,
-    }
+    return build_runtime_status(
+        connection,
+        required_imports=REQUIRED_IMPORTS,
+        runtime_packages=PRODUCT_RUNTIME_PACKAGES,
+        import_status=_import_status,
+        package_version=_package_version,
+        issue=_issue,
+    )
 
 
-def _package_version(name: str) -> str:
-    try:
-        return package_version(name)
-    except PackageNotFoundError:
+def _package_version(name: str, *, source_bound: bool) -> str:
+    # A source-bound CLI is one coherent checkout, even when ambient wheel
+    # metadata exists. Keep every product version blank so status never mixes
+    # checkout code with unrelated installed distribution versions.
+    if source_bound:
         return ""
+    # HTTPS product commands must not probe/import the engine. A packaged CLI
+    # establishes the isolated product tool environment, so distribution
+    # metadata is the correct presence/version surface for the unimported core.
+    if name == ENGINE_DISTRIBUTION_NAME:
+        try:
+            return metadata_version(name)
+        except PackageNotFoundError:
+            return ""
+    module_name = PRODUCT_RUNTIME_MODULES.get(name)
+    if not module_name:
+        return ""
+    try:
+        spec = importlib.util.find_spec(module_name)
+    except (ImportError, ValueError):
+        return ""
+    return distribution_version_for_module(
+        name,
+        spec.origin if spec else None,
+    )
 
 
 def _db_status(

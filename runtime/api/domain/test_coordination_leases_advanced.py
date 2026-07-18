@@ -112,7 +112,7 @@ class TestListing:
                 conn, "yoke", "LIVE_DB_MIGRATION:primary", "sess-1",
             )
             coordination_leases.acquire_lease(
-                conn, "buzz", "EXAMPLE_OP:x", "sess-2",
+                conn, "externalwebapp", "EXAMPLE_OP:x", "sess-2",
             )
             project = coordination_leases.list_leases(
                 conn, project_id="yoke",

@@ -28,7 +28,7 @@ else
 
  if [ "$_browser_testable" = "True" ]; then
  # 2. Dedup guard: shepherd or a prior advance may have already seeded.
- _existing_browser=$(python3 -m yoke_core.cli.db_router query \
+ _existing_browser=$(yoke db read --format lines \
  "SELECT COUNT(*) FROM qa_requirements WHERE item_id={N} AND qa_kind IN ('browser_smoke','browser_diff','e2e','visual_regression') AND requirement_source='seeded_default'" 2>/dev/null) || true
 
  if [ -z "$_existing_browser" ] || [ "$_existing_browser" = "0" ]; then
@@ -36,11 +36,12 @@ else
  _base_url="http://localhost:3000"
  _item_proj=$(yoke items get {N} project 2>/dev/null) || true
  if [ -n "$_item_proj" ] && [ "$_item_proj" != "null" ]; then
- _eph_url=$(python3 -m yoke_core.cli.db_router query "SELECT url FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_proj}') AND branch='YOK-{N}' AND url IS NOT NULL AND url <> '' LIMIT 1" 2>/dev/null) || true
+ _eph_url=$(yoke db read --format lines "SELECT url FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_proj}') AND branch='YOK-{N}' AND url IS NOT NULL AND url <> '' LIMIT 1" 2>/dev/null) || true
  if [ -n "$_eph_url" ]; then
  _base_url="$_eph_url"
  else
- _cap_url=$(python3 -m yoke_core.cli.db_router projects capability-get "$_item_proj" "browser-qa" 2>/dev/null | python3 -m yoke_core.domain.json_helper get base_url 2>/dev/null) || true
+ _cap_settings=$(yoke projects capability-settings get --project "$_item_proj" --cap-type browser-qa 2>/dev/null) || true
+ _cap_url=$(python3 -c 'import json,sys; print((json.load(sys.stdin) or {}).get("base_url", ""))' <<<"$_cap_settings" 2>/dev/null) || true
  if [ -n "$_cap_url" ]; then _base_url="$_cap_url"; fi
  fi
  fi
@@ -51,7 +52,7 @@ else
  _include_diff="False"
  if [ "$_visual_outcome" = "True" ]; then
  _first_route=$(printf '%s' "$_metadata_json" | python3 -c "import json, sys; routes=json.load(sys.stdin).get('browser_routes') or ['/']; print(routes[0])")
- _has_baseline=$(python3 -m yoke_core.cli.db_router query \
+ _has_baseline=$(yoke db read --format lines \
  "SELECT COUNT(*) FROM qa_artifacts WHERE artifact_type='screenshot' AND artifact_handle LIKE '%${_item_proj}%' AND artifact_handle LIKE '%${_first_route}%' AND id NOT IN (SELECT id FROM qa_artifacts WHERE artifact_handle LIKE '%YOK-{N}%')" 2>/dev/null) || _has_baseline="0"
  if [ -n "$_has_baseline" ] && [ "$_has_baseline" -gt 0 ] 2>/dev/null; then
  _include_diff="True"

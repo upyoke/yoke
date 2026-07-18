@@ -57,7 +57,7 @@ def _verify(*, opener, budget, server_fetcher=None):
     return verify_project_github_binding(
         installation_id="12345",
         repository_id="4567",
-        expected_github_repo="example-org/buzz",
+        expected_github_repo="example-org/externalwebapp",
         expected_api_url="https://api.github.com",
         github_user_access_token="token-must-never-escape",
         opener=opener,
@@ -99,7 +99,7 @@ def test_one_budget_allows_normal_late_page_binding_proof():
                     else [
                         {
                             "id": 4567,
-                            "full_name": "Example-Org/Buzz",
+                            "full_name": "Example-Org/ExternalWebapp",
                             "default_branch": "trunk",
                             "owner": {"id": 9988},
                         }
@@ -126,7 +126,7 @@ def test_one_budget_allows_normal_late_page_binding_proof():
         server_fetcher=server_fetcher,
     )
 
-    assert verified.github_repo == "Example-Org/Buzz"
+    assert verified.github_repo == "Example-Org/ExternalWebapp"
     assert budget.requests_used == 6
     assert budget.rows_used == 202
     assert [event[:2] for event in events] == [

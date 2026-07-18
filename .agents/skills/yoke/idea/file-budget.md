@@ -72,9 +72,9 @@ an emergency refactor mid-implementation.
 
 All paths in `## File Budget` and in the `--paths` argument of the path-claim are **project-relative**. Validation resolves the local filesystem root from this machine's checkout mapping or explicit work/session context for the item's `project_id`; `path_targets.project_id` is the discriminator that lets identically-named paths coexist across projects.
 
-When `project != yoke` (e.g. `project=buzz` checked out at `/Users/dev/buzz` on this machine), that checkout root is the **only valid root for File Budget enumeration and path-claim authoring**:
+When `project != yoke` (e.g. `project=external-webapp` checked out at `/Users/dev/external-webapp` on this machine), that checkout root is the **only valid root for File Budget enumeration and path-claim authoring**:
 
-- Every File Budget entry is a path inside that checkout, written project-relative (e.g. `app/web/src/login/page.tsx` for buzz -- never `/Users/.../buzz/app/web/...`, never anything rooted in the Yoke tree).
+- Every File Budget entry is a path inside that checkout, written project-relative (e.g. `app/web/src/login/page.tsx` for external-webapp -- never `/Users/.../external-webapp/app/web/...`, never anything rooted in the Yoke tree).
 - Any `Explore` / `Glob` / `Read` / `grep` dispatched to enumerate files for the File Budget MUST be scoped to the target project's local checkout. Do not search under a Yoke-side tree unless the target project is Yoke.
 - The session-start orientation packet and `/yoke idea` project inference surface the resolved local checkout when one exists (see [infer-and-create.md](infer-and-create.md)); absence of a local checkout is a setup problem, not permission to author paths from another repo.
 

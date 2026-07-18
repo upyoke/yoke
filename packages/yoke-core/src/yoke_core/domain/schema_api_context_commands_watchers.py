@@ -54,7 +54,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
         "notes": (
             "This exact three-suite target is the canonical full Yoke gate; "
-            "it injects xdist `-n auto`. Pass --no-parallel after `--` "
+            "it injects xdist `-n auto`. Pass `-n 0` after `--` "
             "for sequential order-sensitive debugging. The wrapper mints "
             "the raw + progress capture pair via "
             "yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair "

@@ -195,7 +195,7 @@ class TestPolishGateTestResults:
         outcome = check_polishing_implementation_to_implemented_gate(5004, conn=conn)
         assert outcome.passed, outcome.errors
 
-    def test_quick_lights_up_when_buzz_lands_a_quick_command(
+    def test_quick_lights_up_when_externalwebapp_lands_a_quick_command(
         self, gate_db, monkeypatch
     ) -> None:
         """AC-5: filter is presence-based, not a hardcoded allowlist.
@@ -204,10 +204,10 @@ class TestPolishGateTestResults:
         the gate begins enforcing for that project with zero code change.
         """
         conn, repo_path = gate_db
-        _seed_project(conn, "buzz", repo_path)
-        self._stub_quick(monkeypatch, {"buzz": "npx vitest run"})
+        _seed_project(conn, "externalwebapp", repo_path)
+        self._stub_quick(monkeypatch, {"externalwebapp": "npx vitest run"})
         insert_item(
-            conn, id=5005, project="buzz", status="polishing-implementation",
+            conn, id=5005, project="externalwebapp", status="polishing-implementation",
             test_results="",
         )
         outcome = check_polishing_implementation_to_implemented_gate(5005, conn=conn)

@@ -192,14 +192,30 @@ DB site/environment settings and project capabilities, not repo files.
 
 ### Step 11: Generate ops artifacts
 
-Fetch reusable deployment runbook, workflow, and scaffold material from the
-product template surface. Project-specific substitutions and durable policy
-writes happen through `/yoke onboard-project` or product CLI project setup,
-not through a Yoke source checkout:
+Preview the managed deployment references, workflows, ops programs, and static
+infrastructure rendered from the active packaged template plus the project's
+DB-backed settings. Project-authored deployment help stays in the project's
+own `.yoke/runbooks/`; generic rendered references use the distinct
+`docs/yoke-generated/deployment-reference/` namespace:
 
 ```bash
-yoke templates fetch webapp --dest scratch/webapp-template --force
+yoke project artifacts refresh ~/work/my-service --project my-service
+yoke project artifacts refresh ~/work/my-service --project my-service --apply
+yoke project artifacts refresh ~/work/my-service --project my-service --verify
 ```
+
+Preview is the default and lists exact creates, updates, prunes, and conflicts.
+Apply starts only after full path, symlink, manifest, and ownership preflight;
+project-authored deviations are preserved as refusing conflicts. Planning also
+requires the checkout's installed project id to match the server bundle; when
+the project has a verified repository binding, its live Git origin must also
+match. Local/offline projects can operate without that optional repository
+binding. The manifest at `.yoke/artifact-manifest.json` records template
+version plus template, settings, and rendered-content digests. `--verify` is
+the CI/external-project drift gate. The source-dev template-tree override is an
+org-admin-only diagnostic and never bypasses checkout identity. This is
+distinct from `yoke project refresh`, which updates only the managed Yoke
+operating substrate.
 
 The fetched template includes:
 - `ops/DEPLOY.md` -- operator runbook
@@ -218,7 +234,7 @@ Values are pulled from DB-backed project, site, environment, and capability
 settings by the project onboarding flow. Fields not yet configured show as
 `TODO` until onboarding records the real values.
 
-You can fetch specific artifact groups with `--only`:
+For raw, unrendered template inspection only, fetch specific source groups:
 
 ```bash
 yoke templates fetch webapp --dest scratch/webapp-template --only ops/ --force
@@ -228,6 +244,11 @@ yoke templates fetch webapp --dest scratch/webapp-template --only scaffold/ --fo
 **Shell output files are generated artifacts.** Template source files carry a
 `.sh.tmpl` extension. Project onboarding or project-local setup materializes the
 needed executable files in the managed project workspace before deployment.
+
+Pulumi stack YAML is deliberately outside generic artifact reconciliation
+because it carries stack-scoped secrets-provider/operator-state lines. Use
+`yoke projects pulumi-stack-config get` or `yoke pulumi exec` for an exact
+declared stack; the generic operation owns only static Pulumi program sources.
 
 The hotfix workflow template is identical to the deploy workflow except: it uses `workflow_dispatch` only (no `push: [main]` trigger) and is named `{{project_display_name}} Hotfix`. It is rendered as `{project}-hotfix.yml` alongside the other workflows.
 
@@ -311,34 +332,9 @@ For full AWS, Pulumi, CloudFront, and nginx deployment setup, see
 
 ### Project stacks and environment instances
 
-The template defines legacy single-purpose stack types and newer environment
-stack instances. A project declares legacy stacks in
-`sites.settings.pulumi.stacks` (absent = the default `["infra", "vps"]`
-full-webapp pair), and declares composed env stacks under
-`sites.settings.pulumi.stackInstances`:
+See [Project Stacks and Environment Instances](PROJECT-STACKS.md) for the
+generated stack layout, per-environment settings, and deploy-time bindings.
 
-- **infra** — CloudFront + ACM (import-only) + Route 53 alias records. Imports
-  an existing hosted zone by id; never creates one. If the project has no
-  domain stack, this stack also owns `domains[].txt_records` and
-  `domains[].mx_records`.
-- **vps** — EC2 + Elastic IP + security group.
-- **domain** — creates the Route 53 hosted zone and (optionally) manages the
-  domain registration. A DNS-only project declares just `["domain"]` and gets
-  no EC2/CloudFront surface. When present, this stack owns
-  `domains[].txt_records` and `domains[].mx_records`.
-- **environment instance** — renders `Pulumi.<instance>.yaml` from
-  `Pulumi.environment-stack.yaml.tmpl` and composes database, VPS/origin, and
-  API edge resources for one env. The env stack discovers the account's default
-  VPC/subnets during Pulumi execution; operators do not copy subnet ids into
-  template docs. Set `renderOnly: true` for envs that should be generated for
-  review but not initialized or applied yet.
-
-The split keeps responsibilities clean: the **template** owns the capability
-shape (the stack code), the DB owns project-specific **values** (domain, account,
-region, state bucket, which stacks), and **secrets never live in tracked
-template files** — AWS credentials come from the project's `aws-admin`
-capability, and Pulumi config secrets are encrypted into the per-stack YAML via
-the KMS secrets provider.
 
 ## Development Reference
 

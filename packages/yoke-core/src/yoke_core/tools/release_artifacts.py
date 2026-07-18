@@ -15,7 +15,7 @@ The ``simple/`` index is served at ``<base_url>/simple/`` and is the value of
 ``index_url`` an installer passes to ``uv``/``pip``. Its per-project pages link
 to the immutable versioned wheel URLs, so a single ``simple/`` tree spans every
 retained version. Third-party dependencies are never hosted here; the installer
-adds PyPI as an extra index URL.
+selects this as the first index and public PyPI as the explicit default index.
 """
 
 from __future__ import annotations

@@ -3,7 +3,7 @@
 Automatic ephemeral-env provisioning for the orchestrator at
 :mod:`yoke_core.engines.advance_implementation_entry`, for projects
 whose ephemeral deploys are push-triggered (``ephemeral-env`` capability
-``trigger: "github-push"`` — the Buzz GitHub-Actions instantiation of the
+``trigger: "github-push"`` — the GitHub-Actions instantiation of the
 shared substrate): push branch, create ``ephemeral_environments`` row,
 derive the preview URL from the capability's ``preview_domain``, update
 the env row, surface to operator.

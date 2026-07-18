@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import sys
 
-import pytest
 
 # Ensure the repo root is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -199,11 +198,11 @@ class TestPrepareCreate:
         result = prepare_create(
             title="Test", item_type="issue",
             project="yoke",
-            deployment_flow="buzz-flow",
-            flow_project="buzz",
+            deployment_flow="externalwebapp-flow",
+            flow_project="externalwebapp",
         )
         assert result.success is False
-        assert "buzz" in result.error
+        assert "externalwebapp" in result.error
 
     def test_flow_project_match(self):
         result = prepare_create(
@@ -333,5 +332,5 @@ class TestPrepareUpdateBasic:
 
     def test_project_update(self):
         item = _make_item()
-        result = prepare_update(item=item, field_name="project", value="buzz")
+        result = prepare_update(item=item, field_name="project", value="externalwebapp")
         assert result.success is True

@@ -55,7 +55,7 @@ Scan for main-branch commits that touch the same files or subsystems as this bra
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-python3 -m yoke_core.cli.db_router query "SELECT id, status, title FROM items WHERE status IN ('implementing','reviewing-implementation','reviewed-implementation','polishing-implementation','refining-idea','refined-idea','planning','refining-plan','planned') ORDER BY id DESC"
+yoke db read --format lines "SELECT id, status, title FROM items WHERE status IN ('implementing','reviewing-implementation','reviewed-implementation','polishing-implementation','refining-idea','refined-idea','planning','refining-plan','planned') ORDER BY id DESC"
 ```
 
 Look for:
@@ -67,7 +67,7 @@ Look for:
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-python3 -m yoke_core.cli.db_router query "SELECT id, title FROM items WHERE status='done' ORDER BY id DESC LIMIT 15"
+yoke db read --format lines "SELECT id, title FROM items WHERE status='done' ORDER BY id DESC LIMIT 15"
 ```
 
 Check whether recently completed work has changed the codebase in ways that make parts of this implementation stale, redundant, or conflicting.

@@ -45,9 +45,9 @@ def test_get_system_props_explicit():
     os.environ["APP_ENV"] = "production"
     os.environ["SERVICE_NAME"] = "worker"
 
-    props = get_system_props(service="api", project="buzz")
+    props = get_system_props(service="api", project="externalwebapp")
     assert props["service"] == "api"
-    assert props["project"] == "buzz"
+    assert props["project"] == "externalwebapp"
     # Env var used when no explicit arg
     assert props["environment"] == "production"
 
@@ -61,13 +61,13 @@ def test_get_system_props_env_override():
     os.environ["APP_ENV"] = "staging"
     os.environ["SERVICE_NAME"] = "worker"
     os.environ["SERVICE_VERSION"] = "1.2.3"
-    os.environ["PROJECT"] = "buzz"
+    os.environ["PROJECT"] = "externalwebapp"
 
     props = get_system_props()
     assert props["environment"] == "staging"
     assert props["service"] == "worker"
     assert props["service_version"] == "1.2.3"
-    assert props["project"] == "buzz"
+    assert props["project"] == "externalwebapp"
 
     for var in ("APP_ENV", "SERVICE_NAME", "SERVICE_VERSION", "PROJECT"):
         os.environ.pop(var, None)
@@ -215,12 +215,12 @@ def test_build_event_extra_props_merge():
 
 def test_build_event_extra_props_override_system():
     """Explicit system props override auto-resolved ones."""
-    system = get_system_props(service="worker", project="buzz")
+    system = get_system_props(service="worker", project="externalwebapp")
     event = build_event(
         name="Test", kind="audit", event_type="test", **system
     )
     assert event["service"] == "worker"
-    assert event["project"] == "buzz"
+    assert event["project"] == "externalwebapp"
 
 
 def test_build_event_context_field_truncation():

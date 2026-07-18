@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Tuple
-
 from yoke_cli.operation_inventory_model import (
     PENDING,
     PERMANENT,
@@ -18,6 +17,7 @@ from yoke_cli.operation_inventory_model import (
 )
 from yoke_cli.operation_inventory_ephemeral_env import WRAPPED_ROWS as EPHEMERAL_ENV_WRAPPED_ROWS
 from yoke_cli.operation_inventory_epic_ops import WRAPPED_ROWS as EPIC_OPS_WRAPPED_ROWS
+from yoke_cli.operation_inventory_deployment import WRAPPED_ROWS as DEPLOYMENT_WRAPPED_ROWS
 from yoke_cli.operation_inventory_github_actions import WRAPPED_ROWS as GITHUB_ACTIONS_WRAPPED_ROWS
 from yoke_cli.operation_inventory_installer_local import PERMANENT_ROWS as INSTALLER_LOCAL_PERMANENT_ROWS
 from yoke_cli.operation_inventory_shepherd_qa_writes import WRAPPED_ROWS as SHEPHERD_QA_WRITE_ROWS
@@ -113,16 +113,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # doctor + projects + project_structure.
     _w("yoke doctor run", "doctor"),
     _w("yoke doctor last-run get", "doctor"),
-    # Deployment flow/run operations and the target-env resolver.
-    _w("yoke deployment-flows get", "deployment_flows"),
-    _w("yoke deployment-flows set-status", "deployment_flows"),
-    _w("yoke deployment-flows stages", "deployment_flows"),
-    _w("yoke deployment-runs create", "deployment_runs"),
-    _w("yoke deployment-runs approve", "deployment_runs"),
-    _w("yoke deployment-runs get", "deployment_runs"),
-    _w("yoke deployment-runs list", "deployment_runs"),
-    _w("yoke deployment-runs update", "deployment_runs"),
-    _w("yoke deployment-runs resolve-target-env", "deployment_runs"),
+    *DEPLOYMENT_WRAPPED_ROWS,
     _w("yoke projects get", "projects"),
     _w("yoke projects list", "projects"),
     _w("yoke projects resolve-by-github-repo", "projects"),
@@ -133,6 +124,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects capability-settings get", "projects.capability_settings"), _w("yoke projects capability-settings set", "projects.capability_settings"),
     _w("yoke projects capability-settings merge", "projects.capability_settings"),
     _w("yoke projects environment-settings get", "projects.environment_settings"), _w("yoke projects environment-settings merge", "projects.environment_settings"),
+    _w("yoke projects infrastructure list", "projects.infrastructure"),
     _w("yoke projects pulumi-state migrate", "projects.pulumi_state"),
     _w("yoke projects pulumi-state checkpoint-import", "projects.pulumi_state"),
     _w("yoke projects pulumi-stack-config get", "projects.pulumi_stack_config"),
@@ -187,6 +179,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke project register", "project"),
     _w("yoke project install", "project"),
     _w("yoke project refresh", "project"),
+    _w("yoke project artifacts refresh", "project.artifacts"),
     _w("yoke project uninstall", "project"),
     _w("yoke project snapshot sync", "project.snapshot"),
     _w("yoke templates list", "templates"),
@@ -342,7 +335,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke merge audit", "merge", REASON_TOOL_SHAPED),
     _p("yoke usher reconcile-github", "usher", REASON_TOOL_SHAPED),
 )
-
 PENDING_ROWS: Tuple[_Row, ...] = (
     # qa family: fully converted. Reads/creation/gate-summary registered
     # by the dispatcher-backed qa CRUD slice (wrapped rows above). Two prior
@@ -357,8 +349,4 @@ PENDING_ROWS: Tuple[_Row, ...] = (
     # wrapped above. The db_router forms remain operator-debug fallbacks.
     # deployment_runs / deployment_flows: fully dispatcher-backed.
 )
-__all__ = [
-    "_Row", "WRAPPED", "PERMANENT", "PENDING", "REASON_WRAPPED_BY_YOKE_CLI",
-    "REASON_OPERATOR_BREAK_GLASS", "REASON_TOOL_SHAPED",
-    "REASON_NO_HANDLER_REGISTERED", "WRAPPED_ROWS", "PERMANENT_ROWS", "PENDING_ROWS",
-]
+__all__ = ["_Row", "WRAPPED", "PERMANENT", "PENDING", "REASON_WRAPPED_BY_YOKE_CLI", "REASON_OPERATOR_BREAK_GLASS", "REASON_TOOL_SHAPED", "REASON_NO_HANDLER_REGISTERED", "WRAPPED_ROWS", "PERMANENT_ROWS", "PENDING_ROWS"]

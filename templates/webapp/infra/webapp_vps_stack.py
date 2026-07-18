@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 import pulumi
 import pulumi_aws as aws
@@ -48,7 +48,7 @@ class WebappVpsArgs:
     instance_type: str
     root_volume_gb: int
     ssh_key_name: str
-    # Pulumi stack name (e.g. ``"buzz-vps"``). Used as the prefix for
+    # Pulumi stack name (e.g. ``"externalwebapp-vps"``). Used as the prefix for
     # ``Name`` tags so ``pulumi import`` lands a zero-change diff against
     # existing live VPS instances tagged with the historical phrasing.
     # Always populated from ``pulumi.get_stack()`` in
@@ -58,6 +58,7 @@ class WebappVpsArgs:
     # the instance profile absent — legacy ``-vps`` stacks change nothing.
     # ``vps_iam_instance_profile_name`` supplies a profile when required.
     iam_instance_profile_name: Optional[pulumi.Input[str]] = None
+    component_type_aliases: Sequence[str] = ()
 
 
 class WebappVpsStack(pulumi.ComponentResource):
@@ -73,20 +74,20 @@ class WebappVpsStack(pulumi.ComponentResource):
         args: WebappVpsArgs,
         opts: Optional[pulumi.ResourceOptions] = None,
     ) -> None:
-        # Alias on the prior ``buzz:infra:BuzzVpsStack`` type tells Pulumi
-        # the renamed component is the same URN-anchored resource, so a
-        # rename does not propose to destroy + recreate the live EC2
-        # instance, Elastic IP, and security group.
+        component_opts = pulumi.ResourceOptions.merge(
+            opts,
+            pulumi.ResourceOptions(
+                aliases=[
+                    pulumi.Alias(type_=value)
+                    for value in args.component_type_aliases
+                ]
+            ),
+        )
         super().__init__(
             "webapp:infra:WebappVpsStack",
             name,
             None,
-            pulumi.ResourceOptions.merge(
-                opts,
-                pulumi.ResourceOptions(
-                    aliases=[pulumi.Alias(type_="buzz:infra:BuzzVpsStack")],
-                ),
-            ),
+            component_opts,
         )
 
         tags = {"project": args.deploy_namespace}

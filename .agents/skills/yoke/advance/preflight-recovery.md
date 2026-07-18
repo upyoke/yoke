@@ -54,7 +54,7 @@ _item_gh=$(yoke items get {N} github_issue 2>/dev/null)
 ```
 
 If `_item_gh` is empty or null:
-- Check canonical project GitHub auth via the resolver — Yoke and Buzz both
+- Check canonical project GitHub auth via the resolver — every registered project
   resolve through the same verified `project_github_repo_bindings` surface;
   the control plane mints a short-lived
   installation token and never falls back to a host credential or project

@@ -243,23 +243,23 @@ def test_board_data_get_resolves_project_from_payload_scope(conn):
     # board.data.get names its project in payload.scope; it must resolve + be
     # checked against that project (not bypassed), so cross-project board reads
     # are denied.
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _project_owner(conn, buzz)
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    externalwebapp_owner = _project_owner(conn, externalwebapp)
     entry = _entry("board.data.get", side_effects=False)
     allowed = check_dispatch_permission(
-        conn, entry, _payload_request(buzz_owner, "board.data.get", {"scope": "buzz"}),
+        conn, entry, _payload_request(externalwebapp_owner, "board.data.get", {"scope": "externalwebapp"}),
     )
     assert allowed.error is None
-    assert allowed.project_slug == "buzz"
+    assert allowed.project_slug == "externalwebapp"
     denied = check_dispatch_permission(
-        conn, entry, _payload_request(buzz_owner, "board.data.get", {"scope": "yoke"}),
+        conn, entry, _payload_request(externalwebapp_owner, "board.data.get", {"scope": "yoke"}),
     )
     assert denied.error is not None
 
 
 def test_payload_named_project_target_hint_must_match_payload(conn):
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _project_owner(conn, buzz)
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    externalwebapp_owner = _project_owner(conn, externalwebapp)
     entry = _entry("projects.update")
 
     denied = check_dispatch_permission(
@@ -267,9 +267,9 @@ def test_payload_named_project_target_hint_must_match_payload(conn):
         entry,
         FunctionCallRequest(
             function="projects.update",
-            actor=ActorContext(actor_id=str(buzz_owner), session_id="s-1"),
+            actor=ActorContext(actor_id=str(externalwebapp_owner), session_id="s-1"),
             target=TargetRef(kind="global", project_id="yoke"),
-            payload={"slug": "buzz", "name": "Buzz"},
+            payload={"slug": "externalwebapp", "name": "ExternalWebapp"},
         ),
     )
 
@@ -320,9 +320,9 @@ def test_no_verified_actor_is_permissive_local(conn):
 
 def test_projects_create_is_org_scoped_update_is_project_scoped(conn):
     yoke = resolve_project_id(conn, "yoke")
-    buzz = resolve_project_id(conn, "buzz")
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
     org_admin = _org_admin(conn, _org_of(conn, yoke))
-    buzz_owner = _project_owner(conn, buzz)
+    externalwebapp_owner = _project_owner(conn, externalwebapp)
 
     # projects.create is org-scoped: an org admin may register; a project
     # owner (even of an existing project) may not.
@@ -332,21 +332,21 @@ def test_projects_create_is_org_scoped_update_is_project_scoped(conn):
         conn, create, _payload_request(org_admin, "projects.create", create_payload)
     ).error is None
     assert check_dispatch_permission(
-        conn, create, _payload_request(buzz_owner, "projects.create", create_payload)
+        conn, create, _payload_request(externalwebapp_owner, "projects.create", create_payload)
     ).error is not None
 
     # projects.update is project-scoped on the TARGET resolved from payload slug:
-    # buzz's owner may update buzz, but not yoke.
+    # externalwebapp's owner may update externalwebapp, but not yoke.
     update = _entry("projects.update")
     res = check_dispatch_permission(
         conn, update,
-        _payload_request(buzz_owner, "projects.update",
-                         {"slug": "buzz", "name": "Buzz"}),
+        _payload_request(externalwebapp_owner, "projects.update",
+                         {"slug": "externalwebapp", "name": "ExternalWebapp"}),
     )
     assert res.error is None
-    assert res.project_slug == "buzz"
+    assert res.project_slug == "externalwebapp"
     assert check_dispatch_permission(
         conn, update,
-        _payload_request(buzz_owner, "projects.update",
+        _payload_request(externalwebapp_owner, "projects.update",
                          {"slug": "yoke", "name": "Yoke"}),
     ).error is not None

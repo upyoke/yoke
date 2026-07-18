@@ -28,7 +28,7 @@ def _app(issuer: str = "Iv1.runner-fleet") -> dict[str, str]:
 def _github(permissions: dict[str, str] | None = None) -> dict[str, object]:
     return {
         "repo_owner": "acme-org",
-        "repo_name": "buzz",
+        "repo_name": "externalwebapp",
         "installation_id": "123456",
         "repository_id": "789012",
         "api_url": "https://api.github.com",
@@ -44,7 +44,7 @@ def _settings(
     *, github_app: dict[str, str] | None,
 ) -> ProjectRendererSettings:
     base = _settings_from_context(
-        "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},
+        "externalwebapp", {"projectName": "externalwebapp", "stacks": ["runner-fleet"]},
     )
     capabilities = dict(base.capabilities)
     capabilities["github"] = _github()
@@ -63,7 +63,7 @@ def test_enabled_runner_fleet_requires_explicit_app_authority(tmp_path):
 
     with pytest.raises(ValueError, match="requires github_app"):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, settings,
+            "externalwebapp", tmp_path, settings,
         )
 
 
@@ -71,7 +71,7 @@ def test_runner_fleet_uses_capability_owned_app_authority(tmp_path):
     settings = _settings(github_app=_app("Iv1.runner-fleet-app"))
 
     values = project_renderer_pulumi.gather_pulumi_values(
-        "buzz", tmp_path, settings,
+        "externalwebapp", tmp_path, settings,
     )
 
     assert values["runner_fleet_github_app_issuer"] == "Iv1.runner-fleet-app"
@@ -89,7 +89,7 @@ def test_enabled_runner_fleet_requires_repository_hooks_write(tmp_path):
 
     with pytest.raises(ValueError, match=r"Webhooks: write \(repository_hooks\)"):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, settings,
+            "externalwebapp", tmp_path, settings,
         )
 
 
@@ -106,7 +106,7 @@ def test_enabled_runner_fleet_requires_actions_variables_write(tmp_path):
         ValueError, match=r"Variables: write \(actions_variables\)",
     ):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, settings,
+            "externalwebapp", tmp_path, settings,
         )
 
 
@@ -121,7 +121,7 @@ def test_runner_fleet_uses_explicit_privileged_github_capability(tmp_path):
     settings = replace(settings, capabilities=capabilities)
 
     values = project_renderer_pulumi.gather_pulumi_values(
-        "buzz", tmp_path, settings,
+        "externalwebapp", tmp_path, settings,
     )
 
     assert values["runner_fleet_github_capability"] == "github-automation"
@@ -146,5 +146,5 @@ def test_disabled_routing_still_requires_permission_to_delete_variable(
         ValueError, match=r"Variables: write \(actions_variables\)",
     ):
         project_renderer_pulumi.gather_pulumi_values(
-            "buzz", tmp_path, settings,
+            "externalwebapp", tmp_path, settings,
         )

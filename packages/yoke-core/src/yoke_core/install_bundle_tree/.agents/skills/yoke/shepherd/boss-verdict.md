@@ -22,7 +22,7 @@ After the worker completes (or directly for `planning_to_plan_drafted`), invoke 
 Before invocation, compute repeated Boss output failures for this item/transition:
 
 ```bash
-_boss_unparseable_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND caveats LIKE '%[UNPARSEABLE_BOSS_OUTPUT]%'")
+_boss_unparseable_count=$(yoke db read --format lines "SELECT COUNT(*) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND caveats LIKE '%[UNPARSEABLE_BOSS_OUTPUT]%'")
 _boss_model_override=""
 if [ "$_boss_unparseable_count" -ge 2 ]; then
  _boss_model_override="opus"
@@ -33,7 +33,7 @@ fi
 Capture the current verdict-row high-water mark before invoking the Boss. Layer 2 may only reuse rows inserted after this point; older rows belong to prior attempts and must not satisfy the current parse.
 
 ```bash
-_pre_boss_verdict_max_id=$(python3 -m yoke_core.cli.db_router query "SELECT COALESCE(MAX(id), 0) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND worker='$_worker_name'")
+_pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id), 0) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND worker='$_worker_name'")
 ```
 
 **Boss invocation:**

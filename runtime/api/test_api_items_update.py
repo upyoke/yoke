@@ -69,9 +69,9 @@ class TestUpdateItem:
         assert resp.json()["frozen"] is True
 
     def test_update_project(self, client, test_db):
-        resp = client.patch("/v1/items/1", json={"project": "buzz"})
+        resp = client.patch("/v1/items/1", json={"project": "externalwebapp"})
         assert resp.status_code == 200
-        assert resp.json()["project"] == "buzz"
+        assert resp.json()["project"] == "externalwebapp"
 
     def test_update_item_not_found(self, client, test_db):
         resp = client.patch("/v1/items/999", json={"title": "Not found"})

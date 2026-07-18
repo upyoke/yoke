@@ -9,26 +9,19 @@ Pytest fixture (mw_db) shared via _merge_worktree_test_helpers (private module).
 
 from __future__ import annotations
 
-import os
 import subprocess
-from pathlib import Path
 from unittest import mock
 
-import pytest
 
 from yoke_core.engines import merge_worktree
 from yoke_core.engines.merge_worktree import (
     MergeArgs,
     MergeContext,
-    ConflictInfo,
-    auto_resolve_conflicts,
     classify_conflict,
-    is_additive_conflict,
     parse_args,
     validate_args,
 )
 
-from yoke_core.engines._merge_worktree_test_helpers import mw_db
 
 
 class TestParseArgs:
@@ -233,7 +226,7 @@ class TestYokeManaged:
 
     def test_retired_projects_not_managed(self):
         assert (
-            merge_worktree.is_yoke_managed_pattern("projects/buzz/ops.sh")
+            merge_worktree.is_yoke_managed_pattern("projects/externalwebapp/ops.sh")
             is False
         )
 

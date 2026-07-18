@@ -137,11 +137,11 @@ def test_dispatch_permission_allows_role_project_and_denies_missing_project_role
         assert allowed.permission_key == "items.write"
         assert allowed.project_slug == "yoke"
 
-        denied = check_dispatch_permission(conn, entry, _request(actor_id, "buzz"))
+        denied = check_dispatch_permission(conn, entry, _request(actor_id, "externalwebapp"))
         assert denied.error is not None
         assert denied.error.error is not None
         assert denied.error.error.code == "permission_denied"
-        assert denied.project_slug == "buzz"
+        assert denied.project_slug == "externalwebapp"
     finally:
         conn.close()
 
@@ -150,11 +150,11 @@ def test_project_scoped_github_write_denies_omitted_project_context():
     conn = _conn()
     try:
         actor_id = seed_human_actor(conn)
-        buzz_id = resolve_project_id(conn, "buzz")
+        externalwebapp_id = resolve_project_id(conn, "externalwebapp")
         grant_actor_project_role(
             conn,
             actor_id=actor_id,
-            project_id=buzz_id,
+            project_id=externalwebapp_id,
             role_name=ROLE_OWNER,
             granted_by_actor_id=actor_id,
         )
@@ -211,12 +211,12 @@ def test_ephemeral_env_update_requires_item_write_on_env_project():
     try:
         _create_ephemeral_env_table(conn)
         actor_id = seed_human_actor(conn)
-        buzz_id = resolve_project_id(conn, "buzz")
+        externalwebapp_id = resolve_project_id(conn, "externalwebapp")
         yoke_id = resolve_project_id(conn, "yoke")
         grant_actor_project_role(
             conn,
             actor_id=actor_id,
-            project_id=buzz_id,
+            project_id=externalwebapp_id,
             role_name=ROLE_OWNER,
             granted_by_actor_id=actor_id,
         )
@@ -224,7 +224,7 @@ def test_ephemeral_env_update_requires_item_write_on_env_project():
             "INSERT INTO ephemeral_environments "
             "(project_id, branch, status, created_at) "
             "VALUES (%s, 'YOK-10', 'pending', 'now') RETURNING id",
-            (buzz_id,),
+            (externalwebapp_id,),
         )
         env_id = int(cursor.fetchone()[0])
         request = FunctionCallRequest(
@@ -238,7 +238,7 @@ def test_ephemeral_env_update_requires_item_write_on_env_project():
         allowed = check_dispatch_permission(conn, entry, request)
         assert permission_key_for(entry) == PERM_ITEMS_WRITE
         assert allowed.error is None
-        assert allowed.project_slug == "buzz"
+        assert allowed.project_slug == "externalwebapp"
 
         conn.execute(
             "UPDATE ephemeral_environments SET project_id = %s WHERE id = %s",
@@ -296,14 +296,10 @@ def test_db_read_run_uses_raw_permission_and_role_boundary():
 def test_events_and_ouroboros_permissions_split_reads_and_writes():
     assert permission_key_for(_entry("events.emit")) == PERM_EVENTS_WRITE
     assert permission_key_for(_read_entry("events.query.run")) == PERM_EVENTS_READ
-    assert (
-        permission_key_for(_entry("ouroboros.entry.insert"))
-        == PERM_EVENTS_WRITE
-    )
-    assert (
-        permission_key_for(_entry("ouroboros.entry.mark_reviewed"))
-        == PERM_EVENTS_WRITE
-    )
+    assert permission_key_for(_entry("ouroboros.entry.insert")) == PERM_EVENTS_WRITE
+    assert permission_key_for(
+        _entry("ouroboros.entry.mark_reviewed")
+    ) == PERM_EVENTS_WRITE
     assert (
         permission_key_for(_entry("ouroboros.entry.mark_archived"))
         == PERM_EVENTS_WRITE
@@ -317,6 +313,8 @@ def test_events_and_ouroboros_permissions_split_reads_and_writes():
         == PERM_EVENTS_READ
     )
     assert permission_key_for(_entry("ouroboros.field_note.append")) is None
+    assert permission_key_for(_read_entry("ouroboros.field_note.list")) is None
+    assert permission_key_for(_read_entry("ouroboros.field_note.get")) is None
 
 
 def _process_acquire_request(

@@ -31,14 +31,14 @@ def test_load_setup_config_prefers_db_key_path_when_env_unset(
 ) -> None:
     db_key = tmp_path / ".db-key"
     db_key.write_text("from-db")
-    monkeypatch.delenv("BUZZ_SSH_KEY_PATH", raising=False)
-    repo_path = tmp_path / "buzz-repo"
+    monkeypatch.delenv("EXTERNALWEBAPP_SSH_KEY_PATH", raising=False)
+    repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
 
     with bootstrap_seeded_db(tmp_path, db_key) as db_path:
         register_bootstrap_backend_checkout(db_path, repo_path)
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path,
             yoke_db=db_path,
@@ -51,8 +51,8 @@ def test_load_setup_config_raises_when_env_and_db_both_missing(
     tmp_path: Path, monkeypatch
 ) -> None:
     placeholder = tmp_path / ".placeholder-key"
-    monkeypatch.delenv("BUZZ_SSH_KEY_PATH", raising=False)
-    repo_path = tmp_path / "buzz-repo"
+    monkeypatch.delenv("EXTERNALWEBAPP_SSH_KEY_PATH", raising=False)
+    repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
 
     with bootstrap_seeded_db(tmp_path, placeholder) as db_path:
@@ -61,14 +61,14 @@ def test_load_setup_config_raises_when_env_and_db_both_missing(
             db_path, json.dumps({"host": "h", "user": "u"})
         )
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path,
             yoke_db=db_path,
         )
         with pytest.raises(SshKeyResolutionError) as exc_info:
             _load_setup_config(ctx)
-    assert "BUZZ_SSH_KEY_PATH" in str(exc_info.value)
+    assert "EXTERNALWEBAPP_SSH_KEY_PATH" in str(exc_info.value)
     assert "project_capabilities.ssh" in str(exc_info.value)
 
 
@@ -131,7 +131,7 @@ def test_run_setup_aborts_before_upload(
 def test_run_setup_persists_key_path_back_to_db(tmp_path: Path, monkeypatch) -> None:
     env_key = tmp_path / "env-override-key"
     env_key.write_text("env-secret")
-    monkeypatch.setenv("BUZZ_SSH_KEY_PATH", str(env_key))
+    monkeypatch.setenv("EXTERNALWEBAPP_SSH_KEY_PATH", str(env_key))
 
     def fake_run(cmd, *, stdin=None, cwd=None, env=None):
         if cmd[:2] == ["ssh-keygen", "-y"]:
@@ -161,7 +161,7 @@ def test_run_setup_persists_key_path_back_to_db(tmp_path: Path, monkeypatch) -> 
         try:
             row = conn.execute(
                 "SELECT settings FROM project_capabilities "
-                "WHERE project_id=(SELECT id FROM projects WHERE slug='buzz') "
+                "WHERE project_id=(SELECT id FROM projects WHERE slug='externalwebapp') "
                 "AND type='ssh'"
             ).fetchone()
         finally:

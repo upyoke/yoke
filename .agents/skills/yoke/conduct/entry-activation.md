@@ -98,7 +98,7 @@ because the registered claim acquire surface does not expose a same-row verifica
 projection. **Never** construct a DB path manually or use worktree-local paths:
 
 ```bash
-_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" python3 -m yoke_core.cli.db_router query \
+_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
  "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND item_id=${N} AND released_at IS NULL")
 if [ -z "$_claim_ok" ] || [ "$_claim_ok" = "0" ]; then
  echo "HALT: conduct S3b — no active work_claims row found for YOK-${N} under session ${YOKE_SESSION_ID}."

@@ -64,6 +64,20 @@ class RecordingRunner:
         return subprocess.CompletedProcess(argv, self.rc, self.stdout, self.stderr)
 
 
+def _installed_runtime() -> dict[str, object]:
+    return {
+        "package_versions": {
+            package: "1.2.3"
+            for package in (
+                "yoke-cli",
+                "yoke-contracts",
+                "yoke-harness",
+                "yoke-core",
+            )
+        },
+    }
+
+
 def test_no_node_npm_or_git_prerequisite_in_helper_or_shim() -> None:
     # uv owns Python; git, Node.js, npm, and the browser runtime are deferred to
     # the moment they are needed. Neither the helper nor the shim may probe them.
@@ -136,7 +150,7 @@ def test_product_boundary_audit_passes_for_clean_product_status() -> None:
         0,
         json.dumps(
             {
-                "runtime": {},
+                "runtime": _installed_runtime(),
                 "connection": {"client_authority": "api"},
             }
         ),
@@ -160,7 +174,7 @@ def test_product_boundary_audit_accepts_fresh_machine_status() -> None:
         json.dumps(
             {
                 "ok": False,
-                "runtime": {},
+                "runtime": _installed_runtime(),
                 "connection": {"client_authority": "api"},
                 "issues": [
                     {"code": "config_missing", "severity": "error"},

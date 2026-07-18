@@ -83,7 +83,7 @@ def conn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def _project_id(project="yoke") -> int:
-    return {"yoke": 1, "buzz": 2}.get(project, 100)
+    return {"yoke": 1, "externalwebapp": 2}.get(project, 100)
 
 
 def _worktree_path(branch: str) -> str:

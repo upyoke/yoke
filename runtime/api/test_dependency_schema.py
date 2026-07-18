@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS projects (
 INSERT INTO projects (id, slug, name, public_item_prefix, created_at)
 VALUES
   (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00Z'),
-  (2, 'buzz', 'Buzz', 'BUZ', '2026-01-01T00:00:00Z')
+  (2, 'externalwebapp', 'ExternalWebapp', 'EXT', '2026-01-01T00:00:00Z')
 ON CONFLICT (id) DO NOTHING;
 """
 

@@ -50,7 +50,7 @@ def _init_db(
                 "(id, slug, name, github_repo, default_branch) "
                 f"VALUES ({p}, {p}, {p}, {p}, {p})",
                 (
-                    2, "buzz", "Buzz", "example-org/buzz", "main",
+                    2, "externalwebapp", "ExternalWebapp", "example-org/externalwebapp", "main",
                 ),
             )
             conn.execute(
@@ -61,7 +61,7 @@ def _init_db(
                     "github",
                     json.dumps({
                         "repo_owner": "example-org",
-                        "repo_name": "buzz",
+                        "repo_name": "externalwebapp",
                         "installation_id": "12345",
                         "repository_id": "4567",
                     }),
@@ -104,7 +104,7 @@ def _init_db(
                         2,
                         "12345",
                         "4567",
-                        "example-org/buzz",
+                        "example-org/externalwebapp",
                         "main",
                         "active",
                         json.dumps({
@@ -126,9 +126,15 @@ def _init_db(
                 "INSERT INTO deployment_flows (id, project_id, name, stages) "
                 f"VALUES ({p}, {p}, {p}, {p})",
                 (
-                    "buzz-prod-release", 2, "Buzz Production Release",
+                    "managed-production", 2, "Production Release",
                     json.dumps([{"name": "deploy", "executor": "github-actions"}]),
                 ),
+            )
+            conn.execute(
+                "INSERT INTO project_structure "
+                "(project_id, family, attachment_value, entry_key, payload) "
+                f"VALUES ({p}, 'deploy_defaults', 'project', '', {p})",
+                (2, json.dumps({"deployment_flow": "managed-production"})),
             )
             conn.commit()
         finally:
@@ -161,9 +167,9 @@ def test_remote_validation_uses_app_backed_rest(
                 200,
                 {
                     "secrets": [
-                        {"name": "BUZZ_SSH_KEY"},
-                        {"name": "BUZZ_SSH_HOST"},
-                        {"name": "BUZZ_SSH_USER"},
+                        {"name": "EXTERNALWEBAPP_SSH_KEY"},
+                        {"name": "EXTERNALWEBAPP_SSH_HOST"},
+                        {"name": "EXTERNALWEBAPP_SSH_USER"},
                     ]
                 },
             )
@@ -196,7 +202,7 @@ def test_remote_validation_uses_app_backed_rest(
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
         out = capsys.readouterr().out
@@ -207,8 +213,8 @@ def test_remote_validation_uses_app_backed_rest(
             "yoke_core.domain.validate_webapp_pipeline_checks_remote."
             "resolve_project_github_auth",
             lambda *_args, **_kwargs: ProjectGithubAuth(
-                project="buzz",
-                repo="example-org/buzz",
+                project="externalwebapp",
+                repo="example-org/externalwebapp",
                 token="ghs_validator",
                 installation_id="12345",
                 permissions={},
@@ -222,7 +228,7 @@ def test_remote_validation_uses_app_backed_rest(
         limited_authorization = list(seen_authorization)
 
     assert rc == 0, out
-    assert "GitHub secret exists: BUZZ_SSH_KEY" in out
+    assert "GitHub secret exists: EXTERNALWEBAPP_SSH_KEY" in out
     assert "GitHub environment 'production' exists" in out
     # The validator should never degrade to host-CLI install guidance.
     assert ("gh CLI" + " installed") not in out
@@ -262,7 +268,7 @@ def test_remote_validation_no_app_auth_skips_rest_probes(
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
     out = capsys.readouterr().out
@@ -317,12 +323,16 @@ def test_remote_validation_403_does_not_crash_validator(
             project_root=tmp_path,
             script_dir=script_dir,
             control_plane_marker=db_path,
-            project="buzz",
+            project="externalwebapp",
         )
         rc = run_validation(ctx)
     out = capsys.readouterr().out
 
     assert rc == 1
     # Each expected secret surfaces a FAIL with the bootstrap remediation.
-    for name in ("BUZZ_SSH_KEY", "BUZZ_SSH_HOST", "BUZZ_SSH_USER"):
+    for name in (
+        "EXTERNALWEBAPP_SSH_KEY",
+        "EXTERNALWEBAPP_SSH_HOST",
+        "EXTERNALWEBAPP_SSH_USER",
+    ):
         assert f"GitHub secret missing: {name}" in out

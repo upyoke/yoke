@@ -38,7 +38,7 @@ def db():
 
 class TestCloseIssueAuthTranslation:
     def test_translates_missing_binding_to_sync_warning(self, db):
-        insert_item(db, id=40, type="issue", status="done", project="buzz", github_issue="#60")
+        insert_item(db, id=40, type="issue", status="done", project="externalwebapp", github_issue="#60")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -46,7 +46,7 @@ class TestCloseIssueAuthTranslation:
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
             side_effect=MissingRepoBinding(
-                "buzz", "project 'buzz' has no GitHub App repository binding",
+                "externalwebapp", "project 'externalwebapp' has no GitHub App repository binding",
             ),
         ):
             rc = backlog_github_sync.close_issue("40", conn=db, stderr=stderr)
@@ -54,7 +54,7 @@ class TestCloseIssueAuthTranslation:
         assert rc == 1  # non-zero — no silent swallow
         text = stderr.getvalue()
         assert "sync_warning=MissingRepoBinding" in text
-        assert "close_issue skipped for BUZ-40" in text
+        assert "close_issue skipped for EXT-40" in text
         assert "Repair:" in text
         assert "github-binding bind" in text
 
@@ -66,21 +66,21 @@ class TestCloseIssueAuthTranslation:
 
 class TestReopenIssueAuthTranslation:
     def test_translates_missing_capability_to_sync_warning(self, db):
-        insert_item(db, id=50, type="issue", status="implementing", project="buzz", github_issue="#70")
+        insert_item(db, id=50, type="issue", status="implementing", project="externalwebapp", github_issue="#70")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "_get_issue_state",
-            side_effect=MissingCapability("buzz", "no github capability for project 'buzz'"),
+            side_effect=MissingCapability("externalwebapp", "no github capability for project 'externalwebapp'"),
         ):
             rc = backlog_github_sync.reopen_issue("50", conn=db, stderr=stderr)
 
         assert rc == 1
         text = stderr.getvalue()
         assert "sync_warning=MissingCapability" in text
-        assert "reopen_issue skipped for BUZ-50" in text
+        assert "reopen_issue skipped for EXT-50" in text
 
 
 # ---------------------------------------------------------------------------
@@ -90,14 +90,14 @@ class TestReopenIssueAuthTranslation:
 
 class TestFlagLabelAuthTranslation:
     def test_frozen_label_translates_missing_binding(self, db):
-        insert_item(db, id=60, type="issue", status="implementing", project="buzz", github_issue="#80")
+        insert_item(db, id=60, type="issue", status="implementing", project="externalwebapp", github_issue="#80")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
-            side_effect=MissingRepoBinding("buzz", "repository is not bound"),
+            side_effect=MissingRepoBinding("externalwebapp", "repository is not bound"),
         ):
             rc = backlog_github_sync.sync_frozen_label(
                 "60", "true", conn=db, stderr=stderr,
@@ -106,17 +106,17 @@ class TestFlagLabelAuthTranslation:
         assert rc == 1
         text = stderr.getvalue()
         assert "sync_warning=MissingRepoBinding" in text
-        assert "sync_frozen_label skipped for BUZ-60" in text
+        assert "sync_frozen_label skipped for EXT-60" in text
 
     def test_blocked_label_translates_missing_binding(self, db):
-        insert_item(db, id=70, type="issue", status="implementing", project="buzz", github_issue="#90")
+        insert_item(db, id=70, type="issue", status="implementing", project="externalwebapp", github_issue="#90")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
         ), patch.object(
             backlog_github_state_sync, "resolve_project_github_auth",
-            side_effect=MissingRepoBinding("buzz", "repository is not bound"),
+            side_effect=MissingRepoBinding("externalwebapp", "repository is not bound"),
         ):
             rc = backlog_github_sync.sync_blocked_label(
                 "70", "true", conn=db, stderr=stderr,
@@ -125,4 +125,4 @@ class TestFlagLabelAuthTranslation:
         assert rc == 1
         text = stderr.getvalue()
         assert "sync_warning=MissingRepoBinding" in text
-        assert "sync_blocked_label skipped for BUZ-70" in text
+        assert "sync_blocked_label skipped for EXT-70" in text

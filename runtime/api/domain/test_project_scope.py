@@ -72,7 +72,7 @@ class TestNormalizeProjectScope(unittest.TestCase):
         conn = _make_db({"first-onboarded": 1})
         try:
             with self.assertRaises(LookupError):
-                normalize_project_scope(conn, ["buzz"])
+                normalize_project_scope(conn, ["externalwebapp"])
         finally:
             conn.close()
 

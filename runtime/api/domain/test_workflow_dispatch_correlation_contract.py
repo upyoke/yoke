@@ -40,5 +40,5 @@ def test_seeded_correlation_is_opt_in_for_deployed_workflows() -> None:
     } == {"yoke_dispatch_id"}
     assert all(
         "dispatch_correlation_input" not in stage
-        for project, stage in stages if project == "buzz"
+        for project, stage in stages if project == "externalwebapp"
     )

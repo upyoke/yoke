@@ -70,7 +70,7 @@ def test_aws_exec_explicit_region_and_exit_code(monkeypatch):
     )
 
     rc = aws_adapter.aws_exec([
-        "--project", "buzz",
+        "--project", "externalwebapp",
         "--region", "us-west-2",
         "--",
         "ec2", "describe-instances",

@@ -51,7 +51,7 @@ class TestExecutorDiagnosticPropagation:
                 run_id="run-test",
                 member_items=["42"],
                 github_repo="owner/repo",
-                project="buzz",
+                project="externalwebapp",
                 project_repo_path="",
                 timeout_min=30,
                 fresh=False,
@@ -124,7 +124,7 @@ class TestReconcileFromTruth:
                 run_id="run-test",
                 member_items=["42"],
                 github_repo="owner/repo",
-                project="buzz",
+                project="externalwebapp",
                 project_repo_path="",
                 timeout_min=30,
                 fresh=False,
@@ -200,7 +200,7 @@ class TestReconcileFromTruth:
                 run_id="run-test",
                 member_items=["42"],
                 github_repo="owner/repo",
-                project="buzz",
+                project="externalwebapp",
                 project_repo_path="",
                 timeout_min=30,
                 fresh=True,
@@ -216,10 +216,10 @@ class TestReconcileFromTruth:
         assert len(trigger_calls) == 1
         trigger = trigger_calls[0]
         assert trigger[trigger.index("--request-id") + 1] == (
-            "deploy:buzz:run-test:prod-deploy:fresh:explicit-retrigger"
+            "deploy:externalwebapp:run-test:prod-deploy:fresh:explicit-retrigger"
         )
         assert trigger[-2:] == ("--correlation-input", "yoke_dispatch_id")
-        assert gh_projects == ["buzz"]
-        assert poll_actions.call_args.kwargs["project"] == "buzz"
+        assert gh_projects == ["externalwebapp"]
+        assert poll_actions.call_args.kwargs["project"] == "externalwebapp"
         # Polled the fresh run and returned its rc (0 from the mock).
         assert rc == 0

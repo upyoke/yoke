@@ -161,11 +161,11 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
     conn = _conn()
     try:
         actor_id = _actor(conn)
-        buzz_id = resolve_project_id(conn, "buzz")
+        externalwebapp_id = resolve_project_id(conn, "externalwebapp")
         grant_actor_project_role(
             conn,
             actor_id=actor_id,
-            project_id=buzz_id,
+            project_id=externalwebapp_id,
             role_name=ROLE_DEPLOYMENT_CI,
             granted_by_actor_id=actor_id,
         )
@@ -183,7 +183,7 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
             decision = check_dispatch_permission(
                 conn,
                 _entry(function_id, write=write),
-                _request(actor_id, function_id, "buzz"),
+                _request(actor_id, function_id, "externalwebapp"),
             )
             assert decision.error is None, function_id
 
@@ -196,7 +196,7 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
             decision = check_dispatch_permission(
                 conn,
                 _entry(function_id, write=write),
-                _request(actor_id, function_id, "buzz"),
+                _request(actor_id, function_id, "externalwebapp"),
             )
             assert decision.error is not None, function_id
             assert decision.permission_key == PERM_PROJECT_ADMIN
@@ -215,7 +215,7 @@ def test_relay_rejects_conflicting_target_and_payload_when_both_are_authorized()
     conn = _conn()
     try:
         actor_id = _actor(conn)
-        for project in ("yoke", "buzz"):
+        for project in ("yoke", "externalwebapp"):
             grant_actor_project_role(
                 conn,
                 actor_id=actor_id,
@@ -230,7 +230,7 @@ def test_relay_rejects_conflicting_target_and_payload_when_both_are_authorized()
             _request(
                 actor_id,
                 "github_actions.workflow.dispatch",
-                "buzz",
+                "externalwebapp",
                 target_project="yoke",
             ),
         )
@@ -245,13 +245,13 @@ def test_relay_rejects_conflicting_target_and_payload_when_both_are_authorized()
 def test_owner_and_org_admin_retain_all_github_actions_access() -> None:
     conn = _conn()
     try:
-        buzz_id = resolve_project_id(conn, "buzz")
+        externalwebapp_id = resolve_project_id(conn, "externalwebapp")
         owner_id = _actor(conn)
         admin_id = _actor(conn)
         grant_actor_project_role(
             conn,
             actor_id=owner_id,
-            project_id=buzz_id,
+            project_id=externalwebapp_id,
             role_name=ROLE_OWNER,
             granted_by_actor_id=owner_id,
         )
@@ -274,7 +274,7 @@ def test_owner_and_org_admin_retain_all_github_actions_access() -> None:
                 decision = check_dispatch_permission(
                     conn,
                     _entry(function_id, write=True),
-                    _request(actor_id, function_id, "buzz"),
+                    _request(actor_id, function_id, "externalwebapp"),
                 )
                 assert decision.error is None, (actor_id, function_id)
     finally:

@@ -170,4 +170,4 @@ UNIQUE(project, branch)
 
 ### Branch Naming Contract
 
-The `branch` column MUST use the value `YOK-{id}` (matching the item's worktree branch name, e.g., `YOK-N`). This convention is required for conduct compatibility -- the conduct skill queries ephemeral environments by `branch='YOK-{id}'` at steps d2, E1, and E3 in `dispatch-context.md`. CI systems that write ephemeral environment records (e.g., `buzz-ephemeral.yml`) must use the same `YOK-{id}` branch value. If a future project uses a different branch naming scheme, both the CI workflow and the conduct skill query must be updated in lockstep.
+The `branch` column MUST use the value `YOK-{id}` (matching the item's worktree branch name, e.g., `YOK-N`). This convention is required for conduct compatibility -- the conduct skill queries ephemeral environments by `branch='YOK-{id}'` at steps d2, E1, and E3 in `dispatch-context.md`. CI systems that write ephemeral environment records (e.g., `external-webapp-ephemeral.yml`) must use the same `YOK-{id}` branch value. If a future project uses a different branch naming scheme, both the CI workflow and the conduct skill query must be updated in lockstep.

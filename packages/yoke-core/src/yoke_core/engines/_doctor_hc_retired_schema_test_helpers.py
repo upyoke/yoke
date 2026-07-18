@@ -25,10 +25,10 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
 
 def _project_id(project: str) -> int:
-    return {"yoke": 1, "buzz": 2}.get(project, 99)
+    return {"yoke": 1, "externalwebapp": 2}.get(project, 99)
 
 
-def _make_control_conn(tmp_path: Path, auth_db: Path, *, project: str = "buzz"):
+def _make_control_conn(tmp_path: Path, auth_db: Path, *, project: str = "externalwebapp"):
     """Control-plane DB declaring an external ``sqlite_file`` model.
 
     Mints a disposable Postgres database dropped when the connection

@@ -284,7 +284,7 @@ Understanding how body content flows from agents → DB → GitHub → .md requi
 **Occurrences:** 1 confirmed instance (YOK-628/YOK-656/YOK-657)
 **Status:** Active — process discipline pattern, no automated guard
 
-Some backlog items have deliverables that go beyond code: running a script against a target, configuring secrets, verifying infrastructure exists. YOK-628 was marked done after the script was implemented and tested, but the script was never executed against the Buzz repo. The gap went undetected because ephemeral workflows from a separate effort (YOK-618) created the appearance that "some workflows exist."
+Some backlog items have deliverables that go beyond code: running a script against a target, configuring secrets, verifying infrastructure exists. The implementation was marked done after the script was tested, but the script was never executed against the target external repo. The gap went undetected because ephemeral workflows from a separate effort created the appearance that "some workflows exist."
 
 **Root cause taxonomy:** This is a subclass of P-9 (claiming results without verifying) but distinct because the unverified deliverable is operational execution, not code correctness. Standard testing (unit tests, tester agent) validates that code works correctly but does not validate that operational steps were performed.
 

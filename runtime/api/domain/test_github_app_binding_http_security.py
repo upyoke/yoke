@@ -71,7 +71,7 @@ class _GitHubBindingTransport:
                 "repositories": [
                     {
                         "id": 4567,
-                        "full_name": "Example-Org/Buzz",
+                        "full_name": "Example-Org/ExternalWebapp",
                         "default_branch": "trunk",
                         "owner": {"id": 9988},
                     }
@@ -88,10 +88,10 @@ def _envelope(*, request_id: str, user_token: str) -> dict[str, object]:
         "actor": {"actor_id": "caller-value-is-rebound", "session_id": "http-proof"},
         "target": {"kind": "global"},
         "payload": {
-            "project": "buzz",
+            "project": "externalwebapp",
             "installation_id": "12345",
             "repository_id": "4567",
-            "github_repo": "example-org/buzz",
+            "github_repo": "example-org/externalwebapp",
             "expected_api_url": "https://api.github.com",
             "github_user_access_token": user_token,
         },
@@ -149,7 +149,7 @@ def test_https_binding_uses_default_server_app_and_never_persists_secrets(
     with pg_testdb.test_database() as conn:
         conn.execute(FUNCTION_CALL_LEDGER_CREATE_SQL)
         conn.commit()
-        auth = mint_api_auth_context(conn, project="buzz")
+        auth = mint_api_auth_context(conn, project="externalwebapp")
         with TestClient(
             app_factory.create_app(),
             base_url="https://testserver",

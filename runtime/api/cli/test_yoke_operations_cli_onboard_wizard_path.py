@@ -17,7 +17,7 @@ from textual.widgets import Rule, Static  # noqa: E402
 from textual.containers import VerticalScroll  # noqa: E402
 
 from yoke_cli import main as yoke_operations_cli  # noqa: E402
-from yoke_cli.config import path_doctor  # noqa: E402
+from yoke_cli.config import onboard_wizard_path, path_doctor  # noqa: E402
 from yoke_cli.config.onboard_terminal import plain_text  # noqa: E402
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 from yoke_cli.config.onboard_wizard_app import OnboardWizardApp  # noqa: E402
@@ -306,6 +306,14 @@ def test_post_install_opens_on_install_summary(stub_path) -> None:
             assert app.query_one(Stepper).active == STEP_INSTALL
 
     asyncio.run(scenario())
+
+
+def test_source_install_summary_does_not_claim_ambient_wheel_version() -> None:
+    rendered = "\n".join(
+        str(widget.render()) for widget in onboard_wizard_path.install_summary_body()
+    )
+
+    assert "Yoke source checkout is installed." in rendered
 
 
 def test_onboard_post_install_flag_parses(monkeypatch, capsys) -> None:

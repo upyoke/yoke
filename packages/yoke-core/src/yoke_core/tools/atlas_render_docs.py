@@ -128,9 +128,17 @@ def _render_permanent_roster(report: Dict[str, Any]) -> List[str]:
         out.append("")
         return out
     out.extend(_md_table(
-        ("family", "shell_form", "reason"),
+        ("family", "shell_form", "reason", "source owner"),
         sorted(
-            ((r["family"], f"`{r['shell_form']}`", r["reason"]) for r in rows),
+            (
+                (
+                    r["family"],
+                    f"`{r['shell_form']}`",
+                    r["reason"],
+                    r.get("source_owner") or "—",
+                )
+                for r in rows
+            ),
             key=lambda r: (r[0], r[1]),
         ),
     ))

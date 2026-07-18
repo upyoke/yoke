@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -51,6 +51,40 @@ class DeploymentFlowStagesResponse(BaseModel):
     stages: str
 
 
+class DeploymentFlowUpdateStagesRequest(BaseModel):
+    flow_id: str
+    stages: str
+    description: Optional[str] = None
+
+
+class DeploymentFlowUpdateStagesResponse(BaseModel):
+    flow_id: str
+    message: str
+
+
+class DeploymentFlowReconcileProjectRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    declaration_schema: int = Field(alias="schema")
+    flows: List[Dict[str, Any]]
+    default_flow: Optional[str] = None
+    retire_if_present: List[str] = Field(default_factory=list)
+
+
+class DeploymentFlowReconcileProjectResponse(BaseModel):
+    project: str
+    created: List[str]
+    updated: List[str]
+    unchanged: List[str]
+    retired: List[str]
+    retire_absent: List[str]
+    retire_unchanged: List[str]
+    default_flow: Optional[str] = None
+    default_flow_declared: bool
+    default_flow_updated: bool
+    preview_only: bool
+
+
 class DeploymentRunGetRequest(BaseModel):
     field: Optional[str] = None
     run_id: Optional[str] = None
@@ -79,6 +113,23 @@ class DeploymentRunCreateResponse(BaseModel):
     target_env: Optional[str] = None
     release_lineage: Optional[str] = None
     status: str
+
+
+class DeploymentRunStartForItemRequest(BaseModel):
+    project: Optional[str] = None
+    flow: Optional[str] = None
+    target_env: Optional[str] = None
+    release_lineage: Optional[str] = None
+    created_by: Optional[str] = None
+
+
+class DeploymentRunStartForItemResponse(BaseModel):
+    run_id: str
+    item_id: int
+    project: str
+    flow: str
+    target_env: str
+    validation_message: Optional[str] = None
 
 
 class DeploymentRunListRequest(BaseModel):
@@ -206,8 +257,14 @@ __all__ = [
     "DeploymentFlowGetResponse",
     "DeploymentFlowStagesRequest",
     "DeploymentFlowStagesResponse",
+    "DeploymentFlowUpdateStagesRequest",
+    "DeploymentFlowUpdateStagesResponse",
+    "DeploymentFlowReconcileProjectRequest",
+    "DeploymentFlowReconcileProjectResponse",
     "DeploymentRunGetRequest",
     "DeploymentRunGetResponse",
+    "DeploymentRunStartForItemRequest",
+    "DeploymentRunStartForItemResponse",
     "DeploymentRunListRequest",
     "DeploymentRunListResponse",
     "DeploymentRunUpdateRequest",

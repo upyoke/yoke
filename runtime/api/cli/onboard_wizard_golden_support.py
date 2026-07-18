@@ -171,7 +171,7 @@ YOKE_TOKEN_VERIFICATION = {
     "orgs": [{"name": "Acme Ops", "roles": ["admin"]}],
     "projects": [
         {"slug": "yoke", "roles": ["admin"]},
-        {"slug": "buzz", "roles": ["operator"]},
+        {"slug": "externalwebapp", "roles": ["operator"]},
     ],
 }
 

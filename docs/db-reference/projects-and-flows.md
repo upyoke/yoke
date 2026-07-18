@@ -6,11 +6,13 @@ Schemas for the project registry, the Project Structure aggregate, sites/environ
 
 Registered projects that Yoke can manage. The `projects` table holds only shared identity and repo metadata; machine-local checkout paths live in machine config. Per-project structured settings (test commands, deployment-flow default, merge verification policy, context routing) live in the Project Structure aggregate (see below).
 
+Every registered slug uses the same project commands and capability resolution. A project name never unlocks behavior: specialized delivery comes from that project's capability rows, environments, and workflow definitions. Checkout-local or direct-module recipes are valid only when their surface explicitly declares a source-dev/admin boundary.
+
 ```sql
-id TEXT PRIMARY KEY -- short slug (e.g., 'yoke', 'buzz')
+id TEXT PRIMARY KEY -- short slug (e.g., 'yoke', 'external-webapp')
 name TEXT NOT NULL -- display name
-emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🐝'); shown in BOARD.md title
-github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/buzz')
+emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md title
+github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/external-webapp')
 default_branch TEXT DEFAULT 'main'
 github_sync_mode TEXT -- 'enabled' | 'backlog_only'; new rows use backlog_only, legacy NULL resolves enabled
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
@@ -87,7 +89,7 @@ The same commands are available through the service-client CLI as `project-struc
 Deployment targets for projects. A site represents a deployable unit (e.g., a web app, API service).
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'buzz-web'
+id TEXT PRIMARY KEY -- e.g., 'external-webapp-web'
 project TEXT NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name
 description TEXT -- human-readable description
@@ -101,7 +103,7 @@ Seed data: none — a fresh universe seeds no sites; rows are written through th
 Deployment environments for sites (e.g., production, staging). `local` is a machine-config client concept, not a deploy-target environments row.
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'buzz-web-production'
+id TEXT PRIMARY KEY -- e.g., 'external-webapp-web-production'
 site TEXT NOT NULL REFERENCES sites(id)
 name TEXT NOT NULL -- environment name (e.g., 'production', 'prod', 'stage')
 url TEXT -- public URL (e.g., 'http://100.115.178.33:3000')
@@ -187,7 +189,7 @@ secrets stay in the control-plane secret store.
 Deployment flow definitions. Each flow defines an ordered sequence of stages that an item passes through after merge.
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'buzz-prod-release'
+id TEXT PRIMARY KEY -- e.g., 'project-production-release'
 project TEXT NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name (e.g., 'Prod Release')
 description TEXT
@@ -206,20 +208,34 @@ Stage objects come in two shapes. Executor-shaped stages require `name` (string)
 
 **`health-check` executor type:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's `target_env` environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
-Read definitions with `yoke deployment-flows get` / `stages`. Change lifecycle state with `yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents new assignments and runs while preserving the definition and every historical run. A definition referenced by a run is immutable and cannot be deleted or rewritten.
+Read the current project workflow definition with `yoke workflows definition get --project <slug> --json`; inspect a materialized flow with `yoke deployment-flows get <flow-id>` / `stages`. External project
+repositories own their desired definitions in `.yoke/deployment-flows.json`;
+`yoke project refresh` (or `yoke deployment-flows reconcile-project <project>`)
+validates and materializes the declared rows plus the optional `default_flow`.
+Reconciliation is additive: omitted rows are preserved, and a definition
+referenced by a run is immutable. A declaration may name predecessor IDs in
+`retire_if_present`; matching rows owned by that project are disabled, absent
+rows are not created, and run history remains intact. Change lifecycle state with
+`yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents
+new assignments and runs while preserving the definition and every historical
+run.
 
-Seed data: `python3 -m yoke_core.cli.db_router flows init` seeds flow definitions only for projects already present in the universe (a fresh universe gets none). The definitions:
+Seed data: `python3 -m yoke_core.cli.db_router flows init` is a source-dev/admin seeder that adds flow definitions only for projects already present in the universe (a fresh universe gets none). Ordinary project operation reads and selects the registered definitions through project-scoped commands. The definitions:
 - `yoke-internal` — Script/doc changes, no deployment: `migration_apply (primary, implementing) -> merged (auto) -> complete (auto)` (no target_env, done="Merged to main")
-- `yoke-hosted-stage` — Yoke item → annotated release → Platform promotion boundary → complete Stage train.
-- `yoke-hosted-production` — Yoke item → annotated release → direct stable-channel Production train, independent of Stage.
-- `yoke-hosted-production-hotfix` — Yoke item → annotated release → direct Production hotfix train.
+- `yoke-hosted-stage` — disabled historical Stage definition retained for run history.
+- `yoke-hosted-stage-no-ci-gate` — Yoke item → annotated release → Platform promotion boundary → complete Stage train without waiting for repository CI.
+- `yoke-hosted-production` — disabled historical normal-Production definition retained for run history.
+- `yoke-hosted-production-hotfix` — disabled historical Production hotfix definition retained for run history.
+- `yoke-hosted-production-hotfix-no-ci-gate` — Yoke item → annotated release → direct Production hotfix train without waiting for repository CI.
 - `platform-stage` — Platform item → complete Stage train at the merged Platform commit.
 - `platform-production-independent` — Platform item → direct Production train at the merged Platform commit, independent of Stage.
 - `platform-production` — disabled historical Stage-then-Production definition retained for run history.
 - `platform-production-hotfix` — Platform item → direct Production hotfix train at the merged Platform commit.
 - `yoke-ephemeral-deploy` — Branch/SHA Yoke core preview environment: `ephemeral-deploy (ephemeral-deploy) -> complete (auto)` (target_env=ephemeral, done="Yoke core preview environment deployed")
-- `buzz-prod-release` — v1 production deploy with smoke test: `start (auto) -> prod-deploy (github-actions-workflow, buzz-deploy.yml) -> smoke (github-actions-workflow, buzz-smoke.yml) -> complete (auto)` (4 stages, target_env=production, done="Deployed to production and smoke checks passed"). No staging stages — Buzz v1 has no staging environment.
-- `buzz-prod-hotfix` — Direct to production with smoke test (4 stages, target_env=production, done="Hotfix deployed to production")
-- `buzz-internal` — Doc or config change, no deployment (2 auto stages, no target_env, done="Merged to main")
+Project-owned declarations are the authority for external-project flow IDs,
+stage names, workflow filenames, and defaults. Built-in initialization does not
+embed consumer-project definitions. Existing consumer rows remain readable in
+the database even when a declaration omits them. Their behavior is determined
+by the stored stages and capabilities, not by a recognized flow-id prefix.
 
 Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.

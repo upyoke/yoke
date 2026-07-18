@@ -233,9 +233,9 @@ def test_https_read_target_cannot_override_payload_project(
         conn.execute(
             "INSERT INTO project_capabilities "
             "(project_id, type, settings, created_at) "
-            "VALUES (%s, 'docker', '{\"host\":\"buzz-private\"}', "
+            "VALUES (%s, 'docker', '{\"host\":\"externalwebapp-private\"}', "
             "'2026-01-01T00:00:00Z')",
-            (resolve_project_id(conn, "buzz"),),
+            (resolve_project_id(conn, "externalwebapp"),),
         )
         conn.commit()
     finally:
@@ -245,7 +245,7 @@ def test_https_read_target_cannot_override_payload_project(
     response = _call(
         client,
         "projects.capability_settings.get",
-        {"project": "buzz", "cap_type": "docker"},
+        {"project": "externalwebapp", "cap_type": "docker"},
         target_project="yoke",
         headers=headers,
     )
@@ -260,7 +260,7 @@ def test_https_read_target_cannot_override_payload_project(
         (
             "projects.capability_settings.set",
             {
-                "project": "buzz",
+                "project": "externalwebapp",
                 "cap_type": "docker",
                 "settings_json": '{"host":"must-not-land"}',
                 "create": True,
@@ -269,7 +269,7 @@ def test_https_read_target_cannot_override_payload_project(
         (
             "projects.capability_settings.merge",
             {
-                "project": "buzz",
+                "project": "externalwebapp",
                 "cap_type": "docker",
                 "assignments": {"host": "must-not-land"},
             },
@@ -299,7 +299,7 @@ def test_https_mutation_target_cannot_override_payload_project(
         row = conn.execute(
             "SELECT settings FROM project_capabilities "
             "WHERE project_id=%s AND type='docker'",
-            (resolve_project_id(conn, "buzz"),),
+            (resolve_project_id(conn, "externalwebapp"),),
         ).fetchone()
     finally:
         conn.close()

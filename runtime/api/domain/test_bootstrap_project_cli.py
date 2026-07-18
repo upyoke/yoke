@@ -22,7 +22,7 @@ def test_main_cli_preflight_only_skips_setup(tmp_path: Path, monkeypatch, capsys
         main(
             [
                 "cli",
-                "buzz",
+                "externalwebapp",
                 "--preflight-only",
                 "--project-root",
                 str(tmp_path),
@@ -50,7 +50,7 @@ def test_main_cli_runs_full_flow(tmp_path: Path, monkeypatch) -> None:
         main(
             [
                 "cli",
-                "buzz",
+                "externalwebapp",
                 "--project-root",
                 str(tmp_path),
                 "--script-dir",
@@ -79,14 +79,14 @@ def test_resolve_context_autodetects_paths(tmp_path: Path, monkeypatch) -> None:
     import argparse
 
     args = argparse.Namespace(
-        project="buzz",
+        project="externalwebapp",
         project_root=None,
         script_dir=None,
         yoke_db=None,
     )
     ctx = _resolve_context(args)
 
-    assert ctx.project == "buzz"
+    assert ctx.project == "externalwebapp"
     assert ctx.project_root == fake_project_root
     assert ctx.yoke_db == fake_project_root / "data" / "yoke.db"
     assert ctx.script_dir == fake_project_root / ".agents" / "skills" / "yoke" / "scripts"
@@ -108,7 +108,7 @@ def test_resolve_context_respects_yoke_scripts_dir_env(tmp_path: Path, monkeypat
     import argparse
 
     args = argparse.Namespace(
-        project="buzz",
+        project="externalwebapp",
         project_root=None,
         script_dir=None,
         yoke_db=None,
@@ -128,7 +128,7 @@ def test_resolve_context_explicit_args_override_autodetect(tmp_path: Path, monke
     import argparse
 
     args = argparse.Namespace(
-        project="buzz",
+        project="externalwebapp",
         project_root=str(tmp_path),
         script_dir=str(tmp_path / "scripts"),
         yoke_db=str(tmp_path / "yoke.db"),

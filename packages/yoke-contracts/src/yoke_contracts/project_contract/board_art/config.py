@@ -236,7 +236,7 @@ def derive_letter_bounds(grid_lines: List[str]) -> List[Tuple[int, int]]:
     A column is a *separator* when every cell in it is the structural
     ``BLACK`` cell; *letters* are the maximal runs of columns that contain at
     least one fill-target ``WHITE`` cell. This works for any word whose
-    adjacent letters are parted by >=1 all-black column (e.g. ``BUZZ``). Words
+    adjacent letters are parted by >=1 all-black column (e.g. ``EXT``). Words
     that kern two letters with no gap between them (e.g. ``YOKE``'s ``AY``)
     cannot be split this way and should declare a ``# letters:`` directive.
 

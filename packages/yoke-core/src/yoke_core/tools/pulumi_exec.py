@@ -3,29 +3,38 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-import json
-import os
 from pathlib import Path
 import sys
 import tempfile
 from typing import Any, TextIO
 
-from yoke_core.domain.deploy_remote import aws_machine_capability_env
+from yoke_core.domain.deploy_remote import (
+    aws_machine_capability_env,
+)
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
 from yoke_core.domain.project_renderer_pulumi_scoped import (
     render_scoped_pulumi_config,
 )
+from yoke_core.domain.project_renderer_settings import (
+    ProjectRendererSettings,
+    load_project_renderer_settings,
+)
+from yoke_core.domain.projects_pulumi_state_checkpoint_import import (
+    import_checkpoint_state,
+)
+from yoke_core.tools.pulumi_exec_authority import (
+    authority_env as _authority_env,
+)
+from yoke_core.tools.pulumi_exec_files import (
+    new_owner_only_output as _new_owner_only_output,
+    write_owner_only as _write_owner_only,
+)
+from yoke_core.tools.pulumi_exec_types import PulumiExecError
 from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
-from yoke_core.tools.runner_fleet_exec import (
-    RUNNER_FLEET_AUTHORITY_INTENT_ENV,
-    resolve_local_runner_fleet_github_auth,
-)
-from yoke_core.tools.runner_fleet_authority_intent import (
-    authority_intent_envelope_from_values,
-)
+from yoke_core.tools.runner_fleet_exec import resolve_local_runner_fleet_github_auth
 
 
-_ALLOWED_COMMANDS = frozenset({"preview", "refresh", "import", "up"})
+_ALLOWED_COMMANDS = frozenset({"init", "preview", "refresh", "import", "up"})
 _IMPORT_FLAGS = frozenset({
     "--protect=false", "--generate-code=false", "--yes",
     "--non-interactive",
@@ -40,16 +49,6 @@ _REFRESH_FLAGS = frozenset({
 _UP_FLAGS = frozenset({
     "--diff", "--non-interactive", "--refresh", "--suppress-outputs", "--yes",
 })
-_AMBIENT_GITHUB_ENV = frozenset({
-    "GH_ENTERPRISE_TOKEN", "GH_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
-    "GITHUB_TOKEN", "RUNNER_FLEET_GITHUB_TOKEN",
-})
-
-
-class PulumiExecError(RuntimeError):
-    """The requested local Pulumi operation is outside the safe boundary."""
-
-
 def execute_pulumi_command(
     project: str,
     stack: str,
@@ -63,6 +62,10 @@ def execute_pulumi_command(
     local_github_auth_loader: Callable[..., Any] = (
         resolve_local_runner_fleet_github_auth
     ),
+    settings_loader: Callable[[str], ProjectRendererSettings] = (
+        load_project_renderer_settings
+    ),
+    state_importer: Callable[..., Mapping[str, Any]] = import_checkpoint_state,
     child_factory: Callable[..., Any] | None = None,
     out: TextIO | None = None,
     err: TextIO | None = None,
@@ -72,6 +75,21 @@ def execute_pulumi_command(
     selected_stack = str(stack or "").strip()
     if not selected_project or not selected_stack:
         raise PulumiExecError("project and stack are required")
+    if command and str(command[0]) == "init":
+        from yoke_core.tools.pulumi_exec_init import execute_pulumi_stack_init
+
+        return execute_pulumi_stack_init(
+            selected_project,
+            selected_stack,
+            command,
+            project_root=project_root,
+            settings_loader=settings_loader,
+            state_importer=state_importer,
+            aws_env_loader=aws_env_loader,
+            child_factory=child_factory,
+            out=out,
+            err=err,
+        )
     argv, json_output = _validated_command(selected_stack, command)
     payload = dict(config_loader(selected_project, selected_stack))
     _verify_payload_identity(payload, selected_project, selected_stack)
@@ -125,9 +143,11 @@ def _validated_command(
     parts = [str(part) for part in command]
     if not parts or parts[0] not in _ALLOWED_COMMANDS:
         raise PulumiExecError(
-            "Pulumi exec allows only preview, refresh, import, and up"
+            "Pulumi exec allows only init, preview, refresh, import, and up"
         )
     operation = parts[0]
+    if operation == "init":
+        raise PulumiExecError("Pulumi init must use the stack bootstrap boundary")
     args = parts[1:]
     _assert_stack_flag(args, stack)
     json_output: Path | None = None
@@ -286,132 +306,6 @@ def _verify_payload_identity(
         raise PulumiExecError(
             "Pulumi stack config identity does not match the requested project/stack"
         )
-
-
-def _authority_env(
-    project: str,
-    authority: Mapping[str, Any],
-    payload: Mapping[str, Any],
-    *,
-    aws_env_loader: Callable[..., Mapping[str, str]],
-    github_auth_loader: Callable[..., Any],
-    bootstrap_local_authority: bool = False,
-    local_github_auth_loader: Callable[..., Any] = (
-        resolve_local_runner_fleet_github_auth
-    ),
-) -> tuple[dict[str, str], tuple[str, ...]]:
-    capability = str(authority.get("aws_capability") or "").strip()
-    region = str(authority.get("aws_region") or "").strip()
-    backend = str(authority.get("backend_url") or "").strip()
-    if not capability or not region or not backend:
-        raise PulumiExecError("Pulumi AWS/backend authority is incomplete")
-    try:
-        env = dict(
-            aws_env_loader(project, region, capability_type=capability)
-        )
-    except Exception as exc:
-        raise PulumiExecError(
-            "Pulumi AWS authority could not be materialized from the "
-            f"machine-local {capability} capability for project {project!r} "
-            "(cause: machine_capability_unavailable). Restore access_key_id "
-            "and secret_access_key with `yoke projects capability secret set` "
-            "or, in GitHub Actions, run aws-actions/configure-aws-credentials "
-            "before retrying."
-        ) from exc
-    for name in _AMBIENT_GITHUB_ENV:
-        env.pop(name, None)
-    token = ""
-    local_redaction_terms: tuple[str, ...] = ()
-    if str(authority.get("github_repo") or "").strip():
-        github_project = str(
-            authority.get("github_project") or project
-        ).strip()
-        if bootstrap_local_authority:
-            if payload.get("stack_kind") != "runner-fleet":
-                raise PulumiExecError(
-                    "local GitHub bootstrap authority is limited to the "
-                    "runner-fleet stack"
-                )
-            raw_values = payload.get("render_values")
-            if not isinstance(raw_values, Mapping):
-                raise PulumiExecError(
-                    "runner-fleet render values are missing from stack config"
-                )
-            values = {
-                str(key): str(value) for key, value in raw_values.items()
-            }
-            try:
-                github = local_github_auth_loader(
-                    values, region=region, aws_env=env,
-                )
-                token = str(github.token or "").strip()
-                local_redaction_terms = tuple(github.redaction_terms)
-                env[RUNNER_FLEET_AUTHORITY_INTENT_ENV] = (
-                    authority_intent_envelope_from_values(
-                        project=str(payload.get("project_slug") or ""),
-                        deploy_namespace=values["deploy_namespace"],
-                        stack_name=str(payload.get("stack_name") or ""),
-                        values=values,
-                        aws_capability=capability,
-                        aws_region=region,
-                    )
-                )
-            except Exception as exc:
-                raise PulumiExecError(
-                    "Pulumi local GitHub App bootstrap authority could not be "
-                    f"materialized for project {github_project!r} "
-                    "(cause: app_authority_unavailable)."
-                ) from exc
-        else:
-            try:
-                github = github_auth_loader(
-                    github_project,
-                    required_permissions=dict(
-                        authority.get("github_permissions") or {}
-                    ),
-                )
-                token = str(github.token or "").strip()
-            except Exception as exc:
-                raise PulumiExecError(
-                    "Pulumi GitHub App authority could not be materialized for "
-                    f"project {github_project!r} "
-                    "(cause: app_authority_unavailable). Run `yoke github "
-                    "status` and `yoke projects github-binding status "
-                    f"--project {github_project} --json`; reconnect or repair "
-                    "the binding before retrying."
-                ) from exc
-        resolved_repo = str(getattr(github, "repo", "") or "").strip().casefold()
-        expected_repo = str(authority.get("github_repo") or "").strip().casefold()
-        if resolved_repo != expected_repo:
-            raise PulumiExecError(
-                "Pulumi GitHub token repository does not match stack authority"
-            )
-        env["GITHUB_TOKEN"] = token
-        env["RUNNER_FLEET_GITHUB_TOKEN"] = token
-    env["PULUMI_BACKEND_URL"] = backend
-    operator = payload.get("operator_state") or {}
-    secret_terms = [
-        token,
-        str(operator.get("secrets_provider") or ""),
-        str(operator.get("encrypted_key") or ""),
-    ]
-    secret_terms.extend(local_redaction_terms)
-    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
-        secret_terms.append(str(env.get(name) or ""))
-    return env, tuple(value for value in secret_terms if value)
-
-
-def _write_owner_only(path: Path, payload: Mapping[str, Any]) -> None:
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
-        handle.write("\n")
-
-
-def _new_owner_only_output(path: Path) -> TextIO:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    return os.fdopen(descriptor, "w", encoding="utf-8")
 
 
 __all__ = ["PulumiExecError", "execute_pulumi_command"]

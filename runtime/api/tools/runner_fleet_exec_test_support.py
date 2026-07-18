@@ -48,7 +48,7 @@ class _Process:
 def _write_snapshot(
     path: Path,
     *,
-    project: str = "buzz",
+    project: str = "externalwebapp",
     envelope_project: str | None = None,
     region: str | None = "us-east-1",
     aws_capability: str = "aws-admin",
@@ -104,7 +104,7 @@ def _runner_values(
         "runner_fleet_github_repo_owner": "upyoke",
         "runner_fleet_github_repo_name": "yoke",
         "runner_fleet_github_private_key_secret_arn": _SECRET_ARN,
-        "runner_fleet_token_broker_function": "buzz-runner-fleet-token-broker",
+        "runner_fleet_token_broker_function": "externalwebapp-runner-fleet-token-broker",
         "runner_fleet_github_app_issuer": "Iv1.runner-fleet",
         "runner_fleet_github_installation_id": "123456",
         "runner_fleet_github_repository_id": "789012",

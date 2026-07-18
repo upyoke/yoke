@@ -266,3 +266,18 @@ def test_project_install_help_does_not_advertise_source_dev_modes(capsys) -> Non
     assert "--source-link" not in out
     assert "source-link" not in out
     assert "source-dev" not in out
+
+
+def test_project_refresh_help_labels_source_dev_preview_and_apply(capsys) -> None:
+    rc = yoke_operations_cli.main([
+        "project", "refresh", "--help",
+    ])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "source-dev/admin local-source refresh" in out
+    assert "--source-checkout PATH" in out
+    assert "--project-slug SLUG" in out
+    assert "--manifest-from PATH" in out
+    assert "--apply" in out
+    assert "Preview-only unless --apply" in out

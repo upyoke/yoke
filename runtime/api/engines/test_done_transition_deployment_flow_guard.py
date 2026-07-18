@@ -16,7 +16,7 @@ def _patch_registered_flows(flows):
 
 class TestDeploymentFlowGuardInvalidFlow:
     def test_unregistered_flow_blocks_with_invalid_value_message(self, capsys):
-        with _patch_registered_flows(["yoke-internal", "buzz-prod-release"]):
+        with _patch_registered_flows(["yoke-internal", "externalwebapp-prod-release"]):
             result = done_transition._check_deployment_flow_guard(
                 item_id=510,
                 deploy_flow="garbage",
@@ -29,7 +29,7 @@ class TestDeploymentFlowGuardInvalidFlow:
         assert "is NOT a registered deployment flow" in out
         assert "'garbage'" in out
         assert "yoke-internal" in out
-        assert "buzz-prod-release" in out
+        assert "externalwebapp-prod-release" in out
 
     def test_literal_none_string_repro(self, capsys):
         """The literal ``none`` value surfaces invalid-value, not missing-evidence."""
@@ -63,14 +63,14 @@ class TestDeploymentFlowGuardInvalidFlow:
 
 class TestDeploymentFlowGuardRegisteredButMissingEvidence:
     def test_registered_flow_skip_deploy_no_evidence_preserves_message(self, capsys):
-        with _patch_registered_flows(["buzz-prod-release"]), mock.patch.object(
+        with _patch_registered_flows(["externalwebapp-prod-release"]), mock.patch.object(
             done_transition_deploy_gates,
             "_check_deployment_evidence",
             return_value=False,
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=520,
-                deploy_flow="buzz-prod-release",
+                deploy_flow="externalwebapp-prod-release",
                 skip_deploy=True,
                 item_project="yoke",
                 old_status="implemented",

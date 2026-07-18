@@ -12,8 +12,8 @@ is the source of truth they must match (locked by golden-vector tests in
 Per-project policy lives in the ``ephemeral-env`` project capability:
 which environment's origin box hosts the previews (``host_env``), the
 wildcard preview domain (``preview_domain``), how deploys are triggered
-(``trigger``: ``"flow"`` for the Yoke core-service executor,
-``"github-push"`` for the Buzz GitHub-Actions instantiation), the port
+(``trigger``: ``"flow"`` for a core-service executor or ``"github-push"``
+for a GitHub-Actions instantiation), the port
 ranges, and the teardown TTL.
 """
 

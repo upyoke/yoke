@@ -107,12 +107,12 @@ class TestDoctorHelpers:
             account_login="example-org", account_type="Organization",
             repository_selection="selected",
             permissions=dict(REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS),
-            repository_id="4567", github_repo="example-org/buzz",
+            repository_id="4567", github_repo="example-org/externalwebapp",
             default_branch="main",
         )
         cmd_bind_project_repo(
-            "buzz", installation_id="12345", repository_id="4567",
-            github_repo="example-org/buzz",
+            "externalwebapp", installation_id="12345", repository_id="4567",
+            github_repo="example-org/externalwebapp",
             expected_api_url="https://api.github.com",
             github_user_access_token="user-token",
             verifier=lambda **_kwargs: verified,
@@ -121,10 +121,10 @@ class TestDoctorHelpers:
         with bind_local_github_user_token_provider(
             lambda: "ghu_user_token", api_url="https://api.github.com",
         ):
-            auth = resolve_project_github_auth("buzz", db_path=db)
+            auth = resolve_project_github_auth("externalwebapp", db_path=db)
         assert auth.token == "ghu_user_token"
         assert not hasattr(auth, "env")
-        assert auth.repo == "example-org/buzz"
+        assert auth.repo == "example-org/externalwebapp"
 
     def test_canonical_resolver_raises_missing_capability(self, tmp_path):
         """Missing capability raises a typed diagnostic so doctor HCs can

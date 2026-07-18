@@ -142,6 +142,12 @@ def validate_github_endpoint_pair(
     )
 
 
+def github_web_url_from_api(api_url: str) -> str:
+    """Return the canonical browser base paired with a GitHub API base."""
+    from yoke_contracts.github_web_endpoint import github_web_url_from_api as resolve
+    return resolve(api_url)
+
+
 def _validate_https_endpoint(
     value: str | None,
     default: str,
@@ -336,15 +342,9 @@ def _endpoint_host(endpoint: GitHubWebEndpoint) -> str:
 
 
 __all__ = [
-    "DEFAULT_GITHUB_API_URL",
-    "DEFAULT_GITHUB_WEB_URL",
-    "GitHubApiEndpoint",
-    "GitHubApiOriginError",
-    "GitHubEndpointPair",
-    "GitHubWebEndpoint",
-    "require_same_github_origin",
-    "normalize_github_repository",
-    "validate_github_api_endpoint",
-    "validate_github_endpoint_pair",
-    "validate_github_web_endpoint",
+    "DEFAULT_GITHUB_API_URL", "DEFAULT_GITHUB_WEB_URL", "GitHubApiEndpoint",
+    "GitHubApiOriginError", "GitHubEndpointPair", "GitHubWebEndpoint",
+    "github_web_url_from_api", "normalize_github_repository",
+    "require_same_github_origin", "validate_github_api_endpoint",
+    "validate_github_endpoint_pair", "validate_github_web_endpoint",
 ]

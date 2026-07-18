@@ -19,7 +19,7 @@ def test_run_preflight_no_ssh_key_path_uses_canonical_repair_hint(
     capsys,
 ) -> None:
     placeholder = tmp_path / ".placeholder-key"
-    monkeypatch.delenv("BUZZ_SSH_KEY_PATH", raising=False)
+    monkeypatch.delenv("EXTERNALWEBAPP_SSH_KEY_PATH", raising=False)
 
     monkeypatch.setattr(
         "yoke_core.domain.bootstrap_project.shutil.which", lambda _name: "/usr/bin/gh"
@@ -33,7 +33,7 @@ def test_run_preflight_no_ssh_key_path_uses_canonical_repair_hint(
             db_path, json.dumps({"host": "h", "user": "u"})
         )
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,
@@ -42,7 +42,7 @@ def test_run_preflight_no_ssh_key_path_uses_canonical_repair_hint(
     output = capsys.readouterr().out
     assert rc == 1
     assert "No SSH key path configured" in output
-    assert "capability-merge-settings buzz ssh" in output
+    assert "capability-merge-settings externalwebapp ssh" in output
     assert "UPDATE project_capabilities SET config" not in output
 
 
@@ -64,7 +64,7 @@ def test_run_preflight_ssh_failure_blocks_setup_path(
 
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,

@@ -336,10 +336,10 @@ class TestVariableSet:
     def test_project_override(self) -> None:
         rc, _out, _err = _run(
             "github-actions", "variable", "set",
-            "o/r", "GATE", "--value", "true", "--project", "buzz",
+            "o/r", "GATE", "--value", "true", "--project", "externalwebapp",
         )
         assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].payload["project"] == "buzz"
+        assert _CAPTURED_REQUESTS[-1].payload["project"] == "externalwebapp"
 
     def test_missing_value_returns_two(self) -> None:
         rc, _out, _err = _run(

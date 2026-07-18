@@ -86,7 +86,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     )
     (infra / "webapp_runner_termination.mjs").write_text("// termination\n")
     (infra / "requirements.txt").write_text("pulumi>=3.0.0\n")
-    proj = root / "projects" / "buzz"
+    proj = root / "projects" / "externalwebapp"
     proj.mkdir(parents=True)
     monkeypatch.setattr(
         project_renderer_pulumi,
@@ -99,8 +99,8 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         lambda _project, _root, _settings=None: [],
     )
     values = {
-        "project_name": "buzz",
-        "pulumi_runner_fleet_stack_name": "buzz-runner-fleet",
+        "project_name": "externalwebapp",
+        "pulumi_runner_fleet_stack_name": "externalwebapp-runner-fleet",
         "runner_fleet_aws_capability": "aws-admin",
         "runner_fleet_aws_region": "us-east-1",
         "runner_fleet_repo": "upyoke/yoke",
@@ -124,20 +124,20 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "runner_fleet_instance_type": "m7g.2xlarge",
         "runner_fleet_root_volume_gb": "200",
         "runner_fleet_deployment_ssh_stack_outputs_json": (
-            '{"buzz-prod":"originElasticIpAddress",'
-            '"buzz-stage":"originElasticIpAddress",'
+            '{"externalwebapp-prod":"originElasticIpAddress",'
+            '"externalwebapp-stage":"originElasticIpAddress",'
             '"yoke-platform-vps":"vpsElasticIpAddress"}'
         ),
     }
 
     project_renderer_pulumi.render_pulumi_artifacts(
-        "buzz", values, root, proj, write=True,
+        "externalwebapp", values, root, proj, write=True,
     )
 
     infra_dst = proj / "infra"
     assert {p.name for p in infra_dst.iterdir()} == {
         "Pulumi.yaml",
-        "Pulumi.buzz-runner-fleet.yaml",
+        "Pulumi.externalwebapp-runner-fleet.yaml",
         "__main__.py",
         "webapp_runner_fleet_stack.py",
         "webapp_runner_authority_intent.py",
@@ -158,7 +158,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "requirements.txt",
         "webapp_github_repository_provider.py",
     }
-    rendered = (infra_dst / "Pulumi.buzz-runner-fleet.yaml").read_text()
+    rendered = (infra_dst / "Pulumi.externalwebapp-runner-fleet.yaml").read_text()
     assert "webapp-infra:github_repo: upyoke/yoke" in rendered
     assert "aws:region: us-east-1" in rendered
     assert "webapp-infra:aws_capability: aws-admin" in rendered
@@ -171,8 +171,8 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     assert 'webapp-infra:root_volume_gb: "200"' in rendered
     assert (
         "webapp-infra:deployment_ssh_stack_outputs: "
-        "'{\"buzz-prod\":\"originElasticIpAddress\","
-        "\"buzz-stage\":\"originElasticIpAddress\","
+        "'{\"externalwebapp-prod\":\"originElasticIpAddress\","
+        "\"externalwebapp-stage\":\"originElasticIpAddress\","
         "\"yoke-platform-vps\":\"vpsElasticIpAddress\"}'"
     ) in rendered
     assert "{{" not in rendered

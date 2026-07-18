@@ -159,12 +159,12 @@ class TestHcStaleRemoteBranches:
         self, mock_run, mock_root, monkeypatch
     ):
         conn = _make_conn()
-        _seed_project(conn, "buzz")
+        _seed_project(conn, "externalwebapp")
         _insert_item(
             conn,
             TEST_ITEM_ID,
-            "Done Buzz item",
-            project="buzz",
+            "Done ExternalWebapp item",
+            project="externalwebapp",
             type="issue",
             status="done",
         )

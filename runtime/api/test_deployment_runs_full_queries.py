@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Query/listing tests for yoke_core.domain.deployment_runs.
-
 Covers cmd_list, cmd_items, cmd_find_by_item, cmd_lineage*, cmd_qa_*.
 
 Split from ``test_deployment_runs_full.py``.
@@ -18,14 +18,14 @@ class TestList:
         dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
         dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
         result = dr.cmd_list(db_path=db_path)
-        lines = [l for l in result.strip().split("\n") if l]
+        lines = [line for line in result.strip().split("\n") if line]
         assert len(lines) == 2
 
     def test_list_by_project(self, db_path):
         dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        dr.cmd_create_run("buzz", "buzz-standard", db_path=db_path)
-        result = dr.cmd_list(project="buzz", db_path=db_path)
-        lines = [l for l in result.strip().split("\n") if l]
+        dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
+        result = dr.cmd_list(project="externalwebapp", db_path=db_path)
+        lines = [line for line in result.strip().split("\n") if line]
         assert len(lines) == 1
 
     def test_list_by_status(self, db_path):
@@ -33,7 +33,7 @@ class TestList:
         dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
         dr.cmd_update(r1, "status", "executing", db_path=db_path)
         result = dr.cmd_list(status="created", db_path=db_path)
-        lines = [l for l in result.strip().split("\n") if l]
+        lines = [line for line in result.strip().split("\n") if line]
         assert len(lines) == 1
 
     def test_list_empty(self, db_path):
@@ -98,7 +98,7 @@ class TestLineage:
         )
         result = dr.cmd_lineage(r1, db_path=db_path)
         assert result is not None
-        lines = [l for l in result.strip().split("\n") if l]
+        lines = [line for line in result.strip().split("\n") if line]
         assert len(lines) == 2
 
     def test_lineage_no_lineage_returns_none(self, db_path):
@@ -146,7 +146,7 @@ class TestQA:
         dr.cmd_qa_add(rid, "integration", "flow_default", 0, db_path=db_path)
 
         result = dr.cmd_qa_list(rid, db_path=db_path)
-        lines = [l for l in result.strip().split("\n") if l]
+        lines = [line for line in result.strip().split("\n") if line]
         assert len(lines) == 2
 
     def test_qa_update(self, db_path):

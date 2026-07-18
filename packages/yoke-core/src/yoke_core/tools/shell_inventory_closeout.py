@@ -86,7 +86,6 @@ ZERO_SHELL_CLOSEOUT_BROWSER_RELPATHS = frozenset(
         ".agents/skills/yoke/scripts/deploy-pipeline.sh",
         ".agents/skills/yoke/scripts/deploy-qa-recorder.sh",
         ".agents/skills/yoke/scripts/github-actions.sh",
-        ".agents/skills/yoke/scripts/validate-buzz-pipeline.sh",
         ".agents/skills/yoke/scripts/qa-gate-check.sh",
     }
 )
@@ -264,7 +263,6 @@ ZERO_SHELL_CLOSEOUT_BROWSER_TESTS = frozenset(
         "test-qa-executor-guard.sh",
         "test-qa-gate-check.sh",
         "test-satisfy-screenshot-evidence.sh",
-        "test-validate-buzz-pipeline.sh",
     }
 )
 

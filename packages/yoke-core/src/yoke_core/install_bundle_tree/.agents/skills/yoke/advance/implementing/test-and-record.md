@@ -176,7 +176,7 @@ If the item declares `mutation_intent="apply"` with one or more entries in `migr
 
 **Governed-runner modules** (runner kind = `governed_migration_module`): rehearse and live-apply go through the standard contract.
 
-- **Projects whose deployment flow declares a `migration_apply` lifecycle hook** (e.g. Buzz prod): the live-apply happens automatically during that phase. No extra step.
+- **Projects whose deployment flow declares a `migration_apply` lifecycle hook:** the live-apply happens automatically during that phase. No extra step.
 - **Projects without that hook** (e.g. Yoke's `primary` model itself when iterating from inside `/yoke advance`): the agent runs the apply manually before advancing past `implementing`:
 
   The `migration_apply` governed runner is a Yoke source-dev/admin boundary,
@@ -201,7 +201,7 @@ If the item declares `mutation_intent="apply"` with one or more entries in `migr
 # Source-dev/admin exception module apply CLI for the same declared module.
 
 # 3. Confirm the audit row landed on authoritative (not just validation):
-python3 -m yoke_core.cli.db_router query \
+yoke db read --format lines \
  "SELECT state, exception_reason FROM migration_audit \
   WHERE migration_name='<module>'"
 ```

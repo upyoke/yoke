@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import re
 import urllib.parse
-from importlib import metadata
 from typing import Any, Mapping
 
-from yoke_cli.config import onboard_github_snapshot
+from yoke_cli.config import install_binding, onboard_github_snapshot
 
 
 RESUME_COMMAND = "yoke onboard"
@@ -66,10 +65,7 @@ def safe_remote_url(value: Any) -> str:
 
 
 def package_version() -> str:
-    try:
-        return metadata.version("yoke-cli")
-    except metadata.PackageNotFoundError:
-        return "unknown"
+    return install_binding.distribution_version(source_value="source") or "unknown"
 
 
 def target_github_repo(kwargs: Mapping[str, Any]) -> str:

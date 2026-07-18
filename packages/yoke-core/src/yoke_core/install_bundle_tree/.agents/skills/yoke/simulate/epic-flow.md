@@ -7,7 +7,7 @@ This phase owns per-epic simulation before any optional auto-fix loop.
 Check that `epic_tasks` rows exist for this epic in the DB:
 
 ```bash
-_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='{epic-id}'")
+_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='{epic-id}'")
 ```
 
 If `_task_count` is `0`, tell the operator to run `/yoke plan {epic-id}` first.
@@ -32,7 +32,7 @@ Each row returns `task_num|title|status|worktree|...`.
 Resolve the backlog item ID:
 
 ```bash
-_item_id=$(python3 -m yoke_core.cli.db_router query "SELECT id FROM items WHERE id={epic-id} AND type='epic'")
+_item_id=$(yoke db read --format lines "SELECT id FROM items WHERE id={epic-id} AND type='epic'")
 ```
 
 ### Plan simulation context
@@ -151,7 +151,7 @@ No critical gaps. Review warnings and decide whether to fix or accept.
 {if X == 0 and Y == 0:}
 Clean simulation. Safe to proceed.
 
-Report stored in DB. To read: python3 -m yoke_core.cli.db_router epic simulation-get "{epic-id}" "{phase}"
+Report stored in DB. To read: `yoke workflow-item epic-task simulation-get --epic "{epic-id}" --phase "{phase}"`.
 ```
 
 If `[CRITICAL]` or `[WARNING]` gaps remain and the operator wants auto-fix, continue with [autofix-loop.md](autofix-loop.md).

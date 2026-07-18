@@ -16,7 +16,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `[project]` — Target project for project-specific checks (default: `yoke`). Examples: `buzz`, `yoke`. The first positional argument that is not a flag is treated as the project name.
+- `[project]` — Target project for project-specific checks (default: `yoke`). Examples: `external-webapp`, `yoke`. The first positional argument that is not a flag is treated as the project name.
 - `--fix` — Auto-repair trivial issues (label mismatches, stale dashboards, stale worktree refs). Non-trivial issues are reported only.
 - `--file {path}` — Save the report to a custom path (default: `ouroboros/health/health-{YYYYMMDD}.md`)
 
@@ -197,4 +197,4 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 - Run `/yoke doctor` periodically or after significant changes to catch drift early. This is part of Ouroboros — Yoke's self-improvement system.
 - HC-doc-health (Documentation health audit) findings are not auto-fixable. Missing READMEs, broken links, stale docs, and undocumented features require manual attention.
 - HC-deferred-items (Deferred items enforcement) scans done epics for UNFILED deferred items and untracked deferral language. Not auto-fixable — requires filing follow-up items via `/yoke idea` and updating the epic's `## Deferred Items` section.
-- **Project-specific checks:** When a project other than `yoke` is specified, doctor runs generic project checks (repository and App binding readiness, stale worktrees) plus project-specific checks. For `buzz`: VPS reachability, GitHub Actions secrets, deployment flow state, health endpoint, orphaned worktrees. If the project is not found in the DB, a warning is emitted and project-specific checks are skipped.
+- **Project-specific checks:** When a project other than `yoke` is specified, doctor runs generic project checks (repository and App binding readiness, stale worktrees) plus checks selected from that project's capabilities, environments, and workflow definitions. These may include VPS reachability, GitHub Actions secrets, deployment flow state, health endpoints, and orphaned worktrees. If the project is not found in the DB, a warning is emitted and project-specific checks are skipped.

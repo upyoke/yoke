@@ -108,9 +108,9 @@ def test_handler_all_scope_filters_to_visible_project_ids(populated_db):
         insert_item(
             conn,
             id=20,
-            title="Buzz-only item",
+            title="ExternalWebapp-only item",
             status="implementing",
-            project="buzz",
+            project="externalwebapp",
             project_sequence=20,
         )
     finally:
@@ -134,7 +134,7 @@ def test_handler_all_scope_filters_to_visible_project_ids(populated_db):
         seed=11,
     )
     assert "First item" in markdown
-    assert "Buzz-only item" not in markdown
+    assert "ExternalWebapp-only item" not in markdown
 
 
 def test_dispatcher_routes_board_data_get(populated_db):

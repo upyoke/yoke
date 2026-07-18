@@ -15,7 +15,6 @@ from runtime.api.fixtures.migration_model_test import governed_postgres_test_see
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.worktree_validation_surface import (
     CANONICAL_YOKE_DB_ENV,
-    ProvisionResult,
     prompt_env_var_bindings,
     provision_validation_surfaces,
     resolve_validation_db_paths,
@@ -153,8 +152,8 @@ class TestResolveValidationDbPaths:
     def test_maps_model_to_env_var_and_path(
         self, tmp_path: Path, control_db_env: str
     ) -> None:
-        _seed_capability(control_db_env, "buzz", _webapp_sqlite_settings())
-        result = resolve_validation_db_paths(tmp_path, "buzz")
+        _seed_capability(control_db_env, "externalwebapp", _webapp_sqlite_settings())
+        result = resolve_validation_db_paths(tmp_path, "externalwebapp")
         assert result == {
             "primary": {
                 "env_var": "APP_DB_PATH",
@@ -296,11 +295,11 @@ class TestProvisionValidationSurfaces:
     def test_webapp_sqlite_validation_surface_is_provisioned(
         self, tmp_path: Path, control_db_env: str
     ) -> None:
-        _seed_capability(control_db_env, "buzz", _webapp_sqlite_settings())
+        _seed_capability(control_db_env, "externalwebapp", _webapp_sqlite_settings())
         worktree = tmp_path / "worktree"
         worktree.mkdir()
 
-        result = provision_validation_surfaces(worktree, "buzz")
+        result = provision_validation_surfaces(worktree, "externalwebapp")
 
         assert not result.any_failures
         assert len(result.surfaces) == 1
@@ -321,7 +320,7 @@ class TestProvisionValidationSurfaces:
         finally:
             conn.close()
 
-        second = provision_validation_surfaces(worktree, "buzz")
+        second = provision_validation_surfaces(worktree, "externalwebapp")
         assert len(second.surfaces) == 1
         assert second.surfaces[0].created is False
 

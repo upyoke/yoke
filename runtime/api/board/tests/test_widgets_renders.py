@@ -7,9 +7,6 @@ helpers that surface in the board header.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-
-UTC = timezone.utc
-
 from yoke_contracts.board.config import BoardConfig
 from yoke_core.board.db import BoardDB
 from yoke_contracts.board.widgets import (
@@ -24,6 +21,8 @@ from runtime.api.board.tests.conftest import (
     insert_item_raw,
     insert_transition,
 )
+
+UTC = timezone.utc
 
 
 def _now_iso() -> str:
@@ -184,7 +183,7 @@ class TestRenderVelocityMeter:
             f"{today}T09:00:00Z", {"old_bytes": 100, "new_bytes": 4200},
         )
         insert_event(
-            test_db_path, "StrategyDocCreated", "buzz",
+            test_db_path, "StrategyDocCreated", "externalwebapp",
             f"{today}T09:00:00Z", {"new_bytes": 9000},
         )
         with BoardDB(test_db_path) as db:
@@ -259,9 +258,9 @@ class TestRenderTypeBadges:
         now = _now_iso()
         insert_item_raw(test_db_path, [
             (1, "a", "implementing", "issue", "yoke", 0, now, now),
-            (2, "b", "implementing", "issue", "buzz", 0, now, now),
+            (2, "b", "implementing", "issue", "externalwebapp", 0, now, now),
         ])
         with BoardDB(test_db_path) as db:
-            result = render_type_badges(db, BoardConfig(), "buzz")
+            result = render_type_badges(db, BoardConfig(), "externalwebapp")
         assert result is not None
         assert "issue:1" in result

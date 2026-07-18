@@ -95,8 +95,8 @@ def test_run_preflight_translates_missing_capability_to_fail(
     assert retired_hint not in output
 
 
-def test_run_preflight_detects_missing_buzz_record(tmp_path: Path, monkeypatch, capsys) -> None:
-    # DB exists with schema but no 'buzz' row in projects → preflight must
+def test_run_preflight_detects_missing_externalwebapp_record(tmp_path: Path, monkeypatch, capsys) -> None:
+    # DB exists with schema but no 'externalwebapp' row in projects → preflight must
     # report the missing project record with a remediation hint.
     ssh_key = _write_fake_ssh_key(tmp_path)
 
@@ -108,13 +108,13 @@ def test_run_preflight_detects_missing_buzz_record(tmp_path: Path, monkeypatch, 
         rc = run_preflight(ctx)
     output = capsys.readouterr().out
     assert rc == 1
-    assert "projects table missing buzz record" in output
+    assert "projects table missing externalwebapp record" in output
 
 
 def test_run_preflight_detects_missing_github_app_binding(
     tmp_path: Path, monkeypatch, capsys,
 ) -> None:
-    # DB has a buzz projects row and a github capability but no repository
+    # DB has a externalwebapp projects row and a github capability but no repository
     # binding, so preflight must flag the App binding gap.
     ssh_key = _write_fake_ssh_key(tmp_path)
 
@@ -156,7 +156,7 @@ def test_run_preflight_no_longer_probes_host_gh(tmp_path: Path, monkeypatch, cap
 
 
 def test_run_preflight_happy_path_reports_success(tmp_path: Path, monkeypatch, capsys) -> None:
-    # With everything configured (DB, buzz row, github+token, ssh, ssh key
+    # With everything configured (DB, externalwebapp row, github+token, ssh, ssh key
     # file, DB domain, reachable VPS with TLS cert), preflight must exit
     # 0 and print "All preflight checks passed."
     ssh_key = _write_fake_ssh_key(tmp_path)
@@ -170,7 +170,7 @@ def test_run_preflight_happy_path_reports_success(tmp_path: Path, monkeypatch, c
 
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,
@@ -181,7 +181,7 @@ def test_run_preflight_happy_path_reports_success(tmp_path: Path, monkeypatch, c
         assert rc == 0, f"preflight returned {rc}; output was:\n{output}"
         assert "All preflight checks passed." in output
         # The operator-facing header + separator appear on happy-path runs.
-        assert "Yoke -- buzz Bootstrap Preflight" in output
+        assert "Yoke -- externalwebapp Bootstrap Preflight" in output
         assert "==================================" in output
         # The resolved SSH key path is surfaced in preflight output so
         # the operator sees which key Yoke will upload to GitHub Actions.

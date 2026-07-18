@@ -64,23 +64,23 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
     tmp_path,
     monkeypatch,
 ) -> None:
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     (checkout / ".yoke").mkdir(parents=True)
     (checkout / ".yoke" / "install-manifest.json").write_text(
         '{"manifest_schema": 1, "project_id": 37}\n',
         encoding="utf-8",
     )
-    _configure_origin(checkout, "example-org/buzz")
+    _configure_origin(checkout, "example-org/externalwebapp")
     monkeypatch.setattr(
         existing_project_lookup,
         "find_by_project_id",
         lambda **_: existing_project_lookup.ExistingProject(
             id=37,
-            slug="buzz",
-            name="Buzz",
-            github_repo="example-org/buzz",
+            slug="externalwebapp",
+            name="ExternalWebapp",
+            github_repo="example-org/externalwebapp",
             default_branch="main",
-            public_item_prefix="BUZZ",
+            public_item_prefix="EXT",
         ),
     )
     app, spy = make_app()
@@ -115,8 +115,8 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
     applied = spy.applied
     assert applied is not None
     assert applied["existing_project_id"] == 37
-    assert applied["project_slug"] == "buzz"
-    assert applied["project_name"] == "Buzz"
+    assert applied["project_slug"] == "externalwebapp"
+    assert applied["project_name"] == "ExternalWebapp"
     assert len(app.result.board_art_variants) == 1
 
 
@@ -124,9 +124,9 @@ def test_stored_checkout_project_id_shows_confirmation_picker(
     tmp_path,
     monkeypatch,
 ) -> None:
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     checkout.mkdir()
-    _configure_origin(checkout, "example-org/buzz")
+    _configure_origin(checkout, "example-org/externalwebapp")
     config = tmp_path / "config.json"
     config.write_text(
         json.dumps({"projects": {str(checkout): {"project_id": 37}}}),
@@ -137,11 +137,11 @@ def test_stored_checkout_project_id_shows_confirmation_picker(
         "find_by_project_id",
         lambda **_: existing_project_lookup.ExistingProject(
             id=37,
-            slug="buzz",
-            name="Buzz",
-            github_repo="example-org/buzz",
+            slug="externalwebapp",
+            name="ExternalWebapp",
+            github_repo="example-org/externalwebapp",
             default_branch="main",
-            public_item_prefix="BUZZ",
+            public_item_prefix="EXT",
         ),
     )
     app, spy = make_app(
@@ -185,8 +185,8 @@ def test_stored_checkout_project_id_shows_confirmation_picker(
     assert applied is not None
     assert applied["project_checkout"] == str(checkout)
     assert applied["existing_project_id"] == 37
-    assert applied["project_slug"] == "buzz"
-    assert applied["project_name"] == "Buzz"
+    assert applied["project_slug"] == "externalwebapp"
+    assert applied["project_name"] == "ExternalWebapp"
     assert len(app.result.board_art_variants) == 1
 
 
@@ -194,24 +194,24 @@ def test_existing_project_with_board_art_skips_art_flow(
     tmp_path,
     monkeypatch,
 ) -> None:
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     (checkout / ".yoke").mkdir(parents=True)
     (checkout / ".yoke" / "install-manifest.json").write_text(
         '{"manifest_schema": 1, "project_id": 37}\n',
         encoding="utf-8",
     )
     (checkout / ".yoke" / "board-art").write_text("# art\n", encoding="utf-8")
-    _configure_origin(checkout, "example-org/buzz")
+    _configure_origin(checkout, "example-org/externalwebapp")
     monkeypatch.setattr(
         existing_project_lookup,
         "find_by_project_id",
         lambda **_: existing_project_lookup.ExistingProject(
             id=37,
-            slug="buzz",
-            name="Buzz",
-            github_repo="example-org/buzz",
+            slug="externalwebapp",
+            name="ExternalWebapp",
+            github_repo="example-org/externalwebapp",
             default_branch="main",
-            public_item_prefix="BUZZ",
+            public_item_prefix="EXT",
         ),
     )
     app, spy = make_app(

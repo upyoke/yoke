@@ -86,40 +86,40 @@ def _allowed(conn, actor_id, project_id, perm) -> bool:
 
 def test_org_admin_wildcard_allows_any_permission_any_project(conn):
     yoke = resolve_project_id(conn, "yoke")
-    buzz = resolve_project_id(conn, "buzz")
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
     admin = _new_actor(conn)
     grant_actor_org_role(
         conn, actor_id=admin, org_id=_org_of(conn, yoke),
         role_name=ROLE_ADMIN, granted_by_actor_id=admin,
     )
     assert _allowed(conn, admin, yoke, PERM_DB_READ_RAW)
-    assert _allowed(conn, admin, buzz, PERM_ITEMS_WRITE)
-    assert _allowed(conn, admin, buzz, PERM_DB_READ_RAW)
+    assert _allowed(conn, admin, externalwebapp, PERM_ITEMS_WRITE)
+    assert _allowed(conn, admin, externalwebapp, PERM_DB_READ_RAW)
     assert _allowed(conn, admin, yoke, PERM_ORG_ADMIN)
 
 
 def test_project_owner_wildcard_own_project_and_grantable_perms_only(conn):
     yoke = resolve_project_id(conn, "yoke")
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _new_actor(conn)
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    externalwebapp_owner = _new_actor(conn)
     grant_actor_project_role(
-        conn, actor_id=buzz_owner, project_id=buzz,
-        role_name=ROLE_OWNER, granted_by_actor_id=buzz_owner,
+        conn, actor_id=externalwebapp_owner, project_id=externalwebapp,
+        role_name=ROLE_OWNER, granted_by_actor_id=externalwebapp_owner,
     )
-    assert _allowed(conn, buzz_owner, buzz, PERM_ITEMS_WRITE)
-    assert _allowed(conn, buzz_owner, buzz, PERM_DB_READ_RAW)
-    assert not _allowed(conn, buzz_owner, buzz, PERM_ORG_ADMIN)
-    assert not _allowed(conn, buzz_owner, buzz, PERM_PROJECT_CREATE)
-    assert not _allowed(conn, buzz_owner, yoke, PERM_ITEMS_WRITE)
+    assert _allowed(conn, externalwebapp_owner, externalwebapp, PERM_ITEMS_WRITE)
+    assert _allowed(conn, externalwebapp_owner, externalwebapp, PERM_DB_READ_RAW)
+    assert not _allowed(conn, externalwebapp_owner, externalwebapp, PERM_ORG_ADMIN)
+    assert not _allowed(conn, externalwebapp_owner, externalwebapp, PERM_PROJECT_CREATE)
+    assert not _allowed(conn, externalwebapp_owner, yoke, PERM_ITEMS_WRITE)
 
 
 def test_raw_db_permission_project_grants_do_not_cross_projects(conn):
     yoke = resolve_project_id(conn, "yoke")
-    buzz = resolve_project_id(conn, "buzz")
-    buzz_owner = _new_actor(conn)
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    externalwebapp_owner = _new_actor(conn)
     grant_actor_project_role(
-        conn, actor_id=buzz_owner, project_id=buzz,
-        role_name=ROLE_OWNER, granted_by_actor_id=buzz_owner,
+        conn, actor_id=externalwebapp_owner, project_id=externalwebapp,
+        role_name=ROLE_OWNER, granted_by_actor_id=externalwebapp_owner,
     )
     yoke_owner = _new_actor(conn)
     grant_actor_project_role(
@@ -131,7 +131,7 @@ def test_raw_db_permission_project_grants_do_not_cross_projects(conn):
         conn, actor_id=org_admin, org_id=_org_of(conn, yoke),
         role_name=ROLE_ADMIN, granted_by_actor_id=org_admin,
     )
-    assert not _allowed(conn, buzz_owner, yoke, PERM_DB_READ_RAW)  # closed hole
+    assert not _allowed(conn, externalwebapp_owner, yoke, PERM_DB_READ_RAW)  # closed hole
     assert _allowed(conn, yoke_owner, yoke, PERM_DB_READ_RAW)    # case 2
     assert _allowed(conn, org_admin, yoke, PERM_DB_READ_RAW)       # root
 
@@ -213,17 +213,17 @@ def test_require_org_permission_falls_back_to_id_for_missing_org(conn):
 
 def test_require_permission_denial_names_the_project(conn):
     """A project-scoped denial includes the project name and slug, not just id."""
-    buzz = resolve_project_id(conn, "buzz")
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
     nobody = _new_actor(conn)
     with pytest.raises(PermissionDenied) as exc_info:
         require_permission(
-            conn, actor_id=nobody, project_id=buzz, permission_key=PERM_ITEMS_WRITE
+            conn, actor_id=nobody, project_id=externalwebapp, permission_key=PERM_ITEMS_WRITE
         )
     message = str(exc_info.value)
     assert f"actor {nobody} lacks" in message
     assert PERM_ITEMS_WRITE in message
-    assert _project_name(conn, buzz) in message
-    assert f"(buzz, id {buzz})" in message
+    assert _project_name(conn, externalwebapp) in message
+    assert f"(externalwebapp, id {externalwebapp})" in message
 
 
 def test_require_permission_falls_back_to_id_for_missing_project(conn):

@@ -54,7 +54,7 @@ QA-1 authors can emit these events immediately through the standard event path. 
      --severity INFO \
      --outcome completed \
      --item-id "42" \
-     --context '{"deployment_run_id":"uuid-here","flow_id":"buzz-prod","stage":"build"}'
+     --context '{"deployment_run_id":"uuid-here","flow_id":"external-webapp-prod","stage":"build"}'
    ```
 
 3. **Query the event** using the sanctioned read surface:

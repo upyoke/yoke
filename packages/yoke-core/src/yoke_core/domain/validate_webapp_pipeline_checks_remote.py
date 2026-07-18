@@ -34,11 +34,13 @@ from .validate_webapp_pipeline_helpers import (
     _check_fail,
     _check_pass,
     _check_warn,
+    _column_exists,
     _connect,
     _p,
     _query_scalar,
     _resolve_project_identity,
     _run,  # noqa: F401  # retained for test monkeypatch surface compatibility
+    _table_exists,
     _which,  # noqa: F401  # retained for test monkeypatch surface compatibility
 )
 
@@ -236,9 +238,10 @@ def _check_deployment_flow_readiness(
     print("\n=== Deployment Flow Readiness ===\n")
 
     if not ctx.control_plane_marker.is_file():
-        flow_id = f"{ctx.project}-prod-release"
-        missing_flow = f"{flow_id} flow not found or has no stages"
-        _check_fail(counters, missing_flow)
+        _check_fail(
+            counters,
+            f"{ctx.project} deployment default not found or has no stages",
+        )
         return
 
     conn = _connect(ctx.control_plane_marker)
@@ -248,23 +251,29 @@ def _check_deployment_flow_readiness(
         except LookupError:
             ident = None
         if ident is None:
-            flow_id = f"{ctx.project}-prod-release"
+            flow_id = None
             stages_raw = None
-            missing_flow = f"{flow_id} flow not found or has no stages"
         else:
-            flow_id = f"{ident.slug}-prod-release"
-            missing_flow = f"{flow_id} flow not found or has no stages"
-            stages_raw = _query_scalar(
-                conn,
-                f"SELECT stages FROM deployment_flows WHERE id={_p(conn)} "
-                f"AND project_id={_p(conn)}",
-                (flow_id, ident.id),
-            )
+            flow_id = _project_default_flow(conn, ident.id)
+            stages_raw = None
+            if flow_id:
+                status_clause = (
+                    " AND status='active'"
+                    if _column_exists(conn, "deployment_flows", "status")
+                    else ""
+                )
+                stages_raw = _query_scalar(
+                    conn,
+                    f"SELECT stages FROM deployment_flows WHERE id={_p(conn)} "
+                    f"AND project_id={_p(conn)}{status_clause}",
+                    (flow_id, ident.id),
+                )
     finally:
         conn.close()
 
     if not stages_raw:
-        _check_fail(counters, missing_flow)
+        label = flow_id or f"{ctx.project} deployment default"
+        _check_fail(counters, f"{label} flow not found, inactive, or has no stages")
         return
 
     try:
@@ -273,7 +282,7 @@ def _check_deployment_flow_readiness(
             raise ValueError("stages is not a list")
         stage_count = len(stages)
     except (json.JSONDecodeError, ValueError):
-        _check_fail(counters, missing_flow)
+        _check_fail(counters, f"{flow_id} flow not found, inactive, or has no stages")
         return
 
     _check_pass(counters, f"{flow_id} flow has {stage_count} stage(s)")
@@ -283,6 +292,26 @@ def _check_deployment_flow_readiness(
                 name = stage.get("name", "?")
                 executor = stage.get("executor", "?")
                 print(f"       - {name} ({executor})")
+
+
+def _project_default_flow(conn, project_id: int) -> str | None:
+    if not _table_exists(conn, "project_structure"):
+        return None
+    raw = _query_scalar(
+        conn,
+        "SELECT payload FROM project_structure "
+        f"WHERE project_id={_p(conn)} AND family='deploy_defaults' "
+        "AND attachment_value='project' AND entry_key=''",
+        (project_id,),
+    )
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    flow_id = payload.get("deployment_flow") if isinstance(payload, dict) else None
+    return flow_id if isinstance(flow_id, str) and flow_id else None
 
 
 def _check_ssh_connectivity(ctx: ValidateContext, counters: Counters) -> None:

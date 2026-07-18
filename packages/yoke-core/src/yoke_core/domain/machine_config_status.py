@@ -5,16 +5,15 @@ import json
 import os
 import shutil
 import sys
-from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 from typing import Any, Mapping
 
 import yoke_core
 from yoke_core.domain import machine_config
 from yoke_contracts import install_binding as install_binding_contract
+from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.machine_config import schema as contract
 
-CORE_DISTRIBUTION_NAME = "yoke-core"
 REQUIRED_IMPORTS = ("fastapi", "uvicorn", "pydantic", "nacl")
 SECRET_ENV_KEYS = {"YOKE_PG_DSN"}
 AMBIENT_ENV_KEYS = (
@@ -101,10 +100,10 @@ def _install_binding() -> dict[str, Any]:
     """
     resolved = Path(yoke_core.__file__)
     checkout_root = install_binding_contract.source_checkout_root(resolved)
-    try:
-        version = package_version(CORE_DISTRIBUTION_NAME)
-    except PackageNotFoundError:
-        version = ""
+    version = install_binding_contract.distribution_version_for_module(
+        ENGINE_DISTRIBUTION_NAME,
+        resolved,
+    )
     return {
         "kind": (install_binding_contract.KIND_SOURCE_CHECKOUT if checkout_root
                  else install_binding_contract.KIND_PACKAGED_WHEEL),
@@ -240,7 +239,6 @@ def _credential_status(
 
 
 def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
-    entry = machine_config.project_entry(repo_root, config_path)
     project_id = machine_config.project_id(repo_root, config_path)
     issues: list[dict[str, str]] = []
     if project_id is None:

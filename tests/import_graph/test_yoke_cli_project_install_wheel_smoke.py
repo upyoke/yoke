@@ -165,6 +165,7 @@ def _assert_installed(checkout: Path, config: Path) -> None:
     assert manifest["manifest_schema"] == 1
     assert manifest["mode"] == "copy"
     assert manifest["project_id"] == 7
+    assert manifest["project_slug"] == "demo"
     assert sorted(manifest["files"]) == [
         ".claude/agents/yoke-engineer.md",
         ".claude/skills/yoke/idea/SKILL.md",

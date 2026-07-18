@@ -42,7 +42,7 @@ class TestIsBookkeeping(unittest.TestCase):
 
     def test_legacy_project_qa_artifacts_are_not_bookkeeping(self) -> None:
         self.assertFalse(
-            lint_main_commit.is_bookkeeping("projects/buzz/qa-artifacts/screenshot.png")
+            lint_main_commit.is_bookkeeping("projects/externalwebapp/qa-artifacts/screenshot.png")
         )
 
     def test_non_bookkeeping(self) -> None:

@@ -110,6 +110,7 @@ def collect_operation_tracker() -> Dict[str, Any]:
             "status": entry.status,
             "reason": entry.reason,
             "proposed_function_id": entry.proposed_function_id,
+            "source_owner": entry.source_owner,
         })
     by_status: Dict[str, int] = {}
     for r in rows:

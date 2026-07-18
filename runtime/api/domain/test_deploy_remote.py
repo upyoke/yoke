@@ -200,17 +200,17 @@ class TestAwsCapabilityEnv:
         )
 
         region = aws_capability_region(
-            "buzz",
+            "externalwebapp",
             capability_type="runner-aws",
         )
         env = aws_capability_env(
-            "buzz",
+            "externalwebapp",
             region or "",
             capability_type="runner-aws",
         )
 
         assert region == "eu-west-1"
-        assert settings_calls == [("buzz", "runner-aws")]
+        assert settings_calls == [("externalwebapp", "runner-aws")]
         assert {call[1] for call in secret_calls} == {"runner-aws"}
         assert env["AWS_ACCESS_KEY_ID"] == "AKIACUSTOM"
         assert env["AWS_SECRET_ACCESS_KEY"] == "custom-secret"

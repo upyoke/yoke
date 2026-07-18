@@ -128,13 +128,13 @@ class TestArtifactList:
         qa.cmd_artifact_add(
             db_path=db_path, run_id=run_id, artifact_type="screenshot",
             artifact_handle=json.dumps(
-                {"backend": "local", "path": "buzz/qa-artifacts/100/1/one.png"}
+                {"backend": "local", "path": "externalwebapp/qa-artifacts/100/1/one.png"}
             ),
         )
         qa.cmd_artifact_add(
             db_path=db_path, run_id=other_run_id, artifact_type="screenshot",
             artifact_handle=json.dumps(
-                {"backend": "local", "path": "buzz/qa-artifacts/200/2/two.png"}
+                {"backend": "local", "path": "externalwebapp/qa-artifacts/200/2/two.png"}
             ),
         )
         capsys.readouterr()
@@ -154,8 +154,8 @@ class TestArtifactList:
         qa.cmd_artifact_add(
             db_path=db_path, run_id=run_id, artifact_type="screenshot",
             artifact_handle=json.dumps({
-                "backend": "s3", "bucket": "buzz-prod-artifacts",
-                "key": f"qa-artifacts/buzz/100/{run_id}/shot.png",
+                "backend": "s3", "bucket": "externalwebapp-prod-artifacts",
+                "key": f"qa-artifacts/externalwebapp/100/{run_id}/shot.png",
             }),
         )
         qa.cmd_artifact_add(
@@ -173,7 +173,7 @@ class TestArtifactList:
         assert len(lines) == 2
         # s3 handles address as object URIs; local handles as paths.
         assert (
-            f"s3://buzz-prod-artifacts/qa-artifacts/buzz/100/{run_id}/shot.png"
+            f"s3://externalwebapp-prod-artifacts/qa-artifacts/externalwebapp/100/{run_id}/shot.png"
             in lines[0]
         )
         assert "/tmp/local-shot.png" in lines[1]

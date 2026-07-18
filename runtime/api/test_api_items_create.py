@@ -48,13 +48,13 @@ class TestCreateItem:
     def test_create_item_with_project(self, client, test_db):
         """POST /v1/items accepts optional project field."""
         resp = client.post("/v1/items", json={
-            "title": "Buzz item",
+            "title": "ExternalWebapp item",
             "type": "issue",
-            "project": "buzz",
+            "project": "externalwebapp",
         })
         assert resp.status_code == 201
         data = resp.json()
-        assert data["project"] == "buzz"
+        assert data["project"] == "externalwebapp"
 
     def test_create_item_with_deployment_flow(self, client, test_db):
         """POST /v1/items accepts optional deployment_flow field."""

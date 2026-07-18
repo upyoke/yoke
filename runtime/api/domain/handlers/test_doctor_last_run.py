@@ -171,32 +171,32 @@ class TestLastRunSelection:
 class TestProjectFilter:
     def test_project_filter_prefers_the_matching_run(self, test_db):
         _insert_run(
-            test_db, event_id="evt-buzz", created_at="2026-01-01T00:00:00Z",
-            result=_doctor_result(project="buzz"), project="buzz",
+            test_db, event_id="evt-externalwebapp", created_at="2026-01-01T00:00:00Z",
+            result=_doctor_result(project="externalwebapp"), project="externalwebapp",
         )
         _insert_run(
             test_db, event_id="evt-yoke", created_at="2026-01-02T00:00:00Z",
             result=_doctor_result(project="yoke"),
         )
-        outcome = handle_doctor_last_run_get(_request({"project": "buzz"}))
+        outcome = handle_doctor_last_run_get(_request({"project": "externalwebapp"}))
         assert outcome.primary_success
         served = outcome.result_payload
         assert served["ran_at"] == "2026-01-01T00:00:00Z"
-        assert served["project"] == "buzz"
+        assert served["project"] == "externalwebapp"
 
     def test_mismatched_run_never_poses_as_the_project(self, test_db):
         _insert_run(
             test_db, event_id="evt-yoke", created_at="2026-01-01T00:00:00Z",
             result=_doctor_result(project="yoke"),
         )
-        # The buzz project exists (this row registers it) but its only
+        # The externalwebapp project exists (this row registers it) but its only
         # journal trace is a partial page — never a served run.
         _insert_run(
-            test_db, event_id="evt-buzz-page",
+            test_db, event_id="evt-externalwebapp-page",
             created_at="2026-01-02T00:00:00Z",
-            result=_doctor_result(project="buzz", done=False), project="buzz",
+            result=_doctor_result(project="externalwebapp", done=False), project="externalwebapp",
         )
-        outcome = handle_doctor_last_run_get(_request({"project": "buzz"}))
+        outcome = handle_doctor_last_run_get(_request({"project": "externalwebapp"}))
         assert outcome.primary_success
         assert outcome.result_payload == {"never_run": True}
 
@@ -238,13 +238,13 @@ class TestTruncatedEnvelope:
         # trace is project-unreadable, so the filter falls to never_run.
         insert_event(
             test_db, event_id="evt-any", event_name="SomethingElse",
-            project="buzz",
+            project="externalwebapp",
         )
         _insert_run(
             test_db, event_id="evt-shrunk", created_at="2026-01-02T00:00:00Z",
             result={"_truncated_value": True, "_bytes": 99},
         )
-        outcome = handle_doctor_last_run_get(_request({"project": "buzz"}))
+        outcome = handle_doctor_last_run_get(_request({"project": "externalwebapp"}))
         assert outcome.primary_success
         assert outcome.result_payload == {"never_run": True}
 

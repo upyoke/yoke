@@ -1,4 +1,4 @@
-"""Frozen seed data and ``cmd_seed`` for the Project Structure aggregate.
+"""Source-owned seed data and ``cmd_seed`` for Project Structure.
 
 The seeds are ordered lists of op dicts — the same shape :func:`apply_patch`
 accepts, minus the ``op`` field (always ``put`` for seeding). This keeps
@@ -21,7 +21,7 @@ _YOKE_FULL_TEST_COMMAND = (
 )
 
 
-#: Frozen seed data for projects known to Yoke at constitution-freeze time.
+#: Seed data for the Yoke control-plane project.
 #:
 #: The seeds are ordered lists of op dicts — the same shape :func:`apply_patch`
 #: accepts, minus the ``op`` field (always ``put`` for seeding).  This keeps
@@ -110,95 +110,6 @@ _SEEDS: Dict[str, List[Dict[str, Any]]] = {
         {"family": "context_routing", "attachment": "project",
          "entry_key": "always",
          "payload": {"docs": ["CLAUDE.md", "yoke/README.md"]}},
-    ],
-    "buzz": [
-        {"family": "areas", "attachment": "project", "entry_key": "backend",
-         "payload": {"description": "Buzz backend — FastAPI + pytest."}},
-        {"family": "areas", "attachment": "project", "entry_key": "frontend",
-         "payload": {"description": "Buzz web frontend — React/Vite."}},
-        {"family": "areas", "attachment": "project", "entry_key": "docs",
-         "payload": {"description": "Buzz durable documentation."}},
-
-        {"family": "mappings", "attachment": "app/**",
-         "payload": {"area_name": "backend"}},
-        {"family": "mappings", "attachment": "web/**",
-         "payload": {"area_name": "frontend"}},
-        {"family": "mappings", "attachment": "docs/**",
-         "payload": {"area_name": "docs"}},
-
-        {"family": "test_roots", "attachment": "app/tests/",
-         "entry_key": "backend_tests",
-         "payload": {"purpose": "Backend pytest surface."}},
-        {"family": "test_roots", "attachment": "web/tests/",
-         "entry_key": "frontend_tests",
-         "payload": {"purpose": "Frontend vitest + playwright surface."}},
-
-        {"family": "verification_profiles", "attachment": "project",
-         "entry_key": "backend_quick",
-         "payload": {"test_command": "cd app && .venv/bin/python3 -m pytest tests/ -k 'not live'",
-                     "description": "Quick backend signal."}},
-        {"family": "verification_profiles", "attachment": "project",
-         "entry_key": "frontend_quick",
-         "payload": {"test_command": "cd web && npm run test",
-                     "description": "Quick frontend signal."}},
-
-        {"family": "ownership_defaults", "attachment": "app/",
-         "payload": {"owner": "backend"}},
-        {"family": "ownership_defaults", "attachment": "web/",
-         "payload": {"owner": "frontend"}},
-
-        {"family": "integration_targets", "attachment": "project",
-         "entry_key": "main",
-         "payload": {"branch_pattern": "main",
-                     "description": "Primary integration branch."}},
-
-        # Buzz project-level test commands.
-        # ``e2e`` is intentionally absent — buzz has no real end-to-end
-        # suite today; browser integration tests live under ``full``.
-        {"family": "command_definitions", "attachment": "project",
-         "entry_key": "quick",
-         "payload": {"command":
-                     'sh app/scripts/setup-venv.sh'
-                     ' && cd app && .venv/bin/python3 -m pytest tests/ -k "not live"'
-                     ' && cd web && npm run test'}},
-        {"family": "command_definitions", "attachment": "project",
-         "entry_key": "full",
-         "payload": {"command":
-                     'sh app/scripts/setup-venv.sh'
-                     ' && cd app && .venv/bin/python3 -m pytest tests/ -k "not live"'
-                     ' && cd web && npm run test && npm run build'
-                     ' && npm run test:browser'}},
-        {"family": "command_definitions", "attachment": "project",
-         "entry_key": "smoke",
-         "payload": {"command": "cd app/web && npm run test:smoke"}},
-
-        # Buzz's merge verification policy: intentionally absent on first
-        # deploy. Existing Buzz installs that previously relied on the
-        # implicit fallback to ``full``/``quick`` will see the merge
-        # engine emit "no merge policy configured" and skip project
-        # tests at merge time. To restore an explicit gate, configure one
-        # via
-        # ``python3 -m yoke_core.domain.merge_verification set buzz <cmd>
-        # --timeout-seconds <seconds>``. The timeout is part of the project
-        # policy; a typical command is the ``quick`` scope for fast signal.
-
-        # Buzz context routing: project-wide always-included docs plus
-        # topic-keyed entries that mirror the previous coarse columns.
-        {"family": "context_routing", "attachment": "project",
-         "entry_key": "always",
-         "payload": {"docs": ["AGENTS.md"]}},
-        {"family": "context_routing", "attachment": "project",
-         "entry_key": "backend",
-         "payload": {"docs": ["docs/API.md", "docs/PIPELINE.md"]}},
-        {"family": "context_routing", "attachment": "project",
-         "entry_key": "frontend",
-         "payload": {"docs": ["docs/DASHBOARD.md"]}},
-        {"family": "context_routing", "attachment": "project",
-         "entry_key": "testing",
-         "payload": {"docs": ["docs/TESTING.md"]}},
-        {"family": "context_routing", "attachment": "project",
-         "entry_key": "deployment",
-         "payload": {"docs": ["docs/VPS-SETUP.md"]}},
     ],
 }
 

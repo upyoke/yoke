@@ -44,7 +44,7 @@
     "hosted_zone_id": "Route 53 hosted zone ID (from DB site/domain settings or filled after deploy)",
     "certificate_arn": "ACM certificate ARN (from DB site/domain settings or filled after deploy)",
     "domain_txt_records": "Rendered from DB site/domain settings domains[].txt_records. Optional domain ownership TXT records such as workspace verification codes; domain stack owns them when present, otherwise infra does.",
-    "domain": "Project domain for hostname-based environment URLs (e.g., buzzabuzz.com). Used for ephemeral ({slug}.domain) and preview ({name}.domain) environments.",
+    "domain": "Project domain for hostname-based environment URLs (e.g., example.com). Used for ephemeral ({slug}.domain) and preview ({name}.domain) environments.",
     "vps_description": "VPS provider and OS description (e.g., DigitalOcean, Ubuntu 24.04, nginx + ufw)",
     "stacks": "DB site settings pulumi.stacks list of Pulumi stacks this project instantiates (subset of infra/vps/domain). Absent = the default [infra, vps] full-webapp pair; a DNS-only project declares [domain].",
     "import_zone_id": "Domain stack only (DB site/domain hosted_zone_id -> importZoneId). Existing Route 53 hosted-zone id to ADOPT instead of creating a new zone — set this when the domain was registered through Route 53 (which auto-creates a zone) so `pulumi up` adopts it rather than making a duplicate. Empty = create a fresh zone.",

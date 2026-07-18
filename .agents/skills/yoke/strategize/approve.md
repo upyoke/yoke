@@ -89,7 +89,7 @@ Present the implications of the approved changes on the current frontier (planne
 ### 3a. Gather Frontier Items
 
 ```bash
-_frontier=$(python3 -m yoke_core.cli.db_router query "SELECT id, title, status FROM items WHERE project_id = ${_project_id} AND status NOT IN ('idea','done','cancelled','failed','stopped') ORDER BY status, id")
+_frontier=$(yoke db read --format lines "SELECT id, title, status FROM items WHERE project_id = ${_project_id} AND status NOT IN ('idea','done','cancelled','failed','stopped') ORDER BY status, id")
 ```
 
 ### 3b. Analyze Implications

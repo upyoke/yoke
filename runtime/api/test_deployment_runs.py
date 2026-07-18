@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Tests for yoke_core.domain.deployment_runs — core CRUD path.
-
 Covers init, ID generation, run creation, item add/remove, get/update/list,
 and find-by-item. Lineage, QA, validation, CLI exit codes, preview
 environments, and cleanup live in sibling test modules:
@@ -14,7 +14,7 @@ import pytest
 
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain.schema_common import _get_tables
-from runtime.api.deployment_runs_test_db import db_path  # noqa: F401 — fixture re-export
+from runtime.api.deployment_runs_test_db import db_path  # noqa: F401, F811 — fixture re-export
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
@@ -210,7 +210,7 @@ class TestList:
 
     def test_list_by_project(self, db_path: str) -> None:
         dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        result = dr.cmd_list(project="buzz", db_path=db_path)
+        result = dr.cmd_list(project="externalwebapp", db_path=db_path)
         assert result == ""
 
     def test_list_by_status(self, db_path: str) -> None:

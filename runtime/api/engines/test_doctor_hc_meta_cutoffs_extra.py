@@ -63,7 +63,7 @@ class TestCrossProjectCommitsCutoff:
 
     def test_cutoff_appends_since_flag(self, tmp_path):
         conn = _make_conn()
-        self._seed_done_non_yoke(conn, item_id=999, project="buzz")
+        self._seed_done_non_yoke(conn, item_id=999, project="externalwebapp")
         cutoff = "2026-04-18"
         _write_cutoff(
             tmp_path, "hc_cross_project_commits_min_commit_date", cutoff,
@@ -88,7 +88,7 @@ class TestCrossProjectCommitsCutoff:
 
     def test_no_cutoff_omits_since_flag(self, tmp_path):
         conn = _make_conn()
-        self._seed_done_non_yoke(conn, item_id=999, project="buzz")
+        self._seed_done_non_yoke(conn, item_id=999, project="externalwebapp")
 
         captured_argv = []
 

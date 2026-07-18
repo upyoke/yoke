@@ -10,11 +10,14 @@ from __future__ import annotations
 import json
 
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS as _SEED_FLOWS
+from yoke_core.domain.flow_supersession import (
+    converge_builtin_flow_supersessions,
+)
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _table_exists,
 )
-from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS as _SEED_FLOWS
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 
 
@@ -79,44 +82,35 @@ def _seed_missing_flow_definitions(conn) -> None:
         conn.execute(
             "INSERT INTO deployment_flows "
             "(id, project_id, name, description, stages, on_failure, target_env, "
-            "status, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "done_description, status, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT(id) DO NOTHING",
             (
              flow["id"], project_ids[str(flow["project"])],
              flow["name"], flow["description"],
              flow["stages"], flow["on_failure"], flow.get("target_env"),
-             flow.get("status", "active"),
+             flow.get("done_description"), flow.get("status", "active"),
              iso8601_now()),
         )
 
 
 def converge_flow_catalog(conn) -> None:
-    """Converge additive flow schema and missing built-in definitions.
+    """Converge additive flow schema and code-owned flow definitions.
 
-    This is the existing-universe boot path.  It is safe to run repeatedly and
-    never deletes a definition, changes a definition's status, or touches a
-    deployment run.
+    This is the existing-universe boot path. It is safe to run repeatedly,
+    never deletes or rewrites a predecessor, and never changes a deployment
+    run. Exact code-owned predecessors may be disabled once every binding is
+    terminal; modified definitions stay untouched.
     """
     _ensure_flow_schema(conn)
     _seed_missing_flow_definitions(conn)
+    converge_builtin_flow_supersessions(conn)
     conn.commit()
 
 
 def cmd_init(conn) -> str:
     _ensure_flow_schema(conn)
     _seed_missing_flow_definitions(conn)
-
-    # Backfill target_env and done_description for existing rows
-    backfills = [
-        ("target_env", "production", "buzz-prod-release"),
-        ("target_env", "production", "buzz-prod-hotfix"),
-    ]
-    for col, val, fid in backfills:
-        conn.execute(
-            f"UPDATE deployment_flows SET {col}=%s WHERE id=%s AND {col} IS NULL",
-            (val, fid),
-        )
 
     for flow in _SEED_FLOWS:
         if flow.get("done_description"):
@@ -168,6 +162,7 @@ def cmd_init(conn) -> str:
             (json.dumps(merged), flow["id"]),
         )
 
+    converge_builtin_flow_supersessions(conn)
     conn.commit()
 
     # Create item_progress_view

@@ -67,7 +67,7 @@ def github_user_opener(events):
                 "repositories": [
                     {
                         "id": 4567,
-                        "full_name": "Example-Org/Buzz",
+                        "full_name": "Example-Org/ExternalWebapp",
                         "default_branch": "trunk",
                         "owner": {"id": 9988},
                     }

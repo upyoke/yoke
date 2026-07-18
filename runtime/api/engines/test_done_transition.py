@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Tests for the done-transition Python engine: transition mechanics.
-
 Gates and CLI tests live in test_done_transition_gates.py.
 Post-transition (cleanup, cascade, merge) tests live in
 test_done_transition_post.py.
@@ -235,7 +235,7 @@ class TestDeploymentFlowGuard:
     def test_skip_deploy_without_evidence_returns_exit_7(self):
         with mock.patch(
             "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
-            return_value=["buzz-prod-release"],
+            return_value=["externalwebapp-prod-release"],
         ), mock.patch.object(
             done_transition_deploy_gates,
             "_check_deployment_evidence",
@@ -243,7 +243,7 @@ class TestDeploymentFlowGuard:
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=207,
-                deploy_flow="buzz-prod-release",
+                deploy_flow="externalwebapp-prod-release",
                 skip_deploy=True,
                 item_project="yoke",
                 old_status="implemented",
@@ -254,7 +254,7 @@ class TestDeploymentFlowGuard:
     def test_no_evidence_fallback_sets_release_and_returns_exit_7(self):
         with mock.patch(
             "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
-            return_value=["buzz-prod-release"],
+            return_value=["externalwebapp-prod-release"],
         ), mock.patch.object(
             done_transition_deploy_gates,
             "_get_latest_run_status",
@@ -267,7 +267,7 @@ class TestDeploymentFlowGuard:
             ) as upd:
                 result = done_transition._check_deployment_flow_guard(
                     item_id=226,
-                    deploy_flow="buzz-prod-release",
+                    deploy_flow="externalwebapp-prod-release",
                     skip_deploy=False,
                     item_project="yoke",
                     old_status="implemented",

@@ -36,7 +36,7 @@ Before usher advances an item into `release`, confirm that all blocking
 verification-phase requirements are already satisfied or waived:
 
 ```bash
-_unsatisfied_verify=$(python3 -m yoke_core.cli.db_router query \
+_unsatisfied_verify=$(yoke db read --format lines \
  "SELECT COUNT(*) FROM qa_requirements qr \
  WHERE qr.item_id = {N} AND qr.qa_phase = 'verification' \
  AND qr.blocking_mode = 'blocking' AND qr.waived_at IS NULL \
@@ -81,7 +81,7 @@ if [ -n "$_item_flow" ] && [ "$_item_flow" != "null" ]; then
 
  if [ "$_has_eph_verify" -gt 0 ]; then
  # Skip if conduct/polish already satisfied the ephemeral QA gate
- _already_passed_eph=$(python3 -m yoke_core.cli.db_router query \
+ _already_passed_eph=$(yoke db read --format lines \
  "SELECT COUNT(*) FROM qa_runs qr JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id WHERE qreq.item_id = {N} AND qreq.qa_kind IN ('browser_smoke', 'browser_diff') AND qreq.qa_phase = 'verification' AND qr.verdict = 'pass'" 2>/dev/null) || _already_passed_eph="0"
 
  if [ -n "$_already_passed_eph" ] && [ "$_already_passed_eph" -gt 0 ]; then

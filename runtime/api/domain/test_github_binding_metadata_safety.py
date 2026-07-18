@@ -30,7 +30,7 @@ def _metadata(**overrides):
         "repository_selection": "selected",
         "permissions": {"metadata": "read", "issues": "write"},
         "repository_id": "4567",
-        "github_repo": "https://github.example/Example-Org/Buzz.git",
+        "github_repo": "https://github.example/Example-Org/ExternalWebapp.git",
         "default_branch": "feature/safe-name",
         "installation_status": "active",
     }
@@ -42,7 +42,7 @@ def test_binding_metadata_is_canonical_and_immutable() -> None:
     metadata = validate_binding_metadata(**_metadata())
 
     assert metadata.account_type == "Organization"
-    assert metadata.github_repo == "Example-Org/Buzz"
+    assert metadata.github_repo == "Example-Org/ExternalWebapp"
     assert metadata.permissions == {"metadata": "read", "issues": "write"}
     with pytest.raises(TypeError):
         metadata.permissions["issues"] = "read"  # type: ignore[index]
@@ -144,17 +144,17 @@ def test_user_verification_normalizes_repository_before_returning() -> None:
     verified = verify_project_github_binding(
         installation_id="12345",
         repository_id="4567",
-        expected_github_repo="example-org/buzz",
+        expected_github_repo="example-org/externalwebapp",
         expected_api_url="https://api.github.com",
         github_user_access_token="user-secret",
         endpoint=validate_github_api_endpoint("https://api.github.com"),
         opener=_verification_opener(
-            repository_name="https://github.com/Example-Org/Buzz.git",
+            repository_name="https://github.com/Example-Org/ExternalWebapp.git",
             default_branch="main",
         ),
     )
 
-    assert verified.github_repo == "Example-Org/Buzz"
+    assert verified.github_repo == "Example-Org/ExternalWebapp"
 
 
 def test_user_verification_rejects_unsafe_default_branch() -> None:
@@ -162,12 +162,12 @@ def test_user_verification_rejects_unsafe_default_branch() -> None:
         verify_project_github_binding(
             installation_id="12345",
             repository_id="4567",
-            expected_github_repo="example-org/buzz",
+            expected_github_repo="example-org/externalwebapp",
             expected_api_url="https://api.github.com",
             github_user_access_token="user-secret",
             endpoint=validate_github_api_endpoint("https://api.github.com"),
             opener=_verification_opener(
-                repository_name="Example-Org/Buzz",
+                repository_name="Example-Org/ExternalWebapp",
                 default_branch="-c core.sshCommand=evil",
             ),
         )
@@ -184,7 +184,7 @@ def test_persistence_revalidates_typed_verifier_output_before_connect(
         repository_selection="selected",
         permissions={"issues": "write"},
         repository_id="4567",
-        github_repo="Example-Org/Buzz",
+        github_repo="Example-Org/ExternalWebapp",
         default_branch="bad\x1bbranch",
     )
     connected = False
@@ -200,7 +200,7 @@ def test_persistence_revalidates_typed_verifier_output_before_connect(
         match="default branch",
     ):
         project_github_binding._store_verified_project_repo_binding(
-            "buzz",
+            "externalwebapp",
             verified=verified,
         )
 

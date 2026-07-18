@@ -73,7 +73,7 @@ def test_foreign_app_installation_is_rejected_before_repository_lookup():
         verify_project_github_binding(
             installation_id="12345",
             repository_id="4567",
-            expected_github_repo="example-org/buzz",
+            expected_github_repo="example-org/externalwebapp",
             expected_api_url="https://api.github.com",
             github_user_access_token="foreign-app-user-token",
             opener=github_user_opener(user_events),
@@ -104,7 +104,7 @@ def test_matching_server_app_is_proven_before_repository_binding():
     verified = verify_project_github_binding(
         installation_id="12345",
         repository_id="4567",
-        expected_github_repo="example-org/buzz",
+        expected_github_repo="example-org/externalwebapp",
         expected_api_url="https://api.github.com",
         github_user_access_token="yoke-app-user-token",
         opener=github_user_opener(events),
@@ -112,7 +112,7 @@ def test_matching_server_app_is_proven_before_repository_binding():
         server_installation_fetcher=fetcher,
     )
 
-    assert verified.github_repo == "Example-Org/Buzz"
+    assert verified.github_repo == "Example-Org/ExternalWebapp"
     assert events == [
         "/user",
         "/user/installations",

@@ -28,7 +28,7 @@ CREATE TABLE projects (
 
 PROJECT_IDS = {
     "yoke": 1,
-    "buzz": 2,
+    "externalwebapp": 2,
     "third": 3,
     "scope-fixture-alpha": 4,
 }
@@ -69,7 +69,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
     def test_returns_all_registered_projects_when_override_is_none(self) -> None:
         """AC-2: ``override=None`` returns every row in ``projects`` — never
         the literal ``"yoke"`` fallback."""
-        conn = _make_db(["yoke", "buzz"])
+        conn = _make_db(["yoke", "externalwebapp"])
         try:
             self.assertEqual(
                 sorted(resolve_session_project_scope(conn, override=None)),
@@ -80,7 +80,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
 
     def test_returns_all_registered_projects_when_override_is_empty_list(self) -> None:
         """AC-2: ``override=[]`` is treated as no override (all-projects)."""
-        conn = _make_db(["yoke", "buzz"])
+        conn = _make_db(["yoke", "externalwebapp"])
         try:
             self.assertEqual(
                 sorted(resolve_session_project_scope(conn, override=[])),
@@ -93,7 +93,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
         """AC-2 contract: a ``projects`` row whose id is NOT ``yoke`` must
         appear in the default scope. The prior silent ``"yoke"`` fallback
         must not return."""
-        conn = _make_db(["buzz"])
+        conn = _make_db(["externalwebapp"])
         try:
             self.assertEqual(
                 resolve_session_project_scope(conn, override=None),
@@ -116,10 +116,10 @@ class TestResolveSessionProjectScope(unittest.TestCase):
     def test_returns_override_unchanged_when_all_valid(self) -> None:
         """AC-3: non-empty override returns the list unchanged (order
         preserved)."""
-        conn = _make_db(["yoke", "buzz", "third"])
+        conn = _make_db(["yoke", "externalwebapp", "third"])
         try:
             self.assertEqual(
-                resolve_session_project_scope(conn, override=["buzz", "yoke"]),
+                resolve_session_project_scope(conn, override=["externalwebapp", "yoke"]),
                 [2, 1],
             )
         finally:
@@ -128,20 +128,20 @@ class TestResolveSessionProjectScope(unittest.TestCase):
     def test_unknown_override_id_raises_with_id_and_registered_set(self) -> None:
         """AC-3: unknown override id raises a clear error naming the unknown
         id and the registered set."""
-        conn = _make_db(["yoke", "buzz"])
+        conn = _make_db(["yoke", "externalwebapp"])
         try:
             with self.assertRaises(ValueError) as cm:
                 resolve_session_project_scope(conn, override=["unknown"])
             message = str(cm.exception)
             self.assertIn("unknown", message)
             self.assertIn("yoke", message)
-            self.assertIn("buzz", message)
+            self.assertIn("externalwebapp", message)
         finally:
             conn.close()
 
     def test_partial_unknown_override_raises(self) -> None:
         """AC-3: an override mixing known + unknown ids still raises."""
-        conn = _make_db(["yoke", "buzz"])
+        conn = _make_db(["yoke", "externalwebapp"])
         try:
             with self.assertRaises(ValueError):
                 resolve_session_project_scope(
@@ -168,19 +168,19 @@ class TestParseProjectCliArg(unittest.TestCase):
 
     def test_comma_separated_returns_list(self) -> None:
         self.assertEqual(
-            parse_project_cli_arg("yoke,buzz"), ["yoke", "buzz"]
+            parse_project_cli_arg("yoke,externalwebapp"), ["yoke", "externalwebapp"]
         )
 
     def test_whitespace_around_ids_is_stripped(self) -> None:
         self.assertEqual(
-            parse_project_cli_arg("  yoke , buzz  "),
-            ["yoke", "buzz"],
+            parse_project_cli_arg("  yoke , externalwebapp  "),
+            ["yoke", "externalwebapp"],
         )
 
     def test_empty_segments_are_dropped(self) -> None:
         self.assertEqual(
-            parse_project_cli_arg("yoke,,buzz,"),
-            ["yoke", "buzz"],
+            parse_project_cli_arg("yoke,,externalwebapp,"),
+            ["yoke", "externalwebapp"],
         )
 
     def test_only_commas_returns_none(self) -> None:
@@ -219,7 +219,7 @@ class TestBackwardCompatPersistedEnvelope(unittest.TestCase):
     registered set."""
 
     def test_missing_envelope_project_scope_falls_through_to_all_projects(self) -> None:
-        conn = _make_db(["yoke", "buzz", "third"])
+        conn = _make_db(["yoke", "externalwebapp", "third"])
         try:
             # Simulate the call shape the offer path uses when reading a
             # persisted envelope lacking ``project_scope`` — override is

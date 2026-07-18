@@ -47,7 +47,7 @@ yoke sessions touch \
 2. **Check for in-flight worktrees:**
 
  ```bash
- python3 -m yoke_core.cli.db_router query "SELECT id, title, worktree, status FROM items WHERE status NOT IN ('idea','done','cancelled','failed','stopped') AND worktree IS NOT NULL AND worktree <> '';"
+ yoke db read --format lines "SELECT id, title, worktree, status FROM items WHERE status NOT IN ('idea','done','cancelled','failed','stopped') AND worktree IS NOT NULL AND worktree <> '';"
  ```
 
  If any items are still active with worktrees, warn:
@@ -67,7 +67,7 @@ yoke sessions touch \
 
  b. **Items touched:** Query items whose `updated_at` timestamp is recent:
  ```bash
- python3 -m yoke_core.cli.db_router query -separator '|' "SELECT id, title, status FROM items WHERE updated_at >= to_char((now() AT TIME ZONE 'UTC') - interval '4 hours', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') ORDER BY updated_at DESC;"
+ yoke db read --format lines "SELECT id, title, status FROM items WHERE updated_at >= to_char((now() AT TIME ZONE 'UTC') - interval '4 hours', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') ORDER BY updated_at DESC;"
  ```
 
 4. **Generate the wrapup report:**
@@ -201,17 +201,16 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
  - Tickets filed: {list or "none"}
  ```
 
- Then save to DB and generate the `.md` view. Use a session timestamp in `{YYYY-MM-DD}-{HHmm}` format (current UTC time):
+ Then save to the authoritative DB through the registered wrapup surface. Use a session timestamp in `{YYYY-MM-DD}-{HHmm}` format (current UTC time):
 
  ```bash
  SESSION_TS="{YYYY-MM-DD}-{HHmm}"
- cat << 'WRAPUP_EOF' | python3 -m yoke_core.cli.db_router ouroboros insert-wrapup "$SESSION_TS"
+ cat << 'WRAPUP_EOF' | yoke ouroboros wrapup save "$SESSION_TS" --stdin
  {full wrapup report body from above}
  WRAPUP_EOF
- python3 -m yoke_core.cli.db_router ouroboros generate-wrapup "$SESSION_TS"
  ```
 
- The `generate-wrapup` command renders the report to `ouroboros/wrapups/{SESSION_TS}.md`. This file is a local generated view (gitignored since) — the DB `wrapup_reports` table is the canonical source. The local `.md` file survives context clears and can be reviewed by future sessions or `/yoke curate`.
+ The DB `wrapup_reports` table is the canonical source; future sessions can review it through `yoke ouroboros wrapup list`. External projects do not need a Yoke source checkout or a local generated wrapup view.
 
 9. **Display the session summary:**
 

@@ -28,7 +28,7 @@ _QA_SUPPORT_SCHEMA = """
     INSERT INTO projects (id, slug, name)
     VALUES (1, 'yoke', 'yoke');
     INSERT INTO projects (id, slug, name)
-    VALUES (2, 'buzz', 'buzz');
+    VALUES (2, 'externalwebapp', 'externalwebapp');
 
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,

@@ -69,7 +69,7 @@ Emission pattern: Explicit calls from application code via events.py module
  "environment": "production",
  "service": "api",
  "service_version": "2.1.0",
- "project": "buzz",
+ "project": "external-webapp",
 
  "actor_id": 17,
  "is_anonymous": false,
@@ -117,7 +117,7 @@ Emission pattern: Client-side SDK calls, batched to /api/events endpoint
  "environment": "production",
  "service": "web",
  "service_version": "3.0.1",
- "project": "buzz",
+ "project": "external-webapp",
 
  "org_id": "org_x1y2z3",
  "org_name": "Acme Corp",
@@ -126,10 +126,10 @@ Emission pattern: Client-side SDK calls, batched to /api/events endpoint
  "session_id": "frontend-sess-uuid",
  "session_start_time": "2026-03-12T15:55:00.000Z",
 
- "page_url": "https://app.buzz.com/dashboard?tab=orders",
+ "page_url": "https://app.example.com/dashboard?tab=orders",
  "page_path": "/dashboard",
- "page_title": "Dashboard - Buzz",
- "referrer": "https://www.google.com/search?q=buzz+app",
+ "page_title": "Dashboard - Example App",
+ "referrer": "https://www.google.com/search?q=example+app",
 
  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
  "browser": "Chrome 120",

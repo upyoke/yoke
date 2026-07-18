@@ -154,11 +154,11 @@ class _BoardArtShell(BoardArtFlow):
             env_name="prod",
             api_url="https://x",
             project_checkout="",
-            board_art_word="BUZZ",
+            board_art_word="EXT",
             board_art_variants=[
                 art.generate_variant(
                     kind="ASCII",
-                    word="BUZZ",
+                    word="EXT",
                     seed_text="seed",
                     attempt=0,
                 )

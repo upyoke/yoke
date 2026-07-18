@@ -73,7 +73,7 @@ Read the title, any body/description the user provided, and recent conversation 
 
 First, query available projects:
 ```bash
-_project_list=$(python3 -m yoke_core.cli.db_router query "SELECT id FROM projects ORDER BY id" 2>/dev/null || true)
+_project_list=$(yoke db read --format lines "SELECT id FROM projects ORDER BY id" 2>/dev/null || true)
 ```
 
 - If `_project_list` is empty or contains exactly one project, auto-select it (or `default_project` from config if empty):
@@ -92,7 +92,7 @@ After project is decided, resolve and print this machine's local checkout for th
 
 ### b. Infer deployment flow
 
-**This deploy-default lookup MUST run before deciding `_deployment_flow`.** For projects with a configured default (today: `yoke`, `buzz`), the lookup is non-skippable — running the fallback inference below without first running the lookup is wrong, not optional. The helper prints the flow id when a default is set and prints nothing when no default exists:
+**This deploy-default lookup MUST run before deciding `_deployment_flow`.** For every project with a configured default, the lookup is non-skippable — running the fallback inference below without first running the lookup is wrong, not optional. The helper prints the flow id when a default is set and prints nothing when no default exists:
 ```bash
 _project_default_flow=$(yoke project-structure deploy-defaults get --project "${_project}" || true)
 ```
@@ -103,14 +103,14 @@ If `_project_default_flow` is non-empty, use it as the deployment flow without f
 
 The fallback inference below applies only when the lookup returns nothing:
 ```bash
-_flow_list=$(python3 -m yoke_core.cli.db_router flows list --project "${_project}" 2>/dev/null || true)
+_flow_list=$(yoke workflows definition get --project "${_project}" 2>/dev/null || true)
 ```
 
 - If `_flow_list` is empty -> no deployment flow applies; leave `_deployment_flow` empty
 - If `_flow_list` contains exactly one non-internal flow -> auto-select it
 - If `_flow_list` contains multiple flows -> infer from context (deployment-related work -> the deploy flow; docs/process work -> no flow, leaving `_deployment_flow` empty). Only ask if genuinely ambiguous.
 
-If a flow applies, set `_deployment_flow` to its registered id (e.g., `yoke-internal`, `buzz-internal`). If no flow applies, leave `_deployment_flow` empty. NEVER store the literal string `none` — it is not a registered flow id and the CLI will reject it.
+If a flow applies, set `_deployment_flow` to its registered id (e.g., `yoke-internal`, `example-project-internal`). If no flow applies, leave `_deployment_flow` empty. NEVER store the literal string `none` — it is not a registered flow id and the CLI will reject it.
 
 ### c. Infer type
 
@@ -260,7 +260,7 @@ referenced item body or commit diff before deciding this is new work.
 Run the dedup search:
 
 ```bash
-python3 -m yoke_core.cli.db_router items dedup-search "{keywords}"
+yoke items search "{keywords}" --project "${_project}"
 ```
 
 Use 2-3 keywords extracted from the proposed title. Because this search is

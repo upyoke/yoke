@@ -157,7 +157,7 @@ class TestQueries:
     def test_query_projects(self, zen_db):
         insert_zen_items(zen_db, [
             (1, "Done item", "yoke", "done", "2025-01-15"),
-            (2, "Active item", "buzz", "implementing", "2025-01-15"),
+            (2, "Active item", "externalwebapp", "implementing", "2025-01-15"),
         ])
         with BoardDB(zen_db) as db:
             projects = _zen_query_projects(db)
@@ -167,11 +167,11 @@ class TestQueries:
     def test_query_projects_honors_scope(self, zen_db):
         insert_zen_items(zen_db, [
             (1, "Yoke done", "yoke", "done", "2025-01-15"),
-            (2, "Buzz done", "buzz", "done", "2025-01-15"),
+            (2, "ExternalWebapp done", "externalwebapp", "done", "2025-01-15"),
         ])
         with BoardDB(zen_db) as db:
-            projects = _zen_query_projects(db, "buzz")
-        assert projects == [("buzz", "\U0001f41d")]
+            projects = _zen_query_projects(db, "externalwebapp")
+        assert projects == [("externalwebapp", "\U0001f9e9")]
 
     def test_queued_count(self, zen_db):
         insert_zen_items(zen_db, [
@@ -243,13 +243,13 @@ class TestRenderZenWidget:
     def test_render_honors_project_scope(self, zen_db):
         insert_zen_items(zen_db, [
             (1, "Yoke done", "yoke", "done", "2025-01-15"),
-            (2, "Buzz done", "buzz", "done", "2025-01-15"),
+            (2, "ExternalWebapp done", "externalwebapp", "done", "2025-01-15"),
         ])
         cfg = BoardConfig(timeline_widget="always")
         with BoardDB(zen_db) as db:
-            lines = render_zen_widget(db, cfg, "buzz", 0, 0, 0)
+            lines = render_zen_widget(db, cfg, "externalwebapp", 0, 0, 0)
         combined = "\n".join(lines)
-        assert "\U0001f41d" in combined
+        assert "\U0001f9e9" in combined
         assert "\U0001f305" not in combined
 
     def test_empty_projects_returns_empty(self, zen_db):

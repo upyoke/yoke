@@ -107,14 +107,14 @@ class TestLabelExtraction:
         today = _dt.date.today()
         # 2 done items in the last 5 days: not enough
         recent = [
-            (1, "alpha recent", "buzz", "done",
+            (1, "alpha recent", "externalwebapp", "done",
              (today - _dt.timedelta(days=1)).isoformat()),
-            (2, "beta recent",  "buzz", "done",
+            (2, "beta recent",  "externalwebapp", "done",
              (today - _dt.timedelta(days=2)).isoformat()),
         ]
         # 8 older items, each with a distinct head word
         older = [
-            (i + 3, f"{word} old", "buzz", "done",
+            (i + 3, f"{word} old", "externalwebapp", "done",
              (today - _dt.timedelta(days=40)).isoformat())
             for i, word in enumerate(
                 ["gamma", "delta", "epsilon", "zeta",
@@ -125,10 +125,10 @@ class TestLabelExtraction:
 
         with BoardDB(zen_db) as db:
             # 5-day window alone: only 2 labels
-            tight = _zen_compute_labels(db, "buzz", "2000-01-01", 5, 0)
+            tight = _zen_compute_labels(db, "externalwebapp", "2000-01-01", 5, 0)
             # With min=5: widens 5d → 15d → 50d until we hit the floor
             widened = _zen_compute_labels(
-                db, "buzz", "2000-01-01", 5, 0, frozenset(), 5
+                db, "externalwebapp", "2000-01-01", 5, 0, frozenset(), 5
             )
 
         assert len(tight) == 2

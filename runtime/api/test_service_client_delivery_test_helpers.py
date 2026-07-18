@@ -29,7 +29,7 @@ _SCHEMA_DDL = """
     );
 
     INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'Yoke');
-    INSERT INTO projects (id, slug, name) VALUES (2, 'buzz', 'Buzz');
+    INSERT INTO projects (id, slug, name) VALUES (2, 'externalwebapp', 'ExternalWebapp');
 
     CREATE TABLE items (
         id INTEGER PRIMARY KEY,

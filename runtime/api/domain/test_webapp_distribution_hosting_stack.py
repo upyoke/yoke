@@ -83,6 +83,17 @@ def test_distribution_hosting_is_absent_without_bucket_config(monkeypatch):
     assert recorder.exports["distributionBucketName"] == ""
 
 
+def test_infra_component_type_aliases_are_project_configured(monkeypatch):
+    _recorder, stack = _infra_stack(
+        monkeypatch,
+        component_type_aliases=("legacy:infra:EdgeStack",),
+    )
+
+    assert [alias.kwargs["type_"] for alias in stack.component_opts.aliases] == [
+        "legacy:infra:EdgeStack"
+    ]
+
+
 def test_distribution_hosting_adds_static_origin_and_path_behaviors(monkeypatch):
     recorder, stack = _infra_stack(
         monkeypatch,

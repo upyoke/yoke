@@ -30,6 +30,7 @@ EXPECTED_CONTRACT_PATHS = {
     ".yoke/labels",
     ".yoke/board.json",
     ".yoke/board-art",
+    ".yoke/deployment-flows.json",
     ".yoke/test-inventory.md",
     ".yoke/template-deviations.md",
     ".yoke/runbooks/deploy.md",
@@ -159,7 +160,7 @@ def test_board_art_is_project_specific_not_generic() -> None:
 
 
 def test_choose_art_word_prefers_name_then_acronym_then_truncation() -> None:
-    assert choose_art_word("Buzz") == "BUZZ"
+    assert choose_art_word("Acme") == "ACME"
     assert choose_art_word("Customer Support Portal") == "CSP"
     assert choose_art_word("HypergraphKnowledgeWorkbench") == "HYPERGRA"
     assert (
@@ -200,7 +201,7 @@ def test_readme_maps_where_settings_live() -> None:
     assert "## Where settings live" in body
     # Repo-owned families.
     for token in ("file-line-exceptions", "board.json",
-                  "lint-config", "labels", "strategy/"):
+                  "deployment-flows.json", "lint-config", "labels", "strategy/"):
         assert token in body, token
     assert "project.config" not in body
     # DB-owned families each name their read/write command.
@@ -214,6 +215,7 @@ def test_readme_maps_where_settings_live() -> None:
         "project-onboarding surfaces",
         "project-structure command-definitions get|list",
         "project-structure patch apply",
+        "deployment-flows reconcile-project",
         "sites.settings",
     ):
         assert token in body, token

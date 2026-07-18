@@ -156,7 +156,7 @@ Audit rows live on the **model's authoritative DB**, not the
 Yoke control plane. For Yoke-as-project the authoritative DB and the
 control plane DB coincide, so [`create_governed_tables`](../../packages/yoke-core/src/yoke_core/domain/schema_init_tables.py)
 covers `migration_audit` at control-plane init. For non-Yoke projects
-(e.g. Buzz with `authoritative_db.location.path = "app/data/app.db"`)
+(e.g. a webapp with `authoritative_db.location.path = "app/data/app.db"`)
 the two diverge.
 
 [`yoke_core.domain.migration_audit_schema.ensure_migration_audit_table(conn)`](../../packages/yoke-core/src/yoke_core/domain/migration_audit_schema.py)
@@ -210,7 +210,7 @@ switch UX remains a later cloud-runtime capability; this pairing only declares w
 authority lives after cutover. Other runner kinds are schema-reserved and
 rejected.
 
-## Webapp Template + Buzz Seed
+## Webapp Template Configuration
 
 The webapp template's [`templates/webapp/template.json`](../../templates/webapp/template.json)
 carries a top-level `migration_model_defaults` block describing what a

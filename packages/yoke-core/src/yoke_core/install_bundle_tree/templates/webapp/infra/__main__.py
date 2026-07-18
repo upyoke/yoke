@@ -22,11 +22,9 @@ if _PROJECT_DIR not in sys.path:
     sys.path.insert(0, _PROJECT_DIR)
 
 import pulumi  # noqa: E402 -- sibling path must be installed before this import
-
-
+from webapp_component_aliases import component_type_aliases  # noqa: E402
 def _infra_args_from_config(deploy_namespace: str):
     from webapp_infra_stack import WebappInfraArgs
-
     config = pulumi.Config()
     return WebappInfraArgs(
         domain_name=config.require("domain_name"),
@@ -37,6 +35,7 @@ def _infra_args_from_config(deploy_namespace: str):
         origin_id=config.require("origin_id"),
         distribution_bucket_name=config.get("distribution_bucket_name") or "",
         distribution_origin_id=config.get("distribution_origin_id") or "",
+        component_type_aliases=component_type_aliases("infra"),
         domain_txt_records=_domain_txt_records_from_config(config),
         domain_mx_records=_domain_mx_records_from_config(config),
     )
@@ -44,7 +43,6 @@ def _infra_args_from_config(deploy_namespace: str):
 
 def _vps_args_from_config(deploy_namespace: str):
     from webapp_vps_stack import WebappVpsArgs
-
     config = pulumi.Config()
     return WebappVpsArgs(
         deploy_namespace=deploy_namespace,
@@ -55,12 +53,11 @@ def _vps_args_from_config(deploy_namespace: str):
         iam_instance_profile_name=(
             config.get("vps_iam_instance_profile_name") or None
         ),
+        component_type_aliases=component_type_aliases("vps"),
     )
-
 
 def _domain_args_from_config(deploy_namespace: str):
     from webapp_domain_stack import WebappDomainArgs
-
     config = pulumi.Config()
     return WebappDomainArgs(
         domain_name=config.require("domain_name"),
@@ -215,6 +212,9 @@ def _registry_args_from_config(deploy_namespace: str):
         kms_key_alias=config.get("kms_key_alias") or "",
         distribution_bucket_names=_config_string_list(
             config, "distribution_bucket_names"
+        ),
+        cloudfront_distribution_ids=_config_string_list(
+            config, "cloudfront_distribution_ids"
         ),
         github_app_private_key_secret_arns=_config_string_list(
             config, "github_app_private_key_secret_arns"

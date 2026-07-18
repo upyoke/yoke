@@ -8,18 +8,9 @@ Uses disposable Postgres test databases and mock subprocess for deterministic te
 
 from __future__ import annotations
 
-import json
-import re
-import subprocess
-import textwrap
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
 
 from yoke_core.engines.doctor import (
-    DoctorArgs,
-    RecordCollector,
     hc_cancelled_blocker_dependencies,
     hc_dependency_drift,
     hc_duplicate_projects,
@@ -31,17 +22,11 @@ from yoke_core.engines.doctor import (
 )
 
 from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
-    _args,
-    _completed,
     _insert_deployment_flow,
     _insert_item,
-    _iso_days_ago,
-    _iso_minutes_ago,
     _make_conn,
     _p,
-    _project_id,
     _result,
-    _results,
     _run_hc,
     _seed_project,
 )
@@ -87,7 +72,7 @@ class TestProjectsWithoutFlowsMeta:
         conn = _make_conn()
         _seed_project(conn, "yoke")
         _insert_deployment_flow(conn, "f1")
-        _insert_deployment_flow(conn, "buzz-flow", project="buzz")
+        _insert_deployment_flow(conn, "externalwebapp-flow", project="externalwebapp")
         rec = _run_hc(hc_projects_without_flows, conn)
         assert _result(rec).result == "PASS"
 

@@ -107,9 +107,9 @@ class TestMain:
 class TestHelpers:
     def test_item_context_with_project_repo(self):
         db = _make_db()
-        insert_item(db, id=80, type="issue", status="idea", project="buzz", github_issue="#100")
+        insert_item(db, id=80, type="issue", status="idea", project="externalwebapp", github_issue="#100")
         result = backlog_github_sync._item_context("80", conn=db)
-        assert result == ("#100", "buzz", "org/buzz")
+        assert result == ("#100", "externalwebapp", "org/externalwebapp")
         db.close()
 
     def test_item_context_without_project(self):
@@ -129,7 +129,7 @@ class TestHelpers:
 
     def test_item_fields(self):
         db = _make_db()
-        insert_item(db, id=80, type="issue", status="idea", priority="high", project="buzz", title="Test")
+        insert_item(db, id=80, type="issue", status="idea", priority="high", project="externalwebapp", title="Test")
         result = backlog_github_sync._item_fields("80", ["title", "status", "priority"], conn=db)
         assert result == {"title": "Test", "status": "idea", "priority": "high"}
         db.close()

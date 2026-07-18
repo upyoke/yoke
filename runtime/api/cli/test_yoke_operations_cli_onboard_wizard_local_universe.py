@@ -40,7 +40,7 @@ def test_local_destination_manifest_project_id_uses_local_universe(
     tmp_path,
     monkeypatch,
 ) -> None:
-    checkout = tmp_path / "buzz"
+    checkout = tmp_path / "externalwebapp"
     (checkout / ".yoke").mkdir(parents=True)
     (checkout / ".yoke" / "install-manifest.json").write_text(
         '{"manifest_schema": 1, "project_id": 37}\n',
@@ -55,11 +55,11 @@ def test_local_destination_manifest_project_id_uses_local_universe(
         local_calls.append(kwargs)
         return existing_project_lookup.ExistingProject(
             id=37,
-            slug="buzz",
-            name="Buzz",
+            slug="externalwebapp",
+            name="ExternalWebapp",
             github_repo="",
             default_branch="main",
-            public_item_prefix="BUZZ",
+            public_item_prefix="EXT",
         )
 
     monkeypatch.setattr(
@@ -112,7 +112,7 @@ def test_local_destination_manifest_project_id_uses_local_universe(
     assert applied is not None
     assert applied["destination"] == DESTINATION_LOCAL
     assert applied["existing_project_id"] == 37
-    assert applied["project_slug"] == "buzz"
+    assert applied["project_slug"] == "externalwebapp"
 
 
 @pytest.mark.parametrize(

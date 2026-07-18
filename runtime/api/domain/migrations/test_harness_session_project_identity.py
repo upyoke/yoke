@@ -47,13 +47,13 @@ def prestamped_conn() -> Iterator[Any]:
         )
         conn.execute(
             "INSERT INTO projects (id, slug) VALUES (%s, %s)",
-            (2, "buzz"),
+            (2, "externalwebapp"),
         )
         conn.execute("ALTER TABLE harness_sessions ADD COLUMN project_id INTEGER DEFAULT NULL")
         for session_id, workspace, project_id in (
             ("session-yoke", "workspace-yoke", 1),
             ("session-yoke-worktree", "workspace-yoke-worktree", 1),
-            ("session-buzz", "workspace-buzz", 2),
+            ("session-externalwebapp", "workspace-externalwebapp", 2),
         ):
             _insert_session(conn, session_id, workspace, project_id=project_id)
         conn.commit()
@@ -135,7 +135,7 @@ def test_enforces_prestamped_rows_and_sets_strict_shape(
         "SELECT session_id, project_id FROM harness_sessions ORDER BY session_id"
     ).fetchall()
     assert {row["session_id"]: row["project_id"] for row in rows} == {
-        "session-buzz": 2,
+        "session-externalwebapp": 2,
         "session-yoke": 1,
         "session-yoke-worktree": 1,
     }

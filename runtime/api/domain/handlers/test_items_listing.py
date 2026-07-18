@@ -138,8 +138,8 @@ class TestItemsList:
 
     def test_numeric_actor_unscoped_list_sees_only_granted_projects(self, test_db):
         insert_item(test_db, id=1, title="Yoke only", project="yoke")
-        insert_item(test_db, id=2, title="Buzz only", project="buzz")
-        actor_id = _grant_project_viewer(test_db, "buzz")
+        insert_item(test_db, id=2, title="ExternalWebapp only", project="externalwebapp")
+        actor_id = _grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_list(
             _request(
@@ -151,13 +151,13 @@ class TestItemsList:
 
         assert outcome.primary_success
         assert outcome.result_payload["rows"] == [
-            {"id": "2", "project": "buzz", "title": "Buzz only"}
+            {"id": "2", "project": "externalwebapp", "title": "ExternalWebapp only"}
         ]
 
     def test_numeric_actor_explicit_ungranted_project_sees_zero_rows(self, test_db):
         insert_item(test_db, id=1, title="Yoke only", project="yoke")
-        insert_item(test_db, id=2, title="Buzz only", project="buzz")
-        actor_id = _grant_project_viewer(test_db, "buzz")
+        insert_item(test_db, id=2, title="ExternalWebapp only", project="externalwebapp")
+        actor_id = _grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_list(
             _request(
@@ -172,20 +172,20 @@ class TestItemsList:
 
     def test_numeric_actor_explicit_granted_project_sees_its_rows(self, test_db):
         insert_item(test_db, id=1, title="Yoke only", project="yoke")
-        insert_item(test_db, id=2, title="Buzz only", project="buzz")
-        actor_id = _grant_project_viewer(test_db, "buzz")
+        insert_item(test_db, id=2, title="ExternalWebapp only", project="externalwebapp")
+        actor_id = _grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_list(
             _request(
                 "items.list.run",
-                {"fields": ["id", "project"], "project": "buzz"},
+                {"fields": ["id", "project"], "project": "externalwebapp"},
                 actor_id=actor_id,
             )
         )
 
         assert outcome.primary_success
         assert outcome.result_payload["rows"] == [
-            {"id": "2", "project": "buzz"}
+            {"id": "2", "project": "externalwebapp"}
         ]
 
     def test_numeric_actor_explicit_duplicate_slug_uses_visible_project(self, test_db):
@@ -247,21 +247,21 @@ class TestItemsSearch:
         # 13468: search from a project checkout must scope to that project,
         # not leak cross-project matches.
         insert_item(test_db, id=1, title="shared zorp alpha", project="yoke")
-        insert_item(test_db, id=2, title="shared zorp beta", project="buzz")
+        insert_item(test_db, id=2, title="shared zorp beta", project="externalwebapp")
         test_db.commit()
         out_all = items_listing.handle_items_search(
             _request("items.search.run", {"keywords": "zorp"})
         )
         assert [m["id"] for m in out_all.result_payload["matches"]] == [1, 2]
-        out_buzz = items_listing.handle_items_search(
-            _request("items.search.run", {"keywords": "zorp", "project": "buzz"})
+        out_externalwebapp = items_listing.handle_items_search(
+            _request("items.search.run", {"keywords": "zorp", "project": "externalwebapp"})
         )
-        assert [m["id"] for m in out_buzz.result_payload["matches"]] == [2]
+        assert [m["id"] for m in out_externalwebapp.result_payload["matches"]] == [2]
 
     def test_numeric_actor_unscoped_search_sees_only_granted_projects(self, test_db):
         insert_item(test_db, id=1, title="shared zorp alpha", project="yoke")
-        insert_item(test_db, id=2, title="shared zorp beta", project="buzz")
-        actor_id = _grant_project_viewer(test_db, "buzz")
+        insert_item(test_db, id=2, title="shared zorp beta", project="externalwebapp")
+        actor_id = _grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_search(
             _request("items.search.run", {"keywords": "zorp"}, actor_id=actor_id)
@@ -274,8 +274,8 @@ class TestItemsSearch:
         self, test_db
     ):
         insert_item(test_db, id=1, title="shared zorp alpha", project="yoke")
-        insert_item(test_db, id=2, title="shared zorp beta", project="buzz")
-        actor_id = _grant_project_viewer(test_db, "buzz")
+        insert_item(test_db, id=2, title="shared zorp beta", project="externalwebapp")
+        actor_id = _grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_search(
             _request(
@@ -290,13 +290,13 @@ class TestItemsSearch:
 
     def test_numeric_actor_explicit_granted_project_sees_its_matches(self, test_db):
         insert_item(test_db, id=1, title="shared zorp alpha", project="yoke")
-        insert_item(test_db, id=2, title="shared zorp beta", project="buzz")
-        actor_id = _grant_project_viewer(test_db, "buzz")
+        insert_item(test_db, id=2, title="shared zorp beta", project="externalwebapp")
+        actor_id = _grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_search(
             _request(
                 "items.search.run",
-                {"keywords": "zorp", "project": "buzz"},
+                {"keywords": "zorp", "project": "externalwebapp"},
                 actor_id=actor_id,
             )
         )

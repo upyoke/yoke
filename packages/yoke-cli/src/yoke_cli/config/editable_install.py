@@ -35,7 +35,7 @@ PTH_FILE_NAME = "_yoke_editable.pth"
 SIDECAR_FILE_NAME = loader_template.FALLBACK_SIDECAR_NAME
 PTH_CONTENT = f"import {LOADER_MODULE_NAME}; {LOADER_MODULE_NAME}.install_into_sys_path()\n"
 
-# setuptools editable artifacts for the Yoke distributions (never buzz/etc.):
+# setuptools editable artifacts for the Yoke distributions (never managed projects):
 # `__editable__.yoke*.pth` covers the meta package and the four sub-packages;
 # `__editable___yoke*_finder.py` covers any strict-mode import finder.
 _STALE_ARTIFACT_GLOBS = ("__editable__.yoke*.pth", "__editable___yoke*_finder.py")

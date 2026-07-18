@@ -34,12 +34,12 @@ from yoke_core.domain.project_github_auth import MissingPermission, ProjectGithu
 
 
 def _resolved_auth(
-    project: str = "buzz", *, administration: bool = False,
+    project: str = "externalwebapp", *, administration: bool = False,
 ) -> ProjectGithubAuth:
     token = "ghs_admin_token" if administration else "ghs_baseline_token"
     return ProjectGithubAuth(
         project=project,
-        repo="example-org/buzz",
+        repo="example-org/externalwebapp",
         token=token,
         installation_id="12345",
         token_source="github_app_installation",
@@ -147,7 +147,7 @@ def test_preflight_github_app_auth_only_success_no_host_gh_probe(
 
     with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
         ctx = BootstrapContext(
-            project="buzz",
+            project="externalwebapp",
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,

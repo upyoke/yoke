@@ -10,20 +10,26 @@ import pytest
 
 from yoke_core.tools.pulumi_exec import (
     PulumiExecError,
-    _authority_env,
     execute_pulumi_command,
 )
-from yoke_core.domain import deploy_remote
+from runtime.api.tools.test_pulumi_exec_support import _init_settings
 
 
 class _Child:
-    def __init__(self, stdout: bytes = b"preview-ok\n") -> None:
+    def __init__(
+        self,
+        stdout: bytes = b"preview-ok\n",
+        *,
+        stderr: bytes = b"",
+        returncode: int = 0,
+    ) -> None:
         self.stdout = BytesIO(stdout)
-        self.stderr = BytesIO(b"")
+        self.stderr = BytesIO(stderr)
+        self.returncode = returncode
 
     def wait(self, timeout=None):
         del timeout
-        return 0
+        return self.returncode
 
 
 def _payload(project: str = "yoke", stack: str = "yoke-infra"):
@@ -54,6 +60,196 @@ def _payload(project: str = "yoke", stack: str = "yoke-infra"):
             ],
         },
     }
+
+
+def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
+    calls = []
+    imports = []
+    encrypted_key = "generated-encrypted-material"
+
+    def config_loader(project, stack):
+        pytest.fail("init fetched initialized stack config")
+
+    def child_factory(command, **kwargs):
+        cwd = Path(kwargs["cwd"])
+        stack_path = cwd / "Pulumi.externalwebapp-registry.yaml"
+        stack_path.write_text(
+            "secretsprovider: "
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1\n"
+            f"encryptedkey: {encrypted_key}\n" + stack_path.read_text()
+        )
+        temp_root = cwd.parents[1]
+        calls.append(
+            {
+                "command": command,
+                "cwd": cwd,
+                "temp_root": temp_root,
+                "temp_mode": stat.S_IMODE(temp_root.stat().st_mode),
+                "env": kwargs["env"],
+            }
+        )
+        return _Child(f"initialized {encrypted_key}\n".encode())
+
+    def state_importer(**kwargs):
+        imports.append(kwargs)
+        return {"receipt_digest": "receipt-digest"}
+
+    output = StringIO()
+    rc = execute_pulumi_command(
+        "externalwebapp",
+        "externalwebapp-registry",
+        [
+            "init",
+            "--secrets-provider",
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
+        ],
+        config_loader=config_loader,
+        project_root=Path(__file__).resolve().parents[3],
+        settings_loader=lambda project: _init_settings(),
+        state_importer=state_importer,
+        aws_env_loader=lambda *args, **kwargs: {
+            "AWS_ACCESS_KEY_ID": "access-key",
+            "AWS_SECRET_ACCESS_KEY": "secret-key",
+            "GITHUB_TOKEN": "ambient-github-token",
+        },
+        child_factory=child_factory,
+        out=output,
+        err=StringIO(),
+    )
+
+    assert rc == 0
+    assert calls[0]["command"] == [
+        "pulumi",
+        "stack",
+        "init",
+        "externalwebapp-registry",
+        "--secrets-provider",
+        "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
+        "--non-interactive",
+    ]
+    assert calls[0]["temp_mode"] == 0o700
+    assert calls[0]["env"]["PULUMI_BACKEND_URL"] == (
+        "s3://externalwebapp-pulumi-state?region=us-east-1"
+    )
+    assert "GITHUB_TOKEN" not in calls[0]["env"]
+    assert not calls[0]["temp_root"].exists()
+    assert imports == [
+        {
+            "project": "externalwebapp",
+            "stack_name": "externalwebapp-registry",
+            "secrets_provider": ("awskms://alias/externalwebapp-pulumi-state?region=us-east-1"),
+            "encrypted_key": encrypted_key,
+            "apply": True,
+        }
+    ]
+    assert encrypted_key not in output.getvalue()
+    assert "[REDACTED]" in output.getvalue()
+    assert "receipt-digest" in output.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("command", "settings", "message"),
+    [
+        (
+            ["init", "--secrets-provider=awskms://alias/example"],
+            _init_settings(),
+            "requires exactly",
+        ),
+        (
+            ["init", "--secrets-provider", "awskms://alias/other"],
+            _init_settings(),
+            "does not match capability authority",
+        ),
+        (
+            [
+                "init",
+                "--secrets-provider",
+                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
+            ],
+            _init_settings(stacks=["infra"]),
+            "not an exact declared project stack",
+        ),
+        (
+            [
+                "init",
+                "--secrets-provider",
+                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
+            ],
+            _init_settings(
+                stack_state={
+                    "externalwebapp-registry": {
+                        "secrets_provider": "awskms://alias/existing",
+                        "encrypted_key": "existing-key",
+                    }
+                }
+            ),
+            "already registered",
+        ),
+    ],
+)
+def test_init_refuses_unsafe_or_non_bootstrap_requests_before_child(
+    command,
+    settings,
+    message,
+):
+    child_called = False
+
+    def child_factory(*args, **kwargs):
+        nonlocal child_called
+        child_called = True
+        return _Child()
+
+    with pytest.raises(PulumiExecError, match=message):
+        execute_pulumi_command(
+            "externalwebapp",
+            "externalwebapp-registry",
+            command,
+            config_loader=lambda *args: pytest.fail("fetched stack config"),
+            project_root=Path(__file__).resolve().parents[3],
+            settings_loader=lambda project: settings,
+            aws_env_loader=lambda *args, **kwargs: {},
+            child_factory=child_factory,
+        )
+    assert child_called is False
+
+
+def test_init_child_failure_does_not_persist_operator_state():
+    persisted = False
+
+    def child_factory(command, **kwargs):
+        cwd = Path(kwargs["cwd"])
+        stack_path = cwd / "Pulumi.externalwebapp-registry.yaml"
+        stack_path.write_text(
+            "secretsprovider: "
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1\n"
+            "encryptedkey: failed-key\n" + stack_path.read_text()
+        )
+        return _Child(returncode=9, stderr=b"init failed\n")
+
+    def state_importer(**kwargs):
+        nonlocal persisted
+        persisted = True
+        return {"receipt_digest": "unexpected"}
+
+    rc = execute_pulumi_command(
+        "externalwebapp",
+        "externalwebapp-registry",
+        [
+            "init",
+            "--secrets-provider",
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
+        ],
+        config_loader=lambda *args: pytest.fail("fetched stack config"),
+        project_root=Path(__file__).resolve().parents[3],
+        settings_loader=lambda project: _init_settings(),
+        state_importer=state_importer,
+        aws_env_loader=lambda *args, **kwargs: {},
+        child_factory=child_factory,
+        out=StringIO(),
+        err=StringIO(),
+    )
+    assert rc == 9
+    assert persisted is False
 
 
 def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):
@@ -263,216 +459,3 @@ def test_import_requires_exactly_one_file(tmp_path):
             config_loader=lambda project, stack: _payload(project, stack),
             project_root=tmp_path,
         )
-
-
-def test_github_authority_uses_bound_project_and_both_token_names(tmp_path):
-    payload = _payload()
-    payload["authority"].update({
-        "github_project": "platform",
-        "github_repo": "upyoke/platform",
-        "github_permissions": {
-            "metadata": "read",
-            "actions_variables": "write",
-        },
-    })
-    seen = {}
-
-    def auth_loader(project, **kwargs):
-        seen["project"] = project
-        seen["permissions"] = kwargs["required_permissions"]
-        return type("Auth", (), {
-            "token": "token-value",
-            "repo": "upyoke/platform",
-        })()
-
-    def child_factory(command, **kwargs):
-        seen["env"] = kwargs["env"]
-        return _Child()
-
-    execute_pulumi_command(
-        "yoke", "yoke-infra", ["preview"],
-        config_loader=lambda project, stack: payload,
-        project_root=Path(__file__).resolve().parents[3],
-        aws_env_loader=lambda *args, **kwargs: {},
-        github_auth_loader=auth_loader,
-        child_factory=child_factory,
-        out=StringIO(),
-        err=StringIO(),
-    )
-    assert seen["project"] == "platform"
-    assert seen["permissions"]["actions_variables"] == "write"
-    assert seen["env"]["GITHUB_TOKEN"] == "token-value"
-    assert seen["env"]["RUNNER_FLEET_GITHUB_TOKEN"] == "token-value"
-
-
-def test_runner_fleet_local_bootstrap_uses_scoped_render_values():
-    payload = _payload("platform", "yoke-runner-fleet")
-    payload["stack_kind"] = "runner-fleet"
-    payload["render_values"] = {
-        "deploy_namespace": "yoke",
-        "runner_fleet_architecture": "arm64",
-        "runner_fleet_deployment_ssh_stack_outputs_json": "{}",
-        "runner_fleet_github_api_url": "https://api.github.com",
-        "runner_fleet_github_app_issuer": "42",
-        "runner_fleet_github_capability": "github-runner",
-        "runner_fleet_github_installation_id": "7",
-        "runner_fleet_repo": "upyoke/platform",
-        "runner_fleet_github_private_key_secret_arn": "secret-arn",
-        "runner_fleet_github_repo_name": "platform",
-        "runner_fleet_github_repo_owner": "upyoke",
-        "runner_fleet_github_repository_id": "99",
-        "runner_fleet_github_web_url": "https://github.com",
-        "runner_fleet_idle_shutdown_minutes": "30",
-        "runner_fleet_instance_type": "m7g.2xlarge",
-        "runner_fleet_labels_json": '["self-hosted","Linux","ARM64"]',
-        "runner_fleet_max_runner_count": "4",
-        "runner_fleet_root_volume_gb": "200",
-        "runner_fleet_routing_enabled": "true",
-        "runner_fleet_runner_count": "4",
-        "runner_fleet_shutdown_mode": "terminate",
-        "runner_fleet_token_broker_function": "yoke-token-broker",
-        "runner_fleet_variable_name": "YOKE_LINUX_RUNS_ON",
-    }
-    payload["authority"].update({
-        "github_project": "platform",
-        "github_repo": "upyoke/platform",
-    })
-    seen = {}
-
-    def local_loader(values, **kwargs):
-        seen["values"] = values
-        seen["kwargs"] = kwargs
-        return type("Auth", (), {
-            "token": "local-token",
-            "repo": "upyoke/platform",
-            "redaction_terms": ("local-token", "private-key-line"),
-        })()
-
-    env, redaction = _authority_env(
-        "platform", payload["authority"], payload,
-        aws_env_loader=lambda *args, **kwargs: {"AWS_ACCESS_KEY_ID": "key"},
-        github_auth_loader=lambda *args, **kwargs: pytest.fail(
-            "consulted the user-token path"
-        ),
-        bootstrap_local_authority=True,
-        local_github_auth_loader=local_loader,
-    )
-
-    assert seen["values"]["runner_fleet_repo"] == "upyoke/platform"
-    assert seen["kwargs"]["region"] == "us-east-1"
-    assert env["GITHUB_TOKEN"] == "local-token"
-    assert env["YOKE_RUNNER_FLEET_AUTHORITY_INTENT"]
-    assert "private-key-line" in redaction
-
-
-def test_local_bootstrap_refuses_non_runner_stack():
-    payload = _payload()
-    payload["authority"]["github_repo"] = "upyoke/yoke"
-    with pytest.raises(PulumiExecError, match="limited to the runner-fleet"):
-        _authority_env(
-            "yoke", payload["authority"], payload,
-            aws_env_loader=lambda *args, **kwargs: {},
-            github_auth_loader=lambda *args, **kwargs: None,
-            bootstrap_local_authority=True,
-        )
-
-
-def test_default_aws_authority_reads_machine_files_without_database(
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        deploy_remote.capability_machine_secrets,
-        "read_machine_capability_secret",
-        lambda project, capability, key: {
-            "access_key_id": "AKIAMACHINE",
-            "secret_access_key": "machine-secret",
-            "session_token": None,
-        }[key],
-    )
-    monkeypatch.setattr(
-        deploy_remote,
-        "cmd_capability_get_secret",
-        lambda *args: pytest.fail("consulted connected database authority"),
-    )
-    seen = {}
-
-    def child_factory(command, **kwargs):
-        seen["env"] = kwargs["env"]
-        return _Child()
-
-    execute_pulumi_command(
-        "yoke", "yoke-infra", ["refresh", "--yes", "--non-interactive"],
-        config_loader=lambda project, stack: _payload(project, stack),
-        project_root=Path(__file__).resolve().parents[3],
-        child_factory=child_factory,
-        out=StringIO(),
-        err=StringIO(),
-    )
-    assert seen["env"]["AWS_ACCESS_KEY_ID"] == "AKIAMACHINE"
-
-
-def test_default_aws_authority_preserves_actions_oidc(monkeypatch):
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ASIAOIDC")
-    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "oidc-secret")
-    monkeypatch.setenv("AWS_SESSION_TOKEN", "oidc-session")
-    monkeypatch.setattr(
-        deploy_remote.capability_machine_secrets,
-        "read_machine_capability_secret",
-        lambda *args: pytest.fail("read machine files in GitHub Actions"),
-    )
-    seen = {}
-
-    def child_factory(command, **kwargs):
-        seen["env"] = kwargs["env"]
-        return _Child()
-
-    execute_pulumi_command(
-        "yoke", "yoke-infra", ["preview"],
-        config_loader=lambda project, stack: _payload(project, stack),
-        project_root=Path(__file__).resolve().parents[3],
-        child_factory=child_factory,
-        out=StringIO(),
-        err=StringIO(),
-    )
-    assert seen["env"]["AWS_ACCESS_KEY_ID"] == "ASIAOIDC"
-    assert seen["env"]["AWS_SESSION_TOKEN"] == "oidc-session"
-
-
-def test_aws_failure_is_redacted_and_actionable():
-    with pytest.raises(PulumiExecError) as raised:
-        execute_pulumi_command(
-            "platform", "yoke-stage", ["refresh"],
-            config_loader=lambda project, stack: _payload(project, stack),
-            project_root=Path(__file__).resolve().parents[3],
-            aws_env_loader=lambda *args, **kwargs: (_ for _ in ()).throw(
-                RuntimeError("sensitive-value")
-            ),
-        )
-    rendered = str(raised.value)
-    assert "sensitive-value" not in rendered
-    assert "machine_capability_unavailable" in rendered
-    assert "capability secret set" in rendered
-
-
-def test_github_failure_is_redacted_and_actionable():
-    payload = _payload()
-    payload["authority"].update({
-        "github_project": "platform",
-        "github_repo": "upyoke/platform",
-        "github_permissions": {"actions_variables": "write"},
-    })
-    with pytest.raises(PulumiExecError) as raised:
-        execute_pulumi_command(
-            "yoke", "yoke-infra", ["preview"],
-            config_loader=lambda project, stack: payload,
-            project_root=Path(__file__).resolve().parents[3],
-            aws_env_loader=lambda *args, **kwargs: {},
-            github_auth_loader=lambda *args, **kwargs: (_ for _ in ()).throw(
-                RuntimeError("ghu_sensitive-token")
-            ),
-        )
-    rendered = str(raised.value)
-    assert "ghu_sensitive-token" not in rendered
-    assert "app_authority_unavailable" in rendered
-    assert "github-binding status" in rendered

@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Service-client charge-frontier and charge-schedule tests."""
-
 from __future__ import annotations
 
 import json
@@ -64,7 +64,7 @@ class TestServiceClientChargeFrontier:
         result = subprocess.run(
             _service_client_cmd([
                 "charge-frontier",
-                "--project", "buzz",
+                "--project", "externalwebapp",
             ]),
             env=env,
             cwd=_REPO_ROOT,

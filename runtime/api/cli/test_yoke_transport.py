@@ -17,7 +17,6 @@ from yoke_cli.transport.https import (
 )
 from yoke_contracts.machine_config.schema import (
     MachineConfigContractError,
-    validate_payload,
 )
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -341,39 +340,59 @@ class TestEngineVersionSkewWarning:
 
 
 class TestLocalHandshakeVersion:
-    def test_prefers_engine_dist_over_client_dist(self, monkeypatch):
+    def test_uses_lockstep_cli_dist_without_probing_engine(self, monkeypatch):
         from yoke_contracts import engine_version as ev
 
-        versions = {
-            ev.ENGINE_DISTRIBUTION_NAME: "3.0.0",
-            ev.CLIENT_DISTRIBUTION_NAME: "2.9.0",
-        }
-        monkeypatch.setattr(ev, "_dist_version", lambda dist: versions[dist])
-        assert ev.local_handshake_version() == "3.0.0"
+        origins = []
+        monkeypatch.setattr(
+            ev,
+            "_module_origin",
+            lambda package: origins.append(package) or (
+                f"/site-packages/{package}/__init__.py"
+            ),
+        )
+        monkeypatch.setattr(
+            ev,
+            "distribution_version_for_module",
+            lambda dist, _origin: (
+                "2.9.0" if dist == ev.CLIENT_DISTRIBUTION_NAME else "3.0.0"
+            ),
+        )
+        assert ev.local_handshake_version() == "2.9.0"
+        assert origins == ["yoke_cli"]
 
     def test_client_only_install_falls_back_to_cli_dist(self, monkeypatch):
-        from importlib.metadata import PackageNotFoundError
-
         from yoke_contracts import engine_version as ev
 
-        def fake(dist):
-            if dist == ev.ENGINE_DISTRIBUTION_NAME:
-                raise PackageNotFoundError(dist)
-            return "2.9.0"
-
-        monkeypatch.setattr(ev, "_dist_version", fake)
+        monkeypatch.setattr(
+            ev,
+            "_module_origin",
+            lambda package: (
+                "" if package == "yoke_core" else "/site-packages/yoke_cli/__init__.py"
+            ),
+        )
+        monkeypatch.setattr(
+            ev,
+            "distribution_version_for_module",
+            lambda dist, _origin: (
+                "2.9.0" if dist == ev.CLIENT_DISTRIBUTION_NAME else ""
+            ),
+        )
         assert ev.installed_engine_version() == ""
         assert ev.local_handshake_version() == "2.9.0"
 
-    def test_source_run_resolves_empty(self, monkeypatch):
-        from importlib.metadata import PackageNotFoundError
-
+    def test_source_run_ignores_stale_installed_metadata(self, monkeypatch):
         from yoke_contracts import engine_version as ev
+        from yoke_contracts import install_binding as binding
 
-        def missing(dist):
-            raise PackageNotFoundError(dist)
+        class StaleDistribution:
+            version = "99.0.0"
 
-        monkeypatch.setattr(ev, "_dist_version", missing)
+            @staticmethod
+            def locate_file(_path):
+                return "/unrelated/site-packages"
+
+        monkeypatch.setattr(binding, "_distribution", lambda _dist: StaleDistribution())
         assert ev.local_handshake_version() == ""
 
     def test_image_build_fallback_is_not_advertised(self, monkeypatch):
@@ -387,25 +406,3 @@ class TestLocalHandshakeVersion:
         assert ev.advertised_engine_version(build="") == (
             ev.UNRESOLVED_SCM_FALLBACK_VERSION
         )
-
-
-class TestContractValidation:
-    def test_https_config_validates(self, tmp_path):
-        payload = _https_config(tmp_path)
-        payload["temp_root"] = str(tmp_path)
-        assert validate_payload(payload) == []
-
-    def test_https_requires_api_url_and_token_kind(self, tmp_path):
-        payload = _https_config(tmp_path, api_url="")
-        _stage_entry(payload)["credential_source"] = {
-            "kind": "dsn_file", "path": "/x",
-        }
-        codes = {issue.code for issue in validate_payload(payload)}
-        assert "api_url_required" in codes
-        assert "https_credential_kind_invalid" in codes
-
-    def test_token_file_requires_path(self, tmp_path):
-        payload = _https_config(tmp_path)
-        _stage_entry(payload)["credential_source"] = {"kind": "token_file"}
-        codes = {issue.code for issue in validate_payload(payload)}
-        assert "credential_token_file_path_required" in codes

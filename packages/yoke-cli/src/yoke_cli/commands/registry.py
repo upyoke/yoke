@@ -18,6 +18,7 @@ from yoke_cli.commands.registry_github_actions import (
     GITHUB_ACTIONS_SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_project_structure import PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_shepherd_dependency import SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY
@@ -142,57 +143,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("doctor", "run"): ("doctor.run.run", _adapters.doctor_run),
     ("doctor", "last-run", "get"):
         ("doctor.last_run.get", _adapters.doctor_last_run_get),
-    ("projects", "get"): ("projects.get", _adapters.projects_get),
-    ("projects", "list"): ("projects.list", _adapters.projects_list),
-    ("projects", "resolve-by-github-repo"):
-        ("projects.resolve_by_github_repo",
-         _adapters.projects_resolve_by_github_repo),
-    ("projects", "create"): ("projects.create", _adapters.projects_create),
-    ("projects", "update"): ("projects.update", _adapters.projects_update),
-    ("projects", "capability", "has"):
-        ("projects.capability.has", _adapters.projects_capability_has),
-    ("projects", "capabilities", "list"):
-        ("projects.capabilities.list", _adapters.projects_capabilities_list),
-    ("projects", "capability-settings", "get"):
-        ("projects.capability_settings.get",
-         _adapters.projects_capability_settings_get),
-    ("projects", "capability-settings", "set"):
-        ("projects.capability_settings.set",
-         _adapters.projects_capability_settings_set),
-    ("projects", "capability-settings", "merge"):
-        ("projects.capability_settings.merge",
-         _adapters.projects_capability_settings_merge),
-    ("projects", "environment-settings", "get"):
-        ("projects.environment_settings.get",
-         _adapters.projects_environment_settings_get),
-    ("projects", "environment-settings", "merge"):
-        ("projects.environment_settings.merge",
-         _adapters.projects_environment_settings_merge),
-    ("projects", "pulumi-state", "migrate"):
-        ("projects.pulumi_state.migrate",
-         _adapters.projects_pulumi_state_migrate),
-    ("projects", "pulumi-state", "checkpoint-import"):
-        ("projects.pulumi_state.checkpoint_import",
-         _adapters.projects_pulumi_state_checkpoint_import),
-    ("projects", "pulumi-stack-config", "get"):
-        ("projects.pulumi_stack_config.get",
-         _adapters.projects_pulumi_stack_config_get),
-    ("projects", "capability-secret", "set"):
-        ("projects.capability_secret.set", _adapters.projects_capability_secret_set),
-    ("projects", "checkout-context"):
-        ("projects.checkout_context.run", _adapters.projects_checkout_context),
-    ("projects", "github-binding", "bind"):
-        ("projects.github_binding.bind",
-         _adapters.projects_github_binding_bind),
-    ("projects", "github-binding", "unbind"):
-        ("projects.github_binding.unbind",
-         _adapters.projects_github_binding_unbind),
-    ("projects", "github-binding", "status"):
-        ("projects.github_binding.status",
-         _adapters.projects_github_binding_status),
-    ("projects", "github-sync-mode", "repair"):
-        ("projects.github_sync_mode.repair",
-         _adapters.projects_github_sync_mode_repair),
     ("organizations", "get"): ("organizations.get", _adapters.organizations_get),
     ("events", "query"): ("events.query.run", _adapters.events_query),
     ("events", "tail"): ("events.tail.run", _adapters.events_tail),
@@ -256,12 +206,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("connection.remove.run", _adapters.connection_remove),
     ("auth", "set"):
         ("auth.set.run", _adapters.auth_set),
-    ("project", "register"): ("project.register.run", _adapters.project_register),
-    ("project", "install"): ("project.install.run", _adapters.project_install),
-    ("project", "refresh"): ("project.refresh.run", _adapters.project_refresh),
-    ("project", "uninstall"): ("project.uninstall.run", _adapters.project_uninstall),
-    ("project", "snapshot", "sync"):
-        ("project.snapshot.sync", _adapters.project_snapshot_sync),
     ("templates", "list"):
         ("templates.list.run", _adapters.templates_list),
     ("templates", "fetch"):
@@ -279,6 +223,7 @@ SUBCOMMAND_REGISTRY.update(READINESS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(STRATEGY_EVENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(IDENTITY_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(PROJECTS_SUBCOMMAND_REGISTRY)
 
 
 _TOKEN_LENGTHS: Tuple[int, ...] = (4, 3, 2, 1)

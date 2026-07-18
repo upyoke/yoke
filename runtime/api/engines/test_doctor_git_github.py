@@ -222,8 +222,8 @@ class TestHcWrongRepoIssues:
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_correct_repo_passes(self, mock_gh_run, mock_resolve, mock_avail):
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="example-org/buzz")
-        _insert_item(conn, 42, "Buzz item", project="buzz",
+        _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
+        _insert_item(conn, 42, "ExternalWebapp item", project="externalwebapp",
                      type="issue", status="idea", github_issue="#100")
         mock_gh_run.return_value = _make_completed(stdout="OPEN\n")
         rec = _run_hc(hc_wrong_repo_issues, conn)
@@ -235,11 +235,11 @@ class TestHcWrongRepoIssues:
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_wrong_repo_warns(self, mock_gh_run, mock_resolve, mock_avail):
         conn = _make_conn()
-        _seed_project(conn, "buzz", github_repo="example-org/buzz")
-        _insert_item(conn, 42, "Buzz item", project="buzz",
+        _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
+        _insert_item(conn, 42, "ExternalWebapp item", project="externalwebapp",
                      type="issue", status="idea", github_issue="#100")
         mock_gh_run.side_effect = [
-            _make_completed(returncode=1, stdout=""),  # not in buzz repo
+            _make_completed(returncode=1, stdout=""),  # not in externalwebapp repo
             _make_completed(stdout="OPEN\n"),           # found in yoke repo
         ]
         rec = _run_hc(hc_wrong_repo_issues, conn)

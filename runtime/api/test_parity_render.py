@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """Parity tests — Group 1: filtered item reads (active queue, status, frozen).
-
 The Group 2 board-projection coverage lives in
 :mod:`runtime.api.test_parity_render_board`.
 """
@@ -62,7 +62,7 @@ class TestActiveQueueParity:
             f"API returned {api_ids} but CLI returned {cli_ids}"
         )
 
-        # Verify expected: items 1 (implementing), 3 (idea/buzz), 4 (release),
+        # Verify expected: items 1 (implementing), 3 (idea/externalwebapp), 4 (release),
         # 7 (reviewing-implementation), 8 (implemented), 9 (blocked)
         # are active queue.
         # Items excluded: 2 (done), 5 (cancelled), 6 (frozen)
@@ -99,7 +99,7 @@ class TestActiveQueueParity:
         )
 
         assert api_ids == cli_ids
-        # Item 3 is buzz, so it should NOT be in yoke-scoped results
+        # Item 3 is externalwebapp, so it should NOT be in yoke-scoped results
         assert 3 not in api_ids
 
 

@@ -46,10 +46,13 @@ def converge_core_schema(conn) -> None:
     Runs every schema-CREATION step — tables, indexes, and strictly additive
     columns — in FK-dependency order, then inserts any missing code-owned
     deployment-flow definitions. It performs no destructive drops, data
-    backfills, row deletions, or existing-flow rewrites. Safe to run on every
-    server boot of an already-born universe, which is what propagates newly
-    deployed tables, columns, and built-in flow definitions to existing prod /
-    self-host universes on the boot after a deploy (see
+    backfills, row deletions, or history-bound flow rewrites. Exact recognized
+    built-in predecessors may be disabled after their bindings are terminal,
+    while a code-owned successor becomes the project default. Modified project
+    definitions remain untouched. Safe to run on every server boot of an
+    already-born universe, which is what propagates newly deployed tables,
+    columns, and built-in flow definitions to existing prod / self-host
+    universes on the boot after a deploy (see
     :func:`yoke_core.api.server_entrypoint.ensure_core_schema`).
 
     This is the single source of the schema-creation sequence: :func:`cmd_init`
@@ -77,8 +80,9 @@ def converge_core_schema(conn) -> None:
     conn.execute(STRATEGY_DOCS_CREATE_TABLE_SQL)
     apply_additive_schema(conn)
     # Built-in deployment flows are executable configuration, not birth-only
-    # sample data.  Missing definitions therefore converge with deployed code
-    # on every boot while existing/disabled/history-backed rows stay intact.
+    # sample data. Missing definitions and exact code-owned supersessions
+    # therefore converge with deployed code on every boot while historical
+    # stages and project-authored definitions stay intact.
     converge_flow_catalog(conn)
     # The initial bootstrap creates the view before deployment-run tables land;
     # every subsequent server boot must converge it onto the complete current

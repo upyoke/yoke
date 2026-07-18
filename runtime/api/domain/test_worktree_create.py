@@ -1,5 +1,5 @@
+# ruff: noqa: F811
 """worktree — create_worktree + resolve_item_worktree integration coverage.
-
 Split out of ``test_worktree.py`` to keep authored files under the 350-line
 limit. Multi-worktree creator coverage lives in
 ``test_worktree_create_multiworktree.py``.
@@ -236,14 +236,14 @@ class TestResolveItemWorktree:
 
     def test_external_project(self, tmp_path, yoke_db):
         # Create external repo
-        ext_repo = tmp_path / "buzz"
+        ext_repo = tmp_path / "externalwebapp"
         ext_repo.mkdir()
         subprocess.run(["git", "init", "-q"], cwd=str(ext_repo), check=True)
         subprocess.run(["git", "config", "user.email", "t@t"], cwd=str(ext_repo), check=True)
         subprocess.run(["git", "config", "user.name", "T"], cwd=str(ext_repo), check=True)
         subprocess.run(["git", "checkout", "-qb", "main"], cwd=str(ext_repo),
                         check=True, capture_output=True)
-        (ext_repo / "README.md").write_text("buzz\n")
+        (ext_repo / "README.md").write_text("externalwebapp\n")
         subprocess.run(["git", "add", "README.md"], cwd=str(ext_repo), check=True)
         subprocess.run(["git", "commit", "-q", "-m", "init"],
                         cwd=str(ext_repo), check=True, capture_output=True)
@@ -258,14 +258,14 @@ class TestResolveItemWorktree:
         )
 
         conn = connect_test_db(yoke_db)
-        _seed_item(conn, 77, title="Ext", worktree="YOK-77", project="buzz")
-        _seed_project_repo(conn, "buzz", str(ext_repo))
+        _seed_item(conn, 77, title="Ext", worktree="YOK-77", project="externalwebapp")
+        _seed_project_repo(conn, "externalwebapp", str(ext_repo))
         conn.commit()
         conn.close()
 
         result = resolve_item_worktree("YOK-77", db_path=yoke_db)
 
-        assert result.project == "buzz"
+        assert result.project == "externalwebapp"
         assert result.exists is True
         assert str(ext_repo) in result.repo
 

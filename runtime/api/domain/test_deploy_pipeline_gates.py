@@ -28,7 +28,7 @@ class TestCiGate:
             ),
         ) as github_actions:
             passed, message = deploy_pipeline_gates._check_ci_gate(
-                "owner/repo", "buzz", 30, branch="main", sd="/tmp/sd",
+                "owner/repo", "externalwebapp", 30, branch="main", sd="/tmp/sd",
             )
 
         assert passed is True
@@ -40,7 +40,7 @@ class TestCiGate:
         # The gate branch threads into the check-ci invocation.
         branch_flag_idx = github_actions.call_args.args.index("--branch")
         assert github_actions.call_args.args[branch_flag_idx + 1] == "main"
-        assert github_actions.call_args.kwargs["project"] == "buzz"
+        assert github_actions.call_args.kwargs["project"] == "externalwebapp"
 
     def test_ci_gate_checks_declared_gate_branch(self):
         with mock.patch.object(
@@ -250,7 +250,7 @@ class TestCiGate:
             ),
         ):
             passed, message = deploy_pipeline_gates._check_ci_gate(
-                "owner/repo", "buzz", 30, branch="main",
+                "owner/repo", "externalwebapp", 30, branch="main",
             )
 
         assert passed is False
@@ -270,7 +270,7 @@ class TestCiGate:
             ),
         ):
             passed, message = deploy_pipeline_gates._check_ci_gate(
-                "owner/repo", "buzz", 30, branch="main",
+                "owner/repo", "externalwebapp", 30, branch="main",
             )
 
         assert passed is False
@@ -362,7 +362,7 @@ class TestResolveFlowGateBranch:
             return_value="main",
         ):
             assert deploy_pipeline_gates.resolve_flow_gate_branch(
-                "buzz", "production"
+                "externalwebapp", "production"
             ) == "main"
 
     def test_repo_root_is_passed_to_base_branch_policy_reader(self, tmp_path):
@@ -372,7 +372,7 @@ class TestResolveFlowGateBranch:
             return_value="trunk",
         ) as get_project_str:
             assert deploy_pipeline_gates.resolve_flow_gate_branch(
-                "buzz", "", str(repo)
+                "externalwebapp", "", str(repo)
             ) == "trunk"
         get_project_str.assert_called_once_with(str(repo), "base_branch")
 

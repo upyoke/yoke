@@ -170,13 +170,13 @@ class TestProjectsResolveByGithubRepo:
         rc = _run(
             _stub_ok,
             "projects", "resolve-by-github-repo",
-            "--github-repo", "example-org/buzz",
+            "--github-repo", "example-org/externalwebapp",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "projects.resolve_by_github_repo"
         assert req.target.kind == "global"
-        assert req.payload == {"github_repo": "example-org/buzz"}
+        assert req.payload == {"github_repo": "example-org/externalwebapp"}
 
     def test_missing_github_repo_returns_two(self) -> None:
         rc = _run(_stub_ok, "projects", "resolve-by-github-repo")
@@ -221,10 +221,10 @@ class TestProjectsCheckoutContext:
 
     def test_explicit_project_rides_on_target(self) -> None:
         rc = _run(
-            _stub_ok, "projects", "checkout-context", "--project", "buzz",
+            _stub_ok, "projects", "checkout-context", "--project", "externalwebapp",
         )
         assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.project_id == "buzz"
+        assert _CAPTURED_REQUESTS[-1].target.project_id == "externalwebapp"
 
     def test_env_project_used_when_no_flag(self) -> None:
         with patch.dict("os.environ", {"YOKE_PROJECT": "2"}):
@@ -247,7 +247,7 @@ class TestProjectsCheckoutContext:
         ):
             rc = _run(
                 _stub_ok, "projects", "checkout-context",
-                "--project", "buzz", "--field", "slug",
+                "--project", "externalwebapp", "--field", "slug",
             )
         assert rc == 0
         assert _CAPTURED_REQUESTS[-1].function == (
@@ -260,26 +260,26 @@ class TestProjectsCheckoutContext:
             success=True, function=request.function, version=request.version,
             request_id=request.request_id,
             result={
-                "id": 2, "slug": "buzz", "name": "Buzz",
-                "public_item_prefix": "BUZZ",
+                "id": 2, "slug": "externalwebapp", "name": "ExternalWebapp",
+                "public_item_prefix": "EXT",
             },
         )
 
     def test_field_projection_prints_bare_value(self) -> None:
         rc, out, _err = _run_capture(
             self._identity_stub, "projects", "checkout-context",
-            "--project", "buzz", "--field", "slug",
+            "--project", "externalwebapp", "--field", "slug",
         )
         assert rc == 0
-        assert out == "buzz\n"
+        assert out == "externalwebapp\n"
 
     def test_no_field_prints_pipe_row(self) -> None:
         rc, out, _err = _run_capture(
             self._identity_stub, "projects", "checkout-context",
-            "--project", "buzz",
+            "--project", "externalwebapp",
         )
         assert rc == 0
-        assert out == "2|buzz|Buzz|BUZZ\n"
+        assert out == "2|externalwebapp|ExternalWebapp|EXT\n"
 
     def test_unknown_field_returns_two(self) -> None:
         rc = _run(
@@ -290,7 +290,7 @@ class TestProjectsCheckoutContext:
 
     def test_dispatch_failure_propagates_exit_one(self) -> None:
         rc = _run(
-            _stub_fail, "projects", "checkout-context", "--project", "buzz",
+            _stub_fail, "projects", "checkout-context", "--project", "externalwebapp",
         )
         assert rc == 1
 

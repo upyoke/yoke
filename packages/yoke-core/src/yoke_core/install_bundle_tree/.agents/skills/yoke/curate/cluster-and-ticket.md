@@ -120,7 +120,7 @@ Action? (create / skip / defer)
 For each `create` response, invoke:
 
 ```bash
-YOKE_IDEA_INTAKE=1 python3 -m yoke_core.cli.db_router items add "{title}" issue idea {priority} # lint:no-project-check
+yoke items create "{title}" issue --priority {priority} --idea-intake
 ```
 
 Immediately write a body with the cluster context:

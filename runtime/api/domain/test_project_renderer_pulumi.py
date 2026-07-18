@@ -23,9 +23,10 @@ _GATHER_VALUES_KEYS = {
     "project_name", "deploy_namespace", "cloudfront_domain", "cloudfront_id",
     "certificate_arn",
     "hosted_zone_id", "aws_account_id", "vps_description", "domain_name",
-    "origin_host", "origin_ip", "aws_region", "ssh_user", "web_port",
+    "origin_host", "origin_ip", "aws_region", "ssh_host", "ssh_user", "web_port",
     "api_port", "ephemeral_ttl_hours", "web_health_path", "web_smoke_paths",
     "domain", "api_port_base", "port_base", "port_range", "dns_provider",
+    "configure_aws_credentials_action",
 }
 _VPS_KEYS = {
     "vps_instance_type",
@@ -34,12 +35,14 @@ _VPS_KEYS = {
     "vps_iam_instance_profile_name",
 }
 _PULUMI_KEYS = {
-    "origin_id", "distribution_bucket_name", "kms_key_alias", "state_bucket",
-    "pulumi_infra_stack_name", "pulumi_vps_stack_name",
-    "pulumi_runner_fleet_stack_name", "domain_txt_records_json",
+    "origin_id", "component_type_aliases_json", "distribution_bucket_name",
+    "kms_key_alias", "state_bucket", "pulumi_infra_stack_name",
+    "pulumi_vps_stack_name", "pulumi_runner_fleet_stack_name",
+    "domain_txt_records_json",
     "domain_mx_records_json",
 }
 _CI_KEYS = {
+    "delivery_cloudfront_distribution_ids_json",
     "delivery_distribution_bucket_names_json",
     "github_api_url", "github_app_private_key_secret_arns_json",
     "github_repo_slug", "manage_github_oidc_provider",
@@ -60,7 +63,6 @@ _RUNNER_FLEET_KEYS = {
     "runner_fleet_max_runner_count", "runner_fleet_idle_shutdown_minutes",
     "runner_fleet_shutdown_mode", "runner_fleet_deployment_ssh_stack_outputs_json",
 }
-
 
 def _make_project_root(tmp_path: Path, project: str) -> Path:
     """Build a minimal project tree."""
@@ -185,34 +187,34 @@ class TestGatherPulumiValues:
         context = {
             "domainName": "test.example.com",
             "originHost": "origin.example.com",
-            "projectName": "buzz",
+            "projectName": "externalwebapp",
             "hostedZoneId": "Z123",
             "certificateArn": "arn:aws:acm:us-east-1:123:cert/abc",
-            "originId": "buzzinfraDistributionOrigin18BAD744B",
-            "distributionBucketName": "buzz-distribution-prod",
+            "originId": "externalwebappinfraDistributionOrigin18BAD744B",
+            "distributionBucketName": "externalwebapp-distribution-prod",
             "vpsInstanceType": "t3.small",
             "vpsRootVolumeGb": "20",
-            "vpsSshKeyName": "buzz-key",
-            "vpsIamInstanceProfileName": "buzz-origin-profile",
+            "vpsSshKeyName": "externalwebapp-key",
+            "vpsIamInstanceProfileName": "externalwebapp-origin-profile",
             "awsAccountId": "111122223333",
             "awsRegion": "us-east-1",
-            "kmsKeyAlias": "alias/buzz-state",
-            "stateBucket": "buzz-state",
-            "pulumiInfraStackName": "buzz-infra",
-            "pulumiVpsStackName": "buzz-vps",
+            "kmsKeyAlias": "alias/externalwebapp-state",
+            "stateBucket": "externalwebapp-state",
+            "pulumiInfraStackName": "externalwebapp-infra",
+            "pulumiVpsStackName": "externalwebapp-vps",
         }
-        _stub_renderer_settings(monkeypatch, "buzz", context)
-        root = _make_project_root(tmp_path, "buzz")
-        result = project_renderer_pulumi.gather_pulumi_values("buzz", root)
+        _stub_renderer_settings(monkeypatch, "externalwebapp", context)
+        root = _make_project_root(tmp_path, "externalwebapp")
+        result = project_renderer_pulumi.gather_pulumi_values("externalwebapp", root)
 
         expected = (
             _GATHER_VALUES_KEYS | _VPS_KEYS | _PULUMI_KEYS | _CI_KEYS
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert result["vps_iam_instance_profile_name"] == "buzz-origin-profile"
-        assert result["origin_id"] == "buzzinfraDistributionOrigin18BAD744B"
-        assert result["distribution_bucket_name"] == "buzz-distribution-prod"
+        assert result["vps_iam_instance_profile_name"] == "externalwebapp-origin-profile"
+        assert result["origin_id"] == "externalwebappinfraDistributionOrigin18BAD744B"
+        assert result["distribution_bucket_name"] == "externalwebapp-distribution-prod"
         assert result["domain_txt_records_json"] == "[]"
         assert result["domain_mx_records_json"] == "[]"
         # No `github` capability in this context -> CI federation renders off.
@@ -226,41 +228,41 @@ class TestGatherPulumiValues:
         context = {
             "vpsInstanceType": "t3.medium",
             "vpsRootVolumeGb": "40",
-            "vpsSshKeyName": "buzz-prod",
-            "vpsIamInstanceProfileName": "buzz-prod-origin",
+            "vpsSshKeyName": "externalwebapp-prod",
+            "vpsIamInstanceProfileName": "externalwebapp-prod-origin",
             "awsAccountId": "999988887777",
             "awsRegion": "us-west-2",
-            "kmsKeyAlias": "alias/buzz-pulumi",
-            "stateBucket": "buzz-pulumi-state",
+            "kmsKeyAlias": "alias/externalwebapp-pulumi",
+            "stateBucket": "externalwebapp-pulumi-state",
         }
-        _stub_renderer_settings(monkeypatch, "buzz", context)
-        root = _make_project_root(tmp_path, "buzz")
-        result = project_renderer_pulumi.gather_pulumi_values("buzz", root)
+        _stub_renderer_settings(monkeypatch, "externalwebapp", context)
+        root = _make_project_root(tmp_path, "externalwebapp")
+        result = project_renderer_pulumi.gather_pulumi_values("externalwebapp", root)
 
         assert result["vps_instance_type"] == "t3.medium"
         assert result["vps_root_volume_gb"] == "40"
-        assert result["vps_ssh_key_name"] == "buzz-prod"
-        assert result["vps_iam_instance_profile_name"] == "buzz-prod-origin"
+        assert result["vps_ssh_key_name"] == "externalwebapp-prod"
+        assert result["vps_iam_instance_profile_name"] == "externalwebapp-prod-origin"
         # aws_account_id and aws_region live on gather_values()'s 25-key dict;
         # gather_pulumi_values keeps those base renderer slots while projecting
         # Pulumi-specific settings into the snake_case keys below.
         assert "aws_account_id" in result
         assert "aws_region" in result
-        assert result["kms_key_alias"] == "alias/buzz-pulumi"
-        assert result["state_bucket"] == "buzz-pulumi-state"
+        assert result["kms_key_alias"] == "alias/externalwebapp-pulumi"
+        assert result["state_bucket"] == "externalwebapp-pulumi-state"
 
     def test_defaults_when_optional_fields_missing(self, tmp_path, monkeypatch):
         # Minimal context: omit the Pulumi-specific fields.
-        context = {"projectName": "buzz"}
-        _stub_renderer_settings(monkeypatch, "buzz", context)
-        root = _make_project_root(tmp_path, "buzz")
-        result = project_renderer_pulumi.gather_pulumi_values("buzz", root)
+        context = {"projectName": "externalwebapp"}
+        _stub_renderer_settings(monkeypatch, "externalwebapp", context)
+        root = _make_project_root(tmp_path, "externalwebapp")
+        result = project_renderer_pulumi.gather_pulumi_values("externalwebapp", root)
 
-        assert result["pulumi_infra_stack_name"] == "buzz-infra"
-        assert result["pulumi_vps_stack_name"] == "buzz-vps"
-        assert result["pulumi_runner_fleet_stack_name"] == "buzz-runner-fleet"
-        assert result["kms_key_alias"] == "alias/buzz-pulumi-state"
-        assert result["state_bucket"] == "buzz-pulumi-state"
+        assert result["pulumi_infra_stack_name"] == "externalwebapp-infra"
+        assert result["pulumi_vps_stack_name"] == "externalwebapp-vps"
+        assert result["pulumi_runner_fleet_stack_name"] == "externalwebapp-runner-fleet"
+        assert result["kms_key_alias"] == "alias/externalwebapp-pulumi-state"
+        assert result["state_bucket"] == "externalwebapp-pulumi-state"
         # origin_id has no template-level default — empty string when
         # context omits it, so callers fail loud at render time rather
         # than silently inheriting another project's Id.
@@ -302,59 +304,3 @@ class TestGatherPulumiValues:
             '[{"id":"googleWorkspaceGmail","name":"@","priority":1,'
             '"value":"SMTP.GOOGLE.COM","ttl":300}]'
         )
-
-
-class TestRenderPulumiStackYaml:
-    def test_substitutes_stack_template_placeholders(self, tmp_path):
-        template = tmp_path / "Pulumi.stack.yaml.tmpl"
-        template.write_text(
-            "config:\n"
-            "  aws:region: {{aws_region}}\n"
-            "  webapp-infra:aws_account_id: \"{{aws_account_id}}\"\n"
-            "  webapp-infra:kms_key_alias: {{kms_key_alias}}\n"
-            "  webapp-infra:domain_name: {{domain_name}}\n"
-            "  webapp-infra:origin_host: {{origin_host}}\n"
-            "  webapp-infra:project_name: {{project_name}}\n"
-            "  webapp-infra:hosted_zone_id: {{hosted_zone_id}}\n"
-            "  webapp-infra:certificate_arn: {{certificate_arn}}\n"
-            "  webapp-infra:origin_id: {{origin_id}}\n"
-            "  webapp-infra:distribution_bucket_name: {{distribution_bucket_name}}\n"
-            "  webapp-infra:domain_txt_records: '{{domain_txt_records_json}}'\n"
-            "  webapp-infra:domain_mx_records: '{{domain_mx_records_json}}'\n"
-            "  webapp-infra:vps_instance_type: {{vps_instance_type}}\n"
-            "  webapp-infra:vps_root_volume_gb: \"{{vps_root_volume_gb}}\"\n"
-            "  webapp-infra:vps_ssh_key_name: {{vps_ssh_key_name}}\n"
-            "  webapp-infra:vps_iam_instance_profile_name: "
-            "{{vps_iam_instance_profile_name}}\n"
-        )
-        values = {
-            "aws_region": "us-east-1",
-            "aws_account_id": "111122223333",
-            "kms_key_alias": "alias/buzz-state",
-            "domain_name": "buzz.example.com",
-            "origin_host": "origin.example.com",
-            "project_name": "buzz",
-            "hosted_zone_id": "Z123",
-            "certificate_arn": "arn:aws:acm:us-east-1:123:cert/abc",
-            "origin_id": "buzzinfraDistributionOrigin18BAD744B",
-            "distribution_bucket_name": "buzz-distribution-prod",
-            "domain_txt_records_json": "[]",
-            "domain_mx_records_json": "[]",
-            "vps_instance_type": "t3.small",
-            "vps_root_volume_gb": "20",
-            "vps_ssh_key_name": "buzz-key",
-            "vps_iam_instance_profile_name": "buzz-origin-profile",
-        }
-        rendered = project_renderer_pulumi.render_pulumi_stack_yaml(
-            template, values,
-        )
-        # No unsubstituted placeholders remain.
-        assert "{{" not in rendered
-        assert "}}" not in rendered
-        # Spot-check substitutions landed.
-        assert "us-east-1" in rendered
-        assert "111122223333" in rendered
-        assert "alias/buzz-state" in rendered
-        assert "t3.small" in rendered
-        assert "buzzinfraDistributionOrigin18BAD744B" in rendered
-        assert "buzz-distribution-prod" in rendered

@@ -83,12 +83,12 @@ def test_pass_when_every_qualifying_project_has_capability():
     conn.execute(
         "INSERT INTO projects (id, slug, github_repo) VALUES "
         " (1, 'yoke', 'upyoke/yoke'),"
-        " (2, 'buzz', 'example-org/buzz')",
+        " (2, 'externalwebapp', 'example-org/externalwebapp')",
     )
     conn.execute(
         "INSERT INTO project_capabilities (project_id, type, settings) VALUES "
         " (1, %s, '{\"workflow_file\":\"yoke-ci.yml\"}'),"
-        " (2, %s, '{\"workflow_file\":\"buzz-ci.yml\"}')",
+        " (2, %s, '{\"workflow_file\":\"externalwebapp-ci.yml\"}')",
         (CI_WORKFLOW_CAPABILITY_TYPE, CI_WORKFLOW_CAPABILITY_TYPE),
     )
     rec = _record(conn)
@@ -102,9 +102,9 @@ def test_warn_lists_missing_projects():
     conn.execute(
         "INSERT INTO projects (id, slug, github_repo) VALUES "
         " (1, 'yoke', 'upyoke/yoke'),"
-        " (2, 'buzz', 'example-org/buzz')",
+        " (2, 'externalwebapp', 'example-org/externalwebapp')",
     )
-    # Only yoke has the capability; buzz is missing.
+    # Only yoke has the capability; externalwebapp is missing.
     conn.execute(
         "INSERT INTO project_capabilities (project_id, type, settings) "
         "VALUES (1, %s, '{\"workflow_file\":\"yoke-ci.yml\"}')",
@@ -113,7 +113,7 @@ def test_warn_lists_missing_projects():
     rec = _record(conn)
     assert len(rec.results) == 1
     assert rec.results[0].result == "WARN"
-    assert "buzz" in rec.results[0].detail
+    assert "externalwebapp" in rec.results[0].detail
     assert "yoke" not in rec.results[0].detail.split("Projects with github_repo")[1].split("\n")[0]
 
 

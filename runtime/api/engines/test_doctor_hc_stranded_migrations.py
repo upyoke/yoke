@@ -127,10 +127,10 @@ def test_pass_when_audit_table_missing(tmp_path, monkeypatch):
     assert rec.results[0].result == "PASS"
 
 
-def _build_buzz_shape_repo(tmp_path: Path):
-    """Layout matching Buzz: modules at app/db/migrations/, external
+def _build_externalwebapp_shape_repo(tmp_path: Path):
+    """Layout matching ExternalWebapp: modules at app/db/migrations/, external
     SQLite DB at app/data/app.db."""
-    root = tmp_path / "buzz_repo"
+    root = tmp_path / "externalwebapp_repo"
     migrations = root / "app" / "db" / "migrations"
     data_dir = root / "app" / "data"
     migrations.mkdir(parents=True)
@@ -139,17 +139,17 @@ def _build_buzz_shape_repo(tmp_path: Path):
     return root, migrations, data_dir / "app.db"
 
 
-def _seed_governed_buzz(
+def _seed_governed_externalwebapp(
     conn, *, repo_path: Path, modules_dir_rel: str = "app/db/migrations",
     audit_db_rel: str = "app/data/app.db",
 ):
     """Seed projects + project_capabilities so the project-aware HC
-    path discovers a Buzz-shape governed project."""
+    path discovers a ExternalWebapp-shape governed project."""
     apply_fixture_ddl(conn, _GOVERNED_SCHEMA)
     register_machine_checkout(repo_path.parent, repo_path, 2)
     conn.execute(
         "INSERT INTO projects (id, slug, name) VALUES (%s, %s, %s)",
-        (2, "buzz", "Buzz"),
+        (2, "externalwebapp", "ExternalWebapp"),
     )
     settings = {
         "default_model": "primary",
@@ -225,20 +225,20 @@ def _audit_db_with(audit_db_path: Path, *, name: str, state: str):
     audit.close()
 
 
-def test_warn_when_buzz_shape_project_strands_completed_module(
+def test_warn_when_externalwebapp_shape_project_strands_completed_module(
     conn, tmp_path, monkeypatch,
 ):
-    """Project-aware path: discover Buzz's migration_model, scan its
+    """Project-aware path: discover ExternalWebapp's migration_model, scan its
     modules_dir at app/db/migrations/, read its external
     migration_audit at app/data/app.db, and warn on stranded modules.
 
     Pre-fix the HC hardcoded runtime/api/domain/migrations on the
-    current repo_root and never saw Buzz at all.
+    current repo_root and never saw ExternalWebapp at all.
     """
-    repo, migrations, audit_db = _build_buzz_shape_repo(tmp_path)
+    repo, migrations, audit_db = _build_externalwebapp_shape_repo(tmp_path)
     (migrations / "006_add_wacky.py").write_text("def apply(c): pass\n")
     _audit_db_with(audit_db, name="006_add_wacky", state="completed")
-    _seed_governed_buzz(conn, repo_path=repo)
+    _seed_governed_externalwebapp(conn, repo_path=repo)
 
     rec = RecordCollector()
     args = DoctorArgs()
@@ -247,7 +247,7 @@ def test_warn_when_buzz_shape_project_strands_completed_module(
     hc_stranded_migration_module(conn, args, rec)
     assert rec.results[0].result == "WARN"
     detail = rec.results[0].detail
-    assert "buzz:" in detail
+    assert "externalwebapp:" in detail
     assert "006_add_wacky" in detail
     assert "app/db/migrations" in detail
 
@@ -278,10 +278,10 @@ def test_governed_findings_include_sqlite_and_postgres_projects(
     conn, tmp_path, monkeypatch,
 ):
     """A SQLite-file project finding must not mask Yoke's Postgres finding."""
-    buzz_repo, buzz_migrations, buzz_db = _build_buzz_shape_repo(tmp_path)
-    (buzz_migrations / "buzz_stranded.py").write_text("def apply(c): pass\n")
-    _audit_db_with(buzz_db, name="buzz_stranded", state="completed")
-    _seed_governed_buzz(conn, repo_path=buzz_repo)
+    externalwebapp_repo, externalwebapp_migrations, externalwebapp_db = _build_externalwebapp_shape_repo(tmp_path)
+    (externalwebapp_migrations / "externalwebapp_stranded.py").write_text("def apply(c): pass\n")
+    _audit_db_with(externalwebapp_db, name="externalwebapp_stranded", state="completed")
+    _seed_governed_externalwebapp(conn, repo_path=externalwebapp_repo)
 
     yoke_root = _build_repo(tmp_path, present_modules=["yoke_stranded"])
     _seed_governed_yoke(conn, repo_path=yoke_root)
@@ -296,8 +296,8 @@ def test_governed_findings_include_sqlite_and_postgres_projects(
     hc_stranded_migration_module(conn, args, rec)
     assert rec.results[0].result == "WARN"
     detail = rec.results[0].detail
-    assert "buzz:" in detail
-    assert "buzz_stranded" in detail
+    assert "externalwebapp:" in detail
+    assert "externalwebapp_stranded" in detail
     assert "yoke:" in detail
     assert "yoke_stranded" in detail
 
@@ -307,11 +307,11 @@ def test_project_aware_path_does_not_double_count_legacy_yoke(
 ):
     """When the conn already declares a governed project, the retired
     Yoke-only scan does not fire."""
-    repo, migrations, audit_db = _build_buzz_shape_repo(tmp_path)
-    # Buzz has a present module but no completed audit row — clean.
+    repo, migrations, audit_db = _build_externalwebapp_shape_repo(tmp_path)
+    # ExternalWebapp has a present module but no completed audit row — clean.
     (migrations / "in_flight.py").write_text("def apply(c): pass\n")
     _audit_db_with(audit_db, name="in_flight", state="rehearsed")
-    _seed_governed_buzz(conn, repo_path=repo)
+    _seed_governed_externalwebapp(conn, repo_path=repo)
 
     # Plant a Yoke-shape stranded module in a separate repo_root that
     # the retired fallback would have flagged.
@@ -333,11 +333,11 @@ def test_governed_project_with_missing_audit_db_is_silent(
     """An external SQLite DB path that doesn't exist on disk yields no
     findings (no crash, no false positive). Common during project
     bootstrap before the first live-apply."""
-    repo, migrations, audit_db = _build_buzz_shape_repo(tmp_path)
+    repo, migrations, audit_db = _build_externalwebapp_shape_repo(tmp_path)
     (migrations / "006_add_wacky.py").write_text("def apply(c): pass\n")
     # Deliberately do NOT create audit_db.
     assert not audit_db.exists()
-    _seed_governed_buzz(conn, repo_path=repo)
+    _seed_governed_externalwebapp(conn, repo_path=repo)
 
     rec = RecordCollector()
     args = DoctorArgs()

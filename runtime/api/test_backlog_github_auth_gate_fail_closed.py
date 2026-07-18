@@ -56,7 +56,7 @@ def test_missing_app_auth_is_nonzero(
         id=91,
         type="issue",
         status="implementing",
-        project="buzz",
+        project="externalwebapp",
         github_issue="#191",
     )
     stderr = io.StringIO()

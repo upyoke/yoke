@@ -32,7 +32,7 @@ def test_adapter_forwards_snapshot_and_child_command(monkeypatch, tmp_path):
     rc = runner_fleet.runner_fleet_exec(
         [
             "--project",
-            "buzz",
+            "externalwebapp",
             "--settings-file",
             str(snapshot),
             "--",
@@ -46,7 +46,7 @@ def test_adapter_forwards_snapshot_and_child_command(monkeypatch, tmp_path):
     assert len(calls) == 1
     positional, keyword = calls[0]
     assert positional == (
-        "buzz",
+        "externalwebapp",
         Path(snapshot),
         ["pulumi", "up", "--yes"],
     )
@@ -100,7 +100,7 @@ def test_adapter_requires_child_command(capsys, tmp_path):
     rc = runner_fleet.runner_fleet_exec(
         [
             "--project",
-            "buzz",
+            "externalwebapp",
             "--settings-file",
             str(tmp_path / "stack-config.json"),
             "--",
@@ -130,7 +130,7 @@ def test_adapter_maps_missing_executable_to_127(
     rc = runner_fleet.runner_fleet_exec(
         [
             "--project",
-            "buzz",
+            "externalwebapp",
             "--settings-file",
             str(tmp_path / "stack-config.json"),
             "--",
@@ -161,7 +161,7 @@ def test_adapter_does_not_echo_sensitive_executor_failure(
     rc = runner_fleet.runner_fleet_exec(
         [
             "--project",
-            "buzz",
+            "externalwebapp",
             "--settings-file",
             str(tmp_path / "stack-config.json"),
             "--",

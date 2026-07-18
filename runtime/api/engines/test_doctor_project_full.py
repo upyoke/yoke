@@ -68,7 +68,7 @@ def _make_conn() -> Any:
 
 
 def _project_id(project: str) -> int:
-    return {"yoke": 1, "buzz": 2}.get(project, 99)
+    return {"yoke": 1, "externalwebapp": 2}.get(project, 99)
 
 
 def _seed_project(
@@ -107,7 +107,7 @@ def _seed_capability(
 
 
 def _args(**overrides) -> DoctorArgs:
-    defaults = dict(file=None, fix=False, only=None, quick=False, project="buzz", db_path=None)
+    defaults = dict(file=None, fix=False, only=None, quick=False, project="externalwebapp", db_path=None)
     defaults.update(overrides)
     return DoctorArgs(**defaults)
 
@@ -128,7 +128,7 @@ class TestProjectLookup:
 
     def test_found_project_emits_no_record(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz")
+        _seed_project(conn, "externalwebapp")
         rec = _run_hc(hc_project_lookup, conn)
         assert rec.results == []
 
@@ -143,9 +143,9 @@ class TestProjectLookup:
 class TestProjectRepoExists:
     def test_passes_when_repo_exists(self, tmp_path):
         conn = _make_conn()
-        repo_path = tmp_path / "buzz-repo"
+        repo_path = tmp_path / "externalwebapp-repo"
         repo_path.mkdir()
-        _seed_project(conn, "buzz", checkout_path=str(repo_path))
+        _seed_project(conn, "externalwebapp", checkout_path=str(repo_path))
         rec = _run_hc(hc_project_repo_exists, conn)
         assert rec.results[0].result == "PASS"
 
@@ -153,7 +153,7 @@ class TestProjectRepoExists:
         conn = _make_conn()
         missing = tmp_path / "missing-repo"
         missing.mkdir(exist_ok=True)
-        _seed_project(conn, "buzz", checkout_path=str(missing))
+        _seed_project(conn, "externalwebapp", checkout_path=str(missing))
         missing.rmdir()
         rec = _run_hc(hc_project_repo_exists, conn)
         assert rec.results[0].result == "FAIL"
@@ -170,7 +170,7 @@ class TestProjectRepoExists:
 class TestProjectWorktrees:
     def test_warns_when_checkout_mapping_missing(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz")
+        _seed_project(conn, "externalwebapp")
         rec = _run_hc(hc_project_worktrees, conn)
         assert rec.results[0].result == "WARN"
         assert "no machine-local checkout mapping" in rec.results[0].detail
@@ -179,7 +179,7 @@ class TestProjectWorktrees:
         conn = _make_conn()
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
-        _seed_project(conn, "buzz", checkout_path=str(repo_path))
+        _seed_project(conn, "externalwebapp", checkout_path=str(repo_path))
         output = f"worktree {tmp_path / 'missing-wt'}\n"
         with patch("yoke_core.engines.doctor_report._run") as run:
             run.return_value = type("CP", (), {"stdout": output})()
@@ -193,7 +193,7 @@ class TestProjectWorktrees:
         repo_path.mkdir()
         wt_path = tmp_path / "wt"
         wt_path.mkdir()
-        _seed_project(conn, "buzz", checkout_path=str(repo_path))
+        _seed_project(conn, "externalwebapp", checkout_path=str(repo_path))
         output = f"worktree {wt_path}\n"
         with patch("yoke_core.engines.doctor_report._run") as run:
             run.return_value = type("CP", (), {"stdout": output})()
@@ -214,11 +214,11 @@ class TestProjectWorktrees:
 class TestProjectDeployFlows:
     def test_passes_with_flow_count(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz")
+        _seed_project(conn, "externalwebapp")
         conn.execute(
             "INSERT INTO deployment_flows (id, project_id, stages) "
             "VALUES ('f1', %s, '[]')",
-            (_project_id("buzz"),),
+            (_project_id("externalwebapp"),),
         )
         rec = _run_hc(hc_project_deploy_flows, conn)
         assert rec.results[0].result == "PASS"
@@ -226,7 +226,7 @@ class TestProjectDeployFlows:
 
     def test_passes_with_no_flows(self):
         conn = _make_conn()
-        _seed_project(conn, "buzz")
+        _seed_project(conn, "externalwebapp")
         rec = _run_hc(hc_project_deploy_flows, conn)
         assert rec.results[0].result == "PASS"
         assert "No deployment flows" in rec.results[0].detail
@@ -248,7 +248,7 @@ class TestProjectDeployFlows:
 class TestProjectHealth:
     def test_warns_on_invalid_json(self):
         conn = _make_conn()
-        _seed_capability(conn, "buzz", "health-endpoint", "{bad}")
+        _seed_capability(conn, "externalwebapp", "health-endpoint", "{bad}")
         rec = _run_hc(hc_project_health, conn)
         assert rec.results[0].result == "WARN"
         assert "invalid JSON" in rec.results[0].detail
@@ -257,7 +257,7 @@ class TestProjectHealth:
         conn = _make_conn()
         _seed_capability(
             conn,
-            "buzz",
+            "externalwebapp",
             "health-endpoint",
             json.dumps({"path": "/health"}),
         )
@@ -269,7 +269,7 @@ class TestProjectHealth:
         conn = _make_conn()
         _seed_capability(
             conn,
-            "buzz",
+            "externalwebapp",
             "health-endpoint",
             json.dumps({"url": "https://example.com/health"}),
         )
@@ -282,7 +282,7 @@ class TestProjectHealth:
         conn = _make_conn()
         _seed_capability(
             conn,
-            "buzz",
+            "externalwebapp",
             "health-endpoint",
             json.dumps({"url": "https://example.com/health"}),
         )
@@ -305,7 +305,7 @@ class TestProjectHealth:
 class TestProjectVpsReachable:
     def test_warns_when_host_missing(self):
         conn = _make_conn()
-        _seed_capability(conn, "buzz", "vps-ssh", json.dumps({"user": "ubuntu"}))
+        _seed_capability(conn, "externalwebapp", "vps-ssh", json.dumps({"user": "ubuntu"}))
         rec = _run_hc(hc_project_vps_reachable, conn)
         assert rec.results[0].result == "WARN"
 
@@ -313,7 +313,7 @@ class TestProjectVpsReachable:
         conn = _make_conn()
         _seed_capability(
             conn,
-            "buzz",
+            "externalwebapp",
             "vps-ssh",
             json.dumps({"host": "example.com"}),
         )
@@ -326,7 +326,7 @@ class TestProjectVpsReachable:
         conn = _make_conn()
         _seed_capability(
             conn,
-            "buzz",
+            "externalwebapp",
             "vps-ssh",
             json.dumps({"host": "example.com"}),
         )

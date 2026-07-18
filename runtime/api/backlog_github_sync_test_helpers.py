@@ -38,10 +38,10 @@ def completed_process(
 
 def make_db():
     """Postgres disposable DB seeded with the full Yoke schema +
-    a single ``buzz`` project row + the canonical actor seeding.
+    a single ``externalwebapp`` project row + the canonical actor seeding.
 
     Most ``test_backlog_github_sync_*`` cases exercise sync against the
-    ``buzz`` project, so the row is pre-inserted to keep individual tests
+    ``externalwebapp`` project, so the row is pre-inserted to keep individual tests
     focused on the sync surface they are exercising. The canonical
     yoke-core + local human actors are seeded so rows
     that store ``items.source`` / ``items.owner`` as numeric actor ids
@@ -64,7 +64,7 @@ def make_db():
         "(id, slug, name, github_repo, public_item_prefix, created_at) "
         "VALUES (%s, %s, %s, %s, %s, %s) "
         "ON CONFLICT (id) DO UPDATE SET github_repo = EXCLUDED.github_repo",
-        (2, "buzz", "Buzz", "org/buzz", "YOK", "2026-01-01T00:00:00Z"),
+        (2, "externalwebapp", "ExternalWebapp", "org/externalwebapp", "YOK", "2026-01-01T00:00:00Z"),
     )
     seed_test_canonical_actors(conn)
     conn.commit()

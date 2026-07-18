@@ -16,9 +16,9 @@ from yoke_core.domain.ephemeral_substrate import (
 )
 
 
-def _policy(trigger="github-push", preview_domain="buzzabuzz.com"):
+def _policy(trigger="github-push", preview_domain="example.com"):
     return EphemeralPolicy(
-        project="buzz", deploy_namespace="buzz", trigger=trigger,
+        project="externalwebapp", deploy_namespace="externalwebapp", trigger=trigger,
         preview_domain=preview_domain,
         host_env="production", api_base_port=9000, web_base_port=4000,
         port_range=100, ttl_hours=24,
@@ -43,7 +43,7 @@ def test_env_phase_provisions_capable_project_chain(monkeypatch, tmp_path):
     ), mock.patch.object(
         env_mod, "load_ephemeral_policy", lambda project: _policy(),
     ), mock.patch.object(
-        env_mod, "_item_label", lambda conn, item: "BUZ-42",
+        env_mod, "_item_label", lambda conn, item: "EXT-42",
     ), mock.patch(
         "yoke_core.domain.ephemeral_env.cmd_create",
         lambda conn, project, branch, item="": (
@@ -58,7 +58,7 @@ def test_env_phase_provisions_capable_project_chain(monkeypatch, tmp_path):
         ),
     ):
         outcome, ctx = env_mod.run(
-            item={"id": 42, "project": "buzz"},
+            item={"id": 42, "project": "externalwebapp"},
             branch="YOK-42",
             session_id="s1",
             repo_root=str(tmp_path),
@@ -67,11 +67,11 @@ def test_env_phase_provisions_capable_project_chain(monkeypatch, tmp_path):
 
     assert outcome == "provisioned"
     assert ctx["env_id"] == 77
-    assert ctx["url"] == "https://yok-42.buzzabuzz.com"
+    assert ctx["url"] == "https://yok-42.example.com"
     assert ctx["deployed_sha"] == "deadbeef"
     assert calls["push"] == [(str(tmp_path), "YOK-42")]
-    assert calls["create"] == [("buzz", "YOK-42", "BUZ-42")]
-    assert calls["update_url"] == [(77, "url", "https://yok-42.buzzabuzz.com")]
+    assert calls["create"] == [("externalwebapp", "YOK-42", "EXT-42")]
+    assert calls["update_url"] == [(77, "url", "https://yok-42.example.com")]
     assert calls["update_sha"] == [(77, "deployed_sha", "deadbeef")]
 
 
@@ -84,7 +84,7 @@ def test_env_phase_policy_invalid_for_malformed_capability(tmp_path):
         return_value=True,
     ), mock.patch.object(env_mod, "load_ephemeral_policy", _raise):
         outcome, ctx = env_mod.run(
-            item={"id": 42, "project": "buzz"},
+            item={"id": 42, "project": "externalwebapp"},
             branch="YOK-42", session_id="s1", repo_root=str(tmp_path),
             config_root=str(tmp_path),
         )
@@ -129,7 +129,7 @@ def test_env_phase_push_failure_short_circuits_before_env_row(tmp_path):
         lambda *a, **kw: create_calls.append(a) or "1",
     ):
         outcome, ctx = env_mod.run(
-            item={"id": 42, "project": "buzz"},
+            item={"id": 42, "project": "externalwebapp"},
             branch="YOK-42", session_id="s1", repo_root=str(tmp_path),
         )
     assert outcome == "pending:push-failed"

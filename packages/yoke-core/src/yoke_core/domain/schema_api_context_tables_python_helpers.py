@@ -85,8 +85,8 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Legacy compatibility helper surface. Agents should prefer "
-            "`python3 -m yoke_core.cli.db_router ...` or registered "
-            "`yoke <subcommand>` surfaces for control-plane access. "
+            "registered `yoke <subcommand>` surfaces for control-plane "
+            "access. "
             "There is NO `read_only=` keyword on `connect` and NO "
             "`get_canonical_conn` importable name on this module — those "
             "are wrong guesses the live denial log has captured. The "

@@ -69,7 +69,7 @@ def _verification_opener(seen):
                 "repositories": [
                     {
                         "id": 4567,
-                        "full_name": "Example-Org/Buzz",
+                        "full_name": "Example-Org/ExternalWebapp",
                         "default_branch": "trunk",
                         "owner": {"id": 9988},
                     }
@@ -86,7 +86,7 @@ def test_user_token_canonicalizes_installation_and_repository_metadata() -> None
     verified = verify_project_github_binding(
         installation_id="12345",
         repository_id="4567",
-        expected_github_repo="example-org/buzz",
+        expected_github_repo="example-org/externalwebapp",
         expected_api_url="https://github.example/api/v3",
         github_user_access_token="github-user-token",
         endpoint=validate_github_api_endpoint("https://github.example/api/v3"),
@@ -95,7 +95,7 @@ def test_user_token_canonicalizes_installation_and_repository_metadata() -> None
 
     assert verified.account_id == "9988"
     assert verified.account_login == "Example-Org"
-    assert verified.github_repo == "Example-Org/Buzz"
+    assert verified.github_repo == "Example-Org/ExternalWebapp"
     assert verified.default_branch == "trunk"
     assert verified.api_url == "https://github.example/api/v3"
     assert verified.permissions == {"issues": "write", "checks": "read"}
@@ -122,7 +122,7 @@ def test_user_token_preserves_suspended_installation_for_unavailable_binding() -
     verified = verify_project_github_binding(
         installation_id="12345",
         repository_id="4567",
-        expected_github_repo="example-org/buzz",
+        expected_github_repo="example-org/externalwebapp",
         expected_api_url="https://api.github.com",
         github_user_access_token="github-user-token",
         endpoint=validate_github_api_endpoint("https://api.github.com"),
@@ -157,7 +157,7 @@ def test_user_token_is_not_sent_when_expected_api_base_mismatches() -> None:
         verify_project_github_binding(
             installation_id="12345",
             repository_id="4567",
-            expected_github_repo="example-org/buzz",
+            expected_github_repo="example-org/externalwebapp",
             expected_api_url="https://github-other.example/api/v3",
             github_user_access_token="github-user-token",
             endpoint=validate_github_api_endpoint("https://github.example/api/v3"),

@@ -1,5 +1,5 @@
+# ruff: noqa: F401, F811
 """Cross-reader regression suite for typed path-claim ownership semantics.
-
 Locks in AC-12 behavior — covers all three owner kinds plus the
 provenance/authority split:
 
@@ -42,7 +42,7 @@ def _now() -> str:
 
 
 def _seed_item(conn, *, item_id: int, project="yoke") -> int:
-    project_id = 2 if project == "buzz" else int(project) if str(project).isdigit() else 1
+    project_id = 2 if project == "externalwebapp" else int(project) if str(project).isdigit() else 1
     conn.execute(
         "INSERT INTO items (id, title, type, status, priority, created_at, "
         "updated_at, project_id, project_sequence) "

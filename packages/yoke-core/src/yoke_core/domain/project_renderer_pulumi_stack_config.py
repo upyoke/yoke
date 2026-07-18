@@ -50,7 +50,8 @@ _RUNNER_FLEET_GITHUB_INTENT = {
 }
 _BASE_STACK_KEYS = frozenset({
     "aws_account_id", "aws_region", "certificate_arn", "deploy_namespace",
-    "distribution_bucket_name", "domain_mx_records_json", "domain_name",
+    "component_type_aliases_json", "distribution_bucket_name",
+    "domain_mx_records_json", "domain_name",
     "domain_txt_records_json", "hosted_zone_id", "kms_key_alias",
     "origin_host", "origin_id", "vps_iam_instance_profile_name",
     "vps_instance_type", "vps_root_volume_gb", "vps_ssh_key_name",
@@ -64,7 +65,8 @@ _RENDER_KEYS_BY_KIND = {
         "import_zone_id", "manage_registration",
     }),
     "registry": frozenset({
-        "aws_account_id", "aws_region", "delivery_distribution_bucket_names_json",
+        "aws_account_id", "aws_region", "delivery_cloudfront_distribution_ids_json",
+        "delivery_distribution_bucket_names_json",
         "deploy_namespace", "github_api_url",
         "github_app_private_key_secret_arns_json", "github_repo_slug",
         "kms_key_alias", "manage_github_oidc_provider", "repository_name",
