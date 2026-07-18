@@ -10,6 +10,7 @@ environment variables.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
 from yoke_contracts.machine_config.schema import (
@@ -38,9 +39,11 @@ def deployment_runs_execute(args: List[str]) -> int:
         )
         return 2
 
-    from yoke_core.domain.deploy_pipeline import main as deploy_pipeline_main
-
-    return deploy_pipeline_main(args)
+    completed = subprocess.run(
+        [sys.executable, "-m", "yoke_core.domain.deploy_pipeline", *args],
+        check=False,
+    )
+    return completed.returncode
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
