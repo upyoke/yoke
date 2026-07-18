@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-18T18:21:24Z_
+_Audit generated_at: 2026-07-18T19:00:17Z_
 
 ## 1. Summary
 
@@ -332,7 +332,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 123 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 23 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 24 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |
