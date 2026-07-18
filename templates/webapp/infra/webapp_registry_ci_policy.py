@@ -275,14 +275,11 @@ def delivery_policy_json(
                 },
             ]
         )
-    if buckets or distribution_ids:
-        invalidation_resources = (
-            [
-                f"arn:aws:cloudfront::{account_id}:distribution/{distribution_id}"
-                for distribution_id in distribution_ids
-            ]
-            or [f"arn:aws:cloudfront::{account_id}:distribution/*"]
-        )
+    if distribution_ids:
+        invalidation_resources = [
+            f"arn:aws:cloudfront::{account_id}:distribution/{distribution_id}"
+            for distribution_id in distribution_ids
+        ]
         statements.extend(
             [
                 {

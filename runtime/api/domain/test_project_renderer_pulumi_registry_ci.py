@@ -223,6 +223,33 @@ class TestRegistryProgramShape:
         }
         assert cloudfront_actions == set()
 
+    def test_delivery_policy_keeps_bucket_access_without_cloudfront_wildcard(self):
+        path = _repo_root().joinpath(
+            "templates", "webapp", "infra", "webapp_registry_ci_policy.py"
+        )
+        policy = json.loads(
+            runpy.run_path(path)["delivery_policy_json"](
+                region="us-east-1",
+                account_id="123456789012",
+                deploy_namespace="buzz",
+                state_bucket="buzz-pulumi-state",
+                kms_key_arn="arn:aws:kms:us-east-1:123456789012:key/state-key",
+                distribution_bucket_names=["buzz-distribution-prod"],
+                cloudfront_distribution_ids=[],
+                github_app_private_key_secret_arns=[],
+            )
+        )
+
+        by_sid = {statement["Sid"]: statement for statement in policy["Statement"]}
+        assert by_sid["PublishDistributionArtifacts"]["Resource"] == [
+            "arn:aws:s3:::buzz-distribution-prod/*"
+        ]
+        assert "DiscoverDistributionIds" not in by_sid
+        assert "InvalidateProjectDistributions" not in by_sid
+        assert "arn:aws:cloudfront::123456789012:distribution/*" not in json.dumps(
+            policy
+        )
+
     def test_delivery_policy_allows_exact_cloudfront_without_distribution_bucket(
         self,
     ):
