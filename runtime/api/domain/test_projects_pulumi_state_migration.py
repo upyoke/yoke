@@ -188,7 +188,7 @@ def test_generic_surfaces_hide_stack_state_but_allow_top_level_merge(
         stack_names=["yoke-infra"],
         apply=True,
     )
-    with pytest.raises(ValueError, match="stack-scoped"):
+    with pytest.raises(ValueError, match="aggregate reads are closed"):
         cmd_capability_get_settings("yoke", "pulumi-state")
     with pytest.raises(ValueError, match="full settings writes are closed"):
         cmd_capability_set_settings(

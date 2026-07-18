@@ -12,6 +12,33 @@ from pathlib import Path
 from typing import Iterable, Iterator, Optional, Sequence, TextIO
 
 
+def read_top_level_scalars(path: Path, keys: Iterable[str]) -> dict[str, str]:
+    """Read an exact set of unindented scalar fields from a YAML file.
+
+    This deliberately narrow reader is for machine-generated authority
+    metadata such as Pulumi's ``secretsprovider`` and ``encryptedkey`` fields.
+    It does not pretend to be a general YAML parser, but it keeps YAML reads
+    behind the project-owned helper and refuses duplicate fields.
+    """
+    _require_file(path)
+    selected = {str(key).strip() for key in keys if str(key).strip()}
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line or line[:1].isspace() or line.lstrip().startswith("#"):
+            continue
+        key, separator, raw_value = line.partition(":")
+        key = key.strip()
+        if not separator or key not in selected:
+            continue
+        if key in values:
+            raise ValueError(f"duplicate top-level YAML field: {key}")
+        value = raw_value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        values[key] = value
+    return values
+
+
 def _resolve_path(raw_path: str) -> Path:
     path = Path(raw_path)
     if path.is_absolute():

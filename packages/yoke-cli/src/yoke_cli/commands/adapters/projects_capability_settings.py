@@ -36,9 +36,11 @@ def projects_capability_settings_get(args: List[str]) -> int:
         prog="yoke projects capability-settings get",
         description=(
             "Read one non-sensitive project capability settings document. "
-            "The exact output is the --base token for a CAS set. "
-            "pulumi-state is stack-scoped: use `yoke projects "
-            "pulumi-stack-config get` instead."
+            "The exact output is the --base token for a CAS set. Aggregate "
+            "pulumi-state reads are closed: declare its non-sensitive stacks "
+            "inventory with capability-settings merge, initialize an exact "
+            "declared stack with yoke pulumi exec, then read stack-scoped "
+            "authority with projects pulumi-stack-config get."
         ),
     )
     _add_identity_args(parser)
@@ -47,6 +49,15 @@ def projects_capability_settings_get(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, PROJECTS_CAPABILITY_SETTINGS_GET_USAGE)
     if parsed is None:
         return 2
+    if parsed.cap_type == "pulumi-state":
+        return usage_error(
+            "pulumi-state aggregate reads are closed because operator state is "
+            "sensitive; declare non-sensitive `stacks` and backend fields with "
+            "`yoke projects capability-settings merge`, initialize an exact "
+            "declared stack with `yoke pulumi exec --project NAME --stack STACK "
+            "-- init --secrets-provider AWSKMS_URI`, then inspect initialized "
+            "stack authority with `yoke projects pulumi-stack-config get`"
+        )
     return _dispatch(
         "projects.capability_settings.get",
         parsed,

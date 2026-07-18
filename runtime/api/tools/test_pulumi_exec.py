@@ -14,16 +14,24 @@ from yoke_core.tools.pulumi_exec import (
     execute_pulumi_command,
 )
 from yoke_core.domain import deploy_remote
+from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 
 
 class _Child:
-    def __init__(self, stdout: bytes = b"preview-ok\n") -> None:
+    def __init__(
+        self,
+        stdout: bytes = b"preview-ok\n",
+        *,
+        stderr: bytes = b"",
+        returncode: int = 0,
+    ) -> None:
         self.stdout = BytesIO(stdout)
-        self.stderr = BytesIO(b"")
+        self.stderr = BytesIO(stderr)
+        self.returncode = returncode
 
     def wait(self, timeout=None):
         del timeout
-        return 0
+        return self.returncode
 
 
 def _payload(project: str = "yoke", stack: str = "yoke-infra"):
@@ -54,6 +62,230 @@ def _payload(project: str = "yoke", stack: str = "yoke-infra"):
             ],
         },
     }
+
+
+def _init_settings(
+    *,
+    stacks: list[str] | None = None,
+    stack_state: dict | None = None,
+) -> ProjectRendererSettings:
+    state = {
+        "stacks": stacks if stacks is not None else ["registry"],
+        "state_bucket": "buzz-pulumi-state",
+        "kms_key_alias": "alias/buzz-pulumi-state",
+    }
+    if stack_state is not None:
+        state["stack_state"] = stack_state
+    return ProjectRendererSettings(
+        project="buzz",
+        deploy_namespace="buzz",
+        display_name="Buzz",
+        site_id="",
+        site_settings={},
+        primary_environment=None,
+        environments=(),
+        capabilities={
+            "aws-admin": {
+                "account_id": "657517041453",
+                "region": "us-east-1",
+            },
+            "github": {
+                "repo_owner": "beebauman",
+                "repo_name": "buzz",
+            },
+            "pulumi-state": state,
+        },
+    )
+
+
+def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
+    calls = []
+    imports = []
+    encrypted_key = "generated-encrypted-material"
+
+    def config_loader(project, stack):
+        pytest.fail("init fetched initialized stack config")
+
+    def child_factory(command, **kwargs):
+        cwd = Path(kwargs["cwd"])
+        stack_path = cwd / "Pulumi.buzz-registry.yaml"
+        stack_path.write_text(
+            "secretsprovider: "
+            "awskms://alias/buzz-pulumi-state?region=us-east-1\n"
+            f"encryptedkey: {encrypted_key}\n" + stack_path.read_text()
+        )
+        temp_root = cwd.parents[1]
+        calls.append(
+            {
+                "command": command,
+                "cwd": cwd,
+                "temp_root": temp_root,
+                "temp_mode": stat.S_IMODE(temp_root.stat().st_mode),
+                "env": kwargs["env"],
+            }
+        )
+        return _Child(f"initialized {encrypted_key}\n".encode())
+
+    def state_importer(**kwargs):
+        imports.append(kwargs)
+        return {"receipt_digest": "receipt-digest"}
+
+    output = StringIO()
+    rc = execute_pulumi_command(
+        "buzz",
+        "buzz-registry",
+        [
+            "init",
+            "--secrets-provider",
+            "awskms://alias/buzz-pulumi-state?region=us-east-1",
+        ],
+        config_loader=config_loader,
+        project_root=Path(__file__).resolve().parents[3],
+        settings_loader=lambda project: _init_settings(),
+        state_importer=state_importer,
+        aws_env_loader=lambda *args, **kwargs: {
+            "AWS_ACCESS_KEY_ID": "access-key",
+            "AWS_SECRET_ACCESS_KEY": "secret-key",
+            "GITHUB_TOKEN": "ambient-github-token",
+        },
+        child_factory=child_factory,
+        out=output,
+        err=StringIO(),
+    )
+
+    assert rc == 0
+    assert calls[0]["command"] == [
+        "pulumi",
+        "stack",
+        "init",
+        "buzz-registry",
+        "--secrets-provider",
+        "awskms://alias/buzz-pulumi-state?region=us-east-1",
+        "--non-interactive",
+    ]
+    assert calls[0]["temp_mode"] == 0o700
+    assert calls[0]["env"]["PULUMI_BACKEND_URL"] == (
+        "s3://buzz-pulumi-state?region=us-east-1"
+    )
+    assert "GITHUB_TOKEN" not in calls[0]["env"]
+    assert not calls[0]["temp_root"].exists()
+    assert imports == [
+        {
+            "project": "buzz",
+            "stack_name": "buzz-registry",
+            "secrets_provider": ("awskms://alias/buzz-pulumi-state?region=us-east-1"),
+            "encrypted_key": encrypted_key,
+            "apply": True,
+        }
+    ]
+    assert encrypted_key not in output.getvalue()
+    assert "[REDACTED]" in output.getvalue()
+    assert "receipt-digest" in output.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("command", "settings", "message"),
+    [
+        (
+            ["init", "--secrets-provider=awskms://alias/example"],
+            _init_settings(),
+            "requires exactly",
+        ),
+        (
+            ["init", "--secrets-provider", "awskms://alias/other"],
+            _init_settings(),
+            "does not match capability authority",
+        ),
+        (
+            [
+                "init",
+                "--secrets-provider",
+                "awskms://alias/buzz-pulumi-state?region=us-east-1",
+            ],
+            _init_settings(stacks=["infra"]),
+            "not an exact declared project stack",
+        ),
+        (
+            [
+                "init",
+                "--secrets-provider",
+                "awskms://alias/buzz-pulumi-state?region=us-east-1",
+            ],
+            _init_settings(
+                stack_state={
+                    "buzz-registry": {
+                        "secrets_provider": "awskms://alias/existing",
+                        "encrypted_key": "existing-key",
+                    }
+                }
+            ),
+            "already registered",
+        ),
+    ],
+)
+def test_init_refuses_unsafe_or_non_bootstrap_requests_before_child(
+    command,
+    settings,
+    message,
+):
+    child_called = False
+
+    def child_factory(*args, **kwargs):
+        nonlocal child_called
+        child_called = True
+        return _Child()
+
+    with pytest.raises(PulumiExecError, match=message):
+        execute_pulumi_command(
+            "buzz",
+            "buzz-registry",
+            command,
+            config_loader=lambda *args: pytest.fail("fetched stack config"),
+            project_root=Path(__file__).resolve().parents[3],
+            settings_loader=lambda project: settings,
+            aws_env_loader=lambda *args, **kwargs: {},
+            child_factory=child_factory,
+        )
+    assert child_called is False
+
+
+def test_init_child_failure_does_not_persist_operator_state():
+    persisted = False
+
+    def child_factory(command, **kwargs):
+        cwd = Path(kwargs["cwd"])
+        stack_path = cwd / "Pulumi.buzz-registry.yaml"
+        stack_path.write_text(
+            "secretsprovider: "
+            "awskms://alias/buzz-pulumi-state?region=us-east-1\n"
+            "encryptedkey: failed-key\n" + stack_path.read_text()
+        )
+        return _Child(returncode=9, stderr=b"init failed\n")
+
+    def state_importer(**kwargs):
+        nonlocal persisted
+        persisted = True
+        return {"receipt_digest": "unexpected"}
+
+    rc = execute_pulumi_command(
+        "buzz",
+        "buzz-registry",
+        [
+            "init",
+            "--secrets-provider",
+            "awskms://alias/buzz-pulumi-state?region=us-east-1",
+        ],
+        config_loader=lambda *args: pytest.fail("fetched stack config"),
+        project_root=Path(__file__).resolve().parents[3],
+        settings_loader=lambda project: _init_settings(),
+        state_importer=state_importer,
+        aws_env_loader=lambda *args, **kwargs: {},
+        child_factory=child_factory,
+        out=StringIO(),
+        err=StringIO(),
+    )
+    assert rc == 9
+    assert persisted is False
 
 
 def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):

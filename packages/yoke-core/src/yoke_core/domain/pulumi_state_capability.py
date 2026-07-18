@@ -95,8 +95,10 @@ def reject_generic_read(cap_type: str) -> str:
     selected = str(cap_type or "").strip()
     if selected == CAPABILITY_TYPE:
         raise ValueError(
-            "pulumi-state settings are stack-scoped; use "
-            "`yoke projects pulumi-stack-config get`"
+            "pulumi-state aggregate reads are closed; declare non-sensitive "
+            "stacks/backend fields with `yoke projects capability-settings "
+            "merge`, initialize an exact declared stack with `yoke pulumi "
+            "exec`, then use `yoke projects pulumi-stack-config get`"
         )
     return selected
 

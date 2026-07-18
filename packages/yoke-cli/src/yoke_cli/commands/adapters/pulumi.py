@@ -14,6 +14,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_cli.transport.https import TransportError, resolve_https_connection
 from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.commands.pulumi_stack_config_loader import (
     load_pulumi_stack_config,
@@ -26,7 +27,7 @@ from yoke_cli.transport.pulumi_github_authority import (
 PULUMI_EXEC_USAGE = (
     "yoke pulumi exec --project NAME --stack STACK "
     "[--bootstrap-local-authority] -- "
-    "<preview|refresh|import|up args>"
+    "<init|preview|refresh|import|up args>"
 )
 
 
@@ -34,8 +35,11 @@ def pulumi_exec(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke pulumi exec",
         description=(
-            "Run one stack-bound Pulumi preview, refresh, file import, or "
-            "operator-confirmed update with ephemeral capability-owned authority."
+            "Run one stack-bound Pulumi initialization, preview, refresh, file "
+            "import, or operator-confirmed update with ephemeral "
+            "capability-owned authority. Initialization is a local "
+            "source-dev/admin boundary for an exact declared stack and requires "
+            "`init --secrets-provider <awskms URI>`."
         ),
     )
     parser.add_argument("--project", required=True)
@@ -59,6 +63,30 @@ def pulumi_exec(args: List[str]) -> int:
     if not command:
         print(f"Usage: {PULUMI_EXEC_USAGE}", file=sys.stderr)
         return 2
+    if command[0] == "init":
+        if parsed.bootstrap_local_authority:
+            print(
+                "error: --bootstrap-local-authority is limited to initialized "
+                "runner-fleet stack operations and cannot be combined with init",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            https_connection = resolve_https_connection()
+        except TransportError as exc:
+            print(
+                f"error: pulumi stack init could not resolve the active "
+                f"connection: {exc}",
+                file=sys.stderr,
+            )
+            return 2
+        if https_connection is not None:
+            print(
+                "error: pulumi stack init is a local source-dev/admin boundary; "
+                "select a local-postgres connection and retry",
+                file=sys.stderr,
+            )
+            return 2
     ensure_handlers_loaded()
 
     def config_loader(project: str, stack: str):

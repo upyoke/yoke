@@ -67,9 +67,30 @@ def test_get_help_routes_pulumi_state_to_stack_scoped_reader():
     )
     assert rc == 0
     help_text = out + err
-    assert "pulumi-state is stack-scoped" in help_text
-    assert "yoke projects pulumi-stack-config get" in help_text
+    assert "pulumi-state reads are closed" in help_text
+    assert "capability-settings merge" in help_text
+    assert "yoke pulumi exec" in help_text
+    assert "projects pulumi-stack-config get" in help_text
     assert calls == []
+
+
+def test_get_refuses_pulumi_state_and_names_typed_bootstrap_path():
+    rc, out, err, calls = _run(
+        "projects",
+        "capability-settings",
+        "get",
+        "--project",
+        "buzz",
+        "--cap-type",
+        "pulumi-state",
+    )
+    assert rc == 2
+    assert out == ""
+    assert calls == []
+    assert "aggregate reads are closed" in err
+    assert "capability-settings merge" in err
+    assert "pulumi exec" in err
+    assert "pulumi-stack-config get" in err
 
 
 def test_set_carries_exact_base_and_document():
