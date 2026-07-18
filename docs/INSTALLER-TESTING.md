@@ -52,8 +52,8 @@ Ask for these values at campaign start:
 
 ## Source Surfaces
 
-The Live TUI campaign helpers are source-checkout tools, not the public product
-installer surface:
+The Live TUI campaign helpers are source-checkout tools, so every recipe below
+runs from the repo root through `uv run --frozen`, not system Python:
 
 - `packages/yoke-core/src/yoke_core/tools/installer_live_tui_harness.py`
 - `packages/yoke-core/src/yoke_core/tools/installer_live_tui_fleet.py`
@@ -121,7 +121,7 @@ a three-digit suffix.
 Inspect the catalog:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_harness catalog \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_harness catalog \
   --plan "$CATALOG_DOC" \
   --json
 ```
@@ -345,7 +345,7 @@ not a pass.
 For a simple assignment bundle:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_harness render-assignments \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_harness render-assignments \
   --plan "$CATALOG_DOC" \
   --campaign-root "$CAMPAIGN_ROOT" \
   --endpoint "$ENDPOINT" \
@@ -357,7 +357,7 @@ For a coordinator-managed campaign, render the manifest, assignments, host
 demand, and recipe stubs:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_coordinator plan-campaign \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_coordinator plan-campaign \
   --plan "$CATALOG_DOC" \
   --campaign-root "$CAMPAIGN_ROOT" \
   --endpoint "$ENDPOINT" \
@@ -414,7 +414,7 @@ Provisioning rules:
 For EC2 host work, preview first:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_fleet fleet-plan \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_fleet fleet-plan \
   --campaign-id "$CAMPAIGN_ID" \
   --campaign-root "$CAMPAIGN_ROOT" \
   --count 1 \
@@ -426,7 +426,7 @@ python3 -m yoke_core.tools.installer_live_tui_fleet fleet-plan \
 Create hosts only after operator approval:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_fleet fleet-prepare \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_fleet fleet-prepare \
   --campaign-id "$CAMPAIGN_ID" \
   --campaign-root "$CAMPAIGN_ROOT" \
   --count 1 \
@@ -455,7 +455,7 @@ codes should fail bootstrap.
 Reset a ledgered host before reusing it:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_fleet fleet-reset \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_fleet fleet-reset \
   --ledger "$LEDGER" \
   --target-profile bare-no-uv \
   --execute \
@@ -468,14 +468,14 @@ The coordinator can seed known recipe stubs, compile ready recipes into
 run-spec JSON, and execute them.
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_coordinator seed-recipes \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_coordinator seed-recipes \
   --campaign-root "$CAMPAIGN_ROOT" \
   --endpoint "$ENDPOINT" \
   --json
 ```
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_coordinator compile-recipes \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_coordinator compile-recipes \
   --campaign-root "$CAMPAIGN_ROOT" \
   --runs-per-spec 1 \
   --json
@@ -484,7 +484,7 @@ python3 -m yoke_core.tools.installer_live_tui_coordinator compile-recipes \
 Run one compiled spec after reviewing it:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_coordinator run-batch \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_coordinator run-batch \
   --spec "$CAMPAIGN_ROOT/run-specs/run-spec-001.json" \
   --campaign-root "$CAMPAIGN_ROOT" \
   --ledger "$LEDGER" \
@@ -495,7 +495,7 @@ python3 -m yoke_core.tools.installer_live_tui_coordinator run-batch \
 Run multiple specs with a concurrency cap:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_coordinator run-waves \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_coordinator run-waves \
   --spec-dir "$CAMPAIGN_ROOT/run-specs" \
   --campaign-root "$CAMPAIGN_ROOT" \
   --ledger "$LEDGER" \
@@ -516,7 +516,7 @@ semi-manually.
 Capture a local tmux pane:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_capture capture \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_capture capture \
   --campaign-root "$CAMPAIGN_ROOT" \
   --assignment-id A001 \
   --scenario-id <scenario-id> \
@@ -527,7 +527,7 @@ python3 -m yoke_core.tools.installer_live_tui_capture capture \
 Capture a ledgered SSH host's tmux pane:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_capture ssh-capture \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_capture ssh-capture \
   --campaign-root "$CAMPAIGN_ROOT" \
   --assignment-id A001 \
   --scenario-id <scenario-id> \
@@ -539,7 +539,7 @@ python3 -m yoke_core.tools.installer_live_tui_capture ssh-capture \
 Send small key transitions:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_capture ssh-send-keys \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_capture ssh-send-keys \
   --ledger "$LEDGER" \
   Enter \
   --json
@@ -548,7 +548,7 @@ python3 -m yoke_core.tools.installer_live_tui_capture ssh-send-keys \
 Backfill image evidence from an already retained text capture:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_capture file-capture \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_capture file-capture \
   --campaign-root "$CAMPAIGN_ROOT" \
   --assignment-id A001 \
   --scenario-id <scenario-id> \
@@ -563,7 +563,7 @@ For one ledgered SSH scenario, use `run-ssh`. This starts the command, performs
 capture/action steps, records expectations and post-checks, and writes a report.
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_runner run-ssh \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_runner run-ssh \
   --ledger "$LEDGER" \
   --campaign-root "$CAMPAIGN_ROOT" \
   --assignment-id A001 \
@@ -601,7 +601,7 @@ Minimum report content:
 Validate one report:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_harness validate-report \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_harness validate-report \
   --report "$CAMPAIGN_ROOT/reports/A001.json" \
   --campaign-root "$CAMPAIGN_ROOT" \
   --json
@@ -610,7 +610,7 @@ python3 -m yoke_core.tools.installer_live_tui_harness validate-report \
 Scan retained evidence for obvious secret markers:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_harness secret-scan \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_harness secret-scan \
   "$CAMPAIGN_ROOT/captures" \
   "$CAMPAIGN_ROOT/screenshots" \
   "$CAMPAIGN_ROOT/logs" \
@@ -622,7 +622,7 @@ python3 -m yoke_core.tools.installer_live_tui_harness secret-scan \
 Collect the whole campaign:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_harness collect-reports \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_harness collect-reports \
   --campaign-root "$CAMPAIGN_ROOT" \
   --json
 ```
@@ -638,7 +638,7 @@ campaign collector is green. Use bare numeric item ids.
 Preview:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_qa_ingest \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_qa_ingest \
   --campaign-root "$CAMPAIGN_ROOT" \
   --item-id <numeric-item-id> \
   --json
@@ -647,7 +647,7 @@ python3 -m yoke_core.tools.installer_live_tui_qa_ingest \
 Write QA rows:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_qa_ingest \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_qa_ingest \
   --campaign-root "$CAMPAIGN_ROOT" \
   --item-id <numeric-item-id> \
   --execute \
@@ -1324,7 +1324,7 @@ commands where practical.
 Clean up EC2 resources with the ledger that created them:
 
 ```bash
-python3 -m yoke_core.tools.installer_live_tui_fleet fleet-cleanup \
+uv run --frozen python3 -m yoke_core.tools.installer_live_tui_fleet fleet-cleanup \
   --ledger "$LEDGER" \
   --execute \
   --json
