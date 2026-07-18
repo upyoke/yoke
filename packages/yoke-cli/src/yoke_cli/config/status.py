@@ -12,6 +12,8 @@ import importlib.util
 import os
 import shutil
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as metadata_version
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -208,8 +210,13 @@ def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
     if connection.get("transport") in contract.POSTGRES_TRANSPORTS:
         imports["yoke_core"] = _import_status("yoke_core")
         imports["psycopg"] = _import_status("psycopg")
+    source_bound = (
+        install_binding.detect().get("kind")
+        == install_binding.KIND_SOURCE_CHECKOUT
+    )
     package_versions = {
-        name: _package_version(name) for name in PRODUCT_RUNTIME_PACKAGES
+        name: _package_version(name, source_bound=source_bound)
+        for name in PRODUCT_RUNTIME_PACKAGES
     }
     issues = []
     for name, item in imports.items():
@@ -239,7 +246,20 @@ def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _package_version(name: str) -> str:
+def _package_version(name: str, *, source_bound: bool) -> str:
+    # A source-bound CLI is one coherent checkout, even when ambient wheel
+    # metadata exists. Keep every product version blank so status never mixes
+    # checkout code with unrelated installed distribution versions.
+    if source_bound:
+        return ""
+    # HTTPS product commands must not probe/import the engine. A packaged CLI
+    # establishes the isolated product tool environment, so distribution
+    # metadata is the correct presence/version surface for the unimported core.
+    if name == ENGINE_DISTRIBUTION_NAME:
+        try:
+            return metadata_version(name)
+        except PackageNotFoundError:
+            return ""
     module_name = PRODUCT_RUNTIME_MODULES.get(name)
     if not module_name:
         return ""

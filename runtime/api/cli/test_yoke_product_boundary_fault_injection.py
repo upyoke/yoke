@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -31,8 +30,6 @@ FORBIDDEN_AUTHORITY_IMPORTS = (
 BOUNDARY_MARKER = "__YOKE_PRODUCT_BOUNDARY__"
 
 _FORBIDDEN_JSON = json.dumps(FORBIDDEN_AUTHORITY_IMPORTS)
-_VERSION_TEXT = re.compile(r"\d+(?:\.\d+)+(?:[A-Za-z0-9_.!+-]+)?")
-
 _HARNESS = (
     "import importlib.abc\n"
     "import json\n"
@@ -208,7 +205,7 @@ def test_version_does_not_import_source_authority(tmp_path: Path) -> None:
     run = _run_product_cli(tmp_path, ["--version"])
 
     assert run.returncode == 0
-    assert _VERSION_TEXT.fullmatch(run.stdout.strip())
+    assert run.stdout.strip() == "source"
     assert run.stderr == ""
     _assert_clean_client_boundary(run)
 
@@ -236,6 +233,7 @@ def test_status_missing_config_reports_locally_without_authority_import(
     issue_codes = {issue["code"] for issue in report["issues"]}
     assert "config_missing" in issue_codes
     assert "connections_required" in issue_codes
+    assert set(report["runtime"]["package_versions"].values()) == {""}
     assert run.stderr == ""
     _assert_clean_client_boundary(run)
 

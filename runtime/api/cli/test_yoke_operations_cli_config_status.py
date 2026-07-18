@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import json
 import os
+from importlib.machinery import ModuleSpec
 from pathlib import Path
 
 from yoke_cli import main as yoke_operations_cli
-from yoke_cli.config import install_binding, status_render
+from yoke_cli.config import (
+    install_binding,
+    status as status_module,
+    status_render,
+)
 from yoke_contracts.machine_config import schema as contract
 
 from runtime.api.cli.status_test_helpers import status_config, stub_server
@@ -149,6 +154,60 @@ def test_status_json_reports_install_binding(
     assert report["install"]["module_origin"].endswith("yoke_cli/__init__.py")
     assert report["install"]["version"] == ""
     assert set(report["runtime"]["package_versions"].values()) == {""}
+
+
+def test_packaged_core_version_uses_metadata_without_module_probe(
+    monkeypatch,
+) -> None:
+    probed: list[str] = []
+
+    def fake_find_spec(name: str):
+        probed.append(name)
+        if name == "yoke_core":
+            raise AssertionError("packaged HTTPS status must not probe yoke_core")
+        return ModuleSpec(name, loader=None, origin=f"/product/{name}.py")
+
+    monkeypatch.setattr(status_module.importlib.util, "find_spec", fake_find_spec)
+    monkeypatch.setattr(
+        status_module,
+        "metadata_version",
+        lambda name: "4.5.6" if name == "yoke-core" else "",
+    )
+
+    version = status_module._package_version(  # noqa: SLF001
+        "yoke-core", source_bound=False,
+    )
+
+    assert version == "4.5.6"
+    assert "yoke_core" not in probed
+
+
+def test_source_bound_package_versions_ignore_ambient_metadata(
+    monkeypatch,
+) -> None:
+    def fail_probe(name: str):
+        raise AssertionError(f"source status must not probe {name}")
+
+    def fail_metadata(name: str):
+        raise AssertionError(f"source status must ignore metadata for {name}")
+
+    monkeypatch.setattr(
+        status_module.importlib.util,
+        "find_spec",
+        fail_probe,
+    )
+    monkeypatch.setattr(
+        status_module,
+        "metadata_version",
+        fail_metadata,
+    )
+
+    versions = {
+        name: status_module._package_version(name, source_bound=True)  # noqa: SLF001
+        for name in status_module.PRODUCT_RUNTIME_PACKAGES
+    }
+
+    assert set(versions.values()) == {""}
 
 
 def test_global_env_override_is_restored(tmp_path: Path, monkeypatch, capsys) -> None:
