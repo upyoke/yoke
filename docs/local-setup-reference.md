@@ -110,6 +110,11 @@ yoke project artifacts refresh /path/to/project --project <slug> --apply
 yoke project artifacts refresh /path/to/project --project <slug> --verify
 ```
 
+If a legacy checkout already has rendered files but no artifact manifest, run
+the one-time `--adopt-existing` mode first. It records current managed-path
+bytes without replacing them; the subsequent preview/apply remains explicit
+and will refuse any intervening local modification.
+
 The server renders from its active packaged template plus DB-backed project
 settings over HTTPS or self-hosted transport. Before planning, the client
 requires the checkout's installed project id to match the server bundle. When

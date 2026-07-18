@@ -25,6 +25,7 @@ from yoke_contracts.project_artifacts import (
 
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+SUPPORTED_MANAGED_MODES = frozenset((0o644, 0o755))
 _ALLOWED_PREFIXES = (
     ".github/workflows/",
     PROJECT_ARTIFACT_GENERATED_REFERENCE_PREFIX,
@@ -153,7 +154,7 @@ def _validate_bundle_entries(
             raise ProjectArtifactError(
                 f"artifact {path!r} digest does not match content"
             )
-        if mode not in (0o644, 0o755):
+        if mode not in SUPPORTED_MANAGED_MODES:
             raise ProjectArtifactError(f"artifact {path!r} mode is unsupported")
         entries.append(
             {
@@ -264,7 +265,7 @@ def validate_manifest(manifest: Any) -> None:
             record["sha256"]
         ):
             raise ProjectArtifactError(f"artifact manifest digest {path!r} is invalid")
-        if record["mode"] not in (0o644, 0o755):
+        if record["mode"] not in SUPPORTED_MANAGED_MODES:
             raise ProjectArtifactError(f"artifact manifest mode {path!r} is invalid")
 
 
@@ -321,6 +322,7 @@ def json_digest(value: Any) -> str:
 
 __all__ = [
     "ProjectArtifactError",
+    "SUPPORTED_MANAGED_MODES",
     "assert_paths_safe",
     "assert_targets_plannable",
     "json_digest",

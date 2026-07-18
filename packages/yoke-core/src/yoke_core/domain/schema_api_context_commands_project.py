@@ -17,7 +17,7 @@ PROJECT_COMMANDS: list[dict] = [
         "purpose": "Preview, apply, or verify managed rendered artifacts",
         "recipe": (
             "yoke project artifacts refresh <checkout> --project <project> "
-            "[--apply | --verify]"
+            "[--apply | --verify | --adopt-existing]"
         ),
         "notes": (
             "Preview is default. projects.artifacts.render works over HTTPS "
@@ -30,6 +30,10 @@ PROJECT_COMMANDS: list[dict] = [
             "YAML/operator state stay stack-scoped. DB-backed project-policy "
             "artifact_refresh.enabled=false plus a reason makes all modes a "
             "clean post-identity no-op for project-owned release factories. "
+            "For a legacy rendered checkout with no artifact manifest, "
+            "--adopt-existing records current managed-path bytes without "
+            "replacing them; preview/apply then performs the visible template "
+            "reconciliation and protects any intervening local edits. "
             "`yoke project refresh` is substrate-only."
         ),
     },
@@ -51,8 +55,7 @@ PROJECT_COMMANDS: list[dict] = [
         "topic": "project",
         "purpose": "List configured project test commands",
         "recipe": (
-            "yoke project-structure command-definitions list "
-            "--project <project>"
+            "yoke project-structure command-definitions list --project <project>"
         ),
         "notes": (
             "Registered read project_structure.command_definitions.list "
