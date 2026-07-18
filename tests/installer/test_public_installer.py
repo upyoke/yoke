@@ -124,10 +124,10 @@ def test_install_command_honors_base_url_for_index_host() -> None:
     assert command[command.index("--index-strategy") + 1] == "first-index"
 
 
-def test_uv_runner_ignores_ambient_index_configuration(monkeypatch) -> None:
+def test_uv_runner_ignores_ambient_resolver_sources(monkeypatch) -> None:
     installer_mod = load_installer()
     captured = {}
-    for name in installer_mod.UV_INDEX_ENV_VARS:
+    for name in installer_mod.RESOLVER_SOURCE_ENV_VARS:
         monkeypatch.setenv(name, "https://ambient.example.invalid/simple/")
     monkeypatch.setenv("UNRELATED_INSTALLER_SETTING", "preserved")
 
@@ -143,7 +143,7 @@ def test_uv_runner_ignores_ambient_index_configuration(monkeypatch) -> None:
     assert result.returncode == 0
     assert captured["command"] == ["uv", "--version"]
     assert captured["env"]["UNRELATED_INSTALLER_SETTING"] == "preserved"
-    for name in installer_mod.UV_INDEX_ENV_VARS:
+    for name in installer_mod.RESOLVER_SOURCE_ENV_VARS:
         assert name not in captured["env"]
 
 
@@ -487,7 +487,20 @@ def test_product_boundary_audit_rejects_source_dev_authority() -> None:
     status = subprocess.CompletedProcess(
         ["yoke", "status", "--json"],
         0,
-        json.dumps({"connection": {"client_authority": "source-dev/admin"}}),
+        json.dumps({
+            "runtime": {
+                "package_versions": {
+                    package: "1.2.3"
+                    for package in (
+                        "yoke-cli",
+                        "yoke-contracts",
+                        "yoke-harness",
+                        "yoke-core",
+                    )
+                },
+            },
+            "connection": {"client_authority": "source-dev/admin"},
+        }),
         "",
     )
     runner = RecordingRunner(responses={("yoke", "status", "--json"): status})

@@ -63,6 +63,34 @@ UV_INDEX_ENV_VARS = frozenset(
         "UV_NO_INDEX",
     }
 )
+# Requirement/override/find-links inputs can inject packages independently of
+# indexes.  The public installer pins the complete lockstep product set, so it
+# deliberately inherits none of these ambient resolver source surfaces.
+UV_REQUIREMENT_SOURCE_ENV_VARS = frozenset(
+    {
+        "UV_BUILD_CONSTRAINT",
+        "UV_CONFIG_FILE",
+        "UV_CONSTRAINT",
+        "UV_FIND_LINKS",
+        "UV_OVERRIDE",
+        "UV_REQUIREMENT",
+    }
+)
+PIP_REQUIREMENT_SOURCE_ENV_VARS = frozenset(
+    {
+        "PIP_CONSTRAINT",
+        "PIP_EXTRA_INDEX_URL",
+        "PIP_FIND_LINKS",
+        "PIP_INDEX_URL",
+        "PIP_NO_INDEX",
+        "PIP_REQUIREMENT",
+    }
+)
+RESOLVER_SOURCE_ENV_VARS = frozenset(
+    UV_INDEX_ENV_VARS
+    | UV_REQUIREMENT_SOURCE_ENV_VARS
+    | PIP_REQUIREMENT_SOURCE_ENV_VARS
+)
 DIAGNOSTIC_MAX_CHARS = 4000
 FAILURE_REASON_MAX_CHARS = 600
 _URL_RE = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
@@ -570,7 +598,7 @@ def run_command_capture(command: Sequence[str]) -> subprocess.CompletedProcess[s
     env = {
         key: value
         for key, value in os.environ.items()
-        if key not in UV_INDEX_ENV_VARS
+        if key not in RESOLVER_SOURCE_ENV_VARS
     }
     return subprocess.run(
         list(command),

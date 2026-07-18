@@ -89,7 +89,7 @@ class TestInstaller:
         assert result.installed == 0
         assert result.updated == 0
 
-    def test_refreshes_stale_yoke_marked_hook(self, fresh_repo):
+    def test_preserves_ambiguous_yoke_marker_hook(self, fresh_repo):
         hook = _hook_path(fresh_repo)
         hook.parent.mkdir(parents=True, exist_ok=True)
         # Stale Yoke-marked hook (older content but bears the marker).
@@ -102,9 +102,9 @@ class TestInstaller:
         os.chmod(hook, 0o755)
         result = BootstrapResult()
         install_post_commit_hook(fresh_repo, result)
-        assert any("Updated" in line for line in result.actions)
-        assert hook.read_text() == POST_COMMIT_SHIM
-        assert result.updated == 1
+        assert any("not Yoke-managed" in line for line in result.warnings)
+        assert hook.read_text() == stale
+        assert result.updated == 0
 
     def test_refresh_rewrites_legacy_module_form_shim(self, fresh_repo):
         # The exact pre-launcher shim text that earlier installs wrote

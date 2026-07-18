@@ -15,11 +15,13 @@ from pathlib import Path
 from typing import Any
 
 import runtime
+import yoke_cli
 import yoke_contracts
 
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
 from yoke_core.domain import install_bundle
+from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
 )
@@ -43,12 +45,17 @@ SOURCE_MANAGED_PREFIXES = (
 def _assert_checkout_origin(source_checkout: Path) -> None:
     expected = source_checkout.resolve()
     modules = {
-        "yoke_core": Path(install_bundle.__file__),
-        "yoke_contracts": Path(yoke_contracts.__file__),
-        "runtime": Path(runtime.__file__),
+        "yoke_core": install_bundle.__file__,
+        "yoke_contracts": yoke_contracts.__file__,
+        "yoke_cli": yoke_cli.__file__,
+        "runtime": runtime.__file__,
     }
     mismatched = []
-    for name, module_file in modules.items():
+    for name, raw_module_file in modules.items():
+        if not raw_module_file:
+            mismatched.append(f"{name}=<no module origin>")
+            continue
+        module_file = Path(raw_module_file)
         origin = source_checkout_root(module_file)
         if origin is None and name == "runtime":
             candidate = module_file.resolve().parent.parent
@@ -74,8 +81,13 @@ def build_source_bundle(
     files.extend(install_bundle._rules_files(source_checkout))
     files.sort(key=lambda entry: entry["path"])
     hooks = install_bundle._hooks_block()
+    managed_git_hooks = git_hooks_layer.managed_git_hook_specs()
     digest_source = json.dumps(
-        {"files": files, "hooks": hooks},
+        {
+            "files": files,
+            "hooks": hooks,
+            "managed_git_hooks": managed_git_hooks,
+        },
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
@@ -92,6 +104,7 @@ def build_source_bundle(
         "strategy_files": [],
         "project_policy_capabilities": {},
         "hooks": hooks,
+        "managed_git_hooks": managed_git_hooks,
         "source_managed_prefixes": list(SOURCE_MANAGED_PREFIXES),
     }
 

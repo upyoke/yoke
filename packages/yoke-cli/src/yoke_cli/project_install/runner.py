@@ -34,6 +34,7 @@ from yoke_cli.commands.adapters.project_snapshot import (
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
+from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install import source_dev
 from yoke_cli.project_install import strategy as strategy_layer
 from yoke_cli.project_install.files import (
@@ -43,7 +44,10 @@ from yoke_cli.project_install.files import (
     ProjectInstallError,
 )
 from yoke_cli.project_install.uninstall import uninstall
-from yoke_cli.project_install.validate import _validate_bundle
+from yoke_cli.project_install.validate import (
+    _validate_bundle,
+    validate_bundle_for_project,
+)
 from yoke_cli.project_install.transport import (
     resolve_bundle as _resolve_bundle,
 )
@@ -61,6 +65,9 @@ _MANIFEST_OWNED_KEYS = frozenset({
     "strategy_files",
     "created_settings_files",
     "hook_entries",
+    "git_hook_hashes",
+    "worktrees_ignore_added",
+    "worktrees_ignore_created_file",
 })
 
 
@@ -92,6 +99,8 @@ def install(
     bundle, source = _resolve_bundle(
         resolved_id, explicit_env=explicit_env, config_path=config_path
     )
+    validate_bundle_for_project(bundle, resolved_id)
+    preflight_apply(root, bundle, files_layer.load_manifest(root) or {}, {})
     # Register between bundle resolution and apply: the fetch has already
     # validated the project id against the env (a 404 aborts before any
     # mapping is recorded), and an unwritable machine config fails fast
@@ -161,6 +170,10 @@ def apply_bundle(
             + ", ".join(overlap)
         )
 
+    preflight = preflight_apply(
+        repo_root, bundle, old_manifest, preserved_files,
+    )
+
     hashes, written = files_layer.apply_files(repo_root, bundle_files)
     hashes.update(preserved_files)
     pruned, skipped, warnings = files_layer.prune_files(
@@ -192,32 +205,57 @@ def apply_bundle(
     warnings.extend(strategy_warnings)
 
     created_settings = set(old_manifest.get("created_settings_files") or [])
-    hook_entries: Dict[str, List[Dict[str, Any]]] = {
+    prior_hook_entries: Dict[str, List[Dict[str, Any]]] = {
         rel: list(records or [])
         for rel, records in (old_manifest.get("hook_entries") or {}).items()
     }
+    hook_entries: Dict[str, List[Dict[str, Any]]] = {}
     hooks_added: Dict[str, List[Dict[str, Any]]] = {}
+    hooks_removed: Dict[str, List[Dict[str, Any]]] = {}
     for hooks_key, settings_rel in sorted(
         hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY.items()
     ):
         subtree = bundle["hooks"][hooks_key]
-        result = hooks_layer.merge_hooks_file(repo_root, settings_rel, subtree)
+        result = hooks_layer.reconcile_hooks_file(
+            repo_root,
+            settings_rel,
+            subtree,
+            prior_hook_entries.get(settings_rel, []),
+            created_by_install=settings_rel in created_settings,
+        )
         if result["created"]:
             created_settings.add(settings_rel)
+        if result["deleted_file"]:
+            created_settings.discard(settings_rel)
         if result["added"]:
             hooks_added[settings_rel] = result["added"]
-        _union_records(
-            hook_entries.setdefault(settings_rel, []),
-            hooks_layer.provided_records(subtree),
-        )
+        if result["removed"]:
+            hooks_removed[settings_rel] = result["removed"]
+        hook_entries[settings_rel] = hooks_layer.provided_records(subtree)
 
     # Git hook shims (§2.K guardrail mandate): same pre/post-commit
     # install as source-link mode; skips gracefully without .git/hooks/
     # (linked worktree or not a git repo) and warns on foreign hooks.
     git_hooks = git_hooks_layer.BootstrapResult()
-    git_hooks_layer.install_git_hooks(repo_root, git_hooks)
+    git_hooks_layer.install_git_hooks(
+        repo_root,
+        git_hooks,
+        preflight["git_hook_specs"],
+        preflight["owned_git_hook_hashes"],
+    )
     warnings.extend(git_hooks.warnings)
     worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=True)
+    git_hook_hashes = git_hooks_layer.managed_git_hook_hashes(
+        repo_root, preflight["git_hook_specs"],
+    )
+    worktrees_ignore_added = bool(
+        old_manifest.get("worktrees_ignore_added")
+        or worktrees_ignore["applied"]
+    )
+    worktrees_ignore_created_file = bool(
+        old_manifest.get("worktrees_ignore_created_file")
+        or worktrees_ignore.get("created_file")
+    )
 
     # Carry unknown top-level manifest keys forward: a field written by a
     # newer CLI must survive this version's whole-object rewrite (the
@@ -238,6 +276,9 @@ def apply_bundle(
         "strategy_files": strategy_map,
         "created_settings_files": sorted(created_settings),
         "hook_entries": hook_entries,
+        "git_hook_hashes": git_hook_hashes,
+        "worktrees_ignore_added": worktrees_ignore_added,
+        "worktrees_ignore_created_file": worktrees_ignore_created_file,
     })
     manifest_file = files_layer.write_manifest(repo_root, manifest)
     return {
@@ -264,6 +305,7 @@ def apply_bundle(
             bundle.get("project_policy_capabilities") or {}
         ),
         "hooks_added": hooks_added,
+        "hooks_removed": hooks_removed,
         "git_hooks_installed_or_updated": (
             git_hooks.installed + git_hooks.updated
         ),
@@ -274,16 +316,6 @@ def apply_bundle(
         "machine_config_newly_registered": False,
         "warnings": warnings,
     }
-
-
-def _union_records(existing: List[Dict[str, Any]],
-                   new: List[Dict[str, Any]]) -> None:
-    """Accumulate bundle-provided hook records across installs, de-duplicated."""
-    seen = {hooks_layer.record_key(r) for r in existing}
-    for record in new:
-        if hooks_layer.record_key(record) not in seen:
-            existing.append(record)
-            seen.add(hooks_layer.record_key(record))
 
 
 def _resolve_project_id(

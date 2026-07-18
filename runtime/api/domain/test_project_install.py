@@ -9,6 +9,8 @@ uninstall in ``test_project_install_hooks.py``.
 from __future__ import annotations
 
 import json
+import shutil
+from pathlib import Path
 
 import pytest
 
@@ -31,6 +33,18 @@ def repo(tmp_path):
 
 def _manifest(repo) -> dict:
     return json.loads((repo / MANIFEST_REL).read_text(encoding="utf-8"))
+
+
+def _tree_bytes(root: Path) -> dict[str, bytes | str]:
+    snapshot = {}
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        snapshot[rel] = (
+            f"symlink:{path.readlink()}" if path.is_symlink()
+            else path.read_bytes() if path.is_file()
+            else "directory"
+        )
+    return snapshot
 
 
 def test_fresh_install_writes_files_manifest_and_hooks(repo) -> None:
@@ -137,6 +151,121 @@ def test_unsupported_manifest_schema_is_refused(repo) -> None:
 
     with pytest.raises(ProjectInstallError):
         apply_bundle(repo, make_bundle(), source="test")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("files", ["not-a-map"]),
+        ("contract_files", ".yoke/policy"),
+        ("strategy_files", [".yoke/strategy/MISSION.md"]),
+        ("created_settings_files", ".claude/settings.json"),
+        ("hook_entries", []),
+        ("git_hooks", ["unknown-hook"]),
+        ("git_hook_hashes", [".git/hooks/pre-commit"]),
+        ("worktrees_ignore_added", "yes"),
+    ],
+)
+def test_malformed_prior_manifest_shape_fails_before_mutation(
+    repo, field, value,
+) -> None:
+    apply_bundle(repo, make_bundle(), source="test")
+    manifest = _manifest(repo)
+    manifest[field] = value
+    (repo / MANIFEST_REL).write_text(json.dumps(manifest), encoding="utf-8")
+    before = _tree_bytes(repo)
+
+    with pytest.raises(ProjectInstallError):
+        apply_bundle(repo, make_bundle(DEFAULT_FILES[:1]), source="test")
+
+    assert _tree_bytes(repo) == before
+
+
+def test_prior_manifest_escape_cannot_prune_outside_repo(repo, tmp_path) -> None:
+    victim = tmp_path / "victim.txt"
+    victim.write_text("outside\n", encoding="utf-8")
+    (repo / ".yoke").mkdir()
+    (repo / MANIFEST_REL).write_text(
+        json.dumps({
+            "manifest_schema": 1,
+            "files": {
+                str(victim): (
+                    "263c0bcd0f6c5a81149b9b65a7f4f319d80b48c704437b6125ee28e738b8b9ff"
+                ),
+            },
+        }),
+        encoding="utf-8",
+    )
+    before = _tree_bytes(repo)
+
+    with pytest.raises(ProjectInstallError, match="unsafe path"):
+        apply_bundle(repo, make_bundle(), source="test")
+
+    assert victim.read_text(encoding="utf-8") == "outside\n"
+    assert _tree_bytes(repo) == before
+
+
+@pytest.mark.parametrize(
+    ("symlink_rel", "bundle_files"),
+    [
+        (".agents", [{"path": ".agents/skills/yoke/SKILL.md", "content": "x"}]),
+        (".claude", DEFAULT_FILES),
+        (".yoke", DEFAULT_FILES),
+    ],
+)
+def test_symlink_parent_escape_fails_before_any_mutation(
+    repo, tmp_path, symlink_rel, bundle_files,
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (repo / symlink_rel).symlink_to(outside, target_is_directory=True)
+    before = _tree_bytes(repo)
+
+    with pytest.raises(ProjectInstallError, match="resolves outside repo root"):
+        apply_bundle(repo, make_bundle(bundle_files), source="test")
+
+    assert _tree_bytes(repo) == before
+    assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize("git_symlink", ["git-dir", "hooks-dir"])
+def test_git_hook_symlink_escape_fails_before_apply_mutation(
+    repo, tmp_path, git_symlink,
+) -> None:
+    outside = tmp_path / "outside-git"
+    (outside / "hooks").mkdir(parents=True)
+    if git_symlink == "git-dir":
+        (repo / ".git").symlink_to(outside, target_is_directory=True)
+    else:
+        (repo / ".git").mkdir()
+        (repo / ".git/hooks").symlink_to(
+            outside / "hooks", target_is_directory=True,
+        )
+    before = _tree_bytes(repo)
+
+    with pytest.raises(ProjectInstallError, match="resolves outside repo root"):
+        apply_bundle(repo, make_bundle(), source="test")
+
+    assert _tree_bytes(repo) == before
+    assert list((outside / "hooks").iterdir()) == []
+
+
+def test_bundle_identity_is_validated_before_machine_registration(
+    repo, tmp_path, monkeypatch,
+) -> None:
+    cfg = tmp_path / "machine-home" / "config.json"
+    mismatch = make_bundle()
+    mismatch["project_id"] = 8
+    monkeypatch.setattr(
+        project_install, "_resolve_bundle", lambda *_args, **_kwargs: (mismatch, "test"),
+    )
+    before = _tree_bytes(repo)
+
+    with pytest.raises(ProjectInstallError, match="does not match"):
+        project_install.install(repo, project_id=7, config_path=cfg)
+
+    assert _tree_bytes(repo) == before
+    assert not cfg.exists()
 
 
 def test_install_requires_a_resolvable_project_id(repo, tmp_path,
@@ -256,6 +385,80 @@ def test_copy_uninstall_removes_yoke_hooks_preserves_foreign(repo) -> None:
     assert foreign.read_text(encoding="utf-8") == (
         "#!/bin/sh\nexec /custom/notify\n"
     )
+
+
+def test_git_hook_marker_mention_is_never_treated_as_ownership(repo) -> None:
+    _git_init(repo)
+    ambiguous = repo / ".git" / "hooks" / "pre-commit"
+    content = (
+        "#!/bin/sh\n"
+        "# docs mention yoke-pre-commit but this is operator-owned\n"
+        "exec /custom/gate\n"
+    )
+    ambiguous.write_text(content, encoding="utf-8")
+
+    report = apply_bundle(repo, make_bundle(), source="test")
+
+    assert ambiguous.read_text(encoding="utf-8") == content
+    assert any("not Yoke-managed" in warning for warning in report["warnings"])
+    assert ".git/hooks/pre-commit" not in _manifest(repo)["git_hook_hashes"]
+
+    uninstall_report = project_install.uninstall(repo)
+    assert ambiguous.read_text(encoding="utf-8") == content
+    assert uninstall_report["git_hooks_removed"] == ["post-commit"]
+
+
+def test_worktrees_ignore_owned_line_round_trips_without_foreign_loss(repo) -> None:
+    root_ignore = repo / ".gitignore"
+    root_ignore.write_text("dist/\n# operator note\n", encoding="utf-8")
+
+    apply_bundle(repo, make_bundle(), source="test")
+
+    assert root_ignore.read_text(encoding="utf-8") == (
+        "dist/\n# operator note\n.worktrees/\n"
+    )
+    manifest = _manifest(repo)
+    assert manifest["worktrees_ignore_added"] is True
+    assert manifest["worktrees_ignore_created_file"] is False
+
+    report = project_install.uninstall(repo)
+
+    assert root_ignore.read_text(encoding="utf-8") == "dist/\n# operator note\n"
+    assert report["worktrees_ignore"] == {
+        "removed": True,
+        "deleted_file": False,
+    }
+
+
+def test_worktrees_ignore_created_file_is_removed_on_uninstall(repo) -> None:
+    apply_bundle(repo, make_bundle(), source="test")
+    assert _manifest(repo)["worktrees_ignore_created_file"] is True
+
+    report = project_install.uninstall(repo)
+
+    assert not (repo / ".gitignore").exists()
+    assert report["worktrees_ignore"]["deleted_file"] is True
+
+
+def test_git_hook_symlink_escape_fails_before_uninstall_mutation(
+    repo, tmp_path,
+) -> None:
+    _git_init(repo)
+    apply_bundle(repo, make_bundle(), source="test")
+    hooks_dir = repo / ".git/hooks"
+    shutil.rmtree(hooks_dir)
+    outside_hooks = tmp_path / "outside-hooks"
+    outside_hooks.mkdir()
+    outside_hook = outside_hooks / "pre-commit"
+    outside_hook.write_text("outside\n", encoding="utf-8")
+    hooks_dir.symlink_to(outside_hooks, target_is_directory=True)
+    before = _tree_bytes(repo)
+
+    with pytest.raises(ProjectInstallError, match="resolves outside repo root"):
+        project_install.uninstall(repo)
+
+    assert _tree_bytes(repo) == before
+    assert outside_hook.read_text(encoding="utf-8") == "outside\n"
 
 
 def test_install_refresh_drop_uninstall_round_trip(repo) -> None:

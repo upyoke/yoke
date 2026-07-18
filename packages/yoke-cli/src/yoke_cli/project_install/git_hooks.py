@@ -12,9 +12,10 @@ tracked, so the installer is the primary install surface for both
 hooks in every checkout — external project repos (copy strategy) and
 the Yoke source checkout (source-link strategy) alike.
 
-Semantics: existing non-Yoke hooks are left in place with a warning;
-Yoke-marked hooks with drifted content are refreshed; missing hooks
-are created. Linked worktrees share the main checkout's ``.git/hooks/``
+Semantics: existing foreign or ambiguous marker-bearing hooks are left in
+place with a warning; exact current/historical shims or manifest-hash-owned
+shims are refreshed; missing hooks are created. Linked worktrees share the
+main checkout's ``.git/hooks/``
 (their ``.git`` is a file, reported as skipped) — run the install from
 the main checkout. Distinct from the sibling :mod:`hooks` module, which
 merges the bundle's HARNESS hook config into ``.claude/settings.json``
@@ -24,9 +25,10 @@ and ``.codex/hooks.json``.
 from __future__ import annotations
 
 import os
+import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 
@@ -74,10 +76,104 @@ POST_COMMIT_SHIM = (
     "exec yoke git post-commit \"$@\"\n"
 )
 
+# Exact historical bytes that the installer itself shipped before launcher
+# routing.  These may be upgraded safely; arbitrary marker-bearing composites
+# are never ownership evidence.
+_LEGACY_PRE_COMMIT_SHIMS = frozenset({
+    (
+        "#!/bin/sh\n"
+        f"# {PRE_COMMIT_MARKER} hook installed by `yoke project install`\n"
+        "# Hard-fails on file_line_check violations. "
+        "Bypass with `git commit --no-verify`.\n"
+        'exec python3 -m yoke_core.domain.git_pre_commit "$@"\n'
+    ),
+})
+_LEGACY_POST_COMMIT_SHIMS = frozenset({
+    (
+        "#!/bin/sh\n"
+        f"# {POST_COMMIT_MARKER} hook installed by `yoke project install`\n"
+        "# Pre-warms the path-snapshot cache for the project's HEAD so that\n"
+        "# downstream activate / boundary calls never hit a cold-start miss.\n"
+        "# Harness-neutral: fires on every commit regardless of source\n"
+        "# (agent tool calls, manual git commit, merge, rebase, cherry-pick).\n"
+        "exec python3 -m yoke_core.domain.path_snapshots --ensure-head"
+        ' "${YOKE_PROJECT_ID:-yoke}" >/dev/null 2>&1\n'
+    ),
+})
+
 _MARKER_BY_HOOK = {
     "pre-commit": PRE_COMMIT_MARKER,
     "post-commit": POST_COMMIT_MARKER,
 }
+def is_managed_git_hook(content: str, hook_name: str) -> bool:
+    """Recognize only exact current or enumerated historical shim bytes."""
+    expected = PRE_COMMIT_SHIM if hook_name == "pre-commit" else POST_COMMIT_SHIM
+    legacy = (
+        _LEGACY_PRE_COMMIT_SHIMS
+        if hook_name == "pre-commit"
+        else _LEGACY_POST_COMMIT_SHIMS
+    )
+    return content == expected or content in legacy
+
+
+def managed_git_hook_specs() -> List[dict[str, str]]:
+    """Serializable managed-hook payload for bundles and local installs."""
+    return [
+        {
+            "name": "pre-commit",
+            "marker": PRE_COMMIT_MARKER,
+            "content": PRE_COMMIT_SHIM,
+        },
+        {
+            "name": "post-commit",
+            "marker": POST_COMMIT_MARKER,
+            "content": POST_COMMIT_SHIM,
+        },
+    ]
+
+
+def validate_git_hook_specs(raw_specs: Any) -> List[dict[str, str]]:
+    """Validate the fixed-name source-selected managed-hook payload."""
+    if not isinstance(raw_specs, list):
+        raise ValueError("managed_git_hooks must be an array")
+    specs: List[dict[str, str]] = []
+    seen = set()
+    for raw in raw_specs:
+        if not isinstance(raw, dict):
+            raise ValueError("managed_git_hooks entries must be objects")
+        name = raw.get("name")
+        marker = raw.get("marker")
+        content = raw.get("content")
+        if (
+            name not in GIT_HOOK_NAMES
+            or name in seen
+            or not isinstance(marker, str)
+            or marker != _MARKER_BY_HOOK[name]
+            or not isinstance(content, str)
+            or marker not in content
+        ):
+            raise ValueError(
+                "managed_git_hooks must carry unique pre-commit/post-commit "
+                "entries with their stable Yoke marker and string content"
+            )
+        seen.add(name)
+        specs.append({"name": name, "marker": marker, "content": content})
+    if seen != set(GIT_HOOK_NAMES):
+        raise ValueError("managed_git_hooks must carry both managed hook names")
+    return specs
+
+
+def git_hook_specs_from_bundle(bundle: dict[str, Any]) -> List[dict[str, str]]:
+    """Select source-carried shims, or packaged shims for ordinary bundles."""
+    raw = bundle.get("managed_git_hooks")
+    if raw is None:
+        return managed_git_hook_specs()
+    try:
+        return validate_git_hook_specs(raw)
+    except ValueError as exc:
+        from yoke_cli.project_install.files import ProjectInstallError
+
+        raise ProjectInstallError(str(exc)) from exc
 
 
 def assert_pre_commit_runtime_available() -> None:
@@ -124,8 +220,16 @@ def install_git_hook(
     marker: str,
     shim: str,
     result: BootstrapResult,
+    owned_hashes: dict[str, str] | None = None,
 ) -> None:
     """Write the ``.git/hooks/<hook_name>`` shim. Idempotent."""
+    from yoke_cli.project_install.files import assert_resolved_targets_within
+
+    assert_resolved_targets_within(
+        target_root,
+        [f".git/hooks/{hook_name}"],
+        context="managed git hook mutation",
+    )
     hooks_dir = target_root / ".git" / "hooks"
     if not hooks_dir.is_dir():
         result.note(
@@ -141,7 +245,12 @@ def install_git_hook(
             existing = hook_path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             existing = ""
-        if marker not in existing:
+        rel = f".git/hooks/{hook_name}"
+        digest = hashlib.sha256(existing.encode("utf-8")).hexdigest()
+        manifest_owned = (
+            owned_hashes is not None and owned_hashes.get(rel) == digest
+        )
+        if not manifest_owned and not is_managed_git_hook(existing, hook_name):
             result.warn(
                 f".git/hooks/{hook_name} exists and is not Yoke-managed. "
                 "Refusing to overwrite. Move it aside and re-run "
@@ -179,19 +288,124 @@ def install_post_commit_hook(target_root: Path, result: BootstrapResult) -> None
     )
 
 
-def install_git_hooks(target_root: Path, result: BootstrapResult) -> None:
+def install_git_hooks(
+    target_root: Path,
+    result: BootstrapResult,
+    specs: List[dict[str, str]] | None = None,
+    owned_hashes: dict[str, str] | None = None,
+) -> None:
     """Install both Yoke git hook shims (shared by both strategies)."""
-    install_pre_commit_hook(target_root, result)
-    install_post_commit_hook(target_root, result)
+    selected = managed_git_hook_specs() if specs is None else specs
+    try:
+        selected = validate_git_hook_specs(selected)
+    except ValueError as exc:
+        from yoke_cli.project_install.files import ProjectInstallError
+
+        raise ProjectInstallError(str(exc)) from exc
+    for spec in selected:
+        install_git_hook(
+            target_root,
+            spec["name"],
+            spec["marker"],
+            spec["content"],
+            result,
+            owned_hashes,
+        )
 
 
-def remove_yoke_git_hooks(target_root: Path) -> List[str]:
-    """Uninstall pass: remove Yoke-MARKED git hook shims only.
+def preview_git_hooks(
+    target_root: Path,
+    specs: List[dict[str, str]],
+    owned_hashes: dict[str, str] | None = None,
+) -> BootstrapResult:
+    """Return the complete managed-hook convergence plan without writes."""
+    from yoke_cli.project_install.files import assert_resolved_targets_within
+
+    try:
+        selected = validate_git_hook_specs(specs)
+    except ValueError as exc:
+        from yoke_cli.project_install.files import ProjectInstallError
+
+        raise ProjectInstallError(str(exc)) from exc
+    result = BootstrapResult()
+    assert_resolved_targets_within(
+        target_root,
+        [f".git/hooks/{spec['name']}" for spec in selected],
+        context="managed git hook mutation",
+    )
+    hooks_dir = target_root / ".git" / "hooks"
+    for spec in selected:
+        hook_path = hooks_dir / spec["name"]
+        if not hooks_dir.is_dir():
+            result.note(
+                f"Skipped: .git/hooks/{spec['name']} (.git/hooks/ does not "
+                "exist — not a git repo, or a linked worktree sharing the "
+                "main checkout's .git)"
+            )
+            continue
+        if hook_path.exists():
+            try:
+                existing = hook_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                existing = ""
+            rel = f".git/hooks/{spec['name']}"
+            digest = hashlib.sha256(existing.encode("utf-8")).hexdigest()
+            manifest_owned = (
+                owned_hashes is not None and owned_hashes.get(rel) == digest
+            )
+            if not manifest_owned and not is_managed_git_hook(
+                existing, spec["name"],
+            ):
+                result.warn(
+                    f".git/hooks/{spec['name']} exists and is not "
+                    "Yoke-managed. Refusing to overwrite."
+                )
+            elif existing == spec["content"]:
+                result.note(
+                    f"Exists: .git/hooks/{spec['name']} (Yoke-managed, up to date)"
+                )
+            else:
+                result.note(f"Would update: .git/hooks/{spec['name']}")
+                result.updated += 1
+        else:
+            result.note(f"Would create: .git/hooks/{spec['name']}")
+            result.installed += 1
+    return result
+
+
+def managed_git_hook_hashes(
+    target_root: Path, specs: List[dict[str, str]],
+) -> dict[str, str]:
+    """Hash only exact selected shims currently present on disk."""
+    hashes = {}
+    for spec in validate_git_hook_specs(specs):
+        rel = f".git/hooks/{spec['name']}"
+        target = target_root / rel
+        try:
+            content = target.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if content == spec["content"]:
+            hashes[rel] = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return hashes
+
+
+def remove_yoke_git_hooks(
+    target_root: Path, owned_hashes: dict[str, str] | None = None,
+) -> List[str]:
+    """Uninstall pass: remove exactly owned git hook shims only.
 
     Foreign hooks (no marker) are never touched. Returns the removed
     hook names. Used by copy-mode uninstall; source-link uninstall
     refuses before reaching here.
     """
+    from yoke_cli.project_install.files import assert_resolved_targets_within
+
+    assert_resolved_targets_within(
+        target_root,
+        [f".git/hooks/{name}" for name in GIT_HOOK_NAMES],
+        context="managed git hook removal",
+    )
     removed: List[str] = []
     for hook_name in GIT_HOOK_NAMES:
         hook_path = target_root / ".git" / "hooks" / hook_name
@@ -201,7 +415,15 @@ def remove_yoke_git_hooks(target_root: Path) -> List[str]:
             existing = hook_path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        if _MARKER_BY_HOOK[hook_name] in existing:
+        rel = f".git/hooks/{hook_name}"
+        digest = hashlib.sha256(existing.encode("utf-8")).hexdigest()
+        exact_manifest_owner = (
+            owned_hashes is not None and owned_hashes.get(rel) == digest
+        )
+        legacy_shape_owner = owned_hashes is None and is_managed_git_hook(
+            existing, hook_name,
+        )
+        if exact_manifest_owner or legacy_shape_owner:
             hook_path.unlink()
             removed.append(hook_name)
     return removed
@@ -217,7 +439,13 @@ __all__ = [
     "assert_pre_commit_runtime_available",
     "install_git_hook",
     "install_git_hooks",
+    "git_hook_specs_from_bundle",
     "install_pre_commit_hook",
     "install_post_commit_hook",
+    "is_managed_git_hook",
+    "managed_git_hook_specs",
+    "managed_git_hook_hashes",
+    "preview_git_hooks",
     "remove_yoke_git_hooks",
+    "validate_git_hook_specs",
 ]

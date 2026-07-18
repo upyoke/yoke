@@ -16,7 +16,9 @@ from runtime.api.cli.test_yoke_product_boundary_fault_injection import (
 
 
 @contextmanager
-def _fake_function_server() -> Iterator[tuple[str, list[dict]]]:
+def _fake_function_server(
+    *, engine_version: str = "",
+) -> Iterator[tuple[str, list[dict]]]:
     requests: list[dict] = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -40,6 +42,8 @@ def _fake_function_server() -> Iterator[tuple[str, list[dict]]]:
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
+            if engine_version:
+                self.send_header("X-Yoke-Engine-Version", engine_version)
             self.end_headers()
             self.wfile.write(body)
 
@@ -113,7 +117,7 @@ def test_strategy_event_ouroboros_help_stays_product_safe(
 
 
 def test_events_emit_invocation_stays_product_safe(tmp_path: Path) -> None:
-    with _fake_function_server() as (api_url, requests):
+    with _fake_function_server(engine_version="9.9.9") as (api_url, requests):
         run = _run_product_cli(
             tmp_path,
             [

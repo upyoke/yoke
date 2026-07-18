@@ -35,7 +35,6 @@ MODE_SOURCE_LINK = "source-link"
 # their content flows through the bundle's ``hooks`` subtrees.
 HOOK_MERGE_TARGETS = (".claude/settings.json", ".codex/hooks.json")
 
-
 class ProjectInstallError(RuntimeError):
     """Install/refresh/uninstall cannot proceed; message names the repair."""
 
@@ -80,27 +79,76 @@ def load_manifest_path(
             f"install manifest {path} is unreadable ({exc}); repair or delete "
             "it, then rerun `yoke project install`"
         ) from exc
-    if not isinstance(payload, dict):
-        raise ProjectInstallError(
-            f"install manifest {path} must contain a JSON object"
-        )
-    schema = payload.get("manifest_schema")
-    if schema != MANIFEST_SCHEMA:
-        raise ProjectInstallError(
-            f"install manifest {path} has manifest_schema {schema!r}; this "
-            f"CLI build understands {MANIFEST_SCHEMA} — upgrade the CLI "
-            "(rerun the public installer) or delete the manifest and reinstall"
-        )
+    validate_manifest(payload, source=str(path))
     return payload
 
 
 def write_manifest(repo_root: Path, manifest: Dict[str, Any]) -> Path:
+    validate_manifest(manifest, source="new install manifest")
+    assert_resolved_targets_within(
+        repo_root, [MANIFEST_REL], context="install manifest write",
+    )
     path = manifest_path(repo_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return path
+
+
+def validate_manifest(manifest: Any, *, source: str = "install manifest") -> None:
+    """Compatibility export for the split manifest validator."""
+    from yoke_cli.project_install.manifest import validate_manifest as validate
+
+    validate(manifest, source=source)
+
+
+def assert_resolved_targets_within(
+    repo_root: Path, paths: Iterable[str], *, context: str,
+) -> None:
+    """Refuse mutation targets whose existing symlink parents escape root."""
+    root = repo_root.expanduser().resolve()
+    for rel in paths:
+        if not isinstance(rel, str) or not rel:
+            raise ProjectInstallError(f"{context} contains an invalid path")
+        path = Path(rel)
+        if path.is_absolute() or ".." in path.parts:
+            raise ProjectInstallError(
+                f"{context} names unsafe repo-relative path {rel!r}"
+            )
+        try:
+            resolved = (root / path).resolve(strict=False)
+        except (OSError, RuntimeError) as exc:
+            raise ProjectInstallError(
+                f"{context} target {rel!r} cannot be resolved safely: {exc}"
+            ) from exc
+        if resolved != root and root not in resolved.parents:
+            raise ProjectInstallError(
+                f"{context} target {rel!r} resolves outside repo root "
+                f"through a symlink parent ({resolved})"
+            )
+
+
+def assert_file_targets_plannable(
+    repo_root: Path, paths: Iterable[str], *, context: str,
+) -> None:
+    """Reject predictable non-file/parent-shape failures before mutation."""
+    selected = list(paths)
+    assert_resolved_targets_within(repo_root, selected, context=context)
+    root = repo_root.resolve()
+    for rel in selected:
+        target = root / rel
+        if target.exists() and not target.is_file():
+            raise ProjectInstallError(
+                f"{context} target {rel!r} exists but is not a regular file"
+            )
+        parent = target.parent
+        while parent != root and not parent.exists():
+            parent = parent.parent
+        if parent.exists() and not parent.is_dir():
+            raise ProjectInstallError(
+                f"{context} target {rel!r} has a non-directory parent"
+            )
 
 
 def assert_safe_bundle_paths(paths: Iterable[str]) -> None:
@@ -170,6 +218,11 @@ def apply_contract_files(
     dropped the ``contract_files`` key. Pre-existing files whose content
     differs by even a byte are never recorded, so uninstall preserves them.
     """
+    assert_resolved_targets_within(
+        repo_root,
+        [*(entry["path"] for entry in entries), *old_contract],
+        context="contract file mutation",
+    )
     contract_map = dict(old_contract)
     written: List[str] = []
     existing: List[str] = []
@@ -225,6 +278,9 @@ def reconcile_gitignore(
     entry = _gitignore_entry(contract_entries)
     if entry is None:
         return []
+    assert_resolved_targets_within(
+        repo_root, [str(entry["path"])], context="contract gitignore mutation",
+    )
     target = repo_root / str(entry["path"])
     if not target.is_file():
         return []
@@ -251,6 +307,11 @@ def apply_files(
     repo_root: Path, bundle_files: List[Dict[str, str]]
 ) -> Tuple[Dict[str, str], List[str]]:
     """Write bundle files idempotently; return (path->sha256, written paths)."""
+    assert_resolved_targets_within(
+        repo_root,
+        (entry["path"] for entry in bundle_files),
+        context="bundle file mutation",
+    )
     hashes: Dict[str, str] = {}
     written: List[str] = []
     for entry in bundle_files:
@@ -282,6 +343,9 @@ def prune_files(
     hash still matches the old manifest hash are deleted; locally modified
     files are preserved with a warning and drop out of Yoke management.
     """
+    assert_resolved_targets_within(
+        repo_root, old_files, context="bundle prune",
+    )
     keep = set(new_paths)
     pruned: List[str] = []
     skipped: List[str] = []
@@ -314,6 +378,9 @@ def remove_manifest_files(
 
     Returns (removed, skipped_modified, already_absent, warnings).
     """
+    assert_resolved_targets_within(
+        repo_root, files, context="manifest-owned file removal",
+    )
     removed: List[str] = []
     skipped: List[str] = []
     absent: List[str] = []
@@ -342,6 +409,9 @@ def remove_manifest_files(
 
 def remove_empty_parents(repo_root: Path, rel: str) -> None:
     """Remove now-empty parent dirs of ``rel`` up to (excluding) repo root."""
+    assert_resolved_targets_within(
+        repo_root, [rel], context="empty parent cleanup",
+    )
     parent = (repo_root / rel).parent
     root = repo_root.resolve()
     while parent.resolve() != root and root in parent.resolve().parents:
@@ -362,6 +432,8 @@ __all__ = [
     "ProjectInstallError",
     "apply_contract_files",
     "apply_files",
+    "assert_file_targets_plannable",
+    "assert_resolved_targets_within",
     "assert_safe_bundle_paths",
     "assert_safe_contract_paths",
     "load_manifest",
@@ -372,5 +444,6 @@ __all__ = [
     "remove_manifest_files",
     "resolve_repo_root",
     "sha256_text",
+    "validate_manifest",
     "write_manifest",
 ]

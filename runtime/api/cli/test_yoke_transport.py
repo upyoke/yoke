@@ -341,24 +341,26 @@ class TestEngineVersionSkewWarning:
 
 
 class TestLocalHandshakeVersion:
-    def test_prefers_engine_dist_over_client_dist(self, monkeypatch):
+    def test_uses_lockstep_cli_dist_without_probing_engine(self, monkeypatch):
         from yoke_contracts import engine_version as ev
 
-        versions = {
-            ev.ENGINE_DISTRIBUTION_NAME: "3.0.0",
-            ev.CLIENT_DISTRIBUTION_NAME: "2.9.0",
-        }
+        origins = []
         monkeypatch.setattr(
             ev,
             "_module_origin",
-            lambda package: f"/site-packages/{package}/__init__.py",
+            lambda package: origins.append(package) or (
+                f"/site-packages/{package}/__init__.py"
+            ),
         )
         monkeypatch.setattr(
             ev,
             "distribution_version_for_module",
-            lambda dist, _origin: versions[dist],
+            lambda dist, _origin: (
+                "2.9.0" if dist == ev.CLIENT_DISTRIBUTION_NAME else "3.0.0"
+            ),
         )
-        assert ev.local_handshake_version() == "3.0.0"
+        assert ev.local_handshake_version() == "2.9.0"
+        assert origins == ["yoke_cli"]
 
     def test_client_only_install_falls_back_to_cli_dist(self, monkeypatch):
         from yoke_contracts import engine_version as ev

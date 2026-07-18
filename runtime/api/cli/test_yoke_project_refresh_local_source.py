@@ -8,6 +8,8 @@ import subprocess
 from pathlib import Path
 
 from yoke_cli.main import main as cli_main
+from yoke_cli.project_install import git_hooks as git_hooks_layer
+from yoke_core.tools import source_project_bundle
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -74,8 +76,32 @@ def test_preview_reports_changes_without_target_writes(
     assert report["server_state_writes"] is False
     assert report["snapshot_sync"]["status"] == "skipped"
     assert report["files_would_write"]
+    assert report["git_hooks_would_install_or_update"] == 2
+    assert report["worktrees_ignore"]["would_add"] is True
     assert _project_tree(target) == before
     assert not (target / ".yoke/install-manifest.json").exists()
+
+
+def test_source_preview_rejects_malformed_settings_without_mutation(
+    tmp_path: Path, capsys,
+) -> None:
+    target = tmp_path / "external-project"
+    _git_init(target)
+    settings = target / ".claude/settings.json"
+    settings.parent.mkdir()
+    settings.write_text("{not json", encoding="utf-8")
+    before = _project_tree(target)
+
+    rc = cli_main([
+        "project", "refresh", str(target),
+        "--source-checkout", str(REPO_ROOT),
+        "--project-id", "48", "--project-slug", "malformed-settings",
+        "--json",
+    ])
+
+    assert rc == 1
+    assert "not valid JSON" in capsys.readouterr().err
+    assert _project_tree(target) == before
 
 
 def test_apply_then_second_run_is_idempotent(
@@ -106,6 +132,52 @@ def test_apply_then_second_run_is_idempotent(
     assert second["files_pruned"] == []
     assert second["hooks_added"] == {}
     assert _project_tree(target) == first_tree
+
+
+def test_preview_reports_non_file_convergence_when_source_files_unchanged(
+    tmp_path: Path, capsys,
+) -> None:
+    target = tmp_path / "external-project"
+    _git_init(target)
+    _seed_manifest(target, 49)
+    base = [
+        "project", "refresh", str(target),
+        "--source-checkout", str(REPO_ROOT),
+        "--project-id", "49", "--json",
+    ]
+    assert cli_main([*base[:-1], "--apply", "--json"]) == 0
+    capsys.readouterr()
+
+    settings_path = target / ".claude/settings.json"
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    settings["hooks"]["PreToolUse"].pop()
+    settings_path.write_text(json.dumps(settings), encoding="utf-8")
+    pre_commit = target / ".git/hooks/pre-commit"
+    stale_shim = git_hooks_layer.PRE_COMMIT_SHIM.replace(
+        "# Hard-fails", "# stale source copy\n# Hard-fails",
+    )
+    pre_commit.write_text(stale_shim, encoding="utf-8")
+    manifest_path = target / ".yoke/install-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["git_hook_hashes"][".git/hooks/pre-commit"] = hashlib.sha256(
+        stale_shim.encode("utf-8")
+    ).hexdigest()
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    (target / ".gitignore").write_text("", encoding="utf-8")
+
+    assert cli_main(base) == 0
+    preview = json.loads(capsys.readouterr().out)
+    assert preview["files_would_write"] == []
+    assert preview["hooks_would_add"][".claude/settings.json"]
+    assert preview["git_hooks_would_install_or_update"] == 1
+    assert preview["worktrees_ignore"]["would_add"] is True
+
+    assert cli_main([*base[:-1], "--apply", "--json"]) == 0
+    capsys.readouterr()
+    assert pre_commit.read_text(encoding="utf-8") == (
+        git_hooks_layer.PRE_COMMIT_SHIM
+    )
+    assert ".worktrees/" in (target / ".gitignore").read_text(encoding="utf-8")
 
 
 def test_apply_requires_manifest_lineage_before_writes(
@@ -270,3 +342,21 @@ def test_source_process_enforces_explicit_checkout_origin(
     captured = capsys.readouterr()
     assert "ambient Yoke source fallback was refused" in captured.err
     assert _project_tree(target) == before
+
+
+def test_source_bundle_versions_selected_git_hook_content(monkeypatch) -> None:
+    baseline = source_project_bundle.build_source_bundle(
+        REPO_ROOT, project_id=50, project_slug="git-hook-source",
+    )
+    selected = git_hooks_layer.PRE_COMMIT_SHIM.replace(
+        "# Hard-fails", "# selected source behavior\n# Hard-fails",
+    )
+    monkeypatch.setattr(git_hooks_layer, "PRE_COMMIT_SHIM", selected)
+
+    refreshed = source_project_bundle.build_source_bundle(
+        REPO_ROOT, project_id=50, project_slug="git-hook-source",
+    )
+
+    hooks = {entry["name"]: entry for entry in refreshed["managed_git_hooks"]}
+    assert hooks["pre-commit"]["content"] == selected
+    assert refreshed["yoke_version"] != baseline["yoke_version"]

@@ -8,6 +8,8 @@ import threading
 from pathlib import Path
 from typing import Any, Mapping
 
+import pytest
+
 from runtime.api.cli.test_yoke_product_boundary_fault_injection import (
     _assert_clean_client_boundary,
     _run_product_cli,
@@ -159,6 +161,39 @@ def test_project_install_https_external_repo_stays_product_client_only(
     assert _issue_codes(report) == {"server_unreachable"}
     assert status.stderr == ""
     _assert_clean_client_boundary(status)
+
+
+@pytest.mark.parametrize("malformation", ["missing-version", "wrong-project"])
+def test_https_bundle_identity_failure_precedes_registration_and_repo_writes(
+    tmp_path: Path, malformation: str,
+) -> None:
+    checkout = tmp_path / "external-project"
+    checkout.mkdir()
+    (checkout / "README.md").write_text("# unchanged\n", encoding="utf-8")
+    token_path = tmp_path / "api.token"
+    token_path.write_text(PRODUCT_TOKEN + "\n", encoding="utf-8")
+    bundle = _bundle()
+    if malformation == "missing-version":
+        bundle.pop("yoke_version")
+    else:
+        bundle["project_id"] = PROJECT_ID + 1
+
+    with _BundleServer(bundle) as server:
+        install = _run_product_cli(
+            tmp_path,
+            [
+                "project", "install", str(checkout),
+                "--project-id", str(PROJECT_ID),
+            ],
+            config_payload=_https_only_config(server.url, token_path),
+            client_cwd=checkout,
+        )
+
+    assert install.returncode == 1
+    assert (checkout / "README.md").read_text(encoding="utf-8") == "# unchanged\n"
+    assert sorted(path.name for path in checkout.iterdir()) == ["README.md"]
+    config = json.loads((tmp_path / "home/.yoke/config.json").read_text())
+    assert not config.get("projects")
 
 
 def _bundle() -> dict[str, Any]:

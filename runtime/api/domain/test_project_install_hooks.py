@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -37,6 +38,14 @@ def _settings(repo, rel=SETTINGS_REL) -> dict:
 def _write_settings(repo, payload, rel=SETTINGS_REL) -> None:
     (repo / rel).parent.mkdir(parents=True, exist_ok=True)
     (repo / rel).write_text(json.dumps(payload, indent=2) + "\n", "utf-8")
+
+
+def _tree_bytes(root: Path) -> dict[str, bytes]:
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
 
 
 def test_merge_creates_settings_file_with_exact_subtree(repo) -> None:
@@ -93,6 +102,46 @@ def test_invalid_settings_json_fails_loudly(repo) -> None:
 
     with pytest.raises(ProjectInstallError):
         apply_bundle(repo, make_bundle(), source="test")
+
+
+def test_invalid_settings_fails_before_other_bundle_mutation(repo) -> None:
+    (repo / ".claude").mkdir(parents=True)
+    (repo / SETTINGS_REL).write_text("{not json", encoding="utf-8")
+    before = _tree_bytes(repo)
+
+    with pytest.raises(ProjectInstallError):
+        apply_bundle(repo, make_bundle(), source="test")
+
+    assert _tree_bytes(repo) == before
+    assert not (repo / ".codex").exists()
+
+
+def test_refresh_replaces_stale_yoke_records_and_preserves_foreign(repo) -> None:
+    apply_bundle(repo, make_bundle(), source="test")
+    payload = _settings(repo)
+    payload["hooks"]["PreToolUse"].insert(0, FOREIGN)
+    _write_settings(repo, payload)
+    selected = {"PreToolUse": [entry("echo selected", "Bash")]}
+
+    report = apply_bundle(
+        repo,
+        make_bundle(claude=selected),
+        operation="refresh",
+        source="test",
+    )
+
+    assert _settings(repo)["hooks"] == {
+        "PreToolUse": [FOREIGN, entry("echo selected", "Bash")],
+    }
+    assert {(record["event"], record["matcher"]) for record in (
+        report["hooks_removed"][SETTINGS_REL]
+    )} == {("PreToolUse", "Bash"), ("PreToolUse", "Edit"), ("Stop", None)}
+    manifest = json.loads(
+        (repo / ".yoke/install-manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["hook_entries"][SETTINGS_REL] == [
+        {"event": "PreToolUse", "matcher": "Bash", "commands": ["echo selected"]},
+    ]
 
 
 def test_uninstall_removes_yoke_files_hooks_and_manifest(repo) -> None:
@@ -194,3 +243,14 @@ def test_uninstall_without_manifest_is_a_typed_error(repo) -> None:
     with pytest.raises(ProjectInstallError) as exc_info:
         project_install.uninstall(repo)
     assert "install-manifest" in str(exc_info.value)
+
+
+def test_uninstall_preflights_malformed_settings_before_file_removal(repo) -> None:
+    apply_bundle(repo, make_bundle(), source="test")
+    (repo / SETTINGS_REL).write_text("{not json", encoding="utf-8")
+    before = _tree_bytes(repo)
+
+    with pytest.raises(ProjectInstallError):
+        project_install.uninstall(repo)
+
+    assert _tree_bytes(repo) == before

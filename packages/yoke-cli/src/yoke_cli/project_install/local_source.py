@@ -217,7 +217,10 @@ def _build_bundle(
         ) from exc
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()
-        if "No module named yoke_core.tools.source_project_bundle" in detail:
+        if (
+            "No module named yoke_core.tools.source_project_bundle" in detail
+            or "source bundle imports are not bound" in detail
+        ):
             detail = (
                 "source bundle builder is absent from the explicit checkout; "
                 "ambient Yoke source fallback was refused"

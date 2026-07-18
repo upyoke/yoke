@@ -203,7 +203,7 @@ class TestSourceLinkGitHooks:
         assert any("not Yoke-managed" in w for w in report["warnings"])
         assert "/custom/check" in hook.read_text(encoding="utf-8")
 
-    def test_refreshes_stale_yoke_marked_hook(self, checkout):
+    def test_preserves_ambiguous_yoke_marker_hook(self, checkout):
         _git_init(checkout)
         hook = checkout / ".git" / "hooks" / "pre-commit"
         hook.parent.mkdir(parents=True, exist_ok=True)
@@ -214,9 +214,9 @@ class TestSourceLinkGitHooks:
         os.chmod(hook, 0o755)
         result = git_hooks.BootstrapResult()
         git_hooks.install_pre_commit_hook(checkout, result)
-        assert result.updated == 1
-        assert any("Updated" in a for a in result.actions)
-        assert hook.read_text(encoding="utf-8") == git_hooks.PRE_COMMIT_SHIM
+        assert result.updated == 0
+        assert any("not Yoke-managed" in w for w in result.warnings)
+        assert "echo old" in hook.read_text(encoding="utf-8")
 
 
 class TestSourceLinkContractAndManifest:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from public_installer_helpers import (
     FAKE_INSTALL_PY,
     INSTALL_SHIM_PATH,
@@ -150,6 +152,33 @@ def test_missing_uv_installs_via_astral_on_consent(tmp_path: Path) -> None:
     assert "astral.sh/uv/install.sh" in rendered_log
     assert result.returncode == 0
     assert "HANDOFF_OK" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("args", "input_text"),
+    [(("--yes",), ""), ((), "y\n")],
+)
+def test_uv_installer_override_metacharacters_never_execute(
+    tmp_path: Path, args: tuple[str, ...], input_text: str,
+) -> None:
+    bin_dir = _bin(tmp_path)
+    sentinel = tmp_path / "interpolation-ran"
+    write_executable(bin_dir / "curl", "#!/bin/sh\nexit 0\n")
+
+    result = run_shim(
+        bin_dir,
+        args=args,
+        env_extra={
+            "YOKE_UV_INSTALLER_URL": (
+                f"https://astral.sh/uv/install.sh;touch${{IFS}}{sentinel}"
+            ),
+        },
+        input_text=input_text,
+    )
+
+    assert result.returncode == 1
+    assert "unsupported characters" in result.stderr
+    assert not sentinel.exists()
 
 
 def test_present_uv_hands_off_to_install_py(tmp_path: Path) -> None:

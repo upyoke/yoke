@@ -19,7 +19,10 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_cli.project_install.files import (
+    ProjectInstallError,
+    assert_resolved_targets_within,
+)
 
 CLAUDE_SETTINGS_REL = ".claude/settings.json"
 CODEX_HOOKS_REL = ".codex/hooks.json"
@@ -62,6 +65,44 @@ def provided_records(hooks_subtree: Dict[str, Any]) -> List[Dict[str, Any]]:
     return records
 
 
+def validate_hooks_subtree(
+    hooks_subtree: Any, *, label: str = "bundle hook subtree",
+) -> None:
+    """Validate the command-hook shape before any checkout mutation."""
+    if not isinstance(hooks_subtree, dict):
+        raise ProjectInstallError(f"{label} must be an object")
+    for event, entries in hooks_subtree.items():
+        if not isinstance(event, str) or not event or not isinstance(entries, list):
+            raise ProjectInstallError(
+                f"{label} events must be non-empty strings containing arrays"
+            )
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ProjectInstallError(
+                    f"{label}.{event} contains a non-object hook entry"
+                )
+            matcher = entry.get("matcher")
+            commands = entry.get("hooks")
+            if (
+                (matcher is not None and not isinstance(matcher, str))
+                or not isinstance(commands, list)
+                or not commands
+            ):
+                raise ProjectInstallError(
+                    f"{label}.{event} contains an invalid matcher/hooks entry"
+                )
+            for command in commands:
+                if (
+                    not isinstance(command, dict)
+                    or command.get("type") != "command"
+                    or not isinstance(command.get("command"), str)
+                    or not command["command"]
+                ):
+                    raise ProjectInstallError(
+                        f"{label}.{event} contains an invalid command hook"
+                    )
+
+
 def _load_settings(path: Path) -> Dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -80,6 +121,126 @@ def _write_settings(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def _validated_settings_payload(path: Path) -> Dict[str, Any]:
+    payload = _load_settings(path)
+    hooks = payload.get("hooks", {})
+    validate_hooks_subtree(hooks, label=f"{path} hooks")
+    return payload
+
+
+def plan_hooks_file(
+    repo_root: Path,
+    settings_rel: str,
+    hooks_subtree: Dict[str, Any],
+    prior_records: List[Dict[str, Any]],
+    *,
+    created_by_install: bool,
+) -> Dict[str, Any]:
+    """Plan exact prior-record removal plus current-record convergence."""
+    if settings_rel not in SETTINGS_FILE_BY_HOOKS_KEY.values():
+        raise ProjectInstallError(f"unknown hook settings path {settings_rel!r}")
+    validate_hooks_subtree(hooks_subtree)
+    assert_resolved_targets_within(
+        repo_root, [settings_rel], context="hook settings mutation",
+    )
+    target = repo_root / settings_rel
+    current_records = provided_records(hooks_subtree)
+    current_keys = {record_key(record) for record in current_records}
+    stale_keys = {
+        record_key(record)
+        for record in prior_records
+        if record_key(record) not in current_keys
+    }
+    if target.is_file():
+        payload = _validated_settings_payload(target)
+        created = False
+    else:
+        payload = {"hooks": {}}
+        created = bool(current_records)
+    hooks = payload.setdefault("hooks", {})
+    assert isinstance(hooks, dict)
+    removed: List[Dict[str, Any]] = []
+    for event in list(hooks):
+        entries = hooks[event]
+        assert isinstance(entries, list)
+        kept = []
+        for entry in entries:
+            if (event, *_entry_key(entry)) in stale_keys:
+                removed.append(_record(event, entry))
+            else:
+                kept.append(entry)
+        if kept:
+            hooks[event] = kept
+        else:
+            del hooks[event]
+
+    added: List[Dict[str, Any]] = []
+    for event in sorted(hooks_subtree):
+        entries = hooks.setdefault(event, [])
+        existing = {_entry_key(entry) for entry in entries}
+        for entry in hooks_subtree[event]:
+            if _entry_key(entry) in existing:
+                continue
+            entries.append(entry)
+            existing.add(_entry_key(entry))
+            added.append(_record(event, entry))
+    deleted_file = created_by_install and payload == {"hooks": {}}
+    return {
+        "created": created,
+        "added": added,
+        "removed": removed,
+        "deleted_file": deleted_file,
+        "changed": bool(created or added or removed or deleted_file),
+        "payload": payload,
+    }
+
+
+def reconcile_hooks_file(
+    repo_root: Path,
+    settings_rel: str,
+    hooks_subtree: Dict[str, Any],
+    prior_records: List[Dict[str, Any]],
+    *,
+    created_by_install: bool,
+) -> Dict[str, Any]:
+    """Replace prior Yoke hook ownership with the selected bundle records."""
+    result = plan_hooks_file(
+        repo_root,
+        settings_rel,
+        hooks_subtree,
+        prior_records,
+        created_by_install=created_by_install,
+    )
+    target = repo_root / settings_rel
+    if result["deleted_file"] and target.is_file():
+        target.unlink()
+        from yoke_cli.project_install.files import remove_empty_parents
+
+        remove_empty_parents(repo_root, settings_rel)
+    elif result["changed"]:
+        _write_settings(target, result["payload"])
+    return {key: value for key, value in result.items() if key != "payload"}
+
+
+def preflight_hooks_settings(
+    repo_root: Path,
+    bundle_hooks: Dict[str, Any],
+    prior_hook_entries: Dict[str, List[Dict[str, Any]]],
+    created_settings: set[str],
+) -> Dict[str, Dict[str, Any]]:
+    """Validate and plan every settings mutation without writing."""
+    plans = {}
+    for hooks_key, settings_rel in sorted(SETTINGS_FILE_BY_HOOKS_KEY.items()):
+        plans[settings_rel] = plan_hooks_file(
+            repo_root,
+            settings_rel,
+            bundle_hooks[hooks_key],
+            list(prior_hook_entries.get(settings_rel, [])),
+            created_by_install=settings_rel in created_settings,
+        )
+    return plans
+
+
 def merge_hooks_file(
     repo_root: Path, settings_rel: str, hooks_subtree: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -89,6 +250,10 @@ def merge_hooks_file(
     entries are never removed or reordered; missing bundle entries append
     at the end of their event's array.
     """
+    validate_hooks_subtree(hooks_subtree)
+    assert_resolved_targets_within(
+        repo_root, [settings_rel], context="hook settings mutation",
+    )
     target = repo_root / settings_rel
     if not target.is_file():
         _write_settings(target, {"hooks": hooks_subtree})
@@ -96,7 +261,7 @@ def merge_hooks_file(
             "created": True,
             "added": provided_records(hooks_subtree),
         }
-    payload = _load_settings(target)
+    payload = _validated_settings_payload(target)
     hooks = payload.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         raise ProjectInstallError(
@@ -135,6 +300,9 @@ def demerge_hooks_file(
     deleted only when it becomes ``{"hooks": {}}``-empty AND install
     created it; operator-authored files and entries always survive.
     """
+    assert_resolved_targets_within(
+        repo_root, [settings_rel], context="hook settings removal",
+    )
     target = repo_root / settings_rel
     if not target.is_file():
         return {"removed": [], "deleted_file": False}
@@ -179,6 +347,10 @@ __all__ = [
     "SETTINGS_FILE_BY_HOOKS_KEY",
     "demerge_hooks_file",
     "merge_hooks_file",
+    "plan_hooks_file",
+    "preflight_hooks_settings",
     "provided_records",
+    "reconcile_hooks_file",
     "record_key",
+    "validate_hooks_subtree",
 ]

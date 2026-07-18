@@ -83,16 +83,12 @@ def advertised_engine_version(*, build: str = "") -> str:
 def local_handshake_version() -> str:
     """The version this process compares against a server's engine version.
 
-    Prefers the installed engine dist; a client-only install (https
-    transport, no engine) falls back to the CLI dist. ``""`` disables the
-    comparison.
+    The product client is versioned by its own ``yoke-cli`` distribution,
+    released in lockstep with the engine.  Deliberately never probe
+    ``yoke_core`` here: HTTPS clients are coreless, while a source CLI origin
+    has no owning wheel metadata and therefore returns ``""`` to disable the
+    comparison without false skew.
     """
-    engine_origin = _module_origin("yoke_core")
-    if engine_origin:
-        return distribution_version_for_module(
-            ENGINE_DISTRIBUTION_NAME,
-            engine_origin,
-        )
     return _installed_version(CLIENT_DISTRIBUTION_NAME, "yoke_cli")
 
 

@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install.files import ProjectInstallError
+from yoke_cli.project_install.preflight import preflight_apply
 
 
 def preview_report(
@@ -18,6 +19,9 @@ def preview_report(
     source_label: str,
     preserved_files: dict[str, str],
 ) -> dict[str, Any]:
+    preflight = preflight_apply(
+        root, bundle, prior_manifest, preserved_files,
+    )
     bundle_files = bundle["files"]
     files_layer.assert_safe_bundle_paths(entry["path"] for entry in bundle_files)
     new_hashes = {
@@ -55,6 +59,29 @@ def preview_report(
             would_prune.append(rel)
         else:
             would_preserve.append(rel)
+    hook_plans = preflight["hook_plans"]
+    hooks_would_add = {
+        rel: plan["added"]
+        for rel, plan in hook_plans.items()
+        if plan["added"]
+    }
+    hooks_would_remove = {
+        rel: plan["removed"]
+        for rel, plan in hook_plans.items()
+        if plan["removed"]
+    }
+    settings_would_create = sorted(
+        rel for rel, plan in hook_plans.items() if plan["created"]
+    )
+    settings_would_delete = sorted(
+        rel for rel, plan in hook_plans.items() if plan["deleted_file"]
+    )
+    git_hook_preview = preflight["git_hook_preview"]
+    worktrees_ignore = dict(preflight["worktrees_ignore"])
+    worktrees_ignore["owned_by_install"] = bool(
+        prior_manifest.get("worktrees_ignore_added")
+    )
+    worktrees_ignore["would_add"] = not worktrees_ignore["present"]
     return {
         "operation": "refresh",
         "mode": "copy",
@@ -77,12 +104,21 @@ def preview_report(
         "files_unchanged": (
             len(new_hashes) - len(would_write) + len(preserved_files)
         ),
+        "hooks_would_add": hooks_would_add,
+        "hooks_would_remove": hooks_would_remove,
+        "settings_files_would_create": settings_would_create,
+        "settings_files_would_delete": settings_would_delete,
+        "git_hooks_would_install_or_update": (
+            git_hook_preview.installed + git_hook_preview.updated
+        ),
+        "git_hook_actions": git_hook_preview.actions,
+        "worktrees_ignore": worktrees_ignore,
         "snapshot_sync": {
             "status": "skipped",
             "reason": "preview performs no external or server snapshot writes",
         },
         "machine_config_newly_registered": False,
-        "warnings": [],
+        "warnings": git_hook_preview.warnings,
     }
 
 

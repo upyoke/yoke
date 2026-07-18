@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List
 
+from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
@@ -48,6 +49,33 @@ def uninstall(
     manifest_mode = manifest.get(MODE_KEY, MODE_COPY)
     if manifest_mode == MODE_SOURCE_LINK or is_yoke_source_checkout(root):
         raise source_link_uninstall_refusal(root)
+    files_layer.assert_resolved_targets_within(
+        root,
+        [
+            *dict(manifest.get("files", {})),
+            *dict(manifest.get("contract_files", {})),
+            *dict(manifest.get("strategy_files", {})),
+            *dict(manifest.get("git_hook_hashes", {})),
+            *list(manifest.get("created_settings_files", [])),
+            *dict(manifest.get("hook_entries", {})),
+            *(f".git/hooks/{name}" for name in git_hooks_layer.GIT_HOOK_NAMES),
+            files_layer.MANIFEST_REL,
+        ],
+        context="project uninstall",
+    )
+    hooks_layer.preflight_hooks_settings(
+        root,
+        {
+            key: {}
+            for key in hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY
+        },
+        {
+            rel: list(records)
+            for rel, records in dict(manifest.get("hook_entries", {})).items()
+        },
+        set(manifest.get("created_settings_files", [])),
+    )
+    project_worktrees_ignore.report(root, apply=False)
     removed, skipped, absent, warnings = files_layer.remove_manifest_files(
         root, dict(manifest.get("files") or {})
     )
@@ -77,7 +105,22 @@ def uninstall(
     # Strategy files are planning content that outlives the tooling —
     # uninstall never removes them, tracked or not.
     strategy_preserved = sorted(dict(manifest.get("strategy_files") or {}))
-    git_hooks_removed = git_hooks_layer.remove_yoke_git_hooks(root)
+    owned_git_hooks = (
+        dict(manifest["git_hook_hashes"])
+        if "git_hook_hashes" in manifest
+        else None
+    )
+    git_hooks_removed = git_hooks_layer.remove_yoke_git_hooks(
+        root, owned_git_hooks,
+    )
+    worktrees_ignore = (
+        project_worktrees_ignore.remove_owned_entry(
+            root,
+            created_file=bool(manifest.get("worktrees_ignore_created_file")),
+        )
+        if manifest.get("worktrees_ignore_added")
+        else {"removed": False, "deleted_file": False}
+    )
     files_layer.manifest_path(root).unlink()
     files_layer.remove_empty_parents(root, files_layer.MANIFEST_REL)
     return {
@@ -93,6 +136,7 @@ def uninstall(
         "strategy_files_preserved": strategy_preserved,
         "hooks_removed": hooks_removed,
         "git_hooks_removed": git_hooks_removed,
+        "worktrees_ignore": worktrees_ignore,
         "settings_files_deleted": settings_deleted,
         "manifest_removed": True,
         "warnings": warnings,
