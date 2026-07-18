@@ -19,6 +19,7 @@
 #   {{web_health_path}}    — Web health check path (e.g., /)
 #   {{web_smoke_paths}}    — Comma-separated additional smoke paths (e.g., /forgot-password,/login)
 #   {{cloudfront_id}}      — CloudFront distribution ID for cache invalidation
+#   {{configure_aws_credentials_action}} — immutable AWS OIDC action revision
 #   {{project_name}}-app   — production compose project name
 
 name: {{project_display_name}} Hotfix
@@ -37,6 +38,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -44,6 +49,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure AWS delivery credentials
+        uses: {{configure_aws_credentials_action}}
+        with:
+          role-to-assume: ${{ vars.YOKE_DELIVERY_CI_ROLE_ARN }}
+          aws-region: {{aws_region}}
+          role-session-name: {{project_name}}-hotfix-${{ github.run_id }}
 
       - name: Install rsync
         run: sudo apt-get update && sudo apt-get install -y rsync
@@ -329,15 +341,45 @@ jobs:
 
       - name: Invalidate CloudFront cache
         if: success()
-        run: |
-          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
-            echo "AWS_ACCESS_KEY_ID not set — skipping CloudFront invalidation"
-            exit 0
-          fi
-          aws cloudfront create-invalidation \
-            --distribution-id {{cloudfront_id}} \
-            --paths "/*"
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
+          CLOUDFRONT_DISTRIBUTION_ID: {{cloudfront_id}}
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFRONT_DISTRIBUTION_ID" ] || [ "$CLOUDFRONT_DISTRIBUTION_ID" = "TODO" ]; then
+            echo "CloudFront distribution ID is not configured" >&2
+            exit 1
+          fi
+
+          set +e
+          distribution=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Id=='$CLOUDFRONT_DISTRIBUTION_ID'].[Id,DomainName,Status]" \
+            --output text 2>&1)
+          list_rc=$?
+          set -e
+          if [ "$list_rc" -ne 0 ]; then
+            echo "CloudFront distribution discovery failed (exit $list_rc)" >&2
+            printf '%s' "$distribution" | tail -c 2000 >&2
+            echo >&2
+            exit "$list_rc"
+          fi
+          if [ -z "$distribution" ] || [ "$distribution" = "None" ]; then
+            echo "CloudFront distribution $CLOUDFRONT_DISTRIBUTION_ID was not found" >&2
+            exit 1
+          fi
+          echo "CloudFront distribution: $distribution"
+
+          set +e
+          invalidation=$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query 'Invalidation.[Id,Status]' \
+            --output text 2>&1)
+          invalidation_rc=$?
+          set -e
+          if [ "$invalidation_rc" -ne 0 ]; then
+            echo "CloudFront invalidation failed (exit $invalidation_rc)" >&2
+            printf '%s' "$invalidation" | tail -c 2000 >&2
+            echo >&2
+            exit "$invalidation_rc"
+          fi
+          echo "CloudFront invalidation: $invalidation"

@@ -166,6 +166,7 @@ def delivery_policy_json(
     state_bucket: str,
     kms_key_arn: str,
     distribution_bucket_names: Sequence[str],
+    cloudfront_distribution_ids: Sequence[str],
     github_app_private_key_secret_arns: Sequence[str],
 ) -> str:
     """Allow delivery operations while denying every known App-key secret."""
@@ -250,6 +251,13 @@ def delivery_policy_json(
     buckets = sorted(
         {str(name).strip() for name in distribution_bucket_names if str(name).strip()}
     )
+    distribution_ids = sorted(
+        {
+            str(distribution_id).strip()
+            for distribution_id in cloudfront_distribution_ids
+            if str(distribution_id).strip()
+        }
+    )
     if buckets:
         statements.extend(
             [
@@ -265,6 +273,18 @@ def delivery_policy_json(
                     "Action": ["s3:GetObject", "s3:PutObject"],
                     "Resource": [f"arn:aws:s3:::{name}/*" for name in buckets],
                 },
+            ]
+        )
+    if buckets or distribution_ids:
+        invalidation_resources = (
+            [
+                f"arn:aws:cloudfront::{account_id}:distribution/{distribution_id}"
+                for distribution_id in distribution_ids
+            ]
+            or [f"arn:aws:cloudfront::{account_id}:distribution/*"]
+        )
+        statements.extend(
+            [
                 {
                     "Sid": "DiscoverDistributionIds",
                     "Effect": "Allow",
@@ -275,7 +295,7 @@ def delivery_policy_json(
                     "Sid": "InvalidateProjectDistributions",
                     "Effect": "Allow",
                     "Action": "cloudfront:CreateInvalidation",
-                    "Resource": f"arn:aws:cloudfront::{account_id}:distribution/*",
+                    "Resource": invalidation_resources,
                 },
             ]
         )

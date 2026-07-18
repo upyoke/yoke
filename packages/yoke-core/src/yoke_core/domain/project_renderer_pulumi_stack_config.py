@@ -64,7 +64,8 @@ _RENDER_KEYS_BY_KIND = {
         "import_zone_id", "manage_registration",
     }),
     "registry": frozenset({
-        "aws_account_id", "aws_region", "delivery_distribution_bucket_names_json",
+        "aws_account_id", "aws_region", "delivery_cloudfront_distribution_ids_json",
+        "delivery_distribution_bucket_names_json",
         "deploy_namespace", "github_api_url",
         "github_app_private_key_secret_arns_json", "github_repo_slug",
         "kms_key_alias", "manage_github_oidc_provider", "repository_name",

@@ -144,6 +144,7 @@ def test_real_registry_template_renders_ci_keys():
             "state_bucket": "acme-pulumi-state",
             "kms_key_alias": "alias/acme-pulumi-state",
             "delivery_distribution_bucket_names_json": ('["acme-distribution-prod"]'),
+            "delivery_cloudfront_distribution_ids_json": ('["EACME"]'),
             "github_app_private_key_secret_arns_json": (
                 '["arn:aws:secretsmanager:us-east-1:123456789012:'
                 'secret:acme/prod/github-app-private-key-AbCdEf"]'
@@ -154,5 +155,6 @@ def test_real_registry_template_renders_ci_keys():
     assert "webapp-infra:github_api_url: https://api.github.com" in rendered
     assert 'webapp-infra:manage_github_oidc_provider: "true"' in rendered
     assert "webapp-infra:distribution_bucket_names:" in rendered
+    assert "webapp-infra:cloudfront_distribution_ids:" in rendered
     assert "webapp-infra:github_app_private_key_secret_arns:" in rendered
     assert "{{" not in rendered

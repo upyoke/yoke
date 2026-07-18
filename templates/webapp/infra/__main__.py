@@ -216,6 +216,9 @@ def _registry_args_from_config(deploy_namespace: str):
         distribution_bucket_names=_config_string_list(
             config, "distribution_bucket_names"
         ),
+        cloudfront_distribution_ids=_config_string_list(
+            config, "cloudfront_distribution_ids"
+        ),
         github_app_private_key_secret_arns=_config_string_list(
             config, "github_app_private_key_secret_arns"
         ),

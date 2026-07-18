@@ -9,8 +9,9 @@ from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
 
 
 def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
-    """Return exact distribution buckets and App-key deny resources."""
+    """Return exact distribution resources and App-key deny resources."""
     distribution_buckets: set[str] = set()
+    cloudfront_distribution_ids: set[str] = set()
     app_key_secret_arns: set[str] = set()
     for environment in settings.environments:
         distribution = environment.settings.get("distribution")
@@ -25,6 +26,15 @@ def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
             ).strip()
             if secret_arn:
                 app_key_secret_arns.add(secret_arn)
+    for source in (
+        settings.site_settings.get("cdn"),
+        settings.capabilities.get("domain"),
+    ):
+        if not isinstance(source, dict):
+            continue
+        distribution_id = str(source.get("distribution_id") or "").strip()
+        if distribution_id:
+            cloudfront_distribution_ids.add(distribution_id)
     github = settings.capabilities.get("github", {})
     return {
         "github_api_url": str(
@@ -32,6 +42,9 @@ def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
         ).strip(),
         "delivery_distribution_bucket_names_json": (
             json_helper.dumps_compact(sorted(distribution_buckets))
+        ),
+        "delivery_cloudfront_distribution_ids_json": (
+            json_helper.dumps_compact(sorted(cloudfront_distribution_ids))
         ),
         "github_app_private_key_secret_arns_json": (
             json_helper.dumps_compact(sorted(app_key_secret_arns))

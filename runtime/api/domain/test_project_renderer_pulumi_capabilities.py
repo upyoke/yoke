@@ -87,6 +87,23 @@ def test_delivery_ci_resources_come_from_environment_authority(tmp_path):
     )
 
 
+def test_delivery_ci_cloudfront_id_does_not_require_distribution_bucket(tmp_path):
+    base = _settings_from_context(
+        "external-webapp",
+        {"projectName": "external-webapp"},
+        {"cloudfront_id": "EEXTERNAL"},
+    )
+
+    result = project_renderer_pulumi.gather_pulumi_values(
+        "external-webapp",
+        _make_project_root(tmp_path, "external-webapp"),
+        base,
+    )
+
+    assert result["delivery_cloudfront_distribution_ids_json"] == '["EEXTERNAL"]'
+    assert result["delivery_distribution_bucket_names_json"] == "[]"
+
+
 def test_runner_fleet_keys_from_capability(tmp_path):
     base = _settings_from_context(
         "buzz", {"projectName": "buzz", "stacks": ["runner-fleet"]},

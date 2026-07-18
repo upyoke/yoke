@@ -25,6 +25,12 @@ from yoke_core.domain.project_renderer_settings import (  # noqa: F401
 )
 
 
+CONFIGURE_AWS_CREDENTIALS_ACTION = (
+    "aws-actions/configure-aws-credentials@"
+    "517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2"
+)
+
+
 def _resolve_project_root() -> Path:
     """Resolve the repo root via ``git rev-parse --show-toplevel``."""
     result = subprocess.run(
@@ -107,6 +113,7 @@ def _values_from_settings(
         "deploy_namespace": settings.deploy_namespace,
         "cloudfront_domain": cloudfront_domain,
         "cloudfront_id": cloudfront_id,
+        "configure_aws_credentials_action": CONFIGURE_AWS_CREDENTIALS_ACTION,
         "certificate_arn": _stringify(domain_entry.get("certificate_arn"), "TODO"),
         "hosted_zone_id": _stringify(domain_entry.get("hosted_zone_id"), "TODO"),
         "aws_account_id": _stringify(aws_settings.get("account_id"), "TODO"),

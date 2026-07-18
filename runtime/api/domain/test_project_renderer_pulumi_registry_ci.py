@@ -100,6 +100,7 @@ class TestRegistryProgramShape:
                 state_bucket="yoke-pulumi-state",
                 kms_key_arn=("arn:aws:kms:us-east-1:123456789012:key/state-key"),
                 distribution_bucket_names=["upyoke-distribution-prod"],
+                cloudfront_distribution_ids=["EDISTRIBUTION"],
                 github_app_private_key_secret_arns=[
                     "arn:aws:secretsmanager:us-east-1:123456789012:"
                     "secret:yoke/prod/github-app-private-key-AbCdEf"
@@ -171,6 +172,9 @@ class TestRegistryProgramShape:
         assert by_sid["InvalidateProjectDistributions"]["Action"] == (
             "cloudfront:CreateInvalidation"
         )
+        assert by_sid["InvalidateProjectDistributions"]["Resource"] == [
+            "arn:aws:cloudfront::123456789012:distribution/EDISTRIBUTION"
+        ]
         cloudfront_actions = {
             action
             for statement in policy["Statement"]
@@ -202,6 +206,7 @@ class TestRegistryProgramShape:
                 state_bucket="yoke-pulumi-state",
                 kms_key_arn=("arn:aws:kms:us-east-1:123456789012:key/state-key"),
                 distribution_bucket_names=[],
+                cloudfront_distribution_ids=[],
                 github_app_private_key_secret_arns=[],
             )
         )
@@ -217,3 +222,28 @@ class TestRegistryProgramShape:
             if action.startswith("cloudfront:")
         }
         assert cloudfront_actions == set()
+
+    def test_delivery_policy_allows_exact_cloudfront_without_distribution_bucket(
+        self,
+    ):
+        path = _repo_root().joinpath(
+            "templates", "webapp", "infra", "webapp_registry_ci_policy.py"
+        )
+        policy = json.loads(
+            runpy.run_path(path)["delivery_policy_json"](
+                region="us-east-1",
+                account_id="123456789012",
+                deploy_namespace="buzz",
+                state_bucket="buzz-pulumi-state",
+                kms_key_arn="arn:aws:kms:us-east-1:123456789012:key/state-key",
+                distribution_bucket_names=[],
+                cloudfront_distribution_ids=["EBUZZ"],
+                github_app_private_key_secret_arns=[],
+            )
+        )
+
+        by_sid = {statement["Sid"]: statement for statement in policy["Statement"]}
+        assert by_sid["DiscoverDistributionIds"]["Resource"] == "*"
+        assert by_sid["InvalidateProjectDistributions"]["Resource"] == [
+            "arn:aws:cloudfront::123456789012:distribution/EBUZZ"
+        ]

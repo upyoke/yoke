@@ -26,6 +26,7 @@ _GATHER_VALUES_KEYS = {
     "origin_host", "origin_ip", "aws_region", "ssh_user", "web_port",
     "api_port", "ephemeral_ttl_hours", "web_health_path", "web_smoke_paths",
     "domain", "api_port_base", "port_base", "port_range", "dns_provider",
+    "configure_aws_credentials_action",
 }
 _VPS_KEYS = {
     "vps_instance_type",
@@ -40,6 +41,7 @@ _PULUMI_KEYS = {
     "domain_mx_records_json",
 }
 _CI_KEYS = {
+    "delivery_cloudfront_distribution_ids_json",
     "delivery_distribution_bucket_names_json",
     "github_api_url", "github_app_private_key_secret_arns_json",
     "github_repo_slug", "manage_github_oidc_provider",
