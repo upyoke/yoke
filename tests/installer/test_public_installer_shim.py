@@ -45,6 +45,39 @@ def test_missing_uv_without_curl_prints_manual_and_rerun(tmp_path: Path) -> None
     )
 
 
+def test_missing_uv_failure_redacts_configured_origin_credentials(
+    tmp_path: Path,
+) -> None:
+    bin_dir = _bin(tmp_path)
+    secret = "synthetic-origin-password"
+
+    result = run_shim(
+        bin_dir,
+        args=("--yes",),
+        env_extra={
+            "PATH": str(bin_dir),
+            "YOKE_INSTALL_BASE_URL": (
+                f"https://installer-user:{secret}@example.invalid?token={secret}"
+            ),
+        },
+    )
+
+    rendered = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 1
+    assert secret not in rendered
+    assert "installer-user" not in rendered
+    assert "<configured-yoke-origin>/install" in rendered
+
+
+def test_help_teaches_install_and_upgrade_index_contract(tmp_path: Path) -> None:
+    result = run_shim(_bin(tmp_path), args=("--help",))
+
+    assert result.returncode == 0
+    assert "upgrade/reinstall" in result.stdout
+    assert "Yoke index" in result.stdout
+    assert "public PyPI" in result.stdout
+
+
 def test_declining_uv_consent_prints_manual_and_rerun(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     prompt_in = tmp_path / "prompt-in"

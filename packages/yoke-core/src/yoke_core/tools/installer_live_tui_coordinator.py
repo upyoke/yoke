@@ -69,6 +69,7 @@ KNOWN_RECIPE_IDS = {
     "INSTALL-UV-010",
     "INSTALL-UV-011",
     "INSTALL-UV-012",
+    "INSTALL-UV-013",
     "PATH-001",
     "PATH-002",
     "PATH-003",
@@ -1485,6 +1486,33 @@ def _known_recipe_template(
             "start_delay": 45.0,
             "step_delay": 0.5,
             "notes": "Grounded from installer plain-glyph screen-terminal behavior.",
+        }
+    if scenario_id == "INSTALL-UV-013":
+        return {
+            "command": _install_command(
+                base_url,
+                args=("--yes", "--no-onboard"),
+                env={
+                    "YOKE_INSTALL_YES": "1",
+                    "YOKE_NO_ONBOARD": "1",
+                    "UV_DEFAULT_INDEX": f"{base_url.rstrip('/')}/simple/",
+                    "UV_INDEX": "https://ambient.invalid/simple/",
+                },
+            ),
+            "execution_mode": "ssh-command",
+            "actions": [{"step": "000-ambient-index-override"}],
+            "expected_text": ["Setting up Yoke", "Yoke v"],
+            "post_checks": [
+                "secret_free",
+                "no_text:ambient.invalid",
+                "no_text:Traceback",
+            ],
+            "start_delay": 45.0,
+            "step_delay": 0.5,
+            "notes": (
+                "Grounded from a cold install proving installer-owned Yoke and "
+                "public PyPI sources override ambient uv index settings."
+            ),
         }
     if scenario_id == "PATH-001":
         return {

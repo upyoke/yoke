@@ -73,6 +73,8 @@ fi
 
 usage() {
   printf '%s\n' "usage: install [--channel CHANNEL] [--version VERSION] [--yes] [--dry-run] [--no-onboard]"
+  printf '%s\n' "Install Yoke, or rerun the same command to upgrade/reinstall it."
+  printf '%s\n' "The installer selects Yoke packages from the Yoke index and dependencies from public PyPI."
 }
 
 fail() {
@@ -373,11 +375,23 @@ uv_manual_install_command() {
 }
 
 rerun_install_command() {
+  display_base_url=$(safe_base_url_for_display)
   if [ -n "$yes" ]; then
-    printf 'curl -fsSL %s/install | bash -s -- --yes' "${base_url%/}"
+    printf 'curl -fsSL %s/install | bash -s -- --yes' "$display_base_url"
   else
-    printf 'curl -fsSL %s/install | bash' "${base_url%/}"
+    printf 'curl -fsSL %s/install | bash' "$display_base_url"
   fi
+}
+
+# A configured distribution origin may carry URL userinfo or query credentials.
+# The raw value is used only for the request; every operator-visible retry/error
+# substitutes a safe placeholder rather than echoing credentials.
+safe_base_url_for_display() {
+  candidate=${base_url%/}
+  case "$candidate" in
+    *://*@*|*\?*|*\#*) printf '%s' '<configured-yoke-origin>' ;;
+    *) printf '%s' "$candidate" ;;
+  esac
 }
 
 # Friendly, no-dead-end decline screen: a red headline, the manual install
@@ -531,7 +545,7 @@ with open(out, "wb") as handle:
     handle.write(data)
 PY
 download_rc=$?
-[ "$download_rc" -eq 0 ] || fail "could not download ${base_url%/}/dist/install.py"
+[ "$download_rc" -eq 0 ] || fail "could not download $(safe_base_url_for_display)/dist/install.py"
 
 set -- "$installer_py"
 [ -n "$channel" ] && set -- "$@" --channel "$channel"

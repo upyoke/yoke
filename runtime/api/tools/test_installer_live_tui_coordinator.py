@@ -299,6 +299,7 @@ def test_seed_known_recipes_uses_ssh_command_for_fast_installer_recipes(
         "INSTALL-UV-008",
         "INSTALL-UV-009",
         "INSTALL-UV-012",
+        "INSTALL-UV-013",
     }
     for scenario_id in scenario_ids:
         json_helper.dump_path(
@@ -328,6 +329,13 @@ def test_seed_known_recipes_uses_ssh_command_for_fast_installer_recipes(
     assert piped_yes["expected_return_codes"] == [0]
     assert "Run yoke onboard" in piped_yes["expected_text"]
     assert "no_text:Starting Yoke onboard" in piped_yes["post_checks"]
+    ambient_indexes = json_helper.load_path(
+        recipe_dir / "INSTALL-UV-013.json"
+    )
+    assert isinstance(ambient_indexes, dict)
+    assert "UV_DEFAULT_INDEX=" in ambient_indexes["command"]
+    assert "UV_INDEX=https://ambient.invalid/simple/" in ambient_indexes["command"]
+    assert "no_text:ambient.invalid" in ambient_indexes["post_checks"]
 
 
 def test_seed_known_recipes_uses_token_file_for_machine_only_stage(

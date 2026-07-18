@@ -156,6 +156,7 @@ should usually run alone because they may intentionally leave partial state.
 | `INSTALL-UV-010` | `fault-injection` | Bad channel pointer | Failure screen names reason and rerun path |
 | `INSTALL-UV-011` | `fault-injection` | Package index unreachable | Failure screen is actionable; no Python traceback |
 | `INSTALL-UV-012` | `prepared-screen-term` | Installer in screen/dumb terminal | ASCII/plain glyphs; no unsafe glyphs |
+| `INSTALL-UV-013` | `bare-no-uv` | Fresh install with ambient uv indexes pointed away from PyPI | Installer-owned Yoke/PyPI sources win; install succeeds; no ambient index credential appears |
 
 ### Wave 3: PATH Front Door
 

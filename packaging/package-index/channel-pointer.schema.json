@@ -21,7 +21,7 @@
     "generated_at": { "type": "string" },
     "index_url": {
       "type": "string",
-      "description": "Served PEP 503 simple index URL passed to uv/pip as --index-url.",
+      "description": "Served PEP 503 simple index URL selected as the first resolver index; public PyPI remains the explicit dependency default.",
       "pattern": "/simple/$"
     },
     "release_base_url": {

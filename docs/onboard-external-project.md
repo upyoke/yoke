@@ -25,9 +25,10 @@ yoke --version
 ```
 
 To upgrade later, rerun the same curl installer. It resolves one channel
-version for every Yoke product package and supplies uv with the protected index
-configuration; direct multi-index `uv tool install` commands are not a
-supported install surface.
+version for every Yoke product package, selects the Yoke index ahead of an
+explicit public PyPI default, and ignores ambient uv index settings for that
+resolver run. Direct multi-index `uv tool install` commands are not a supported
+install surface.
 
 `git` is needed only at the project step below, and only for create, clone,
 import, or local-checkout modes.

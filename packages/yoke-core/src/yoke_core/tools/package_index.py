@@ -5,9 +5,10 @@ Yoke hosts a private PEP 503 index that lists only the product wheels
 engine ships on the channel like every other product wheel; safety comes from
 the DSN authority boundary, not from keeping engine code off machines.
 Third-party dependencies (pydantic, textual, pyfiglet, and their transitive
-closure) are resolved by ``uv``/``pip`` from PyPI via an extra index URL and
-are never hosted here. Each wheel link carries a ``#sha256=<hex>`` fragment so
-the resolver verifies wheel integrity on download.
+closure) are resolved by ``uv``/``pip`` from the explicit public PyPI default
+and are never hosted here. The Yoke index remains first so product packages
+cannot be shadowed. Each wheel link carries a ``#sha256=<hex>`` fragment so the
+resolver verifies wheel integrity on download.
 """
 
 from __future__ import annotations

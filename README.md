@@ -97,7 +97,8 @@ yoke status
 
 The installer auto-launches `yoke onboard` when interactive. To upgrade later,
 rerun the same curl installer. It resolves one channel version for every Yoke
-product package and supplies uv with the protected index configuration; direct
+product package, selects the Yoke index ahead of an explicit public PyPI
+default, and ignores ambient uv index settings for that resolver run. Direct
 multi-index `uv tool install` commands are not a supported install surface.
 
 **Prefer everything on your own machine?** Local mode is free and needs no

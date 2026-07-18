@@ -7,6 +7,7 @@ from public_installer_helpers import RecordingRunner, branded_installer_glyphs a
 
 
 PROD_INDEX = "https://api.upyoke.com/simple/"
+PYPI_INDEX = "https://pypi.org/simple/"
 
 
 def _options(installer_mod, **overrides):
@@ -84,6 +85,10 @@ def test_install_command_uses_generated_index_config() -> None:
         "yoke-harness==1.2.3",
         "--with",
         "yoke-core==1.2.3",
+        "--default-index",
+        PYPI_INDEX,
+        "--index-strategy",
+        "first-index",
         "--config-file",
         "/tmp/yoke-uv-index.toml",
     ]
@@ -115,6 +120,31 @@ def test_install_command_honors_base_url_for_index_host() -> None:
         "ignore-error-codes = [403]\n"
     )
     assert command.count("--config-file") == 0
+    assert command[command.index("--default-index") + 1] == PYPI_INDEX
+    assert command[command.index("--index-strategy") + 1] == "first-index"
+
+
+def test_uv_runner_ignores_ambient_index_configuration(monkeypatch) -> None:
+    installer_mod = load_installer()
+    captured = {}
+    for name in installer_mod.UV_INDEX_ENV_VARS:
+        monkeypatch.setenv(name, "https://ambient.example.invalid/simple/")
+    monkeypatch.setenv("UNRELATED_INSTALLER_SETTING", "preserved")
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured["env"] = kwargs["env"]
+        return subprocess.CompletedProcess(command, 0, "ok\n", "")
+
+    monkeypatch.setattr(installer_mod.subprocess, "run", fake_run)
+
+    result = installer_mod.run_command_capture(["uv", "--version"])
+
+    assert result.returncode == 0
+    assert captured["command"] == ["uv", "--version"]
+    assert captured["env"]["UNRELATED_INSTALLER_SETTING"] == "preserved"
+    for name in installer_mod.UV_INDEX_ENV_VARS:
+        assert name not in captured["env"]
 
 
 def test_dry_run_resolves_stable_channel_and_writes_nothing(tmp_path: Path) -> None:
@@ -332,9 +362,70 @@ def test_uv_install_failure_is_user_actionable(tmp_path: Path) -> None:
     else:
         raise AssertionError("expected uv install failure")
     assert "uv tool install" in message
+    assert "configured Yoke package index and public PyPI" in message
+    assert PYPI_INDEX in message
     assert "uv: index not reachable" in message
     # Smoke never ran after a failed install: only the install command issued.
     assert len(runner.commands) == 1
+
+
+def test_uv_install_failure_redacts_index_credentials(tmp_path: Path) -> None:
+    installer_mod = load_installer()
+    secret = "synthetic-index-password"
+    base_url = f"https://installer-user:{secret}@example.invalid"
+    output = io.StringIO()
+    runner = RecordingRunner(
+        rc=1,
+        stderr=(
+            "failed to fetch "
+            f"https://installer-user:{secret}@example.invalid/simple/yoke-cli/"
+        ),
+    )
+    installer = installer_mod.Installer(
+        _options(installer_mod, base_url=base_url, version="1.2.3"),
+        runner=runner,
+        stdout=output,
+    )
+
+    try:
+        installer.run()
+    except installer_mod.InstallError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("expected uv install failure")
+
+    rendered = output.getvalue()
+    assert secret not in message
+    assert secret not in rendered
+    assert "installer-user" not in message
+    assert "installer-user" not in rendered
+    assert "https://example.invalid/simple/yoke-cli/" in message
+    assert "curl -fsSL https://example.invalid/install | bash" in rendered
+
+
+def test_public_index_failure_names_both_owned_sources(tmp_path: Path) -> None:
+    installer_mod = load_installer()
+    output = io.StringIO()
+    runner = RecordingRunner(
+        rc=1,
+        stderr="connection refused: https://pypi.org/simple/pydantic/",
+    )
+    installer = installer_mod.Installer(
+        _options(installer_mod, version="1.2.3"),
+        runner=runner,
+        stdout=output,
+    )
+
+    try:
+        installer.run()
+    except installer_mod.InstallError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("expected public index failure")
+
+    assert "configured Yoke package index and public PyPI" in message
+    assert "https://pypi.org/simple/pydantic/" in message
+    assert "Couldn't install Yoke" in output.getvalue()
 
 
 def test_channel_missing_version_pin_fails(tmp_path: Path) -> None:
