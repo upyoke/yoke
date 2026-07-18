@@ -17,7 +17,7 @@ from .validate import (
     resolve_repo_root,
     validate_bundle,
 )
-from .writer import apply_plan
+from .writer import adopt_existing_plan, apply_plan
 
 
 def refresh(
@@ -26,13 +26,16 @@ def refresh(
     project: str,
     apply: bool = False,
     verify: bool = False,
+    adopt_existing: bool = False,
     source_dev_admin: bool = False,
     session_id: str | None = None,
 ) -> dict[str, Any]:
     """Render fresh authority, inspect the checkout, and optionally apply."""
 
-    if apply and verify:
-        raise ProjectArtifactError("--apply and --verify are mutually exclusive")
+    if sum((apply, verify, adopt_existing)) > 1:
+        raise ProjectArtifactError(
+            "--apply, --verify, and --adopt-existing are mutually exclusive"
+        )
     root = resolve_repo_root(repo_root)
     bundle = _fetch_bundle(
         project,
@@ -41,7 +44,15 @@ def refresh(
     )
     entries = validate_bundle(bundle, source_dev_admin=source_dev_admin)
     assert_checkout_identity(root, bundle)
-    operation = "apply" if apply else "verify" if verify else "preview"
+    operation = (
+        "apply"
+        if apply
+        else "verify"
+        if verify
+        else "adopt-existing"
+        if adopt_existing
+        else "preview"
+    )
     applicable = bundle["applicable"]
     manifest = load_manifest(root) if applicable else None
     plan = (
@@ -70,11 +81,17 @@ def refresh(
         "drift": plan["drift"],
         "conflict_count": len(plan["conflicts"]),
         "applied": False,
+        "adopted": False,
         "refused": False,
         "pulumi_stack_config": bundle["pulumi_stack_config"],
     }
     if not applicable:
         report["skipped"] = True
+        return report
+    if adopt_existing:
+        result = adopt_existing_plan(root, bundle, entries, manifest, plan)
+        report["adopted"] = True
+        report["adoption_result"] = result
         return report
     if not apply:
         return report

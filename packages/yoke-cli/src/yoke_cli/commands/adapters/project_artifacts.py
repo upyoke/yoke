@@ -16,7 +16,8 @@ from yoke_cli.project_artifacts import ProjectArtifactError, refresh
 
 PROJECT_ARTIFACTS_REFRESH_USAGE = (
     "yoke project artifacts refresh [REPO_ROOT] --project NAME "
-    "[--apply | --verify] [--source-dev-admin] [--session-id S] [--json]"
+    "[--apply | --verify | --adopt-existing] [--source-dev-admin] "
+    "[--session-id S] [--json]"
 )
 
 
@@ -52,6 +53,15 @@ def project_artifacts_refresh(args: List[str]) -> int:
         action="store_true",
         help="External drift gate: exit nonzero unless tracked consumers match.",
     )
+    mode.add_argument(
+        "--adopt-existing",
+        action="store_true",
+        help=(
+            "One-time migration for a checkout with no artifact manifest: "
+            "record existing managed paths without replacing them, then use "
+            "ordinary preview/apply to reconcile the fresh render."
+        ),
+    )
     parser.add_argument(
         "--source-dev-admin",
         action="store_true",
@@ -72,6 +82,7 @@ def project_artifacts_refresh(args: List[str]) -> int:
             project=parsed.project,
             apply=parsed.apply,
             verify=parsed.verify,
+            adopt_existing=parsed.adopt_existing,
             source_dev_admin=parsed.source_dev_admin,
             session_id=parsed.session_id,
         )

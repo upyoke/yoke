@@ -57,3 +57,25 @@ def test_verify_is_green_when_fresh_render_matches(monkeypatch) -> None:
         )
         == 0
     )
+
+
+def test_adopt_existing_is_forwarded_as_distinct_operation(monkeypatch) -> None:
+    received = {}
+
+    def fake_refresh(*args, **kwargs):
+        received.update(kwargs)
+        return _report(drift=True)
+
+    monkeypatch.setattr(adapter, "refresh", fake_refresh)
+    assert (
+        adapter.project_artifacts_refresh(
+            [
+                "/tmp/sample-service",
+                "--project",
+                "sample-service",
+                "--adopt-existing",
+            ]
+        )
+        == 0
+    )
+    assert received["adopt_existing"] is True
