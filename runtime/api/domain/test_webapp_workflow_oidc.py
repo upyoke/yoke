@@ -12,6 +12,7 @@ from yoke_core.domain.project_renderer_settings import (
     RendererEnvironmentSettings,
 )
 from yoke_core.domain.project_renderer_values import (
+    CHECKOUT_ACTION,
     CONFIGURE_AWS_CREDENTIALS_ACTION,
 )
 
@@ -62,13 +63,18 @@ def _settings() -> ProjectRendererSettings:
     )
 
 
-def test_aws_credentials_action_uses_one_immutable_reviewed_revision() -> None:
-    action, revision = CONFIGURE_AWS_CREDENTIALS_ACTION.split("@", 1)
-    commit = revision.split(" ", 1)[0]
+def test_workflow_actions_use_immutable_reviewed_revisions() -> None:
+    expected = {
+        CHECKOUT_ACTION: "actions/checkout",
+        CONFIGURE_AWS_CREDENTIALS_ACTION: "aws-actions/configure-aws-credentials",
+    }
+    for action_ref, expected_action in expected.items():
+        action, revision = action_ref.split("@", 1)
+        commit = revision.split(" ", 1)[0]
 
-    assert action == "aws-actions/configure-aws-credentials"
-    assert len(commit) == 40
-    assert all(character in "0123456789abcdef" for character in commit)
+        assert action == expected_action
+        assert len(commit) == 40
+        assert all(character in "0123456789abcdef" for character in commit)
 
 
 def test_delivery_workflows_assume_oidc_role_and_reject_static_aws_secrets() -> None:
@@ -76,6 +82,7 @@ def test_delivery_workflows_assume_oidc_role_and_reject_static_aws_secrets() -> 
         text = _workflow_text(name)
 
         assert "permissions:\n  contents: read\n  id-token: write" in text
+        assert text.count("uses: {{checkout_action}}") == 1
         assert text.count("uses: {{configure_aws_credentials_action}}") == 1
         assert "role-to-assume: ${{ vars.YOKE_DELIVERY_CI_ROLE_ARN }}" in text
         assert "aws-region: {{aws_region}}" in text
@@ -145,6 +152,7 @@ def test_delivery_workflows_render_valid_oidc_only_yaml_from_both_bundles(
 
         text = canonical_path.read_text(encoding="utf-8")
         assert not re.search(r"(?<!\$)\{\{[A-Za-z_]", text)
+        assert CHECKOUT_ACTION in text
         assert CONFIGURE_AWS_CREDENTIALS_ACTION in text
         assert "permissions:\n  contents: read\n  id-token: write" in text
         assert "role-to-assume: ${{ vars.YOKE_DELIVERY_CI_ROLE_ARN }}" in text

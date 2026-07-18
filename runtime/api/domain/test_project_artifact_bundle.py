@@ -15,6 +15,7 @@ from yoke_contracts.project_artifacts import (
 )
 from yoke_core.domain import project_artifact_bundle, yaml_helper
 from yoke_core.domain.project_renderer_values import (
+    CHECKOUT_ACTION,
     CONFIGURE_AWS_CREDENTIALS_ACTION,
 )
 
@@ -157,6 +158,12 @@ def test_packaged_source_renders_parsed_oidc_workflows_for_external_project() ->
     parsed = yaml_helper.parse_document(deploy)
 
     assert parsed["permissions"] == {"contents": "read", "id-token": "write"}
+    checkout = next(
+        step
+        for step in parsed["jobs"]["deploy"]["steps"]
+        if step.get("name") == "Checkout code"
+    )
+    assert checkout["uses"] == CHECKOUT_ACTION.split(" #", 1)[0]
     configure = next(
         step
         for step in parsed["jobs"]["deploy"]["steps"]
