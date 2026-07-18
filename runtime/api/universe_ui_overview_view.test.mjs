@@ -218,6 +218,10 @@ test("the stat tiles fill from the reads, and never invent a number", async (t) 
     tiles.map((tile) => byClass(tile, "l")[0].textContent),
     ["ready to run", "live sessions", "blocked", "checks passing"],
   );
+  assert.deepEqual(
+    tiles.map((tile) => tile.attributes.get("data-signal")),
+    ["ready", "sessions", "blocked", "healthy"],
+  );
   mounted.unmount();
 });
 

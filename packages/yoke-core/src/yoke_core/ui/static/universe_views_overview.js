@@ -37,8 +37,9 @@ const OVERVIEW_SECTIONS = [
 
 // One stat tile that fills in when its read resolves. Until then — and if the
 // read fails — it holds an em dash, never a zero that reads as a real count.
-function statTile(documentNode, label) {
+function statTile(documentNode, label, signal) {
   const tile = el(documentNode, "div", "stat");
+  tile.setAttribute("data-signal", signal);
   const number = el(documentNode, "div", "n", "—");
   tile.appendChild(number);
   tile.appendChild(el(documentNode, "div", "l", label));
@@ -341,10 +342,10 @@ function loadDoctor(context, panel, scope, tiles) {
 export function renderOverviewView(context, main, scope) {
   const documentNode = context.document;
   const tiles = {
-    ready: statTile(documentNode, "ready to run"),
-    sessions: statTile(documentNode, "live sessions"),
-    blocked: statTile(documentNode, "blocked"),
-    checks: statTile(documentNode, "checks passing"),
+    ready: statTile(documentNode, "ready to run", "ready"),
+    sessions: statTile(documentNode, "live sessions", "sessions"),
+    blocked: statTile(documentNode, "blocked", "blocked"),
+    checks: statTile(documentNode, "checks passing", "healthy"),
   };
   const statRow = el(documentNode, "div", "stat-row");
   for (const tile of [tiles.ready, tiles.sessions, tiles.blocked, tiles.checks]) {

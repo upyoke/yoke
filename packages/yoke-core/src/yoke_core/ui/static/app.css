@@ -589,9 +589,30 @@
   margin: 0;
 }
 .universe-app-root .overview-masthead .stat {
+  position: relative;
   border: 0;
   border-right: 1px solid var(--yoke-border);
   border-radius: 0;
+  padding-left: 19px;
+}
+.universe-app-root .overview-masthead .stat::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--yoke-muted);
+  content: "";
+}
+.universe-app-root .overview-masthead .stat[data-signal="ready"]::before {
+  background: var(--yoke-accent);
+}
+.universe-app-root .overview-masthead .stat[data-signal="blocked"]::before {
+  background: var(--yoke-crit);
+}
+.universe-app-root .overview-masthead .stat[data-signal="healthy"]::before {
+  background: var(--yoke-good);
 }
 .universe-app-root .overview-masthead .stat:last-child {
   border-right: 0;
