@@ -285,6 +285,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                     payload={
                         "project": "yoke",
                         "flow": "yoke-hosted-production",
+                        "release_lineage": "a" * 40,
                         "created_by": "operator",
                     },
                 ),
@@ -292,12 +293,14 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         cmd_create.assert_called_once_with(
             "yoke", "yoke-hosted-production",
-            target_env=None, created_by="operator",
+            target_env=None, release_lineage="a" * 40,
+            created_by="operator",
         )
         self.assertEqual(
             outcome.result_payload["run_id"], "run-20260616-002",
         )
         self.assertEqual(outcome.result_payload["flow"], "yoke-hosted-production")
+        self.assertIsNone(outcome.result_payload["release_lineage"])
 
     def test_run_create_rejects_inactive_flow(self):
         with patch(

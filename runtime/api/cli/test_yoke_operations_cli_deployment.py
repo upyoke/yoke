@@ -227,7 +227,7 @@ def test_registry_maps_deployment_run_create() -> None:
     )
 
 
-def test_deployment_run_create_dispatches_and_prints_run_id() -> None:
+def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:
     def stub(request: FunctionCallRequest) -> FunctionCallResponse:
         _CAPTURED_REQUESTS.append(request)
         return FunctionCallResponse(
@@ -244,11 +244,16 @@ def test_deployment_run_create_dispatches_and_prints_run_id() -> None:
             },
         )
 
-    rc, out, err = _run_capture(
-        stub,
-        "deployment-runs", "create", "yoke", "yoke-hosted-production",
-        "--created-by", "operator",
-    )
+    with patch(
+        "yoke_cli.commands.adapters.deployment.resolve_commit_lineage",
+        return_value="a" * 40,
+    ) as resolve_lineage:
+        rc, out, err = _run_capture(
+            stub,
+            "deployment-runs", "create", "yoke", "yoke-hosted-production",
+            "--created-by", "operator",
+            "--project-repo-path", "/repo", "--source-ref", "origin/main",
+        )
 
     assert rc == 0, err
     assert out.strip() == "run-20260616-009"
@@ -259,7 +264,9 @@ def test_deployment_run_create_dispatches_and_prints_run_id() -> None:
         "project": "yoke",
         "flow": "yoke-hosted-production",
         "created_by": "operator",
+        "release_lineage": "a" * 40,
     }
+    resolve_lineage.assert_called_once_with("/repo", "origin/main")
 
 
 def test_deployment_run_execute_is_a_client_local_tool() -> None:

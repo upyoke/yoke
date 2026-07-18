@@ -139,6 +139,12 @@ class TestCreateRun:
         val = dr.cmd_get(rid, field="release_lineage", db_path=db_path)
         assert val == "rel-001"
 
+        error = dr.cmd_update(
+            rid, "release_lineage", "different-lineage", db_path=db_path,
+        )
+        assert error == "Error: field 'release_lineage' is not updatable"
+        assert dr.cmd_get(rid, field="release_lineage", db_path=db_path) == "rel-001"
+
     def test_create_with_created_by(self, db_path):
         rid = dr.cmd_create_run(
             "yoke", "yoke-internal",

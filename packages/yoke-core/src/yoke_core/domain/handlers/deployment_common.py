@@ -68,6 +68,7 @@ class DeploymentRunCreateRequest(BaseModel):
     project: str
     flow: str
     target_env: Optional[str] = None
+    release_lineage: Optional[str] = None
     created_by: str = "operator"
 
 
@@ -76,6 +77,7 @@ class DeploymentRunCreateResponse(BaseModel):
     project: str
     flow: str
     target_env: Optional[str] = None
+    release_lineage: Optional[str] = None
     status: str
 
 

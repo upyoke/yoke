@@ -31,7 +31,7 @@ RUN_FIELDS = (
     "completed_at", "created_by",
 )
 
-UPDATABLE_FIELDS = ("status", "current_stage", "target_env", "release_lineage", "created_by")
+UPDATABLE_FIELDS = ("status", "current_stage", "target_env", "created_by")
 
 VALID_STATUSES = tuple(s.value for s in RunStatus)
 
