@@ -60,15 +60,17 @@ class TestRenderTemplate:
 class TestAutoHeader:
     def test_hash_comment(self):
         header = project_renderer._auto_header(
-            "#", "templates/webapp/ops/foo.yml", "externalwebapp", "workflows"
+            "#", "templates/webapp/ops/foo.yml", "externalwebapp"
         )
         assert header.startswith("# AUTO-GENERATED")
         assert "foo.yml" in header
         assert "externalwebapp" in header
+        assert "yoke project artifacts refresh" in header
+        assert "yoke_core.tools" not in header
 
     def test_slash_comment(self):
         header = project_renderer._auto_header(
-            "//", "templates/webapp/ops/foo.js", "externalwebapp", "ops"
+            "//", "templates/webapp/ops/foo.js", "externalwebapp"
         )
         assert header.startswith("// AUTO-GENERATED")
 
@@ -231,9 +233,12 @@ class TestRenderProject:
         assert "testproj" in cleanup
         assert "4000" in cleanup
         assert "AUTO-GENERATED" in cleanup
-        # The auto-header must reference the new Python CLI,
-        # never the deleted render-project.sh shell launcher.
-        assert "yoke_core.tools.render_project" in cleanup
+        # The auto-header must reference the packaged managed-project boundary,
+        # never a source-dev renderer or deleted shell launcher.
+        assert (
+            "yoke project artifacts refresh --project testproj --apply" in cleanup
+        )
+        assert "yoke_core.tools.render_project" not in cleanup
         assert "render-project.sh" not in cleanup
         # The source attribution must point at the .sh.tmpl template.
         assert "ephemeral-cleanup.sh.tmpl" in cleanup
@@ -280,8 +285,11 @@ class TestRenderProject:
         content = entrypoint.read_text()
         assert "testproj" in content
         assert "4000" in content
-        # The auto-header must reference the new Python CLI.
-        assert "yoke_core.tools.render_project" in content
+        # The auto-header must reference the packaged managed-project boundary.
+        assert (
+            "yoke project artifacts refresh --project testproj --apply" in content
+        )
+        assert "yoke_core.tools.render_project" not in content
         assert "render-project.sh" not in content
         # The source attribution must point at the .sh.tmpl template.
         assert "entrypoint.sh.tmpl" in content
