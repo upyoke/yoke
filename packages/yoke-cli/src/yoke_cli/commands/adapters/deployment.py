@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from typing import Any, List
 
 from yoke_cli.commands._helpers import (
@@ -12,6 +13,10 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.commands.deployment_lineage import (
+    DeploymentLineageResolutionError,
+    resolve_commit_lineage,
+)
 
 
 DEPLOYMENT_FLOWS_GET_USAGE = (
@@ -29,6 +34,7 @@ DEPLOYMENT_RUNS_GET_USAGE = (
 )
 DEPLOYMENT_RUNS_CREATE_USAGE = (
     "yoke deployment-runs create PROJECT FLOW [--target-env ENV] "
+    "[--project-repo-path PATH --source-ref REF] "
     "[--created-by WHO] [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_LIST_USAGE = (
@@ -195,6 +201,19 @@ def deployment_runs_create(args: List[str]) -> int:
     parser.add_argument("flow")
     parser.add_argument("--target-env", dest="target_env", default=None)
     parser.add_argument("--created-by", dest="created_by", default="operator")
+    parser.add_argument(
+        "--project-repo-path",
+        default=None,
+        help=(
+            "Git top-level used to bind release_lineage mechanically from "
+            "the selected remote source ref."
+        ),
+    )
+    parser.add_argument(
+        "--source-ref",
+        default="origin/main",
+        help="Commit-ish to bind when --project-repo-path is supplied.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_CREATE_USAGE)
@@ -211,6 +230,15 @@ def deployment_runs_create(args: List[str]) -> int:
         "flow": parsed.flow,
         "created_by": parsed.created_by,
     }
+    if parsed.project_repo_path is not None:
+        try:
+            payload["release_lineage"] = resolve_commit_lineage(
+                parsed.project_repo_path,
+                parsed.source_ref,
+            )
+        except DeploymentLineageResolutionError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
     if parsed.target_env is not None:
         payload["target_env"] = parsed.target_env
     return dispatch_and_emit(

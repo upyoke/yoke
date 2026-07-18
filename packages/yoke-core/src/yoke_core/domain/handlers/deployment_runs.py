@@ -77,11 +77,13 @@ def handle_deployment_run_create(
     project = payload.get("project")
     flow = payload.get("flow")
     target_env = payload.get("target_env")
+    release_lineage = payload.get("release_lineage")
     created_by = payload.get("created_by") or "operator"
     for key, value, required in (
         ("project", project, True),
         ("flow", flow, True),
         ("target_env", target_env, False),
+        ("release_lineage", release_lineage, False),
         ("created_by", created_by, True),
     ):
         if required and (not isinstance(value, str) or not value.strip()):
@@ -106,6 +108,7 @@ def handle_deployment_run_create(
             project.strip(),
             flow.strip(),
             target_env=(target_env or "").strip() or None,
+            release_lineage=(release_lineage or "").strip() or None,
             created_by=created_by.strip(),
         )
     except LookupError as exc:
@@ -119,6 +122,7 @@ def handle_deployment_run_create(
             "project": created.get("project") or project.strip(),
             "flow": created.get("flow") or flow.strip(),
             "target_env": created.get("target_env") or None,
+            "release_lineage": created.get("release_lineage") or None,
             "status": created.get("status") or "created",
         },
         primary_success=True,
