@@ -59,18 +59,9 @@ from yoke_cli.commands.adapters.deployment import (
     DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
     DEPLOYMENT_RUNS_UPDATE_USAGE,
 )
-from yoke_cli.commands.adapters.deployment_composed import (
-    DEPLOYMENT_FLOWS_UPDATE_STAGES_USAGE,
-    DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE,
-)
-from yoke_cli.commands.adapters.ephemeral_env import (
-    EPHEMERAL_ENV_CREATE_USAGE,
-    EPHEMERAL_ENV_UPDATE_USAGE,
-)
-from yoke_cli.commands.adapters.ouroboros_writes import (
-    OUROBOROS_WRAPUP_SAVE_USAGE,
-)
+from yoke_cli.commands.adapters.ephemeral_env import EPHEMERAL_ENV_UPDATE_USAGE
 from yoke_cli.commands.adapters.usage_epic_ops import EPIC_USAGE
+from yoke_cli.commands.adapters import usage_composed_operations as _composed_usage
 from yoke_cli.commands.adapters.events import (
     EVENTS_ANOMALIES_USAGE,
     EVENTS_COUNT_USAGE,
@@ -83,17 +74,11 @@ from yoke_cli.commands.adapters.github import (
 from yoke_cli.commands.adapters.github_release import (
     GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
 )
-from yoke_cli.commands.adapters.usage_github_actions import (
-    USAGE_BY_FUNCTION_ID as GITHUB_ACTIONS_USAGE_BY_ID,
-)
 from yoke_cli.commands.adapters.hooks import HOOK_EVALUATE_USAGE
 from yoke_cli.commands.adapters.install import (
     PROJECT_INSTALL_USAGE,
     PROJECT_REFRESH_USAGE,
     PROJECT_UNINSTALL_USAGE,
-)
-from yoke_cli.commands.adapters.project_artifacts import (
-    PROJECT_ARTIFACTS_REFRESH_USAGE,
 )
 from yoke_cli.commands.adapters.project_snapshot import (
     PROJECT_SNAPSHOT_SYNC_USAGE,
@@ -140,9 +125,6 @@ from yoke_cli.commands.adapters.projects import (
     PROJECTS_LIST_USAGE,
     PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE,
     PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
-)
-from yoke_cli.commands.adapters.projects_infrastructure import (
-    PROJECTS_INFRASTRUCTURE_LIST_USAGE,
 )
 from yoke_cli.commands.adapters.projects_write import (
     PROJECTS_CREATE_USAGE,
@@ -319,16 +301,13 @@ ADAPTER_USAGE: Dict[str, str] = {
     "deployment_flows.get": DEPLOYMENT_FLOWS_GET_USAGE,
     "deployment_flows.set_status": DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
     "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
-    "deployment_flows.update_stages": DEPLOYMENT_FLOWS_UPDATE_STAGES_USAGE,
     "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
-    "deployment_runs.start_for_item": DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE,
     "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
     "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
     "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
     "deployment_runs.resolve_target_env": DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
     "github.release.create_next_tag": GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
-    "ephemeral_env.create": EPHEMERAL_ENV_CREATE_USAGE,
     "ephemeral_env.update": EPHEMERAL_ENV_UPDATE_USAGE,
     "projects.get": PROJECTS_GET_USAGE,
     "projects.list": PROJECTS_LIST_USAGE,
@@ -342,7 +321,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.capability_settings.merge": PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,
     "projects.environment_settings.get": _environment_settings_usage.GET_USAGE,
     "projects.environment_settings.merge": _environment_settings_usage.MERGE_USAGE,
-    "projects.infrastructure.list": PROJECTS_INFRASTRUCTURE_LIST_USAGE,
     "projects.pulumi_state.migrate": PULUMI_STATE_MIGRATE_USAGE,
     "projects.pulumi_state.checkpoint_import": (
         PULUMI_STATE_CHECKPOINT_IMPORT_USAGE
@@ -377,8 +355,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "ouroboros.field_note.get": OUROBOROS_FIELD_NOTE_GET_USAGE,
     "ouroboros.entry.list": OUROBOROS_ENTRY_LIST_USAGE,
     "ouroboros.entry.get": OUROBOROS_ENTRY_GET_USAGE,
-    "ouroboros.wrapup.save": OUROBOROS_WRAPUP_SAVE_USAGE,
-    **GITHUB_ACTIONS_USAGE_BY_ID,
     "strategy.doc.list": STRATEGY_DOC_LIST_USAGE,
     "strategy.doc.get": STRATEGY_DOC_GET_USAGE,
     "strategy.doc.create": STRATEGY_DOC_CREATE_USAGE,
@@ -406,7 +382,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "connection.remove.run": CONNECTION_REMOVE_USAGE,
     "auth.set.run": AUTH_SET_USAGE,
     "project.register.run": PROJECT_REGISTER_USAGE,
-    "project.artifacts.refresh": PROJECT_ARTIFACTS_REFRESH_USAGE,
     "project.install.run": PROJECT_INSTALL_USAGE,
     "project.refresh.run": PROJECT_REFRESH_USAGE,
     "project.uninstall.run": PROJECT_UNINSTALL_USAGE,
@@ -419,3 +394,4 @@ ADAPTER_USAGE.update(READINESS_USAGE_BY_ID)
 ADAPTER_USAGE.update(_qa_usage.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_shepherd_writes.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_strategy_event_usage.USAGE_BY_FUNCTION_ID)
+ADAPTER_USAGE.update(_composed_usage.USAGE_BY_FUNCTION_ID)

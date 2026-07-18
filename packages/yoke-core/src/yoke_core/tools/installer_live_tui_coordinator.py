@@ -24,6 +24,12 @@ from yoke_core.tools import installer_live_tui_fleet as fleet
 from yoke_core.tools import installer_live_tui_harness as harness
 from yoke_core.tools import installer_live_tui_runner as scenario_runner
 from yoke_core.tools.installer_live_tui_harness import Assignment
+from yoke_core.tools.installer_live_tui_recipe_catalog import (
+    GITHUB_APP_SCENARIO_ID_STOP,  # noqa: F401
+    KNOWN_RECIPE_IDS,
+    MANUAL_GITHUB_APP_RECIPE_IDS,
+    install_uv_013_recipe,
+)
 
 
 DEFAULT_PLAN_NAME = "coordinator-plan.json"
@@ -48,140 +54,6 @@ PATH_HEALTH_CONNECT_EXPECTED_TEXT = (
     "This machine",
     "upyoke.com",
 )
-GITHUB_APP_SCENARIO_ID_STOP = 54
-
-
-KNOWN_RECIPE_IDS = {
-    "INSTALL-SMOKE-001",
-    "INSTALL-SMOKE-002",
-    "INSTALL-SMOKE-003",
-    "INSTALL-SMOKE-004",
-    "INSTALL-SMOKE-005",
-    "INSTALL-UV-001",
-    "INSTALL-UV-002",
-    "INSTALL-UV-003",
-    "INSTALL-UV-004",
-    "INSTALL-UV-005",
-    "INSTALL-UV-006",
-    "INSTALL-UV-007",
-    "INSTALL-UV-008",
-    "INSTALL-UV-009",
-    "INSTALL-UV-010",
-    "INSTALL-UV-011",
-    "INSTALL-UV-012",
-    "INSTALL-UV-013",
-    "PATH-001",
-    "PATH-002",
-    "PATH-003",
-    "PATH-004",
-    "PATH-005",
-    "PATH-006",
-    "PATH-007",
-    "PATH-008",
-    "AUTH-001",
-    "AUTH-002",
-    "AUTH-003",
-    "AUTH-004",
-    "AUTH-005",
-    "AUTH-006",
-    "AUTH-007",
-    "AUTH-008",
-    "AUTH-009",
-    "AUTH-010",
-    "AUTH-011",
-    *(
-        f"GITHUB-{number:03d}"
-        for number in range(1, GITHUB_APP_SCENARIO_ID_STOP)
-    ),
-    "PROJECT-SOURCE-001",
-    "PROJECT-SOURCE-002",
-    "PROJECT-SOURCE-003",
-    "PROJECT-SOURCE-004",
-    "PROJECT-SOURCE-005",
-    "PROJECT-SOURCE-006",
-    "PROJECT-SOURCE-007",
-    "PROJECT-SOURCE-008",
-    "PROJECT-SOURCE-009",
-    "PROJECT-SOURCE-010",
-    "PROJECT-SOURCE-011",
-    "PROJECT-SOURCE-012",
-    "PROJECT-SOURCE-013",
-    "PROJECT-SOURCE-014",
-    "PROJECT-SOURCE-015",
-    "PROJECT-SOURCE-016",
-    "PROJECT-SOURCE-017",
-    "PROJECT-SOURCE-018",
-    "PROJECT-SOURCE-019",
-    "PROJECT-META-001",
-    "PROJECT-META-002",
-    "PROJECT-META-003",
-    "PROJECT-META-004",
-    "PROJECT-META-005",
-    "PROJECT-META-006",
-    "PROJECT-META-007",
-    "PROJECT-META-008",
-    "PROJECT-META-009",
-    "PROJECT-META-010",
-    "PROJECT-META-011",
-    "PUBLISH-001",
-    "PUBLISH-002",
-    "PUBLISH-003",
-    "PUBLISH-004",
-    "PUBLISH-005",
-    "PUBLISH-006",
-    "PUBLISH-007",
-    "PUBLISH-008",
-    "PUBLISH-009",
-    "PUBLISH-010",
-    "PUBLISH-011",
-    "PUBLISH-012",
-    "APPLY-001",
-    "APPLY-002",
-    "APPLY-003",
-    "APPLY-004",
-    "APPLY-005",
-    "APPLY-006",
-    "APPLY-007",
-    "APPLY-008",
-    "APPLY-009",
-    "APPLY-010",
-    "APPLY-011",
-    "APPLY-012",
-    "TERM-001",
-    "TERM-002",
-    "TERM-003",
-    "TERM-004",
-    "TERM-005",
-    "TERM-006",
-    "TERM-007",
-    "TERM-008",
-    "TERM-009",
-    "TERM-010",
-    "TERM-011",
-    "TERM-012",
-    "STATE-001",
-    "STATE-002",
-    "STATE-003",
-    "STATE-004",
-    "STATE-005",
-    "STATE-006",
-    "STATE-007",
-    "STATE-008",
-    "STATE-009",
-}
-MANUAL_GITHUB_APP_RECIPE_IDS = {
-    *(
-        f"GITHUB-{number:03d}"
-        for number in range(2, GITHUB_APP_SCENARIO_ID_STOP)
-    ),
-    "PROJECT-SOURCE-006",
-    "PROJECT-META-008",
-    *(f"PUBLISH-{number:03d}" for number in range(2, 13)),
-    "APPLY-005",
-    "APPLY-008",
-    "STATE-002",
-    "STATE-007",
-}
 PROD_BASE_URL = DISTRIBUTION_PROD_URL
 PROD_TOKEN_FILE_ENV = "YOKE_INSTALLER_LIVE_PROD_TOKEN_FILE"
 REMOTE_PROD_TOKEN_PATH = "/tmp/yoke-prod.token"
@@ -1488,32 +1360,7 @@ def _known_recipe_template(
             "notes": "Grounded from installer plain-glyph screen-terminal behavior.",
         }
     if scenario_id == "INSTALL-UV-013":
-        return {
-            "command": _install_command(
-                base_url,
-                args=("--yes", "--no-onboard"),
-                env={
-                    "YOKE_INSTALL_YES": "1",
-                    "YOKE_NO_ONBOARD": "1",
-                    "UV_DEFAULT_INDEX": f"{base_url.rstrip('/')}/simple/",
-                    "UV_INDEX": "https://ambient.invalid/simple/",
-                },
-            ),
-            "execution_mode": "ssh-command",
-            "actions": [{"step": "000-ambient-index-override"}],
-            "expected_text": ["Setting up Yoke", "Yoke v"],
-            "post_checks": [
-                "secret_free",
-                "no_text:ambient.invalid",
-                "no_text:Traceback",
-            ],
-            "start_delay": 45.0,
-            "step_delay": 0.5,
-            "notes": (
-                "Grounded from a cold install proving installer-owned Yoke and "
-                "public PyPI sources override ambient uv index settings."
-            ),
-        }
+        return install_uv_013_recipe(base_url, _install_command)
     if scenario_id == "PATH-001":
         return {
             "command": _onboard_command(post_install=True),

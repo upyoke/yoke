@@ -289,10 +289,8 @@ All paths below are repo-relative from the repo root.
 - Machine config: `~/.yoke/config.json`. Project-local Yoke surfaces: `.yoke/`. Docs: `docs/`. Item design specifications live in `items.design_spec`.
 
 ## Testing
-- The generic runner is the source-dev `uv run --frozen python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet. `uv run --frozen` makes a clean worktree use its locked development dependencies and its own source packages without requiring an activated virtualenv.
+- The generic runner is the source-dev `uv run --frozen python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet. `uv run --frozen` makes a clean worktree use its locked development dependencies and its own source packages without requiring an activated virtualenv. Detailed lint and changed-test recipes: [`docs/testing-verification.md`](docs/testing-verification.md).
 - The canonical verification target for Yoke code is `uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/`; it injects xdist `-n auto` unless an explicit `-n` override is passed. Use `-- -n 0` for sequential order-sensitive debugging. Use raw pytest only for narrow debugging, not final Yoke verification.
-- Ruff is a locked development dependency. Lint every changed Python path with `uv run --frozen ruff check <changed Python paths>`; do not call a checkout-local `.venv/bin/ruff` path or rely on an ambient Homebrew install.
-- For a changed-test fallback, first list candidates with `git diff --name-only --diff-filter=ACMR <base>...HEAD -- ':(glob)**/test_*.py' ':(glob)**/*_test.py'`, review the newline-delimited output, then pass the exact existing paths to `watch_pytest`. Do not pipe NUL-delimited Git output through `rg -z`, and never feed a filter diagnostic to pytest as a filename.
 - Harness coverage is Python-owned under files such as `runtime/harness/codex/test_codex_entry.py`, `runtime/harness/test_hook_runner_runner.py`, `runtime/harness/test_hook_runner_telemetry.py`, `runtime/api/test_service_client.py`, and `runtime/api/test_sessions.py`.
 - Never set `YOKE_DRY_RUN=1` in tests; the suites mock their own GitHub side effects.
 - **No hardcoded drifting IDs in tests.** Tests must never contain literal `YOK-N`-style ticket IDs that drift over time. Use variables, dynamically generated values, or pattern matchers instead.
@@ -324,8 +322,7 @@ Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke cura
 - Planning activities (`idea`, `refine`, `shepherd`, `freeze/thaw`, `plan`) go directly to main.
 
 ## Commit Discipline
-- Commit after EVERY completed change — status updates, board rebuilds, doc changes, not just code.
-- Never fabricate or expand a full commit hash from a visible short SHA. Before reporting or handing off a full hash, resolve it from the exact checkout with `git -C <checkout> rev-parse HEAD` and verify it exists with `git -C <checkout> cat-file -e '<sha>^{commit}'`.
+- Commit after EVERY completed change — status updates, board rebuilds, doc changes, not just code. Never fabricate or expand a full commit hash from a visible short SHA: resolve it from the exact checkout with `git -C <checkout> rev-parse HEAD` and verify it with `git -C <checkout> cat-file -e '<sha>^{commit}'`.
 - No dirty working tree between tasks.
 
 ## Session Continuity
