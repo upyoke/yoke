@@ -6,35 +6,32 @@ The first deployment has extra steps to create resources that the Pulumi stacks 
 
 #### 1. Bootstrap the Pulumi state backend (once per AWS account/region)
 
-Pulumi stores stack state in S3 and encrypts secret config values with a KMS key. Create the bucket, enable versioning, create the KMS alias, enable bucket encryption, then point Pulumi at the backend. Run these in order so the KMS key alias exists before `pulumi stack init` references it:
+Pulumi stores stack state in the S3 backend declared by the project's
+`pulumi-state` capability and encrypts secret config values with its KMS key.
+The bucket and KMS alias must already exist through the provider-admin setup
+path, and every stack below must already be declared in the capability's
+`stacks` map. Do not export project AWS credentials, run `pulumi login`, or run
+`pulumi stack init` directly.
 
 ```sh
-aws s3api create-bucket --bucket {{state_bucket}} --region {{aws_region}}
-aws s3api put-bucket-versioning --bucket {{state_bucket}} \
-  --versioning-configuration Status=Enabled
-aws kms create-key --description "Pulumi state encryption for {{project_name}}"
-aws kms create-alias --alias-name {{kms_key_alias}} \
-  --target-key-id <key-id-from-prior-step>
-aws s3api put-bucket-encryption --bucket {{state_bucket}} \
-  --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"aws:kms","KMSMasterKeyID":"{{kms_key_alias}}"},"BucketKeyEnabled":true}]}'
-pulumi login s3://{{state_bucket}}?region={{aws_region}}
+yoke projects capability has --project {{project_name}} --cap-type aws-admin --json
 ```
 
-Then install the Python deps the infra modules need and initialize every
-non-render-only stack. Legacy projects usually have `infra` + `vps`; data-plane
-projects also have environment instances declared under
+Initialize every non-render-only declared stack through the capability-owned
+boundary. Legacy projects usually have `infra` + `vps`; data-plane projects
+also have environment instances declared under
 `sites.settings.pulumi.stackInstances`:
 
 ```sh
-cd <render-output>/infra
-pip install -r requirements.txt
-pulumi stack init {{pulumi_infra_stack_name}} \
-  --secrets-provider awskms://{{kms_key_alias}}?region={{aws_region}}
-pulumi stack init {{pulumi_vps_stack_name}} \
-  --secrets-provider awskms://{{kms_key_alias}}?region={{aws_region}}
-pulumi stack init {{project_name}}-prod \
-  --secrets-provider awskms://{{kms_key_alias}}?region={{aws_region}}
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- init --secrets-provider 'awskms://{{kms_key_alias}}?region={{aws_region}}'
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- init --secrets-provider 'awskms://{{kms_key_alias}}?region={{aws_region}}'
+yoke pulumi exec --project {{project_name}} --stack {{project_name}}-prod -- init --secrets-provider 'awskms://{{kms_key_alias}}?region={{aws_region}}'
 ```
+
+`yoke pulumi exec` resolves the exact project capability, materializes a 0700
+scratch workspace, and persists the initialized stack's typed operator-state.
+No repo-local infrastructure checkout or ambient AWS shell environment is
+needed.
 
 Do not initialize or apply a generated instance whose rendered config has
 `webapp-infra:render_only: "true"`; it is a reviewed artifact for a later
@@ -213,17 +210,16 @@ Verify nginx works: `curl -s -o /dev/null -w '%{http_code}' http://YOUR_VPS_IP/`
 
 Pre-flight created the hosted zone and ACM certificate outside Pulumi. Importing them tells Pulumi "manage these existing resources" so the first `pulumi up` reconciles against the current state instead of recreating duplicates.
 
-Concrete `pulumi import` commands with resolved provider IDs live in
+Concrete import arguments with resolved provider IDs live in
 `<render-output>/infra/import-plan.md`. The plan is render-output local and
-idempotent under re-render — read it before running any `pulumi import` here.
+idempotent under re-render — read it before running any import here.
 
 A sample shape (for reference; use the resolved values from the import plan):
 
 ```sh
-cd <render-output>/infra
-pulumi import --stack {{pulumi_infra_stack_name}} \
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- import \
   aws:route53/zone:Zone hosted_zone ZXXXXXXXXX
-pulumi import --stack {{pulumi_infra_stack_name}} \
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- import \
   aws:acm/certificate:Certificate cert \
   arn:aws:acm:us-east-1:ACCOUNT:certificate/UUID
 ```
@@ -251,15 +247,16 @@ repository settings.
 #### 8. Pulumi up
 
 Apply each live stack through the Yoke-owned deploy flow when available. For
-operator-attended manual Pulumi runs, use a short-lived provider profile or SSO
-session with the same project permissions recorded in the `aws-admin`
-capability; do not scrape Yoke capability secrets into shell env:
+operator-attended runs, preview and apply through the same capability-owned
+boundary:
 
 ```sh
-cd <render-output>/infra
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi up --stack {{pulumi_infra_stack_name}} --yes
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi up --stack {{pulumi_vps_stack_name}} --yes
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi up --stack {{project_name}}-prod --yes
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- preview
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- up --yes --non-interactive
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- preview
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- up --yes --non-interactive
+yoke pulumi exec --project {{project_name}} --stack {{project_name}}-prod -- preview
+yoke pulumi exec --project {{project_name}} --stack {{project_name}}-prod -- up --yes --non-interactive
 ```
 
 Apply takes 3-5 minutes for legacy infra stacks; environment stacks can take
@@ -267,7 +264,8 @@ longer because Aurora, ACM validation, CloudFront, and DNS converge while the
 origin EC2 box remains owned by the separately applied standalone VPS stack and
 is resolved through a StackReference. If an environment apply partially
 succeeds, keep the same stack state, fix config/template drift, run
-`pulumi preview --stack <stack>`, and rerun `pulumi up --stack <stack> --yes`.
+`yoke pulumi exec --project {{project_name}} --stack <stack> -- preview`, and
+rerun the corresponding `-- up --yes --non-interactive` command.
 
 #### 9. Verify all 4 URL variants
 
@@ -287,26 +285,26 @@ curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://www.example.com/
 
 ### Subsequent Deploys
 
-After the first-time setup, updates only need `pulumi up` against each live
+After the first-time setup, updates only need capability-owned preview/apply
+against each live
 stack. Leave rendered-only stacks untouched until their activation ticket:
 
 ```sh
-cd <render-output>/infra
-pulumi up --stack {{pulumi_infra_stack_name}} --yes
-pulumi up --stack {{pulumi_vps_stack_name}} --yes
-pulumi up --stack {{project_name}}-prod --yes
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- preview
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- up --yes --non-interactive
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- preview
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- up --yes --non-interactive
+yoke pulumi exec --project {{project_name}} --stack {{project_name}}-prod -- preview
+yoke pulumi exec --project {{project_name}} --stack {{project_name}}-prod -- up --yes --non-interactive
 ```
-
-Preview the diff before applying with `pulumi preview --stack <stack>`.
 
 ### Teardown
 
 To remove the Pulumi-managed resources (CloudFront distribution, DNS alias records, CloudFront Function, EC2 instance, Elastic IP, security group):
 
 ```sh
-cd <render-output>/infra
-pulumi destroy --stack {{pulumi_vps_stack_name}} --yes
-pulumi destroy --stack {{pulumi_infra_stack_name}} --yes
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- destroy --yes --non-interactive
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- destroy --yes --non-interactive
 ```
 
 For environment stacks, destroy is a recovery operation, not a routine deploy
@@ -316,8 +314,8 @@ not render-only, then follow `ops/RECOVERY.md`.
 This does **not** delete the hosted zone, ACM certificate, or origin DNS record (since they were created in the pre-flight step and protected with `protect=True` on the imported Pulumi resources). Delete those manually if needed:
 
 ```sh
-pulumi state unprotect --stack {{pulumi_infra_stack_name}} <urn>
-pulumi destroy --stack {{pulumi_infra_stack_name}} --target <urn> --yes
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- state unprotect <urn>
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- destroy --target <urn> --yes --non-interactive
 ```
 
-**Note:** CloudFront distribution deletion can take several minutes. If `pulumi destroy` reports the resource as still deleting, the operation continues asynchronously — re-run `pulumi refresh` later to reconcile.
+**Note:** CloudFront distribution deletion can take several minutes. If destroy reports the resource as still deleting, the operation continues asynchronously — re-run `yoke pulumi exec --project {{project_name}} --stack <stack> -- refresh` later to reconcile.

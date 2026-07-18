@@ -27,25 +27,13 @@ For each dependent item in `_edges_by_dependent`, use `dependency-add` for indiv
 2. **Add or update feed edges** that ARE in the new edge set
 3. **Never touch non-feed edges** (source is not `'feed'`)
 
-### Option A: Use dependency-reconcile (bulk replace)
-
-When the full set of feed edges for a dependent item is known, pipe the complete set through `dependency-reconcile`. This is internal feed reconciliation plumbing; no registered `yoke` wrapper exists yet. It atomically deletes all existing `source='feed'` edges for the scope item and re-inserts the new set.
-
-```bash
-# For each dependent item YOK-N with edges to generate:
-printf "YOK-N YOK-M1 activation status:done Rationale for edge 1\nYOK-N YOK-M2 integration fact:merged Rationale for edge 2\n" \
- | python3 -m yoke_core.cli.db_router shepherd dependency-reconcile feed YOK-N
-```
-
-**Limitation:** `dependency-reconcile` does not preserve `evidence_json` per edge (it writes `{}`). After reconciliation, enrich each edge with evidence using `dependency-update` or by using Option B instead.
-
-### Option B: Use dependency-add individually (preferred for evidence)
+### Use dependency-add individually
 
 When evidence metadata matters (it always does for feed), use the registered dependency edge writer for each edge individually. First remove stale feed edges, then add new ones:
 
 ```bash
 # Step 1: Query existing feed edges for this dependent item
-_existing=$(python3 -m yoke_core.cli.db_router query "SELECT blocking_item, gate_point FROM item_dependencies WHERE dependent_item='YOK-N' AND source='feed'")
+_existing=$(yoke db read --format lines "SELECT blocking_item, gate_point FROM item_dependencies WHERE dependent_item='YOK-N' AND source='feed'")
 
 # Step 2: For each existing feed edge NOT in the new edge set, remove it
 yoke shepherd dependency-remove YOK-N YOK-OLD_BLOCKER
@@ -58,7 +46,7 @@ yoke shepherd dependency-add YOK-N YOK-M feed \
  --evidence '{"shared_files":["packages/yoke-core/src/yoke_core/cli/db_router.py"],"blocker_class":"coding_order","constraint_type":"schema"}'
 ```
 
-**Use Option B** for all feed reconciliation to ensure every generated edge carries structured `evidence_json`.
+Use this registered path for all feed reconciliation so every generated edge carries structured `evidence_json`.
 
 ### Gate/Satisfaction Selection
 
@@ -76,7 +64,7 @@ Apply these rules when encoding each edge:
 Before adding an edge, check whether an equivalent edge already exists from any source:
 
 ```bash
-_existing_edge=$(python3 -m yoke_core.cli.db_router query "SELECT source, gate_point FROM item_dependencies WHERE dependent_item='YOK-N' AND blocking_item='YOK-M'")
+_existing_edge=$(yoke db read --format lines "SELECT source, gate_point FROM item_dependencies WHERE dependent_item='YOK-N' AND blocking_item='YOK-M'")
 ```
 
 - If an operator/shepherd/idea edge already encodes the same relation (same dependent, blocking, and compatible gate_point), do NOT create a duplicate feed row. Record this as a preserved manual edge.
@@ -127,7 +115,7 @@ Query for stale candidates:
 
 ```bash
 # Find non-feed edges where the blocker is cancelled
-python3 -m yoke_core.cli.db_router query "SELECT d.dependent_item, d.blocking_item, d.source, d.gate_point, d.rationale, i.status, i.title FROM item_dependencies d JOIN items i ON i.id = CAST(REPLACE(d.blocking_item, '${_prefix}-', '') AS INTEGER) WHERE d.source <> 'feed' AND i.status = 'cancelled'"
+yoke db read --format lines "SELECT d.dependent_item, d.blocking_item, d.source, d.gate_point, d.rationale, i.status, i.title FROM item_dependencies d JOIN items i ON i.id = CAST(REPLACE(d.blocking_item, '${_prefix}-', '') AS INTEGER) WHERE d.source <> 'feed' AND i.status = 'cancelled'"
 ```
 
 For each stale edge found:
@@ -150,7 +138,7 @@ Also check for edges where the blocker is `done` but the edge gate has already b
 
 ```bash
 # Find edges where satisfaction condition is already met
-python3 -m yoke_core.cli.db_router query "SELECT d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction, d.source, i.status FROM item_dependencies d JOIN items i ON i.id = CAST(REPLACE(d.blocking_item, '${_prefix}-', '') AS INTEGER) WHERE i.status = 'done' AND d.satisfaction = 'status:done'"
+yoke db read --format lines "SELECT d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction, d.source, i.status FROM item_dependencies d JOIN items i ON i.id = CAST(REPLACE(d.blocking_item, '${_prefix}-', '') AS INTEGER) WHERE i.status = 'done' AND d.satisfaction = 'status:done'"
 ```
 
 These satisfied edges are not stale per se (they are correctly resolved), but edges where `satisfaction='status:implemented'` and the blocker is already `done` may warrant review if the dependency was intended to enforce an earlier implementation milestone.
@@ -182,7 +170,7 @@ After completing all reconciliation for all dependent items, verify idempotency 
 
 ```bash
 # For each frontier item that was in scope:
-python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM item_dependencies WHERE dependent_item='YOK-N' AND source='feed'"
+yoke db read --format lines "SELECT COUNT(*) FROM item_dependencies WHERE dependent_item='YOK-N' AND source='feed'"
 ```
 
 Compare the count against expected edges. If mismatched, log the discrepancy but do not retry (the next feed run will reconcile).

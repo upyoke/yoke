@@ -58,7 +58,7 @@ Worktree path: {_worktree_path}
 Main repo root: {MAIN_ROOT}
 Data directory: {MAIN_ROOT}/data (config and generated views live here)
 Mode: Standalone issue (no epic, no task files)
-Yoke DB: Postgres authority is selected by the backend; use `yoke <subcommand>` or `python3 -m yoke_core.cli.db_router query ...`
+Yoke DB: Postgres authority is selected by the backend; use `yoke <subcommand>` or `yoke db read --format lines ...`
 
 File routing:
  Code, tests, task files -> Worktree root: {_worktree_path}
@@ -168,9 +168,9 @@ GitHub Issue: {github_issue from epic_tasks table}
 Worktree path: {_worktree_path}
 Main repo root: {MAIN_ROOT}
 Data directory: {MAIN_ROOT}/data (config and generated views live here)
-Yoke DB: Postgres authority is selected by the backend; use `yoke <subcommand>` or `python3 -m yoke_core.cli.db_router query ...`
+Yoke DB: Postgres authority is selected by the backend; use `yoke <subcommand>` or `yoke db read --format lines ...`
 
-Progress notes: Write via python3 -m yoke_core.cli.db_router epic progress-note-insert
+Progress notes: write via `yoke workflow-item epic-progress-note append`.
 Reviews: Written by Tester via yoke workflow-item epic-task review-insert
 
 File routing:

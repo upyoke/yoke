@@ -35,7 +35,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial simulat
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
-- Shared-state reads (backlog, events, claims, epic-tasks): `python3 -m runtime.api...` or `yoke <subcommand>` — these resolve the canonical control-plane DB independent of cwd
+- Shared-state reads (backlog, events, claims, epic-tasks): the registered `yoke <subcommand>` named in your packet — these resolve the canonical control-plane DB independent of cwd
 
 ## Key Paths (canonical — copy, don't reconstruct)
 

@@ -201,7 +201,7 @@ If the item declares `mutation_intent="apply"` with one or more entries in `migr
 # Source-dev/admin exception module apply CLI for the same declared module.
 
 # 3. Confirm the audit row landed on authoritative (not just validation):
-python3 -m yoke_core.cli.db_router query \
+yoke db read --format lines \
  "SELECT state, exception_reason FROM migration_audit \
   WHERE migration_name='<module>'"
 ```

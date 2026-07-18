@@ -36,7 +36,13 @@ from yoke_cli.commands.adapters.claims import (
 )
 from yoke_cli.commands.adapters.organizations import organizations_get
 from yoke_cli.commands.adapters.projects_capability_settings import projects_capability_settings_get, projects_capability_settings_merge, projects_capability_settings_set
-from yoke_cli.commands.adapters.projects_environment_settings import projects_environment_settings_get, projects_environment_settings_merge
+from yoke_cli.commands.adapters.projects_environment_settings import (  # noqa: F401
+    projects_environment_settings_get,
+    projects_environment_settings_merge,
+)
+from yoke_cli.commands.adapters.projects_infrastructure import (
+    projects_infrastructure_list,
+)
 from yoke_cli.commands.adapters.projects_pulumi_state import (
     projects_pulumi_state_checkpoint_import,
     projects_pulumi_state_migrate,
@@ -159,7 +165,14 @@ from yoke_cli.commands.adapters.deployment import (
     deployment_runs_resolve_target_env,
     deployment_runs_update,
 )
-from yoke_cli.commands.adapters.ephemeral_env import ephemeral_env_update
+from yoke_cli.commands.adapters.deployment_composed import (
+    deployment_flows_update_stages,
+    deployment_runs_start_for_item,
+)
+from yoke_cli.commands.adapters.ephemeral_env import (
+    ephemeral_env_create,
+    ephemeral_env_update,
+)
 from yoke_cli.commands.adapters.projects import (
     project_structure_patch_apply,
     projects_capability_has,
@@ -195,7 +208,7 @@ from yoke_cli.commands.adapters.github_actions import (
     github_actions_variable_get,
     github_actions_variable_set,
 )
-from yoke_cli.commands.adapters.github_actions_delete import (
+from yoke_cli.commands.adapters.github_actions_delete import (  # noqa: F401
     github_actions_secret_delete,
     github_actions_variable_delete,
 )
@@ -263,6 +276,7 @@ from yoke_cli.commands.adapters.ouroboros_writes import (
     ouroboros_entry_mark_archived,
     ouroboros_entry_mark_reviewed,
     ouroboros_wrapup_list,
+    ouroboros_wrapup_save,
 )
 from yoke_cli.commands.adapters.config import (
     config_example,
@@ -282,7 +296,7 @@ from yoke_cli.commands.adapters.project_onboard import (
     project_import,
 )
 from yoke_cli.commands.adapters.config_write import (
-    auth_set, config_stamp_project_env, connection_remove, connection_set,
+    auth_set, config_stamp_project_env, connection_remove, connection_set,  # noqa: F401
     env_use, project_register,
 )
 from yoke_cli.commands.adapters.install import (
@@ -346,15 +360,18 @@ __all__ = [
     "qa_gate_summary",
     "deployment_flows_get", "deployment_flows_set_status",
     "deployment_flows_stages",
-    "deployment_runs_create", "deployment_runs_approve", "deployment_runs_get", "deployment_runs_list",
+    "deployment_flows_update_stages",
+    "deployment_runs_create", "deployment_runs_start_for_item",
+    "deployment_runs_approve", "deployment_runs_get", "deployment_runs_list",
     "deployment_runs_update", "deployment_runs_resolve_target_env",
-    "ephemeral_env_update",
+    "ephemeral_env_create", "ephemeral_env_update",
     "doctor_run", "doctor_last_run_get", "projects_get", "projects_list",
     "projects_resolve_by_github_repo", "projects_create", "projects_update",
     "projects_capability_has", "projects_capabilities_list",
     "projects_capability_secret_set",
     "projects_capability_settings_get", "projects_capability_settings_set",
     "projects_capability_settings_merge",
+    "projects_infrastructure_list",
     "projects_pulumi_state_checkpoint_import", "projects_pulumi_state_migrate",
     "projects_pulumi_stack_config_get",
     "projects_checkout_context", "projects_github_binding_bind", "projects_github_binding_status", "projects_github_binding_unbind",
@@ -375,6 +392,7 @@ __all__ = [
     "ouroboros_entry_list", "ouroboros_entry_get",
     "ouroboros_entry_insert", "ouroboros_entry_mark_reviewed",
     "ouroboros_entry_mark_archived", "ouroboros_wrapup_list",
+    "ouroboros_wrapup_save",
     "github_actions_check_ci", "github_actions_secret_set", "github_actions_wait_run",
     "github_actions_variable_get", "github_actions_variable_set",
     "strategy_doc_list", "strategy_doc_get", "strategy_doc_create",

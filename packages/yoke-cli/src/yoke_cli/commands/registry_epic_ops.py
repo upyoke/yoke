@@ -73,6 +73,9 @@ EPIC_OPS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("workflow-item", "epic-dispatch-chain", "refresh-activation"):
         ("workflow_item.epic_dispatch_chain.refresh_activation",
          _ops.epic_dispatch_chain_refresh_activation),
+    ("workflow-item", "epic-dispatch-chain", "advance"):
+        ("workflow_item.epic_dispatch_chain.advance",
+         _ops.epic_dispatch_chain_advance),
     ("conduct", "epic-task", "update-status"):
         ("conduct.epic_task.update_status",
          _ops.conduct_epic_task_update_status),

@@ -51,6 +51,17 @@ class DeploymentFlowStagesResponse(BaseModel):
     stages: str
 
 
+class DeploymentFlowUpdateStagesRequest(BaseModel):
+    flow_id: str
+    stages: str
+    description: Optional[str] = None
+
+
+class DeploymentFlowUpdateStagesResponse(BaseModel):
+    flow_id: str
+    message: str
+
+
 class DeploymentRunGetRequest(BaseModel):
     field: Optional[str] = None
     run_id: Optional[str] = None
@@ -79,6 +90,23 @@ class DeploymentRunCreateResponse(BaseModel):
     target_env: Optional[str] = None
     release_lineage: Optional[str] = None
     status: str
+
+
+class DeploymentRunStartForItemRequest(BaseModel):
+    project: Optional[str] = None
+    flow: Optional[str] = None
+    target_env: Optional[str] = None
+    release_lineage: Optional[str] = None
+    created_by: Optional[str] = None
+
+
+class DeploymentRunStartForItemResponse(BaseModel):
+    run_id: str
+    item_id: int
+    project: str
+    flow: str
+    target_env: str
+    validation_message: Optional[str] = None
 
 
 class DeploymentRunListRequest(BaseModel):
@@ -206,8 +234,12 @@ __all__ = [
     "DeploymentFlowGetResponse",
     "DeploymentFlowStagesRequest",
     "DeploymentFlowStagesResponse",
+    "DeploymentFlowUpdateStagesRequest",
+    "DeploymentFlowUpdateStagesResponse",
     "DeploymentRunGetRequest",
     "DeploymentRunGetResponse",
+    "DeploymentRunStartForItemRequest",
+    "DeploymentRunStartForItemResponse",
     "DeploymentRunListRequest",
     "DeploymentRunListResponse",
     "DeploymentRunUpdateRequest",

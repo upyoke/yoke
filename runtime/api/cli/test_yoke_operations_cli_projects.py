@@ -158,6 +158,23 @@ class TestProjectsList:
         assert out == "1|yoke|Yoke|main|2026-01-01\n"
 
 
+class TestProjectsInfrastructureList:
+    def test_dispatches_metadata_inventory_read(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "projects", "infrastructure", "list", "--project", "buzz",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.function == "projects.infrastructure.list"
+        assert req.target.kind == "global"
+        assert req.payload == {"project": "buzz"}
+
+    def test_missing_project_returns_two(self) -> None:
+        rc = _run(_stub_ok, "projects", "infrastructure", "list")
+        assert rc == 2
+
+
 class TestProjectsResolveByGithubRepo:
     def test_registry_maps_tokens_to_function_id(self) -> None:
         from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY

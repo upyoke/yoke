@@ -190,6 +190,7 @@ Delivery settings:
 Use Project Structure rows, strategy docs, and available templates to capture sites, environments, flows, deploy/runbooks, and automation settings. If a required delivery CLI surface is missing, file a field-note before choosing a fallback.
 
 ```bash
+yoke projects infrastructure list --project {project} --json
 yoke project-structure patch apply --project {project} --ops-json '{delivery_json_ops}'
 yoke events emit --name ProjectOnboardingDeliveryConfigured \
   --kind lifecycle --type project_onboarding --source-type agent \
@@ -198,6 +199,12 @@ yoke onboard checklist --run-id {run_id} \
   --row-status delivery-setup=configured \
   --evidence delivery-setup="delivery settings captured and event emitted"
 ```
+
+Use the metadata-only infrastructure inventory to discover exact site and
+environment IDs. Read environment configuration only through explicit scalar
+leaf projections, for example `yoke projects environment-settings get
+--project {project} --environment-id {environment_id} --path
+registry.repository --json`; never dump an environment settings document.
 
 QA:
 

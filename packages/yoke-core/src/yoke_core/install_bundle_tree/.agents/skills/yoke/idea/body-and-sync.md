@@ -307,7 +307,7 @@ surface for "rendered body → GitHub issue body":
 
 ```bash
 # Retained-boundary: explicit GitHub body sync.
-python3 -m yoke_core.cli.db_router items sync-body {id-number}
+yoke items github-sync YOK-{id-number}
 ```
 
 Skip this step only if the user explicitly declined to add a

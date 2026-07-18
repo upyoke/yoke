@@ -85,7 +85,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial simulat
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
-- Shared-state reads (backlog, events, claims, epic-tasks): `python3 -m runtime.api...` or `yoke <subcommand>` — these resolve the canonical control-plane DB independent of cwd
+- Shared-state reads (backlog, events, claims, epic-tasks): the registered `yoke <subcommand>` named in your packet — these resolve the canonical control-plane DB independent of cwd
 
 ## Key Paths (canonical — copy, don't reconstruct)
 
@@ -166,7 +166,7 @@ yoke items structured-field section-upsert YOK-N --section "Acceptance Criteria"
   - Progress Log append has its own claimed, atomic recipe in this packet. These additive variants route through registered ``yoke items structured-field ...`` adapters.
 - _List item dependencies (both directions)_
   - `yoke shepherd dependency-list YOK-N`
-  - Canonical agent shape (function id ``shepherd.dependency_list.run``); works over https. Typed rows around item_dependencies — use over raw SQL; guessed columns are not the canonical schema. Operator-debug fallback: `python3 -m yoke_core.cli.db_router shepherd dependency-list YOK-N`.
+  - Canonical agent shape (function id ``shepherd.dependency_list.run``); works over https. Typed rows around item_dependencies — use over raw SQL; guessed columns are not the canonical schema.
 - _Route serial dependency mutations to authoring packets_
   - `Use the dependency authoring recipes in the claims packet.`
   - Dependency add/update/remove are authoring-time surfaces; their registered command adapters land in the claims/path-claim authoring packet instead of the compact core packet. They still route through registered function ids ``shepherd.dependency_add/update/remove.run``.
@@ -189,11 +189,11 @@ yoke items section delete YOK-N --section "Progress Log"`
   - `yoke items github-sync YOK-N`
   - Sync a backlog item or epic tasks to GitHub through the registered item function surface. Preserves item claim guards and project GitHub capability checks.
 - _Backlog mutation family (CLI adapter)_
-  - `python3 -m yoke_core.api.service_client backlog-cli {add,update,batch-update,freeze,thaw,block,unblock,close,sync-labels,sync-body,rebuild-board,post-comment,get-next-id,list,dedup-search} ...`
-  - Operator-debug fallback for the backlog family, which has no `yoke` CLI adapter yet. Item id arg accepts PREFIX-N, or a bare project sequence with project context. `update` and `batch-update` take `<field> <value>` or `f1=v1 f2=v2` shapes; structured-field writes route through `items.structured_field.replace` — for those, prefer the canonical `yoke items structured-field replace` form. `freeze`/`thaw`/`block`/`unblock` use `items.scalar.update` internally.
+  - `yoke items {create,get,list,search,github-sync,scalar-update,...} --help`
+  - Use the registered `yoke items` family named by command help. Item refs accept PREFIX-N, or a bare project sequence with project context. Structured-field writes use `yoke items structured-field ...`; lifecycle changes use `yoke lifecycle transition`; freeze/thaw/block/unblock have their named Yoke skills and registered state surfaces.
 - _Audited raw diagnostic read_
   - `yoke db read "SELECT ..."`
-  - Read-only raw diagnostic surface. Prefer domain readers first, never use !=, use <>. Source-dev/operator-debug break-glass fallback: `python3 -m yoke_core.cli.db_router query "SELECT ..."`. Never call database CLIs directly.
+  - Read-only raw diagnostic surface. Prefer domain readers first, never use !=, use <>. Use `--format lines` when a shell recipe needs scalar or pipe-delimited rows. Never call database CLIs directly.
 - _Read epic task row / body / simulation_
   - `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>
 yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>
@@ -250,7 +250,7 @@ git -C $(git rev-parse --show-toplevel) log --oneline -20
 yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N status --porcelain
 git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N rev-parse HEAD`
-  - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport; pass --head-sha for release authorization tied to one commit (bearer-token REST). For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
+  - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport; pass --head-sha for release authorization tied to one commit (bearer-token REST). Never expand a visible short SHA by guessing: resolve a reported or handed-off full commit hash with `git -C <checkout> rev-parse HEAD`, then verify it with `git -C <checkout> cat-file -e '<sha>^{commit}'`. For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths'
 yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim widen examples omit --item' --correlation-id polish-run-2026-05-20`
@@ -281,7 +281,7 @@ PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_cli.main 
 uv run --frozen python3 -m yoke_core.tools.watch_pytest --print-streaming-pair -- runtime/api/ runtime/harness/ tests/
 # Paste the printed pair into the harness's background + progress-tail surfaces.
 # After completion: tail -80 <raw-capture> (the helper-resolved path the wrapper printed)`
-  - This exact three-suite target is the canonical full Yoke gate; it injects xdist `-n auto`. Pass --no-parallel after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background. `uv run --frozen` materializes the locked dev environment in a clean worktree, so the wrapper and application dependencies are importable without ambient PYTHONPATH or virtualenv activation.
+  - This exact three-suite target is the canonical full Yoke gate; it injects xdist `-n auto`. Pass `-n 0` after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background. `uv run --frozen` materializes the locked dev environment in a clean worktree, so the wrapper and application dependencies are importable without ambient PYTHONPATH or virtualenv activation.
 - _Run pytest foreground inside one tool call (subagent)_
   - `uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/test_my_module.py -q
 # Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
@@ -327,7 +327,7 @@ uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --full --json`
 - **`yoke_core.domain.worktree`** — `paths db, paths main, paths yoke-root, create`
   - Source-dev path resolver, not an agent-facing command. Agents should rely on registered `yoke ...` surfaces, explicit worktree paths from dispatch context, and git/worktree metadata instead of resolving Yoke control-plane authority through a path helper. The retired DB-path mode exists only as a refusal guard for stale SQLite recipes. Never import a guessed `get_db_path` helper; no such importable name exists.
 - **`yoke_core.domain.db_helpers`** — `iso8601_now, resolve_db_path, connect, query_rows, query_one, query_scalar`
-  - Legacy compatibility helper surface. Agents should prefer `python3 -m yoke_core.cli.db_router ...` or registered `yoke <subcommand>` surfaces for control-plane access. There is NO `read_only=` keyword on `connect` and NO `get_canonical_conn` importable name on this module — those are wrong guesses the live denial log has captured. The standalone FastAPI route-module connector is `connect`; importing `yoke_core.api.main.get_db_readonly` from a route module is a wrong guess because it re-enters app construction and creates a circular route import. The query helpers (`query_rows`, `query_one`, `query_scalar`) remain for compatibility while Postgres-native callers move through router-owned surfaces.
+  - Legacy compatibility helper surface. Agents should prefer registered `yoke <subcommand>` surfaces for control-plane access. There is NO `read_only=` keyword on `connect` and NO `get_canonical_conn` importable name on this module — those are wrong guesses the live denial log has captured. The standalone FastAPI route-module connector is `connect`; importing `yoke_core.api.main.get_db_readonly` from a route module is a wrong guess because it re-enters app construction and creates a circular route import. The query helpers (`query_rows`, `query_one`, `query_scalar`) remain for compatibility while Postgres-native callers move through router-owned surfaces.
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
 - `items.browser_qa_metadata` — `browser_testable`:bool=false, `browser_routes`:list[str]=[], `browser_intents`:list[dict]=[], `browser_timing_budget_ms`:int=0. Validator: `yoke_core.domain.browser_qa_metadata.validate_json_string`.
@@ -363,15 +363,13 @@ yoke claims work release --item YOK-N --reason edit-complete`
   - `# Canonical agent shape — release the calling session's active claim:
 yoke claims work release --item YOK-N --reason TEXT
 yoke claims work release --claim-id <id> --reason TEXT
-# Operator-debug fallbacks — epic-task / process claims remain on
-# the release-work-claim surface with no `yoke` CLI adapter yet:
-python3 -m yoke_core.api.service_client release-work-claim --epic-task YOK-EPIC --task-num K --reason TEXT
-python3 -m yoke_core.api.service_client release-work-claim --process DOCTOR --project yoke --reason TEXT
+yoke claims work release --epic-id E --task-num K --reason TEXT
+yoke claims work release --all-mine
 # Manual spec-rewrite pattern (acquire → edit → release):
 yoke claims work acquire --item YOK-N --reason rewrite-in-progress
 yoke items structured-field replace YOK-N --field spec --stdin < PATH
 yoke claims work release --item YOK-N --reason rewrite-complete`
-  - The acquire → structured-field replace → release sequence composes existing primitives — no new skill required. Use `yoke claims work release --epic-id E --task-num K --reason TEXT` for epic-task claims and `--all-mine` for session-scoped handoff cleanup. Process keys come from `yoke_core.domain.work_processes` (STRATEGIZE | FEED | DOCTOR).
+  - The acquire → structured-field replace → release sequence composes existing primitives — no new skill required. Use the epic-task form for one task claim and `--all-mine` for session-scoped handoff cleanup. Process keys come from `yoke_core.domain.work_processes` (STRATEGIZE | FEED | DOCTOR).
 - _Release a work claim when this session is ending and a fresh session will continue_
   - `yoke claims work release --item YOK-N --reason session-handoff-fresh-session`
   - Use when the item's lifecycle status is NOT terminal but this conversation is ending in a way Yoke cannot detect as definitive (operator opening a fresh session, ending a working block, context-budget pause). The hook cleanup path (end_session_if_empty) only ends claim-free chain-free sessions — it never releases claims for you — so explicit release is the canonical handoff shape. For terminal handoffs (handoff-to-polish, handoff-to-usher, finalize-exit), the lifecycle transition itself releases — do not use this recipe there. Pair with a Progress Log entry so the fresh session inherits resume context.

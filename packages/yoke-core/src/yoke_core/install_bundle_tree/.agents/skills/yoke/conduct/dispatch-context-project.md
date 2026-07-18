@@ -65,7 +65,7 @@ If any status is "invalid", emit a warning and downgrade that command to empty i
 d2. Query ephemeral environment URL:
 ```bash
 # Branch naming contract: branch MUST be 'YOK-{id}' — see db-reference.md § ephemeral_environments
-_ephemeral_url=$(python3 -m yoke_core.cli.db_router query "SELECT url FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_project}') AND branch='YOK-${_id}' AND status='healthy' LIMIT 1")
+_ephemeral_url=$(yoke db read --format lines "SELECT url FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_project}') AND branch='YOK-${_id}' AND status='healthy' LIMIT 1")
 ```
 If the query returns empty, set `_ephemeral_url` to `"none"`. This gracefully handles the case where no ephemeral environment exists for the item's branch.
 

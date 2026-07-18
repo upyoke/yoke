@@ -46,7 +46,7 @@ Emit rewrite suggestions when you flag an AC.
 Query planned and in-flight items:
 
 ```bash
-_active_items=$(python3 -m yoke_core.cli.db_router query "SELECT id, title FROM items WHERE status NOT IN ('idea','done','cancelled','failed','stopped') AND id <> $_num")
+_active_items=$(yoke db read --format lines "SELECT id, title FROM items WHERE status NOT IN ('idea','done','cancelled','failed','stopped') AND id <> $_num")
 ```
 
 If substantial overlap is found in scope, subsystem, or files touched, emit an advisory describing the overlap and recommend confirming the split before conduct.
@@ -56,7 +56,7 @@ If substantial overlap is found in scope, subsystem, or files touched, emit an a
 For epic items, inspect the task list:
 
 ```bash
-_tasks=$(python3 -m yoke_core.cli.db_router query "SELECT task_num, title FROM epic_tasks WHERE epic_id = $_num ORDER BY task_num")
+_tasks=$(yoke db read --format lines "SELECT task_num, title FROM epic_tasks WHERE epic_id = $_num ORDER BY task_num")
 ```
 
 Flag when:

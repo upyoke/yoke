@@ -70,21 +70,18 @@ If any item is blocked, do NOT compute merge order. **Stop.**
 
 ## Step 4: Compute Merge Order
 
-After the hard-block gate passes, use the shared dependency-planning kernel (via API) for
+After the hard-block gate passes, use the registered dependency reader for
 integration-gate ordering across `_ready_items`:
 
 ```bash
-# Query integration-gate candidate ordering via the API service client.
-# The planner returns eligible items in topological order and identifies any
-# integration-blocked items with structured blocker details.
-_plan_json=$(python3 -m yoke_core.api.service_client plan-candidates integration "$_ready_items")
+# For each ready item, capture the typed dependency rows once.
+yoke shepherd dependency-list YOK-${_item}
 ```
 
-If the planning API is unavailable, halt with the returned error. Dependency
-ordering is release authority and must not be reconstructed through a second
-read path.
-
-Build directed graph, topological sort. Dependencies merge first.
+Build the directed graph from the returned integration-gate rows and
+topologically sort it. Dependencies merge first. If any dependency read fails,
+halt with that registered command's error; do not infer order from another
+source.
 
 When an item is deferred or reordered due to integration blockers, display the persisted
 rationale from the dependency row (task 4). For example:

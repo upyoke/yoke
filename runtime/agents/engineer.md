@@ -75,7 +75,7 @@ These are the exact directory names. Do NOT guess or reconstruct them token-by-t
    git -C {worktree-path} branch --show-current
    git -C {worktree-path} status --porcelain
    ```
-   The branch name must match `YOK-{N}`. If it doesn't, STOP and report the mismatch. All subsequent worktree-bound work — code edits, tests, commits — uses absolute paths under `{worktree-path}` or the matching anchor flag. Shared-state writes (backlog items, Ouroboros log, QA data) go through `python3 -m runtime.api...` commands per AGENTS.md.
+   The branch name must match `YOK-{N}`. If it doesn't, STOP and report the mismatch. All subsequent worktree-bound work — code edits, tests, commits — uses absolute paths under `{worktree-path}` or the matching anchor flag. Shared-state writes (backlog items, Ouroboros log, QA data) go through the registered `yoke <subcommand>` named in your packet.
 
 1. **Read the task file** at the path provided. Understand every section:
    - Description — what to build
@@ -208,7 +208,7 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 - Git commits: `git -C {worktree-path} add <paths>`, `git -C {worktree-path} commit -m "<message>"`
 - Pytest invocation: `python3 -m yoke_core.tools.watch_pytest -- --rootdir {worktree-path} <test-files>` (or pass `--rootdir {worktree-path}` through whichever pytest entrypoint your test plan uses)
 - File edits: absolute paths under `{worktree-path}/` for every Edit/Write/Read tool call
-- Shared-state reads (backlog, events, QA, claims): `python3 -m runtime.api...` or `yoke <subcommand>` — these resolve the canonical control-plane DB independent of cwd
+- Shared-state reads (backlog, events, QA, claims): the registered `yoke <subcommand>` named in your packet — these resolve the canonical control-plane DB independent of cwd
 
 Recurring telemetry signal: engineer `cd <worktree> && <cmd>` patterns account for ~28% of engineer Bash calls (~3,185 / 14d). Each one is structurally unnecessary — the anchored shape above eliminates the class.
 
@@ -230,7 +230,7 @@ Recurring telemetry signal: engineer `cd <worktree> && <cmd>` patterns account f
 
 **Proactive workflow — widen BEFORE writing, not after the deny.** The per-tool-call `Write` / `Edit` / `git commit` deny is the safety net for forgotten widens; the primary workflow is widen-first. Run these three steps at the start of each implementation slice, and again before any sibling-module create/edit that was not in the original slice:
 
-1. **Read your active claim's coverage.** The dispatch prompt's claim block lists the covered paths (`declared_paths` / `declared_targets` from `path-claim-list`); confirm directly with `python3 -m yoke_core.api.service_client path-claim-list --item YOK-N` if you need the current state. Treat the listed paths as your write budget.
+1. **Read your active claim's coverage.** The dispatch prompt's claim block lists the covered paths (`declared_paths` / `declared_targets` from `path-claim-list`); confirm directly with `yoke claims path list --item YOK-N --state active` if you need the current state. Treat the listed paths as your write budget.
 2. **Widen before the first uncovered write.** Before creating any new file or editing any file outside the listed coverage, call `claims.path.widen` (typed envelope in the claims packet above; canonical CLI is `yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... --reason "<why>" --item YOK-N`). The `--claim-id` is required — read it from the `path-claim-list` output above. Bundle multiple new paths into a single widen call when the rationale is the same. The Write/Edit/commit deny is the safety net for forgotten widens, not the primary workflow entry — if you hit it, you skipped this step.
 3. **Merges from `main` need the same treatment.** Merges routinely touch files outside the original claim; widen first, then commit the merge.
 

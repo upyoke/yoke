@@ -146,6 +146,12 @@ def test_projects_list_handler_registered() -> None:
     assert "projects.list" in ids
 
 
+def test_projects_infrastructure_list_handler_registered() -> None:
+    init_register.register_all_handlers()
+    ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
+    assert "projects.infrastructure.list" in ids
+
+
 def test_projects_resolve_by_github_repo_handler_registered() -> None:
     init_register.register_all_handlers()
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}

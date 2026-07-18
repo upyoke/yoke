@@ -32,7 +32,7 @@ fi
 **Step 1 — Record attempt baseline:** Read via the main checkout's branch ref — Step 3b's per-task claim acquire is still ahead, so direct lane-worktree access is blocked by `lint_session_cwd`.
 ```bash
 ATTEMPT_BASELINE=$(git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}")
-_progress_note_count_before=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
+_progress_note_count_before=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
 ```
 
 **Step 2 — Skip Engineer if implementation already on branch:** If `_has_implementation` is true AND `_attempt` equals 1:
@@ -57,7 +57,7 @@ yoke claims work acquire \
 Verify the claim landed before dispatching — mirrors entry-activation S3b's verify-claim-exists invariant. This assertion uses the retained operator-debug raw SQL router because the registered claim acquire surface does not expose a same-row verification projection; never construct a DB path manually:
 
 ```bash
-_eng_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" python3 -m yoke_core.cli.db_router query \
+_eng_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
  "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=${_epic_id} AND task_num=${_task_id} AND released_at IS NULL")
 if [ -z "$_eng_claim_ok" ] || [ "$_eng_claim_ok" = "0" ]; then
  echo "HALT: engineer dispatch — no active epic_task claim for (epic_id=${_epic_id}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
@@ -124,7 +124,7 @@ fi
  If `_last_commit_subject` matches `chore: auto-commit Engineer uncommitted work [YOK-${N}]`, re-dispatch Engineer for the same attempt. Do NOT advance to `reviewing-implementation` from a safety-net commit.
 - **Epic progress-note gate:**
  ```bash
- _progress_note_count_after=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
+ _progress_note_count_after=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
  _head_after_engineer=$(git -C "${_worktree_path}" rev-parse HEAD 2>/dev/null || true)
  ```
  If `_head_after_engineer` differs from `ATTEMPT_BASELINE` and `_progress_note_count_after` not greater than `_progress_note_count_before`, re-dispatch Engineer for the same attempt.
@@ -158,7 +158,7 @@ If merge fails: re-dispatch Engineer to resolve conflicts, then retry merge.
 yoke claims work acquire \
  --epic-id "${_epic_id}" --task-num "${_task_id}" \
  --reason "tester dispatch YOK-${N} task ${_task_id}"
-_tester_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" python3 -m yoke_core.cli.db_router query \
+_tester_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
  "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=${_epic_id} AND task_num=${_task_id} AND released_at IS NULL")
 if [ -z "$_tester_claim_ok" ] || [ "$_tester_claim_ok" = "0" ]; then
  echo "HALT: tester dispatch — no active epic_task claim for (epic_id=${_epic_id}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."

@@ -96,6 +96,50 @@ def handle_deployment_flow_stages(request: FunctionCallRequest) -> HandlerOutcom
     )
 
 
+def handle_deployment_flow_update_stages(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    invalid = require_global(request, "deployment_flows.update_stages")
+    if invalid is not None:
+        return invalid
+    payload = request.payload or {}
+    resolved_flow_id = flow_id(payload, "deployment_flows.update_stages")
+    if isinstance(resolved_flow_id, HandlerOutcome):
+        return resolved_flow_id
+    stages = payload.get("stages")
+    description = payload.get("description")
+    if not isinstance(stages, str) or not stages.strip():
+        return error(
+            "payload_invalid", "stages must be a non-empty JSON string",
+            jsonpath="$.payload.stages",
+        )
+    if description is not None and not isinstance(description, str):
+        return error(
+            "payload_invalid", "description must be a string when present",
+            jsonpath="$.payload.description",
+        )
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.flow_crud import cmd_update_stages
+
+    conn = connect()
+    try:
+        try:
+            message = cmd_update_stages(
+                conn, resolved_flow_id, stages,
+                description=description,
+            )
+        except LookupError as exc:
+            return error("not_found", str(exc), jsonpath="$.payload.flow_id")
+        except ValueError as exc:
+            return error("definition_immutable", str(exc), jsonpath="$.payload")
+    finally:
+        conn.close()
+    return HandlerOutcome(
+        result_payload={"flow_id": resolved_flow_id, "message": message},
+        primary_success=True,
+    )
+
+
 def handle_deployment_flow_set_status(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:

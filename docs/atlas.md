@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-18T15:35:58Z_
+_Audit generated_at: 2026-07-18T16:43:14Z_
 
 ## 1. Summary
 
-- Function ids registered: **215**
+- Function ids registered: **221**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **215** (215 carry usable `--help`)
-- Operation tracker: **214 wrapped**, 74 permanent, 0 pending
-- Skill-body recipes: 217 total (179 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **221** (221 carry usable `--help`)
+- Operation tracker: **220 wrapped**, 74 permanent, 0 pending
+- Skill-body recipes: 230 total (188 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **221** (operation tracker confirms 220 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -50,15 +50,18 @@ Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wr
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
 | deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
 | deployment_flows | `yoke deployment-flows stages` | `deployment_flows.stages` | ok |
+| deployment_flows | `yoke deployment-flows update-stages` | `deployment_flows.update_stages` | ok |
 | deployment_runs | `yoke deployment-runs approve` | `deployment_runs.approve` | ok |
 | deployment_runs | `yoke deployment-runs create` | `deployment_runs.create` | ok |
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
 | deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
+| deployment_runs | `yoke deployment-runs start-for-item` | `deployment_runs.start_for_item` | ok |
 | deployment_runs | `yoke deployment-runs update` | `deployment_runs.update` | ok |
 | doctor | `yoke doctor last-run get` | `doctor.last_run.get` | ok |
 | doctor | `yoke doctor run` | `doctor.run.run` | ok |
 | env | `yoke env use` | `env.use.run` | ok |
+| ephemeral_env | `yoke ephemeral-env create` | `ephemeral_env.create` | ok |
 | ephemeral_env | `yoke ephemeral-env update` | `ephemeral_env.update` | ok |
 | epic_tasks | `yoke epic-tasks list` | `epic_tasks.list.run` | ok |
 | events | `yoke events anomalies` | `events.anomalies.run` | ok |
@@ -120,6 +123,7 @@ Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wr
 | ouroboros | `yoke ouroboros field-note get` | `ouroboros.field_note.get` | ok |
 | ouroboros | `yoke ouroboros field-note list` | `ouroboros.field_note.list` | ok |
 | ouroboros | `yoke ouroboros wrapup list` | `ouroboros.wrapup.list` | ok |
+| ouroboros | `yoke ouroboros wrapup save` | `ouroboros.wrapup.save` | ok |
 | packets | `yoke packets check` | `packets.check.run` | ok |
 | packets | `yoke packets render` | `packets.render.run` | ok |
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
@@ -148,6 +152,7 @@ Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wr
 | projects | `yoke projects github-binding status` | `projects.github_binding.status` | ok |
 | projects | `yoke projects github-binding unbind` | `projects.github_binding.unbind` | ok |
 | projects | `yoke projects github-sync-mode repair` | `projects.github_sync_mode.repair` | ok |
+| projects | `yoke projects infrastructure list` | `projects.infrastructure.list` | ok |
 | projects | `yoke projects list` | `projects.list` | ok |
 | projects | `yoke projects pulumi-stack-config get` | `projects.pulumi_stack_config.get` | ok |
 | projects | `yoke projects pulumi-state checkpoint-import` | `projects.pulumi_state.checkpoint_import` | ok |
@@ -210,6 +215,7 @@ Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wr
 | strategy | `yoke strategy seed-defaults` | `strategy.seed_defaults.run` | ok |
 | templates | `yoke templates fetch` | `templates.fetch.run` | ok |
 | templates | `yoke templates list` | `templates.list.run` | ok |
+| workflow_item | `yoke workflow-item epic-dispatch-chain advance` | `workflow_item.epic_dispatch_chain.advance` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain get` | `workflow_item.epic_dispatch_chain.get` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain list` | `workflow_item.epic_dispatch_chain.list` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain refresh-activation` | `workflow_item.epic_dispatch_chain.refresh_activation` | ok |
@@ -238,82 +244,82 @@ Wrapped `yoke <subcommand>` adapters: **215** (operation tracker confirms 214 wr
 
 ## 3. Permanent command-shaped boundary roster
 
-| family | shell_form | reason |
-|---|---|---|
-| aws | `yoke aws exec` | tool_shaped |
-| board.art | `yoke board art variant create` | tool_shaped |
-| checks.file_line | `yoke check file-line` | tool_shaped |
-| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-acquire` | operator_break_glass |
-| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-heartbeat` | operator_break_glass |
-| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-list` | operator_break_glass |
-| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-release` | operator_break_glass |
-| claims.path | `python3 -m yoke_core.api.service_client path-claim-override` | operator_break_glass |
-| claims.path | `python3 -m yoke_core.cli.db_router path-claims activate` | operator_break_glass |
-| claims.path | `python3 -m yoke_core.cli.db_router path-claims amend` | operator_break_glass |
-| claims.path | `python3 -m yoke_core.cli.db_router path-claims release` | operator_break_glass |
-| core.local | `yoke core build` | tool_shaped |
-| core.local | `yoke core logs` | tool_shaped |
-| core.local | `yoke core start` | tool_shaped |
-| core.local | `yoke core status` | tool_shaped |
-| core.local | `yoke core stop` | tool_shaped |
-| core.local | `yoke core upgrade` | tool_shaped |
-| deployment_flows | `python3 -m yoke_core.domain.flow delete` | operator_break_glass |
-| deployment_flows | `python3 -m yoke_core.domain.flow update-stages` | operator_break_glass |
-| deployment_runs | `python3 -m yoke_core.domain.deploy_environment_bootstrap` | tool_shaped |
-| deployment_runs | `python3 -m yoke_core.domain.deploy_ephemeral` | tool_shaped |
-| deployment_runs | `python3 -m yoke_core.domain.deploy_pipeline` | tool_shaped |
-| deployment_runs | `python3 -m yoke_core.domain.environment_bootstrap` | tool_shaped |
-| deployment_runs | `python3 -m yoke_core.tools.verify_env_auth_boundary` | tool_shaped |
-| deployment_runs | `yoke deployment-runs execute` | tool_shaped |
-| dev | `yoke dev db-admin setup` | tool_shaped |
-| dev | `yoke dev path-snapshot-prewarm` | tool_shaped |
-| dev | `yoke dev setup` | tool_shaped |
-| git | `yoke git post-commit` | tool_shaped |
-| git | `yoke git pre-commit` | tool_shaped |
-| github | `yoke github connect` | tool_shaped |
-| github | `yoke github disconnect` | tool_shaped |
-| github | `yoke github status` | tool_shaped |
-| local_universe | `yoke init` | tool_shaped |
-| local_universe.postgres | `yoke local-postgres start` | tool_shaped |
-| local_universe.postgres | `yoke local-postgres status` | tool_shaped |
-| local_universe.postgres | `yoke local-postgres stop` | tool_shaped |
-| local_universe.ui | `yoke ui` | tool_shaped |
-| local_universe.validate | `yoke universe validate` | tool_shaped |
-| merge | `yoke merge audit` | tool_shaped |
-| onboard | `yoke onboard project` | tool_shaped |
-| onboard | `yoke onboard` | tool_shaped |
-| project | `yoke project create` | tool_shaped |
-| project | `yoke project import` | tool_shaped |
-| pulumi | `yoke pulumi exec` | tool_shaped |
-| qa.browser | `yoke qa browser run` | tool_shaped |
-| qa.browser | `yoke qa browser screenshot` | tool_shaped |
-| qa.browser | `yoke qa browser setup` | tool_shaped |
-| qa.browser | `yoke qa browser status` | tool_shaped |
-| raw.sql | `python3 -m yoke_core.cli.db_router query` | operator_break_glass |
-| resync | `yoke resync` | tool_shaped |
-| runner_fleet | `yoke runner-fleet exec` | tool_shaped |
-| schema | `yoke schema converge` | tool_shaped |
-| self_host | `yoke self-host init` | tool_shaped |
-| self_host.connect | `yoke connect` | tool_shaped |
-| self_host.import | `yoke self-host import` | tool_shaped |
-| sessions | `yoke sessions init` | tool_shaped |
-| source_authority.export | `yoke source-authority export` | tool_shaped |
-| source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped |
-| tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped |
-| tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped |
-| tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_advance` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_doctor` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_inventory` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_lifecycle` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_merge` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_pytest` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_session_offer` | tool_shaped |
-| tools.watch | `python3 -m yoke_core.tools.watch_tail` | tool_shaped |
-| universe.export | `yoke universe export` | tool_shaped |
-| universe.import | `yoke universe import` | tool_shaped |
-| usher | `yoke usher reconcile-github` | tool_shaped |
-| worktree | `python3 -m yoke_core.domain.worktree create` | tool_shaped |
+| family | shell_form | reason | source owner |
+|---|---|---|---|
+| aws | `yoke aws exec` | tool_shaped | — |
+| board.art | `yoke board art variant create` | tool_shaped | — |
+| checks.file_line | `yoke check file-line` | tool_shaped | — |
+| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-acquire` | operator_break_glass | — |
+| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-heartbeat` | operator_break_glass | — |
+| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-list` | operator_break_glass | — |
+| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-release` | operator_break_glass | — |
+| claims.path | `python3 -m yoke_core.api.service_client path-claim-override` | operator_break_glass | — |
+| claims.path | `python3 -m yoke_core.cli.db_router path-claims activate` | operator_break_glass | — |
+| claims.path | `python3 -m yoke_core.cli.db_router path-claims amend` | operator_break_glass | — |
+| claims.path | `python3 -m yoke_core.cli.db_router path-claims release` | operator_break_glass | — |
+| core.local | `yoke core build` | tool_shaped | — |
+| core.local | `yoke core logs` | tool_shaped | — |
+| core.local | `yoke core start` | tool_shaped | — |
+| core.local | `yoke core status` | tool_shaped | — |
+| core.local | `yoke core stop` | tool_shaped | — |
+| core.local | `yoke core upgrade` | tool_shaped | — |
+| deployment_flows | `python3 -m yoke_core.domain.flow delete` | operator_break_glass | — |
+| deployment_flows | `python3 -m yoke_core.domain.flow update-stages` | operator_break_glass | — |
+| deployment_runs | `python3 -m yoke_core.domain.deploy_environment_bootstrap` | tool_shaped | — |
+| deployment_runs | `python3 -m yoke_core.domain.deploy_ephemeral` | tool_shaped | — |
+| deployment_runs | `python3 -m yoke_core.domain.deploy_pipeline` | tool_shaped | — |
+| deployment_runs | `python3 -m yoke_core.domain.environment_bootstrap` | tool_shaped | — |
+| deployment_runs | `python3 -m yoke_core.tools.verify_env_auth_boundary` | tool_shaped | — |
+| deployment_runs | `yoke deployment-runs execute` | tool_shaped | — |
+| dev | `yoke dev db-admin setup` | tool_shaped | — |
+| dev | `yoke dev path-snapshot-prewarm` | tool_shaped | — |
+| dev | `yoke dev setup` | tool_shaped | — |
+| git | `yoke git post-commit` | tool_shaped | — |
+| git | `yoke git pre-commit` | tool_shaped | — |
+| github | `yoke github connect` | tool_shaped | — |
+| github | `yoke github disconnect` | tool_shaped | — |
+| github | `yoke github status` | tool_shaped | — |
+| local_universe | `yoke init` | tool_shaped | — |
+| local_universe.postgres | `yoke local-postgres start` | tool_shaped | — |
+| local_universe.postgres | `yoke local-postgres status` | tool_shaped | — |
+| local_universe.postgres | `yoke local-postgres stop` | tool_shaped | — |
+| local_universe.ui | `yoke ui` | tool_shaped | — |
+| local_universe.validate | `yoke universe validate` | tool_shaped | — |
+| merge | `yoke merge audit` | tool_shaped | — |
+| onboard | `yoke onboard project` | tool_shaped | — |
+| onboard | `yoke onboard` | tool_shaped | — |
+| project | `yoke project create` | tool_shaped | — |
+| project | `yoke project import` | tool_shaped | — |
+| pulumi | `yoke pulumi exec` | tool_shaped | packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py; packages/yoke-core/src/yoke_core/tools/pulumi_exec.py |
+| qa.browser | `yoke qa browser run` | tool_shaped | — |
+| qa.browser | `yoke qa browser screenshot` | tool_shaped | — |
+| qa.browser | `yoke qa browser setup` | tool_shaped | — |
+| qa.browser | `yoke qa browser status` | tool_shaped | — |
+| raw.sql | `python3 -m yoke_core.cli.db_router query` | operator_break_glass | — |
+| resync | `yoke resync` | tool_shaped | — |
+| runner_fleet | `yoke runner-fleet exec` | tool_shaped | — |
+| schema | `yoke schema converge` | tool_shaped | — |
+| self_host | `yoke self-host init` | tool_shaped | — |
+| self_host.connect | `yoke connect` | tool_shaped | — |
+| self_host.import | `yoke self-host import` | tool_shaped | — |
+| sessions | `yoke sessions init` | tool_shaped | — |
+| source_authority.export | `yoke source-authority export` | tool_shaped | — |
+| source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped | — |
+| tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped | — |
+| tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped | — |
+| tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped | — |
+| tools.watch | `python3 -m yoke_core.tools.watch_advance` | tool_shaped | — |
+| tools.watch | `python3 -m yoke_core.tools.watch_doctor` | tool_shaped | — |
+| tools.watch | `python3 -m yoke_core.tools.watch_inventory` | tool_shaped | — |
+| tools.watch | `python3 -m yoke_core.tools.watch_lifecycle` | tool_shaped | — |
+| tools.watch | `python3 -m yoke_core.tools.watch_merge` | tool_shaped | — |
+| tools.watch | `python3 -m yoke_core.tools.watch_pytest` | tool_shaped | — |
+| tools.watch | `python3 -m yoke_core.tools.watch_session_offer` | tool_shaped | — |
+| tools.watch | `python3 -m yoke_core.tools.watch_tail` | tool_shaped | — |
+| universe.export | `yoke universe export` | tool_shaped | — |
+| universe.import | `yoke universe import` | tool_shaped | — |
+| usher | `yoke usher reconcile-github` | tool_shaped | — |
+| worktree | `python3 -m yoke_core.domain.worktree create` | tool_shaped | — |
 
 ## 4. Pending handler-registration roster
 

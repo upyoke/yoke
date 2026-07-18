@@ -66,10 +66,10 @@ _up_to_date=$(printf '%s' "$_push_output" | grep -c "Everything up-to-date") || 
 If `_up_to_date` is non-zero, verify the ephemeral environment is actually healthy before short-circuiting. The push may return "Everything up-to-date" while the deployment workflow from a prior push is still building (stale screenshots when short-circuit fired before deploy finished):
 
 ```bash
-_env_id=$(python3 -m yoke_core.cli.db_router query "SELECT id FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') AND branch='$_wt_branch' ORDER BY id DESC LIMIT 1" 2>/dev/null) || true
+_env_id=$(yoke db read --format lines "SELECT id FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') AND branch='$_wt_branch' ORDER BY id DESC LIMIT 1" 2>/dev/null) || true
 _env_status=""
 if [ -n "$_env_id" ]; then
- _env_status=$(python3 -m yoke_core.cli.db_router query "SELECT status FROM ephemeral_environments WHERE id='$_env_id'" 2>/dev/null) || true
+ _env_status=$(yoke db read --format lines "SELECT status FROM ephemeral_environments WHERE id='$_env_id'" 2>/dev/null) || true
 fi
 ```
 
@@ -88,7 +88,7 @@ fi
 
 After a successful push that delivered new code, update the deployed SHA so future advance attempts can detect "Everything up-to-date":
 ```bash
-_env_id=$(python3 -m yoke_core.cli.db_router query "SELECT id FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') AND branch='$_wt_branch' ORDER BY id DESC LIMIT 1" 2>/dev/null) || true
+_env_id=$(yoke db read --format lines "SELECT id FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') AND branch='$_wt_branch' ORDER BY id DESC LIMIT 1" 2>/dev/null) || true
 if [ -n "$_env_id" ] && [ -n "$_head_sha" ]; then
  yoke ephemeral-env update "$_env_id" deployed_sha "$_head_sha"
 fi
@@ -129,7 +129,7 @@ fi
 If still not found → **hard-block**. Do NOT proceed with browser QA against a stale deployment:
 ```bash
 if [ "$_find_exit" -ne 0 ] || [ -z "$_run_id" ]; then
- _env_id=$(python3 -m yoke_core.cli.db_router query "SELECT id FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') AND branch='$_wt_branch' ORDER BY id DESC LIMIT 1" 2>/dev/null) || true
+ _env_id=$(yoke db read --format lines "SELECT id FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') AND branch='$_wt_branch' ORDER BY id DESC LIMIT 1" 2>/dev/null) || true
  if [ -n "$_env_id" ]; then
  yoke ephemeral-env update "$_env_id" status "failed"
  fi
@@ -142,7 +142,7 @@ fi
 
 **When find-run succeeds (exit 0):** Persist `workflow_run_id` to the env record immediately and transition status from `pending` to `starting`:
 ```bash
-_env_id=$(python3 -m yoke_core.cli.db_router query "SELECT id FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') AND branch='$_wt_branch' ORDER BY id DESC LIMIT 1" 2>/dev/null) || true
+_env_id=$(yoke db read --format lines "SELECT id FROM ephemeral_environments WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') AND branch='$_wt_branch' ORDER BY id DESC LIMIT 1" 2>/dev/null) || true
 if [ -n "$_env_id" ] && [ -n "$_run_id" ]; then
  yoke ephemeral-env update "$_env_id" workflow_run_id "$_run_id"
  yoke ephemeral-env update "$_env_id" status "starting"

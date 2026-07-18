@@ -92,8 +92,7 @@ After validation passes, register the work claim:
 
 ```bash
 # Session touch + claim
-python3 -m yoke_core.api.service_client session-touch \
- --mode shepherd >/dev/null 2>&1 || true
+yoke sessions touch --mode shepherd >/dev/null 2>&1 || true
 yoke claims work acquire \
  --item "YOK-$_num"
 ```
@@ -110,8 +109,8 @@ Epic lifecycle (shepherd scope):
 Before executing transitions, read prior verdict history:
 
 ```bash
-_completed=$(python3 -m yoke_core.cli.db_router query "SELECT transition FROM shepherd_verdicts WHERE item='YOK-$_num' AND (verdict='READY' OR verdict='CAVEATS' OR verdict='SKIPPED') ORDER BY id")
-_blocked=$(python3 -m yoke_core.cli.db_router query "SELECT transition FROM shepherd_verdicts WHERE item='YOK-$_num' AND verdict='BLOCKED' ORDER BY id")
+_completed=$(yoke db read --format lines "SELECT transition FROM shepherd_verdicts WHERE item='YOK-$_num' AND (verdict='READY' OR verdict='CAVEATS' OR verdict='SKIPPED') ORDER BY id")
+_blocked=$(yoke db read --format lines "SELECT transition FROM shepherd_verdicts WHERE item='YOK-$_num' AND verdict='BLOCKED' ORDER BY id")
 ```
 
 Rules:

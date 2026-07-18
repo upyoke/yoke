@@ -49,7 +49,9 @@ fi
 **Epic task status sync:** When `planning_to_plan_drafted` succeeds, cascade task statuses through the centralized owner:
 ```bash
 if [ "$_transition" = "planning_to_plan_drafted" ]; then
- python3 -m yoke_core.cli.db_router epic cascade-task-status $_num planning plan-drafted
+ # Read the task list once, then for each row still at planning:
+ yoke epic-tasks list --epic "$_num"
+ yoke workflow-item epic-task update-status --epic "$_num" --task-num "{task_num}" --status plan-drafted
 fi
 ```
 
@@ -96,7 +98,7 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
 
  if [ -n "$_extracted_flow" ]; then
  # Validate the flow ID exists in the deployment_flows table
- _flow_exists=$(python3 -m yoke_core.cli.db_router flows get "$_extracted_flow" id 2>/dev/null || true)
+ _flow_exists=$(yoke deployment-flows get "$_extracted_flow" id 2>/dev/null || true)
  if [ -n "$_flow_exists" ]; then
  yoke items scalar update "YOK-$_num" --field deployment_flow --value "$_extracted_flow"
  echo "Deployment flow set: $_extracted_flow for YOK-$_num"
@@ -162,7 +164,8 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  _qa_base_url="http://localhost:3000"
  _qa_project=$(yoke items get $_num project 2>/dev/null) || true
  if [ -n "$_qa_project" ] && [ "$_qa_project" != "null" ]; then
- _qa_cap_url=$(python3 -m yoke_core.cli.db_router projects capability-get "$_qa_project" "browser-qa" 2>/dev/null | python3 -m yoke_core.domain.json_helper get base_url 2>/dev/null) || true
+ _qa_cap_settings=$(yoke projects capability-settings get --project "$_qa_project" --cap-type browser-qa 2>/dev/null) || true
+ _qa_cap_url=$(python3 -c 'import json,sys; print((json.load(sys.stdin) or {}).get("base_url", ""))' <<<"$_qa_cap_settings" 2>/dev/null) || true
  if [ -n "$_qa_cap_url" ]; then _qa_base_url="$_qa_cap_url"; fi
  fi
 
@@ -183,7 +186,7 @@ print(json.dumps(rows))
  fi
 
  # 5. If no ACs found, seed at least one implementation review requirement
- _qa_existing_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM qa_requirements WHERE item_id=$_num" 2>/dev/null) || true
+ _qa_existing_count=$(yoke db read --format lines "SELECT COUNT(*) FROM qa_requirements WHERE item_id=$_num" 2>/dev/null) || true
  if [ -z "$_qa_existing_count" ] || [ "$_qa_existing_count" = "0" ]; then
  yoke qa requirement add \
  --item "YOK-$_num" \

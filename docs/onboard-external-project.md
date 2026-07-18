@@ -262,9 +262,16 @@ Useful product-level checks from the project checkout:
 ```bash
 yoke status --repo-root ~/work/demo
 yoke projects checkout-context
+yoke projects infrastructure list --project demo --json
 yoke onboard checklist --run-id <run-id> --json
 yoke board rebuild --force
 ```
+
+The infrastructure inventory is metadata-only and provides the site and
+environment IDs needed by setup recipes. Environment settings remain
+projection-only: use `yoke projects environment-settings get --project demo
+--environment-id <id> --path <key.path> --json` for exact scalar leaves; never
+inventory an environment settings document as a whole.
 
 Then make a normal project commit. The installed hook shims run through the
 `yoke` launcher; older checkout-only hook commands should be refreshed with:

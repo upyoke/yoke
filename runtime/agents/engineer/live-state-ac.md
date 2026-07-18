@@ -18,7 +18,7 @@ You would run a read-only `pg_constraint` / `information_schema` query against t
 
 **Meaning:** Make the state change needed to satisfy the AC, using the sanctioned write path for that domain.
 
-**Execution:** Apply the mutation through the proper channel: migration script for DDL; the canonical `yoke <subcommand>` agent CLI for wrapped data updates (e.g., `yoke items structured-field replace`, `yoke items section upsert`, `yoke claims path widen` — see `yoke_cli.commands.registry` for the full roster); `python3 -m yoke_core.cli.db_router` remains as the operator-debug fallback for surfaces not yet wrapped; deployment pipeline for infrastructure. If the AC involves live DB schema or destructive DDL, the migration protocol (see `runtime/agents/engineer/migration-protocol.md`) still applies in full.
+**Execution:** Apply the mutation through the proper channel: migration script for DDL; the canonical `yoke <subcommand>` agent CLI for control-plane data updates (e.g., `yoke items structured-field replace`, `yoke items section upsert`, `yoke claims path widen` — use command help and the packet roster); deployment pipeline for infrastructure. If the AC involves live DB schema or destructive DDL, the migration protocol (see `runtime/agents/engineer/migration-protocol.md`) still applies in full.
 
 **Example:**
 ```

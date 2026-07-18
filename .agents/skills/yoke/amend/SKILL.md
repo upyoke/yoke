@@ -179,11 +179,9 @@ simulation and dispatch-chain reads use the registered
    depended on this one are updated). Close the GitHub issue
    afterwards.
 
-9. **Re-verify file overlap.** Read the refreshed task list via
-   `epic_tasks.list.run`, then read each task's file assignments via
-   the operator-debug shell read
-   `python3 -m yoke_core.cli.db_router epic file-list "{epic-id}"
-   "{task-num}"`. Check for duplicate file paths across different
+9. **Re-verify file overlap.** Read the refreshed task list and file
+   assignments via `yoke epic-tasks list --epic "{epic-id}"`. Check for
+   duplicate file paths across different
    worktrees. If overlap is detected, warn the user and help
    reassign files via `workflow_item.epic_task.reassign` or
    `metadata_update`.

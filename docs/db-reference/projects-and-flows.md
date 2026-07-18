@@ -189,7 +189,7 @@ secrets stay in the control-plane secret store.
 Deployment flow definitions. Each flow defines an ordered sequence of stages that an item passes through after merge.
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'buzz-prod-release'
+id TEXT PRIMARY KEY -- e.g., 'buzz-production-release'
 project TEXT NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name (e.g., 'Prod Release')
 description TEXT
@@ -222,8 +222,9 @@ Seed data: `python3 -m yoke_core.cli.db_router flows init` is a source-dev/admin
 - `platform-production` — disabled historical Stage-then-Production definition retained for run history.
 - `platform-production-hotfix` — Platform item → direct Production hotfix train at the merged Platform commit.
 - `yoke-ephemeral-deploy` — Branch/SHA Yoke core preview environment: `ephemeral-deploy (ephemeral-deploy) -> complete (auto)` (target_env=ephemeral, done="Yoke core preview environment deployed")
-- `buzz-prod-release` — v1 production deploy with smoke test: `start (auto) -> prod-deploy (github-actions-workflow, buzz-deploy.yml) -> smoke (github-actions-workflow, buzz-smoke.yml) -> complete (auto)` (4 stages, target_env=production, done="Deployed to production and smoke checks passed"). No staging stages — Buzz v1 has no staging environment.
-- `buzz-prod-hotfix` — Direct to production with smoke test (4 stages, target_env=production, done="Hotfix deployed to production")
+- `buzz-production-release` — governed Production release: `migration_apply (primary, implementing) -> merged (auto) -> prod-deploy (github-actions-workflow, buzz-deploy.yml) -> smoke (github-actions-workflow, buzz-smoke.yml) -> complete (auto)` (5 stages, target_env=production, done="Deployed to production and smoke checks passed").
+- `buzz-production-hotfix` — direct Production hotfix: `migration_apply (primary, implementing) -> merged (auto) -> production-deploy (github-actions-workflow, buzz-hotfix.yml) -> smoke (github-actions-workflow, buzz-smoke.yml) -> complete (auto)` (5 stages, target_env=production, done="Hotfix deployed to production and smoke checks passed").
+- `buzz-prod-release` and `buzz-prod-hotfix` — predecessor IDs retained for immutable run history. Initialization disables only an exact recognized predecessor definition and only after its item/run bindings are terminal; otherwise it leaves the row untouched and reports the conflict.
 - `buzz-internal` — Doc or config change, no deployment (2 auto stages, no target_env, done="Merged to main")
 
 Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.

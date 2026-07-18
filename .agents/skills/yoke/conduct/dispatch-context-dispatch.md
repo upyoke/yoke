@@ -30,7 +30,7 @@ ATTEMPT_BASELINE_{_id}=$(git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}")
 For epic items, also record the current progress-note count so post-return validation can verify a new note landed with any new commit:
 ```bash
 # Epic items only:
-_progress_note_count_before_{_id}=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
+_progress_note_count_before_{_id}=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
 ```
 
 **Record task baselines:** On first dispatch of each epic item, record the task baseline for scoped Tester diffs. This value is preserved across retries -- only set when `_attempt_{_id} = 1`. Same control-plane-via-branch-ref reasoning as the ATTEMPT_BASELINE read above (no per-task claim yet):
@@ -95,7 +95,7 @@ On retry attempts (`_attempt > 1`), `_has_implementation` is always false -- Eng
 # the active claim's declared paths (declared_paths / declared_targets,
 # joined through path_claim_targets -> path_targets.path_string); do
 # NOT teach `path_claims.covered_paths` as a DB column.
-_claim_coverage=$(python3 -m yoke_core.api.service_client path-claim-list --item YOK-${_id} --state active)
+_claim_coverage=$(yoke claims path list --item YOK-${_id} --state active)
 ```
 
 Inline the resulting paths under a `## Active Path Claim Coverage` heading in the Engineer prompt. For epic tasks, follow this with a `## Planned (Widen Before Write)` block listing entries from the parent epic's `## File Budget` that are not yet in the active claim — these are the paths the Engineer must widen onto before the first write. The Engineer's canonical body teaches the workflow; surfacing the data here removes the recovery-crawl class of failure where the Engineer creates a new file and then spends N tool calls discovering it needs to widen.
@@ -170,7 +170,7 @@ After a PASS verdict on an epic task, find the next dispatchable task in the dis
 
  a. Advance the dispatch chain to the next task:
  ```bash
- _advance_result=$(python3 -m yoke_core.cli.db_router epic dispatch-chain-advance "$_epic_id" "$_worktree_branch")
+ _advance_result=$(yoke workflow-item epic-dispatch-chain advance --epic "$_epic_id" --worktree "$_worktree_branch")
  ```
  On success, outputs `{new_index}|{next_task_num}`. On end-of-queue, exits 1.
 

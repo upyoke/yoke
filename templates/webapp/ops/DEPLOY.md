@@ -38,28 +38,21 @@ Both stacks live in the rendered `<render-output>/infra/` Pulumi-Python project:
 
 ## Pulumi State Backend Bootstrap
 
-Pulumi keeps stack state in an S3 bucket and encrypts secret config values via
-a KMS key. Bootstrap order matters — create and encrypt the bucket first, then
-point Pulumi at the backend before any `pulumi stack init`:
+Pulumi keeps stack state in the S3 backend declared by the project's
+`pulumi-state` capability and encrypts secret config values through its KMS
+alias. The provider-admin setup path must create those resources first. Each
+stack must already be declared in the capability's `stacks` map; do not export
+AWS credentials, run `pulumi login`, or invoke `pulumi stack init` directly:
 
 ```sh
-aws s3api create-bucket --bucket {{state_bucket}} --region {{aws_region}}
-aws s3api put-bucket-versioning --bucket {{state_bucket}} \
-  --versioning-configuration Status=Enabled
-aws kms create-key --description "Pulumi state encryption for {{project_name}}"
-aws kms create-alias --alias-name {{kms_key_alias}} \
-  --target-key-id <key-id-from-prior-step>
-aws s3api put-bucket-encryption --bucket {{state_bucket}} \
-  --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"aws:kms","KMSMasterKeyID":"{{kms_key_alias}}"},"BucketKeyEnabled":true}]}'
-pulumi login s3://{{state_bucket}}?region={{aws_region}}
-pulumi stack init {{pulumi_infra_stack_name}} \
-  --secrets-provider awskms://{{kms_key_alias}}?region={{aws_region}}
-pulumi stack init {{pulumi_vps_stack_name}} \
-  --secrets-provider awskms://{{kms_key_alias}}?region={{aws_region}}
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- init --secrets-provider 'awskms://{{kms_key_alias}}?region={{aws_region}}'
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- init --secrets-provider 'awskms://{{kms_key_alias}}?region={{aws_region}}'
 ```
 
-The bucket name, KMS alias, and per-stack names are project-scoped — re-run
-this block only once per AWS account/region. `pulumi login` is idempotent.
+The command resolves the project-owned AWS and Pulumi authority, uses a 0700
+scratch workspace, and persists typed operator-state. No repo-local
+infrastructure checkout or ambient AWS shell environment is needed. Initialize
+each declared stack once.
 
 Concrete `pulumi import` commands with resolved provider IDs live in
 `<render-output>/infra/import-plan.md`.
@@ -115,8 +108,8 @@ itself is an operator step that IaC cannot fully drive.
    so the stack adopts that zone instead of creating a duplicate:
 
    ```sh
-   AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} \
-     aws route53 list-hosted-zones --query "HostedZones[?Name=='{{domain_name}}.'].Id" --output text
+   yoke aws exec --project {{project_name}} --region {{aws_region}} -- \
+     route53 list-hosted-zones --query "HostedZones[?Name=='{{domain_name}}.'].Id" --output text
    # → set hosted_zone_id/importZoneId in DB domain settings, then re-render.
    ```
 
@@ -125,16 +118,15 @@ itself is an operator step that IaC cannot fully drive.
    first to confirm adopt-not-create, then apply:
 
    ```sh
-   cd <render-output>/infra
-   pulumi preview --stack {{project_name}}-domain
-   pulumi up --stack {{project_name}}-domain --yes
+   yoke pulumi exec --project {{project_name}} --stack {{project_name}}-domain -- preview
+   yoke pulumi exec --project {{project_name}} --stack {{project_name}}-domain -- up --yes --non-interactive
    ```
 
 3. **Hand-back (consumed by every later DNS step):** capture the created zone
    id and record it so infra / ACM / CloudFront can import it:
 
    ```sh
-   pulumi stack output hostedZoneId --stack {{project_name}}-domain
+   yoke pulumi exec --project {{project_name}} --stack {{project_name}}-domain -- stack output hostedZoneId
    # → write the value into DB domain settings and the project's aws-route53
    #   capability, then refresh project-owned Pulumi material.
    ```
@@ -148,22 +140,22 @@ itself is an operator step that IaC cannot fully drive.
 ### Deploy both stacks
 
 Apply through the Yoke-owned deploy flow when available. For
-operator-attended manual Pulumi runs, use a short-lived provider profile or SSO
-session with the same project permissions recorded in the `aws-admin`
-capability; do not scrape Yoke capability secrets into shell env.
+operator-attended runs, use the capability-owned boundary for both preview and
+apply.
 
 ```sh
-cd <render-output>/infra
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi up --stack {{pulumi_infra_stack_name}} --yes
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi up --stack {{pulumi_vps_stack_name}} --yes
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- preview
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- up --yes --non-interactive
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- preview
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- up --yes --non-interactive
 ```
 
 Apply one stack at a time so the VPS stack reads the Elastic IP output of
-the infra stack reliably. Preview the diff first with
-`pulumi preview --stack <stack>`.
+the infra stack reliably.
 
 After the VPS stack creates the Elastic IP, capture the Elastic IP output via
-`pulumi stack output vps_elastic_ip --stack {{pulumi_vps_stack_name}}`,
+`yoke pulumi exec --project {{project_name}} --stack
+{{pulumi_vps_stack_name}} -- stack output vps_elastic_ip`,
 write it to the `ssh` project capability's `host` field, then re-render:
 
 ```sh
@@ -238,15 +230,13 @@ ssh {{ssh_user}}@{{origin_ip}} 'sh /tmp/update-firewall.sh --apply'
 ### Check stack status
 
 ```sh
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} \
-  pulumi stack --stack {{pulumi_infra_stack_name}} --show-urns
-
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} \
-  pulumi stack --stack {{pulumi_vps_stack_name}} --show-urns
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- stack --show-urns
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- stack --show-urns
 ```
 
-`pulumi stack --show-urns` lists every resource with its current state; pair
-with `pulumi refresh --stack <stack>` to reconcile drift against AWS.
+`stack --show-urns` lists every resource with its current state; pair it with
+`yoke pulumi exec --project {{project_name}} --stack <stack> -- refresh` to
+reconcile drift against AWS.
 
 An environment with distribution settings also converges the complete GitHub
 Actions publishing contract from the same Pulumi state: base URL, bucket,
@@ -261,8 +251,8 @@ manual repository-variable value is not an independent authority.
 ### Check cert status
 
 ```sh
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} \
-  aws acm describe-certificate \
+yoke aws exec --project {{project_name}} --region {{aws_region}} -- \
+  acm describe-certificate \
   --certificate-arn {{certificate_arn}} \
   --region {{aws_region}} --query 'Certificate.Status' --output text
 ```
@@ -337,9 +327,8 @@ See [DEPLOY-CHECKLIST.md](DEPLOY-CHECKLIST.md) for complete DNS, TLS, nginx, and
 ## Teardown
 
 ```sh
-cd <render-output>/infra
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi destroy --stack {{pulumi_vps_stack_name}} --yes
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi destroy --stack {{pulumi_infra_stack_name}} --yes
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- destroy --yes --non-interactive
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- destroy --yes --non-interactive
 ```
 
 `{{pulumi_vps_stack_name}}` destroys the EC2 instance, Elastic IP, security group,

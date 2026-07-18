@@ -61,7 +61,9 @@ def epic_task_get(args: List[str]) -> int:
         prog="yoke workflow-item epic-task get",
         description="Read one pipe-delimited epic_tasks row.",
     )
-    _epic_task_flags(parser); add_session_arg(parser); add_json_arg(parser)
+    _epic_task_flags(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_TASK_GET_USAGE)
     if parsed is None:
         return 2
@@ -83,7 +85,8 @@ def epic_task_simulation_get(args: List[str]) -> int:
     )
     parser.add_argument("--epic", type=int, required=True, help="Epic id.")
     parser.add_argument("--phase", required=True, help="Simulation phase.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_TASK_SIMULATION_GET_USAGE)
     if parsed is None:
         return 2
@@ -106,7 +109,8 @@ def epic_task_file_add(args: List[str]) -> int:
     _epic_task_flags(parser)
     parser.add_argument("--file-path", required=True, help="Task file path.")
     parser.add_argument("--action", default="", help="File action label.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_TASK_FILE_ADD_USAGE)
     if parsed is None:
         return 2
@@ -133,7 +137,8 @@ def epic_task_history_insert(args: List[str]) -> int:
     parser.add_argument("--to-status", required=True)
     group = parser.add_mutually_exclusive_group()
     add_text_file_pair(group, "--note", "--note-file", dest="note")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_TASK_HISTORY_INSERT_USAGE)
     if parsed is None:
         return 2
@@ -165,7 +170,8 @@ def epic_dispatch_chain_get(args: List[str]) -> int:
     )
     parser.add_argument("--epic", type=int, required=True)
     parser.add_argument("--worktree", required=True)
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_DISPATCH_CHAIN_GET_USAGE)
     if parsed is None:
         return 2
@@ -187,7 +193,8 @@ def epic_dispatch_chain_list(args: List[str]) -> int:
         description="List pipe-delimited dispatch-chain rows for an epic.",
     )
     parser.add_argument("--epic", type=int, required=True)
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_DISPATCH_CHAIN_LIST_USAGE)
     if parsed is None:
         return 2
@@ -215,7 +222,8 @@ def epic_dispatch_chain_update(args: List[str]) -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(group, "--value", "--value-file", dest="value")
     group.add_argument("--stdin", action="store_true", help="Read value.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_DISPATCH_CHAIN_UPDATE_USAGE)
     if parsed is None:
         return 2
@@ -242,6 +250,43 @@ EPIC_DISPATCH_CHAIN_REFRESH_ACTIVATION_USAGE = (
 )
 
 
+EPIC_DISPATCH_CHAIN_ADVANCE_USAGE = (
+    "yoke workflow-item epic-dispatch-chain advance --epic N "
+    "--worktree NAME [--session-id S] [--json]"
+)
+
+
+def epic_dispatch_chain_advance(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke workflow-item epic-dispatch-chain advance",
+        description="Atomically advance one dispatch chain to its next task.",
+    )
+    parser.add_argument("--epic", type=int, required=True)
+    parser.add_argument("--worktree", required=True)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(
+        parser, args, EPIC_DISPATCH_CHAIN_ADVANCE_USAGE,
+    )
+    if parsed is None:
+        return 2
+
+    def _write_advance(response, stdout, stderr) -> None:
+        result = response.result or {}
+        stdout.write(
+            f"{result.get('current_index', '')}|"
+            f"{result.get('next_task_num', '')}\n"
+        )
+
+    return _dispatch(
+        "workflow_item.epic_dispatch_chain.advance",
+        _epic_target(parsed),
+        {"worktree": parsed.worktree},
+        parsed,
+        _write_advance,
+    )
+
+
 def epic_dispatch_chain_refresh_activation(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-dispatch-chain refresh-activation",
@@ -250,7 +295,8 @@ def epic_dispatch_chain_refresh_activation(args: List[str]) -> int:
     parser.add_argument("--epic", type=int, required=True)
     parser.add_argument("--worktree", required=True)
     parser.add_argument("--task-num", type=int, required=True)
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, EPIC_DISPATCH_CHAIN_REFRESH_ACTIVATION_USAGE,
     )
@@ -285,7 +331,8 @@ def conduct_epic_task_update_status(args: List[str]) -> int:
     parser.add_argument("--no-github", action="store_true")
     parser.add_argument("--no-derive", action="store_true")
     parser.add_argument("--claim-bypass", default="")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, CONDUCT_EPIC_TASK_UPDATE_STATUS_USAGE,
     )
@@ -325,7 +372,8 @@ def conduct_epic_proceed_triage_handoff(args: List[str]) -> int:
     parser.add_argument("--recommendation", default="PROCEED")
     parser.add_argument("--gap-summary", default="")
     parser.add_argument("--filed-tickets", default="")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, CONDUCT_EPIC_PROCEED_TRIAGE_HANDOFF_USAGE,
     )

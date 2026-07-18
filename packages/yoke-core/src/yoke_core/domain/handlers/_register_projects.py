@@ -17,6 +17,7 @@ from yoke_core.domain.handlers import (
     projects_github_sync_mode_repair as _sync_mode_repair,
 )
 from yoke_core.domain.handlers import projects_pulumi_state as _pulumi_state
+from yoke_core.domain.handlers import projects_infrastructure as _infrastructure
 from yoke_core.domain.handlers import (
     projects_pulumi_stack_config as _pulumi_stack_config,
 )
@@ -29,6 +30,18 @@ _PROJECT_WRITE_SURFACES = (
 
 def register(registry) -> None:
     """Register project registry writes via the given registry module."""
+    registry.register(
+        "projects.infrastructure.list",
+        _infrastructure.handle_projects_infrastructure_list,
+        _infrastructure.ProjectsInfrastructureListRequest,
+        _infrastructure.ProjectsInfrastructureListResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.projects_infrastructure",
+        target_kinds=["global"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["metadata_only"], adapter_status="live",
+        claim_required_kind=None,
+    )
     for function_id, handler in _PROJECT_WRITE_SURFACES:
         registry.register(
             function_id, handler,

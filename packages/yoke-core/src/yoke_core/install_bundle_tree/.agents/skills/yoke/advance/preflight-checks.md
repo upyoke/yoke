@@ -190,7 +190,7 @@ _gate_exit=$?
 If `_gate_exit` is non-zero (no qualifying verdict), **block** with `$_gate_reason` followed by this remediation:
 > **Blocked:** YOK-{N} has no qualifying shepherd verdict for the Shepherd Lifecycle Gate.
 >
-> Inspect the verdict history directly: `python3 -m yoke_core.cli.db_router query "SELECT id, transition, verdict, created_at FROM shepherd_verdicts WHERE item='YOK-{N}' ORDER BY id DESC"`.
+> Inspect the verdict history directly: `yoke db read --format lines "SELECT id, transition, verdict, created_at FROM shepherd_verdicts WHERE item='YOK-{N}' ORDER BY id DESC"`.
 >
 > If the modern verdict (`planning_to_plan_drafted`) is missing but the epic's status is `plan-drafted` or later, the upstream shepherd run did not emit it — re-run `/yoke shepherd YOK-{N}` only if the epic is still at `refined-idea`, otherwise file a follow-up ticket against the shepherd producer path. Modern shepherd does not re-run against plan-drafted or later statuses.
 
@@ -205,7 +205,7 @@ Skip if not epic or target is not `planned`/`implementing`. **If `--force`:** sk
 # For epic items the epic's own numeric ID IS {N} (mirrors shepherd/plan-handoff.md:23).
 # Never YOK-prefix this value.
 _epic_id={N}
-_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id}")
+_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id}")
 ```
 
 If `_task_count` is 0, **block**: point to `/yoke plan YOK-{N}`.
@@ -217,8 +217,8 @@ Skip if not epic, or if target is `implementing`, `reviewing-implementation`, `r
 ```bash
 # Convention: see your `epic_tasks` packet stanza for the epic_id column shape; bare integer, never YOK-prefixed.
 _epic_id={N}
-_total=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id}")
-_done=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id} AND status IN ('done','reviewed-implementation','implemented','release')")
+_total=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id}")
+_done=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id} AND status IN ('done','reviewed-implementation','implemented','release')")
 ```
 
 - `_total` = 0 → **block** (no tasks)

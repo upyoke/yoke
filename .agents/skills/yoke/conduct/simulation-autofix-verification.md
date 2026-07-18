@@ -41,7 +41,7 @@ If no parseable task numbers: set `_fix_deps = ""` (graceful degradation).
 ### AF11. Create Fix Task
 
 ```bash
-_max_task=$(python3 -m yoke_core.cli.db_router query "SELECT MAX(task_num) FROM epic_tasks WHERE epic_id='$_epic_id'")
+_max_task=$(yoke db read --format lines "SELECT MAX(task_num) FROM epic_tasks WHERE epic_id='$_epic_id'")
 _fix_task_num=$(printf "%03d" $((_max_task + 1)))
 ```
 
@@ -202,7 +202,7 @@ If conflicts: re-dispatch Engineer to resolve. If still unresolved after re-disp
 ### AF19. Final Re-Simulation
 
 ```bash
-_task_list=$(python3 -m yoke_core.cli.db_router query \
+_task_list=$(yoke db read --format lines \
  "SELECT task_num, title, status FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
 ```
 

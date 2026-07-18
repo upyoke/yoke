@@ -9,7 +9,7 @@ ephemeral environment sub-step (5f-project-ephemeral) and browser QA execution.
 
 This sub-step runs **after** `5f-project` completes (for non-yoke projects only). It manages the full lifecycle of an ephemeral environment for the item's branch: create the DB record, trigger the workflow, poll for readiness, inject the URL into the Tester prompt, and tear down after testing.
 
-**Boundary:** ephemeral environment status / workflow-run / URL updates use the registered `yoke ephemeral-env update ENV-ID FIELD VALUE` wrapper. The initial record create (`db_router envs create`) and GitHub workflow run polling (`yoke_core.domain.github_actions find-run` / `wait-run`) remain retained internal/admin boundaries confined to this conduct-managed ephemeral-env sub-step. The registered `yoke github-actions ...` family currently covers CI checks and repo secret/variable administration, not ephemeral workflow orchestration.
+**Boundary:** ephemeral environment creation and status / workflow-run / URL updates use the registered `yoke ephemeral-env create` and `yoke ephemeral-env update` wrappers. GitHub workflow triggering and run polling use the registered `yoke github-actions ...` family.
 
 **Prerequisite:** The item's project must have the `ephemeral-env`
 capability. Dispatch the `projects.capability.has` function call
@@ -36,9 +36,9 @@ not a teaching anti-pattern:
 
 ```bash
 # Retained-boundary: capability config payload read (operator-debug).
-_github_config=$(python3 -m yoke_core.cli.db_router query \
+_github_config=$(yoke db read --format lines \
   "SELECT settings FROM project_capabilities WHERE project_id=(SELECT id FROM projects WHERE slug='${_project}') AND type='github'")
-_ssh_config=$(python3 -m yoke_core.cli.db_router query \
+_ssh_config=$(yoke db read --format lines \
   "SELECT settings FROM project_capabilities WHERE project_id=(SELECT id FROM projects WHERE slug='${_project}') AND type='ssh'")
 ```
 
@@ -68,7 +68,7 @@ Create the ephemeral environment DB record **before** triggering the workflow. T
 
 ```bash
 # Branch naming contract: branch MUST be 'YOK-{id}' — see db-reference.md § ephemeral_environments
-_env_id=$(python3 -m yoke_core.cli.db_router envs create "${_project}" "YOK-${_id}" --item "YOK-${_id}")
+_env_id=$(yoke ephemeral-env create "${_project}" "YOK-${_id}" --item "YOK-${_id}")
 ```
 
 The record is created with `status=pending` (the default). Store `_env_id` for use in subsequent steps. The status transitions to `starting` only after a workflow run is found.

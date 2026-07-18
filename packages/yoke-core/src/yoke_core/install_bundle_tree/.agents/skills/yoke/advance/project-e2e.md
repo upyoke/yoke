@@ -65,7 +65,7 @@ fi
 Real E2E runs against a deployed backend. Look up the ephemeral environment this branch is pointed at so the suite can target it via `BASE_URL`. Uses the same `ephemeral_environments` query shape as `shared/tester-dispatch-template.md` section 5.
 
 ```bash
-_base_url=$(python3 -m yoke_core.cli.db_router query \
+_base_url=$(yoke db read --format lines \
  "SELECT url FROM ephemeral_environments \
  WHERE project_id=(SELECT id FROM projects WHERE slug='${_item_project}') \
  AND branch='YOK-{N}' \

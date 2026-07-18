@@ -59,6 +59,8 @@ EPIC_USAGE: Dict[str, str] = {
         _ops.EPIC_DISPATCH_CHAIN_UPDATE_USAGE,
     "workflow_item.epic_dispatch_chain.refresh_activation":
         _ops.EPIC_DISPATCH_CHAIN_REFRESH_ACTIVATION_USAGE,
+    "workflow_item.epic_dispatch_chain.advance":
+        _ops.EPIC_DISPATCH_CHAIN_ADVANCE_USAGE,
     "conduct.epic_task.update_status":
         _ops.CONDUCT_EPIC_TASK_UPDATE_STATUS_USAGE,
     "conduct.epic.proceed_triage_handoff":

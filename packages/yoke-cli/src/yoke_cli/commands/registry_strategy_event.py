@@ -25,6 +25,8 @@ STRATEGY_EVENT_SUBCOMMAND_REGISTRY: Dict[
          _adapters.ouroboros_entry_mark_archived),
     ("ouroboros", "wrapup", "list"):
         ("ouroboros.wrapup.list", _adapters.ouroboros_wrapup_list),
+    ("ouroboros", "wrapup", "save"):
+        ("ouroboros.wrapup.save", _adapters.ouroboros_wrapup_save),
     ("strategy", "carry", "register-new"):
         ("strategy.carry.register_new",
          _adapters.strategy_carry_register_new),

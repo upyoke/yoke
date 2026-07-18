@@ -81,6 +81,7 @@ class OperationEntry:
     status: str
     reason: str
     proposed_function_id: Optional[str] = None
+    source_owner: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.status not in _VALID_STATUSES:
@@ -112,6 +113,7 @@ def _to_entry(row) -> OperationEntry:
         status=row.status,
         reason=row.reason,
         proposed_function_id=row.proposed_function_id,
+        source_owner=row.source_owner,
     )
 
 

@@ -109,6 +109,7 @@ _BY_ID: dict[str, AuthzSpec] = {
         PROJECT, PERM_PROJECT_ADMIN,
     ),
     "projects.environment_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "projects.infrastructure.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment_settings.merge": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN,
     ),

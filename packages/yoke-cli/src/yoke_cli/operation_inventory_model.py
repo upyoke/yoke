@@ -13,6 +13,7 @@ class _Row:
     status: str
     reason: str
     proposed_function_id: Optional[str] = None
+    source_owner: Optional[str] = None
 
 
 WRAPPED = "wrapped"
@@ -29,8 +30,16 @@ def _w(shell_form: str, family: str) -> _Row:
     return _Row(shell_form, family, WRAPPED, REASON_WRAPPED_BY_YOKE_CLI)
 
 
-def _p(shell_form: str, family: str, reason: str) -> _Row:
-    return _Row(shell_form, family, PERMANENT, reason)
+def _p(
+    shell_form: str,
+    family: str,
+    reason: str,
+    *,
+    source_owner: Optional[str] = None,
+) -> _Row:
+    return _Row(
+        shell_form, family, PERMANENT, reason, source_owner=source_owner,
+    )
 
 
 def _q(shell_form: str, family: str, fn_id: str) -> _Row:

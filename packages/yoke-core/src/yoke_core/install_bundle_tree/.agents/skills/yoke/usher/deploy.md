@@ -68,7 +68,7 @@ For each `(project, flow)` group:
 Lead with the composed surface `runs start-for-item`, which folds resolve-target-env, create-run, add-item, and validate-composition into a single invocation:
 
 ```bash
-python3 -m yoke_core.cli.db_router runs start-for-item {item-id} \
+yoke deployment-runs start-for-item {item-id} \
     [--project {project}] [--flow {flow}] [--target-env {target-env}] \
     [--release-lineage {lineage-id}] [--created-by {actor}]
 ```
@@ -81,7 +81,7 @@ Preview-flow side decisions wrap the composed call (these are not folded into `s
 - **Resume an existing run** instead of starting a new one when `runs find-by-item {first-item-id} --status executing` returns a row — skip to 8c8.
 - **After** `start-for-item`: `runs claim-preview {run-id} {project} {target_env}` to attach the preview to the run.
 
-The target-env resolver is `yoke deployment-runs resolve-target-env`; the other internal per-step forms (`runs create-run`, `runs add-item`, `runs validate-composition`) remain operator/debug surfaces. Prefer the composed call for item-bound delivery.
+The target-env resolver is `yoke deployment-runs resolve-target-env`; prefer the registered composed call for item-bound delivery.
 
 ### 8c8: Run-level QA seeding
 **Do NOT manually seed** — `yoke_core.domain.deploy_pipeline` calls the internal deploy QA recorder automatically.

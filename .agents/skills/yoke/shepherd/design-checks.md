@@ -57,7 +57,7 @@ fi
 **Fetch deployment flows for context:**
 
 ```bash
-_available_flows=$(python3 -m yoke_core.cli.db_router flows list 2>/dev/null || true)
+_available_flows=$(yoke workflows definition get 2>/dev/null || true)
 ```
 
 Build flow guidance block if flows are available:

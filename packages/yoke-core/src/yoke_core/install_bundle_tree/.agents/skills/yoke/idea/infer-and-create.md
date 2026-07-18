@@ -73,7 +73,7 @@ Read the title, any body/description the user provided, and recent conversation 
 
 First, query available projects:
 ```bash
-_project_list=$(python3 -m yoke_core.cli.db_router query "SELECT id FROM projects ORDER BY id" 2>/dev/null || true)
+_project_list=$(yoke db read --format lines "SELECT id FROM projects ORDER BY id" 2>/dev/null || true)
 ```
 
 - If `_project_list` is empty or contains exactly one project, auto-select it (or `default_project` from config if empty):
@@ -103,7 +103,7 @@ If `_project_default_flow` is non-empty, use it as the deployment flow without f
 
 The fallback inference below applies only when the lookup returns nothing:
 ```bash
-_flow_list=$(python3 -m yoke_core.cli.db_router flows list --project "${_project}" 2>/dev/null || true)
+_flow_list=$(yoke workflows definition get --project "${_project}" 2>/dev/null || true)
 ```
 
 - If `_flow_list` is empty -> no deployment flow applies; leave `_deployment_flow` empty
@@ -260,7 +260,7 @@ referenced item body or commit diff before deciding this is new work.
 Run the dedup search:
 
 ```bash
-python3 -m yoke_core.cli.db_router items dedup-search "{keywords}"
+yoke items search "{keywords}" --project "${_project}"
 ```
 
 Use 2-3 keywords extracted from the proposed title. Because this search is

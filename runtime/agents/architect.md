@@ -65,7 +65,7 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
-- Shared-state reads (backlog, events, claims, epic-tasks): `python3 -m runtime.api...` or `yoke <subcommand>` — these resolve the canonical control-plane DB independent of cwd
+- Shared-state reads (backlog, events, claims, epic-tasks): the registered `yoke <subcommand>` named in your packet — these resolve the canonical control-plane DB independent of cwd
 
 ## DB Quick Reference
 

@@ -42,12 +42,11 @@ Project Structure patch:
 yoke project-structure patch apply --project {{project_name}} --ops-json '<json-ops>'
 ```
 
-For operator-attended manual AWS CLI checks, use a short-lived provider profile
-or SSO session with the same project permissions. Do not scrape Yoke
-capability secrets into shell env:
+For operator-attended AWS CLI checks, use the capability-owned boundary. Do
+not scrape Yoke capability secrets into shell env:
 
 ```sh
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} aws sts get-caller-identity
+yoke aws exec --project {{project_name}} --region {{aws_region}} -- sts get-caller-identity
 ```
 
 ### 0b. Confirm GitHub Actions OIDC delivery authority
@@ -67,35 +66,32 @@ IaC-owned delivery role. They require the non-secret repository variable
 
 ### 0c. Bootstrap the Pulumi state backend (once per AWS account/region)
 
-Pulumi stores stack state in an S3 bucket and encrypts secret config values
-with a KMS key. Run these in order — bucket first (so versioning is enabled
-before any state lands), KMS key + alias next, bucket encryption after the alias
-exists, then `pulumi login` and the two `pulumi stack init` calls:
+Pulumi state backend and KMS resources must already exist through the
+provider-admin setup path. Each stack must already be declared in the
+project's `pulumi-state` capability `stacks` map. Initialize through Yoke so
+project AWS credentials never become ambient shell state:
 
-- [ ] `aws s3api create-bucket --bucket {{state_bucket}} --region {{aws_region}}`
-- [ ] `aws s3api put-bucket-versioning --bucket {{state_bucket}} --versioning-configuration Status=Enabled`
-- [ ] `aws kms create-key --description "Pulumi state encryption for {{project_name}}"`
-- [ ] `aws kms create-alias --alias-name {{kms_key_alias}} --target-key-id <key-id-from-prior-step>`
-- [ ] `aws s3api put-bucket-encryption --bucket {{state_bucket}} --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"aws:kms","KMSMasterKeyID":"{{kms_key_alias}}"},"BucketKeyEnabled":true}]}'`
-- [ ] `pulumi login s3://{{state_bucket}}?region={{aws_region}}`
-- [ ] `pulumi stack init {{pulumi_infra_stack_name}} --secrets-provider awskms://{{kms_key_alias}}?region={{aws_region}}`
-- [ ] `pulumi stack init {{pulumi_vps_stack_name}} --secrets-provider awskms://{{kms_key_alias}}?region={{aws_region}}`
+- [ ] `yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- init --secrets-provider 'awskms://{{kms_key_alias}}?region={{aws_region}}'`
+- [ ] `yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- init --secrets-provider 'awskms://{{kms_key_alias}}?region={{aws_region}}'`
+- [ ] Confirm the command used a 0700 scratch workspace and persisted typed operator-state; no repo-local infrastructure checkout is required.
 - [ ] Read `<render-output>/infra/import-plan.md` for the resolved provider IDs before running `pulumi import` commands.
 
 ### 0d. Provision the VPS via Pulumi
 
-Both `{{pulumi_infra_stack_name}}` (CloudFront/ACM/Route53) and
-`{{pulumi_vps_stack_name}}` (EC2/EIP/SG) live in `<render-output>/infra/`. Apply
-them in order with credentials sourced from the `aws-admin` capability:
+Apply the declared `{{pulumi_infra_stack_name}}` (CloudFront/ACM/Route53) and
+`{{pulumi_vps_stack_name}}` (EC2/EIP/SG) stacks in order through the
+capability-owned boundary:
 
 ```sh
-cd <render-output>/infra
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi up --stack {{pulumi_infra_stack_name}} --yes
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} pulumi up --stack {{pulumi_vps_stack_name}} --yes
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- preview
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_infra_stack_name}} -- up --yes --non-interactive
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- preview
+yoke pulumi exec --project {{project_name}} --stack {{pulumi_vps_stack_name}} -- up --yes --non-interactive
 ```
 
 Capture the Elastic IP via
-`pulumi stack output vps_elastic_ip --stack {{pulumi_vps_stack_name}}` and apply
+`yoke pulumi exec --project {{project_name}} --stack
+{{pulumi_vps_stack_name}} -- stack output vps_elastic_ip` and apply
 it to:
 
 - The `ssh` project capability's `host` field (DB; merge preserves the
@@ -116,8 +112,9 @@ creates.
 
 - [ ] Operator: register the apex domain in the AWS Route 53 **console** (the
       purchase is a manual click-through; IaC cannot complete it).
-- [ ] `pulumi up --stack {{project_name}}-domain --yes`
-- [ ] Capture the zone id: `pulumi stack output hostedZoneId --stack {{project_name}}-domain`
+- [ ] `yoke pulumi exec --project {{project_name}} --stack {{project_name}}-domain -- preview`
+- [ ] `yoke pulumi exec --project {{project_name}} --stack {{project_name}}-domain -- up --yes --non-interactive`
+- [ ] Capture the zone id: `yoke pulumi exec --project {{project_name}} --stack {{project_name}}-domain -- stack output hostedZoneId`
 - [ ] Record it in DB domain settings and the `aws-route53` capability, then
       refresh project-owned Pulumi material through onboarding or template fetch.
 - [ ] (Optional, after registration completes) set `manage_registration=true`,
@@ -154,7 +151,7 @@ Add a wildcard A record pointing to the Elastic IP.
 **Route53 (via AWS CLI):**
 
 ```sh
-AWS_PROFILE=<operator-profile> AWS_DEFAULT_REGION={{aws_region}} aws route53 change-resource-record-sets \
+yoke aws exec --project {{project_name}} --region {{aws_region}} -- route53 change-resource-record-sets \
   --hosted-zone-id {{hosted_zone_id}} \
   --change-batch '{
     "Changes": [{

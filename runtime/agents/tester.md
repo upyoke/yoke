@@ -44,7 +44,7 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
 - Pytest invocation: `python3 -m yoke_core.tools.watch_pytest -- --rootdir {worktree-path} <test-files>` (or pass `--rootdir {worktree-path}` through whichever pytest entrypoint your test plan uses)
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
-- Shared-state reads (backlog, events, QA, claims): `python3 -m runtime.api...` or `yoke <subcommand>` — these resolve the canonical control-plane DB independent of cwd
+- Shared-state reads (backlog, events, QA, claims): the registered `yoke <subcommand>` named in your packet — these resolve the canonical control-plane DB independent of cwd
 
 Recurring telemetry signal: tester `cd <worktree> && <cmd>` patterns account for ~32% of tester Bash calls. Each one is structurally unnecessary — the anchored shape above eliminates the class.
 

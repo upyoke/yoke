@@ -76,5 +76,23 @@ def test_watch_pytest_help_teaches_parallel_default() -> None:
         REPO / "packages" / "yoke-core" / "src"
         / "yoke_core" / "tools" / "watch_pytest.py"
     )
-    assert "Parallel-by-default: ``-n auto``" in text
-    assert "``--no-parallel``" in text
+    help_text = text.split("from __future__", 1)[0]
+    assert "Parallel-by-default: ``-n auto``" in help_text
+    assert "``-n 0``" in help_text
+    assert "``--no-parallel``" not in help_text
+
+
+def test_live_verification_teaching_uses_supported_sequential_and_lint_forms() -> None:
+    for path in (
+        REPO / "AGENTS.md",
+        REPO / "CONTRIBUTING.md",
+        REPO / "runtime" / "harness" / "claude" / "rules" / "session.md",
+        REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "domain"
+        / "schema_api_context_commands_watchers.py",
+    ):
+        text = _read(path)
+        assert "--no-parallel" not in text
+    assert "uv run --frozen ruff check <changed Python paths>" in _read(
+        REPO / "AGENTS.md"
+    )
+    assert '"ruff==0.15.20"' in _read(REPO / "pyproject.toml")

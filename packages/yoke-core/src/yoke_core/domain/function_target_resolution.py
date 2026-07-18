@@ -145,12 +145,14 @@ def _resolve_work_claim_project_context(
 # project writes name it by ``slug`` or ``project``; board reads name it by
 # ``scope``. A supplied target-ref hint must agree with that payload authority.
 _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
+    "ephemeral_env.create",
     "projects.update",
     "projects.capability_settings.get",
     "projects.capability_settings.set",
     "projects.capability_settings.merge",
     "projects.environment_settings.get",
     "projects.environment_settings.merge",
+    "projects.infrastructure.list",
     "projects.pulumi_state.migrate",
     "projects.pulumi_state.checkpoint_import",
     "projects.pulumi_stack_config.get",

@@ -40,11 +40,14 @@ uv sync --all-packages --all-groups --locked
 uv run python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/
 ```
 
-- Pass the two anchors exactly as shown — never bare `runtime/`, which breaks
+- Pass the three anchors exactly as shown — never bare `runtime/`, which breaks
   pytest conftest collection (the wrapper refuses it with a repair message).
 - For a focused run, pass specific file or directory paths after `--`.
-- Tests run in parallel by default (pytest-xdist `-n auto`); pass
-  `--no-parallel` after `--` to opt out.
+- Tests run in parallel by default (pytest-xdist `-n auto`); pass `-n 0` after
+  `--` for sequential order-sensitive debugging.
+- Ruff is locked with the dev environment. Lint each changed Python path with
+  `uv run --frozen ruff check <changed Python paths>`; do not assume a
+  checkout-local `.venv/bin/ruff` binary exists.
 - The suite starts its own disposable Postgres cluster on first use; no
   database setup is required beyond having the Postgres server binaries
   (`initdb`, `pg_ctl`) on `PATH` — e.g. `brew install postgresql@17` on

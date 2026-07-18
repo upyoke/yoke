@@ -82,6 +82,23 @@ PROJECT_COMMANDS: list[dict] = [
     },
     {
         "topic": "project",
+        "purpose": "Execute a capability-owned Pulumi stack command",
+        "recipe": (
+            "yoke pulumi exec --project <project> --stack <stack> -- "
+            "<init|preview|refresh|import|up ...>"
+        ),
+        "notes": (
+            "This is a client-local tool-shaped boundary, not a dispatcher "
+            "function. Its canonical CLI adapter is "
+            "`packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py`; "
+            "the execution workhorse is "
+            "`packages/yoke-core/src/yoke_core/tools/pulumi_exec.py`. Never "
+            "guess a sibling `commands/pulumi_exec.py` module. The selected "
+            "stack must be declared in the project pulumi-state capability."
+        ),
+    },
+    {
+        "topic": "project",
         "purpose": "Register a live Pulumi checkpoint's operator state",
         "recipe": (
             "yoke projects pulumi-state checkpoint-import --project <project> "

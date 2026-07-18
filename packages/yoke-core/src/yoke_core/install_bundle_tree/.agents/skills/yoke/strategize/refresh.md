@@ -80,7 +80,7 @@ The rendered `.yoke/strategy/*.md` views are gitignored local caches, so their c
 yoke strategy doc list --project "$_project"
 ```
 
-Each row's `updated_at` / `updated_by` shows which docs changed and how recently. The narrative of prior approved changes is the `SMLChangeApproved` / `StrategyDocReplaced` event trail (query the events surface, e.g. `yoke db read "SELECT created_at, context FROM events WHERE event_name = 'SMLChangeApproved' ORDER BY created_at DESC LIMIT 10"`).
+Each row's `updated_at` / `updated_by` shows which docs changed and how recently. The narrative of prior approved changes is the `SMLChangeApproved` / `StrategyDocReplaced` event trail (query the events surface, e.g. `yoke db read --format lines "SELECT created_at, context FROM events WHERE event_name = 'SMLChangeApproved' ORDER BY created_at DESC LIMIT 10"`).
 
 ### 2d. Board State
 
@@ -90,10 +90,10 @@ separately in step 2d2 via `strategize_carry`, so this query is
 intentionally a readability sample, not a truth source.
 
 ```bash
-_active_items=$(python3 -m yoke_core.cli.db_router query "SELECT id, title, status FROM items WHERE project_id = ${_project_id} AND status NOT IN ('idea','done','cancelled','failed','stopped') ORDER BY status, id")
+_active_items=$(yoke db read --format lines "SELECT id, title, status FROM items WHERE project_id = ${_project_id} AND status NOT IN ('idea','done','cancelled','failed','stopped') ORDER BY status, id")
 # Display-only sample of recent done items. DO NOT treat as authoritative —
 # the bounded complete candidate set lives in the carry helper (step 2d2).
-_recent_done_sample=$(python3 -m yoke_core.cli.db_router query "SELECT id, title FROM items WHERE project_id = ${_project_id} AND status = 'done' ORDER BY id DESC LIMIT 10")
+_recent_done_sample=$(yoke db read --format lines "SELECT id, title FROM items WHERE project_id = ${_project_id} AND status = 'done' ORDER BY id DESC LIMIT 10")
 ```
 
 ### 2d2. Bounded Landed-Work Candidate Set
@@ -169,7 +169,7 @@ resolution-marking step (finalize.md).
 For in-flight epics, read task titles to understand what is currently being built:
 
 ```bash
-_active_epics=$(python3 -m yoke_core.cli.db_router query "SELECT id, title FROM items WHERE project_id = ${_project_id} AND status NOT IN ('idea','done','cancelled','failed','stopped') AND type = 'epic'")
+_active_epics=$(yoke db read --format lines "SELECT id, title FROM items WHERE project_id = ${_project_id} AND status NOT IN ('idea','done','cancelled','failed','stopped') AND type = 'epic'")
 ```
 
 For each active epic, list its tasks:

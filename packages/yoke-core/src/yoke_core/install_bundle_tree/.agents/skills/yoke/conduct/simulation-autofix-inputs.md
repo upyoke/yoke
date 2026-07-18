@@ -66,7 +66,7 @@ _sim_report=$(yoke workflow-item epic-task simulation-get --epic "$_epic_id" --p
 
 Read all task bodies for the epic:
 ```bash
-_task_rows=$(python3 -m yoke_core.cli.db_router query "SELECT task_num, title FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
+_task_rows=$(yoke db read --format lines "SELECT task_num, title FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
 ```
 
 For each task:

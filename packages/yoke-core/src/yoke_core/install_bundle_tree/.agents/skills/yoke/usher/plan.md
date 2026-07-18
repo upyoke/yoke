@@ -28,7 +28,7 @@ _dep_ids=""
 for _item in $_ready_items; do
  _dep_ids="${_dep_ids}${_dep_ids:+,}'YOK-${_item}'"
 done
-_dep_edges=$(python3 -m yoke_core.cli.db_router query "
+_dep_edges=$(yoke db read --format lines "
  SELECT dependent_item || ' depends-on ' || blocking_item
  FROM item_dependencies
  WHERE dependent_item IN (${_dep_ids})

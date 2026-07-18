@@ -50,6 +50,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
        "workflow_item.epic_dispatch_chain"),
     _w("yoke workflow-item epic-dispatch-chain refresh-activation",
        "workflow_item.epic_dispatch_chain"),
+    _w("yoke workflow-item epic-dispatch-chain advance",
+       "workflow_item.epic_dispatch_chain"),
     _w("yoke conduct epic-task update-status", "conduct.epic_task"),
     _w("yoke conduct epic proceed-triage-handoff", "conduct.epic"),
 )

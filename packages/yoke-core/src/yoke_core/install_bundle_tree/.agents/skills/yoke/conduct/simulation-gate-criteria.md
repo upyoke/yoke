@@ -11,8 +11,8 @@ Invoked from `simulation-gate.md` S6h after the skip check. Covers Simulator dis
 ### Gather Task List
 
 ```bash
-_task_list=$(python3 -m yoke_core.cli.db_router query "SELECT task_num, title, status FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
-_worktree_list=$(python3 -m yoke_core.cli.db_router query "
+_task_list=$(yoke db read --format lines "SELECT task_num, title, status FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
+_worktree_list=$(yoke db read --format lines "
 SELECT t.task_num, t.title,
        COALESCE(NULLIF(t.branch,''), NULLIF(t.worktree,''), c.worktree, '') AS branch,
        COALESCE(NULLIF(t.worktree_path,''), NULLIF(c.worktree_path,''), '') AS worktree_path
@@ -30,7 +30,7 @@ Compressed two-phase mode is the default. Standard mode only when `sim_force_sta
 
 ```bash
 _force_standard=$(python3 -m yoke_core.domain.runtime_settings get sim_force_standard_integration false)
-_sim_task_count=$(python3 -m yoke_core.cli.db_router query "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='${_epic_id}'")
+_sim_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='${_epic_id}'")
 ```
 
 If `_force_standard` is `true`, set `_use_compressed=false`. Otherwise `_use_compressed=true`.
@@ -186,14 +186,14 @@ When no parseable result is found:
  **3b. If `context_exhaustion`:** Re-invoke with compressed context + two-phase protocol + aggressive constraints. Assemble compressed context bundle inline, including shim re-export contracts with public and underscore-prefixed names such as `_BLOCKS` whenever the compressed task/file context names a shim module, and Commit-Boundary Evidence for any discrete-commit/NFR-style AC named by the task or epic context:
  ```bash
  # Dependency edges
- _deps=$(python3 -m yoke_core.cli.db_router query "SELECT task_num, title, dependencies FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
+ _deps=$(yoke db read --format lines "SELECT task_num, title, dependencies FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
  ```
  Add `## AGGRESSIVE RETRY CONSTRAINTS` section. The retry prompt MUST repeat the two-line verdict block requirement (`SIMULATION:` line then `EPIC: YOK-${_epic_id}` line). The prompt must also distinguish parent-supplied commit evidence from simulator-initiated git archaeology: supplied `git log --oneline -- {file}` lines are evidence, but the simulator must not run `git log` or `git blame` itself.
 
  **3c. Ultra-compressed no-tool fallback:** Assemble ultra-compressed context (overlap matrix + dependency edges + one-line task summaries only, plus shim re-export contracts when a candidate gap depends on a shim's exported symbols, plus any Commit-Boundary Evidence required to verify discrete-commit ACs):
  ```bash
  # Dependency edges (same as 3b)
- _deps=$(python3 -m yoke_core.cli.db_router query "SELECT task_num, title, dependencies FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
+ _deps=$(yoke db read --format lines "SELECT task_num, title, dependencies FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
  ```
  Dispatch with hard NO-TOOL MANDATE. Two-line verdict block (`SIMULATION:` then `EPIC: YOK-${_epic_id}`) MUST be the first two lines. Maximum 3 gaps.
 

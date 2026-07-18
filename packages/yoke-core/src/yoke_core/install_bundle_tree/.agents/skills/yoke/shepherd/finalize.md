@@ -7,7 +7,7 @@ This phase owns Shepherd Log persistence, transition continuity, progress commit
 Render the Shepherd Log:
 
 ```bash
-_log=$(python3 -m yoke_core.cli.db_router shepherd shepherd-log "YOK-$_num")
+_log=$(yoke items get "YOK-$_num" shepherd_log)
 ```
 
 Before writing, verify `_log` is non-empty and contains at least one `### ` subheading. If the rendered log is empty or malformed, skip the write and preserve the existing body content.
@@ -92,8 +92,8 @@ boundary.
 | Update status | `lifecycle.transition.execute` function call. |
 | Update structured field | `items.structured_field.replace` function call (or `append_addendum` / `section_upsert` / `section_append` for additive transforms). |
 | Persist verdict | `yoke shepherd verdict --item {item} --transition {transition} --worker {worker} --verdict {verdict} [--caveats TEXT]` (shepherd verdict write surface; not a workflow-item mutation). |
-| Render Shepherd Log | `python3 -m yoke_core.cli.db_router shepherd shepherd-log {item}` (read-only). |
-| Query verdicts | `python3 -m yoke_core.cli.db_router query "SELECT ..."` (read-only). |
+| Render Shepherd Log | `yoke items get {item} shepherd_log` (read-only). |
+| Query verdicts | `yoke db read --format lines "SELECT ..."` (read-only). |
 | Insert reflection | `yoke ouroboros entry insert ...` (ouroboros append surface; not a workflow-item mutation). |
 
 ## Release Manual Work Claim
