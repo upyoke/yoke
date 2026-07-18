@@ -135,6 +135,14 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
   const finalPair = byClass(root, "overview-pair");
   assert.equal(finalPair.length, 1);
   assert.equal(byClass(finalPair[0], "overview-section").length, 2);
+  assert.deepEqual(
+    byClass(root, "overview-section-detail").map((node) => node.textContent),
+    [
+      "direction and recent strategy", "what can run now, and why",
+      "who is working", "what is shipping", "the pulse · newest first",
+      "the floor · current health",
+    ],
+  );
 
   // Each section replays the read its full screen runs — no new function ids.
   const called = new Set(client.requests.map((request) => request.function));
@@ -243,6 +251,13 @@ test("the Delivery summary keeps the engine's newest-first receipt order", async
     "run-20260717-023", "run-20260717-022", "run-20260717-021",
     "run-20260717-020", "run-20260717-019",
   ]);
+  const environments = byClass(root, "overview-environment");
+  assert.equal(environments.length, 1);
+  assert.equal(
+    environments[0].textContent,
+    "stage · succeeded · 2026-07-17T023:00:00Z",
+  );
+  assert.equal(environments[0].attributes.get("data-status"), "succeeded");
   mounted.unmount();
 });
 

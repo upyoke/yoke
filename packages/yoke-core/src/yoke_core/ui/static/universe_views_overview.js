@@ -27,12 +27,12 @@ const SUMMARY_ROW_LIMIT = 5;
 // page. Keep the labels and order beside the renderer so the jump strip cannot
 // drift from the summaries it navigates.
 const OVERVIEW_SECTIONS = [
-  ["strategy", "❖", "Strategy"],
-  ["frontier", "⚡", "Frontier"],
-  ["sessions", "◈", "Sessions"],
-  ["delivery", "⬈", "Delivery"],
-  ["events", "≋", "Events"],
-  ["doctor", "♥", "Doctor"],
+  ["strategy", "❖", "Strategy", "direction and recent strategy"],
+  ["frontier", "⚡", "Frontier", "what can run now, and why"],
+  ["sessions", "◈", "Sessions", "who is working"],
+  ["delivery", "⬈", "Delivery", "what is shipping"],
+  ["events", "≋", "Events", "the pulse · newest first"],
+  ["doctor", "♥", "Doctor", "the floor · current health"],
 ];
 
 // One stat tile that fills in when its read resolves. Until then — and if the
@@ -69,6 +69,9 @@ function summaryPanel(documentNode, title, view, scope, label) {
   if (sectionDefinition) {
     panel.children[0].children[0].textContent =
       `${sectionDefinition[1]} ${title}`;
+    panel.children[0].appendChild(el(
+      documentNode, "span", "overview-section-detail", sectionDefinition[3],
+    ));
   }
   panel.appendChild(openLink(documentNode, view, scope, label));
   return panel;
@@ -218,8 +221,40 @@ function loadDelivery(context, panel, scope) {
         { label: "status", value: (row) => row.status, pill: true },
         { label: "created", value: (row) => row.created_at },
       ], scope, (row) => row.project), "no runs yet");
+      renderLatestEnvironments(body.ownerDocument, body, rows);
     },
   );
+}
+
+// A concise answer to the question the run history alone makes surprisingly
+// hard: what is the newest receipt for each environment? This mirrors the
+// prototype's environment line and prevents an older red run from looking
+// like the current state when a newer green run already superseded it.
+function renderLatestEnvironments(documentNode, body, rows) {
+  const latest = new Map();
+  const sorted = [...rows].sort((left, right) =>
+    String(right.created_at || "").localeCompare(String(left.created_at || "")),
+  );
+  for (const row of sorted) {
+    const target = String(row.target_env || "").trim();
+    if (!target) continue;
+    const key = `${row.project || ""}:${target}`;
+    if (!latest.has(key)) latest.set(key, row);
+  }
+  if (!latest.size) return;
+  const line = el(documentNode, "div", "overview-environments");
+  line.appendChild(el(documentNode, "strong", null, "Latest by environment"));
+  for (const row of [...latest.values()].slice(0, 6)) {
+    const label = [row.project, row.target_env].filter(Boolean).join(" · ");
+    const chip = el(
+      documentNode, "span", "overview-environment",
+      `${label} · ${row.status || "unknown"} · ` +
+      `${row.created_at || "time unknown"}`,
+    );
+    chip.setAttribute("data-status", String(row.status || "unknown"));
+    line.appendChild(chip);
+  }
+  body.appendChild(line);
 }
 
 // The pulse: the most recent state changes. The events read is project-scoped

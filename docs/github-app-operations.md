@@ -173,6 +173,20 @@ and short-lived repository authority as every other runner operation. First
 have Pulumi generate the import record from the exact rendered program so the
 record carries the correct parent and provider references:
 
+For local recovery when the machine's App-user session is unavailable, the
+stack-scoped executor can mint the same narrow repository token from the
+capability-owned AWS secret without falling back to ambient credentials:
+
+```bash
+yoke pulumi exec --project <project> --stack <runner-fleet-stack> \
+  --bootstrap-local-authority -- \
+  preview --refresh --diff --non-interactive
+```
+
+The bootstrap flag is accepted only for a runner-fleet stack and is refused in
+GitHub Actions. Normal local operation continues to use the signed-in App-user
+session.
+
 ```bash
 yoke runner-fleet exec --project <project> \
   --settings-file <stack-config.json> -- \

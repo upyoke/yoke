@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import subprocess
@@ -66,6 +67,46 @@ class RunnerFleetExecError(RuntimeError):
     """A runner-fleet child command could not acquire safe authority."""
 
 
+@dataclass(frozen=True)
+class LocalRunnerFleetGithubAuth:
+    """One repository-scoped token minted from capability-owned authority."""
+
+    repo: str
+    token: str = field(repr=False)
+    redaction_terms: tuple[str, ...] = field(repr=False)
+
+
+def resolve_local_runner_fleet_github_auth(
+    values: Mapping[str, str],
+    *,
+    region: str,
+    aws_env: Mapping[str, str],
+    secret_loader: Callable[..., str] = load_secret_string,
+    token_minter: Callable[..., Any] = mint_installation_token,
+) -> LocalRunnerFleetGithubAuth:
+    """Mint the narrow runner-fleet token used by local recovery paths."""
+    if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
+        raise RunnerFleetExecError(
+            "GitHub Actions cannot select local App private-key authority"
+        )
+    private_key_pem = _load_private_key(
+        values["runner_fleet_github_private_key_secret_arn"],
+        region=region,
+        aws_env=aws_env,
+        secret_loader=secret_loader,
+    )
+    token = _mint_repository_automation_token(
+        values,
+        private_key_pem=private_key_pem,
+        token_minter=token_minter,
+    )
+    return LocalRunnerFleetGithubAuth(
+        repo=values["runner_fleet_repo"],
+        token=token,
+        redaction_terms=_redaction_terms(private_key_pem, token),
+    )
+
+
 def execute_runner_fleet_command(
     project: str,
     settings_file: Path | str,
@@ -126,7 +167,6 @@ def execute_runner_fleet_command(
             "materialized"
         ) from exc
 
-    private_key_pem = ""
     if _hosted_token_required():
         if hosted_token_loader is None:
             raise RunnerFleetExecError(
@@ -153,18 +193,17 @@ def execute_runner_fleet_command(
             raise RunnerFleetExecError(
                 "hosted runner-fleet token authority returned an empty token"
             )
+        redaction_terms = (token,)
     else:
-        private_key_pem = _load_private_key(
-            values["runner_fleet_github_private_key_secret_arn"],
+        local_auth = resolve_local_runner_fleet_github_auth(
+            values,
             region=region,
             aws_env=aws_env,
             secret_loader=secret_loader,
-        )
-        token = _mint_repository_automation_token(
-            values,
-            private_key_pem=private_key_pem,
             token_minter=token_minter,
         )
+        token = local_auth.token
+        redaction_terms = local_auth.redaction_terms
 
     child_env = dict(aws_env)
     # Remove alternative GitHub CLI/App credentials, then overwrite the two
@@ -175,7 +214,6 @@ def execute_runner_fleet_command(
     child_env[RUNNER_FLEET_AUTHORITY_INTENT_ENV] = authority_intent
     child_env[RUNNER_FLEET_GITHUB_TOKEN_ENV] = token
     child_env[GITHUB_TOKEN_ENV] = token
-    redaction_terms = _redaction_terms(private_key_pem, token)
     try:
         completed = run_redacted_child(
             selected_command,
@@ -350,7 +388,9 @@ __all__ = [
     "RUNNER_FLEET_AUTHORITY_INTENT_ENV",
     "RUNNER_FLEET_GITHUB_TOKEN_ENV",
     "RUNNER_FLEET_TOKEN_SOURCE_ENV",
+    "LocalRunnerFleetGithubAuth",
     "RunnerFleetExecError",
     "aws_machine_capability_env",
     "execute_runner_fleet_command",
+    "resolve_local_runner_fleet_github_auth",
 ]
