@@ -58,6 +58,20 @@ def test_get_dispatches_and_prints_exact_cas_base():
     assert calls[0].payload == {"project": "yoke", "cap_type": "docker"}
 
 
+def test_get_help_routes_pulumi_state_to_stack_scoped_reader():
+    rc, out, err, calls = _run(
+        "projects",
+        "capability-settings",
+        "get",
+        "--help",
+    )
+    assert rc == 0
+    help_text = out + err
+    assert "pulumi-state is stack-scoped" in help_text
+    assert "yoke projects pulumi-stack-config get" in help_text
+    assert calls == []
+
+
 def test_set_carries_exact_base_and_document():
     rc, _out, _err, calls = _run(
         "projects",

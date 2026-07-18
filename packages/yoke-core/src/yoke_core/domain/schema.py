@@ -1,18 +1,21 @@
-"""Shared schema owner for yoke.db.
+"""Shared schema facade for the canonical Yoke control-plane schema.
 
-Creates the DB file, the canonical ``items`` table with all columns, shared
-tables (ouroboros_entries, wrapup_reports, release_entries, epic_tasks,
+Converges the canonical ``items`` table with all columns, shared tables
+(ouroboros_entries, wrapup_reports, release_entries, epic_tasks,
 epic_task_files, epic_dispatch_chains, epic_progress_notes, qa_requirements,
 qa_runs, qa_artifacts, merge_locks, item_sections, harness_sessions,
 work_claims), compatibility indexes, and runs idempotent ADD COLUMN
 migrations for newer columns.
 
-Every core-table CREATE TABLE block emits portable DDL: no implicit-id
-auto-increment clauses and no SQLite-only timestamp-default clauses.
+The active Yoke control plane is Postgres. Core-table CREATE TABLE blocks emit
+portable DDL so explicitly provisioned SQLite validation surfaces can exercise
+the same schema; those validation surfaces are never control-plane authority.
+The DDL has no implicit-id auto-increment clauses or SQLite-only timestamp
+default clauses.
 Callers supply ``created_at`` / ``updated_at`` explicitly via
 :func:`yoke_core.domain.db_helpers.iso8601_now`.  JSON-payload ``TEXT``
-columns carry a ``-- → JSONB on Postgres`` comment so the future Postgres
-cutover is a single-file swap; the enumeration lives in
+columns carry a ``-- → JSONB on Postgres`` annotation for backend-aware schema
+rendering; the enumeration lives in
 :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.
 
 CLI usage::
@@ -47,7 +50,7 @@ from yoke_core.domain import schema_init as _schema_init
 
 
 def cmd_init() -> None:
-    """Create DB and shared tables, preserving front-door patch hooks."""
+    """Converge shared tables while preserving front-door patch hooks."""
     _schema_init._check_sibling_state_collision = _check_sibling_state_collision
     _schema_init._cli_error = _cli_error
     _schema_init._connect_raw = _connect_raw

@@ -110,6 +110,29 @@ class TestRun(unittest.TestCase):
 
 
 class TestSimulationGateBypass(unittest.TestCase):
+    def test_active_authority_uses_the_postgres_compatible_default(self) -> None:
+        gate_result = mock.Mock(passed=True)
+        with mock.patch(
+            "yoke_core.domain.qa_gates.check_epic_simulation_gate",
+            return_value=gate_result,
+        ) as gate_mock:
+            rc = mod._run_simulation_gate(42)
+
+        self.assertEqual(rc, 0)
+        gate_mock.assert_called_once_with(42, "")
+        gate_result.emit_errors.assert_called_once_with()
+
+    def test_failed_authoritative_gate_is_reported(self) -> None:
+        gate_result = mock.Mock(passed=False)
+        with mock.patch(
+            "yoke_core.domain.qa_gates.check_epic_simulation_gate",
+            return_value=gate_result,
+        ):
+            rc = mod._run_simulation_gate(42)
+
+        self.assertEqual(rc, 1)
+        gate_result.emit_errors.assert_called_once_with()
+
     def test_skip_env_var_bypasses(self) -> None:
         err_buf = io.StringIO()
         with mock.patch.dict(

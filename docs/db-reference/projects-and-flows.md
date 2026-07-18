@@ -6,6 +6,8 @@ Schemas for the project registry, the Project Structure aggregate, sites/environ
 
 Registered projects that Yoke can manage. The `projects` table holds only shared identity and repo metadata; machine-local checkout paths live in machine config. Per-project structured settings (test commands, deployment-flow default, merge verification policy, context routing) live in the Project Structure aggregate (see below).
 
+Yoke, Platform, Buzz, and every other registered slug use the same project commands and capability resolution. A project name never unlocks behavior: specialized delivery comes from that project's capability rows, environments, and workflow definitions. Checkout-local or direct-module recipes are valid only when their surface explicitly declares a source-dev/admin boundary.
+
 ```sql
 id TEXT PRIMARY KEY -- short slug (e.g., 'yoke', 'buzz')
 name TEXT NOT NULL -- display name
@@ -206,13 +208,15 @@ Stage objects come in two shapes. Executor-shaped stages require `name` (string)
 
 **`health-check` executor type:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's `target_env` environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
-Read definitions with `yoke deployment-flows get` / `stages`. Change lifecycle state with `yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents new assignments and runs while preserving the definition and every historical run. A definition referenced by a run is immutable and cannot be deleted or rewritten.
+Read the current project definitions with `yoke workflows definition get --project <slug> --json`. Change lifecycle state with `yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents new assignments and runs while preserving the definition and every historical run. A definition referenced by a run is immutable and cannot be deleted or rewritten.
 
-Seed data: `python3 -m yoke_core.cli.db_router flows init` seeds flow definitions only for projects already present in the universe (a fresh universe gets none). The definitions:
+Seed data: `python3 -m yoke_core.cli.db_router flows init` is a source-dev/admin seeder that adds flow definitions only for projects already present in the universe (a fresh universe gets none). Ordinary project operation reads and selects the registered definitions through project-scoped commands. The definitions:
 - `yoke-internal` — Script/doc changes, no deployment: `migration_apply (primary, implementing) -> merged (auto) -> complete (auto)` (no target_env, done="Merged to main")
-- `yoke-hosted-stage` — Yoke item → annotated release → Platform promotion boundary → complete Stage train.
+- `yoke-hosted-stage` — disabled historical Stage definition retained for run history.
+- `yoke-hosted-stage-no-ci-gate` — Yoke item → annotated release → Platform promotion boundary → complete Stage train without waiting for repository CI.
 - `yoke-hosted-production` — Yoke item → annotated release → direct stable-channel Production train, independent of Stage.
-- `yoke-hosted-production-hotfix` — Yoke item → annotated release → direct Production hotfix train.
+- `yoke-hosted-production-hotfix` — disabled historical Production hotfix definition retained for run history.
+- `yoke-hosted-production-hotfix-no-ci-gate` — Yoke item → annotated release → direct Production hotfix train without waiting for repository CI.
 - `platform-stage` — Platform item → complete Stage train at the merged Platform commit.
 - `platform-production-independent` — Platform item → direct Production train at the merged Platform commit, independent of Stage.
 - `platform-production` — disabled historical Stage-then-Production definition retained for run history.

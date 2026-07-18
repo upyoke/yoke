@@ -36,7 +36,9 @@ def projects_capability_settings_get(args: List[str]) -> int:
         prog="yoke projects capability-settings get",
         description=(
             "Read one non-sensitive project capability settings document. "
-            "The exact output is the --base token for a CAS set."
+            "The exact output is the --base token for a CAS set. "
+            "pulumi-state is stack-scoped: use `yoke projects "
+            "pulumi-stack-config get` instead."
         ),
     )
     _add_identity_args(parser)

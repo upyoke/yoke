@@ -1,4 +1,4 @@
-"""Schema validation checks for yoke.db.
+"""Validation checks for the canonical Yoke control-plane schema.
 
 Status validity checks for items and epic_tasks, extracted from schema.py.
 Callers import these from schema.py which re-exports them.

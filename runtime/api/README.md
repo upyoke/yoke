@@ -78,7 +78,7 @@ Returns all backlog items. Supports optional query parameter filters.
 | `project` | string | Filter by project (e.g., `yoke`, `buzz`) |
 | `status` | string | Filter by status (e.g., `implementing`, `idea`, `done`) |
 
-Valid statuses (canonical delivery lifecycle, sourced from `runtime/api/domain/lifecycle.py`): `idea`, `planned`, `release`, `done`, `cancelled`, `blocked`, `stopped`, `failed`, `refining-idea`, `refined-idea`, `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `planning`, `plan-drafted`, `refining-plan`.
+Valid statuses (canonical delivery lifecycle, sourced from `packages/yoke-core/src/yoke_core/domain/lifecycle.py`): `idea`, `planned`, `release`, `done`, `cancelled`, `blocked`, `stopped`, `failed`, `refining-idea`, `refined-idea`, `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `planning`, `plan-drafted`, `refining-plan`.
 
 **Canonical-only validation:** Retired status aliases are rejected at the API boundary. Callers must use canonical statuses such as `implementing`, `reviewing-implementation`, `implemented`, `release`, and `done`.
 
@@ -182,7 +182,7 @@ curl "http://localhost:8765/v1/board?project=buzz"
 }
 ```
 
-Board columns use the canonical board display order from `runtime/api/domain/lifecycle.py` (`STATUS_BOARD_ORDER`). Retired statuses are treated as data bugs and are not normalized at render time.
+Board columns use the canonical board display order from `packages/yoke-core/src/yoke_core/domain/lifecycle.py` (`STATUS_BOARD_ORDER`). Retired statuses are treated as data bugs and are not normalized at render time.
 
 Returns an empty board (no columns, zero stats) when no items exist for the project.
 

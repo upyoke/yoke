@@ -274,6 +274,10 @@ PROJECT_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Project capability rows keyed by `(project_id, type)`. The "
+            "same commands and capability resolution apply to every project "
+            "slug; Yoke, Platform, and Buzz are ordinary project rows, and "
+            "specialized behavior comes from capabilities, environments, and "
+            "workflow definitions rather than project-name checks. The "
             "capability-name column is `type` (values include "
             "`github`, `docker`, `domain`, `migration_model`, and "
             "`github-actions-runner-fleet`); "
@@ -286,7 +290,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "`originElasticIpAddress` and standalone VPS stacks to "
             "`vpsElasticIpAddress`; neither output nor a literal address is "
             "guessed from the stack name. "
-            "Canonical non-sensitive settings access is `yoke projects capability-settings get --project <slug> --cap-type <type>`. "
+            "Canonical non-sensitive settings access is `yoke projects capability-settings get --project <slug> --cap-type <type>`, except that capability listings may include `pulumi-state` and its settings read is stack-scoped. Use `yoke projects pulumi-stack-config get --project <slug> --stack <name> --output <owner-only-file>` for that capability. "
             "Full writes use the exact returned text with `capability-settings set ... --base <as-read-json>` (or `--new` "
             "for an absent row); single-path repairs use `capability-settings merge ... "
             "--set key.path=value`. These registered surfaces work over HTTPS, protect "
