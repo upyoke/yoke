@@ -78,15 +78,14 @@ class TestBodyAndSyncThreeBuckets:
         )
 
     def test_bucket_discipline_rationale_present(self):
-        """AC-15: body-and-sync.md must explain why bucket discipline
-        matters without relying on historical ticket provenance."""
+        """The skill explains why bucket discipline matters."""
         text = _read(_BODY_AND_SYNC)
         assert "Why bucket discipline matters" in text
         assert "validation_result" in text
         assert "reviewed-none" in text
 
     def test_obsoleted_deferral_reason_removed(self):
-        """AC-14: the old deferral reason must not appear in this file."""
+        """The retired deferral reason must not appear in this file."""
         text = _read(_BODY_AND_SYNC)
         assert _OBSOLETED_DEFERRAL_REASON not in text
 
@@ -98,21 +97,21 @@ class TestBodyAndSyncThreeBuckets:
 
 class TestInferAndCreatePreventions:
     def test_prevention_1_verification_verb_pinned(self):
-        """AC-16: Prevention 1 names ``test -d`` for directories and the
+        """Prevention 1 names ``test -d`` for directories and the
         Glob tool for file patterns."""
         text = _read(_INFER_AND_CREATE)
         assert "test -d" in text
         assert "Glob tool" in text or "Glob" in text
 
     def test_prevention_1_canonical_migration_root_named(self):
-        """AC-2: live one-shot migration package root is named
+        """The live one-shot migration package root is named
         explicitly so future ideas don't propose the non-existent
         ``runtime/api/migrations/`` directory."""
         text = _read(_INFER_AND_CREATE)
         assert "runtime/api/domain/migrations/" in text
 
     def test_prevention_2_canonical_grep_template_pinned(self):
-        """AC-17: the canonical grep template is pinned literally so
+        """The canonical grep template is pinned literally so
         agents copy it directly rather than improvising."""
         text = _read(_INFER_AND_CREATE)
         assert (
@@ -133,20 +132,20 @@ class TestInferAndCreatePreventions:
         text = _read(_INFER_AND_CREATE)
         board_idx = text.index("sed -n '1,300p' .yoke/BOARD.md")
         commits_idx = text.index("git log --oneline -10")
-        dedup_idx = text.index("items dedup-search")
-        assert board_idx < dedup_idx
-        assert commits_idx < dedup_idx
+        search_idx = text.index("items search")
+        assert board_idx < search_idx
+        assert commits_idx < search_idx
         assert "literal phrase matching" in text
 
 
 # ---------------------------------------------------------------------------
-# Repo-wide residue grep — AC-14
+# Repo-wide retired-prose residue grep
 # ---------------------------------------------------------------------------
 
 
 class TestObsoletedDeferralReasonResidue:
     def test_no_residue_in_skills_runtime_or_docs(self):
-        """AC-14: the old deferral reason must have no live residue."""
+        """The old deferral reason must have no live residue."""
         roots = [
             _REPO_ROOT / ".agents" / "skills",
             _REPO_ROOT / "runtime",

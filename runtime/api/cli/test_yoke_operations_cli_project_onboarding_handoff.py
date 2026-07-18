@@ -103,6 +103,7 @@ def test_project_onboard_dry_run_previews_worktrees_ignore_without_writing(
         "entry": ".worktrees/",
         "present": False,
         "applied": False,
+        "created_file": False,
         "patch": ["+.worktrees/"],
         "status": "missing",
     }

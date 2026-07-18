@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from runtime.api.cli.test_yoke_product_boundary_fault_injection import (
+from runtime.api.cli.product_boundary_test_support import (
     _run_product_cli,
 )
 

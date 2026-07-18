@@ -16,6 +16,7 @@ def test_github_oidc_roles_split_infrastructure_from_delivery(monkeypatch):
         monkeypatch,
         github_repo="upyoke/platform",
         distribution_bucket_names=["upyoke-distribution-prod"],
+        cloudfront_distribution_ids=["EPLATFORM"],
         github_app_private_key_secret_arns=[app_secret],
     )
 
@@ -57,6 +58,14 @@ def test_github_oidc_roles_split_infrastructure_from_delivery(monkeypatch):
         "Action": "cloudfront:ListDistributions",
         "Resource": "*",
     }
+    invalidation = next(
+        statement
+        for statement in policy["Statement"]
+        if statement.get("Sid") == "InvalidateProjectDistributions"
+    )
+    assert invalidation["Resource"] == [
+        "arn:aws:cloudfront::123456789012:distribution/EPLATFORM"
+    ]
     deny = next(
         statement
         for statement in policy["Statement"]

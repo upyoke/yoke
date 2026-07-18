@@ -10,7 +10,7 @@ from typing import Any, Mapping
 
 import pytest
 
-from runtime.api.cli.test_yoke_product_boundary_fault_injection import (
+from runtime.api.cli.product_boundary_test_support import (
     _assert_clean_client_boundary,
     _run_product_cli,
 )

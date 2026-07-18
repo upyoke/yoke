@@ -73,7 +73,7 @@ _CLI_ANCHORS_REQUIRED = (
     # Source-dev/admin fallbacks the packet explicitly labels.
     "yoke claims path list --item YOK-N",
     "yoke db-claim amend YOK-N", "--state none",
-    "backlog-cli", "{add,update,batch-update", "lifecycle.transition",
+    "backlog-cli", "lifecycle.transition",
     'yoke db read "SELECT 1"',
     "source-dev/operator-debug `db_router query` fallback",
 )

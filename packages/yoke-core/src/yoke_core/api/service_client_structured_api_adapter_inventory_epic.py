@@ -118,6 +118,10 @@ EPIC_ADAPTERS: List[AdapterEntry] = [
         "yoke workflow-item epic-dispatch-chain refresh-activation --epic N --worktree NAME --task-num N",
     ),
     AdapterEntry(
+        "workflow_item.epic_dispatch_chain.advance",
+        "yoke workflow-item epic-dispatch-chain advance --epic N --worktree NAME",
+    ),
+    AdapterEntry(
         "conduct.epic.proceed_triage_handoff",
         "yoke conduct epic proceed-triage-handoff --epic N [--filed-tickets T1,T2]",
     ),

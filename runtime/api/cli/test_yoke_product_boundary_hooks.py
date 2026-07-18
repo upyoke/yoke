@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from runtime.api.cli.test_yoke_product_boundary_fault_injection import (
+from runtime.api.cli.product_boundary_test_support import (
     CLI_SRC,
     CONTRACTS_SRC,
     _assert_clean_client_boundary,
