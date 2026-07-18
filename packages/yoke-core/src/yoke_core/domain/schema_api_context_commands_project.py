@@ -14,6 +14,25 @@ from __future__ import annotations
 PROJECT_COMMANDS: list[dict] = [
     {
         "topic": "project",
+        "purpose": "Preview, apply, or verify managed rendered artifacts",
+        "recipe": (
+            "yoke project artifacts refresh <checkout> --project <project> "
+            "[--apply | --verify]"
+        ),
+        "notes": (
+            "Preview is default. projects.artifacts.render works over HTTPS "
+            "or self-host and renders packaged webapp templates from DB "
+            "settings. The client binds project id first; a verified repo also "
+            "requires matching origin, then full manifest/path/symlink "
+            "preflight. Apply preserves/refuses deviations; --verify gates "
+            "external drift. .yoke/runbooks stay project-owned; generic refs "
+            "land in docs/yoke-generated/deployment-reference/. Pulumi stack "
+            "YAML/operator state stay stack-scoped. `yoke project refresh` is "
+            "substrate-only."
+        ),
+    },
+    {
+        "topic": "project",
         "purpose": "Read project test command for a scope",
         "recipe": (
             "yoke project-structure command-definitions get "

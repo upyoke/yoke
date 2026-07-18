@@ -20,6 +20,14 @@ def load_document(path: Path) -> Any:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def parse_document(text: str):
+    """Parse one YAML document through the project-owned safe loader."""
+
+    import yaml
+
+    return yaml.safe_load(text)
+
+
 def read_top_level_scalars(path: Path, keys: Iterable[str]) -> dict[str, str]:
     """Read an exact set of unindented scalar fields from a YAML file.
 

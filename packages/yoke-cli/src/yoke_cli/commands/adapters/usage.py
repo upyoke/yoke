@@ -92,6 +92,9 @@ from yoke_cli.commands.adapters.install import (
     PROJECT_REFRESH_USAGE,
     PROJECT_UNINSTALL_USAGE,
 )
+from yoke_cli.commands.adapters.project_artifacts import (
+    PROJECT_ARTIFACTS_REFRESH_USAGE,
+)
 from yoke_cli.commands.adapters.project_snapshot import (
     PROJECT_SNAPSHOT_SYNC_USAGE,
 )
@@ -403,6 +406,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "connection.remove.run": CONNECTION_REMOVE_USAGE,
     "auth.set.run": AUTH_SET_USAGE,
     "project.register.run": PROJECT_REGISTER_USAGE,
+    "project.artifacts.refresh": PROJECT_ARTIFACTS_REFRESH_USAGE,
     "project.install.run": PROJECT_INSTALL_USAGE,
     "project.refresh.run": PROJECT_REFRESH_USAGE,
     "project.uninstall.run": PROJECT_UNINSTALL_USAGE,

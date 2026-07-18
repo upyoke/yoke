@@ -137,6 +137,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.github_binding.status": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project.snapshot.sync": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "deployment_flows.reconcile_project": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.artifacts.render": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "project_structure.command_definitions.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project_structure.command_definitions.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
@@ -202,6 +203,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "config.stamp_project_env.run": AuthzSpec(CLIENT_LOCAL, None),
     "status.run": AuthzSpec(CLIENT_LOCAL, None),
     "project.register.run": AuthzSpec(CLIENT_LOCAL, None),
+    "project.artifacts.refresh": AuthzSpec(CLIENT_LOCAL, None),
     "scratch.dispatch_inputs": AuthzSpec(CLIENT_LOCAL, None),
     # Render-into-checkout / template fetch — local repo writes.
     "agents.render.run": AuthzSpec(CLIENT_LOCAL, None),

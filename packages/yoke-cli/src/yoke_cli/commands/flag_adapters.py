@@ -304,6 +304,9 @@ from yoke_cli.commands.adapters.install import (
     project_refresh,
     project_uninstall,
 )
+from yoke_cli.commands.adapters.project_artifacts import (
+    project_artifacts_refresh,
+)
 from yoke_cli.commands.adapters.project_snapshot import project_snapshot_sync
 from yoke_cli.commands.adapters.templates import (
     templates_fetch,
@@ -412,6 +415,7 @@ __all__ = [
     "onboard_checklist_cmd", "onboard_checklist_init",
     "env_use", "connection_set", "auth_set",
     "project_create", "project_import", "project_register",
+    "project_artifacts_refresh",
     "project_install", "project_refresh", "project_uninstall",
     "project_snapshot_sync",
     "templates_list", "templates_fetch",

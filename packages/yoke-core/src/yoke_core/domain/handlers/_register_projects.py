@@ -18,6 +18,7 @@ from yoke_core.domain.handlers import (
 )
 from yoke_core.domain.handlers import projects_pulumi_state as _pulumi_state
 from yoke_core.domain.handlers import projects_infrastructure as _infrastructure
+from yoke_core.domain.handlers import projects_artifacts as _artifacts
 from yoke_core.domain.handlers import (
     projects_pulumi_stack_config as _pulumi_stack_config,
 )
@@ -30,6 +31,23 @@ _PROJECT_WRITE_SURFACES = (
 
 def register(registry) -> None:
     """Register project registry writes via the given registry module."""
+    registry.register(
+        "projects.artifacts.render",
+        _artifacts.handle_projects_artifacts_render,
+        _artifacts.ProjectArtifactsRenderRequest,
+        _artifacts.ProjectArtifactsRenderResponse,
+        stability="beta",
+        owner_module="yoke_core.domain.handlers.projects_artifacts",
+        target_kinds=["global"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "packaged_template_default",
+            "secret_free_settings_digest",
+            "pulumi_operator_state_excluded",
+        ],
+        adapter_status="live", claim_required_kind=None,
+        ambient_session_required=False,
+    )
     registry.register(
         "projects.infrastructure.list",
         _infrastructure.handle_projects_infrastructure_list,

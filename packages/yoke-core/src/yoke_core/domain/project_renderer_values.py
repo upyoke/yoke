@@ -89,6 +89,7 @@ def _values_from_settings(
     domain_name = _stringify(domain_entry.get("domain_name"))
     origin_host = _stringify(hosts.get("origin"))
     origin_ip = _stringify(server.get("host") or ssh_settings.get("host"), "TODO")
+    ssh_host = origin_ip
     ssh_user = _stringify(
         ssh_settings.get("default_user") or ssh_settings.get("user"), "TODO"
     )
@@ -121,6 +122,7 @@ def _values_from_settings(
         "domain_name": domain_name,
         "origin_host": origin_host,
         "origin_ip": origin_ip,
+        "ssh_host": ssh_host,
         "aws_region": _stringify(aws_settings.get("region"), "us-east-1"),
         "ssh_user": ssh_user,
         "web_port": _stringify(runtime_settings.get("web_port"), "3000"),

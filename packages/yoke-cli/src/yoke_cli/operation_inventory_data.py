@@ -179,6 +179,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke project register", "project"),
     _w("yoke project install", "project"),
     _w("yoke project refresh", "project"),
+    _w("yoke project artifacts refresh", "project.artifacts"),
     _w("yoke project uninstall", "project"),
     _w("yoke project snapshot sync", "project.snapshot"),
     _w("yoke templates list", "templates"),

@@ -153,6 +153,7 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
     "projects.environment_settings.get",
     "projects.environment_settings.merge",
     "projects.infrastructure.list",
+    "projects.artifacts.render",
     "projects.pulumi_state.migrate",
     "projects.pulumi_state.checkpoint_import",
     "projects.pulumi_stack_config.get",

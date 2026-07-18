@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-18T16:43:14Z_
+_Audit generated_at: 2026-07-18T18:00:05Z_
 
 ## 1. Summary
 
-- Function ids registered: **221**
+- Function ids registered: **223**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **221** (221 carry usable `--help`)
-- Operation tracker: **220 wrapped**, 74 permanent, 0 pending
+- `yoke` CLI subcommands: **222** (222 carry usable `--help`)
+- Operation tracker: **221 wrapped**, 74 permanent, 0 pending
 - Skill-body recipes: 230 total (188 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **221** (operation tracker confirms 220 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **222** (operation tracker confirms 221 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -127,6 +127,7 @@ Wrapped `yoke <subcommand>` adapters: **221** (operation tracker confirms 220 wr
 | packets | `yoke packets check` | `packets.check.run` | ok |
 | packets | `yoke packets render` | `packets.render.run` | ok |
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
+| project | `yoke project artifacts refresh` | `project.artifacts.refresh` | ok |
 | project | `yoke project install` | `project.install.run` | ok |
 | project | `yoke project refresh` | `project.refresh.run` | ok |
 | project | `yoke project register` | `project.register.run` | ok |

@@ -260,6 +260,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("auth", "set"):
         ("auth.set.run", _adapters.auth_set),
     ("project", "register"): ("project.register.run", _adapters.project_register),
+    ("project", "artifacts", "refresh"):
+        ("project.artifacts.refresh", _adapters.project_artifacts_refresh),
     ("project", "install"): ("project.install.run", _adapters.project_install),
     ("project", "refresh"): ("project.refresh.run", _adapters.project_refresh),
     ("project", "uninstall"): ("project.uninstall.run", _adapters.project_uninstall),

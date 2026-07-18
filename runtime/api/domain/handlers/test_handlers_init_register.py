@@ -152,6 +152,13 @@ def test_projects_infrastructure_list_handler_registered() -> None:
     assert "projects.infrastructure.list" in ids
 
 
+def test_project_artifact_handlers_registered() -> None:
+    init_register.register_all_handlers()
+    ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
+    assert "projects.artifacts.render" in ids
+    assert "project.artifacts.refresh" in ids
+
+
 def test_projects_resolve_by_github_repo_handler_registered() -> None:
     init_register.register_all_handlers()
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
@@ -214,7 +221,8 @@ def test_register_all_handlers_includes_project_install_family() -> None:
     init_register.register_all_handlers()
 
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
-    assert {"project.install.run", "project.refresh.run",
+    assert {"project.artifacts.refresh",
+            "project.install.run", "project.refresh.run",
             "project.uninstall.run"} <= ids
 
 

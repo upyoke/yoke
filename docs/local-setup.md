@@ -387,6 +387,33 @@ Shared project behavior lives in the Yoke DB, not checkout files:
 - `session-routing` capability settings own default lanes, lane path
   allowlists, and `/yoke do` process-offer policy.
 
+Managed delivery artifacts have a separate template-render boundary from the
+operating substrate. Preview, apply, and verify them with:
+
+```bash
+yoke project artifacts refresh /path/to/project --project <slug>
+yoke project artifacts refresh /path/to/project --project <slug> --apply
+yoke project artifacts refresh /path/to/project --project <slug> --verify
+```
+
+The server renders from its active packaged template plus DB-backed project
+settings over HTTPS or self-hosted transport. Before planning, the client
+requires the checkout's installed project id to match the server bundle. When
+the project has a verified repository binding, its live Git origin must also
+match exactly; local/offline projects without that optional binding still use
+the durable installed project identity. The source-dev template-tree override
+requires both its explicit flag and org-admin authority, and never bypasses
+checkout identity.
+
+The client preserves local deviations and refuses apply, validates the complete
+manifest/path/symlink plan before any write, and prunes only unchanged files
+owned by its manifest. Project-authored `.yoke/runbooks/` remain outside the
+managed set; generic rendered references land under
+`docs/yoke-generated/deployment-reference/`. `yoke project refresh` remains
+substrate-only. Pulumi stack YAML stays on the exact stack-config and
+`yoke pulumi exec` surfaces so operator state is never copied into the generic
+artifact manifest.
+
 Generated views such as `.yoke/BOARD.md` are read-only output. Regenerate
 them through Yoke commands; do not edit them directly.
 
