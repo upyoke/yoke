@@ -7,7 +7,7 @@ export const SCOPE_NONE = "none";
 export const NAV = [
   {
     id: "overview", icon: "⊞", label: "Overview", scope: SCOPE_MULTI,
-    summary: "The universe at a glance, across every project.",
+    summary: "Where it is headed, what is running, what is shipping, and whether it is healthy.",
   },
   {
     id: "inbox", icon: "✉", label: "Inbox", scope: SCOPE_MULTI,

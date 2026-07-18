@@ -65,8 +65,29 @@ function summaryPanel(documentNode, title, view, scope, label) {
   const panel = section(documentNode, title);
   panel.classList.add("overview-section");
   panel.setAttribute("id", `overview-${view}`);
+  const sectionDefinition = OVERVIEW_SECTIONS.find(([id]) => id === view);
+  if (sectionDefinition) {
+    panel.children[0].children[0].textContent =
+      `${sectionDefinition[1]} ${title}`;
+  }
   panel.appendChild(openLink(documentNode, view, scope, label));
   return panel;
+}
+
+// The prototype gives the first live signals one shared masthead instead of
+// leaving four unrelated tiles floating between navigation and content. This
+// keeps the same honest values while restoring the page's visual hierarchy.
+function signalMasthead(documentNode, statRow) {
+  const masthead = el(documentNode, "section", "overview-masthead");
+  const heading = el(documentNode, "div", "overview-masthead-heading");
+  heading.appendChild(el(documentNode, "strong", null, "Live signals"));
+  heading.appendChild(el(
+    documentNode, "span", null,
+    "what can run, who is working, and whether the floor holds",
+  ));
+  masthead.appendChild(heading);
+  masthead.appendChild(statRow);
+  return masthead;
 }
 
 // A keyboard-accessible section map that stays available while the long
@@ -305,9 +326,12 @@ export function renderOverviewView(context, main, scope) {
     ["strategy", strategy], ["frontier", frontier], ["sessions", sessions],
     ["delivery", delivery], ["events", events], ["doctor", doctor],
   ]);
+  const finalPair = el(documentNode, "div", "overview-pair");
+  finalPair.appendChild(events);
+  finalPair.appendChild(doctor);
   main.replaceChildren(
-    sectionJumps(documentNode, panels), statRow,
-    strategy, frontier, sessions, delivery, events, doctor,
+    sectionJumps(documentNode, panels), signalMasthead(documentNode, statRow),
+    strategy, frontier, sessions, delivery, finalPair,
   );
 
   loadStrategy(context, strategy, scope);
