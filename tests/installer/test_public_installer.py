@@ -450,15 +450,25 @@ def test_channel_missing_version_pin_fails(tmp_path: Path) -> None:
 
 
 def test_product_boundary_audit_accepts_installed_engine() -> None:
-    # The engine ships on every machine; an importable yoke_core is expected.
-    # The audit only rejects the client wielding source-dev/admin authority.
+    # Every lockstep product distribution ships on the machine. The audit also
+    # rejects a client wielding source-dev/admin authority.
     installer_mod = load_installer()
+    package_versions = {
+        package: "1.2.3"
+        for package in (
+            installer_mod.PRODUCT_PACKAGE,
+            *installer_mod.LOCKSTEP_PRODUCT_PACKAGES,
+        )
+    }
     status = subprocess.CompletedProcess(
         ["yoke", "status", "--json"],
         0,
         json.dumps(
             {
-                "runtime": {"imports": {"yoke_core": {"available": True}}},
+                "runtime": {
+                    "imports": {"yoke_core": {"available": True}},
+                    "package_versions": package_versions,
+                },
                 "connection": {"client_authority": "api"},
             }
         ),

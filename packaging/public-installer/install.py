@@ -414,13 +414,6 @@ class Installer:
                     "reported unexpected errors on a fresh install: "
                     + ", ".join(unexpected)
                 )
-        # The engine (yoke-core) is installed on every machine by design; the
-        # audit verifies it stays inert — the client must hold product-API
-        # authority, never local source-dev/admin authority.
-        runtime = status.get("runtime") if isinstance(status, dict) else None
-        _verify_product_package_presence(runtime)
-        if expected_version:
-            _verify_product_package_versions(runtime, expected_version)
         connection = status.get("connection") if isinstance(status, dict) else None
         authority = ""
         if isinstance(connection, dict):
@@ -431,6 +424,15 @@ class Installer:
                 f"{authority!r}; a product install must use the product API, not "
                 "source-dev/admin authority."
             )
+        # The engine (yoke-core) is installed on every machine by design; the
+        # audit verifies it stays inert — the client must hold product-API
+        # authority, never local source-dev/admin authority. Reject a reported
+        # authority violation before diagnosing package completeness so the
+        # security boundary remains the primary failure.
+        runtime = status.get("runtime") if isinstance(status, dict) else None
+        _verify_product_package_presence(runtime)
+        if expected_version:
+            _verify_product_package_versions(runtime, expected_version)
 
     def _advise_path(self) -> None:
         if self.which("yoke") is not None:
