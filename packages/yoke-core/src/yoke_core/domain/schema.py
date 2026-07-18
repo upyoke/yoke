@@ -41,10 +41,10 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain.schema_common import (
-    _USAGE, _add_column_if_not_exists, _check_sibling_state_collision,
-    _cli_error, _cli_usage_error, _column_exists, _connect_raw,
-    _get_columns, _resolve_db_path, _resolve_db_root,
-    _table_exists, check_sibling_state_collision, guard_state_dir_creation,
+    _USAGE, _check_sibling_state_collision,
+    _cli_error, _cli_usage_error, _connect_raw,
+    _resolve_db_path, _resolve_db_root,
+    check_sibling_state_collision, guard_state_dir_creation,
 )
 from yoke_core.domain import schema_init as _schema_init
 

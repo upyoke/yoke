@@ -239,7 +239,6 @@ def _credential_status(
 
 
 def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
-    entry = machine_config.project_entry(repo_root, config_path)
     project_id = machine_config.project_id(repo_root, config_path)
     issues: list[dict[str, str]] = []
     if project_id is None:

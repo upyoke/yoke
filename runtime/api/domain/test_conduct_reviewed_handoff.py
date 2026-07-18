@@ -228,7 +228,7 @@ class TestAutoClaimRelease(unittest.TestCase):
         rc = mod.run(42)
         self.assertEqual(rc, 4)
 
-def test_run_status_write_exercises_real_backlog_update(tmp_db):
+def test_run_status_write_exercises_real_backlog_update(tmp_db):  # noqa: F811
     _seed_item(
         tmp_db,
         id=43,
