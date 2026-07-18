@@ -23,7 +23,7 @@ _GATHER_VALUES_KEYS = {
     "project_name", "deploy_namespace", "cloudfront_domain", "cloudfront_id",
     "certificate_arn",
     "hosted_zone_id", "aws_account_id", "vps_description", "domain_name",
-    "origin_host", "origin_ip", "aws_region", "ssh_user", "web_port",
+    "origin_host", "origin_ip", "aws_region", "ssh_host", "ssh_user", "web_port",
     "api_port", "ephemeral_ttl_hours", "web_health_path", "web_smoke_paths",
     "domain", "api_port_base", "port_base", "port_range", "dns_provider",
     "configure_aws_credentials_action",

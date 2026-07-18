@@ -14,7 +14,7 @@ from yoke_core.domain.handlers.projects_infrastructure import (
 )
 
 
-def _request(project: str = "buzz") -> FunctionCallRequest:
+def _request(project: str = "externalwebapp") -> FunctionCallRequest:
     return FunctionCallRequest(
         function="projects.infrastructure.list",
         actor=ActorContext(actor_id="operator", session_id="session-1"),
@@ -32,9 +32,9 @@ def test_lists_only_non_secret_site_and_environment_metadata() -> None:
                 "id": "production",
                 "site": "main",
                 "name": "Production",
-                "url": "https://buzz.example",
+                "url": "https://externalwebapp.example",
                 "deploy_method": "github-actions",
-                "health_check_url": "https://buzz.example/health",
+                "health_check_url": "https://externalwebapp.example/health",
             }
         ],
     ]
@@ -47,7 +47,7 @@ def test_lists_only_non_secret_site_and_environment_metadata() -> None:
 
     assert outcome.primary_success is True
     assert outcome.result_payload == {
-        "project": "buzz",
+        "project": "externalwebapp",
         "sites": rows[0],
         "environments": rows[1],
     }

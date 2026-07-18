@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -66,16 +65,11 @@ def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
     assert expected <= set(registry.SUBCOMMAND_REGISTRY)
 
 
-def test_buzz_seed_flows_include_explicit_smoke_completion() -> None:
-    flows = {str(flow["id"]): flow for flow in SEED_FLOWS}
-    release = json.loads(flows["buzz-production-release"]["stages"])
-    hotfix = json.loads(flows["buzz-production-hotfix"]["stages"])
-    assert [stage.get("name") or stage.get("kind") for stage in release] == [
-        "migration_apply", "merged", "prod-deploy", "smoke", "complete",
-    ]
-    assert [stage.get("name") or stage.get("kind") for stage in hotfix] == [
-        "migration_apply", "merged", "production-deploy", "smoke", "complete",
-    ]
+def test_builtin_seed_flows_are_source_owned() -> None:
+    assert {str(flow["project"]) for flow in SEED_FLOWS} == {
+        "yoke",
+        "platform",
+    }
 
 
 def test_atlas_names_real_pulumi_client_local_source_owners() -> None:

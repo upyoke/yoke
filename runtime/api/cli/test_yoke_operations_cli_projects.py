@@ -162,13 +162,13 @@ class TestProjectsInfrastructureList:
     def test_dispatches_metadata_inventory_read(self) -> None:
         rc = _run(
             _stub_ok,
-            "projects", "infrastructure", "list", "--project", "buzz",
+            "projects", "infrastructure", "list", "--project", "externalwebapp",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "projects.infrastructure.list"
         assert req.target.kind == "global"
-        assert req.payload == {"project": "buzz"}
+        assert req.payload == {"project": "externalwebapp"}
 
     def test_missing_project_returns_two(self) -> None:
         rc = _run(_stub_ok, "projects", "infrastructure", "list")

@@ -48,7 +48,7 @@ class WebappVpsArgs:
     instance_type: str
     root_volume_gb: int
     ssh_key_name: str
-    # Pulumi stack name (e.g. ``"buzz-vps"``). Used as the prefix for
+    # Pulumi stack name (e.g. ``"externalwebapp-vps"``). Used as the prefix for
     # ``Name`` tags so ``pulumi import`` lands a zero-change diff against
     # existing live VPS instances tagged with the historical phrasing.
     # Always populated from ``pulumi.get_stack()`` in

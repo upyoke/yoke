@@ -305,23 +305,23 @@ def test_pulumi_exec_init_is_local_and_reaches_core_boundary(monkeypatch):
     rc = pulumi.pulumi_exec(
         [
             "--project",
-            "buzz",
+            "externalwebapp",
             "--stack",
-            "buzz-registry",
+            "externalwebapp-registry",
             "--",
             "init",
             "--secrets-provider",
-            "awskms://alias/buzz-pulumi-state?region=us-east-1",
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
         ]
     )
     assert rc == 0
     assert calls["execute"][0][:3] == (
-        "buzz",
-        "buzz-registry",
+        "externalwebapp",
+        "externalwebapp-registry",
         [
             "init",
             "--secrets-provider",
-            "awskms://alias/buzz-pulumi-state?region=us-east-1",
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
         ],
     )
 
@@ -342,13 +342,13 @@ def test_pulumi_exec_init_refuses_https_before_core_import(monkeypatch):
         rc = pulumi.pulumi_exec(
             [
                 "--project",
-                "buzz",
+                "externalwebapp",
                 "--stack",
-                "buzz-registry",
+                "externalwebapp-registry",
                 "--",
                 "init",
                 "--secrets-provider",
-                "awskms://alias/buzz-pulumi-state?region=us-east-1",
+                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
             ]
         )
     assert rc == 2

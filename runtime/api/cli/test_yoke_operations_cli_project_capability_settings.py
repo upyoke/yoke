@@ -80,7 +80,7 @@ def test_get_refuses_pulumi_state_and_names_typed_bootstrap_path():
         "capability-settings",
         "get",
         "--project",
-        "buzz",
+        "externalwebapp",
         "--cap-type",
         "pulumi-state",
     )

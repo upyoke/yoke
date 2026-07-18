@@ -71,15 +71,15 @@ def _init_settings(
 ) -> ProjectRendererSettings:
     state = {
         "stacks": stacks if stacks is not None else ["registry"],
-        "state_bucket": "buzz-pulumi-state",
-        "kms_key_alias": "alias/buzz-pulumi-state",
+        "state_bucket": "externalwebapp-pulumi-state",
+        "kms_key_alias": "alias/externalwebapp-pulumi-state",
     }
     if stack_state is not None:
         state["stack_state"] = stack_state
     return ProjectRendererSettings(
-        project="buzz",
-        deploy_namespace="buzz",
-        display_name="Buzz",
+        project="externalwebapp",
+        deploy_namespace="externalwebapp",
+        display_name="ExternalWebapp",
         site_id="",
         site_settings={},
         primary_environment=None,
@@ -91,7 +91,7 @@ def _init_settings(
             },
             "github": {
                 "repo_owner": "beebauman",
-                "repo_name": "buzz",
+                "repo_name": "externalwebapp",
             },
             "pulumi-state": state,
         },
@@ -108,10 +108,10 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
 
     def child_factory(command, **kwargs):
         cwd = Path(kwargs["cwd"])
-        stack_path = cwd / "Pulumi.buzz-registry.yaml"
+        stack_path = cwd / "Pulumi.externalwebapp-registry.yaml"
         stack_path.write_text(
             "secretsprovider: "
-            "awskms://alias/buzz-pulumi-state?region=us-east-1\n"
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1\n"
             f"encryptedkey: {encrypted_key}\n" + stack_path.read_text()
         )
         temp_root = cwd.parents[1]
@@ -132,12 +132,12 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
 
     output = StringIO()
     rc = execute_pulumi_command(
-        "buzz",
-        "buzz-registry",
+        "externalwebapp",
+        "externalwebapp-registry",
         [
             "init",
             "--secrets-provider",
-            "awskms://alias/buzz-pulumi-state?region=us-east-1",
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
         ],
         config_loader=config_loader,
         project_root=Path(__file__).resolve().parents[3],
@@ -158,22 +158,22 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
         "pulumi",
         "stack",
         "init",
-        "buzz-registry",
+        "externalwebapp-registry",
         "--secrets-provider",
-        "awskms://alias/buzz-pulumi-state?region=us-east-1",
+        "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
         "--non-interactive",
     ]
     assert calls[0]["temp_mode"] == 0o700
     assert calls[0]["env"]["PULUMI_BACKEND_URL"] == (
-        "s3://buzz-pulumi-state?region=us-east-1"
+        "s3://externalwebapp-pulumi-state?region=us-east-1"
     )
     assert "GITHUB_TOKEN" not in calls[0]["env"]
     assert not calls[0]["temp_root"].exists()
     assert imports == [
         {
-            "project": "buzz",
-            "stack_name": "buzz-registry",
-            "secrets_provider": ("awskms://alias/buzz-pulumi-state?region=us-east-1"),
+            "project": "externalwebapp",
+            "stack_name": "externalwebapp-registry",
+            "secrets_provider": ("awskms://alias/externalwebapp-pulumi-state?region=us-east-1"),
             "encrypted_key": encrypted_key,
             "apply": True,
         }
@@ -200,7 +200,7 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
             [
                 "init",
                 "--secrets-provider",
-                "awskms://alias/buzz-pulumi-state?region=us-east-1",
+                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
             ],
             _init_settings(stacks=["infra"]),
             "not an exact declared project stack",
@@ -209,11 +209,11 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
             [
                 "init",
                 "--secrets-provider",
-                "awskms://alias/buzz-pulumi-state?region=us-east-1",
+                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
             ],
             _init_settings(
                 stack_state={
-                    "buzz-registry": {
+                    "externalwebapp-registry": {
                         "secrets_provider": "awskms://alias/existing",
                         "encrypted_key": "existing-key",
                     }
@@ -237,8 +237,8 @@ def test_init_refuses_unsafe_or_non_bootstrap_requests_before_child(
 
     with pytest.raises(PulumiExecError, match=message):
         execute_pulumi_command(
-            "buzz",
-            "buzz-registry",
+            "externalwebapp",
+            "externalwebapp-registry",
             command,
             config_loader=lambda *args: pytest.fail("fetched stack config"),
             project_root=Path(__file__).resolve().parents[3],
@@ -254,10 +254,10 @@ def test_init_child_failure_does_not_persist_operator_state():
 
     def child_factory(command, **kwargs):
         cwd = Path(kwargs["cwd"])
-        stack_path = cwd / "Pulumi.buzz-registry.yaml"
+        stack_path = cwd / "Pulumi.externalwebapp-registry.yaml"
         stack_path.write_text(
             "secretsprovider: "
-            "awskms://alias/buzz-pulumi-state?region=us-east-1\n"
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1\n"
             "encryptedkey: failed-key\n" + stack_path.read_text()
         )
         return _Child(returncode=9, stderr=b"init failed\n")
@@ -268,12 +268,12 @@ def test_init_child_failure_does_not_persist_operator_state():
         return {"receipt_digest": "unexpected"}
 
     rc = execute_pulumi_command(
-        "buzz",
-        "buzz-registry",
+        "externalwebapp",
+        "externalwebapp-registry",
         [
             "init",
             "--secrets-provider",
-            "awskms://alias/buzz-pulumi-state?region=us-east-1",
+            "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
         ],
         config_loader=lambda *args: pytest.fail("fetched stack config"),
         project_root=Path(__file__).resolve().parents[3],
