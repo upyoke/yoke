@@ -32,7 +32,11 @@ def test_verify_uses_baseline_token_for_secrets_and_environment_listing(
         path = request.full_url.split("api.github.com", 1)[-1]
         authorizations.append((path, request.get_header("Authorization")))
         if "/actions/secrets" in path:
-            names = ("EXT_SSH_KEY", "EXT_SSH_HOST", "EXT_SSH_USER")
+            names = (
+                "EXTERNALWEBAPP_SSH_KEY",
+                "EXTERNALWEBAPP_SSH_HOST",
+                "EXTERNALWEBAPP_SSH_USER",
+            )
             return _FakeRestResponse(
                 200, {"secrets": [{"name": name} for name in names]},
             )

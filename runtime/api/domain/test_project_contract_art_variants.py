@@ -130,7 +130,7 @@ def test_board_art_ascii_variant_uses_installed_pyfiglet_font(
         for variant in cfg.ascii_variants
     ]
     expected_ascii, expected_fonts = art_seed._select_ascii_variants(
-        "ExternalWebapp", "EXT"
+        "ExternalWebapp", choose_art_word("ExternalWebapp")
     )
     assert len(rendered_ascii) == ASCII_VARIANT_COUNT
     assert len(set(rendered_ascii)) == ASCII_VARIANT_COUNT

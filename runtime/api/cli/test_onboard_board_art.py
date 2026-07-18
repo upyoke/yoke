@@ -28,8 +28,8 @@ def test_resolve_word_short_display_name_used_whole():
 def test_resolve_word_long_name_falls_to_first_word():
     # whole join is too long; the first word fits and is most recognizable.
     assert resolve_project_art_word(
-        "ExternalWebapp Marketing Platform", slug="externalwebapp-marketing-platform", short_code="EXT",
-    ) == "EXT"
+        "External Marketing Platform", slug="external-marketing-platform", short_code="EXT",
+    ) == "EXTERNAL"
 
 
 def test_resolve_word_acronym_when_every_word_is_long():
@@ -55,8 +55,8 @@ def test_normalize_master_map_word_caps_and_uppercases():
 
 
 def test_normalize_header_art_word_keeps_spaces_allows_longer():
-    out = normalize_header_art_word("ExternalWebapp Marketing Platform")
-    assert out == "EXT MARKETING PLATFORM"
+    out = normalize_header_art_word("External Marketing")
+    assert out == "EXTERNAL MARKETING"
     assert len(out) > MAX_ART_WORD_LEN  # header art is not capped at the map limit
 
 

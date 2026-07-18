@@ -19,7 +19,7 @@ def test_run_preflight_no_ssh_key_path_uses_canonical_repair_hint(
     capsys,
 ) -> None:
     placeholder = tmp_path / ".placeholder-key"
-    monkeypatch.delenv("EXT_SSH_KEY_PATH", raising=False)
+    monkeypatch.delenv("EXTERNALWEBAPP_SSH_KEY_PATH", raising=False)
 
     monkeypatch.setattr(
         "yoke_core.domain.bootstrap_project.shutil.which", lambda _name: "/usr/bin/gh"

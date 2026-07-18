@@ -31,7 +31,7 @@ def test_load_setup_config_prefers_env_key_path(tmp_path: Path, monkeypatch) -> 
     db_key.write_text("db-secret")
     env_key = tmp_path / ".env-key"
     env_key.write_text("secret")
-    monkeypatch.setenv("EXT_SSH_KEY_PATH", str(env_key))
+    monkeypatch.setenv("EXTERNALWEBAPP_SSH_KEY_PATH", str(env_key))
     repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
 

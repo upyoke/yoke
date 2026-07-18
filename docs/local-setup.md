@@ -295,7 +295,8 @@ report path in the slash-command arguments when available.
 ## Detailed Setup Reference
 
 For install-manifest contents, source-refresh previews, configuration layout,
-agent-host setup, and source-development administration, see
+agent-host setup, and source-development administration (including the
+`uv run python -m yoke_core.tools.build_release` boundary), see
 [Local Setup Reference](local-setup-reference.md).
 
 ### Agent Hosts

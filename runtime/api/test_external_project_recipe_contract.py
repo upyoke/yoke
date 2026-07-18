@@ -47,13 +47,16 @@ def test_external_project_teaching_has_no_checkout_only_control_plane_recipe() -
 
 def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
     agents = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+    verification = (REPO / "docs/testing-verification.md").read_text(
+        encoding="utf-8"
+    )
     assert "uv run --frozen ruff check <changed Python paths>" in agents
     assert "Use `-- -n 0`" in agents
     assert "Never pass an optional unmatched path glob" in agents
     assert "Never fabricate or expand a full commit hash" in agents
     assert "cat-file -e '<sha>^{commit}'" in agents
-    assert "git diff --name-only --diff-filter=ACMR <base>...HEAD" in agents
-    assert "Do not pipe NUL-delimited Git output through `rg -z`" in agents
+    assert "git diff --name-only --diff-filter=ACMR <base>...HEAD" in verification
+    assert "Do not pipe NUL-delimited Git output through `rg -z`" in verification
     expected = {
         ("ephemeral-env", "create"),
         ("workflow-item", "epic-dispatch-chain", "advance"),
