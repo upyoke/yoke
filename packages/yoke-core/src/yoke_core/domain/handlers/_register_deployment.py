@@ -47,6 +47,27 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
+        "deployment_flows.reconcile_project",
+        _flows.handle_deployment_flow_reconcile_project,
+        _models.DeploymentFlowReconcileProjectRequest,
+        _models.DeploymentFlowReconcileProjectResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_flows",
+        target_kinds=["global"],
+        side_effects=[
+            "deployment_flows_reconcile",
+            "project_structure_update",
+        ],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "project_scoped",
+            "history_preserved",
+            "referenced_definitions_immutable",
+        ],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
         "deployment_flows.set_status",
         _flows.handle_deployment_flow_set_status,
         _models.DeploymentFlowSetStatusRequest,

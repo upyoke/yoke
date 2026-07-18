@@ -189,7 +189,7 @@ secrets stay in the control-plane secret store.
 Deployment flow definitions. Each flow defines an ordered sequence of stages that an item passes through after merge.
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'external-webapp-prod-release'
+id TEXT PRIMARY KEY -- e.g., 'project-production-release'
 project TEXT NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name (e.g., 'Prod Release')
 description TEXT
@@ -208,7 +208,17 @@ Stage objects come in two shapes. Executor-shaped stages require `name` (string)
 
 **`health-check` executor type:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's `target_env` environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
-Read the current project definitions with `yoke workflows definition get --project <slug> --json`. Change lifecycle state with `yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents new assignments and runs while preserving the definition and every historical run. A definition referenced by a run is immutable and cannot be deleted or rewritten.
+Read the current project workflow definition with `yoke workflows definition get --project <slug> --json`; inspect a materialized flow with `yoke deployment-flows get <flow-id>` / `stages`. External project
+repositories own their desired definitions in `.yoke/deployment-flows.json`;
+`yoke project refresh` (or `yoke deployment-flows reconcile-project <project>`)
+validates and materializes the declared rows plus the optional `default_flow`.
+Reconciliation is additive: omitted rows are preserved, and a definition
+referenced by a run is immutable. A declaration may name predecessor IDs in
+`retire_if_present`; matching rows owned by that project are disabled, absent
+rows are not created, and run history remains intact. Change lifecycle state with
+`yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents
+new assignments and runs while preserving the definition and every historical
+run.
 
 Seed data: `python3 -m yoke_core.cli.db_router flows init` is a source-dev/admin seeder that adds flow definitions only for projects already present in the universe (a fresh universe gets none). Ordinary project operation reads and selects the registered definitions through project-scoped commands. The definitions:
 - `yoke-internal` — Script/doc changes, no deployment: `migration_apply (primary, implementing) -> merged (auto) -> complete (auto)` (no target_env, done="Merged to main")
@@ -222,6 +232,10 @@ Seed data: `python3 -m yoke_core.cli.db_router flows init` is a source-dev/admin
 - `platform-production` — disabled historical Stage-then-Production definition retained for run history.
 - `platform-production-hotfix` — Platform item → direct Production hotfix train at the merged Platform commit.
 - `yoke-ephemeral-deploy` — Branch/SHA Yoke core preview environment: `ephemeral-deploy (ephemeral-deploy) -> complete (auto)` (target_env=ephemeral, done="Yoke core preview environment deployed")
-Project-authored definitions can add equivalent internal, release, and hotfix routes for any managed project. Their behavior is determined by the stored stages and capabilities, not by a recognized flow-id prefix.
+Project-owned declarations are the authority for external-project flow IDs,
+stage names, workflow filenames, and defaults. Built-in initialization does not
+embed consumer-project definitions. Existing consumer rows remain readable in
+the database even when a declaration omits them. Their behavior is determined
+by the stored stages and capabilities, not by a recognized flow-id prefix.
 
 Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.

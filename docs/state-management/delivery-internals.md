@@ -25,7 +25,13 @@ Two conditions act as halt states during deployment run execution (items at thes
 
 **Human approval gate** — When the pipeline encounters a stage with `executor: "human-approval"`, the run halts at that stage. The item is blocked until the operator runs `/yoke approve YOK-N [--note "..."]`, which advances the run's `current_stage` to the next stage in the flow. The operator then re-runs `/yoke usher YOK-N` to resume.
 
-**Note (v2 — external projects):** For projects that deploy via GitHub Actions, the `awaiting-approval` state is triggered by GitHub's native environment protection rules, not by a Yoke-internal `human-approval` executor stage. The Usher sees the Actions run pause at `waiting` status and records it on the deployment run. Approval happens in the GitHub UI (not via `/yoke approve`). Once the protection rule is satisfied, the Usher's next poll sees the run resume and advances the stage accordingly. A project may compose any number of `github-actions-workflow` executor stages, including separate deploy and smoke workflows, without slug-specific code.
+**External projects:** When a project-owned `github-actions-workflow` stage
+targets a protected GitHub environment, GitHub's native protection rules pause
+the Actions run. The Usher records the wait on the deployment run; approval
+happens in GitHub, not through `/yoke approve`. Once protection is satisfied,
+the Usher's next poll sees the workflow resume and advances the declared stage.
+The project repository's `.yoke/deployment-flows.json` owns the stage chain and
+workflow filenames.
 
 Both halt states are visible on the board. Items at `release` with halted runs are not counted as WIP.
 

@@ -59,6 +59,15 @@ _SEED_SCHEMA_DDL = """
       name TEXT NOT NULL,
       stages TEXT NOT NULL
     );
+    CREATE TABLE project_structure (
+      id INTEGER PRIMARY KEY,
+      project_id INTEGER NOT NULL,
+      family TEXT NOT NULL,
+      attachment_value TEXT NOT NULL,
+      attachment_kind TEXT NOT NULL DEFAULT '',
+      entry_key TEXT NOT NULL DEFAULT '',
+      payload TEXT NOT NULL DEFAULT '{}'
+    );
 """
 
 
@@ -83,9 +92,15 @@ def _apply_seed_minus_github(conn) -> None:
         "INSERT INTO deployment_flows (id, project_id, name, stages) "
         f"VALUES ({p}, {p}, {p}, {p})",
         (
-            "externalwebapp-prod-release", 2, "ExternalWebapp Production Release",
+            "managed-production", 2, "Production Release",
             json.dumps([{"name": "deploy", "executor": "github-actions"}]),
         ),
+    )
+    conn.execute(
+        "INSERT INTO project_structure "
+        "(project_id, family, attachment_value, entry_key, payload) "
+        f"VALUES ({p}, 'deploy_defaults', 'project', '', {p})",
+        (2, json.dumps({"deployment_flow": "managed-production"})),
     )
     conn.commit()
 

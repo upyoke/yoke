@@ -37,6 +37,11 @@ from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install import source_dev
 from yoke_cli.project_install import strategy as strategy_layer
+from yoke_cli.project_install.deployment_flows import (
+    prepare_project_flow_declaration,
+    preflight_project_flow_declaration,
+    sync_project_flow_declarations_for_write,
+)
 from yoke_cli.project_install.files import (
     MODE_COPY,
     MODE_KEY,
@@ -101,6 +106,11 @@ def install(
     )
     validate_bundle_for_project(bundle, resolved_id)
     preflight_apply(root, bundle, files_layer.load_manifest(root) or {}, {})
+    prepared_flows = prepare_project_flow_declaration(root)
+    preflight_project_flow_declaration(
+        project=str(bundle["project_slug"]),
+        prepared=prepared_flows,
+    )
     # Register between bundle resolution and apply: the fetch has already
     # validated the project id against the env (a 404 aborts before any
     # mapping is recorded), and an unwritable machine config fails fast
@@ -111,6 +121,11 @@ def install(
         root, resolved_id, config_path, explicit_given
     )
     report = apply_bundle(root, bundle, operation=operation, source=source)
+    report["deployment_flows"] = sync_project_flow_declarations_for_write(
+        repo_root=root,
+        project=str(bundle["project_slug"]),
+        prepared=prepared_flows,
+    )
     report["snapshot_sync"] = sync_local_snapshot_for_write(
         project=str(resolved_id),
         repo_root=str(root),

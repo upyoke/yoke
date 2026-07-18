@@ -13,10 +13,12 @@ from .project_renderer_pulumi_runner_fleet import (
     runner_fleet_values,
 )
 from .project_renderer_settings import (
+    PULUMI_STATE_CAPABILITY_TYPE,
     ProjectRendererSettings,
     _stringify,
     load_project_renderer_settings,
 )
+from .pulumi_state_capability import COMPONENT_TYPE_ALIASES_KEY
 from .project_renderer_values import _values_from_settings
 
 
@@ -46,6 +48,10 @@ def gather_pulumi_values(
     )
     values["domain_txt_records_json"] = _domain_txt_records_json(data)
     values["domain_mx_records_json"] = _domain_mx_records_json(data)
+    state = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {})
+    values["component_type_aliases_json"] = json_helper.dumps_compact(
+        state.get(COMPONENT_TYPE_ALIASES_KEY, {})
+    )
 
     namespace = settings.deploy_namespace
     values["kms_key_alias"] = _stringify(

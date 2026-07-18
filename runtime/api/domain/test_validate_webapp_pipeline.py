@@ -11,6 +11,7 @@ from runtime.api.domain.validate_webapp_pipeline_test_support import (
     make_repo,
     make_script_dir as _make_script_dir,
     placeholder as _p,
+    seed_deploy_default,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -19,7 +20,6 @@ from yoke_core.domain.validate_webapp_pipeline import (
     run_validation,
 )
 from runtime.api.fixtures.file_test_db import init_test_db
-
 
 _APP_PERMISSIONS = {
     "metadata": "read",
@@ -124,8 +124,9 @@ def _seed_externalwebapp(
     conn.execute(
         "INSERT INTO deployment_flows (id, project_id, name, stages) "
         f"VALUES ({p}, {p}, {p}, {p})",
-        ("externalwebapp-prod-release", 2, "ExternalWebapp Production Release", json.dumps(stages)),
+        ("managed-production", 2, "Production Release", json.dumps(stages)),
     )
+    seed_deploy_default(conn, 2, "managed-production")
 
 
 @contextlib.contextmanager
@@ -242,7 +243,7 @@ def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
     assert "[FAIL]" not in out
     assert "Workflow file exists: externalwebapp-deploy.yml" in out
     assert "GitHub environment 'production' exists" in out
-    assert "externalwebapp-prod-release flow has 2 stage(s)" in out
+    assert "managed-production flow has 2 stage(s)" in out
 
 
 def test_run_validation_missing_control_plane_marker(
@@ -294,8 +295,8 @@ def test_run_validation_missing_project_and_token(tmp_path: Path, monkeypatch, c
         rc = run_validation(ctx)
     out = capsys.readouterr().out
     assert rc == 1
-    assert "ExternalWebapp project not found in projects table" in out
-    assert "ExternalWebapp github_repo not set" in out
+    assert "Externalwebapp project not found in projects table" in out
+    assert "Externalwebapp github_repo not set" in out
     assert "No github capability for externalwebapp" in out
     assert "No deployment flows for externalwebapp" in out
     # GitHub App auth-only validator no longer probes the host gh CLI. Banned

@@ -9,7 +9,15 @@ import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable, Iterator, Optional, Sequence, TextIO
+from typing import Any, Iterable, Iterator, Optional, Sequence, TextIO
+
+import yaml
+
+
+def load_document(path: Path) -> Any:
+    """Load one YAML document through the project-owned parser boundary."""
+    _require_file(path)
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def read_top_level_scalars(path: Path, keys: Iterable[str]) -> dict[str, str]:

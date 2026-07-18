@@ -136,6 +136,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.github_binding.unbind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.github_binding.status": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project.snapshot.sync": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    "deployment_flows.reconcile_project": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "project_structure.command_definitions.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project_structure.command_definitions.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
@@ -218,7 +219,7 @@ _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
     # project selector, while the handlers retain their optional project
     # filter for narrowing a global listing.
     ("ouroboros.field_note.", AuthzSpec(ACTOR_SESSION, None)),
-    # Deployment flows/runs reads + run mutation: cross-project infra → org admin.
+    # Flow reads/runs are org-scoped; project reconcile is excepted above.
     ("deployment_flows.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
     ("deployment_runs.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
     # Sign-in admission administration (invites, identity links, auto-join

@@ -73,6 +73,7 @@ Key reference (every entry maps to a `config.require(...)` / `config.require_int
 | `origin_host` | string | infra | VPS hostname (a domain, not an IP). |
 | `hosted_zone_id` | string | infra | Route 53 hosted zone Id (created in §2 below). |
 | `certificate_arn` | string | infra | ACM cert ARN (us-east-1; created in §5 below). |
+| `component_type_aliases` | object | infra/vps | Legacy ComponentResource types keyed by `infra` or `vps`; empty for fresh projects. |
 | `origin_id` | string | infra | CloudFront origin logical Id — see below. |
 | `vps_instance_type` | string | vps | EC2 instance type (`t3.small`, etc). |
 | `vps_root_volume_gb` | int | vps | EBS root volume size in GB. |
@@ -98,6 +99,13 @@ set `origin_id` to the distribution's existing origin Id (visible under
 so Pulumi reconciles against the live state instead of creating a duplicate
 origin. The infra stack rejects empty / missing values at config-load time;
 there is no runtime default.
+
+When adopting an existing stack after a ComponentResource type rename, declare
+its old type under the project `pulumi-state.component_type_aliases` setting.
+The renderer carries that map into Pulumi config and the generic components
+register the aliases. Keep each alias until refresh previews for the affected
+stacks prove zero create, replace, or delete without it; source cleanup alone
+is not evidence that the old URN has left live state.
 
 Confirm every key resolved:
 

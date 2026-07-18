@@ -183,10 +183,9 @@ class TestFlowMigrationCapabilityValidation:
         with pytest.raises(ValueError, match="more than once in the same flow"):
             cmd_create(test_db, "f-dup-within", "yoke", "F", "D", stages)
 
-    def test_cmd_create_rejects_cross_flow_duplicate_model(self, test_db):
-        # Per-project cross-flow uniqueness — a model may
-        # appear in at most one migration_apply stage across all flows
-        # for the project.
+    def test_cmd_create_allows_alternative_flows_for_same_model(self, test_db):
+        # Release and hotfix flows are alternatives. Each may carry the same
+        # governed model gate because a deployment run selects one flow.
         import json
         from yoke_core.domain.flow import cmd_create
         _insert_projects(test_db)
@@ -202,8 +201,7 @@ class TestFlowMigrationCapabilityValidation:
              "lifecycle_phase": "implementing"},
             {"name": "merged", "executor": "auto"},
         ])
-        with pytest.raises(ValueError, match="already has a migration_apply"):
-            cmd_create(test_db, "f-b", "yoke", "B", "D", stages_b)
+        cmd_create(test_db, "f-b", "yoke", "B", "D", stages_b)
 
     def test_cmd_create_allows_distinct_models_across_flows(self, test_db):
         # AC-27 complement — different models in different flows of the

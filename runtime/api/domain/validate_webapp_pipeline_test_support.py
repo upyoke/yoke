@@ -44,6 +44,10 @@ CREATE UNIQUE INDEX uq_project_github_repo_bindings_installation_repository_id
 ON project_github_repo_bindings(installation_id, repository_id);
 CREATE TABLE deployment_flows (id TEXT PRIMARY KEY, project_id INTEGER NOT NULL,
   name TEXT NOT NULL, stages TEXT NOT NULL);
+CREATE TABLE project_structure (id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL, family TEXT NOT NULL,
+  attachment_value TEXT NOT NULL, attachment_kind TEXT NOT NULL DEFAULT '',
+    entry_key TEXT NOT NULL DEFAULT '', payload TEXT NOT NULL DEFAULT '{{}}');
 """
 
 
@@ -67,11 +71,25 @@ def placeholder(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def seed_deploy_default(conn, project_id: int, flow_id: str) -> None:
+    p = placeholder(conn)
+    conn.execute(
+        "INSERT INTO project_structure "
+        "(project_id, family, attachment_value, entry_key, payload) "
+        f"VALUES ({p}, 'deploy_defaults', 'project', '', {p})",
+        (project_id, json.dumps({"deployment_flow": flow_id})),
+    )
+
+
 def install_rest_happy(monkeypatch) -> None:
     def fake_urlopen(request, timeout):
         url = request.full_url
         if "/actions/secrets" in url:
-            names = ("EXT_SSH_KEY", "EXT_SSH_HOST", "EXT_SSH_USER")
+            names = (
+                "EXTERNALWEBAPP_SSH_KEY",
+                "EXTERNALWEBAPP_SSH_HOST",
+                "EXTERNALWEBAPP_SSH_USER",
+            )
             return RestResponse(200, {"secrets": [{"name": n} for n in names]})
         if url.endswith("/environments") or "/environments?" in url:
             return RestResponse(200, {"environments": [{"name": "production"}]})

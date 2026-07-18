@@ -13,12 +13,13 @@ from yoke_core.domain.projects_pulumi_state_migration_marker import (
 
 CAPABILITY_TYPE = "pulumi-state"
 STACK_STATE_KEY = "stack_state"
+COMPONENT_TYPE_ALIASES_KEY = "component_type_aliases"
 _ENTRY_KEYS = frozenset({"secrets_provider", "encrypted_key"})
 _STRING_KEYS = frozenset({
     "deploy_namespace", "infra_stack_name", "kms_key_alias",
     "runner_fleet_stack_name", "state_bucket", "vps_stack_name",
 })
-_PUBLIC_MERGE_KEYS = _STRING_KEYS | {"stacks"}
+_PUBLIC_MERGE_KEYS = _STRING_KEYS | {"stacks", COMPONENT_TYPE_ALIASES_KEY}
 _ALLOWED_KEYS = _PUBLIC_MERGE_KEYS | {
     STACK_STATE_KEY, MIGRATION_MARKERS_KEY,
 }
@@ -50,6 +51,10 @@ def validate_json_string(raw_json: str) -> str:
         if any(not value for value in stacks) or len(stacks) != len(set(stacks)):
             raise ValueError("pulumi-state stacks must be non-empty and unique")
         document["stacks"] = stacks
+    if COMPONENT_TYPE_ALIASES_KEY in document:
+        document[COMPONENT_TYPE_ALIASES_KEY] = validate_component_type_aliases(
+            document[COMPONENT_TYPE_ALIASES_KEY]
+        )
     raw_state = document.get(STACK_STATE_KEY)
     if raw_state is not None:
         document[STACK_STATE_KEY] = validate_stack_state(raw_state)
@@ -58,6 +63,27 @@ def validate_json_string(raw_json: str) -> str:
             document[MIGRATION_MARKERS_KEY]
         )
     return json.dumps(document, sort_keys=True, separators=(",", ":"))
+
+
+def validate_component_type_aliases(raw: Any) -> dict[str, list[str]]:
+    """Validate project-owned legacy ComponentResource type aliases."""
+    if not isinstance(raw, Mapping):
+        raise ValueError("pulumi-state component_type_aliases must be an object")
+    result: dict[str, list[str]] = {}
+    for raw_kind, raw_aliases in raw.items():
+        kind = str(raw_kind or "").strip()
+        if not kind or not isinstance(raw_aliases, list):
+            raise ValueError(
+                "pulumi-state component_type_aliases entries require a "
+                "non-empty stack kind and a list"
+            )
+        aliases = [str(value or "").strip() for value in raw_aliases]
+        if any(not value for value in aliases) or len(aliases) != len(set(aliases)):
+            raise ValueError(
+                "pulumi-state component type aliases must be non-empty and unique"
+            )
+        result[kind] = aliases
+    return result
 
 
 def validate_stack_state(raw_state: Any) -> dict[str, dict[str, str]]:
@@ -134,9 +160,11 @@ def validate_merge_assignments(
 
 __all__ = [
     "CAPABILITY_TYPE",
+    "COMPONENT_TYPE_ALIASES_KEY",
     "reject_generic_full_write",
     "reject_generic_read",
     "validate_json_string",
+    "validate_component_type_aliases",
     "validate_merge_assignments",
     "validate_stack_state",
 ]

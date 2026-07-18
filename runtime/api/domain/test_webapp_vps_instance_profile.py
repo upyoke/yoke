@@ -46,6 +46,17 @@ def test_instance_ignores_ami_drift(monkeypatch):
     assert instance.opts.parent is stack
 
 
+def test_vps_component_type_aliases_are_project_configured(monkeypatch):
+    _recorder, stack = _vps_stack(
+        monkeypatch,
+        component_type_aliases=("legacy:infra:HostStack",),
+    )
+
+    assert [alias.kwargs["type_"] for alias in stack.component_opts.aliases] == [
+        "legacy:infra:HostStack"
+    ]
+
+
 def test_standalone_stack_config_exposes_optional_instance_profile():
     root = Path(__file__).parents[3]
     entrypoint = (root / "templates/webapp/infra/__main__.py").read_text()

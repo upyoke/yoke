@@ -30,6 +30,7 @@ EXPECTED_CONTRACT_PATHS = {
     ".yoke/labels",
     ".yoke/board.json",
     ".yoke/board-art",
+    ".yoke/deployment-flows.json",
     ".yoke/test-inventory.md",
     ".yoke/template-deviations.md",
     ".yoke/runbooks/deploy.md",
@@ -200,7 +201,7 @@ def test_readme_maps_where_settings_live() -> None:
     assert "## Where settings live" in body
     # Repo-owned families.
     for token in ("file-line-exceptions", "board.json",
-                  "lint-config", "labels", "strategy/"):
+                  "deployment-flows.json", "lint-config", "labels", "strategy/"):
         assert token in body, token
     assert "project.config" not in body
     # DB-owned families each name their read/write command.
@@ -214,6 +215,7 @@ def test_readme_maps_where_settings_live() -> None:
         "project-onboarding surfaces",
         "project-structure command-definitions get|list",
         "project-structure patch apply",
+        "deployment-flows reconcile-project",
         "sites.settings",
     ):
         assert token in body, token

@@ -35,9 +35,10 @@ _VPS_KEYS = {
     "vps_iam_instance_profile_name",
 }
 _PULUMI_KEYS = {
-    "origin_id", "distribution_bucket_name", "kms_key_alias", "state_bucket",
-    "pulumi_infra_stack_name", "pulumi_vps_stack_name",
-    "pulumi_runner_fleet_stack_name", "domain_txt_records_json",
+    "origin_id", "component_type_aliases_json", "distribution_bucket_name",
+    "kms_key_alias", "state_bucket", "pulumi_infra_stack_name",
+    "pulumi_vps_stack_name", "pulumi_runner_fleet_stack_name",
+    "domain_txt_records_json",
     "domain_mx_records_json",
 }
 _CI_KEYS = {
@@ -62,7 +63,6 @@ _RUNNER_FLEET_KEYS = {
     "runner_fleet_max_runner_count", "runner_fleet_idle_shutdown_minutes",
     "runner_fleet_shutdown_mode", "runner_fleet_deployment_ssh_stack_outputs_json",
 }
-
 
 def _make_project_root(tmp_path: Path, project: str) -> Path:
     """Build a minimal project tree."""

@@ -15,6 +15,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.domain.validate_webapp_pipeline_test_support import (
     RestResponse as _RestResp,
+    seed_deploy_default,
 )
 from yoke_core.domain.validate_webapp_pipeline import (
     Counters,
@@ -23,7 +24,6 @@ from yoke_core.domain.validate_webapp_pipeline import (
     main,
     run_validation,
 )
-
 
 @pytest.fixture(autouse=True)
 def _stub_github_rest_empty(monkeypatch):
@@ -45,8 +45,6 @@ def _stub_github_rest_empty(monkeypatch):
 # ---------------------------------------------------------------------------
 # DB + filesystem scaffolding
 # ---------------------------------------------------------------------------
-
-
 _SEED_SCHEMA_DDL = """
     CREATE TABLE projects (
       id INTEGER PRIMARY KEY,
@@ -78,6 +76,10 @@ _SEED_SCHEMA_DDL = """
       name TEXT NOT NULL,
       stages TEXT NOT NULL
     );
+    CREATE TABLE project_structure (id INTEGER PRIMARY KEY,
+      project_id INTEGER NOT NULL, family TEXT NOT NULL,
+      attachment_value TEXT NOT NULL, attachment_kind TEXT NOT NULL DEFAULT '',
+      entry_key TEXT NOT NULL DEFAULT '', payload TEXT NOT NULL DEFAULT '{}');
 """
 
 
@@ -144,8 +146,9 @@ def _apply_seed(
         conn.execute(
             "INSERT INTO deployment_flows (id, project_id, name, stages) "
             f"VALUES ({p}, {p}, {p}, {p})",
-            ("externalwebapp-prod-release", 2, "ExternalWebapp Production Release", json.dumps(stages)),
+            ("managed-production", 2, "Production Release", json.dumps(stages)),
         )
+        seed_deploy_default(conn, 2, "managed-production")
     conn.commit()
 
 
@@ -244,7 +247,7 @@ def test_run_validation_flags_missing_externalwebapp_repo(tmp_path: Path, monkey
         rc = run_validation(ctx)
         out = capsys.readouterr().out
         assert rc == 1
-        assert "ExternalWebapp repo not found" in out
+        assert "Externalwebapp repo not found" in out
 
 
 def test_run_validation_reports_python_pipeline_entrypoints(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -292,7 +295,8 @@ def test_run_validation_bad_flow_stages_json(tmp_path: Path, monkeypatch, capsys
         conn = connect_test_db(db_path)
         try:
             conn.execute(
-                "UPDATE deployment_flows SET stages='not-json' WHERE id='externalwebapp-prod-release'"
+                "UPDATE deployment_flows SET stages='not-json' "
+                "WHERE id='managed-production'"
             )
             conn.commit()
         finally:
@@ -309,7 +313,7 @@ def test_run_validation_bad_flow_stages_json(tmp_path: Path, monkeypatch, capsys
         rc = run_validation(ctx)
         out = capsys.readouterr().out
         assert rc == 1
-        assert "externalwebapp-prod-release flow not found or has no stages" in out
+        assert "managed-production flow not found, inactive, or has no stages" in out
 
 
 def test_check_ssh_connectivity_preserves_prior_warning(capsys) -> None:

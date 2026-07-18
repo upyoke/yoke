@@ -50,7 +50,8 @@ _RUNNER_FLEET_GITHUB_INTENT = {
 }
 _BASE_STACK_KEYS = frozenset({
     "aws_account_id", "aws_region", "certificate_arn", "deploy_namespace",
-    "distribution_bucket_name", "domain_mx_records_json", "domain_name",
+    "component_type_aliases_json", "distribution_bucket_name",
+    "domain_mx_records_json", "domain_name",
     "domain_txt_records_json", "hosted_zone_id", "kms_key_alias",
     "origin_host", "origin_id", "vps_iam_instance_profile_name",
     "vps_instance_type", "vps_root_volume_gb", "vps_ssh_key_name",

@@ -100,6 +100,10 @@ class TestSeed:
             "deployment_flow": "yoke-internal"
         }
 
+    def test_external_project_has_no_source_owned_seed(self, initialized_db: str):
+        with pytest.raises(ps.UsageError, match="Known seeds: yoke"):
+            ps.cmd_seed("externalwebapp", db_path=initialized_db)
+
     def test_seed_populates_context_routing(self, initialized_db: str):
         """Seed materializes Yoke's project-wide context entry."""
         ps.cmd_seed("yoke", db_path=initialized_db)

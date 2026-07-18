@@ -21,9 +21,11 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import List, Optional
+from typing import Any, List, Optional
 
+from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain import project_structure as ps
+from yoke_core.domain.project_identity import resolve_project_id
 
 
 FAMILY = "deploy_defaults"
@@ -71,6 +73,44 @@ def set_default_flow(
         actor=actor,
         db_path=db_path,
     )
+
+
+def set_default_flow_on_connection(
+    conn: Any,
+    project_id: str,
+    flow_id: str,
+) -> bool:
+    """Upsert a default inside the caller-owned database transaction."""
+    if not isinstance(flow_id, str) or not flow_id:
+        raise ValueError("flow_id must be a non-empty string")
+    numeric_project_id = resolve_project_id(conn, project_id)
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        "SELECT payload FROM project_structure "
+        f"WHERE project_id={placeholder} AND family='deploy_defaults' "
+        "AND attachment_value='project' AND entry_key=''",
+        (numeric_project_id,),
+    ).fetchone()
+    if row is not None:
+        try:
+            payload = json_helper.loads_text(str(row[0] or "{}"))
+        except ValueError:
+            payload = {}
+        if isinstance(payload, dict) and payload.get("deployment_flow") == flow_id:
+            return False
+    from yoke_core.domain.project_structure_write import apply_patch_on_connection
+
+    apply_patch_on_connection(
+        conn,
+        project_id,
+        ops=[{
+            "op": "put",
+            "family": FAMILY,
+            "attachment": "project",
+            "payload": {"deployment_flow": flow_id},
+        }],
+    )
+    return True
 
 
 def clear_default_flow(

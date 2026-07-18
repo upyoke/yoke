@@ -1,9 +1,10 @@
 """Project cross-reference validation for deployment flow stages.
 
-A ``migration_apply`` stage references a model by name; this module
-checks that the referenced model is declared in the project's
-``migration_model`` capability and that the model is not already bound
-to another ``migration_apply`` stage anywhere in the project's flows.
+A ``migration_apply`` stage references a model by name; this module checks
+that the referenced model is declared in the project's ``migration_model``
+capability and does not appear twice within one flow. Multiple delivery flows
+may govern the same model because release and hotfix flows are alternatives,
+not concurrently executed stages of one run.
 
 Stage-shape validation is in :mod:`yoke_core.domain.flow_validation`
 and is expected to have already run before any of these checks.
@@ -14,7 +15,7 @@ import json
 from typing import Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.project_identity import ProjectIdentity, resolve_project
 
 
@@ -68,11 +69,10 @@ def _validate_flow_stages_cross_reference(
       ``migration_model`` capability.
     - within-flow exclusivity: each model appears in at most one
       ``migration_apply`` stage within a single flow.
-    - per-project cross-flow uniqueness: a given model appears in at
-      most one ``migration_apply`` stage across all of the project's
-      ``deployment_flows`` rows. When ``flow_id`` is
-      given and matches an existing row, that row is excluded so the
-      caller can save updates to the same flow.
+
+    Alternative flows may reference the same model. A deployment run selects
+    exactly one flow, so the within-flow uniqueness rule is the relevant
+    ambiguity guard. ``flow_id`` remains accepted for caller compatibility.
 
     Structural validation is expected to have already run via
     :func:`yoke_core.domain.flow_validation.validate_stages`.
@@ -123,35 +123,4 @@ def _validate_flow_stages_cross_reference(
             )
         seen_in_flow[model_name] = i
 
-    ident = resolve_project(conn, project, required=False)
-    if ident is None:
-        raise ValueError(f'project "{project}" does not exist')
-    p = _p(conn)
-
-    rows = query_rows(
-        conn,
-        f"SELECT id, stages FROM deployment_flows WHERE project_id = {p}",
-        (ident.id,),
-    )
-    for row in rows:
-        existing_flow_id = row[0]
-        if flow_id is not None and existing_flow_id == flow_id:
-            continue
-        try:
-            existing_stages = json.loads(row[1])
-        except (json.JSONDecodeError, ValueError, TypeError):
-            continue
-        if not isinstance(existing_stages, list):
-            continue
-        for es in existing_stages:
-            if not isinstance(es, dict) or es.get("kind") != "migration_apply":
-                continue
-            existing_model = es.get("model_name")
-            if existing_model in seen_in_flow:
-                raise ValueError(
-                    f'model "{existing_model}" already has a migration_apply '
-                    f'stage in flow "{existing_flow_id}" for project '
-                    f'"{project_label}"; each model must appear in at most one '
-                    f'migration_apply stage across all of the project\'s '
-                    f'deployment_flows rows'
-                )
+    del flow_id

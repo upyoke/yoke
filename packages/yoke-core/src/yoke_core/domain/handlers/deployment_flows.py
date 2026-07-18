@@ -183,8 +183,46 @@ def handle_deployment_flow_set_status(
     )
 
 
+def handle_deployment_flow_reconcile_project(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    """Converge one project-owned declaration without pruning history."""
+    project = str(request.target.project_id or "").strip()
+    if not project:
+        return error(
+            "target_invalid",
+            "deployment_flows.reconcile_project requires target.project_id",
+            jsonpath="$.target.project_id",
+        )
+
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_flow_declarations import (
+        reconcile_project_flows,
+    )
+    from yoke_core.domain.project_structure import ProjectStructureError
+    conn = connect()
+    try:
+        try:
+            result = reconcile_project_flows(
+                conn,
+                project,
+                request.payload,
+                preview_only=bool(request.options.get("preview_only")),
+            )
+        except (LookupError, ValueError, ProjectStructureError) as exc:
+            return error(
+                "declaration_invalid", str(exc), jsonpath="$.payload",
+            )
+    finally:
+        conn.close()
+
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
 __all__ = [
     "handle_deployment_flow_get",
+    "handle_deployment_flow_reconcile_project",
     "handle_deployment_flow_set_status",
     "handle_deployment_flow_stages",
+    "handle_deployment_flow_update_stages",
 ]

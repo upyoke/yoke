@@ -273,17 +273,6 @@ def cmd_init(conn) -> str:
     _ensure_flow_schema(conn)
     _seed_missing_flow_definitions(conn)
 
-    # Backfill target_env and done_description for existing rows
-    backfills = [
-        ("target_env", "production", "buzz-prod-release"),
-        ("target_env", "production", "buzz-prod-hotfix"),
-    ]
-    for col, val, fid in backfills:
-        conn.execute(
-            f"UPDATE deployment_flows SET {col}=%s WHERE id=%s AND {col} IS NULL",
-            (val, fid),
-        )
-
     for flow in _SEED_FLOWS:
         if flow.get("done_description"):
             conn.execute(

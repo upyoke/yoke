@@ -272,3 +272,16 @@ def test_generic_pulumi_state_merge_rejects_unknown_or_nested(
 def test_pulumi_state_validator_rejects_unknown_or_wrong_typed_fields(document):
     with pytest.raises(ValueError):
         validate_json_string(json.dumps(document))
+
+
+def test_pulumi_state_validator_accepts_component_type_aliases():
+    aliases = {
+        "infra": ["legacy:infra:EdgeStack"],
+        "vps": ["legacy:infra:HostStack"],
+    }
+
+    validated = json.loads(validate_json_string(json.dumps({
+        "component_type_aliases": aliases,
+    })))
+
+    assert validated["component_type_aliases"] == aliases

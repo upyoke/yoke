@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters.deployment_flow_reconcile import (
+    deployment_flows_reconcile_project,
+)
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -13,6 +16,11 @@ AdapterFn = Callable[[List[str]], int]
 DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("deployment-flows", "get"):
         ("deployment_flows.get", _adapters.deployment_flows_get),
+    ("deployment-flows", "reconcile-project"):
+        (
+            "deployment_flows.reconcile_project",
+            deployment_flows_reconcile_project,
+        ),
     ("deployment-flows", "stages"):
         ("deployment_flows.stages", _adapters.deployment_flows_stages),
     ("deployment-flows", "update-stages"):

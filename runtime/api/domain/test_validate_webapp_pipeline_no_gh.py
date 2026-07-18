@@ -126,9 +126,15 @@ def _init_db(
                 "INSERT INTO deployment_flows (id, project_id, name, stages) "
                 f"VALUES ({p}, {p}, {p}, {p})",
                 (
-                    "externalwebapp-prod-release", 2, "ExternalWebapp Production Release",
+                    "managed-production", 2, "Production Release",
                     json.dumps([{"name": "deploy", "executor": "github-actions"}]),
                 ),
+            )
+            conn.execute(
+                "INSERT INTO project_structure "
+                "(project_id, family, attachment_value, entry_key, payload) "
+                f"VALUES ({p}, 'deploy_defaults', 'project', '', {p})",
+                (2, json.dumps({"deployment_flow": "managed-production"})),
             )
             conn.commit()
         finally:
@@ -161,9 +167,9 @@ def test_remote_validation_uses_app_backed_rest(
                 200,
                 {
                     "secrets": [
-                        {"name": "EXT_SSH_KEY"},
-                        {"name": "EXT_SSH_HOST"},
-                        {"name": "EXT_SSH_USER"},
+                        {"name": "EXTERNALWEBAPP_SSH_KEY"},
+                        {"name": "EXTERNALWEBAPP_SSH_HOST"},
+                        {"name": "EXTERNALWEBAPP_SSH_USER"},
                     ]
                 },
             )
@@ -222,7 +228,7 @@ def test_remote_validation_uses_app_backed_rest(
         limited_authorization = list(seen_authorization)
 
     assert rc == 0, out
-    assert "GitHub secret exists: EXT_SSH_KEY" in out
+    assert "GitHub secret exists: EXTERNALWEBAPP_SSH_KEY" in out
     assert "GitHub environment 'production' exists" in out
     # The validator should never degrade to host-CLI install guidance.
     assert ("gh CLI" + " installed") not in out
@@ -324,5 +330,9 @@ def test_remote_validation_403_does_not_crash_validator(
 
     assert rc == 1
     # Each expected secret surfaces a FAIL with the bootstrap remediation.
-    for name in ("EXT_SSH_KEY", "EXT_SSH_HOST", "EXT_SSH_USER"):
+    for name in (
+        "EXTERNALWEBAPP_SSH_KEY",
+        "EXTERNALWEBAPP_SSH_HOST",
+        "EXTERNALWEBAPP_SSH_USER",
+    ):
         assert f"GitHub secret missing: {name}" in out

@@ -185,26 +185,9 @@ def _format_identity(
     return "(" + ", ".join(parts) + ")"
 
 
-def apply_patch(
-    project_id: str,
-    ops: Sequence[Dict[str, Any]],
-    actor: Optional[str] = None,
-    db_path: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Apply an imperative op list atomically.
-
-    Returns ``{"project_id", "applied_ops"}`` on success. Raises
-    :class:`ValidationError` on envelope/payload mismatch and
-    :class:`UsageError` on op-shape misuse.
-
-    Single-request semantics:
-
-    * Validates every op before applying any op.
-    * Applies all ops in a single ``BEGIN IMMEDIATE`` transaction.
-    """
+def _normalize_ops(ops: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not isinstance(ops, (list, tuple)) or len(ops) == 0:
         raise UsageError("ops must be a non-empty list.")
-
     normalized: List[Dict[str, Any]] = []
     for op in ops:
         norm = _normalize_op(op)
@@ -221,48 +204,77 @@ def apply_patch(
         if norm["op"] == "put":
             norm["payload"] = _validate_payload(norm["family"], norm["payload"])
         normalized.append(norm)
+    return normalized
+
+
+def _apply_normalized_ops(
+    conn: Any,
+    project_id: str,
+    normalized: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    numeric_project_id = resolve_project_id(conn, project_id)
+    applied: List[Dict[str, Any]] = []
+    for norm in normalized:
+        if norm["op"] == "put":
+            before, after = _apply_put(
+                conn,
+                str(numeric_project_id),
+                norm["family"],
+                norm["attachment_value"],
+                norm["attachment_kind"],
+                norm["entry_key"],
+                norm["payload"],
+            )
+            applied.append({**norm, "payload_before": before, "payload_after": after})
+        else:
+            before = _apply_remove(
+                conn,
+                str(numeric_project_id),
+                norm["family"],
+                norm["attachment_value"],
+                norm["entry_key"],
+            )
+            applied.append({**norm, "payload_before": before, "payload_after": None})
+    return {
+        "project_id": project_id,
+        "applied_ops": [
+            {
+                "op": entry["op"],
+                "family": entry["family"],
+                "attachment": entry["attachment_value"],
+                "attachment_kind": entry["attachment_kind"] or None,
+                "entry_key": entry["entry_key"] or None,
+            }
+            for entry in applied
+        ],
+    }
+
+
+def apply_patch_on_connection(
+    conn: Any,
+    project_id: str,
+    ops: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Apply validated ops on the caller-owned transaction and connection."""
+    return _apply_normalized_ops(conn, project_id, _normalize_ops(ops))
+
+
+def apply_patch(
+    project_id: str,
+    ops: Sequence[Dict[str, Any]],
+    actor: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Validate and apply an imperative op list atomically."""
+    del actor
+    normalized = _normalize_ops(ops)
 
     conn = _connect(db_path)
     try:
-        numeric_project_id = resolve_project_id(conn, project_id)
         conn.execute("BEGIN" if db_backend.connection_is_postgres(conn) else "BEGIN IMMEDIATE")
-        applied: List[Dict[str, Any]] = []
-        for norm in normalized:
-            if norm["op"] == "put":
-                before, after = _apply_put(
-                    conn,
-                    str(numeric_project_id),
-                    norm["family"],
-                    norm["attachment_value"],
-                    norm["attachment_kind"],
-                    norm["entry_key"],
-                    norm["payload"],
-                )
-                applied.append({**norm, "payload_before": before, "payload_after": after})
-            else:
-                before = _apply_remove(
-                    conn,
-                    str(numeric_project_id),
-                    norm["family"],
-                    norm["attachment_value"],
-                    norm["entry_key"],
-                )
-                applied.append({**norm, "payload_before": before, "payload_after": None})
-
+        result = _apply_normalized_ops(conn, project_id, normalized)
         conn.commit()
-        return {
-            "project_id": project_id,
-            "applied_ops": [
-                {
-                    "op": e["op"],
-                    "family": e["family"],
-                    "attachment": e["attachment_value"],
-                    "attachment_kind": e["attachment_kind"] or None,
-                    "entry_key": e["entry_key"] or None,
-                }
-                for e in applied
-            ],
-        }
+        return result
     except Exception:
         try:
             conn.rollback()
