@@ -28,8 +28,8 @@ class TestSeedFlows:
             "platform-production-independent",
             "platform-production-hotfix",
             "platform-stage",
-            "buzz-prod-release",
-            "buzz-prod-hotfix",
+            "buzz-production-release",
+            "buzz-production-hotfix",
             "buzz-internal",
         }
 
@@ -117,6 +117,25 @@ class TestSeedFlows:
         stages = json.loads(flow["stages"])
         assert [s["name"] for s in stages] == ["ephemeral-deploy", "complete"]
 
+    def test_buzz_delivery_flows_end_with_smoke_evidence(self):
+        by_id = {flow["id"]: flow for flow in _SEED_FLOWS}
+        expected = {
+            "buzz-production-release": [
+                "migration_apply", "merged", "prod-deploy", "smoke", "complete",
+            ],
+            "buzz-production-hotfix": [
+                "migration_apply", "merged", "production-deploy", "smoke", "complete",
+            ],
+        }
+        for flow_id, expected_stages in expected.items():
+            stages = json.loads(by_id[flow_id]["stages"])
+            assert [
+                stage.get("name", stage.get("kind")) for stage in stages
+            ] == expected_stages
+            smoke = next(stage for stage in stages if stage.get("name") == "smoke")
+            assert smoke["executor"] == "github-actions-workflow"
+            assert smoke["workflow"] == "buzz-smoke.yml"
+
 
 class TestSeedFlowsRequireProjects:
     """Flow rows seed only for projects present in the universe.
@@ -187,7 +206,7 @@ class TestSeedFlowsRequireProjects:
                     assert by_id[str(flow["id"])] == expected
                 buzz_stages = json.loads(conn.execute(
                     "SELECT stages FROM deployment_flows "
-                    "WHERE id = 'buzz-prod-release'"
+                    "WHERE id = 'buzz-production-release'"
                 ).fetchone()[0])
                 assert all(
                     "dispatch_correlation_input" not in stage
