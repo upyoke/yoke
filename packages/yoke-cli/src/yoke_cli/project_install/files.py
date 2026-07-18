@@ -30,6 +30,7 @@ MANIFEST_REL = ".yoke/install-manifest.json"
 MODE_KEY = "mode"
 MODE_COPY = "copy"
 MODE_SOURCE_LINK = "source-link"
+DISCARDED_PRIOR_CONTRACT_RECORDS_KEY = "_discarded_prior_contract_records"
 
 # Hook-merge targets — bundle ``files`` must never name these directly;
 # their content flows through the bundle's ``hooks`` subtrees.
@@ -79,8 +80,11 @@ def load_manifest_path(
             f"install manifest {path} is unreadable ({exc}); repair or delete "
             "it, then rerun `yoke project install`"
         ) from exc
-    validate_manifest(payload, source=str(path))
-    return payload
+    from yoke_cli.project_install.manifest import sanitize_prior_contract_records
+
+    sanitized = sanitize_prior_contract_records(payload, source=str(path))
+    validate_manifest(sanitized, source=str(path))
+    return sanitized
 
 
 def write_manifest(repo_root: Path, manifest: Dict[str, Any]) -> Path:

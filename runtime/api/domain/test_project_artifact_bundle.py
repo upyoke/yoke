@@ -5,7 +5,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from runtime.api.fixtures import pg_testdb
+from yoke_contracts.project_artifacts import (
+    PROJECT_ARTIFACT_DEFAULT_APPLICABILITY_REASON,
+    PROJECT_ARTIFACT_POLICY_CAPABILITY,
+    PROJECT_ARTIFACT_POLICY_SETTING,
+)
 from yoke_core.domain import project_artifact_bundle, yaml_helper
 from yoke_core.domain.project_renderer_values import (
     CONFIGURE_AWS_CREDENTIALS_ACTION,
@@ -131,6 +138,10 @@ def test_packaged_source_renders_parsed_oidc_workflows_for_external_project() ->
         conn.close()
 
     assert bundle["project_slug"] == EXTERNAL_PROJECT
+    assert bundle["applicable"] is True
+    assert bundle["applicability_reason"] == (
+        PROJECT_ARTIFACT_DEFAULT_APPLICABILITY_REASON
+    )
     assert bundle["template_source"] == "packaged-template-mirror"
     assert len(bundle["template_digest"]) == 64
     assert len(bundle["settings_digest"]) == 64
@@ -208,3 +219,60 @@ def test_local_project_without_github_binding_still_renders() -> None:
         "github_repo": None,
         "github_web_url": None,
     }
+
+
+def test_db_policy_can_disable_generic_artifact_rendering() -> None:
+    conn = _external_project_db()
+    conn.execute(
+        "INSERT INTO project_capabilities (project_id, type, settings) "
+        "VALUES (%s, %s, %s)",
+        (
+            71,
+            PROJECT_ARTIFACT_POLICY_CAPABILITY,
+            json.dumps(
+                {
+                    PROJECT_ARTIFACT_POLICY_SETTING: {
+                        "enabled": False,
+                        "reason": "a project-owned release factory applies",
+                    }
+                }
+            ),
+        ),
+    )
+    try:
+        bundle = project_artifact_bundle.build_project_artifact_bundle(
+            conn,
+            EXTERNAL_PROJECT,
+        )
+    finally:
+        conn.close()
+
+    assert bundle["applicable"] is False
+    assert bundle["applicability_reason"] == (
+        "a project-owned release factory applies"
+    )
+    assert bundle["artifacts"] == []
+
+
+def test_malformed_artifact_policy_fails_closed() -> None:
+    conn = _external_project_db()
+    conn.execute(
+        "INSERT INTO project_capabilities (project_id, type, settings) "
+        "VALUES (%s, %s, %s)",
+        (
+            71,
+            PROJECT_ARTIFACT_POLICY_CAPABILITY,
+            json.dumps({PROJECT_ARTIFACT_POLICY_SETTING: False}),
+        ),
+    )
+    try:
+        with pytest.raises(
+            project_artifact_bundle.ProjectArtifactBundleError,
+            match="artifact_refresh must be an object",
+        ):
+            project_artifact_bundle.build_project_artifact_bundle(
+                conn,
+                EXTERNAL_PROJECT,
+            )
+    finally:
+        conn.close()

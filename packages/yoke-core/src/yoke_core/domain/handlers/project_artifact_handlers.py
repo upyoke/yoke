@@ -29,6 +29,8 @@ class ProjectArtifactRefreshResponse(BaseModel):
     operation: str
     project_id: int
     project_slug: str
+    applicable: bool
+    applicability_reason: str
     repo_root: str
     template: str
     template_version: str
@@ -45,6 +47,7 @@ class ProjectArtifactRefreshResponse(BaseModel):
     conflict_count: int
     applied: bool
     refused: bool
+    skipped: bool = False
     pulumi_stack_config: dict[str, Any]
     refusal_reason: str | None = None
     apply_result: dict[str, Any] | None = None

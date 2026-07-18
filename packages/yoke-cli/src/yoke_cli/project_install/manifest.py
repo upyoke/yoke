@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from yoke_cli.project_install.files import (
+    DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
     HOOK_MERGE_TARGETS,
     MANIFEST_SCHEMA,
     MODE_COPY,
@@ -46,29 +47,60 @@ def _path_map(manifest: dict[str, Any], key: str, *, source: str) -> dict[str, s
     return value
 
 
-def _assert_safe_prior_contract_paths(paths: Iterable[str]) -> None:
+def _prior_contract_path_is_safe(raw: str) -> bool:
     forbidden_suffixes = {
         path.removeprefix(".yoke")
         for path in FORBIDDEN_CONTRACT_RELATIVE_PATHS
     } | {"/install-manifest.json"}
+    path = Path(raw)
+    root = path.parts[0] if path.parts else ""
+    return bool(
+        raw
+        and not path.is_absolute()
+        and ".." not in path.parts
+        and root == ".yoke"
+        and not any(
+            raw == root + suffix or raw.startswith(root + suffix + "/")
+            for suffix in forbidden_suffixes
+        )
+    )
+
+
+def _assert_safe_prior_contract_paths(paths: Iterable[str]) -> None:
     for raw in paths:
-        path = Path(raw)
-        root = path.parts[0] if path.parts else ""
-        if (
-            not raw
-            or path.is_absolute()
-            or ".." in path.parts
-            or root != ".yoke"
-            or any(
-                raw == root + suffix or raw.startswith(root + suffix + "/")
-                for suffix in forbidden_suffixes
-            )
-        ):
+        if not _prior_contract_path_is_safe(raw):
             raise ProjectInstallError(
                 f"install manifest names an unsafe contract path {raw!r}: "
                 "prior contract paths must stay under .yoke/ and must not "
                 "name runtime/state files"
             )
+
+
+def sanitize_prior_contract_records(
+    manifest: Any, *, source: str = "install manifest"
+) -> Any:
+    """Discard inert out-of-policy contract records from a prior manifest.
+
+    The discarded records are returned as internal report metadata. They are
+    never considered mutation targets and are omitted from the next manifest
+    rewrite. All remaining manifest fields and record digests stay strict.
+    """
+
+    if not isinstance(manifest, dict):
+        return manifest
+    contracts = _path_map(manifest, "contract_files", source=source)
+    discarded = sorted(
+        raw for raw in contracts if not _prior_contract_path_is_safe(raw)
+    )
+    sanitized = dict(manifest)
+    sanitized.pop(DISCARDED_PRIOR_CONTRACT_RECORDS_KEY, None)
+    if not discarded:
+        return sanitized
+    sanitized["contract_files"] = {
+        raw: digest for raw, digest in contracts.items() if raw not in discarded
+    }
+    sanitized[DISCARDED_PRIOR_CONTRACT_RECORDS_KEY] = discarded
+    return sanitized
 
 
 def _assert_safe_prior_strategy_paths(paths: Iterable[str]) -> None:
@@ -186,4 +218,4 @@ def validate_manifest(manifest: Any, *, source: str = "install manifest") -> Non
             raise ProjectInstallError(f"{source} {key} must be a boolean")
 
 
-__all__ = ["validate_manifest"]
+__all__ = ["sanitize_prior_contract_records", "validate_manifest"]

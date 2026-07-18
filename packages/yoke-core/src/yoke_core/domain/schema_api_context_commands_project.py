@@ -27,8 +27,10 @@ PROJECT_COMMANDS: list[dict] = [
             "preflight. Apply preserves/refuses deviations; --verify gates "
             "external drift. .yoke/runbooks stay project-owned; generic refs "
             "land in docs/yoke-generated/deployment-reference/. Pulumi stack "
-            "YAML/operator state stay stack-scoped. `yoke project refresh` is "
-            "substrate-only."
+            "YAML/operator state stay stack-scoped. DB-backed project-policy "
+            "artifact_refresh.enabled=false plus a reason makes all modes a "
+            "clean post-identity no-op for project-owned release factories. "
+            "`yoke project refresh` is substrate-only."
         ),
     },
     {

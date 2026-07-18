@@ -41,14 +41,20 @@ def refresh(
     )
     entries = validate_bundle(bundle, source_dev_admin=source_dev_admin)
     assert_checkout_identity(root, bundle)
-    manifest = load_manifest(root)
-    plan = build_plan(root, bundle, entries, manifest)
-
     operation = "apply" if apply else "verify" if verify else "preview"
+    applicable = bundle["applicable"]
+    manifest = load_manifest(root) if applicable else None
+    plan = (
+        build_plan(root, bundle, entries, manifest)
+        if applicable
+        else _not_applicable_plan()
+    )
     report: dict[str, Any] = {
         "operation": operation,
         "project_id": bundle["project_id"],
         "project_slug": bundle["project_slug"],
+        "applicable": applicable,
+        "applicability_reason": bundle["applicability_reason"],
         "repo_root": str(root),
         "template": bundle["template"],
         "template_version": bundle["template_version"],
@@ -67,6 +73,9 @@ def refresh(
         "refused": False,
         "pulumi_stack_config": bundle["pulumi_stack_config"],
     }
+    if not applicable:
+        report["skipped"] = True
+        return report
     if not apply:
         return report
     if plan["conflicts"]:
@@ -81,6 +90,19 @@ def refresh(
     report["apply_result"] = result
     report["drift"] = False
     return report
+
+
+def _not_applicable_plan() -> dict[str, Any]:
+    return {
+        "creates": [],
+        "updates": [],
+        "prunes": [],
+        "conflicts": [],
+        "unchanged": [],
+        "unchanged_count": 0,
+        "provenance_changed": False,
+        "drift": False,
+    }
 
 
 def _fetch_bundle(
