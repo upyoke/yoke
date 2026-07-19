@@ -122,7 +122,7 @@ PROJECT_COMMANDS: list[dict] = [
         "purpose": "Execute a capability-owned Pulumi stack command",
         "recipe": (
             "yoke pulumi exec --project <project> --stack <stack> -- "
-            "<init|preview|refresh|import|up ...>"
+            "<init|preview|refresh|import|up|stack output NAME ...>"
         ),
         "notes": (
             "This is a client-local tool-shaped boundary, not a dispatcher "
@@ -131,7 +131,9 @@ PROJECT_COMMANDS: list[dict] = [
             "the execution workhorse is "
             "`packages/yoke-core/src/yoke_core/tools/pulumi_exec.py`. Never "
             "guess a sibling `commands/pulumi_exec.py` module. The selected "
-            "stack must be declared in the project pulumi-state capability."
+            "stack must be declared in the project pulumi-state capability. "
+            "Output reads require one exact output name and never expose "
+            "secret values."
         ),
     },
     {

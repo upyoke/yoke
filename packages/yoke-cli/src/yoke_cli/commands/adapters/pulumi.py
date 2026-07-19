@@ -29,7 +29,7 @@ from yoke_cli.transport.pulumi_github_authority import (
 PULUMI_EXEC_USAGE = (
     "yoke pulumi exec --project NAME --stack STACK "
     "[--bootstrap-local-authority] -- "
-    "<init|preview|refresh|import|up args>"
+    "<init|preview|refresh|import|up|stack output args>"
 )
 
 
@@ -37,8 +37,8 @@ def pulumi_exec(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke pulumi exec",
         description=(
-            "Run one stack-bound Pulumi initialization, preview, refresh, file "
-            "import, or operator-confirmed update with ephemeral "
+            "Run one stack-bound Pulumi initialization, preview, refresh, "
+            "single-output read, file import, or operator-confirmed update with ephemeral "
             "capability-owned authority. Initialization is a local "
             "source-dev/admin boundary for an exact declared stack and requires "
             "`init --secrets-provider <awskms URI>`."
