@@ -33,6 +33,28 @@ _RELEASE_TAG_RE = re.compile(
     r"(?P<sequence>0|[1-9][0-9]*)$"
 )
 _MAX_CREATE_ATTEMPTS = 4
+_MAX_RELEASE_REF_PAGES = 100
+_RELEASE_REFS_QUERY = """
+query ReleaseTags($owner: String!, $name: String!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    refs(refPrefix: "refs/tags/", first: 100, after: $cursor) {
+      nodes {
+        name
+        target {
+          __typename
+          ... on Tag {
+            target {
+              __typename
+              ... on Commit { oid }
+            }
+          }
+        }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}
+"""
 
 
 class CreateNextReleaseTagRequest(BaseModel):
@@ -58,20 +80,63 @@ def _failure(code: str, message: str) -> HandlerOutcome:
 
 
 def _release_refs(repo: str, token: str) -> list[dict[str, Any]]:
+    owner, separator, name = repo.partition("/")
+    if not separator or not owner or not name or "/" in name:
+        raise ValueError(f"repo must be owner/name, got {repo!r}")
     refs: list[dict[str, Any]] = []
-    for page in range(1, 101):
-        payload = rest_get(
-            f"/repos/{repo}/git/matching-refs/tags/v"
-            f"?per_page=100&page={page}",
+    cursor: str | None = None
+    for _page in range(_MAX_RELEASE_REF_PAGES):
+        payload = rest_post(
+            "/graphql",
+            body={
+                "query": _RELEASE_REFS_QUERY,
+                "variables": {
+                    "owner": owner,
+                    "name": name,
+                    "cursor": cursor,
+                },
+            },
             token=token,
         )
-        if not isinstance(payload, list):
-            raise RestTransportError(
-                "matching release refs response must be a list"
+        if not isinstance(payload, dict) or payload.get("errors"):
+            raise RestTransportError("release tag GraphQL response was invalid")
+        data = payload.get("data")
+        repository = data.get("repository") if isinstance(data, dict) else None
+        connection = (
+            repository.get("refs") if isinstance(repository, dict) else None
+        )
+        nodes = connection.get("nodes") if isinstance(connection, dict) else None
+        page_info = (
+            connection.get("pageInfo") if isinstance(connection, dict) else None
+        )
+        if not isinstance(nodes, list) or not isinstance(page_info, dict):
+            raise RestTransportError("release tag GraphQL response was incomplete")
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            target = node.get("target")
+            annotated_target = (
+                target.get("target") if isinstance(target, dict) else None
             )
-        refs.extend(row for row in payload if isinstance(row, dict))
-        if len(payload) < 100:
+            source_sha = (
+                str(annotated_target.get("oid") or "")
+                if isinstance(annotated_target, dict)
+                and target.get("__typename") == "Tag"
+                and annotated_target.get("__typename") == "Commit"
+                else ""
+            )
+            refs.append(
+                {
+                    "ref": f"refs/tags/{str(node.get('name') or '')}",
+                    "source_sha": source_sha,
+                }
+            )
+        if not page_info.get("hasNextPage"):
             return refs
+        next_cursor = page_info.get("endCursor")
+        if not isinstance(next_cursor, str) or not next_cursor:
+            raise RestTransportError("release tag GraphQL pagination omitted a cursor")
+        cursor = next_cursor
     raise RestTransportError("release ref inventory exceeded 100 pages")
 
 
@@ -97,36 +162,19 @@ def _canonical_refs(
     return canonical
 
 
-def _peeled_source(repo: str, ref: dict[str, Any], token: str) -> str:
-    raw_object = ref.get("object")
-    if not isinstance(raw_object, dict) or raw_object.get("type") != "tag":
-        return ""
-    tag_object_sha = str(raw_object.get("sha") or "")
-    if not re.fullmatch(r"[0-9a-f]{40}", tag_object_sha):
-        return ""
-    payload = rest_get(
-        f"/repos/{repo}/git/tags/{tag_object_sha}",
-        token=token,
-    )
-    if not isinstance(payload, dict):
-        return ""
-    target = payload.get("object")
-    if not isinstance(target, dict) or target.get("type") != "commit":
-        return ""
-    source_sha = str(target.get("sha") or "")
+def _peeled_source(ref: dict[str, Any]) -> str:
+    source_sha = str(ref.get("source_sha") or "")
     return source_sha if re.fullmatch(r"[0-9a-f]{40}", source_sha) else ""
 
 
 def _existing_tag_for_source(
-    repo: str,
     canonical: list[tuple[tuple[int, int, int, int], str, dict[str, Any]]],
     source_sha: str,
-    token: str,
 ) -> str:
     matches = [
         tag
         for _order, tag, ref in canonical
-        if _peeled_source(repo, ref, token) == source_sha
+        if _peeled_source(ref) == source_sha
     ]
     if len(matches) > 1:
         raise ValueError(
@@ -214,7 +262,7 @@ def handle_create_next_release_tag(
         for attempt in range(_MAX_CREATE_ATTEMPTS):
             canonical = _canonical_refs(_release_refs(payload.repo, token))
             existing = _existing_tag_for_source(
-                payload.repo, canonical, payload.source_sha, token,
+                canonical, payload.source_sha,
             )
             if existing:
                 return HandlerOutcome(

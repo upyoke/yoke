@@ -12,8 +12,6 @@ from yoke_core.domain.handlers import github_release_tag as subject
 
 
 SOURCE_SHA = "a" * 40
-TAG_40_OBJECT = "b" * 40
-TAG_41_OBJECT = "c" * 40
 CREATED_TAG_OBJECT = "d" * 40
 
 
@@ -31,10 +29,29 @@ def _request() -> FunctionCallRequest:
     )
 
 
-def _ref(tag: str, tag_object_sha: str) -> dict:
+def _ref(tag: str, source_sha: str) -> dict:
     return {
-        "ref": f"refs/tags/{tag}",
-        "object": {"type": "tag", "sha": tag_object_sha},
+        "name": tag,
+        "target": {
+            "__typename": "Tag",
+            "target": {"__typename": "Commit", "oid": source_sha},
+        },
+    }
+
+
+def _graphql_refs(refs: list[dict], *, cursor: str | None = None) -> dict:
+    return {
+        "data": {
+            "repository": {
+                "refs": {
+                    "nodes": refs,
+                    "pageInfo": {
+                        "hasNextPage": cursor is not None,
+                        "endCursor": cursor,
+                    },
+                }
+            }
+        }
     }
 
 
@@ -53,26 +70,32 @@ def _install_auth(monkeypatch) -> None:
 def test_creates_the_next_annotated_launch_tag(monkeypatch) -> None:
     _install_auth(monkeypatch)
     refs = [
-        _ref("v0.1.1+launch.40", TAG_40_OBJECT),
-        _ref("v0.1.1+launch.41", TAG_41_OBJECT),
+        _ref("v0.1.1+launch.40", "1" * 40),
+        _ref("v0.1.1+launch.41", "2" * 40),
     ]
 
     def fake_get(path: str, *, token: str):
         assert token == "installation-token"
         if "/git/commits/" in path:
             return {"sha": SOURCE_SHA}
-        if "/matching-refs/tags/v?" in path:
-            assert "per_page=100&page=1" in path
-            return refs
-        if path.endswith(TAG_40_OBJECT):
-            return {"object": {"type": "commit", "sha": "1" * 40}}
-        if path.endswith(TAG_41_OBJECT):
-            return {"object": {"type": "commit", "sha": "2" * 40}}
         raise AssertionError(path)
 
     posts = []
 
-    def fake_post(path: str, *, body: dict, token: str, max_attempts: int):
+    def fake_post(
+        path: str,
+        *,
+        body: dict,
+        token: str,
+        max_attempts: int | None = None,
+    ):
+        if path == "/graphql":
+            assert body["variables"] == {
+                "owner": "upyoke",
+                "name": "yoke",
+                "cursor": None,
+            }
+            return _graphql_refs(refs)
         posts.append((path, body, token, max_attempts))
         if path.endswith("/git/tags"):
             return {"sha": CREATED_TAG_OBJECT}
@@ -107,23 +130,21 @@ def test_creates_the_next_annotated_launch_tag(monkeypatch) -> None:
 
 def test_retry_returns_the_existing_annotated_tag(monkeypatch) -> None:
     _install_auth(monkeypatch)
-    refs = [_ref("v0.1.1+launch.41", TAG_41_OBJECT)]
+    refs = [_ref("v0.1.1+launch.41", SOURCE_SHA)]
     monkeypatch.setattr(
         subject,
         "rest_get",
-        lambda path, *, token: (
-            {"sha": SOURCE_SHA}
-            if "/git/commits/" in path
-            else refs
-            if "/matching-refs/tags/v?" in path
-            else {"object": {"type": "commit", "sha": SOURCE_SHA}}
-        ),
+        lambda path, *, token: {"sha": SOURCE_SHA},
     )
     monkeypatch.setattr(
         subject,
         "rest_post",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("idempotent retry must not create another tag")
+        lambda path, **kwargs: (
+            _graphql_refs(refs)
+            if path == "/graphql"
+            else (_ for _ in ()).throw(
+                AssertionError("idempotent retry must not create another tag")
+            )
         ),
     )
 
@@ -136,24 +157,32 @@ def test_retry_returns_the_existing_annotated_tag(monkeypatch) -> None:
 
 def test_ref_race_reloads_inventory_and_advances_again(monkeypatch) -> None:
     _install_auth(monkeypatch)
-    inventories = iter([
-        [_ref("v0.1.1+launch.41", TAG_41_OBJECT)],
+    inventories = iter(
         [
-            _ref("v0.1.1+launch.41", TAG_41_OBJECT),
-            _ref("v0.1.1+launch.42", "e" * 40),
-        ],
-    ])
+            [_ref("v0.1.1+launch.41", "9" * 40)],
+            [
+                _ref("v0.1.1+launch.41", "9" * 40),
+                _ref("v0.1.1+launch.42", "8" * 40),
+            ],
+        ]
+    )
 
     def fake_get(path: str, *, token: str):
         if "/git/commits/" in path:
             return {"sha": SOURCE_SHA}
-        if "/matching-refs/tags/v?" in path:
-            return next(inventories)
-        return {"object": {"type": "commit", "sha": "9" * 40}}
+        raise AssertionError(path)
 
     created_tags = []
 
-    def fake_post(path: str, *, body: dict, token: str, max_attempts: int):
+    def fake_post(
+        path: str,
+        *,
+        body: dict,
+        token: str,
+        max_attempts: int | None = None,
+    ):
+        if path == "/graphql":
+            return _graphql_refs(next(inventories))
         if path.endswith("/git/tags"):
             created_tags.append(body["tag"])
             return {"sha": CREATED_TAG_OBJECT}
