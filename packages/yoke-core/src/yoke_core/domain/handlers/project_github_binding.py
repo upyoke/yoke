@@ -11,6 +11,10 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.actor_project_visibility import (
+    actor_visible_project_ids,
+    numeric_actor_id,
+)
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
@@ -128,8 +132,35 @@ def handle_project_github_binding_status(
         cmd_project_github_binding_status,
     )
 
+    resolved_project = parsed.project
+    actor_id = numeric_actor_id(request.actor.actor_id if request.actor else None)
+    if actor_id is not None:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.project_identity import resolve_project
+
+        conn = connect()
+        try:
+            identity = resolve_project(
+                conn,
+                parsed.project,
+                required=False,
+                visible_project_ids=actor_visible_project_ids(conn, actor_id),
+            )
+        finally:
+            conn.close()
+        if identity is None:
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(
+                    code="not_found",
+                    message=f"project '{parsed.project}' not found",
+                    jsonpath="$.payload.project",
+                ),
+            )
+        resolved_project = str(identity.id)
+
     try:
-        result = cmd_project_github_binding_status(parsed.project)
+        result = cmd_project_github_binding_status(resolved_project)
     except (LookupError, ValueError) as exc:
         return HandlerOutcome(
             primary_success=False,
