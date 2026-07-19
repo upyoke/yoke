@@ -1,6 +1,6 @@
-"""Pulumi rendering helpers for the project template renderer.
+"""Pulumi value gathering and rendering for project-owned Pack source.
 
-Owns legacy stack-set rendering (``stacks``) and additive environment stack
+Owns declared stack-set rendering (``stacks``) and additive environment stack
 instances (``stackInstances``). Pulumi YAML and Python program files render
 without ``_auto_header()`` so byte-equivalent source/render checks stay clean.
 """

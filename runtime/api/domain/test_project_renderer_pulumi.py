@@ -19,7 +19,7 @@ from yoke_core.domain.project_renderer_settings import (
 )
 
 _GATHER_VALUES_KEYS = {
-    "project_display_name", "PROJECT_NAME_UPPER", "project_description",
+    "project_display_name", "project_slug", "PROJECT_NAME_UPPER", "project_description",
     "project_name", "deploy_namespace", "cloudfront_domain", "cloudfront_id",
     "certificate_arn",
     "hosted_zone_id", "aws_account_id", "vps_description", "domain_name",

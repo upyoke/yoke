@@ -73,7 +73,7 @@ def _relative_files(root: Path) -> List[str]:
     ``rglob('*')`` + ``is_file()`` dereferences symlinks, so a symlinked source
     file is enumerated (and later materialized) as a regular file. Cache junk
     (``is_bundle_junk_path``) is excluded so bytecode compiled next to
-    importable template sources never enters the mirror comparison.
+    importable package sources never enters the mirror comparison.
     """
     if not root.is_dir():
         return []
