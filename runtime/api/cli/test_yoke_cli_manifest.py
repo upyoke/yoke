@@ -27,7 +27,7 @@ class TestBuildManifest:
     def test_covers_every_registry_row_with_usage(self) -> None:
         manifest = build_manifest()
 
-        assert manifest["manifest_version"] == 1
+        assert manifest["manifest_version"] == manifest_mod.MANIFEST_VERSION
         tokens = {tuple(row["tokens"]) for row in manifest["subcommands"]}
         assert tokens == set(SUBCOMMAND_REGISTRY)
         assert all(row["usage"] for row in manifest["subcommands"])
@@ -92,15 +92,19 @@ class TestActiveEnvManifest:
 
     def test_fresh_cache_skips_fetch(self, monkeypatch, https_env) -> None:
         https_env.parent.mkdir(parents=True)
-        https_env.write_text(json.dumps({"manifest_version": 1,
-                                         "subcommands": [], "aliases": []}))
+        https_env.write_text(json.dumps({
+            "manifest_version": manifest_mod.MANIFEST_VERSION,
+            "subcommands": [],
+            "aliases": [],
+        }))
 
         def _boom(connection):
             raise AssertionError("fetch must not run on fresh cache")
 
         monkeypatch.setattr(manifest_mod, "_fetch", _boom)
         assert active_env_manifest() == {
-            "manifest_version": 1, "subcommands": [], "aliases": [],
+            "manifest_version": manifest_mod.MANIFEST_VERSION,
+            "subcommands": [], "aliases": [],
         }
 
     def test_stale_cache_refetches_and_rewrites(
@@ -110,7 +114,11 @@ class TestActiveEnvManifest:
         https_env.write_text(json.dumps({"manifest_version": 0}))
         old = time.time() - manifest_mod.CACHE_TTL_S - 10
         os.utime(https_env, (old, old))
-        fresh = {"manifest_version": 1, "subcommands": [], "aliases": []}
+        fresh = {
+            "manifest_version": manifest_mod.MANIFEST_VERSION,
+            "subcommands": [],
+            "aliases": [],
+        }
         monkeypatch.setattr(manifest_mod, "_fetch", lambda connection: fresh)
 
         assert active_env_manifest() == fresh
@@ -120,7 +128,11 @@ class TestActiveEnvManifest:
         self, monkeypatch, https_env,
     ) -> None:
         https_env.parent.mkdir(parents=True)
-        stale = {"manifest_version": 1, "subcommands": [], "aliases": []}
+        stale = {
+            "manifest_version": manifest_mod.MANIFEST_VERSION,
+            "subcommands": [],
+            "aliases": [],
+        }
         https_env.write_text(json.dumps(stale))
         old = time.time() - manifest_mod.CACHE_TTL_S - 10
         os.utime(https_env, (old, old))
@@ -134,6 +146,28 @@ class TestActiveEnvManifest:
         monkeypatch.setattr(manifest_mod, "_fetch", lambda connection: None)
 
         assert active_env_manifest() is None
+
+    def test_old_manifest_version_is_refetched_even_when_cache_is_fresh(
+        self, monkeypatch, https_env,
+    ) -> None:
+        https_env.parent.mkdir(parents=True)
+        https_env.write_text(json.dumps({
+            "manifest_version": manifest_mod.MANIFEST_VERSION - 1,
+            "subcommands": [{
+                "tokens": ["templates", "list"],
+                "function_id": "templates.list.run",
+            }],
+            "aliases": [],
+        }))
+        fresh = {
+            "manifest_version": manifest_mod.MANIFEST_VERSION,
+            "subcommands": [],
+            "aliases": [],
+        }
+        monkeypatch.setattr(manifest_mod, "_fetch", lambda connection: fresh)
+
+        assert active_env_manifest() == fresh
+        assert json.loads(https_env.read_text()) == fresh
 
     def test_fetch_env_manifest_uses_explicit_env(self, monkeypatch) -> None:
         seen = {}
@@ -151,11 +185,14 @@ class TestActiveEnvManifest:
         monkeypatch.setattr(
             manifest_mod,
             "_fetch",
-            lambda connection: {"manifest_version": 1, "subcommands": []},
+            lambda connection: {
+                "manifest_version": manifest_mod.MANIFEST_VERSION,
+                "subcommands": [],
+            },
         )
 
         assert fetch_env_manifest("prod") == {
-            "manifest_version": 1,
+            "manifest_version": manifest_mod.MANIFEST_VERSION,
             "subcommands": [],
         }
         assert seen["explicit_env"] == "prod"

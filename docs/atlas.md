@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-19T09:17:47Z_
+_Audit generated_at: 2026-07-19T18:36:43Z_
 
 ## 1. Summary
 
-- Function ids registered: **225**
+- Function ids registered: **227**
 - Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **223** (223 carry usable `--help`)
-- Operation tracker: **222 wrapped**, 74 permanent, 0 pending
-- Skill-body recipes: 232 total (191 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **226** (226 carry usable `--help`)
+- Operation tracker: **224 wrapped**, 74 permanent, 0 pending
+- Skill-body recipes: 226 total (185 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **223** (operation tracker confirms 222 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **226** (operation tracker confirms 224 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -63,6 +63,7 @@ Wrapped `yoke <subcommand>` adapters: **223** (operation tracker confirms 222 wr
 | doctor | `yoke doctor run` | `doctor.run.run` | ok |
 | env | `yoke env use` | `env.use.run` | ok |
 | ephemeral_env | `yoke ephemeral-env create` | `ephemeral_env.create` | ok |
+| ephemeral_env | `yoke ephemeral-env get` | `ephemeral_env.get` | ok |
 | ephemeral_env | `yoke ephemeral-env update` | `ephemeral_env.update` | ok |
 | epic_tasks | `yoke epic-tasks list` | `epic_tasks.list.run` | ok |
 | events | `yoke events anomalies` | `events.anomalies.run` | ok |
@@ -129,6 +130,7 @@ Wrapped `yoke <subcommand>` adapters: **223** (operation tracker confirms 222 wr
 | packets | `yoke packets render` | `packets.render.run` | ok |
 | packs | `yoke packs get` | `packs.get.run` | ok |
 | packs | `yoke packs list` | `packs.list` | ok |
+| packs | `yoke packs relink` | `packs.relink.run` | ok |
 | packs | `yoke packs update` | `packs.update.run` | ok |
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
 | project | `yoke project install` | `project.install.run` | ok |
@@ -146,6 +148,7 @@ Wrapped `yoke <subcommand>` adapters: **223** (operation tracker confirms 222 wr
 | projects | `yoke projects capability secret set` | `projects.capability_secret.set` | ok |
 | projects | `yoke projects capability-settings get` | `projects.capability_settings.get` | ok |
 | projects | `yoke projects capability-settings merge` | `projects.capability_settings.merge` | ok |
+| projects | `yoke projects capability-settings remove` | `projects.capability_settings.remove` | ok |
 | projects | `yoke projects capability-settings set` | `projects.capability_settings.set` | ok |
 | projects | `yoke projects checkout-context` | `projects.checkout_context.run` | ok |
 | projects | `yoke projects create` | `projects.create` | ok |
