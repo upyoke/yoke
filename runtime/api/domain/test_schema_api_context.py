@@ -204,6 +204,13 @@ _CANONICAL_LIVE_NAMES_BY_TOPIC = {
         "yoke qa requirement list",
         "yoke qa gate-summary",
     ),
+    "packs": (
+        "pack_catalog",
+        "project_pack_reports",
+        "project_pack_report_entries",
+        "installed_version",
+        "reported_at",
+    ),
     "project": (
         "project_structure",
         "command_definitions",
@@ -214,6 +221,14 @@ _CANONICAL_LIVE_NAMES_BY_TOPIC = {
         "SELECT id, stages FROM deployment_flows",
     ),
 }
+
+
+def test_packs_packet_teaches_catalog_label_and_receipt_authority() -> None:
+    body = sac.render_topic_packet("packs")
+    assert "The plain-language Pack label is `name`" in body
+    assert "NO `display_name` column" in body
+    assert "`.yoke/packs.json`" in body
+    assert "never a replacement for it" in body
 
 
 def test_project_topic_packet_avoids_phantom_columns() -> None:

@@ -235,6 +235,7 @@ _TOPIC_HEADERS = {
     "claims": "DB Quick Reference — claims (sessions, work, paths)",
     "auth": "DB Quick Reference — auth (roles, permissions, org/project grants)",
     "qa": "DB Quick Reference — qa (requirements, runs, gate preview)",
+    "packs": "DB Quick Reference — packs (catalog and receipt projection)",
     "project": "DB Quick Reference — project (test commands, project_structure)",
 }
 
