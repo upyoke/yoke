@@ -19,6 +19,13 @@ from yoke_contracts.github_app_installation_permissions import (
 class PulumiGithubAuthorityError(RuntimeError):
     """A repository-bound machine App authorization is unavailable."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        # Every message constructed in this module is deliberately redacted.
+        # The execution layer can surface this explanation while continuing
+        # to hide arbitrary exception text from token and transport providers.
+        self.pulumi_safe_message = message
+
 
 @dataclass(frozen=True)
 class PulumiGithubAuth:
