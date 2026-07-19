@@ -1,6 +1,6 @@
 # Advance — Ephemeral Environment Orchestration
 
-> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator runs the capability-gated environment phase end-to-end and emits `AdvancePhaseCompleted{phase="environment"}`. For projects without the `ephemeral-env` capability the orchestrator emits `outcome=skipped:no-capability` and moves to finalize. For projects whose capability declares `trigger: "flow"` (Yoke core-service previews deploy through the `ephemeral-deploy` flow executor, `yoke_core.domain.deploy_ephemeral`) it emits `outcome=skipped:flow-triggered` — provisioning rows at advance time would create dead pending previews no push workflow deploys. For push-triggered projects (`trigger: "github-push"`, e.g. a webapp), the orchestrator delegates to `yoke_core.engines.advance_implementation_environment.run`, which pushes the branch, creates the `ephemeral_environments` row, derives the preview URL from the capability's `preview_domain`, and stores the deployed SHA in one Python call. Outcomes: `provisioned` (URL + env row + SHA recorded), `skipped:flow-triggered`, `pending:policy-invalid` (malformed `ephemeral-env` settings — repair single keys through the source-dev/admin project capability settings helpers; no registered product CLI wrapper exists yet), `pending:push-failed` (advisory — env row NOT created, retry later). The agent never has to run the recipe below by hand for an implementation-entry advance; this doc remains as the operator reference for non-orchestrator paths and as the contract the orchestrator honors.
+> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator runs the capability-gated environment phase end-to-end and emits `AdvancePhaseCompleted{phase="environment"}`. For projects without the `ephemeral-env` capability the orchestrator emits `outcome=skipped:no-capability` and moves to finalize. For projects whose capability declares `trigger: "flow"`, the validated `flow_id` is dispatched later by Conduct after implementation; Advance emits `outcome=skipped:flow-triggered` so it does not create a dead pending row. For push-triggered projects (`trigger: "github-push"`), the orchestrator pushes the actual worktree branch, creates the environment row, derives the preview URL from the capability's `preview_domain`, and stores the deployed SHA in one Python call. Outcomes: `provisioned` (URL + env row + SHA recorded), `skipped:flow-triggered`, `pending:policy-invalid` (malformed settings — repair through `yoke projects capability-settings merge`), and `pending:push-failed` (advisory — no row is created). The agent never has to run the recipe below by hand for an implementation-entry advance; this doc remains the operator reference for non-orchestrator paths.
 
 Called by the advance router when target is `implementing` and type is not `epic`. Handles ephemeral env setup for browser QA. Skip if target is not `implementing` or type is `epic` (epics use conduct E1-E5).
 
@@ -22,14 +22,15 @@ Check the project's `ephemeral-env` capability through the typed function call. 
 }
 ```
 
-If the response carries `result.has=false`, skip the ephemeral phase. For non-yoke projects, warn:
+If the response carries `result.has=false`, skip the ephemeral phase and warn:
 > Warning: project '{_item_project}' has no ephemeral-env capability — skipping ephemeral environment lifecycle.
 
 ## Push Branch to Origin (step 5b-eph.b)
 
-Push branch so ephemeral deploy workflows trigger:
+Push the actual worktree branch so push-triggered preview workflows run:
 ```bash
-git -C "$_wt_repo" push -u origin YOK-{N} 2>&1
+_branch=$(git -C "$WORKTREE_PATH" branch --show-current)
+git -C "$WORKTREE_PATH" push -u origin "$_branch" 2>&1
 PUSH_EXIT=$?
 ```
 
@@ -37,13 +38,12 @@ Non-zero → advisory warning, skip rest of ephemeral orchestration (non-blockin
 > **Advisory:** Branch push failed. Ephemeral environment unavailable.
 
 Success:
-> Pushed branch `YOK-{N}` to origin — ephemeral deploy workflow will trigger.
+> Pushed the worktree branch to origin — ephemeral deploy workflow will trigger.
 
 ## Create Environment Record (step 5b-eph.c)
 
 ```bash
-# Internal env-row create (source-dev/admin): create the ephemeral_environments
-# row for "$_item_project" and YOK-{N}. No registered product CLI wrapper exists.
+yoke ephemeral-env create "$_item_project" "$_branch" --item "YOK-{N}" --json
 ```
 
 Empty result → advisory, skip URL derivation.
@@ -52,14 +52,10 @@ Empty result → advisory, skip URL derivation.
 
 Canonical URL derivation formula (must match the internal ephemeral-env helper):
 ```bash
-_branch="YOK-{N}"
 _slug=$(printf '%s' "$_branch" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
 
-# The implementation-entry orchestrator reads the domain from
-# sites.settings.domains[0].domain_name via
-# yoke_core.engines.advance_implementation_environment. Operator-debug
-# paths should inspect that DB setting; do not read project-local flat files.
-_ephemeral_url="pending"
+# Read preview_domain through the registered capability-settings get wrapper.
+_ephemeral_url="https://${_slug}.${_preview_domain}"
 ```
 
 ## Update Environment Record (step 5b-eph.e)

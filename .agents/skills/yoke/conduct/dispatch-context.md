@@ -16,7 +16,7 @@ Referenced by the conduct phase files (`entry-activation.md`, `engineer-tester-l
 | `5f-epic.2a. Simulation Gap Gate` | [dispatch-context-gates.md](dispatch-context-gates.md) | Plan-phase simulation gap check |
 | `5f-epic.3. Same-Worktree Protection` | [dispatch-context-gates.md](dispatch-context-gates.md) | Per-candidate dispatch guard |
 | `5f-epic.4. Verify Dependencies` | [dispatch-context-gates.md](dispatch-context-gates.md) | Dependency and interface contract check |
-| `5f-project` | [dispatch-context-project.md](dispatch-context-project.md) | Project context injection for non-yoke items |
+| `5f-project` | [dispatch-context-project.md](dispatch-context-project.md) | Project context injection for every project-owned item |
 | `5f-project-ephemeral` | [dispatch-context-gates.md](dispatch-context-gates.md) | Ephemeral environment lifecycle (E1-E5) |
 | `5f-rehydrate` | [dispatch-context-rehydrate.md](dispatch-context-rehydrate.md) | Prior attempt rehydration for retries |
 | `5g. Parallel Engineer Dispatch` | [dispatch-context-dispatch.md](dispatch-context-dispatch.md) | Engineer dispatch orchestration |
@@ -65,7 +65,7 @@ File routing:
  Backlog items, board, QA data -> Main repo root: {MAIN_ROOT}
 ```
 
-Run **5f-project** (see below) to append project context if the item belongs to a non-yoke project.
+Run **5f-project** (see below) to append context for any project-owned item.
 
 Store `_spec`, `_worktree_path`, and the context block for this item.
 
@@ -138,7 +138,7 @@ Parse `worktree_path` from the chain row. Fallback: resolve the project-specific
 ```bash
 # Fallback: resolve project-aware repo root for worktree path
 _item_project=$(yoke items get "${_id}" project)
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "yoke" ]; then
+if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
  _project_root=$(yoke projects get --project "$_item_project" --field repo_path)
 else
  _project_root="${MAIN_ROOT}"
@@ -147,7 +147,7 @@ _slug=$(echo "$_worktree_branch" | sed 's|/|-|g')
 _worktree_path="${_project_root}/.worktrees/${_slug}"
 ```
 
-This ensures cross-project epics (e.g., `project=external-webapp`) resolve to the correct repo root (e.g., `/Users/dev/external-webapp/.worktrees/YOK-N`) instead of always using `MAIN_ROOT`.
+This ensures every project, including Yoke, resolves through the same registered repo root instead of assuming `MAIN_ROOT`.
 
 Defense-in-depth: persist all three worktree fields to `epic_tasks`. This ensures that even if the activation step in `entry-activation-resolution.md` S6f is bypassed during re-entry recovery, the context preparation step writes all three fields. Since `metadata-update` is idempotent, redundant writes are harmless.
 
@@ -178,7 +178,7 @@ File routing:
  Backlog items, board -> Main repo root: {MAIN_ROOT}
 ```
 
-Run **5f-project** (see below) to append project context if the item belongs to a non-yoke project.
+Run **5f-project** (see below) to append context for any project-owned item.
 
 Store `_spec`, `_worktree_path`, and the context block for this item.
 
@@ -189,7 +189,10 @@ Store `_spec`, `_worktree_path`, and the context block for this item.
 <!-- Extracted to dispatch-context-project.md -->
 See [dispatch-context-project.md](dispatch-context-project.md) for the full project context injection protocol: project query, `context_routing` always + topic assembly, test command validation, ephemeral URL query, and context block construction.
 
-After `5f-project` completes, run **5f-project-ephemeral** in [dispatch-context-gates.md](dispatch-context-gates.md) for non-yoke projects.
+Independently of whether `5f-project` applies, run
+**5f-project-ephemeral** in
+[dispatch-context-ephemeral.md](dispatch-context-ephemeral.md) for any
+non-empty project with the `ephemeral-env` capability.
 
 ---
 
@@ -211,7 +214,7 @@ See [dispatch-context-dispatch.md](dispatch-context-dispatch.md) for: Engineer d
 
 Sections extracted from this file for size management:
 
-- **[dispatch-context-project.md](dispatch-context-project.md)** — 5f-project: Project context injection (non-yoke items): project query, `context_routing` always + topic, test command validation, ephemeral URL, context block construction.
+- **[dispatch-context-project.md](dispatch-context-project.md)** — 5f-project: Project context injection for every project-owned item: project query, `context_routing` always + topic, test command validation, ephemeral URL, context block construction.
 
 - **[dispatch-context-rehydrate.md](dispatch-context-rehydrate.md)** — 5f-rehydrate: Prior attempt rehydration: progress note + tester review queries, block assembly, size guard.
 

@@ -46,6 +46,16 @@ class CapabilitySettingsMergeRequest(BaseModel):
     assignments: Dict[str, Any]
 
 
+class CapabilitySettingsRemoveRequest(BaseModel):
+    """CAS-remove one ordinary capability settings row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    project: str
+    cap_type: str
+    base_settings_json: str
+
+
 class CapabilitySettingsResponse(BaseModel):
     project: str
     cap_type: str
@@ -154,6 +164,33 @@ def handle_capability_settings_merge(
     return _success(parsed.project, parsed.cap_type, settings_json, message=message)
 
 
+def handle_capability_settings_remove(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    try:
+        parsed = CapabilitySettingsRemoveRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _payload_invalid(exc)
+
+    from yoke_core.domain.projects_capabilities_settings import (
+        cmd_capability_remove_settings,
+    )
+
+    try:
+        message = cmd_capability_remove_settings(
+            parsed.project,
+            parsed.cap_type,
+            base_settings_json=parsed.base_settings_json,
+        )
+    except SettingsConflictError as exc:
+        return _failure("settings_conflict", str(exc), "$.payload.base_settings_json")
+    except LookupError as exc:
+        return _failure("not_found", str(exc), "$.payload")
+    except ValueError as exc:
+        return _failure("validation_error", str(exc), "$.payload")
+    return _success(parsed.project, parsed.cap_type, None, message=message)
+
+
 def _success(
     project: str,
     cap_type: str,
@@ -188,9 +225,11 @@ def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:
 __all__ = [
     "CapabilitySettingsGetRequest",
     "CapabilitySettingsMergeRequest",
+    "CapabilitySettingsRemoveRequest",
     "CapabilitySettingsResponse",
     "CapabilitySettingsSetRequest",
     "handle_capability_settings_get",
     "handle_capability_settings_merge",
+    "handle_capability_settings_remove",
     "handle_capability_settings_set",
 ]

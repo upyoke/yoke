@@ -1,24 +1,16 @@
-"""Schema initialization and seed data for deployment flows.
+"""Schema initialization for deployment flows.
 
 Owns the ``deployment_flows`` table DDL, idempotent column migrations,
-the seed flows, and the ``item_progress_view`` view that joins items,
-flows, deployment runs, and QA status into a single operator-facing
-projection.
+and the ``item_progress_view`` view that joins items, project-owned flows,
+deployment runs, and QA status into a single operator-facing projection.
 """
+
 from __future__ import annotations
 
-import json
-
-from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS as _SEED_FLOWS
-from yoke_core.domain.flow_supersession import (
-    converge_builtin_flow_supersessions,
-)
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _table_exists,
 )
-from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 
 
 def _ensure_flow_schema(conn) -> None:
@@ -41,8 +33,12 @@ def _ensure_flow_schema(conn) -> None:
     # Postgres, so a swallowed DuplicateColumn would poison every later
     # statement with InFailedSqlTransaction. ``_add_column_if_not_exists``
     # checks the live column set first and only ALTERs when missing.
-    _add_column_if_not_exists(conn, "deployment_flows", "target_env", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "deployment_flows", "done_description", "TEXT DEFAULT NULL")
+    _add_column_if_not_exists(
+        conn, "deployment_flows", "target_env", "TEXT DEFAULT NULL"
+    )
+    _add_column_if_not_exists(
+        conn, "deployment_flows", "done_description", "TEXT DEFAULT NULL"
+    )
     _add_column_if_not_exists(
         conn, "deployment_flows", "status", "TEXT NOT NULL DEFAULT 'active'"
     )
@@ -59,110 +55,19 @@ def _ensure_flow_schema(conn) -> None:
     _add_column_if_not_exists(conn, "items", "deploy_stage", "TEXT DEFAULT NULL")
 
 
-def _seed_missing_flow_definitions(conn) -> None:
-    """Insert code-owned flow definitions that are absent from a universe.
-
-    Existing rows are deliberately left untouched: a disabled definition must
-    stay disabled, historical runs must keep resolving their original flow,
-    and project-authored customizations are not silently rewritten on boot.
-    """
-
-    # Seed flows — only for projects that exist in this universe. A fresh
-    # universe seeds no project rows, so it gets no flow rows either; the
-    # flow definitions converge on installs whose registry carries the
-    # matching project (resolved by slug, never by an assumed numeric id).
-    project_ids = {
-        str(row[0]): int(row[1])
-        for row in conn.execute("SELECT slug, id FROM projects").fetchall()
-    }
-    seeded_flows = [
-        flow for flow in _SEED_FLOWS if str(flow["project"]) in project_ids
-    ]
-    for flow in seeded_flows:
-        conn.execute(
-            "INSERT INTO deployment_flows "
-            "(id, project_id, name, description, stages, on_failure, target_env, "
-            "done_description, status, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT(id) DO NOTHING",
-            (
-             flow["id"], project_ids[str(flow["project"])],
-             flow["name"], flow["description"],
-             flow["stages"], flow["on_failure"], flow.get("target_env"),
-             flow.get("done_description"), flow.get("status", "active"),
-             iso8601_now()),
-        )
-
-
 def converge_flow_catalog(conn) -> None:
-    """Converge additive flow schema and code-owned flow definitions.
+    """Converge the additive flow schema without project-owned definitions.
 
-    This is the existing-universe boot path. It is safe to run repeatedly,
-    never deletes or rewrites a predecessor, and never changes a deployment
-    run. Exact code-owned predecessors may be disabled once every binding is
-    terminal; modified definitions stay untouched.
+    Project repositories declare definitions in ``.yoke/deployment-flows.json``
+    and materialize them through project refresh. Schema boot never guesses a
+    project's delivery topology or rewrites historical definitions.
     """
     _ensure_flow_schema(conn)
-    _seed_missing_flow_definitions(conn)
-    converge_builtin_flow_supersessions(conn)
     conn.commit()
 
 
 def cmd_init(conn) -> str:
     _ensure_flow_schema(conn)
-    _seed_missing_flow_definitions(conn)
-
-    for flow in _SEED_FLOWS:
-        if flow.get("done_description"):
-            conn.execute(
-                "UPDATE deployment_flows SET done_description=%s "
-                "WHERE id=%s AND done_description IS NULL",
-                (flow["done_description"], flow["id"]),
-            )
-
-    # Ensure a seed's governed migration stage is present on its live row.
-    for flow in _SEED_FLOWS:
-        if flow["status"] != FLOW_STATUS_ACTIVE:
-            continue
-        try:
-            seed_stages = json.loads(flow["stages"])
-        except (json.JSONDecodeError, TypeError, KeyError):
-            continue
-        seed_apply = next(
-            (s for s in seed_stages
-             if isinstance(s, dict) and s.get("kind") == "migration_apply"),
-            None,
-        )
-        if seed_apply is None:
-            continue
-        row = conn.execute(
-            "SELECT stages FROM deployment_flows WHERE id = %s",
-            (flow["id"],),
-        ).fetchone()
-        if row is None:
-            continue
-        raw_live = row[0] if not hasattr(row, "keys") else row["stages"]
-        try:
-            live_stages = json.loads(raw_live) if raw_live else []
-        except (json.JSONDecodeError, TypeError):
-            continue
-        if not isinstance(live_stages, list):
-            continue
-        already_present = any(
-            isinstance(s, dict)
-            and s.get("kind") == "migration_apply"
-            and s.get("model_name") == seed_apply.get("model_name")
-            for s in live_stages
-        )
-        if already_present:
-            continue
-        merged = [seed_apply] + live_stages
-        conn.execute(
-            "UPDATE deployment_flows SET stages = %s WHERE id = %s",
-            (json.dumps(merged), flow["id"]),
-        )
-
-    converge_builtin_flow_supersessions(conn)
     conn.commit()
 
     # Create item_progress_view

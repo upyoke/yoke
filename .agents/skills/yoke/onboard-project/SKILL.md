@@ -151,6 +151,8 @@ Documentation/context setup:
 
 Use `yoke packs list --project {project} --json` to inspect reusable capabilities. Preview each relevant Pack against the target checkout before applying it; do not force conflicts or install unrelated Packs. Pack output becomes ordinary project-owned source, customization is expected, and `.yoke/packs.json` records the applied baseline for independent future updates.
 
+If an installed Pack file has moved, preview `yoke packs relink {pack} {project_root} --project {project} --from {old_path} --to {new_path}` and apply the same command with `--apply` only after the mapping is confirmed. Relink updates the receipt path only; it never moves or rewrites project source.
+
 ```bash
 yoke packs list --project {project} --json
 yoke packs get {pack} {project_root} --project {project}

@@ -44,8 +44,8 @@ class TestDerivePort:
 
 class TestNaming:
     def test_compose_dir_url_shapes(self):
-        assert compose_project_name("yoke", "abc") == "yoke-abc"
-        assert ephemeral_deploy_dir("yoke", "abc") == "~/yoke-ephemeral/abc"
+        assert compose_project_name("yoke-preview", "abc") == "yoke-preview-abc"
+        assert ephemeral_deploy_dir("yoke-preview", "abc") == "~/yoke-preview/abc"
         assert preview_url("abc", "preview.example.com") == (
             "https://abc.preview.example.com"
         )
@@ -55,6 +55,7 @@ class TestNaming:
 def _cap(**overrides):
     cap = {
         "trigger": "flow",
+        "flow_id": "sample-branch-preview",
         "host_env": "stage",
         "preview_domain": "preview.example.com",
         "api_base_port": 9000,
@@ -69,30 +70,32 @@ class TestPolicy:
     def test_full_flow_policy(self):
         policy = ephemeral_policy_from_capability("yoke", _cap())
         assert policy.trigger == "flow"
+        assert policy.flow_id == "sample-branch-preview"
         assert policy.host_env == "stage"
         assert policy.preview_domain == "preview.example.com"
         assert policy.api_port_for("yok-1369") == 9077
         assert policy.web_base_port == 4000  # default fills in
         assert policy.ttl_hours == 24
 
-    def test_deploy_namespace_defaults_to_project(self):
+    def test_preview_namespace_defaults_from_project(self):
         policy = ephemeral_policy_from_capability("yoke", _cap())
-        assert policy.deploy_namespace == "yoke"
+        assert policy.preview_namespace == "yoke-preview"
+        assert policy.host_project == "yoke"
 
-    def test_deploy_namespace_override_decouples_from_project(self):
-        # A re-parented site keeps its stable namespace even though the
-        # control-plane project slug now differs.
+    def test_preview_namespace_and_host_project_are_independent(self):
         policy = ephemeral_policy_from_capability(
-            "yoke-reparented", _cap(), deploy_namespace="yoke"
+            "yoke",
+            _cap(host_project="platform", preview_namespace="yoke-preview"),
+            deploy_namespace="yoke",
         )
-        assert policy.project == "yoke-reparented"
-        assert policy.deploy_namespace == "yoke"
+        assert policy.project == "yoke"
+        assert policy.host_project == "platform"
+        assert policy.preview_namespace == "yoke-preview"
 
     def test_github_push_policy_needs_no_host_env(self):
         policy = ephemeral_policy_from_capability(
             "externalwebapp",
-            _cap(trigger="github-push", host_env="",
-                 preview_domain="example.com"),
+            _cap(trigger="github-push", host_env="", preview_domain="example.com"),
         )
         assert policy.trigger == "github-push"
         assert policy.web_port_for("yok-1369") == 4077
@@ -116,3 +119,22 @@ class TestPolicy:
     def test_flow_trigger_requires_host_env(self):
         with pytest.raises(EphemeralPolicyError, match="host_env"):
             ephemeral_policy_from_capability("p", _cap(host_env=""))
+
+    def test_flow_trigger_requires_project_owned_flow(self):
+        with pytest.raises(EphemeralPolicyError, match="flow_id"):
+            ephemeral_policy_from_capability("p", _cap(flow_id=""))
+
+    @pytest.mark.parametrize(
+        "overrides, message",
+        [
+            ({"preview_namespace": "bad; touch /tmp/x"}, "preview_namespace"),
+            ({"flow_id": "../preview"}, "flow_id"),
+            ({"host_project": "../platform"}, "host_project"),
+            ({"preview_domain": "https://preview.example.com"}, "preview_domain"),
+            ({"port_range": 0}, "port_range"),
+            ({"api_base_port": 65500, "port_range": 100}, "65535"),
+        ],
+    )
+    def test_rejects_unsafe_host_render_values(self, overrides, message):
+        with pytest.raises(EphemeralPolicyError, match=message):
+            ephemeral_policy_from_capability("p", _cap(**overrides))

@@ -20,20 +20,23 @@ from runtime.api.cli.test_yoke_operations_cli_deployment import (
 def _declaration() -> dict:
     return {
         "schema": 1,
-        "flows": [{
-            "id": "acme-internal",
-            "name": "Internal",
-            "stages": [{"name": "complete", "executor": "auto"}],
-        }],
+        "flows": [
+            {
+                "id": "acme-internal",
+                "name": "Internal",
+                "stages": [{"name": "complete", "executor": "auto"}],
+            }
+        ],
     }
 
 
 def test_registry_maps_reconcile_project() -> None:
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
-    assert SUBCOMMAND_REGISTRY[
-        ("deployment-flows", "reconcile-project")
-    ][0] == "deployment_flows.reconcile_project"
+    assert (
+        SUBCOMMAND_REGISTRY[("deployment-flows", "reconcile-project")][0]
+        == "deployment_flows.reconcile_project"
+    )
 
 
 def test_flow_declaration_dispatches_project_owned_document(tmp_path) -> None:
@@ -55,6 +58,25 @@ def test_flow_declaration_dispatches_project_owned_document(tmp_path) -> None:
     assert request.function == "deployment_flows.reconcile_project"
     assert request.target.project_id == "acme"
     assert request.payload == declaration
+
+
+def test_flow_declaration_preview_is_read_only(tmp_path) -> None:
+    _CAPTURED_REQUESTS.clear()
+    declaration = _declaration()
+    path = tmp_path / "deployment-flows.json"
+    path.write_text(json.dumps(declaration), encoding="utf-8")
+
+    rc, _out, _err = _run_capture(
+        _stub_ok,
+        "deployment-flows",
+        "reconcile-project",
+        "acme",
+        str(path),
+        "--preview",
+    )
+
+    assert rc == 0
+    assert _CAPTURED_REQUESTS[-1].options == {"preview_only": True}
 
 
 def test_project_refresh_materializes_nonempty_declaration(tmp_path) -> None:

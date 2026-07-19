@@ -2,7 +2,7 @@
   "schema": 1,
   "slug": "domain-cdn-edge",
   "name": "Domain and CDN Edge",
-  "description": "Domain, DNS, API edge, CloudFront distribution, and cache invalidation.",
+  "description": "Connects an application to its domain through DNS, HTTPS, API routing, and CloudFront caching, including cache invalidation after deployment.",
   "latest_version": "1.0.0",
   "versions": {
     "1.0.0": {

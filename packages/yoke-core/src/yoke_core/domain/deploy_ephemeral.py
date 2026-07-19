@@ -85,8 +85,12 @@ from yoke_core.domain.ephemeral_substrate import (
 )
 
 _FAILURE_CLASSES = (
-    EphemeralDeployError, EphemeralPolicyError, DeployEnvironmentError,
-    CoreDeployError, RemoteConvergenceError, EnvironmentActivateError,
+    EphemeralDeployError,
+    EphemeralPolicyError,
+    DeployEnvironmentError,
+    CoreDeployError,
+    RemoteConvergenceError,
+    EnvironmentActivateError,
 )
 
 
@@ -94,18 +98,13 @@ def _emit(line: str) -> None:
     print(line, flush=True)
 
 
-def _resolve_branch_sha(
-    runner: CommandRunner, repo_path: str, branch: str
-) -> str:
+def _resolve_branch_sha(runner: CommandRunner, repo_path: str, branch: str) -> str:
     """The branch's local commit SHA — the worktree tier deploys local code."""
     if not repo_path:
         raise EphemeralDeployError(
-            "[ephemeral] no project repo path available to resolve the "
-            "branch SHA"
+            "[ephemeral] no project repo path available to resolve the branch SHA"
         )
-    result = runner.run(
-        ["git", "-C", repo_path, "rev-parse", branch], timeout=30
-    )
+    result = runner.run(["git", "-C", repo_path, "rev-parse", branch], timeout=30)
     if not result.ok or not result.stdout.strip():
         raise EphemeralDeployError(
             f"[ephemeral] could not resolve branch '{branch}' in "
@@ -141,25 +140,26 @@ def exec_ephemeral_deploy(
                 "project-owned Pack files"
             )
         policy = load_ephemeral_policy(project)
-        env = resolve_deploy_environment(policy.project, policy.host_env)
+        env = resolve_deploy_environment(policy.host_project, policy.host_env)
         if env.activation_state == "render_only":
             raise EphemeralDeployError(
                 f"[ephemeral] host environment '{policy.host_env}' of "
-                f"project '{policy.project}' is declared render_only; "
+                f"project '{policy.host_project}' is declared render_only; "
                 f"activate its Pulumi stack ({env.stack_name}) first"
             )
         slug = slugify_branch(branch)
         api_port = policy.api_port_for(slug)
         url = preview_url(slug, policy.preview_domain)
-        deploy_dir = ephemeral_deploy_dir(env.deploy_namespace, slug)
+        deploy_dir = ephemeral_deploy_dir(policy.preview_namespace, slug)
         emit(
-            f"  [ephemeral] target {policy.project}/{slug} on host env "
-            f"{policy.host_env} ({env.origin_host}, port {api_port})"
+            f"  [ephemeral] target {policy.project}/{slug} on "
+            f"{policy.host_project}/{policy.host_env} "
+            f"({env.origin_host}, port {api_port})"
         )
 
         sha = _resolve_branch_sha(runner, repo_path, branch)
         tag = image_tag or canonical_image_tag(sha)
-        aws_env = aws_capability_env(policy.project, env.aws_region)
+        aws_env = aws_capability_env(policy.host_project, env.aws_region)
         ensure_instance_running(runner, env, aws_env, emit)
         wait_ssh_reachable(runner, env, emit)
         image_ref = ensure_image_in_registry(
@@ -169,22 +169,23 @@ def exec_ephemeral_deploy(
         ensure_wildcard_tls(runner, env, policy.preview_domain, emit)
         routing = routing_values(policy)
         ensure_preview_routing(
-            runner, env,
-            render_webapp_template(
-                project_root, "ops/nginx-ephemeral.conf", routing
-            ),
+            runner,
+            env,
+            render_webapp_template(project_root, "ops/nginx-ephemeral.conf", routing),
             render_webapp_template(project_root, "ops/ephemeral_port.js", routing),
+            policy.preview_namespace,
             emit,
         )
         ensure_cleanup_cron(
-            runner, env,
+            runner,
+            env,
             render_webapp_template(project_root, "ops/ephemeral-cleanup.sh", routing),
+            policy.preview_namespace,
             emit,
         )
 
         db_password = (
-            read_existing_db_password(runner, env, deploy_dir)
-            or generate_db_password()
+            read_existing_db_password(runner, env, deploy_dir) or generate_db_password()
         )
         compose_yaml, env_file, dsn = slug_files(
             policy,
@@ -196,18 +197,27 @@ def exec_ephemeral_deploy(
             project_root=project_root,
         )
         track(
-            policy.project, branch,
+            policy.project,
+            branch,
             {"port_api": str(api_port), "url": url, "deployed_sha": sha},
             item_label=item_label,
         )
         converge_slug_project(
-            runner, env, deploy_dir, compose_yaml, env_file, dsn,
-            db_password, emit,
+            runner,
+            env,
+            deploy_dir,
+            compose_yaml,
+            env_file,
+            dsn,
+            db_password,
+            emit,
         )
         compose_bootstrap_and_up(runner, env, deploy_dir, emit)
         wait_container_healthy(
-            runner, env,
-            f"{compose_project_name(env.deploy_namespace, slug)}-core", emit,
+            runner,
+            env,
+            f"{compose_project_name(policy.preview_namespace, slug)}-core",
+            emit,
         )
 
         verify_slug_health(
@@ -225,12 +235,15 @@ def exec_ephemeral_deploy(
                 "the deploy contract"
             )
         track(
-            policy.project, branch,
+            policy.project,
+            branch,
             {"status": "running", "health_check_url": url + env.health_path},
             item_label=item_label,
         )
         emit_ephemeral_event(
-            "DeploymentEphemeralDeployed", policy, slug,
+            "DeploymentEphemeralDeployed",
+            policy,
+            slug,
             {"url": url, "image_ref": image_ref, "branch": branch},
         )
         emit(f"  [ephemeral] {policy.project}/{slug} now serving {url}")
@@ -256,16 +269,15 @@ def exec_ephemeral_teardown(
     runner = runner or CommandRunner()
     try:
         if not branch:
-            raise EphemeralDeployError(
-                "[ephemeral] --branch is required for teardown"
-            )
+            raise EphemeralDeployError("[ephemeral] --branch is required for teardown")
         policy = load_ephemeral_policy(project)
-        env = resolve_deploy_environment(policy.project, policy.host_env)
+        env = resolve_deploy_environment(policy.host_project, policy.host_env)
         slug = slugify_branch(branch)
         teardown_slug_project(
-            runner, env,
-            ephemeral_deploy_dir(env.deploy_namespace, slug),
-            compose_project_name(env.deploy_namespace, slug),
+            runner,
+            env,
+            ephemeral_deploy_dir(policy.preview_namespace, slug),
+            compose_project_name(policy.preview_namespace, slug),
             emit,
         )
         track(policy.project, branch, {"status": "stopped"})

@@ -172,10 +172,10 @@ requires TEXT DEFAULT '[]' -- JSON array of prerequisite capability IDs
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-Seed data: 6 templates seeded by `python3 -m yoke_core.cli.db_router projects init`:
+Seed data: generic capability templates are converged during schema initialization:
 - `ssh` -- SSH access to a remote server (settings: user, host, key_path; local-only secret: private_key)
 - `docker` -- Docker daemon accessible for container operations (keys: host)
-- `ephemeral-env` -- Per-branch ephemeral environments (keys: web_base_port, api_base_port, compose_file, env_file, startup_timeout_s; requires: docker)
+- `ephemeral-env` -- Per-branch preview policy. `trigger=github-push` uses the project's Pack-installed workflow; `trigger=flow` requires a project-owned `flow_id`. Host project/environment, preview domain/namespace, port ranges, and cleanup lifetime are explicit non-secret settings.
 - `aws-admin` -- AWS credentials with broad admin access (keys: access_key_id [secret], secret_access_key [secret], region)
 - `aws-route53` -- DNS management via Route53 (keys: hosted_zone_id; requires: aws-admin)
 - `github` -- GitHub App repo binding metadata for issue sync, PRs, Actions, and API access (keys: repo_owner, repo_name, installation_id, repository_id). The verified GitHub deployment API base is stored on `project_github_repo_bindings.api_url` and `github_app_installations.api_url`, not inferred from the repo slug. GitHub App private-key and webhook secret material belongs to the control-plane secret store, not `capability_secrets`.
@@ -220,22 +220,12 @@ rows are not created, and run history remains intact. Change lifecycle state wit
 new assignments and runs while preserving the definition and every historical
 run.
 
-Seed data: `python3 -m yoke_core.cli.db_router flows init` is a source-dev/admin seeder that adds flow definitions only for projects already present in the universe (a fresh universe gets none). Ordinary project operation reads and selects the registered definitions through project-scoped commands. The definitions:
-- `yoke-internal` — Script/doc changes, no deployment: `migration_apply (primary, implementing) -> merged (auto) -> complete (auto)` (no target_env, done="Merged to main")
-- `yoke-hosted-stage` — disabled historical Stage definition retained for run history.
-- `yoke-hosted-stage-no-ci-gate` — Yoke item → annotated release → Platform promotion boundary → complete Stage train without waiting for repository CI.
-- `yoke-hosted-production` — disabled historical normal-Production definition retained for run history.
-- `yoke-hosted-production-hotfix` — disabled historical Production hotfix definition retained for run history.
-- `yoke-hosted-production-hotfix-no-ci-gate` — Yoke item → annotated release → direct Production hotfix train without waiting for repository CI.
-- `platform-stage` — Platform item → complete Stage train at the merged Platform commit.
-- `platform-production-independent` — Platform item → direct Production train at the merged Platform commit, independent of Stage.
-- `platform-production` — disabled historical Stage-then-Production definition retained for run history.
-- `platform-production-hotfix` — Platform item → direct Production hotfix train at the merged Platform commit.
-- `yoke-ephemeral-deploy` — Branch/SHA Yoke core preview environment: `ephemeral-deploy (ephemeral-deploy) -> complete (auto)` (target_env=ephemeral, done="Yoke core preview environment deployed")
-Project-owned declarations are the authority for external-project flow IDs,
-stage names, workflow filenames, and defaults. Built-in initialization does not
-embed consumer-project definitions. Existing consumer rows remain readable in
-the database even when a declaration omits them. Their behavior is determined
-by the stored stages and capabilities, not by a recognized flow-id prefix.
+Schema initialization creates the registry but never seeds a project's delivery
+topology. Every project—including the Yoke and Platform repositories—owns its
+flow IDs, stage names, workflow filenames, retirements, and optional default in
+`.yoke/deployment-flows.json`. Existing rows remain readable when a declaration
+omits or retires them, so historical runs keep resolving without teaching new
+installs an old topology. Runtime behavior comes from stored stages and
+capabilities, not from a recognized project slug or flow-ID prefix.
 
 Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.

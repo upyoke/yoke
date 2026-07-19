@@ -104,19 +104,27 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.capability_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.capability_settings.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.capability_settings.merge": AuthzSpec(
-        PROJECT, PERM_PROJECT_ADMIN,
+        PROJECT,
+        PERM_PROJECT_ADMIN,
+    ),
+    "projects.capability_settings.remove": AuthzSpec(
+        PROJECT,
+        PERM_PROJECT_ADMIN,
     ),
     "projects.environment_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.infrastructure.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment_settings.merge": AuthzSpec(
-        PROJECT, PERM_PROJECT_ADMIN,
+        PROJECT,
+        PERM_PROJECT_ADMIN,
     ),
     "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.pulumi_state.checkpoint_import": AuthzSpec(
-        PROJECT, PERM_PROJECT_ADMIN,
+        PROJECT,
+        PERM_PROJECT_ADMIN,
     ),
     "projects.pulumi_stack_config.get": AuthzSpec(
-        PROJECT, PERM_PROJECT_RENDER_READ,
+        PROJECT,
+        PERM_PROJECT_RENDER_READ,
     ),
     "projects.capability.has": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     # Project identity metadata is visible to every actor who belongs to the
@@ -329,6 +337,8 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("events."):
         return PERM_EVENTS_WRITE if entry.side_effects else PERM_EVENTS_READ
+    if fid == "ephemeral_env.get":
+        return PERM_ITEMS_READ
     if fid.startswith("ephemeral_env."):
         return PERM_ITEMS_WRITE
     if fid.startswith("ouroboros.entry."):

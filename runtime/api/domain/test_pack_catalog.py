@@ -21,6 +21,7 @@ def test_product_catalog_covers_every_pack_with_installed_documentation(
     rows = pack_catalog.catalog_rows()
 
     assert {row["slug"] for row in rows} == {
+        "branch-preview-hosting",
         "container-runtime",
         "domain-cdn-edge",
         "ephemeral-environments",
@@ -33,6 +34,7 @@ def test_product_catalog_covers_every_pack_with_installed_documentation(
         "smoke-testing",
         "structured-events",
         "vps-hosting",
+        "webapp-environment-infrastructure",
         "webapp-scaffold",
     }
     for row in rows:
@@ -68,7 +70,7 @@ def test_host_maintenance_latest_is_a_standalone_utility_bundle(
     descriptor = pack_catalog.load_pack_descriptor("host-maintenance")
     latest = descriptor["versions"][descriptor["latest_version"]]
 
-    assert descriptor["latest_version"] == "1.1.0"
+    assert descriptor["latest_version"] == "1.2.0"
     assert latest["dependencies"] == []
     assert latest["settings_schema"]["required"] == []
     assert {row["target"] for row in latest["files"]} == {
@@ -77,6 +79,28 @@ def test_host_maintenance_latest_is_a_standalone_utility_bundle(
         "ops/docker_image_cleanup.py",
         "ops/docker_maintenance_converge.py",
     }
+
+
+def test_latest_pack_boundaries_separate_shared_and_application_specific_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
+
+    container = pack_catalog.load_pack_descriptor("container-runtime")
+    previews = pack_catalog.load_pack_descriptor("ephemeral-environments")
+    preview_host = pack_catalog.load_pack_descriptor("branch-preview-hosting")
+    foundation = pack_catalog.load_pack_descriptor("pulumi-foundation")
+    environment = pack_catalog.load_pack_descriptor("webapp-environment-infrastructure")
+
+    def targets(descriptor):
+        latest = descriptor["versions"][descriptor["latest_version"]]
+        return {row["target"] for row in latest["files"]}
+
+    assert "ops/core-service/docker-compose.yml.tmpl" not in targets(container)
+    assert "ops/ephemeral-cleanup.sh" not in targets(previews)
+    assert "ops/ephemeral-cleanup.sh" in targets(preview_host)
+    assert "infra/webapp_environment_stack.py" not in targets(foundation)
+    assert "infra/webapp_environment_stack.py" in targets(environment)
 
 
 def test_bundle_records_only_used_render_values_and_preserves_github_expressions(
@@ -88,8 +112,7 @@ def test_bundle_records_only_used_render_values_and_preserves_github_expressions
         files={
             "docs/packs/sample/README.md": "# Sample\n",
             ".github/workflows/{{project_name}}.yml": (
-                "name: {{project_display_name}}\n"
-                "run: echo ${{ inputs.message }}\n"
+                "name: {{project_display_name}}\nrun: echo ${{ inputs.message }}\n"
             ),
             "asset.bin": b"\xff\x00",
         },
@@ -100,7 +123,9 @@ def test_bundle_records_only_used_render_values_and_preserves_github_expressions
         "resolve_project",
         lambda *args, **kwargs: SimpleNamespace(id=9, slug="sample"),
     )
-    monkeypatch.setattr(pack_catalog, "_load_project_renderer_settings", lambda *args: object())
+    monkeypatch.setattr(
+        pack_catalog, "_load_project_renderer_settings", lambda *args: object()
+    )
     monkeypatch.setattr(
         pack_catalog,
         "gather_pulumi_values",
@@ -143,7 +168,9 @@ def test_copy_file_remains_project_owned_runtime_template(
         "resolve_project",
         lambda *args, **kwargs: SimpleNamespace(id=9, slug="sample"),
     )
-    monkeypatch.setattr(pack_catalog, "_load_project_renderer_settings", lambda *args: object())
+    monkeypatch.setattr(
+        pack_catalog, "_load_project_renderer_settings", lambda *args: object()
+    )
     monkeypatch.setattr(pack_catalog, "gather_pulumi_values", lambda *args: {})
 
     bundle = pack_catalog.build_pack_bundle(object(), project="sample", pack="sample")
@@ -231,6 +258,57 @@ def test_catalog_rejects_targets_shared_by_different_packs(
         pack_catalog.list_pack_descriptors()
 
 
+def test_catalog_allows_file_ownership_to_move_between_immutable_versions(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_pack(
+        tmp_path,
+        slug="former-owner",
+        files={"shared.txt": "old\n"},
+        documentation="shared.txt",
+    )
+    former = tmp_path / "packs" / "former-owner" / "pack.json"
+    descriptor = json.loads(former.read_text())
+    descriptor["latest_version"] = "2.0.0"
+    descriptor["versions"]["2.0.0"] = {
+        "source": "versions/2.0.0/files",
+        "documentation": "README.md",
+        "dependencies": [],
+        "settings_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False,
+        },
+        "files": [
+            {
+                "source": "README.md",
+                "target": "README.md",
+                "mode": "0644",
+                "render": "install",
+            }
+        ],
+        "verification": [{"name": "check", "command": "git diff --check"}],
+    }
+    latest_root = tmp_path / "packs" / "former-owner" / "versions" / "2.0.0" / "files"
+    latest_root.mkdir(parents=True)
+    (latest_root / "README.md").write_text("Former owner\n")
+    former.write_text(json.dumps(descriptor))
+    _write_pack(
+        tmp_path,
+        slug="new-owner",
+        files={"shared.txt": "new\n"},
+        documentation="shared.txt",
+    )
+    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: tmp_path)
+
+    assert {row["slug"] for row in pack_catalog.list_pack_descriptors()} == {
+        "former-owner",
+        "new-owner",
+    }
+
+
 def _write_pack(
     root: Path,
     *,
@@ -254,7 +332,9 @@ def _write_pack(
     file_records: list[dict[str, str]] = []
     for rel, content in sorted(files.items()):
         render = "copy" if rel in copied else "install"
-        target = rel if render == "copy" else (rel[:-5] if rel.endswith(".tmpl") else rel)
+        target = (
+            rel if render == "copy" else (rel[:-5] if rel.endswith(".tmpl") else rel)
+        )
         file_records.append(
             {"source": rel, "target": target, "mode": "0644", "render": render}
         )
@@ -277,7 +357,10 @@ def _write_pack(
                         "settings_schema": {
                             "type": "object",
                             "properties": {
-                                key: {"type": "string", "description": f"Value for {key}."}
+                                key: {
+                                    "type": "string",
+                                    "description": f"Value for {key}.",
+                                }
                                 for key in sorted(placeholders)
                             },
                             "required": sorted(placeholders),

@@ -75,7 +75,9 @@ def test_load_setup_config_refuses_cwd_fallback_when_unmapped(
             script_dir=tmp_path,
             yoke_db=db_path,
         )
-        with pytest.raises(FileNotFoundError, match="no machine-local checkout mapping"):
+        with pytest.raises(
+            FileNotFoundError, match="no machine-local checkout mapping"
+        ):
             _load_setup_config(ctx)
 
 
@@ -94,7 +96,11 @@ def test_run_setup_resolves_auth_with_active_connection(
         installation_id = "12345"
 
     def fake_resolve(
-        project, *, db_path=None, conn=None, required_permissions=None,
+        project,
+        *,
+        db_path=None,
+        conn=None,
+        required_permissions=None,
     ):
         seen["project"] = project
         seen["db_path"] = db_path
@@ -125,7 +131,9 @@ def test_run_setup_resolves_auth_with_active_connection(
     assert seen["required_permissions"] is GITHUB_SECRETS_WRITE_PERMISSION_LEVELS
 
 
-def test_run_setup_installs_project_owned_packs(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_run_setup_installs_project_owned_packs(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
     repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
     ssh_key = tmp_path / ".ssh_key"
@@ -153,6 +161,12 @@ def test_run_setup_installs_project_owned_packs(tmp_path: Path, monkeypatch, cap
             project_root=tmp_path,
             script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
             yoke_db=db_path,
+            packs=(
+                "production-deploy",
+                "smoke-testing",
+                "ephemeral-environments",
+                "vps-hosting",
+            ),
         )
 
         monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", fake_run)
@@ -161,8 +175,12 @@ def test_run_setup_installs_project_owned_packs(tmp_path: Path, monkeypatch, cap
         rest_calls = _install_fake_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
-        assert (repo_path / ".github" / "workflows" / "externalwebapp-deploy.yml").read_text() == "name: ExternalWebapp Deploy\n"
-        assert (repo_path / ".github" / "workflows" / "externalwebapp-smoke.yml").read_text() == "name: ExternalWebapp Smoke Test\n"
+        assert (
+            repo_path / ".github" / "workflows" / "externalwebapp-deploy.yml"
+        ).read_text() == "name: ExternalWebapp Deploy\n"
+        assert (
+            repo_path / ".github" / "workflows" / "externalwebapp-smoke.yml"
+        ).read_text() == "name: ExternalWebapp Smoke Test\n"
         output = capsys.readouterr().out
         assert "Step 2: Creating GitHub Secrets" in output
         assert "Review and commit the project-owned Pack changes" in output
@@ -183,7 +201,9 @@ def test_run_setup_installs_project_owned_packs(tmp_path: Path, monkeypatch, cap
         assert "default Yoke GitHub App grant does not request Administration" in output
 
 
-def test_run_setup_prints_tls_instructions_when_missing(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_run_setup_prints_tls_instructions_when_missing(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
     repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
     ssh_key = tmp_path / ".ssh_key"

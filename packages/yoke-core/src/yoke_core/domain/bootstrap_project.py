@@ -52,6 +52,12 @@ def _build_parser() -> argparse.ArgumentParser:
     cli.add_argument("--project-root")
     cli.add_argument("--script-dir")
     cli.add_argument("--yoke-db")
+    cli.add_argument(
+        "--pack",
+        action="append",
+        default=[],
+        help="install this missing Pack; repeat for more than one",
+    )
 
     for name in ("preflight", "setup", "verify"):
         subp = sub.add_parser(name)
@@ -59,6 +65,13 @@ def _build_parser() -> argparse.ArgumentParser:
         subp.add_argument("--project-root")
         subp.add_argument("--script-dir")
         subp.add_argument("--yoke-db")
+        if name == "setup":
+            subp.add_argument(
+                "--pack",
+                action="append",
+                default=[],
+                help="install this missing Pack; repeat for more than one",
+            )
         if name == "verify":
             subp.add_argument("--github-repo")
             subp.add_argument("--ssh-user")
@@ -101,6 +114,7 @@ def _resolve_context(args: argparse.Namespace) -> BootstrapContext:
         project_root=project_root,
         script_dir=script_dir,
         yoke_db=yoke_db,
+        packs=tuple(dict.fromkeys(getattr(args, "pack", []) or [])),
     )
 
 

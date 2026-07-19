@@ -136,13 +136,13 @@ git diff main...{_wt_branch}
 ### 4. Worktree path
 
 Read the item's project via the `items.get.run` function call (or
-reuse the `_item_project` shell variable from step 2). For
-non-yoke projects, read the project's repo path from the wrapped
+reuse the `_item_project` shell variable from step 2). For every
+project-owned item, read the project's repo path from the wrapped
 `projects.get` adapter:
 
 ```bash
 # {_item_project} comes from items.get.run above.
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "yoke" ]; then
+if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
  _wt_repo=$(yoke projects get --project "$_item_project" --field repo_path)
 else
  _wt_repo="{REPO_ROOT}"
@@ -156,25 +156,16 @@ Worktree: {_worktree_path}
 Main repo root: {REPO_ROOT}
 ```
 
-### 5. Ephemeral URL (non-yoke projects)
+### 5. Ephemeral URL (capable projects)
 
-Read the latest ephemeral environment row for the item's project +
-branch via the `ephemeral_env` module CLI (the
-`yoke_core.domain.ephemeral_env` Python entrypoint is the
-authoritative read for `ephemeral_environments` rows; the
-function-call dispatch surface is a follow-up). The query is
-read-only and stays on the operator-debug shell surface as a
-retained boundary:
+Read the environment for the item's project and actual worktree branch through
+the registered `yoke ephemeral-env get <project> <branch> --json` wrapper.
+Skip only projectless items; Yoke follows the same lookup as every other
+project.
 
-```bash
-# Retained-boundary: ephemeral_environments URL read.
-_ephemeral_url="none"
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "yoke" ]; then
- _eph=$(python3 -m yoke_core.domain.ephemeral_env get "$_item_project" "YOK-{N}" 2>/dev/null \
-   | python3 -c "import json,sys; row=json.loads(sys.stdin.read() or '{}'); print(row.get('url') or '')")
- if [ -n "$_eph" ]; then _ephemeral_url="$_eph"; fi
-fi
-```
+Run the wrapper once and set `_ephemeral_url` from
+`result.environment.url` only when `result.environment.status` is healthy;
+otherwise use `none`.
 
 Include in the prompt:
 ```

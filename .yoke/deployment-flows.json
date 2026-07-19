@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "default_flow": "yoke-internal",
+  "retire_if_present": [
+    "yoke-hosted-production",
+    "yoke-hosted-production-hotfix",
+    "yoke-hosted-stage"
+  ],
+  "flows": [
+    {
+      "id": "yoke-internal",
+      "name": "Internal",
+      "description": "Script/doc changes, no deployment needed",
+      "stages": [
+        {
+          "kind": "migration_apply",
+          "model_name": "primary",
+          "lifecycle_phase": "implementing"
+        },
+        {
+          "name": "merged",
+          "executor": "auto"
+        },
+        {
+          "name": "complete",
+          "executor": "auto"
+        }
+      ],
+      "on_failure": "halt",
+      "target_env": null,
+      "done_description": "Merged to main",
+      "status": "active"
+    },
+    {
+      "id": "yoke-hosted-production-hotfix-no-ci-gate",
+      "name": "Production Hotfix (No CI Gate)",
+      "description": "Dispatch an annotated Yoke hotfix through the Platform production train without waiting for repository CI",
+      "stages": [
+        {
+          "name": "merged",
+          "executor": "auto"
+        },
+        {
+          "name": "hosted-release",
+          "executor": "github-actions-workflow",
+          "workflow": "platform-release-bridge.yml",
+          "dispatch_correlation_input": "yoke_dispatch_id",
+          "ref": "main",
+          "inputs": {
+            "target_environment": "production",
+            "release_mode": "hotfix",
+            "product_sha": "{head_sha}",
+            "deployment_run_id": "{run_id}"
+          },
+          "reconcile_by_head_sha": false,
+          "wait_for_ci": false
+        },
+        {
+          "name": "complete",
+          "executor": "auto"
+        }
+      ],
+      "on_failure": "halt",
+      "target_env": "production",
+      "done_description": "Yoke hotfix completed through the hosted production train",
+      "status": "active"
+    },
+    {
+      "id": "yoke-hosted-stage-no-ci-gate",
+      "name": "Stage (No CI Gate)",
+      "description": "Dispatch an annotated Yoke version through the Platform stage train without waiting for repository CI",
+      "stages": [
+        {
+          "name": "merged",
+          "executor": "auto"
+        },
+        {
+          "name": "hosted-release",
+          "executor": "github-actions-workflow",
+          "workflow": "platform-release-bridge.yml",
+          "dispatch_correlation_input": "yoke_dispatch_id",
+          "ref": "main",
+          "inputs": {
+            "target_environment": "stage",
+            "release_mode": "normal",
+            "product_sha": "{head_sha}",
+            "deployment_run_id": "{run_id}"
+          },
+          "reconcile_by_head_sha": false,
+          "wait_for_ci": false
+        },
+        {
+          "name": "complete",
+          "executor": "auto"
+        }
+      ],
+      "on_failure": "halt",
+      "target_env": "stage",
+      "done_description": "Yoke release completed through the hosted stage train",
+      "status": "active"
+    },
+    {
+      "id": "yoke-branch-preview",
+      "name": "Branch Preview",
+      "description": "Deploy an unmerged Yoke branch to its configured preview host",
+      "stages": [
+        {
+          "name": "ephemeral-deploy",
+          "executor": "ephemeral-deploy"
+        },
+        {
+          "name": "complete",
+          "executor": "auto"
+        }
+      ],
+      "on_failure": "halt",
+      "target_env": "ephemeral",
+      "done_description": "Yoke branch preview deployed",
+      "status": "active"
+    }
+  ]
+}

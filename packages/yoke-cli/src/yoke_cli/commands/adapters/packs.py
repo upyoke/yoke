@@ -9,7 +9,12 @@ from typing import List
 
 from yoke_cli.commands._helpers import add_session_arg, parse_or_usage_error
 from yoke_cli.config.project_onboard_support import machine_config_path
-from yoke_cli.packs import PackClientError, list_packs, run_pack_operation
+from yoke_cli.packs import (
+    PackClientError,
+    list_packs,
+    run_pack_operation,
+    run_pack_relink,
+)
 
 
 PACKS_LIST_USAGE = "yoke packs list --project NAME [--config PATH] [--json]"
@@ -20,6 +25,10 @@ PACKS_GET_USAGE = (
 PACKS_UPDATE_USAGE = (
     "yoke packs update PACK [REPO_ROOT] --project NAME [--version VERSION] "
     "[--accept-current PATH ...] [--config PATH] [--apply] [--json]"
+)
+PACKS_RELINK_USAGE = (
+    "yoke packs relink PACK [REPO_ROOT] --project NAME --from OLD_PATH "
+    "--to NEW_PATH [--config PATH] [--apply] [--json]"
 )
 
 
@@ -59,6 +68,50 @@ def packs_get(args: List[str]) -> int:
 
 def packs_update(args: List[str]) -> int:
     return _pack_write("update", args, PACKS_UPDATE_USAGE)
+
+
+def packs_relink(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke packs relink",
+        description=(
+            "Preview or record a project-owned file move for an installed Pack. "
+            "No project file is copied, removed, or overwritten."
+        ),
+    )
+    parser.add_argument("pack", help="Installed Pack slug.")
+    parser.add_argument("repo_root", nargs="?", default=None)
+    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument("--from", dest="from_path", required=True)
+    parser.add_argument("--to", dest="to_path", required=True)
+    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument("--apply", action="store_true")
+    add_session_arg(parser)
+    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parsed = parse_or_usage_error(parser, args, PACKS_RELINK_USAGE)
+    if parsed is None:
+        return 2
+    try:
+        with machine_config_path(parsed.config_path):
+            report = run_pack_relink(
+                parsed.repo_root,
+                project=parsed.project,
+                pack=parsed.pack,
+                from_path=parsed.from_path,
+                to_path=parsed.to_path,
+                apply=parsed.apply,
+                session_id=parsed.session_id,
+            )
+    except PackClientError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(
+        json.dumps(
+            report,
+            sort_keys=parsed.json_mode,
+            indent=None if parsed.json_mode else 2,
+        )
+    )
+    return 0
 
 
 def _pack_write(operation: str, args: List[str], usage: str) -> int:
@@ -120,8 +173,10 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
 __all__ = [
     "PACKS_GET_USAGE",
     "PACKS_LIST_USAGE",
+    "PACKS_RELINK_USAGE",
     "PACKS_UPDATE_USAGE",
     "packs_get",
     "packs_list",
+    "packs_relink",
     "packs_update",
 ]

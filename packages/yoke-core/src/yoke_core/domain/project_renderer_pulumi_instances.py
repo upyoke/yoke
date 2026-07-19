@@ -69,9 +69,7 @@ def _raw_stack_instance_from_environment(
     stack_name = pulumi.get("stack_name")
     if not stack_name:
         return None
-    origin_vps_stack_name = str(
-        pulumi.get("origin_vps_stack_name", "") or ""
-    ).strip()
+    origin_vps_stack_name = str(pulumi.get("origin_vps_stack_name", "") or "").strip()
     if not origin_vps_stack_name:
         raise ValueError(
             f"Environment {env.name!r} pulumi.origin_vps_stack_name for "
@@ -132,9 +130,7 @@ def _raw_stack_instance_from_environment(
         "distribution_bucket_name": distribution_bucket_name,
         "distribution_origin_id": distribution_origin_id,
         "distribution_base_url": str(distribution.get("base_url", "") or ""),
-        "distribution_repository_variable_namespace": (
-            distribution_variable_namespace
-        ),
+        "distribution_repository_variable_namespace": (distribution_variable_namespace),
         "ephemeral_preview_domain": _ephemeral_preview_domain(settings, env),
         "github_app_private_key_secret_arn": github_app.get(
             "private_key_secret_arn", ""
@@ -154,7 +150,15 @@ def _raw_stack_instance_from_environment(
 
 
 def _ephemeral_preview_domain(settings: ProjectRendererSettings, env) -> str:
-    """Wildcard preview domain when *env* hosts the project's ephemerals."""
+    """Wildcard preview domain hosted by this environment.
+
+    The environment-owned declaration is authoritative when it hosts previews
+    for another source project. The older self-hosted capability shape remains
+    a valid fallback for projects that own both source and host.
+    """
+    previews = env.settings.get("previews", {})
+    if isinstance(previews, dict) and previews.get("domain"):
+        return str(previews["domain"])
     cap = settings.capabilities.get("ephemeral-env", {})
     if (
         isinstance(cap, dict)

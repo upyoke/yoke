@@ -7,9 +7,21 @@ ephemeral environment sub-step (5f-project-ephemeral) and browser QA execution.
 
 ## 5f-project-ephemeral. Ephemeral Environment Lifecycle (shared sub-step)
 
-This sub-step runs **after** `5f-project` completes (for non-yoke projects only). It manages the full lifecycle of an ephemeral environment for the item's branch: create the DB record, trigger the workflow, poll for readiness, inject the URL into the Tester prompt, and tear down after testing.
+This sub-step runs for any non-empty project that carries the
+`ephemeral-env` capability. It manages the full lifecycle of an ephemeral
+environment for the item's branch: create the DB record, trigger the workflow,
+poll for readiness, inject the URL into the Tester prompt, and tear down after
+testing. It is independent of whether the separate `5f-project` context block
+is needed.
 
-**Boundary:** ephemeral environment creation and status / workflow-run / URL updates use the registered `yoke ephemeral-env create` and `yoke ephemeral-env update` wrappers. GitHub workflow triggering and run polling use the registered `yoke github-actions ...` family.
+**Boundary:** lifecycle reads and writes use the registered `yoke
+ephemeral-env get/create/update` wrappers. Read the project's policy through
+`yoke projects capability-settings get --project <project> --cap-type
+ephemeral-env --json`; `result.settings_json` declares `trigger`,
+`preview_domain`, and, for flow-triggered projects, `flow_id`. GitHub-triggered
+projects use the registered `yoke github-actions ...` family. Flow-triggered
+projects use the registered deployment-run composer plus the retained
+owner-only deployment executor.
 
 **Prerequisite:** The item's project must have the `ephemeral-env`
 capability. Dispatch the `projects.capability.has` function call
@@ -17,175 +29,76 @@ capability. Dispatch the `projects.capability.has` function call
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
 `target = {kind: "global"}`, `payload = {project: "${_project}",
 cap_type: "ephemeral-env"}`. Read `response.result.has` — when
-`false`, skip this sub-step entirely. For non-yoke projects, emit a
-visible warning so the operator notices when ephemeral env is
-skipped — this prevents silent browser QA gaps.
+`false`, skip this sub-step entirely and emit a visible warning so the operator
+notices the missing capability. This prevents silent browser QA gaps without
+special-casing a project slug.
 
-**Resolve project repo slug and SSH host** (needed for GitHub
-Actions API calls and URL construction). Project-capability config
-payloads (`type='github'`, `type='ssh'`) are read through the
-`yoke_core.domain.projects_capabilities.cmd_capability_get_settings`
-helper (the authoritative Python read for a single project's
-`project_capabilities` row by `type`). When orchestrating from shell, capability config reads remain
-on the operator-debug `db_router query` surface as a retained
-boundary — the structured function-call dispatch surface for
-capability config payload reads (`projects.capability.config_get`,
-analogous to the existing `projects.capability.has`) lands in a
-follow-up; for now the raw query is the explicit retained boundary,
-not a teaching anti-pattern:
-
-```bash
-# Retained-boundary: capability config payload read (operator-debug).
-_github_config=$(yoke db read --format lines \
-  "SELECT settings FROM project_capabilities WHERE project_id=(SELECT id FROM projects WHERE slug='${_project}') AND type='github'")
-_ssh_config=$(yoke db read --format lines \
-  "SELECT settings FROM project_capabilities WHERE project_id=(SELECT id FROM projects WHERE slug='${_project}') AND type='ssh'")
-```
-
-Parse the JSON `settings` payloads inline with `python3 -c
-"import json,sys; ..."` to extract `repo_owner` / `repo_name`. The
-inline `python3 -c` JSON read is the canonical retained-boundary
-shape for capability config payload reads until the function-call
-surface lands.
-
-If `_repo_slug` is empty or malformed, log a warning and skip:
-```
-Warning: could not resolve repo slug for project '${_project}' — skipping ephemeral env
-```
-
-<!-- python3 -m yoke_core.domain.github_actions call signatures (from):
- python3 -m yoke_core.domain.github_actions trigger <repo-slug> <workflow-file> --ref <branch> --project <project>
- -> prints run ID on stdout, exit 0 on success, exit 4 on auth failure
- python3 -m yoke_core.domain.github_actions poll <repo-slug> <run-id> --project <project>
- -> exit 0=success, 1=failed, 2=waiting, 3=in-progress
- python3 -m yoke_core.domain.github_actions find-run <repo-slug> <workflow-file> <commit-sha> --project <project>
- -> prints run ID on stdout if found, exit 0=found, 1=not found
--->
+For `trigger=github-push`, also read the `github` capability through the same
+registered settings-get wrapper and form `<repo_owner>/<repo_name>`. Resolve
+the workflow's current project path from `.yoke/packs.json`: use the
+`ephemeral-environments` Pack file identity ending in `-ephemeral.yml`, then
+read that entry's `path`. This is why a project that moves a Pack-installed
+workflow must apply `yoke packs relink`: Conduct follows the receipt instead
+of guessing the old filename. If the binding, Pack receipt, or recorded
+workflow path is missing, surface the exact missing authority and skip the
+preview; never guess from the project slug.
 
 #### E1. Create Environment Record
 
-Create the ephemeral environment DB record **before** triggering the workflow. This ensures the record exists even if the workflow trigger fails.
+Create the ephemeral environment DB record **before** triggering either
+delivery model. Use the worktree's actual branch, not an assumed `YOK-N`
+filename; epic lanes may have distinct branch names.
 
 ```bash
-# Branch naming contract: branch MUST be 'YOK-{id}' — see db-reference.md § ephemeral_environments
-_env_id=$(yoke ephemeral-env create "${_project}" "YOK-${_id}" --item "YOK-${_id}")
+yoke ephemeral-env create "${_project}" "${_worktree_branch}" --item "YOK-${_id}" --json
 ```
 
 The record is created with `status=pending` (the default). Store `_env_id` for use in subsequent steps. The status transitions to `starting` only after a workflow run is found.
 
-#### E2. Trigger Ephemeral Environment Workflow
+#### E2. Trigger the Declared Delivery Model
 
-**Guard:** If the `python3 -m yoke_core.domain.github_actions` adapter is unavailable, skip E2-E3 and log:
-```
-Note: python3 -m yoke_core.domain.github_actions not available — ephemeral env record created but workflow not triggered
-```
-Set `_ephemeral_url` to `"pending"` and proceed to E4 (the Tester will see `Ephemeral URL: pending`).
+Branch on the validated policy's `trigger`; no project-slug branch is allowed.
 
-**When python3 -m yoke_core.domain.github_actions is available:**
+For `github-push`:
 
-**Push the branch to origin before finding the workflow run.** The initial push at `advance active` time only deploys the branch at creation. Engineer changes committed during the conduct cycle are not deployed unless the branch is re-pushed. Always push before looking for the workflow run:
+1. Push the actual worktree branch from `_worktree_path` to `origin` so the
+   latest Engineer commit is the deploy subject.
+2. Resolve the exact HEAD SHA and the current workflow path from the Pack
+   receipt.
+3. Find the matching run with `yoke github-actions find-run <owner/repo>
+   <workflow-path> <head-sha> --project <project> --json`.
+4. Record its run id and `status=starting` through `yoke ephemeral-env update`.
+5. Wait with `yoke github-actions wait-run ... --timeout 1800 --project
+   <project> --json`.
 
-```bash
-# Push the branch to trigger the ephemeral deploy workflow with latest changes
-_wt_branch="YOK-${_id}"
-git -C "${_worktree_path}" push origin "$_wt_branch" 2>&1
-_push_exit=$?
-```
+For `flow`:
 
-If push fails (`_push_exit` non-zero), log a warning and proceed with find-run anyway (the original push may have triggered a deployment):
-```
-Warning: failed to push branch ${_wt_branch} to origin (exit ${_push_exit}). Ephemeral env may be stale.
-```
+1. Require the policy's `flow_id`; capability validation rejects a flow
+   trigger without one.
+2. Compose the item-bound run with `yoke deployment-runs start-for-item
+   YOK-<id> --project <project> --flow <flow_id> --target-env ephemeral
+   --json` and record its run id plus `status=starting` on the environment.
+3. Read `yoke status --json`. Use the selected connection's owner-only
+   `<connection>-db-admin` sibling only if it appears in `connection.envs`;
+   never store that machine-local profile name in project settings.
+4. Execute `yoke --env <connection>-db-admin deployment-runs execute <run-id>
+   --product-repo-path <worktree-path>`. The generic `ephemeral-deploy`
+   executor reads the source project's policy and project-owned Pack files,
+   while `host_project` supplies the environment and provider authority.
 
-If push succeeds:
-```
-Pushed branch ${_wt_branch} to origin — ephemeral redeploy triggered.
-```
+Any trigger, lookup, wait, or execution failure updates `status=failed`, sets
+the Tester-facing URL to `none`, and continues without browser QA only when no
+browser requirement demands it. Do not silently fall back from one trigger
+model to the other.
 
-Find the workflow run triggered by the push:
+#### E3. Read the Result
 
-```bash
-# Get the HEAD commit SHA from the worktree
-_head_sha=$(git -C "${_worktree_path}" rev-parse HEAD)
-
-# Brief wait for GitHub to register the push-triggered run
-sleep 5
-
-# Find the workflow run for this commit
-_eph_workflow="${_project}-ephemeral.yml"
-_run_id=$(python3 -m yoke_core.domain.github_actions find-run "${_repo_slug}" "${_eph_workflow}" "${_head_sha}" --project "${_project}")
-_find_exit=$?
-```
-
-If `find-run` exits with 1 (not found), retry after a short delay (GitHub may need time to register the push event):
-```bash
-if [ "$_find_exit" -ne 0 ]; then
- sleep 10
- _run_id=$(python3 -m yoke_core.domain.github_actions find-run "${_repo_slug}" "${_eph_workflow}" "${_head_sha}" --project "${_project}")
- _find_exit=$?
-fi
-```
-
-If still not found, the workflow may not have been triggered. Update the env record and log:
-```bash
-yoke ephemeral-env update "${_env_id}" status "failed"
-```
-```
-Warning: no ephemeral workflow run found for commit ${_head_sha} — env marked failed
-```
-Set `_ephemeral_url` to `"none"` and proceed to E4.
-
-If `find-run` succeeds (exit 0), store `_run_id` and transition env from `pending` to `starting`:
-```bash
-yoke ephemeral-env update "${_env_id}" workflow_run_id "${_run_id}"
-yoke ephemeral-env update "${_env_id}" status "starting"
-```
-
-#### E3. Poll for Healthy Status and Read URL
-
-Poll the workflow run until it completes or times out. Use the sanctioned GitHub Actions waiter with a 30-minute timeout:
-
-```bash
-yoke github-actions wait-run "${_repo_slug}" "${_run_id}" --timeout 1800 \
- --project "${_project}"
-_wait_exit=$?
-
-case "$_wait_exit" in
- 0) _env_status="healthy" ;;
- 1) _env_status="failed" ;;
- 3)
- _env_status="failed"
- echo "Warning: ephemeral env workflow timed out after 1800s"
- ;;
-esac
-```
-
-**On success (`_env_status=healthy`):**
-
-Derive the ephemeral URL using the project config's `domain` field and slug-based pattern. This is the same canonical URL derivation used by the advance path:
-```bash
-# Branch naming contract: branch MUST be 'YOK-{id}' — see db-reference.md § ephemeral_environments
-_branch="YOK-${_id}"
-# Slugify branch name (same logic as advance/environment.md and python3 -m yoke_core.domain.ephemeral_env)
-_slug=$(printf '%s' "$_branch" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-
-# The implementation-entry environment orchestrator reads the domain from
-# DB-backed sites.settings.domains[0].domain_name. Operator-debug paths should
-# inspect that DB setting; do not read retired project-local flat files.
-_ephemeral_url="pending"
-```
-
-Update the env record:
-```bash
-yoke ephemeral-env update "${_env_id}" status "healthy"
-yoke ephemeral-env update "${_env_id}" url "${_ephemeral_url}"
-```
-
-**On failure (`_env_status=failed`):**
-```bash
-yoke ephemeral-env update "${_env_id}" status "failed"
-```
-Set `_ephemeral_url` to `"none"`. Log the failure but do NOT block dispatch — the Tester can still run without an ephemeral environment.
+After either delivery model completes, read `yoke ephemeral-env get <project>
+<branch> --json`. The flow executor has already recorded its URL and deployed
+SHA. For a successful GitHub-triggered run, derive the URL from the canonical
+branch slug and policy `preview_domain`, then write `url` and `status=healthy`
+through `yoke ephemeral-env update`. Set `_ephemeral_url` from the final read,
+not from an old project file or a hard-coded domain.
 
 #### E4. Inject URL and Browser Execution Instructions into Tester Prompt
 

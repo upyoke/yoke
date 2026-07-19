@@ -29,7 +29,11 @@ def test_receipt_round_trip_preserves_the_version_render_baseline(
 def test_receipt_rejects_paths_outside_the_project(tmp_path: Path) -> None:
     receipt = _receipt()
     receipt["packs"]["sample"]["files"] = {
-        "../outside": {"sha256": "0" * 64, "mode": 0o644}
+        "../outside": {
+            "path": "outside",
+            "sha256": "0" * 64,
+            "mode": 0o644,
+        }
     }
 
     with pytest.raises(PackReceiptError, match="unsafe"):
@@ -53,13 +57,30 @@ def test_receipt_rejects_missing_render_baseline(tmp_path: Path) -> None:
         write_receipt(tmp_path, receipt)
 
 
+def test_load_receipt_upgrades_original_paths_to_explicit_project_paths(
+    tmp_path: Path,
+) -> None:
+    receipt = _receipt()
+    receipt["schema"] = 1
+    del receipt["packs"]["sample"]["files"]["app.py"]["path"]
+    authority = tmp_path / ".yoke" / "packs.json"
+    authority.parent.mkdir()
+    authority.write_text(json.dumps(receipt), encoding="utf-8")
+
+    loaded = load_receipt(tmp_path)
+
+    assert loaded is not None
+    assert loaded["schema"] == 2
+    assert loaded["packs"]["sample"]["files"]["app.py"]["path"] == "app.py"
+
+
 def _receipt() -> dict[str, object]:
     content = b"print('sample')\n"
     digest = hashlib.sha256(content).hexdigest()
     return json.loads(
         json.dumps(
             {
-                "schema": 1,
+                "schema": 2,
                 "project_id": 9,
                 "project_slug": "sample",
                 "packs": {
@@ -68,7 +89,11 @@ def _receipt() -> dict[str, object]:
                         "content_digest": digest,
                         "render_values": {"project_name": "sample"},
                         "files": {
-                            "app.py": {"sha256": digest, "mode": 0o644}
+                            "app.py": {
+                                "path": "app.py",
+                                "sha256": digest,
+                                "mode": 0o644,
+                            }
                         },
                     }
                 },

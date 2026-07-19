@@ -1,17 +1,14 @@
 """Workflow target and deployment-flow correlation declarations."""
 
+import json
 from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS
-from yoke_core.domain.json_helper import loads_text
-
-
 ROOT = Path(__file__).resolve().parents[3]
 PACK_WORKFLOWS = (
-    "packs/production-deploy/versions/1.0.0/files/.github/workflows/{{project_name}}-deploy.yml",
-    "packs/production-deploy/versions/1.0.0/files/.github/workflows/{{project_name}}-hotfix.yml",
+    "packs/production-deploy/versions/1.1.0/files/.github/workflows/{{project_name}}-deploy.yml",
+    "packs/production-deploy/versions/1.1.0/files/.github/workflows/{{project_name}}-hotfix.yml",
     "packs/smoke-testing/versions/1.0.0/files/.github/workflows/{{project_name}}-smoke.yml",
 )
 
@@ -26,19 +23,17 @@ def test_pack_workflows_expose_standard_dispatch_marker(
     assert "Opaque Yoke dispatch correlation token" in text
 
 
-def test_seeded_correlation_is_opt_in_for_deployed_workflows() -> None:
+def test_project_owned_yoke_flows_declare_dispatch_correlation() -> None:
+    declaration = json.loads(
+        (ROOT / ".yoke" / "deployment-flows.json").read_text(encoding="utf-8")
+    )
     stages = [
-        (flow["project"], stage)
-        for flow in SEED_FLOWS
-        for stage in loads_text(flow["stages"])
+        stage
+        for flow in declaration["flows"]
+        for stage in flow["stages"]
         if stage.get("executor") == "github-actions-workflow"
     ]
     assert stages
-    assert {
-        stage.get("dispatch_correlation_input")
-        for project, stage in stages if project == "yoke"
-    } == {"yoke_dispatch_id"}
-    assert all(
-        "dispatch_correlation_input" not in stage
-        for project, stage in stages if project == "externalwebapp"
-    )
+    assert {stage.get("dispatch_correlation_input") for stage in stages} == {
+        "yoke_dispatch_id"
+    }

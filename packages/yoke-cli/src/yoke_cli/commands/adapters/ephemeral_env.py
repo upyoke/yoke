@@ -21,6 +21,41 @@ EPHEMERAL_ENV_CREATE_USAGE = (
     "yoke ephemeral-env create PROJECT BRANCH [--item PREFIX-N] "
     "[--workflow-run-id ID] [--github-ref REF] [--session-id S] [--json]"
 )
+EPHEMERAL_ENV_GET_USAGE = (
+    "yoke ephemeral-env get PROJECT BRANCH [--session-id S] [--json]"
+)
+
+
+def ephemeral_env_get(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke ephemeral-env get",
+        description=EPHEMERAL_ENV_GET_USAGE,
+    )
+    parser.add_argument("project")
+    parser.add_argument("branch")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, EPHEMERAL_ENV_GET_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        del stderr
+        import json
+
+        print(
+            json.dumps((response.result or {}).get("environment", {}), sort_keys=True),
+            file=stdout,
+        )
+
+    return dispatch_and_emit(
+        function_id="ephemeral_env.get",
+        target=TargetRef(kind="global", project_id=parsed.project),
+        payload={"project": parsed.project, "branch": parsed.branch},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
 
 
 def ephemeral_env_create(args: List[str]) -> int:
@@ -93,7 +128,9 @@ def ephemeral_env_update(args: List[str]) -> int:
 
 __all__ = [
     "EPHEMERAL_ENV_CREATE_USAGE",
+    "EPHEMERAL_ENV_GET_USAGE",
     "EPHEMERAL_ENV_UPDATE_USAGE",
     "ephemeral_env_create",
+    "ephemeral_env_get",
     "ephemeral_env_update",
 ]

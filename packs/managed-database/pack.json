@@ -2,7 +2,7 @@
   "schema": 1,
   "slug": "managed-database",
   "name": "Managed Database",
-  "description": "Optional managed PostgreSQL database infrastructure.",
+  "description": "Adds the Pulumi code needed to create and configure an optional managed PostgreSQL database for an application.",
   "latest_version": "1.0.0",
   "versions": {
     "1.0.0": {

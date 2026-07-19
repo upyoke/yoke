@@ -34,6 +34,7 @@ class BootstrapContext:
     project_root: Path
     script_dir: Path
     yoke_db: Path
+    packs: tuple[str, ...] = ()
 
     @property
     def project_upper(self) -> str:
@@ -199,9 +200,7 @@ def _persist_resolved_ssh_key_path(ctx: BootstrapContext, key_path: Path) -> Non
         cmd_capability_merge_settings,
     )
 
-    cmd_capability_merge_settings(
-        ctx.project, "ssh", {"key_path": str(key_path)}
-    )
+    cmd_capability_merge_settings(ctx.project, "ssh", {"key_path": str(key_path)})
 
 
 def _probe_ssh_auth(ssh_user: str, ssh_host: str, key_path: Path) -> tuple[bool, str]:
@@ -209,10 +208,14 @@ def _probe_ssh_auth(ssh_user: str, ssh_host: str, key_path: Path) -> tuple[bool,
     result = _run(
         [
             "ssh",
-            "-i", str(key_path),
-            "-o", "BatchMode=yes",
-            "-o", "StrictHostKeyChecking=accept-new",
-            "-o", "ConnectTimeout=5",
+            "-i",
+            str(key_path),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-o",
+            "ConnectTimeout=5",
             f"{ssh_user}@{ssh_host}",
             "true",
         ]
@@ -220,7 +223,10 @@ def _probe_ssh_auth(ssh_user: str, ssh_host: str, key_path: Path) -> tuple[bool,
     if result.returncode == 0:
         return True, ""
     err = (result.stderr or result.stdout or "").strip()
-    return False, err or f"ssh probe to {ssh_user}@{ssh_host} exited {result.returncode}"
+    return (
+        False,
+        err or f"ssh probe to {ssh_user}@{ssh_host} exited {result.returncode}",
+    )
 
 
 def _load_setup_config(ctx: BootstrapContext) -> SetupConfig:
@@ -241,9 +247,10 @@ def _load_setup_config(ctx: BootstrapContext) -> SetupConfig:
                 "rendered files into an unrelated checkout"
             )
         repo_path = str(checkout)
-        display_name = _query_scalar(
-            conn, f"SELECT name FROM projects WHERE id={p}", (ident.id,)
-        ) or ident.slug
+        display_name = (
+            _query_scalar(conn, f"SELECT name FROM projects WHERE id={p}", (ident.id,))
+            or ident.slug
+        )
         ssh_settings = _capability_settings(conn, ctx.project, "ssh")
     finally:
         conn.close()

@@ -108,9 +108,15 @@ exact file plan:
 yoke packs list --project <slug>
 yoke packs get <pack> /path/to/project --project <slug>
 yoke packs get <pack> /path/to/project --project <slug> --apply
+yoke packs relink <pack> /path/to/project --project <slug> --from <old-path> --to <new-path>
+yoke packs relink <pack> /path/to/project --project <slug> --from <old-path> --to <new-path> --apply
 yoke packs update <pack> /path/to/project --project <slug>
 yoke packs update <pack> /path/to/project --project <slug> --apply
 ```
+
+If a project moves an installed Pack file, preview and apply `packs relink` to
+record its new project path. Relink changes only `.yoke/packs.json`; it never
+moves, overwrites, or deletes project-owned source.
 
 Pack reads and previews work over hosted HTTPS, self-hosted, and local
 transports. A successful apply writes ordinary project-owned source plus the

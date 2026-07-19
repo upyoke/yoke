@@ -9,7 +9,11 @@ import re
 import tempfile
 from typing import Any, Mapping
 
-from yoke_contracts.packs import PACK_RECEIPT_REL, PACK_RECEIPT_SCHEMA
+from yoke_contracts.packs import (
+    PACK_RECEIPT_PREVIOUS_SCHEMAS,
+    PACK_RECEIPT_REL,
+    PACK_RECEIPT_SCHEMA,
+)
 
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -41,13 +45,52 @@ def load_receipt(repo_root: Path) -> dict[str, Any] | None:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise PackReceiptError(f"Pack receipt is unreadable: {exc}") from exc
-    validate_receipt(payload)
-    return dict(payload)
+    upgraded = _upgrade_receipt(payload)
+    validate_receipt(upgraded)
+    return upgraded
+
+
+def _upgrade_receipt(payload: Any) -> dict[str, Any]:
+    """Upgrade an earlier path-keyed receipt to explicit project paths.
+
+    Version-one receipts already identify every Pack file by its original
+    rendered target.  The current shape preserves that key as the stable Pack
+    identity and records the project's current location separately.
+    """
+    if not isinstance(payload, dict):
+        raise PackReceiptError("Pack receipt has an unsupported shape")
+    if payload.get("schema") not in PACK_RECEIPT_PREVIOUS_SCHEMAS:
+        return dict(payload)
+    upgraded = dict(payload)
+    upgraded["schema"] = PACK_RECEIPT_SCHEMA
+    packs = upgraded.get("packs")
+    if not isinstance(packs, dict):
+        return upgraded
+    upgraded_packs: dict[str, Any] = {}
+    for slug, raw_record in packs.items():
+        if not isinstance(raw_record, dict):
+            upgraded_packs[slug] = raw_record
+            continue
+        record = dict(raw_record)
+        files = record.get("files")
+        if isinstance(files, dict):
+            record["files"] = {
+                pack_path: {**file_record, "path": pack_path}
+                if isinstance(file_record, dict)
+                else file_record
+                for pack_path, file_record in files.items()
+            }
+        upgraded_packs[slug] = record
+    upgraded["packs"] = upgraded_packs
+    return upgraded
 
 
 def validate_receipt(payload: Any) -> None:
     if not isinstance(payload, dict) or set(payload) != {
-        "schema", "project_id", "project_slug", "packs"
+        "schema",
+        "project_id",
+        "project_slug",
+        "packs",
     }:
         raise PackReceiptError("Pack receipt has an unsupported shape")
     if payload.get("schema") != PACK_RECEIPT_SCHEMA:
@@ -66,9 +109,8 @@ def validate_receipt(payload: Any) -> None:
             raise PackReceiptError(f"Pack receipt record {slug!r} is invalid")
         if not isinstance(record["version"], str) or not record["version"]:
             raise PackReceiptError(f"Pack receipt version {slug!r} is invalid")
-        if (
-            not isinstance(record["content_digest"], str)
-            or not _SHA256.fullmatch(record["content_digest"])
+        if not isinstance(record["content_digest"], str) or not _SHA256.fullmatch(
+            record["content_digest"]
         ):
             raise PackReceiptError(f"Pack receipt content digest {slug!r} is invalid")
         if not isinstance(record["render_values"], dict) or any(
@@ -78,16 +120,24 @@ def validate_receipt(payload: Any) -> None:
             raise PackReceiptError(f"Pack receipt render values {slug!r} are invalid")
         if not isinstance(record["files"], dict):
             raise PackReceiptError(f"Pack receipt files {slug!r} are invalid")
-        for path, file_record in record["files"].items():
-            _validate_relative_path(path)
+        project_paths: set[str] = set()
+        for pack_path, file_record in record["files"].items():
+            _validate_relative_path(pack_path)
             if (
                 not isinstance(file_record, dict)
-                or set(file_record) != {"sha256", "mode"}
+                or set(file_record) != {"path", "sha256", "mode"}
+                or not isinstance(file_record["path"], str)
                 or not isinstance(file_record["sha256"], str)
                 or not _SHA256.fullmatch(file_record["sha256"])
                 or file_record["mode"] not in (0o644, 0o755)
             ):
-                raise PackReceiptError(f"Pack receipt file {path!r} is invalid")
+                raise PackReceiptError(f"Pack receipt file {pack_path!r} is invalid")
+            _validate_relative_path(file_record["path"])
+            if file_record["path"] in project_paths:
+                raise PackReceiptError(
+                    f"Pack receipt repeats project path {file_record['path']!r}"
+                )
+            project_paths.add(file_record["path"])
 
 
 def write_receipt(repo_root: Path, receipt: Mapping[str, Any]) -> Path:
@@ -142,7 +192,9 @@ def _validate_relative_path(raw: str, *, allow_receipt: bool = False) -> None:
         not raw
         or path.is_absolute()
         or ".." in path.parts
-        or (path.parts[0] == ".yoke" and not (allow_receipt and raw == PACK_RECEIPT_REL))
+        or (
+            path.parts[0] == ".yoke" and not (allow_receipt and raw == PACK_RECEIPT_REL)
+        )
     ):
         raise PackReceiptError(f"Pack path is unsafe: {raw!r}")
 

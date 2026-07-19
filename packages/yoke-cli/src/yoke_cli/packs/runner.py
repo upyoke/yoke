@@ -20,6 +20,7 @@ from yoke_cli.packs.runner_support import (
     _assert_no_cross_pack_paths,
     _call,
     _fetch_bundle,
+    _project_entries,
     _public_plan,
     _receipt_record,
     _report_receipt,
@@ -82,22 +83,25 @@ def run_pack_operation(
     simulated = json.loads(json.dumps(receipt))
     for bundle in bundles:
         slug = bundle["pack"]
-        _assert_no_cross_pack_paths(simulated, slug, bundle["files"])
-        if slug in simulated["packs"]:
-            old_version = simulated["packs"][slug]["version"]
+        previous_record = simulated["packs"].get(slug)
+        desired_entries = _project_entries(bundle["files"], previous_record)
+        _assert_no_cross_pack_paths(simulated, slug, desired_entries)
+        if previous_record is not None:
+            old_version = previous_record["version"]
             old_bundle = _fetch_bundle(
                 project,
                 slug,
                 version=old_version,
-                render_values=simulated["packs"][slug]["render_values"],
+                render_values=previous_record["render_values"],
                 session_id=session_id,
             )
-            plan = plan_update(root, old_bundle["files"], bundle["files"])
+            prior_entries = _project_entries(old_bundle["files"], previous_record)
+            plan = plan_update(root, prior_entries, desired_entries)
             _accept_current_conflicts(plan, accepted_paths)
             action = "update"
             from_version = old_version
         else:
-            plan = plan_get(root, bundle["files"])
+            plan = plan_get(root, desired_entries)
             action = "get"
             from_version = None
         plans.append(
@@ -110,7 +114,7 @@ def run_pack_operation(
             }
         )
         execution_plans.append(plan)
-        simulated["packs"][slug] = _receipt_record(bundle)
+        simulated["packs"][slug] = _receipt_record(bundle, previous_record)
 
     conflict_count = sum(len(row["plan"]["conflicts"]) for row in plans)
     report: dict[str, Any] = {

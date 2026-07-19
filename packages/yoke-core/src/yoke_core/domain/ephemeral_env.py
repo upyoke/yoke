@@ -9,12 +9,19 @@ CLI usage::
 
 Exit codes: 0 success, 1 error/not-found, 2 usage error.
 """
+
 from __future__ import annotations
 
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_rows, query_scalar
+from yoke_core.domain.db_helpers import (
+    connect,
+    iso8601_now,
+    query_one,
+    query_rows,
+    query_scalar,
+)
 from yoke_core.domain.project_identity import resolve_project_id
 
 _SELECT_COLS = (
@@ -24,17 +31,60 @@ _SELECT_COLS = (
     "ee.created_at"
 )
 
-_UPDATE_FIELDS = frozenset({
-    "status", "branch", "item", "workflow_run_id", "github_ref",
-    "port_api", "port_web", "url", "started_at", "stopped_at",
-    "health_check_url", "deployed_sha",
-})
+EPHEMERAL_ENV_FIELDS = (
+    "id",
+    "project",
+    "branch",
+    "item",
+    "workflow_run_id",
+    "github_ref",
+    "port_api",
+    "port_web",
+    "url",
+    "status",
+    "started_at",
+    "stopped_at",
+    "health_check_url",
+    "deployed_sha",
+    "created_at",
+)
 
-_GET_FIELDS = frozenset({
-    "id", "project", "branch", "item", "workflow_run_id", "github_ref",
-    "port_api", "port_web", "url", "status", "started_at", "stopped_at",
-    "health_check_url", "deployed_sha", "created_at",
-})
+_UPDATE_FIELDS = frozenset(
+    {
+        "status",
+        "branch",
+        "item",
+        "workflow_run_id",
+        "github_ref",
+        "port_api",
+        "port_web",
+        "url",
+        "started_at",
+        "stopped_at",
+        "health_check_url",
+        "deployed_sha",
+    }
+)
+
+_GET_FIELDS = frozenset(
+    {
+        "id",
+        "project",
+        "branch",
+        "item",
+        "workflow_run_id",
+        "github_ref",
+        "port_api",
+        "port_web",
+        "url",
+        "status",
+        "started_at",
+        "stopped_at",
+        "health_check_url",
+        "deployed_sha",
+        "created_at",
+    }
+)
 
 _USAGE = """\
 Usage: ephemeral-env <subcmd> [args...]
@@ -63,8 +113,14 @@ def _format_row(row) -> str:
     return "|".join("" if v is None else str(v) for v in tuple(row))
 
 
-def cmd_create(conn, project: str, branch: str, item: str = "",
-               workflow_run_id: str = "", github_ref: str = "") -> str:
+def cmd_create(
+    conn,
+    project: str,
+    branch: str,
+    item: str = "",
+    workflow_run_id: str = "",
+    github_ref: str = "",
+) -> str:
     now = iso8601_now()
     project_id = resolve_project_id(conn, project)
     conn.execute(
@@ -102,8 +158,7 @@ def cmd_update(conn, env_id: int, field: str, value: str) -> str:
     # Auto-set stopped_at for terminal statuses
     if field == "status" and value in ("stopped", "failed"):
         conn.execute(
-            f"UPDATE ephemeral_environments SET {field}=%s, stopped_at=%s "
-            "WHERE id=%s",
+            f"UPDATE ephemeral_environments SET {field}=%s, stopped_at=%s WHERE id=%s",
             (value, iso8601_now(), env_id),
         )
         conn.commit()
@@ -127,9 +182,7 @@ def cmd_get(conn, project: str, branch: str) -> str:
         (project_id, branch),
     )
     if row is None:
-        raise LookupError(
-            f"no env found for project='{project}' branch='{branch}'"
-        )
+        raise LookupError(f"no env found for project='{project}' branch='{branch}'")
     return _format_row(row)
 
 
@@ -168,8 +221,7 @@ def cmd_get_by_id(conn, env_id: int, field: Optional[str] = None) -> str:
         return _format_row(row)
 
 
-def cmd_list(conn, project: Optional[str] = None,
-             status: Optional[str] = None) -> str:
+def cmd_list(conn, project: Optional[str] = None, status: Optional[str] = None) -> str:
     conditions: List[str] = []
     params: list = []
     if project:
@@ -193,8 +245,10 @@ def cmd_cleanup(conn, max_age_hours: int = 24) -> str:
     # Compute the cutoff in Python so cleanup does not depend on SQL date
     # modifier dialect.
     from datetime import datetime, timedelta, timezone
-    cutoff = (datetime.now(timezone.utc)
-              - timedelta(hours=max_age_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     count = query_scalar(
         conn,
         "SELECT COUNT(*) FROM ephemeral_environments "
@@ -240,11 +294,14 @@ def main(argv: Optional[List[str]] = None) -> None:
             i = 2
             while i < len(rest):
                 if rest[i] == "--item" and i + 1 < len(rest):
-                    item = rest[i + 1]; i += 2
+                    item = rest[i + 1]
+                    i += 2
                 elif rest[i] == "--workflow-run-id" and i + 1 < len(rest):
-                    workflow_run_id = rest[i + 1]; i += 2
+                    workflow_run_id = rest[i + 1]
+                    i += 2
                 elif rest[i] == "--github-ref" and i + 1 < len(rest):
-                    github_ref = rest[i + 1]; i += 2
+                    github_ref = rest[i + 1]
+                    i += 2
                 else:
                     _cli_error(f"Error: unknown flag '{rest[i]}'", 2)
             print(cmd_create(conn, project, branch, item, workflow_run_id, github_ref))
@@ -271,9 +328,11 @@ def main(argv: Optional[List[str]] = None) -> None:
             i = 0
             while i < len(rest):
                 if rest[i] == "--project" and i + 1 < len(rest):
-                    project = rest[i + 1]; i += 2
+                    project = rest[i + 1]
+                    i += 2
                 elif rest[i] == "--status" and i + 1 < len(rest):
-                    status = rest[i + 1]; i += 2
+                    status = rest[i + 1]
+                    i += 2
                 else:
                     i += 1
             result = cmd_list(conn, project, status)
@@ -285,7 +344,8 @@ def main(argv: Optional[List[str]] = None) -> None:
             i = 0
             while i < len(rest):
                 if rest[i] == "--max-age-hours" and i + 1 < len(rest):
-                    max_age = int(rest[i + 1]); i += 2
+                    max_age = int(rest[i + 1])
+                    i += 2
                 else:
                     i += 1
             print(cmd_cleanup(conn, max_age))

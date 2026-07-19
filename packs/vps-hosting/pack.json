@@ -2,7 +2,7 @@
   "schema": 1,
   "slug": "vps-hosting",
   "name": "VPS Hosting",
-  "description": "AWS VPS infrastructure plus host provisioning, TLS, and firewall operations.",
+  "description": "Creates and prepares an AWS EC2 server, including networking, permissions, TLS setup, firewall rules, and host provisioning.",
   "latest_version": "1.0.1",
   "versions": {
     "1.0.0": {

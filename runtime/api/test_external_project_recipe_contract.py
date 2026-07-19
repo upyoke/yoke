@@ -6,8 +6,6 @@ import re
 from pathlib import Path
 
 from yoke_cli.commands import registry
-from yoke_core.domain.deployment_flow_seed_data import SEED_FLOWS
-
 
 REPO = Path(__file__).resolve().parents[2]
 CHECKOUT_ONLY = re.compile(
@@ -23,15 +21,15 @@ def _teaching_files() -> list[Path]:
         REPO / "runtime" / "harness" / "claude" / "rules",
         REPO / "runtime" / "harness" / "claude" / "agents",
         REPO / "runtime" / "harness" / "codex" / "agents",
-        REPO / "packages" / "yoke-core" / "src" / "yoke_core"
-        / "install_bundle_tree",
+        REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "install_bundle_tree",
     ]
     files: list[Path] = []
     for root in roots:
         files.extend(path for path in root.rglob("*") if path.is_file())
     files.extend(
-        (REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "domain")
-        .glob("schema_api_context*.py")
+        (REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "domain").glob(
+            "schema_api_context*.py"
+        )
     )
     return sorted(set(files))
 
@@ -47,9 +45,7 @@ def test_external_project_teaching_has_no_checkout_only_control_plane_recipe() -
 
 def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
     agents = (REPO / "AGENTS.md").read_text(encoding="utf-8")
-    verification = (REPO / "docs/testing-verification.md").read_text(
-        encoding="utf-8"
-    )
+    verification = (REPO / "docs/testing-verification.md").read_text(encoding="utf-8")
     assert "uv run --frozen ruff check <changed Python paths>" in agents
     assert "Use `-- -n 0`" in agents
     assert "Never pass an optional unmatched path glob" in agents
@@ -68,11 +64,20 @@ def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
     assert expected <= set(registry.SUBCOMMAND_REGISTRY)
 
 
-def test_builtin_seed_flows_are_source_owned() -> None:
-    assert {str(flow["project"]) for flow in SEED_FLOWS} == {
-        "yoke",
-        "platform",
-    }
+def test_product_schema_does_not_embed_project_delivery_topology() -> None:
+    flow_init = (
+        REPO
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "domain"
+        / "flow_init.py"
+    ).read_text(encoding="utf-8")
+    assert "yoke-hosted-stage" not in flow_init
+    assert "platform-stage" not in flow_init
+    assert "yoke-ephemeral-deploy" not in flow_init
+    assert (REPO / ".yoke" / "deployment-flows.json").is_file()
 
 
 def test_atlas_names_real_pulumi_client_local_source_owners() -> None:
@@ -88,12 +93,36 @@ def test_atlas_names_real_pulumi_client_local_source_owners() -> None:
 
 def test_pack_docs_use_capability_owned_pulumi_bootstrap() -> None:
     paths = (
-        REPO / "packs" / "pulumi-foundation" / "versions" / "1.0.0"
-        / "files" / "docs" / "packs" / "pulumi-foundation" / "environment.md",
-        REPO / "packs" / "production-deploy" / "versions" / "1.0.0"
-        / "files" / "docs" / "packs" / "production-deploy" / "setup.md",
-        REPO / "packs" / "production-deploy" / "versions" / "1.0.0"
-        / "files" / "docs" / "packs" / "production-deploy" / "checklist.md",
+        REPO
+        / "packs"
+        / "pulumi-foundation"
+        / "versions"
+        / "1.0.0"
+        / "files"
+        / "docs"
+        / "packs"
+        / "pulumi-foundation"
+        / "environment.md",
+        REPO
+        / "packs"
+        / "production-deploy"
+        / "versions"
+        / "1.0.0"
+        / "files"
+        / "docs"
+        / "packs"
+        / "production-deploy"
+        / "setup.md",
+        REPO
+        / "packs"
+        / "production-deploy"
+        / "versions"
+        / "1.0.0"
+        / "files"
+        / "docs"
+        / "packs"
+        / "production-deploy"
+        / "checklist.md",
     )
     for path in paths:
         text = path.read_text(encoding="utf-8")

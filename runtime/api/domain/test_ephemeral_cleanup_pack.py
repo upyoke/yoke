@@ -1,9 +1,10 @@
-"""Structural tests for Pack-owned ephemeral cleanup and related operations.
+"""Structural tests for historical and current preview cleanup Packs.
 
 The suite audits immutable Pack source plus one rendered project-owned copy,
 covering these invariants:
 
-* ephemeral-cleanup Pack source uses filesystem-driven discovery
+* the historical combined Pack remains immutable and reconstructable
+* current host cleanup is isolated by a preview namespace
 * Compose project / volume parsing survives hyphenated slugs
 * cleanup scheduling stays project-owned rather than hidden in another Pack
 * deploy / teardown workflows clean up images and volumes
@@ -24,6 +25,7 @@ from yoke_core.domain.pack_render import render_pack_text
 
 
 EPHEMERAL_FILES = "packs/ephemeral-environments/versions/1.0.1/files"
+BRANCH_HOST_FILES = "packs/branch-preview-hosting/versions/1.0.0/files"
 VPS_FILES = "packs/vps-hosting/versions/1.0.1/files"
 PRODUCTION_FILES = "packs/production-deploy/versions/1.0.0/files"
 
@@ -32,7 +34,9 @@ def _repo_root() -> Path:
     return Path(
         subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, check=True,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
     )
 
@@ -40,6 +44,7 @@ def _repo_root() -> Path:
 # ---------------------------------------------------------------------------
 # Fixtures — load Pack source and rendered output text
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def repo_root() -> Path:
@@ -54,6 +59,13 @@ def cleanup_tmpl(repo_root: Path) -> str:
 
 
 @pytest.fixture(scope="module")
+def current_cleanup_tmpl(repo_root: Path) -> str:
+    tmpl = repo_root / BRANCH_HOST_FILES / "ops/ephemeral-cleanup.sh.tmpl"
+    assert tmpl.is_file(), f"Pack source missing: {tmpl}"
+    return tmpl.read_text()
+
+
+@pytest.fixture(scope="module")
 def provision_tmpl(repo_root: Path) -> str:
     tmpl = repo_root / VPS_FILES / "ops/provision-ec2.sh.tmpl"
     assert tmpl.is_file(), f"Pack source missing: {tmpl}"
@@ -62,7 +74,11 @@ def provision_tmpl(repo_root: Path) -> str:
 
 @pytest.fixture(scope="module")
 def teardown_wf(repo_root: Path) -> str:
-    wf = repo_root / EPHEMERAL_FILES / ".github/workflows/{{project_name}}-ephemeral-teardown.yml"
+    wf = (
+        repo_root
+        / EPHEMERAL_FILES
+        / ".github/workflows/{{project_name}}-ephemeral-teardown.yml"
+    )
     assert wf.is_file(), f"Pack workflow missing: {wf}"
     return wf.read_text()
 
@@ -78,6 +94,7 @@ def deploy_wf(repo_root: Path) -> str:
 # Pack source structure (source-of-truth assertions on .sh.tmpl)
 # ---------------------------------------------------------------------------
 
+
 class TestCleanupPackSourceShape:
     def test_posix_shebang(self, cleanup_tmpl: str) -> None:
         assert cleanup_tmpl.splitlines()[0] == "#!/usr/bin/env sh"
@@ -92,8 +109,8 @@ class TestCleanupPackSourceShape:
         """cleanup must never touch the persistent app/core compose projects."""
         assert "PROTECTED_PROJECT_APP" in cleanup_tmpl
         assert "PROTECTED_PROJECT_CORE" in cleanup_tmpl
-        assert '${PROJECT_NAME}-app' in cleanup_tmpl
-        assert '${PROJECT_NAME}-core' in cleanup_tmpl
+        assert "${PROJECT_NAME}-app" in cleanup_tmpl
+        assert "${PROJECT_NAME}-core" in cleanup_tmpl
         # Slug-level exclusion applies to both protected projects too.
         assert "grep -v '^app$'" in cleanup_tmpl
         assert "grep -v '^core$'" in cleanup_tmpl
@@ -112,7 +129,9 @@ class TestCleanupPackSourceShape:
         assert "ephemeral" in cleanup_tmpl
         assert "basename" in cleanup_tmpl
 
-    def test_compose_project_parsing_strips_prefix_exactly(self, cleanup_tmpl: str) -> None:
+    def test_compose_project_parsing_strips_prefix_exactly(
+        self, cleanup_tmpl: str
+    ) -> None:
         """strip the project prefix exactly, not via trailing dash."""
         assert "${_project#${PROJECT_NAME}-}" in cleanup_tmpl
 
@@ -146,26 +165,58 @@ class TestCleanupPackSourceShape:
         assert "done <<EOF" in cleanup_tmpl
         # And MUST NOT use the pipe-to-while pattern that loses counters in a subshell.
         assert "UNIQUE_SLUGS" not in cleanup_tmpl or (
-            "UNIQUE_SLUGS" in cleanup_tmpl and "UNIQUE_SLUGS\" | while read" not in cleanup_tmpl
+            "UNIQUE_SLUGS" in cleanup_tmpl
+            and 'UNIQUE_SLUGS" | while read' not in cleanup_tmpl
         )
+
+
+class TestCurrentBranchHostCleanup:
+    def test_uses_preview_namespace_instead_of_project_special_cases(
+        self,
+        current_cleanup_tmpl: str,
+    ) -> None:
+        assert 'PREVIEW_NAMESPACE="{{preview_namespace}}"' in current_cleanup_tmpl
+        assert 'TTL_HOURS="{{preview_ttl_hours}}"' in current_cleanup_tmpl
+        assert "{{project_name}}" not in current_cleanup_tmpl
+        assert "PROTECTED_PROJECT" not in current_cleanup_tmpl
+
+    def test_discovers_and_removes_only_namespaced_resources(
+        self,
+        current_cleanup_tmpl: str,
+    ) -> None:
+        assert 'PREVIEW_ROOT="$HOME/$PREVIEW_NAMESPACE"' in current_cleanup_tmpl
+        assert '"${PREVIEW_NAMESPACE}-"*' in current_cleanup_tmpl
+        assert (
+            'docker compose -p "${PREVIEW_NAMESPACE}-${slug}" down'
+            in current_cleanup_tmpl
+        )
+        assert "--volumes --remove-orphans" in current_cleanup_tmpl
+
+    def test_keeps_scheduler_and_failure_policy_visible(
+        self,
+        current_cleanup_tmpl: str,
+    ) -> None:
+        assert "Scheduling is project-owned" in current_cleanup_tmpl
+        assert "exit 0" in current_cleanup_tmpl
 
 
 # ---------------------------------------------------------------------------
 # Rendered externalwebapp output (generated into a temp project directory)
 # ---------------------------------------------------------------------------
 
+
 def _rendered_cleanup_text(repo_root: Path, tmp_path: Path) -> str:
     proj_dir = tmp_path / "externalwebapp"
     proj_dir.mkdir(parents=True)
-    source = (
-        repo_root / EPHEMERAL_FILES / "ops/ephemeral-cleanup.sh.tmpl"
-    )
+    source = repo_root / EPHEMERAL_FILES / "ops/ephemeral-cleanup.sh.tmpl"
     rendered = proj_dir / "ops" / "ephemeral-cleanup.sh"
     rendered.parent.mkdir(parents=True)
-    rendered.write_text(render_pack_text(
-        source.read_text(),
-        {"project_name": "externalwebapp", "ephemeral_ttl_hours": "24"},
-    ))
+    rendered.write_text(
+        render_pack_text(
+            source.read_text(),
+            {"project_name": "externalwebapp", "ephemeral_ttl_hours": "24"},
+        )
+    )
     return rendered.read_text()
 
 
@@ -193,6 +244,7 @@ class TestRenderedExternalWebappCleanup:
         because they start with ``.``, not a lowercase letter/underscore.
         """
         import re
+
         leftovers = re.findall(r"{{[a-z_][a-z0-9_]*}}", rendered)
         assert not leftovers, f"unrendered placeholders: {leftovers}"
 
@@ -207,7 +259,8 @@ class TestRenderedExternalWebappCleanup:
         assert "managed" not in rendered.lower()
 
     def test_rendered_excludes_persistent_app_and_core_projects(
-        self, rendered: str,
+        self,
+        rendered: str,
     ) -> None:
         assert "PROTECTED_PROJECT_APP" in rendered
         assert "PROTECTED_PROJECT_CORE" in rendered
@@ -221,10 +274,14 @@ class TestRenderedExternalWebappCleanup:
     def test_rendered_uses_filesystem_driven_discovery(self, rendered: str) -> None:
         assert "EPHEMERAL_DIR" in rendered
 
-    def test_rendered_compose_parsing_strips_prefix_exactly(self, rendered: str) -> None:
+    def test_rendered_compose_parsing_strips_prefix_exactly(
+        self, rendered: str
+    ) -> None:
         assert "${_project#${PROJECT_NAME}-}" in rendered
 
-    def test_rendered_volume_parsing_preserves_hyphenated_slugs(self, rendered: str) -> None:
+    def test_rendered_volume_parsing_preserves_hyphenated_slugs(
+        self, rendered: str
+    ) -> None:
         assert "${_volume_rest%%_*}" in rendered
         assert "sed 's/[_-].*//'" not in rendered
 
@@ -237,13 +294,12 @@ class TestRenderedExternalWebappCleanup:
 # Pack boundary
 # ---------------------------------------------------------------------------
 
+
 class TestMaintenancePackBoundary:
     def test_latest_host_maintenance_has_no_ephemeral_setup_program(
         self, repo_root: Path
     ) -> None:
-        host_files = (
-            repo_root / "packs/host-maintenance/versions/1.1.0/files"
-        )
+        host_files = repo_root / "packs/host-maintenance/versions/1.2.0/files"
         assert not (host_files / "ops/setup-vps-maintenance.sh.tmpl").exists()
         assert not list(host_files.rglob("*.sh.tmpl"))
 
@@ -257,9 +313,9 @@ class TestProvisionEc2PackSource:
     def test_configures_persistent_swapfile(self, provision_tmpl: str) -> None:
         assert 'SWAPFILE="/swapfile"' in provision_tmpl
         assert 'SWAP_SIZE_MB="1024"' in provision_tmpl
-        assert "mkswap \"$SWAPFILE\"" in provision_tmpl
-        assert "swapon \"$SWAPFILE\"" in provision_tmpl
-        assert '>> /etc/fstab' in provision_tmpl
+        assert 'mkswap "$SWAPFILE"' in provision_tmpl
+        assert 'swapon "$SWAPFILE"' in provision_tmpl
+        assert ">> /etc/fstab" in provision_tmpl
 
     def test_swap_setup_is_idempotent(self, provision_tmpl: str) -> None:
         assert "Swap already active" in provision_tmpl
@@ -277,6 +333,7 @@ class TestProvisionEc2PackSource:
 # ---------------------------------------------------------------------------
 # Workflow integration (teardown + deploy)
 # ---------------------------------------------------------------------------
+
 
 class TestTeardownWorkflow:
     def test_removes_per_slug_images(self, teardown_wf: str) -> None:

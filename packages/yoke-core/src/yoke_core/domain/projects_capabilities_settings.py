@@ -1,4 +1,4 @@
-"""CAS-protected reads, full writes, and merges for capability settings.
+"""CAS-protected reads, writes, merges, and removals for capability settings.
 
 Generic capabilities support full compare-and-swap replacement and key-path
 merge. GitHub settings are binding-owned: generic full writes are closed and
@@ -43,11 +43,11 @@ CAPABILITY_SETTINGS_COMMANDS = (
     "capability-get-settings",
     "capability-set-settings",
     "capability-merge-settings",
+    "capability-remove-settings",
 )
 
 _GET_RECIPE = (
-    "yoke projects capability-settings get --project <project> "
-    "--cap-type <type>"
+    "yoke projects capability-settings get --project <project> --cap-type <type>"
 )
 _MERGE_RECIPE = (
     "yoke projects capability-settings merge --project <project> "
@@ -135,6 +135,13 @@ def register_capability_settings_parsers(sub: Any) -> None:
         metavar="KEY.PATH=VALUE",
         help="Assignment to merge; repeatable.",
     )
+    p = sub.add_parser(
+        "capability-remove-settings",
+        help="Remove one capability only while its settings match --base",
+    )
+    p.add_argument("project")
+    p.add_argument("type")
+    p.add_argument("--base", dest="base_settings_json", required=True)
 
 
 def run_capability_settings_command(args: Any) -> int:
@@ -147,16 +154,27 @@ def run_capability_settings_command(args: Any) -> int:
     elif args.command == "capability-set-settings":
         print(
             cmd_capability_set_settings(
-                args.project, args.type, args.settings_json,
+                args.project,
+                args.type,
+                args.settings_json,
                 base_settings_json=args.base_settings_json,
                 create=args.create,
             )
         )
-    else:
+    elif args.command == "capability-merge-settings":
         print(
             cmd_capability_merge_settings(
-                args.project, args.type,
+                args.project,
+                args.type,
                 parse_set_assignments(args.assignments),
+            )
+        )
+    else:
+        print(
+            cmd_capability_remove_settings(
+                args.project,
+                args.type,
+                base_settings_json=args.base_settings_json,
             )
         )
     return 0
@@ -172,9 +190,7 @@ def _canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
     return canonicalize_capability_settings(cap_type, raw_json)
 
 
-def _read_settings_text(
-    conn: Any, project_id: int, cap_type: str
-) -> Optional[str]:
+def _read_settings_text(conn: Any, project_id: int, cap_type: str) -> Optional[str]:
     """Return the as-read settings text, or None when no row exists."""
     val = query_scalar(
         conn,
@@ -255,10 +271,7 @@ def _cas_update(
             )
         raise SettingsConflictError(
             settings_conflict_teaching(
-                what=(
-                    f"settings for capability '{cap_type}' on project "
-                    f"'{project}'"
-                ),
+                what=(f"settings for capability '{cap_type}' on project '{project}'"),
                 get_recipe=_GET_RECIPE,
                 merge_recipe=_MERGE_RECIPE,
             )
@@ -285,15 +298,11 @@ def cmd_capability_set_settings(
     """
     cap_type = reject_github_capability_full_settings_write(cap_type)
     cap_type = reject_pulumi_state_full_write(cap_type)
-    has_base = bool(
-        base_settings_json is not None and str(base_settings_json).strip()
-    )
+    has_base = bool(base_settings_json is not None and str(base_settings_json).strip())
     if has_base == bool(create):
         raise ValueError(
             ("--base and --new are mutually exclusive. " if create else "")
-            + base_required_teaching(
-                get_recipe=_GET_RECIPE, merge_recipe=_MERGE_RECIPE
-            )
+            + base_required_teaching(get_recipe=_GET_RECIPE, merge_recipe=_MERGE_RECIPE)
             + " When the get exits 1 (no row yet), pass --new instead of --base."
         )
     settings_json = _canonicalize_capability_settings(cap_type, settings_json)
@@ -304,9 +313,62 @@ def cmd_capability_set_settings(
         if create:
             return _cas_create(conn, project, project_id, cap_type, settings_json)
         return _cas_update(
-            conn, project, project_id, cap_type, settings_json,
+            conn,
+            project,
+            project_id,
+            cap_type,
+            settings_json,
             str(base_settings_json),
         )
+    finally:
+        conn.close()
+
+
+def cmd_capability_remove_settings(
+    project: str,
+    cap_type: str,
+    *,
+    base_settings_json: str,
+    db_path: Optional[str] = None,
+) -> str:
+    """CAS-remove one ordinary capability without blind deletion.
+
+    GitHub bindings and Pulumi operator state have dedicated ownership
+    lifecycles and cannot be removed through this generic settings surface.
+    """
+    cap_type = reject_github_capability_full_settings_write(cap_type)
+    cap_type = reject_pulumi_state_full_write(cap_type)
+    base_text = str(base_settings_json or "")
+    if not base_text.strip():
+        raise ValueError(
+            "--base is required; read the exact current document with " + _GET_RECIPE
+        )
+    conn = connect(db_path)
+    try:
+        project_id = resolve_project_id(conn, project)
+        cur = conn.execute(
+            "DELETE FROM project_capabilities WHERE project_id=%s AND type=%s "
+            "AND COALESCE(settings, '{}')=%s",
+            (project_id, cap_type, base_text),
+        )
+        if cur.rowcount == 0:
+            missing = _read_settings_text(conn, project_id, cap_type) is None
+            conn.rollback()
+            if missing:
+                raise LookupError(
+                    f"capability '{cap_type}' was not found on project '{project}'"
+                )
+            raise SettingsConflictError(
+                settings_conflict_teaching(
+                    what=(
+                        f"settings for capability '{cap_type}' on project '{project}'"
+                    ),
+                    get_recipe=_GET_RECIPE,
+                    merge_recipe=_MERGE_RECIPE,
+                )
+            )
+        conn.commit()
+        return f"Removed capability '{cap_type}' from project '{project}'"
     finally:
         conn.close()
 
@@ -338,9 +400,7 @@ def cmd_capability_merge_settings(
             merged_text = _canonicalize_capability_settings(cap_type, merged_text)
             if base is None:
                 return _cas_create(conn, project, project_id, cap_type, merged_text)
-            return _cas_update(
-                conn, project, project_id, cap_type, merged_text, base
-            )
+            return _cas_update(conn, project, project_id, cap_type, merged_text, base)
 
         cas_merge_loop(
             read_current=read_current,

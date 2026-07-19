@@ -27,6 +27,15 @@ class EphemeralEnvCreateRequest(BaseModel):
     github_ref: str = ""
 
 
+class EphemeralEnvGetRequest(BaseModel):
+    project: str
+    branch: str
+
+
+class EphemeralEnvGetResponse(BaseModel):
+    environment: dict[str, Any]
+
+
 class EphemeralEnvCreateResponse(BaseModel):
     env_id: int
     project: str
@@ -127,6 +136,41 @@ def handle_ephemeral_env_update(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_ephemeral_env_get(request: FunctionCallRequest) -> HandlerOutcome:
+    if request.target.kind != "global":
+        return _error(
+            "target_invalid",
+            "ephemeral_env.get requires target.kind='global'",
+            jsonpath="$.target.kind",
+        )
+    try:
+        payload = EphemeralEnvGetRequest.model_validate(request.payload or {})
+    except Exception as exc:
+        return _error("payload_invalid", f"payload invalid: {exc}")
+    if not payload.project.strip() or not payload.branch.strip():
+        return _error(
+            "payload_invalid",
+            "project and branch are required",
+            jsonpath="$.payload",
+        )
+
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.ephemeral_env import EPHEMERAL_ENV_FIELDS, cmd_get
+    from yoke_core.domain.handlers.deployment_common import pipe_to_dict
+
+    try:
+        with connect() as conn:
+            raw = cmd_get(conn, payload.project.strip(), payload.branch.strip())
+    except LookupError as exc:
+        return _error("not_found", str(exc), jsonpath="$.payload.branch")
+    return HandlerOutcome(
+        result_payload=EphemeralEnvGetResponse(
+            environment=pipe_to_dict(raw, EPHEMERAL_ENV_FIELDS)
+        ).model_dump(),
+        primary_success=True,
+    )
+
+
 def handle_ephemeral_env_create(request: FunctionCallRequest) -> HandlerOutcome:
     if request.target.kind != "global":
         return _error(
@@ -173,8 +217,11 @@ def handle_ephemeral_env_create(request: FunctionCallRequest) -> HandlerOutcome:
 __all__ = [
     "EphemeralEnvCreateRequest",
     "EphemeralEnvCreateResponse",
+    "EphemeralEnvGetRequest",
+    "EphemeralEnvGetResponse",
     "EphemeralEnvUpdateRequest",
     "EphemeralEnvUpdateResponse",
     "handle_ephemeral_env_create",
+    "handle_ephemeral_env_get",
     "handle_ephemeral_env_update",
 ]

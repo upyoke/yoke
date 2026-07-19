@@ -22,8 +22,7 @@ from yoke_core.domain.project_renderer_values import (
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PACKAGED_ROOT = (
-    REPO_ROOT / "packages" / "yoke-core" / "src" / "yoke_core"
-    / "install_bundle_tree"
+    REPO_ROOT / "packages" / "yoke-core" / "src" / "yoke_core" / "install_bundle_tree"
 )
 WORKFLOW_NAMES = ("deploy.yml", "hotfix.yml")
 STATIC_AWS_SECRET_REFERENCES = (
@@ -31,19 +30,27 @@ STATIC_AWS_SECRET_REFERENCES = (
     "secrets.AWS_SECRET_ACCESS_KEY",
 )
 CLOUDFRONT_HELPER = (
-    REPO_ROOT / "packs/domain-cdn-edge/versions/1.0.0/files"
+    REPO_ROOT
+    / "packs/domain-cdn-edge/versions/1.0.0/files"
     / "ops/cloudfront_invalidate.py"
 )
 PACKAGED_CLOUDFRONT_HELPER = (
-    PACKAGED_ROOT / "packs/domain-cdn-edge/versions/1.0.0/files"
+    PACKAGED_ROOT
+    / "packs/domain-cdn-edge/versions/1.0.0/files"
     / "ops/cloudfront_invalidate.py"
 )
 
 
 def _workflow_text(name: str) -> str:
     return REPO_ROOT.joinpath(
-        "packs", "production-deploy", "versions", "1.0.0", "files",
-        ".github", "workflows", f"{{{{project_name}}}}-{name}",
+        "packs",
+        "production-deploy",
+        "versions",
+        "1.1.0",
+        "files",
+        ".github",
+        "workflows",
+        f"{{{{project_name}}}}-{name}",
     ).read_text(encoding="utf-8")
 
 
@@ -120,8 +127,7 @@ def test_delivery_workflows_call_pack_installed_cloudfront_helper() -> None:
         text = _workflow_text(name)
 
         assert (
-            'python3 ops/cloudfront_invalidate.py "$CLOUDFRONT_DISTRIBUTION_ID"'
-            in text
+            'python3 ops/cloudfront_invalidate.py "$CLOUDFRONT_DISTRIBUTION_ID"' in text
         )
 
 

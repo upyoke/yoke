@@ -1,0 +1,91 @@
+# ephemeral-deploy.yml — Deploy ephemeral environment on branch push
+#
+# Triggers on every push except main and hotfix/** branches.
+# Derives deterministic port offsets from the branch SLUG hash for internal
+# container-to-proxy mapping:
+#   - API port: {{api_port_base}} + (hash % {{preview_port_range}})
+#   - Web port: {{preview_web_port_base}} + (hash % {{preview_port_range}})
+# Production uses {{api_port}}/{{web_port}}, so these ranges never collide.
+# Supports up to {{preview_port_range}} distinct port offsets.
+#
+# Deploy strategy: rsync (same as production), not git.
+# Each preview gets its own directory: ~/{{preview_namespace}}/<slug>/
+# with a .env copied from production and port overrides applied.
+#
+# Pack install settings:
+#   {{project_name}}         — project identifier (lowercase)
+#   {{PROJECT_NAME_UPPER}}   — project identifier (UPPER_CASE, for secret names)
+#   {{preview_namespace}}    — preview-only host resource prefix
+#   {{preview_domain}}       — wildcard domain for preview URLs
+#   Uses ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }} for SSH user (secret-based)
+#
+# Secrets required:
+#   {{PROJECT_NAME_UPPER}}_SSH_KEY  — SSH private key for droplet access
+#   {{PROJECT_NAME_UPPER}}_SSH_HOST — Droplet IP
+
+name: Deploy Ephemeral Environment
+
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore:
+      - main
+      - 'hotfix/**'
+
+concurrency:
+  group: ephemeral-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      branch_exists: ${{ steps.check_branch.outputs.branch_exists }}
+      branch_slug: ${{ steps.slug.outputs.branch_slug }}
+      api_port: ${{ steps.ports.outputs.api_port }}
+      web_port: ${{ steps.ports.outputs.web_port }}
+    steps:
+      - name: Check branch existence
+        id: check_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api repos/${GITHUB_REPOSITORY}/branches/${GITHUB_REF_NAME} > /dev/null 2>&1; then
+            echo "branch_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Branch ${GITHUB_REF_NAME} no longer exists — skipping ephemeral deploy."
+            echo "branch_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Slugify branch name
+        id: slug
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          SLUG=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+          echo "branch_slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "Branch slug: $SLUG"
+
+      - name: Compute port offsets
+        if: steps.check_branch.outputs.branch_exists == 'true'
+        id: ports
+        run: |
+          SLUG="${{ steps.slug.outputs.branch_slug }}"
+          HASH=$(echo -n "$SLUG" | sha256sum | cut -c1-8)
+          OFFSET=$(( 16#$HASH % {{preview_port_range}} ))
+          API_PORT=$(( {{api_port_base}} + OFFSET ))
+          WEB_PORT=$(( {{preview_web_port_base}} + OFFSET ))
+          echo "api_port=$API_PORT" >> "$GITHUB_OUTPUT"
+          echo "web_port=$WEB_PORT" >> "$GITHUB_OUTPUT"
+          echo "offset=$OFFSET" >> "$GITHUB_OUTPUT"
+          echo "Port offset: $OFFSET (API=$API_PORT, Web=$WEB_PORT)"
+
+  deploy:
+    needs: prepare
+    if: always()
+    uses: ./.github/workflows/{{project_name}}-ephemeral-run.yml
+    with:
+      branch_exists: ${{ needs.prepare.outputs.branch_exists }}
+      branch_slug: ${{ needs.prepare.outputs.branch_slug }}
+      api_port: ${{ needs.prepare.outputs.api_port }}
+      web_port: ${{ needs.prepare.outputs.web_port }}
+    secrets: inherit

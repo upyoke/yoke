@@ -1,8 +1,8 @@
 """Project bootstrap setup mutations.
 
 Hosts ``run_setup`` — the writer surface that creates the GitHub
-secrets, configures the production environment, installs the reusable
-deployment Packs, and prints the TLS-provisioning runbook. SSH subprocess
+secrets, configures the production environment, installs only explicitly
+selected missing Packs, and prints the TLS-provisioning runbook. SSH subprocess
 invocations route through ``_run`` so test suites can
 intercept those via a single monkeypatch; GitHub mutations route
 through the bearer-token REST transport
@@ -96,14 +96,23 @@ def run_setup(ctx: BootstrapContext) -> int:
 
     parse_ok, parse_msg = _validate_ssh_key_parseable(cfg.ssh_key_path)
     if not parse_ok:
-        print(f"Error: SSH key at {cfg.ssh_key_path} did not parse: {parse_msg}", file=sys.stderr)
+        print(
+            f"Error: SSH key at {cfg.ssh_key_path} did not parse: {parse_msg}",
+            file=sys.stderr,
+        )
         return 2
     if not cfg.ssh_host or not cfg.ssh_user:
-        print(f"Error: SSH host/user missing for project '{project_slug}' — set project_capabilities.ssh.{{host,user}} before setup.", file=sys.stderr)
+        print(
+            f"Error: SSH host/user missing for project '{project_slug}' — set project_capabilities.ssh.{{host,user}} before setup.",
+            file=sys.stderr,
+        )
         return 2
     probe_ok, probe_msg = _probe_ssh_auth(cfg.ssh_user, cfg.ssh_host, cfg.ssh_key_path)
     if not probe_ok:
-        print(f"Error: SSH probe to {cfg.ssh_user}@{cfg.ssh_host} with {cfg.ssh_key_path} failed: {probe_msg}", file=sys.stderr)
+        print(
+            f"Error: SSH probe to {cfg.ssh_user}@{cfg.ssh_host} with {cfg.ssh_key_path} failed: {probe_msg}",
+            file=sys.stderr,
+        )
         return 2
 
     print(f"\n--- Step 2: Creating GitHub Secrets in {repo} ---")
@@ -116,7 +125,10 @@ def run_setup(ctx: BootstrapContext) -> int:
         print(f"  Setting {name}...", end="")
         try:
             github_secrets_rest.set_repo_secret(
-                repo, name, value, token=resolved.token,
+                repo,
+                name,
+                value,
+                token=resolved.token,
             )
         except gh_rest_transport.RestTransportError as exc:
             print(" FAILED", file=sys.stderr)
@@ -125,7 +137,9 @@ def run_setup(ctx: BootstrapContext) -> int:
         print(" done")
 
     _persist_resolved_ssh_key_path(ctx, cfg.ssh_key_path)
-    print(f"  Recorded resolved key_path in project_capabilities.ssh: {cfg.ssh_key_path}")
+    print(
+        f"  Recorded resolved key_path in project_capabilities.ssh: {cfg.ssh_key_path}"
+    )
 
     print("\n--- Step 3: Configuring production environment (optional) ---")
     admin_resolved = None
@@ -146,7 +160,9 @@ def run_setup(ctx: BootstrapContext) -> int:
     finally:
         conn.close()
     if admin_resolved is None:
-        print("  Skipped: the default Yoke GitHub App grant does not request Administration.")
+        print(
+            "  Skipped: the default Yoke GitHub App grant does not request Administration."
+        )
         print(
             "  To let Yoke create GitHub environments, reconnect the App with "
             "Administration: write, then rerun setup."
@@ -160,7 +176,9 @@ def run_setup(ctx: BootstrapContext) -> int:
         try:
             gh_rest_transport.request_with_retry(
                 gh_rest_transport.RestRequest(
-                    method="PUT", path=env_path, body={},
+                    method="PUT",
+                    path=env_path,
+                    body={},
                 ),
                 token=admin_resolved.token,
             )
@@ -171,37 +189,51 @@ def run_setup(ctx: BootstrapContext) -> int:
             )
         except gh_rest_transport.RestTransportError as exc:
             print("  Creating production environment... FAILED", file=sys.stderr)
-            print(f"Error: Failed to create production environment: {exc}", file=sys.stderr)
+            print(
+                f"Error: Failed to create production environment: {exc}",
+                file=sys.stderr,
+            )
             return 2
 
-    print("\n--- Step 4: Installing project capability Packs ---")
-    for pack in (
-        "production-deploy",
-        "smoke-testing",
-        "ephemeral-environments",
-        "vps-hosting",
-    ):
-        receipt = load_receipt(cfg.repo_path)
-        installed = (receipt or {}).get("packs", {})
-        operation = "update" if pack in installed else "get"
-        print(f"  {operation.title()}: {pack}...", end="")
+    print("\n--- Step 4: Installing explicitly selected missing Packs ---")
+    receipt = load_receipt(cfg.repo_path)
+    installed = (receipt or {}).get("packs", {})
+    if not ctx.packs:
+        print("  No Packs selected; bootstrap does not guess the project's topology.")
+        print(f"  Browse choices: yoke packs list --project {project_slug}")
+        print(
+            "  Preview one install: yoke packs get <pack> "
+            f"{cfg.repo_path} --project {project_slug}"
+        )
+    for pack in ctx.packs:
+        if pack in installed:
+            print(
+                f"  Skipped {pack}: already installed at "
+                f"{installed[pack]['version']}; bootstrap never updates Packs."
+            )
+            print(
+                f"    Preview separately: yoke packs update {pack} "
+                f"{cfg.repo_path} --project {project_slug}"
+            )
+            continue
+        print(f"  Get: {pack}...", end="")
         try:
             report = run_pack_operation(
                 cfg.repo_path,
                 project=project_slug,
                 pack=pack,
-                operation=operation,
+                operation="get",
                 apply=True,
             )
         except PackClientError as exc:
             print(" FAILED", file=sys.stderr)
-            print(f"Error: Pack {operation} failed: {exc}", file=sys.stderr)
+            print(f"Error: Pack get failed: {exc}", file=sys.stderr)
             return 2
         if report.get("refused") or not report.get("applied"):
             print(" CONFLICT", file=sys.stderr)
             print(
-                f"Error: Pack {operation} requires manual conflict resolution; "
-                f"preview with `yoke packs {operation} {pack} "
+                "Error: Pack get requires manual conflict resolution; "
+                f"preview with `yoke packs get {pack} "
                 f"{cfg.repo_path} --project {project_slug}`.",
                 file=sys.stderr,
             )
@@ -209,15 +241,14 @@ def run_setup(ctx: BootstrapContext) -> int:
         print(" done")
         if report.get("projection_warning"):
             print(f"  Warning: {report['projection_warning']}", file=sys.stderr)
-    print("  Review and commit the project-owned Pack changes in the project repo.")
+    if ctx.packs:
+        print("  Review and commit the project-owned Pack changes in the project repo.")
 
     print("\n--- Step 5: TLS Certificate Provisioning ---")
     domain = project_primary_domain_name(project_slug)
     if not domain:
         print("  Domain not configured in DB site settings — skipping TLS provisioning")
-        print(
-            "  Store sites.settings.domains[0].domain_name before enabling TLS"
-        )
+        print("  Store sites.settings.domains[0].domain_name before enabling TLS")
         return 0
 
     tls_exists = _run(
@@ -240,7 +271,9 @@ def run_setup(ctx: BootstrapContext) -> int:
         return 0
 
     print(f"  Wildcard TLS certificate needed for *.{domain}\n")
-    print("  The provision-tls.sh script automates certbot DNS-01 wildcard cert issuance.")
+    print(
+        "  The provision-tls.sh script automates certbot DNS-01 wildcard cert issuance."
+    )
     print("  Run the following on the VPS (or provide to the operator):\n")
     print("    1. Review the VPS Hosting Pack guidance and project-owned script:")
     print(f"       {cfg.repo_path}/docs/packs/vps-hosting/README.md")
@@ -254,7 +287,9 @@ def run_setup(ctx: BootstrapContext) -> int:
     print("    3. Create DNS API credentials on the VPS:")
     print(f"       ssh {cfg.ssh_user}@{cfg.ssh_host}")
     print("       sudo mkdir -p /etc/letsencrypt")
-    print("       echo 'dns_digitalocean_token = YOUR_DO_API_TOKEN' | sudo tee /etc/letsencrypt/dns-credentials.ini")
+    print(
+        "       echo 'dns_digitalocean_token = YOUR_DO_API_TOKEN' | sudo tee /etc/letsencrypt/dns-credentials.ini"
+    )
     print("       sudo chmod 600 /etc/letsencrypt/dns-credentials.ini")
     print()
     print("    4. Run the provisioning script:")

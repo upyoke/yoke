@@ -92,7 +92,7 @@ function renderPackCatalog(body, result, context, previewPanel, project) {
   const table = el(documentNode, "table", "items");
   const head = el(documentNode, "tr");
   for (const label of [
-    "Pack", "status", "installed", "latest", "dependencies", "files", "guidance", "action",
+    "Pack", "what it does", "status", "installed", "latest", "dependencies", "files", "guidance", "action",
   ]) {
     head.appendChild(el(documentNode, "th", null, label));
   }
@@ -100,6 +100,7 @@ function renderPackCatalog(body, result, context, previewPanel, project) {
   for (const row of rows) {
     const tr = el(documentNode, "tr");
     tr.appendChild(el(documentNode, "td", null, row.name || row.slug));
+    tr.appendChild(el(documentNode, "td", null, row.description || "—"));
     const statusCell = el(documentNode, "td");
     const pill = statePill(documentNode, row.status);
     if (pill) statusCell.appendChild(pill);
