@@ -112,6 +112,32 @@ class TestMainCLI:
         assert rc == 0
         assert observed == {"db_path": "", "yoke_root": db_dir}
 
+    def test_detect_without_checkout_uses_database_authority(self, test_db):
+        """An installed server wheel does not need a source repo to resync."""
+        observed: dict[str, str] = {}
+
+        def fake_linkage(db_path, yoke_root):
+            observed["db_path"] = db_path
+            observed["yoke_root"] = yoke_root
+            return ([], [], [], {})
+
+        with (
+            mock.patch(
+                "yoke_core.engines.resync._resolve_yoke_root",
+                side_effect=RuntimeError("no checkout"),
+            ),
+            mock.patch("yoke_core.engines.resync.stage1_linkage", fake_linkage),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
+            ),
+            mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
+            mock.patch("sys.stdout", StringIO()),
+        ):
+            rc = main(["--detect-only", "--doctor-format"])
+
+        assert rc == 0
+        assert observed == {"db_path": "", "yoke_root": ""}
+
     def test_db_path_is_accepted_and_forwarded(self, test_db):
         """Doctor may pass a backend token; resync must not reject it."""
         db_dir = os.path.dirname(test_db)
@@ -133,6 +159,35 @@ class TestMainCLI:
 
         assert rc == 0
         assert observed == {"db_path": "/tmp/doctor.db", "yoke_root": db_dir}
+
+    def test_project_is_accepted_and_forwarded(self, test_db):
+        """Hosted Doctor can bound resync to one requested project."""
+        db_dir = os.path.dirname(test_db)
+        observed: dict[str, str] = {}
+
+        def fake_linkage(db_path, yoke_root, *, project=""):
+            observed.update(
+                db_path=db_path,
+                yoke_root=yoke_root,
+                project=project,
+            )
+            return ([], [], [], {})
+
+        with (
+            mock.patch("yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir),
+            mock.patch("yoke_core.engines.resync.stage1_linkage", fake_linkage),
+            mock.patch("yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}),
+            mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
+            mock.patch("sys.stdout", StringIO()),
+        ):
+            rc = main(["--detect-only", "--project", "externalwebapp"])
+
+        assert rc == 0
+        assert observed == {
+            "db_path": "",
+            "yoke_root": db_dir,
+            "project": "externalwebapp",
+        }
 
     def test_detect_no_github_auth_fails_closed(self, test_db):
         """When the Yoke GitHub App auth is not configured, the engine fail-closes

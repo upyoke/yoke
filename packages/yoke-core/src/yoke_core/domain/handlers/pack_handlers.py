@@ -115,6 +115,38 @@ class PacksOperationResponse(BaseModel):
     projection_warning: str | None = None
 
 
+class PacksRelinkRequest(BaseModel):
+    """Inputs for recording one project-owned Pack file move."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    project: str
+    pack: str
+    from_path: str
+    to_path: str
+    repo_root: str | None = None
+    apply: bool = False
+
+
+class PacksRelinkResponse(BaseModel):
+    """Reviewable result from a machine-local Pack relink."""
+
+    operation: str
+    project_id: int
+    project_slug: str
+    repo_root: str
+    pack: str
+    pack_path: str
+    from_path: str
+    to_path: str
+    destination_matches_baseline: bool
+    destination_is_customized: bool
+    applied: bool
+    receipt: str
+    projection: dict[str, Any] | None = None
+    projection_warning: str | None = None
+
+
 def handle_packs_catalog_list(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         parsed = PacksCatalogListRequest(**(request.payload or {}))
@@ -181,6 +213,28 @@ def handle_packs_update(request: FunctionCallRequest) -> HandlerOutcome:
     return _handle_pack_operation(request, operation="update")
 
 
+def handle_packs_relink(request: FunctionCallRequest) -> HandlerOutcome:
+    try:
+        parsed = PacksRelinkRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _invalid(exc)
+    from yoke_cli.packs import PackClientError, run_pack_relink
+
+    try:
+        result = run_pack_relink(
+            parsed.repo_root,
+            project=parsed.project,
+            pack=parsed.pack,
+            from_path=parsed.from_path,
+            to_path=parsed.to_path,
+            apply=parsed.apply,
+            session_id=request.actor.session_id or None,
+        )
+    except PackClientError as exc:
+        return _failure("pack_relink_failed", str(exc))
+    return HandlerOutcome(primary_success=True, result_payload=result)
+
+
 def _handle_pack_operation(
     request: FunctionCallRequest,
     *,
@@ -226,11 +280,14 @@ __all__ = [
     "PacksCatalogListResponse",
     "PacksOperationRequest",
     "PacksOperationResponse",
+    "PacksRelinkRequest",
+    "PacksRelinkResponse",
     "PacksProjectReportRequest",
     "PacksProjectReportResponse",
     "handle_packs_bundle_get",
     "handle_packs_catalog_list",
     "handle_packs_get",
     "handle_packs_project_report",
+    "handle_packs_relink",
     "handle_packs_update",
 ]

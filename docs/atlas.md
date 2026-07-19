@@ -2,11 +2,11 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-19T18:36:43Z_
+_Audit generated_at: 2026-07-19T19:18:32Z_
 
 ## 1. Summary
 
-- Function ids registered: **227**
+- Function ids registered: **228**
 - Internal dispatch-only functions without CLI adapters: **1**
 - `yoke` CLI subcommands: **226** (226 carry usable `--help`)
 - Operation tracker: **224 wrapped**, 74 permanent, 0 pending
@@ -335,7 +335,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 123 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 24 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 25 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |

@@ -182,6 +182,14 @@ class TestDelegatedSync:
         assert "--detect-only" in cmd_str
 
     @patch("yoke_core.engines.doctor_report._run")
+    def test_project_propagation(self, mock_run):
+        """Doctor scopes delegated resync to the requested project."""
+        mock_run.return_value = _completed(returncode=2, stdout="")
+        _run_hc(hc_delegated_sync, project="externalwebapp")
+        cmd = mock_run.call_args[0][0]
+        assert cmd[cmd.index("--project") + 1] == "externalwebapp"
+
+    @patch("yoke_core.engines.doctor_report._run")
     def test_db_path_propagation(self, mock_run):
         """Doctor's test/override db-path token is passed to resync."""
         mock_run.return_value = _completed(stdout=(

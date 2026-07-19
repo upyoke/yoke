@@ -31,6 +31,8 @@ def _graphql_batch_fetch(nums, project="yoke", batch_size=50, *, auth=None):
 def stage1_linkage(
     db_path: str,
     yoke_root: str,
+    *,
+    project: str = "",
 ):
     """Stage 1: build paired, local-orphan, and gh-orphan lists."""
     from yoke_core.engines.resync_detect import stage1_linkage as _stage1
@@ -41,7 +43,7 @@ def stage1_linkage(
     def _fetch_fn(projects):
         return _self._fetch_gh_issues_per_project(projects)
 
-    return _stage1(db_path, yoke_root, fetch_fn=_fetch_fn)
+    return _stage1(db_path, yoke_root, fetch_fn=_fetch_fn, project=project)
 
 
 def stage1_5_heavy_fetch(paired, gh_by_project):

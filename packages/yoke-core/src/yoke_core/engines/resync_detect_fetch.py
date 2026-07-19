@@ -14,6 +14,7 @@ transport surface directly.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterable, List
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -40,6 +41,7 @@ UNAVAILABLE_KEY = "_github_unavailable"
 UNAVAILABLE_CODE_KEY = "_unavailable_code"
 UNAVAILABLE_HINT_KEY = "_repair_hint"
 UNAVAILABLE_STAGE_KEY = "_unavailable_stage"
+GRAPHQL_BATCH_WORKERS = 4
 
 
 def _unavailable_sentinel(
@@ -262,8 +264,9 @@ def _graphql_batch_fetch(
         )
     owner, repo = parts
 
-    for i in range(0, len(nums), batch_size):
-        batch = nums[i:i + batch_size]
+    batches = [nums[i:i + batch_size] for i in range(0, len(nums), batch_size)]
+
+    def fetch_batch(batch: List[int]) -> Dict[int, Dict]:
         fields = []
         for num in batch:
             fields.append(
@@ -316,6 +319,7 @@ def _graphql_batch_fetch(
             raise RestTransportError(
                 f"GitHub GraphQL returned incomplete issue data for project '{project}'"
             )
+        batch_result: Dict[int, Dict] = {}
         for key, value in repo_data.items():
             if value is None or not isinstance(value, dict):
                 continue
@@ -331,10 +335,16 @@ def _graphql_batch_fetch(
                     f"GitHub GraphQL returned invalid issue data for project '{project}'"
                 )
             comments_nodes = comments["nodes"]
-            result_map[number] = {
+            batch_result[number] = {
                 "number": number,
                 "body": value.get("body", "") or "",
                 "comments": comments_nodes,
             }
+        return batch_result
+
+    worker_count = min(GRAPHQL_BATCH_WORKERS, len(batches))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        for batch_result in executor.map(fetch_batch, batches):
+            result_map.update(batch_result)
 
     return result_map

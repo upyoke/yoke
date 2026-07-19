@@ -219,6 +219,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "status.run": AuthzSpec(CLIENT_LOCAL, None),
     "project.register.run": AuthzSpec(CLIENT_LOCAL, None),
     "packs.get.run": AuthzSpec(CLIENT_LOCAL, None),
+    "packs.relink.run": AuthzSpec(CLIENT_LOCAL, None),
     "packs.update.run": AuthzSpec(CLIENT_LOCAL, None),
     "scratch.dispatch_inputs": AuthzSpec(CLIENT_LOCAL, None),
     # Render-into-checkout helpers — local repo writes.

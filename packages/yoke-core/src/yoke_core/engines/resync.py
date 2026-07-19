@@ -62,6 +62,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     mode = "detect"
     doctor_format = False
     db_path = ""
+    project = ""
 
     i = 0
     while i < len(args):
@@ -82,27 +83,43 @@ def main(argv: Optional[List[str]] = None) -> int:
                 )
                 return 1
             db_path = args[i]
+        elif arg == "--project":
+            i += 1
+            if i >= len(args) or not str(args[i]).strip():
+                print(
+                    "Usage: python3 -m yoke_core.engines.resync "
+                    "[--detect-only | --fix] [--doctor-format] "
+                    "[--db-path PATH] [--project SLUG]",
+                    file=sys.stderr,
+                )
+                return 1
+            project = str(args[i]).strip()
         else:
             print(
                 "Usage: python3 -m yoke_core.engines.resync "
-                "[--detect-only | --fix] [--doctor-format] [--db-path PATH]",
+                "[--detect-only | --fix] [--doctor-format] "
+                "[--db-path PATH] [--project SLUG]",
                 file=sys.stderr,
             )
             return 1
         i += 1
 
-    # Resolve paths
+    # The database is authoritative for item and epic-task content.  A source
+    # checkout is optional here: ``stage1_linkage`` retains a display-only
+    # legacy file field, but detection and repair use DB ids and registered
+    # GitHub bindings.  Hosted Doctor runs from an installed wheel and
+    # therefore have no repository root to discover.
     try:
         yoke_root = _resolve_yoke_root()
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+    except (FileNotFoundError, RuntimeError):
+        yoke_root = ""
 
     # Linkage. Yoke GitHub read failures fail-closed at the engine boundary;
     # per-project failures for other projects become unavailable states.
     try:
+        linkage_kwargs = {"project": project} if project else {}
         paired, local_orphans, gh_orphans, gh_by_project = stage1_linkage(
-            db_path, yoke_root,
+            db_path, yoke_root, **linkage_kwargs,
         )
     except ProjectGithubAuthError as exc:
         print(
