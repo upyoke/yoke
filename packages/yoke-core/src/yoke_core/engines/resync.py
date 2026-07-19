@@ -91,12 +91,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         i += 1
 
-    # Resolve paths
+    # The database is authoritative for item and epic-task content.  A source
+    # checkout is optional here: ``stage1_linkage`` retains a display-only
+    # legacy file field, but detection and repair use DB ids and registered
+    # GitHub bindings.  Hosted Doctor runs from an installed wheel and
+    # therefore have no repository root to discover.
     try:
         yoke_root = _resolve_yoke_root()
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+    except (FileNotFoundError, RuntimeError):
+        yoke_root = ""
 
     # Linkage. Yoke GitHub read failures fail-closed at the engine boundary;
     # per-project failures for other projects become unavailable states.
