@@ -1,6 +1,41 @@
 {
-  "packs": {},
+  "packs": {
+    "branch-preview-hosting": {
+      "content_digest": "aa29340eee3dd3bb9d04b01a083ac999e86acd211735e8cdf9b9c453c59680f4",
+      "files": {
+        "docs/packs/branch-preview-hosting/README.md": {
+          "mode": 420,
+          "path": "docs/packs/branch-preview-hosting/README.md",
+          "sha256": "01348d0241de8edea2ab270dc6aef6e85e42f1d3e52b3d5a00053e0b66bb3c15"
+        },
+        "ops/ephemeral_cleanup.py": {
+          "mode": 493,
+          "path": "ops/ephemeral_cleanup.py",
+          "sha256": "80b8d0089b85fb19ff7ff0d38574dfe9f1da0f918083e5c542a9b988e5c587a5"
+        },
+        "ops/ephemeral_port.js": {
+          "mode": 420,
+          "path": "ops/ephemeral_port.js",
+          "sha256": "3ff472ee1086ebf430b043ecd931d73bc49a70af883e9fa3bf692bb09d14ca32"
+        },
+        "ops/nginx-ephemeral.conf": {
+          "mode": 420,
+          "path": "ops/nginx-ephemeral.conf",
+          "sha256": "a67fc465f0f2de2c6a36db45342e48eb78fd0961cdc6d446cbef7f3b57d20229"
+        }
+      },
+      "render_values": {
+        "preview_domain": "preview.upyoke.com",
+        "preview_namespace": "yoke-preview",
+        "preview_port_range": "100",
+        "preview_route_port_base": "9000",
+        "preview_router_name": "yoke_preview",
+        "preview_ttl_hours": "24"
+      },
+      "version": "1.1.0"
+    }
+  },
   "project_id": 1,
   "project_slug": "yoke",
-  "schema": 1
+  "schema": 2
 }
