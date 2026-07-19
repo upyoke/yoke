@@ -3,7 +3,7 @@
   "slug": "branch-preview-hosting",
   "name": "Branch Preview Hosting",
   "description": "Adds reusable host-side routing and cleanup for temporary branch previews without choosing how an application's previews are built or deployed.",
-  "latest_version": "1.0.0",
+  "latest_version": "1.1.0",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -74,6 +74,89 @@
         }
       ],
       "verification": [
+        {
+          "name": "router-check",
+          "command": "node --check ops/ephemeral_port.js"
+        },
+        {
+          "name": "source-check",
+          "command": "git diff --check -- ops docs/packs/branch-preview-hosting"
+        }
+      ]
+    },
+    "1.1.0": {
+      "source": "versions/1.1.0/files",
+      "documentation": "docs/packs/branch-preview-hosting/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "preview_domain": {
+            "type": "string",
+            "description": "Wildcard domain used for preview URLs, such as preview.example.com."
+          },
+          "preview_namespace": {
+            "type": "string",
+            "description": "Preview-only prefix used for directories, Compose projects, images, volumes, and host configuration."
+          },
+          "preview_port_range": {
+            "type": "string",
+            "description": "Number of local ports reserved for deterministic preview routing."
+          },
+          "preview_route_port_base": {
+            "type": "string",
+            "description": "First local port nginx may route preview requests to."
+          },
+          "preview_router_name": {
+            "type": "string",
+            "description": "Nginx-safe module name derived from the preview namespace."
+          },
+          "preview_ttl_hours": {
+            "type": "string",
+            "description": "Maximum age of an inactive preview before scheduled cleanup may remove it."
+          }
+        },
+        "required": [
+          "preview_domain",
+          "preview_namespace",
+          "preview_port_range",
+          "preview_route_port_base",
+          "preview_router_name",
+          "preview_ttl_hours"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/branch-preview-hosting/README.md",
+          "target": "docs/packs/branch-preview-hosting/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/ephemeral_cleanup.py",
+          "target": "ops/ephemeral_cleanup.py",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "ops/ephemeral_port.js",
+          "target": "ops/ephemeral_port.js",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/nginx-ephemeral.conf",
+          "target": "ops/nginx-ephemeral.conf",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "cleanup-check",
+          "command": "python3 -m py_compile ops/ephemeral_cleanup.py"
+        },
         {
           "name": "router-check",
           "command": "node --check ops/ephemeral_port.js"

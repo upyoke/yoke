@@ -179,7 +179,7 @@ def exec_ephemeral_deploy(
         ensure_cleanup_cron(
             runner,
             env,
-            render_webapp_template(project_root, "ops/ephemeral-cleanup.sh", routing),
+            render_webapp_template(project_root, "ops/ephemeral_cleanup.py", routing),
             policy.preview_namespace,
             emit,
         )

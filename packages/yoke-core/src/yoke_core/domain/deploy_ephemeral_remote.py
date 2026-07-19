@@ -181,7 +181,7 @@ def ensure_cleanup_cron(
     preview_namespace: str,
     emit: Callable[[str], None],
 ) -> None:
-    """Install the rendered TTL cleanup script + its cron schedule."""
+    """Install the rendered TTL cleanup program + its cron schedule."""
     script_path = f"/usr/local/bin/{preview_namespace}-cleanup"
     _push_or_fail(
         runner,
@@ -193,7 +193,7 @@ def ensure_cleanup_cron(
         step="ephemeral cleanup script",
     )
     cron_line = (
-        f"0 */6 * * * {env.ssh_user} sh {script_path}"
+        f"0 */6 * * * {env.ssh_user} python3 {script_path}"
         f" >> /tmp/{preview_namespace}-cleanup.log 2>&1\n"
     )
     _push_or_fail(
