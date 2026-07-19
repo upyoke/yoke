@@ -1,5 +1,4 @@
-"""Tests for yoke_core.domain.flow — yoke-internal seeding, backfill, and
-migration_apply capability validation."""
+"""Tests for project-owned flow initialization and migration stages."""
 from __future__ import annotations
 
 import pytest
@@ -82,33 +81,29 @@ def _seed_yoke_capability(conn, models=("primary",)):
     conn.commit()
 
 
-class TestFlowMigrationApplySeed:
-    def test_yoke_internal_seed_includes_migration_apply(self, test_db):
-        # Yoke-project default flow carries a migration_apply stage
-        # for the primary model at lifecycle_phase=implementing.
-        import json
-        from yoke_core.domain.flow import cmd_init, cmd_stages
-        _insert_projects(test_db)
-        cmd_init(test_db)
-        stages_raw = cmd_stages(test_db, "yoke-internal")
-        parsed = json.loads(stages_raw)
-        migration_stages = [s for s in parsed if s.get("kind") == "migration_apply"]
-        assert len(migration_stages) == 1
-        stage = migration_stages[0]
-        assert stage["model_name"] == "primary"
-        assert stage["lifecycle_phase"] == "implementing"
+class TestFlowInitializationOwnership:
+    def test_init_does_not_seed_project_owned_flows(self, test_db):
+        from yoke_core.domain.flow import cmd_init
 
-    def test_init_backfills_migration_apply_into_pre_existing_flow(self, test_db):
-        # AC-30 bootstrap backfill (§11.4): older yoke-internal rows lack the
-        # migration_apply stage; cmd_init prepends it idempotently so existing
-        # installs gain the contract on first re-init.  Without this backfill,
-        # the joint gate at idea→refining-idea cannot find a flow that owns the
-        # migration_apply stage for the model and would refuse the transition.
+        _insert_projects(test_db)
+        before = test_db.execute(
+            "SELECT id FROM deployment_flows ORDER BY id"
+        ).fetchall()
+
+        cmd_init(test_db)
+
+        after = test_db.execute(
+            "SELECT id FROM deployment_flows ORDER BY id"
+        ).fetchall()
+        assert after == before
+
+    def test_init_preserves_existing_project_flow_stages(self, test_db):
+        """Schema initialization must not rewrite project-owned definitions."""
         import json
         from yoke_core.domain.flow import cmd_init, cmd_stages
+
         _insert_projects(test_db)
-        # Stage an older row: existing yoke-internal without the new stage.
-        pre_migration_stages = json.dumps([
+        project_stages = json.dumps([
             {"name": "merged", "executor": "auto"},
             {"name": "complete", "executor": "auto"},
         ])
@@ -116,23 +111,17 @@ class TestFlowMigrationApplySeed:
             "INSERT INTO deployment_flows "
             "(id, project_id, name, description, stages, on_failure, target_env, "
             " created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            ("yoke-internal", 1, "Internal", "Older internal row",
-             pre_migration_stages, "halt", None, "2024-01-01T00:00:00Z"),
+            ("project-owned-flow", 1, "Project owned", "Repository declaration",
+             project_stages, "halt", None, "2024-01-01T00:00:00Z"),
         )
         test_db.commit()
 
         cmd_init(test_db)
-
-        stages_raw = cmd_stages(test_db, "yoke-internal")
-        parsed = json.loads(stages_raw)
-        migration_stages = [s for s in parsed if s.get("kind") == "migration_apply"]
-        assert len(migration_stages) == 1
-        # Backfill must be idempotent on re-run.
         cmd_init(test_db)
-        stages_raw = cmd_stages(test_db, "yoke-internal")
-        parsed = json.loads(stages_raw)
-        migration_stages = [s for s in parsed if s.get("kind") == "migration_apply"]
-        assert len(migration_stages) == 1
+
+        assert json.loads(cmd_stages(test_db, "project-owned-flow")) == json.loads(
+            project_stages
+        )
 
 
 class TestFlowMigrationCapabilityValidation:

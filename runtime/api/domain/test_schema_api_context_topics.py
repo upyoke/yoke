@@ -188,12 +188,12 @@ def test_engineer_and_tester_receive_project_and_qa_topics() -> None:
         )
 
 
-def test_main_agent_role_present_with_core_claims_auth_qa_and_deploy_hint() -> None:
+def test_main_agent_role_includes_packs_and_deployment_run_hint() -> None:
     """main_agent is the LLM-facing top-level packet for conduct / polish /
     advance main sessions that orchestrate engineer + tester loops.
 
-    Carries ``core`` + ``claims`` + ``auth`` + ``qa``. ``qa`` is included
-    because main sessions routinely inspect tester-review state
+    Carries ``core`` + ``claims`` + ``auth`` + ``qa`` + ``packs``. ``qa`` is
+    included because main sessions routinely inspect tester-review state
     (``qa_requirements`` / ``qa_runs`` joined on
     ``qa_kind='implementation_review'``) ahead of re-dispatch; without it
     the main session confabulates plausible ``epic_*``-shaped names that
@@ -213,13 +213,15 @@ def test_main_agent_role_present_with_core_claims_auth_qa_and_deploy_hint() -> N
         "claims",
         "auth",
         "qa",
-    ), "main_agent carries core + claims + auth + qa"
+        "packs",
+    ), "main_agent carries core + claims + auth + qa + packs"
     body = sac.render_role_packet("main_agent")
     assert body.strip(), "main_agent packet body must be non-empty"
     assert sac._TOPIC_HEADERS["core"] in body
     assert sac._TOPIC_HEADERS["claims"] in body
     assert sac._TOPIC_HEADERS["auth"] in body
     assert sac._TOPIC_HEADERS["qa"] in body
+    assert sac._TOPIC_HEADERS["packs"] in body
     assert sac._TOPIC_HEADERS["project"] not in body
     assert "deployment_runs" in body
     assert "deployment_run_items" in body

@@ -127,16 +127,31 @@ def test_converge_is_idempotent(tmp_path: Path) -> None:
             conn.close()
 
 
-def test_converge_adds_flow_status_and_missing_builtin_definitions(
+def test_converge_adds_flow_status_without_inventing_project_definitions(
     tmp_path: Path,
 ) -> None:
-    """A release boot makes new flow configuration usable without DB repair."""
+    """A release boot repairs schema but leaves flow ownership to projects."""
     with init_test_db(tmp_path) as db_path:
         conn = connect_test_db(db_path)
         try:
             conn.execute(
-                "DELETE FROM deployment_flows "
-                "WHERE id = 'yoke-hosted-production'"
+                "INSERT INTO deployment_flows "
+                "(id, project_id, name, description, stages, on_failure, "
+                "created_at) VALUES (%s, "
+                "(SELECT id FROM projects ORDER BY id LIMIT 1), "
+                "%s, %s, %s, %s, %s)",
+                (
+                    "project-owned-flow",
+                    "Project owned",
+                    "Repository declaration",
+                    "[]",
+                    "halt",
+                    "2026-07-19T00:00:00Z",
+                ),
+            )
+            conn.execute(
+                "DELETE FROM deployment_flows WHERE id=%s",
+                ("project-owned-flow",),
             )
             conn.execute("ALTER TABLE deployment_flows DROP COLUMN status")
             conn.commit()
@@ -145,12 +160,10 @@ def test_converge_adds_flow_status_and_missing_builtin_definitions(
 
             assert _column_exists(conn, "deployment_flows", "status") is True
             row = conn.execute(
-                "SELECT df.status, p.slug AS project "
-                "FROM deployment_flows df "
-                "JOIN projects p ON p.id = df.project_id "
-                "WHERE df.id = 'yoke-hosted-production'"
+                "SELECT id FROM deployment_flows WHERE id=%s",
+                ("project-owned-flow",),
             ).fetchone()
-            assert row == {"status": "disabled", "project": "yoke"}
+            assert row is None
         finally:
             conn.close()
 
@@ -164,8 +177,20 @@ def test_converge_preserves_disabled_flow_and_historical_run(
         try:
             converge_core_schema(conn)
             conn.execute(
-                "UPDATE deployment_flows SET status = 'disabled' "
-                "WHERE id = 'yoke-internal'"
+                "INSERT INTO deployment_flows "
+                "(id, project_id, name, description, stages, on_failure, "
+                "status, created_at) VALUES (%s, "
+                "(SELECT id FROM projects ORDER BY id LIMIT 1), "
+                "%s, %s, %s, %s, %s, %s)",
+                (
+                    "project-owned-flow",
+                    "Project owned",
+                    "Repository declaration",
+                    "[]",
+                    "halt",
+                    "disabled",
+                    "2026-07-19T00:00:00Z",
+                ),
             )
             conn.execute(
                 "CREATE TABLE deployment_runs ("
@@ -191,7 +216,7 @@ def test_converge_preserves_disabled_flow_and_historical_run(
                 (
                     "run-20260716-999",
                     "yoke",
-                    "yoke-internal",
+                    "project-owned-flow",
                     "succeeded",
                     "complete",
                 ),
@@ -202,7 +227,7 @@ def test_converge_preserves_disabled_flow_and_historical_run(
 
             status = conn.execute(
                 "SELECT status FROM deployment_flows "
-                "WHERE id = 'yoke-internal'"
+                "WHERE id = 'project-owned-flow'"
             ).fetchone()[0]
             run_count = conn.execute(
                 "SELECT COUNT(*) FROM deployment_runs "
