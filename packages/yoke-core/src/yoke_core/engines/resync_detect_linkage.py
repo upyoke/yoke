@@ -47,6 +47,8 @@ def stage1_linkage(
     db_path: str,
     yoke_root: str,
     fetch_fn=None,
+    *,
+    project: str = "",
 ) -> Tuple[List[PairedItem], List[Tuple[str, str, str, str]], List[Tuple[int, str, str, str]], Dict[str, Dict[int, Dict]]]:
     """Stage 1: build paired, local-orphan, and gh-orphan lists.
 
@@ -68,29 +70,30 @@ def stage1_linkage(
     # authority does not come from the legacy projects projection; the
     # canonical resolver returns bound repo metadata and its matching bearer
     # token together.
-    project_roster: set[str] = {"yoke"}
-    try:
-        rows = conn.execute(
-            "SELECT DISTINCT COALESCE(p.slug, 'yoke') "
-            "FROM items i LEFT JOIN projects p ON i.project_id = p.id"
-        ).fetchall()
-        for row in rows:
-            project_roster.add(row[0])
-    except db_backend.operational_error_types(conn):
-        conn.rollback()
-        pass
-    if _table_exists("project_github_repo_bindings"):
+    project_roster: set[str] = {project} if project else {"yoke"}
+    if not project:
         try:
             rows = conn.execute(
-                "SELECT DISTINCT p.slug "
-                "FROM project_github_repo_bindings b "
-                "JOIN projects p ON p.id = b.project_id "
-                "WHERE b.status = 'active'"
+                "SELECT DISTINCT COALESCE(p.slug, 'yoke') "
+                "FROM items i LEFT JOIN projects p ON i.project_id = p.id"
             ).fetchall()
             for row in rows:
                 project_roster.add(row[0])
         except db_backend.operational_error_types(conn):
             conn.rollback()
+            pass
+        if _table_exists("project_github_repo_bindings"):
+            try:
+                rows = conn.execute(
+                    "SELECT DISTINCT p.slug "
+                    "FROM project_github_repo_bindings b "
+                    "JOIN projects p ON p.id = b.project_id "
+                    "WHERE b.status = 'active'"
+                ).fetchall()
+                for row in rows:
+                    project_roster.add(row[0])
+            except db_backend.operational_error_types(conn):
+                conn.rollback()
 
     # Per-project GitHub sync switch: backlog-only projects are excluded
     # from the fetch entirely and carry the sync-disabled sentinel so no
@@ -127,7 +130,14 @@ def stage1_linkage(
     # Build backlog map from DB
     projects_table_exists = _table_exists("projects")
     try:
-        if projects_table_exists:
+        if projects_table_exists and project:
+            backlog_rows = conn.execute(
+                "SELECT i.id, COALESCE(i.github_issue, ''), p.slug "
+                "FROM items i JOIN projects p ON i.project_id = p.id "
+                "WHERE p.slug = %s",
+                (project,),
+            ).fetchall()
+        elif projects_table_exists:
             backlog_rows = conn.execute(
                 "SELECT i.id, COALESCE(i.github_issue, ''), COALESCE(p.slug, 'yoke') "
                 "FROM items i LEFT JOIN projects p ON i.project_id = p.id"
@@ -138,9 +148,13 @@ def stage1_linkage(
             ).fetchall()
     except db_backend.operational_error_types(conn):
         conn.rollback()
-        backlog_rows = conn.execute(
-            "SELECT id, COALESCE(github_issue, ''), 'yoke' FROM items"
-        ).fetchall()
+        backlog_rows = (
+            conn.execute(
+                "SELECT id, COALESCE(github_issue, ''), 'yoke' FROM items"
+            ).fetchall()
+            if not project or project == "yoke"
+            else []
+        )
 
     paired: List[PairedItem] = []
     local_orphans: List[Tuple[str, str, str, str]] = []
@@ -179,7 +193,16 @@ def stage1_linkage(
 
     # Epic tasks
     try:
-        if projects_table_exists:
+        if projects_table_exists and project:
+            task_rows = conn.execute(
+                "SELECT et.epic_id, et.task_num, et.title, et.github_issue, "
+                "p.slug FROM epic_tasks et "
+                "JOIN items i ON CAST(et.epic_id AS TEXT) = CAST(i.id AS TEXT) "
+                "JOIN projects p ON i.project_id = p.id "
+                "WHERE p.slug = %s ORDER BY et.epic_id, et.task_num",
+                (project,),
+            ).fetchall()
+        elif projects_table_exists:
             task_rows = conn.execute(
                 "SELECT et.epic_id, et.task_num, et.title, et.github_issue, "
                 "COALESCE(p.slug, 'yoke') "

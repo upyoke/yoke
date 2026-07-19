@@ -12,6 +12,8 @@ No live ``gh`` calls are made.
 
 from __future__ import annotations
 
+import re
+import threading
 from unittest import mock
 
 import pytest
@@ -205,6 +207,57 @@ class TestStage1:
 
         assert gh_orphans == []
 
+    def test_stage1_linkage_scopes_fetch_and_rows_to_requested_project(
+        self, populated_db, tmp_path,
+    ):
+        from runtime.api.fixtures.file_test_db import connect_test_db
+
+        conn = connect_test_db(populated_db)
+        conn.execute(
+            "INSERT INTO items "
+            "(id, title, status, priority, type, source, spec, frozen, "
+            "github_issue, project_id, project_sequence, created_at, updated_at) "
+            "VALUES (44, 'External item', 'idea', 'medium', 'issue', 'manual', "
+            "'Body', 0, '#7', 2, 1, '2026-01-01', '2026-01-01')"
+        )
+        conn.commit()
+        conn.close()
+        yoke_root = tmp_path / "state"
+        yoke_root.mkdir()
+        observed_rosters = []
+
+        def fake_fetch(projects):
+            observed_rosters.append(set(projects))
+            return {
+                "externalwebapp": {
+                    7: {
+                        "number": 7,
+                        "title": "[YOK-44] External item",
+                        "labels": [],
+                        "state": "OPEN",
+                        "body": "Body",
+                    },
+                },
+            }
+
+        with mock.patch(
+            "yoke_core.engines.resync._fetch_gh_issues_per_project",
+            side_effect=fake_fetch,
+        ):
+            paired, local_orphans, gh_orphans, states = (
+                resync_mod.stage1_linkage(
+                    populated_db,
+                    str(yoke_root),
+                    project="externalwebapp",
+                )
+            )
+
+        assert observed_rosters == [{"externalwebapp"}]
+        assert [item.id for item in paired] == ["YOK-44"]
+        assert local_orphans == []
+        assert gh_orphans == []
+        assert set(states) == {"externalwebapp"}
+
 
 class TestGraphqlBatchFetch:
     def test_empty_inputs_return_empty_map(self):
@@ -306,3 +359,50 @@ class TestGraphqlBatchFetch:
         ):
             with pytest.raises(RestTransportError, match="incomplete issue data"):
                 resync_mod._graphql_batch_fetch([1, 2])
+
+    def test_multiple_batches_are_fetched_concurrently(self):
+        from yoke_core.domain.gh_rest_transport import RestResponse
+        from yoke_core.domain.project_github_auth import ProjectGithubAuth
+
+        auth = ProjectGithubAuth(
+            project="yoke", repo="org/yoke", token="t",
+        )
+        both_started = threading.Event()
+        starts_lock = threading.Lock()
+        starts = 0
+
+        def fake_request(request, *, token):
+            nonlocal starts
+            query = request.body["query"]
+            number = int(re.search(r"issue_(\d+):", query).group(1))
+            with starts_lock:
+                starts += 1
+                if starts == 2:
+                    both_started.set()
+            assert both_started.wait(timeout=1)
+            return RestResponse(
+                status=200,
+                headers={},
+                body={
+                    "data": {
+                        "repository": {
+                            f"issue_{number}": {
+                                "number": number,
+                                "body": f"Body {number}",
+                                "comments": {"nodes": []},
+                            },
+                        },
+                    },
+                },
+            )
+
+        with mock.patch(
+            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+            return_value=auth,
+        ), mock.patch(
+            "yoke_core.engines.resync_detect_fetch.request_with_retry",
+            side_effect=fake_request,
+        ):
+            result = resync_mod._graphql_batch_fetch([1, 2], batch_size=1)
+
+        assert set(result) == {1, 2}

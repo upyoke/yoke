@@ -160,6 +160,35 @@ class TestMainCLI:
         assert rc == 0
         assert observed == {"db_path": "/tmp/doctor.db", "yoke_root": db_dir}
 
+    def test_project_is_accepted_and_forwarded(self, test_db):
+        """Hosted Doctor can bound resync to one requested project."""
+        db_dir = os.path.dirname(test_db)
+        observed: dict[str, str] = {}
+
+        def fake_linkage(db_path, yoke_root, *, project=""):
+            observed.update(
+                db_path=db_path,
+                yoke_root=yoke_root,
+                project=project,
+            )
+            return ([], [], [], {})
+
+        with (
+            mock.patch("yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir),
+            mock.patch("yoke_core.engines.resync.stage1_linkage", fake_linkage),
+            mock.patch("yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}),
+            mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
+            mock.patch("sys.stdout", StringIO()),
+        ):
+            rc = main(["--detect-only", "--project", "externalwebapp"])
+
+        assert rc == 0
+        assert observed == {
+            "db_path": "",
+            "yoke_root": db_dir,
+            "project": "externalwebapp",
+        }
+
     def test_detect_no_github_auth_fails_closed(self, test_db):
         """When the Yoke GitHub App auth is not configured, the engine fail-closes
         with exit 2 + repair hint (Yoke is the control plane -- the

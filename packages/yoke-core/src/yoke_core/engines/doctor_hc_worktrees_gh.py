@@ -303,7 +303,12 @@ def hc_delegated_sync(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         return
 
     # Try Python resync engine first
-    flags = ["--fix" if args.fix else "--detect-only", "--doctor-format"]
+    flags = [
+        "--fix" if args.fix else "--detect-only",
+        "--doctor-format",
+        "--project",
+        args.project,
+    ]
     if args.db_path:
         flags.extend(["--db-path", args.db_path])
 
