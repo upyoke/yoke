@@ -98,7 +98,7 @@ def test_latest_pack_boundaries_separate_shared_and_application_specific_code(
 
     assert "ops/core-service/docker-compose.yml.tmpl" not in targets(container)
     assert "ops/ephemeral-cleanup.sh" not in targets(previews)
-    assert "ops/ephemeral-cleanup.sh" in targets(preview_host)
+    assert "ops/ephemeral_cleanup.py" in targets(preview_host)
     assert "infra/webapp_environment_stack.py" not in targets(foundation)
     assert "infra/webapp_environment_stack.py" in targets(environment)
 
