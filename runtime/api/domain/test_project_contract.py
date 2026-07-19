@@ -39,9 +39,7 @@ EXPECTED_CONTRACT_PATHS = {
 
 
 def _entries() -> dict[str, dict[str, str]]:
-    return {
-        e["path"]: e for e in project_contract.bundle_contract_files("Acme")
-    }
+    return {e["path"]: e for e in project_contract.bundle_contract_files("Acme")}
 
 
 def test_bundle_contract_files_shape() -> None:
@@ -66,9 +64,7 @@ def test_no_forbidden_or_generated_paths_in_bundle() -> None:
 
 def test_yoke_gitignore_covers_generated_and_machine_state_names() -> None:
     body = _entries()[".yoke/.gitignore"]["content"]
-    lines = [
-        line for line in body.splitlines() if line and not line.startswith("#")
-    ]
+    lines = [line for line in body.splitlines() if line and not line.startswith("#")]
     assert lines == list(project_contract.YOKE_TREE_IGNORED_NAMES)
     for required in ("BOARD.md", "backups/", "install-manifest.json"):
         assert required in lines
@@ -162,10 +158,7 @@ def test_choose_art_word_prefers_name_then_acronym_then_truncation() -> None:
     assert choose_art_word("Acme") == "ACME"
     assert choose_art_word("Customer Support Portal") == "CSP"
     assert choose_art_word("HypergraphKnowledgeWorkbench") == "HYPERGRA"
-    assert (
-        len(choose_art_word("HypergraphKnowledgeWorkbench"))
-        == MAX_ART_WORD_LEN
-    )
+    assert len(choose_art_word("HypergraphKnowledgeWorkbench")) == MAX_ART_WORD_LEN
     assert choose_art_word("!!!", slug="validsluglong") == "VALIDSLU"
     assert choose_art_word("!!!") == FALLBACK_ART_WORD
 
@@ -184,8 +177,6 @@ def test_render_board_art_truncates_long_single_token_without_project_fallback(
     assert len(derive_letter_bounds(cfg.master_map)) == MAX_ART_WORD_LEN
 
 
-
-
 def test_readme_documents_the_three_way_split() -> None:
     body = _entries()[".yoke/README.md"]["content"]
     assert "# Acme Yoke Project Contract" in body
@@ -199,9 +190,18 @@ def test_readme_maps_where_settings_live() -> None:
     body = _entries()[".yoke/README.md"]["content"]
     assert "## Where settings live" in body
     # Repo-owned families.
-    for token in ("file-line-exceptions", "board.json",
-                  "deployment-flows.json", "lint-config", "labels", "strategy/"):
+    for token in (
+        "file-line-exceptions",
+        "board.json",
+        "deployment-flows.json",
+        "packs.json",
+        "lint-config",
+        "labels",
+        "strategy/",
+    ):
         assert token in body, token
+    assert "ordinary project-owned source" in body
+    assert "not classified as drift" in body
     assert "project.config" not in body
     # DB-owned families each name their read/write command.
     for token in (
@@ -242,8 +242,7 @@ def test_runbooks_are_fill_me_in_scaffolds() -> None:
 
 def test_scaffolds_are_parameterized_by_display_name() -> None:
     one = {
-        e["path"]: e["content"]
-        for e in project_contract.bundle_contract_files("Acme")
+        e["path"]: e["content"] for e in project_contract.bundle_contract_files("Acme")
     }
     other = {
         e["path"]: e["content"]

@@ -14,40 +14,14 @@ from __future__ import annotations
 PROJECT_COMMANDS: list[dict] = [
     {
         "topic": "project",
-        "purpose": "List available, installed, and stale project Packs",
-        "recipe": "yoke packs list --project <project> [--json]",
+        "purpose": "Inspect, get, or update a project Pack",
+        "recipe": "yoke packs <list|get|update> --help",
         "notes": (
-            "Registered read packs.catalog.list works over HTTPS, self-hosted, "
-            "and local transports. Repository .yoke/packs.json is authority; "
-            "the DB row is a timestamped UI/search projection and may be stale."
-        ),
-    },
-    {
-        "topic": "project",
-        "purpose": "Preview or install one reusable project capability",
-        "recipe": (
-            "yoke packs get <pack> <checkout> --project <project> "
-            "[--version <version>] [--apply]"
-        ),
-        "notes": (
-            "Preview is default. Apply installs the selected Pack and any "
-            "missing declared dependencies, writes ordinary project-owned "
-            "source, and records the result in .yoke/packs.json. Projects are "
-            "expected to customize the installed code."
-        ),
-    },
-    {
-        "topic": "project",
-        "purpose": "Preview or update one installed project Pack",
-        "recipe": (
-            "yoke packs update <pack> <checkout> --project <project> "
-            "[--version <version>] [--apply]"
-        ),
-        "notes": (
-            "Preview is default. Update reconstructs the old immutable Pack "
-            "version and three-way-merges the new version with project "
-            "customizations. Overlapping edits are explicit conflicts; removed "
-            "upstream files are retained and unrelated project files are ignored."
+            "List works over every transport; get/update take `<pack> "
+            "<checkout> --project <project> [--version V] [--apply]`. Preview "
+            "is default. Apply writes project-owned source and .yoke/packs.json; "
+            "update three-way-merges customizations and reports conflicts. The "
+            "repository receipt outranks its timestamped DB projection."
         ),
     },
     {
@@ -107,14 +81,13 @@ PROJECT_COMMANDS: list[dict] = [
             "pulumi-stack-config get --project <project> --stack <stack> "
             "--output <file>`; execute it with `yoke pulumi exec --project "
             "<project> --stack <stack> -- preview` (also allows refresh and "
-            "safe file-form import). Runner-fleet recovery may add "
-            "`--bootstrap-local-authority` to mint narrow repository "
-            "authority from capability-owned AWS secrets; other stack kinds "
-            "and GitHub Actions refuse it. Local execution reads aws-admin "
-            "from the machine capability store and resolves the selected service's "
-            "repository-bound GitHub App authorization; Actions retains "
-            "ambient OIDC credentials. Generic capability and operator-state "
-            "surfaces are closed."
+            "safe file-form import). Actions keeps AWS OIDC; runner-fleet "
+            "obtains a narrow repository token from its hosted broker, while "
+            "other stacks use repository-bound App authority. Local "
+            "runner-fleet recovery may add `--bootstrap-local-authority`; "
+            "other stacks and Actions refuse it. Local AWS authority comes "
+            "from the machine capability store. Generic capability and "
+            "operator-state surfaces are closed."
         ),
     },
     {

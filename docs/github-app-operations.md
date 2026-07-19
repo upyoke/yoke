@@ -185,7 +185,10 @@ yoke pulumi exec --project <project> --stack <runner-fleet-stack> \
 
 The bootstrap flag is accepted only for a runner-fleet stack and is refused in
 GitHub Actions. Normal local operation continues to use the signed-in App-user
-session.
+session. In GitHub Actions, `yoke pulumi exec` keeps the workflow's ambient AWS
+OIDC authority and automatically invokes the hosted runner-fleet broker for the
+narrow repository token; the workflow does not need a GitHub App private key or
+repository token of its own.
 
 ```bash
 yoke runner-fleet exec --project <project> \
@@ -319,8 +322,8 @@ overlap. Rotate one registration at a time:
    ```
 5. Redeploy every hosted core environment that references the ARN. Recreate the
    self-hosted `core` container so its secret mount uses the replacement file.
-   Reconcile each runner-fleet stack through `yoke runner-fleet exec`; its
-   Lambdas read the current secret version when minting tokens.
+   Reconcile each runner-fleet stack through `yoke pulumi exec`; its Lambdas
+   read the current secret version when minting tokens.
 6. Against each control plane, verify a bound project through the server-side
    resolver:
 

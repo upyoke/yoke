@@ -117,6 +117,70 @@ def test_runner_fleet_local_bootstrap_uses_scoped_render_values():
     assert "private-key-line" in redaction
 
 
+
+def test_runner_fleet_actions_uses_hosted_repository_token_broker(
+    monkeypatch,
+):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    payload = _stack_payload("platform", "yoke-runner-fleet")
+    payload["stack_kind"] = "runner-fleet"
+    payload["render_values"] = {
+        "deploy_namespace": "yoke",
+        "runner_fleet_architecture": "arm64",
+        "runner_fleet_deployment_ssh_stack_outputs_json": "{}",
+        "runner_fleet_github_api_url": "https://api.github.com",
+        "runner_fleet_github_app_issuer": "42",
+        "runner_fleet_github_capability": "github-runner",
+        "runner_fleet_github_installation_id": "7",
+        "runner_fleet_repo": "upyoke/platform",
+        "runner_fleet_github_private_key_secret_arn": "secret-arn",
+        "runner_fleet_github_repo_name": "platform",
+        "runner_fleet_github_repo_owner": "upyoke",
+        "runner_fleet_github_repository_id": "99",
+        "runner_fleet_github_web_url": "https://github.com",
+        "runner_fleet_idle_shutdown_minutes": "30",
+        "runner_fleet_instance_type": "m7g.2xlarge",
+        "runner_fleet_labels_json": '["self-hosted","Linux","ARM64"]',
+        "runner_fleet_max_runner_count": "4",
+        "runner_fleet_root_volume_gb": "200",
+        "runner_fleet_routing_enabled": "true",
+        "runner_fleet_runner_count": "4",
+        "runner_fleet_shutdown_mode": "terminate",
+        "runner_fleet_token_broker_function": "yoke-token-broker",
+        "runner_fleet_variable_name": "YOKE_LINUX_RUNS_ON",
+    }
+    payload["authority"].update({
+        "github_project": "platform",
+        "github_repo": "upyoke/platform",
+    })
+    seen = {}
+
+    def hosted_loader(project, authority_intent, aws_env):
+        seen.update({
+            "project": project,
+            "authority_intent": authority_intent,
+            "aws_env": aws_env,
+        })
+        return "hosted-token"
+
+    env, redaction = _authority_env(
+        "platform", payload["authority"], payload,
+        aws_env_loader=lambda *args, **kwargs: {
+            "AWS_ACCESS_KEY_ID": "oidc-key",
+        },
+        github_auth_loader=lambda *args, **kwargs: pytest.fail(
+            "consulted the ordinary repository-token path"
+        ),
+        hosted_runner_token_loader=hosted_loader,
+    )
+
+    assert seen["project"] == "platform"
+    assert seen["authority_intent"]
+    assert seen["aws_env"]["AWS_ACCESS_KEY_ID"] == "oidc-key"
+    assert env["GITHUB_TOKEN"] == "hosted-token"
+    assert env["YOKE_RUNNER_FLEET_AUTHORITY_INTENT"]
+    assert "hosted-token" in redaction
+
 def test_local_bootstrap_refuses_non_runner_stack():
     payload = _stack_payload()
     payload["authority"]["github_repo"] = "upyoke/yoke"

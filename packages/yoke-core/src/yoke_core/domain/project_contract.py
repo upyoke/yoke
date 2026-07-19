@@ -78,9 +78,7 @@ def bundle_contract_files(display_name: str) -> List[Dict[str, str]]:
         f"{CONTRACT_DIR}/runbooks/deploy-checklist.md": (
             render_deploy_checklist(display_name)
         ),
-        f"{CONTRACT_DIR}/runbooks/recovery.md": (
-            render_recovery_runbook(display_name)
-        ),
+        f"{CONTRACT_DIR}/runbooks/recovery.md": (render_recovery_runbook(display_name)),
     }
     return [
         {
@@ -225,6 +223,9 @@ materialized into that authority by named commands.
   install/refresh additively reconciles declared rows; omitted and historically
   referenced definitions remain in the DB. `retire_if_present` can disable
   known predecessors without creating them on fresh installs.
+- `packs.json` - repository-authoritative installed-Pack receipt, created by
+  Pack get/update operations. It records versions and merge baselines without
+  claiming continuing ownership of the resulting project source.
 - `test-inventory.md` - project test surfaces and lifecycle placement.
 - `runbooks/` - living deploy/recovery docs; people and agents fill them
   in as the project takes shape.
@@ -246,6 +247,9 @@ Repo-owned project files (this directory; rides the repo):
 - `deployment-flows.json` - desired flow definitions and optional project
   default; reconcile explicitly with
   `yoke deployment-flows reconcile-project <project>`.
+- `packs.json` - installed Pack versions and immutable merge baselines. Pack
+  output is ordinary project-owned source; customization is expected and is
+  not classified as drift.
 - `strategy/` - untracked rendered strategy-doc views (DB-authoritative;
   edit via `yoke strategy ingest`).
 
@@ -286,11 +290,18 @@ runtime trees under this contract.
 
 
 __all__ = [
-    "CATEGORY_PROJECT_POLICY", "CONTRACT_DIR",
-    "FORBIDDEN_CONTRACT_RELATIVE_PATHS", "SEED_IF_MISSING",
-    "bundle_contract_files", "render_board_art", "render_board_config",
-    "render_deploy_checklist", "render_deploy_runbook",
-    "render_file_line_exceptions", "render_label_policy", "render_readme",
+    "CATEGORY_PROJECT_POLICY",
+    "CONTRACT_DIR",
+    "FORBIDDEN_CONTRACT_RELATIVE_PATHS",
+    "SEED_IF_MISSING",
+    "bundle_contract_files",
+    "render_board_art",
+    "render_board_config",
+    "render_deploy_checklist",
+    "render_deploy_runbook",
+    "render_file_line_exceptions",
+    "render_label_policy",
+    "render_readme",
     "render_recovery_runbook",
     "render_test_inventory",
 ]

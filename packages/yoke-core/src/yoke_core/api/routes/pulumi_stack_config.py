@@ -1,13 +1,12 @@
 """Pulumi stack-config route — ``GET /v1/projects/{project}/pulumi-stack-config``.
 
-Serves the renderer-settings snapshot CI consumes via
-``render_project <project> --only pulumi --settings-file ...`` so the
-Pulumi workflows render stack YAML from DB authority WITHOUT a database
-credential. Auth is the app-level bearer-token middleware plus the dedicated
-``project.render.read`` permission. The payload is deterministic and
-secret-free; install, onboarding, snapshot-sync, and project-admin authority
-are deliberately separate, and anything secret a ``pulumi up`` needs lives on
-the OIDC-scoped AWS side, never here.
+Serves a secret-free aggregate settings snapshot for bounded project authority
+checks that do not need an exact stack program. Exact Pulumi execution uses the
+stack-scoped no-store route plus project-owned Pack source. Auth is the
+app-level bearer-token middleware plus the dedicated ``project.render.read``
+permission; install, onboarding, snapshot-sync, and project-admin authority are
+deliberately separate, and anything secret an update needs lives on the
+OIDC-scoped AWS side, never here.
 """
 
 from __future__ import annotations
@@ -98,9 +97,7 @@ def get_scoped_pulumi_stack_config(
                 project_id=project_id,
                 permission_key=PERM_PROJECT_ADMIN,
             )
-            payload = build_scoped_pulumi_stack_config(
-                conn, str(project_id), stack
-            )
+            payload = build_scoped_pulumi_stack_config(conn, str(project_id), stack)
         except LookupError as exc:
             return _route_error(404, "NOT_FOUND", str(exc))
         except PermissionDenied as exc:

@@ -44,6 +44,8 @@ def execute_pulumi_command(
     project_root: Path,
     aws_env_loader: Callable[..., Mapping[str, str]] = aws_machine_capability_env,
     github_auth_loader: Callable[..., Any] = resolve_project_github_auth,
+    hosted_runner_token_loader: Callable[[str, str, Mapping[str, str]], str]
+    | None = None,
     bootstrap_local_authority: bool = False,
     local_github_auth_loader: Callable[..., Any] = (
         resolve_local_runner_fleet_github_auth
@@ -98,6 +100,7 @@ def execute_pulumi_command(
             payload,
             aws_env_loader=aws_env_loader,
             github_auth_loader=github_auth_loader,
+            hosted_runner_token_loader=hosted_runner_token_loader,
             bootstrap_local_authority=bootstrap_local_authority,
             local_github_auth_loader=local_github_auth_loader,
         )

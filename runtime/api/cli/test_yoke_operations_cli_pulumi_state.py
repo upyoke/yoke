@@ -231,6 +231,7 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
     calls = {}
     machine_loader = object()
     github_loader = object()
+    broker_calls = {}
 
     def execute(*args, **kwargs):
         calls["execute"] = (args, kwargs)
@@ -250,6 +251,11 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
         lambda **kwargs: github_loader,
     )
     monkeypatch.setattr(
+        pulumi,
+        "fetch_runner_fleet_token",
+        lambda **kwargs: broker_calls.update(kwargs) or "broker-token",
+    )
+    monkeypatch.setattr(
         pulumi.importlib,
         "import_module",
         lambda name: executor,
@@ -262,4 +268,13 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
     assert rc == 0
     assert calls["execute"][1]["aws_env_loader"] is machine_loader
     assert calls["execute"][1]["github_auth_loader"] is github_loader
+    hosted_loader = calls["execute"][1]["hosted_runner_token_loader"]
+    assert hosted_loader("platform", "intent", {"AWS_REGION": "us-east-1"}) == (
+        "broker-token"
+    )
+    assert broker_calls == {
+        "project": "platform",
+        "authority_intent": "intent",
+        "aws_env": {"AWS_REGION": "us-east-1"},
+    }
     assert calls["execute"][1]["bootstrap_local_authority"] is True
