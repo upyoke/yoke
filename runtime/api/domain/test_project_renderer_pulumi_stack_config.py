@@ -247,6 +247,7 @@ def test_stack_config_projects_environment_declared_standalone_vps(
     assert f"webapp-infra:vps_instance_type: {instance_type}" in rendered
     assert f'webapp-infra:vps_root_volume_gb: "{root_volume_gb}"' in rendered
     assert f"webapp-infra:vps_ssh_key_name: {key_name}" in rendered
+    assert (stack_path.parent / "webapp_component_aliases.py").is_file()
 
 
 def test_stack_config_rejects_unknown_and_missing_vps_operator_state(monkeypatch):

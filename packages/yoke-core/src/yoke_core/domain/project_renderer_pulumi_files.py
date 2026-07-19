@@ -3,6 +3,7 @@
 SHARED_PROGRAM_FILES = (
     "__main__.py",
     "requirements.txt",
+    "webapp_component_aliases.py",
     "webapp_github_repository_provider.py",
 )
 ENVIRONMENT_PROGRAM_FILES = (
