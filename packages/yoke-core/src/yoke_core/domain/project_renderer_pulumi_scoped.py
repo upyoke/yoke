@@ -6,7 +6,11 @@ import shutil
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_core.domain.project_renderer import render_template
+from yoke_core.domain.pack_render import render_pack_text
+from yoke_core.domain.pack_pulumi_sources import (
+    pulumi_generator_source,
+    pulumi_program_source,
+)
 from yoke_core.domain.project_renderer_pulumi_files import (
     ENVIRONMENT_PROGRAM_FILES,
     REGISTRY_PROGRAM_FILES,
@@ -27,7 +31,7 @@ def render_scoped_pulumi_config(
     output_dir: Path,
 ) -> Path:
     """Render exactly the stack named by one validated schema-v2 payload."""
-    project = _required_string(payload, "project_slug")
+    _required_string(payload, "project_slug")
     stack_name = _required_string(payload, "stack_name")
     stack_kind = _required_string(payload, "stack_kind")
     if payload.get("config_schema") != STACK_CONFIG_SCHEMA:
@@ -39,23 +43,20 @@ def render_scoped_pulumi_config(
     raw_operator_state = payload.get("operator_state")
     state = validate_stack_state({stack_name: raw_operator_state})[stack_name]
 
-    source = project_root / "templates" / "webapp" / "infra"
     destination = output_dir / "infra"
-    if not source.is_dir():
-        raise FileNotFoundError(f"Pulumi template directory not found: {source}")
     destination.mkdir(parents=True, exist_ok=True)
-    pulumi_yaml = source / "Pulumi.yaml"
+    pulumi_yaml = pulumi_program_source(project_root, "Pulumi.yaml")
     if not pulumi_yaml.is_file():
         raise FileNotFoundError(f"Pulumi project template not found: {pulumi_yaml}")
     (destination / "Pulumi.yaml").write_text(
-        render_template(pulumi_yaml.read_text(), values)
+        render_pack_text(pulumi_yaml.read_text(), values)
     )
 
     template_name, program_files = _stack_files(stack_kind)
-    template = source / template_name
+    template = pulumi_generator_source(project_root, template_name)
     if not template.is_file():
         raise FileNotFoundError(f"Pulumi stack template not found: {template}")
-    rendered = render_template(template.read_text(), values)
+    rendered = render_pack_text(template.read_text(), values)
     operator_lines = (
         f"secretsprovider: {state['secrets_provider']}\n"
         f"encryptedkey: {state['encrypted_key']}\n"
@@ -64,7 +65,7 @@ def render_scoped_pulumi_config(
     stack_path.write_text(operator_lines + rendered)
     stack_path.chmod(0o600)
     for name in program_files:
-        source_file = source / name
+        source_file = pulumi_program_source(project_root, name)
         if source_file.is_file():
             shutil.copyfile(source_file, destination / name)
     return stack_path

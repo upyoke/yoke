@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 import importlib
 from pathlib import Path
+import subprocess
 import sys
-from typing import List
+from typing import List, Mapping
 
 from yoke_cli.commands._helpers import (
     add_session_arg,
@@ -19,6 +20,7 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.commands.pulumi_stack_config_loader import (
     load_pulumi_stack_config,
 )
+from yoke_cli.config import existing_project_lookup, machine_config
 from yoke_cli.transport.pulumi_github_authority import (
     build_pulumi_github_auth_loader,
 )
@@ -102,8 +104,9 @@ def pulumi_exec(args: List[str]) -> int:
         return load_pulumi_stack_config(project, stack)
 
     try:
-        renderer_values = importlib.import_module(
-            "yoke_core.domain.project_renderer_values"
+        project_root = _project_checkout(
+            parsed.project,
+            session_id=parsed.session_id,
         )
         executor = importlib.import_module("yoke_core.tools.pulumi_exec")
         return executor.execute_pulumi_command(
@@ -111,7 +114,7 @@ def pulumi_exec(args: List[str]) -> int:
             parsed.stack,
             command,
             config_loader=config_loader,
-            project_root=Path(renderer_values._resolve_project_root()),
+            project_root=project_root,
             aws_env_loader=executor.aws_machine_capability_env,
             github_auth_loader=build_pulumi_github_auth_loader(
                 session_id=parsed.session_id
@@ -124,6 +127,59 @@ def pulumi_exec(args: List[str]) -> int:
     except Exception as exc:
         print(f"error: pulumi exec failed: {exc}", file=sys.stderr)
         return 1
+
+
+def _project_checkout(project: str, *, session_id: str | None) -> Path:
+    """Resolve the selected project's local, project-owned Pack files."""
+
+    response = call_dispatcher(
+        function_id="projects.get",
+        target=TargetRef(kind="global"),
+        payload={"project": project},
+        actor=build_actor(session_id=session_id),
+    )
+    if not response.success or not isinstance(response.result, Mapping):
+        message = response.error.message if response.error else "project lookup failed"
+        raise RuntimeError(message)
+    row = response.result.get("row")
+    if not isinstance(row, Mapping):
+        raise RuntimeError("project lookup returned no project row")
+    try:
+        project_id = int(row["id"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError("project lookup returned no numeric project id") from exc
+
+    current = _current_git_root()
+    if current is not None:
+        reference = existing_project_lookup.find_local_project_reference(
+            current, config_path=None
+        )
+        if reference is not None and reference.project_id == project_id:
+            return current
+
+    matches = [
+        configured.checkout.expanduser().resolve()
+        for configured in machine_config.configured_projects(existing_only=True)
+        if configured.project_id == project_id
+    ]
+    if len(matches) != 1:
+        raise RuntimeError(
+            f"project {project!r} requires exactly one machine-local checkout "
+            f"mapping; found {len(matches)}"
+        )
+    return matches[0]
+
+
+def _current_git_root() -> Path | None:
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        return None
+    return Path(result.stdout.strip()).resolve()
 
 
 __all__ = ["PULUMI_EXEC_USAGE", "pulumi_exec"]

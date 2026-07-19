@@ -5,6 +5,7 @@ SHARED_PROGRAM_FILES = (
     "requirements.txt",
     "webapp_component_aliases.py",
     "webapp_github_repository_provider.py",
+    "webapp_stack_config.py",
 )
 ENVIRONMENT_PROGRAM_FILES = (
     "webapp_database_stack.py",

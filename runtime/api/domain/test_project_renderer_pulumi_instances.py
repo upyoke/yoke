@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import pytest
 
 from yoke_core.domain import project_renderer_pulumi
@@ -24,7 +25,7 @@ from runtime.api.domain.test_project_renderer_pulumi import _settings_from_conte
 
 def _make_project_tree(tmp_path, project: str):
     root = tmp_path / "repo"
-    infra = root / "templates" / "webapp" / "infra"
+    infra = root / "infra"
     infra.mkdir(parents=True)
     (infra / "Pulumi.yaml").write_text("name: webapp-infra\nruntime:\n  name: python\n")
     (infra / "Pulumi.stack.yaml.tmpl").write_text(

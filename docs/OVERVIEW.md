@@ -115,7 +115,7 @@ When work happens outside the standard execution path, the answer should not be 
 ## File Layout
 
 ```
-# Repo root — product packages, harness adapters, templates, and verification
+# Repo root — product packages, harness adapters, Packs, and verification
 AGENTS.md                     # Project-wide operating and coding rules
 packages/
 ├── yoke-core/                # Domain, API, DB, engines, and source-dev tools
@@ -133,9 +133,10 @@ runtime/
 .agents/skills/yoke/          # Canonical Yoke skill tree
 .claude/                      # Symlinks into Claude runtime output and skills
 .codex/                       # Symlinks into Codex runtime output
-templates/
-├── webapp/                   # Generic project, infrastructure, and ops templates
-└── events/                   # Event templates
+packs/                        # Focused, immutable capability bundles
+├── webapp-scaffold/          # Generic application starting point
+├── production-deploy/        # Independently updateable delivery capability
+└── ...                       # Infrastructure, runtime, events, and testing Packs
 packaging/
 ├── public-installer/         # Pre-runtime public installer boundary
 └── package-index/            # Distribution channel metadata and schemas

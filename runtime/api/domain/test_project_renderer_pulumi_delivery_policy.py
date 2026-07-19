@@ -43,7 +43,8 @@ def test_list_cdn_distribution_flows_to_exact_delivery_policy(tmp_path):
     )
     template = (
         Path(__file__).resolve().parents[3]
-        / "templates/webapp/infra/Pulumi.registry-stack.yaml.tmpl"
+        / "packs/registry-oidc/versions/1.0.0/files/infra"
+        / "Pulumi.registry-stack.yaml.tmpl"
     )
     rendered = render_pulumi_stack_yaml(template, values)
     distribution_ids = json.loads(

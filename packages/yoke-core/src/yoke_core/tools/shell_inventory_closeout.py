@@ -320,7 +320,7 @@ def closeout_ticket_for_non_test(relpath: str) -> str | None:
         return "utility-installer-executor-shell-retirement"
     if relpath in ZERO_SHELL_CLOSEOUT_RUNNER_RELPATHS:
         return "shell-test-runner-retirement"
-    if relpath.startswith("projects/") or relpath.startswith("templates/"):
+    if relpath.startswith("projects/") or relpath.startswith("packs/"):
         return "external-artifact-shell-retirement"
     return None
 

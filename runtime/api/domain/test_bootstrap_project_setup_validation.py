@@ -21,7 +21,9 @@ from yoke_core.domain.bootstrap_project_test_helpers import (
     register_bootstrap_backend_checkout,
     setup_validation_ctx,
     update_bootstrap_backend_ssh_settings,
-    write_fake_rendered_workflows,
+)
+from yoke_core.domain.bootstrap_project_pack_test_helpers import (
+    install_fake_pack_operations,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 
@@ -140,9 +142,6 @@ def test_run_setup_persists_key_path_back_to_db(tmp_path: Path, monkeypatch) -> 
             return subprocess.CompletedProcess(
                 cmd, 0, "" if cmd[-1] == "true" else "exists\n", ""
             )
-        if len(cmd) >= 3 and cmd[1:3] == ["-m", "yoke_core.tools.render_project"]:
-            write_fake_rendered_workflows(cmd)
-            return subprocess.CompletedProcess(cmd, 0, "rendered\n", "")
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
     with setup_validation_ctx(tmp_path) as (ctx, db_path, _):
@@ -150,6 +149,7 @@ def test_run_setup_persists_key_path_back_to_db(tmp_path: Path, monkeypatch) -> 
             "yoke_core.domain.bootstrap_project_helpers._run", fake_run
         )
         install_fake_project_github_auth(monkeypatch)
+        install_fake_pack_operations(monkeypatch)
         _install_fake_rest(monkeypatch)
         assert run_setup(ctx) == 0
 

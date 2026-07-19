@@ -1,7 +1,5 @@
-// Read-only workbench view renderers. The app shell owns mounting and routing;
-// this module owns function-backed panels and their row/detail presentation.
-// The presentation primitives (sections, tables, pills, scoped loaders) live
-// in universe_view_support.js.
+// Read-only function-backed workbench views; the app shell owns routing and
+// universe_view_support.js owns presentation primitives.
 
 import { buildUniverseRoute } from "./universe_navigation.js";
 import {
@@ -20,6 +18,7 @@ import {
 import { renderGithubView } from "./universe_views_github.js";
 import { renderOrganizationView } from "./universe_views_organization.js";
 import { renderOverviewView } from "./universe_views_overview.js";
+import { renderPacksView } from "./universe_views_packs.js";
 import { renderWorkflowsView } from "./universe_views_workflows.js";
 
 export { section } from "./universe_view_support.js";
@@ -602,6 +601,7 @@ export const VIEW_RENDERERS = {
   doctor: renderDoctorView,
   ouroboros: renderOuroborosView,
   projects: renderProjectsView,
+  packs: renderPacksView,
   workflows: renderWorkflowsView,
   github: renderGithubView,
   organization: renderOrganizationView,

@@ -127,6 +127,7 @@ const STATE_PILL_FAMILIES = {
   missing: "crit",
   unknown: "warn",
   available: "good",
+  installed: "good",
   success: "good",
 };
 

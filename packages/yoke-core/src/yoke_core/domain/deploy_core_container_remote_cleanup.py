@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shlex
+from pathlib import Path
 from typing import Callable
 
 from yoke_core.domain.deploy_core_container_remote_errors import (
@@ -18,16 +19,17 @@ def prune_superseded_images(
     emit: Callable[[str], None],
     *,
     keep_image_ref: str,
+    project_root: Path,
 ) -> None:
     """Remove superseded images only from this project's repository.
 
-    The template-owned helper protects every container-owned image plus the
+    The project-owned Pack helper protects every container-owned image plus the
     explicit healthy deployment ref. It never invokes global ``prune --all``,
     so unrelated repositories and intentionally pre-pulled images remain
     outside this deploy's cleanup authority.
     """
     repository = f"{env.registry_host}/{env.repository_name}"
-    program = _cleanup_program()
+    program = _cleanup_program(project_root)
     command = (
         "python3 -"
         f" --repository {shlex.quote(repository)}"
@@ -75,19 +77,11 @@ def prune_superseded_images(
     )
 
 
-def _cleanup_program() -> str:
-    """Load the generic, template-owned shared-host cleanup implementation."""
-    from yoke_core.domain.install_bundle import server_tree_root
-
-    path = (
-        server_tree_root()
-        / "templates"
-        / "webapp"
-        / "ops"
-        / "docker_image_cleanup.py"
-    )
+def _cleanup_program(project_root: Path) -> str:
+    """Load the cleanup implementation installed in the target project."""
+    path = project_root / "ops" / "docker_image_cleanup.py"
     if not path.is_file():
         raise RemoteConvergenceError(
-            f"[core-deploy] image cleanup template missing: {path}"
+            f"[core-deploy] project-owned Pack file missing: {path}"
         )
     return path.read_text(encoding="utf-8")

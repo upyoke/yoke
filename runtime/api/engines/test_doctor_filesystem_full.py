@@ -3,7 +3,7 @@
 Hook + session HCs live in test_doctor_filesystem_full_hooks.py.
 Repo file HCs live in test_doctor_filesystem_full_repo.py and
 test_doctor_filesystem_full_repo2.py.
-Template + schema + body HCs live in test_doctor_filesystem_full_template.py.
+Schema + body HCs live in test_doctor_filesystem_full_schema_config.py.
 
 Schema scaffolding shared via _doctor_filesystem_full_test_helpers (private module).
 """

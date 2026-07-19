@@ -9,7 +9,7 @@ import types
 
 from runtime.api.domain.test_webapp_registry_stack import (
     _Recorder,
-    _load_template_module,
+    _load_pack_module,
     _make_resource_class,
 )
 
@@ -64,35 +64,35 @@ def _runner_stack(
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     else:
         monkeypatch.setenv("GITHUB_TOKEN", github_provider_token)
-    host_cycle = _load_template_module(
+    host_cycle = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_host_cycle.py",
     )
-    internals = _load_template_module(
+    internals = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_fleet_internals.py",
         extra_modules={"webapp_runner_host_cycle": host_cycle},
     )
-    github_state = _load_template_module(
+    github_state = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_github_state.py",
     )
-    broker_stack = _load_template_module(
+    broker_stack = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_github_broker_stack.py",
         extra_modules={"webapp_runner_github_state": github_state},
     )
-    iam = _load_template_module(
+    iam = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_fleet_iam.py",
         extra_modules={"webapp_runner_fleet_internals": internals},
     )
-    network = _load_template_module(
+    network = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_fleet_network.py",
@@ -125,13 +125,13 @@ def _runner_stack(
         recorder,
         "github:index/actionsVariable:ActionsVariable",
     )
-    github_provider = _load_template_module(
+    github_provider = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_github_repository_provider.py",
         extra_modules={"pulumi_github": pulumi_github},
     )
-    github_webhook = _load_template_module(
+    github_webhook = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_github_webhook.py",
@@ -140,17 +140,17 @@ def _runner_stack(
             "webapp_github_repository_provider": github_provider,
         },
     )
-    authority_intent = _load_template_module(
+    authority_intent = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_authority_intent.py",
     )
-    fleet_config = _load_template_module(
+    fleet_config = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_fleet_config.py",
     )
-    module = _load_template_module(
+    module = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_runner_fleet_stack.py",

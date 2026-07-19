@@ -85,7 +85,7 @@ _project_list=$(yoke db read --format lines "SELECT id FROM projects ORDER BY id
 
 - If `_project_list` contains multiple projects, infer from title/body keywords:
  - Keywords mentioning a specific project's domain, repo name, or technologies -> that project
- - Keywords like "template", "yoke script", "SKILL.md", "backlog" -> `yoke`
+ - Keywords like "Pack", "yoke script", "SKILL.md", "backlog" -> `yoke`
  - If truly ambiguous, ask ONE binary question: "Is this for {project-A} or {project-B}?"
 
 After project is decided, resolve and print this machine's local checkout for that project when one exists; when `_project != yoke` that checkout is the only valid root for File Budget enumeration and path-claim authoring. Absence of a local checkout is a setup problem, not permission to inspect the Yoke repo for target-project files. See [file-budget.md](file-budget.md) for the project-relative path rule.
@@ -144,23 +144,21 @@ Scan title and body for explicit `YOK-N` references. If found:
 
 If no `YOK-N` references are found, skip silently.
 
-### f. Infer template-propagation stance
+### f. Infer Pack-reuse stance
 
-If `_project` is NOT `yoke`, every project-side ticket must declare a template-propagation stance. Infer from title/body:
+If `_project` is NOT `yoke`, every project-side ticket must declare whether the change belongs only to that project or also to a reusable Pack. Infer from title/body:
 
-- **`project-only`** — Project-specific, outside template-managed areas
-- **`project-and-template`** — The shared template should also get this fix
-- **`template-deviation`** — A template-managed area intentionally diverges and must be recorded in `DEVIATIONS.md`
+- **`project-owned`** — The result is specific to this project; customized Pack files remain project-owned and need no central exception record.
+- **`pack-update`** — The general capability should ship as a new Pack version and then be previewed/applied in the target project. Cross-repo delivery follows the `project=yoke` Pattern B rule in `AGENTS.md`.
 
-Decision test: "If we created another app from the Yoke webapp template, should it inherit this fix?"
-- Yes -> `project-and-template`
-- No, outside template-managed areas -> `project-only`
-- No, inside template-managed areas but intentionally different -> `template-deviation`
+Decision test: "Would another project reasonably want this reusable capability change when it updates the same Pack?"
+- Yes -> `pack-update`
+- No -> `project-owned`
 
 If the stance cannot be inferred from context, ask ONE binary question:
-> Template propagation: Is this change project-specific, or should the shared template also get it? (project-only / project-and-template / template-deviation)
+> Pack reuse: Is this change project-owned, or should it become a reusable Pack update? (project-owned / pack-update)
 
-Set `_template_stance` to the inferred value. If `_project` is `yoke`, set `_template_stance=""`.
+Set `_pack_stance` to the inferred value. If `_project` is `yoke`, set `_pack_stance=""`.
 
 ### g. Infer browser QA metadata
 
@@ -194,7 +192,7 @@ Inferred fields:
  Priority: {priority}
  Deployment flow: {_deployment_flow or "(no flow — flag will be omitted)"}
  Dependencies: {list or "none"}
- Template stance: {_template_stance or "n/a (yoke project)"}
+ Pack reuse: {_pack_stance or "n/a (yoke project)"}
  Browser QA: testable={browser_testable}, visual={visual_outcome}, routes={browser_routes or "[]"}, timings_ms={browser_timing_hints_ms or "[]"}
 ```
 
@@ -218,10 +216,10 @@ Before proceeding, check if the title/body implies work touching files in more t
 
 ### Pattern B: Single multi-repo ticket under `yoke`
 
-- Signals: template-then-render work or similar coordinated Yoke-led work
+- Signals: publish-a-Pack-update then install/deploy/verify it, or similar coordinated Yoke-led work
 - Action: File under `project=yoke`, note multi-repo scope in the body
 - Proceed without asking
-- Add a note in the body: "Multi-repo scope: render/deploy/verify tasks will be defined during shepherd."
+- Add a note in the body: "Multi-repo scope: Pack publish/install/deploy/verify tasks will be defined during shepherd."
 
 If the work is clearly single-project, skip this step.
 

@@ -1,15 +1,12 @@
-"""Value-gathering helpers for the project template renderer.
+"""Collect project values used by Pack installation and Pulumi execution.
 
-Resolves the repo root and collects template variables from the DB-backed cloud-runtime
-settings homes: ``projects``, ``sites.settings``, ``environments.settings``,
-and ``project_capabilities.settings``. The parent module ``project_renderer``
-consumes ``gather_values`` from its ``render_project`` orchestrator.
+Values come from the DB-backed cloud-runtime settings homes: ``projects``,
+``sites.settings``, ``environments.settings``, and
+``project_capabilities.settings``.
 """
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -33,18 +30,6 @@ CHECKOUT_ACTION = (
     "actions/checkout@"
     "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0"
 )
-
-
-def _resolve_project_root() -> Path:
-    """Resolve the repo root via ``git rev-parse --show-toplevel``."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        print("Error: not in a git repository", file=sys.stderr)
-        sys.exit(1)
-    return Path(result.stdout.strip())
 
 
 def _json_field(data: Dict[str, Any], field: str) -> str:

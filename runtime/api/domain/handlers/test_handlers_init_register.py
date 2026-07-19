@@ -305,14 +305,14 @@ def test_register_all_handlers_includes_items_github_sync() -> None:
     assert _register_items_github_sync in init_register._DOMAIN_REGISTRARS
 
 
-def test_register_all_handlers_includes_templates_family() -> None:
+def test_register_all_handlers_includes_packs_family() -> None:
     init_register.register_all_handlers()
 
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
-    assert {"templates.list.run", "templates.fetch.run"} <= ids
-    from yoke_core.domain.handlers import _register_templates
+    assert {"packs.catalog.list", "packs.bundle.get", "packs.project.report"} <= ids
+    from yoke_core.domain.handlers import _register_packs
 
-    assert _register_templates in init_register._DOMAIN_REGISTRARS
+    assert _register_packs in init_register._DOMAIN_REGISTRARS
 
 
 def test_register_all_handlers_includes_db_read() -> None:

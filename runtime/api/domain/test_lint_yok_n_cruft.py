@@ -138,13 +138,13 @@ def test_ignores_strategy_path(tmp_path: Path, db_path: str) -> None:
     assert result.hits == []
 
 
-def test_default_scope_excludes_templates_and_projects(tmp_path: Path, db_path: str) -> None:
-    """Default scan targets the cold-start prose surfaces only. Code templates
+def test_default_scope_excludes_packs_and_projects(tmp_path: Path, db_path: str) -> None:
+    """Default scan targets the cold-start prose surfaces only. Pack source
     and per-project surfaces are out of scope unless the caller passes them
     explicitly via extra_paths."""
     _seed(tmp_path)
-    (tmp_path / "templates").mkdir()
-    (tmp_path / "templates" / "webapp.md").write_text("sample with YOK-100\n")
+    (tmp_path / "packs").mkdir()
+    (tmp_path / "packs" / "webapp.md").write_text("sample with YOK-100\n")
     (tmp_path / "projects").mkdir()
     (tmp_path / "projects" / "externalwebapp.md").write_text("project note with YOK-100\n")
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)

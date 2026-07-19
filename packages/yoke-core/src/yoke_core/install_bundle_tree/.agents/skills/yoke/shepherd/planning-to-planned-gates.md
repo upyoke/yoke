@@ -14,23 +14,21 @@ _item_flow=$(yoke items get YOK-$_num deployment_flow 2>/dev/null || true)
 
 If `_item_flow` is empty, block and require a flow assignment. Show available flows for the item's project and wait for the operator to pick one.
 
-## Gate 0b (Advisory): Missing Template-Propagation Stance
+## Gate 0b (Advisory): Missing Pack-Reuse Stance
 
-For non-`yoke` items, inspect the spec/body for a `## Template Propagation` section and a valid `**Stance:**` line containing one of:
-- `project-only`
-- `project-and-template`
-- `template-deviation`
+For non-`yoke` items, inspect the spec/body for a `## Pack Reuse` section and a valid `**Stance:**` line containing one of:
+- `project-owned`
+- `pack-update`
 
 If no valid stance is present, emit an advisory with the decision test:
 
 ```text
-If we created another app from the Yoke webapp template, should it inherit this fix?
+Would another project reasonably want this reusable capability change when it updates the same Pack?
 ```
 
 Also validate supporting fields:
-- `project-only` -> should include `**Reason:**`
-- `project-and-template` -> should include `**Template scope:**`
-- `template-deviation` -> should include `**Deviation:**`
+- `project-owned` -> should include `**Reason:**`
+- `pack-update` -> should include `**Pack scope:**` and follow the `project=yoke` Pattern B rule in `AGENTS.md`.
 
 ## Gate 1 (Advisory): Vague Or Untestable Acceptance Criteria
 

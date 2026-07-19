@@ -119,8 +119,8 @@ def test_onboard_project_teaches_required_sanctioned_surfaces():
         "yoke strategy ingest",
         "yoke projects capability has",
         "yoke projects capability-secret set",
-        "yoke templates list",
-        "yoke templates fetch",
+        "yoke packs list",
+        "yoke packs get",
         "yoke qa requirement list",
         "yoke qa requirement add",
         "yoke events emit",
@@ -131,11 +131,13 @@ def test_onboard_project_teaches_required_sanctioned_surfaces():
         assert surface in text
 
 
-def test_onboard_project_teaches_product_safe_webapp_template_fetch():
+def test_onboard_project_teaches_preview_first_project_owned_packs():
     text = _read(ONBOARD_PROJECT)
 
-    assert "yoke templates fetch webapp" in text
-    assert "yoke templates fetch --source-dev-admin" in text
+    assert "yoke packs get {pack} {project_root}" in text
+    assert "preview" in text.lower()
+    assert "ordinary project-owned source" in text
+    assert ".yoke/packs.json" in text
 
 
 def test_onboard_project_names_required_rows_and_phases():

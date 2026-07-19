@@ -6,7 +6,10 @@ from pathlib import Path
 import textwrap
 
 
-INFRA_ROOT = Path(__file__).resolve().parents[3] / "templates/webapp/infra"
+INFRA_ROOT = (
+    Path(__file__).resolve().parents[3]
+    / "packs/self-hosted-runners/versions/1.0.0/files/infra"
+)
 
 
 def _module(tmp_path: Path, package: str, source: str) -> None:

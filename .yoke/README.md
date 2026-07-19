@@ -2,7 +2,7 @@
 
 This directory is the Yoke project contract for Yoke itself. Yoke is
 a Yoke-managed project here, not an exception to the project-local contract.
-Product source still lives in `runtime/`, `templates/`, `docs`, `.agents/`,
+Product source still lives in `runtime/`, `packs/`, `docs`, `.agents/`,
 `.claude/`, and `.codex/`; this directory is repo-local appearance and
 runbook material.
 
@@ -20,8 +20,8 @@ that truth for humans without duplicating it as editable runtime state.
 - `board.json` - board renderer appearance/tuning knobs.
 - `board-art` - live board header art read by the renderer.
 - `test-inventory.md` - Yoke test surfaces and lifecycle placement.
-- `template-deviations.md` - approved deviations for Yoke as a managed
-  project.
+- `packs.json` - project-owned receipt for separately updateable Packs; it
+  records installed baselines without policing project customizations.
 - `runbooks/` - re-seedable scaffolds for project runbooks. Yoke's own
   operational runbooks (deploy, recovery, checklists) live in the
   operator's private ops repo, not in this tree.

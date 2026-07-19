@@ -3,27 +3,22 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from yoke_core.domain import project_renderer_pulumi
 from yoke_core.domain.project_renderer_pulumi_files import (
     RUNNER_FLEET_PROGRAM_FILES,
 )
+from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
 
 
 def test_runner_fleet_program_inventory_covers_local_dependencies():
-    template_root = (
-        Path(__file__).resolve().parents[3] / "templates" / "webapp" / "infra"
-    )
     inventory = set(RUNNER_FLEET_PROGRAM_FILES)
-    missing_sources = {
-        name for name in inventory if not (template_root / name).is_file()
-    }
+    missing_sources = {name for name in inventory if not _pack_program_source(name)}
     assert missing_sources == set()
 
     dependencies: set[str] = set()
     for name in inventory:
-        source = (template_root / name).read_text()
+        source = _pack_program_source(name).read_text()
         dependencies.update(
             re.findall(r'from "\./(webapp_runner_[^"]+)"', source)
         )
@@ -36,7 +31,7 @@ def test_runner_fleet_program_inventory_covers_local_dependencies():
 
 def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     root = tmp_path / "repo"
-    infra = root / "templates" / "webapp" / "infra"
+    infra = root / "infra"
     infra.mkdir(parents=True)
     (infra / "Pulumi.yaml").write_text(
         "name: webapp-infra\nruntime:\n  name: python\n"

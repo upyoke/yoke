@@ -240,10 +240,10 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
         "aws_machine_capability_env": machine_loader,
         "execute_pulumi_command": staticmethod(execute),
     })
-    renderer = type("Renderer", (), {
-        "_resolve_project_root": staticmethod(lambda: "."),
-    })
     monkeypatch.setattr(pulumi, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(
+        pulumi, "_project_checkout", lambda *args, **kwargs: Path("."),
+    )
     monkeypatch.setattr(
         pulumi,
         "build_pulumi_github_auth_loader",
@@ -252,9 +252,7 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
     monkeypatch.setattr(
         pulumi.importlib,
         "import_module",
-        lambda name: (
-            renderer if name.endswith("project_renderer_values") else executor
-        ),
+        lambda name: executor,
     )
     rc = pulumi.pulumi_exec([
         "--project", "platform", "--stack", "yoke-stage",

@@ -93,10 +93,6 @@ PROJECTS_SUBCOMMAND_REGISTRY: Dict[
         "project.register.run",
         _adapters.project_register,
     ),
-    ("project", "artifacts", "refresh"): (
-        "project.artifacts.refresh",
-        _adapters.project_artifacts_refresh,
-    ),
     ("project", "install"): (
         "project.install.run",
         _adapters.project_install,

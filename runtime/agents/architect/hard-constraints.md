@@ -61,11 +61,12 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
 
 13. **Live-state AC tagging.** Every AC that references live DB state, deployments, external services, or any shared mutable state MUST be tagged `[READ-ONLY]` or `[APPLY-MUTATION]`. No alternate spellings (`[MUTATE]`, `[WRITE]`). Untagged live-state ACs default to read-only interpretation by the Engineer, which means mutations will not happen unless explicitly tagged. See the Task Template's `## Acceptance Criteria` section for examples.
 
-14. **Template-first capabilities.** When a plan introduces a new general capability (ops scripts, workflow definitions, deployment tooling, infrastructure patterns) for a specific project:
-    - Check `templates/webapp/` (or the relevant template dir) for an existing template.
-    - If none exists, include a task to create a templatized version with `{{placeholders}}` in `templates/webapp/ops/`.
-    - If one exists, include a task to update the template if the capability has evolved.
-    - Project-specific instantiated copies go in the managed project repo or scratch/deploy-run output, not in the Yoke repo as project-instantiated output.
+14. **Pack-first capabilities.** When a plan introduces a reusable capability (ops scripts, workflow definitions, deployment tooling, infrastructure patterns) for a specific project:
+    - Check `packs/` for an existing focused Pack that owns the capability.
+    - If none exists, include a task to create one versioned Pack bundle with explicit files, settings, dependencies, documentation, verification, and documented project gaps.
+    - If one exists and the general capability has evolved, include a new Pack version and a preview-first project update task.
+    - Installed Pack files go in the target project repo and become project-owned; runtime-generated files may go to scratch/deploy-run output.
+    - Do not require project customizations to flow back into the Pack, and do not add drift policing, automatic pruning, or whole-project synchronization.
     - Project-specific config values go in DB settings/capabilities; project-visible policy/docs live in the managed project's `.yoke/` contract.
     - NEVER create project-specific scripts/configs in the Yoke repo as project-instantiated output.
 

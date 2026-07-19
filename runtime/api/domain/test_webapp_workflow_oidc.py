@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+from types import SimpleNamespace
 
+import pytest
+
+from yoke_core.domain import pack_catalog
 from yoke_core.domain import yaml_helper
-from yoke_core.domain.project_renderer import render_project
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     RendererEnvironmentSettings,
@@ -27,15 +30,35 @@ STATIC_AWS_SECRET_REFERENCES = (
     "secrets.AWS_ACCESS_KEY_ID",
     "secrets.AWS_SECRET_ACCESS_KEY",
 )
-CLOUDFRONT_HELPER = REPO_ROOT / "templates/webapp/ops/cloudfront_invalidate.py"
+CLOUDFRONT_HELPER = (
+    REPO_ROOT / "packs/domain-cdn-edge/versions/1.0.0/files"
+    / "ops/cloudfront_invalidate.py"
+)
 PACKAGED_CLOUDFRONT_HELPER = (
-    PACKAGED_ROOT / "templates/webapp/ops/cloudfront_invalidate.py"
+    PACKAGED_ROOT / "packs/domain-cdn-edge/versions/1.0.0/files"
+    / "ops/cloudfront_invalidate.py"
 )
 
 
 def _workflow_text(name: str) -> str:
-    return REPO_ROOT.joinpath("templates", "webapp", "ops", name).read_text(
-        encoding="utf-8"
+    return REPO_ROOT.joinpath(
+        "packs", "production-deploy", "versions", "1.0.0", "files",
+        ".github", "workflows", f"{{{{project_name}}}}-{name}",
+    ).read_text(encoding="utf-8")
+
+
+def _rendered_bundle(root: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
+    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: root)
+    monkeypatch.setattr(
+        pack_catalog,
+        "resolve_project",
+        lambda *args, **kwargs: SimpleNamespace(id=1, slug="acme"),
+    )
+    monkeypatch.setattr(
+        pack_catalog, "_load_project_renderer_settings", lambda *args: _settings()
+    )
+    return pack_catalog.build_pack_bundle(
+        object(), project="acme", pack="production-deploy"
     )
 
 
@@ -92,7 +115,7 @@ def test_delivery_workflows_assume_oidc_role_and_reject_static_aws_secrets() -> 
         assert "skipping CloudFront invalidation" not in text
 
 
-def test_delivery_workflows_call_template_owned_cloudfront_helper() -> None:
+def test_delivery_workflows_call_pack_installed_cloudfront_helper() -> None:
     for name in WORKFLOW_NAMES:
         text = _workflow_text(name)
 
@@ -117,37 +140,18 @@ def test_cloudfront_helper_is_mirrored_and_bounds_failure_diagnostics() -> None:
 
 def test_delivery_workflows_render_valid_oidc_only_yaml_from_both_bundles(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    canonical_output = tmp_path / "canonical"
-    packaged_output = tmp_path / "packaged"
-    settings = _settings()
+    canonical = _rendered_bundle(REPO_ROOT, monkeypatch)
+    packaged = _rendered_bundle(PACKAGED_ROOT, monkeypatch)
+    canonical_files = {row["path"]: row for row in canonical["files"]}
+    packaged_files = {row["path"]: row for row in packaged["files"]}
 
-    render_project(
-        "acme",
-        write=True,
-        only="workflows",
-        project_root=REPO_ROOT,
-        output_dir=canonical_output,
-        settings=settings,
-    )
-    render_project(
-        "acme",
-        write=True,
-        only="workflows",
-        project_root=PACKAGED_ROOT,
-        output_dir=packaged_output,
-        settings=settings,
-    )
-
-    for template_name in WORKFLOW_NAMES:
-        rendered_name = f"acme-{template_name}"
-        canonical_template = REPO_ROOT / "templates" / "webapp" / "ops" / template_name
-        packaged_template = PACKAGED_ROOT / "templates" / "webapp" / "ops" / template_name
-        canonical_path = canonical_output / "workflows" / rendered_name
-        packaged_path = packaged_output / "workflows" / rendered_name
-
-        assert canonical_template.read_bytes() == packaged_template.read_bytes()
-        assert canonical_path.read_bytes() == packaged_path.read_bytes()
+    for source_name in WORKFLOW_NAMES:
+        rendered_name = f".github/workflows/acme-{source_name}"
+        canonical_path = tmp_path / source_name
+        canonical_path.write_text(canonical_files[rendered_name]["content"])
+        assert canonical_files[rendered_name] == packaged_files[rendered_name]
         assert isinstance(yaml_helper.load_document(canonical_path), dict)
 
         text = canonical_path.read_text(encoding="utf-8")

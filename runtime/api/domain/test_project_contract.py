@@ -32,7 +32,6 @@ EXPECTED_CONTRACT_PATHS = {
     ".yoke/board-art",
     ".yoke/deployment-flows.json",
     ".yoke/test-inventory.md",
-    ".yoke/template-deviations.md",
     ".yoke/runbooks/deploy.md",
     ".yoke/runbooks/deploy-checklist.md",
     ".yoke/runbooks/recovery.md",
@@ -251,9 +250,6 @@ def test_scaffolds_are_parameterized_by_display_name() -> None:
         for e in project_contract.bundle_contract_files("Widget Co")
     }
     assert "# Test Inventory: Widget Co" in other[".yoke/test-inventory.md"]
-    assert "# Template Deviations: Widget Co" in (
-        other[".yoke/template-deviations.md"]
-    )
     assert one[".yoke/board-art"] == render_board_art("Acme")
     assert other[".yoke/board-art"] == render_board_art("Widget Co")
     assert one[".yoke/board-art"] != other[".yoke/board-art"]

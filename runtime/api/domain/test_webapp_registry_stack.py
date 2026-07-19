@@ -1,8 +1,8 @@
-"""Tests for the webapp container-registry Pulumi template component.
+"""Tests for the webapp container-registry Pulumi Pack component.
 
 Mirrors ``test_webapp_database_stack_rotation.py``'s harness mechanics: fake
 ``pulumi`` / ``pulumi_aws`` modules are injected into ``sys.modules`` and the
-template module is loaded straight from ``templates/webapp/infra/``. The fake
+Pack module is loaded straight from its immutable source. The fake
 resource classes record constructor kwargs so tests assert the declared AWS
 surface without the Pulumi engine. The fakes are shared by
 ``test_webapp_environment_stack.py``.
@@ -13,12 +13,12 @@ from __future__ import annotations
 import importlib.util
 import sys
 import types
-from pathlib import Path
 
 from runtime.api.domain.webapp_pulumi_test_support import (
     _FakeOutput,
     _make_certificate_class,
     _make_dynamic_module,
+    _pack_program_source,
 )
 
 
@@ -273,15 +273,14 @@ def _build_fake_aws(recorder):
     return aws
 
 
-def _load_template_module(monkeypatch, recorder, filename, extra_modules=None):
+def _load_pack_module(monkeypatch, recorder, filename, extra_modules=None):
     fake_pulumi = _build_fake_pulumi(recorder)
     monkeypatch.setitem(sys.modules, "pulumi", fake_pulumi)
     monkeypatch.setitem(sys.modules, "pulumi.dynamic", fake_pulumi.dynamic)
     monkeypatch.setitem(sys.modules, "pulumi_aws", _build_fake_aws(recorder))
     for name, module in (extra_modules or {}).items():
         monkeypatch.setitem(sys.modules, name, module)
-    repo_root = Path(__file__).resolve().parents[3]
-    path = repo_root / "templates" / "webapp" / "infra" / filename
+    path = _pack_program_source(filename)
     monkeypatch.syspath_prepend(str(path.parent))
     module_name = f"_{filename[:-3]}_under_test"
     spec = importlib.util.spec_from_file_location(module_name, path)
@@ -313,13 +312,13 @@ def _registry_stack(
         pulumi_github.ActionsVariable = _make_resource_class(
             recorder, "github:index/actionsVariable:ActionsVariable"
         )
-        provider = _load_template_module(
+        provider = _load_pack_module(
             monkeypatch,
             recorder,
             "webapp_github_repository_provider.py",
             extra_modules={"pulumi_github": pulumi_github},
         )
-        variables = _load_template_module(
+        variables = _load_pack_module(
             monkeypatch,
             recorder,
             "webapp_registry_github_variables.py",
@@ -329,7 +328,7 @@ def _registry_stack(
             },
         )
         extra_modules["webapp_registry_github_variables"] = variables
-    module = _load_template_module(
+    module = _load_pack_module(
         monkeypatch, recorder, "webapp_registry_stack.py", extra_modules,
     )
     stack = module.WebappRegistryStack(

@@ -34,7 +34,7 @@ This agent does not have Bash access, so script path resolution does not apply. 
 
 **Defensive note on stale dispatch instructions.** If the dispatch prompt that invokes you instructs you to read state via Bash or a Yoke CLI command, that prompt is stale — your tool grant is `Read, Grep, Glob` only and the orchestrator has not granted you Bash. Read the input file path the prompt names (see Input File Contract below) instead. If no input path is provided AND the prompt assumes Bash, report the path absence and stop rather than authoring from memory.
 
-**Path disambiguation:** The repo is named `yoke`. All paths are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `templates/`, and `runtime/` are at the repo root. Machine-local runtime config lives in `~/.yoke/config.json`, while transient files use the scratch helper.
+**Path disambiguation:** The repo is named `yoke`. All paths are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `packs/`, and `runtime/` are at the repo root. Machine-local runtime config lives in `~/.yoke/config.json`, while transient files use the scratch helper.
 
 ## Input File Contract
 

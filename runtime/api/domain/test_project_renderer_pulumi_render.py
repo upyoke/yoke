@@ -38,9 +38,9 @@ def _settings_with_pulumi_state(
 class TestRenderPulumiArtifacts:
     @pytest.fixture
     def infra_tree(self, tmp_path):
-        """Build a project root with the seven infra template files."""
+        """Build a project root with the minimal Pulumi Pack files."""
         root = tmp_path / "repo"
-        infra = root / "templates" / "webapp" / "infra"
+        infra = root / "infra"
         infra.mkdir(parents=True)
 
         (infra / "Pulumi.yaml").write_text(
@@ -102,7 +102,7 @@ class TestRenderPulumiArtifacts:
         assert "externalwebapp" in vps_stack
         assert "{{" not in vps_stack
 
-        src_main = (root / "templates/webapp/infra/__main__.py").read_text()
+        src_main = (root / "infra/__main__.py").read_text()
         dst_main = (infra_dst / "__main__.py").read_text()
         assert dst_main == src_main
         assert "AUTO-GENERATED" not in dst_main
@@ -206,7 +206,7 @@ class TestFreshRenderSettingsFallback:
     @pytest.fixture
     def infra_tree(self, tmp_path):
         root = tmp_path / "repo"
-        infra = root / "templates" / "webapp" / "infra"
+        infra = root / "infra"
         infra.mkdir(parents=True)
         (infra / "Pulumi.yaml").write_text(
             "name: webapp-infra\nruntime:\n  name: python\n"

@@ -16,13 +16,13 @@ An attachable operating system for software delivery: specialized subagents, Pos
 ## Project Scoping — Hard Rule
 - **One ticket = one project.** The `project` field = where code deploys (`project=external-webapp` → External webapp repo, `project=yoke` → Yoke repo); scope is defined by where changes land, not where the idea came from. Never mix deploy targets in one item/epic. All tickets live in the Yoke backlog regardless of target.
 - **Cross-project work → split, one ticket per project.** Ambiguous target → ask; never silently default to `yoke` for work targeting an external system.
-- **Pattern B exception:** template-driven work where Yoke orchestrates across repos (e.g. "update template + re-render in External webapp") → one `project=yoke` ticket, multi-repo scope in the body. Render/deploy/verify steps are scoped downstream (refine for issues, shepherd for epics), never at idea.
+- **Pattern B exception:** Pack-driven work where Yoke publishes a reusable capability and proves it in another repo (e.g. "publish a Pack update + apply it in External webapp") → one `project=yoke` ticket, multi-repo scope in the body. Install/update/deploy/verify steps are scoped downstream (refine for issues, shepherd for epics), never at idea.
 
-## Template-First Capabilities — Hard Rule
-- **General capabilities MUST be templatized.** Ops workflows, deployment tooling, and infrastructure patterns go in `templates/webapp/` (or the relevant template dir) as generic templates with `{{placeholders}}`.
-- **Project instantiations go to the managed project repo or scratch/deploy-run output.** Never in top-level directories like `deployments/` or `workflows/`, and never in a committed Yoke-side project instantiation tree.
-- **Templates MUST be kept in sync.** When a capability evolves in a project, update the template too.
-- **Project config lives in DB settings/capabilities or project-local `.yoke/` policy docs.** Use `project_capabilities`, `sites.settings`, and `environments.settings` for credentials and runtime config. Rendered files land in scratch/deploy-run output or the target project repo.
+## Pack-First Capabilities — Hard Rule
+- **General capabilities MUST be Packs.** Reusable ops workflows, deployment tooling, and infrastructure patterns live in a focused `packs/<slug>/` bundle with immutable versions, explicit files, settings, dependencies, documentation, and verification.
+- **Installed Pack files belong to the project.** They land in the target project repo and may be customized there. Yoke records the installed baseline in `.yoke/packs.json` only so that project owners can preview and apply one Pack update with a three-way merge; it does not police drift, prune files, or synchronize the whole project.
+- **Improve the Pack when the general capability evolves.** Publish a new Pack version, then let each project choose whether and when to update it. Project-only behavior remains project-owned and need not flow back into the Pack.
+- **Project config lives in DB settings/capabilities or project-local `.yoke/` policy docs.** Use `project_capabilities`, `sites.settings`, and `environments.settings` for credentials and runtime config. Pack install settings only specialize generic source for the target project; runtime-generated files land in scratch/deploy-run output or the target project repo.
 - **Provider credentials are capability-owned, not ambient shell.** For AWS, the source of truth is the project `aws-admin` capability: non-secret settings in `project_capabilities`, while secret material lives in machine-local capability secret files under `~/.yoke/secrets/capability-secrets/<project>/aws-admin/`. The `capability_secrets` table is not the storage shape for `aws-admin` secrets. A naked `aws ...` command may fail even when the project is correctly configured because the credentials are not exported into the shell. Use Yoke-owned capability resolver surfaces to materialize credentials into a subprocess env without printing secret values; when a resolver has not yet been wrapped, treat it as a source-dev/admin helper rather than an agent recipe. Verify by listing keys/settings or redacted evidence; never log raw secret values.
 
 ## Worktree DB Authority — Hard Rule
@@ -258,7 +258,7 @@ The `guarded_imports` field on each entrypoint names symbols whose direct import
 
 ### Exemption families
 
-Generated artifacts, fixtures, archive surfaces, test files, and template-managed paths inherit exemption context families from `path_context_values` rather than from prose allowlists. The exemption registry — `architecture_generated`, `architecture_fixture`, `architecture_archive`, `architecture_test_surface`, `architecture_template_managed` — pre-classifies the path so `HC-architecture-unclassified-path` PASSes without operator action.
+Generated artifacts, fixtures, archive surfaces, test files, and separately versioned Pack source inherit exemption context families from `path_context_values` rather than from prose allowlists. The exemption registry — `architecture_generated`, `architecture_fixture`, `architecture_archive`, `architecture_test_surface`, `architecture_pack_source` — pre-classifies the path so `HC-architecture-unclassified-path` PASSes without operator action.
 
 ### Item-level architecture impact
 

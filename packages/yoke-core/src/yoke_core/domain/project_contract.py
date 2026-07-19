@@ -5,7 +5,7 @@ Renders the project-visible ``.yoke`` contract files that
 ``project_contract_files``: policy/appearance files generated from their
 owning recognizers (``lint_config.GUARD_CATALOG``,
 ``label_policy.REPO_LABEL_DEFINITIONS``, ``BoardConfig``) plus
-fill-me-in scaffolds (runbooks, test inventory, template deviations).
+fill-me-in scaffolds (runbooks and test inventory).
 
 Every entry carries ``install_policy="seed_if_missing"``: the installer
 writes a file only when absent and never overwrites project edits on
@@ -42,7 +42,6 @@ from yoke_contracts.project_contract.scaffolds import (
     render_deploy_runbook,
     render_file_line_exceptions,
     render_recovery_runbook,
-    render_template_deviations,
     render_test_inventory,
 )
 from yoke_contracts.project_contract.label_policy import (
@@ -75,9 +74,6 @@ def bundle_contract_files(display_name: str) -> List[Dict[str, str]]:
         f"{CONTRACT_DIR}/board-art": render_board_art(display_name),
         DECLARATION_RELATIVE_PATH: EMPTY_DECLARATION_TEXT,
         f"{CONTRACT_DIR}/test-inventory.md": render_test_inventory(display_name),
-        f"{CONTRACT_DIR}/template-deviations.md": (
-            render_template_deviations(display_name)
-        ),
         f"{CONTRACT_DIR}/runbooks/deploy.md": render_deploy_runbook(display_name),
         f"{CONTRACT_DIR}/runbooks/deploy-checklist.md": (
             render_deploy_checklist(display_name)
@@ -230,7 +226,6 @@ materialized into that authority by named commands.
   referenced definitions remain in the DB. `retire_if_present` can disable
   known predecessors without creating them on fresh installs.
 - `test-inventory.md` - project test surfaces and lifecycle placement.
-- `template-deviations.md` - approved template/project differences.
 - `runbooks/` - living deploy/recovery docs; people and agents fill them
   in as the project takes shape.
 - `strategy/` - rendered strategy-doc views (untracked local renders).
@@ -297,5 +292,5 @@ __all__ = [
     "render_deploy_checklist", "render_deploy_runbook",
     "render_file_line_exceptions", "render_label_policy", "render_readme",
     "render_recovery_runbook",
-    "render_template_deviations", "render_test_inventory",
+    "render_test_inventory",
 ]

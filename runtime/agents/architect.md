@@ -292,7 +292,7 @@ Any task pair surfaced by `## File overlap check` (i.e., sharing at least one Fi
 
 ## Hard Constraints + Documentation File Checklist
 
-The full Hard Constraints list (session-fit sizing, worktree independence, dependency groups, FR traceability, single-responsibility tasks, semantic anchors, same-file sequencing, live-state AC tagging, template-first capabilities, file-size limit, etc.) and the Documentation File Checklist live in `runtime/agents/architect/hard-constraints.md`.
+The full Hard Constraints list (session-fit sizing, worktree independence, dependency groups, FR traceability, single-responsibility tasks, semantic anchors, same-file sequencing, live-state AC tagging, Pack-first capabilities, file-size limit, etc.) and the Documentation File Checklist live in `runtime/agents/architect/hard-constraints.md`.
 
 **Read `runtime/agents/architect/hard-constraints.md` before producing your technical plan, task specs, or worktree plan.** Every plan you write must satisfy every constraint in that file. The most load-bearing constraints — and the ones most often forgotten — are the FR traceability matrix (#7), single-responsibility tasks (#10), semantic anchors instead of line numbers (#11), live-state AC tagging (#13), the 350-line file-size cap (#15), and the upstream File Budget contract (#16) that names planned files and single responsibilities before implementation begins.
 

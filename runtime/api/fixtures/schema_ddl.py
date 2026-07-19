@@ -37,6 +37,11 @@ def _schema_ddl() -> str:
             PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL,
             PROJECT_ONBOARDING_RUNS_CREATE_SQL,
         )
+        from yoke_core.domain.pack_projection import (
+            PACK_CATALOG_TABLE_SQL,
+            PROJECT_PACK_REPORT_ENTRIES_TABLE_SQL,
+            PROJECT_PACK_REPORTS_TABLE_SQL,
+        )
 
         onboarding_rows_without_fk = (
             PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL.replace(
@@ -46,7 +51,10 @@ def _schema_ddl() -> str:
         )
         composed = (
             _ITEMS_DDL + _EPIC_QA_DDL + _RUNTIME_DDL + _STRATEGY_DDL
-            + _AUTH_DDL + PROJECT_ONBOARDING_RUNS_CREATE_SQL + ";"
+            + _AUTH_DDL + PACK_CATALOG_TABLE_SQL + ";"
+            + PROJECT_PACK_REPORTS_TABLE_SQL + ";"
+            + PROJECT_PACK_REPORT_ENTRIES_TABLE_SQL + ";"
+            + PROJECT_ONBOARDING_RUNS_CREATE_SQL + ";"
             + onboarding_rows_without_fk + ";"
             + _MERGE_LOCKS_DDL
         )
@@ -73,4 +81,4 @@ def apply_fixture_schema(conn: Any) -> None:
     apply_fixture_ddl(conn, _schema_ddl())
 
 
-__all__ = ("SCHEMA_DDL", "apply_fixture_ddl", "apply_fixture_schema")
+__all__ = ("SCHEMA_DDL", "apply_fixture_ddl", "apply_fixture_schema")  # noqa: F822

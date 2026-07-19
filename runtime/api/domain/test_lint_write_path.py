@@ -42,9 +42,11 @@ class TestWorkflowDetection(unittest.TestCase):
         self.assertTrue(mod._is_workflow_yaml(".github/workflows/deploy.yml"))
         self.assertTrue(mod._is_workflow_yaml(".github/workflows/deploy.yaml"))
 
-    def test_template_workflow_recognized(self) -> None:
+    def test_pack_workflow_recognized(self) -> None:
         self.assertTrue(
-            mod._is_workflow_yaml("templates/webapp/ops/deploy.yml")
+            mod._is_workflow_yaml(
+                "packs/example/versions/1.0.0/files/.github/workflows/deploy.yml"
+            )
         )
 
     def test_project_workflow_recognized(self) -> None:

@@ -52,7 +52,7 @@ FAMILY_GENERATED = "architecture_generated"
 FAMILY_FIXTURE = "architecture_fixture"
 FAMILY_ARCHIVE = "architecture_archive"
 FAMILY_TEST_SURFACE = "architecture_test_surface"
-FAMILY_TEMPLATE_MANAGED = "architecture_template_managed"
+FAMILY_PACK_SOURCE = "architecture_pack_source"
 
 # Render-relationship families. The overlap classifier consults these
 # to distinguish false-positive overlap on deterministic rendered outputs
@@ -72,7 +72,7 @@ ARCHITECTURE_EXEMPTION_FAMILIES = frozenset({
     FAMILY_FIXTURE,
     FAMILY_ARCHIVE,
     FAMILY_TEST_SURFACE,
-    FAMILY_TEMPLATE_MANAGED,
+    FAMILY_PACK_SOURCE,
 })
 
 ARCHITECTURE_FAMILIES = (
@@ -247,7 +247,6 @@ def read_context_value(
         return None
 
     # Group by depth; for each depth bucket, collect rows from path_context_values.
-    by_depth: Dict[int, List[Tuple[int, str]]] = {}
     target_ids_by_depth: Dict[int, List[int]] = {}
     for tid, depth in chain:
         target_ids_by_depth.setdefault(depth, []).append(tid)
@@ -303,7 +302,7 @@ __all__ = [
     "FAMILY_POSTURE",
     "FAMILY_RENDER_SOURCE",
     "FAMILY_RENDER_TARGET",
-    "FAMILY_TEMPLATE_MANAGED",
+    "FAMILY_PACK_SOURCE",
     "FAMILY_TEST_SURFACE",
     "KNOWN_FAMILIES",
     "PathContextConflictError",

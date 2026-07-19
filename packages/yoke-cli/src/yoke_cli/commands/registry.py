@@ -206,10 +206,12 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("connection.remove.run", _adapters.connection_remove),
     ("auth", "set"):
         ("auth.set.run", _adapters.auth_set),
-    ("templates", "list"):
-        ("templates.list.run", _adapters.templates_list),
-    ("templates", "fetch"):
-        ("templates.fetch.run", _adapters.templates_fetch),
+    ("packs", "list"):
+        ("packs.catalog.list", _adapters.packs_list),
+    ("packs", "get"):
+        ("packs.get.run", _adapters.packs_get),
+    ("packs", "update"):
+        ("packs.update.run", _adapters.packs_update),
     ("workflows", "definition", "get"):
         ("workflows.definition.get", _adapters.workflows_definition_get),
 }

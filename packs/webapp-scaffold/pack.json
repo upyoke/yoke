@@ -1,0 +1,544 @@
+{
+  "schema": 1,
+  "slug": "webapp-scaffold",
+  "name": "Webapp Scaffold",
+  "description": "FastAPI and Next.js application starting point with authentication, tests, and project shell.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/webapp-scaffold/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "api_port": {
+            "type": "string",
+            "description": "Project value used when installing the Webapp Scaffold Pack."
+          },
+          "project_description": {
+            "type": "string",
+            "description": "Project value used when installing the Webapp Scaffold Pack."
+          },
+          "project_display_name": {
+            "type": "string",
+            "description": "Project value used when installing the Webapp Scaffold Pack."
+          },
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Webapp Scaffold Pack."
+          },
+          "project_slug": {
+            "type": "string",
+            "description": "Project value used when installing the Webapp Scaffold Pack."
+          },
+          "web_port": {
+            "type": "string",
+            "description": "Project value used when installing the Webapp Scaffold Pack."
+          }
+        },
+        "required": [
+          "api_port",
+          "project_description",
+          "project_display_name",
+          "project_name",
+          "project_slug",
+          "web_port"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": ".env.example",
+          "target": ".env.example",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": ".github/workflows/README.md",
+          "target": ".github/workflows/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": ".github/workflows/ci.yml",
+          "target": ".github/workflows/ci.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": ".gitignore",
+          "target": ".gitignore",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "AGENTS.md",
+          "target": "AGENTS.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "CLAUDE.md",
+          "target": "CLAUDE.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ROADMAP.md",
+          "target": "ROADMAP.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/__init__.py",
+          "target": "app/api/__init__.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/auth.py",
+          "target": "app/api/auth.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/config.py",
+          "target": "app/api/config.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/dependencies.py",
+          "target": "app/api/dependencies.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/errors.py",
+          "target": "app/api/errors.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/main.py",
+          "target": "app/api/main.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/routers/.gitkeep",
+          "target": "app/api/routers/.gitkeep",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/routers/__init__.py",
+          "target": "app/api/routers/__init__.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/routers/auth.py",
+          "target": "app/api/routers/auth.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/routers/system.py",
+          "target": "app/api/routers/system.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/tasks/.gitkeep",
+          "target": "app/api/tasks/.gitkeep",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/tasks/__init__.py",
+          "target": "app/api/tasks/__init__.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/tasks/progress.py",
+          "target": "app/api/tasks/progress.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/api/tasks/runner.py",
+          "target": "app/api/tasks/runner.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/db/__init__.py",
+          "target": "app/db/__init__.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/db/init_db.py",
+          "target": "app/db/init_db.py",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "app/db/migrations/.gitkeep",
+          "target": "app/db/migrations/.gitkeep",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/db/migrations/__init__.py",
+          "target": "app/db/migrations/__init__.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/db/migrations/migrate.py",
+          "target": "app/db/migrations/migrate.py",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "app/db/schema.sql",
+          "target": "app/db/schema.sql",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/db/seed_users.py",
+          "target": "app/db/seed_users.py",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "app/requirements.txt",
+          "target": "app/requirements.txt",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/tests/.gitkeep",
+          "target": "app/tests/.gitkeep",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/tests/__init__.py",
+          "target": "app/tests/__init__.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/tests/conftest.py",
+          "target": "app/tests/conftest.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/tests/test_api_auth.py",
+          "target": "app/tests/test_api_auth.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/tests/test_api_health.py",
+          "target": "app/tests/test_api_health.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/utils/.gitkeep",
+          "target": "app/utils/.gitkeep",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/utils/__init__.py",
+          "target": "app/utils/__init__.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/utils/db.py",
+          "target": "app/utils/db.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/utils/llm.py",
+          "target": "app/utils/llm.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/components.json",
+          "target": "app/web/components.json",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/e2e/auth.spec.ts",
+          "target": "app/web/e2e/auth.spec.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/e2e/playwright.config.ts",
+          "target": "app/web/e2e/playwright.config.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/eslint.config.mjs",
+          "target": "app/web/eslint.config.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/package.json",
+          "target": "app/web/package.json",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/postcss.config.mjs",
+          "target": "app/web/postcss.config.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/(dashboard)/dashboard/page.tsx",
+          "target": "app/web/src/app/(dashboard)/dashboard/page.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/(dashboard)/layout.tsx",
+          "target": "app/web/src/app/(dashboard)/layout.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/(dashboard)/settings/page.tsx",
+          "target": "app/web/src/app/(dashboard)/settings/page.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/error.tsx",
+          "target": "app/web/src/app/error.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/globals.css",
+          "target": "app/web/src/app/globals.css",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/layout.tsx",
+          "target": "app/web/src/app/layout.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/login/page.tsx",
+          "target": "app/web/src/app/login/page.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/not-found.tsx",
+          "target": "app/web/src/app/not-found.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/app/page.tsx",
+          "target": "app/web/src/app/page.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/providers.tsx",
+          "target": "app/web/src/components/providers.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/sidebar.tsx",
+          "target": "app/web/src/components/sidebar.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/top-bar.tsx",
+          "target": "app/web/src/components/top-bar.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/button.tsx",
+          "target": "app/web/src/components/ui/button.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/card.tsx",
+          "target": "app/web/src/components/ui/card.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/dialog.tsx",
+          "target": "app/web/src/components/ui/dialog.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/dropdown-menu.tsx",
+          "target": "app/web/src/components/ui/dropdown-menu.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/input.tsx",
+          "target": "app/web/src/components/ui/input.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/label.tsx",
+          "target": "app/web/src/components/ui/label.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/separator.tsx",
+          "target": "app/web/src/components/ui/separator.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/sheet.tsx",
+          "target": "app/web/src/components/ui/sheet.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/skeleton.tsx",
+          "target": "app/web/src/components/ui/skeleton.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/components/ui/sonner.tsx",
+          "target": "app/web/src/components/ui/sonner.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/hooks/.gitkeep",
+          "target": "app/web/src/hooks/.gitkeep",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/lib/api.ts",
+          "target": "app/web/src/lib/api.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/lib/types.ts",
+          "target": "app/web/src/lib/types.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/lib/utils.ts",
+          "target": "app/web/src/lib/utils.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/middleware.ts",
+          "target": "app/web/src/middleware.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/store/auth.ts",
+          "target": "app/web/src/store/auth.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/test/setup.ts",
+          "target": "app/web/src/test/setup.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/src/test/test-utils.tsx",
+          "target": "app/web/src/test/test-utils.tsx",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/tsconfig.json",
+          "target": "app/web/tsconfig.json",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/vitest.config.ts",
+          "target": "app/web/vitest.config.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/webapp-scaffold/README.md",
+          "target": "docs/packs/webapp-scaffold/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/webapp-scaffold/customization.md",
+          "target": "docs/packs/webapp-scaffold/customization.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/webapp-scaffold/development.md",
+          "target": "docs/packs/webapp-scaffold/development.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/webapp-scaffold/setup.md",
+          "target": "docs/packs/webapp-scaffold/setup.md",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "backend-tests",
+          "command": "python3 -m pytest app/tests"
+        },
+        {
+          "name": "frontend-tests",
+          "command": "npm --prefix app/web test -- --run"
+        }
+      ]
+    }
+  }
+}

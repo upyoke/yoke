@@ -48,6 +48,7 @@ from yoke_core.domain.handlers import (
     _register_organizations,
     _register_ouroboros_field_notes,
     _register_ouroboros_reads,
+    _register_packs,
     _register_project_github_binding,
     _register_project_structure_reads,
     _register_project_snapshot,
@@ -59,7 +60,6 @@ from yoke_core.domain.handlers import (
     _register_shepherd_reads,
     _register_sessions,
     _register_strategy,
-    _register_templates,
     _register_workflows,
 )
 
@@ -72,7 +72,7 @@ _DOMAIN_REGISTRARS = (
     _register_machine_config,
     _register_onboard_checklist,
     _register_install,
-    _register_templates,
+    _register_packs,
     _register_db_read,
     _register_claims,
     _register_deployment,

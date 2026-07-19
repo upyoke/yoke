@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -13,6 +14,9 @@ from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.ephemeral_substrate import EphemeralPolicy
 from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_ephemeral_test_support import (
+    install_ephemeral_project_source,
+)
 
 
 def _policy(**overrides):
@@ -103,7 +107,7 @@ def deploy_seams(monkeypatch):
     )
     monkeypatch.setattr(
         deploy_ephemeral, "render_webapp_template",
-        lambda relative, values: f"rendered:{relative}",
+        lambda _root, relative, values: f"rendered:{relative}",
     )
     monkeypatch.setattr(deploy_ephemeral, "track", tracker)
     monkeypatch.setattr(
@@ -138,7 +142,8 @@ def _scripted_runner():
 
 
 class TestExecEphemeralDeploy:
-    def test_full_deploy_command_plan(self, deploy_seams, monkeypatch):
+    def test_full_deploy_command_plan(self, deploy_seams, monkeypatch, tmp_path):
+        project_root = install_ephemeral_project_source(tmp_path)
         runner = _scripted_runner()
         monkeypatch.setattr(
             deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID")
@@ -149,7 +154,7 @@ class TestExecEphemeralDeploy:
             lambda url, request_id="": health_calls.append(url) or 0,
         )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
-            "yoke", branch=_SLUG, repo_path="/repo",
+            "yoke", branch=_SLUG, repo_path=str(project_root),
             item_label="YOK-9", runner=runner, emit=lambda _l: None,
         )
         assert rc == 0
@@ -157,7 +162,7 @@ class TestExecEphemeralDeploy:
             c["argv"][-1] if c["argv"][0] == "ssh" else " ".join(c["argv"])
             for c in runner.calls
         ]
-        assert joined[0] == f"git -C /repo rev-parse {_SLUG}"
+        assert joined[0] == f"git -C {project_root} rev-parse {_SLUG}"
         bootstrap = next(c for c in joined if "environment_bootstrap" in c)
         assert "YOKE_DB_INIT_ALLOW=1" in bootstrap
         assert "docker compose run --rm" in bootstrap
@@ -176,7 +181,8 @@ class TestExecEphemeralDeploy:
         assert first[3] == "YOK-9"
         assert last[2]["status"] == "running"
 
-    def test_existing_db_password_is_reused(self, deploy_seams, monkeypatch):
+    def test_existing_db_password_is_reused(self, deploy_seams, monkeypatch, tmp_path):
+        project_root = install_ephemeral_project_source(tmp_path)
         runner = _scripted_runner()
         monkeypatch.setattr(
             deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID")
@@ -186,7 +192,7 @@ class TestExecEphemeralDeploy:
             lambda url, request_id="": 0,
         )
         deploy_ephemeral.exec_ephemeral_deploy(
-            "yoke", branch=_SLUG, repo_path="/repo",
+            "yoke", branch=_SLUG, repo_path=str(project_root),
             runner=runner, emit=lambda _l: None,
         )
         pushes = [
@@ -206,18 +212,24 @@ class TestExecEphemeralDeploy:
         )
         assert rc == 1
 
-    def test_render_only_host_env_refused(self, deploy_seams, monkeypatch):
+    def test_render_only_host_env_refused(
+        self, deploy_seams, monkeypatch, tmp_path
+    ):
         monkeypatch.setattr(
             deploy_ephemeral, "resolve_deploy_environment",
             lambda p, e: _env(activation_state="render_only"),
         )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
-            "yoke", branch=_SLUG, repo_path="/repo",
+            "yoke",
+            branch=_SLUG,
+            repo_path=str(install_ephemeral_project_source(tmp_path)),
             runner=FakeRunner(), emit=lambda _l: None,
         )
         assert rc == 1
 
-    def test_failure_marks_row_failed(self, deploy_seams, monkeypatch):
+    def test_failure_marks_row_failed(
+        self, deploy_seams, monkeypatch, tmp_path
+    ):
         runner = FakeRunner([
             CommandResult(0, _SHA + "\n", ""),
             CommandResult(1, "", "ssh exploded"),  # tls probe
@@ -225,7 +237,9 @@ class TestExecEphemeralDeploy:
             CommandResult(1, "", "apt broken"),    # certbot install -> fail
         ])
         rc = deploy_ephemeral.exec_ephemeral_deploy(
-            "yoke", branch=_SLUG, repo_path="/repo",
+            "yoke",
+            branch=_SLUG,
+            repo_path=str(install_ephemeral_project_source(tmp_path)),
             runner=runner, emit=lambda _l: None,
         )
         assert rc == 1
@@ -320,13 +334,14 @@ def test_slug_files_name_database_by_deploy_namespace(monkeypatch):
     host-box preview resource under one namespace after a re-parent."""
     monkeypatch.setattr(
         deploy_ephemeral_files, "render_webapp_template",
-        lambda _relative, _values: "compose-yaml",
+        lambda _root, _relative, _values: "compose-yaml",
     )
     policy = _policy(project="platform", deploy_namespace="yoke")
     env = _env(project="platform", deploy_namespace="yoke")
 
     _compose, _env_file, dsn = deploy_ephemeral_files.slug_files(
         policy, env, "my-slug", "img:tag", 9100, "deadbeef",
+        project_root=Path("/project"),
     )
 
     assert "dbname=yoke_ephemeral user=yoke" in dsn

@@ -246,7 +246,7 @@ class TestArchitectureFamilyConstants:
 
     The constants partition into classification (layer/domain/dependency
     rule/cross-cutting entrypoint) and exemption (generated/fixture/
-    archive/test_surface/template_managed) sets. Both reuse the existing
+    archive/test_surface/pack_source) sets. Both reuse the existing
     ``put_context_value`` / ``read_context_value`` surface; no new writer.
     """
 
@@ -268,8 +268,8 @@ class TestArchitectureFamilyConstants:
         assert path_context.FAMILY_ARCHIVE == "architecture_archive"
         assert path_context.FAMILY_TEST_SURFACE == "architecture_test_surface"
         assert (
-            path_context.FAMILY_TEMPLATE_MANAGED
-            == "architecture_template_managed"
+            path_context.FAMILY_PACK_SOURCE
+            == "architecture_pack_source"
         )
 
     def test_known_families_includes_architecture(self):

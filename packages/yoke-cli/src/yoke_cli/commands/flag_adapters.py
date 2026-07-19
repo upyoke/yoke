@@ -1,10 +1,9 @@
 """Per-family flag adapters for the ``yoke`` operations CLI.
 
-This module is the thin facade. Per-family adapter functions live in
-sibling ``yoke_cli.commands.adapters.<family>`` modules to keep each authored
-file under the 350-line cap; the import list below is the authoritative
-family roster (shared argparse/dispatch plumbing lives in
-:mod:`yoke_cli.commands._helpers`; the function-id -> usage-line map
+This facade imports family adapters from sibling modules to stay within the
+350-line cap; the import list below is authoritative. Shared
+argparse/dispatch plumbing lives in :mod:`yoke_cli.commands._helpers`; the
+function-id -> usage-line map
 lives in :mod:`yoke_cli.commands.adapters.usage`).
 
 Each adapter parses one family's flags via :mod:`argparse`, builds the
@@ -288,9 +287,10 @@ from yoke_cli.commands.adapters.install import (
     project_uninstall,
 )
 from yoke_cli.commands.adapters.project_snapshot import project_snapshot_sync
-from yoke_cli.commands.adapters.templates import (
-    templates_fetch,
-    templates_list,
+from yoke_cli.commands.adapters.packs import (
+    packs_get,
+    packs_list,
+    packs_update,
 )
 from yoke_cli.commands.adapters.sessions import (
     charge_schedule,
@@ -394,7 +394,7 @@ __all__ = [
     "project_create", "project_import", "project_register",
     "project_install", "project_refresh", "project_uninstall",
     "project_snapshot_sync",
-    "templates_list", "templates_fetch",
+    "packs_list", "packs_get", "packs_update",
     "sessions_init", "sessions_begin", "sessions_touch", "sessions_checkpoint", "sessions_checkpoint_read",
     "sessions_offer", "sessions_ownership_guard", "sessions_list",
     "charge_schedule",

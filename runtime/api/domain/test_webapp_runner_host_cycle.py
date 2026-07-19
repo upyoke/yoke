@@ -7,7 +7,7 @@ import types
 
 from runtime.api.domain.test_webapp_registry_stack import (
     _Recorder,
-    _load_template_module,
+    _load_pack_module,
 )
 
 
@@ -22,7 +22,7 @@ def _cycle(monkeypatch, **overrides):
     )
     for key, value in overrides.items():
         setattr(args, key, value)
-    module = _load_template_module(
+    module = _load_pack_module(
         monkeypatch, _Recorder(), "webapp_runner_host_cycle.py",
     )
     return module._runner_cycle_script(

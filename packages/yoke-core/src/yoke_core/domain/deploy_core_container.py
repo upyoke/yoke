@@ -9,6 +9,7 @@ subprocess environments or SSH stdin; emitted progress is redaction-safe.
 from __future__ import annotations
 
 import sys
+import tempfile
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,6 +55,15 @@ from yoke_core.domain.deploy_environment_settings import (
 )
 from yoke_core.domain.deploy_remote import CommandRunner
 from yoke_core.domain import deploy_core_github_app as github_app_deploy
+from yoke_core.domain.deploy_core_container_source import (
+    project_source_root as _project_source_root,
+)
+from yoke_core.domain.pack_render import render_pack_text
+from yoke_core.domain.project_renderer_pulumi import (
+    gather_pulumi_values,
+    render_pulumi_artifacts,
+)
+from yoke_core.domain.project_renderer_settings import load_project_renderer_settings
 from yoke_core.domain.yoke_cloud_db_authority import (
     DEFAULT_POSTGRES_PORT,
     PostgresAuthorityLocation,
@@ -69,16 +79,11 @@ def _emit(line: str) -> None:
     print(line, flush=True)
 
 
-def _render_service_template(name: str, values: dict) -> str:
-    from yoke_core.domain.project_renderer import render_template
-    from yoke_core.api.repo_root import find_repo_root
-
-    template = (
-        find_repo_root(Path(__file__)) / "templates" / "webapp" / "core-service" / name
-    )
+def _render_service_template(project_root: Path, name: str, values: dict) -> str:
+    template = project_root / "ops" / "core-service" / name
     if not template.is_file():
-        raise CoreDeployError(f"[core-deploy] service template missing: {template}")
-    return render_template(template.read_text(), values)
+        raise CoreDeployError(f"[core-deploy] project-owned Pack file missing: {template}")
+    return render_pack_text(template.read_text(), values)
 
 
 @dataclass(frozen=True)
@@ -97,53 +102,44 @@ def _load_environment_stack_binding(
     env: DeployEnvironment,
     aws_env: dict,
     *,
+    repo_path: str | Path = "",
     emit: Callable[[str], None] = _emit,
 ) -> tuple[RuntimeDatabaseBinding, dict]:
     """Resolve the env's endpoint + secret ARN from stack outputs."""
-    from yoke_core.domain.project_renderer import default_render_output_dir
-
-    # The render subprocess gets an explicit --output-dir computed HERE:
-    # the scratch-backed default is pid-scoped, so letting the subprocess
-    # pick its own default would land the render in the child's run dir
-    # while this process reads a sibling path that never existed.
-    out_dir = default_render_output_dir(env.project)
-    render = runner.run(
-        [
-            sys.executable,
-            "-m",
-            "yoke_core.tools.render_project",
+    source_root = _project_source_root(env.project, repo_path)
+    settings = load_project_renderer_settings(env.project)
+    values = gather_pulumi_values(
+        env.project,
+        source_root,
+        settings,
+        pulumi_stack=env.stack_name,
+    )
+    with tempfile.TemporaryDirectory(prefix="yoke-core-pulumi-") as raw_temp:
+        out_dir = Path(raw_temp)
+        render_pulumi_artifacts(
             env.project,
-            "--write",
-            "--only",
-            "pulumi",
-            "--pulumi-stack",
-            env.stack_name,
-            "--output-dir",
-            str(out_dir),
-        ],
-        timeout=300,
-    )
-    if not render.ok:
-        raise CoreDeployError(
-            "[core-deploy] project Pulumi render failed: "
-            + (render.stderr or render.stdout).strip()[-800:]
+            values,
+            source_root,
+            out_dir,
+            True,
+            settings,
+            pulumi_stack=env.stack_name,
         )
-
-    infra_dir = out_dir / "infra"
-    location = PostgresAuthorityLocation(
-        stack=env.stack_name,
-        database_name=env.database_name,
-        state_backend=env.state_backend,
-        region=env.aws_region,
-    )
-    try:
-        outputs = load_stack_outputs(infra_dir, location, env=aws_env)
-        endpoint, secret_arn = endpoint_and_secret_arn(outputs, location)
-    except Exception as exc:
-        raise CoreDeployError(
-            f"[core-deploy] env database binding failed for stack "
-            f"{env.stack_name}: {exc}"
-        ) from exc
+        infra_dir = out_dir / "infra"
+        location = PostgresAuthorityLocation(
+            stack=env.stack_name,
+            database_name=env.database_name,
+            state_backend=env.state_backend,
+            region=env.aws_region,
+        )
+        try:
+            outputs = load_stack_outputs(infra_dir, location, env=aws_env)
+            endpoint, secret_arn = endpoint_and_secret_arn(outputs, location)
+        except Exception as exc:
+            raise CoreDeployError(
+                f"[core-deploy] env database binding failed for stack "
+                f"{env.stack_name}: {exc}"
+            ) from exc
     emit(f"  [core-deploy] database endpoint resolved: {endpoint}")
     return (
         RuntimeDatabaseBinding(
@@ -161,10 +157,13 @@ def resolve_environment_database_binding(
     env: DeployEnvironment,
     aws_env: dict,
     *,
+    repo_path: str | Path = "",
     emit: Callable[[str], None] = _emit,
 ) -> tuple[RuntimeDatabaseBinding, dict]:
     """Resolve the non-secret DB binding the container uses at runtime."""
-    return _load_environment_stack_binding(runner, env, aws_env, emit=emit)
+    return _load_environment_stack_binding(
+        runner, env, aws_env, repo_path=repo_path, emit=emit
+    )
 
 
 def resolve_environment_dsn(
@@ -172,6 +171,7 @@ def resolve_environment_dsn(
     env: DeployEnvironment,
     aws_env: dict,
     *,
+    repo_path: str | Path = "",
     emit: Callable[[str], None] = _emit,
 ) -> tuple[str, dict]:
     """Resolve the env's libpq DSN from stack outputs + Secrets Manager.
@@ -179,7 +179,9 @@ def resolve_environment_dsn(
     Also returns the full (non-secret) stack outputs mapping so callers can
     reuse facts like the instance id without a second Pulumi roundtrip.
     """
-    binding, outputs = _load_environment_stack_binding(runner, env, aws_env, emit=emit)
+    binding, outputs = _load_environment_stack_binding(
+        runner, env, aws_env, repo_path=repo_path, emit=emit
+    )
     try:
         secret = PostgresSecret.from_json(
             load_secret_string(binding.secret_arn, region=binding.region, env=aws_env)
@@ -201,6 +203,8 @@ def render_service_files(
     env: DeployEnvironment,
     image_ref: str,
     database: RuntimeDatabaseBinding,
+    *,
+    repo_path: str | Path,
 ) -> tuple[str, str, str]:
     """Render (compose_yaml, nginx_site, env_file) for the target env.
 
@@ -222,8 +226,13 @@ def render_service_files(
         "origin_port": str(env.origin_port),
     }
     values.update(github_app_deploy.github_app_render_values(env))
-    compose_yaml = _render_service_template("docker-compose.yml.tmpl", values)
-    nginx_site = _render_service_template("nginx-site.conf.tmpl", values)
+    project_root = _project_source_root(env.project, repo_path)
+    compose_yaml = _render_service_template(
+        project_root, "docker-compose.yml.tmpl", values
+    )
+    nginx_site = _render_service_template(
+        project_root, "nginx-site.conf.tmpl", values
+    )
     env_lines = [
         f"{DB_SECRET_ARN_ENV}={database.secret_arn}",
         f"{DB_SECRET_REGION_ENV}={database.region}",
@@ -276,10 +285,10 @@ def exec_core_container_deploy(
             runner, env, aws_env, repo_path=repo_path, tag=tag, emit=emit
         )
         database, _outputs = resolve_environment_database_binding(
-            runner, env, aws_env, emit=emit
+            runner, env, aws_env, repo_path=repo_path, emit=emit
         )
         compose_yaml, nginx_site, env_file = render_service_files(
-            env, image_ref, database
+            env, image_ref, database, repo_path=repo_path
         )
         ensure_runtime_packages(runner, env, emit)
         ensure_instance_profile(runner, env, emit)
@@ -305,7 +314,9 @@ def exec_core_container_deploy(
                 env,
                 prior_image_ref=prior_image_ref,
                 failed_image_ref=image_ref,
-                render_compose=lambda ref: render_service_files(env, ref, database)[0],
+                render_compose=lambda ref: render_service_files(
+                    env, ref, database, repo_path=repo_path
+                )[0],
                 emit=emit,
             )
             raise
@@ -318,6 +329,7 @@ def exec_core_container_deploy(
             env,
             emit,
             keep_image_ref=image_ref,
+            project_root=_project_source_root(env.project, repo_path),
         )
         return 0
     except (CoreDeployError, DeployEnvironmentError, RemoteConvergenceError) as exc:

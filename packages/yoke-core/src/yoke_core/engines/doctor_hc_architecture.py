@@ -89,7 +89,7 @@ def hc_architecture_unclassified_path(
         "Each must inherit an architecture_layer or architecture_domain, "
         "OR carry an exemption family (architecture_generated, "
         "architecture_fixture, architecture_archive, "
-        "architecture_test_surface, architecture_template_managed)."
+        "architecture_test_surface, architecture_pack_source)."
     )
     rec.record(_UNCLASSIFIED, _UNCLASSIFIED_DESC, "WARN",
                format_findings(head, findings))

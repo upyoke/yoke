@@ -1,11 +1,8 @@
-"""Filesystem health checks — drift cluster (stray files, template drift, architecture).
+"""Filesystem health checks — stray files and architecture consistency.
 
-Cluster: HC checks for filesystem-level drift detection — stray root-level
-project files, retired template-project drift, and retired-artifact /
-schema-completeness audits.
+Cluster: HC checks for stray root-level project files and schema completeness.
 
-HC functions: HC-stray-project-files, HC-template-project-drift,
-HC-arch-consistency.
+HC functions: HC-stray-project-files, HC-arch-consistency.
 """
 
 from __future__ import annotations
@@ -48,19 +45,6 @@ def hc_stray_project_files(conn, args: DoctorArgs, rec: RecordCollector) -> None
                     "\n".join(issues))
     else:
         rec.record("HC-stray-project-files", "Stray project output directories", "PASS", "")
-
-
-
-def hc_template_project_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-template-project-drift: Retired Yoke-repo project render check."""
-    rec.record(
-        "HC-template-project-drift",
-        "Template-to-project content drift retired",
-        "PASS",
-        "Rendered project outputs are no longer tracked in the Yoke repo.",
-    )
-
-
 
 def hc_arch_consistency(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-arch-consistency: Architectural consistency audit."""

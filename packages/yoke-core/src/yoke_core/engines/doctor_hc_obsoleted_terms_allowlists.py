@@ -84,6 +84,9 @@ PATH_ALLOWLIST_ALL_PATTERNS: tuple[str, ...] = (
     # its intended bare term; the test bodies necessarily name the retired
     # terms literally.
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_patterns.py",
+    # This declaration module intentionally names every Pack-era retirement
+    # in its labels while keeping the main registry within its line budget.
+    "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms_packs.py",
 )
 
 

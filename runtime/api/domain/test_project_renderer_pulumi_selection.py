@@ -11,12 +11,30 @@ from runtime.api.domain.test_project_renderer_pulumi_instances import (
     _make_project_tree,
     _settings_with_environments,
 )
-from yoke_core.domain import project_renderer
+from yoke_core.domain.project_renderer_pulumi import (
+    gather_pulumi_values,
+    render_pulumi_artifacts,
+)
+
+
+def _render(root, output, settings, pulumi_stack) -> None:
+    values = gather_pulumi_values(
+        "platform", root, settings, pulumi_stack=pulumi_stack
+    )
+    render_pulumi_artifacts(
+        "platform",
+        values,
+        root,
+        output,
+        True,
+        settings,
+        pulumi_stack=pulumi_stack,
+    )
 
 
 def _runner_fleet_project(tmp_path: Path):
     root, output = _make_project_tree(tmp_path, "platform")
-    infra = root / "templates" / "webapp" / "infra"
+    infra = root / "infra"
     (infra / "webapp_distribution_stack.py").write_text("# distribution\n")
     (infra / "webapp_runner_fleet_stack.py").write_text("# runners\n")
     (infra / "webapp_runner_github_api.mjs").write_text("// runners\n")
@@ -36,15 +54,7 @@ def test_selected_environment_skips_unrelated_runner_fleet_requirements(
 ) -> None:
     root, output, settings = _runner_fleet_project(tmp_path)
 
-    project_renderer.render_project(
-        "platform",
-        write=True,
-        only="pulumi",
-        project_root=root,
-        output_dir=output,
-        settings=settings,
-        pulumi_stack="yoke-stage",
-    )
+    _render(root, output, settings, "yoke-stage")
 
     names = {path.name for path in (output / "infra").iterdir()}
     assert "Pulumi.yaml" in names
@@ -67,30 +77,14 @@ def test_full_or_runner_fleet_render_keeps_binding_validation(
     with pytest.raises(
         ValueError, match="requires explicit github_capability",
     ):
-        project_renderer.render_project(
-            "platform",
-            write=True,
-            only="pulumi",
-            project_root=root,
-            output_dir=output,
-            settings=settings,
-            pulumi_stack=pulumi_stack,
-        )
+        _render(root, output, settings, pulumi_stack)
 
 
 def test_unknown_stack_selector_fails_without_partial_render(tmp_path: Path) -> None:
     root, output, settings = _runner_fleet_project(tmp_path)
 
     with pytest.raises(ValueError, match="is not declared"):
-        project_renderer.render_project(
-            "platform",
-            write=True,
-            only="pulumi",
-            project_root=root,
-            output_dir=output,
-            settings=settings,
-            pulumi_stack="missing-stack",
-        )
+        _render(root, output, settings, "missing-stack")
 
     assert not (output / "infra" / "Pulumi.yaml").exists()
 
@@ -104,12 +98,4 @@ def test_ambiguous_stack_selector_fails_closed(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="matches multiple declarations"):
-        project_renderer.render_project(
-            "platform",
-            write=True,
-            only="pulumi",
-            project_root=root,
-            output_dir=output,
-            settings=settings,
-            pulumi_stack="platform-infra",
-        )
+        _render(root, output, settings, "platform-infra")

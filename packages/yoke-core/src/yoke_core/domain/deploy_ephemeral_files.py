@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
+from yoke_core.domain.pack_render import render_pack_text
 from yoke_core.domain.ephemeral_substrate import (
     EphemeralPolicy,
     compose_project_name,
@@ -20,17 +21,19 @@ class EphemeralDeployError(RuntimeError):
     """Ephemeral deploy failed before/around remote convergence."""
 
 
-def render_webapp_template(relative: str, values: dict) -> str:
-    """Render one ``templates/webapp/...`` file with *values*."""
-    from yoke_core.domain.project_renderer import render_template
-    from yoke_core.api.repo_root import find_repo_root
+def render_webapp_template(
+    project_root: Path, relative: str, values: dict
+) -> str:
+    """Render one project-owned file installed by the ephemeral Pack."""
 
-    template = find_repo_root(Path(__file__)) / "templates" / "webapp"
+    template = project_root
     for part in relative.split("/"):
         template = template / part
     if not template.is_file():
-        raise EphemeralDeployError(f"[ephemeral] template missing: {template}")
-    return render_template(template.read_text(), values)
+        raise EphemeralDeployError(
+            f"[ephemeral] project-owned Pack file missing: {template}"
+        )
+    return render_pack_text(template.read_text(), values)
 
 
 def routing_values(policy: EphemeralPolicy) -> dict:
@@ -57,6 +60,8 @@ def slug_files(
     image_ref: str,
     api_port: int,
     db_password: str,
+    *,
+    project_root: Path,
 ) -> tuple:
     """Render (compose_yaml, env_file, dsn) for one preview slug.
 
@@ -67,7 +72,8 @@ def slug_files(
     database = f"{env.deploy_namespace}_ephemeral"
     user = env.deploy_namespace
     compose_yaml = render_webapp_template(
-        "core-service/docker-compose.ephemeral.yml.tmpl",
+        project_root,
+        "ops/core-service/docker-compose.ephemeral.yml.tmpl",
         {
             "project": policy.project,
             "slug": slug,

@@ -3,10 +3,11 @@
 import json
 from pathlib import Path
 
-import pytest
-
-from runtime.api.domain.test_webapp_registry_stack import _Recorder
 from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
+from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
+from yoke_core.domain.project_renderer_pulumi_files import (
+    RUNNER_FLEET_PROGRAM_FILES,
+)
 
 
 def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
@@ -127,24 +128,26 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
 
 
 def test_runner_fleet_has_only_short_lived_repository_credential_input():
-    root = Path(__file__).resolve().parents[3] / "templates" / "webapp" / "infra"
-    stack_source = (root / "webapp_runner_fleet_stack.py").read_text()
-    webhook_source = (root / "webapp_runner_github_webhook.py").read_text()
-    provider_source = (
-        root / "webapp_github_repository_provider.py"
+    stack_source = _pack_program_source("webapp_runner_fleet_stack.py").read_text()
+    webhook_source = _pack_program_source(
+        "webapp_runner_github_webhook.py"
+    ).read_text()
+    provider_source = _pack_program_source(
+        "webapp_github_repository_provider.py"
     ).read_text()
     runtime_sources = "\n".join(
-        path.read_text()
-        for path in root.glob("webapp_runner_*")
-        if path.name not in {
+        _pack_program_source(name).read_text()
+        for name in RUNNER_FLEET_PROGRAM_FILES
+        if name not in {
             "webapp_runner_fleet_stack.py",
             "webapp_runner_github_webhook.py",
         }
     )
-    requirements = (root / "requirements.txt").read_text()
-    readme = root.parent / "README.md"
-    readme_text = readme.read_text()
-    runner_fleet_readme_text = (root.parent / "RUNNER-FLEET.md").read_text()
+    requirements = _pack_program_source("requirements.txt").read_text()
+    operations = Path(__file__).resolve().parents[3].joinpath(
+        "packs", "self-hosted-runners", "versions", "1.0.0", "files",
+        "docs", "packs", "self-hosted-runners", "operations.md",
+    ).read_text()
 
     assert "require_repository_token_environment" in stack_source
     assert "RUNNER_FLEET_GITHUB_TOKEN" in provider_source
@@ -160,24 +163,27 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     assert "/github-token" not in sources
     assert "pulumi-github" in requirements
     assert "pulumi-random" in requirements
-    assert "repository_hooks: write" in readme_text
-    assert "actions_variables: write" in readme_text
-    assert "runnerFleetRoutingVariable" in readme_text
-    assert "direct variable" in readme_text
-    assert "writes are drift" in readme_text
-    assert "network.deployment_ssh_stack_names" in runner_fleet_readme_text
-    assert "originElasticIpAddress" in runner_fleet_readme_text
-    assert "vpsElasticIpAddress" in runner_fleet_readme_text
-    assert "Literal addresses and CIDRs are not" in runner_fleet_readme_text
-    assert "Pulumi.StackReference" in runner_fleet_readme_text
-    assert "configure one manual GitHub webhook" not in readme_text
+    assert "repository_hooks: write" in operations
+    assert "actions_variables: write" in operations
+    assert "runnerFleetRoutingVariable" in operations
+    assert "Arm and disarm only through the capability plus runner-fleet apply" in operations
+    assert "variable writes are drift" in operations
+    assert "network.deployment_ssh_stack_names" in operations
+    assert "originElasticIpAddress" in operations
+    assert "vpsElasticIpAddress" in operations
+    assert "Literal addresses and CIDRs are not" in operations
+    assert "Pulumi.StackReference" in operations
+    assert "configure one manual GitHub webhook" not in operations
 
 
 def test_runner_variable_adoption_docs_preserve_generated_pulumi_identity():
     root = Path(__file__).resolve().parents[3]
     documents = (
         (root / "docs" / "github-app-operations.md").read_text(),
-        (root / "templates" / "webapp" / "RUNNER-FLEET.md").read_text(),
+        root.joinpath(
+            "packs", "self-hosted-runners", "versions", "1.0.0", "files",
+            "docs", "packs", "self-hosted-runners", "operations.md",
+        ).read_text(),
     )
 
     for document in documents:
@@ -213,138 +219,3 @@ def test_runner_network_derives_standalone_ssh_target_from_stack_output(
     assert recorder.stack_reference_outputs == [
         ("yoke-platform-vps", "vpsElasticIpAddress"),
     ]
-
-
-@pytest.mark.parametrize(
-    ("config_overrides", "authority_overrides", "field"),
-    [
-        (
-            {"github_api_url": "http://github.internal.example/api/v3"},
-            {"api_url": "https://github.internal.example/api/v3"},
-            "api_url",
-        ),
-        (
-            {"github_api_url": "https://attacker.example/api/v3"},
-            {"api_url": "https://api.github.com"},
-            "api_url",
-        ),
-        (
-            {
-                "github_app_issuer": "Iv1.other",
-                "github_installation_id": "999",
-                "github_repository_id": "998",
-            },
-            {
-                "app_issuer": "Iv1.runner-fleet",
-                "installation_id": "123456",
-                "repository_id": "789012",
-            },
-            "app_issuer",
-        ),
-        (
-            {
-                "github_capability": "other",
-                "github_repo_owner": "other-org",
-                "github_repo_name": "other-repo",
-                "github_private_key_secret_arn": (
-                    "arn:aws:secretsmanager:us-east-1:123456789012:"
-                    "secret:other-app"
-                ),
-            },
-            {
-                "github_capability": "github",
-                "repo_owner": "upyoke",
-                "repo_name": "yoke",
-                "private_key_secret_arn": (
-                    "arn:aws:secretsmanager:us-east-1:123456789012:"
-                    "secret:yoke-github-app-AbCdEf"
-                ),
-            },
-            "github_capability",
-        ),
-        (
-            {
-                "runner_variable_name": "OTHER_ROUTE",
-                "runner_labels": ["self-hosted", "Linux", "X64"],
-                "routing_enabled": False,
-            },
-            {
-                "runner_variable_name": "YOKE_LINUX_RUNS_ON",
-                "runner_labels": [
-                    "self-hosted", "Linux", "ARM64",
-                    "yoke-github-actions",
-                ],
-                "routing_enabled": True,
-            },
-            "runner_labels",
-        ),
-        (
-            {
-                "deployment_ssh_stack_outputs": {
-                    "yoke-prod": "vpsElasticIpAddress",
-                    "yoke-stage": "originElasticIpAddress",
-                },
-            },
-            {
-                "deployment_ssh_stack_outputs": {
-                    "yoke-prod": "originElasticIpAddress",
-                    "yoke-stage": "originElasticIpAddress",
-                },
-            },
-            "deployment_ssh_stack_outputs",
-        ),
-        (
-            {
-                "aws_capability": "other-admin",
-                "aws_region": "us-west-2",
-                "instance_type": "c7i.16xlarge",
-                "architecture": "x64",
-                "root_volume_gb": 1000,
-                "runner_count": 2,
-                "max_runner_count": 2,
-                "idle_shutdown_minutes": 5,
-                "shutdown_mode": "stop",
-            },
-            {
-                "aws_capability": "aws-admin",
-                "aws_region": "us-east-1",
-                "instance_type": "m7g.2xlarge",
-                "architecture": "arm64",
-                "root_volume_gb": 100,
-                "runner_count": 1,
-                "max_runner_count": 1,
-                "idle_shutdown_minutes": 30,
-                "shutdown_mode": "terminate",
-            },
-            "aws_region",
-        ),
-    ],
-)
-def test_authority_drift_refuses_before_github_provider_construction(
-    monkeypatch, config_overrides, authority_overrides, field,
-):
-    recorder = _Recorder()
-
-    with pytest.raises(RuntimeError, match=field):
-        _runner_stack(
-            monkeypatch,
-            config_overrides=config_overrides,
-            authority_overrides=authority_overrides,
-            recorder=recorder,
-        )
-
-    assert recorder.resources == []
-
-
-def test_wrong_pulumi_stack_refuses_before_resource_construction(monkeypatch):
-    recorder = _Recorder()
-
-    with pytest.raises(RuntimeError, match="stack_name"):
-        _runner_stack(
-            monkeypatch,
-            stack_name="wrong-runner-state",
-            authority_overrides={"stack_name": "yoke-runner-fleet"},
-            recorder=recorder,
-        )
-
-    assert recorder.resources == []

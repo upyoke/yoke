@@ -1,9 +1,8 @@
 """Function-id → usage-line map for the ``yoke`` operations CLI.
 
-Split from :mod:`yoke_cli.commands.flag_adapters` so the facade
-stays under the authored-file line cap. Consumed by the entrypoint's
-grouped ``--help`` text, the CLI manifest renderer, and the Atlas
-integrity audit. New CLI families add one import + one line each.
+Split from the flag-adapter facade to keep its authored file within the line cap.
+Consumed by grouped CLI help, the manifest renderer, and Atlas audit; new
+families add one import and one mapping.
 """
 
 from __future__ import annotations
@@ -204,9 +203,10 @@ from yoke_cli.commands.adapters.strategy_render import (
     STRATEGY_RENDER_USAGE,
     STRATEGY_SEED_DEFAULTS_USAGE,
 )
-from yoke_cli.commands.adapters.templates import (
-    TEMPLATES_FETCH_USAGE,
-    TEMPLATES_LIST_USAGE,
+from yoke_cli.commands.adapters.packs import (
+    PACKS_GET_USAGE,
+    PACKS_LIST_USAGE,
+    PACKS_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.sessions import (
     CHARGE_SCHEDULE_USAGE,
@@ -386,8 +386,8 @@ ADAPTER_USAGE: Dict[str, str] = {
     "project.refresh.run": PROJECT_REFRESH_USAGE,
     "project.uninstall.run": PROJECT_UNINSTALL_USAGE,
     "project.snapshot.sync": PROJECT_SNAPSHOT_SYNC_USAGE,
-    "templates.list.run": TEMPLATES_LIST_USAGE,
-    "templates.fetch.run": TEMPLATES_FETCH_USAGE,
+    "packs.catalog.list": PACKS_LIST_USAGE, "packs.get.run": PACKS_GET_USAGE,
+    "packs.update.run": PACKS_UPDATE_USAGE,
 }
 # Post-cap families export their own id -> usage maps; merge keeps one surface.
 ADAPTER_USAGE.update(READINESS_USAGE_BY_ID)

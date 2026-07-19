@@ -3,7 +3,7 @@
 Helpers/doc-drift/agent HCs live in test_doctor_filesystem_full.py.
 Repo file HCs live in test_doctor_filesystem_full_repo.py and
 test_doctor_filesystem_full_repo2.py.
-Template + schema + body HCs live in test_doctor_filesystem_full_template.py.
+Schema + body HCs live in test_doctor_filesystem_full_schema_config.py.
 
 Schema scaffolding shared via _doctor_filesystem_full_test_helpers (private module).
 """
@@ -12,12 +12,9 @@ from __future__ import annotations
 
 import os
 
-from pathlib import Path
 from unittest.mock import patch
 
 from yoke_core.engines.doctor import (
-    RecordCollector,
-    _resolve_repo_root,
     hc_hook_executability,
     hc_self_test,
     hc_stale_session_reclaimer_alive,
@@ -25,7 +22,6 @@ from yoke_core.engines.doctor import (
 )
 
 from yoke_core.engines._doctor_filesystem_full_test_helpers import (
-    _args,
     _cp,
     _make_conn,
     _run_hc,

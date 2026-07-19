@@ -446,7 +446,7 @@ The caller may also include inline artifact content for convenience, but you MUS
    - Are the dependencies explicit and resolvable?
    - Does the design fit the existing codebase patterns and conventions?
    - Are there hidden coupling risks or integration concerns?
-   - If the plan creates new capabilities for a project, does it include template creation/update tasks? Are project-specific files confined to the managed project repo or scratch/deploy-run output, never in the Yoke repo as project-instantiated output?
+   - If the plan creates a reusable capability for a project, does it include a focused Pack version and preview-first target-project proof? Are project-specific files confined to the target project repo or scratch/deploy-run output, never in Yoke's Pack source?
 
    ### Engineer Perspective
    Evaluates implementability within context budget and testability.
@@ -487,11 +487,12 @@ When evaluating at `scope=plan` (the `refined_idea_to_planning` and `planning_to
 5. If any spec FR is absent from the traceability matrix with no justification in the Coverage Note column, verdict MUST be NOT_READY with reason: "FR-N not covered by any task and no exclusion justification provided."
 6. If the spec does not use FR-N notation (e.g., uses plain bullet lists without FR- prefixes), apply a softer check: issue a CAVEATS verdict (not NOT_READY) when the plan appears to cover the described requirements but lacks a structured traceability matrix. The caveat should note: "Spec lacks structured FR-N identifiers -- traceability matrix uses inferred requirement identifiers. Verify coverage manually."
 
-**Template Compliance (mandatory for `scope=plan`):**
+**Pack Compliance (mandatory for `scope=plan`):**
 When evaluating plans that target a specific project (not `yoke` itself), check:
-1. If the plan introduces ops scripts, workflows, or deployment tooling → verify it includes tasks for both a generic template (in `templates/webapp/ops/`) AND project-specific output in the managed project repo or scratch/deploy-run output.
+1. If the plan introduces a reusable ops, workflow, deployment, or infrastructure capability → verify it includes a focused versioned Pack plus installation/update proof in the target project repo.
 2. If project-specific files are created in the Yoke repo as project-instantiated output -> NOT_READY with reason: "Project-specific files must use the managed project repo or scratch/deploy-run output."
-3. If a relevant template exists in `templates/webapp/` but the plan doesn't update it → CAVEATS noting "Existing template may need updating to reflect new capability."
+3. If a relevant Pack exists but the plan does not publish a new version for a general improvement → CAVEATS noting "Existing Pack may need a new version for this reusable capability."
+4. Reject plans that require project customizations to flow back into the Pack or introduce drift policing, automatic pruning, or whole-project synchronization.
 
 **Lifecycle note:** Shepherd `scope=plan` reviews are epic-only (`refined_idea_to_planning`, `planning_to_plan_drafted`). Do NOT apply epic plan-artifact requirements to issue or bug work handled outside shepherd.
 

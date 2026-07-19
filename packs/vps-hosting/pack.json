@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "slug": "vps-hosting",
+  "name": "VPS Hosting",
+  "description": "AWS VPS infrastructure plus host provisioning, TLS, and firewall operations.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/vps-hosting/README.md",
+      "dependencies": [
+        "pulumi-foundation"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "dns_provider": {
+            "type": "string",
+            "description": "Project value used when installing the VPS Hosting Pack."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Project value used when installing the VPS Hosting Pack."
+          },
+          "project_display_name": {
+            "type": "string",
+            "description": "Project value used when installing the VPS Hosting Pack."
+          },
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the VPS Hosting Pack."
+          },
+          "ssh_host": {
+            "type": "string",
+            "description": "Project value used when installing the VPS Hosting Pack."
+          },
+          "ssh_user": {
+            "type": "string",
+            "description": "Project value used when installing the VPS Hosting Pack."
+          }
+        },
+        "required": [
+          "dns_provider",
+          "domain",
+          "project_display_name",
+          "project_name",
+          "ssh_host",
+          "ssh_user"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/vps-hosting/README.md",
+          "target": "docs/packs/vps-hosting/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_vps_stack.py",
+          "target": "infra/webapp_vps_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/provision-ec2.sh.tmpl",
+          "target": "ops/provision-ec2.sh",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "ops/provision-tls.sh.tmpl",
+          "target": "ops/provision-tls.sh",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "ops/update-firewall.sh.tmpl",
+          "target": "ops/update-firewall.sh",
+          "mode": "0755",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        },
+        {
+          "name": "source-check",
+          "command": "git diff --check -- ops"
+        }
+      ]
+    }
+  }
+}

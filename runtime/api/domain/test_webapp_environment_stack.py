@@ -12,7 +12,7 @@ import json
 import types
 
 from runtime.api.domain.test_webapp_registry_stack import (
-    _load_template_module,
+    _load_pack_module,
     _Recorder,
 )
 
@@ -87,7 +87,7 @@ def _environment_stack(monkeypatch, **arg_overrides):
             "vpsSecurityGroupId": "sg-fake",
         }
     }
-    module = _load_template_module(
+    module = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_environment_stack.py",

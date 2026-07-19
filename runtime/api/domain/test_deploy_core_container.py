@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
+import tempfile
 
 from yoke_core.domain import deploy_core_container
 from yoke_core.domain import deploy_core_container_image
 from yoke_core.domain.deploy_core_container import (
     exec_core_container_deploy,
-    render_service_files,
     RuntimeDatabaseBinding,
 )
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
 from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.tools.test_pulumi_exec_support import (
+    _install_pulumi_project_files,
+)
 
 _BINDING = RuntimeDatabaseBinding(
     host="db.internal",
@@ -49,7 +53,7 @@ def _env(**overrides) -> DeployEnvironment:
 
 
 class TestResolveEnvironmentDsn:
-    def test_render_uses_parent_computed_output_dir(self, monkeypatch):
+    def test_render_uses_project_owned_pulumi_files(self, tmp_path, monkeypatch):
         """The render subprocess writes where THIS process will read.
 
         default_render_output_dir is pid-scoped; without an explicit
@@ -67,67 +71,53 @@ class TestResolveEnvironmentDsn:
             return {"databaseClusterEndpoint": "ep", "databaseSecretArn": "arn"}
 
         monkeypatch.setattr(deploy_core_container, "load_stack_outputs", fake_outputs)
+        settings = object()
+        monkeypatch.setattr(
+            deploy_core_container,
+            "load_project_renderer_settings",
+            lambda project: settings,
+        )
+        monkeypatch.setattr(
+            deploy_core_container,
+            "gather_pulumi_values",
+            lambda project, source_root, loaded_settings, *, pulumi_stack: {},
+        )
+
+        def fake_render(
+            project,
+            values,
+            source_root,
+            output_dir,
+            *_args,
+            **_kwargs,
+        ):
+            captured["source_root"] = source_root
+            (output_dir / "infra").mkdir(parents=True)
+
+        monkeypatch.setattr(
+            deploy_core_container,
+            "render_pulumi_artifacts",
+            fake_render,
+        )
         monkeypatch.setattr(
             deploy_core_container,
             "load_secret_string",
             lambda arn, region, env: '{"username": "u", "password": "p", "port": 5432}',
         )
         runner = FakeRunner([CommandResult(0, "", "")])
-        dsn, outputs = resolve_environment_dsn(runner, _env(), {}, emit=lambda _l: None)
-        argv = runner.calls[0]["argv"]
-        assert "--output-dir" in argv
-        assert argv[argv.index("--pulumi-stack") + 1] == "yoke-prod"
-        out_dir = Path(argv[argv.index("--output-dir") + 1])
-        assert captured["infra_dir"] == out_dir / "infra"
+        project_root = _install_pulumi_project_files(tmp_path)
+        dsn, outputs = resolve_environment_dsn(
+            runner,
+            _env(),
+            {},
+            repo_path=project_root,
+            emit=lambda _l: None,
+        )
+        assert captured["infra_dir"].name == "infra"
+        assert captured["source_root"] == project_root
+        assert not runner.calls
         assert "host=ep" in dsn and "dbname=yoke_prod" in dsn
         assert outputs["databaseClusterEndpoint"] == "ep"
-
-
-class TestRenderServiceFiles:
-    def test_compose_pins_image_loopback_port_and_awslogs(self):
-        compose, nginx, env_file = render_service_files(
-            _env(), _env().image_ref("abc123def456"), _BINDING
-        )
-        assert (
-            "image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:abc123def456"
-            in compose
-        )
-        assert '"127.0.0.1:8765:8765"' in compose
-        assert "driver: awslogs" in compose
-        assert 'awslogs-group: "/yoke/prod/core"' in compose
-        assert 'awslogs-region: "us-east-1"' in compose
-        assert "container_name: yoke-core" in compose
-
-    def test_compose_does_not_mount_static_dsn_file(self):
-        compose, _, _ = render_service_files(_env(), "img:tag", _BINDING)
-        assert "/run/yoke/dsn" not in compose
-        assert "./dsn:" not in compose
-
-    def test_nginx_proxies_origin_port_to_container(self):
-        _, nginx, _ = render_service_files(_env(), "img:tag", _BINDING)
-        assert "listen 80 default_server;" in nginx
-        assert "server_name origin.example.com api.example.com;" in nginx
-        assert "client_max_body_size" in nginx
-        assert "proxy_pass http://127.0.0.1:8765;" in nginx
-
-    def test_env_file_points_at_managed_secret_never_raw_password(self):
-        _, _, env_file = render_service_files(_env(), "img:tag", _BINDING)
-        assert "YOKE_DB_SECRET_ARN=arn:aws:secretsmanager" in env_file
-        assert "YOKE_DB_SECRET_REGION=us-east-1" in env_file
-        assert "YOKE_DB_HOST=db.internal" in env_file
-        assert "YOKE_DB_NAME=yoke_prod" in env_file
-        assert "YOKE_PG_DSN" not in env_file
-        assert "password" not in env_file.lower()
-        assert "YOKE_ENVIRONMENT=prod" in env_file
-        assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in env_file
-
-    def test_env_file_adds_otel_endpoint_when_configured(self):
-        _, _, env_file = render_service_files(
-            _env(otel_exporter_endpoint="https://otel.example"),
-            "img:tag",
-            _BINDING,
-        )
-        assert "OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.example" in env_file
 
 
 _PRIOR_IMAGE = "123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:prior123"
@@ -182,7 +172,20 @@ def patch_executor_boundaries(monkeypatch, env):
     monkeypatch.setattr(
         deploy_core_container,
         "resolve_environment_database_binding",
-        lambda runner, env_, aws_env, emit: (_BINDING, {}),
+        lambda runner, env_, aws_env, *, repo_path, emit: (_BINDING, {}),
+    )
+    source = Path(tempfile.mkdtemp(prefix="yoke-service-project-"))
+    pack_root = Path(__file__).resolve().parents[3] / "packs"
+    for slug in ("container-runtime", "host-maintenance"):
+        shutil.copytree(
+            pack_root / slug / "versions/1.0.0/files",
+            source,
+            dirs_exist_ok=True,
+        )
+    monkeypatch.setattr(
+        deploy_core_container,
+        "_project_source_root",
+        lambda project, repo_path="": source,
     )
     monkeypatch.setattr(
         deploy_core_container_image,

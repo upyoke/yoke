@@ -168,16 +168,16 @@ def test_network_unreachable_step_requires_typed_envelope(tmp_path) -> None:
     assert any("https_transport_failed" in f for f in untyped["failures"])
 
 
-def test_templates_list_product_client_rejects_import_crashes(tmp_path) -> None:
+def test_packs_list_product_client_rejects_import_crashes(tmp_path) -> None:
     ctx = make_ctx(tmp_path)
-    expected = "error: could not fetch https://127.0.0.1:1/v1/templates"
-    entry = steps.step_templates_list_product_client(ctx, FakeRunner({
-        steps.STEP_TEMPLATES_LIST_PRODUCT: [(1, "", expected)],
+    expected = "error: https_transport_failed: connection refused"
+    entry = steps.step_packs_list_product_client(ctx, FakeRunner({
+        steps.STEP_PACKS_LIST_PRODUCT: [(1, "", expected)],
     }))
     assert entry["status"] == steps.STATUS_PASS
 
-    import_crash = steps.step_templates_list_product_client(ctx, FakeRunner({
-        steps.STEP_TEMPLATES_LIST_PRODUCT: [
+    import_crash = steps.step_packs_list_product_client(ctx, FakeRunner({
+        steps.STEP_PACKS_LIST_PRODUCT: [
             (1, "", "ModuleNotFoundError: No module named 'yoke_core'"),
         ],
     }))
@@ -280,8 +280,8 @@ def test_execute_steps_offline_happy_path_report(tmp_path) -> None:
             (1, status_payload(False, ("credential_missing",)), ""),
         ],
         steps.STEP_NETWORK_UNREACHABLE: [(0, "{}", ""), (1, envelope, "")],
-        steps.STEP_TEMPLATES_LIST_PRODUCT: [
-            (1, "", "could not fetch https://127.0.0.1:1/v1/templates"),
+        steps.STEP_PACKS_LIST_PRODUCT: [
+            (1, "", "https_transport_failed: connection refused"),
         ],
         steps.STEP_UNKNOWN_ENV: [
             (1, status_payload(False, ("active_env",),
@@ -297,7 +297,7 @@ def test_execute_steps_offline_happy_path_report(tmp_path) -> None:
         steps.STEP_WRITER_BOOTSTRAP,
         steps.STEP_MISSING_CREDENTIAL,
         steps.STEP_NETWORK_UNREACHABLE,
-        steps.STEP_TEMPLATES_LIST_PRODUCT,
+        steps.STEP_PACKS_LIST_PRODUCT,
         steps.STEP_RELAY_DENIAL,
         steps.STEP_UNKNOWN_ENV,
         steps.STEP_BROWSER_HYGIENE,

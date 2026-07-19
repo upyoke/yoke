@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "slug": "domain-cdn-edge",
+  "name": "Domain and CDN Edge",
+  "description": "Domain, DNS, API edge, CloudFront distribution, and cache invalidation.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/domain-cdn-edge/README.md",
+      "dependencies": [
+        "pulumi-foundation"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/domain-cdn-edge/README.md",
+          "target": "docs/packs/domain-cdn-edge/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/Pulumi.domain-stack.yaml.tmpl",
+          "target": "infra/Pulumi.domain-stack.yaml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "infra/webapp_api_stack.py",
+          "target": "infra/webapp_api_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_distribution_github_variables.py",
+          "target": "infra/webapp_distribution_github_variables.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_distribution_stack.py",
+          "target": "infra/webapp_distribution_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_dns_records.py",
+          "target": "infra/webapp_dns_records.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_domain_stack.py",
+          "target": "infra/webapp_domain_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_infra_stack.py",
+          "target": "infra/webapp_infra_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/cloudfront_invalidate.py",
+          "target": "ops/cloudfront_invalidate.py",
+          "mode": "0755",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        }
+      ]
+    }
+  }
+}

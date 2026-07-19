@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "slug": "host-maintenance",
+  "name": "Host Maintenance",
+  "description": "Docker image cleanup and recurring VPS maintenance convergence.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/host-maintenance/README.md",
+      "dependencies": [
+        "container-runtime"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Host Maintenance Pack."
+          },
+          "ssh_host": {
+            "type": "string",
+            "description": "Project value used when installing the Host Maintenance Pack."
+          },
+          "ssh_user": {
+            "type": "string",
+            "description": "Project value used when installing the Host Maintenance Pack."
+          }
+        },
+        "required": [
+          "project_name",
+          "ssh_host",
+          "ssh_user"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/host-maintenance/README.md",
+          "target": "docs/packs/host-maintenance/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/host-maintenance/setup.md",
+          "target": "docs/packs/host-maintenance/setup.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/docker_image_cleanup.py",
+          "target": "ops/docker_image_cleanup.py",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "ops/docker_maintenance_converge.py",
+          "target": "ops/docker_maintenance_converge.py",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "ops/setup-vps-maintenance.sh.tmpl",
+          "target": "ops/setup-vps-maintenance.sh",
+          "mode": "0755",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q ops"
+        }
+      ]
+    }
+  }
+}

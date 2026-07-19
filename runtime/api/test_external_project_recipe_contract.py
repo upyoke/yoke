@@ -86,20 +86,23 @@ def test_atlas_names_real_pulumi_client_local_source_owners() -> None:
         assert owner in atlas
 
 
-def test_webapp_deploy_templates_use_capability_owned_pulumi_bootstrap() -> None:
+def test_pack_docs_use_capability_owned_pulumi_bootstrap() -> None:
     paths = (
-        REPO / "templates" / "webapp" / "SETUP-DEPLOYMENT.md",
-        REPO / "templates" / "webapp" / "ops" / "DEPLOY.md",
-        REPO / "templates" / "webapp" / "ops" / "DEPLOY-CHECKLIST.md",
+        REPO / "packs" / "pulumi-foundation" / "versions" / "1.0.0"
+        / "files" / "docs" / "packs" / "pulumi-foundation" / "environment.md",
+        REPO / "packs" / "production-deploy" / "versions" / "1.0.0"
+        / "files" / "docs" / "packs" / "production-deploy" / "setup.md",
+        REPO / "packs" / "production-deploy" / "versions" / "1.0.0"
+        / "files" / "docs" / "packs" / "production-deploy" / "checklist.md",
     )
     for path in paths:
         text = path.read_text(encoding="utf-8")
-        assert "yoke pulumi exec --project {{project_name}} --stack" in text
-        assert "-- init --secrets-provider 'awskms://" in text
+        assert "yoke pulumi exec --project <project> --stack" in text
         assert "-- preview" in text
         assert "-- up --yes --non-interactive" in text
         assert "AWS_PROFILE=" not in text
     combined = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+    assert "-- init --secrets-provider 'awskms://" in combined
     assert "0700" in combined
     assert "typed operator-state" in combined
     assert "No repo-local infrastructure checkout" in combined

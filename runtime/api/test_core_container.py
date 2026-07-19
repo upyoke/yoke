@@ -235,18 +235,16 @@ def test_git_archive_metadata_is_exported_for_image_wheel_versions() -> None:
 
 
 def test_dockerfile_ships_declared_server_tree_bundle_sources() -> None:
-    """Bundle routes read repo-root sources the wheel cannot carry.
+    """Pack and agent routes read repo-root sources the wheel cannot carry.
 
-    install-bundle and template routes resolve skills/templates/adapters
+    Install-bundle and Pack routes resolve skills/Packs/adapters
     from ``server_tree_root()``; in the container that root is the
     declared ``YOKE_SERVER_TREE_ROOT`` tree, COPYed with repo layout.
-    Live regression: prod 500 on ``GET /v1/templates`` because the image
-    carried only the wheel (field-note evidence, run-20260611-003).
     """
     dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "YOKE_SERVER_TREE_ROOT=/srv/yoke-tree" in dockerfile
-    assert "COPY templates /srv/yoke-tree/templates" in dockerfile
+    assert "COPY packs /srv/yoke-tree/packs" in dockerfile
     assert "COPY .agents /srv/yoke-tree/.agents" in dockerfile
     assert (
         "COPY runtime/harness/claude/agents "

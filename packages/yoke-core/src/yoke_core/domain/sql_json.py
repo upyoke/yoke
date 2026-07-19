@@ -58,6 +58,7 @@ JSONB_COLUMNS: Mapping[str, Tuple[str, ...]] = {
     "path_context_values": ("value",),
     "function_call_ledger": ("result",),
     "github_workflow_dispatch_intents": ("inputs",),
+    "pack_catalog": ("dependencies_json",),
 }
 
 

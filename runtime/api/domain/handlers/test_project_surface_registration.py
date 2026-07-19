@@ -1,4 +1,4 @@
-"""Registration coverage for project infrastructure and artifact surfaces."""
+"""Registration coverage for project infrastructure and Pack surfaces."""
 
 from __future__ import annotations
 
@@ -21,8 +21,9 @@ def test_projects_infrastructure_list_handler_registered() -> None:
     assert "projects.infrastructure.list" in ids
 
 
-def test_project_artifact_handlers_registered() -> None:
+def test_pack_handlers_are_registered() -> None:
     init_register.register_all_handlers()
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
-    assert "projects.artifacts.render" in ids
-    assert "project.artifacts.refresh" in ids
+    assert {
+        "packs.catalog.list", "packs.bundle.get", "packs.project.report",
+    } <= ids

@@ -218,7 +218,7 @@ export type UniverseRouteView =
   | "overview" | "inbox" | "strategy" | "frontier" | "items"
   | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events"
   | "doctor" | "ouroboros" | "projects" | "access" | "members" | "billing"
-  | "templates" | "github" | "project" | "organization";
+  | "packs" | "github" | "project" | "organization";
 
 /**
  * A view's optional second route segment means what the view declares — a

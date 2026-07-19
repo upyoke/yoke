@@ -14,27 +14,40 @@ from __future__ import annotations
 PROJECT_COMMANDS: list[dict] = [
     {
         "topic": "project",
-        "purpose": "Preview, apply, or verify managed rendered artifacts",
+        "purpose": "List available, installed, and stale project Packs",
+        "recipe": "yoke packs list --project <project> [--json]",
+        "notes": (
+            "Registered read packs.catalog.list works over HTTPS, self-hosted, "
+            "and local transports. Repository .yoke/packs.json is authority; "
+            "the DB row is a timestamped UI/search projection and may be stale."
+        ),
+    },
+    {
+        "topic": "project",
+        "purpose": "Preview or install one reusable project capability",
         "recipe": (
-            "yoke project artifacts refresh <checkout> --project <project> "
-            "[--apply | --verify | --adopt-existing]"
+            "yoke packs get <pack> <checkout> --project <project> "
+            "[--version <version>] [--apply]"
         ),
         "notes": (
-            "Preview is default. projects.artifacts.render works over HTTPS "
-            "or self-host and renders packaged webapp templates from DB "
-            "settings. The client binds project id first; a verified repo also "
-            "requires matching origin, then full manifest/path/symlink "
-            "preflight. Apply preserves/refuses deviations; --verify gates "
-            "external drift. .yoke/runbooks stay project-owned; generic refs "
-            "land in docs/yoke-generated/deployment-reference/. Pulumi stack "
-            "YAML/operator state stay stack-scoped. DB-backed project-policy "
-            "artifact_refresh.enabled=false plus a reason makes all modes a "
-            "clean post-identity no-op for project-owned release factories. "
-            "For a legacy rendered checkout with no artifact manifest, "
-            "--adopt-existing records current managed-path bytes without "
-            "replacing them; preview/apply then performs the visible template "
-            "reconciliation and protects any intervening local edits. "
-            "`yoke project refresh` is substrate-only."
+            "Preview is default. Apply installs the selected Pack and any "
+            "missing declared dependencies, writes ordinary project-owned "
+            "source, and records the result in .yoke/packs.json. Projects are "
+            "expected to customize the installed code."
+        ),
+    },
+    {
+        "topic": "project",
+        "purpose": "Preview or update one installed project Pack",
+        "recipe": (
+            "yoke packs update <pack> <checkout> --project <project> "
+            "[--version <version>] [--apply]"
+        ),
+        "notes": (
+            "Preview is default. Update reconstructs the old immutable Pack "
+            "version and three-way-merges the new version with project "
+            "customizations. Overlapping edits are explicit conflicts; removed "
+            "upstream files are retained and unrelated project files are ignored."
         ),
     },
     {

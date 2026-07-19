@@ -81,7 +81,7 @@ def test_similar_names_strings_and_comments_pass(tmp_path: Path) -> None:
 def test_unparseable_source_falls_back_to_line_scan(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "templates/webapp/service.py",
+        "packs/example/versions/1.0.0/files/service.py",
         "def {{handler_name}}():\n"
         f"    import {NS}\n"
         f"    import {NS}_adjacent\n",
@@ -90,7 +90,7 @@ def test_unparseable_source_falls_back_to_line_scan(tmp_path: Path) -> None:
     findings = hc.scan_python_imports(tmp_path)
 
     assert [(f.relpath, f.line_no) for f in findings] == [
-        ("templates/webapp/service.py", 2),
+        ("packs/example/versions/1.0.0/files/service.py", 2),
     ]
 
 

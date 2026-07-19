@@ -3,6 +3,26 @@
 from __future__ import annotations
 
 import types
+from pathlib import Path
+
+from yoke_core.domain.pack_catalog import (
+    list_pack_descriptors,
+    pack_version_root,
+)
+
+
+def _pack_program_source(filename: str) -> Path:
+    """Resolve the one latest Pack that owns an infrastructure program file."""
+
+    matches = []
+    for descriptor in list_pack_descriptors():
+        candidate = pack_version_root(descriptor["slug"]) / "infra" / filename
+        if candidate.is_file():
+            matches.append(candidate)
+    assert len(matches) == 1, (
+        f"expected one latest Pack to own infra/{filename}, found {matches}"
+    )
+    return matches[0]
 
 
 class _FakeOutput:

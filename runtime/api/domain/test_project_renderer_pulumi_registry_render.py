@@ -13,7 +13,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
 @pytest.fixture
 def registry_tree(tmp_path):
     root = tmp_path / "repo"
-    infra = root / "templates" / "webapp" / "infra"
+    infra = root / "infra"
     infra.mkdir(parents=True)
     (infra / "Pulumi.yaml").write_text("name: webapp-infra\nruntime:\n  name: python\n")
     (infra / "Pulumi.stack.yaml.tmpl").write_text(

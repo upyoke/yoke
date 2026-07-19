@@ -29,7 +29,6 @@ from yoke_core.domain.project_github_auth import (
     repair_command_hint,
     resolve_project_github_auth,
 )
-from yoke_core.domain.project_renderer import default_render_output_dir
 from yoke_core.domain.project_renderer_settings import project_primary_domain_name
 
 
@@ -224,12 +223,11 @@ def run_preflight(ctx: BootstrapContext) -> int:
                 fail_count += 1
                 _print_fail(
                     f"Wildcard TLS certificate not found on VPS for {domain}",
-                    "Provision a wildcard cert using the provision-tls template:",
-                    "  1. Render the ops scripts locally (gitignored outputs):",
-                    f"     python3 -m yoke_core.tools.render_project {project} --write --only ops",
+                    "Provision a wildcard cert using the VPS Hosting Pack:",
+                    "  1. Get or update vps-hosting in the project checkout:",
+                    f"     yoke packs get vps-hosting /path/to/project --project {project} --apply",
                     "  2. Copy provision-tls.sh to the VPS:",
-                    "     scp "
-                    f"{default_render_output_dir(project, create=False) / 'ops' / 'provision-tls.sh'} "
+                    "     scp /path/to/project/ops/provision-tls.sh "
                     f"{ssh_user}@{ssh_host}:~/provision-tls.sh",
                     "  3. Create DNS credentials on the VPS:",
                     f"     ssh {ssh_user}@{ssh_host} 'sudo mkdir -p /etc/letsencrypt && echo \"dns_digitalocean_token = YOUR_TOKEN\" | sudo tee /etc/letsencrypt/dns-credentials.ini && sudo chmod 600 /etc/letsencrypt/dns-credentials.ini'",

@@ -46,7 +46,7 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 
 ### idea
 
-Create a new backlog item. Infers type, priority, project, deployment flow, dependencies, and template-propagation stance from context; assigns the next `YOK-N` ID through the idea-intake creation path; then writes the body additively and syncs it to the linked GitHub issue when body content exists.
+Create a new backlog item. Infers type, priority, project, deployment flow, dependencies, and Pack-reuse stance from context; assigns the next `YOK-N` ID through the idea-intake creation path; then writes the body additively and syncs it to the linked GitHub issue when body content exists.
 
 **Phase files:** `idea/infer-and-create.md` (field inference, cross-project gate, dedup, creation, dependency persistence) and `idea/body-and-sync.md` (mandatory body write, AC normalization, verification, GitHub body sync).
 
@@ -58,7 +58,7 @@ Advance an epic from `refined-idea` to `planned` through quality-gated transitio
 
 **Transition routing:**
 - `refined_idea_to_planning` -- PM spec-writing gate (invoked when the spec lacks required PRD sections) + Architect decomposes into epic tasks or produces a lightweight technical plan. Simulator runs the plan-phase simulation with the auto-fix loop (max 2 cycles).
-- `planning_to_plan_drafted` -- No worker; runs quality gates (missing AC hard-block, missing deployment flow hard-block, template-propagation stance advisory for non-yoke items, vague AC advisory, scope overlap advisory, epic task independence advisory), then Boss final review.
+- `planning_to_plan_drafted` -- No worker; runs quality gates (missing AC hard-block, missing deployment flow hard-block, Pack-reuse stance advisory for non-yoke items, vague AC advisory, scope overlap advisory, epic task independence advisory), then Boss final review.
 
 **Resume support:** Queries `shepherd_verdicts` table. Completed (READY/CAVEATS/SKIPPED) transitions are skipped. BLOCKED transitions halt. NOT_READY transitions resume at the next attempt (max 3). Re-anchoring blocks between transitions prevent context pollution from instruction-like spec bodies.
 

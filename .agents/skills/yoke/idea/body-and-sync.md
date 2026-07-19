@@ -18,7 +18,7 @@ You may add structure, headings, cross-references, or clarifying notes. You must
 
 Every new body carries a `## Simplify Pre-Check` block applying the simplify three-axis vocabulary at the idea stage. The vocabulary lives in `AGENTS.md`'s `## Simplify — three-axis doctrine` section: **reuse**, **quality**, **efficiency**. The pre-check is **advisory, not a blocker** — its structural presence at intake matters more than its depth. A one-line "no concerns" entry under each axis is a valid first pass.
 
-- **Reuse** — does an existing ticket, completed feature, template, helper, skill, or command surface already cover this outcome? If unsure, name what was searched.
+- **Reuse** — does an existing ticket, completed feature, Pack, helper, skill, or command surface already cover this outcome? If unsure, name what was searched.
 - **Quality** — is this one concrete outcome, or a bundle that should split or become an epic? Are there explicit non-goals that prevent scope creep?
 - **Efficiency** — is this speculative transitional work ("do X so maybe later we can do Y") when Y is not committed? Or the cheapest valuable path?
 - **Future-concept lens** — if the idea mentions actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, runs, journals, packets, locks, or shared-state coordination, should it consume/pull forward an end-state primitive instead of creating a temporary local surface?
@@ -110,7 +110,7 @@ place.
 
    The body content is the same per-section composition the prior
    choreography emitted (title + verbatim user content + the
-   `## Template Propagation` block when `_template_stance` is non-empty).
+   `## Pack Reuse` block when `_pack_stance` is non-empty).
    The handler enforces the empty-payload / shrinkage / freeze guards
    and emits `YokeFunctionCalled` plus the field-specific update event.
    Operator/debug adapter: Write the body to a local artifact via the harness Write tool, then `yoke items structured-field replace YOK-{id-number} --field spec --source idea --stdin < <artifact-path>` (inline shell payloads are denied by `lint_shell_quoted_function_payload`).

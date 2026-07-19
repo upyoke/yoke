@@ -3,11 +3,10 @@
 Single Python owner of the deterministic conventions every ephemeral
 surface shares — the branch slug, the hash-derived port, the compose
 project name, the per-slug deploy directory, and the preview URL. The
-nginx njs router (``templates/webapp/ops/ephemeral_port.js``) and the
-GitHub-Actions prepare job (``templates/webapp/ops/ephemeral-deploy.yml``)
-ship the same algorithm to runtimes where Python is absent; this module
-is the source of truth they must match (locked by golden-vector tests in
-``test_ephemeral_substrate.py``).
+nginx njs router and GitHub Actions prepare job installed by the
+``ephemeral-environments`` Pack ship the same algorithm to runtimes where
+Python is absent; this module is the source of truth they must match (locked
+by golden-vector tests in ``test_ephemeral_substrate.py``).
 
 Per-project policy lives in the ``ephemeral-env`` project capability:
 which environment's origin box hosts the previews (``host_env``), the
@@ -35,7 +34,7 @@ _CAPABILITY_HINT = (
     "capability-set-settings --base/--new)"
 )
 
-#: Universal defaults matching the webapp template fallbacks.
+#: Universal defaults matching the ephemeral-environments Pack fallbacks.
 _DEFAULT_WEB_BASE_PORT = 4000
 _DEFAULT_API_BASE_PORT = 9000
 _DEFAULT_PORT_RANGE = 100
