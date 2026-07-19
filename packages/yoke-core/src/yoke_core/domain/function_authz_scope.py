@@ -135,7 +135,11 @@ _BY_ID: dict[str, AuthzSpec] = {
         PERM_PROJECT_ADMIN,
     ),
     "projects.github_binding.unbind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "projects.github_binding.status": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    # Repository binding status contains project identity and non-secret App
+    # metadata needed by both human viewers and infrastructure renderers.  The
+    # handler constrains numeric actors to their visible projects, matching
+    # projects.get without granting a CI role access to backlog items.
+    "projects.github_binding.status": AuthzSpec(ACTOR_SESSION, None),
     "project.snapshot.sync": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "deployment_flows.reconcile_project": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "packs.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
