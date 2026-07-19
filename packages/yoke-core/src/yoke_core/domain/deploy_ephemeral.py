@@ -32,6 +32,7 @@ CLI::
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import sys
 import uuid
 from typing import Callable, Optional
@@ -133,6 +134,12 @@ def exec_ephemeral_deploy(
                 "worktree branch) or pass --branch to "
                 "python3 -m yoke_core.domain.deploy_ephemeral"
             )
+        project_root = Path(repo_path).expanduser().resolve()
+        if not repo_path or not project_root.is_dir():
+            raise EphemeralDeployError(
+                "[ephemeral] a valid project repo path is required for "
+                "project-owned Pack files"
+            )
         policy = load_ephemeral_policy(project)
         env = resolve_deploy_environment(policy.project, policy.host_env)
         if env.activation_state == "render_only":
@@ -163,13 +170,15 @@ def exec_ephemeral_deploy(
         routing = routing_values(policy)
         ensure_preview_routing(
             runner, env,
-            render_webapp_template("ops/nginx-ephemeral.conf", routing),
-            render_webapp_template("ops/ephemeral_port.js", routing),
+            render_webapp_template(
+                project_root, "ops/nginx-ephemeral.conf", routing
+            ),
+            render_webapp_template(project_root, "ops/ephemeral_port.js", routing),
             emit,
         )
         ensure_cleanup_cron(
             runner, env,
-            render_webapp_template("ops/ephemeral-cleanup.sh.tmpl", routing),
+            render_webapp_template(project_root, "ops/ephemeral-cleanup.sh", routing),
             emit,
         )
 
@@ -178,7 +187,13 @@ def exec_ephemeral_deploy(
             or generate_db_password()
         )
         compose_yaml, env_file, dsn = slug_files(
-            policy, env, slug, image_ref, api_port, db_password
+            policy,
+            env,
+            slug,
+            image_ref,
+            api_port,
+            db_password,
+            project_root=project_root,
         )
         track(
             policy.project, branch,

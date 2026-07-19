@@ -1,15 +1,12 @@
-"""Value-gathering helpers for the project template renderer.
+"""Collect project values used by Pack installation and Pulumi execution.
 
-Resolves the repo root and collects template variables from the DB-backed cloud-runtime
-settings homes: ``projects``, ``sites.settings``, ``environments.settings``,
-and ``project_capabilities.settings``. The parent module ``project_renderer``
-consumes ``gather_values`` from its ``render_project`` orchestrator.
+Values come from the DB-backed cloud-runtime settings homes: ``projects``,
+``sites.settings``, ``environments.settings``, and
+``project_capabilities.settings``.
 """
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -29,18 +26,7 @@ CONFIGURE_AWS_CREDENTIALS_ACTION = (
     "aws-actions/configure-aws-credentials@"
     "517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2"
 )
-
-
-def _resolve_project_root() -> Path:
-    """Resolve the repo root via ``git rev-parse --show-toplevel``."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        print("Error: not in a git repository", file=sys.stderr)
-        sys.exit(1)
-    return Path(result.stdout.strip())
+CHECKOUT_ACTION = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0"
 
 
 def _json_field(data: Dict[str, Any], field: str) -> str:
@@ -56,7 +42,9 @@ def _csv(value: Any) -> str:
 
 
 def _cap_settings_query(
-    project: str, cap_type: str, script_dir: Path | None = None,
+    project: str,
+    cap_type: str,
+    script_dir: Path | None = None,
 ) -> Dict[str, Any]:
     """Query ``project_capabilities.settings`` directly from the DB."""
     del script_dir
@@ -70,7 +58,8 @@ def _project_display_name(project: str, script_dir: Path | None = None) -> str:
 
 
 def _values_from_settings(
-    project: str, settings: ProjectRendererSettings,
+    project: str,
+    settings: ProjectRendererSettings,
 ) -> Dict[str, str]:
     domain_entry = primary_domain(settings)
     site_cdn = _first_mapping(settings.site_settings.get("cdn"))
@@ -108,12 +97,14 @@ def _values_from_settings(
         "PROJECT_NAME_UPPER": project_name.upper(),
         "project_description": "",
         "project_name": project_name,
+        "project_slug": project_name,
         # Stable AWS-resource naming input (defaults to the project slug). The
         # pulumi stacks name every resource under this, NOT the live project
         # slug, so a re-parent to a differently-named project renames nothing.
         "deploy_namespace": settings.deploy_namespace,
         "cloudfront_domain": cloudfront_domain,
         "cloudfront_id": cloudfront_id,
+        "checkout_action": CHECKOUT_ACTION,
         "configure_aws_credentials_action": CONFIGURE_AWS_CREDENTIALS_ACTION,
         "certificate_arn": _stringify(domain_entry.get("certificate_arn"), "TODO"),
         "hosted_zone_id": _stringify(domain_entry.get("hosted_zone_id"), "TODO"),
@@ -128,20 +119,24 @@ def _values_from_settings(
         "web_port": _stringify(runtime_settings.get("web_port"), "3000"),
         "api_port": _stringify(runtime_settings.get("api_port"), "8000"),
         "ephemeral_ttl_hours": _stringify(
-            ephemeral_settings.get("ttl_hours"), "24",
+            ephemeral_settings.get("ttl_hours"),
+            "24",
         ),
         "web_health_path": _stringify(health_settings.get("health_path"), "/"),
         "web_smoke_paths": _csv(health_settings.get("smoke_paths")),
         "domain": domain_name,
         "api_port_base": _stringify(
-            ephemeral_settings.get("api_base_port"), "9000",
+            ephemeral_settings.get("api_base_port"),
+            "9000",
         ),
         "port_base": _stringify(
-            ephemeral_settings.get("web_base_port"), "4000",
+            ephemeral_settings.get("web_base_port"),
+            "4000",
         ),
         "port_range": _stringify(ephemeral_settings.get("port_range"), "100"),
         "dns_provider": _stringify(
-            domain_entry.get("dns_provider"), "digitalocean",
+            domain_entry.get("dns_provider"),
+            "digitalocean",
         ),
     }
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -18,6 +17,9 @@ from yoke_core.domain.project_renderer_pulumi_scoped import (
 from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     RendererEnvironmentSettings,
+)
+from runtime.api.tools.test_pulumi_exec_support import (
+    _install_pulumi_project_files,
 )
 
 
@@ -240,13 +242,14 @@ def test_stack_config_projects_environment_declared_standalone_vps(
     assert "site_settings" not in payload
     stack_path = render_scoped_pulumi_config(
         payload,
-        project_root=Path(__file__).resolve().parents[3],
+        project_root=_install_pulumi_project_files(tmp_path),
         output_dir=tmp_path / stack,
     )
     rendered = stack_path.read_text()
     assert f"webapp-infra:vps_instance_type: {instance_type}" in rendered
     assert f'webapp-infra:vps_root_volume_gb: "{root_volume_gb}"' in rendered
     assert f"webapp-infra:vps_ssh_key_name: {key_name}" in rendered
+    assert (stack_path.parent / "webapp_component_aliases.py").is_file()
 
 
 def test_stack_config_rejects_unknown_and_missing_vps_operator_state(monkeypatch):

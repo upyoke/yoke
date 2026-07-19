@@ -31,7 +31,7 @@ If the project checkout or checklist run id cannot be resolved, ask the operator
 - Checklist authority is `yoke onboard checklist --run-id {run_id} --json`. Do not treat project-local checklist Markdown as authority.
 - Install evidence is the existing `yoke project install` report from handoff or `--install-report`. Use it to understand what setup already wrote, preserved, skipped, or warned about.
 - The generated board view is read-only. Do not edit `.yoke/BOARD.md`.
-- Do not write project-local runtime, browser, or core implementation files during onboarding. Project adoption writes go through Yoke CLI surfaces below.
+- Do not hand-write project-local runtime, browser, or core implementation files during onboarding. Reusable capability code lands only through the preview-first Pack surfaces below; all other project-adoption writes use their named Yoke CLI surfaces.
 
 ## Row Updates
 
@@ -149,10 +149,12 @@ yoke onboard checklist --run-id {run_id} \
 
 Documentation/context setup:
 
-Use `yoke templates list --json` to inspect reusable template material. For web applications, fetch the product-safe webapp template with `yoke templates fetch webapp --dest <scratch-dir>` and apply durable docs through strategy docs, Project Structure, or project-owned tracked docs as appropriate; do not hand-edit generated board/runtime state. Templates marked `source-dev/admin` are source-development material, not normal external-project onboarding inputs; `yoke templates fetch --source-dev-admin` is reserved for operator-approved source-dev/admin flows.
+Use `yoke packs list --project {project} --json` to inspect reusable capabilities. Preview each relevant Pack against the target checkout before applying it; do not force conflicts or install unrelated Packs. Pack output becomes ordinary project-owned source, customization is expected, and `.yoke/packs.json` records the applied baseline for independent future updates.
 
 ```bash
-yoke templates list --json
+yoke packs list --project {project} --json
+yoke packs get {pack} {project_root} --project {project}
+yoke packs get {pack} {project_root} --project {project} --apply
 yoke onboard checklist --run-id {run_id} \
   --row-status documentation-context-setup=configured \
   --evidence documentation-context-setup="runbooks/context docs configured through sanctioned surfaces"
@@ -187,7 +189,7 @@ Never print raw secret values. Record redacted evidence only.
 
 Delivery settings:
 
-Use Project Structure rows, strategy docs, and available templates to capture sites, environments, flows, deploy/runbooks, and automation settings. If a required delivery CLI surface is missing, file a field-note before choosing a fallback.
+Use Project Structure rows, strategy docs, installed Pack guidance, and project-owned docs to capture sites, environments, flows, deploy/runbooks, and automation settings. If a required delivery CLI surface is missing, file a field-note before choosing a fallback.
 
 ```bash
 yoke projects infrastructure list --project {project} --json

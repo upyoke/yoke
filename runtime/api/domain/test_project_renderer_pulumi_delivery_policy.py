@@ -32,23 +32,18 @@ def test_delivery_ci_cloudfront_id_does_not_require_distribution_bucket(tmp_path
 
 
 def test_list_cdn_distribution_flows_to_exact_delivery_policy(tmp_path):
-    base = _settings_from_context(
-        "externalwebapp", {"projectName": "externalwebapp"}
-    )
+    base = _settings_from_context("externalwebapp", {"projectName": "externalwebapp"})
     base.site_settings["cdn"] = [{"distribution_id": "ELISTSHAPED"}]
     root = _make_project_root(tmp_path, "externalwebapp")
 
-    values = project_renderer_pulumi.gather_pulumi_values(
-        "externalwebapp", root, base
-    )
+    values = project_renderer_pulumi.gather_pulumi_values("externalwebapp", root, base)
     template = (
         Path(__file__).resolve().parents[3]
-        / "templates/webapp/infra/Pulumi.registry-stack.yaml.tmpl"
+        / "packs/registry-oidc/versions/1.0.0/files/infra"
+        / "Pulumi.registry-stack.yaml.tmpl"
     )
     rendered = render_pulumi_stack_yaml(template, values)
-    distribution_ids = json.loads(
-        values["delivery_cloudfront_distribution_ids_json"]
-    )
+    distribution_ids = json.loads(values["delivery_cloudfront_distribution_ids_json"])
     policy_path = template.parent / "webapp_registry_ci_policy.py"
     policy = json.loads(
         runpy.run_path(policy_path)["delivery_policy_json"](
@@ -65,8 +60,27 @@ def test_list_cdn_distribution_flows_to_exact_delivery_policy(tmp_path):
 
     assert values["cloudfront_id"] == "ELISTSHAPED"
     assert distribution_ids == ["ELISTSHAPED"]
-    assert "webapp-infra:cloudfront_distribution_ids: [\"ELISTSHAPED\"]" in rendered
+    assert 'webapp-infra:cloudfront_distribution_ids: ["ELISTSHAPED"]' in rendered
     by_sid = {statement["Sid"]: statement for statement in policy["Statement"]}
     assert by_sid["InvalidateProjectDistributions"]["Resource"] == [
         "arn:aws:cloudfront::123456789012:distribution/ELISTSHAPED"
     ]
+
+
+def test_all_site_and_capability_distribution_ids_flow_to_delivery_policy(
+    tmp_path,
+):
+    base = _settings_from_context("externalwebapp", {"projectName": "externalwebapp"})
+    base.site_settings["cdn"] = [
+        {"distribution_id": "ESTAGE"},
+        {"distribution_ids": ["EPROD", "ESTAGE"]},
+    ]
+    base.capabilities["domain"] = {"distribution_ids": ["EEXTRA", "EPROD"]}
+
+    result = project_renderer_pulumi.gather_pulumi_values(
+        "externalwebapp", _make_project_root(tmp_path, "externalwebapp"), base
+    )
+
+    assert result["delivery_cloudfront_distribution_ids_json"] == (
+        '["EEXTRA","EPROD","ESTAGE"]'
+    )

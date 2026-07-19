@@ -3,7 +3,7 @@
 ``yoke_core.install_bundle_tree`` is a committed, byte-exact snapshot of the
 repo-root source dirs served through ``server_tree_root()`` — the Yoke skill
 tree, the rendered Claude and Codex agent adapters, the shared Claude session
-rules, and the template library
+rules, and the Pack catalog
 (:data:`install_bundle.INSTALL_BUNDLE_SOURCE_DIRS`). setuptools cannot ship
 files from outside the ``yoke_core`` package as package-data, so the wheel
 carries this in-package copy; :func:`install_bundle.server_tree_root` falls
@@ -73,7 +73,7 @@ def _relative_files(root: Path) -> List[str]:
     ``rglob('*')`` + ``is_file()`` dereferences symlinks, so a symlinked source
     file is enumerated (and later materialized) as a regular file. Cache junk
     (``is_bundle_junk_path``) is excluded so bytecode compiled next to
-    importable template sources never enters the mirror comparison.
+    importable package sources never enters the mirror comparison.
     """
     if not root.is_dir():
         return []

@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "slug": "pulumi-foundation",
+  "name": "Pulumi Foundation",
+  "description": "Pulumi project entrypoint, shared stack composition, aliases, and repository provider.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/pulumi-foundation/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/pulumi-foundation/README.md",
+          "target": "docs/packs/pulumi-foundation/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/pulumi-foundation/environment.md",
+          "target": "docs/packs/pulumi-foundation/environment.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/pulumi-foundation/stacks.md",
+          "target": "docs/packs/pulumi-foundation/stacks.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/Pulumi.environment-stack.yaml.tmpl",
+          "target": "infra/Pulumi.environment-stack.yaml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "infra/Pulumi.stack.yaml.tmpl",
+          "target": "infra/Pulumi.stack.yaml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "infra/Pulumi.yaml",
+          "target": "infra/Pulumi.yaml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/__main__.py",
+          "target": "infra/__main__.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/requirements.txt",
+          "target": "infra/requirements.txt",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_stack_config.py",
+          "target": "infra/webapp_stack_config.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_component_aliases.py",
+          "target": "infra/webapp_component_aliases.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_environment_origin_policy.py",
+          "target": "infra/webapp_environment_origin_policy.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_environment_stack.py",
+          "target": "infra/webapp_environment_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_github_repository_provider.py",
+          "target": "infra/webapp_github_repository_provider.py",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        }
+      ]
+    }
+  }
+}

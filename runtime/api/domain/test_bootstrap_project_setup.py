@@ -22,7 +22,9 @@ from yoke_core.domain.bootstrap_project_test_helpers import (
     bootstrap_seeded_db,
     install_fake_project_github_auth,
     register_bootstrap_backend_checkout,
-    write_fake_rendered_workflows,
+)
+from yoke_core.domain.bootstrap_project_pack_test_helpers import (
+    install_fake_pack_operations,
 )
 
 
@@ -123,9 +125,7 @@ def test_run_setup_resolves_auth_with_active_connection(
     assert seen["required_permissions"] is GITHUB_SECRETS_WRITE_PERMISSION_LEVELS
 
 
-def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, capsys) -> None:
-    # bootstrap_project.run_setup invokes the Python render CLI directly.
-
+def test_run_setup_installs_project_owned_packs(tmp_path: Path, monkeypatch, capsys) -> None:
     repo_path = tmp_path / "externalwebapp-repo"
     repo_path.mkdir()
     ssh_key = tmp_path / ".ssh_key"
@@ -136,17 +136,6 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
         # host gh CLI is never invoked.
         if cmd and cmd[0] == "gh":
             raise AssertionError(f"unexpected gh shell-out: {cmd}")
-        if len(cmd) >= 3 and cmd[1:3] == ["-m", "yoke_core.tools.render_project"]:
-            write_fake_rendered_workflows(cmd)
-            return subprocess.CompletedProcess(cmd, 0, "rendered\n", "")
-        if cmd[:3] == ["git", "status", "--porcelain"]:
-            return subprocess.CompletedProcess(cmd, 0, " M .github/workflows/externalwebapp-deploy.yml\n", "")
-        if cmd[:2] == ["git", "add"]:
-            return subprocess.CompletedProcess(cmd, 0, "", "")
-        if cmd[:2] == ["git", "commit"]:
-            return subprocess.CompletedProcess(cmd, 0, "[main abc123] commit\n", "")
-        if cmd[:3] == ["git", "push", "origin"]:
-            return subprocess.CompletedProcess(cmd, 0, "", "")
         if cmd[:2] == ["ssh-keygen", "-y"]:
             return subprocess.CompletedProcess(cmd, 0, "ssh-rsa AAAA fake\n", "")
         if cmd and cmd[0] == "ssh":
@@ -168,6 +157,7 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
 
         monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", fake_run)
         install_fake_project_github_auth(monkeypatch)
+        pack_calls = install_fake_pack_operations(monkeypatch)
         rest_calls = _install_fake_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
@@ -175,7 +165,14 @@ def test_run_setup_copies_workflows_and_pushes(tmp_path: Path, monkeypatch, caps
         assert (repo_path / ".github" / "workflows" / "externalwebapp-smoke.yml").read_text() == "name: ExternalWebapp Smoke Test\n"
         output = capsys.readouterr().out
         assert "Step 2: Creating GitHub Secrets" in output
-        assert "Push successful" in output
+        assert "Review and commit the project-owned Pack changes" in output
+        assert [call["pack"] for call in pack_calls] == [
+            "production-deploy",
+            "smoke-testing",
+            "ephemeral-environments",
+            "vps-hosting",
+        ]
+        assert all(call["operation"] == "get" for call in pack_calls)
         # The installation token never calls the user-only endpoint, and the
         # least-privilege default skips optional environment administration.
         methods_paths = {(m, p) for m, p in rest_calls}
@@ -197,11 +194,6 @@ def test_run_setup_prints_tls_instructions_when_missing(tmp_path: Path, monkeypa
         # host gh CLI is never invoked.
         if cmd and cmd[0] == "gh":
             raise AssertionError(f"unexpected gh shell-out: {cmd}")
-        if len(cmd) >= 3 and cmd[1:3] == ["-m", "yoke_core.tools.render_project"]:
-            write_fake_rendered_workflows(cmd)
-            return subprocess.CompletedProcess(cmd, 0, "rendered\n", "")
-        if cmd[:3] == ["git", "status", "--porcelain"]:
-            return subprocess.CompletedProcess(cmd, 0, "", "")
         if cmd[:2] == ["ssh-keygen", "-y"]:
             return subprocess.CompletedProcess(cmd, 0, "ssh-rsa AAAA fake\n", "")
         if cmd and cmd[0] == "ssh":
@@ -222,13 +214,12 @@ def test_run_setup_prints_tls_instructions_when_missing(tmp_path: Path, monkeypa
 
         monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", fake_run)
         install_fake_project_github_auth(monkeypatch)
+        install_fake_pack_operations(monkeypatch)
         _install_fake_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
         output = capsys.readouterr().out
         assert "Wildcard TLS certificate needed" in output
-        # The TLS guidance references provision-tls.sh in the scratch-backed
-        # rendered output location.
+        # The TLS guidance references the project-owned file installed by its Pack.
         assert "provision-tls.sh" in output
-        # And the guidance must name the new Python render CLI before the scp step.
-        assert "python3 -m yoke_core.tools.render_project" in output
+        assert str(repo_path / "ops" / "provision-tls.sh") in output

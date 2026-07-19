@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "slug": "managed-database",
+  "name": "Managed Database",
+  "description": "Optional managed PostgreSQL database infrastructure.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/managed-database/README.md",
+      "dependencies": [
+        "pulumi-foundation"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/managed-database/README.md",
+          "target": "docs/packs/managed-database/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_database_stack.py",
+          "target": "infra/webapp_database_stack.py",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        }
+      ]
+    }
+  }
+}

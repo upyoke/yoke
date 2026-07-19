@@ -244,7 +244,7 @@ Query-time time-window predicates route through `yoke_core.domain.time_sql.now_s
 
 Project-configured validation recipes and migration runners live behind
 the `migration_model` `project_capabilities` row. The canonical recipe
-and runner vocabulary, pairing matrix, and webapp template configuration
+and runner vocabulary, pairing matrix, and webapp Pack configuration
 contract are documented at
 [db-reference/migration-model-capabilities.md](db-reference/migration-model-capabilities.md).
 

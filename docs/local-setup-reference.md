@@ -89,6 +89,8 @@ Project-local configuration lives in the project checkout:
 - `.yoke/lint-config` and `.yoke/labels` carry guardrail and label policy.
 - `.yoke/runbooks/` is project-owned onboarding context; `.yoke/strategy/`
   holds untracked rendered views of the DB-authoritative strategy docs.
+- `.yoke/packs.json` records the exact Pack versions and baselines installed
+  in this checkout. It is repository authority for Pack state.
 
 Shared project behavior lives in the Yoke DB, not checkout files:
 
@@ -98,32 +100,37 @@ Shared project behavior lives in the Yoke DB, not checkout files:
 - `session-routing` capability settings own default lanes, lane path
   allowlists, and `/yoke do` process-offer policy.
 
-Managed delivery artifacts have a separate template-render boundary from the
-operating substrate. Preview, apply, and verify them with:
+Reusable project capabilities are separately versioned Packs. Inspect the
+catalog, preview one install or update, and apply only after reviewing its
+exact file plan:
 
 ```bash
-yoke project artifacts refresh /path/to/project --project <slug>
-yoke project artifacts refresh /path/to/project --project <slug> --apply
-yoke project artifacts refresh /path/to/project --project <slug> --verify
+yoke packs list --project <slug>
+yoke packs get <pack> /path/to/project --project <slug>
+yoke packs get <pack> /path/to/project --project <slug> --apply
+yoke packs update <pack> /path/to/project --project <slug>
+yoke packs update <pack> /path/to/project --project <slug> --apply
 ```
 
-The server renders from its active packaged template plus DB-backed project
-settings over HTTPS or self-hosted transport. Before planning, the client
-requires the checkout's installed project id to match the server bundle. When
-the project has a verified repository binding, its live Git origin must also
-match exactly; local/offline projects without that optional binding still use
-the durable installed project identity. The source-dev template-tree override
-requires both its explicit flag and org-admin authority, and never bypasses
-checkout identity.
+Pack reads and previews work over hosted HTTPS, self-hosted, and local
+transports. A successful apply writes ordinary project-owned source plus the
+local receipt, then reports a timestamped DB projection for search and the UI;
+that projection never outranks the checkout receipt. Projects are expected to
+customize installed code. Updating one Pack reconstructs its old immutable
+version and three-way-merges the new version with those customizations;
+overlapping edits become visible conflicts, upstream removals are retained,
+and unrelated files are ignored. There is no continuing drift enforcement or
+automatic pruning.
 
-The client preserves local deviations and refuses apply, validates the complete
-manifest/path/symlink plan before any write, and prunes only unchanged files
-owned by its manifest. Project-authored `.yoke/runbooks/` remain outside the
-managed set; generic rendered references land under
-`docs/yoke-generated/deployment-reference/`. `yoke project refresh` remains
-substrate-only. Pulumi stack YAML stays on the exact stack-config and
-`yoke pulumi exec` surfaces so operator state is never copied into the generic
-artifact manifest.
+If an update reports an overlapping edit, merge the Pack's change into the
+project-owned file, preview again with `--accept-current <exact-path>`, and
+then repeat that exact command with `--apply`. This explicit acknowledgement
+keeps the reviewed project file while advancing only that Pack's baseline;
+unknown or still-unlisted paths are refused.
+
+`yoke project refresh` remains substrate-only. Pulumi execution reads Pack
+source installed under the selected project's `infra/` directory, while stack
+YAML and operator state remain exact-stack outputs of `yoke pulumi exec`.
 
 Generated views such as `.yoke/BOARD.md` are read-only output. Regenerate
 them through Yoke commands; do not edit them directly.

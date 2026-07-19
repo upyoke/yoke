@@ -10,7 +10,7 @@ naming a platform-owned distribution (``upyoke`` or an ``upyoke-*`` name).
 
 Import detection is AST-based so string literals, comments, and doc prose
 mentioning the namespace never trip it; sources that do not parse as Python
-(e.g. template files carrying render placeholders) fall back to a line-level
+(e.g. Pack source carrying install placeholders) fall back to a line-level
 import-statement scan.
 """
 
@@ -43,7 +43,7 @@ PRIVATE_PLATFORM_NAMESPACE = "upyoke"
 
 # Directories holding tracked source, scanned recursively; top-level *.py
 # files (e.g. the root conftest) are scanned in addition to these roots.
-SCAN_ROOTS = ("docs", "packages", "packaging", "runtime", "templates", "tests")
+SCAN_ROOTS = ("docs", "packages", "packaging", "packs", "runtime", "tests")
 
 # Line-level fallback for Python sources that fail to parse.
 _FALLBACK_IMPORT_RE = re.compile(

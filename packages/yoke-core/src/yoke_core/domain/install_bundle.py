@@ -43,16 +43,15 @@ from yoke_contracts.engine_version import (
     installed_engine_version,
 )
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
+from yoke_contracts.packs import PACKS_SOURCE
 
 # Server-tree source dirs (relative to the tree root).
 SKILLS_SOURCE = ".agents/skills/yoke"
 CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
 CLAUDE_RULES_SOURCE = "runtime/harness/claude/rules"
-# Served by the sibling template surface (:mod:`template_bundle`) through the
-# same :func:`server_tree_root` resolver, so product wheels must package it
-# alongside the bundle sources.
-TEMPLATES_SOURCE = "templates"
+# Pack source uses the same :func:`server_tree_root` resolver, so product
+# wheels package it alongside the install-bundle sources.
 
 # The full set of repo-root source dirs the packaged install-bundle tree
 # (``yoke_core.install_bundle_tree``) snapshots. Single source of truth for the
@@ -65,11 +64,11 @@ INSTALL_BUNDLE_SOURCE_DIRS = (
     CLAUDE_AGENTS_SOURCE,
     CLAUDE_RULES_SOURCE,
     CODEX_AGENTS_SOURCE,
-    TEMPLATES_SOURCE,
+    PACKS_SOURCE,
 )
 
 # Machine-generated cache droppings excluded from every bundle enumeration.
-# Template sources are importable Python, so any test or tool that imports
+# Pack sources include importable Python, so any test or tool that imports
 # them compiles __pycache__ bytecode next to the sources; those artifacts
 # must never ship in bundles, the packaged snapshot, or drift comparisons.
 _JUNK_DIR_NAMES = frozenset({"__pycache__"})
@@ -113,7 +112,7 @@ def server_tree_root() -> Path:
     """Root of the install-bundle source tree.
 
     ``YOKE_SERVER_TREE_ROOT`` wins when set — containers COPY the repo-root bundle sources
-    (``templates/``, ``.agents/``, rendered agent adapters) to a declared
+    (``packs/``, ``.agents/``, rendered agent adapters) to a declared
     tree and point this env var at it. Set-but-invalid fails loudly rather
     than silently falling back to a site-packages parent that lacks the
     sources.

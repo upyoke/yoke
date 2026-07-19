@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_deploy_core_container import _env
+from runtime.api.domain.deploy_core_container_test_support import (
+    install_core_service_project_source,
+)
+from runtime.api.domain.test_deploy_core_container import (
+    _env,
+)
 from runtime.api.domain.test_deploy_remote import FakeRunner
 from yoke_core.domain.deploy_core_container_remote import (
     RemoteConvergenceError,
@@ -15,20 +20,14 @@ from yoke_core.domain.deploy_remote import CommandResult
 
 
 class TestPruneSupersededImages:
-    def test_cleanup_program_uses_declared_server_tree(
-        self, tmp_path, monkeypatch
-    ):
-        program = (
-            tmp_path / "templates" / "webapp" / "ops"
-            / "docker_image_cleanup.py"
-        )
-        program.parent.mkdir(parents=True)
-        program.write_text("print('declared server tree')\n", encoding="utf-8")
-        monkeypatch.setenv("YOKE_SERVER_TREE_ROOT", str(tmp_path))
+    def test_cleanup_program_uses_project_owned_pack_file(self, tmp_path):
+        project_root = install_core_service_project_source(tmp_path)
+        program = project_root / "ops" / "docker_image_cleanup.py"
+        program.write_text("print('project copy')\n", encoding="utf-8")
 
-        assert _cleanup_program() == "print('declared server tree')\n"
+        assert _cleanup_program(project_root) == "print('project copy')\n"
 
-    def test_runs_repository_scoped_cleanup_with_explicit_keep(self):
+    def test_runs_repository_scoped_cleanup_with_explicit_keep(self, tmp_path):
         runner = FakeRunner(
             [CommandResult(0, "image cleanup: complete (2 superseded tags removed)\n", "")]
         )
@@ -40,6 +39,7 @@ class TestPruneSupersededImages:
             env,
             lines.append,
             keep_image_ref=keep,
+            project_root=install_core_service_project_source(tmp_path),
         )
 
         command = runner.calls[0]["argv"][-1]
@@ -50,7 +50,7 @@ class TestPruneSupersededImages:
         assert "cleanup_repositories" in runner.calls[0]["input_text"]
         assert any("2 superseded tags removed" in line for line in lines)
 
-    def test_transient_failure_retries_then_succeeds(self):
+    def test_transient_failure_retries_then_succeeds(self, tmp_path):
         runner = FakeRunner(
             [
                 CommandResult(1, "", "Cannot connect to the Docker daemon"),
@@ -68,13 +68,14 @@ class TestPruneSupersededImages:
             env,
             lines.append,
             keep_image_ref=env.image_ref("abc123"),
+            project_root=install_core_service_project_source(tmp_path),
         )
 
         assert len(runner.calls) == 2
         assert any("attempt 1/3 failed" in line for line in lines)
         assert any("1 superseded tag removed" in line for line in lines)
 
-    def test_persistent_failure_is_visible(self):
+    def test_persistent_failure_is_visible(self, tmp_path):
         runner = FakeRunner(
             [CommandResult(1, "", "Cannot connect to the Docker daemon")] * 3
         )
@@ -87,13 +88,14 @@ class TestPruneSupersededImages:
                 env,
                 lines.append,
                 keep_image_ref=env.image_ref("abc123"),
+                project_root=install_core_service_project_source(tmp_path),
             )
 
         assert len(runner.calls) == 3
         assert "image cleanup failed after 3 attempts" in str(exc.value)
         assert "rerun the idempotent deploy" in str(exc.value)
 
-    def test_runner_exception_is_retried_then_visible(self):
+    def test_runner_exception_is_retried_then_visible(self, tmp_path):
         class Boom(FakeRunner):
             def run(self, argv, *, input_text=None, env=None, timeout=600):
                 raise RuntimeError("ssh blew up")
@@ -106,6 +108,7 @@ class TestPruneSupersededImages:
                 env,
                 lines.append,
                 keep_image_ref=env.image_ref("abc123"),
+                project_root=install_core_service_project_source(tmp_path),
             )
 
         assert "RuntimeError" in str(exc.value)

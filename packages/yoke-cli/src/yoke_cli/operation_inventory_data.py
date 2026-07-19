@@ -179,11 +179,11 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke project register", "project"),
     _w("yoke project install", "project"),
     _w("yoke project refresh", "project"),
-    _w("yoke project artifacts refresh", "project.artifacts"),
     _w("yoke project uninstall", "project"),
     _w("yoke project snapshot sync", "project.snapshot"),
-    _w("yoke templates list", "templates"),
-    _w("yoke templates fetch", "templates"),
+    _w("yoke packs list", "packs"),
+    _w("yoke packs get", "packs"),
+    _w("yoke packs update", "packs"),
     # cross-family-reader: cross-family reader ids — events forensics, path-claim
     # projections, ouroboros curate-loop readers, backlog listing/search,
     # dependency graph. All reads work over https from any cwd.

@@ -36,8 +36,8 @@ _SCAN_EXTS: tuple[str, ...] = (".md", ".py")
 
 # Default scope: doctrine root files, operator-facing docs, canonical skill
 # bodies, and runtime code/tests/agent prompts. Out-of-default surfaces
-# (.yoke/strategy/, templates/, projects/, `.claude/` compat symlinks) are either
-# knowledge-layer inventory, templates with separate hygiene, or mirrors.
+# (.yoke/strategy/, packs/, projects/, `.claude/` compat symlinks) are either
+# knowledge-layer inventory, separately versioned Pack source, or mirrors.
 _DEFAULT_SCAN_DIRS: tuple[str, ...] = (
     "docs",
     ".agents/skills/yoke",

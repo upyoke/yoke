@@ -7,13 +7,13 @@ import types
 import pytest
 
 from runtime.api.domain.test_webapp_registry_stack import (
-    _load_template_module,
+    _load_pack_module,
     _Recorder,
 )
 
 
 def _module(monkeypatch, raw):
-    module = _load_template_module(
+    module = _load_pack_module(
         monkeypatch,
         _Recorder(),
         "webapp_component_aliases.py",

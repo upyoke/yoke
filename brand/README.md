@@ -1,12 +1,11 @@
 # Yoke brand
 
 Canonical source for every Yoke logo, wordmark, favicon, and (later) animation.
-Consumers **copy** from here — the marketing site (platform repo) copies from its
-pinned checkout of this repo; the universe app and the webapp template copy locally.
-The managed webapp copy lives under
-`templates/webapp/scaffold/app/web/public/brand/`; its global stylesheet loads
-the copied `theme.css` and `shell.css`, and parity tests refuse consumer drift.
-Never fork the mark; change it here and let consumers follow.
+Consumers **copy** from here — the marketing site copies from its pinned checkout
+of this repo, and Yoke's universe app copies locally. Generic Packs deliberately
+contain no Yoke branding; another project supplies its own assets after installing
+a UI Pack. Never fork the Yoke mark inside this repo; change it here and update
+Yoke-owned consumers.
 
 ## What the mark means
 

@@ -50,7 +50,7 @@ export const NAV = [
       {
         id: "infrastructure", label: "Infrastructure",
         summary:
-          "What backs an environment, with drift from the template as the signal.",
+          "What backs an environment and its latest operational state.",
       },
     ],
   },
@@ -91,8 +91,9 @@ export const NAV = [
     hostFed: true,
   },
   {
-    id: "templates", icon: "◫", label: "Templates", scope: SCOPE_NONE,
-    summary: "The templates projects are rendered from.",
+    id: "packs", icon: "◫", label: "Packs", scope: SCOPE_SINGLE,
+    summary:
+      "Reusable capabilities whose installed code belongs to the project.",
   },
   {
     id: "github", icon: "⎇", label: "GitHub", scope: SCOPE_SINGLE,

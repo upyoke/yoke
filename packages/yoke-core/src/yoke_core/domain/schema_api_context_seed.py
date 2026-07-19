@@ -171,8 +171,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # pasted into the ``schema_api_context_commands_watchers`` sibling — the
 # vetted-telemetry watch_pytest / watch_doctor / watch_merge patterns —
 # push each multi-topic packet (engineer_agent / tester_agent) past a
-# smaller per-role cap. The dedicated managed-artifact reconciliation recipe
-# adds one required four-line command record to those same project-capable
-# roles, so the cap follows the registered recipes the packet now carries.
+# smaller per-role cap, so the cap follows the registered recipes the packet
+# carries rather than an arbitrary prose target.
 PACKET_LINE_BUDGET_PER_ROLE: int = 414
 PACKET_LINE_BUDGET_AGGREGATE: int = 2150

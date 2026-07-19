@@ -64,14 +64,15 @@ def find_local_project_reference(
         raise ExistingProjectReferenceError(str(exc)) from exc
     if manifest is not None:
         project_id = _positive_project_id(manifest.get("project_id"))
-        if project_id is None:
+        if project_id is not None:
+            return LocalProjectReference(
+                project_id=project_id,
+                source=install_files.MANIFEST_REL,
+            )
+        if manifest.get(install_files.MODE_KEY) != install_files.MODE_SOURCE_LINK:
             raise ExistingProjectReferenceError(
                 f"{install_files.MANIFEST_REL} does not contain a valid project_id"
             )
-        return LocalProjectReference(
-            project_id=project_id,
-            source=install_files.MANIFEST_REL,
-        )
     try:
         project_id = machine_config.project_id(root, config_path)
     except machine_config.MachineConfigError as exc:
@@ -80,6 +81,11 @@ def find_local_project_reference(
         return LocalProjectReference(
             project_id=project_id,
             source="machine config",
+        )
+    if manifest is not None:
+        raise ExistingProjectReferenceError(
+            f"source-link {install_files.MANIFEST_REL} has no project_id and "
+            "machine config does not bind this checkout"
         )
     return None
 

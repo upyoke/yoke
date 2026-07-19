@@ -8,7 +8,7 @@ from yoke_core.tools.checkout_clean_room_smoke_helpers import CommandResult, tai
 
 
 STEP_NETWORK_UNREACHABLE = "network_unreachable_failure"
-STEP_TEMPLATES_LIST_PRODUCT = "templates_list_product_client"
+STEP_PACKS_LIST_PRODUCT = "packs_list_product_client"
 
 STATUS_PASS = "pass"
 STATUS_FAIL = "fail"
@@ -50,24 +50,26 @@ def step_network_unreachable(ctx: Any, run: StepRunner) -> dict[str, Any]:
     })
 
 
-def step_templates_list_product_client(
+def step_packs_list_product_client(
     ctx: Any, run: StepRunner
 ) -> dict[str, Any]:
     result = run(
         [str(ctx.yoke), "--env", ENV_OFFLINE,
-         "templates", "list", "--json"],
-        STEP_TEMPLATES_LIST_PRODUCT,
+         "packs", "list", "--project", "1", "--json"],
+        STEP_PACKS_LIST_PRODUCT,
     )
     failures = _expect_nonzero(result)
     output = _combined_output(result)
-    if "/v1/templates" not in output:
-        failures.append("templates list output did not name /v1/templates")
+    if TRANSPORT_FAILED_CODE not in output:
+        failures.append(
+            f"packs list output did not carry {TRANSPORT_FAILED_CODE!r}"
+        )
     for forbidden in ("ModuleNotFoundError", "No module named", "Traceback"):
         if forbidden in output:
             failures.append(
-                f"templates list leaked an import/runtime traceback: {forbidden}"
+                f"packs list leaked an import/runtime traceback: {forbidden}"
             )
-    return _step_entry(STEP_TEMPLATES_LIST_PRODUCT, failures, {
+    return _step_entry(STEP_PACKS_LIST_PRODUCT, failures, {
         "returncode": result.returncode,
         "stdout_tail": tail(result.stdout),
         "stderr_tail": tail(result.stderr),

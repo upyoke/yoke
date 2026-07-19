@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_deploy_core_container import _BINDING, _env
+from runtime.api.domain.test_deploy_core_container import (
+    _BINDING,
+    _env,
+)
+from runtime.api.domain.deploy_core_container_test_support import (
+    install_core_service_project_source,
+)
 from yoke_core.domain import github_app_deployment
 from yoke_core.domain.deploy_core_container import render_service_files
 
@@ -37,9 +43,12 @@ def test_github_app_config_rejects_env_line_injection():
         )
 
 
-def test_github_app_config_mounts_owner_only_key_reference():
+def test_github_app_config_mounts_owner_only_key_reference(tmp_path):
     compose, _, env_file = render_service_files(
-        _env(github_app=_APP_CONFIG), "img:tag", _BINDING
+        _env(github_app=_APP_CONFIG),
+        "img:tag",
+        _BINDING,
+        repo_path=install_core_service_project_source(tmp_path),
     )
 
     assert "secrets:\n      - yoke-github-app-private-key" in compose
@@ -73,7 +82,7 @@ def test_github_app_config_accepts_exact_optional_kms_key_arn():
     assert config.kms_key_arn.endswith("555555555555")
 
 
-def test_public_profile_is_optional_complete_and_rendered():
+def test_public_profile_is_optional_complete_and_rendered(tmp_path):
     private_only = github_app_deployment.github_app_config_from_environment_settings(
         {
             "github_app": {
@@ -109,6 +118,7 @@ def test_public_profile_is_optional_complete_and_rendered():
         _env(github_app=advertised),
         "img:tag",
         _BINDING,
+        repo_path=install_core_service_project_source(tmp_path),
     )
     assert "YOKE_GITHUB_APP_CLIENT_ID=Iv23public" in env_file
     assert "YOKE_GITHUB_APP_SLUG=yoke-development" in env_file

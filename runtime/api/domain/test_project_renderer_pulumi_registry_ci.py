@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import runpy
 
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
 
 
 class TestRegistryProgramShape:
@@ -16,9 +13,7 @@ class TestRegistryProgramShape:
         self,
         monkeypatch,
     ):
-        path = _repo_root().joinpath(
-            "templates", "webapp", "infra", "webapp_registry_ci_policy.py"
-        )
+        path = _pack_program_source("webapp_registry_ci_policy.py")
         monkeypatch.syspath_prepend(str(path.parent))
         policy = json.loads(
             runpy.run_path(path)["infrastructure_preview_policy_json"](
@@ -89,9 +84,7 @@ class TestRegistryProgramShape:
         assert "ssm:GetParametersByPath" in parameter_deny["Action"]
 
     def test_delivery_policy_denies_app_keys_and_scopes_delivery(self):
-        path = _repo_root().joinpath(
-            "templates", "webapp", "infra", "webapp_registry_ci_policy.py"
-        )
+        path = _pack_program_source("webapp_registry_ci_policy.py")
         policy = json.loads(
             runpy.run_path(path)["delivery_policy_json"](
                 region="us-east-1",
@@ -195,9 +188,7 @@ class TestRegistryProgramShape:
         assert "AdministratorAccess" not in json.dumps(policy)
 
     def test_delivery_policy_omits_cloudfront_access_without_distribution(self):
-        path = _repo_root().joinpath(
-            "templates", "webapp", "infra", "webapp_registry_ci_policy.py"
-        )
+        path = _pack_program_source("webapp_registry_ci_policy.py")
         policy = json.loads(
             runpy.run_path(path)["delivery_policy_json"](
                 region="us-east-1",
@@ -224,9 +215,7 @@ class TestRegistryProgramShape:
         assert cloudfront_actions == set()
 
     def test_delivery_policy_keeps_bucket_access_without_cloudfront_wildcard(self):
-        path = _repo_root().joinpath(
-            "templates", "webapp", "infra", "webapp_registry_ci_policy.py"
-        )
+        path = _pack_program_source("webapp_registry_ci_policy.py")
         policy = json.loads(
             runpy.run_path(path)["delivery_policy_json"](
                 region="us-east-1",
@@ -253,9 +242,7 @@ class TestRegistryProgramShape:
     def test_delivery_policy_allows_exact_cloudfront_without_distribution_bucket(
         self,
     ):
-        path = _repo_root().joinpath(
-            "templates", "webapp", "infra", "webapp_registry_ci_policy.py"
-        )
+        path = _pack_program_source("webapp_registry_ci_policy.py")
         policy = json.loads(
             runpy.run_path(path)["delivery_policy_json"](
                 region="us-east-1",

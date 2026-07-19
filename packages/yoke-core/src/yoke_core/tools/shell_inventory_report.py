@@ -149,9 +149,9 @@ def _execution_plan_lines() -> list[str]:
         - `utility-installer-executor-shell-retirement` — remove utility, installer, and executor shell
           entrypoints. Owns generic helper shims, runtime executors, install /
           start / restart launchers, and their directly-mapped shell tests.
-        - `external-artifact-shell-retirement` — deshell tracked external artifacts. Owns template ops
-          shell files, scaffold entrypoints, and the retired project artifact
-          tree from the zero-shell cutover.
+        - `external-artifact-shell-retirement` — deshell tracked external artifacts. Owns reusable ops
+          shell files, scaffold entrypoints, and externally consumed source
+          from the zero-shell cutover.
         - `shell-test-runner-retirement` — replace the shell test harness with an API-owned runner.
           Owns the generic shell test residue not mapped to another lane,
           plus the shell-test execution surfaces and project test-command

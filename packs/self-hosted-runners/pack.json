@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "slug": "self-hosted-runners",
+  "name": "Self-hosted Runners",
+  "description": "Disposable GitHub Actions runner fleet, broker, lifecycle, and IAM infrastructure.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/self-hosted-runners/README.md",
+      "dependencies": [
+        "pulumi-foundation"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/self-hosted-runners/README.md",
+          "target": "docs/packs/self-hosted-runners/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/self-hosted-runners/operations.md",
+          "target": "docs/packs/self-hosted-runners/operations.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/Pulumi.runner-fleet-stack.yaml.tmpl",
+          "target": "infra/Pulumi.runner-fleet-stack.yaml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "infra/webapp_runner_authority_intent.py",
+          "target": "infra/webapp_runner_authority_intent.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_aws_state.mjs",
+          "target": "infra/webapp_runner_aws_state.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_config.py",
+          "target": "infra/webapp_runner_fleet_config.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_iam.py",
+          "target": "infra/webapp_runner_fleet_iam.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_internals.py",
+          "target": "infra/webapp_runner_fleet_internals.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_network.py",
+          "target": "infra/webapp_runner_fleet_network.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_stack.py",
+          "target": "infra/webapp_runner_fleet_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_api.mjs",
+          "target": "infra/webapp_runner_github_api.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_broker.mjs",
+          "target": "infra/webapp_runner_github_broker.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_broker_stack.py",
+          "target": "infra/webapp_runner_github_broker_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_state.py",
+          "target": "infra/webapp_runner_github_state.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_webhook.py",
+          "target": "infra/webapp_runner_github_webhook.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_host_cycle.py",
+          "target": "infra/webapp_runner_host_cycle.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_parallel_reaper.mjs",
+          "target": "infra/webapp_runner_parallel_reaper.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_registration.mjs",
+          "target": "infra/webapp_runner_registration.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_termination.mjs",
+          "target": "infra/webapp_runner_termination.mjs",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        }
+      ]
+    }
+  }
+}

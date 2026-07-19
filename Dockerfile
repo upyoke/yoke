@@ -75,7 +75,7 @@ COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres /var/lib/yoke/postg
 # Bundle sources live OUTSIDE the runtime package, so the wheel install
 # cannot serve them; install-bundle and template routes read them from
 # the declared server tree (YOKE_SERVER_TREE_ROOT) with repo layout.
-COPY templates /srv/yoke-tree/templates
+COPY packs /srv/yoke-tree/packs
 COPY .agents /srv/yoke-tree/.agents
 COPY runtime/harness/claude/agents /srv/yoke-tree/runtime/harness/claude/agents
 COPY runtime/harness/claude/rules /srv/yoke-tree/runtime/harness/claude/rules

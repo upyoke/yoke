@@ -101,7 +101,6 @@ EXACT_CLI: Dict[str, str] = {
     "runtime.api.cli.yoke_flag_adapters_strategy": "yoke_cli.commands.adapters.strategy",
     "runtime.api.cli.yoke_flag_adapters_strategy_create": "yoke_cli.commands.adapters.strategy_create",
     "runtime.api.cli.yoke_flag_adapters_strategy_render": "yoke_cli.commands.adapters.strategy_render",
-    "runtime.api.cli.yoke_flag_adapters_templates": "yoke_cli.commands.adapters.templates",
     "runtime.api.cli.yoke_flag_adapters_usage": "yoke_cli.commands.adapters.usage",
     "runtime.api.cli.yoke_git_hook_commands": "yoke_cli.commands.git_hook",
     "runtime.api.cli.yoke_hooks_relay": "yoke_harness.hooks.relay",

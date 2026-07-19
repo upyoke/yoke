@@ -14,21 +14,14 @@ from __future__ import annotations
 PROJECT_COMMANDS: list[dict] = [
     {
         "topic": "project",
-        "purpose": "Preview, apply, or verify managed rendered artifacts",
-        "recipe": (
-            "yoke project artifacts refresh <checkout> --project <project> "
-            "[--apply | --verify]"
-        ),
+        "purpose": "Inspect, get, or update a project Pack",
+        "recipe": "yoke packs <list|get|update> --help",
         "notes": (
-            "Preview is default. projects.artifacts.render works over HTTPS "
-            "or self-host and renders packaged webapp templates from DB "
-            "settings. The client binds project id first; a verified repo also "
-            "requires matching origin, then full manifest/path/symlink "
-            "preflight. Apply preserves/refuses deviations; --verify gates "
-            "external drift. .yoke/runbooks stay project-owned; generic refs "
-            "land in docs/yoke-generated/deployment-reference/. Pulumi stack "
-            "YAML/operator state stay stack-scoped. `yoke project refresh` is "
-            "substrate-only."
+            "List works over every transport; get/update take `<pack> "
+            "<checkout> --project <project> [--version V] [--apply]`. Preview "
+            "is default. Apply writes project-owned source and .yoke/packs.json; "
+            "update three-way-merges customizations and reports conflicts. The "
+            "repository receipt outranks its timestamped DB projection."
         ),
     },
     {
@@ -49,8 +42,7 @@ PROJECT_COMMANDS: list[dict] = [
         "topic": "project",
         "purpose": "List configured project test commands",
         "recipe": (
-            "yoke project-structure command-definitions list "
-            "--project <project>"
+            "yoke project-structure command-definitions list --project <project>"
         ),
         "notes": (
             "Registered read project_structure.command_definitions.list "
@@ -89,14 +81,13 @@ PROJECT_COMMANDS: list[dict] = [
             "pulumi-stack-config get --project <project> --stack <stack> "
             "--output <file>`; execute it with `yoke pulumi exec --project "
             "<project> --stack <stack> -- preview` (also allows refresh and "
-            "safe file-form import). Runner-fleet recovery may add "
-            "`--bootstrap-local-authority` to mint narrow repository "
-            "authority from capability-owned AWS secrets; other stack kinds "
-            "and GitHub Actions refuse it. Local execution reads aws-admin "
-            "from the machine capability store and resolves the selected service's "
-            "repository-bound GitHub App authorization; Actions retains "
-            "ambient OIDC credentials. Generic capability and operator-state "
-            "surfaces are closed."
+            "safe file-form import). Actions keeps AWS OIDC; runner-fleet "
+            "obtains a narrow repository token from its hosted broker, while "
+            "other stacks use repository-bound App authority. Local "
+            "runner-fleet recovery may add `--bootstrap-local-authority`; "
+            "other stacks and Actions refuse it. Local AWS authority comes "
+            "from the machine capability store. Generic capability and "
+            "operator-state surfaces are closed."
         ),
     },
     {
@@ -104,7 +95,7 @@ PROJECT_COMMANDS: list[dict] = [
         "purpose": "Execute a capability-owned Pulumi stack command",
         "recipe": (
             "yoke pulumi exec --project <project> --stack <stack> -- "
-            "<init|preview|refresh|import|up ...>"
+            "<init|preview|refresh|import|up|stack output NAME ...>"
         ),
         "notes": (
             "This is a client-local tool-shaped boundary, not a dispatcher "
@@ -113,7 +104,9 @@ PROJECT_COMMANDS: list[dict] = [
             "the execution workhorse is "
             "`packages/yoke-core/src/yoke_core/tools/pulumi_exec.py`. Never "
             "guess a sibling `commands/pulumi_exec.py` module. The selected "
-            "stack must be declared in the project pulumi-state capability."
+            "stack must be declared in the project pulumi-state capability. "
+            "Output reads require one exact output name and never expose "
+            "secret values."
         ),
     },
     {

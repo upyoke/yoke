@@ -62,7 +62,7 @@ def conn_with_claim(tmp_path):
 def test_broadened_paths_recognized(conn_with_claim):
     """Top-level ALLCAPS docs, strategy/, and json/yaml/toml/sh
     extensions are matched by the File Budget extractor — not just
-    py/md under runtime/docs/.agents/projects/templates/browser."""
+    py/md under runtime/docs/.agents/projects/packs/browser."""
     conn, _ = conn_with_claim
     p = _p(conn)
     spec = (

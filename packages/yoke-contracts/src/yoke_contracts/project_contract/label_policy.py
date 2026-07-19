@@ -3,7 +3,7 @@
 This lives in ``yoke_contracts`` (the dependency-light package both the CLI
 and the core engine import) so the default colors are defined exactly once:
 
-- the installer/template renderer seeds ``.yoke/labels`` from these defaults,
+- the project-contract installer seeds ``.yoke/labels`` from these defaults,
 - the client computes its per-project override *delta* against these defaults,
 - the server applies ``override-else-default`` from these same defaults.
 

@@ -6,7 +6,7 @@ import types
 
 from runtime.api.domain.test_webapp_registry_stack import (
     _Recorder,
-    _load_template_module,
+    _load_pack_module,
     _make_resource_class,
 )
 
@@ -19,7 +19,7 @@ def _load_variables(monkeypatch):
     )
     provider = types.ModuleType("webapp_github_repository_provider")
     provider.create_repository_provider = lambda *args, **kwargs: "provider"
-    module = _load_template_module(
+    module = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_distribution_github_variables.py",

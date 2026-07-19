@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "slug": "smoke-testing",
+  "name": "Smoke Testing",
+  "description": "Post-deployment GitHub Actions smoke verification.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/smoke-testing/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "PROJECT_NAME_UPPER": {
+            "type": "string",
+            "description": "Project value used when installing the Smoke Testing Pack."
+          },
+          "api_port": {
+            "type": "string",
+            "description": "Project value used when installing the Smoke Testing Pack."
+          },
+          "project_display_name": {
+            "type": "string",
+            "description": "Project value used when installing the Smoke Testing Pack."
+          },
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Smoke Testing Pack."
+          },
+          "web_port": {
+            "type": "string",
+            "description": "Project value used when installing the Smoke Testing Pack."
+          },
+          "web_smoke_paths": {
+            "type": "string",
+            "description": "Project value used when installing the Smoke Testing Pack."
+          }
+        },
+        "required": [
+          "PROJECT_NAME_UPPER",
+          "api_port",
+          "project_display_name",
+          "project_name",
+          "web_port",
+          "web_smoke_paths"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": ".github/workflows/{{project_name}}-smoke.yml",
+          "target": ".github/workflows/{{project_name}}-smoke.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/smoke-testing/README.md",
+          "target": "docs/packs/smoke-testing/README.md",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "source-check",
+          "command": "git diff --check -- .github/workflows"
+        }
+      ]
+    }
+  }
+}

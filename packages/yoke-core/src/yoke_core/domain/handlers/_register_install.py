@@ -3,16 +3,10 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import project_install_handlers as h
-from yoke_core.domain.handlers import project_artifact_handlers as artifacts
 
 
 def register(registry) -> None:
     rows = (
-        ("project.artifacts.refresh",
-         artifacts.handle_project_artifact_refresh,
-         artifacts.ProjectArtifactRefreshRequest,
-         artifacts.ProjectArtifactRefreshResponse,
-         ["project_repo_artifact_write"]),
         ("project.install.run", h.handle_project_install,
          h.ProjectInstallRequest, h.ProjectInstallResponse,
          ["project_repo_file_write", "machine_config_file_write"]),

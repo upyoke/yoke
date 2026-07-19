@@ -9,15 +9,15 @@ from yoke_core.domain.json_helper import loads_text
 
 
 ROOT = Path(__file__).resolve().parents[3]
-TEMPLATES = (
-    "templates/webapp/ops/deploy.yml",
-    "templates/webapp/ops/hotfix.yml",
-    "templates/webapp/ops/smoke.yml",
+PACK_WORKFLOWS = (
+    "packs/production-deploy/versions/1.0.0/files/.github/workflows/{{project_name}}-deploy.yml",
+    "packs/production-deploy/versions/1.0.0/files/.github/workflows/{{project_name}}-hotfix.yml",
+    "packs/smoke-testing/versions/1.0.0/files/.github/workflows/{{project_name}}-smoke.yml",
 )
 
 
-@pytest.mark.parametrize("relative_path", TEMPLATES)
-def test_template_workflows_expose_standard_dispatch_marker(
+@pytest.mark.parametrize("relative_path", PACK_WORKFLOWS)
+def test_pack_workflows_expose_standard_dispatch_marker(
     relative_path: str,
 ) -> None:
     text = (ROOT / relative_path).read_text(encoding="utf-8")

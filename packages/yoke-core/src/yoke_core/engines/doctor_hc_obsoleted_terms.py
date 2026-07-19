@@ -42,15 +42,14 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
     YOKE_DB_AUDIT_PATHS,
 )
 from yoke_core.engines.doctor_hc_obsoleted_terms_backlog import scan_backlog_fields
+from yoke_core.engines import doctor_hc_obsoleted_terms_packs as _pack_terms
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
     _resolve_repo_root,
 )
 
-# ---------------------------------------------------------------------------
 # Obsoleted-term declarations
-# ---------------------------------------------------------------------------
 
 _RETIRED_PARENT_EPIC_SYMBOL_PATTERN = r"items" + r"\." + "epic"
 _RETIRED_PARENT_EPIC_CLI_PATTERN = r"items\s+(get|update|set)\s+\S+\s+" + "epic" + r"\b"
@@ -148,6 +147,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_PRODUCT_NAME_PATTERN,
     _RETIRED_PRODUCT_DOMAIN_PATTERN,
     _RETIRED_ITEM_PREFIX_PATTERN,
+    *_pack_terms.PACK_RETIREMENT_PATTERNS,
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
@@ -174,11 +174,10 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     _RETIRED_PRODUCT_NAME_PATTERN: "Sunday/sunday (retired product name — replaced by Yoke/yoke)",
     _RETIRED_PRODUCT_DOMAIN_PATTERN: "sundaydo (retired product domain token — replaced by upyoke.com)",
     _RETIRED_ITEM_PREFIX_PATTERN: "SUN-<digits> (retired item prefix — replaced by YOK-<digits>)",
+    **_pack_terms.PACK_RETIREMENT_LABELS,
 }
 
-# ---------------------------------------------------------------------------
 # Scan scope
-# ---------------------------------------------------------------------------
 
 # Scan operator-facing prose plus live runtime Python, so stale retired
 # hook/module references in doctor code cannot reach main unnoticed.
@@ -190,7 +189,7 @@ _SCAN_DIRS_BY_EXT: dict[str, tuple[str, ...]] = {
         "docs",
         ".agents",
         ".claude",
-        "templates",
+        "packs",
         "projects",
         ".yoke/strategy",
     ),

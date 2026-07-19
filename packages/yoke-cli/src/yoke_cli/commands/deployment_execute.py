@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
+
 from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
@@ -29,6 +30,9 @@ DEPLOYMENT_RUNS_EXECUTE_USAGE = (
 
 def deployment_runs_execute(args: List[str]) -> int:
     """Execute or resume a run through the selected admin connection."""
+    if args in (["-h"], ["--help"]):
+        print(f"usage: {DEPLOYMENT_RUNS_EXECUTE_USAGE}")
+        return 0
     active_env = os.environ.get(ENV_OVERRIDE, "").strip()
     if not active_env.endswith(DB_ADMIN_ENV_SUFFIX):
         print(

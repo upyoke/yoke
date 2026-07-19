@@ -16,9 +16,6 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             ("status", "TEXT"),
             ("last_verified_at", "TEXT"),
             ("last_error", "TEXT"),
-            ("last_sync_at", "TEXT"),
-            ("last_sync_outcome", "TEXT"),
-            ("last_sync_error", "TEXT"),
             ("created_at", "TEXT"),
             ("updated_at", "TEXT"),
         ],
@@ -45,6 +42,9 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             ("last_error", "TEXT"),
             ("created_at", "TEXT"),
             ("updated_at", "TEXT"),
+            ("last_sync_at", "TEXT"),
+            ("last_sync_outcome", "TEXT"),
+            ("last_sync_error", "TEXT"),
         ],
         "notes": (
             "One GitHub App repository binding per project, keyed by INTEGER "

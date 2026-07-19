@@ -5,24 +5,24 @@ from __future__ import annotations
 import json
 
 from runtime.api.domain.test_webapp_registry_stack import (
-    _load_template_module,
+    _load_pack_module,
     _Recorder,
 )
 
 
 def _infra_stack(monkeypatch, **arg_overrides):
     recorder = _Recorder()
-    distribution_module = _load_template_module(
+    distribution_module = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_distribution_stack.py",
     )
-    dns_module = _load_template_module(
+    dns_module = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_dns_records.py",
     )
-    module = _load_template_module(
+    module = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_infra_stack.py",
@@ -49,12 +49,12 @@ def _infra_stack(monkeypatch, **arg_overrides):
 
 def _api_stack(monkeypatch, **arg_overrides):
     recorder = _Recorder()
-    distribution_module = _load_template_module(
+    distribution_module = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_distribution_stack.py",
     )
-    module = _load_template_module(
+    module = _load_pack_module(
         monkeypatch,
         recorder,
         "webapp_api_stack.py",

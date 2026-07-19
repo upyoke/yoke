@@ -101,7 +101,7 @@ class TestRenderConfigDivergence:
             lambda _project, _root, _settings=None: [],
         )
         root = tmp_path / "repo"
-        infra = root / "templates" / "webapp" / "infra"
+        infra = root / "infra"
         infra.mkdir(parents=True)
         (infra / "Pulumi.yaml").write_text(
             "name: webapp-infra\nruntime:\n  name: python\n"
@@ -136,8 +136,8 @@ class TestRenderConfigDivergence:
         )
         capsys.readouterr()
 
-        # Re-render — the template still produces my-key-pair, so the operator
-        # edit diverges and must be warned about before it is overwritten.
+        # Re-render — the installed Pack source still produces my-key-pair, so
+        # the operator edit diverges and must be warned about before overwrite.
         self._render(root, proj)
         err = capsys.readouterr().err
 
@@ -147,7 +147,10 @@ class TestRenderConfigDivergence:
         assert "externalwebapp-ec2-key" in err  # existing operator value
         assert "my-key-pair" in err  # rendered template value
         assert "DB-backed site/environment/capability settings" in err
-        assert "render_project externalwebapp --write --only pulumi" in err
+        assert (
+            "yoke pulumi exec --project externalwebapp --stack <stack> -- preview"
+            in err
+        )
 
         # The rewrite still wins — no merge / preservation of config.
         re_rendered = stack_path.read_text()

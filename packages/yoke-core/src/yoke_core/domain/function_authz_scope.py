@@ -1,8 +1,7 @@
 """Per-function authorization-scope classification for Yoke function dispatch.
 
-Every registered function is sorted into one scope bucket by its *blast radius*.
-The dispatch (``check_dispatch_permission``) routes the permission check to the
-matching scope:
+Every registered function is sorted by *blast radius*; the dispatch
+(``check_dispatch_permission``) routes its permission check to this scope:
 
 * ``PROJECT``        — checked against the op's real target project (the project
                        its data belongs to). Tenant content: items, claims,
@@ -135,7 +134,9 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.github_binding.status": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project.snapshot.sync": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "deployment_flows.reconcile_project": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "projects.artifacts.render": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    "packs.catalog.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "packs.bundle.get": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    "packs.project.report": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "project_structure.command_definitions.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project_structure.command_definitions.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
@@ -201,15 +202,14 @@ _BY_ID: dict[str, AuthzSpec] = {
     "config.stamp_project_env.run": AuthzSpec(CLIENT_LOCAL, None),
     "status.run": AuthzSpec(CLIENT_LOCAL, None),
     "project.register.run": AuthzSpec(CLIENT_LOCAL, None),
-    "project.artifacts.refresh": AuthzSpec(CLIENT_LOCAL, None),
+    "packs.get.run": AuthzSpec(CLIENT_LOCAL, None),
+    "packs.update.run": AuthzSpec(CLIENT_LOCAL, None),
     "scratch.dispatch_inputs": AuthzSpec(CLIENT_LOCAL, None),
-    # Render-into-checkout / template fetch — local repo writes.
+    # Render-into-checkout helpers — local repo writes.
     "agents.render.run": AuthzSpec(CLIENT_LOCAL, None),
     "agents.render.check": AuthzSpec(CLIENT_LOCAL, None),
     "packets.render.run": AuthzSpec(CLIENT_LOCAL, None),
     "packets.check.run": AuthzSpec(CLIENT_LOCAL, None),
-    "templates.fetch.run": AuthzSpec(CLIENT_LOCAL, None),
-    "templates.list.run": AuthzSpec(CLIENT_LOCAL, None),
 }
 
 # Prefix families where every member shares a scope.
@@ -270,7 +270,7 @@ def is_explicit_client_local(function_id: str) -> bool:
     Checks only the by-id / by-prefix tables — no registry entry,
     ``side_effects``, or ``project_permission`` needed. These are the
     machine-local / aggregate ops (``status``, ``env use``, render,
-    ``templates.*``, ``project.install`` family, …) that resolve to a
+    ``packs.get.run``, ``project.install`` family, …) that resolve to a
     registered subcommand but route NO single function-call dispatch.
     The recipe smoke uses this to verify such commands *resolve* without
     expecting a captured dispatch (and without argparse-running a bare

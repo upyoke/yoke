@@ -172,7 +172,7 @@ export interface UniverseAppMount {
  * their content is host-owned: each renders the host's `sections` entry as
  * its body, and its nav entry appears exactly when that section is supplied.
  */
-export type UniverseRouteView = "overview" | "inbox" | "strategy" | "frontier" | "items" | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events" | "doctor" | "ouroboros" | "projects" | "access" | "members" | "billing" | "templates" | "github" | "project" | "organization";
+export type UniverseRouteView = "overview" | "inbox" | "strategy" | "frontier" | "items" | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events" | "doctor" | "ouroboros" | "projects" | "access" | "members" | "billing" | "packs" | "github" | "project" | "organization";
 /**
  * A view's optional second route segment means what the view declares — a
  * tab (one facet of the view's single concept) or a drill-in (one row of the

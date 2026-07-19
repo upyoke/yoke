@@ -1,4 +1,4 @@
-"""Executable coverage for the template-owned CloudFront invalidation helper."""
+"""Executable coverage for the Pack-owned CloudFront invalidation helper."""
 
 from __future__ import annotations
 
@@ -12,13 +12,13 @@ import pytest
 
 HELPER_PATH = (
     Path(__file__).resolve().parents[3]
-    / "templates/webapp/ops/cloudfront_invalidate.py"
+    / "packs/domain-cdn-edge/versions/1.0.0/files/ops/cloudfront_invalidate.py"
 )
 
 
 def _load_helper() -> ModuleType:
     spec = importlib.util.spec_from_file_location(
-        "cloudfront_invalidate_template",
+        "cloudfront_invalidate_pack",
         HELPER_PATH,
     )
     assert spec is not None

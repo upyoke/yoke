@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+import os
 from typing import Any
 
 from yoke_core.tools.pulumi_exec_types import (
@@ -25,6 +26,8 @@ def authority_env(
     *,
     aws_env_loader: Callable[..., Mapping[str, str]],
     github_auth_loader: Callable[..., Any],
+    hosted_runner_token_loader: Callable[[str, str, Mapping[str, str]], str]
+    | None = None,
     bootstrap_local_authority: bool = False,
     local_github_auth_loader: Callable[..., Any] = (
         resolve_local_runner_fleet_github_auth
@@ -49,6 +52,7 @@ def authority_env(
     for name in AMBIENT_GITHUB_ENV:
         env.pop(name, None)
     token = ""
+    resolved_repo = ""
     local_redaction_terms: tuple[str, ...] = ()
     if str(authority.get("github_repo") or "").strip():
         github_project = str(authority.get("github_project") or project).strip()
@@ -66,9 +70,14 @@ def authority_env(
             values = {str(key): str(value) for key, value in raw_values.items()}
             try:
                 github = local_github_auth_loader(
-                    values, region=region, aws_env=env,
+                    values,
+                    region=region,
+                    aws_env=env,
                 )
                 token = str(github.token or "").strip()
+                resolved_repo = (
+                    str(getattr(github, "repo", "") or "").strip().casefold()
+                )
                 local_redaction_terms = tuple(github.redaction_terms)
                 env[RUNNER_FLEET_AUTHORITY_INTENT_ENV] = (
                     authority_intent_envelope_from_values(
@@ -86,6 +95,45 @@ def authority_env(
                     f"materialized for project {github_project!r} "
                     "(cause: app_authority_unavailable)."
                 ) from exc
+        elif (
+            payload.get("stack_kind") == "runner-fleet"
+            and os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
+        ):
+            if hosted_runner_token_loader is None:
+                raise PulumiExecError(
+                    "Pulumi runner-fleet GitHub Actions authority requires the "
+                    "hosted repository-token broker"
+                )
+            raw_values = payload.get("render_values")
+            if not isinstance(raw_values, Mapping):
+                raise PulumiExecError(
+                    "runner-fleet render values are missing from stack config"
+                )
+            values = {str(key): str(value) for key, value in raw_values.items()}
+            try:
+                authority_intent = authority_intent_envelope_from_values(
+                    project=str(payload.get("project_slug") or ""),
+                    deploy_namespace=values["deploy_namespace"],
+                    stack_name=str(payload.get("stack_name") or ""),
+                    values=values,
+                    aws_capability=capability,
+                    aws_region=region,
+                )
+                token = str(
+                    hosted_runner_token_loader(project, authority_intent, env) or ""
+                ).strip()
+            except Exception as exc:
+                raise PulumiExecError(
+                    "Pulumi runner-fleet hosted repository authority could "
+                    "not be materialized (cause: broker_authority_unavailable)"
+                ) from exc
+            if not token:
+                raise PulumiExecError(
+                    "Pulumi runner-fleet hosted repository authority returned "
+                    "an empty token"
+                )
+            resolved_repo = str(values.get("runner_fleet_repo") or "").casefold()
+            env[RUNNER_FLEET_AUTHORITY_INTENT_ENV] = authority_intent
         else:
             try:
                 github = github_auth_loader(
@@ -104,7 +152,7 @@ def authority_env(
                     f"--project {github_project} --json`; reconnect or repair "
                     "the binding before retrying."
                 ) from exc
-        resolved_repo = str(getattr(github, "repo", "") or "").strip().casefold()
+            resolved_repo = str(getattr(github, "repo", "") or "").strip().casefold()
         expected_repo = str(authority.get("github_repo") or "").strip().casefold()
         if resolved_repo != expected_repo:
             raise PulumiExecError(

@@ -10,10 +10,11 @@ _SDK_DISTRIBUTION = "pulumi-github"
 _SDK_VERSION = "6.14.0"
 
 
-def test_runner_template_pins_audited_pulumi_github_sdk():
+def test_pulumi_foundation_pack_pins_audited_github_sdk():
     root = Path(__file__).resolve().parents[3]
-    requirements = (
-        root / "templates" / "webapp" / "infra" / "requirements.txt"
+    requirements = root.joinpath(
+        "packs", "pulumi-foundation", "versions", "1.0.0", "files",
+        "infra", "requirements.txt",
     ).read_text()
 
     assert f"{_SDK_DISTRIBUTION}=={_SDK_VERSION}" in requirements.splitlines()
@@ -22,7 +23,7 @@ def test_runner_template_pins_audited_pulumi_github_sdk():
 def test_installed_pulumi_github_sdk_reads_token_during_constructor():
     spec = util.find_spec("pulumi_github")
     if spec is None or not spec.submodule_search_locations:
-        pytest.skip("pinned template-only pulumi-github SDK is not installed")
+        pytest.skip("pinned Pack SDK is not installed")
     package = Path(next(iter(spec.submodule_search_locations)))
     source = (package / "provider.py").read_text()
 

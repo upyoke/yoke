@@ -13,12 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional
 
-from yoke_core.tools.product_cli_remote_steps import (
-    STEP_NETWORK_UNREACHABLE,
-    STEP_TEMPLATES_LIST_PRODUCT,
-    step_network_unreachable,
-    step_templates_list_product_client,
-)
+from yoke_core.tools import product_cli_remote_steps as _remote_steps
 from yoke_core.tools.checkout_clean_room_smoke_helpers import CommandResult, tail
 
 
@@ -43,6 +38,11 @@ SMOKE_PROJECT_ID = 1
 DENIAL_CODES = ("authentication_malformed", "authentication_unknown")
 BROWSER_RUNTIME_DIR_NAME = "browser-runtime"
 FORBIDDEN_PROJECT_ENTRIES = ("browser", "node_modules")
+
+STEP_NETWORK_UNREACHABLE = _remote_steps.STEP_NETWORK_UNREACHABLE
+STEP_PACKS_LIST_PRODUCT = _remote_steps.STEP_PACKS_LIST_PRODUCT
+step_network_unreachable = _remote_steps.step_network_unreachable
+step_packs_list_product_client = _remote_steps.step_packs_list_product_client
 
 # Runner contract: (command, step_name) -> CommandResult, never raising
 # on non-zero exit — most steps assert that failures ARE non-zero.
@@ -73,7 +73,7 @@ def execute_steps(ctx: SmokeContext, run: StepRunner) -> list[dict[str, Any]]:
         step_writer_bootstrap(ctx, run),
         step_missing_credential(ctx, run),
         step_network_unreachable(ctx, run),
-        step_templates_list_product_client(ctx, run),
+        step_packs_list_product_client(ctx, run),
         step_relay_denial(ctx, run),
         step_unknown_env(ctx, run),
         step_browser_hygiene(ctx, run),

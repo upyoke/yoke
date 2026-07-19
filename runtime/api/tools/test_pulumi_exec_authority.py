@@ -1,11 +1,14 @@
 """Pulumi subprocess authority tests."""
 
 from io import StringIO
-from pathlib import Path
 
 import pytest
 
-from runtime.api.tools.test_pulumi_exec import _Child, _payload
+from runtime.api.tools.test_pulumi_exec_support import (
+    _Child,
+    _install_pulumi_project_files,
+    _stack_payload,
+)
 from yoke_core.domain import deploy_remote
 from yoke_core.tools.pulumi_exec import (
     PulumiExecError,
@@ -14,8 +17,8 @@ from yoke_core.tools.pulumi_exec import (
 )
 
 
-def test_github_authority_uses_bound_project_and_both_token_names():
-    payload = _payload()
+def test_github_authority_uses_bound_project_and_both_token_names(tmp_path):
+    payload = _stack_payload()
     payload["authority"].update({
         "github_project": "platform",
         "github_repo": "upyoke/platform",
@@ -41,7 +44,7 @@ def test_github_authority_uses_bound_project_and_both_token_names():
     execute_pulumi_command(
         "yoke", "yoke-infra", ["preview"],
         config_loader=lambda project, stack: payload,
-        project_root=Path(__file__).resolve().parents[3],
+        project_root=_install_pulumi_project_files(tmp_path),
         aws_env_loader=lambda *args, **kwargs: {},
         github_auth_loader=auth_loader,
         child_factory=child_factory,
@@ -55,7 +58,7 @@ def test_github_authority_uses_bound_project_and_both_token_names():
 
 
 def test_runner_fleet_local_bootstrap_uses_scoped_render_values():
-    payload = _payload("platform", "yoke-runner-fleet")
+    payload = _stack_payload("platform", "yoke-runner-fleet")
     payload["stack_kind"] = "runner-fleet"
     payload["render_values"] = {
         "deploy_namespace": "yoke",
@@ -114,8 +117,72 @@ def test_runner_fleet_local_bootstrap_uses_scoped_render_values():
     assert "private-key-line" in redaction
 
 
+
+def test_runner_fleet_actions_uses_hosted_repository_token_broker(
+    monkeypatch,
+):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    payload = _stack_payload("platform", "yoke-runner-fleet")
+    payload["stack_kind"] = "runner-fleet"
+    payload["render_values"] = {
+        "deploy_namespace": "yoke",
+        "runner_fleet_architecture": "arm64",
+        "runner_fleet_deployment_ssh_stack_outputs_json": "{}",
+        "runner_fleet_github_api_url": "https://api.github.com",
+        "runner_fleet_github_app_issuer": "42",
+        "runner_fleet_github_capability": "github-runner",
+        "runner_fleet_github_installation_id": "7",
+        "runner_fleet_repo": "upyoke/platform",
+        "runner_fleet_github_private_key_secret_arn": "secret-arn",
+        "runner_fleet_github_repo_name": "platform",
+        "runner_fleet_github_repo_owner": "upyoke",
+        "runner_fleet_github_repository_id": "99",
+        "runner_fleet_github_web_url": "https://github.com",
+        "runner_fleet_idle_shutdown_minutes": "30",
+        "runner_fleet_instance_type": "m7g.2xlarge",
+        "runner_fleet_labels_json": '["self-hosted","Linux","ARM64"]',
+        "runner_fleet_max_runner_count": "4",
+        "runner_fleet_root_volume_gb": "200",
+        "runner_fleet_routing_enabled": "true",
+        "runner_fleet_runner_count": "4",
+        "runner_fleet_shutdown_mode": "terminate",
+        "runner_fleet_token_broker_function": "yoke-token-broker",
+        "runner_fleet_variable_name": "YOKE_LINUX_RUNS_ON",
+    }
+    payload["authority"].update({
+        "github_project": "platform",
+        "github_repo": "upyoke/platform",
+    })
+    seen = {}
+
+    def hosted_loader(project, authority_intent, aws_env):
+        seen.update({
+            "project": project,
+            "authority_intent": authority_intent,
+            "aws_env": aws_env,
+        })
+        return "hosted-token"
+
+    env, redaction = _authority_env(
+        "platform", payload["authority"], payload,
+        aws_env_loader=lambda *args, **kwargs: {
+            "AWS_ACCESS_KEY_ID": "oidc-key",
+        },
+        github_auth_loader=lambda *args, **kwargs: pytest.fail(
+            "consulted the ordinary repository-token path"
+        ),
+        hosted_runner_token_loader=hosted_loader,
+    )
+
+    assert seen["project"] == "platform"
+    assert seen["authority_intent"]
+    assert seen["aws_env"]["AWS_ACCESS_KEY_ID"] == "oidc-key"
+    assert env["GITHUB_TOKEN"] == "hosted-token"
+    assert env["YOKE_RUNNER_FLEET_AUTHORITY_INTENT"]
+    assert "hosted-token" in redaction
+
 def test_local_bootstrap_refuses_non_runner_stack():
-    payload = _payload()
+    payload = _stack_payload()
     payload["authority"]["github_repo"] = "upyoke/yoke"
     with pytest.raises(PulumiExecError, match="limited to the runner-fleet"):
         _authority_env(
@@ -126,7 +193,9 @@ def test_local_bootstrap_refuses_non_runner_stack():
         )
 
 
-def test_default_aws_authority_reads_machine_files_without_database(monkeypatch):
+def test_default_aws_authority_reads_machine_files_without_database(
+    monkeypatch, tmp_path,
+):
     monkeypatch.setattr(
         deploy_remote.capability_machine_secrets,
         "read_machine_capability_secret",
@@ -149,8 +218,8 @@ def test_default_aws_authority_reads_machine_files_without_database(monkeypatch)
 
     execute_pulumi_command(
         "yoke", "yoke-infra", ["refresh", "--yes", "--non-interactive"],
-        config_loader=lambda project, stack: _payload(project, stack),
-        project_root=Path(__file__).resolve().parents[3],
+        config_loader=lambda project, stack: _stack_payload(project, stack),
+        project_root=_install_pulumi_project_files(tmp_path),
         child_factory=child_factory,
         out=StringIO(),
         err=StringIO(),
@@ -158,7 +227,7 @@ def test_default_aws_authority_reads_machine_files_without_database(monkeypatch)
     assert seen["env"]["AWS_ACCESS_KEY_ID"] == "AKIAMACHINE"
 
 
-def test_default_aws_authority_preserves_actions_oidc(monkeypatch):
+def test_default_aws_authority_preserves_actions_oidc(monkeypatch, tmp_path):
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ASIAOIDC")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "oidc-secret")
@@ -176,8 +245,8 @@ def test_default_aws_authority_preserves_actions_oidc(monkeypatch):
 
     execute_pulumi_command(
         "yoke", "yoke-infra", ["preview"],
-        config_loader=lambda project, stack: _payload(project, stack),
-        project_root=Path(__file__).resolve().parents[3],
+        config_loader=lambda project, stack: _stack_payload(project, stack),
+        project_root=_install_pulumi_project_files(tmp_path),
         child_factory=child_factory,
         out=StringIO(),
         err=StringIO(),
@@ -186,12 +255,12 @@ def test_default_aws_authority_preserves_actions_oidc(monkeypatch):
     assert seen["env"]["AWS_SESSION_TOKEN"] == "oidc-session"
 
 
-def test_aws_failure_is_redacted_and_actionable():
+def test_aws_failure_is_redacted_and_actionable(tmp_path):
     with pytest.raises(PulumiExecError) as raised:
         execute_pulumi_command(
             "platform", "yoke-stage", ["refresh"],
-            config_loader=lambda project, stack: _payload(project, stack),
-            project_root=Path(__file__).resolve().parents[3],
+            config_loader=lambda project, stack: _stack_payload(project, stack),
+            project_root=_install_pulumi_project_files(tmp_path),
             aws_env_loader=lambda *args, **kwargs: (_ for _ in ()).throw(
                 RuntimeError("sensitive-value")
             ),
@@ -202,8 +271,8 @@ def test_aws_failure_is_redacted_and_actionable():
     assert "capability secret set" in rendered
 
 
-def test_github_failure_is_redacted_and_actionable():
-    payload = _payload()
+def test_github_failure_is_redacted_and_actionable(tmp_path):
+    payload = _stack_payload()
     payload["authority"].update({
         "github_project": "platform",
         "github_repo": "upyoke/platform",
@@ -213,7 +282,7 @@ def test_github_failure_is_redacted_and_actionable():
         execute_pulumi_command(
             "yoke", "yoke-infra", ["preview"],
             config_loader=lambda project, stack: payload,
-            project_root=Path(__file__).resolve().parents[3],
+            project_root=_install_pulumi_project_files(tmp_path),
             aws_env_loader=lambda *args, **kwargs: {},
             github_auth_loader=lambda *args, **kwargs: (_ for _ in ()).throw(
                 RuntimeError("ghu_sensitive-token")

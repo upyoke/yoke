@@ -332,15 +332,3 @@ def _validation_fixture_layout(tmp_path: Path) -> tuple[Path, Path]:
     ssh_key = tmp_path / ".ssh_key"
     ssh_key.write_text("fake-ssh-key")
     return repo_path, ssh_key
-
-
-def write_fake_rendered_workflows(cmd: list[str]) -> None:
-    """Populate the --output-dir workflow files for mocked render_project calls."""
-
-    if "--output-dir" not in cmd:
-        raise AssertionError(f"render_project command missing --output-dir: {cmd}")
-    output_dir = Path(cmd[cmd.index("--output-dir") + 1])
-    workflows_dir = output_dir / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-    (workflows_dir / "externalwebapp-deploy.yml").write_text("name: ExternalWebapp Deploy\n")
-    (workflows_dir / "externalwebapp-smoke.yml").write_text("name: ExternalWebapp Smoke Test\n")

@@ -1,6 +1,6 @@
-"""Pulumi rendering helpers for the project template renderer.
+"""Pulumi value gathering and rendering for project-owned Pack source.
 
-Owns legacy stack-set rendering (``stacks``) and additive environment stack
+Owns declared stack-set rendering (``stacks``) and additive environment stack
 instances (``stackInstances``). Pulumi YAML and Python program files render
 without ``_auto_header()`` so byte-equivalent source/render checks stay clean.
 """
@@ -11,6 +11,8 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Dict, List
+
+from .pack_pulumi_sources import pulumi_generator_source, pulumi_program_source
 
 from .project_renderer_pulumi_context import _pulumi_context_from_settings
 from .project_renderer_pulumi_instances import (
@@ -69,13 +71,12 @@ def gather_pulumi_values(
 
 def render_pulumi_stack_yaml(template_path: Path, values: Dict[str, str]) -> str:
     """Substitute placeholders into Pulumi stack YAML template content."""
-    # Import here to avoid a circular import: project_renderer imports us.
-    from .project_renderer import render_template
-    return render_template(template_path.read_text(), values)
+    from .pack_render import render_pack_text
+    return render_pack_text(template_path.read_text(), values)
 
 
 def _copy_template_files(
-    src_dir: Path, dst_dir: Path, files: List[str], write: bool,
+    project_root: Path, dst_dir: Path, files: List[str], write: bool,
 ) -> None:
     """Copy verbatim template files from src_dir to dst_dir.
 
@@ -84,7 +85,7 @@ def _copy_template_files(
     must report no change.
     """
     for name in files:
-        src = src_dir / name
+        src = pulumi_program_source(project_root, name)
         if not src.is_file():
             continue
         if write:
@@ -115,11 +116,7 @@ def render_pulumi_artifacts(
     substitution; program modules copy verbatim (no header, no substitution) so
     the source-to-destination diff stays empty.
     """
-    infra_src = project_root / "templates" / "webapp" / "infra"
     infra_dst = proj_dir / "infra"
-
-    if not infra_src.is_dir():
-        return
 
     if settings is None:
         settings = load_project_renderer_settings(project)
@@ -138,12 +135,12 @@ def render_pulumi_artifacts(
     )
 
     # Pulumi.yaml — rendered with substitution (no-op today; source has no
-    # placeholders, but we still route through render_template so the source
+    # placeholders, but we still route through the Pack renderer so the source
     # may grow placeholders in the future).
-    pulumi_yaml_src = infra_src / "Pulumi.yaml"
+    pulumi_yaml_src = pulumi_program_source(project_root, "Pulumi.yaml")
     if pulumi_yaml_src.is_file():
-        from .project_renderer import render_template
-        rendered = render_template(pulumi_yaml_src.read_text(), values)
+        from .pack_render import render_pack_text
+        rendered = render_pack_text(pulumi_yaml_src.read_text(), values)
         if write:
             infra_dst.mkdir(parents=True, exist_ok=True)
             (infra_dst / "Pulumi.yaml").write_text(rendered)
@@ -172,7 +169,7 @@ def render_pulumi_artifacts(
     for stack_type in stack_types:
         program_file, config_tmpl_name = STACK_TYPE_SPECS[stack_type]
         stack_name = pulumi_stack_name(stack_type, settings, values)
-        stack_template = infra_src / config_tmpl_name
+        stack_template = pulumi_generator_source(project_root, config_tmpl_name)
         if stack_template.is_file():
             # The domain config template substitutes {{manage_registration}},
             # which is not part of the shared values dict — inject it from the
@@ -244,7 +241,9 @@ def render_pulumi_artifacts(
                 if program_file not in program_files:
                     program_files.append(program_file)
 
-    instance_template = infra_src / "Pulumi.environment-stack.yaml.tmpl"
+    instance_template = pulumi_generator_source(
+        project_root, "Pulumi.environment-stack.yaml.tmpl"
+    )
     for instance in instances:
         if not instance_template.is_file():
             raise FileNotFoundError(
@@ -272,7 +271,7 @@ def render_pulumi_artifacts(
             if program_file not in program_files:
                 program_files.append(program_file)
 
-    vps_template = infra_src / STACK_TYPE_SPECS["vps"][1]
+    vps_template = pulumi_generator_source(project_root, STACK_TYPE_SPECS["vps"][1])
     for target in vps_targets:
         if not vps_template.is_file():
             raise FileNotFoundError(
@@ -300,4 +299,4 @@ def render_pulumi_artifacts(
 
     # Program modules — copied verbatim (shared files + each declared stack's
     # module).
-    _copy_template_files(infra_src, infra_dst, program_files, write)
+    _copy_template_files(project_root, infra_dst, program_files, write)

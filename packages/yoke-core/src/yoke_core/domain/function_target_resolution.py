@@ -141,9 +141,8 @@ def _resolve_work_claim_project_context(
     return project_id, _slug_for_project_id(conn, project_id)
 
 
-# Functions whose target project lives in the payload (not the target ref):
-# project writes name it by ``slug`` or ``project``; board reads name it by
-# ``scope``. A supplied target-ref hint must agree with that payload authority.
+# Functions whose target project lives in payload ``slug``, ``project``, or
+# ``scope``; a target-ref hint must agree with that payload authority.
 _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
     "ephemeral_env.create", "projects.update",
     "projects.capability_settings.get",
@@ -151,7 +150,8 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
     "projects.capability_settings.merge",
     "projects.environment_settings.get",
     "projects.environment_settings.merge",
-    "projects.infrastructure.list", "projects.artifacts.render",
+    "projects.infrastructure.list",
+    "packs.catalog.list", "packs.bundle.get", "packs.project.report",
     "projects.pulumi_state.migrate", "projects.pulumi_state.checkpoint_import",
     "projects.pulumi_stack_config.get",
     "board.data.get",

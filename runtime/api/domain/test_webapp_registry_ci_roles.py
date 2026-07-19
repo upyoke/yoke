@@ -78,6 +78,7 @@ def test_github_oidc_roles_split_infrastructure_from_delivery(monkeypatch):
     assert recorder.exports["githubActionsDeliveryRoleArn"].value == (
         stack.delivery_role.arn.value
     )
+    assert "githubActionsCiRoleArn" not in recorder.exports
     provider = recorder.single("githubCiRoleVariableProvider")
     assert provider.kwargs == {
         "owner": "upyoke",

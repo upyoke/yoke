@@ -4,25 +4,17 @@ from __future__ import annotations
 
 import ast
 import types
-from pathlib import Path
 
 from runtime.api.domain.test_webapp_database_stack_rotation import (
     _load_database_stack_module,
 )
-
-
-def _template_path() -> Path:
-    return (
-        Path(__file__).resolve().parents[3]
-        / "templates"
-        / "webapp"
-        / "infra"
-        / "webapp_database_stack.py"
-    )
+from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
 
 
 def test_database_security_group_ingress_uses_per_peer_rule_builder():
-    tree = ast.parse(_template_path().read_text(encoding="utf-8"))
+    tree = ast.parse(
+        _pack_program_source("webapp_database_stack.py").read_text(encoding="utf-8")
+    )
     security_group = next(
         node
         for node in ast.walk(tree)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from io import BytesIO, StringIO
+from io import StringIO
 from pathlib import Path
 import stat
 
@@ -12,57 +12,15 @@ from yoke_core.tools.pulumi_exec import (
     PulumiExecError,
     execute_pulumi_command,
 )
-from runtime.api.tools.test_pulumi_exec_support import _init_settings
+from runtime.api.tools.test_pulumi_exec_support import (
+    _Child,
+    _init_settings,
+    _install_pulumi_project_files,
+    _stack_payload,
+)
 
 
-class _Child:
-    def __init__(
-        self,
-        stdout: bytes = b"preview-ok\n",
-        *,
-        stderr: bytes = b"",
-        returncode: int = 0,
-    ) -> None:
-        self.stdout = BytesIO(stdout)
-        self.stderr = BytesIO(stderr)
-        self.returncode = returncode
-
-    def wait(self, timeout=None):
-        del timeout
-        return self.returncode
-
-
-def _payload(project: str = "yoke", stack: str = "yoke-infra"):
-    return {
-        "config_schema": 2,
-        "project_id": 1,
-        "project_slug": project,
-        "stack_name": stack,
-        "stack_kind": "infra",
-        "render_values": {
-            "project_name": project,
-            "pulumi_infra_stack_name": stack,
-        },
-        "operator_state": {
-            "secrets_provider": "awskms://alias/yoke-pulumi",
-            "encrypted_key": "encrypted-material",
-        },
-        "authority": {
-            "aws_capability": "aws-admin",
-            "aws_region": "us-east-1",
-            "backend_url": "s3://yoke-state?region=us-east-1",
-            "github_repo": "",
-            "github_api_url": "",
-            "github_permissions": {"metadata": "read"},
-            "sensitive_paths": [
-                "operator_state.secrets_provider",
-                "operator_state.encrypted_key",
-            ],
-        },
-    }
-
-
-def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
+def test_init_uses_declared_stack_ephemeral_authority_and_persists_state(tmp_path):
     calls = []
     imports = []
     encrypted_key = "generated-encrypted-material"
@@ -104,7 +62,7 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state():
             "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
         ],
         config_loader=config_loader,
-        project_root=Path(__file__).resolve().parents[3],
+        project_root=_install_pulumi_project_files(tmp_path),
         settings_loader=lambda project: _init_settings(),
         state_importer=state_importer,
         aws_env_loader=lambda *args, **kwargs: {
@@ -191,6 +149,7 @@ def test_init_refuses_unsafe_or_non_bootstrap_requests_before_child(
     command,
     settings,
     message,
+    tmp_path,
 ):
     child_called = False
 
@@ -205,7 +164,7 @@ def test_init_refuses_unsafe_or_non_bootstrap_requests_before_child(
             "externalwebapp-registry",
             command,
             config_loader=lambda *args: pytest.fail("fetched stack config"),
-            project_root=Path(__file__).resolve().parents[3],
+            project_root=_install_pulumi_project_files(tmp_path),
             settings_loader=lambda project: settings,
             aws_env_loader=lambda *args, **kwargs: {},
             child_factory=child_factory,
@@ -213,7 +172,7 @@ def test_init_refuses_unsafe_or_non_bootstrap_requests_before_child(
     assert child_called is False
 
 
-def test_init_child_failure_does_not_persist_operator_state():
+def test_init_child_failure_does_not_persist_operator_state(tmp_path):
     persisted = False
 
     def child_factory(command, **kwargs):
@@ -240,7 +199,7 @@ def test_init_child_failure_does_not_persist_operator_state():
             "awskms://alias/externalwebapp-pulumi-state?region=us-east-1",
         ],
         config_loader=lambda *args: pytest.fail("fetched stack config"),
-        project_root=Path(__file__).resolve().parents[3],
+        project_root=_install_pulumi_project_files(tmp_path),
         settings_loader=lambda project: _init_settings(),
         state_importer=state_importer,
         aws_env_loader=lambda *args, **kwargs: {},
@@ -272,8 +231,8 @@ def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):
         "yoke",
         "yoke-infra",
         ["preview", "--refresh", "--non-interactive"],
-        config_loader=lambda project, stack: _payload(project, stack),
-        project_root=Path(__file__).resolve().parents[3],
+        config_loader=lambda project, stack: _stack_payload(project, stack),
+        project_root=_install_pulumi_project_files(tmp_path),
         aws_env_loader=lambda *args, **kwargs: {
             "AWS_ACCESS_KEY_ID": "access-key",
             "AWS_SECRET_ACCESS_KEY": "secret-key",
@@ -299,8 +258,8 @@ def test_preview_json_output_is_durable_owner_only(tmp_path):
         "yoke",
         "yoke-infra",
         ["preview", "--json-output", str(output)],
-        config_loader=lambda project, stack: _payload(project, stack),
-        project_root=Path(__file__).resolve().parents[3],
+        config_loader=lambda project, stack: _stack_payload(project, stack),
+        project_root=_install_pulumi_project_files(tmp_path),
         aws_env_loader=lambda *args, **kwargs: {},
         child_factory=lambda command, **kwargs: _Child(b'{"steps":[]}\n'),
         out=StringIO(),
@@ -318,7 +277,7 @@ def test_disallowed_operations_refuse_before_config_fetch(operation, tmp_path):
     def loader(project, stack):
         nonlocal called
         called = True
-        return _payload(project, stack)
+        return _stack_payload(project, stack)
 
     with pytest.raises(PulumiExecError, match="allows only"):
         execute_pulumi_command(
@@ -341,7 +300,7 @@ def test_up_requires_explicit_non_interactive_confirmation(tmp_path):
         ):
             execute_pulumi_command(
                 "yoke", "yoke-infra", command,
-                config_loader=lambda project, stack: _payload(project, stack),
+                config_loader=lambda project, stack: _stack_payload(project, stack),
                 project_root=tmp_path,
             )
 
@@ -360,8 +319,8 @@ def test_up_uses_exact_stack_and_safe_flags(tmp_path):
             "up", "--yes", "--non-interactive", "--refresh",
             "--suppress-outputs", "--diff",
         ],
-        config_loader=lambda project, stack: _payload(project, stack),
-        project_root=Path(__file__).resolve().parents[3],
+        config_loader=lambda project, stack: _stack_payload(project, stack),
+        project_root=_install_pulumi_project_files(tmp_path),
         aws_env_loader=lambda *args, **kwargs: {},
         child_factory=child_factory,
         out=StringIO(),
@@ -381,7 +340,7 @@ def test_up_rejects_unapproved_arguments(tmp_path):
             "yoke",
             "yoke-infra",
             ["up", "--yes", "--non-interactive", "--target", "resource"],
-            config_loader=lambda project, stack: _payload(project, stack),
+            config_loader=lambda project, stack: _stack_payload(project, stack),
             project_root=tmp_path,
         )
 
@@ -390,13 +349,13 @@ def test_mismatched_child_stack_and_payload_identity_refuse(tmp_path):
     with pytest.raises(PulumiExecError, match="child --stack"):
         execute_pulumi_command(
             "yoke", "yoke-infra", ["preview", "--stack", "prod"],
-            config_loader=lambda project, stack: _payload(project, stack),
+            config_loader=lambda project, stack: _stack_payload(project, stack),
             project_root=tmp_path,
         )
     with pytest.raises(PulumiExecError, match="identity does not match"):
         execute_pulumi_command(
             "yoke", "yoke-infra", ["preview"],
-            config_loader=lambda project, stack: _payload(project, "stage"),
+            config_loader=lambda project, stack: _stack_payload(project, "stage"),
             project_root=tmp_path,
         )
 
@@ -407,7 +366,7 @@ def test_import_accepts_only_safe_file_form(tmp_path):
     with pytest.raises(PulumiExecError, match="argument is not allowed"):
         execute_pulumi_command(
             "yoke", "yoke-infra", ["import", "aws:s3/bucket", "name"],
-            config_loader=lambda project, stack: _payload(project, stack),
+            config_loader=lambda project, stack: _stack_payload(project, stack),
             project_root=tmp_path,
         )
     commands = []
@@ -423,8 +382,8 @@ def test_import_accepts_only_safe_file_form(tmp_path):
             "import", "--file", str(import_file), "--protect=false",
             "--generate-code=false", "--yes", "--non-interactive",
         ],
-        config_loader=lambda project, stack: _payload(project, stack),
-        project_root=Path(__file__).resolve().parents[3],
+        config_loader=lambda project, stack: _stack_payload(project, stack),
+        project_root=_install_pulumi_project_files(tmp_path),
         aws_env_loader=lambda *args, **kwargs: {},
         child_factory=child_factory,
         out=StringIO(),
@@ -446,7 +405,7 @@ def test_preview_and_refresh_reject_unapproved_arguments(command, tmp_path):
     with pytest.raises(PulumiExecError, match="not allowed"):
         execute_pulumi_command(
             "yoke", "yoke-infra", command,
-            config_loader=lambda project, stack: _payload(project, stack),
+            config_loader=lambda project, stack: _stack_payload(project, stack),
             project_root=tmp_path,
         )
 
@@ -456,6 +415,6 @@ def test_import_requires_exactly_one_file(tmp_path):
         execute_pulumi_command(
             "yoke", "yoke-infra",
             ["import", "--file", "one.json", "--file", "two.json"],
-            config_loader=lambda project, stack: _payload(project, stack),
+            config_loader=lambda project, stack: _stack_payload(project, stack),
             project_root=tmp_path,
         )

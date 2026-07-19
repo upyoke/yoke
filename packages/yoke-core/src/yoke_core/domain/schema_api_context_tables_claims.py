@@ -94,7 +94,10 @@ CLAIMS_TABLES: dict[str, dict] = {
             "project identity, stamped from the installing machine's checkout "
             "mapping at registration. workspace is display/debug context "
             "only; never join or prefix-match workspace against a shared "
-            "project row to infer project identity."
+            "project row to infer project identity. The sessions.begin "
+            "entrypoint input helps canonicalize executor identity during "
+            "registration; it is not stored in an `entrypoint` column, and "
+            "harness_sessions has no such column."
         ),
     },
     "session_tool_calls": {

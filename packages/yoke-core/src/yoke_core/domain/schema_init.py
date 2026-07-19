@@ -11,6 +11,10 @@ from yoke_core.domain.flow_init import (
 )
 from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.org_schema import seed_default_org
+from yoke_core.domain.pack_projection import (
+    converge_pack_catalog,
+    create_pack_projection_tables,
+)
 from yoke_core.domain.project_onboarding_runs import (
     create_project_onboarding_tables,
 )
@@ -74,11 +78,13 @@ def converge_core_schema(conn) -> None:
     create_external_identity_tables(conn)
     create_github_app_tables(conn)
     create_project_onboarding_tables(conn)
+    create_pack_projection_tables(conn)
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant
     # the strategy domain owns.
     conn.execute(STRATEGY_DOCS_CREATE_TABLE_SQL)
     apply_additive_schema(conn)
+    converge_pack_catalog(conn)
     # Built-in deployment flows are executable configuration, not birth-only
     # sample data. Missing definitions and exact code-owned supersessions
     # therefore converge with deployed code on every boot while historical

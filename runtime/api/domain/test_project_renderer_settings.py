@@ -18,7 +18,8 @@ class TestProjectRendererSettingsLoader:
     def test_capability_owns_deploy_namespace_without_site_rows(self):
         db_name = pg_testdb.create_test_database()
         conn = pg_testdb.drop_database_on_close(
-            pg_testdb.connect_test_database(db_name), db_name,
+            pg_testdb.connect_test_database(db_name),
+            db_name,
         )
         try:
             conn.execute(
@@ -36,10 +37,16 @@ class TestProjectRendererSettingsLoader:
             conn.execute(
                 "INSERT INTO project_capabilities (project_id, type, settings) "
                 "VALUES (%s, %s, %s)",
-                (3, "pulumi-state", json.dumps({
-                    "deploy_namespace": "yoke",
-                    "stacks": ["registry", "runner-fleet"],
-                })),
+                (
+                    3,
+                    "pulumi-state",
+                    json.dumps(
+                        {
+                            "deploy_namespace": "yoke",
+                            "stacks": ["registry", "runner-fleet"],
+                        }
+                    ),
+                ),
             )
 
             settings = _load_project_renderer_settings(conn, "platform")
@@ -53,7 +60,8 @@ class TestProjectRendererSettingsLoader:
     def test_loads_db_settings_homes_and_maps_renderer_values(self):
         db_name = pg_testdb.create_test_database()
         conn = pg_testdb.drop_database_on_close(
-            pg_testdb.connect_test_database(db_name), db_name,
+            pg_testdb.connect_test_database(db_name),
+            db_name,
         )
         try:
             conn.execute(
@@ -83,19 +91,23 @@ class TestProjectRendererSettingsLoader:
                     "externalwebapp-web",
                     2,
                     "ExternalWebapp Web",
-                    json.dumps({
-                        "domains": [{
-                            "domain_name": "example.com",
-                            "hosted_zone_id": "ZEXT",
-                            "certificate_arn": "arn:aws:acm:cert/externalwebapp",
-                            "dns_provider": "route53",
-                        }],
-                        "cdn": {
-                            "origin_id": "externalwebappOrigin",
-                            "distribution_id": "EDIST",
-                            "distribution_domain": "d123.cloudfront.net",
-                        },
-                    }),
+                    json.dumps(
+                        {
+                            "domains": [
+                                {
+                                    "domain_name": "example.com",
+                                    "hosted_zone_id": "ZEXT",
+                                    "certificate_arn": "arn:aws:acm:cert/externalwebapp",
+                                    "dns_provider": "route53",
+                                }
+                            ],
+                            "cdn": {
+                                "origin_id": "externalwebappOrigin",
+                                "distribution_id": "EDIST",
+                                "distribution_domain": "d123.cloudfront.net",
+                            },
+                        }
+                    ),
                 ),
             )
             conn.execute(
@@ -105,13 +117,17 @@ class TestProjectRendererSettingsLoader:
                     "externalwebapp-web-production",
                     "externalwebapp-web",
                     "production",
-                    json.dumps({
-                        "hosts": {"origin": "origin.externalwebapp.example.com"},
-                        "servers": [{
-                            "host": "203.0.113.50",
-                            "description": "ExternalWebapp VPS",
-                        }],
-                    }),
+                    json.dumps(
+                        {
+                            "hosts": {"origin": "origin.externalwebapp.example.com"},
+                            "servers": [
+                                {
+                                    "host": "203.0.113.50",
+                                    "description": "ExternalWebapp VPS",
+                                }
+                            ],
+                        }
+                    ),
                 ),
             )
             for cap_type, settings in (
@@ -135,6 +151,7 @@ class TestProjectRendererSettingsLoader:
             assert settings.primary_environment is not None
             assert settings.primary_environment.name == "production"
             assert settings.capabilities["ssh"]["default_user"] == "ubuntu"
+            assert values["project_slug"] == "externalwebapp"
             assert values["domain_name"] == "example.com"
             assert values["origin_host"] == "origin.externalwebapp.example.com"
             assert values["origin_ip"] == "203.0.113.50"
@@ -154,7 +171,8 @@ class TestProjectRendererSettingsLoader:
         """
         db_name = pg_testdb.create_test_database()
         conn = pg_testdb.drop_database_on_close(
-            pg_testdb.connect_test_database(db_name), db_name,
+            pg_testdb.connect_test_database(db_name),
+            db_name,
         )
         try:
             conn.execute(
@@ -176,9 +194,18 @@ class TestProjectRendererSettingsLoader:
             conn.execute(
                 "INSERT INTO sites (id, project_id, name, settings) "
                 "VALUES (%s, %s, %s, %s)",
-                ("externalwebapp-web", 2, "ExternalWebapp Web", json.dumps({"domains": [
-                    {"domain_name": "example.com"},
-                ]})),
+                (
+                    "externalwebapp-web",
+                    2,
+                    "ExternalWebapp Web",
+                    json.dumps(
+                        {
+                            "domains": [
+                                {"domain_name": "example.com"},
+                            ]
+                        }
+                    ),
+                ),
             )
             conn.execute(
                 "INSERT INTO environments (id, site, name, settings) "
@@ -197,11 +224,13 @@ class TestProjectRendererSettingsLoader:
                     "externalwebapp-web-live",
                     "externalwebapp-web",
                     "live",
-                    json.dumps({
-                        "renderer_primary": True,
-                        "hosts": {"origin": "origin.externalwebapp.example.com"},
-                        "servers": [{"host": "203.0.113.50"}],
-                    }),
+                    json.dumps(
+                        {
+                            "renderer_primary": True,
+                            "hosts": {"origin": "origin.externalwebapp.example.com"},
+                            "servers": [{"host": "203.0.113.50"}],
+                        }
+                    ),
                 ),
             )
 
@@ -271,18 +300,21 @@ class TestEphemeralPortBaseKeys:
 
     def test_web_base_port_feeds_port_base(self):
         values = _values_from_settings(
-            "externalwebapp", _settings_with_ephemeral({"web_base_port": 4100}),
+            "externalwebapp",
+            _settings_with_ephemeral({"web_base_port": 4100}),
         )
         assert values["port_base"] == "4100"
 
     def test_retired_base_port_alias_is_ignored(self):
         values = _values_from_settings(
-            "externalwebapp", _settings_with_ephemeral({"base_port": 9000}),
+            "externalwebapp",
+            _settings_with_ephemeral({"base_port": 9000}),
         )
         assert values["port_base"] == "4000"  # default, not the alias value
 
     def test_api_base_port_feeds_api_port_base(self):
         values = _values_from_settings(
-            "externalwebapp", _settings_with_ephemeral({"api_base_port": 9100}),
+            "externalwebapp",
+            _settings_with_ephemeral({"api_base_port": 9100}),
         )
         assert values["api_port_base"] == "9100"

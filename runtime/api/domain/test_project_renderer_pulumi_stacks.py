@@ -8,7 +8,6 @@ project declaring ``stacks=["domain"]`` produces — no EC2/CloudFront surface.
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 
 import pytest
 
@@ -17,6 +16,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
     _make_project_root,
     _stub_renderer_settings,
 )
+from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
 
 
 class TestGatherPulumiStacks:
@@ -124,7 +124,7 @@ class TestRenderDomainOnly:
     @pytest.fixture
     def domain_tree(self, tmp_path, monkeypatch):
         root = tmp_path / "repo"
-        infra = root / "templates" / "webapp" / "infra"
+        infra = root / "infra"
         infra.mkdir(parents=True)
         (infra / "Pulumi.yaml").write_text(
             "name: webapp-infra\nruntime:\n  name: python\n"
@@ -253,7 +253,7 @@ class TestRenderDomainOnly:
         monkeypatch,
     ):
         root = tmp_path / "repo"
-        infra = root / "templates" / "webapp" / "infra"
+        infra = root / "infra"
         infra.mkdir(parents=True)
         (infra / "Pulumi.yaml").write_text(
             "name: webapp-infra\nruntime:\n  name: python\n"
@@ -317,13 +317,7 @@ class TestRenderDomainOnly:
 
 
 def test_pulumi_entrypoint_uses_branch_local_stack_imports():
-    repo_root = Path(__file__).resolve().parents[3]
-    entrypoint = repo_root.joinpath(
-        "templates",
-        "webapp",
-        "infra",
-        "__main__.py",
-    )
+    entrypoint = _pack_program_source("__main__.py")
     tree = ast.parse(entrypoint.read_text())
     top_level_imports = {
         node.module for node in tree.body if isinstance(node, ast.ImportFrom)
@@ -340,13 +334,7 @@ def test_pulumi_entrypoint_uses_branch_local_stack_imports():
 
 
 def test_domain_registration_nameservers_transform_pulumi_output():
-    repo_root = Path(__file__).resolve().parents[3]
-    stack = repo_root.joinpath(
-        "templates",
-        "webapp",
-        "infra",
-        "webapp_domain_stack.py",
-    ).read_text()
+    stack = _pack_program_source("webapp_domain_stack.py").read_text()
 
     assert "name_servers=self.hosted_zone.name_servers.apply(" in stack
     assert "for ns in self.hosted_zone.name_servers" not in stack

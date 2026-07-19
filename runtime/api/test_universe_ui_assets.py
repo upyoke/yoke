@@ -186,7 +186,7 @@ def test_every_nav_destination_is_routable_and_scoped():
         "overview", "inbox", "strategy", "frontier", "items",
         "sessions", "delivery", "qa", "workflows", "capabilities", "events",
         "doctor", "ouroboros", "projects", "access", "members", "billing",
-        "templates", "github", "project", "organization",
+        "packs", "github", "project", "organization",
     ):
         assert f'id: "{destination}"' in page_module, destination
     assert 'id: "board"' not in page_module

@@ -3,8 +3,8 @@
 The Yoke substrate (``runtime/api/domain/`` and ``runtime/api/engines/``)
 holds generic capabilities — validators, doctor HCs, runtime helpers — that
 must work for any webapp project. A filename that bakes in a specific
-project identifier (for example, ``validate_<project>_pipeline.py``) is a template-first
-violation: the file should be generic and read the project at call time.
+project identifier (for example, ``validate_<project>_pipeline.py``) violates
+the generic substrate boundary: the file should read the project at call time.
 
 This HC walks the substrate directories and reports any Python filename
 whose lowercase form contains a project identifier from the ``projects``

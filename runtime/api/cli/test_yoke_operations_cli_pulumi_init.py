@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import redirect_stderr
 import io
+from pathlib import Path
 
 from yoke_cli.commands.adapters import pulumi
 
@@ -23,18 +24,18 @@ def test_pulumi_exec_init_is_local_and_reaches_core_boundary(monkeypatch):
             "execute_pulumi_command": staticmethod(execute),
         },
     )
-    renderer = type(
-        "Renderer", (), {"_resolve_project_root": staticmethod(lambda: ".")},
-    )
     monkeypatch.setattr(pulumi, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(pulumi, "resolve_https_connection", lambda: None)
+    monkeypatch.setattr(
+        pulumi, "_project_checkout", lambda *args, **kwargs: Path("."),
+    )
     monkeypatch.setattr(
         pulumi, "build_pulumi_github_auth_loader", lambda **kwargs: object(),
     )
     monkeypatch.setattr(
         pulumi.importlib,
         "import_module",
-        lambda name: renderer if name.endswith("project_renderer_values") else executor,
+        lambda name: executor,
     )
 
     rc = pulumi.pulumi_exec([

@@ -1,0 +1,21 @@
+# Rendered by the core-container-deploy executor (runtime.api.domain.deploy_core_container).
+# Do not hand-edit on the server: every deploy rewrites this file from the
+# project-owned Pack source
+# plus DB-backed environment settings. Project: {{project}} / environment: {{env_name}}.
+#
+# Topology: CloudFront ({{api_host}}) -> this origin ({{origin_host}}:{{origin_port}},
+# http-only) -> 127.0.0.1:{{api_port}} (core service container).
+server {
+    listen {{origin_port}} default_server;
+    server_name {{origin_host}} {{api_host}};
+    client_max_body_size 16m;
+
+    location / {
+        proxy_pass http://127.0.0.1:{{api_port}};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 75s;
+    }
+}

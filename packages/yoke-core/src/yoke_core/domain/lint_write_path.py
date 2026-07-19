@@ -32,8 +32,6 @@ from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, O
 
 WORKFLOW_PATH_PATTERNS = (
     r"\.github/workflows/",
-    r"templates/webapp/ops/",
-    r"templates/webapp/scaffold/\.github/workflows/",
     r"projects/[^/]+/\.github/workflows/",
     r"projects/[^/]+/ops/",
 )

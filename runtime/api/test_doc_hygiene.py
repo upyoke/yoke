@@ -2,7 +2,7 @@
 
 Locks the cleaned-up topology against regressions. Each test greps active
 repo surfaces (runtime/, docs/ excluding archive, .agents/, .claude/,
-templates/, README.md) for a retired or forbidden pattern.
+packs/, README.md) for a retired or forbidden pattern.
 
 These tests do NOT touch the database, git, or any network.
 They are permanent guards owned by the doc-hygiene subsystem.
@@ -15,7 +15,6 @@ class cannot drift from the canonical vocabulary.
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
 
 from yoke_core.domain.lint_structured_field_transform_shell_messages import (
@@ -39,7 +38,7 @@ _ACTIVE_DIRS = [
     REPO / "docs",  # archive subdirectory filtered per-test
     REPO / ".agents",
     REPO / ".claude",
-    REPO / "templates",
+    REPO / "packs",
 ]
 _ACTIVE_FILES = [REPO / "README.md"]
 

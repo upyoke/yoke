@@ -118,9 +118,9 @@ def _warn_on_config_divergence(
                 f"on re-render (existing={existing_value!r}, "
                 f"rendered={rendered_value!r}). Edit "
                 f"DB-backed site/environment/capability settings (canonical "
-                f"source for renderer-owned Pulumi config) and re-run "
-                f"'python3 -m runtime."
-                f"api.tools.render_project {project} --write --only pulumi'.",
+                f"source for Pulumi config) and rerun the intended "
+                f"`yoke pulumi exec --project {project} --stack <stack> -- "
+                "preview` command.",
                 file=sys.stderr,
             )
     return diverged

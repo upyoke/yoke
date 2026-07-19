@@ -5,7 +5,6 @@ from __future__ import annotations
 import importlib.util
 import sys
 import types
-from pathlib import Path
 
 import pytest
 
@@ -68,8 +67,9 @@ def _load_database_stack_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "pulumi.dynamic", fake_dynamic)
     monkeypatch.setitem(sys.modules, "pulumi_aws", fake_aws)
 
-    repo_root = Path(__file__).resolve().parents[3]
-    path = repo_root / "templates" / "webapp" / "infra" / "webapp_database_stack.py"
+    from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
+
+    path = _pack_program_source("webapp_database_stack.py")
     spec = importlib.util.spec_from_file_location("_webapp_database_stack_test", path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader

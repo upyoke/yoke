@@ -12,7 +12,7 @@ import pytest
 
 from runtime.api.domain.test_webapp_registry_stack import (
     _Recorder,
-    _load_template_module,
+    _load_pack_module,
 )
 from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
 
@@ -221,10 +221,10 @@ def test_idle_reaper_runs_outside_the_workflow_host(monkeypatch):
 
 def test_user_data_treats_rendered_values_as_data(monkeypatch):
     recorder = _Recorder()
-    host_cycle = _load_template_module(
+    host_cycle = _load_pack_module(
         monkeypatch, recorder, "webapp_runner_host_cycle.py",
     )
-    internals = _load_template_module(
+    internals = _load_pack_module(
         monkeypatch, recorder, "webapp_runner_fleet_internals.py",
         extra_modules={"webapp_runner_host_cycle": host_cycle},
     )

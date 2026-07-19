@@ -44,17 +44,6 @@ the executable commands change.
 """
 
 
-def render_template_deviations(display_name: str) -> str:
-    return f"""# Template Deviations: {display_name}
-
-No project-specific template deviations are recorded yet.
-
-When a change touches a reusable capability, first decide whether the change
-belongs in the shared template, in {display_name}, or in both — and record
-approved differences here.
-"""
-
-
 def render_deploy_runbook(display_name: str) -> str:
     return f"""# Deploy Runbook: {display_name}
 
@@ -135,6 +124,5 @@ __all__ = [
     "render_deploy_runbook",
     "render_file_line_exceptions",
     "render_recovery_runbook",
-    "render_template_deviations",
     "render_test_inventory",
 ]

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 EXTERNAL_ARTIFACT_PREFIXES = (
     "projects/",
-    "templates/",
+    "packs/",
 )
 
 HARNESS_BOUNDARY_PREFIXES = (

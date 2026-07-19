@@ -141,7 +141,7 @@ from yoke_core.engines.doctor_hc_filesystem import (  # noqa: F401
     hc_size_bloat, hc_test_command_validity,
 )
 from yoke_core.engines.doctor_hc_filesystem_drift import (  # noqa: F401
-    hc_arch_consistency, hc_stray_project_files, hc_template_project_drift,
+    hc_arch_consistency, hc_stray_project_files,
 )
 from yoke_core.engines.doctor_hc_file_size import hc_file_line_limit  # noqa: F401
 from yoke_core.engines.doctor_hc_agents import (  # noqa: F401
@@ -315,7 +315,6 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("prompt-command-consistency", "Prompt/docs advertise supported CLI syntax", hc_prompt_command_consistency),
     HealthCheck("prompt-doctrine-consistency", "Canonical giant doctrine + short-form consistency", hc_prompt_doctrine_consistency),
     HealthCheck("stray-project-files", "Stray project output directories", hc_stray_project_files),
-    HealthCheck("template-project-drift", "Template-to-project content drift retired", hc_template_project_drift),
     HealthCheck("api-vocabulary-drift", "API vocabulary drift", hc_api_vocabulary_drift),
     HealthCheck("approval-contract-drift", "Approval contract drift", hc_approval_contract_drift),
     HealthCheck("test-command-validity", "Test command validity", hc_test_command_validity),

@@ -689,12 +689,12 @@ test("every nav destination declares how it takes project scope", () => {
   for (const view of ["items", "strategy", "overview", "inbox", "frontier"]) {
     assert.equal(universeNavScope(view), "multi");
   }
-  for (const view of ["github", "project"]) {
+  for (const view of ["github", "project", "packs"]) {
     assert.equal(universeNavScope(view), "single");
   }
   // Workflows serves the engine's universe-wide lifecycle definition, so no
   // project narrows it and it draws no picker.
-  for (const view of ["projects", "access", "templates", "organization", "workflows"]) {
+  for (const view of ["projects", "access", "organization", "workflows"]) {
     assert.equal(universeNavScope(view), "none");
   }
   // Members and Billing are host-fed views: the workbench routes them like

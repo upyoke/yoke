@@ -7,12 +7,12 @@ data, and the catalog<->golden parity scan. Splitting the harness out keeps each
 gate module under the authored-file line budget while the goldens stay one flat
 ``__snapshots__`` tree the parity test owns end to end.
 
-Determinism: Textual renders to a virtual terminal of a fixed size, so the SVG
-is identical on macOS, Linux, CI, and EC2. Build-dependent tokens and unused
-Rich style-registry entries are normalized before write/compare — the build
-version (``{{VERSION}}``), the Rich element-id prefix (an adler32 of the
-rendered glyphs), and style declarations with no rendered element — so the gate
-asserts exact layout + copy + color + glyphs, not process-global registry state.
+Determinism: Textual renders to a virtual terminal of a fixed size. Build-
+dependent tokens, invisible whitespace-only text nodes, and unused Rich style-
+registry entries are normalized before write/compare — the build version
+(``{{VERSION}}``), the Rich element-id prefix (an adler32 of the rendered
+glyphs), and style declarations with no visible element — so the gate asserts
+exact layout + copy + color + glyphs, not process-global registry state.
 """
 
 from __future__ import annotations
@@ -44,6 +44,9 @@ _TERMINAL_STYLE_RE = re.compile(
     r"^[ \t]*\.terminal-YOKE-(r\d+) \{[^}\n]*\}\n", re.MULTILINE,
 )
 _TERMINAL_CLASS_RE = re.compile(r'class="terminal-YOKE-(r\d+)"')
+_INVISIBLE_TERMINAL_TEXT_RE = re.compile(
+    r'<text class="terminal-YOKE-r\d+"[^>]*>(?:(?:&#160;)|\s)*</text>'
+)
 
 
 @contextmanager
@@ -70,6 +73,7 @@ def golden_color_env():
 def _normalize(svg: str) -> str:
     svg = _TERMINAL_ID_RE.sub("terminal-YOKE", svg)
     svg = _VERSION_RE.sub("{{VERSION}}", svg)
+    svg = _INVISIBLE_TERMINAL_TEXT_RE.sub("", svg)
     used_styles = set(_TERMINAL_CLASS_RE.findall(svg))
     svg = _TERMINAL_STYLE_RE.sub(
         lambda match: match.group(0) if match.group(1) in used_styles else "",

@@ -210,11 +210,12 @@ switch UX remains a later cloud-runtime capability; this pairing only declares w
 authority lives after cutover. Other runner kinds are schema-reserved and
 rejected.
 
-## Webapp Template Configuration
+## Webapp Pack Configuration
 
-The webapp template's [`templates/webapp/template.json`](../../templates/webapp/template.json)
-carries a top-level `migration_model_defaults` block describing what a
-rendered webapp project should declare:
+The Webapp Scaffold Pack's
+[`settings-reference.json`](../../packs/webapp-scaffold/versions/1.0.0/settings-reference.json)
+carries a top-level `migration_model_defaults` block describing what an
+installed webapp project can declare:
 
 ```json
 {
@@ -246,10 +247,10 @@ rendered webapp project should declare:
 }
 ```
 
-Webapp projects declare their `migration_model` capability from that
-template block at onboarding time; a fresh universe seeds no per-project
-capability rows. Future webapp projects inherit the same Python
-migration-module capability shape without copy-paste-with-variation.
+Webapp projects may declare their `migration_model` capability from that Pack
+reference during onboarding; a fresh universe seeds no per-project capability
+rows. The Pack provides a reusable starting shape without making the installed
+project source centrally managed.
 
 This SQLite pairing is only for the generated app's app-local product database
 and its worktree-local rehearsal DB. It is not a Yoke authority

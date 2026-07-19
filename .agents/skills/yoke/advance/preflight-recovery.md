@@ -91,22 +91,22 @@ If `_body_incomplete` is `1`:
 
 Do not block.
 
-### 4. Template propagation: advisory only
+### 4. Pack reuse: advisory only
 
-Skip if `_item_project` is `yoke` (yoke items don't need template-propagation stance).
+Skip if `_item_project` is `yoke` (Yoke items already own Pack publishing work).
 
 ```bash
 _item_spec=$(yoke items get {N} spec 2>/dev/null)
-_has_tp=$(printf '%s' "$_item_spec" | grep -c '## Template Propagation' 2>/dev/null) || _has_tp=0
+_has_pack_reuse=$(printf '%s' "$_item_spec" | grep -c '## Pack Reuse' 2>/dev/null) || _has_pack_reuse=0
 ```
 
-If `_item_project` is not `yoke` and `_has_tp` is 0:
+If `_item_project` is not `yoke` and `_has_pack_reuse` is 0:
 - Also check body:
  ```bash
- _has_tp_body=$(printf '%s' "$_item_body" | grep -c '## Template Propagation' 2>/dev/null) || _has_tp_body=0
+ _has_pack_reuse_body=$(printf '%s' "$_item_body" | grep -c '## Pack Reuse' 2>/dev/null) || _has_pack_reuse_body=0
  ```
 - If both are 0:
- > **Advisory:** YOK-{N} (project={_item_project}) has no `## Template Propagation` stance. Consider adding one before implementation.
+ > **Advisory:** YOK-{N} (project={_item_project}) has no `## Pack Reuse` stance. Record whether the change is `project-owned` or a reusable `pack-update` before implementation.
 
 Do not block.
 

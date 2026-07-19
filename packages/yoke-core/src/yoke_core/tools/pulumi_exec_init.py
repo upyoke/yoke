@@ -10,7 +10,7 @@ from typing import Any, TextIO
 
 from yoke_core.domain import yaml_helper
 from yoke_core.domain.deploy_remote import DEFAULT_AWS_CAPABILITY_TYPE
-from yoke_core.domain.project_renderer import render_project
+from yoke_core.domain.project_renderer_pulumi import render_pulumi_artifacts
 from yoke_core.domain.project_renderer_pulumi_stack_types import (
     gather_pulumi_stacks,
     pulumi_stack_name,
@@ -105,13 +105,13 @@ def execute_pulumi_stack_init(
         temp_root.chmod(0o700)
         render_root = temp_root / "render"
         try:
-            render_project(
+            render_pulumi_artifacts(
                 project,
-                write=True,
-                only="pulumi",
-                project_root=project_root,
-                output_dir=render_root,
-                settings=settings,
+                values,
+                project_root,
+                render_root,
+                True,
+                settings,
                 pulumi_stack=stack,
             )
         except ValueError as exc:

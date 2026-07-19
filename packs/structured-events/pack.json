@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "slug": "structured-events",
+  "name": "Structured Events",
+  "description": "Shared Python and TypeScript structured-event emitters, attribution, API example, and tests.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/structured-events/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Structured Events Pack."
+          }
+        },
+        "required": [
+          "project_name"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/structured-events/README.md",
+          "target": "docs/packs/structured-events/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/README.md",
+          "target": "events/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/api-route.ts",
+          "target": "events/api-route.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/events.py",
+          "target": "events/events.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/events.ts",
+          "target": "events/events.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/events_attribution.ts",
+          "target": "events/events_attribution.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/events_props.py",
+          "target": "events/events_props.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/events_props.ts",
+          "target": "events/events_props.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/events_types.ts",
+          "target": "events/events_types.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/test_events.py",
+          "target": "events/test_events.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/test_events_emit.py",
+          "target": "events/test_events_emit.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/test_events_ts.py",
+          "target": "events/test_events_ts.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "events/test_events_ts_api.py",
+          "target": "events/test_events_ts_api.py",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "contract-tests",
+          "command": "python3 -m pytest events"
+        }
+      ]
+    }
+  }
+}

@@ -1,11 +1,10 @@
 """Serializable snapshot of the project renderer settings.
 
-The Pulumi stack-config endpoint (``GET /v1/projects/{project}/
-pulumi-stack-config``) serves this snapshot so CI renders Pulumi stack
-YAML from the checked-out templates plus DB authority WITHOUT a database
-credential: the API is the only DB toucher, the runner consumes the
-payload via ``render_project ... --settings-file``. The snapshot is the
-full :class:`~yoke_core.domain.project_renderer_settings
+The aggregate Pulumi settings endpoint (``GET /v1/projects/{project}/
+pulumi-stack-config``) serves this secret-free snapshot for bounded project
+authority checks that do not need an exact stack program. Exact stack execution
+uses the stack-scoped no-store endpoint and project-owned Pack source. The
+snapshot is the full :class:`~yoke_core.domain.project_renderer_settings
 .ProjectRendererSettings` value (verified secret-free: hosts, stack
 names, instance sizing, state-bucket/KMS aliases, and the KMS-encrypted
 Pulumi data key, which is ciphertext by design).
@@ -55,14 +54,10 @@ def settings_from_snapshot(snapshot: Mapping[str, Any]) -> ProjectRendererSettin
     """
     project = snapshot.get("project")
     if not isinstance(project, str) or not project:
-        raise ValueError(
-            "renderer settings snapshot is missing the 'project' slug"
-        )
+        raise ValueError("renderer settings snapshot is missing the 'project' slug")
     raw_environments = snapshot.get("environments")
     if not isinstance(raw_environments, list):
-        raise ValueError(
-            "renderer settings snapshot 'environments' must be a list"
-        )
+        raise ValueError("renderer settings snapshot 'environments' must be a list")
     environments = tuple(
         RendererEnvironmentSettings(
             id=str(raw.get("id") or ""),
@@ -93,9 +88,8 @@ def settings_from_snapshot(snapshot: Mapping[str, Any]) -> ProjectRendererSettin
 def build_pulumi_stack_config(conn: Any, project: str) -> Dict[str, Any]:
     """Build the stack-config payload the endpoint serves.
 
-    The payload wraps the renderer settings snapshot in a versioned
-    envelope; ``render_project --settings-file`` consumes the envelope
-    verbatim (no client-side reshaping between fetch and render).
+    The payload wraps the renderer settings snapshot in a versioned envelope
+    consumed verbatim by bounded project-authority clients.
     """
     ident = resolve_project(conn, project, required=False)
     if ident is None:

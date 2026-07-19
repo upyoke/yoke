@@ -6,20 +6,11 @@ import json
 import pytest
 
 from yoke_core.domain.project_renderer_pulumi import render_pulumi_stack_yaml
-from runtime.api.domain.test_project_renderer_pulumi_registry_ci import _repo_root
+from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
 
 
 def _registry_stack_source() -> str:
-    return (
-        _repo_root()
-        .joinpath(
-            "templates",
-            "webapp",
-            "infra",
-            "webapp_registry_stack.py",
-        )
-        .read_text()
-    )
+    return _pack_program_source("webapp_registry_stack.py").read_text()
 
 
 def _exec_pure_policy_builder():
@@ -125,12 +116,7 @@ class TestRegistryProgramShape:
 
 
 def test_real_registry_template_renders_ci_keys():
-    template = _repo_root().joinpath(
-        "templates",
-        "webapp",
-        "infra",
-        "Pulumi.registry-stack.yaml.tmpl",
-    )
+    template = _pack_program_source("Pulumi.registry-stack.yaml.tmpl")
     rendered = render_pulumi_stack_yaml(
         template,
         {

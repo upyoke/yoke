@@ -28,7 +28,9 @@ from yoke_core.domain.bootstrap_project_test_helpers import (
     _make_fake_run,
     bootstrap_seeded_db,
     setup_validation_ctx,
-    write_fake_rendered_workflows,
+)
+from yoke_core.domain.bootstrap_project_pack_test_helpers import (
+    install_fake_pack_operations,
 )
 from yoke_core.domain.project_github_auth import MissingPermission, ProjectGithubAuth
 
@@ -82,9 +84,6 @@ def _no_gh_run(cmd, *, stdin=None, cwd=None, env=None):
         return subprocess.CompletedProcess(
             cmd, 0, "" if cmd[-1] == "true" else "exists\n", "",
         )
-    if len(cmd) >= 3 and cmd[1:3] == ["-m", "yoke_core.tools.render_project"]:
-        write_fake_rendered_workflows(cmd)
-        return subprocess.CompletedProcess(cmd, 0, "rendered\n", "")
     if cmd[:2] == ["git", "status"]:
         return subprocess.CompletedProcess(cmd, 0, "", "")
     return subprocess.CompletedProcess(cmd, 0, "", "")
@@ -175,6 +174,7 @@ def test_setup_skips_optional_environment_without_administration(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
         )
         _patch_setup_auth(monkeypatch)
+        install_fake_pack_operations(monkeypatch)
         rest_calls = _install_setup_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
@@ -198,6 +198,7 @@ def test_setup_creates_environment_with_optional_administration(
             "yoke_core.domain.bootstrap_project_helpers._run", _no_gh_run,
         )
         _patch_setup_auth(monkeypatch, administration=True)
+        install_fake_pack_operations(monkeypatch)
         authorizations: list[tuple[str, str | None]] = []
         rest_calls = _install_setup_rest(monkeypatch, authorizations)
 
@@ -325,6 +326,7 @@ def test_setup_emits_zero_gh_shellouts(
             "yoke_core.domain.bootstrap_project_helpers._run", fake_run,
         )
         _patch_setup_auth(monkeypatch)
+        install_fake_pack_operations(monkeypatch)
         _install_setup_rest(monkeypatch)
 
         assert run_setup(ctx) == 0
