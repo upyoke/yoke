@@ -26,13 +26,15 @@ must declare the matching input in the project's
 {
   "executor": "github-actions-workflow",
   "workflow": "<project>-deploy.yml",
-  "dispatch_correlation_input": "yoke_dispatch_id"
+  "dispatch_correlation_input": "yoke_dispatch_id",
+  "reconcile_by_head_sha": false
 }
 ```
 
-Use the same field for a post-deploy smoke workflow. Without it, Yoke falls
-back to an uncorrelated legacy dispatch and cannot safely recover or identify
-the exact workflow run.
+Use both fields for a post-deploy smoke workflow. The correlation marker lets
+Yoke recover a lost dispatch response; disabling head-SHA reuse ensures every
+new deployment gets its own verification instead of reusing an older result
+for the same commit.
 
 ## Project-specific work
 

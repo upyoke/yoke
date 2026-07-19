@@ -12,12 +12,15 @@ project's `.yoke/deployment-flows.json` must declare it on the smoke stage:
   "name": "smoke",
   "executor": "github-actions-workflow",
   "workflow": "<project>-smoke.yml",
-  "dispatch_correlation_input": "yoke_dispatch_id"
+  "dispatch_correlation_input": "yoke_dispatch_id",
+  "reconcile_by_head_sha": false
 }
 ```
 
-This lets Yoke recover a lost dispatch response and attach evidence to the
-exact workflow run instead of guessing by branch or commit.
+The correlation marker lets Yoke recover a lost dispatch response and attach
+evidence to the exact workflow run. Disabling head-SHA reuse ensures every new
+deployment gets a fresh smoke check, even when the same commit is deployed
+again.
 
 ## Project-specific work
 
