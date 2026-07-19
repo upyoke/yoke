@@ -6,7 +6,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Mapping
 
-from yoke_core.domain import db_helpers, json_helper
+from yoke_core.domain import db_backend, db_helpers, json_helper
 from yoke_core.domain.pack_catalog import catalog_rows
 from yoke_core.domain.project_identity import resolve_project
 
@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS project_pack_report_entries (
 """
 
 PACK_REPORT_FRESHNESS = timedelta(days=1)
+_PACK_PROJECTION_TABLES = (
+    "pack_catalog",
+    "project_pack_reports",
+    "project_pack_report_entries",
+)
 
 
 class PackProjectionError(RuntimeError):
@@ -56,6 +61,46 @@ def create_pack_projection_tables(conn: Any) -> None:
     conn.execute(PACK_CATALOG_TABLE_SQL)
     conn.execute(PROJECT_PACK_REPORTS_TABLE_SQL)
     conn.execute(PROJECT_PACK_REPORT_ENTRIES_TABLE_SQL)
+    _grant_database_owner_pack_access(conn)
+
+
+def _grant_database_owner_pack_access(conn: Any) -> None:
+    """Keep admin-created projections usable by the tenant runtime role.
+
+    Hosted source-dev recovery may converge a tenant database through its
+    separate admin credential. PostgreSQL makes that admin the owner of newly
+    created tables, while the running tenant connects as the database owner.
+    Grant the database owner the complete table privilege set only for Pack
+    projections the current role actually owns. Normal tenant boot is a no-op
+    because the current role and database owner are already the same.
+    """
+
+    if not db_backend.connection_is_postgres(conn):
+        return
+    authority = conn.execute(
+        "SELECT current_user, owner.rolname FROM pg_database database "
+        "JOIN pg_roles owner ON owner.oid=database.datdba "
+        "WHERE database.datname=current_database()"
+    ).fetchone()
+    if authority is None or authority[0] == authority[1]:
+        return
+    current_role, database_owner = str(authority[0]), str(authority[1])
+    from psycopg import sql
+
+    for table in _PACK_PROJECTION_TABLES:
+        owner = conn.execute(
+            "SELECT tableowner FROM pg_tables "
+            "WHERE schemaname='public' AND tablename=%s",
+            (table,),
+        ).fetchone()
+        if owner is None or str(owner[0]) != current_role:
+            continue
+        conn.execute(
+            sql.SQL("GRANT ALL PRIVILEGES ON TABLE {} TO {}").format(
+                sql.Identifier(table),
+                sql.Identifier(database_owner),
+            )
+        )
 
 
 def converge_pack_catalog(conn: Any) -> None:

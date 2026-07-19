@@ -207,7 +207,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("auth", "set"):
         ("auth.set.run", _adapters.auth_set),
     ("packs", "list"):
-        ("packs.catalog.list", _adapters.packs_list),
+        ("packs.list", _adapters.packs_list),
     ("packs", "get"):
         ("packs.get.run", _adapters.packs_get),
     ("packs", "update"):

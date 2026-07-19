@@ -22,7 +22,7 @@ def _fake_cp(
 
 
 class TestPollGithubActionsTransient:
-    """Bounded retries preserve queued work while surfacing real failures."""
+    """The stage budget survives relay outages while real errors stay bounded."""
 
     def test_transient_unknown_code_recovers_to_success(self):
         responses = [
@@ -42,7 +42,9 @@ class TestPollGithubActionsTransient:
     def test_sustained_unknown_code_eventually_fails_with_diagnostic(self):
         responses = [
             _fake_cp(7, "", "gh: persistent flake")
-            for _ in range(deploy_pipeline_reporting.POLL_TRANSIENT_RETRY_LIMIT)
+            for _ in range(
+                deploy_pipeline_reporting.POLL_UNCLASSIFIED_RETRY_LIMIT
+            )
         ]
         with mock.patch.object(
             deploy_pipeline_reporting, "_github_actions", side_effect=responses
@@ -55,6 +57,23 @@ class TestPollGithubActionsTransient:
         assert "unexpected exit code 7" in output
         assert "gh: persistent flake" in output
         assert "retries" in output
+
+    def test_hosted_relay_outage_can_exceed_the_old_short_retry_window(self):
+        responses = [
+            *[_fake_cp(4, "", "relay unavailable") for _ in range(10)],
+            _fake_cp(0, "completed: success", ""),
+        ]
+        with mock.patch.object(
+            deploy_pipeline_reporting, "_github_actions", side_effect=responses
+        ), mock.patch.object(
+            deploy_pipeline_reporting.time, "time", return_value=100.0
+        ), mock.patch.object(deploy_pipeline_reporting.time, "sleep"):
+            code, output = deploy_pipeline_reporting._poll_github_actions(
+                "owner/repo", "12345", timeout_sec=300,
+                stage_name="prod-deploy", project="externalwebapp",
+            )
+        assert code == 0
+        assert "completed: success" in output
 
     def test_real_failure_includes_stderr_for_diagnostics(self):
         responses = [

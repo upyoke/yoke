@@ -2,11 +2,11 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-19T03:01:38Z_
+_Audit generated_at: 2026-07-19T08:12:28Z_
 
 ## 1. Summary
 
-- Function ids registered: **223**
+- Function ids registered: **225**
 - Internal dispatch-only functions without CLI adapters: **1**
 - `yoke` CLI subcommands: **223** (223 carry usable `--help`)
 - Operation tracker: **222 wrapped**, 74 permanent, 0 pending
@@ -127,8 +127,8 @@ Wrapped `yoke <subcommand>` adapters: **223** (operation tracker confirms 222 wr
 | ouroboros | `yoke ouroboros wrapup save` | `ouroboros.wrapup.save` | ok |
 | packets | `yoke packets check` | `packets.check.run` | ok |
 | packets | `yoke packets render` | `packets.render.run` | ok |
-| packs | `yoke packs list` | `packs.catalog.list` | ok |
 | packs | `yoke packs get` | `packs.get.run` | ok |
+| packs | `yoke packs list` | `packs.list` | ok |
 | packs | `yoke packs update` | `packs.update.run` | ok |
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
 | project | `yoke project install` | `project.install.run` | ok |

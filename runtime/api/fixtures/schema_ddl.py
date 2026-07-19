@@ -49,11 +49,19 @@ def _schema_ddl() -> str:
                 "",
             )
         )
+        pack_reports_without_fk = PROJECT_PACK_REPORTS_TABLE_SQL.replace(
+            " REFERENCES projects(id) ON DELETE CASCADE",
+            "",
+        )
+        pack_entries_without_fk = PROJECT_PACK_REPORT_ENTRIES_TABLE_SQL.replace(
+            " REFERENCES projects(id) ON DELETE CASCADE",
+            "",
+        )
         composed = (
             _ITEMS_DDL + _EPIC_QA_DDL + _RUNTIME_DDL + _STRATEGY_DDL
             + _AUTH_DDL + PACK_CATALOG_TABLE_SQL + ";"
-            + PROJECT_PACK_REPORTS_TABLE_SQL + ";"
-            + PROJECT_PACK_REPORT_ENTRIES_TABLE_SQL + ";"
+            + pack_reports_without_fk + ";"
+            + pack_entries_without_fk + ";"
             + PROJECT_ONBOARDING_RUNS_CREATE_SQL + ";"
             + onboarding_rows_without_fk + ";"
             + _MERGE_LOCKS_DDL

@@ -9,15 +9,23 @@ from types import ModuleType
 
 import pytest
 
+from yoke_core.domain import pack_catalog
+
+
+ROOT = Path(__file__).resolve().parents[3]
+
 
 def _module() -> ModuleType:
-    path = (
-        Path(__file__).resolve().parents[3]
-        / "templates"
-        / "webapp"
-        / "ops"
-        / "docker_image_cleanup.py"
-    )
+    original = pack_catalog.server_tree_root
+    pack_catalog.server_tree_root = lambda: ROOT
+    try:
+        path = (
+            pack_catalog.pack_version_root("host-maintenance")
+            / "ops"
+            / "docker_image_cleanup.py"
+        )
+    finally:
+        pack_catalog.server_tree_root = original
     spec = importlib.util.spec_from_file_location("docker_image_cleanup", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)

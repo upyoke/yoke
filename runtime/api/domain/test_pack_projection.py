@@ -7,6 +7,47 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_schema
 from yoke_core.domain import pack_projection
 
 
+class _AdminOwnedPackConnection:
+    def __init__(self) -> None:
+        self.grants: list[str] = []
+
+    def execute(self, statement, params=()):
+        rendered = (
+            statement.as_string(None)
+            if hasattr(statement, "as_string")
+            else str(statement)
+        )
+        if rendered.startswith("SELECT current_user"):
+            return _OneRowCursor(("yoke_admin", "yoke_tenant_owner"))
+        if rendered.startswith("SELECT tableowner"):
+            assert params[0] in pack_projection._PACK_PROJECTION_TABLES
+            return _OneRowCursor(("yoke_admin",))
+        self.grants.append(rendered)
+        return _OneRowCursor(None)
+
+
+class _OneRowCursor:
+    def __init__(self, row) -> None:
+        self._row = row
+
+    def fetchone(self):
+        return self._row
+
+
+def test_admin_created_pack_tables_grant_database_owner_runtime_access(
+    monkeypatch,
+) -> None:
+    conn = _AdminOwnedPackConnection()
+    monkeypatch.setattr(pack_projection.db_backend, "connection_is_postgres", lambda _: True)
+
+    pack_projection._grant_database_owner_pack_access(conn)
+
+    assert conn.grants == [
+        f'GRANT ALL PRIVILEGES ON TABLE "{table}" TO "yoke_tenant_owner"'
+        for table in pack_projection._PACK_PROJECTION_TABLES
+    ]
+
+
 def test_project_report_distinguishes_available_installed_and_update_stale(
     monkeypatch,
 ) -> None:

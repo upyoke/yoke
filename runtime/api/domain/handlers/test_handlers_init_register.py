@@ -309,7 +309,13 @@ def test_register_all_handlers_includes_packs_family() -> None:
     init_register.register_all_handlers()
 
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
-    assert {"packs.catalog.list", "packs.bundle.get", "packs.project.report"} <= ids
+    assert {
+        "packs.list",
+        "packs.bundle.get",
+        "packs.project.report",
+        "packs.get.run",
+        "packs.update.run",
+    } <= ids
     from yoke_core.domain.handlers import _register_packs
 
     assert _register_packs in init_register._DOMAIN_REGISTRARS

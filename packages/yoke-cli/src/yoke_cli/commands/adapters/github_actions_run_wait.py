@@ -24,7 +24,6 @@ GITHUB_ACTIONS_WAIT_RUN_USAGE = (
 )
 RUN_WAIT_POLL_INTERVAL_SEC = 15
 RUN_WAIT_TRANSIENT_RETRY_INTERVAL_SEC = 5
-RUN_WAIT_TRANSIENT_RETRY_LIMIT = 8
 
 now = time.time
 sleep = time.sleep
@@ -93,13 +92,12 @@ def wait_for_run_completion(
             if (
                 error_code == "https_transport_failed"
                 and elapsed < timeout_sec
-                and transient_errors < RUN_WAIT_TRANSIENT_RETRY_LIMIT
             ):
                 transient_errors += 1
                 print(
                     "  Run status poll hit a transient HTTPS failure; "
-                    f"retrying ({transient_errors}/"
-                    f"{RUN_WAIT_TRANSIENT_RETRY_LIMIT})",
+                    f"retrying within the {timeout_sec}s wait budget "
+                    f"(consecutive failure {transient_errors})",
                     file=sys.stderr,
                 )
                 sleep(RUN_WAIT_TRANSIENT_RETRY_INTERVAL_SEC)
@@ -151,7 +149,6 @@ __all__ = [
     "GITHUB_ACTIONS_WAIT_RUN_USAGE",
     "RUN_WAIT_POLL_INTERVAL_SEC",
     "RUN_WAIT_TRANSIENT_RETRY_INTERVAL_SEC",
-    "RUN_WAIT_TRANSIENT_RETRY_LIMIT",
     "github_actions_wait_run",
     "wait_for_run_completion",
 ]

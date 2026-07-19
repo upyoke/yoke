@@ -242,13 +242,6 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py",
-        "yoke_core.domain.project_renderer_values",
-    ): (
-        "client_local_execution",
-        "stack-scoped Pulumi execution resolves its installed template root locally",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py",
         "yoke_core.tools.pulumi_exec",
     ): (
         "client_local_execution",
