@@ -215,7 +215,7 @@ def test_scoped_stack_config_uses_admin_no_store_boundary(
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_scoped_stack_config_denies_render_only_identity(
+def test_scoped_stack_config_allows_infrastructure_ci_identity(
     client, config_db, monkeypatch
 ) -> None:
     from yoke_core.api.routes import pulumi_stack_config as route
@@ -223,11 +223,42 @@ def test_scoped_stack_config_denies_render_only_identity(
     monkeypatch.setattr(
         route,
         "build_scoped_pulumi_stack_config",
-        lambda *args: pytest.fail("sensitive config built before admin auth"),
+        lambda *args: {
+            "config_schema": 2,
+            "project_id": 1,
+            "project_slug": "yoke",
+            "stack_name": "yoke-infra",
+            "stack_kind": "infra",
+            "render_values": {},
+            "operator_state": {
+                "secrets_provider": "awskms://alias/example",
+                "encrypted_key": "encrypted-key",
+            },
+            "authority": {},
+        },
     )
     response = client.get(
         "/v1/projects/yoke/pulumi-stack-config/yoke-infra",
         headers=_infrastructure_ci_token_headers(config_db["db_path"]),
+    )
+    assert response.status_code == 200
+    assert response.json()["stack_name"] == "yoke-infra"
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_scoped_stack_config_denies_viewer_identity(
+    client, config_db, monkeypatch
+) -> None:
+    from yoke_core.api.routes import pulumi_stack_config as route
+
+    monkeypatch.setattr(
+        route,
+        "build_scoped_pulumi_stack_config",
+        lambda *args: pytest.fail("stack config built before render authorization"),
+    )
+    response = client.get(
+        "/v1/projects/yoke/pulumi-stack-config/yoke-infra",
+        headers=_viewer_token_headers(config_db["db_path"]),
     )
     assert response.status_code == 403
 

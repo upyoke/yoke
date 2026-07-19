@@ -28,6 +28,7 @@ from pydantic import BaseModel
 
 from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
+    ROLE_INFRASTRUCTURE_CI,
     ROLE_OWNER,
     grant_actor_org_role,
     grant_actor_project_role,
@@ -170,6 +171,37 @@ def test_projects_list_allows_project_owner_for_actor_visible_handler_filter(con
     assert check_dispatch_permission(conn, entry, _request(yoke_owner, "projects.list")).error is None
 
 
+def test_project_identity_and_pulumi_receipt_fit_infrastructure_ci_role(conn):
+    yoke = resolve_project_id(conn, "yoke")
+    actor_id = _new_actor(conn)
+    grant_actor_project_role(
+        conn,
+        actor_id=actor_id,
+        project_id=yoke,
+        role_name=ROLE_INFRASTRUCTURE_CI,
+        granted_by_actor_id=actor_id,
+    )
+
+    identity = check_dispatch_permission(
+        conn,
+        _entry("projects.get", side_effects=False),
+        _payload_request(actor_id, "projects.get", {"project": "yoke"}),
+    )
+    receipt = check_dispatch_permission(
+        conn,
+        _entry("projects.pulumi_stack_config.get", side_effects=False),
+        _payload_request(
+            actor_id,
+            "projects.pulumi_stack_config.get",
+            {"project": "yoke", "stack": "yoke-registry"},
+        ),
+    )
+
+    assert identity.error is None
+    assert receipt.error is None
+    assert receipt.project_id == yoke
+
+
 def test_org_scoped_op_requires_org_admin(conn):
     yoke = resolve_project_id(conn, "yoke")
     org_id = _org_of(conn, yoke)
@@ -197,10 +229,6 @@ def test_project_op_without_resolvable_target_is_denied_without_fallback(conn):
                 target=TargetRef(kind="global"),
                 payload={},
             ),
-        ),
-        (
-            _entry("projects.get", side_effects=False),
-            _payload_request(actor_id, "projects.get", {"project": "ghost"}),
         ),
     ]
     for entry, request in cases:
