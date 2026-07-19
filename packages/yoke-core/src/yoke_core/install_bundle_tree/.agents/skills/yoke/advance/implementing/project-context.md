@@ -14,7 +14,7 @@ This phase is the issue implementation entry path's own context loader. It does 
 _item_project=$(yoke items get {N} project 2>/dev/null)
 ```
 
-If `_item_project` is empty, `null`, or `yoke` -> skip this phase silently.
+If `_item_project` is empty or `null` -> skip this phase silently. Yoke uses the same registered project context as every other project.
 
 ```bash
 _repo_path=$(yoke projects get --project "$_item_project" --field repo_path 2>/dev/null)

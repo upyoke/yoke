@@ -2,8 +2,8 @@
   "schema": 1,
   "slug": "container-runtime",
   "name": "Container Runtime",
-  "description": "Docker build, Compose, entrypoint, nginx, and core-service runtime files.",
-  "latest_version": "1.0.0",
+  "description": "Adds the Docker images, startup scripts, Compose configuration, and nginx settings needed to run a FastAPI API and Next.js web app.",
+  "latest_version": "1.1.0",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -103,6 +103,99 @@
         {
           "name": "source-check",
           "command": "git diff --check -- app ops/core-service"
+        },
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q app"
+        }
+      ]
+    },
+    "1.1.0": {
+      "source": "versions/1.1.0/files",
+      "documentation": "docs/packs/container-runtime/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "api_port": {
+            "type": "string",
+            "description": "Project value used when installing the Container Runtime Pack."
+          },
+          "project_display_name": {
+            "type": "string",
+            "description": "Project value used when installing the Container Runtime Pack."
+          },
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Container Runtime Pack."
+          },
+          "web_port": {
+            "type": "string",
+            "description": "Project value used when installing the Container Runtime Pack."
+          }
+        },
+        "required": [
+          "api_port",
+          "project_display_name",
+          "project_name",
+          "web_port"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "app/.dockerignore",
+          "target": "app/.dockerignore",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/Dockerfile",
+          "target": "app/Dockerfile",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/entrypoint.sh.tmpl",
+          "target": "app/entrypoint.sh",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "app/web/.dockerignore",
+          "target": "app/web/.dockerignore",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/Dockerfile",
+          "target": "app/web/Dockerfile",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "app/web/next.config.ts",
+          "target": "app/web/next.config.ts",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docker-compose.yml",
+          "target": "docker-compose.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/container-runtime/README.md",
+          "target": "docs/packs/container-runtime/README.md",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "source-check",
+          "command": "git diff --check -- app docker-compose.yml docs/packs/container-runtime"
         },
         {
           "name": "python-check",

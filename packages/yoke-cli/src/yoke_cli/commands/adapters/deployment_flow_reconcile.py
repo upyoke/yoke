@@ -23,7 +23,7 @@ from yoke_contracts.project_contract.deployment_flows import (
 
 USAGE = (
     "yoke deployment-flows reconcile-project PROJECT [DECLARATION-FILE] "
-    "[--session-id S] [--json]"
+    "[--preview] [--session-id S] [--json]"
 )
 
 
@@ -41,6 +41,11 @@ def deployment_flows_reconcile_project(args: List[str]) -> int:
         nargs="?",
         default=DECLARATION_RELATIVE_PATH,
     )
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Validate and show the reconciliation result without DB writes.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, USAGE)
@@ -56,12 +61,14 @@ def deployment_flows_reconcile_project(args: List[str]) -> int:
         del stderr
         result = response.result or {}
         print(
-            "|".join((
-                str(result.get("project") or ""),
-                f"created={len(result.get('created') or [])}",
-                f"updated={len(result.get('updated') or [])}",
-                f"unchanged={len(result.get('unchanged') or [])}",
-            )),
+            "|".join(
+                (
+                    str(result.get("project") or ""),
+                    f"created={len(result.get('created') or [])}",
+                    f"updated={len(result.get('updated') or [])}",
+                    f"unchanged={len(result.get('unchanged') or [])}",
+                )
+            ),
             file=stdout,
         )
 
@@ -72,6 +79,7 @@ def deployment_flows_reconcile_project(args: List[str]) -> int:
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
+        options={"preview_only": True} if parsed.preview else None,
     )
 
 

@@ -13,7 +13,7 @@ import pytest
 def _module() -> ModuleType:
     path = (
         Path(__file__).resolve().parents[3]
-        / "packs/host-maintenance/versions/1.1.0/files"
+        / "packs/host-maintenance/versions/1.2.0/files"
         / "ops/docker_maintenance_converge.py"
     )
     spec = importlib.util.spec_from_file_location("docker_maintenance_converge", path)
@@ -56,14 +56,14 @@ def maintenance_module() -> ModuleType:
     return _module()
 
 
-def test_replaces_legacy_global_prune_and_preserves_other_entries(
+def test_preserves_unmarked_prune_jobs_and_adds_its_marked_entry(
     maintenance_module,
 ):
     custom = (
         "15 2 * * * docker image prune -af --filter until=168h "
         ">> /var/log/operator-prune.log 2>&1"
     )
-    legacy = (
+    current = (
         "MAILTO=ops@example.com\n"
         "# documented docker image prune -af example\n"
         "30 4 * * 0 (docker builder prune -af && docker image prune -af) "
@@ -73,10 +73,10 @@ def test_replaces_legacy_global_prune_and_preserves_other_entries(
     )
     canonical = maintenance_module.canonical_weekly_entry(Path("/home/deploy"))
 
-    desired, changed = maintenance_module.reconcile_crontab(legacy, canonical)
+    desired, changed = maintenance_module.reconcile_crontab(current, canonical)
 
     assert changed is True
-    assert "(docker builder prune -af && docker image prune -af)" not in desired
+    assert "(docker builder prune -af && docker image prune -af)" in desired
     assert "# documented docker image prune -af example" in desired
     assert custom in desired
     assert "MAILTO=ops@example.com" in desired
@@ -97,11 +97,11 @@ def test_canonical_state_is_idempotent(maintenance_module):
 
 
 def test_convergence_writes_and_verifies(maintenance_module):
-    legacy = (
+    current = (
         "30 4 * * 0 (docker builder prune -af && docker image prune -af) "
         ">> /home/deploy/docker-prune.log 2>&1\n"
     )
-    crontab = FakeCrontab(legacy)
+    crontab = FakeCrontab(current)
 
     changed = maintenance_module.converge_maintenance(
         home=Path("/home/deploy"),
@@ -112,7 +112,7 @@ def test_convergence_writes_and_verifies(maintenance_module):
 
     assert changed is True
     assert crontab.current is not None
-    assert "docker image prune -af" not in crontab.current
+    assert "docker image prune -af" in crontab.current
     assert "docker image prune -f" in crontab.current
     assert crontab.calls.count((("crontab", "-"), crontab.current)) == 1
 
@@ -132,14 +132,16 @@ def test_persistent_write_failure_is_visible(maintenance_module):
     assert sum(call[0] == ("crontab", "-") for call in crontab.calls) == 3
 
 
-def test_remove_only_scrubs_legacy_root_authority_without_reinstalling(
+def test_remove_only_scrubs_only_the_pack_marked_entry(
     maintenance_module,
 ):
     custom = "15 2 * * * docker image prune -f --filter until=168h\n"
+    canonical = maintenance_module.canonical_weekly_entry(Path("/root"))
     current = (
         "0 2 * * * root-backup\n"
         "30 4 * * 0 (docker builder prune -af && docker image prune -af) "
         ">> /root/docker-prune.log 2>&1\n"
+        f"{canonical}\n"
         f"{custom}"
     )
     crontab = FakeCrontab(current)
@@ -152,10 +154,15 @@ def test_remove_only_scrubs_legacy_root_authority_without_reinstalling(
     )
 
     assert changed is True
-    assert crontab.current == f"0 2 * * * root-backup\n{custom}"
+    assert crontab.current == (
+        "0 2 * * * root-backup\n"
+        "30 4 * * 0 (docker builder prune -af && docker image prune -af) "
+        ">> /root/docker-prune.log 2>&1\n"
+        f"{custom}"
+    )
 
 
-def test_arbitrary_operator_image_prune_line_is_not_yoke_owned(
+def test_arbitrary_operator_image_prune_line_is_not_pack_owned(
     maintenance_module,
 ):
     custom = (
@@ -164,16 +171,14 @@ def test_arbitrary_operator_image_prune_line_is_not_yoke_owned(
     )
     canonical = maintenance_module.canonical_weekly_entry(Path("/home/deploy"))
 
-    desired, changed = maintenance_module.reconcile_crontab(
-        f"{custom}\n", canonical
-    )
+    desired, changed = maintenance_module.reconcile_crontab(f"{custom}\n", canonical)
 
     assert changed is True
     assert custom in desired
     assert canonical in desired
 
 
-def test_remove_only_is_noop_when_legacy_authority_has_no_image_job(
+def test_remove_only_is_noop_without_a_pack_marked_job(
     maintenance_module,
 ):
     crontab = FakeCrontab("0 2 * * * root-backup\n")

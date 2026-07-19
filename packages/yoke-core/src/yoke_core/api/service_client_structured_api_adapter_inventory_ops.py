@@ -21,8 +21,13 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 OPS_ADAPTERS: List[AdapterEntry] = [
     # Deployment flow/run reads + the run-row update writer.
-    _read_entry(function_id="deployment_flows.get", cli_invocation="yoke deployment-flows get"),
-    _read_entry(function_id="deployment_flows.stages", cli_invocation="yoke deployment-flows stages"),
+    _read_entry(
+        function_id="deployment_flows.get", cli_invocation="yoke deployment-flows get"
+    ),
+    _read_entry(
+        function_id="deployment_flows.stages",
+        cli_invocation="yoke deployment-flows stages",
+    ),
     AdapterEntry(
         function_id="deployment_flows.set_status",
         cli_invocation="yoke deployment-flows set-status",
@@ -35,53 +40,131 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         function_id="deployment_flows.update_stages",
         cli_invocation="yoke deployment-flows update-stages FLOW-ID --stages-file PATH",
     ),
-    AdapterEntry(function_id="deployment_runs.create", cli_invocation="yoke deployment-runs create"),
-    AdapterEntry(function_id="deployment_runs.approve", cli_invocation="yoke deployment-runs approve"),
+    AdapterEntry(
+        function_id="deployment_runs.create",
+        cli_invocation="yoke deployment-runs create",
+    ),
+    AdapterEntry(
+        function_id="deployment_runs.approve",
+        cli_invocation="yoke deployment-runs approve",
+    ),
     AdapterEntry(
         function_id="deployment_runs.start_for_item",
         cli_invocation="yoke deployment-runs start-for-item PREFIX-N",
     ),
-    _read_entry(function_id="deployment_runs.get", cli_invocation="yoke deployment-runs get"),
-    _read_entry(function_id="deployment_runs.list", cli_invocation="yoke deployment-runs list"),
-    _read_entry(function_id="deployment_runs.resolve_target_env", cli_invocation="yoke deployment-runs resolve-target-env"),
-    AdapterEntry(function_id="deployment_runs.update", cli_invocation="yoke deployment-runs update"),
-    # Ephemeral environment create/update.
+    _read_entry(
+        function_id="deployment_runs.get", cli_invocation="yoke deployment-runs get"
+    ),
+    _read_entry(
+        function_id="deployment_runs.list", cli_invocation="yoke deployment-runs list"
+    ),
+    _read_entry(
+        function_id="deployment_runs.resolve_target_env",
+        cli_invocation="yoke deployment-runs resolve-target-env",
+    ),
+    AdapterEntry(
+        function_id="deployment_runs.update",
+        cli_invocation="yoke deployment-runs update",
+    ),
+    # Ephemeral environment read/create/update.
+    _read_entry(
+        function_id="ephemeral_env.get",
+        cli_invocation="yoke ephemeral-env get PROJECT BRANCH",
+    ),
     AdapterEntry(
         function_id="ephemeral_env.create",
         cli_invocation="yoke ephemeral-env create PROJECT BRANCH",
     ),
-    AdapterEntry(function_id="ephemeral_env.update", cli_invocation="yoke ephemeral-env update"),
+    AdapterEntry(
+        function_id="ephemeral_env.update", cli_invocation="yoke ephemeral-env update"
+    ),
     # Arbitrary event emit.
     AdapterEntry(function_id="events.emit", cli_invocation="yoke events emit"),
     # Onboarding checklist run (machine-config seeded rows).
-    AdapterEntry(function_id="onboard.checklist.run", cli_invocation="yoke onboard checklist"),
+    AdapterEntry(
+        function_id="onboard.checklist.run", cli_invocation="yoke onboard checklist"
+    ),
     # Ouroboros entry writes + wrapup read.
-    AdapterEntry(function_id="ouroboros.entry.insert", cli_invocation="yoke ouroboros entry insert"),
-    AdapterEntry(function_id="ouroboros.entry.mark_archived", cli_invocation="yoke ouroboros entry mark-archived"),
-    AdapterEntry(function_id="ouroboros.entry.mark_reviewed", cli_invocation="yoke ouroboros entry mark-reviewed"),
-    _read_entry(function_id="ouroboros.wrapup.list", cli_invocation="yoke ouroboros wrapup list"),
+    AdapterEntry(
+        function_id="ouroboros.entry.insert",
+        cli_invocation="yoke ouroboros entry insert",
+    ),
+    AdapterEntry(
+        function_id="ouroboros.entry.mark_archived",
+        cli_invocation="yoke ouroboros entry mark-archived",
+    ),
+    AdapterEntry(
+        function_id="ouroboros.entry.mark_reviewed",
+        cli_invocation="yoke ouroboros entry mark-reviewed",
+    ),
+    _read_entry(
+        function_id="ouroboros.wrapup.list", cli_invocation="yoke ouroboros wrapup list"
+    ),
     AdapterEntry(
         function_id="ouroboros.wrapup.save",
         cli_invocation="yoke ouroboros wrapup save SESSION_TIMESTAMP --body-file PATH",
     ),
     # Readiness reads + repair writers, and the path-claim required-gate read.
-    _read_entry(function_id="readiness.check.run", cli_invocation="yoke readiness check"),
-    _read_entry(function_id="readiness.prd_validate.run", cli_invocation="yoke readiness prd-validate"),
-    AdapterEntry(function_id="readiness.repair_claim_coverage", cli_invocation="yoke readiness repair-claim-coverage"),
-    AdapterEntry(function_id="readiness.repair_stale_count", cli_invocation="yoke readiness repair-stale-count"),
-    _read_entry(function_id="claims.path.required_gate", cli_invocation="yoke claims path required-gate"),
+    _read_entry(
+        function_id="readiness.check.run", cli_invocation="yoke readiness check"
+    ),
+    _read_entry(
+        function_id="readiness.prd_validate.run",
+        cli_invocation="yoke readiness prd-validate",
+    ),
+    AdapterEntry(
+        function_id="readiness.repair_claim_coverage",
+        cli_invocation="yoke readiness repair-claim-coverage",
+    ),
+    AdapterEntry(
+        function_id="readiness.repair_stale_count",
+        cli_invocation="yoke readiness repair-stale-count",
+    ),
+    _read_entry(
+        function_id="claims.path.required_gate",
+        cli_invocation="yoke claims path required-gate",
+    ),
     # Shepherd dependency-edge writers.
-    AdapterEntry(function_id="shepherd.dependency_add.run", cli_invocation="yoke shepherd dependency-add"),
-    AdapterEntry(function_id="shepherd.dependency_remove.run", cli_invocation="yoke shepherd dependency-remove"),
-    AdapterEntry(function_id="shepherd.dependency_update.run", cli_invocation="yoke shepherd dependency-update"),
+    AdapterEntry(
+        function_id="shepherd.dependency_add.run",
+        cli_invocation="yoke shepherd dependency-add",
+    ),
+    AdapterEntry(
+        function_id="shepherd.dependency_remove.run",
+        cli_invocation="yoke shepherd dependency-remove",
+    ),
+    AdapterEntry(
+        function_id="shepherd.dependency_update.run",
+        cli_invocation="yoke shepherd dependency-update",
+    ),
     # Strategy carry / checkpoint / master-plan surfaces (mixed read/write).
-    _read_entry(function_id="strategy.carry.candidate_set", cli_invocation="yoke strategy carry candidate-set"),
-    AdapterEntry(function_id="strategy.carry.mark", cli_invocation="yoke strategy carry mark"),
-    AdapterEntry(function_id="strategy.carry.register_new", cli_invocation="yoke strategy carry register-new"),
-    _read_entry(function_id="strategy.carry.summary", cli_invocation="yoke strategy carry summary"),
-    _read_entry(function_id="strategy.checkpoint.latest", cli_invocation="yoke strategy checkpoint latest"),
-    AdapterEntry(function_id="strategy.checkpoint.record", cli_invocation="yoke strategy checkpoint record"),
-    _read_entry(function_id="strategy.master_plan_check.run", cli_invocation="yoke strategy master-plan-check"),
+    _read_entry(
+        function_id="strategy.carry.candidate_set",
+        cli_invocation="yoke strategy carry candidate-set",
+    ),
+    AdapterEntry(
+        function_id="strategy.carry.mark", cli_invocation="yoke strategy carry mark"
+    ),
+    AdapterEntry(
+        function_id="strategy.carry.register_new",
+        cli_invocation="yoke strategy carry register-new",
+    ),
+    _read_entry(
+        function_id="strategy.carry.summary",
+        cli_invocation="yoke strategy carry summary",
+    ),
+    _read_entry(
+        function_id="strategy.checkpoint.latest",
+        cli_invocation="yoke strategy checkpoint latest",
+    ),
+    AdapterEntry(
+        function_id="strategy.checkpoint.record",
+        cli_invocation="yoke strategy checkpoint record",
+    ),
+    _read_entry(
+        function_id="strategy.master_plan_check.run",
+        cli_invocation="yoke strategy master-plan-check",
+    ),
 ]
 
 

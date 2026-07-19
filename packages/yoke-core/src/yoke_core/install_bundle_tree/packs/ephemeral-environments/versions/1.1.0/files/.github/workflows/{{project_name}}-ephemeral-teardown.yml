@@ -1,0 +1,124 @@
+# ephemeral-teardown.yml — Tear down ephemeral environment
+#
+# Triggers on branch deletion or manual dispatch.
+# Uses the branch slug to identify the correct docker-compose project to remove.
+# No nginx config cleanup needed — convention-based routing is stateless.
+#
+# Pack install settings:
+#   {{preview_namespace}}    — preview-only host resource prefix
+#   {{PROJECT_NAME_UPPER}}   — project identifier (UPPER_CASE, for secret names)
+#   Uses ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }} for SSH user (secret-based)
+#
+# Secrets required:
+#   {{PROJECT_NAME_UPPER}}_SSH_KEY  — SSH private key for droplet access
+#   {{PROJECT_NAME_UPPER}}_SSH_HOST — Droplet IP
+
+name: Teardown Ephemeral Environment
+
+on:
+  delete:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: 'Branch name to tear down (required for manual dispatch)'
+        required: true
+        type: string
+
+concurrency:
+  group: ephemeral-${{ github.event.inputs.branch_name || github.event.ref }}
+  cancel-in-progress: true
+
+jobs:
+  teardown:
+    runs-on: ubuntu-latest
+    # Only run on branch deletion (not tag deletion)
+    if: github.event_name == 'workflow_dispatch' || github.event.ref_type == 'branch'
+    steps:
+      - name: Determine branch name
+        id: branch
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BRANCH="${{ github.event.inputs.branch_name }}"
+          else
+            BRANCH="${{ github.event.ref }}"
+          fi
+          echo "branch_name=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Tearing down environment for branch: $BRANCH"
+
+      - name: Slugify branch name
+        id: slug
+        run: |
+          BRANCH="${{ steps.branch.outputs.branch_name }}"
+          SLUG=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+          echo "branch_slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "Branch slug: $SLUG"
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Teardown ephemeral environment
+        run: |
+          SLUG="${{ steps.slug.outputs.branch_slug }}"
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+
+          ssh ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << TEARDOWN_EOF
+            set -e
+            image_repo_to_slug() {
+              case "$1" in
+                "{{preview_namespace}}-"*)
+                  repo_rest=${1#"{{preview_namespace}}-"}
+                  case "$repo_rest" in
+                    *-*) printf '%s\n' "${repo_rest%-*}" ;;
+                    *) return 1 ;;
+                  esac
+                  ;;
+                *)
+                  return 1
+                  ;;
+              esac
+            }
+            volume_name_to_slug() {
+              case "$1" in
+                "{{preview_namespace}}-"*)
+                  volume_rest=${1#"{{preview_namespace}}-"}
+                  printf '%s\n' "${volume_rest%%_*}"
+                  ;;
+                *)
+                  return 1
+                  ;;
+              esac
+            }
+            # Stop and remove containers, volumes, and networks
+            cd ~/{{preview_namespace}}/$SLUG 2>/dev/null && \
+              docker compose -p "{{preview_namespace}}-$SLUG" down --volumes --remove-orphans || \
+              docker compose -p "{{preview_namespace}}-$SLUG" down --volumes --remove-orphans 2>/dev/null || true
+            # Remove per-slug tagged images that survive compose down
+            docker images --format '{{`{{.Repository}} {{.Tag}}`}}' 2>/dev/null | \
+              while read -r repo tag; do
+                [ -n "$repo" ] || continue
+                image_slug=$(image_repo_to_slug "$repo") || continue
+                [ "$image_slug" = "$SLUG" ] || continue
+                image_ref="$repo"
+                if [ -n "$tag" ] && [ "$tag" != "<none>" ]; then
+                  image_ref="${repo}:${tag}"
+                fi
+                docker rmi "$image_ref" 2>/dev/null || true
+              done
+            # Remove project-scoped volumes that may survive compose down
+            docker volume ls --format '{{`{{.Name}}`}}' 2>/dev/null | \
+              while read -r volume; do
+                [ -n "$volume" ] || continue
+                volume_slug=$(volume_name_to_slug "$volume") || continue
+                [ "$volume_slug" = "$SLUG" ] || continue
+                docker volume rm "$volume" 2>/dev/null || true
+              done
+            rm -rf ~/{{preview_namespace}}/$SLUG
+            # No nginx config cleanup needed — the reverse proxy computes
+            # ports from subdomain names, so there are no per-deploy config files.
+          TEARDOWN_EOF
+
+          echo "Teardown complete for {{preview_namespace}}-$SLUG"

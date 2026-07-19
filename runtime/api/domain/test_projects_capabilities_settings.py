@@ -87,18 +87,20 @@ def _settings(db_path: str, cap_type: str = "docker") -> dict:
 class TestCapabilitySettings:
     def test_create_then_get_round_trip(self, cap_db: str) -> None:
         msg = pcs.cmd_capability_set_settings(
-            "yoke", "health-endpoint", '{"url":"https://x"}',
-            create=True, db_path=cap_db,
+            "yoke",
+            "health-endpoint",
+            '{"url":"https://x"}',
+            create=True,
+            db_path=cap_db,
         )
         assert "health-endpoint" in msg
-        assert pcs.cmd_capability_get_settings(
-            "yoke", "health-endpoint", db_path=cap_db
-        ) == '{"url":"https://x"}'
+        assert (
+            pcs.cmd_capability_get_settings("yoke", "health-endpoint", db_path=cap_db)
+            == '{"url":"https://x"}'
+        )
 
     def test_get_missing_returns_none(self, cap_db: str) -> None:
-        assert pcs.cmd_capability_get_settings(
-            "yoke", "absent", db_path=cap_db
-        ) is None
+        assert pcs.cmd_capability_get_settings("yoke", "absent", db_path=cap_db) is None
 
     def test_cas_update_replaces_in_place(self, cap_db: str) -> None:
         pcs.cmd_capability_set_settings(
@@ -106,22 +108,27 @@ class TestCapabilitySettings:
         )
         base = pcs.cmd_capability_get_settings("yoke", "docker", db_path=cap_db)
         pcs.cmd_capability_set_settings(
-            "yoke", "docker", '{"host":"b"}',
-            base_settings_json=base, db_path=cap_db,
+            "yoke",
+            "docker",
+            '{"host":"b"}',
+            base_settings_json=base,
+            db_path=cap_db,
         )
         assert _settings(cap_db) == {"host": "b"}
 
     def test_set_without_base_or_new_is_usage_error(self, cap_db: str) -> None:
         with pytest.raises(ValueError, match="--base is required"):
-            pcs.cmd_capability_set_settings(
-                "yoke", "docker", "{}", db_path=cap_db
-            )
+            pcs.cmd_capability_set_settings("yoke", "docker", "{}", db_path=cap_db)
 
     def test_set_with_base_and_new_is_usage_error(self, cap_db: str) -> None:
         with pytest.raises(ValueError, match="mutually exclusive"):
             pcs.cmd_capability_set_settings(
-                "yoke", "docker", "{}",
-                base_settings_json="{}", create=True, db_path=cap_db,
+                "yoke",
+                "docker",
+                "{}",
+                base_settings_json="{}",
+                create=True,
+                db_path=cap_db,
             )
 
     def test_set_non_object_json_is_loud(self, cap_db: str) -> None:
@@ -130,15 +137,62 @@ class TestCapabilitySettings:
                 "yoke", "docker", "[1]", create=True, db_path=cap_db
             )
 
+    def test_remove_requires_exact_current_document(self, cap_db: str) -> None:
+        pcs.cmd_capability_set_settings(
+            "yoke",
+            "ephemeral-env",
+            '{"trigger":"github-push","preview_domain":"preview.example.com"}',
+            create=True,
+            db_path=cap_db,
+        )
+        base = pcs.cmd_capability_get_settings("yoke", "ephemeral-env", db_path=cap_db)
+        assert base is not None
+
+        message = pcs.cmd_capability_remove_settings(
+            "yoke", "ephemeral-env", base_settings_json=base, db_path=cap_db
+        )
+
+        assert "Removed capability" in message
+        assert (
+            pcs.cmd_capability_get_settings("yoke", "ephemeral-env", db_path=cap_db)
+            is None
+        )
+
+    def test_remove_refuses_stale_base(self, cap_db: str) -> None:
+        pcs.cmd_capability_set_settings(
+            "yoke",
+            "docker",
+            '{"host":"current"}',
+            create=True,
+            db_path=cap_db,
+        )
+        with pytest.raises(SettingsConflictError, match="settings_conflict"):
+            pcs.cmd_capability_remove_settings(
+                "yoke",
+                "docker",
+                base_settings_json='{"host":"stale"}',
+                db_path=cap_db,
+            )
+
+    @pytest.mark.parametrize("cap_type", ["github", "pulumi-state"])
+    def test_remove_respects_dedicated_capability_owners(
+        self,
+        cap_db: str,
+        cap_type: str,
+    ) -> None:
+        with pytest.raises(ValueError):
+            pcs.cmd_capability_remove_settings(
+                "yoke", cap_type, base_settings_json="{}", db_path=cap_db
+            )
+
+
 # ---------------------------------------------------------------------------
 # Lost-update regression: interleaved writers
 # ---------------------------------------------------------------------------
 
 
 class TestInterleavedWriters:
-    def test_second_full_write_on_stale_base_conflicts(
-        self, cap_db: str
-    ) -> None:
+    def test_second_full_write_on_stale_base_conflicts(self, cap_db: str) -> None:
         # A reads, B reads the same document, A writes, B writes — the
         # incident shape. B must get the typed conflict, never silent loss.
         pcs.cmd_capability_set_settings(
@@ -148,18 +202,24 @@ class TestInterleavedWriters:
         base_b = pcs.cmd_capability_get_settings("yoke", "docker", db_path=cap_db)
         a_doc = '{"host": "orig", "registry": "ecr"}'
         pcs.cmd_capability_set_settings(
-            "yoke", "docker", a_doc,
-            base_settings_json=base_a, db_path=cap_db,
+            "yoke",
+            "docker",
+            a_doc,
+            base_settings_json=base_a,
+            db_path=cap_db,
         )
         with pytest.raises(SettingsConflictError, match="settings_conflict"):
             pcs.cmd_capability_set_settings(
-                "yoke", "docker", '{"host": "clobber"}',
-                base_settings_json=base_b, db_path=cap_db,
+                "yoke",
+                "docker",
+                '{"host": "clobber"}',
+                base_settings_json=base_b,
+                db_path=cap_db,
             )
         # A's write survived untouched; B's clobber never landed.
-        assert pcs.cmd_capability_get_settings(
-            "yoke", "docker", db_path=cap_db
-        ) == a_doc
+        assert (
+            pcs.cmd_capability_get_settings("yoke", "docker", db_path=cap_db) == a_doc
+        )
 
     def test_create_race_second_new_conflicts(self, cap_db: str) -> None:
         pcs.cmd_capability_set_settings(
@@ -167,16 +227,22 @@ class TestInterleavedWriters:
         )
         with pytest.raises(SettingsConflictError, match="already exists"):
             pcs.cmd_capability_set_settings(
-                "yoke", "docker", '{"host":"second"}',
-                create=True, db_path=cap_db,
+                "yoke",
+                "docker",
+                '{"host":"second"}',
+                create=True,
+                db_path=cap_db,
             )
         assert _settings(cap_db) == {"host": "first"}
 
     def test_base_against_absent_row_conflicts(self, cap_db: str) -> None:
         with pytest.raises(SettingsConflictError, match="no row"):
             pcs.cmd_capability_set_settings(
-                "yoke", "ghost", "{}",
-                base_settings_json='{"a":1}', db_path=cap_db,
+                "yoke",
+                "ghost",
+                "{}",
+                base_settings_json='{"a":1}',
+                db_path=cap_db,
             )
 
 

@@ -73,9 +73,45 @@ def _values_from_settings(
     runtime_settings = settings.capabilities.get("webapp-runtime", {})
     health_settings = settings.capabilities.get("health-endpoint", {})
     ephemeral_settings = settings.capabilities.get("ephemeral-env", {})
-
     project_name = project
     domain_name = _stringify(domain_entry.get("domain_name"))
+
+    preview_domain = _stringify(
+        ephemeral_settings.get("preview_domain"),
+        domain_name,
+    )
+    preview_namespace = _stringify(
+        ephemeral_settings.get("preview_namespace"),
+        f"{settings.deploy_namespace}-preview",
+    )
+    preview_router_name = "".join(
+        char if char.isalnum() or char == "_" else "_" for char in preview_namespace
+    )
+    preview_api_port_base = _stringify(
+        ephemeral_settings.get("api_base_port"),
+        "9000",
+    )
+    preview_web_port_base = _stringify(
+        ephemeral_settings.get("web_base_port"),
+        "4000",
+    )
+    preview_route_port_base = _stringify(
+        ephemeral_settings.get("route_base_port"),
+        (
+            preview_api_port_base
+            if ephemeral_settings.get("trigger") == "flow"
+            else preview_web_port_base
+        ),
+    )
+    preview_port_range = _stringify(
+        ephemeral_settings.get("port_range"),
+        "100",
+    )
+    preview_ttl_hours = _stringify(
+        ephemeral_settings.get("ttl_hours"),
+        "24",
+    )
+
     origin_host = _stringify(hosts.get("origin"))
     origin_ip = _stringify(server.get("host") or ssh_settings.get("host"), "TODO")
     ssh_host = origin_ip
@@ -118,22 +154,23 @@ def _values_from_settings(
         "ssh_user": ssh_user,
         "web_port": _stringify(runtime_settings.get("web_port"), "3000"),
         "api_port": _stringify(runtime_settings.get("api_port"), "8000"),
-        "ephemeral_ttl_hours": _stringify(
-            ephemeral_settings.get("ttl_hours"),
-            "24",
-        ),
+        # The preview-prefixed names are the current Pack contract. The
+        # shorter aliases remain so immutable older Pack versions can still
+        # be reconstructed exactly during a three-way update.
+        "preview_namespace": preview_namespace,
+        "preview_router_name": preview_router_name,
+        "preview_domain": preview_domain,
+        "preview_route_port_base": preview_route_port_base,
+        "preview_web_port_base": preview_web_port_base,
+        "preview_port_range": preview_port_range,
+        "preview_ttl_hours": preview_ttl_hours,
+        "ephemeral_ttl_hours": preview_ttl_hours,
         "web_health_path": _stringify(health_settings.get("health_path"), "/"),
         "web_smoke_paths": _csv(health_settings.get("smoke_paths")),
         "domain": domain_name,
-        "api_port_base": _stringify(
-            ephemeral_settings.get("api_base_port"),
-            "9000",
-        ),
-        "port_base": _stringify(
-            ephemeral_settings.get("web_base_port"),
-            "4000",
-        ),
-        "port_range": _stringify(ephemeral_settings.get("port_range"), "100"),
+        "api_port_base": preview_api_port_base,
+        "port_base": preview_web_port_base,
+        "port_range": preview_port_range,
         "dns_provider": _stringify(
             domain_entry.get("dns_provider"),
             "digitalocean",

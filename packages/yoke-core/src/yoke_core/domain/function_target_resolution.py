@@ -37,11 +37,15 @@ def resolve_project_context(
         return _resolve_ephemeral_env_project_context(conn, request)
     if entry.function_id.startswith("github_actions."):
         return _resolve_github_actions_project_context(
-            conn, request, visible_project_ids=visible_project_ids,
+            conn,
+            request,
+            visible_project_ids=visible_project_ids,
         )
     if entry.function_id in _PAYLOAD_NAMED_PROJECT_FUNCTIONS:
         return _resolve_named_project_context(
-            conn, request, visible_project_ids=visible_project_ids,
+            conn,
+            request,
+            visible_project_ids=visible_project_ids,
         )
     if request.target.claim_id is not None:
         claim_context = _resolve_work_claim_project_context(
@@ -52,16 +56,24 @@ def resolve_project_context(
         if claim_context is not None:
             return claim_context
     process_context = _resolve_process_target_project_context(
-        conn, request, visible_project_ids=visible_project_ids,
+        conn,
+        request,
+        visible_project_ids=visible_project_ids,
     )
     if process_context is not None:
         return process_context
     target = request.target
-    explicit = target.project_id or request.payload.get("project_id") or request.payload.get("project")
+    explicit = (
+        target.project_id
+        or request.payload.get("project_id")
+        or request.payload.get("project")
+    )
     if explicit:
         try:
             project_id = _resolve_authorized_project_id(
-                conn, str(explicit), visible_project_ids,
+                conn,
+                str(explicit),
+                visible_project_ids,
             )
         except AmbiguousProjectRefError:
             raise
@@ -82,7 +94,8 @@ def resolve_project_context(
             return int(row[0]), str(row[1])
     if target.qa_requirement_id is not None:
         qa_project = _resolve_qa_requirement_project_context(
-            conn, int(target.qa_requirement_id),
+            conn,
+            int(target.qa_requirement_id),
         )
         if qa_project is not None:
             return qa_project
@@ -134,7 +147,9 @@ def _resolve_work_claim_project_context(
         return None
     try:
         project_id = _resolve_authorized_project_id(
-            conn, project_ref, visible_project_ids,
+            conn,
+            project_ref,
+            visible_project_ids,
         )
     except (AmbiguousProjectRefError, LookupError):
         return None
@@ -143,20 +158,28 @@ def _resolve_work_claim_project_context(
 
 # Functions whose target project lives in payload ``slug``, ``project``, or
 # ``scope``; a target-ref hint must agree with that payload authority.
-_PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
-    "ephemeral_env.create", "projects.update",
-    "projects.capability_settings.get",
-    "projects.capability_settings.set",
-    "projects.capability_settings.merge",
-    "projects.environment_settings.get",
-    "projects.environment_settings.merge",
-    "projects.infrastructure.list",
-    "packs.list", "packs.bundle.get", "packs.project.report",
-    "projects.pulumi_state.migrate", "projects.pulumi_state.checkpoint_import",
-    "projects.pulumi_stack_config.get",
-    "board.data.get",
-    "board.rebuild.run",
-})
+_PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset(
+    {
+        "ephemeral_env.create",
+        "ephemeral_env.get",
+        "projects.update",
+        "projects.capability_settings.get",
+        "projects.capability_settings.set",
+        "projects.capability_settings.merge",
+        "projects.capability_settings.remove",
+        "projects.environment_settings.get",
+        "projects.environment_settings.merge",
+        "projects.infrastructure.list",
+        "packs.list",
+        "packs.bundle.get",
+        "packs.project.report",
+        "projects.pulumi_state.migrate",
+        "projects.pulumi_state.checkpoint_import",
+        "projects.pulumi_stack_config.get",
+        "board.data.get",
+        "board.rebuild.run",
+    }
+)
 
 
 def _resolve_github_actions_project_context(
@@ -178,7 +201,9 @@ def _resolve_github_actions_project_context(
         return None
     try:
         project_id = _resolve_authorized_project_id(
-            conn, payload_ref, visible_project_ids,
+            conn,
+            payload_ref,
+            visible_project_ids,
         )
         target_ref = str(request.target.project_id or "").strip()
         if target_ref and resolve_project_id(conn, target_ref) != project_id:
@@ -215,7 +240,9 @@ def _resolve_process_target_project_context(
         return None
     try:
         project_id = _resolve_authorized_project_id(
-            conn, str(ref), visible_project_ids,
+            conn,
+            str(ref),
+            visible_project_ids,
         )
     except AmbiguousProjectRefError:
         raise
@@ -246,7 +273,9 @@ def _resolve_named_project_context(
         return None
     try:
         project_id = _resolve_authorized_project_id(
-            conn, str(ref), visible_project_ids,
+            conn,
+            str(ref),
+            visible_project_ids,
         )
         target_ref = str(request.target.project_id or "").strip()
         if target_ref and resolve_project_id(conn, target_ref) != project_id:
@@ -267,7 +296,9 @@ def _resolve_authorized_project_id(
         return resolve_project_id(conn, ref)
     try:
         return resolve_project_id(
-            conn, ref, visible_project_ids=visible_project_ids,
+            conn,
+            ref,
+            visible_project_ids=visible_project_ids,
         )
     except AmbiguousProjectRefError:
         raise
@@ -366,9 +397,7 @@ def resolve_org_context(conn: Any, request: FunctionCallRequest) -> int | None:
 
 def _identity_card_org(conn: Any) -> int | None:
     """Return the universe's identity-card org (lowest id), or None."""
-    row = conn.execute(
-        "SELECT id FROM organizations ORDER BY id LIMIT 1"
-    ).fetchone()
+    row = conn.execute("SELECT id FROM organizations ORDER BY id LIMIT 1").fetchone()
     if row is None:
         return None
     value = row["id"] if hasattr(row, "keys") else row[0]

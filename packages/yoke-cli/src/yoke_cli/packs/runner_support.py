@@ -149,10 +149,10 @@ def _assert_no_cross_pack_paths(
     entries: list[dict[str, Any]],
 ) -> None:
     owners = {
-        path: slug
+        file_record["path"]: slug
         for slug, record in receipt["packs"].items()
         if slug != selected_slug
-        for path in record["files"]
+        for file_record in record["files"].values()
     }
     overlap = sorted(entry["path"] for entry in entries if entry["path"] in owners)
     if overlap:
@@ -162,13 +162,44 @@ def _assert_no_cross_pack_paths(
         )
 
 
-def _receipt_record(bundle: Mapping[str, Any]) -> dict[str, Any]:
+def _project_entries(
+    entries: list[dict[str, Any]],
+    receipt_record: Mapping[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Map Pack-defined file identities to their current project locations."""
+    recorded_files = (
+        receipt_record.get("files", {}) if receipt_record is not None else {}
+    )
+    mapped: list[dict[str, Any]] = []
+    for entry in entries:
+        row = dict(entry)
+        recorded = recorded_files.get(entry["path"], {})
+        if isinstance(recorded, Mapping):
+            row["path"] = str(recorded.get("path") or entry["path"])
+        mapped.append(row)
+    return mapped
+
+
+def _receipt_record(
+    bundle: Mapping[str, Any],
+    previous: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    previous_files = previous.get("files", {}) if previous is not None else {}
     return {
         "version": bundle["version"],
         "content_digest": bundle["content_digest"],
         "render_values": dict(bundle["render_values"]),
         "files": {
-            entry["path"]: {"sha256": entry["sha256"], "mode": entry["mode"]}
+            entry["path"]: {
+                "path": (
+                    previous_files.get(entry["path"], {}).get("path")
+                    if isinstance(previous_files.get(entry["path"]), Mapping)
+                    else None
+                )
+                or entry["path"],
+                "sha256": entry["sha256"],
+                "mode": entry["mode"],
+            }
             for entry in bundle["files"]
         },
     }
@@ -245,6 +276,7 @@ __all__ = [
     "_call",
     "_fetch_bundle",
     "_public_plan",
+    "_project_entries",
     "_receipt_record",
     "_report_receipt",
 ]

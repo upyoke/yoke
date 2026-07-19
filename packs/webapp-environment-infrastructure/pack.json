@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "slug": "webapp-environment-infrastructure",
+  "name": "Web Application Environment Infrastructure",
+  "description": "Combines a VPS, managed Postgres, API routing, runtime permissions, logs, and artifact storage into one deployable web application environment.",
+  "latest_version": "1.0.0",
+  "versions": {
+    "1.0.0": {
+      "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/webapp-environment-infrastructure/README.md",
+      "dependencies": [
+        "pulumi-foundation",
+        "vps-hosting",
+        "managed-database",
+        "domain-cdn-edge",
+        "registry-oidc"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/webapp-environment-infrastructure/README.md",
+          "target": "docs/packs/webapp-environment-infrastructure/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/webapp-environment-infrastructure/environment.md",
+          "target": "docs/packs/webapp-environment-infrastructure/environment.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/Pulumi.environment-stack.yaml.tmpl",
+          "target": "infra/Pulumi.environment-stack.yaml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "infra/webapp_environment_origin_policy.py",
+          "target": "infra/webapp_environment_origin_policy.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_environment_stack.py",
+          "target": "infra/webapp_environment_stack.py",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        }
+      ]
+    }
+  }
+}

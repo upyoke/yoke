@@ -46,6 +46,40 @@ def test_registry_maps_ephemeral_env_update_to_function_id() -> None:
     )
 
 
+def test_ephemeral_env_get_dispatches_project_branch_and_prints_environment() -> None:
+    def stub(request: FunctionCallRequest) -> FunctionCallResponse:
+        _CAPTURED_REQUESTS.append(request)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={
+                "environment": {
+                    "project": "demo",
+                    "branch": "feature-one",
+                    "status": "healthy",
+                    "url": "https://feature-one.preview.example.com",
+                }
+            },
+        )
+
+    rc, out, _err = _run_capture(
+        stub,
+        "ephemeral-env",
+        "get",
+        "demo",
+        "feature-one",
+    )
+
+    assert rc == 0
+    assert '"status": "healthy"' in out
+    req = _CAPTURED_REQUESTS[-1]
+    assert req.function == "ephemeral_env.get"
+    assert req.target.kind == "global"
+    assert req.payload == {"project": "demo", "branch": "feature-one"}
+
+
 def test_ephemeral_env_update_dispatches_global_target_and_prints_message() -> None:
     def stub(request: FunctionCallRequest) -> FunctionCallResponse:
         _CAPTURED_REQUESTS.append(request)

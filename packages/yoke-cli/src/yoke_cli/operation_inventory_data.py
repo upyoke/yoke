@@ -15,13 +15,27 @@ from yoke_cli.operation_inventory_model import (
     _Row,
     _w,
 )
-from yoke_cli.operation_inventory_ephemeral_env import WRAPPED_ROWS as EPHEMERAL_ENV_WRAPPED_ROWS
+from yoke_cli.operation_inventory_ephemeral_env import (
+    WRAPPED_ROWS as EPHEMERAL_ENV_WRAPPED_ROWS,
+)
 from yoke_cli.operation_inventory_epic_ops import WRAPPED_ROWS as EPIC_OPS_WRAPPED_ROWS
-from yoke_cli.operation_inventory_deployment import WRAPPED_ROWS as DEPLOYMENT_WRAPPED_ROWS
-from yoke_cli.operation_inventory_github_actions import WRAPPED_ROWS as GITHUB_ACTIONS_WRAPPED_ROWS
-from yoke_cli.operation_inventory_installer_local import PERMANENT_ROWS as INSTALLER_LOCAL_PERMANENT_ROWS
-from yoke_cli.operation_inventory_shepherd_qa_writes import WRAPPED_ROWS as SHEPHERD_QA_WRITE_ROWS
-from yoke_cli.operation_inventory_strategy_event import PERMANENT_ROWS as STRATEGY_EVENT_PERMANENT_ROWS, WRAPPED_ROWS as STRATEGY_EVENT_WRAPPED_ROWS
+from yoke_cli.operation_inventory_deployment import (
+    WRAPPED_ROWS as DEPLOYMENT_WRAPPED_ROWS,
+)
+from yoke_cli.operation_inventory_github_actions import (
+    WRAPPED_ROWS as GITHUB_ACTIONS_WRAPPED_ROWS,
+)
+from yoke_cli.operation_inventory_installer_local import (
+    PERMANENT_ROWS as INSTALLER_LOCAL_PERMANENT_ROWS,
+)
+from yoke_cli.operation_inventory_shepherd_qa_writes import (
+    WRAPPED_ROWS as SHEPHERD_QA_WRITE_ROWS,
+)
+from yoke_cli.operation_inventory_strategy_event import (
+    PERMANENT_ROWS as STRATEGY_EVENT_PERMANENT_ROWS,
+    WRAPPED_ROWS as STRATEGY_EVENT_WRAPPED_ROWS,
+)
+
 WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Baseline wrapped item and claim operations.
     _w("yoke items get", "items.read"),
@@ -47,12 +61,9 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke items section upsert", "items.section"),
     _w("yoke items section get", "items.section"),
     _w("yoke items section delete", "items.section"),
-    _w("yoke items structured-field append-addendum",
-       "items.structured_field"),
-    _w("yoke items structured-field section-upsert",
-       "items.structured_field"),
-    _w("yoke items structured-field section-append",
-       "items.structured_field"),
+    _w("yoke items structured-field append-addendum", "items.structured_field"),
+    _w("yoke items structured-field section-upsert", "items.structured_field"),
+    _w("yoke items structured-field section-append", "items.structured_field"),
     # claims_read.
     _w("yoke claims work holder-get", "claims.work"),
     _w("yoke claims work holder-list", "claims.work"),
@@ -96,8 +107,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke qa run complete", "qa.run"),
     _w("yoke qa artifact add", "qa.artifact"),
     _w("yoke qa artifact presign", "qa.artifact"),
-    _w("yoke qa screenshot-evidence pending-count",
-       "qa.screenshot_evidence"),
+    _w("yoke qa screenshot-evidence pending-count", "qa.screenshot_evidence"),
     _w("yoke qa screenshot-evidence satisfy", "qa.screenshot_evidence"),
     # dispatcher-backed qa CRUD conversion: requirement reads + item-attached
     # creation + run list + the gate-entry summary. The db_router gate-summary
@@ -121,16 +131,21 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects update", "projects"),
     _w("yoke projects capability has", "projects.capability"),
     _w("yoke projects capabilities list", "projects.capability"),
-    _w("yoke projects capability-settings get", "projects.capability_settings"), _w("yoke projects capability-settings set", "projects.capability_settings"),
+    _w("yoke projects capability-settings get", "projects.capability_settings"),
+    _w("yoke projects capability-settings set", "projects.capability_settings"),
     _w("yoke projects capability-settings merge", "projects.capability_settings"),
-    _w("yoke projects environment-settings get", "projects.environment_settings"), _w("yoke projects environment-settings merge", "projects.environment_settings"),
+    _w("yoke projects capability-settings remove", "projects.capability_settings"),
+    _w("yoke projects environment-settings get", "projects.environment_settings"),
+    _w("yoke projects environment-settings merge", "projects.environment_settings"),
     _w("yoke projects infrastructure list", "projects.infrastructure"),
     _w("yoke projects pulumi-state migrate", "projects.pulumi_state"),
     _w("yoke projects pulumi-state checkpoint-import", "projects.pulumi_state"),
     _w("yoke projects pulumi-stack-config get", "projects.pulumi_stack_config"),
     _w("yoke projects capability-secret set", "projects.capability"),
     _w("yoke projects capability secret set", "projects.capability"),
-    _w("yoke projects github-binding bind", "projects.github_binding"), _w("yoke projects github-binding unbind", "projects.github_binding"), _w("yoke projects github-binding status", "projects.github_binding"),
+    _w("yoke projects github-binding bind", "projects.github_binding"),
+    _w("yoke projects github-binding unbind", "projects.github_binding"),
+    _w("yoke projects github-binding status", "projects.github_binding"),
     _w("yoke projects github-sync-mode repair", "projects.github_sync_mode"),
     # checkout→project identity for the strategize/feed preambles — works over
     # https and from any cwd.
@@ -143,9 +158,18 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke identity link set", "identity.link"),
     _w("yoke identity autojoin set", "identity.autojoin"),
     _w("yoke project-structure patch apply", "project_structure"),
-    _w("yoke project-structure command-definitions get", "project_structure.command_definitions"),
-    _w("yoke project-structure command-definitions list", "project_structure.command_definitions"),
-    _w("yoke project-structure deploy-defaults get", "project_structure.deploy_defaults"),
+    _w(
+        "yoke project-structure command-definitions get",
+        "project_structure.command_definitions",
+    ),
+    _w(
+        "yoke project-structure command-definitions list",
+        "project_structure.command_definitions",
+    ),
+    _w(
+        "yoke project-structure deploy-defaults get",
+        "project_structure.deploy_defaults",
+    ),
     *GITHUB_ACTIONS_WRAPPED_ROWS,
     # Per-project DB-authoritative strategy docs; each project's
     # .yoke/strategy/ is a gitignored local rendered view written only by
@@ -168,7 +192,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Project-scoped scratch path resolver for shepherd skill dispatch.
     _w("yoke scratch dispatch-inputs", "scratch"),
     # machine-config status: machine config example + local status diagnostics.
-    _w("yoke config example", "config"), _w("yoke config stamp-project-env", "config"),
+    _w("yoke config example", "config"),
+    _w("yoke config stamp-project-env", "config"),
     _w("yoke status", "status"),
     _w("yoke onboard checklist", "onboard"),
     _w("yoke onboard checklist init", "onboard"),
@@ -183,6 +208,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke project snapshot sync", "project.snapshot"),
     _w("yoke packs list", "packs"),
     _w("yoke packs get", "packs"),
+    _w("yoke packs relink", "packs"),
     _w("yoke packs update", "packs"),
     # cross-family-reader: cross-family reader ids — events forensics, path-claim
     # projections, ouroboros curate-loop readers, backlog listing/search,
@@ -206,29 +232,54 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke items search", "items.read"),
     _w("yoke shepherd dependency-list", "shepherd"),
     *SHEPHERD_QA_WRITE_ROWS,
-    *STRATEGY_EVENT_WRAPPED_ROWS, *EPHEMERAL_ENV_WRAPPED_ROWS,
+    *STRATEGY_EVENT_WRAPPED_ROWS,
+    *EPHEMERAL_ENV_WRAPPED_ROWS,
 )
 
 
 PERMANENT_ROWS: Tuple[_Row, ...] = (
     # Coordination-lease family — operator break-glass.
-    _p("python3 -m yoke_core.api.service_client coordination-lease-acquire",
-       "claims.coordination_lease", REASON_OPERATOR_BREAK_GLASS),
-    _p("python3 -m yoke_core.api.service_client coordination-lease-heartbeat",
-       "claims.coordination_lease", REASON_OPERATOR_BREAK_GLASS),
-    _p("python3 -m yoke_core.api.service_client coordination-lease-list",
-       "claims.coordination_lease", REASON_OPERATOR_BREAK_GLASS),
-    _p("python3 -m yoke_core.api.service_client coordination-lease-release",
-       "claims.coordination_lease", REASON_OPERATOR_BREAK_GLASS),
+    _p(
+        "python3 -m yoke_core.api.service_client coordination-lease-acquire",
+        "claims.coordination_lease",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
+    _p(
+        "python3 -m yoke_core.api.service_client coordination-lease-heartbeat",
+        "claims.coordination_lease",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
+    _p(
+        "python3 -m yoke_core.api.service_client coordination-lease-list",
+        "claims.coordination_lease",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
+    _p(
+        "python3 -m yoke_core.api.service_client coordination-lease-release",
+        "claims.coordination_lease",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
     # claims.path operator-only paths.
-    _p("python3 -m yoke_core.api.service_client path-claim-override",
-       "claims.path", REASON_OPERATOR_BREAK_GLASS),
-    _p("python3 -m yoke_core.cli.db_router path-claims activate",
-       "claims.path", REASON_OPERATOR_BREAK_GLASS),
-    _p("python3 -m yoke_core.cli.db_router path-claims amend",
-       "claims.path", REASON_OPERATOR_BREAK_GLASS),
-    _p("python3 -m yoke_core.cli.db_router path-claims release",
-       "claims.path", REASON_OPERATOR_BREAK_GLASS),
+    _p(
+        "python3 -m yoke_core.api.service_client path-claim-override",
+        "claims.path",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
+    _p(
+        "python3 -m yoke_core.cli.db_router path-claims activate",
+        "claims.path",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
+    _p(
+        "python3 -m yoke_core.cli.db_router path-claims amend",
+        "claims.path",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
+    _p(
+        "python3 -m yoke_core.cli.db_router path-claims release",
+        "claims.path",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
     # Tool-shaped local git/filesystem operations — deliberately NOT
     # dispatcher function ids; routed as CLI tokens by yoke_cli.main.
     _p("yoke git pre-commit", "git", REASON_TOOL_SHAPED),
@@ -243,14 +294,16 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke qa browser setup", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser screenshot", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser status", "qa.browser", REASON_TOOL_SHAPED),
-    *tuple(_p(f"yoke core {verb}", "core.local", REASON_TOOL_SHAPED) for verb in ("build", "start", "status", "logs", "stop", "upgrade")),
+    *tuple(
+        _p(f"yoke core {verb}", "core.local", REASON_TOOL_SHAPED)
+        for verb in ("build", "start", "status", "logs", "stop", "upgrade")
+    ),
     # Local mode: universe birth + embedded Postgres lifecycle run on the
     # caller's own machine (there is no control plane to dispatch through
     # until they have run) — tool-shaped like the other machine-setup flows.
     _p("yoke init", "local_universe", REASON_TOOL_SHAPED),
     *tuple(
-        _p(f"yoke local-postgres {verb}", "local_universe.postgres",
-           REASON_TOOL_SHAPED)
+        _p(f"yoke local-postgres {verb}", "local_universe.postgres", REASON_TOOL_SHAPED)
         for verb in ("start", "status", "stop")
     ),
     # Universe export dumps the machine-held database via pg_dump — a
@@ -273,65 +326,87 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke ui", "local_universe.ui", REASON_TOOL_SHAPED),
     _p("yoke check file-line", "checks.file_line", REASON_TOOL_SHAPED),
     _p("yoke board art variant create", "board.art", REASON_TOOL_SHAPED),
-    _p("yoke resync", "resync", REASON_TOOL_SHAPED), _p("yoke schema converge", "schema", REASON_TOOL_SHAPED),
+    _p("yoke resync", "resync", REASON_TOOL_SHAPED),
+    _p("yoke schema converge", "schema", REASON_TOOL_SHAPED),
     *INSTALLER_LOCAL_PERMANENT_ROWS,
     # Tool-shaped — agent executes via harness; no function id.
-    _p("python3 -m yoke_core.tools.module_source_path",
-       "tools.module_source_path", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_pytest",
-       "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_doctor",
-       "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_merge",
-       "tools.watch", REASON_TOOL_SHAPED),
+    _p(
+        "python3 -m yoke_core.tools.module_source_path",
+        "tools.module_source_path",
+        REASON_TOOL_SHAPED,
+    ),
+    _p("python3 -m yoke_core.tools.watch_pytest", "tools.watch", REASON_TOOL_SHAPED),
+    _p("python3 -m yoke_core.tools.watch_doctor", "tools.watch", REASON_TOOL_SHAPED),
+    _p("python3 -m yoke_core.tools.watch_merge", "tools.watch", REASON_TOOL_SHAPED),
     # The remaining agent-facing watcher surfaces.
     # watch_advance / watch_lifecycle / watch_session_offer are
     # taught in conduct's dispatch-context-artifacts.md; watch_tail is the
     # Monitor command every --print-streaming-pair emits; watch_inventory
     # is the pre-authoring drift check taught in the Claude session rules.
-    _p("python3 -m yoke_core.tools.watch_advance",
-       "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_lifecycle",
-       "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_session_offer",
-       "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_tail",
-       "tools.watch", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.watch_inventory",
-       "tools.watch", REASON_TOOL_SHAPED),
+    _p("python3 -m yoke_core.tools.watch_advance", "tools.watch", REASON_TOOL_SHAPED),
+    _p("python3 -m yoke_core.tools.watch_lifecycle", "tools.watch", REASON_TOOL_SHAPED),
+    _p(
+        "python3 -m yoke_core.tools.watch_session_offer",
+        "tools.watch",
+        REASON_TOOL_SHAPED,
+    ),
+    _p("python3 -m yoke_core.tools.watch_tail", "tools.watch", REASON_TOOL_SHAPED),
+    _p("python3 -m yoke_core.tools.watch_inventory", "tools.watch", REASON_TOOL_SHAPED),
     *STRATEGY_EVENT_PERMANENT_ROWS,
-    _p("python3 -m yoke_core.cli.db_router query",
-       "raw.sql", REASON_OPERATOR_BREAK_GLASS),
+    _p(
+        "python3 -m yoke_core.cli.db_router query",
+        "raw.sql",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
     # Deployment pipeline — long-running command-shaped boundary (like the
     # merge/done-transition watchers): usher drives it; not a quick typed
     # function call. Flow admin (delete) is operator break-glass.
-    _p("python3 -m yoke_core.domain.deploy_pipeline",
-       "deployment_runs", REASON_TOOL_SHAPED),
-    _p("yoke deployment-runs execute",
-       "deployment_runs", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.domain.flow delete",
-       "deployment_flows", REASON_OPERATOR_BREAK_GLASS),
+    _p(
+        "python3 -m yoke_core.domain.deploy_pipeline",
+        "deployment_runs",
+        REASON_TOOL_SHAPED,
+    ),
+    _p("yoke deployment-runs execute", "deployment_runs", REASON_TOOL_SHAPED),
+    _p(
+        "python3 -m yoke_core.domain.flow delete",
+        "deployment_flows",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
     # Environment DB bootstrap — env-lifecycle command-shaped boundary
     # (deploy-executor outer form + DSN-pinned inner form a self-hoster
     # runs directly against an explicit YOKE_PG_DSN authority).
-    _p("python3 -m yoke_core.domain.deploy_environment_bootstrap",
-       "deployment_runs", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.domain.environment_bootstrap",
-       "deployment_runs", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.verify_env_auth_boundary",
-       "deployment_runs", REASON_TOOL_SHAPED),
+    _p(
+        "python3 -m yoke_core.domain.deploy_environment_bootstrap",
+        "deployment_runs",
+        REASON_TOOL_SHAPED,
+    ),
+    _p(
+        "python3 -m yoke_core.domain.environment_bootstrap",
+        "deployment_runs",
+        REASON_TOOL_SHAPED,
+    ),
+    _p(
+        "python3 -m yoke_core.tools.verify_env_auth_boundary",
+        "deployment_runs",
+        REASON_TOOL_SHAPED,
+    ),
     # Ephemeral preview deploy/teardown — same long-running deploy
     # command-shaped boundary as deploy_pipeline; flow stage executor +
     # operator CLI. Flow stage admin (update-stages) is operator
     # break-glass like flow delete.
-    _p("python3 -m yoke_core.domain.deploy_ephemeral",
-       "deployment_runs", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.domain.flow update-stages",
-       "deployment_flows", REASON_OPERATOR_BREAK_GLASS),
+    _p(
+        "python3 -m yoke_core.domain.deploy_ephemeral",
+        "deployment_runs",
+        REASON_TOOL_SHAPED,
+    ),
+    _p(
+        "python3 -m yoke_core.domain.flow update-stages",
+        "deployment_flows",
+        REASON_OPERATOR_BREAK_GLASS,
+    ),
     # Unified worktree creation provisions git worktrees on disk and runs
     # lane preflight; no safe dispatcher/function-call wrapper exists yet.
-    _p("python3 -m yoke_core.domain.worktree create",
-       "worktree", REASON_TOOL_SHAPED),
+    _p("python3 -m yoke_core.domain.worktree create", "worktree", REASON_TOOL_SHAPED),
     _p("yoke merge audit", "merge", REASON_TOOL_SHAPED),
     _p("yoke usher reconcile-github", "usher", REASON_TOOL_SHAPED),
 )
@@ -349,4 +424,16 @@ PENDING_ROWS: Tuple[_Row, ...] = (
     # wrapped above. The db_router forms remain operator-debug fallbacks.
     # deployment_runs / deployment_flows: fully dispatcher-backed.
 )
-__all__ = ["_Row", "WRAPPED", "PERMANENT", "PENDING", "REASON_WRAPPED_BY_YOKE_CLI", "REASON_OPERATOR_BREAK_GLASS", "REASON_TOOL_SHAPED", "REASON_NO_HANDLER_REGISTERED", "WRAPPED_ROWS", "PERMANENT_ROWS", "PENDING_ROWS"]
+__all__ = [
+    "_Row",
+    "WRAPPED",
+    "PERMANENT",
+    "PENDING",
+    "REASON_WRAPPED_BY_YOKE_CLI",
+    "REASON_OPERATOR_BREAK_GLASS",
+    "REASON_TOOL_SHAPED",
+    "REASON_NO_HANDLER_REGISTERED",
+    "WRAPPED_ROWS",
+    "PERMANENT_ROWS",
+    "PENDING_ROWS",
+]

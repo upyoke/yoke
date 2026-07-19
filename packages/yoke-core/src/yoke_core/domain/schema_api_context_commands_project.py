@@ -26,6 +26,17 @@ PROJECT_COMMANDS: list[dict] = [
     },
     {
         "topic": "project",
+        "purpose": "Read one branch preview environment",
+        "recipe": "yoke ephemeral-env get <project> <branch> --json",
+        "notes": (
+            "Registered read ephemeral_env.get (works over https). The result "
+            "contains the environment row, including status, url, workflow run, "
+            "ports, and deployed SHA. Use the actual worktree branch; do not "
+            "guess a YOK-N branch or read the table directly."
+        ),
+    },
+    {
+        "topic": "project",
         "purpose": "Read project test command for a scope",
         "recipe": (
             "yoke project-structure command-definitions get "

@@ -1,0 +1,160 @@
+#!/usr/bin/env sh
+# Remove preview resources older than the configured time-to-live.
+# Scheduling is project-owned; install this with cron, systemd, or another
+# host scheduler after reviewing the paths and resource prefix below.
+
+set -u
+
+PREVIEW_NAMESPACE="{{preview_namespace}}"
+PREVIEW_ROOT="$HOME/$PREVIEW_NAMESPACE"
+TTL_HOURS="{{preview_ttl_hours}}"
+
+log() {
+  echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') [preview-cleanup] $1"
+}
+
+compose_project_to_slug() {
+  case "$1" in
+    "${PREVIEW_NAMESPACE}-"*) printf '%s\n' "${1#${PREVIEW_NAMESPACE}-}" ;;
+    *) return 1 ;;
+  esac
+}
+
+image_repo_to_slug() {
+  case "$1" in
+    "${PREVIEW_NAMESPACE}-"*)
+      _rest=${1#${PREVIEW_NAMESPACE}-}
+      case "$_rest" in
+        *-*) printf '%s\n' "${_rest%-*}" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+volume_name_to_slug() {
+  case "$1" in
+    "${PREVIEW_NAMESPACE}-"*)
+      _rest=${1#${PREVIEW_NAMESPACE}-}
+      printf '%s\n' "${_rest%%_*}"
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+if ! command -v docker >/dev/null 2>&1; then
+  log "ERROR: docker not found in PATH"
+  exit 0
+fi
+
+NOW_EPOCH=$(date +%s)
+CUTOFF_EPOCH=$((NOW_EPOCH - TTL_HOURS * 3600))
+SLUGS_FILE=$(mktemp)
+trap 'rm -f "$SLUGS_FILE"' EXIT
+
+if [ -d "$PREVIEW_ROOT" ]; then
+  for _dir in "$PREVIEW_ROOT"/*/; do
+    [ -d "$_dir" ] || continue
+    basename "$_dir" >> "$SLUGS_FILE"
+  done
+fi
+
+COMPOSE_LIST=$(docker compose ls --format json 2>/dev/null) || COMPOSE_LIST=""
+if [ -n "$COMPOSE_LIST" ] && [ "$COMPOSE_LIST" != "[]" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    echo "$COMPOSE_LIST" | jq -r ".[] | select(.Name | startswith(\"${PREVIEW_NAMESPACE}-\")) | .Name" |
+      while read -r _project; do
+        compose_project_to_slug "$_project" || true
+      done >> "$SLUGS_FILE"
+  elif command -v python3 >/dev/null 2>&1; then
+    echo "$COMPOSE_LIST" | python3 -c "
+import json, sys
+prefix = '${PREVIEW_NAMESPACE}-'
+for row in json.load(sys.stdin):
+    name = row.get('Name', '')
+    if name.startswith(prefix):
+        print(name[len(prefix):])
+" >> "$SLUGS_FILE"
+  fi
+fi
+
+docker images --format '{{`{{.Repository}}`}}' 2>/dev/null |
+  while read -r _repo; do
+    image_repo_to_slug "$_repo" || true
+  done >> "$SLUGS_FILE" 2>/dev/null || true
+
+docker volume ls --format '{{`{{.Name}}`}}' 2>/dev/null |
+  while read -r _volume; do
+    volume_name_to_slug "$_volume" || true
+  done >> "$SLUGS_FILE" 2>/dev/null || true
+
+UNIQUE_SLUGS=$(sort -u "$SLUGS_FILE" | grep -v '^$')
+if [ -z "$UNIQUE_SLUGS" ]; then
+  log "No preview resources found."
+  exit 0
+fi
+
+CLEANED=0
+KEPT=0
+ERRORS=0
+while read -r slug; do
+  [ -n "$slug" ] || continue
+  slug_dir="$PREVIEW_ROOT/$slug"
+  stale=""
+  age="orphaned"
+  if [ -d "$slug_dir" ]; then
+    dir_epoch=$(stat -c %Y "$slug_dir" 2>/dev/null) || \
+      dir_epoch=$(stat -f %m "$slug_dir" 2>/dev/null) || dir_epoch=""
+    if [ -n "$dir_epoch" ]; then
+      age=$(( (NOW_EPOCH - dir_epoch) / 3600 ))
+      [ "$dir_epoch" -lt "$CUTOFF_EPOCH" ] && stale=1
+    else
+      stale=1
+      age="unknown"
+    fi
+  else
+    stale=1
+  fi
+
+  if [ -z "$stale" ]; then
+    log "Keeping $slug (age=${age}h, ttl=${TTL_HOURS}h)"
+    KEPT=$((KEPT + 1))
+    continue
+  fi
+
+  log "Removing $slug (age=$age, ttl=${TTL_HOURS}h)"
+  if [ -d "$slug_dir" ]; then
+    (cd "$slug_dir" && docker compose -p "${PREVIEW_NAMESPACE}-${slug}" down --volumes --remove-orphans) 2>/dev/null || true
+  else
+    docker compose -p "${PREVIEW_NAMESPACE}-${slug}" down --volumes --remove-orphans 2>/dev/null || true
+  fi
+
+  docker images --format '{{`{{.Repository}} {{.Tag}}`}}' 2>/dev/null |
+    while read -r _repo _tag; do
+      _resource_slug=$(image_repo_to_slug "$_repo") || continue
+      [ "$_resource_slug" = "$slug" ] || continue
+      _ref="$_repo"
+      [ -n "$_tag" ] && [ "$_tag" != "<none>" ] && _ref="${_repo}:${_tag}"
+      docker rmi "$_ref" 2>/dev/null || true
+    done || true
+
+  docker volume ls --format '{{`{{.Name}}`}}' 2>/dev/null |
+    while read -r _volume; do
+      _resource_slug=$(volume_name_to_slug "$_volume") || continue
+      [ "$_resource_slug" = "$slug" ] || continue
+      docker volume rm "$_volume" 2>/dev/null || true
+    done || true
+
+  if [ -d "$slug_dir" ] && ! rm -rf "$slug_dir"; then
+    log "ERROR: could not remove $slug_dir"
+    ERRORS=$((ERRORS + 1))
+    continue
+  fi
+  CLEANED=$((CLEANED + 1))
+done <<EOF
+$UNIQUE_SLUGS
+EOF
+
+log "Finished: removed=$CLEANED kept=$KEPT errors=$ERRORS"
+exit 0

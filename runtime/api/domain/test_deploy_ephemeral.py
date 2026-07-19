@@ -22,8 +22,10 @@ from runtime.api.domain.deploy_ephemeral_test_support import (
 def _policy(**overrides):
     values = dict(
         project="yoke",
-        deploy_namespace="yoke",
+        host_project="platform",
+        preview_namespace="yoke-preview",
         trigger="flow",
+        flow_id="yoke-branch-preview",
         preview_domain="preview.example.com",
         host_env="stage",
         api_base_port=9000,
@@ -37,8 +39,8 @@ def _policy(**overrides):
 
 def _env(**overrides) -> DeployEnvironment:
     values = dict(
-        project="yoke",
-        deploy_namespace="yoke",
+        project="platform",
+        deploy_namespace="platform",
         env_name="stage",
         site_id="yoke-api",
         api_host="api.stage.example.com",
@@ -77,85 +79,89 @@ class _Tracker:
 def deploy_seams(monkeypatch):
     """Mock every non-runner seam so command plans drive the assertions."""
     tracker = _Tracker()
+    monkeypatch.setattr(deploy_ephemeral, "load_ephemeral_policy", lambda p: _policy())
     monkeypatch.setattr(
-        deploy_ephemeral, "load_ephemeral_policy", lambda p: _policy()
-    )
-    monkeypatch.setattr(
-        deploy_ephemeral, "resolve_deploy_environment",
+        deploy_ephemeral,
+        "resolve_deploy_environment",
         lambda p, e: _env(),
     )
     monkeypatch.setattr(
         deploy_ephemeral, "aws_capability_env", lambda p, r: {"AWS": "1"}
     )
     monkeypatch.setattr(
-        deploy_ephemeral, "ensure_instance_running",
+        deploy_ephemeral,
+        "ensure_instance_running",
         lambda runner, env, aws_env, emit: None,
     )
     monkeypatch.setattr(
-        deploy_ephemeral, "wait_ssh_reachable",
+        deploy_ephemeral,
+        "wait_ssh_reachable",
         lambda runner, env, emit: None,
     )
     monkeypatch.setattr(
-        deploy_ephemeral, "ensure_image_in_registry",
-        lambda runner, env, aws_env, repo_path, tag, emit: (
-            f"reg/yoke-core:{tag}"
-        ),
+        deploy_ephemeral,
+        "ensure_image_in_registry",
+        lambda runner, env, aws_env, repo_path, tag, emit: f"reg/yoke-core:{tag}",
     )
     monkeypatch.setattr(
-        deploy_ephemeral, "wait_container_healthy",
+        deploy_ephemeral,
+        "wait_container_healthy",
         lambda runner, env, name, emit: None,
     )
     monkeypatch.setattr(
-        deploy_ephemeral, "render_webapp_template",
+        deploy_ephemeral,
+        "render_webapp_template",
         lambda _root, relative, values: f"rendered:{relative}",
     )
     monkeypatch.setattr(deploy_ephemeral, "track", tracker)
-    monkeypatch.setattr(
-        deploy_ephemeral, "emit_ephemeral_event", lambda *a, **k: None
-    )
+    monkeypatch.setattr(deploy_ephemeral, "emit_ephemeral_event", lambda *a, **k: None)
     return tracker
 
 
 def _scripted_runner():
     """Results in executor call order (branch sha + remote convergence)."""
-    return FakeRunner([
-        CommandResult(0, _SHA + "\n", ""),       # git rev-parse branch
-        CommandResult(0, "", ""),                # tls cert probe (present)
-        CommandResult(0, "", ""),                # njs package probe (present)
-        CommandResult(0, "", ""),                # njs dir mkdir
-        CommandResult(0, "", ""),                # njs script push
-        CommandResult(0, "", ""),                # nginx site push
-        CommandResult(0, "", ""),                # nginx activate
-        CommandResult(0, "", ""),                # cleanup script push
-        CommandResult(0, "", ""),                # cleanup cron push
-        CommandResult(0, "cafe01\n", ""),        # existing db-password read
-        CommandResult(0, "", ""),                # slug dir prepare
-        CommandResult(0, "", ""),                # compose push
-        CommandResult(0, "", ""),                # db-password push
-        CommandResult(0, "", ""),                # .env push
-        CommandResult(0, "", ""),                # dsn push
-        CommandResult(0, "", ""),                # compose pull
-        CommandResult(0, "bootstrap complete", ""),  # in-container bootstrap
-        CommandResult(0, "", ""),                # compose up
-        CommandResult(0, "x-request-id: RID", ""),   # slug health (patched id)
-    ])
+    return FakeRunner(
+        [
+            CommandResult(0, _SHA + "\n", ""),  # git rev-parse branch
+            CommandResult(0, "", ""),  # tls cert probe (present)
+            CommandResult(0, "", ""),  # njs package probe (present)
+            CommandResult(0, "", ""),  # njs dir mkdir
+            CommandResult(0, "", ""),  # njs script push
+            CommandResult(0, "", ""),  # nginx site push
+            CommandResult(0, "", ""),  # nginx activate
+            CommandResult(0, "", ""),  # cleanup script push
+            CommandResult(0, "", ""),  # cleanup cron push
+            CommandResult(0, "cafe01\n", ""),  # existing db-password read
+            CommandResult(0, "", ""),  # slug dir prepare
+            CommandResult(0, "", ""),  # compose push
+            CommandResult(0, "", ""),  # db-password push
+            CommandResult(0, "", ""),  # .env push
+            CommandResult(0, "", ""),  # dsn push
+            CommandResult(0, "", ""),  # compose pull
+            CommandResult(0, "bootstrap complete", ""),  # in-container bootstrap
+            CommandResult(0, "", ""),  # compose up
+            CommandResult(0, "x-request-id: RID", ""),  # slug health (patched id)
+        ]
+    )
 
 
 class TestExecEphemeralDeploy:
     def test_full_deploy_command_plan(self, deploy_seams, monkeypatch, tmp_path):
         project_root = install_ephemeral_project_source(tmp_path)
         runner = _scripted_runner()
-        monkeypatch.setattr(
-            deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID")
-        )
+        monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         health_calls = []
         monkeypatch.setattr(
             "yoke_core.tools.executors.exec_health_check",
             lambda url, request_id="": health_calls.append(url) or 0,
         )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
-            "yoke", branch=_SLUG, repo_path=str(project_root),
-            item_label="YOK-9", runner=runner, emit=lambda _l: None,
+            "yoke",
+            branch=_SLUG,
+            repo_path=str(project_root),
+            item_label="YOK-9",
+            runner=runner,
+            emit=lambda _l: None,
         )
         assert rc == 0
         joined = [
@@ -171,9 +177,7 @@ class TestExecEphemeralDeploy:
         health = next(c for c in joined if "curl" in c)
         assert f"127.0.0.1:{_PORT}/v1/health" in health
         # Public wildcard health check ran against the preview URL.
-        assert health_calls == [
-            f"https://{_SLUG}.preview.example.com/v1/health"
-        ]
+        assert health_calls == [f"https://{_SLUG}.preview.example.com/v1/health"]
         # Tracking: created with ports/url/sha, then flipped to running.
         first, last = deploy_seams.calls[0], deploy_seams.calls[-1]
         assert first[2]["port_api"] == str(_PORT)
@@ -184,63 +188,63 @@ class TestExecEphemeralDeploy:
     def test_existing_db_password_is_reused(self, deploy_seams, monkeypatch, tmp_path):
         project_root = install_ephemeral_project_source(tmp_path)
         runner = _scripted_runner()
-        monkeypatch.setattr(
-            deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID")
-        )
+        monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         monkeypatch.setattr(
             "yoke_core.tools.executors.exec_health_check",
             lambda url, request_id="": 0,
         )
         deploy_ephemeral.exec_ephemeral_deploy(
-            "yoke", branch=_SLUG, repo_path=str(project_root),
-            runner=runner, emit=lambda _l: None,
+            "yoke",
+            branch=_SLUG,
+            repo_path=str(project_root),
+            runner=runner,
+            emit=lambda _l: None,
         )
-        pushes = [
-            c for c in runner.calls
-            if c["argv"][0] == "ssh" and c["input_text"]
-        ]
-        password_push = next(
-            c for c in pushes if "db-password" in c["argv"][-1]
-        )
+        pushes = [c for c in runner.calls if c["argv"][0] == "ssh" and c["input_text"]]
+        password_push = next(c for c in pushes if "db-password" in c["argv"][-1])
         assert password_push["input_text"] == "cafe01\n"
         dsn_push = next(c for c in pushes if "/dsn" in c["argv"][-1])
         assert "password=cafe01" in dsn_push["input_text"]
 
     def test_branch_required(self, deploy_seams):
         rc = deploy_ephemeral.exec_ephemeral_deploy(
-            "yoke", branch="", runner=FakeRunner(), emit=lambda _l: None,
+            "yoke",
+            branch="",
+            runner=FakeRunner(),
+            emit=lambda _l: None,
         )
         assert rc == 1
 
-    def test_render_only_host_env_refused(
-        self, deploy_seams, monkeypatch, tmp_path
-    ):
+    def test_render_only_host_env_refused(self, deploy_seams, monkeypatch, tmp_path):
         monkeypatch.setattr(
-            deploy_ephemeral, "resolve_deploy_environment",
+            deploy_ephemeral,
+            "resolve_deploy_environment",
             lambda p, e: _env(activation_state="render_only"),
         )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
             "yoke",
             branch=_SLUG,
             repo_path=str(install_ephemeral_project_source(tmp_path)),
-            runner=FakeRunner(), emit=lambda _l: None,
+            runner=FakeRunner(),
+            emit=lambda _l: None,
         )
         assert rc == 1
 
-    def test_failure_marks_row_failed(
-        self, deploy_seams, monkeypatch, tmp_path
-    ):
-        runner = FakeRunner([
-            CommandResult(0, _SHA + "\n", ""),
-            CommandResult(1, "", "ssh exploded"),  # tls probe
-            CommandResult(1, "", "no certbot"),    # certbot pkg probe
-            CommandResult(1, "", "apt broken"),    # certbot install -> fail
-        ])
+    def test_failure_marks_row_failed(self, deploy_seams, monkeypatch, tmp_path):
+        runner = FakeRunner(
+            [
+                CommandResult(0, _SHA + "\n", ""),
+                CommandResult(1, "", "ssh exploded"),  # tls probe
+                CommandResult(1, "", "no certbot"),  # certbot pkg probe
+                CommandResult(1, "", "apt broken"),  # certbot install -> fail
+            ]
+        )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
             "yoke",
             branch=_SLUG,
             repo_path=str(install_ephemeral_project_source(tmp_path)),
-            runner=runner, emit=lambda _l: None,
+            runner=runner,
+            emit=lambda _l: None,
         )
         assert rc == 1
         assert deploy_seams.calls[-1][2] == {"status": "failed"}
@@ -248,57 +252,64 @@ class TestExecEphemeralDeploy:
 
 class TestExecEphemeralTeardown:
     def test_teardown_command_plan(self, deploy_seams):
-        runner = FakeRunner([
-            CommandResult(0, "", ""),  # compose down
-            CommandResult(0, "", ""),  # rm -rf dir
-        ])
+        runner = FakeRunner(
+            [
+                CommandResult(0, "", ""),  # compose down
+                CommandResult(0, "", ""),  # rm -rf dir
+            ]
+        )
         rc = deploy_ephemeral.exec_ephemeral_teardown(
-            "yoke", branch=_SLUG, runner=runner, emit=lambda _l: None,
+            "yoke",
+            branch=_SLUG,
+            runner=runner,
+            emit=lambda _l: None,
         )
         assert rc == 0
         down = runner.calls[0]["argv"][-1]
         assert "docker compose down --volumes --remove-orphans" in down
-        assert runner.calls[1]["argv"][-1] == (
-            f"rm -rf ~/yoke-ephemeral/{_SLUG}"
-        )
+        assert runner.calls[1]["argv"][-1] == (f"rm -rf ~/yoke-preview/{_SLUG}")
         assert deploy_seams.calls[-1][2] == {"status": "stopped"}
 
-    def test_teardown_targets_stable_namespace_after_reparent(
+    def test_teardown_targets_source_preview_namespace_on_another_host_project(
         self, deploy_seams, monkeypatch
     ):
-        # Site re-parented to control-plane project 'yoke-next' while its
-        # stable resource namespace stays 'yoke': teardown must target the
-        # namespace-keyed compose project + deploy dir, not the project slug.
         monkeypatch.setattr(
-            deploy_ephemeral, "load_ephemeral_policy",
-            lambda p: _policy(project="yoke-next", deploy_namespace="yoke"),
+            deploy_ephemeral,
+            "load_ephemeral_policy",
+            lambda p: _policy(project="yoke-next"),
         )
         monkeypatch.setattr(
-            deploy_ephemeral, "resolve_deploy_environment",
-            lambda p, e: _env(project="yoke-next", deploy_namespace="yoke"),
+            deploy_ephemeral,
+            "resolve_deploy_environment",
+            lambda p, e: _env(),
         )
-        runner = FakeRunner([
-            CommandResult(0, "", ""),  # compose down
-            CommandResult(0, "", ""),  # rm -rf dir
-        ])
+        runner = FakeRunner(
+            [
+                CommandResult(0, "", ""),  # compose down
+                CommandResult(0, "", ""),  # rm -rf dir
+            ]
+        )
         rc = deploy_ephemeral.exec_ephemeral_teardown(
-            "yoke-next", branch=_SLUG, runner=runner, emit=lambda _l: None,
+            "yoke-next",
+            branch=_SLUG,
+            runner=runner,
+            emit=lambda _l: None,
         )
         assert rc == 0
         down = runner.calls[0]["argv"][-1]
-        assert f"docker compose -p yoke-{_SLUG} down" in down
-        assert runner.calls[1]["argv"][-1] == (
-            f"rm -rf ~/yoke-ephemeral/{_SLUG}"
-        )
+        assert f"docker compose -p yoke-preview-{_SLUG} down" in down
+        assert runner.calls[1]["argv"][-1] == (f"rm -rf ~/yoke-preview/{_SLUG}")
 
 
 class TestRemoteHelpers:
     def test_certbot_issued_only_when_cert_absent(self):
-        runner = FakeRunner([
-            CommandResult(1, "", ""),  # cert probe -> absent
-            CommandResult(0, "", ""),  # certbot packages present
-            CommandResult(0, "", ""),  # certonly
-        ])
+        runner = FakeRunner(
+            [
+                CommandResult(1, "", ""),  # cert probe -> absent
+                CommandResult(0, "", ""),  # certbot packages present
+                CommandResult(0, "", ""),  # certonly
+            ]
+        )
         remote.ensure_wildcard_tls(
             runner, _env(), "preview.example.com", lambda _l: None
         )
@@ -309,40 +320,45 @@ class TestRemoteHelpers:
     def test_dsn_pushed_world_readable_in_private_dir(self):
         runner = FakeRunner()
         remote.converge_slug_project(
-            runner, _env(), "~/yoke-ephemeral/x", "compose", "envfile",
-            "dsn-line", "cafe01", lambda _l: None,
+            runner,
+            _env(),
+            "~/yoke-ephemeral/x",
+            "compose",
+            "envfile",
+            "dsn-line",
+            "cafe01",
+            lambda _l: None,
         )
         prepare = runner.calls[0]["argv"][-1]
         assert "chmod 700 ~/yoke-ephemeral/x" in prepare
-        dsn = next(
-            c for c in runner.calls if "/dsn" in c["argv"][-1]
-        )["argv"][-1]
+        dsn = next(c for c in runner.calls if "/dsn" in c["argv"][-1])["argv"][-1]
         assert "os.replace" in dsn
         assert dsn.endswith("/dsn 444")
 
     def test_password_hex_guard_rejects_garbage(self):
         runner = FakeRunner([CommandResult(0, "not hex!\n", "")])
-        value = remote.read_existing_db_password(
-            runner, _env(), "~/yoke-ephemeral/x"
-        )
+        value = remote.read_existing_db_password(runner, _env(), "~/yoke-ephemeral/x")
         assert value == ""
 
 
-def test_slug_files_name_database_by_deploy_namespace(monkeypatch):
-    """A re-parented deploy (project != deploy_namespace) names the preview
-    Postgres database + user by the stable deploy_namespace, keeping every
-    host-box preview resource under one namespace after a re-parent."""
+def test_slug_files_name_database_by_preview_namespace(monkeypatch):
     monkeypatch.setattr(
-        deploy_ephemeral_files, "render_webapp_template",
+        deploy_ephemeral_files,
+        "render_webapp_template",
         lambda _root, _relative, _values: "compose-yaml",
     )
-    policy = _policy(project="platform", deploy_namespace="yoke")
-    env = _env(project="platform", deploy_namespace="yoke")
+    policy = _policy()
+    env = _env()
 
     _compose, _env_file, dsn = deploy_ephemeral_files.slug_files(
-        policy, env, "my-slug", "img:tag", 9100, "deadbeef",
+        policy,
+        env,
+        "my-slug",
+        "img:tag",
+        9100,
+        "deadbeef",
         project_root=Path("/project"),
     )
 
-    assert "dbname=yoke_ephemeral user=yoke" in dsn
+    assert "dbname=yoke_preview user=yoke_preview" in dsn
     assert "platform" not in dsn

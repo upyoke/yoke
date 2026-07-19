@@ -25,7 +25,7 @@ Extracted from `dispatch-context.md`. Engineer and Tester prompt templates and d
  {If _rehydration_block_{_id} is non-empty:}
  {_rehydration_block_{_id}}
 
- {For non-yoke projects — include this block:}
+ {For every project-owned item — include this block:}
  Project Test Commands:
  Quick: {_cmd_quick}
  Full: {_cmd_full}
@@ -144,7 +144,7 @@ fi
  {For epics: interface contracts from dependency tasks}
  {For epics: downstream task bodies for path-tracing}
 
- {For non-yoke projects — include this block:}
+ {For every project-owned item — include this block:}
  Project Test Commands:
  Quick: {_cmd_quick}
  Full: {_cmd_full}
@@ -202,7 +202,7 @@ fi
  Read the authoritative task spec from the DB before validating:
  yoke items get YOK-{_id} spec
 
- {For non-yoke projects — include this block:}
+ {For every project-owned item — include this block:}
  Project Test Commands:
  Quick: {_cmd_quick}
  Full: {_cmd_full}

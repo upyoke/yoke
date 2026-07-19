@@ -2,7 +2,7 @@
   "schema": 1,
   "slug": "smoke-testing",
   "name": "Smoke Testing",
-  "description": "Post-deployment GitHub Actions smoke verification.",
+  "description": "Adds a GitHub Actions check that confirms a deployed application is reachable and returns the expected health response.",
   "latest_version": "1.0.0",
   "versions": {
     "1.0.0": {

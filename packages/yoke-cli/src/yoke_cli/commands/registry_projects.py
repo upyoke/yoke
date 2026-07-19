@@ -10,9 +10,7 @@ from yoke_cli.commands import flag_adapters as _adapters
 AdapterFn = Callable[[List[str]], int]
 
 
-PROJECTS_SUBCOMMAND_REGISTRY: Dict[
-    Tuple[str, ...], Tuple[str, AdapterFn]
-] = {
+PROJECTS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "get"): ("projects.get", _adapters.projects_get),
     ("projects", "list"): ("projects.list", _adapters.projects_list),
     ("projects", "resolve-by-github-repo"): (
@@ -40,6 +38,10 @@ PROJECTS_SUBCOMMAND_REGISTRY: Dict[
     ("projects", "capability-settings", "merge"): (
         "projects.capability_settings.merge",
         _adapters.projects_capability_settings_merge,
+    ),
+    ("projects", "capability-settings", "remove"): (
+        "projects.capability_settings.remove",
+        _adapters.projects_capability_settings_remove,
     ),
     ("projects", "environment-settings", "get"): (
         "projects.environment_settings.get",

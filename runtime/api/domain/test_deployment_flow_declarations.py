@@ -39,8 +39,11 @@ def _document() -> dict:
                 "description": "Deploy the selected release",
                 "stages": [
                     {"name": "merged", "executor": "auto"},
-                    {"name": "deploy", "executor": "github-actions-workflow",
-                     "workflow": "acme-deploy.yml"},
+                    {
+                        "name": "deploy",
+                        "executor": "github-actions-workflow",
+                        "workflow": "acme-deploy.yml",
+                    },
                     {"name": "complete", "executor": "auto"},
                 ],
                 "target_env": "production",
@@ -87,9 +90,12 @@ def test_omitted_historical_rows_are_never_pruned(test_db) -> None:
 
     reconcile_project_flows(test_db, "acme", reduced)
 
-    assert test_db.execute(
-        "SELECT status FROM deployment_flows WHERE id='acme-internal'"
-    ).fetchone()[0] == "active"
+    assert (
+        test_db.execute(
+            "SELECT status FROM deployment_flows WHERE id='acme-internal'"
+        ).fetchone()[0]
+        == "active"
+    )
 
 
 def test_absent_retirements_do_not_create_legacy_rows(test_db) -> None:
@@ -101,18 +107,22 @@ def test_absent_retirements_do_not_create_legacy_rows(test_db) -> None:
 
     assert result["retired"] == []
     assert result["retire_absent"] == ["acme-legacy-release"]
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM deployment_flows "
-        "WHERE id='acme-legacy-release'"
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM deployment_flows WHERE id='acme-legacy-release'"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_live_retirement_disables_predecessors_and_preserves_runs(test_db) -> None:
     _seed_project(test_db)
-    stages = json_helper.dumps_compact([
-        {"name": "merged", "executor": "auto"},
-        {"name": "complete", "executor": "auto"},
-    ])
+    stages = json_helper.dumps_compact(
+        [
+            {"name": "merged", "executor": "auto"},
+            {"name": "complete", "executor": "auto"},
+        ]
+    )
     test_db.execute(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, stages, status, created_at) "
@@ -135,30 +145,57 @@ def test_live_retirement_disables_predecessors_and_preserves_runs(test_db) -> No
     result = reconcile_project_flows(test_db, "acme", document)
 
     assert result["retired"] == ["acme-legacy-release"]
-    assert test_db.execute(
-        "SELECT status FROM deployment_flows "
-        "WHERE id='acme-legacy-release'"
-    ).fetchone()[0] == "disabled"
-    assert test_db.execute(
-        "SELECT flow FROM deployment_runs WHERE id='run-legacy-release'"
-    ).fetchone()[0] == "acme-legacy-release"
+    assert (
+        test_db.execute(
+            "SELECT status FROM deployment_flows WHERE id='acme-legacy-release'"
+        ).fetchone()[0]
+        == "disabled"
+    )
+    assert (
+        test_db.execute(
+            "SELECT flow FROM deployment_runs WHERE id='run-legacy-release'"
+        ).fetchone()[0]
+        == "acme-legacy-release"
+    )
 
 
 def test_retirement_cannot_disable_another_projects_flow(test_db) -> None:
     _seed_project(test_db)
+    test_db.execute(
+        "INSERT INTO deployment_flows "
+        "(id, project_id, name, stages, status, created_at) "
+        "VALUES ('yoke-internal', %s, 'Internal', %s, "
+        "'active', '2026-01-01T00:00:00Z')",
+        (
+            resolve_project_id(test_db, "yoke"),
+            json_helper.dumps_compact(
+                [
+                    {"name": "merged", "executor": "auto"},
+                    {"name": "complete", "executor": "auto"},
+                ]
+            ),
+        ),
+    )
+    test_db.commit()
     document = _document()
     document["retire_if_present"] = ["yoke-internal"]
 
     with pytest.raises(ValueError, match="belongs to another project"):
         reconcile_project_flows(test_db, "acme", document)
 
-    assert test_db.execute(
-        "SELECT status FROM deployment_flows WHERE id='yoke-internal'"
-    ).fetchone()[0] == "active"
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
-        (resolve_project_id(test_db, "acme"),),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT status FROM deployment_flows WHERE id='yoke-internal'"
+        ).fetchone()[0]
+        == "active"
+    )
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
+            (resolve_project_id(test_db, "acme"),),
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_historical_run_freezes_definition_but_not_status(test_db) -> None:
@@ -192,10 +229,13 @@ def test_invalid_default_rolls_back_all_new_definitions(test_db) -> None:
     with pytest.raises(ValueError, match="is not a flow"):
         reconcile_project_flows(test_db, "acme", document)
 
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
-        (resolve_project_id(test_db, "acme"),),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
+            (resolve_project_id(test_db, "acme"),),
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_preview_validates_without_persisting_any_rows(test_db) -> None:
@@ -211,18 +251,25 @@ def test_preview_validates_without_persisting_any_rows(test_db) -> None:
     assert result["preview_only"] is True
     assert result["created"] == ["acme-production", "acme-internal"]
     assert result["default_flow_updated"] is False
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
-        (resolve_project_id(test_db, "acme"),),
-    ).fetchone()[0] == 0
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM project_structure WHERE project_id=%s",
-        (resolve_project_id(test_db, "acme"),),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
+            (resolve_project_id(test_db, "acme"),),
+        ).fetchone()[0]
+        == 0
+    )
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM project_structure WHERE project_id=%s",
+            (resolve_project_id(test_db, "acme"),),
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_default_write_failure_rolls_back_flow_definitions(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ) -> None:
     _seed_project(test_db)
 
@@ -236,15 +283,21 @@ def test_default_write_failure_rolls_back_flow_definitions(
     with pytest.raises(RuntimeError, match="write unavailable"):
         reconcile_project_flows(test_db, "acme", _document())
 
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
-        (resolve_project_id(test_db, "acme"),),
-    ).fetchone()[0] == 0
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM project_structure "
-        "WHERE project_id=%s AND family='deploy_defaults'",
-        (resolve_project_id(test_db, "acme"),),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
+            (resolve_project_id(test_db, "acme"),),
+        ).fetchone()[0]
+        == 0
+    )
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM project_structure "
+            "WHERE project_id=%s AND family='deploy_defaults'",
+            (resolve_project_id(test_db, "acme"),),
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_document_shape_rejects_unknown_fields_before_writes() -> None:
@@ -256,10 +309,12 @@ def test_document_shape_rejects_unknown_fields_before_writes() -> None:
 
 def test_alternative_flows_may_govern_the_same_migration_model(test_db) -> None:
     _seed_project(test_db)
-    settings = json_helper.dumps_compact({
-        "default_model": "primary",
-        "models": {"primary": {}},
-    })
+    settings = json_helper.dumps_compact(
+        {
+            "default_model": "primary",
+            "models": {"primary": {}},
+        }
+    )
     test_db.execute(
         "INSERT INTO project_capabilities "
         "(project_id, type, config, settings, created_at) "

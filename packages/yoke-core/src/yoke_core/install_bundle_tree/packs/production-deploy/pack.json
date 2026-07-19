@@ -2,11 +2,140 @@
   "schema": 1,
   "slug": "production-deploy",
   "name": "Production Deploy",
-  "description": "Production deploy and hotfix workflows, verification, and operator guidance.",
-  "latest_version": "1.0.0",
+  "description": "Adds GitHub workflows, checks, scripts, and instructions for safely deploying or hot-fixing a Docker Compose web app on one server.",
+  "latest_version": "1.1.0",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/production-deploy/README.md",
+      "dependencies": [
+        "container-runtime",
+        "host-maintenance",
+        "registry-oidc",
+        "domain-cdn-edge"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "PROJECT_NAME_UPPER": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "api_port": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "aws_region": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "checkout_action": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "cloudfront_id": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "configure_aws_credentials_action": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "project_display_name": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "web_health_path": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "web_port": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          },
+          "web_smoke_paths": {
+            "type": "string",
+            "description": "Project value used when installing the Production Deploy Pack."
+          }
+        },
+        "required": [
+          "PROJECT_NAME_UPPER",
+          "api_port",
+          "aws_region",
+          "checkout_action",
+          "cloudfront_id",
+          "configure_aws_credentials_action",
+          "project_display_name",
+          "project_name",
+          "web_health_path",
+          "web_port",
+          "web_smoke_paths"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": ".github/workflows/{{project_name}}-deploy.yml",
+          "target": ".github/workflows/{{project_name}}-deploy.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": ".github/workflows/{{project_name}}-hotfix.yml",
+          "target": ".github/workflows/{{project_name}}-hotfix.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/production-deploy/README.md",
+          "target": "docs/packs/production-deploy/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/production-deploy/checklist.md",
+          "target": "docs/packs/production-deploy/checklist.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/production-deploy/deploy.md",
+          "target": "docs/packs/production-deploy/deploy.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/production-deploy/recovery.md",
+          "target": "docs/packs/production-deploy/recovery.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/production-deploy/setup.md",
+          "target": "docs/packs/production-deploy/setup.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/verify-deployment.sh.tmpl",
+          "target": "ops/verify-deployment.sh",
+          "mode": "0755",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "source-check",
+          "command": "git diff --check -- .github/workflows ops docs/packs/production-deploy"
+        }
+      ]
+    },
+    "1.1.0": {
+      "source": "versions/1.1.0/files",
       "documentation": "docs/packs/production-deploy/README.md",
       "dependencies": [
         "container-runtime",

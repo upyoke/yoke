@@ -10,8 +10,10 @@ from __future__ import annotations
 from typing import Dict
 
 from yoke_cli.commands.adapters.claims import (
-    CLAIM_PATH_REGISTER_USAGE, CLAIM_PATH_WIDEN_USAGE,
-    CLAIM_WORK_ACQUIRE_USAGE, CLAIM_WORK_RELEASE_USAGE,
+    CLAIM_PATH_REGISTER_USAGE,
+    CLAIM_PATH_WIDEN_USAGE,
+    CLAIM_WORK_ACQUIRE_USAGE,
+    CLAIM_WORK_RELEASE_USAGE,
 )
 from yoke_cli.commands.adapters.organizations import ORGANIZATIONS_GET_USAGE
 from yoke_cli.commands.adapters.identity import IDENTITY_USAGE
@@ -27,7 +29,10 @@ from yoke_cli.commands.adapters.config import (
     CONFIG_EXAMPLE_USAGE,
     STATUS_USAGE,
 )
-from yoke_cli.commands.adapters.dev import DEV_PATH_SNAPSHOT_PREWARM_USAGE, DEV_SETUP_USAGE
+from yoke_cli.commands.adapters.dev import (
+    DEV_PATH_SNAPSHOT_PREWARM_USAGE,
+    DEV_SETUP_USAGE,
+)
 from yoke_cli.commands.adapters.onboard import ONBOARD_USAGE
 from yoke_cli.commands.adapters.onboard_checklist import (
     ONBOARD_CHECKLIST_INIT_USAGE,
@@ -37,8 +42,11 @@ from yoke_cli.commands.adapters.project_onboard import (
     ONBOARD_PROJECT_USAGE,
 )
 from yoke_cli.commands.adapters.config_write import (
-    AUTH_SET_USAGE, CONNECTION_REMOVE_USAGE, CONNECTION_SET_USAGE,
-    ENV_USE_USAGE, PROJECT_REGISTER_USAGE,
+    AUTH_SET_USAGE,
+    CONNECTION_REMOVE_USAGE,
+    CONNECTION_SET_USAGE,
+    ENV_USE_USAGE,
+    PROJECT_REGISTER_USAGE,
     STAMP_PROJECT_ENV_USAGE,
 )
 from yoke_cli.commands.adapters.db_claim import DB_CLAIM_AMEND_USAGE
@@ -58,7 +66,10 @@ from yoke_cli.commands.adapters.deployment import (
     DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
     DEPLOYMENT_RUNS_UPDATE_USAGE,
 )
-from yoke_cli.commands.adapters.ephemeral_env import EPHEMERAL_ENV_UPDATE_USAGE
+from yoke_cli.commands.adapters.ephemeral_env import (
+    EPHEMERAL_ENV_GET_USAGE,
+    EPHEMERAL_ENV_UPDATE_USAGE,
+)
 from yoke_cli.commands.adapters.usage_epic_ops import EPIC_USAGE
 from yoke_cli.commands.adapters import usage_composed_operations as _composed_usage
 from yoke_cli.commands.adapters.events import (
@@ -68,7 +79,10 @@ from yoke_cli.commands.adapters.events import (
     EVENTS_TAIL_USAGE,
 )
 from yoke_cli.commands.adapters.github import (
-    GITHUB_CONNECT_USAGE, GITHUB_DISCONNECT_USAGE, GITHUB_PR_CREATE_USAGE, GITHUB_STATUS_USAGE,
+    GITHUB_CONNECT_USAGE,
+    GITHUB_DISCONNECT_USAGE,
+    GITHUB_PR_CREATE_USAGE,
+    GITHUB_STATUS_USAGE,
 )
 from yoke_cli.commands.adapters.github_release import (
     GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
@@ -140,16 +154,24 @@ from yoke_cli.commands.adapters.projects_secret import (
 from yoke_cli.commands.adapters.projects_capability_settings import (
     PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,
+    PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE,
     PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
 )
-from yoke_cli.commands.adapters import projects_environment_settings as _environment_settings_usage
+from yoke_cli.commands.adapters import (
+    projects_environment_settings as _environment_settings_usage,
+)
 from yoke_cli.commands.adapters.projects_pulumi_state import (
     PULUMI_STATE_CHECKPOINT_IMPORT_USAGE,
     PULUMI_STATE_MIGRATE_USAGE,
 )
-from yoke_cli.commands.adapters.projects_pulumi_stack_config import PULUMI_STACK_CONFIG_GET_USAGE
+from yoke_cli.commands.adapters.projects_pulumi_stack_config import (
+    PULUMI_STACK_CONFIG_GET_USAGE,
+)
 from yoke_cli.commands.adapters.project_github_binding import (
-    PROJECTS_GITHUB_BINDING_BIND_USAGE, PROJECTS_GITHUB_BINDING_STATUS_USAGE, PROJECTS_GITHUB_BINDING_UNBIND_USAGE, PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
+    PROJECTS_GITHUB_BINDING_BIND_USAGE,
+    PROJECTS_GITHUB_BINDING_STATUS_USAGE,
+    PROJECTS_GITHUB_BINDING_UNBIND_USAGE,
+    PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
 )
 from yoke_cli.commands.adapters import strategy_event_usage as _strategy_event_usage
 from yoke_cli.commands.adapters import qa as _qa_usage
@@ -252,8 +274,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "claims.path.widen": CLAIM_PATH_WIDEN_USAGE,
     "claims.path.list": CLAIMS_PATH_LIST_USAGE,
     "claims.path.get": CLAIMS_PATH_GET_USAGE,
-    "claims.path.coordination_decision_build":
-        CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
+    "claims.path.coordination_decision_build": CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
     "claims.work.holder_get": CLAIM_WORK_HOLDER_GET_USAGE,
     "claims.work.holder_list": CLAIM_WORK_HOLDER_LIST_USAGE,
     "path_claims.conflicts.list": PATH_CLAIMS_CONFLICTS_LIST_USAGE,
@@ -278,16 +299,14 @@ ADAPTER_USAGE: Dict[str, str] = {
     "board.data.get": BOARD_DATA_GET_USAGE,
     **EPIC_USAGE,
     "qa.requirement.update": QA_REQUIREMENT_UPDATE_USAGE,
-    "qa.requirement.auto_create_for_item":
-        QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
+    "qa.requirement.auto_create_for_item": QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
     "qa.run.record_verdict": QA_RUN_RECORD_VERDICT_USAGE,
     "qa.browser_context.get": QA_BROWSER_CONTEXT_GET_USAGE,
     "qa.run.add": QA_RUN_ADD_USAGE,
     "qa.run.complete": QA_RUN_COMPLETE_USAGE,
     "qa.artifact.add": QA_ARTIFACT_ADD_USAGE,
     "qa.artifact.presign": QA_ARTIFACT_PRESIGN_USAGE,
-    "qa.screenshot_evidence.pending_count":
-        QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE,
+    "qa.screenshot_evidence.pending_count": QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE,
     "qa.screenshot_evidence.satisfy": QA_SCREENSHOT_EVIDENCE_SATISFY_USAGE,
     "qa.requirement.list": QA_REQUIREMENT_LIST_USAGE,
     "qa.requirement.get": QA_REQUIREMENT_GET_USAGE,
@@ -309,6 +328,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "deployment_runs.resolve_target_env": DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
     "github.release.create_next_tag": GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
     "ephemeral_env.update": EPHEMERAL_ENV_UPDATE_USAGE,
+    "ephemeral_env.get": EPHEMERAL_ENV_GET_USAGE,
     "projects.get": PROJECTS_GET_USAGE,
     "projects.list": PROJECTS_LIST_USAGE,
     "projects.resolve_by_github_repo": PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE,
@@ -319,26 +339,24 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
     "projects.capability_settings.merge": PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,
+    "projects.capability_settings.remove": PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE,
     "projects.environment_settings.get": _environment_settings_usage.GET_USAGE,
     "projects.environment_settings.merge": _environment_settings_usage.MERGE_USAGE,
     "projects.pulumi_state.migrate": PULUMI_STATE_MIGRATE_USAGE,
-    "projects.pulumi_state.checkpoint_import": (
-        PULUMI_STATE_CHECKPOINT_IMPORT_USAGE
-    ),
+    "projects.pulumi_state.checkpoint_import": (PULUMI_STATE_CHECKPOINT_IMPORT_USAGE),
     "projects.pulumi_stack_config.get": PULUMI_STACK_CONFIG_GET_USAGE,
     "projects.capability_secret.set": PROJECTS_CAPABILITY_SECRET_SET_USAGE,
     "projects.checkout_context.run": PROJECTS_CHECKOUT_CONTEXT_USAGE,
-    "projects.github_binding.bind": PROJECTS_GITHUB_BINDING_BIND_USAGE, "projects.github_binding.unbind": PROJECTS_GITHUB_BINDING_UNBIND_USAGE, "projects.github_binding.status": PROJECTS_GITHUB_BINDING_STATUS_USAGE,
+    "projects.github_binding.bind": PROJECTS_GITHUB_BINDING_BIND_USAGE,
+    "projects.github_binding.unbind": PROJECTS_GITHUB_BINDING_UNBIND_USAGE,
+    "projects.github_binding.status": PROJECTS_GITHUB_BINDING_STATUS_USAGE,
     "projects.github_sync_mode.repair": PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
     "organizations.get": ORGANIZATIONS_GET_USAGE,
     **IDENTITY_USAGE,
     "project_structure.patch.apply": PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
-    "project_structure.command_definitions.get":
-        PROJECT_STRUCTURE_COMMAND_DEFINITIONS_GET_USAGE,
-    "project_structure.command_definitions.list":
-        PROJECT_STRUCTURE_COMMAND_DEFINITIONS_LIST_USAGE,
-    "project_structure.deploy_defaults.get":
-        PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
+    "project_structure.command_definitions.get": PROJECT_STRUCTURE_COMMAND_DEFINITIONS_GET_USAGE,
+    "project_structure.command_definitions.list": PROJECT_STRUCTURE_COMMAND_DEFINITIONS_LIST_USAGE,
+    "project_structure.deploy_defaults.get": PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
     "events.query.run": EVENTS_QUERY_USAGE,
     "events.tail.run": EVENTS_TAIL_USAGE,
     "events.count.run": EVENTS_COUNT_USAGE,
@@ -348,8 +366,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "shepherd.dependency_update.run": SHEPHERD_DEPENDENCY_UPDATE_USAGE,
     "shepherd.dependency_remove.run": SHEPHERD_DEPENDENCY_REMOVE_USAGE,
     "lifecycle.transition.execute": LIFECYCLE_TRANSITION_USAGE,
-    "lifecycle.skip.record_recoverable_substrate":
-        LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
+    "lifecycle.skip.record_recoverable_substrate": LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
     "ouroboros.field_note.append": OUROBOROS_USAGE,
     "ouroboros.field_note.list": OUROBOROS_FIELD_NOTE_LIST_USAGE,
     "ouroboros.field_note.get": OUROBOROS_FIELD_NOTE_GET_USAGE,
@@ -365,14 +382,16 @@ ADAPTER_USAGE: Dict[str, str] = {
     "strategy.ingest.run": STRATEGY_INGEST_USAGE,
     "strategy.seed_defaults.run": STRATEGY_SEED_DEFAULTS_USAGE,
     "github.connect.run": GITHUB_CONNECT_USAGE,
-    "github.disconnect.run": GITHUB_DISCONNECT_USAGE, "github.pr.create": GITHUB_PR_CREATE_USAGE,
+    "github.disconnect.run": GITHUB_DISCONNECT_USAGE,
+    "github.pr.create": GITHUB_PR_CREATE_USAGE,
     "github.status.run": GITHUB_STATUS_USAGE,
     "hook.evaluate.run": HOOK_EVALUATE_USAGE,
     "scratch.dispatch_inputs": SCRATCH_DISPATCH_INPUTS_USAGE,
     "config.example.run": CONFIG_EXAMPLE_USAGE,
     "config.stamp_project_env.run": STAMP_PROJECT_ENV_USAGE,
     "status.run": STATUS_USAGE,
-    "dev.setup.run": DEV_SETUP_USAGE, "dev.path_snapshot_prewarm.run": DEV_PATH_SNAPSHOT_PREWARM_USAGE,
+    "dev.setup.run": DEV_SETUP_USAGE,
+    "dev.path_snapshot_prewarm.run": DEV_PATH_SNAPSHOT_PREWARM_USAGE,
     "onboard.run": ONBOARD_USAGE,
     "onboard.project.run": ONBOARD_PROJECT_USAGE,
     "onboard.checklist.run": ONBOARD_CHECKLIST_USAGE,
@@ -386,7 +405,8 @@ ADAPTER_USAGE: Dict[str, str] = {
     "project.refresh.run": PROJECT_REFRESH_USAGE,
     "project.uninstall.run": PROJECT_UNINSTALL_USAGE,
     "project.snapshot.sync": PROJECT_SNAPSHOT_SYNC_USAGE,
-    "packs.list": PACKS_LIST_USAGE, "packs.get.run": PACKS_GET_USAGE,
+    "packs.list": PACKS_LIST_USAGE,
+    "packs.get.run": PACKS_GET_USAGE,
     "packs.update.run": PACKS_UPDATE_USAGE,
 }
 # Post-cap families export their own id -> usage maps; merge keeps one surface.

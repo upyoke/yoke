@@ -138,3 +138,25 @@ def test_merge_parses_json_values_and_raw_strings():
         "runtime.network": "bridge",
         "registry": "ecr",
     }
+
+
+def test_remove_carries_exact_cas_base():
+    rc, out, _err, calls = _run(
+        "projects",
+        "capability-settings",
+        "remove",
+        "--project",
+        "platform",
+        "--cap-type",
+        "ephemeral-env",
+        "--base",
+        '{"trigger":"flow"}',
+    )
+    assert rc == 0
+    assert out == '{"canonical":true}\n'
+    assert calls[0].function == "projects.capability_settings.remove"
+    assert calls[0].payload == {
+        "project": "platform",
+        "cap_type": "ephemeral-env",
+        "base_settings_json": '{"trigger":"flow"}',
+    }

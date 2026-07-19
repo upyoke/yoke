@@ -114,6 +114,7 @@ def test_product_wheels_exercise_installer_plan_surfaces(
         "yoke project install",
         "yoke packs list",
         "yoke packs get",
+        "yoke packs relink",
         "yoke packs update",
         "yoke db read",
         "yoke core build",
@@ -122,7 +123,12 @@ def test_product_wheels_exercise_installer_plan_surfaces(
     ):
         assert surface in top_help.stdout
     status = _assert_command(
-        yoke, project, env, ["status", "--json"], 1, "config_missing",
+        yoke,
+        project,
+        env,
+        ["status", "--json"],
+        1,
+        "config_missing",
     )
     status_payload = json.loads(status.stdout)
     assert status_payload["ok"] is False
@@ -179,8 +185,7 @@ def test_product_wheels_exercise_installer_plan_surfaces(
     assert core_start_payload["image"] is None
     assert "ghcr.io" not in core_start.stdout
     assert not any(
-        cmd[:2] == ["docker", "pull"]
-        for cmd in core_start_payload.get("plan") or []
+        cmd[:2] == ["docker", "pull"] for cmd in core_start_payload.get("plan") or []
     )
 
     with PackApi() as api:
@@ -190,8 +195,13 @@ def test_product_wheels_exercise_installer_plan_surfaces(
             project,
             env,
             [
-                "packs", "list", "--project", "sample",
-                "--config", str(config), "--json",
+                "packs",
+                "list",
+                "--project",
+                "sample",
+                "--config",
+                str(config),
+                "--json",
             ],
             0,
             "sample-pack",
@@ -200,13 +210,15 @@ def test_product_wheels_exercise_installer_plan_surfaces(
         assert listing_payload["project_slug"] == "sample"
         assert listing_payload["packs"][0]["slug"] == "sample-pack"
         assert listing_payload["packs"][0]["status"] == "available"
-        assert api.requests == [{
-            "method": "POST",
-            "path": "/v1/functions/call",
-            "authorization": "Bearer product-token",
-            "function": "packs.list",
-            "project": "sample",
-        }]
+        assert api.requests == [
+            {
+                "method": "POST",
+                "path": "/v1/functions/call",
+                "authorization": "Bearer product-token",
+                "function": "packs.list",
+                "project": "sample",
+            }
+        ]
 
     install_project = tmp_path / "install-project"
     install_project.mkdir()
@@ -219,8 +231,14 @@ def test_product_wheels_exercise_installer_plan_surfaces(
             install_project,
             env,
             [
-                "project", "install", str(install_project),
-                "--project-id", "41", "--config", str(config), "--json",
+                "project",
+                "install",
+                str(install_project),
+                "--project-id",
+                "41",
+                "--config",
+                str(config),
+                "--json",
             ],
             0,
         )
@@ -287,8 +305,8 @@ def _assert_command(
     if expected_returncode is not None:
         assert result.returncode == expected_returncode, _format_result(result)
     if expected_text is not None:
-        assert expected_text in f"{result.stdout}\n{result.stderr}", (
-            _format_result(result)
+        assert expected_text in f"{result.stdout}\n{result.stderr}", _format_result(
+            result
         )
     return result
 

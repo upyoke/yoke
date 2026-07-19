@@ -254,8 +254,10 @@ PROJECT_TABLES: dict[str, dict] = {
             "Branch/item-scoped ephemeral preview environment rows. "
             "Agent-facing creation uses `yoke ephemeral-env create <project> "
             "<branch>` (`ephemeral_env.create`), and lifecycle field writes "
-            "use `yoke ephemeral-env update <env-id> <field> <value>` "
-            "(`ephemeral_env.update`), not retained domain commands. Conduct "
+            "read through `yoke ephemeral-env get <project> <branch> --json` "
+            "(`ephemeral_env.get`) and write through `yoke ephemeral-env update "
+            "<env-id> <field> <value>` (`ephemeral_env.update`), not retained "
+            "domain commands. Conduct "
             "uses branch `YOK-{id}`."
         ),
     },

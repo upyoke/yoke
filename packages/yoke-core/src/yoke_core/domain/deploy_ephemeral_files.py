@@ -21,9 +21,7 @@ class EphemeralDeployError(RuntimeError):
     """Ephemeral deploy failed before/around remote convergence."""
 
 
-def render_webapp_template(
-    project_root: Path, relative: str, values: dict
-) -> str:
+def render_webapp_template(project_root: Path, relative: str, values: dict) -> str:
     """Render one project-owned file installed by the ephemeral Pack."""
 
     template = project_root
@@ -39,17 +37,19 @@ def render_webapp_template(
 def routing_values(policy: EphemeralPolicy) -> dict:
     """Template values for the wildcard routing + cleanup renders.
 
-    ``project_name`` feeds the TTL cleanup script's compose-project prefix,
-    protected-project set, and ephemeral deploy directory — all host-box
-    resource names — so it carries the stable deploy namespace, not the
-    (re-parentable) control-plane project slug.
+    Every value describes the source project's preview namespace, regardless
+    of which project's environment supplies the physical host.
     """
     return {
-        "project_name": policy.deploy_namespace,
-        "domain": policy.preview_domain,
-        "port_base": str(policy.api_base_port),
-        "port_range": str(policy.port_range),
-        "ephemeral_ttl_hours": str(policy.ttl_hours),
+        "preview_namespace": policy.preview_namespace,
+        "preview_router_name": "".join(
+            char if char.isalnum() or char == "_" else "_"
+            for char in policy.preview_namespace
+        ),
+        "preview_domain": policy.preview_domain,
+        "preview_route_port_base": str(policy.api_base_port),
+        "preview_port_range": str(policy.port_range),
+        "preview_ttl_hours": str(policy.ttl_hours),
     }
 
 
@@ -69,15 +69,15 @@ def slug_files(
     carries only hex-safe values because docker compose interpolates
     ``$`` inside env files.
     """
-    database = f"{env.deploy_namespace}_ephemeral"
-    user = env.deploy_namespace
+    database = policy.preview_namespace.replace("-", "_")
+    user = policy.preview_namespace.replace("-", "_")
     compose_yaml = render_webapp_template(
         project_root,
         "ops/core-service/docker-compose.ephemeral.yml.tmpl",
         {
             "project": policy.project,
             "slug": slug,
-            "compose_project": compose_project_name(env.deploy_namespace, slug),
+            "compose_project": compose_project_name(policy.preview_namespace, slug),
             "image_ref": image_ref,
             "api_port": str(api_port),
             "container_port": str(env.api_port),
@@ -90,10 +90,7 @@ def slug_files(
         f"YOKE_ENVIRONMENT=ephemeral-{slug}\n"
         f"EPHEMERAL_DB_PASSWORD={db_password}\n"
     )
-    dsn = (
-        f"host=db port=5432 dbname={database} user={user} "
-        f"password={db_password}"
-    )
+    dsn = f"host=db port=5432 dbname={database} user={user} password={db_password}"
     return compose_yaml, env_file, dsn
 
 

@@ -47,6 +47,7 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
             {
               slug: "container-runtime",
               name: "Container runtime",
+              description: "Runs a web application in local containers.",
               status: "available",
               installed_version: null,
               latest_version: "1.0.0",
@@ -57,6 +58,7 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
             {
               slug: "production-deploy",
               name: "Production deploy",
+              description: "Deploys a reviewed release and supports urgent hotfixes.",
               status: "stale",
               installed_version: "1.0.0",
               latest_version: "1.1.0",
@@ -97,6 +99,10 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
   await settle();
   const screenText = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.ok(screenText.includes("Repository report: 2026-07-17T10:00:00Z (stale)"));
+  assert.ok(screenText.includes("Runs a web application in local containers."));
+  assert.ok(screenText.includes(
+    "Deploys a reviewed release and supports urgent hotfixes.",
+  ));
   assert.ok(screenText.includes("container-runtime: missing"));
   assert.deepEqual(
     byClass(root, "pack-preview-action").map((node) => node.textContent),

@@ -500,6 +500,9 @@ yoke workflow-item epic-dispatch-chain get --epic 1704 --worktree branch-name`
 - _Inspect, get, or update a project Pack_
   - `yoke packs <list|get|update> --help`
   - List works over every transport; get/update take `<pack> <checkout> --project <project> [--version V] [--apply]`. Preview is default. Apply writes project-owned source and .yoke/packs.json; update three-way-merges customizations and reports conflicts. The repository receipt outranks its timestamped DB projection.
+- _Read one branch preview environment_
+  - `yoke ephemeral-env get <project> <branch> --json`
+  - Registered read ephemeral_env.get (works over https). The result contains the environment row, including status, url, workflow run, ports, and deployed SHA. Use the actual worktree branch; do not guess a YOK-N branch or read the table directly.
 - _Read project test command for a scope_
   - `yoke project-structure command-definitions get --project <project> --scope quick`
   - Registered read project_structure.command_definitions.get (works over https). Scopes: quick, full, e2e, smoke. Empty stdout means the project/scope has no command configured; do not invoke the raw command_definitions module from packets.

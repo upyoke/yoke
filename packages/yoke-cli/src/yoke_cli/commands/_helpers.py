@@ -122,7 +122,8 @@ def _active_connection_is_prod_postgres() -> bool:
 
 def add_session_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--session-id", default=None,
+        "--session-id",
+        default=None,
         help=(
             "Operator-debug override for the ambient session id. Sessions "
             "self-identify automatically (env chain, then the hook-written "
@@ -134,7 +135,9 @@ def add_session_arg(parser: argparse.ArgumentParser) -> None:
 
 def add_json_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--json", dest="json_mode", action="store_true",
+        "--json",
+        dest="json_mode",
+        action="store_true",
         help="Emit the command's JSON response envelope on stdout.",
     )
 
@@ -147,7 +150,8 @@ def add_project_arg(parser: argparse.ArgumentParser) -> None:
     for the cwd.
     """
     parser.add_argument(
-        "--project", default=None,
+        "--project",
+        default=None,
         help=(
             "Project slug or id (default: the checkout's mapped project "
             "from machine config)."
@@ -163,7 +167,8 @@ def _ensure_project_arg_for_item_parser(parser: argparse.ArgumentParser) -> None
     if not _has_arg(parser, "item") or _has_arg(parser, "project"):
         return
     parser.add_argument(
-        "--project", default=None,
+        "--project",
+        default=None,
         help="Project context for bare numeric item refs.",
     )
 
@@ -216,7 +221,9 @@ def item_target(
 
 
 def parse_or_usage_error(
-    parser: argparse.ArgumentParser, args: List[str], usage: str,
+    parser: argparse.ArgumentParser,
+    args: List[str],
+    usage: str,
 ) -> Optional[argparse.Namespace]:
     # Every per-subcommand `--help` carries the field-note footer.
     # The single attach-on-parse hook covers every adapter without per-file
@@ -235,8 +242,10 @@ def parse_or_usage_error(
 
 
 def usage_error(message: str) -> int:
-    print(json.dumps({"success": False, "code": "USAGE", "message": message}),
-          file=sys.stderr)
+    print(
+        json.dumps({"success": False, "code": "USAGE", "message": message}),
+        file=sys.stderr,
+    )
     return 2
 
 
@@ -251,6 +260,7 @@ def dispatch_and_emit(
     local_only: bool = False,
     timeout_s: Optional[float] = None,
     sensitive_values: tuple[str, ...] = (),
+    options: Optional[Dict[str, Any]] = None,
 ) -> int:
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
@@ -262,9 +272,12 @@ def dispatch_and_emit(
         local_only=local_only,
         timeout_s=timeout_s,
         sensitive_values=sensitive_values,
+        options=options,
     )
     return emit_response(
-        response, json_mode=json_mode, human_writer=human_writer,
+        response,
+        json_mode=json_mode,
+        human_writer=human_writer,
     )
 
 

@@ -1,0 +1,7 @@
+name: webapp-infra
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+main: ./__main__.py
+description: Web application infrastructure managed by Pulumi

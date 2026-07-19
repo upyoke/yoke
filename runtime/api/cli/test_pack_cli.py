@@ -52,3 +52,43 @@ def test_update_forwards_repeated_accepted_current_paths(
             "docs/setup.md",
         ],
     }
+
+
+def test_relink_forwards_previewable_path_mapping(monkeypatch, capsys) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(packs, "machine_config_path", lambda path: nullcontext())
+
+    def run_pack_relink(repo_root, **kwargs):
+        captured.update({"repo_root": repo_root, **kwargs})
+        return {"operation": "relink", "applied": False}
+
+    monkeypatch.setattr(packs, "run_pack_relink", run_pack_relink)
+
+    result = packs.packs_relink(
+        [
+            "sample-pack",
+            "/project",
+            "--project",
+            "sample",
+            "--from",
+            "old/file.py",
+            "--to",
+            "new/file.py",
+            "--json",
+        ]
+    )
+
+    assert result == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "applied": False,
+        "operation": "relink",
+    }
+    assert captured == {
+        "repo_root": "/project",
+        "project": "sample",
+        "pack": "sample-pack",
+        "from_path": "old/file.py",
+        "to_path": "new/file.py",
+        "apply": False,
+        "session_id": None,
+    }

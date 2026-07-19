@@ -2,8 +2,8 @@
   "schema": 1,
   "slug": "self-hosted-runners",
   "name": "Self-hosted Runners",
-  "description": "Disposable GitHub Actions runner fleet, broker, lifecycle, and IAM infrastructure.",
-  "latest_version": "1.0.0",
+  "description": "Creates and manages temporary private machines that run GitHub Actions jobs, including registration, scaling, cleanup, permissions, and health checks.",
+  "latest_version": "1.1.0",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -137,6 +137,168 @@
         {
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
+        }
+      ]
+    },
+    "1.1.0": {
+      "source": "versions/1.1.0/files",
+      "documentation": "docs/packs/self-hosted-runners/README.md",
+      "dependencies": [
+        "pulumi-foundation"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "runner_fleet_architecture": {
+            "type": "string",
+            "description": "Processor architecture used by the runner machines, such as arm64."
+          },
+          "runner_fleet_labels_json": {
+            "type": "string",
+            "description": "GitHub runner labels, formatted as a JSON list, that select this fleet."
+          },
+          "runner_fleet_variable_name": {
+            "type": "string",
+            "description": "Repository variable that tells delivery workflows which runner labels to use."
+          }
+        },
+        "required": [
+          "runner_fleet_architecture",
+          "runner_fleet_labels_json",
+          "runner_fleet_variable_name"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": ".github/workflows/runner-fleet-smoke.yml",
+          "target": ".github/workflows/runner-fleet-smoke.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/self-hosted-runners/README.md",
+          "target": "docs/packs/self-hosted-runners/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/self-hosted-runners/operations.md",
+          "target": "docs/packs/self-hosted-runners/operations.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/Pulumi.runner-fleet-stack.yaml.tmpl",
+          "target": "infra/Pulumi.runner-fleet-stack.yaml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "infra/webapp_runner_authority_intent.py",
+          "target": "infra/webapp_runner_authority_intent.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_aws_state.mjs",
+          "target": "infra/webapp_runner_aws_state.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_config.py",
+          "target": "infra/webapp_runner_fleet_config.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_iam.py",
+          "target": "infra/webapp_runner_fleet_iam.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_internals.py",
+          "target": "infra/webapp_runner_fleet_internals.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_network.py",
+          "target": "infra/webapp_runner_fleet_network.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_fleet_stack.py",
+          "target": "infra/webapp_runner_fleet_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_api.mjs",
+          "target": "infra/webapp_runner_github_api.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_broker.mjs",
+          "target": "infra/webapp_runner_github_broker.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_broker_stack.py",
+          "target": "infra/webapp_runner_github_broker_stack.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_state.py",
+          "target": "infra/webapp_runner_github_state.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_github_webhook.py",
+          "target": "infra/webapp_runner_github_webhook.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_host_cycle.py",
+          "target": "infra/webapp_runner_host_cycle.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_parallel_reaper.mjs",
+          "target": "infra/webapp_runner_parallel_reaper.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_registration.mjs",
+          "target": "infra/webapp_runner_registration.mjs",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_runner_termination.mjs",
+          "target": "infra/webapp_runner_termination.mjs",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        },
+        {
+          "name": "workflow-check",
+          "command": "git diff --check -- .github/workflows/runner-fleet-smoke.yml"
         }
       ]
     }

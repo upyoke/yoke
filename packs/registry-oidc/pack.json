@@ -2,7 +2,7 @@
   "schema": 1,
   "slug": "registry-oidc",
   "name": "Registry and OIDC",
-  "description": "Container registry plus GitHub Actions infrastructure and delivery OIDC roles.",
+  "description": "Creates an AWS container-image registry and secure GitHub-to-AWS access, so deployment workflows can publish images without stored AWS passwords.",
   "latest_version": "1.0.2",
   "versions": {
     "1.0.0": {

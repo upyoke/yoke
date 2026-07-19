@@ -32,7 +32,7 @@ _changed_files=$(git -C "${_worktree_path}" diff --name-only main...HEAD)
  Changed files (read these directly from the worktree):
  {_changed_files}
 
- {For non-yoke projects — include this block:}
+ {For every project-owned item — include this block:}
  Project Test Commands:
  Quick: {_cmd_quick}
  Full: {_cmd_full}

@@ -29,6 +29,10 @@ PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE = (
     "yoke projects capability-settings merge --project NAME --cap-type TYPE "
     "--set KEY.PATH=VALUE [--set ...] [--session-id S] [--json]"
 )
+PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE = (
+    "yoke projects capability-settings remove --project NAME --cap-type TYPE "
+    "--base AS_READ_JSON [--session-id S] [--json]"
+)
 
 
 def projects_capability_settings_get(args: List[str]) -> int:
@@ -132,6 +136,34 @@ def projects_capability_settings_merge(args: List[str]) -> int:
     )
 
 
+def projects_capability_settings_remove(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke projects capability-settings remove",
+        description=(
+            "Remove one ordinary capability only while its settings still "
+            "match the exact document read with capability-settings get."
+        ),
+    )
+    _add_identity_args(parser)
+    parser.add_argument("--base", dest="base_settings_json", required=True)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(
+        parser, args, PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE
+    )
+    if parsed is None:
+        return 2
+    return _dispatch(
+        "projects.capability_settings.remove",
+        parsed,
+        {
+            "project": parsed.project,
+            "cap_type": parsed.cap_type,
+            "base_settings_json": parsed.base_settings_json,
+        },
+    )
+
+
 def _add_identity_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project", required=True)
     parser.add_argument("--cap-type", dest="cap_type", required=True)
@@ -149,6 +181,9 @@ def _dispatch(
             stdout.write(",".join(result.get("changed_paths") or []) + "\n")
             return None
         settings_json = str(result.get("settings_json") or "")
+        if not settings_json and result.get("message"):
+            stdout.write(str(result["message"]) + "\n")
+            return None
         stdout.write(settings_json)
         if not settings_json.endswith("\n"):
             stdout.write("\n")
@@ -182,8 +217,10 @@ def _parse_assignments(raw_assignments: List[str]) -> Dict[str, Any]:
 __all__ = [
     "PROJECTS_CAPABILITY_SETTINGS_GET_USAGE",
     "PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE",
+    "PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE",
     "PROJECTS_CAPABILITY_SETTINGS_SET_USAGE",
     "projects_capability_settings_get",
     "projects_capability_settings_merge",
+    "projects_capability_settings_remove",
     "projects_capability_settings_set",
 ]

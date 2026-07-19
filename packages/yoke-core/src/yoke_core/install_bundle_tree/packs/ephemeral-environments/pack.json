@@ -2,8 +2,8 @@
   "schema": 1,
   "slug": "ephemeral-environments",
   "name": "Ephemeral Environments",
-  "description": "Preview-environment deploy, run, teardown, routing, and cleanup.",
-  "latest_version": "1.0.1",
+  "description": "Adds GitHub workflows and app-specific deployment files for creating, updating, and removing temporary FastAPI-and-Next.js preview environments.",
+  "latest_version": "1.1.0",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -263,6 +263,111 @@
           "name": "router-check",
           "command": "node --check ops/ephemeral_port.js"
         },
+        {
+          "name": "source-check",
+          "command": "git diff --check -- .github/workflows ops"
+        }
+      ]
+    },
+    "1.1.0": {
+      "source": "versions/1.1.0/files",
+      "documentation": "docs/packs/ephemeral-environments/README.md",
+      "dependencies": [
+        "container-runtime",
+        "production-deploy",
+        "branch-preview-hosting"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "PROJECT_NAME_UPPER": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "api_port": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "api_port_base": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "checkout_action": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "web_port": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "preview_domain": {
+            "type": "string",
+            "description": "Wildcard domain used for preview URLs, such as preview.example.com."
+          },
+          "preview_namespace": {
+            "type": "string",
+            "description": "Preview-only prefix used for directories, Compose projects, images, and volumes."
+          },
+          "preview_web_port_base": {
+            "type": "string",
+            "description": "First host port reserved for preview web containers."
+          },
+          "preview_port_range": {
+            "type": "string",
+            "description": "Number of host ports reserved for deterministic preview routing."
+          }
+        },
+        "required": [
+          "PROJECT_NAME_UPPER",
+          "api_port",
+          "api_port_base",
+          "checkout_action",
+          "preview_domain",
+          "preview_namespace",
+          "preview_port_range",
+          "preview_web_port_base",
+          "project_name",
+          "web_port"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": ".github/workflows/{{project_name}}-ephemeral-run.yml",
+          "target": ".github/workflows/{{project_name}}-ephemeral-run.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": ".github/workflows/{{project_name}}-ephemeral-teardown.yml",
+          "target": ".github/workflows/{{project_name}}-ephemeral-teardown.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": ".github/workflows/{{project_name}}-ephemeral.yml",
+          "target": ".github/workflows/{{project_name}}-ephemeral.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/ephemeral-environments/README.md",
+          "target": "docs/packs/ephemeral-environments/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/ephemeral-list.sh.tmpl",
+          "target": "ops/ephemeral-list.sh",
+          "mode": "0755",
+          "render": "install"
+        }
+      ],
+      "verification": [
         {
           "name": "source-check",
           "command": "git diff --check -- .github/workflows ops"

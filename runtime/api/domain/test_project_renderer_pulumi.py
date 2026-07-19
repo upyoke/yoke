@@ -19,13 +19,41 @@ from yoke_core.domain.project_renderer_settings import (
 )
 
 _GATHER_VALUES_KEYS = {
-    "project_display_name", "project_slug", "PROJECT_NAME_UPPER", "project_description",
-    "project_name", "deploy_namespace", "cloudfront_domain", "cloudfront_id",
+    "project_display_name",
+    "project_slug",
+    "PROJECT_NAME_UPPER",
+    "project_description",
+    "project_name",
+    "deploy_namespace",
+    "cloudfront_domain",
+    "cloudfront_id",
     "certificate_arn",
-    "hosted_zone_id", "aws_account_id", "vps_description", "domain_name",
-    "origin_host", "origin_ip", "aws_region", "ssh_host", "ssh_user", "web_port",
-    "api_port", "ephemeral_ttl_hours", "web_health_path", "web_smoke_paths",
-    "domain", "api_port_base", "port_base", "port_range", "dns_provider",
+    "hosted_zone_id",
+    "aws_account_id",
+    "vps_description",
+    "domain_name",
+    "origin_host",
+    "origin_ip",
+    "aws_region",
+    "ssh_host",
+    "ssh_user",
+    "web_port",
+    "api_port",
+    "ephemeral_ttl_hours",
+    "web_health_path",
+    "web_smoke_paths",
+    "domain",
+    "api_port_base",
+    "port_base",
+    "port_range",
+    "dns_provider",
+    "preview_namespace",
+    "preview_router_name",
+    "preview_domain",
+    "preview_route_port_base",
+    "preview_web_port_base",
+    "preview_port_range",
+    "preview_ttl_hours",
     "configure_aws_credentials_action",
     "checkout_action",
 }
@@ -36,34 +64,52 @@ _VPS_KEYS = {
     "vps_iam_instance_profile_name",
 }
 _PULUMI_KEYS = {
-    "origin_id", "component_type_aliases_json", "distribution_bucket_name",
-    "kms_key_alias", "state_bucket", "pulumi_infra_stack_name",
-    "pulumi_vps_stack_name", "pulumi_runner_fleet_stack_name",
+    "origin_id",
+    "component_type_aliases_json",
+    "distribution_bucket_name",
+    "kms_key_alias",
+    "state_bucket",
+    "pulumi_infra_stack_name",
+    "pulumi_vps_stack_name",
+    "pulumi_runner_fleet_stack_name",
     "domain_txt_records_json",
     "domain_mx_records_json",
 }
 _CI_KEYS = {
     "delivery_cloudfront_distribution_ids_json",
     "delivery_distribution_bucket_names_json",
-    "github_api_url", "github_app_private_key_secret_arns_json",
-    "github_repo_slug", "manage_github_oidc_provider",
+    "github_api_url",
+    "github_app_private_key_secret_arns_json",
+    "github_repo_slug",
+    "manage_github_oidc_provider",
 }
 _RUNNER_FLEET_KEYS = {
-    "runner_fleet_aws_capability", "runner_fleet_aws_region",
+    "runner_fleet_aws_capability",
+    "runner_fleet_aws_region",
     "runner_fleet_github_capability",
-    "runner_fleet_repo", "runner_fleet_labels_json",
-    "runner_fleet_variable_name", "runner_fleet_routing_enabled",
-    "runner_fleet_github_repo_owner", "runner_fleet_github_repo_name",
-    "runner_fleet_github_installation_id", "runner_fleet_github_repository_id",
-    "runner_fleet_github_app_issuer", "runner_fleet_github_api_url",
+    "runner_fleet_repo",
+    "runner_fleet_labels_json",
+    "runner_fleet_variable_name",
+    "runner_fleet_routing_enabled",
+    "runner_fleet_github_repo_owner",
+    "runner_fleet_github_repo_name",
+    "runner_fleet_github_installation_id",
+    "runner_fleet_github_repository_id",
+    "runner_fleet_github_app_issuer",
+    "runner_fleet_github_api_url",
     "runner_fleet_github_web_url",
     "runner_fleet_github_private_key_secret_arn",
     "runner_fleet_token_broker_function",
-    "runner_fleet_instance_type", "runner_fleet_architecture",
-    "runner_fleet_root_volume_gb", "runner_fleet_runner_count",
-    "runner_fleet_max_runner_count", "runner_fleet_idle_shutdown_minutes",
-    "runner_fleet_shutdown_mode", "runner_fleet_deployment_ssh_stack_outputs_json",
+    "runner_fleet_instance_type",
+    "runner_fleet_architecture",
+    "runner_fleet_root_volume_gb",
+    "runner_fleet_runner_count",
+    "runner_fleet_max_runner_count",
+    "runner_fleet_idle_shutdown_minutes",
+    "runner_fleet_shutdown_mode",
+    "runner_fleet_deployment_ssh_stack_outputs_json",
 }
+
 
 def _make_project_root(tmp_path: Path, project: str) -> Path:
     """Build a minimal project tree."""
@@ -75,7 +121,9 @@ def _make_project_root(tmp_path: Path, project: str) -> Path:
 
 
 def _settings_from_context(
-    project: str, context: dict | None = None, base: dict | None = None,
+    project: str,
+    context: dict | None = None,
+    base: dict | None = None,
 ) -> ProjectRendererSettings:
     """Build a small DB-settings snapshot for Pulumi unit tests."""
     context = context or {}
@@ -84,7 +132,8 @@ def _settings_from_context(
         "domain_name": base.get("domain_name", context.get("domainName", "")),
         "hosted_zone_id": base.get("hosted_zone_id", context.get("hostedZoneId", "")),
         "certificate_arn": base.get(
-            "certificate_arn", context.get("certificateArn", ""),
+            "certificate_arn",
+            context.get("certificateArn", ""),
         ),
         "dns_provider": base.get("dns_provider", "route53"),
         "manage_registration": context.get("manageRegistration", False),
@@ -95,32 +144,31 @@ def _settings_from_context(
         "domains": [domain],
         "cdn": {
             "origin_id": context.get("originId", ""),
-            "distribution_bucket_name": context.get(
-                "distributionBucketName", ""
-            ),
+            "distribution_bucket_name": context.get("distributionBucketName", ""),
             "distribution_id": base.get("cloudfront_id", ""),
             "distribution_domain": base.get("cloudfront_domain", ""),
         },
     }
     env_settings = {
         "hosts": {"origin": base.get("origin_host", context.get("originHost", ""))},
-        "servers": [{
-            "host": base.get("origin_ip", ""),
-            "instance_type": context.get("vpsInstanceType", ""),
-            "root_volume_gb": context.get("vpsRootVolumeGb", ""),
-            "aws_key_pair_name": context.get("vpsSshKeyName", ""),
-            "iam_instance_profile_name": context.get(
-                "vpsIamInstanceProfileName", ""
-            ),
-        }],
+        "servers": [
+            {
+                "host": base.get("origin_ip", ""),
+                "instance_type": context.get("vpsInstanceType", ""),
+                "root_volume_gb": context.get("vpsRootVolumeGb", ""),
+                "aws_key_pair_name": context.get("vpsSshKeyName", ""),
+                "iam_instance_profile_name": context.get(
+                    "vpsIamInstanceProfileName", ""
+                ),
+            }
+        ],
     }
     capabilities = {
         "aws-admin": {
-            "region": base.get(
-                "aws_region", context.get("awsRegion", "us-east-1")
-            ),
+            "region": base.get("aws_region", context.get("awsRegion", "us-east-1")),
             "account_id": base.get(
-                "aws_account_id", context.get("awsAccountId", ""),
+                "aws_account_id",
+                context.get("awsAccountId", ""),
             ),
         },
         "pulumi-state": {
@@ -147,6 +195,10 @@ def _settings_from_context(
             "web_base_port": base.get("port_base", ""),
             "api_base_port": base.get("api_port_base", ""),
             "port_range": base.get("port_range", ""),
+            "preview_domain": base.get("preview_domain", ""),
+            "preview_namespace": base.get("preview_namespace", ""),
+            "route_base_port": base.get("preview_route_port_base", ""),
+            "trigger": base.get("preview_trigger", "github-push"),
         },
     }
     env = RendererEnvironmentSettings(
@@ -167,7 +219,10 @@ def _settings_from_context(
 
 
 def _stub_renderer_settings(
-    monkeypatch, project: str, context: dict | None = None, base: dict | None = None,
+    monkeypatch,
+    project: str,
+    context: dict | None = None,
+    base: dict | None = None,
 ) -> ProjectRendererSettings:
     settings = _settings_from_context(project, context, base)
     for module in (
@@ -209,11 +264,16 @@ class TestGatherPulumiValues:
         result = project_renderer_pulumi.gather_pulumi_values("externalwebapp", root)
 
         expected = (
-            _GATHER_VALUES_KEYS | _VPS_KEYS | _PULUMI_KEYS | _CI_KEYS
+            _GATHER_VALUES_KEYS
+            | _VPS_KEYS
+            | _PULUMI_KEYS
+            | _CI_KEYS
             | _RUNNER_FLEET_KEYS
         )
         assert set(result.keys()) == expected
-        assert result["vps_iam_instance_profile_name"] == "externalwebapp-origin-profile"
+        assert (
+            result["vps_iam_instance_profile_name"] == "externalwebapp-origin-profile"
+        )
         assert result["origin_id"] == "externalwebappinfraDistributionOrigin18BAD744B"
         assert result["distribution_bucket_name"] == "externalwebapp-distribution-prod"
         assert result["domain_txt_records_json"] == "[]"
@@ -271,7 +331,9 @@ class TestGatherPulumiValues:
         assert result["distribution_bucket_name"] == ""
 
     def test_domain_dns_records_serialize_from_site_settings(
-        self, tmp_path, monkeypatch,
+        self,
+        tmp_path,
+        monkeypatch,
     ):
         context = {
             "projectName": "yoke",

@@ -127,9 +127,9 @@ for _task_id in $_task_ids; do
 
  # 2. Resolve worktree from dispatch chain
  _chain_row=$(yoke workflow-item epic-dispatch-chain get --epic "$_epic_id" --worktree "$_worktree_branch")
- # NFR-1: only query projects for non-yoke projects
+ # Resolve every project through the same project registry, including Yoke.
  _item_project=$(yoke items get "${N}" project)
- if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "yoke" ]; then
+ if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
  _project_root=$(yoke projects get --project "$_item_project" --field repo_path)
  else
  _project_root="${MAIN_ROOT}"
@@ -239,18 +239,24 @@ File routing:
 
 #### S6f-eph. Ephemeral Environment Lifecycle (E1-E3)
 
-After context preparation, run `5f-project-ephemeral` (see `dispatch-context.md`) for non-yoke project items with `ephemeral-env` capability. Creates the DB record (E1), finds the workflow run (E2), polls for healthy status (E3). Resolved `_ephemeral_url` and `_env_id` carry forward to Tester context and post-Tester teardown.
+After context preparation, run `5f-project-ephemeral` (see
+`dispatch-context.md`) for any non-empty project with the `ephemeral-env`
+capability. It creates the DB record (E1), dispatches the capability's declared
+GitHub-push or flow model (E2), and reads healthy status (E3). Resolved `_ephemeral_url` and `_env_id` carry
+forward to Tester context and post-Tester teardown.
 
 Check capability:
 ```bash
 if ! yoke projects capability has --project "${_project}" --cap-type "ephemeral-env"; then
- if [ "${_project}" != "yoke" ] && [ -n "${_project}" ]; then
+ if [ -n "${_project}" ]; then
  echo "Warning: project '${_project}' has no ephemeral-env capability — skipping ephemeral environment lifecycle."
  fi
 fi
 ```
 
-Skip entirely if project is `yoke` or empty, or lacks `ephemeral-env`. Only run on the **first task dispatch** for a given worktree branch (check if `_env_id` already set).
+Skip entirely if the project is empty or lacks `ephemeral-env`. Only run on the
+**first task dispatch** for a given worktree branch (check if `_env_id` is
+already set).
 
 Use `offset`/`limit` to read only the `5f-project-ephemeral` section of `dispatch-context.md` (~line 342).
 

@@ -4,6 +4,7 @@ The create/update pair is backed by the idempotent project upsert workhorse;
 the explicit sync-mode repair is control-plane scoped and dry-runs by default.
 Project *read* registrations still live in ``_register_qa_reads``.
 """
+
 from __future__ import annotations
 
 from yoke_core.domain.handlers import projects_upsert as _projects_upsert
@@ -37,14 +38,17 @@ def register(registry) -> None:
         _infrastructure.ProjectsInfrastructureListResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.projects_infrastructure",
-        target_kinds=["global"], side_effects=[],
+        target_kinds=["global"],
+        side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["metadata_only"], adapter_status="live",
+        guardrails=["metadata_only"],
+        adapter_status="live",
         claim_required_kind=None,
     )
     for function_id, handler in _PROJECT_WRITE_SURFACES:
         registry.register(
-            function_id, handler,
+            function_id,
+            handler,
             _projects_upsert.ProjectsUpsertRequest,
             _projects_upsert.ProjectsUpsertResponse,
             stability="stable",
@@ -52,7 +56,9 @@ def register(registry) -> None:
             target_kinds=["global"],
             side_effects=["projects_upsert", "project_capabilities_insert"],
             emitted_event_names=["YokeFunctionCalled"],
-            guardrails=[], adapter_status="live", claim_required_kind=None,
+            guardrails=[],
+            adapter_status="live",
+            claim_required_kind=None,
             ambient_session_required=False,
         )
     registry.register(
@@ -62,10 +68,13 @@ def register(registry) -> None:
         _capability_settings.CapabilitySettingsResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.projects_capability_settings",
-        target_kinds=["global"], side_effects=[],
+        target_kinds=["global"],
+        side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["non_sensitive_settings_only"], adapter_status="live",
-        claim_required_kind=None, ambient_session_required=False,
+        guardrails=["non_sensitive_settings_only"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
     )
     for function_id, handler, request_model in (
         (
@@ -78,22 +87,29 @@ def register(registry) -> None:
             _capability_settings.handle_capability_settings_merge,
             _capability_settings.CapabilitySettingsMergeRequest,
         ),
+        (
+            "projects.capability_settings.remove",
+            _capability_settings.handle_capability_settings_remove,
+            _capability_settings.CapabilitySettingsRemoveRequest,
+        ),
     ):
         registry.register(
-            function_id, handler, request_model,
+            function_id,
+            handler,
+            request_model,
             _capability_settings.CapabilitySettingsResponse,
             stability="stable",
-            owner_module=(
-                "yoke_core.domain.handlers.projects_capability_settings"
-            ),
+            owner_module=("yoke_core.domain.handlers.projects_capability_settings"),
             target_kinds=["global"],
             side_effects=["project_capabilities_settings_write"],
             emitted_event_names=["YokeFunctionCalled"],
             guardrails=[
-                "value_compare_and_swap", "typed_capability_validation",
+                "value_compare_and_swap",
+                "typed_capability_validation",
                 "github_binding_owned",
             ],
-            adapter_status="live", claim_required_kind=None,
+            adapter_status="live",
+            claim_required_kind=None,
             ambient_session_required=False,
         )
     registry.register(
@@ -122,7 +138,8 @@ def register(registry) -> None:
         side_effects=["environments_settings_write"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "value_compare_and_swap", "project_environment_match",
+            "value_compare_and_swap",
+            "project_environment_match",
             "changed_paths_only_receipt",
         ],
         adapter_status="live",
@@ -135,9 +152,7 @@ def register(registry) -> None:
         _sync_mode_repair.ProjectsGithubSyncModeRepairRequest,
         _sync_mode_repair.ProjectsGithubSyncModeRepairResponse,
         stability="stable",
-        owner_module=(
-            "yoke_core.domain.handlers.projects_github_sync_mode_repair"
-        ),
+        owner_module=("yoke_core.domain.handlers.projects_github_sync_mode_repair"),
         target_kinds=["global"],
         side_effects=["projects_update"],
         emitted_event_names=["YokeFunctionCalled"],
@@ -157,8 +172,11 @@ def register(registry) -> None:
         side_effects=["project_capabilities_settings_write"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "dry_run_default", "checkpoint_file_source", "redacted_receipt",
-            "exact_stack_entry", "conflict_refusal",
+            "dry_run_default",
+            "checkpoint_file_source",
+            "redacted_receipt",
+            "exact_stack_entry",
+            "conflict_refusal",
         ],
         adapter_status="live",
         claim_required_kind=None,
@@ -173,11 +191,14 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.projects_pulumi_state",
         target_kinds=["global"],
         side_effects=[
-            "sites_settings_write", "project_capabilities_settings_write",
+            "sites_settings_write",
+            "project_capabilities_settings_write",
         ],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "dry_run_default", "exact_stack_set", "redacted_receipt",
+            "dry_run_default",
+            "exact_stack_set",
+            "redacted_receipt",
             "transactional_move",
         ],
         adapter_status="live",
@@ -190,14 +211,13 @@ def register(registry) -> None:
         _pulumi_stack_config.PulumiStackConfigGetRequest,
         _pulumi_stack_config.PulumiStackConfigGetResponse,
         stability="stable",
-        owner_module=(
-            "yoke_core.domain.handlers.projects_pulumi_stack_config"
-        ),
+        owner_module=("yoke_core.domain.handlers.projects_pulumi_stack_config"),
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "exact_stack_scope", "metadata_only_receipt",
+            "exact_stack_scope",
+            "metadata_only_receipt",
             "operator_state_event_exclusion",
         ],
         adapter_status="live",

@@ -37,7 +37,7 @@ Read and follow each phase file in order. All phases share the context variables
 |---|---|---|
 | 1. QA Seeding | `implementing/qa-seeding.md` | Always (non-epic items) |
 | 1b. Browser Seeding | `implementing/browser-seeding.md` | Browser-testable items only (called from qa-seeding.md) |
-| 2. Project Context Preflight | `implementing/project-context.md` | Always (self-skips for yoke/no-context projects) |
+| 2. Project Context Preflight | `implementing/project-context.md` | Always (self-skips only for projectless/no-context items) |
 | 3. Test Commands & QA Recording | `implementing/test-and-record.md` | Always |
 | 4. Implementation Guidance | `implementing/implementation.md` | Always |
 

@@ -38,11 +38,22 @@ _CERTBOT_PROBE = (
 
 
 def _push_or_fail(
-    runner, env, *, content: str, remote_path: str, mode: str, sudo: bool,
-    step: str, secret: bool = False,
+    runner,
+    env,
+    *,
+    content: str,
+    remote_path: str,
+    mode: str,
+    sudo: bool,
+    step: str,
+    secret: bool = False,
 ) -> None:
     push = push_remote_file(
-        runner, env, content=content, remote_path=remote_path, mode=mode,
+        runner,
+        env,
+        content=content,
+        remote_path=remote_path,
+        mode=mode,
         sudo=sudo,
     )
     if push.ok:
@@ -78,7 +89,8 @@ def ensure_wildcard_tls(
     if not packages.ok:
         emit("  [ephemeral] installing certbot + dns-route53 plugin")
         install = run_remote(
-            runner, env,
+            runner,
+            env,
             _APT_INSTALL + "certbot python3-certbot-dns-route53",
             timeout=600,
         )
@@ -114,6 +126,7 @@ def ensure_preview_routing(
     env: DeployEnvironment,
     nginx_site: str,
     njs_script: str,
+    preview_namespace: str,
     emit: Callable[[str], None],
 ) -> None:
     """Install the njs module, port-computation script, and wildcard site."""
@@ -126,21 +139,27 @@ def ensure_preview_routing(
         if not install.ok:
             _fail("nginx njs module install", install)
 
-    mkdir = run_remote(
-        runner, env, "sudo mkdir -p /etc/nginx/njs.d", timeout=30
-    )
+    mkdir = run_remote(runner, env, "sudo mkdir -p /etc/nginx/njs.d", timeout=30)
     if not mkdir.ok:
         _fail("njs script dir creation", mkdir)
     _push_or_fail(
-        runner, env, content=njs_script,
-        remote_path="/etc/nginx/njs.d/ephemeral_port.js", mode="644",
-        sudo=True, step="njs port script",
+        runner,
+        env,
+        content=njs_script,
+        remote_path=f"/etc/nginx/njs.d/{preview_namespace}-port.js",
+        mode="644",
+        sudo=True,
+        step="njs port script",
     )
-    site_name = f"{env.deploy_namespace}-ephemeral"
+    site_name = preview_namespace
     _push_or_fail(
-        runner, env, content=nginx_site,
-        remote_path=f"/etc/nginx/sites-available/{site_name}", mode="644",
-        sudo=True, step="ephemeral nginx site",
+        runner,
+        env,
+        content=nginx_site,
+        remote_path=f"/etc/nginx/sites-available/{site_name}",
+        mode="644",
+        sudo=True,
+        step="ephemeral nginx site",
     )
     activate = run_remote(
         runner,
@@ -159,22 +178,32 @@ def ensure_cleanup_cron(
     runner: CommandRunner,
     env: DeployEnvironment,
     cleanup_script: str,
+    preview_namespace: str,
     emit: Callable[[str], None],
 ) -> None:
     """Install the rendered TTL cleanup script + its cron schedule."""
-    script_path = f"/usr/local/bin/{env.deploy_namespace}-ephemeral-cleanup"
+    script_path = f"/usr/local/bin/{preview_namespace}-cleanup"
     _push_or_fail(
-        runner, env, content=cleanup_script, remote_path=script_path,
-        mode="755", sudo=True, step="ephemeral cleanup script",
+        runner,
+        env,
+        content=cleanup_script,
+        remote_path=script_path,
+        mode="755",
+        sudo=True,
+        step="ephemeral cleanup script",
     )
     cron_line = (
         f"0 */6 * * * {env.ssh_user} sh {script_path}"
-        f" >> /tmp/{env.deploy_namespace}-ephemeral-cleanup.log 2>&1\n"
+        f" >> /tmp/{preview_namespace}-cleanup.log 2>&1\n"
     )
     _push_or_fail(
-        runner, env, content=cron_line,
-        remote_path=f"/etc/cron.d/{env.deploy_namespace}-ephemeral-cleanup",
-        mode="644", sudo=True, step="ephemeral cleanup cron",
+        runner,
+        env,
+        content=cron_line,
+        remote_path=f"/etc/cron.d/{preview_namespace}-cleanup",
+        mode="644",
+        sudo=True,
+        step="ephemeral cleanup cron",
     )
     emit("  [ephemeral] TTL cleanup cron converged")
 
@@ -221,9 +250,13 @@ def converge_slug_project(
         _fail("slug deploy dir preparation", prepare)
 
     _push_or_fail(
-        runner, env, content=compose_yaml,
-        remote_path=f"{deploy_dir}/docker-compose.yml", mode="644",
-        sudo=False, step="slug compose file",
+        runner,
+        env,
+        content=compose_yaml,
+        remote_path=f"{deploy_dir}/docker-compose.yml",
+        mode="644",
+        sudo=False,
+        step="slug compose file",
     )
     for content, name, mode in (
         (db_password + "\n", "db-password", "600"),
@@ -232,9 +265,14 @@ def converge_slug_project(
         (dsn + "\n", "dsn", "444"),
     ):
         _push_or_fail(
-            runner, env, content=content,
-            remote_path=f"{deploy_dir}/{name}", mode=mode, sudo=False,
-            step=f"slug {name} file", secret=True,
+            runner,
+            env,
+            content=content,
+            remote_path=f"{deploy_dir}/{name}",
+            mode=mode,
+            sudo=False,
+            step=f"slug {name} file",
+            secret=True,
         )
     emit("  [ephemeral] slug compose project converged")
 
@@ -283,8 +321,7 @@ def compose_bootstrap_and_up(
     up = run_remote(
         runner,
         env,
-        f"cd {deploy_dir} && docker compose up -d"
-        " --remove-orphans --force-recreate",
+        f"cd {deploy_dir} && docker compose up -d --remove-orphans --force-recreate",
         timeout=300,
     )
     if not up.ok:

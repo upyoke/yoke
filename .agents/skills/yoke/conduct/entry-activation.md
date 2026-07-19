@@ -129,7 +129,7 @@ This companion file covers S6a through S6f-eph:
 - **S6d** — Same-worktree protection (per-candidate filter).
 - **S6e** — Dependency verification (per-candidate filter).
 - **S6f** — Activate every task in `_task_ids`: load spec, resolve worktree, record per-task `TASK_BASELINE_${_task_id}`, update status, persist worktree fields. Never stage generated views; if legacy root DB files appear in `data/`, stop and investigate.
-- **S6f-eph** — Ephemeral environment lifecycle (E1-E3) for non-yoke projects with `ephemeral-env` capability. Runs once per fan-out batch when the project carries the capability.
+- **S6f-eph** — Ephemeral environment lifecycle (E1-E3) for any non-empty project with `ephemeral-env` capability. Runs once per fan-out batch when the project carries the capability.
 
 ---
 

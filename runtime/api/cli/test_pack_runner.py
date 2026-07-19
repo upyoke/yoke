@@ -69,7 +69,7 @@ def test_update_reconstructs_old_version_with_recorded_render_values(
         files={"feature.txt": "name=New Name\nkeep=one\nkeep=two\nlocal=base\n"},
     )
     receipt = {
-        "schema": 1,
+        "schema": 2,
         "project_id": 9,
         "project_slug": "sample",
         "packs": {"feature": _receipt_record(old)},
@@ -118,7 +118,7 @@ def test_conflicted_update_refuses_all_writes(tmp_path: Path, monkeypatch) -> No
     write_receipt(
         tmp_path,
         {
-            "schema": 1,
+            "schema": 2,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -161,7 +161,7 @@ def test_update_can_accept_an_exact_manually_resolved_current_file(
     write_receipt(
         tmp_path,
         {
-            "schema": 1,
+            "schema": 2,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -216,7 +216,7 @@ def test_update_rejects_accept_current_for_a_nonconflicting_path(
     write_receipt(
         tmp_path,
         {
-            "schema": 1,
+            "schema": 2,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -273,6 +273,57 @@ def test_projection_failure_does_not_undo_successful_local_apply(
     assert load_receipt(tmp_path) is not None
 
 
+def test_update_follows_the_project_path_recorded_by_relink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old = _bundle("feature", version="1.0.0", files={"feature.txt": "old\n"})
+    new = _bundle(
+        "feature",
+        version="2.0.0",
+        latest_version="2.0.0",
+        files={"feature.txt": "new\n"},
+    )
+    record = _receipt_record(old)
+    record["files"]["feature.txt"]["path"] = "src/moved-feature.txt"
+    write_receipt(
+        tmp_path,
+        {
+            "schema": 2,
+            "project_id": 9,
+            "project_slug": "sample",
+            "packs": {"feature": record},
+        },
+    )
+    destination = tmp_path / "src" / "moved-feature.txt"
+    destination.parent.mkdir()
+    destination.write_text("old\n", encoding="utf-8")
+    monkeypatch.setattr(
+        runner,
+        "_fetch_bundle",
+        lambda project, pack, *, version, **kwargs: old if version == "1.0.0" else new,
+    )
+    monkeypatch.setattr(runner, "_assert_checkout_project", lambda *args: None)
+    monkeypatch.setattr(runner, "_report_receipt", lambda *args, **kwargs: {})
+
+    report = runner.run_pack_operation(
+        tmp_path,
+        project="sample",
+        pack="feature",
+        operation="update",
+        version="2.0.0",
+        apply=True,
+    )
+
+    assert report["applied"] is True
+    assert destination.read_text(encoding="utf-8") == "new\n"
+    assert not (tmp_path / "feature.txt").exists()
+    assert (
+        load_receipt(tmp_path)["packs"]["feature"]["files"]["feature.txt"]["path"]
+        == "src/moved-feature.txt"
+    )
+
+
 def _bundle(
     slug: str,
     *,
@@ -320,6 +371,11 @@ def _receipt_record(bundle: dict[str, object]) -> dict[str, object]:
         "content_digest": bundle["content_digest"],
         "render_values": bundle["render_values"],
         "files": {
-            row["path"]: {"sha256": row["sha256"], "mode": row["mode"]} for row in files
+            row["path"]: {
+                "path": row["path"],
+                "sha256": row["sha256"],
+                "mode": row["mode"],
+            }
+            for row in files
         },
     }

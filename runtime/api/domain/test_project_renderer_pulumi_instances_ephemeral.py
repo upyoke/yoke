@@ -40,6 +40,26 @@ def _settings_with_ephemeral_env(
 
 
 class TestEphemeralPreviewDomainConfig:
+    def test_host_environment_can_declare_domain_for_another_project(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        stage = _environment_settings("platform-stage", "stage")
+        stage = dataclasses.replace(
+            stage,
+            settings={**stage.settings, "previews": {"domain": "preview.example.com"}},
+        )
+        settings = _settings_with_environments("platform", ["domain"], [stage])
+        _stub_settings(monkeypatch, settings)
+        root, _ = _make_project_tree(tmp_path, "platform")
+
+        instances = gather_pulumi_stack_instances("platform", root)
+
+        assert instances[0].config["ephemeral_preview_domain"] == (
+            "preview.example.com"
+        )
+
     def test_host_env_instance_carries_preview_domain(self, tmp_path, monkeypatch):
         settings = _settings_with_ephemeral_env(
             "yoke",
@@ -61,10 +81,14 @@ class TestEphemeralPreviewDomainConfig:
         assert by_env["prod"].config["ephemeral_preview_domain"] == ""
 
     def test_missing_capability_yields_empty_preview_domain(
-        self, tmp_path, monkeypatch,
+        self,
+        tmp_path,
+        monkeypatch,
     ):
         settings = _settings_with_environments(
-            "yoke", ["domain"], [_environment_settings("yoke-prod", "prod")],
+            "yoke",
+            ["domain"],
+            [_environment_settings("yoke-prod", "prod")],
         )
         capabilities = dict(settings.capabilities)
         capabilities.pop("ephemeral-env", None)
@@ -77,7 +101,9 @@ class TestEphemeralPreviewDomainConfig:
         assert instances[0].config["ephemeral_preview_domain"] == ""
 
     def test_capability_without_host_env_yields_empty_preview_domain(
-        self, tmp_path, monkeypatch,
+        self,
+        tmp_path,
+        monkeypatch,
     ):
         settings = _settings_with_ephemeral_env(
             "yoke",
@@ -94,7 +120,9 @@ class TestEphemeralPreviewDomainConfig:
 
 class TestRenderEphemeralPreviewDomain:
     def test_renders_preview_domain_only_into_host_env_stack(
-        self, tmp_path, monkeypatch,
+        self,
+        tmp_path,
+        monkeypatch,
     ):
         root, proj = _make_project_tree(tmp_path, "yoke")
         settings = _settings_with_ephemeral_env(
@@ -115,14 +143,17 @@ class TestRenderEphemeralPreviewDomain:
         }
 
         project_renderer_pulumi.render_pulumi_artifacts(
-            "yoke", values, root, proj, write=True,
+            "yoke",
+            values,
+            root,
+            proj,
+            write=True,
         )
 
         prod_yaml = (proj / "infra" / "Pulumi.yoke-prod.yaml").read_text()
         stage_yaml = (proj / "infra" / "Pulumi.yoke-stage.yaml").read_text()
         assert (
-            "webapp-infra:ephemeral_preview_domain: preview.example.com"
-            in stage_yaml
+            "webapp-infra:ephemeral_preview_domain: preview.example.com" in stage_yaml
         )
         assert "webapp-infra:ephemeral_preview_domain:" in prod_yaml
         assert "preview.example.com" not in prod_yaml

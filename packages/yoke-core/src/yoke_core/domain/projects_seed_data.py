@@ -38,7 +38,8 @@ def _placeholder(conn) -> str:
 # Tuple shape: (id, name, description, required_config_json, requires_json).
 CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
     (
-        "ssh", "SSH Access",
+        "ssh",
+        "SSH Access",
         "SSH access to a remote server",
         '[{"key":"user","description":"SSH username","secret":false},'
         '{"key":"host","description":"Server hostname or IP","secret":false},'
@@ -46,13 +47,15 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         "[]",
     ),
     (
-        "docker", "Docker",
+        "docker",
+        "Docker",
         "Docker daemon accessible for container operations",
         '[{"key":"host","description":"Docker host (default: local)","secret":false}]',
         "[]",
     ),
     (
-        "container-registry", "Container Registry",
+        "container-registry",
+        "Container Registry",
         "Project container-image registry (ECR). One repository per project; "
         "image tags are git SHAs; deploy stages pull from here. "
         "Requires aws-admin.",
@@ -60,17 +63,26 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         '["aws-admin"]',
     ),
     (
-        "ephemeral-env", "Ephemeral Environment",
-        "Ability to spin up and tear down per-branch environments",
-        '[{"key":"web_base_port","description":"Base port for this project web-preview ephemeral envs","secret":false},'
-        '{"key":"api_base_port","description":"Base port for this project API ephemeral envs","secret":false},'
-        '{"key":"compose_file","description":"docker-compose file for ephemeral env","secret":false},'
-        '{"key":"env_file","description":"Path to .env file for ephemeral env secrets","secret":false},'
-        '{"key":"startup_timeout_s","description":"Seconds to wait for health check after start","secret":false}]',
-        '["docker"]',
+        "ephemeral-env",
+        "Ephemeral Environment",
+        "Branch preview policy, including its trigger, host, domain, ports, "
+        "namespace, and cleanup lifetime",
+        '[{"key":"trigger","description":"flow or github-push","secret":false},'
+        '{"key":"flow_id","description":"Project-owned preview deployment flow used when trigger is flow","secret":false},'
+        '{"key":"host_project","description":"Project that owns the preview host; defaults to this project","secret":false},'
+        '{"key":"host_env","description":"Environment whose origin server hosts previews","secret":false},'
+        '{"key":"preview_namespace","description":"Preview-only host resource prefix","secret":false},'
+        '{"key":"preview_domain","description":"Wildcard domain for preview URLs","secret":false},'
+        '{"key":"web_base_port","description":"First web-preview port","secret":false},'
+        '{"key":"api_base_port","description":"First API-preview port","secret":false},'
+        '{"key":"route_base_port","description":"First port used by wildcard routing","secret":false},'
+        '{"key":"port_range","description":"Number of deterministic preview port offsets","secret":false},'
+        '{"key":"ttl_hours","description":"Maximum preview age before cleanup","secret":false}]',
+        "[]",
     ),
     (
-        "aws-admin", "AWS Admin",
+        "aws-admin",
+        "AWS Admin",
         "AWS credentials with broad admin access. Parent for all AWS capabilities.",
         '[{"key":"access_key_id","description":"AWS Access Key ID","secret":true},'
         '{"key":"secret_access_key","description":"AWS Secret Access Key","secret":true},'
@@ -78,13 +90,15 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         "[]",
     ),
     (
-        "aws-route53", "AWS Route53",
+        "aws-route53",
+        "AWS Route53",
         "DNS management via Route53. Requires aws-admin.",
         '[{"key":"hosted_zone_id","description":"Route53 Hosted Zone ID","secret":false}]',
         '["aws-admin"]',
     ),
     (
-        "github", "GitHub Integration",
+        "github",
+        "GitHub Integration",
         "GitHub App repo binding for issue sync, PRs, Actions, and API access",
         '[{"key":"repo_owner","description":"GitHub repo owner","secret":false},'
         '{"key":"repo_name","description":"GitHub repo name","secret":false},'
@@ -111,19 +125,22 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         '["github","aws-admin"]',
     ),
     (
-        "health-endpoint", "Health Endpoint",
+        "health-endpoint",
+        "Health Endpoint",
         "HTTP health check URL for production monitoring",
         '[{"key":"url","description":"Health check URL","secret":false}]',
         "[]",
     ),
     (
-        "vps-ssh", "VPS SSH Access",
+        "vps-ssh",
+        "VPS SSH Access",
         "SSH connectivity to a VPS for reachability checks",
         '[{"key":"host","description":"SSH host (user@host or hostname)","secret":false}]',
         '["ssh"]',
     ),
     (
-        "browser-qa", "Browser QA",
+        "browser-qa",
+        "Browser QA",
         "Browser automation and scenario-based QA testing. "
         "Enables browser-testable classification and automatic seeding "
         "of browser smoke/e2e requirements.",
@@ -133,7 +150,8 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         "[]",
     ),
     (
-        "db-backup-s3", "S3 DB Backup",
+        "db-backup-s3",
+        "S3 DB Backup",
         "Optional S3-backed backup for yoke.db. Uploads local backups to S3 "
         "for off-machine durability. Requires aws-admin. "
         "Does NOT auto-enable from aws-admin presence alone.",
@@ -152,17 +170,23 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
 # Seed helpers
 # ---------------------------------------------------------------------------
 
+
 def seed_capability_templates(conn) -> None:
     """Seed ``capability_templates`` rows from :data:`CAPABILITY_TEMPLATES`."""
     p = _placeholder(conn)
-    for tmpl_id, tmpl_name, tmpl_desc, tmpl_config, tmpl_requires in CAPABILITY_TEMPLATES:
+    for (
+        tmpl_id,
+        tmpl_name,
+        tmpl_desc,
+        tmpl_config,
+        tmpl_requires,
+    ) in CAPABILITY_TEMPLATES:
         conn.execute(
             "INSERT INTO capability_templates "
             "(id, name, description, required_config, requires, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) "
             "ON CONFLICT(id) DO NOTHING",
-            (tmpl_id, tmpl_name, tmpl_desc, tmpl_config, tmpl_requires,
-             iso8601_now()),
+            (tmpl_id, tmpl_name, tmpl_desc, tmpl_config, tmpl_requires, iso8601_now()),
         )
     conn.commit()
 
