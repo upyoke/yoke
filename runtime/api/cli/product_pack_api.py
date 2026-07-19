@@ -1,8 +1,47 @@
 """Local typed-function API used by packaged CLI Pack proofs."""
 
+import hashlib
 import http.server
 import json
 import threading
+
+
+def _pack_bundle(version: str) -> dict:
+    content = {
+        "1.0.0": "base\ncustom-slot\n",
+        "1.1.0": "base-v2\ncustom-slot\n",
+    }[version]
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    files = [{
+        "path": "sample-pack.txt",
+        "content": content,
+        "encoding": "utf-8",
+        "sha256": digest,
+        "mode": 0o644,
+    }]
+    material = [{
+        "path": "sample-pack.txt",
+        "sha256": digest,
+        "mode": 0o644,
+        "encoding": "utf-8",
+    }]
+    content_digest = hashlib.sha256(
+        json.dumps(material, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return {
+        "bundle_schema": 1,
+        "project_id": 41,
+        "project_slug": "sample",
+        "pack": "sample-pack",
+        "name": "Sample Pack",
+        "description": "Packaged HTTPS transport fixture.",
+        "version": version,
+        "latest_version": "1.1.0",
+        "dependencies": [],
+        "render_values": {},
+        "files": files,
+        "content_digest": content_digest,
+    }
 
 
 class PackApi:
@@ -29,29 +68,42 @@ class PackApi:
                 if self.path != "/v1/functions/call":
                     self.send_error(404)
                     return
-                self._send_json({
-                    "success": True,
-                    "function": request["function"],
-                    "version": request["version"],
-                    "request_id": request.get("request_id"),
-                    "result": {
+                function_id = request["function"]
+                request_payload = request.get("payload", {})
+                if function_id == "packs.bundle.get":
+                    version = str(request_payload.get("version") or "1.1.0")
+                    result = _pack_bundle(version)
+                elif function_id == "packs.project.report":
+                    result = {
+                        "project_id": 41,
+                        "project_slug": "sample",
+                        "reported_pack_count": len(request_payload.get("packs", [])),
+                    }
+                else:
+                    result = {
                         "project_id": 41,
                         "project_slug": "sample",
                         "repository_report": None,
                         "packs": [{
-                            "slug": "webapp-scaffold",
-                            "name": "Web Application Scaffold",
-                            "description": "Generic application starting point.",
-                            "latest_version": "1.0.0",
+                            "slug": "sample-pack",
+                            "name": "Sample Pack",
+                            "description": "Packaged HTTPS transport fixture.",
+                            "latest_version": "1.1.0",
                             "dependencies": [],
-                            "documentation": "docs/packs/webapp-scaffold/README.md",
+                            "documentation": "docs/packs/sample-pack/README.md",
                             "settings_schema": {},
                             "verification": [],
-                            "file_count": 2,
+                            "file_count": 1,
                             "status": "available",
                             "installed_version": None,
                         }],
-                    },
+                    }
+                self._send_json({
+                    "success": True,
+                    "function": function_id,
+                    "version": request["version"],
+                    "request_id": request.get("request_id"),
+                    "result": result,
                 })
 
             def log_message(self, format: str, *args: object) -> None:

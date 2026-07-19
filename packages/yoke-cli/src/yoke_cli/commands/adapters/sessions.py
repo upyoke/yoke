@@ -32,7 +32,7 @@ SESSIONS_CHECKPOINT_READ_USAGE = (
 )
 SESSIONS_BEGIN_USAGE = (
     "yoke sessions begin --executor E --provider P --model M --workspace W "
-    "[--project P] [--mode MODE] [--entrypoint E] [--session-id S] [--json]"
+    "[--project ID] [--mode MODE] [--entrypoint E] [--session-id S] [--json]"
 )
 SESSIONS_OFFER_USAGE = (
     "yoke sessions offer --executor E --provider P --workspace W "
@@ -186,7 +186,10 @@ def sessions_begin(args: List[str]) -> int:
     parser.add_argument("--provider", required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--workspace", required=True)
-    parser.add_argument("--project", default=None)
+    parser.add_argument(
+        "--project", metavar="ID", default=None,
+        help="numeric project id; otherwise resolve the workspace mapping",
+    )
     parser.add_argument("--mode", default="wait")
     parser.add_argument("--entrypoint", default=None)
     add_session_arg(parser)

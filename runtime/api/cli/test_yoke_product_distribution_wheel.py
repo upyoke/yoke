@@ -194,11 +194,11 @@ def test_product_wheels_exercise_installer_plan_surfaces(
                 "--config", str(config), "--json",
             ],
             0,
-            "webapp-scaffold",
+            "sample-pack",
         )
         listing_payload = json.loads(listing.stdout)
         assert listing_payload["project_slug"] == "sample"
-        assert listing_payload["packs"][0]["slug"] == "webapp-scaffold"
+        assert listing_payload["packs"][0]["slug"] == "sample-pack"
         assert listing_payload["packs"][0]["status"] == "available"
         assert api.requests == [{
             "method": "POST",
