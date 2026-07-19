@@ -10,6 +10,7 @@ from runtime.api.tools.test_pulumi_exec_support import (
     _stack_payload,
 )
 from yoke_core.domain import deploy_remote
+from yoke_core.tools import pulumi_exec_authority
 from yoke_core.tools.pulumi_exec import (
     PulumiExecError,
     _authority_env,
@@ -115,6 +116,41 @@ def test_runner_fleet_local_bootstrap_uses_scoped_render_values():
     assert env["GITHUB_TOKEN"] == "local-token"
     assert env["YOKE_RUNNER_FLEET_AUTHORITY_INTENT"]
     assert "private-key-line" in redaction
+
+
+def test_runner_fleet_normal_local_authority_sets_intent(monkeypatch):
+    payload = _stack_payload("platform", "yoke-runner-fleet")
+    payload["stack_kind"] = "runner-fleet"
+    payload["render_values"] = {
+        "deploy_namespace": "yoke",
+        "runner_fleet_repo": "upyoke/platform",
+    }
+    payload["authority"].update({
+        "github_project": "platform",
+        "github_repo": "upyoke/platform",
+    })
+    seen = {}
+    monkeypatch.setattr(
+        pulumi_exec_authority,
+        "authority_intent_envelope_from_values",
+        lambda **kwargs: seen.setdefault("intent_kwargs", kwargs) and "intent",
+    )
+
+    env, _ = pulumi_exec_authority.authority_env(
+        "platform",
+        payload["authority"],
+        payload,
+        aws_env_loader=lambda *args, **kwargs: {},
+        github_auth_loader=lambda *args, **kwargs: type("Auth", (), {
+            "token": "user-token",
+            "repo": "upyoke/platform",
+        })(),
+    )
+
+    assert env["YOKE_RUNNER_FLEET_AUTHORITY_INTENT"] == "intent"
+    assert seen["intent_kwargs"]["values"]["runner_fleet_repo"] == (
+        "upyoke/platform"
+    )
 
 
 
@@ -352,3 +388,32 @@ def test_github_failure_is_redacted_and_actionable(tmp_path):
     assert "ghu_sensitive-token" not in rendered
     assert "app_authority_unavailable" in rendered
     assert "github-binding status" in rendered
+
+
+def test_github_failure_surfaces_loader_redacted_detail(tmp_path):
+    payload = _stack_payload()
+    payload["authority"].update({
+        "github_project": "platform",
+        "github_repo": "upyoke/platform",
+        "github_permissions": {"repository_hooks": "write"},
+    })
+
+    class SafeAuthorityError(RuntimeError):
+        pulumi_safe_message = (
+            "project GitHub App binding lacks required permissions: "
+            "repository_hooks"
+        )
+
+    with pytest.raises(PulumiExecError) as raised:
+        execute_pulumi_command(
+            "yoke", "yoke-infra", ["preview"],
+            config_loader=lambda project, stack: payload,
+            project_root=_install_pulumi_project_files(tmp_path),
+            aws_env_loader=lambda *args, **kwargs: {},
+            github_auth_loader=lambda *args, **kwargs: (_ for _ in ()).throw(
+                SafeAuthorityError("redacted authority detail")
+            ),
+        )
+    rendered = str(raised.value)
+    assert "repository_hooks" in rendered
+    assert "redacted authority detail" not in rendered

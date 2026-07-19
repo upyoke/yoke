@@ -89,11 +89,12 @@ def test_loader_rejects_missing_permission_before_token_refresh(monkeypatch):
     with pytest.raises(
         authority.PulumiGithubAuthorityError,
         match="actions_variables",
-    ):
+    ) as raised:
         loader(
             "platform",
             required_permissions={"actions_variables": "write"},
         )
+    assert raised.value.pulumi_safe_message == str(raised.value)
     assert token_called is False
 
 
