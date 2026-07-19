@@ -82,7 +82,10 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
           latest_version: "1.1.0",
           dependencies: ["container-runtime"],
           render_values: {},
-          files: [{ path: ".github/workflows/demo-deploy.yml", mode: "0644" }],
+          files: [
+            { path: ".github/workflows/demo-deploy.yml", mode: 420 },
+            { path: "scripts/deploy", mode: 493 },
+          ],
           content_digest: "digest",
         });
       }
@@ -104,6 +107,10 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
   await settle();
   const previewText = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.ok(previewText.includes(".github/workflows/demo-deploy.yml"));
+  assert.ok(previewText.includes("0644"));
+  assert.ok(previewText.includes("0755"));
+  assert.ok(!previewText.includes(" 420 "));
+  assert.ok(!previewText.includes(" 493 "));
   assert.ok(previewText.includes(
     "yoke packs update production-deploy . --project demo",
   ));
