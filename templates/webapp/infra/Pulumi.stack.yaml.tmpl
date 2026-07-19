@@ -9,10 +9,10 @@ config:
   webapp-infra:certificate_arn: {{certificate_arn}}
   webapp-infra:component_type_aliases: '{{component_type_aliases_json}}'
   webapp-infra:origin_id: {{origin_id}}
-  webapp-infra:distribution_bucket_name: {{distribution_bucket_name}}
+  webapp-infra:distribution_bucket_name: "{{distribution_bucket_name}}"
   webapp-infra:domain_txt_records: '{{domain_txt_records_json}}'
   webapp-infra:domain_mx_records: '{{domain_mx_records_json}}'
   webapp-infra:vps_instance_type: {{vps_instance_type}}
   webapp-infra:vps_root_volume_gb: "{{vps_root_volume_gb}}"
   webapp-infra:vps_ssh_key_name: {{vps_ssh_key_name}}
-  webapp-infra:vps_iam_instance_profile_name: {{vps_iam_instance_profile_name}}
+  webapp-infra:vps_iam_instance_profile_name: "{{vps_iam_instance_profile_name}}"

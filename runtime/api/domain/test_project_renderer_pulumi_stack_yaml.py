@@ -1,5 +1,8 @@
 """Tests for rendering a Pulumi stack YAML template."""
 
+from pathlib import Path
+
+from yoke_core.domain.project_renderer import render_template
 from yoke_core.domain import project_renderer_pulumi
 
 
@@ -52,3 +55,18 @@ def test_substitutes_stack_template_placeholders(tmp_path):
     assert "t3.small" in rendered
     assert "externalwebappinfraDistributionOrigin18BAD744B" in rendered
     assert "externalwebapp-distribution-prod" in rendered
+
+
+def test_source_template_preserves_empty_optional_strings():
+    root = Path(__file__).parents[3]
+    template = (
+        root / "templates/webapp/infra/Pulumi.stack.yaml.tmpl"
+    ).read_text()
+
+    rendered = render_template(template, {
+        "distribution_bucket_name": "",
+        "vps_iam_instance_profile_name": "",
+    })
+
+    assert 'webapp-infra:distribution_bucket_name: ""' in rendered
+    assert 'webapp-infra:vps_iam_instance_profile_name: ""' in rendered
