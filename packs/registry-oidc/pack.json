@@ -3,7 +3,7 @@
   "slug": "registry-oidc",
   "name": "Registry and OIDC",
   "description": "Container registry plus GitHub Actions infrastructure and delivery OIDC roles.",
-  "latest_version": "1.0.1",
+  "latest_version": "1.0.2",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -64,6 +64,63 @@
     },
     "1.0.1": {
       "source": "versions/1.0.1/files",
+      "documentation": "docs/packs/registry-oidc/README.md",
+      "dependencies": [
+        "pulumi-foundation"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/registry-oidc/README.md",
+          "target": "docs/packs/registry-oidc/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/Pulumi.registry-stack.yaml.tmpl",
+          "target": "infra/Pulumi.registry-stack.yaml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "infra/webapp_registry_ci_metadata_policy.py",
+          "target": "infra/webapp_registry_ci_metadata_policy.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_registry_ci_policy.py",
+          "target": "infra/webapp_registry_ci_policy.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_registry_github_variables.py",
+          "target": "infra/webapp_registry_github_variables.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_registry_stack.py",
+          "target": "infra/webapp_registry_stack.py",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        }
+      ]
+    },
+    "1.0.2": {
+      "source": "versions/1.0.2/files",
       "documentation": "docs/packs/registry-oidc/README.md",
       "dependencies": [
         "pulumi-foundation"
