@@ -11,10 +11,11 @@ infrastructure changes and application delivery using short-lived OIDC tokens.
 - Apply the stack, then verify the published repository variables match its
   role outputs before removing any static credentials.
 - Prove both infrastructure and delivery assumptions in live workflows.
-- A GitHub Actions workflow that previews this Pack with its ephemeral
-  repository token must grant `actions: write`; the GitHub provider reads the
-  repository variables during refresh and applies updates through the same
-  token. Keep `contents: read` and `id-token: write` alongside that permission.
+- GitHub's built-in workflow token cannot read repository variables. A hosted
+  Actions preview therefore needs a project-configured, repository-scoped App
+  token broker; the Self-hosted Runners Pack provides one when that Pack is
+  installed. Projects without that Pack can run the preview from a connected
+  local operator or provide an equivalent broker before enabling the CI lane.
 
 The infrastructure and delivery role outputs are the only supported GitHub
 Actions role outputs. Projects upgrading from an earlier version may remove

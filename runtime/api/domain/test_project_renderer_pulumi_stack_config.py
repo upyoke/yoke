@@ -162,6 +162,38 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
     }
 
 
+def test_variable_stack_projects_hosted_repository_provider_intent(monkeypatch):
+    from yoke_core.domain import project_renderer_pulumi_stack_config as module
+
+    settings = _settings()
+    settings.capabilities["github-actions-runner-fleet"] = {}
+    _stub_settings(monkeypatch, settings)
+    seen = {}
+
+    def provider_intent(selected_settings, *, expected_repo):
+        seen.update({
+            "settings": selected_settings,
+            "expected_repo": expected_repo,
+        })
+        return "digest-bound-provider-intent"
+
+    monkeypatch.setattr(
+        module,
+        "repository_provider_intent_from_settings",
+        provider_intent,
+    )
+
+    payload = build_pulumi_stack_config(object(), "acme", "acme-stage")
+
+    assert payload["authority"]["hosted_repository_token_intent"] == (
+        "digest-bound-provider-intent"
+    )
+    assert seen == {
+        "settings": settings,
+        "expected_repo": "acme/app",
+    }
+
+
 def test_selected_environment_ignores_unrelated_incomplete_vps(monkeypatch):
     settings = _settings()
     settings.primary_environment.settings["servers"] = {}

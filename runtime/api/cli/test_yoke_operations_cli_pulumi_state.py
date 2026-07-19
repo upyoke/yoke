@@ -252,7 +252,7 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
     )
     monkeypatch.setattr(
         pulumi,
-        "fetch_runner_fleet_token",
+        "fetch_repository_provider_token",
         lambda **kwargs: broker_calls.update(kwargs) or "broker-token",
     )
     monkeypatch.setattr(
@@ -268,7 +268,7 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
     assert rc == 0
     assert calls["execute"][1]["aws_env_loader"] is machine_loader
     assert calls["execute"][1]["github_auth_loader"] is github_loader
-    hosted_loader = calls["execute"][1]["hosted_runner_token_loader"]
+    hosted_loader = calls["execute"][1]["hosted_repository_token_loader"]
     assert hosted_loader("platform", "intent", {"AWS_REGION": "us-east-1"}) == (
         "broker-token"
     )

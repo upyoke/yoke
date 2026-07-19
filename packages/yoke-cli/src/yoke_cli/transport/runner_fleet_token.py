@@ -138,4 +138,28 @@ def fetch_runner_fleet_token(
     return token
 
 
-__all__ = ["fetch_runner_fleet_token"]
+def fetch_repository_provider_token(
+    *,
+    project: str,
+    authority_intent: str,
+    aws_env: Mapping[str, str],
+    client_factory: Callable[[Mapping[str, str], str], Any] = (
+        _client_from_aws_env
+    ),
+    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+) -> str:
+    """Fetch a process-only token for any broker-authorized provider."""
+
+    return fetch_runner_fleet_token(
+        project=project,
+        authority_intent=authority_intent,
+        aws_env=aws_env,
+        client_factory=client_factory,
+        now=now,
+    )
+
+
+__all__ = [
+    "fetch_repository_provider_token",
+    "fetch_runner_fleet_token",
+]

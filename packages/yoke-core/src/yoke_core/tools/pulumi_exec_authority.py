@@ -26,7 +26,7 @@ def authority_env(
     *,
     aws_env_loader: Callable[..., Mapping[str, str]],
     github_auth_loader: Callable[..., Any],
-    hosted_runner_token_loader: Callable[[str, str, Mapping[str, str]], str]
+    hosted_repository_token_loader: Callable[[str, str, Mapping[str, str]], str]
     | None = None,
     bootstrap_local_authority: bool = False,
     local_github_auth_loader: Callable[..., Any] = (
@@ -99,7 +99,7 @@ def authority_env(
             payload.get("stack_kind") == "runner-fleet"
             and os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
         ):
-            if hosted_runner_token_loader is None:
+            if hosted_repository_token_loader is None:
                 raise PulumiExecError(
                     "Pulumi runner-fleet GitHub Actions authority requires the "
                     "hosted repository-token broker"
@@ -120,7 +120,9 @@ def authority_env(
                     aws_region=region,
                 )
                 token = str(
-                    hosted_runner_token_loader(project, authority_intent, env) or ""
+                    hosted_repository_token_loader(
+                        project, authority_intent, env
+                    ) or ""
                 ).strip()
             except Exception as exc:
                 raise PulumiExecError(
@@ -134,6 +136,39 @@ def authority_env(
                 )
             resolved_repo = str(values.get("runner_fleet_repo") or "").casefold()
             env[RUNNER_FLEET_AUTHORITY_INTENT_ENV] = authority_intent
+        elif (
+            os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
+            and any(
+                str(name) != "metadata"
+                for name in dict(
+                    authority.get("github_permissions") or {}
+                )
+            )
+        ):
+            authority_intent = str(
+                authority.get("hosted_repository_token_intent") or ""
+            ).strip()
+            if hosted_repository_token_loader is None or not authority_intent:
+                raise PulumiExecError(
+                    "Pulumi hosted repository authority requires a "
+                    "project-configured provider-token broker"
+                )
+            try:
+                token = str(
+                    hosted_repository_token_loader(
+                        project, authority_intent, env
+                    ) or ""
+                ).strip()
+            except Exception as exc:
+                raise PulumiExecError(
+                    "Pulumi hosted repository authority could not be "
+                    "materialized (cause: broker_authority_unavailable)"
+                ) from exc
+            if not token:
+                raise PulumiExecError(
+                    "Pulumi hosted repository authority returned an empty token"
+                )
+            resolved_repo = str(authority.get("github_repo") or "").casefold()
         else:
             try:
                 github = github_auth_loader(
