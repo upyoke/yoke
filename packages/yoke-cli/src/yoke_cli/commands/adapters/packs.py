@@ -19,7 +19,7 @@ PACKS_GET_USAGE = (
 )
 PACKS_UPDATE_USAGE = (
     "yoke packs update PACK [REPO_ROOT] --project NAME [--version VERSION] "
-    "[--config PATH] [--apply] [--json]"
+    "[--accept-current PATH ...] [--config PATH] [--apply] [--json]"
 )
 
 
@@ -74,7 +74,21 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument("--version", default=None, help="Exact Pack version.")
     parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--apply", action="store_true", help="Apply a conflict-free preview.")
+    if operation == "update":
+        parser.add_argument(
+            "--accept-current",
+            dest="accepted_current_paths",
+            action="append",
+            default=[],
+            metavar="PATH",
+            help=(
+                "After resolving this exact conflict in the project, keep the "
+                "current file and advance its Pack baseline; repeat per path."
+            ),
+        )
+    parser.add_argument(
+        "--apply", action="store_true", help="Apply a conflict-free preview."
+    )
     add_session_arg(parser)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, usage)
@@ -90,11 +104,16 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
                 apply=parsed.apply,
                 version=parsed.version,
                 session_id=parsed.session_id,
+                accepted_current_paths=getattr(parsed, "accepted_current_paths", None),
             )
     except PackClientError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    print(json.dumps(report, sort_keys=parsed.json_mode, indent=None if parsed.json_mode else 2))
+    print(
+        json.dumps(
+            report, sort_keys=parsed.json_mode, indent=None if parsed.json_mode else 2
+        )
+    )
     return 1 if report.get("refused") else 0
 
 

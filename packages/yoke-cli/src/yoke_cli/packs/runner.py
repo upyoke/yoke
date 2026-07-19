@@ -40,11 +40,15 @@ def run_pack_operation(
     apply: bool = False,
     version: str | None = None,
     session_id: str | None = None,
+    accepted_current_paths: list[str] | None = None,
 ) -> dict[str, Any]:
     """Preview or apply one Pack get/update, including missing dependencies."""
 
     if operation not in {"get", "update"}:
         raise PackClientError(f"unsupported Pack operation: {operation}")
+    accepted_paths = sorted(set(accepted_current_paths or []))
+    if operation != "update" and accepted_paths:
+        raise PackClientError("--accept-current is available only for Pack updates")
     root = Path(repo_root or os.getcwd()).expanduser().resolve()
     if not root.is_dir():
         raise PackClientError(f"project checkout is not a directory: {root}")
@@ -89,6 +93,7 @@ def run_pack_operation(
                 session_id=session_id,
             )
             plan = plan_update(root, old_bundle["files"], bundle["files"])
+            _accept_current_conflicts(plan, accepted_paths)
             action = "update"
             from_version = old_version
         else:
@@ -136,6 +141,27 @@ def run_pack_operation(
         report["projection"] = None
         report["projection_warning"] = str(exc)
     return report
+
+
+def _accept_current_conflicts(plan: dict[str, Any], accepted_paths: list[str]) -> None:
+    if not accepted_paths:
+        plan["accepted_current"] = []
+        return
+    conflicts = {row["path"]: row for row in plan["conflicts"]}
+    unknown = sorted(set(accepted_paths) - set(conflicts))
+    if unknown:
+        joined = ", ".join(unknown)
+        raise PackClientError(
+            f"--accept-current path is not an unresolved Pack conflict: {joined}"
+        )
+    accepted = set(accepted_paths)
+    plan["accepted_current"] = [
+        row for row in plan["conflicts"] if row["path"] in accepted
+    ]
+    plan["conflicts"] = [
+        row for row in plan["conflicts"] if row["path"] not in accepted
+    ]
+    plan["changed"] = bool(plan["changed"] or plan["accepted_current"])
 
 
 def _collect_missing_dependencies(

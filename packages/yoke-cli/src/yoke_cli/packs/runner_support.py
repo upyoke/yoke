@@ -104,7 +104,9 @@ def _validate_bundle(bundle: Mapping[str, Any]) -> None:
                 else base64.b64decode(content.encode("ascii"), validate=True)
             )
         except (ValueError, UnicodeEncodeError) as exc:
-            raise PackClientError(f"Pack bundle encoding is invalid for {path!r}") from exc
+            raise PackClientError(
+                f"Pack bundle encoding is invalid for {path!r}"
+            ) from exc
         if hashlib.sha256(raw_content).hexdigest() != digest:
             raise PackClientError(f"Pack bundle content digest is invalid for {path!r}")
         if mode not in (0o644, 0o755):
@@ -129,7 +131,9 @@ def _assert_checkout_project(
     except existing_project_lookup.ExistingProjectLookupError as exc:
         raise PackClientError(str(exc)) from exc
     if reference is None:
-        raise PackClientError("Pack operations require a checkout registered to a Yoke project")
+        raise PackClientError(
+            "Pack operations require a checkout registered to a Yoke project"
+        )
     if reference.project_id != bundle["project_id"]:
         raise PackClientError("checkout project binding does not match the Pack bundle")
     if receipt is not None and (
@@ -153,7 +157,9 @@ def _assert_no_cross_pack_paths(
     overlap = sorted(entry["path"] for entry in entries if entry["path"] in owners)
     if overlap:
         details = ", ".join(f"{path} ({owners[path]})" for path in overlap)
-        raise PackClientError(f"Pack file overlap must be resolved in the catalog: {details}")
+        raise PackClientError(
+            f"Pack file overlap must be resolved in the catalog: {details}"
+        )
 
 
 def _receipt_record(bundle: Mapping[str, Any]) -> dict[str, Any]:
@@ -174,15 +180,14 @@ def _public_plan(plan: Mapping[str, Any]) -> dict[str, Any]:
         "updates": [row["path"] for row in plan["updates"]],
         "unchanged": list(plan["unchanged"]),
         "conflicts": list(plan["conflicts"]),
+        "accepted_current": list(plan.get("accepted_current", [])),
         "retained_project_files": list(plan["retained_project_files"]),
         "changed": bool(plan["changed"]),
     }
 
 
 def _apply_writes(repo_root: Path, plan: Mapping[str, Any]) -> None:
-    writes = {
-        entry["path"]: entry for entry in [*plan["creates"], *plan["updates"]]
-    }
+    writes = {entry["path"]: entry for entry in [*plan["creates"], *plan["updates"]]}
     assert_pack_targets_safe(repo_root, list(writes))
     for path, entry in sorted(writes.items()):
         target = repo_root / path
@@ -212,7 +217,9 @@ def _report_receipt(
     *,
     session_id: str | None,
 ) -> dict[str, Any]:
-    receipt_bytes = (json.dumps(receipt, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    receipt_bytes = (json.dumps(receipt, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
     return _call(
         "packs.project.report",
         {

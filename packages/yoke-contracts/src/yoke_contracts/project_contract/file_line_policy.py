@@ -8,7 +8,10 @@ from pathlib import Path
 DEFAULT_LIMIT = 350
 FILE_LINE_LIMIT_KEY = "file_line_limit"
 PROJECT_EXCEPTIONS_REL = ".yoke/file-line-exceptions"
-TRACKED_GENERATED_VIEWS: tuple[str, ...] = ("docs/atlas.md",)
+TRACKED_GENERATED_VIEWS: tuple[str, ...] = (
+    ".yoke/packs.json",
+    "docs/atlas.md",
+)
 
 # Rendered strategy views are untracked local renders (gitignored via the
 # seeded contract), so they never enter authored-file enforcement and no

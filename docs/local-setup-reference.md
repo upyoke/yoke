@@ -122,6 +122,12 @@ overlapping edits become visible conflicts, upstream removals are retained,
 and unrelated files are ignored. There is no continuing drift enforcement or
 automatic pruning.
 
+If an update reports an overlapping edit, merge the Pack's change into the
+project-owned file, preview again with `--accept-current <exact-path>`, and
+then repeat that exact command with `--apply`. This explicit acknowledgement
+keeps the reviewed project file while advancing only that Pack's baseline;
+unknown or still-unlisted paths are refused.
+
 `yoke project refresh` remains substrate-only. Pulumi execution reads Pack
 source installed under the selected project's `infra/` directory, while stack
 YAML and operator state remain exact-stack outputs of `yoke pulumi exec`.
