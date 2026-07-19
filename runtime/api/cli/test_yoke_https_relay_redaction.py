@@ -32,6 +32,7 @@ from yoke_contracts.api.function_call import (
 
 
 _NON_OBVIOUS_ACTIONS_SECRET = "postgres://relay-user:relay-password@db.example/app"
+_PUBLIC_CREDENTIALS_ACTION = "aws-actions/configure-aws-credentials@immutable-sha"
 
 
 def _actions_secret_request() -> FunctionCallRequest:
@@ -45,6 +46,23 @@ def _actions_secret_request() -> FunctionCallRequest:
             "name": "DATABASE_URL",
             "value": _NON_OBVIOUS_ACTIONS_SECRET,
             "project": "example",
+        },
+    )
+
+
+def _pack_bundle_request() -> FunctionCallRequest:
+    return FunctionCallRequest(
+        function="packs.bundle.get",
+        actor=ActorContext(session_id="pack-bundle-relay-test"),
+        target=TargetRef(kind="global"),
+        request_id="pack-bundle-relay-request",
+        payload={
+            "project": "example",
+            "pack": "production-deploy",
+            "version": "1.0.0",
+            "render_values": {
+                "configure_aws_credentials_action": _PUBLIC_CREDENTIALS_ACTION,
+            },
         },
     )
 
@@ -77,6 +95,15 @@ def test_actions_secret_value_is_classified_by_function_request_shape() -> None:
     )
 
     assert _NON_OBVIOUS_ACTIONS_SECRET in secrets
+
+
+def test_pack_render_values_remain_public_for_checksum_protected_source() -> None:
+    secrets = collect_request_secrets(
+        _pack_bundle_request(), transport_token=TRANSPORT_TOKEN
+    )
+
+    assert _PUBLIC_CREDENTIALS_ACTION not in secrets
+    assert TRANSPORT_TOKEN in secrets
 
 
 def test_typed_actions_secret_echo_is_scrubbed_for_non_obvious_name(

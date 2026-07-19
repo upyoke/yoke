@@ -48,15 +48,23 @@ def test_packaged_cli_gets_and_updates_customized_pack_over_https(
     with PackApi() as api:
         config = write_https_config(tmp_path, "product-token", api.url)
         payload = json.loads(config.read_text(encoding="utf-8"))
-        payload["projects"] = [{
-            "checkout": str(project.resolve()),
-            "project_id": 41,
-            "env": "prod",
-        }]
+        payload["projects"] = [
+            {
+                "checkout": str(project.resolve()),
+                "project_id": 41,
+                "env": "prod",
+            }
+        ]
         config.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
         preview_get = _pack_command(
-            yoke, project, env, config, "get", "--version", "1.0.0",
+            yoke,
+            project,
+            env,
+            config,
+            "get",
+            "--version",
+            "1.0.0",
         )
         assert preview_get["applied"] is False
         assert preview_get["plans"][0]["plan"]["creates"] == ["sample-pack.txt"]
@@ -80,18 +88,29 @@ def test_packaged_cli_gets_and_updates_customized_pack_over_https(
         )
 
         preview_update = _pack_command(
-            yoke, project, env, config, "update",
+            yoke,
+            project,
+            env,
+            config,
+            "update",
         )
         assert preview_update["applied"] is False
         assert preview_update["conflict_count"] == 0
         assert project_file.read_text(encoding="utf-8").startswith("base\n")
 
         applied_update = _pack_command(
-            yoke, project, env, config, "update", "--apply",
+            yoke,
+            project,
+            env,
+            config,
+            "update",
+            "--apply",
         )
         assert applied_update["applied"] is True
         assert project_file.read_text(encoding="utf-8") == (
-            "base-v2\ncustom-slot\nproject-owned\n"
+            "base-v2\ncustom-slot\n"
+            "action=aws-actions/configure-aws-credentials@immutable-sha\n"
+            "project-owned\n"
         )
         receipt = json.loads(
             (project / ".yoke" / "packs.json").read_text(encoding="utf-8")

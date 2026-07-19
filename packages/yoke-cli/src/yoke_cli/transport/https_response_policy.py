@@ -52,6 +52,15 @@ _SENSITIVE_PAYLOAD_PATHS_BY_FUNCTION: Mapping[str, tuple[tuple[str, ...], ...]] 
     "github_actions.secret.set": (("value",),),
 }
 
+# These exact request fields are public by contract even when one nested key
+# contains a word such as ``credentials``. Pack render values are non-secret
+# project settings and are echoed into the checksum-protected source bundle;
+# treating an action pin as a secret would rewrite the response content after
+# the server calculated its digest.
+_PUBLIC_PAYLOAD_FIELDS_BY_FUNCTION: Mapping[str, frozenset[str]] = {
+    "packs.bundle.get": frozenset({"render_values"}),
+}
+
 
 class HttpsResponsePolicyError(ValueError):
     """One remote response cannot safely become a typed envelope."""
@@ -99,8 +108,15 @@ def collect_request_secrets(
     """Collect string secrets from nested request fields by key semantics."""
 
     found: set[str] = set()
+    document = request.model_dump(mode="json")
+    payload = document.get("payload")
+    public_fields = _PUBLIC_PAYLOAD_FIELDS_BY_FUNCTION.get(request.function, ())
+    if isinstance(payload, Mapping) and public_fields:
+        document["payload"] = {
+            key: value for key, value in payload.items() if key not in public_fields
+        }
     _collect_nested(
-        request.model_dump(mode="json"),
+        document,
         found,
         inherited_sensitive=False,
     )

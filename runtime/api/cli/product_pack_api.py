@@ -7,24 +7,29 @@ import threading
 
 
 def _pack_bundle(version: str) -> dict:
+    credentials_action = "aws-actions/configure-aws-credentials@immutable-sha"
     content = {
-        "1.0.0": "base\ncustom-slot\n",
-        "1.1.0": "base-v2\ncustom-slot\n",
+        "1.0.0": f"base\ncustom-slot\naction={credentials_action}\n",
+        "1.1.0": f"base-v2\ncustom-slot\naction={credentials_action}\n",
     }[version]
     digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-    files = [{
-        "path": "sample-pack.txt",
-        "content": content,
-        "encoding": "utf-8",
-        "sha256": digest,
-        "mode": 0o644,
-    }]
-    material = [{
-        "path": "sample-pack.txt",
-        "sha256": digest,
-        "mode": 0o644,
-        "encoding": "utf-8",
-    }]
+    files = [
+        {
+            "path": "sample-pack.txt",
+            "content": content,
+            "encoding": "utf-8",
+            "sha256": digest,
+            "mode": 0o644,
+        }
+    ]
+    material = [
+        {
+            "path": "sample-pack.txt",
+            "sha256": digest,
+            "mode": 0o644,
+            "encoding": "utf-8",
+        }
+    ]
     content_digest = hashlib.sha256(
         json.dumps(material, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -38,7 +43,9 @@ def _pack_bundle(version: str) -> dict:
         "version": version,
         "latest_version": "1.1.0",
         "dependencies": [],
-        "render_values": {},
+        "render_values": {
+            "configure_aws_credentials_action": credentials_action,
+        },
         "files": files,
         "content_digest": content_digest,
     }
@@ -58,13 +65,15 @@ class PackApi:
             def do_POST(self) -> None:  # noqa: N802
                 size = int(self.headers.get("Content-Length", "0"))
                 request = json.loads(self.rfile.read(size).decode("utf-8"))
-                owner.requests.append({
-                    "method": "POST",
-                    "path": self.path,
-                    "authorization": self.headers.get("Authorization", ""),
-                    "function": request.get("function", ""),
-                    "project": request.get("payload", {}).get("project", ""),
-                })
+                owner.requests.append(
+                    {
+                        "method": "POST",
+                        "path": self.path,
+                        "authorization": self.headers.get("Authorization", ""),
+                        "function": request.get("function", ""),
+                        "project": request.get("payload", {}).get("project", ""),
+                    }
+                )
                 if self.path != "/v1/functions/call":
                     self.send_error(404)
                     return
@@ -84,27 +93,31 @@ class PackApi:
                         "project_id": 41,
                         "project_slug": "sample",
                         "repository_report": None,
-                        "packs": [{
-                            "slug": "sample-pack",
-                            "name": "Sample Pack",
-                            "description": "Packaged HTTPS transport fixture.",
-                            "latest_version": "1.1.0",
-                            "dependencies": [],
-                            "documentation": "docs/packs/sample-pack/README.md",
-                            "settings_schema": {},
-                            "verification": [],
-                            "file_count": 1,
-                            "status": "available",
-                            "installed_version": None,
-                        }],
+                        "packs": [
+                            {
+                                "slug": "sample-pack",
+                                "name": "Sample Pack",
+                                "description": "Packaged HTTPS transport fixture.",
+                                "latest_version": "1.1.0",
+                                "dependencies": [],
+                                "documentation": "docs/packs/sample-pack/README.md",
+                                "settings_schema": {},
+                                "verification": [],
+                                "file_count": 1,
+                                "status": "available",
+                                "installed_version": None,
+                            }
+                        ],
                     }
-                self._send_json({
-                    "success": True,
-                    "function": function_id,
-                    "version": request["version"],
-                    "request_id": request.get("request_id"),
-                    "result": result,
-                })
+                self._send_json(
+                    {
+                        "success": True,
+                        "function": function_id,
+                        "version": request["version"],
+                        "request_id": request.get("request_id"),
+                        "result": result,
+                    }
+                )
 
             def log_message(self, format: str, *args: object) -> None:
                 return
@@ -119,9 +132,7 @@ class PackApi:
 
         self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self._server.server_address[1]}"
-        self._thread = threading.Thread(
-            target=self._server.serve_forever, daemon=True
-        )
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
         return self
 
