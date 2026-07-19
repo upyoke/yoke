@@ -19,6 +19,7 @@ GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE = (
     "yoke github release create-next-tag <repo-slug> <source-sha> "
     "--summary TEXT --project P [--session-id S] [--json]"
 )
+RELEASE_TAG_REQUEST_TIMEOUT_SECONDS = 120.0
 
 
 def _write_created_tag(response, stdout, stderr) -> None:
@@ -73,10 +74,12 @@ def github_release_create_next_tag(args: List[str]) -> int:
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_write_created_tag,
+        timeout_s=RELEASE_TAG_REQUEST_TIMEOUT_SECONDS,
     )
 
 
 __all__ = [
     "GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE",
+    "RELEASE_TAG_REQUEST_TIMEOUT_SECONDS",
     "github_release_create_next_tag",
 ]
