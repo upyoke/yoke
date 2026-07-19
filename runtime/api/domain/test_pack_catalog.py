@@ -103,6 +103,32 @@ def test_latest_pack_boundaries_separate_shared_and_application_specific_code(
     assert "infra/webapp_environment_stack.py" in targets(environment)
 
 
+def test_environment_pack_keeps_disabled_preview_domain_an_explicit_string(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
+
+    descriptor = pack_catalog.load_pack_descriptor(
+        "webapp-environment-infrastructure"
+    )
+    latest = descriptor["latest_version"]
+    template = (
+        ROOT
+        / "packs"
+        / descriptor["slug"]
+        / "versions"
+        / latest
+        / "files"
+        / "infra"
+        / "Pulumi.environment-stack.yaml.tmpl"
+    ).read_text(encoding="utf-8")
+
+    assert (
+        'webapp-infra:ephemeral_preview_domain: "{{ephemeral_preview_domain}}"'
+        in template
+    )
+
+
 def test_bundle_records_only_used_render_values_and_preserves_github_expressions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
