@@ -65,7 +65,8 @@ STALE_TERMS: tuple[str, ...] = (
 #
 # Role/topic doctrine:
 # - ``main_agent`` is the top-level Yoke agent running inline skills /
-#   ad-hoc investigation. It receives ``core`` + ``claims`` plus ``qa``;
+#   ad-hoc investigation. It receives ``core`` + ``claims`` plus ``qa`` and
+#   the compact Pack projection topic;
 #   deployment-run raw-query diagnostics are taught as a compact role hint
 #   so the main packet does not inherit the full project topic:
 #   conduct / polish / advance main sessions orchestrate engineer +
@@ -90,7 +91,7 @@ STALE_TERMS: tuple[str, ...] = (
 # ---------------------------------------------------------------------------
 
 ROLE_TOPICS: dict[str, tuple[str, ...]] = {
-    "main_agent": ("core", "claims", "auth", "qa"),
+    "main_agent": ("core", "claims", "auth", "qa", "packs"),
     "architect_agent": ("core", "claims"),
     "engineer_agent": ("core", "claims", "qa", "project"),
     "tester_agent": ("core", "claims", "qa", "project"),
@@ -100,7 +101,7 @@ ROLE_TOPICS: dict[str, tuple[str, ...]] = {
 
 
 # Topics that exist (for validator + CLI flag completion).
-TOPICS: tuple[str, ...] = ("core", "claims", "auth", "qa", "project")
+TOPICS: tuple[str, ...] = ("core", "claims", "auth", "qa", "project", "packs")
 
 
 # Tables surfaced by topic. Every fact in the packet derives from this map.
@@ -142,6 +143,11 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "actor_org_roles",
     ),
     "qa": ("qa_requirements", "qa_runs"),
+    "packs": (
+        "pack_catalog",
+        "project_pack_reports",
+        "project_pack_report_entries",
+    ),
     "project": (
         "projects",
         "project_structure",
@@ -171,7 +177,9 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # pasted into the ``schema_api_context_commands_watchers`` sibling — the
 # vetted-telemetry watch_pytest / watch_doctor / watch_merge patterns —
 # push each multi-topic packet (engineer_agent / tester_agent) past a
-# smaller per-role cap, so the cap follows the registered recipes the packet
-# carries rather than an arbitrary prose target.
-PACKET_LINE_BUDGET_PER_ROLE: int = 414
-PACKET_LINE_BUDGET_AGGREGATE: int = 2150
+# smaller per-role cap. The top-level packet also carries the compact Pack
+# catalog/report projection so Pack-status audits do not guess its schema.
+# These caps therefore follow the complete registered recipes and table facts
+# rendered today rather than an arbitrary prose target.
+PACKET_LINE_BUDGET_PER_ROLE: int = 417
+PACKET_LINE_BUDGET_AGGREGATE: int = 2158
