@@ -32,6 +32,14 @@ def register(registry) -> None:
             ["global"],
         ),
         (
+            "packs.relink.run",
+            h.handle_packs_relink,
+            h.PacksRelinkRequest,
+            h.PacksRelinkResponse,
+            ["project_repo_file_write"],
+            ["global"],
+        ),
+        (
             "packs.bundle.get",
             h.handle_packs_bundle_get,
             h.PacksBundleGetRequest,

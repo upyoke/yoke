@@ -29,5 +29,6 @@ def test_pack_handlers_are_registered() -> None:
         "packs.bundle.get",
         "packs.project.report",
         "packs.get.run",
+        "packs.relink.run",
         "packs.update.run",
     } <= ids
