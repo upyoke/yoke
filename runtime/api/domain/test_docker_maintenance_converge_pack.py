@@ -13,7 +13,7 @@ import pytest
 def _module() -> ModuleType:
     path = (
         Path(__file__).resolve().parents[3]
-        / "packs/host-maintenance/versions/1.0.0/files"
+        / "packs/host-maintenance/versions/1.1.0/files"
         / "ops/docker_maintenance_converge.py"
     )
     spec = importlib.util.spec_from_file_location("docker_maintenance_converge", path)

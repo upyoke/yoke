@@ -60,6 +60,25 @@ def test_pack_sources_are_generic_project_owned_code() -> None:
             assert phrase not in text, path
 
 
+def test_host_maintenance_latest_is_a_standalone_utility_bundle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
+
+    descriptor = pack_catalog.load_pack_descriptor("host-maintenance")
+    latest = descriptor["versions"][descriptor["latest_version"]]
+
+    assert descriptor["latest_version"] == "1.1.0"
+    assert latest["dependencies"] == []
+    assert latest["settings_schema"]["required"] == []
+    assert {row["target"] for row in latest["files"]} == {
+        "docs/packs/host-maintenance/README.md",
+        "docs/packs/host-maintenance/setup.md",
+        "ops/docker_image_cleanup.py",
+        "ops/docker_maintenance_converge.py",
+    }
+
+
 def test_bundle_records_only_used_render_values_and_preserves_github_expressions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

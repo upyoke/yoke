@@ -3,10 +3,142 @@
   "slug": "ephemeral-environments",
   "name": "Ephemeral Environments",
   "description": "Preview-environment deploy, run, teardown, routing, and cleanup.",
-  "latest_version": "1.0.0",
+  "latest_version": "1.0.1",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
+      "documentation": "docs/packs/ephemeral-environments/README.md",
+      "dependencies": [
+        "container-runtime",
+        "production-deploy"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "PROJECT_NAME_UPPER": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "api_port": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "api_port_base": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "checkout_action": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "ephemeral_ttl_hours": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "port_base": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "port_range": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          },
+          "web_port": {
+            "type": "string",
+            "description": "Project value used when installing the Ephemeral Environments Pack."
+          }
+        },
+        "required": [
+          "PROJECT_NAME_UPPER",
+          "api_port",
+          "api_port_base",
+          "checkout_action",
+          "domain",
+          "ephemeral_ttl_hours",
+          "port_base",
+          "port_range",
+          "project_name",
+          "web_port"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": ".github/workflows/{{project_name}}-ephemeral-run.yml",
+          "target": ".github/workflows/{{project_name}}-ephemeral-run.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": ".github/workflows/{{project_name}}-ephemeral-teardown.yml",
+          "target": ".github/workflows/{{project_name}}-ephemeral-teardown.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": ".github/workflows/{{project_name}}-ephemeral.yml",
+          "target": ".github/workflows/{{project_name}}-ephemeral.yml",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "docs/packs/ephemeral-environments/README.md",
+          "target": "docs/packs/ephemeral-environments/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/core-service/docker-compose.ephemeral.yml.tmpl",
+          "target": "ops/core-service/docker-compose.ephemeral.yml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "ops/ephemeral-cleanup.sh.tmpl",
+          "target": "ops/ephemeral-cleanup.sh",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "ops/ephemeral-list.sh.tmpl",
+          "target": "ops/ephemeral-list.sh",
+          "mode": "0755",
+          "render": "install"
+        },
+        {
+          "source": "ops/ephemeral_port.js",
+          "target": "ops/ephemeral_port.js",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "ops/nginx-ephemeral.conf",
+          "target": "ops/nginx-ephemeral.conf",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "router-check",
+          "command": "node --check ops/ephemeral_port.js"
+        },
+        {
+          "name": "source-check",
+          "command": "git diff --check -- .github/workflows ops"
+        }
+      ]
+    },
+    "1.0.1": {
+      "source": "versions/1.0.1/files",
       "documentation": "docs/packs/ephemeral-environments/README.md",
       "dependencies": [
         "container-runtime",

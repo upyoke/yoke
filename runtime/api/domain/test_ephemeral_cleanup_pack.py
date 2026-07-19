@@ -5,7 +5,7 @@ covering these invariants:
 
 * ephemeral-cleanup Pack source uses filesystem-driven discovery
 * Compose project / volume parsing survives hyphenated slugs
-* setup-vps-maintenance installs the cleanup cron entry
+* cleanup scheduling stays project-owned rather than hidden in another Pack
 * deploy / teardown workflows clean up images and volumes
 
 The Python port preserves the same invariants as regex/substring assertions.
@@ -23,9 +23,8 @@ import pytest
 from yoke_core.domain.pack_render import render_pack_text
 
 
-EPHEMERAL_FILES = "packs/ephemeral-environments/versions/1.0.0/files"
-HOST_FILES = "packs/host-maintenance/versions/1.0.0/files"
-VPS_FILES = "packs/vps-hosting/versions/1.0.0/files"
+EPHEMERAL_FILES = "packs/ephemeral-environments/versions/1.0.1/files"
+VPS_FILES = "packs/vps-hosting/versions/1.0.1/files"
 PRODUCTION_FILES = "packs/production-deploy/versions/1.0.0/files"
 
 
@@ -50,13 +49,6 @@ def repo_root() -> Path:
 @pytest.fixture(scope="module")
 def cleanup_tmpl(repo_root: Path) -> str:
     tmpl = repo_root / EPHEMERAL_FILES / "ops/ephemeral-cleanup.sh.tmpl"
-    assert tmpl.is_file(), f"Pack source missing: {tmpl}"
-    return tmpl.read_text()
-
-
-@pytest.fixture(scope="module")
-def maint_tmpl(repo_root: Path) -> str:
-    tmpl = repo_root / HOST_FILES / "ops/setup-vps-maintenance.sh.tmpl"
     assert tmpl.is_file(), f"Pack source missing: {tmpl}"
     return tmpl.read_text()
 
@@ -107,8 +99,9 @@ class TestCleanupPackSourceShape:
         assert "grep -v '^core$'" in cleanup_tmpl
 
     def test_has_deployment_instructions_header(self, cleanup_tmpl: str) -> None:
-        """Header must point the operator at setup-vps-maintenance or the cron line."""
-        assert "setup-vps-maintenance" in cleanup_tmpl or "cron" in cleanup_tmpl
+        """Header must make scheduler ownership explicit."""
+        assert "Scheduling is project-owned" in cleanup_tmpl
+        assert "cron, systemd" in cleanup_tmpl
 
     def test_filesystem_driven_discovery(self, cleanup_tmpl: str) -> None:
         """cleanup uses filesystem-driven discovery, not Compose-only."""
@@ -146,7 +139,7 @@ class TestCleanupPackSourceShape:
         assert "exit 0" in cleanup_tmpl
 
     def test_has_deployment_reference_in_header(self, cleanup_tmpl: str) -> None:
-        assert "{{ssh_user}}" in cleanup_tmpl or "setup-vps-maintenance" in cleanup_tmpl
+        assert "chosen scheduler" in cleanup_tmpl
 
     def test_heredoc_pattern_for_while_read(self, cleanup_tmpl: str) -> None:
         """use ``done <<EOF`` so counters survive the while-read loop."""
@@ -241,36 +234,23 @@ class TestRenderedExternalWebappCleanup:
 
 
 # ---------------------------------------------------------------------------
-# setup-vps-maintenance Pack integration
+# Pack boundary
 # ---------------------------------------------------------------------------
 
-class TestSetupVpsMaintenancePack:
-    def test_installs_cleanup_cron_entry(self, maint_tmpl: str) -> None:
-        """The installed maintenance source includes the cleanup cron line."""
-        assert "ephemeral-cleanup" in maint_tmpl
-
-    def test_reconciles_stale_entries(self, maint_tmpl: str) -> None:
-        """The installed maintenance source reconciles stale cron entries."""
-        assert "reconcile" in maint_tmpl
-
-    def test_avoids_local_in_posix_functions(self, maint_tmpl: str) -> None:
-        """Yoke POSIX-sh rule: no ``local`` in functions.
-
-        ``local`` is the one accepted deviation repo-wide (per AGENTS.md),
-        but the historical shell test explicitly forbade it in this script
-        to avoid dash-incompat on the target VPS. Preserve that stricter rule.
-        """
-        import re
-        lines = [ln for ln in maint_tmpl.splitlines() if re.match(r"^\s*local\s", ln)]
-        assert not lines, f"found ``local`` declarations in Pack source: {lines}"
-
-    def test_global_image_maintenance_is_dangling_only(
-        self, maint_tmpl: str
+class TestMaintenancePackBoundary:
+    def test_latest_host_maintenance_has_no_ephemeral_setup_program(
+        self, repo_root: Path
     ) -> None:
-        assert 'MAINTENANCE_HELPER="$HOME/docker_maintenance_converge.py"' in maint_tmpl
-        assert 'python3 "$MAINTENANCE_HELPER"' in maint_tmpl
-        assert "WEEKLY_ENTRY=" not in maint_tmpl
-        assert "docker image prune -af" not in maint_tmpl
+        host_files = (
+            repo_root / "packs/host-maintenance/versions/1.1.0/files"
+        )
+        assert not (host_files / "ops/setup-vps-maintenance.sh.tmpl").exists()
+        assert not list(host_files.rglob("*.sh.tmpl"))
+
+    def test_ephemeral_cleanup_does_not_name_retired_setup_program(
+        self, cleanup_tmpl: str
+    ) -> None:
+        assert "setup-vps-maintenance" not in cleanup_tmpl
 
 
 class TestProvisionEc2PackSource:
@@ -287,11 +267,11 @@ class TestProvisionEc2PackSource:
         assert "NR > 1" in provision_tmpl
         assert 'grep -Eq "^${SWAPFILE}' in provision_tmpl
 
-    def test_maintenance_setup_runs_as_deploy_user(
+    def test_provisioning_leaves_maintenance_policy_to_project(
         self, provision_tmpl: str
     ) -> None:
-        assert "sh setup-vps-maintenance.sh" in provision_tmpl
-        assert "sudo sh setup-vps-maintenance.sh" not in provision_tmpl
+        assert "selected maintenance and scheduling policy" in provision_tmpl
+        assert "setup-vps-maintenance" not in provision_tmpl
 
 
 # ---------------------------------------------------------------------------
