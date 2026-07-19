@@ -76,7 +76,22 @@ def run_pack_operation(
             set(),
             session_id=session_id,
         )
-    bundles.append(requested)
+        bundles.append(requested)
+    else:
+        missing_dependencies: list[dict[str, Any]] = []
+        _collect_missing_dependencies(
+            project,
+            requested,
+            installed,
+            missing_dependencies,
+            set(),
+            session_id=session_id,
+        )
+        # Simulate the selected Pack first so files removed from its new
+        # version can be handed to a newly required Pack in the same atomic
+        # operation. No checkout writes happen until every plan is clean.
+        bundles.append(requested)
+        bundles.extend(missing_dependencies)
 
     plans: list[dict[str, Any]] = []
     execution_plans: list[dict[str, Any]] = []
