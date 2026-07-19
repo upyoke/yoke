@@ -59,7 +59,17 @@ def plan_update(
                 conflicts.append({"path": path, "reason": "new_pack_file_collides"})
             continue
         if current is None:
-            conflicts.append({"path": path, "reason": "project_removed_file"})
+            if _matches(prior, wanted):
+                retained.append(
+                    {"path": path, "reason": "project_removed_unchanged_upstream"}
+                )
+            else:
+                conflicts.append(
+                    {
+                        "path": path,
+                        "reason": "upstream_changed_project_removed_file",
+                    }
+                )
             continue
         if _matches(current, wanted):
             unchanged.append(path)

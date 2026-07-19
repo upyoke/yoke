@@ -77,6 +77,41 @@ def test_update_keeps_a_file_removed_by_the_new_pack(tmp_path: Path) -> None:
     )
 
 
+def test_update_preserves_project_deletion_when_upstream_file_is_unchanged(
+    tmp_path: Path,
+) -> None:
+    entry = _text_entry("project-removed.txt", "unchanged pack content\n")
+
+    plan = plan_update(tmp_path, [entry], [entry])
+
+    assert plan["changed"] is False
+    assert plan["conflicts"] == []
+    assert plan["retained_project_files"] == [
+        {
+            "path": "project-removed.txt",
+            "reason": "project_removed_unchanged_upstream",
+        }
+    ]
+
+
+def test_update_conflicts_when_upstream_changes_a_project_deleted_file(
+    tmp_path: Path,
+) -> None:
+    plan = plan_update(
+        tmp_path,
+        [_text_entry("project-removed.txt", "old pack content\n")],
+        [_text_entry("project-removed.txt", "new pack content\n")],
+    )
+
+    assert plan["updates"] == []
+    assert plan["conflicts"] == [
+        {
+            "path": "project-removed.txt",
+            "reason": "upstream_changed_project_removed_file",
+        }
+    ]
+
+
 def test_update_replaces_unchanged_binary_and_refuses_customized_binary(
     tmp_path: Path,
 ) -> None:
