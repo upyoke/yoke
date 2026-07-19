@@ -50,7 +50,7 @@ export const NAV = [
       {
         id: "infrastructure", label: "Infrastructure",
         summary:
-          "What backs an environment, with drift from the template as the signal.",
+          "What backs an environment and its latest operational state.",
       },
     ],
   },

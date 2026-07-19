@@ -1,4 +1,4 @@
-"""Pulumi stack-instance parsing for project template renders."""
+"""Pulumi stack-instance parsing for project-owned Pack renders."""
 
 from __future__ import annotations
 

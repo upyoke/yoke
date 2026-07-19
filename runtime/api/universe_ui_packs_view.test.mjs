@@ -97,7 +97,7 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
   assert.ok(screenText.includes("container-runtime: missing"));
   assert.deepEqual(
     byClass(root, "pack-preview-action").map((node) => node.textContent),
-    ["Preview get", "Preview update"],
+    ["Inspect get", "Inspect update"],
   );
 
   byClass(root, "pack-preview-action")[1].dispatchEvent(new Event("click"));
@@ -105,8 +105,9 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
   const previewText = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.ok(previewText.includes(".github/workflows/demo-deploy.yml"));
   assert.ok(previewText.includes(
-    "yoke packs update production-deploy --project demo",
+    "yoke packs update production-deploy . --project demo",
   ));
+  assert.ok(previewText.includes("add --apply only after reviewing that preview"));
   assert.equal(
     requests.filter((request) => request.function === "packs.bundle.get").length,
     1,

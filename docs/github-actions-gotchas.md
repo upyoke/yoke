@@ -66,7 +66,7 @@ steps:
     run: aws cloudfront create-invalidation --distribution-id "$CF_ID" --paths "/*"
 ```
 
-The reusable webapp deploy and hotfix templates own the reviewed action pin,
+The production-deploy Pack workflows own the reviewed action pin,
 CloudFront discovery, bounded diagnostics, and fail-closed behavior. Long-lived
 AWS access keys are not a supported GitHub Actions credential path.
 

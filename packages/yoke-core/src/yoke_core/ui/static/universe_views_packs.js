@@ -36,14 +36,15 @@ function renderPackPreview(context, panel, project, row) {
         `Pack code becomes ordinary ${bundle.project_slug || "project"} source. ` +
           "Customize it freely after it lands.",
       ));
-      const command = `yoke packs ${operation} ${row.slug} --project ` +
+      const command = `yoke packs ${operation} ${row.slug} . --project ` +
         `${bundle.project_slug || project}`;
       const commandLine = el(documentNode, "p", "fact-line");
       commandLine.appendChild(el(
         documentNode,
         "span",
         null,
-        "In the project checkout, preview the three-way merge and exact conflicts: ",
+        "Run from the project checkout to preview the exact patch and conflicts; " +
+          "add --apply only after reviewing that preview: ",
       ));
       commandLine.appendChild(el(documentNode, "code", null, command));
       body.appendChild(commandLine);
@@ -114,7 +115,7 @@ function renderPackCatalog(body, result, context, previewPanel, project) {
       documentNode,
       "button",
       "capability-action pack-preview-action",
-      `Preview ${operation}`,
+      `Inspect ${operation}`,
     );
     button.type = "button";
     button.addEventListener("click", () => {
@@ -130,7 +131,7 @@ function renderPackCatalog(body, result, context, previewPanel, project) {
 
 export function renderPacksView(context, main, scope) {
   const catalog = section(context.document, "Pack catalog");
-  const preview = section(context.document, "Pack preview");
+  const preview = section(context.document, "Pack contents and checkout handoff");
   preview.renderEnvelope(
     { status: 200, envelope: { success: true, result: {} } },
     (body) => body.appendChild(el(
