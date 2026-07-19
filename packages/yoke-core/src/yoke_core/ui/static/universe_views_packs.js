@@ -18,6 +18,13 @@ function packDependencySummary(row, statusBySlug) {
   }).join(", ");
 }
 
+function displayFileMode(mode) {
+  if (Number.isInteger(mode) && mode >= 0) {
+    return mode.toString(8).padStart(4, "0");
+  }
+  return String(mode ?? "");
+}
+
 function renderPackPreview(context, panel, project, row) {
   const operation = row.status === "available" ? "get" : "update";
   loadSection(
@@ -50,7 +57,7 @@ function renderPackPreview(context, panel, project, row) {
       body.appendChild(commandLine);
       renderTable(body, bundle.files || [], [
         { label: "file", value: (file) => file.path, code: true },
-        { label: "mode", value: (file) => file.mode, mono: true },
+        { label: "mode", value: (file) => displayFileMode(file.mode), mono: true },
       ], "this Pack contains no project files");
     },
   );
