@@ -8,6 +8,7 @@ from yoke_cli.operation_inventory_model import _Row, _w
 
 
 WRAPPED_ROWS: Tuple[_Row, ...] = (
+    _w("yoke ephemeral-env get", "ephemeral_env"),
     _w("yoke ephemeral-env create", "ephemeral_env"),
     _w("yoke ephemeral-env update", "ephemeral_env"),
 )
