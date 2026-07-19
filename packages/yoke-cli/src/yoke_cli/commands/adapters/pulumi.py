@@ -24,7 +24,9 @@ from yoke_cli.config import existing_project_lookup, machine_config
 from yoke_cli.transport.pulumi_github_authority import (
     build_pulumi_github_auth_loader,
 )
-from yoke_cli.transport.runner_fleet_token import fetch_runner_fleet_token
+from yoke_cli.transport.runner_fleet_token import (
+    fetch_repository_provider_token,
+)
 
 
 PULUMI_EXEC_USAGE = (
@@ -104,10 +106,10 @@ def pulumi_exec(args: List[str]) -> int:
             raise RuntimeError(message)
         return load_pulumi_stack_config(project, stack)
 
-    def hosted_runner_token_loader(
+    def hosted_repository_token_loader(
         project: str, authority_intent: str, aws_env: Mapping[str, str]
     ) -> str:
-        return fetch_runner_fleet_token(
+        return fetch_repository_provider_token(
             project=project,
             authority_intent=authority_intent,
             aws_env=aws_env,
@@ -129,7 +131,7 @@ def pulumi_exec(args: List[str]) -> int:
             github_auth_loader=build_pulumi_github_auth_loader(
                 session_id=parsed.session_id
             ),
-            hosted_runner_token_loader=hosted_runner_token_loader,
+            hosted_repository_token_loader=hosted_repository_token_loader,
             bootstrap_local_authority=parsed.bootstrap_local_authority,
         )
     except FileNotFoundError as exc:

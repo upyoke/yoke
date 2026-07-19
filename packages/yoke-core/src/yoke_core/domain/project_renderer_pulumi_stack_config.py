@@ -5,6 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_core.domain.github_actions_runner_fleet_capability import (
+    CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
+)
 from yoke_core.domain.project_github_binding_payload import normalize_github_repo
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.project_renderer_pulumi_values import (
@@ -35,6 +38,9 @@ from yoke_core.domain.project_renderer_settings import (
     _load_project_renderer_settings,
 )
 from yoke_core.domain.pulumi_state_capability import validate_stack_state
+from yoke_core.domain.repository_provider_authority import (
+    repository_provider_intent_from_settings,
+)
 
 
 STACK_CONFIG_SCHEMA = 2
@@ -257,7 +263,7 @@ def _authority(
         permissions = _GITHUB_VARIABLES_INTENT
     else:
         permissions = _GITHUB_METADATA_INTENT
-    return {
+    authority = {
         "aws_capability": aws_capability,
         "aws_region": region,
         "backend_url": f"s3://{state_bucket}?region={region}",
@@ -270,6 +276,18 @@ def _authority(
             "operator_state.encrypted_key",
         ],
     }
+    if (
+        binding
+        and stack_kind in {"environment", "registry"}
+        and RUNNER_FLEET_CAPABILITY_TYPE in settings.capabilities
+    ):
+        authority["hosted_repository_token_intent"] = (
+            repository_provider_intent_from_settings(
+                settings,
+                expected_repo=str(binding.get("github_repo") or ""),
+            )
+        )
+    return authority
 
 
 def _github_binding_for_repo(

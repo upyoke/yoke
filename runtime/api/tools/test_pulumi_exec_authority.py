@@ -159,7 +159,7 @@ def test_runner_fleet_actions_uses_hosted_repository_token_broker(
         seen.update({
             "project": project,
             "authority_intent": authority_intent,
-            "aws_env": aws_env,
+            "aws_env": dict(aws_env),
         })
         return "hosted-token"
 
@@ -171,7 +171,7 @@ def test_runner_fleet_actions_uses_hosted_repository_token_broker(
         github_auth_loader=lambda *args, **kwargs: pytest.fail(
             "consulted the ordinary repository-token path"
         ),
-        hosted_runner_token_loader=hosted_loader,
+        hosted_repository_token_loader=hosted_loader,
     )
 
     assert seen["project"] == "platform"
@@ -180,6 +180,66 @@ def test_runner_fleet_actions_uses_hosted_repository_token_broker(
     assert env["GITHUB_TOKEN"] == "hosted-token"
     assert env["YOKE_RUNNER_FLEET_AUTHORITY_INTENT"]
     assert "hosted-token" in redaction
+
+
+def test_registry_actions_uses_hosted_repository_token_broker(monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    payload = _stack_payload("platform", "yoke-registry")
+    payload["stack_kind"] = "registry"
+    payload["authority"].update({
+        "github_project": "platform",
+        "github_repo": "upyoke/platform",
+        "github_permissions": {
+            "metadata": "read",
+            "actions_variables": "write",
+        },
+        "hosted_repository_token_intent": "signed-broker-intent",
+    })
+    seen = {}
+
+    def hosted_loader(project, authority_intent, aws_env):
+        seen.update({
+            "project": project,
+            "authority_intent": authority_intent,
+            "aws_env": dict(aws_env),
+        })
+        return "hosted-registry-token"
+
+    env, redaction = _authority_env(
+        "platform", payload["authority"], payload,
+        aws_env_loader=lambda *args, **kwargs: {
+            "AWS_ACCESS_KEY_ID": "oidc-key",
+        },
+        github_auth_loader=lambda *args, **kwargs: pytest.fail(
+            "consulted the ambient repository-token path"
+        ),
+        hosted_repository_token_loader=hosted_loader,
+    )
+
+    assert seen == {
+        "project": "platform",
+        "authority_intent": "signed-broker-intent",
+        "aws_env": {"AWS_ACCESS_KEY_ID": "oidc-key"},
+    }
+    assert env["GITHUB_TOKEN"] == "hosted-registry-token"
+    assert "hosted-registry-token" in redaction
+
+
+def test_registry_actions_requires_configured_repository_broker(monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    payload = _stack_payload("platform", "yoke-registry")
+    payload["stack_kind"] = "registry"
+    payload["authority"].update({
+        "github_project": "platform",
+        "github_repo": "upyoke/platform",
+        "github_permissions": {"actions_variables": "write"},
+    })
+    with pytest.raises(PulumiExecError, match="provider-token broker"):
+        _authority_env(
+            "platform", payload["authority"], payload,
+            aws_env_loader=lambda *args, **kwargs: {},
+            github_auth_loader=lambda *args, **kwargs: None,
+        )
 
 def test_local_bootstrap_refuses_non_runner_stack():
     payload = _stack_payload()
