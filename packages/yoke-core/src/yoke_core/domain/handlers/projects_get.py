@@ -78,8 +78,36 @@ def handle_projects_get(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.projects import PROJECT_FIELDS
     from yoke_core.domain.projects_crud import cmd_get
 
+    resolved_project = project
+    actor_id = numeric_actor_id(request.actor.actor_id if request.actor else None)
+    if actor_id is not None:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.project_identity import resolve_project
+
+        conn = connect()
+        try:
+            visible_project_ids = actor_visible_project_ids(conn, actor_id)
+            identity = resolve_project(
+                conn,
+                project,
+                required=False,
+                visible_project_ids=visible_project_ids,
+            )
+        finally:
+            conn.close()
+        if identity is None:
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(
+                    code="not_found",
+                    message=f"project '{project}' not found",
+                    jsonpath="$.payload.project",
+                ),
+            )
+        resolved_project = str(identity.id)
+
     try:
-        raw = cmd_get(project, field=field)
+        raw = cmd_get(resolved_project, field=field)
     except ValueError:
         return HandlerOutcome(
             primary_success=False,

@@ -63,7 +63,7 @@ ROLE_DESCRIPTIONS = {
         "read their status."
     ),
     ROLE_INFRASTRUCTURE_CI: (
-        "Read infrastructure settings for preview workflows."
+        "Read exact infrastructure render inputs for preview workflows."
     ),
     ROLE_ADMIN: "Org-wide administration across all of the org's projects.",
 }
@@ -79,7 +79,8 @@ PERMISSION_DESCRIPTIONS = {
     PERM_BOARD_REBUILD: "Render or rebuild board views.",
     PERM_PROJECT_INSTALL: "Install or refresh project-local Yoke files.",
     PERM_PROJECT_RENDER_READ: (
-        "Read secret-free project settings used to render deployment infrastructure."
+        "Read project settings and encrypted operator state used to render "
+        "deployment infrastructure."
     ),
     PERM_PROJECT_ADMIN: "Administer project settings and grants.",
     PERM_DB_READ_RAW: "Run bounded raw diagnostic DB reads.",

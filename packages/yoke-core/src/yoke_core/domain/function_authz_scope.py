@@ -46,6 +46,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_ADMIN,
     PERM_PROJECT_CREATE,
     PERM_PROJECT_INSTALL,
+    PERM_PROJECT_RENDER_READ,
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.yoke_function_registry import RegistryEntry
@@ -115,10 +116,13 @@ _BY_ID: dict[str, AuthzSpec] = {
         PROJECT, PERM_PROJECT_ADMIN,
     ),
     "projects.pulumi_stack_config.get": AuthzSpec(
-        PROJECT, PERM_PROJECT_ADMIN,
+        PROJECT, PERM_PROJECT_RENDER_READ,
     ),
     "projects.capability.has": AuthzSpec(PROJECT, PERM_ITEMS_READ),
-    "projects.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    # Project identity metadata is visible to every actor who belongs to the
+    # project.  The handler applies the same actor-visible filter as
+    # projects.list, so specialized service roles do not need backlog access.
+    "projects.get": AuthzSpec(ACTOR_SESSION, None),
     "projects.resolve_by_github_repo": AuthzSpec(ACTOR_SESSION, None),
     "projects.checkout_context.run": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.github_binding.bind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

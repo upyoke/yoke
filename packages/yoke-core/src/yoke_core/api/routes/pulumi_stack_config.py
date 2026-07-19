@@ -5,8 +5,8 @@ checks that do not need an exact stack program. Exact Pulumi execution uses the
 stack-scoped no-store route plus project-owned Pack source. Auth is the
 app-level bearer-token middleware plus the dedicated ``project.render.read``
 permission; install, onboarding, snapshot-sync, and project-admin authority are
-deliberately separate, and anything secret an update needs lives on the
-OIDC-scoped AWS side, never here.
+deliberately separate. The exact-stack response can carry encrypted Pulumi
+operator state, but never plaintext secrets; AWS authority remains OIDC-scoped.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
 from yoke_core.domain.actor_permissions import (
-    PERM_PROJECT_ADMIN,
     PERM_PROJECT_RENDER_READ,
     PermissionDenied,
     require_permission,
@@ -95,7 +94,7 @@ def get_scoped_pulumi_stack_config(
                 conn,
                 actor_id=auth.actor_id,
                 project_id=project_id,
-                permission_key=PERM_PROJECT_ADMIN,
+                permission_key=PERM_PROJECT_RENDER_READ,
             )
             payload = build_scoped_pulumi_stack_config(conn, str(project_id), stack)
         except LookupError as exc:

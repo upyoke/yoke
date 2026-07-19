@@ -120,6 +120,76 @@ class TestProjectsGet(unittest.TestCase):
         for name in PROJECT_FIELDS:
             self.assertIn(name, outcome.error.message)
 
+    def test_authenticated_actor_reads_only_visible_project(self):
+        class _Connection:
+            def close(self):
+                pass
+
+        request = FunctionCallRequest(
+            function="projects.get",
+            actor=ActorContext(actor_id="17", session_id="s-1"),
+            target=TargetRef(kind="global"),
+            payload={"project": "platform", "field": "id"},
+        )
+        identity = type("Identity", (), {"id": 3})()
+        with (
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                return_value=_Connection(),
+            ),
+            patch(
+                "yoke_core.domain.handlers.projects_get.actor_visible_project_ids",
+                return_value={3},
+            ) as visible,
+            patch(
+                "yoke_core.domain.project_identity.resolve_project",
+                return_value=identity,
+            ) as resolve,
+            patch(
+                "yoke_core.domain.projects_crud.cmd_get",
+                return_value="3",
+            ) as get,
+        ):
+            outcome = projects_get.handle_projects_get(request)
+
+        self.assertTrue(outcome.primary_success)
+        self.assertEqual(outcome.result_payload["value"], "3")
+        visible.assert_called_once()
+        self.assertEqual(resolve.call_args.kwargs["visible_project_ids"], {3})
+        get.assert_called_once_with("3", field="id")
+
+    def test_authenticated_actor_cannot_read_invisible_project(self):
+        class _Connection:
+            def close(self):
+                pass
+
+        request = FunctionCallRequest(
+            function="projects.get",
+            actor=ActorContext(actor_id="17", session_id="s-1"),
+            target=TargetRef(kind="global"),
+            payload={"project": "other"},
+        )
+        with (
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                return_value=_Connection(),
+            ),
+            patch(
+                "yoke_core.domain.handlers.projects_get.actor_visible_project_ids",
+                return_value={3},
+            ),
+            patch(
+                "yoke_core.domain.project_identity.resolve_project",
+                return_value=None,
+            ),
+            patch("yoke_core.domain.projects_crud.cmd_get") as get,
+        ):
+            outcome = projects_get.handle_projects_get(request)
+
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "not_found")
+        get.assert_not_called()
+
 
 class TestProjectsGetAdapterRegistration(unittest.TestCase):
     """AC-47 — projects.get is registered and appears in the adapter inventory."""
