@@ -134,7 +134,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.github_binding.status": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "project.snapshot.sync": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "deployment_flows.reconcile_project": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "packs.catalog.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "packs.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "packs.bundle.get": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "packs.project.report": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "project_structure.command_definitions.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),

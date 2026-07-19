@@ -32,7 +32,7 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
       if (request.function === "projects.list") {
         return successful({ rows: [{ id: 7, slug: "demo", name: "Demo" }] });
       }
-      if (request.function === "packs.catalog.list") {
+      if (request.function === "packs.list") {
         assert.deepEqual(request.payload, { project: "7" });
         return successful({
           project_id: 7,

@@ -145,7 +145,7 @@ export function renderPacksView(context, main, scope) {
   loadSection(
     context,
     catalog,
-    "packs.catalog.list",
+    "packs.list",
     { project: scope },
     (body, callResult) => {
       const result = callResult.envelope.result || {};

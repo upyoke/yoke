@@ -8,11 +8,27 @@ from yoke_core.domain.handlers import pack_handlers as h
 def register(registry) -> None:
     rows = (
         (
-            "packs.catalog.list",
+            "packs.list",
             h.handle_packs_catalog_list,
             h.PacksCatalogListRequest,
             h.PacksCatalogListResponse,
             [],
+            ["global"],
+        ),
+        (
+            "packs.get.run",
+            h.handle_packs_get,
+            h.PacksOperationRequest,
+            h.PacksOperationResponse,
+            ["project_repo_file_write"],
+            ["global"],
+        ),
+        (
+            "packs.update.run",
+            h.handle_packs_update,
+            h.PacksOperationRequest,
+            h.PacksOperationResponse,
+            ["project_repo_file_write"],
             ["global"],
         ),
         (

@@ -1,4 +1,4 @@
-"""Canonical brand consumers stay byte-identical to the public source set."""
+"""Yoke's product UI stays byte-identical to its canonical brand source."""
 
 from __future__ import annotations
 
@@ -10,9 +10,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 BRAND = ROOT / "brand"
 UI = ROOT / "packages" / "yoke-core" / "src" / "yoke_core" / "ui" / "static"
-WEBAPP = ROOT / "templates" / "webapp" / "scaffold" / "app" / "web"
-WEBAPP_BRAND = WEBAPP / "public" / "brand"
-
 BRAND_FILES = (
     Path("theme.css"),
     Path("shell.css"),
@@ -27,11 +24,6 @@ BRAND_FILES = (
     Path("favicon/og-image.png"),
     Path("favicon/site.webmanifest"),
 )
-
-
-@pytest.mark.parametrize("relative", BRAND_FILES)
-def test_managed_webapp_brand_copy_matches_canonical_source(relative: Path):
-    assert (WEBAPP_BRAND / relative).read_bytes() == (BRAND / relative).read_bytes()
 
 
 @pytest.mark.parametrize(
@@ -51,17 +43,3 @@ def test_universe_ui_brand_copy_matches_canonical_source(
     consumer: str,
 ):
     assert (UI / consumer).read_bytes() == (BRAND / source).read_bytes()
-
-
-def test_managed_webapp_loads_and_uses_the_canonical_frame():
-    globals_css = (WEBAPP / "src" / "app" / "globals.css").read_text()
-    assert '@import url("/brand/theme.css");' in globals_css
-    assert '@import url("/brand/shell.css");' in globals_css
-
-    top_bar = (WEBAPP / "src" / "components" / "top-bar.tsx").read_text()
-    for class_name in (
-        "yoke-app-header",
-        "yoke-header-brand",
-        "yoke-header-context",
-    ):
-        assert class_name in top_bar

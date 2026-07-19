@@ -25,5 +25,9 @@ def test_pack_handlers_are_registered() -> None:
     init_register.register_all_handlers()
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
     assert {
-        "packs.catalog.list", "packs.bundle.get", "packs.project.report",
+        "packs.list",
+        "packs.bundle.get",
+        "packs.project.report",
+        "packs.get.run",
+        "packs.update.run",
     } <= ids

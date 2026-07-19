@@ -279,10 +279,11 @@ def _set_deploy_stage(
 
 # A queued GitHub Actions workflow has not yet acquired a runner; a transient
 # transport or subprocess failure can return an exit code not in {0,1,2,3}.
-# A single such response is not proof the workflow failed — bounded-retry
-# before declaring stage failure so the configured timeout budget is used for
-# what it was budgeted for.
-POLL_TRANSIENT_RETRY_LIMIT = 5
+# Exit code 4 is the Yoke CLI's hosted-transport failure. A release may
+# temporarily replace the same service used to query GitHub, so that condition
+# consumes the stage's existing timeout budget instead of an unrelated short
+# retry cap. Other unexpected subprocess failures remain bounded.
+POLL_UNCLASSIFIED_RETRY_LIMIT = 5
 
 
 def _poll_github_actions(
@@ -307,7 +308,8 @@ def _poll_github_actions(
     else:
         max_interval = 30
     interval = initial
-    transient_retries = 0
+    transport_retries = 0
+    unclassified_retries = 0
 
     while True:
         elapsed = int(time.time() - start)
@@ -331,18 +333,30 @@ def _poll_github_actions(
             print(f"  Workflow status: {output} (elapsed: {elapsed}s, next poll: {interval}s)")
             time.sleep(interval)
             interval = min(interval * 2, max_interval)
-            transient_retries = 0
+            transport_retries = 0
+            unclassified_retries = 0
+        elif r.returncode == 4:
+            transport_retries += 1
+            print(
+                "  GitHub Actions status relay is temporarily unavailable; "
+                f"retrying within the {timeout_sec}s stage budget "
+                f"(consecutive failure {transport_retries}): "
+                f"{stderr or output}"
+            )
+            time.sleep(interval)
+            interval = min(interval * 2, max_interval)
         else:
-            transient_retries += 1
-            if transient_retries >= POLL_TRANSIENT_RETRY_LIMIT:
+            unclassified_retries += 1
+            if unclassified_retries >= POLL_UNCLASSIFIED_RETRY_LIMIT:
                 diag = _compose_poll_diagnostic(output, stderr)
                 return 1, (
                     f"Error: GitHub Actions poll returned unexpected exit code {r.returncode} "
-                    f"after {transient_retries} retries: {diag}"
+                    f"after {unclassified_retries} retries: {diag}"
                 )
             print(
                 f"  Transient GitHub Actions poll error (exit={r.returncode}, "
-                f"retry {transient_retries}/{POLL_TRANSIENT_RETRY_LIMIT}): "
+                f"retry {unclassified_retries}/"
+                f"{POLL_UNCLASSIFIED_RETRY_LIMIT}): "
                 f"{stderr or output}"
             )
             time.sleep(interval)

@@ -204,7 +204,7 @@ def test_product_wheels_exercise_installer_plan_surfaces(
             "method": "POST",
             "path": "/v1/functions/call",
             "authorization": "Bearer product-token",
-            "function": "packs.catalog.list",
+            "function": "packs.list",
             "project": "sample",
         }]
 

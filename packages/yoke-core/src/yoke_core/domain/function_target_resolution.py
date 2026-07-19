@@ -151,7 +151,7 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset({
     "projects.environment_settings.get",
     "projects.environment_settings.merge",
     "projects.infrastructure.list",
-    "packs.catalog.list", "packs.bundle.get", "packs.project.report",
+    "packs.list", "packs.bundle.get", "packs.project.report",
     "projects.pulumi_state.migrate", "projects.pulumi_state.checkpoint_import",
     "projects.pulumi_stack_config.get",
     "board.data.get",

@@ -28,7 +28,7 @@ from yoke_contracts.packs import PACK_RECEIPT_REL
 
 
 def list_packs(*, project: str, session_id: str | None = None) -> dict[str, Any]:
-    return _call("packs.catalog.list", {"project": project}, session_id=session_id)
+    return _call("packs.list", {"project": project}, session_id=session_id)
 
 
 def run_pack_operation(

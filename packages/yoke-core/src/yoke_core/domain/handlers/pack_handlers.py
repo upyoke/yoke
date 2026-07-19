@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -85,6 +85,36 @@ class PacksProjectReportResponse(BaseModel):
     receipt_digest: str
 
 
+class PacksOperationRequest(BaseModel):
+    """Inputs for one machine-local Pack preview or apply."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    project: str
+    pack: str
+    repo_root: str | None = None
+    apply: bool = False
+    version: str | None = None
+    accepted_current_paths: list[str] = Field(default_factory=list)
+
+
+class PacksOperationResponse(BaseModel):
+    """Reviewable result from a machine-local Pack operation."""
+
+    operation: str
+    project_id: int
+    project_slug: str
+    repo_root: str
+    requested_pack: str
+    plans: list[dict[str, Any]]
+    conflict_count: int
+    applied: bool
+    receipt: str
+    refused: bool = False
+    projection: dict[str, Any] | None = None
+    projection_warning: str | None = None
+
+
 def handle_packs_catalog_list(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         parsed = PacksCatalogListRequest(**(request.payload or {}))
@@ -143,6 +173,41 @@ def handle_packs_project_report(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(primary_success=True, result_payload=result)
 
 
+def handle_packs_get(request: FunctionCallRequest) -> HandlerOutcome:
+    return _handle_pack_operation(request, operation="get")
+
+
+def handle_packs_update(request: FunctionCallRequest) -> HandlerOutcome:
+    return _handle_pack_operation(request, operation="update")
+
+
+def _handle_pack_operation(
+    request: FunctionCallRequest,
+    *,
+    operation: str,
+) -> HandlerOutcome:
+    try:
+        parsed = PacksOperationRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _invalid(exc)
+    from yoke_cli.packs import PackClientError, run_pack_operation
+
+    try:
+        result = run_pack_operation(
+            parsed.repo_root,
+            project=parsed.project,
+            pack=parsed.pack,
+            operation=operation,
+            apply=parsed.apply,
+            version=parsed.version,
+            session_id=request.actor.session_id or None,
+            accepted_current_paths=parsed.accepted_current_paths,
+        )
+    except PackClientError as exc:
+        return _failure("pack_operation_failed", str(exc))
+    return HandlerOutcome(primary_success=True, result_payload=result)
+
+
 def _invalid(exc: ValidationError) -> HandlerOutcome:
     return _failure("payload_invalid", safe_validation_message(exc))
 
@@ -159,9 +224,13 @@ __all__ = [
     "PacksBundleGetResponse",
     "PacksCatalogListRequest",
     "PacksCatalogListResponse",
+    "PacksOperationRequest",
+    "PacksOperationResponse",
     "PacksProjectReportRequest",
     "PacksProjectReportResponse",
     "handle_packs_bundle_get",
     "handle_packs_catalog_list",
+    "handle_packs_get",
     "handle_packs_project_report",
+    "handle_packs_update",
 ]

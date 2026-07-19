@@ -386,7 +386,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "project.refresh.run": PROJECT_REFRESH_USAGE,
     "project.uninstall.run": PROJECT_UNINSTALL_USAGE,
     "project.snapshot.sync": PROJECT_SNAPSHOT_SYNC_USAGE,
-    "packs.catalog.list": PACKS_LIST_USAGE, "packs.get.run": PACKS_GET_USAGE,
+    "packs.list": PACKS_LIST_USAGE, "packs.get.run": PACKS_GET_USAGE,
     "packs.update.run": PACKS_UPDATE_USAGE,
 }
 # Post-cap families export their own id -> usage maps; merge keeps one surface.
