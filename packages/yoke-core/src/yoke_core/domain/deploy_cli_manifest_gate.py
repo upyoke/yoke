@@ -61,22 +61,42 @@ def _compare_manifests(
     local: Mapping[str, Any],
     remote: Mapping[str, Any],
 ) -> CliManifestGateResult:
+    local_version = local.get("manifest_version")
+    remote_version = remote.get("manifest_version")
     local_rows = _function_rows(local)
     remote_rows = _function_rows(remote)
     missing = sorted(set(local_rows) - set(remote_rows))
+    extra = sorted(set(remote_rows) - set(local_rows))
     mismatched = sorted(
         fid for fid in set(local_rows) & set(remote_rows)
         if local_rows[fid] != remote_rows[fid]
     )
-    if not missing and not mismatched:
+    if (
+        local_version == remote_version
+        and not missing
+        and not extra
+        and not mismatched
+    ):
         return CliManifestGateResult(
             True, True, f"cli-manifest gate passed for env {env_name!r}",
         )
     bits: list[str] = []
+    if local_version != remote_version:
+        bits.append(
+            f"manifest version mismatch: local {local_version!r}, "
+            f"remote {remote_version!r}"
+        )
     if missing:
         bits.append(
             "missing "
             + ", ".join(_format_row(fid, local_rows[fid]) for fid in missing[:8])
+        )
+    if extra:
+        bits.append(
+            "obsolete server-only "
+            + ", ".join(
+                _format_row(fid, remote_rows[fid]) for fid in extra[:8]
+            )
         )
     if mismatched:
         bits.append(

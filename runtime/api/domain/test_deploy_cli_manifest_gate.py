@@ -5,8 +5,8 @@ from __future__ import annotations
 from yoke_core.domain import deploy_cli_manifest_gate as gate
 
 
-def _manifest(*rows):
-    return {"manifest_version": 1, "subcommands": list(rows), "aliases": []}
+def _manifest(*rows, version=2):
+    return {"manifest_version": version, "subcommands": list(rows), "aliases": []}
 
 
 def _row(function_id: str, *tokens: str) -> dict:
@@ -45,6 +45,30 @@ def test_compare_manifests_fails_when_tokens_drift() -> None:
 
     assert result.ok is False
     assert "token mismatch" in result.message
+
+
+def test_compare_manifests_fails_when_remote_retains_obsolete_function() -> None:
+    local = _manifest(_row("packs.list", "packs", "list"))
+    remote = _manifest(
+        _row("packs.list", "packs", "list"),
+        _row("templates.list.run", "templates", "list"),
+    )
+
+    result = gate._compare_manifests("prod", local, remote)
+
+    assert result.ok is False
+    assert "obsolete server-only" in result.message
+    assert "templates.list.run" in result.message
+
+
+def test_compare_manifests_fails_when_manifest_version_drifts() -> None:
+    local = _manifest(_row("packs.list", "packs", "list"), version=2)
+    remote = _manifest(_row("packs.list", "packs", "list"), version=1)
+
+    result = gate._compare_manifests("prod", local, remote)
+
+    assert result.ok is False
+    assert "manifest version mismatch" in result.message
 
 
 def test_verify_skips_non_https_env(monkeypatch) -> None:

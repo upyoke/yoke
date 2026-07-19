@@ -13,6 +13,7 @@ from runtime.api.api_items_test_helpers import (
     _client_for_db,
     make_test_db_fixture,
 )
+from yoke_cli.manifest import MANIFEST_VERSION
 
 @pytest.fixture()
 def manifest_db():
@@ -30,7 +31,7 @@ def test_manifest_serves_registry_grammar(client) -> None:
 
     assert response.status_code == 200
     manifest = response.json()
-    assert manifest["manifest_version"] == 1
+    assert manifest["manifest_version"] == MANIFEST_VERSION
     rows = manifest["subcommands"]
     assert rows
     assert all(row["tokens"] and row["function_id"] for row in rows)

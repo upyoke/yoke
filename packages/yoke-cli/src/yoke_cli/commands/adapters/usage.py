@@ -228,6 +228,7 @@ from yoke_cli.commands.adapters.strategy_render import (
 from yoke_cli.commands.adapters.packs import (
     PACKS_GET_USAGE,
     PACKS_LIST_USAGE,
+    PACKS_RELINK_USAGE,
     PACKS_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.sessions import (
@@ -407,6 +408,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "project.snapshot.sync": PROJECT_SNAPSHOT_SYNC_USAGE,
     "packs.list": PACKS_LIST_USAGE,
     "packs.get.run": PACKS_GET_USAGE,
+    "packs.relink.run": PACKS_RELINK_USAGE,
     "packs.update.run": PACKS_UPDATE_USAGE,
 }
 # Post-cap families export their own id -> usage maps; merge keeps one surface.

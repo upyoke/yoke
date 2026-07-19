@@ -27,9 +27,9 @@ from yoke_cli.transport.bounded_json_http import (
     safe_diagnostic_text,
 )
 
-MANIFEST_VERSION = 1
+MANIFEST_VERSION = 2
 MANIFEST_PATH = "/v1/cli/manifest"
-CACHE_SUBDIR = "cli-manifest"
+CACHE_SUBDIR = f"cli-manifest-v{MANIFEST_VERSION}"
 CACHE_TTL_S = 24 * 3600
 _FETCH_TIMEOUT_S = 5.0
 
@@ -93,7 +93,7 @@ def active_env_manifest(*, allow_fetch: bool = True) -> Optional[Dict[str, Any]]
         return cached
     if allow_fetch:
         fetched = _fetch(connection)
-        if fetched is not None:
+        if _compatible_manifest(fetched):
             _write_cache(cache_path, fetched)
             return fetched
     return cached
@@ -151,7 +151,15 @@ def _read_cache(path: Path) -> Optional[Dict[str, Any]]:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    return payload if isinstance(payload, dict) else None
+    return payload if _compatible_manifest(payload) else None
+
+
+def _compatible_manifest(payload: object) -> bool:
+    """Accept only the command grammar version understood by this client."""
+    return (
+        isinstance(payload, dict)
+        and payload.get("manifest_version") == MANIFEST_VERSION
+    )
 
 
 def _stale(path: Path) -> bool:
