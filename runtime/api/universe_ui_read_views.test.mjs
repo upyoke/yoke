@@ -178,11 +178,14 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
     const detailRequest = requests.find(
       (request) => request.function === "items.get.run",
     );
+    const tasksRequest = requests.find(
+      (request) => request.function === "epic_tasks.list.run",
+    );
     const result = {
-      askedForTasks: requests.some(
-        (request) => request.function === "epic_tasks.list.run",
-      ),
+      askedForTasks: tasksRequest !== undefined,
       target: detailRequest.target,
+      tasksTarget: tasksRequest ? tasksRequest.target : null,
+      tasksPayload: tasksRequest ? tasksRequest.payload : null,
       showsTask: text.includes("first"),
       breadcrumbs: byClass(root, "breadcrumb").length,
       pageHeads: byClass(root, "page-head").length,
@@ -196,6 +199,12 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
     kind: "item", item_ref: "7", project_id: "1",
   });
   assert.equal(epic.askedForTasks, true);
+  // The tasks read resolves its epic through the target — the handler
+  // refuses a call without target.epic_id.
+  assert.deepEqual(epic.tasksTarget, {
+    kind: "epic_task", epic_id: 7, project_id: "1",
+  });
+  assert.deepEqual(epic.tasksPayload, {});
   assert.equal(epic.showsTask, true);
   // The breadcrumb is a drill-in's whole head — no page head beside it.
   assert.equal(epic.breadcrumbs, 1);
@@ -594,6 +603,13 @@ test("strategy at All fans out one call per roster project", async (t) => {
     "PLAN-1", "alpha", "plan", "ben", "today", "10", "active",
     "PLAN-2", "beta", "plan", "ben", "today", "10", "active",
   ]);
+  // Each doc row opens its own drill-in, carrying the bucket's project.
+  assert.deepEqual(
+    allNodes(root)
+      .filter((node) => node.classList && node.classList.contains("row-link"))
+      .map((node) => node.href),
+    ["#/strategy/PLAN-1?project=1", "#/strategy/PLAN-2?project=2"],
+  );
   // The buckets each served a complete corpus: the merged length is the
   // fetched total.
   assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
@@ -871,4 +887,125 @@ test("a drill-in route survives the round trip and never outlives its view", () 
     view: "overview", tab: null, detail: null, project: null,
   });
   assert.equal(buildUniverseRoute("unknown", null, "42"), "#/overview");
+});
+
+test("a strategy doc drill-in reads the body through strategy.doc.get", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/strategy/PLAN-1?project=1";
+  const root = documentNode.createElement("div");
+  const requests = [];
+  const client = {
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows: [{ id: 1, slug: "alpha", name: "Alpha" }] },
+          },
+        };
+      }
+      if (request.function === "strategy.doc.get") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              project_id: 1, project_slug: "alpha", slug: "PLAN-1",
+              content: "# The plan\n\nOne spine.", updated_at: "today",
+              archived_at: null,
+            },
+          },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  // The doc read resolves its project through the target, slug in payload.
+  const docRequest = requests.find(
+    (request) => request.function === "strategy.doc.get",
+  );
+  assert.deepEqual(docRequest.target, { kind: "global", project_id: "1" });
+  assert.deepEqual(docRequest.payload, { slug: "PLAN-1" });
+
+  // The served body renders verbatim, and the breadcrumb is the whole head.
+  const text = allNodes(root).map((node) => node.textContent || "").join(" ");
+  assert.ok(text.includes("# The plan"));
+  assert.ok(text.includes("active"));
+  assert.equal(byClass(root, "breadcrumb").length, 1);
+  assert.equal(byClass(root, "page-head").length, 0);
+  mounted.unmount();
+});
+
+test("events at All merge newest-first across buckets and name their source", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/events";
+  const root = documentNode.createElement("div");
+  const rowsByProject = {
+    // Bucket order alone would render alpha's block before beta's newer
+    // row; the merged stream must interleave by timestamp instead.
+    1: [
+      { created_at: "2026-07-20T10:00:00Z", event_name: "Old", event_kind: "system", severity: "INFO", actor_id: 2, project: "alpha" },
+      { created_at: "2026-07-20T12:00:00.500Z", event_name: "Newest", event_kind: "system", severity: "INFO", actor_id: null, service: "cli", project: "alpha" },
+    ],
+    2: [
+      { created_at: "2026-07-20T11:00:00Z", event_name: "Middle", event_kind: "lifecycle", severity: "INFO", actor_id: 170, project: "beta" },
+    ],
+  };
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              rows: [
+                { id: 1, slug: "alpha", name: "Alpha" },
+                { id: 2, slug: "beta", name: "Beta" },
+              ],
+            },
+          },
+        };
+      }
+      if (request.function === "events.query.run") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows: rowsByProject[request.payload.project] || [] },
+          },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  const cells = allNodes(root)
+    .filter((node) => node.tagName === "TD")
+    .map(cellText);
+  assert.deepEqual(cells, [
+    "2026-07-20T12:00:00.500Z", "alpha", "Newest", "system", "INFO", "cli",
+    "2026-07-20T11:00:00Z", "beta", "Middle", "lifecycle", "INFO", "actor 170",
+    "2026-07-20T10:00:00Z", "alpha", "Old", "system", "INFO", "actor 2",
+  ]);
+  mounted.unmount();
 });

@@ -84,13 +84,14 @@ test("Frontier shows the ready ranking and one blocked row per gate point", asyn
   );
 
   // Exactly one project: no project column in either table. The ready
-  // table keeps the engine's rank and readiness prose; the blocked table
-  // names the gate its row waits at, verbatim.
+  // table shows the engine's zero-based rank as an ordinal ("1" is the
+  // top pick); the blocked table names the gate its row waits at,
+  // verbatim.
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "0", "YOK-7", "issue", "implementing", "high", "advance",
+    "1", "YOK-7", "issue", "implementing", "high", "advance",
     "yoke advance YOK-7", "No unsatisfied activation gates; unclaimed.",
     "YOK-8", "YOK-7", "activation", "YOK-7 not done",
     "YOK-9", "YOK-7", "integration", "lands after YOK-7",
