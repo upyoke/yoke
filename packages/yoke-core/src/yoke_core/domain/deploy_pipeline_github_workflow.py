@@ -11,6 +11,7 @@ import re
 import sys
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.deploy_pipeline_gates import _check_ci_gate
@@ -338,6 +339,19 @@ def _resolve_release_lineage_sha(
     return peeled[0], ""
 
 
+def _checkout_provenance(project_repo_path: str) -> str:
+    """Name where the project checkout path came from, for error messages."""
+    if project_repo_path:
+        return (
+            "resolved from the machine-config projects mapping "
+            "(~/.yoke/config.json) for this project under the active env"
+        )
+    return (
+        "the current working directory — no machine-config projects mapping "
+        "matched this project under the active env"
+    )
+
+
 def _verify_release_sha_in_checkout(
     release_sha: str,
     project_repo_path: str,
@@ -352,6 +366,16 @@ def _verify_release_sha_in_checkout(
     """
     del gate_branch
     repo = project_repo_path or "."
+    # A worktree's .git is a file, a primary checkout's a directory — exists()
+    # covers both. A dead path here is almost always a stale machine-config
+    # mapping (for example, one that pointed into a since-removed worktree).
+    if not (Path(repo).expanduser() / ".git").exists():
+        return (
+            f"project repository checkout '{repo}' "
+            f"({_checkout_provenance(project_repo_path)}) is missing or not "
+            "a git checkout; repair or remove that projects entry, or "
+            "restore the checkout"
+        )
     commit_ref = f"{release_sha}^{{commit}}"
     present = _run_cmd(["git", "-C", repo, "cat-file", "-e", commit_ref])
     if present.returncode == 0:
@@ -365,9 +389,19 @@ def _verify_release_sha_in_checkout(
             "git", "-C", repo, "cat-file", "-e", commit_ref,
         ])
     if present.returncode != 0:
+        # Sha-addressed fetches need the server to advertise arbitrary
+        # objects, which GitHub does not; a plain ref fetch reaches every
+        # pushed commit, so try that before giving up.
+        _run_cmd(["git", "-C", repo, "fetch", "--quiet", "--no-tags", "origin"])
+        present = _run_cmd([
+            "git", "-C", repo, "cat-file", "-e", commit_ref,
+        ])
+    if present.returncode != 0:
         return (
             f"deployment run release_lineage {release_sha} is not a commit "
-            "available from the project repository"
+            f"available from the project repository at '{repo}' "
+            f"({_checkout_provenance(project_repo_path)}), even after "
+            "fetching origin"
         )
     return ""
 

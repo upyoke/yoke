@@ -32,6 +32,13 @@ def deployment_runs_execute(args: List[str]) -> int:
     """Execute or resume a run through the selected admin connection."""
     if args in (["-h"], ["--help"]):
         print(f"usage: {DEPLOYMENT_RUNS_EXECUTE_USAGE}")
+        print(
+            "Drives runs from `yoke deployment-runs create` (which never "
+            "executes) and resumes failed ones (--from-stage). The project "
+            "checkout is resolved from the machine-config projects mapping "
+            "for the active env; a stale mapping fails the lineage preflight "
+            "with the resolved path named."
+        )
         return 0
     active_env = os.environ.get(ENV_OVERRIDE, "").strip()
     if not active_env.endswith(DB_ADMIN_ENV_SUFFIX):
