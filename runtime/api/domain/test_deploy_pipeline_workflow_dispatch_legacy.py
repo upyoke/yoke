@@ -19,7 +19,10 @@ def _result(returncode: int, stdout: str = "", stderr: str = ""):
     return subprocess.CompletedProcess([], returncode, stdout, stderr)
 
 
-def _dispatch(config: dict[str, object]) -> tuple[int, str]:
+def _dispatch(config: dict[str, object], tmp_path) -> tuple[int, str]:
+    # A real .git satisfies the checkout-existence preflight; git is mocked.
+    checkout = tmp_path / "externalwebapp"
+    (checkout / ".git").mkdir(parents=True, exist_ok=True)
     return workflow._dispatch_github_actions_workflow(
         config,
         name="prod-deploy",
@@ -27,7 +30,7 @@ def _dispatch(config: dict[str, object]) -> tuple[int, str]:
         member_items=[],
         github_repo="upyoke/externalwebapp",
         project="externalwebapp",
-        project_repo_path="/tmp/externalwebapp",
+        project_repo_path=str(checkout),
         timeout_min=30,
         fresh=False,
         gate_branch="main",
@@ -36,7 +39,7 @@ def _dispatch(config: dict[str, object]) -> tuple[int, str]:
     )
 
 
-def test_legacy_stage_uses_one_shot_dispatch_without_durable_flags() -> None:
+def test_legacy_stage_uses_one_shot_dispatch_without_durable_flags(tmp_path) -> None:
     github_actions = mock.Mock(return_value=_result(0, "4455\n"))
     with mock.patch.object(
         workflow, "_check_ci_gate", return_value=(True, ""),
@@ -51,7 +54,7 @@ def test_legacy_stage_uses_one_shot_dispatch_without_durable_flags() -> None:
     ), mock.patch.object(
         workflow, "trigger_with_recovery_retries",
     ) as durable_dispatch:
-        result = _dispatch({"workflow": "externalwebapp-deploy.yml"})
+        result = _dispatch({"workflow": "externalwebapp-deploy.yml"}, tmp_path)
 
     assert result == (0, "")
     durable_dispatch.assert_not_called()
@@ -68,7 +71,7 @@ def test_legacy_stage_uses_one_shot_dispatch_without_durable_flags() -> None:
     ]
 
 
-def test_legacy_input_stage_does_not_retry_ambiguous_dispatch() -> None:
+def test_legacy_input_stage_does_not_retry_ambiguous_dispatch(tmp_path) -> None:
     github_actions = mock.Mock(
         return_value=_result(
             4,
@@ -88,7 +91,8 @@ def test_legacy_input_stage_does_not_retry_ambiguous_dispatch() -> None:
             {
                 "workflow": "externalwebapp-deploy.yml",
                 "inputs": {"force_rebuild": "false"},
-            }
+            },
+            tmp_path,
         )
 
     assert result == (
@@ -103,14 +107,15 @@ def test_legacy_input_stage_does_not_retry_ambiguous_dispatch() -> None:
     assert "--correlation-input" not in trigger_args
 
 
-def test_explicit_unsupported_correlation_input_still_fails_closed() -> None:
+def test_explicit_unsupported_correlation_input_still_fails_closed(tmp_path) -> None:
     ci_gate = mock.Mock(return_value=(True, ""))
     with mock.patch.object(workflow, "_check_ci_gate", ci_gate):
         result = _dispatch(
             {
                 "workflow": "externalwebapp-deploy.yml",
                 "dispatch_correlation_input": "custom_dispatch_id",
-            }
+            },
+            tmp_path,
         )
 
     assert result == (
@@ -120,7 +125,7 @@ def test_explicit_unsupported_correlation_input_still_fails_closed() -> None:
     ci_gate.assert_not_called()
 
 
-def test_legacy_pipeline_reaches_explicit_one_shot_typed_cli() -> None:
+def test_legacy_pipeline_reaches_explicit_one_shot_typed_cli(tmp_path) -> None:
     connection = HttpsConnection(
         api_url="https://control.example",
         token="deployment-token",
@@ -173,7 +178,7 @@ def test_legacy_pipeline_reaches_explicit_one_shot_typed_cli() -> None:
     ), mock.patch.object(
         workflow, "_poll_github_actions", return_value=(0, "success"),
     ):
-        result = _dispatch({"workflow": "externalwebapp-deploy.yml"})
+        result = _dispatch({"workflow": "externalwebapp-deploy.yml"}, tmp_path)
 
     assert result == (0, "")
     assert len(captured) == 1

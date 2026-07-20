@@ -116,6 +116,24 @@ def hc_config_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             projects = payload.get("projects", [])
             if projects is not None and not isinstance(projects, (list, dict)):
                 issues.append("- machine config projects must be a list of entries")
+            # Deploy preflights resolve project checkouts from these entries,
+            # so a dead path (for example a since-removed worktree) silently
+            # breaks every run that consults the project repository.
+            entries = projects if isinstance(projects, list) else []
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                checkout = entry.get("checkout")
+                if not isinstance(checkout, str) or not checkout:
+                    continue
+                if not (Path(checkout).expanduser() / ".git").exists():
+                    issues.append(
+                        "- projects entry (project_id="
+                        f"{entry.get('project_id')} env={entry.get('env')}) "
+                        f"checkout missing or not a git checkout: {checkout} "
+                        "— repair or remove this entry; deploy preflights "
+                        "resolve project checkouts from it"
+                    )
 
     if issues:
         rec.record("HC-config-validation", "Machine config validation", "WARN", "\n".join(issues))

@@ -13,6 +13,7 @@ import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
@@ -153,6 +154,16 @@ def run_pipeline(
         finally:
             conn.close()
         project_repo_path = str(checkout) if checkout is not None else ""
+        if project_repo_path and not (
+            Path(project_repo_path).expanduser() / ".git"
+        ).exists():
+            print(
+                f"Warning: machine-config checkout for project '{project}' "
+                f"at {project_repo_path} is missing or not a git checkout; "
+                "stages that consult the project repository will fail — "
+                "repair that projects entry in ~/.yoke/config.json",
+                file=sys.stderr,
+            )
 
     target_env = _flow_db("get", flow_id, "target_env", sd=sd)
     target_env = "" if target_env == "null" else target_env

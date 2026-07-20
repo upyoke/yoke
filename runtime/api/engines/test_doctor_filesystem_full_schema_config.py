@@ -10,6 +10,7 @@ Schema scaffolding shared via _doctor_filesystem_full_test_helpers (private modu
 
 from __future__ import annotations
 
+import json
 import os
 
 from unittest.mock import patch
@@ -85,6 +86,54 @@ class TestSchemaAndConfigChecks:
         config_path.parent.mkdir()
         config_path.write_text(
             '{"settings": {"lane_paths_custom": "refine"}, "projects": {}}\n'
+        )
+        with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
+            rec = _run_hc(hc_config_validation)
+        assert rec.results[0].result == "PASS"
+
+    def test_config_validation_warns_on_dead_checkout_mapping(self, tmp_path):
+        gone = tmp_path / "removed-worktree"
+        config_path = tmp_path / ".yoke" / "config.json"
+        config_path.parent.mkdir()
+        config_path.write_text(
+            json.dumps(
+                {
+                    "settings": {},
+                    "projects": [
+                        {
+                            "checkout": str(gone),
+                            "project_id": 3,
+                            "env": "prod-db-admin",
+                        }
+                    ],
+                }
+            )
+        )
+        with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
+            rec = _run_hc(hc_config_validation)
+        assert rec.results[0].result == "WARN"
+        assert "checkout missing or not a git checkout" in rec.results[0].detail
+        assert str(gone) in rec.results[0].detail
+        assert "env=prod-db-admin" in rec.results[0].detail
+
+    def test_config_validation_passes_when_checkout_mappings_exist(self, tmp_path):
+        checkout = tmp_path / "checkout"
+        (checkout / ".git").mkdir(parents=True)
+        config_path = tmp_path / ".yoke" / "config.json"
+        config_path.parent.mkdir()
+        config_path.write_text(
+            json.dumps(
+                {
+                    "settings": {},
+                    "projects": [
+                        {
+                            "checkout": str(checkout),
+                            "project_id": 1,
+                            "env": "prod",
+                        }
+                    ],
+                }
+            )
         )
         with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
             rec = _run_hc(hc_config_validation)

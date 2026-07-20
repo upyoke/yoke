@@ -194,7 +194,10 @@ def deployment_runs_create(args: List[str]) -> int:
         prog="yoke deployment-runs create",
         description=(
             "Create a zero-member environment deployment run. Item-bound "
-            "delivery uses `yoke usher` / runs start-for-item instead."
+            "delivery uses `yoke usher` / runs start-for-item instead. "
+            "Creation does not execute: the run stays 'created' until an "
+            "operator drives it with `yoke --env <control-plane-env>-db-admin "
+            "deployment-runs execute RUN-ID`."
         ),
     )
     parser.add_argument("project")
@@ -222,7 +225,14 @@ def deployment_runs_create(args: List[str]) -> int:
 
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
-        print(result.get("run_id") or "", file=stdout)
+        run_id = result.get("run_id") or ""
+        print(run_id, file=stdout)
+        if run_id:
+            print(
+                f"note: run stays 'created' until executed: yoke --env "
+                f"<control-plane-env>-db-admin deployment-runs execute {run_id}",
+                file=stderr,
+            )
         return None
 
     payload = {

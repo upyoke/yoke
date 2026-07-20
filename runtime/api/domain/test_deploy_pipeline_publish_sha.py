@@ -14,6 +14,38 @@ from yoke_core.domain import deploy_pipeline_github_workflow
 from yoke_core.domain import deploy_product_source
 
 
+def _init_repo(root):
+    root.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
+    return root
+
+
+def _mock_checkout(tmp_path) -> str:
+    """A path that passes the checkout-existence preflight; git is mocked."""
+    checkout = tmp_path / "checkout"
+    (checkout / ".git").mkdir(parents=True)
+    return str(checkout)
+
+
+def _commit(repo, name: str) -> str:
+    (repo / name).write_text(name, encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+    subprocess.run(
+        [
+            "git", "-C", str(repo),
+            "-c", "user.name=deploy-preflight-test",
+            "-c", "user.email=deploy-preflight-test@example.invalid",
+            "commit", "-q", "-m", name, "--no-gpg-sign",
+        ],
+        check=True,
+    )
+    head = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True, capture_output=True, text=True,
+    )
+    return head.stdout.strip()
+
+
 class TestPublishShaFromDeployedRef:
     @staticmethod
     def _run_cmd_stub(*, ls_remote_sha: str, local_head_sha: str = "localunpushed"):
@@ -27,7 +59,7 @@ class TestPublishShaFromDeployedRef:
             )
         return _fake
 
-    def test_publishes_saved_run_lineage_after_remote_branch_moves(self):
+    def test_publishes_saved_run_lineage_after_remote_branch_moves(self, tmp_path):
         gh_calls = []
         ci_gate = mock.Mock(return_value=(True, ""))
         saved_sha = "a" * 40
@@ -65,7 +97,7 @@ class TestPublishShaFromDeployedRef:
                 member_items=[],
                 github_repo="owner/repo",
                 project="yoke",
-                project_repo_path="/repo",
+                project_repo_path=_mock_checkout(tmp_path),
                 timeout_min=30,
                 fresh=False,
                 gate_branch="main",
@@ -80,7 +112,7 @@ class TestPublishShaFromDeployedRef:
         assert "source_sha=localunpushed" not in trigger
         assert ci_gate.call_args.kwargs["head_sha"] == saved_sha
 
-    def test_correlated_workflow_gets_release_sized_timeout(self):
+    def test_correlated_workflow_gets_release_sized_timeout(self, tmp_path):
         poll = mock.Mock(return_value=(0, "completed: success"))
         with mock.patch.object(
             deploy_pipeline_github_workflow, "_check_ci_gate",
@@ -104,7 +136,8 @@ class TestPublishShaFromDeployedRef:
                 },
                 name="hosted-release", run_id="run-test", member_items=[],
                 github_repo="owner/repo", project="yoke",
-                project_repo_path="/repo", timeout_min=30, fresh=False,
+                project_repo_path=_mock_checkout(tmp_path),
+                timeout_min=30, fresh=False,
                 gate_branch="main", release_lineage="a" * 40,
                 sd="/tmp/sd",
             )
@@ -208,52 +241,84 @@ class TestPublishShaFromDeployedRef:
             assert sha == ""
             assert "annotated release-tag commit" in error
 
-    def test_commit_lineage_must_exist_in_the_project_repository(self):
+    def test_commit_lineage_must_exist_in_the_project_repository(self, tmp_path):
+        repo = _init_repo(tmp_path / "checkout")
+        _commit(repo, "seed")
         fabricated_sha = "f" * 40
-        with mock.patch.object(
-            deploy_pipeline_github_workflow,
-            "_run_cmd",
-            side_effect=[
-                subprocess.CompletedProcess(args=[], returncode=1, stdout=""),
-                subprocess.CompletedProcess(args=[], returncode=1, stdout=""),
-            ],
-        ):
-            sha, error = (
-                deploy_pipeline_github_workflow._resolve_release_lineage_sha(
-                    fabricated_sha,
-                    "/repo",
-                    "main",
-                )
+
+        sha, error = (
+            deploy_pipeline_github_workflow._resolve_release_lineage_sha(
+                fabricated_sha,
+                str(repo),
+                "main",
             )
+        )
 
         assert sha == ""
         assert fabricated_sha in error
         assert "available from the project repository" in error
+        assert str(repo) in error
+        assert "even after fetching origin" in error
 
-    def test_commit_lineage_does_not_follow_the_environment_branch(self):
-        saved_sha = "e" * 40
-        with mock.patch.object(
-            deploy_pipeline_github_workflow,
-            "_run_cmd",
-            return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="",
-            ),
-        ) as run_cmd:
-            sha, error = (
-                deploy_pipeline_github_workflow._resolve_release_lineage_sha(
-                    saved_sha,
-                    "/repo",
-                    "a-different-environment-branch",
-                )
+    def test_commit_lineage_does_not_follow_the_environment_branch(self, tmp_path):
+        repo = _init_repo(tmp_path / "checkout")
+        saved_sha = _commit(repo, "seed")
+        _commit(repo, "branch-moved-past-the-saved-commit")
+
+        sha, error = (
+            deploy_pipeline_github_workflow._resolve_release_lineage_sha(
+                saved_sha,
+                str(repo),
+                "a-different-environment-branch",
             )
+        )
 
         assert (sha, error) == (saved_sha, "")
-        run_cmd.assert_called_once_with([
-            "git", "-C", "/repo", "cat-file", "-e",
-            f"{saved_sha}^{{commit}}",
-        ])
 
-    def test_explicit_image_pin_resolves_in_product_checkout(self):
+    def test_commit_lineage_names_a_missing_checkout_and_its_source(self, tmp_path):
+        gone = tmp_path / "removed-worktree"
+
+        sha, error = (
+            deploy_pipeline_github_workflow._resolve_release_lineage_sha(
+                "a" * 40,
+                str(gone),
+                "main",
+            )
+        )
+
+        assert sha == ""
+        assert "missing or not a git checkout" in error
+        assert str(gone) in error
+        assert "machine-config" in error
+
+    def test_commit_lineage_recovers_pushed_commits_with_a_full_fetch(self, tmp_path):
+        origin = _init_repo(tmp_path / "origin")
+        _commit(origin, "seed")
+        # GitHub-shaped server behavior: refuse sha-addressed wants so only
+        # the plain ref fetch can retrieve commits pushed after the clone.
+        for key in (
+            "uploadpack.allowanysha1inwant",
+            "uploadpack.allowreachablesha1inwant",
+        ):
+            subprocess.run(
+                ["git", "-C", str(origin), "config", key, "false"],
+                check=True,
+            )
+        consumer = tmp_path / "consumer"
+        subprocess.run(
+            ["git", "clone", "-q", str(origin), str(consumer)], check=True
+        )
+        pushed_later_sha = _commit(origin, "pushed-later")
+
+        error = deploy_pipeline_github_workflow._verify_release_sha_in_checkout(
+            pushed_later_sha,
+            str(consumer),
+            "main",
+        )
+
+        assert error == ""
+
+    def test_explicit_image_pin_resolves_in_product_checkout(self, tmp_path):
         gh_calls = []
         full_commit = "a" * 40
 
@@ -289,7 +354,8 @@ class TestPublishShaFromDeployedRef:
                 },
                 name="distribution-publish", run_id="run-test", member_items=[],
                 github_repo="deploy-owner/workflows", project="platform",
-                project_repo_path="/deploy-owner", product_repo_path="/product",
+                project_repo_path=_mock_checkout(tmp_path),
+                product_repo_path="/product",
                 image_tag="abc123def456", timeout_min=30, fresh=False,
                 gate_branch="main", release_lineage="a" * 40,
                 sd="/tmp/sd",
