@@ -101,6 +101,10 @@ function renderEventsView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.rows);
+      // The fan-out returns one block per project; the pulse is one stream,
+      // so the merged rows re-sort newest-first across all buckets.
+      const at = (row) => Date.parse(row.created_at) || 0;
+      rows.sort((a, b) => at(b) - at(a));
       // No header count here: only a served total or a known-complete set
       // earns one, and this read attests neither.
       // Each event row carries the slug of the project it was recorded
@@ -110,7 +114,14 @@ function renderEventsView(context, main, scope) {
         { label: "event", value: (row) => row.event_name },
         { label: "kind", value: (row) => row.event_kind },
         { label: "severity", value: (row) => row.severity, pill: true },
-        { label: "source", value: (row) => row.actor_id || row.service },
+        {
+          label: "source",
+          // A bare integer reads as data noise; say what the number is.
+          value: (row) => (
+            row.actor_id !== null && row.actor_id !== undefined
+              ? `actor ${row.actor_id}` : (row.service || "")
+          ),
+        },
       ], scope, (row) => row.project), "no events yet");
     },
   );
@@ -188,10 +199,13 @@ function renderStrategyView(context, main, scope) {
     })),
     (body, callResults) => {
       // The read carries no per-row project, so each row wears the label of
-      // the bucket that requested it — never a guess.
+      // the bucket that requested it — never a guess. The bucket id also
+      // rides along so a row link can name its project in the route.
       const docs = callResults.flatMap((callResult, index) => (
         ((callResult.envelope.result || {}).docs || []).map((doc) => ({
-          ...doc, project: slugById.get(buckets[index]) || buckets[index],
+          ...doc,
+          project: slugById.get(buckets[index]) || buckets[index],
+          project_id: buckets[index],
         }))
       ));
       // Every bucket served its complete corpus, so the merged length is
@@ -210,8 +224,45 @@ function renderStrategyView(context, main, scope) {
           label: "status", pill: true,
           value: (doc) => (doc.archived ? "archived" : "active"),
         },
-      ], scope, (doc) => doc.project), "no strategy docs yet");
+      ], scope, (doc) => doc.project), "no strategy docs yet",
+      (doc) => buildUniverseRoute("strategy", doc.project_id, doc.slug));
     },
+  );
+}
+
+// One strategy doc, body included — the drill-in the corpus table opens.
+// The doc content is the plan itself, so it renders the same way an item
+// body does: served text, monospace, no client-side rewriting.
+function renderStrategyDocDetailView(context, main, projectId, slug) {
+  const documentNode = context.document;
+  const panel = section(documentNode, slug);
+  main.replaceChildren(panel);
+  loadSection(
+    context, panel,
+    "strategy.doc.get",
+    { slug: String(slug) },
+    (body, callResult) => {
+      const doc = callResult.envelope.result || {};
+      const summary = el(documentNode, "table", "items kv");
+      for (const [label, value] of [
+        ["project", doc.project_slug],
+        ["last write", doc.updated_at],
+        ["status", doc.archived_at ? "archived" : "active"],
+      ]) {
+        const tr = el(documentNode, "tr");
+        tr.appendChild(el(documentNode, "th", null, label));
+        tr.appendChild(el(documentNode, "td", null, String(value ?? "")));
+        summary.appendChild(tr);
+      }
+      body.appendChild(summary);
+      const content = String(doc.content || "").trim();
+      body.appendChild(el(
+        documentNode, content ? "pre" : "p",
+        content ? "item-body" : "empty",
+        content || "no content yet",
+      ));
+    },
+    { kind: "global", project_id: String(projectId) },
   );
 }
 
@@ -260,7 +311,7 @@ function renderItemDetailView(context, main, projectId, itemRef) {
         loadSection(
           context, tasks,
           "epic_tasks.list.run",
-          { epic: Number(fields.id) },
+          {},
           (taskBody, taskResult) => {
             const rows = (taskResult.envelope.result || {}).tasks || [];
             renderTable(taskBody, rows, [
@@ -268,6 +319,12 @@ function renderItemDetailView(context, main, projectId, itemRef) {
               { label: "title", value: (row) => row.title },
               { label: "status", value: (row) => row.status, pill: true },
             ], "no tasks yet");
+          },
+          // The read resolves the epic through the target, not the payload.
+          {
+            kind: "epic_task",
+            epic_id: Number(fields.id),
+            project_id: String(projectId),
           },
         );
       }
@@ -362,7 +419,15 @@ function renderFrontierView(context, main, scope) {
     [readyPanel, (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.ready_rows);
       renderTable(body, rows, scopedColumns([
-        { label: "rank", value: (row) => row.rank },
+        {
+          label: "rank",
+          // Ordinal display of the engine's own zero-based rank — "1" is
+          // the engine's top pick, not a display index (raw JSON keeps
+          // the served number).
+          value: (row) => (
+            typeof row.rank === "number" ? row.rank + 1 : row.rank
+          ),
+        },
         { label: "item", value: (row) => row.item_id, href: itemHref },
         { label: "type", value: (row) => row.item_type },
         { label: "project", value: (row) => row.project },
@@ -579,7 +644,10 @@ function renderCapabilitiesView(context, main, scope) {
 }
 
 // Drill-ins remain children of the view whose row opened them.
-export const DETAIL_RENDERERS = { items: renderItemDetailView };
+export const DETAIL_RENDERERS = {
+  items: renderItemDetailView,
+  strategy: renderStrategyDocDetailView,
+};
 
 // Tab renderers, keyed view id → tab id. A tab is live exactly when it has a
 // renderer here; a declared tab without one renders the honest stub. A view
