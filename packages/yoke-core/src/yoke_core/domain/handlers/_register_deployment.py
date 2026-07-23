@@ -66,6 +66,18 @@ def register(registry) -> None:
         ],
         adapter_status="live",
         claim_required_kind=None,
+        # Bootstrap-reachable: `yoke project install` / `refresh` / `onboard`
+        # materialize project-owned flow declarations in a plain terminal with
+        # no harness session (the public-installer / brand-new-user context),
+        # so requiring an ambient session here makes cold-start install fail.
+        # Session-optional like the sibling project-config writes in
+        # `_register_projects` (create/update, capability/environment settings,
+        # github binding): a present session still binds and audits, and
+        # https callers stay project-admin scoped once a numeric actor id is
+        # bound (the dispatch permission gate only enforces then). The
+        # operator-only `set_status` / `update_stages` are not part of the
+        # bootstrap path and deliberately keep the session requirement.
+        ambient_session_required=False,
     )
     registry.register(
         "deployment_flows.set_status",
