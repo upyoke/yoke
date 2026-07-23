@@ -93,6 +93,22 @@ Resolution is the second step of the canonical ambient chain owned by
    infrastructure-bug signal to report — never a prompt to export env
    vars.
 
+The `actor_session_missing` rejection is the default for mutating dispatch,
+but a bounded **bootstrap/config class** opts out with
+`ambient_session_required=False` on its registry entry. These are the
+surfaces a brand-new user or the public installer runs in a plain terminal
+before any harness session exists: project install / refresh / register /
+uninstall, onboarding, and the project-config writes they drive —
+create/update, capability and environment settings, github binding, and
+project-owned deployment-flow reconciliation
+(`deployment_flows.reconcile_project`). A session is still bound and audited
+when one is present, https callers stay project-scoped through the dispatch
+permission gate (which enforces only once a numeric actor id is bound), and
+the call is still recorded via `YokeFunctionCalled` — session-less, not
+audit-less. Operator-only mutations outside the bootstrap path, including
+flow-definition edits (`deployment_flows.set_status` / `update_stages`),
+keep the session requirement.
+
 Every consumer resolves through this one chain: the CLI chokepoint
 (`service_client_shared_session_resolver._resolve_session_id`), the
 dispatcher's identity binder, and hook helpers' `get_session_id`.

@@ -112,7 +112,13 @@ class _IntegrationBase(unittest.TestCase):
             p.stop()
         reset_registry_for_tests()
 
-    def _register(self, function_id, handler=_ok_handler, side_effects=()):
+    def _register(
+        self,
+        function_id,
+        handler=_ok_handler,
+        side_effects=(),
+        ambient_session_required=True,
+    ):
         register(
             function_id,
             handler,
@@ -125,6 +131,7 @@ class _IntegrationBase(unittest.TestCase):
             emitted_event_names=[],
             guardrails=[],
             adapter_status="live",
+            ambient_session_required=ambient_session_required,
         )
 
     def _called_events(self, name="YokeFunctionCalled"):
@@ -174,6 +181,28 @@ class TestDispatcherMutatingIdentity(_IntegrationBase):
         self.assertIn("infrastructure gap", resp.error.message)
         self.assertNotIn("YOKE_SESSION_ID", resp.error.message)
         self.assertEqual(self._called_events(), [])
+
+    def test_session_optional_mutating_runs_and_audits_without_session(self):
+        # Bootstrap/config functions (project install / refresh / onboard,
+        # deployment-flow reconciliation) declare ambient_session_required=
+        # False so a plain terminal with no harness session can materialize
+        # project config. The call runs to completion AND is still recorded
+        # via YokeFunctionCalled — session-less, not audit-less.
+        self._register(
+            "intg.mut.optional",
+            side_effects=["rows_insert"],
+            ambient_session_required=False,
+        )
+
+        resp = dispatch(
+            _make_request(function="intg.mut.optional", payload_session=""),
+            ambient_session_id="",
+        )
+
+        self.assertTrue(resp.success)
+        events = self._called_events()
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["kwargs"]["session_id"], "")
 
     def test_match_lets_handler_run_without_identity_context(self):
         self._register("intg.mut.match", side_effects=["rows_insert"])
