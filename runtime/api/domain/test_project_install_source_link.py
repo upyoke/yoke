@@ -161,17 +161,19 @@ class TestSourceLinkGitHooks:
     def test_skips_hooks_without_git_dir(self, checkout):
         report = source_link.install_source_link(checkout)
         skips = [a for a in report["actions"] if "Skipped: .git/hooks/" in a]
-        assert len(skips) == 2
+        assert len(skips) == 3
         assert any("linked worktree" in a for a in skips)
         assert report["hooks_installed_or_updated"] == 0
 
-    def test_installs_both_hooks_in_git_repo(self, checkout):
+    def test_installs_all_hooks_in_git_repo(self, checkout):
         _git_init(checkout)
         report = source_link.install_source_link(checkout)
-        assert report["hooks_installed_or_updated"] == 2
+        assert report["hooks_installed_or_updated"] == 3
         for name, marker, shim in (
             ("pre-commit", git_hooks.PRE_COMMIT_MARKER,
              git_hooks.PRE_COMMIT_SHIM),
+            ("pre-merge-commit", git_hooks.PRE_MERGE_COMMIT_MARKER,
+             git_hooks.PRE_MERGE_COMMIT_SHIM),
             ("post-commit", git_hooks.POST_COMMIT_MARKER,
              git_hooks.POST_COMMIT_SHIM),
         ):

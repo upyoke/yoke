@@ -116,7 +116,9 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
         assert payload["strategy_files_preserved"] == [
             ".yoke/strategy/MISSION.md"
         ]
-        assert payload["git_hooks_removed"] == ["pre-commit", "post-commit"]
+        assert payload["git_hooks_removed"] == [
+            "pre-commit", "post-commit", "pre-merge-commit"
+        ]
         assert not (checkout / ".yoke/install-manifest.json").exists()
         assert not (checkout / ".codex/hooks.json").exists()
         assert not (checkout / ".claude/settings.json").exists()

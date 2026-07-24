@@ -61,9 +61,10 @@ def test_copy_install_writes_git_hook_shims(repo) -> None:
 
     report = apply_bundle(repo, make_bundle(), source="test")
 
-    assert report["git_hooks_installed_or_updated"] == 2
+    assert report["git_hooks_installed_or_updated"] == 3
     for name, marker in (
         ("pre-commit", git_hooks.PRE_COMMIT_MARKER),
+        ("pre-merge-commit", git_hooks.PRE_MERGE_COMMIT_MARKER),
         ("post-commit", git_hooks.POST_COMMIT_MARKER),
     ):
         hook = repo / ".git" / "hooks" / name
@@ -91,7 +92,7 @@ def test_copy_uninstall_removes_yoke_hooks_preserves_foreign(repo) -> None:
 
     report = project_install.uninstall(repo)
 
-    assert report["git_hooks_removed"] == ["pre-commit"]
+    assert report["git_hooks_removed"] == ["pre-commit", "pre-merge-commit"]
     assert not (repo / ".git" / "hooks" / "pre-commit").exists()
     assert foreign.read_text(encoding="utf-8") == ("#!/bin/sh\nexec /custom/notify\n")
 
@@ -114,7 +115,7 @@ def test_git_hook_marker_mention_is_never_treated_as_ownership(repo) -> None:
 
     uninstall_report = project_install.uninstall(repo)
     assert ambiguous.read_text(encoding="utf-8") == content
-    assert uninstall_report["git_hooks_removed"] == ["post-commit"]
+    assert uninstall_report["git_hooks_removed"] == ["post-commit", "pre-merge-commit"]
 
 
 def test_worktrees_ignore_owned_line_round_trips_without_foreign_loss(repo) -> None:
