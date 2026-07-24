@@ -114,6 +114,15 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
 
+      - name: Enforce authored-file line limit
+        # The local pre-commit hook only fires for `git commit` in a clone
+        # that already has hooks installed. A fresh clone, `--no-verify`, a
+        # rebase, or a merge commit all bypass it, so this is the backstop
+        # that sees every change however it was committed. fetch-depth: 0
+        # above is what makes the base ref resolvable here.
+        if: github.event_name == 'pull_request'
+        run: uv run yoke check file-line --base "origin/${{ github.base_ref }}"
+
       - name: Register libpython with the system loader cache
         # The setup-python interpreter is a --enable-shared build whose libpython
         # lives in ${pythonLocation}/lib. setup-python adds LD_LIBRARY_PATH for

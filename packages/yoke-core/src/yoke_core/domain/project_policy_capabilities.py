@@ -30,7 +30,6 @@ _INT_POLICY_KEYS = frozenset({
     "wip_cap",
     "merge_conflict_threshold",
     "max_attempts",
-    "file_line_limit",
 })
 
 _PROJECT_POLICY_KEYS = tuple(

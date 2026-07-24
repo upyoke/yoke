@@ -66,8 +66,8 @@ def test_classify_path_authored(repo: pathlib.Path) -> None:
 
 def test_classify_path_temporary_exception(repo: pathlib.Path) -> None:
     (repo / ".yoke").mkdir(exist_ok=True)
-    (repo / ".yoke" / "file-line-exceptions").write_text(
-        "data/fixtures/*.md\n", encoding="utf-8"
+    (repo / ".yoke" / "project.config").write_text(
+        "file_line_exception=data/fixtures/*.md\n", encoding="utf-8"
     )
     (repo / "data" / "fixtures").mkdir(parents=True)
     (repo / "data" / "fixtures" / "corpus.md").write_text(

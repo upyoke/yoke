@@ -40,7 +40,7 @@ from yoke_contracts.project_contract.deployment_flows import (
 from yoke_contracts.project_contract.scaffolds import (
     render_deploy_checklist,
     render_deploy_runbook,
-    render_file_line_exceptions,
+    render_project_config,
     render_recovery_runbook,
     render_test_inventory,
 )
@@ -65,9 +65,7 @@ def bundle_contract_files(display_name: str) -> List[Dict[str, str]]:
     contents = {
         f"{CONTRACT_DIR}/.gitignore": render_yoke_gitignore(),
         f"{CONTRACT_DIR}/README.md": render_readme(display_name),
-        f"{CONTRACT_DIR}/file-line-exceptions": (
-            render_file_line_exceptions(display_name)
-        ),
+        f"{CONTRACT_DIR}/project.config": render_project_config(display_name),
         f"{CONTRACT_DIR}/lint-config": lint_config.render_lint_config(),
         f"{CONTRACT_DIR}/labels": render_label_policy(),
         f"{CONTRACT_DIR}/board.json": render_board_config(),
@@ -213,8 +211,9 @@ materialized into that authority by named commands.
 - `.gitignore` - ignore policy for this tree (generated views and
   machine-local state); root gitignores carry no `.yoke/*` rules.
 - `lint-config` - hook guard policy in the line-oriented Yoke format.
-- `file-line-exceptions` - repo-relative globs for files exempt from the
-  local authored-file line limit.
+- `project.config` - project settings that must be readable with no
+  database or network: the authored-file `file_line_limit` and repeated
+  `file_line_exception` globs for files exempt from it.
 - `labels` - GitHub label color policy in `label_color_*=HEX` format.
 - `board.json` - board renderer appearance/tuning; every recognized knob
   at its default value.
@@ -239,8 +238,9 @@ materialized into that authority by named commands.
 
 Repo-owned project files (this directory; rides the repo):
 
-- `file-line-exceptions` - local hook / `yoke check file-line` exceptions,
-  one repo-relative glob per line.
+- `project.config` - on-disk project settings that must be readable with no
+  database or network: `file_line_limit` and repeated `file_line_exception`
+  globs for the local hook and `yoke check file-line`.
 - `board.json` - board renderer knobs, every key at its default.
 - `lint-config` - hook guard modes (`<guard>=deny|warn`).
 - `labels` - GitHub label colors (`label_color_*=HEX`).
@@ -259,7 +259,9 @@ DB-owned execution truth and project policy:
   `yoke projects get|update --project <project>`.
 - Project policy (`project_capabilities.type='project-policy'`): shared
   scalar behavior such as `base_branch`, `wip_cap`, `default_priority`,
-  `merge_conflict_threshold`, `max_attempts`, and `file_line_limit`.
+  `merge_conflict_threshold`, and `max_attempts`. The authored-file line
+  limit is not here — it is checked-in policy in `.yoke/project.config` so
+  the offline pre-commit hook can enforce it in a fresh clone.
 - Session routing (`project_capabilities.type='session-routing'`): shared
   lane defaults, lane path allowlists, and `/yoke do` process-offer policy.
 - Capabilities (`project_capabilities` + `capability_secrets`):
@@ -299,7 +301,7 @@ __all__ = [
     "render_board_config",
     "render_deploy_checklist",
     "render_deploy_runbook",
-    "render_file_line_exceptions",
+    "render_project_config",
     "render_label_policy",
     "render_readme",
     "render_recovery_runbook",

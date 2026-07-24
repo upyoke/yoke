@@ -27,6 +27,7 @@ failure, ``2`` internal error (non-git tree, missing base ref, etc.).
 
 from __future__ import annotations
 
+import fnmatch
 import pathlib
 import sys
 
@@ -50,9 +51,9 @@ from yoke_core.domain.file_line_check_helpers import (
 )
 from yoke_contracts.project_contract.file_line_policy import (
     DEFAULT_LIMIT,
-    FileLinePolicy,
     default_exception_globs,
     resolve_file_line_policy,
+    generated_path_globs,
     tracked_generated_views,
 )
 from yoke_core.domain.file_line_check_helpers import EMPTY_TREE as _EMPTY_TREE
@@ -63,7 +64,7 @@ LIMIT: int = DEFAULT_LIMIT
 
 # Built-in exceptions live in yoke_contracts so this source-dev checker and
 # the product-safe checker share one default set. Project-local additions live
-# in .yoke/file-line-exceptions and are resolved per repo_root at run time.
+# in .yoke/project.config and are resolved per repo_root at run time.
 TEMPORARY_EXCEPTIONS: tuple[str, ...] = default_exception_globs()
 
 # Explicit archive exceptions: historical docs are intentionally excluded
@@ -90,13 +91,13 @@ __all__ = (
 
 
 def resolved_policy(repo_root: pathlib.Path):
-    policy = resolve_file_line_policy(repo_root)
-    from yoke_core.domain import project_settings
+    """Resolve the limit and exception globs from checked-in project policy.
 
-    return FileLinePolicy(
-        limit=project_settings.get_project_int(repo_root, "file_line_limit"),
-        exception_globs=policy.exception_globs,
-    )
+    This is deliberately the same call the offline pre-commit checker
+    makes, so the git hook and this source-dev checker can never disagree
+    about the limit.
+    """
+    return resolve_file_line_policy(repo_root)
 
 
 def classify_path(path: str, *, repo_root: pathlib.Path) -> Classification:
@@ -113,9 +114,15 @@ def classify_path(path: str, *, repo_root: pathlib.Path) -> Classification:
 def _classify_path_with_policy(
     path: str, *, repo_root: pathlib.Path, policy
 ) -> Classification:
+    posix_path = path.replace("\\", "/")
     if _is_rendered_strategy_doc(path, repo_root=repo_root):
         return Classification.GENERATED
-    if path.replace("\\", "/") in tracked_generated_views():
+    if posix_path in tracked_generated_views():
+        return Classification.GENERATED
+    # Tracked path shape, never the gitignored install manifest: a fresh
+    # clone or CI runner has no manifest, and a verdict that changes with
+    # the environment is not a gate.
+    if any(fnmatch.fnmatchcase(posix_path, p) for p in generated_path_globs()):
         return Classification.GENERATED
     return do_classify_path(
         path,

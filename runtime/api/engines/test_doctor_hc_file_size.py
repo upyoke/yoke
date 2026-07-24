@@ -138,7 +138,7 @@ def test_hc_file_line_limit_warns_on_exception_only(
     """Oversized TEMPORARY_EXCEPTION with no authored violations -> WARN."""
     _init_git_repo(tmp_path)
     _commit_file(tmp_path, "README.md", "seed\n")
-    _commit_file(tmp_path, ".yoke/file-line-exceptions", "data/fixtures/*.md\n")
+    _commit_file(tmp_path, ".yoke/project.config", "file_line_exception=data/fixtures/*.md\n")
     _commit_file(tmp_path, "data/fixtures/corpus.md", _lines(500))
 
     rec = _run_hc(tmp_path)

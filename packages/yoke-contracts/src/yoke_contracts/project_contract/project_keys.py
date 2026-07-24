@@ -3,6 +3,11 @@
 One source of truth for each key's source default and one-line meaning.
 ``project-policy`` owns shared project behavior in the DB; local-only keys
 describe machine checkout facts.
+
+The authored-file line limit is deliberately not a key here: it must be
+enforceable by an offline git hook in a fresh clone, so it is checked-in
+project-file policy owned by
+``yoke_contracts.project_contract.file_line_policy``.
 """
 
 from __future__ import annotations
@@ -33,10 +38,6 @@ RECOGNIZED_PROJECT_KEYS: Dict[str, Tuple[str, str]] = {
     "max_attempts": (
         "5",
         "dispatch attempts per epic task before the chain halts",
-    ),
-    "file_line_limit": (
-        "350",
-        "authored-file line limit enforced by local hooks and check commands",
     ),
 }
 
